@@ -18,7 +18,8 @@ class DeploymentAuthContractTests {
         }
         assertThat(ci.getProperty("backend-test.rules[0].if")).isEqualTo("$CI_COMMIT_BRANCH =~ /^release\\/.+$/");
         assertThat(ci.getProperty("release-migration-guard-test.rules[0].if")).isEqualTo("$CI_COMMIT_BRANCH =~ /^release\\/.+$/");
-        assertThat(ci.getProperty("release-migration-guard-test.script[1]")).isEqualTo("bash infra/scripts/test-assert-shared-db-migrations.sh");
+        assertThat(ci.getProperty("release-migration-guard-test.image")).isNull();
+        assertThat(ci.getProperty("release-migration-guard-test.script[0]")).isEqualTo("bash infra/scripts/test-assert-shared-db-migrations.sh");
         String text = Files.readString(Path.of("../.gitlab-ci.yml"));
         String deploy = block(text, "deploy-development:\n", "\ndeploy-production:");
         assertThat(deploy).contains("git fetch --no-tags origin +refs/heads/develop:refs/remotes/origin/develop",

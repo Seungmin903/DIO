@@ -223,7 +223,6 @@ release-migration-guard-test:
   stage: quality
   tags:
     - ec2-deploy
-  image: alpine:3.21
   rules:
     - if: '$CI_COMMIT_BRANCH =~ /^release\/.+$/'
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
@@ -232,7 +231,6 @@ release-migration-guard-test:
         - infra/scripts/assert-shared-db-migrations.sh
         - infra/scripts/test-assert-shared-db-migrations.sh
   script:
-    - apk add --no-cache bash git
     - bash infra/scripts/test-assert-shared-db-migrations.sh
 
 # PostgreSQL 잡: MR에서는 스키마·해당 테스트 변경에만 자동 실행하고 나머지는 수동, develop 파이프라인에서는 배포 전에 항상 실행한다.
