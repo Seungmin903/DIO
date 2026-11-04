@@ -65,6 +65,18 @@ test('서버 공유 조회는 실제 사용자 ID와 권한을 사용하며 로�
   assert.equal(diary.members[0].presence, '편집자');
   assert.deepEqual(f.runtime.getSnapshot().library, []); // 서버 문서를 로컬 빈 사본으로 열지 않는다.
   assert.equal(f.runtime.supportsExportSettings, false);
+  assert.equal(f.runtime.canOpenDiary, true);
+});
+
+test('수락 후 공유 상세 조회 실패는 수락 완료 ID와 경고를 반환하고 재수락하지 않는다', async () => {
+  for (const status of [401, 403, 503]) {
+    const f = fixture({ fetch: async url => url.endsWith('/members') ? reply({ detail: '후처리 오류' }, status) : null });
+    const diary = await f.runtime.accept('123', '하루');
+    assert.equal(diary.id, diaryId); assert.ok(diary.profileWarning);
+    assert.equal(f.calls.filter(call => call.url.endsWith('/accept')).length, 1);
+    assert.deepEqual(f.runtime.getSnapshot().library, []);
+    f.runtime.dispose();
+  }
 });
 
 test('링크 생성과 멤버 강퇴·나가기는 기존 공유 엔드포인트를 호출한다', async () => {
