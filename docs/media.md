@@ -14,6 +14,8 @@
 
 25MiB PDF·폰트가 서비스에 닿기 전에 막히지 않도록 `backend/src/main/resources/application.yml`의 Spring multipart는 파일당 25MB, 요청당 26MB이고, 업로드 경로의 dev·prod Nginx `client_max_body_size`도 26m이다. `MediaUploadLimitConfigTests`가 이 값을 정확히 검증한다.
 
+`MediaService`는 업로드 원본을 `byte[]`로 보유하므로 `dio.media.upload.max-in-flight-units`로 프로세스별 원본 메모리 예산을 가중 제한한다. 기본 6 units는 일반 5MiB 업로드 3건 또는 15MiB GIF 2건을 동시에 허용하며, 최대 원본 바이트 합계는 30MiB다. 25MiB 폰트·PDF를 허용하려면 최소 5 units가 필요하다. 기존 `dio.media.upload.max-concurrent` 또는 `MEDIA_UPLOAD_MAX_CONCURRENT`가 설정된 배포는 한 건을 2 units로 변환해 호환하며, 신규 설정은 `MEDIA_UPLOAD_MAX_IN_FLIGHT_UNITS`를 사용한다.
+
 `libraryCategory`는 이미지에서 `PHOTO`, `STICKER`, `TAPE`, 오디오에서 `AUDIO`, 폰트에서 `FONT`, PDF 원본에서 `DOCUMENT`만 허용한다. 생략하면 각각 `PHOTO`, `AUDIO`, `FONT`, `DOCUMENT`가 설정된다. `DOCUMENT`는 개인 미디어 목록과 다이어리 공유 보관함에 노출·추가되지 않는다. PDF 원본 파일은 캔버스에서 참조하는 구성원만 다운로드할 수 있다.
 
 업로드 형식이 맞지 않으면 `400 INVALID_MEDIA_FILE`, 파일 크기를 넘으면 `413 MEDIA_FILE_TOO_LARGE`를 반환한다. PDF의 25MiB 초과는 `PDF 원본은 25MiB 이하로 올려 주세요.`라는 상세 메시지를 반환한다.

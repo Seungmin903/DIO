@@ -12,9 +12,9 @@ import com.f106.DIO.media.storage.MediaFiles;
 import com.f106.DIO.media.support.MediaRequestException;
 class MediaUploadAdmissionServiceTests {
  @Test void rejectedRequestDoesNotReadFileOrReserveDatabaseAndFailureReleasesPermit() {
-  var gate=new MediaUploadAdmission(2,0,0);var files=mock(MediaFiles.class);var transactions=mock(MediaFileTransactionService.class);var queue=mock(MediaStorageDeletionQueueService.class);var guarded=mock(GuardedMediaOperations.class);
+  var gate=new MediaUploadAdmission(5,0,0);var files=mock(MediaFiles.class);var transactions=mock(MediaFileTransactionService.class);var queue=mock(MediaStorageDeletionQueueService.class);var guarded=mock(GuardedMediaOperations.class);
   var service=new MediaService(files,transactions,queue,guarded,gate);var input=mock(MultipartFile.class);
-  try(var held=gate.acquire()) {assertThatThrownBy(()->service.upload(input,null,1L)).isInstanceOfSatisfying(MediaRequestException.class,e->assertThat(e.status().value()).isEqualTo(503));verify(input).getSize();verifyNoMoreInteractions(input);verifyNoInteractions(queue,guarded);}
+  try(var held=gate.acquire(25L*1024*1024)) {assertThatThrownBy(()->service.upload(input,null,1L)).isInstanceOfSatisfying(MediaRequestException.class,e->assertThat(e.status().value()).isEqualTo(503));verify(input).getSize();verifyNoMoreInteractions(input);verifyNoInteractions(queue,guarded);}
   when(queue.reserveUploadCleanup(any(),any())).thenAnswer(call->new MediaStorageDeletionTask(call.getArgument(0),call.getArgument(1)));
   when(guarded.upload(any(),any(),any(),any())).thenThrow(new IllegalStateException("storage failed"));
   var gif=new MockMultipartFile("file","ok.gif","image/gif","GIF89a".getBytes());assertThatThrownBy(()->service.upload(gif,null,1L)).isInstanceOf(IllegalStateException.class);
@@ -22,7 +22,7 @@ class MediaUploadAdmissionServiceTests {
  }
 
  @Test void interruptedActiveUploadReleasesAdmission() throws Exception {
-  var gate=new MediaUploadAdmission(2,0,0);var files=mock(MediaFiles.class);var transactions=mock(MediaFileTransactionService.class);var queue=mock(MediaStorageDeletionQueueService.class);var guarded=mock(GuardedMediaOperations.class);
+  var gate=new MediaUploadAdmission(5,0,0);var files=mock(MediaFiles.class);var transactions=mock(MediaFileTransactionService.class);var queue=mock(MediaStorageDeletionQueueService.class);var guarded=mock(GuardedMediaOperations.class);
   var service=new MediaService(files,transactions,queue,guarded,gate);when(queue.reserveUploadCleanup(any(),any())).thenAnswer(call->new MediaStorageDeletionTask(call.getArgument(0),call.getArgument(1)));
   var started=new java.util.concurrent.CountDownLatch(1);var exited=new java.util.concurrent.CountDownLatch(1);
   when(guarded.upload(any(),any(),any(),any())).thenAnswer(call->{started.countDown();try{new java.util.concurrent.CountDownLatch(1).await();}catch(InterruptedException error){Thread.currentThread().interrupt();throw new IllegalStateException(error);}finally{exited.countDown();}return null;});

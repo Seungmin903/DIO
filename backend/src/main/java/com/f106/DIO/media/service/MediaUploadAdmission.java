@@ -3,6 +3,7 @@ package com.f106.DIO.media.service;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import com.f106.DIO.media.support.MediaRequestException;
@@ -11,14 +12,28 @@ import com.f106.DIO.media.support.MediaRequestException;
 @Component
 public final class MediaUploadAdmission {
  private static final long UNIT_BYTES=5L*1024*1024;
+ private static final int MIN_IN_FLIGHT_UNITS=5, DEFAULT_IN_FLIGHT_UNITS=6;
  private final Semaphore active, waiters;
  private final long waitMillis;
  /** Byte-weighted admission keeps up to three 5MiB uploads or two 15MiB GIFs in flight (30MiB maximum). */
- public MediaUploadAdmission(@Value("${dio.media.upload.max-in-flight-units:6}") int maxInFlightUnits,
+ @Autowired
+ public MediaUploadAdmission(@Value("${dio.media.upload.max-in-flight-units:}") String configuredUnits,
+	 @Value("${dio.media.upload.max-concurrent:}") String legacyMaxConcurrent,
 	 @Value("${dio.media.upload.max-waiters:8}") int maxWaiters,
    @Value("${dio.media.upload.wait-millis:250}") long waitMillis) {
-  if(maxInFlightUnits<1 || maxWaiters<0 || waitMillis<0 || waitMillis>60000)throw new IllegalArgumentException("Invalid upload admission limits");
+  this(resolveUnits(configuredUnits,legacyMaxConcurrent),maxWaiters,waitMillis);
+ }
+ public MediaUploadAdmission(int maxInFlightUnits,int maxWaiters,long waitMillis) {
+  if(maxInFlightUnits<MIN_IN_FLIGHT_UNITS || maxWaiters<0 || waitMillis<0 || waitMillis>60000)throw new IllegalArgumentException("Invalid upload admission limits");
   this.active=new Semaphore(maxInFlightUnits,true); this.waiters=new Semaphore(maxWaiters,true); this.waitMillis=waitMillis;
+ }
+ private static int resolveUnits(String configuredUnits,String legacyMaxConcurrent) {
+  if(configuredUnits!=null&&!configuredUnits.isBlank())return parse(configuredUnits,"max-in-flight-units");
+  if(legacyMaxConcurrent!=null&&!legacyMaxConcurrent.isBlank())return Math.multiplyExact(parse(legacyMaxConcurrent,"max-concurrent"),2);
+  return DEFAULT_IN_FLIGHT_UNITS;
+ }
+ private static int parse(String value,String key) {
+  try{return Integer.parseInt(value.strip());}catch(NumberFormatException error){throw new IllegalArgumentException("Invalid media upload "+key,error);}
  }
  public Permit acquire() { return acquire(0); }
  public Permit acquire(long bytes) {
