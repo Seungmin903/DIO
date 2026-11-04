@@ -478,7 +478,7 @@ deploy-release:
   tags:
     - ec2-deploy
   rules:
-    - if: '$CI_COMMIT_BRANCH =~ /^release\/.+$/'
+    - if: '$CI_COMMIT_BRANCH =~ /^release\/.+$/ && $CI_COMMIT_REF_PROTECTED == "true"'
       when: manual
   resource_group: release
   needs:
