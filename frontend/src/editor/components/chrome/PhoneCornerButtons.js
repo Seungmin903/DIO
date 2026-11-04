@@ -11,10 +11,10 @@ export const CORNER_TOP = 9 // 열린 페이지 목록의 탭 줄 윗선과 같�
 
 export default function PhoneCornerButtons({ pagesOpen, layersOpen, onTogglePages, onToggleLayers, showLayers = true }) {
   return <>
-    {!pagesOpen && <Pressable onPress={onTogglePages} accessibilityRole="button" accessibilityLabel="페이지 목록" style={[styles.button, styles.left]}>
+    {!pagesOpen && <Pressable onPress={onTogglePages} accessibilityRole="button" accessibilityLabel="페이지 목록" hitSlop={4} style={[styles.button, styles.left]}>
       <Icon name="panel" size={20} />
     </Pressable>}
-    {showLayers && !layersOpen && <Pressable onPress={onToggleLayers} accessibilityRole="button" accessibilityLabel="레이어" style={[styles.button, styles.right]}>
+    {showLayers && !layersOpen && <Pressable onPress={onToggleLayers} accessibilityRole="button" accessibilityLabel="레이어" hitSlop={4} style={[styles.button, styles.right]}>
       <Icon name="layers" size={20} />
     </Pressable>}
   </>

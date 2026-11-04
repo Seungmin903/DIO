@@ -55,7 +55,7 @@ export default function TopBar({
         </View>
         <View style={[styles.right, styles.rightCompact]}>
           {onOpenSharing && <SharingEntry variant="bar" members={sharingMembers} count={invitationCount} onPress={onOpenSharing} showLabel={false} memberLimit={1} hideCounter plain />}
-          {exportEnabled && <Pressable ref={shareRef} onPress={() => { shareRef.current?.measureInWindow?.((x, y, width, height) => onShareAnchor?.({ x, y, width, height })); onShare() }} style={({ pressed }) => [styles.toggle, styles.toggleCompact, pressed && styles.togglePressed]} accessibilityRole="button" accessibilityLabel={shareLabel}>
+          {exportEnabled && <Pressable ref={shareRef} onPress={() => { shareRef.current?.measureInWindow?.((x, y, width, height) => onShareAnchor?.({ x, y, width, height })); onShare() }} hitSlop={2} style={({ pressed }) => [styles.toggle, styles.toggleCompact, pressed && styles.togglePressed]} accessibilityRole="button" accessibilityLabel={shareLabel}>
             <Icon name={shareIcon} size={20} />
           </Pressable>}
         </View>
@@ -106,19 +106,20 @@ export default function TopBar({
                   <Text style={[styles.tabTitle, styles.tabTitleInactive]} numberOfLines={1}>{tab.title}</Text>
                 </Pressable>
               )}
-              <Pressable onPress={() => onCloseTab?.(tab.id)} hitSlop={8} style={styles.tabClose} accessibilityLabel={`${active ? doc.title : tab.title} 탭 닫기`}>
+              <Pressable onPress={() => onCloseTab?.(tab.id)} hitSlop={13} style={styles.tabClose} accessibilityLabel={`${active ? doc.title : tab.title} 탭 닫기`}>
                 <Icon name="close" size={14} color={colors.textMuted} />
               </Pressable>
             </View>
           )
         })}
       </ChipScroller>}
+      {windowWidth < 640 && <View style={styles.narrowTitle}><TitleField title={doc.title} renamable={!readOnly && Boolean(onRename)} onCommit={onRename} /></View>}
 
       {/* 오른쪽 묶음의 왼쪽 끝(공유 버튼)부터 화면 오른쪽 끝까지의 폭을 알린다: 레이어 창이 이 폭으로 열려 왼쪽 끝이 공유 버튼과 맞는다(페이지 버튼 · 페이지 목록과 같은 짝) */}
       <View style={styles.right} onLayout={onRightWidth ? (event) => onRightWidth(windowWidth - event.nativeEvent.layout.x) : undefined}>
         {onOpenSharing && <SharingEntry variant="bar" members={sharingMembers} count={invitationCount} onPress={onOpenSharing} showLabel={semi} memberLimit={wide ? 2 : 1} hideCounter={!semi}/>}
         {!readOnly && <IconToggle chip icon="layers" label="레이어" text={mid ? '레이어' : undefined} active={layersOpen} onPress={onToggleLayers} />}
-        {exportEnabled && <Pressable ref={shareRef} onPress={() => { shareRef.current?.measureInWindow?.((x, y, width, height) => onShareAnchor?.({ x, y, width, height })); onShare() }} style={styles.share} accessibilityLabel={shareLabel}>
+        {exportEnabled && <Pressable ref={shareRef} onPress={() => { shareRef.current?.measureInWindow?.((x, y, width, height) => onShareAnchor?.({ x, y, width, height })); onShare() }} hitSlop={2} style={styles.share} accessibilityLabel={shareLabel}>
           <Icon name={shareIcon} size={20} forText={13} color={colors.surface} />
           <Text style={styles.shareText}>내보내기</Text>
         </Pressable>}
@@ -158,7 +159,7 @@ function TitleField({ title, renamable, onCommit, compact }) {
         setDraft(title)
         setEditing(true)
       }}
-      hitSlop={6}
+      hitSlop={{ top: 14, bottom: 14, left: 6, right: 6 }}
       accessibilityRole={renamable ? 'button' : undefined}
       accessibilityLabel={renamable ? '다이어리 이름 바꾸기' : undefined}
       style={styles.titleRow}
@@ -196,6 +197,7 @@ const CHEVRON_SIZE = 20, CHEVRON_INSET = Math.round(CHEVRON_SIZE * 8 / 24)
 // 목록 왼쪽 끝보다 살짝 안쪽에서 시작하게 (끝에 딱 붙으면 답답해 보였다)
 const HOME_SHIFT = 4
 const styles = StyleSheet.create({
+  narrowTitle: { flex: 1, minWidth: 0, alignItems: 'center', flexDirection: 'row' },
   bar: {
     height: 52, // 태블릿: 아래 도구 줄(50)과 함께 쓰는 높이를 줄여 작업창을 넓힌다
     flexDirection: 'row',
@@ -209,7 +211,7 @@ const styles = StyleSheet.create({
   },
   // 모바일은 상태 표시줄의 Safe Area와 같은 단색을 사용해 경계가 생기지 않게 한다.
   barCompact: { height: 60, gap: 4, paddingLeft: 14, paddingRight: 8, backgroundColor: colors.surface }, // 왼쪽은 본문 여백 14에 맞춰 ‹ 가 화면 가장자리에 붙지 않게 한다(코덱스 2026-11-03)
-  homeCompact: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 4, paddingRight: 2 },
+  homeCompact: { minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: 4, paddingRight: 2 },
   home: { flexDirection: 'row', alignItems: 'center', gap: 8, height: 40 },
   homePressed: {}, // 눌림 효과 없음(사용자 지시)
   lead: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingLeft: 16 },
@@ -237,7 +239,7 @@ const styles = StyleSheet.create({
   },
   docTitle: { flex: 1, minWidth: 0, marginLeft: 4, justifyContent: 'center' },
   docTitleText: { fontSize: 15, fontWeight: '700', letterSpacing: -0.3 },
-  pageLabel: { marginTop: 2, fontSize: 10.5, fontWeight: '700', letterSpacing: 0.6, color: colors.textMuted },
+  pageLabel: { marginTop: 2, fontSize: 11, fontWeight: '700', letterSpacing: 0.6, color: colors.textMuted },
   titleInputCompact: { minWidth: 0, alignSelf: 'stretch' },
   // 오른쪽 구분선: 흰 표지면 색 띠가 흰 탭과 이어져 보이지 않으므로 늘 한 줄 긋는다
   spine: { position: 'absolute', left: 0, top: 0, bottom: 0, width: 20, opacity: 0.92, borderRightWidth: 1, borderRightColor: colors.cardBorder },
@@ -257,7 +259,7 @@ const styles = StyleSheet.create({
   },
   tabClose: { marginLeft: 2, padding: 4, borderRadius: 8 },
   right: { flexDirection: 'row', alignItems: 'center', gap: 8, marginLeft: 'auto', flexShrink: 0, zIndex: 2 },
-  rightCompact: { gap: 2 },
+  rightCompact: { gap: 8 },
   toggle: { flexDirection: 'row', alignItems: 'center', gap: 6, height: 40, paddingHorizontal: 10, borderRadius: 12 },
   toggleCompact: { width: 44, height: 44, justifyContent: 'center', paddingHorizontal: 0 },
   toggleActive: { backgroundColor: colors.primarySoft },

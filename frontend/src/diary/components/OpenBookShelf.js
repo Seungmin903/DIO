@@ -224,10 +224,10 @@ function OpenBook({ diary, size, left: placed, top, shown, compact, peek = null,
         </View>
         <View style={styles.captionTools}>
           {onFavorite && <Pressable accessibilityRole="button" accessibilityLabel={diary.favorite ? `${diary.title} 즐겨찾기 해제` : `${diary.title} 즐겨찾기`}
-            accessibilityState={{ selected: !!diary.favorite }} onPress={() => onFavorite(diary)} hitSlop={10}>
+            accessibilityState={{ selected: !!diary.favorite }} onPress={() => onFavorite(diary)} hitSlop={13}>
             <FavoriteStar filled={!!diary.favorite} outline={captionInk} size={22} />
           </Pressable>}
-          {actions.length > 0 && <Pressable ref={moreRef} accessibilityRole="button" accessibilityLabel={`${diary.title} 더보기`} accessibilityState={{ expanded: menu !== null }} hitSlop={10}
+          {actions.length > 0 && <Pressable ref={moreRef} accessibilityRole="button" accessibilityLabel={`${diary.title} 더보기`} accessibilityState={{ expanded: menu !== null }} hitSlop={13}
             onPress={() => {
               const node = moreRef.current;
               if (node?.measureInWindow) node.measureInWindow((mx, my, w, h) => setMenu({ anchor: { x: mx, y: my, width: w, height: h + PAGE_COUNT_ROW } })); // 말풍선이 이름 밑 쪽수 줄을 가리지 않게 그만큼 아래에 연다(DiaryCard 와 같은 값)
@@ -398,5 +398,5 @@ const styles = StyleSheet.create({
   // 이름 줄: DiaryCard 의 cardInfoGrid(위 10 · 좌우 4)와 같은 여백, 별 · ⋯ 는 cardMoreSlot 처럼 이름 첫 줄에 맞춘다
   caption: { position: 'absolute', left: 0, flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 6, paddingHorizontal: 4 },
   captionText: { flex: 1, minWidth: 0 },
-  captionTools: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: -1 },
+  captionTools: { flexDirection: 'row', alignItems: 'center', gap: 26, marginTop: -1 },
 });

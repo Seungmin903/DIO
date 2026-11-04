@@ -210,8 +210,8 @@ const local = StyleSheet.create({
   // 게스트: 로그인 · 회원가입 채움 40
   nameRow: { flexDirection: 'row', alignItems: 'center' },
   nameShrink: { flexShrink: 1 },
-  login: { minHeight: 40, minWidth: 160, marginLeft: 8 }, // 정체성 묶음과 최소 24(줄 간격 16 + 8)
-  loginCompact: { minHeight: 40, marginTop: -4 }, // 판 안 간격 16 에서 4 당겨 첫 줄과 12
+  login: { minHeight: 48, minWidth: 160, marginLeft: 8 }, // 정체성 묶음과 최소 24(줄 간격 16 + 8)
+  loginCompact: { minHeight: 48, marginTop: -4 }, // 판 안 간격 16 에서 4 당겨 첫 줄과 12
   linkRow: { minHeight: 64, flexDirection: 'row', alignItems: 'center', gap: 16, borderBottomWidth: 1, borderBottomColor: colors.border },
   linkLabel: { flex: 1, color: colors.text, fontSize: 15, fontWeight: '700' },
   cards: { marginTop: 8 },

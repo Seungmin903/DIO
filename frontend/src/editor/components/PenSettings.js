@@ -64,15 +64,16 @@ export default function PenSettings({ settings, onChange, onClose, straightAssis
           onChange={(value) => onChange({ ...settings, opacity: Math.round(value / 5) * 5 / 100 })} />
       </>}
       <EditablePalette allowDirect scope={highlighter ? 'highlighter' : 'pen'} label={label} value={settings.color} onPick={chooseColor} onOpenEditor={onOpenColorPicker} />
+      {recentColors.length > 0 && <>
       <Text style={toolPanelStyles.label}>마지막으로 사용했던 색</Text>
       <View accessibilityLabel={`${label} 최근 사용 색상`} style={paletteSwatchStyles.row}>
         {recentColors.map(color => <Pressable key={color} accessibilityRole="button"
           accessibilityLabel={`최근 사용한 ${label} 색상 ${color}`} accessibilityState={{ selected: settings.color === color }}
-          onPress={() => chooseColor(color)} style={paletteSwatchStyles.cell}>
+          hitSlop={1} onPress={() => chooseColor(color)} style={paletteSwatchStyles.cell}>
           <View style={[paletteSwatchStyles.dot,{backgroundColor:color},settings.color === color && paletteSwatchStyles.chosen]} />
         </Pressable>)}
-        {!recentColors.length && <Text style={styles.recentEmpty}>필기에 사용한 색이 여기에 저장돼요.</Text>}
       </View>
+      </>}
       <View style={styles.assist}>
         <Text style={styles.assistText}>끝점을 길게 눌러 직선 만들기</Text>
         <Switch accessibilityLabel="끝점에서 길게 눌러 직선 만들기" value={straightAssist} onValueChange={onStraightAssistChange} trackColor={{ false: colors.border, true: colors.primary }} thumbColor={colors.surface} activeThumbColor={colors.surface} />
@@ -82,7 +83,6 @@ export default function PenSettings({ settings, onChange, onClose, straightAssis
 }
 
 const styles = StyleSheet.create({
-  recentEmpty: { color: colors.textMuted, fontSize: 12 },
   preview: { backgroundColor: '#FAFAF7', borderRadius: 12 },
   // 제목을 왼쪽에 붙인 한 줄(펜 종류 · 끝 모양): 막대의 제목 칸과 같은 폭 52
   inlineRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },

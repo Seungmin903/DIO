@@ -481,6 +481,6 @@ const s = StyleSheet.create({
   tapeNameText: { flexShrink: 1 },
   tapeNameInput: { minHeight: 32, alignSelf: 'stretch', paddingVertical: 0, paddingHorizontal: 6, borderRadius: 8, borderWidth: 1, borderColor: colors.primary, textAlign: 'center' },
   renameRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
-  renameInput: { flex: 1, minWidth: 0, height: 44, paddingHorizontal: 12, borderRadius: 12, borderWidth: 1, borderColor: colors.primary, color: colors.text, fontSize: 15, fontWeight: '700', backgroundColor: colors.surface },
+  renameInput: { flex: 1, minWidth: 0, height: 48, paddingHorizontal: 12, borderRadius: 12, borderWidth: 1, borderColor: colors.primary, color: colors.text, fontSize: 15, fontWeight: '700', backgroundColor: colors.surface },
   stickerRemove: { position: 'absolute', top: -6, right: -6, width: 24, height: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
 });

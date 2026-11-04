@@ -230,7 +230,7 @@ const styles = StyleSheet.create({
   sectionTitle: { marginBottom: 8, fontSize: 12, fontWeight: '700', color: colors.textMuted },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   chip: {
-    minHeight: 40,
+    minHeight: 48,
     paddingHorizontal: 12,
     justifyContent: 'center',
     borderRadius: 10,

@@ -51,8 +51,7 @@ export default function PhotoSourcePicker({diary,onClose,onDevice,onSelect,runti
       </ToolPanelHeader>
       {!saved?<View style={[toolPanelStyles.content,s.sources]}>
         <SourceOption label="새 사진 추가" forward onPress={onDevice}/>
-        <SourceOption label="최근 추가한 사진" forward disabled={diary?.source!=='member-api'} onPress={()=>{setSaved(true);load()}}/>
-        {diary?.source!=='member-api'&&<Text style={s.muted}>로그인한 서버 다이어리에서 올린 사진을 사용할 수 있어요.</Text>}
+        {diary?.source==='member-api'&&<SourceOption label="최근 추가한 사진" forward onPress={()=>{setSaved(true);load()}}/>}
       </View>:<>
         {error&&<View accessibilityRole="alert" style={s.notice}><Text style={s.error}>{error}</Text><SourceOption label="다시 불러오기" disabled={busy} onPress={()=>load()}/></View>}
         {busy&&<ActivityIndicator style={s.loading} accessibilityLabel="사진 불러오는 중" color={colors.primaryStrong}/>}
@@ -76,13 +75,13 @@ const s=StyleSheet.create({
   galleryCard:{height:480,maxHeight:'100%'},
   sheetCard:{flex:1,height:'100%',minHeight:0},
   backButton:{height:32,flexDirection:'row',alignItems:'center',gap:4,paddingHorizontal:8},backText:{fontSize:12,fontWeight:'600',color:colors.textMuted},
-  sources:{paddingTop:10},source:{minHeight:44,paddingHorizontal:12,flexDirection:'row',alignItems:'center',gap:8,borderWidth:1,borderColor:colors.cardBorder,borderRadius:radius.md},
+  sources:{paddingTop:10},source:{minHeight:48,paddingHorizontal:12,flexDirection:'row',alignItems:'center',gap:8,borderWidth:1,borderColor:colors.cardBorder,borderRadius:radius.md},
   sourceTitle:{flex:1,fontSize:12.5,fontWeight:'600',color:colors.text},
   list:{flex:1},grid:{paddingHorizontal:16,paddingTop:10,paddingBottom:12,gap:12},gridRow:{gap:10},tile:{flex:1,gap:6,minWidth:0},
   thumbnail:{aspectRatio:1,width:'100%',backgroundColor:colors.surfaceSoft,borderRadius:radius.sm,overflow:'hidden',alignItems:'center',justifyContent:'center'},image:{width:'100%',height:'100%'},
   placeholder:{alignItems:'center',gap:8},placeholderText:{fontSize:12,color:colors.textMuted},
   name:{fontSize:12,color:colors.text},muted:{fontSize:12,color:colors.textMuted,lineHeight:18},
   notice:{paddingHorizontal:16,paddingVertical:10,gap:8},error:{fontSize:12,color:colors.danger},loading:{marginVertical:10},disabled:{opacity:DISABLED_OPACITY},
-  badge:{position:'absolute',bottom:6,left:6,paddingHorizontal:6,paddingVertical:2,borderRadius:radius.sm,backgroundColor:colors.surface},badgeText:{fontSize:10,fontWeight:'700',color:colors.text},
+  badge:{position:'absolute',bottom:6,left:6,paddingHorizontal:6,paddingVertical:2,borderRadius:radius.sm,backgroundColor:colors.surface},badgeText:{fontSize:11,fontWeight:'700',color:colors.text},
   empty:{paddingVertical:32,alignItems:'center',gap:10},emptyText:{fontSize:13,fontWeight:'700',color:colors.text},
 })

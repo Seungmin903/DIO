@@ -113,7 +113,7 @@ const local = StyleSheet.create({
   knobMove: { alignSelf: 'flex-end' },
   // 테두리 칩(B안): 흰 면 + cardBorder 테두리, 고르면 primaryStrong 테두리 · text 글자
   chips: { flexDirection: 'row', gap: 6 },
-  chip: { minHeight: 44, minWidth: 84, paddingHorizontal: 14, alignItems: 'center', justifyContent: 'center', borderRadius: 10, borderWidth: 1, borderColor: colors.cardBorder, backgroundColor: colors.surface },
+  chip: { minHeight: 48, minWidth: 84, paddingHorizontal: 14, alignItems: 'center', justifyContent: 'center', borderRadius: 10, borderWidth: 1, borderColor: colors.cardBorder, backgroundColor: colors.surface },
   chipSelected: { borderColor: colors.primaryStrong },
   chipText: { fontSize: 14, fontWeight: '600', color: colors.primaryText },
   chipTextSelected: { color: colors.text, fontWeight: '800' },

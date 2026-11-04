@@ -10,5 +10,5 @@ export default function StudioTool({ icon, title, description, disabled = false,
     hint={description} style={block ? null : local.small} />;
 }
 
-// 제목줄 오른쪽에 놓이는 40 높이 버튼(코덱스 10번). 폰의 전폭 버튼은 기본 높이 48
-const local = StyleSheet.create({ small: { minHeight: 40 } });
+// 제목줄 오른쪽에 놓이는 48 높이 버튼(코덱스 10번은 40이었으나 터치 48 기준으로 올림). 폰의 전폭 버튼도 48
+const local = StyleSheet.create({ small: { minHeight: 48 } });

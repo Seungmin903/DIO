@@ -105,6 +105,7 @@ export default function SharingEntry({
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={`${label}${countDescription}${needsCheck}`}
+        hitSlop={4}
         onPress={() => {
           closePeople();
           onPress?.();
@@ -113,7 +114,7 @@ export default function SharingEntry({
       >
         <Icon name={notifications ? 'bell' : 'userPlus'} size={20} forText={bar && showLabel ? 13 : undefined} />
         {!compact && (!bar || showLabel) && <Text style={bar ? s.barText : s.bold}>{notifications ? '알림' : '공유'}</Text>}
-        {summary && summary.value !== null && <Text style={[s.bold, compact && { fontSize: 12, lineHeight: 14 }]}>{summary.value > 99 ? '99+' : summary.value}</Text>}
+        {summary && summary.value > 0 && <Text style={[s.bold, compact && { fontSize: 12, lineHeight: 14 }]}>{summary.value > 99 ? '99+' : summary.value}</Text>}
         {(summary ? summary.showDot : count > 0) && <View testID="notification-dot" style={bar ? [s.barDot, !showLabel && s.barDotIcon] : s.dot} />}
       </Pressable>
       {!!anchor && (

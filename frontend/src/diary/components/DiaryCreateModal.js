@@ -296,6 +296,10 @@ export default function DiaryCreateModal({ diary, onSubmit, onCancel, saving = f
         <TemplatePreview assetId={firstPageId} width={size.width} appearance={paperAppearance} style={styles.paperShadow} />
         <StagePill>{editing ? savedPaperSummary(diary.templateConfig) : `전체 ${pageCount ?? '—'}페이지`}</StagePill>
       </>;
+    } else {
+      // 속지를 고르지 않았으면 고른 색을 빈 페이지로 보여 준다(속지 색 탭의 판이 비지 않게)
+      const size = fit(paperRatio, wide, maxHeight);
+      preview = <BlankPreview orientation={orientation} width={size.width} appearance={paperAppearance} style={styles.paperShadow} />;
     }
   }
 
@@ -367,7 +371,7 @@ const styles = StyleSheet.create({
   pair: { flexDirection: 'row', alignItems: 'center' },
   coverFrame: { borderTopLeftRadius: 6, borderBottomLeftRadius: 6, borderTopRightRadius: 14, borderBottomRightRadius: 14 },
   paperShadow: { ...shadow.card, shadowOpacity: 0.06 },
-  input: { height: 44, paddingHorizontal: 12, borderRadius: 12, borderWidth: 1, borderColor: colors.border, color: colors.text, fontSize: 14, fontWeight: '700', backgroundColor: colors.surfaceSoft },
+  input: { height: 48, paddingHorizontal: 12, borderRadius: 12, borderWidth: 1, borderColor: colors.border, color: colors.text, fontSize: 14, fontWeight: '700', backgroundColor: colors.surfaceSoft },
   inputError: { borderColor: colors.danger },
   count: { alignSelf: 'flex-end', color: colors.textMuted, fontSize: 11 },
   infoCard: { marginTop: 8, padding: 12, gap: 4, borderRadius: 12, backgroundColor: colors.surfaceSoft },

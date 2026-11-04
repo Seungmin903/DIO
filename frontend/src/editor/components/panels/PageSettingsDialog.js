@@ -73,8 +73,8 @@ const styles = StyleSheet.create({
   card: { width: '100%', maxWidth: 480, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.cardBorder, backgroundColor: colors.surface, padding: 20, gap: 12 },
   title: { color: colors.text, fontSize: 20, fontWeight: '700' }, label: { color: colors.text, fontSize: 14, fontWeight: '600' },
   hint: { color: colors.textMuted, fontSize: 12 }, error: { color: colors.dangerStrong, fontSize: 13 },
-  input: { minHeight: 44, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, paddingHorizontal: 12, color: colors.text, fontSize: 14 },
+  input: { minHeight: 48, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, paddingHorizontal: 12, color: colors.text, fontSize: 14 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 12 }, column: { flex: 1, minWidth: 0, gap: 8 },
-  button: { minHeight: 44, alignItems: 'center', justifyContent: 'center', borderRadius: radius.md, borderWidth: 1, borderColor: colors.cardBorder, paddingHorizontal: 12 },
+  button: { minHeight: 48, alignItems: 'center', justifyContent: 'center', borderRadius: radius.md, borderWidth: 1, borderColor: colors.cardBorder, paddingHorizontal: 12 },
   primary: { backgroundColor: colors.primaryStrong, borderColor: colors.primaryStrong }, primaryText: { color: colors.surface, fontSize: 14, fontWeight: '700' }, disabled: { opacity: DISABLED_OPACITY },
 })

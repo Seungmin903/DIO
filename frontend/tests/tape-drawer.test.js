@@ -211,6 +211,24 @@ test('위젯 · 스티커 · 테이프 칸마다 왼쪽 위 별로 즐겨찾기�
   assert.equal(typeof tapeTile(drawer(store, { onToast() {} }), '도트').props.onFavorite, 'function')
 })
 
+// 스티커 칸의 별: 모양만 두고(누르는 곳 아님) 넣고 빼기는 칸 길게 누르기 · 접근성 동작 '즐겨찾기'다(사용자 결정 2026-11-05)
+test('스티커 칸의 별은 누르는 곳이 아니고, 길게 누르기와 접근성 동작으로 즐겨찾기를 바꾼다', () => {
+  const items = { folders: [{ id: 'mine', name: '내 폴더', items: [{ id: 's1', emoji: '🌼' }] }], favorites: [], recentStickers: [], categoryOrder: [], hiddenCategories: [], tapes: [], lastStickerCategory: 'folder:mine' }
+  const toggled = []
+  const view = nodes(drawer(make(), { tab: 'sticker', onToast() {} }, true, { items, toggleFavorite: item => toggled.push(item.id) })).find(node => node.type?.name === 'FolderView')
+  const tile = nodes(view.type(view.props)).find(node => node.type?.name === 'Tile' && node.props.onFavorite)
+  assert.ok(tile, '즐겨찾기가 가능한 칸')
+  const rendered = nodes(tile.type(tile.props))
+  // 별은 터치를 받지 않는 View 안에만 있다
+  assert.ok(!rendered.some(node => node.type === 'Pressable' && /즐겨찾기/.test(node.props.accessibilityLabel ?? '')))
+  const press = rendered.find(node => node.props?.onLongPress)
+  assert.equal(press.props.accessibilityHint, '길게 누르면 즐겨찾기')
+  assert.deepEqual(press.props.accessibilityActions.map(action => action.name), ['favorite'])
+  press.props.onLongPress()
+  press.props.onAccessibilityAction({ nativeEvent: { actionName: 'favorite' } })
+  assert.equal(toggled.length, 2)
+})
+
 // 폴더의 + 말풍선: FolderView 를 열린 상태(adding)로 펼쳐 동작 목록을 본다
 const folderActions = (flags) => {
   const items = { folders: [{ id: 'mine', name: '내 폴더', items: [] }], favorites: [], recentStickers: [], categoryOrder: [], hiddenCategories: [], tapes: [], lastStickerCategory: 'folder:mine' }

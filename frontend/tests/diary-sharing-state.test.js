@@ -262,7 +262,7 @@ test('실서버 참여자 관리도 연결된 양도 기능을 제공한다', ()
     transferOwner: () => { throw new Error('호출하면 안 됨'); } }, undefined, { diary });
   find(ui.render(), '참여자 관리').props.onPress();
   assert.ok(find(ui.render(), '모아 소유권 양도'));
-  assert.ok(find(ui.render(), '모아 참여 해제'));
+  assert.ok(find(ui.render(), '모아 내보내기'));
 });
 
 test('초대 상세는 취소·만료·정원 초과를 구분하고 사용 불가 초대에 수락을 제공하지 않는다', async () => {

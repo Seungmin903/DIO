@@ -49,7 +49,7 @@ const styles = StyleSheet.create({
   title: { fontSize: 16, fontWeight: '700', color: colors.text },
   message: { marginTop: 8, fontSize: 13, lineHeight: 19, color: colors.textMuted, ...(Platform.OS === 'web' && { wordBreak: 'keep-all' }) }, // 한글은 단어 단위로 줄을 바꾼다
   actions: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'flex-end', gap: 8, marginTop: 18 },
-  button: { minWidth: 76, minHeight: 42, paddingVertical: 10, paddingHorizontal: 16, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  button: { minWidth: 76, minHeight: 48, paddingVertical: 10, paddingHorizontal: 16, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   pressed: {}, // 눌림 효과 없음(사용자 지시)
   danger: { backgroundColor: colors.dangerStrong }, // 흰 글자를 올리는 위험 버튼은 dangerStrong(6.0:1). danger(3.85:1)는 아이콘 · 테두리용
   primary: { backgroundColor: colors.primaryStrong },

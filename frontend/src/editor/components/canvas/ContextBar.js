@@ -262,7 +262,7 @@ export function CompactMenu({ position, maxHeight, insideHandlers, actions }) {
 
 function MenuAction({ icon, label, danger, disabled, onPress, style }) {
   const color = danger ? colors.danger : disabled ? colors.border : colors.text
-  return <Pressable onPress={onPress} disabled={disabled} accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ disabled: Boolean(disabled) }} style={({ pressed }) => [styles.menuItem, style, pressed && styles.pressed]}>
+  return <Pressable onPress={onPress} disabled={disabled} hitSlop={3} accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ disabled: Boolean(disabled) }} style={({ pressed }) => [styles.menuItem, style, pressed && styles.pressed]}>
     <Icon name={icon} size={18} forText={13} color={color} /><Text style={[styles.menuText, { color }]}>{label}</Text>
   </Pressable>
 }

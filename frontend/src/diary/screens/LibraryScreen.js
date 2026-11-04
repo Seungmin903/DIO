@@ -233,7 +233,7 @@ function LibraryScreen({
 
   const { key: sortKey, direction } = parseSort(sort);
   const optionsMenu = !selecting && <>
-    <Pressable accessibilityRole="button" accessibilityLabel="보관함 옵션" accessibilityValue={{ text: SORT_OPTIONS.find(item => item.id === sortKey)?.label }} accessibilityState={{ expanded: optionsOpen }} ref={optionsButton} onPress={openOptions} hitSlop={2} style={({ pressed }) => [s.iconButton, s.iconButtonBare, pressed && s.pressed]}>
+    <Pressable accessibilityRole="button" accessibilityLabel="보관함 옵션" accessibilityValue={{ text: SORT_OPTIONS.find(item => item.id === sortKey)?.label }} accessibilityState={{ expanded: optionsOpen }} ref={optionsButton} onPress={openOptions} hitSlop={4} style={({ pressed }) => [s.iconButton, s.iconButtonBare, pressed && s.pressed]}>
       <View style={s.librarySortIcon}><AppIcon name="more" size={21} color={C.ink} /></View>
     </Pressable>
     <PopoverMenu open={optionsOpen} anchor={optionsAnchor} width={230} height={170} label="보관함 옵션 목록" style={s.librarySortMenu} onClose={() => setOptionsOpen(false)}>
@@ -289,7 +289,7 @@ function LibraryScreen({
           <Pressable
             accessibilityRole="tab"
             accessibilityLabel="펼쳐서 보기"
-            hitSlop={VIEW_HIT_SLOP}
+            hitSlop={compact ? VIEW_HIT_SLOP_COMPACT : VIEW_HIT_SLOP}
             accessibilityState={{ selected: displayView === 'open' }}
             onPress={() => { setSearchOpen(false); setQuery(''); onViewChange('open'); }}
             style={({ pressed }) => [s.libraryViewOption, compact && s.libraryViewOptionCompact, displayView === 'open' && s.libraryViewOptionSelected, pressed && s.pressed]}
@@ -299,7 +299,7 @@ function LibraryScreen({
           <Pressable
             accessibilityRole="tab"
             accessibilityLabel="스와이프 보기"
-            hitSlop={VIEW_HIT_SLOP}
+            hitSlop={compact ? VIEW_HIT_SLOP_COMPACT : VIEW_HIT_SLOP}
             accessibilityState={{ selected: displayView === 'carousel' }}
             onPress={() => { setSearchOpen(false); setQuery(''); onViewChange('carousel'); showCurrentAtCenter(); }}
             style={({ pressed }) => [s.libraryViewOption, compact && s.libraryViewOptionCompact, displayView === 'carousel' && s.libraryViewOptionSelected, pressed && s.pressed]}
@@ -309,7 +309,7 @@ function LibraryScreen({
           <Pressable
             accessibilityRole="tab"
             accessibilityLabel="한눈에 보기"
-            hitSlop={VIEW_HIT_SLOP}
+            hitSlop={compact ? VIEW_HIT_SLOP_COMPACT : VIEW_HIT_SLOP}
             accessibilityState={{ selected: displayView === 'grid' }}
             onPress={() => { setSearchOpen(false); setQuery(''); onViewChange('grid'); }}
             style={({ pressed }) => [s.libraryViewOption, compact && s.libraryViewOptionCompact, displayView === 'grid' && s.libraryViewOptionSelected, pressed && s.pressed]}
@@ -330,6 +330,7 @@ function LibraryScreen({
                   key={item.id}
                   accessibilityRole="tab"
                   accessibilityState={{ selected: on }}
+                  hitSlop={FILTER_HIT_SLOP}
                   onPress={() => { onFilterChange(withFavorite(filter, item.id === 'favorite')); resetPosition(); setOptionsOpen(false); }}
                   style={({ pressed }) => [s.filterOption, compact && s.filterOptionCompact, on && s.filterOptionSelected, pressed && s.pressed]}
                 >
@@ -459,7 +460,7 @@ function LibraryScreen({
       scrollEnabled={!fixedPhoneCarousel}
     >{top}{body}</ScrollView>}
     {/* 새 다이어리: + 아이콘 버튼을 본문 오른쪽 아래에 띄운다 */}
-    {canCreate && <Pressable accessibilityRole="button" accessibilityLabel="새 다이어리 만들기" onPress={onCreate}
+    {canCreate && <Pressable accessibilityRole="button" accessibilityLabel="새 다이어리 만들기" hitSlop={2} onPress={onCreate}
       style={({ pressed }) => [s.createFab, compact && s.createFabCompact, pressed && s.pressed]}>
       <AppIcon name="add" size={compact ? 20 : 24} strokeWidth={2} color={C.white} />
     </Pressable>}
@@ -467,7 +468,10 @@ function LibraryScreen({
   );
 }
 
-// 보기 전환 칸: 보이는 28×28 둘레를 넓혀 터치 44
-const VIEW_HIT_SLOP = { top: 8, bottom: 8, left: 4, right: 4 };
+// 보기 전환 칸: 보이는 칸(폰 28 · 태블릿 32) 둘레를 넓혀 터치 48. 칸 사이가 좌우 slop 합과 같아 옆 칸과 겹치지 않는다
+const VIEW_HIT_SLOP_COMPACT = { top: 10, bottom: 10, left: 10, right: 10 };
+const VIEW_HIT_SLOP = { top: 8, bottom: 8, left: 8, right: 8 };
+// 필터 칩: 보이는 높이 36 + 위아래 6 = 터치 48
+const FILTER_HIT_SLOP = { top: 6, bottom: 6 };
 
 export default memo(LibraryScreen);

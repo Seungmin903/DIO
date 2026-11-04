@@ -81,6 +81,7 @@ function setup(service = {}, photoPicker = async () => null, options = {}) {
     'View',
   ])
     native[name] = name;
+  native.useWindowDimensions = () => ({ width: 800, height: 1200 });
   const mocks = {
     react,
     'react-native': native,
