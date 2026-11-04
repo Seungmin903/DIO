@@ -93,7 +93,7 @@ function DiaryCard({ diary, pageCount, layout = 'grid', compact = false, large =
         {selecting && diary.canManage !== false && diary.canDelete !== false && <SelectionMark selected={selected} compact={compact} />}
         {showTools && <Pressable
           accessibilityRole="button"
-          accessibilityLabel={diary.favorite ? '즐겨찾기 해제' : '즐겨찾기 추가'}
+          accessibilityLabel={`${diary.title} ${diary.favorite ? '즐겨찾기 해제' : '즐겨찾기 추가'}`}
           disabled={!onFavorite}
           accessibilityState={{ disabled: !onFavorite }}
           hitSlop={12}
@@ -119,7 +119,7 @@ function DiaryCard({ diary, pageCount, layout = 'grid', compact = false, large =
               accessibilityRole="button"
               accessibilityLabel={`${diary.title} 더보기`}
               accessibilityState={{ expanded: menu !== null }}
-              hitSlop={8}
+              hitSlop={10}
               ref={moreRef}
               onPress={(event) => {
                 event.stopPropagation();

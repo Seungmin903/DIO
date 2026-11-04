@@ -1,22 +1,28 @@
+import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import FadeScroll, { CANVAS_FADE_RGB } from '../../editor/components/controls/FadeScroll';
 import { colors } from '../../shared/theme';
 
 // 견출지 스택형 인덱스(1020 감성 점검 시안 C, 사용자 선택): 위 모서리만 둥근 직사각 탭을 겹치지 않고 6 간격으로 세운다.
 // 고른 탭은 lavender100 으로 4 더 높이 서고 아래 선(cardBorder)까지 내려와 선을 덮어 아래 면과 이어진다. 나머지는 surfaceSoft(#F7F8FD), 테두리 · 그림자 없음.
-// 높이 36(고른 탭 40). 폰은 가로로 밀지 않고 다섯 칸을 본문 폭 안에 같은 폭으로 나눈다(앱 디자인 점검 원 페이저 08)
+// 높이 36(고른 탭 40). 폰은 가로로 밀지 않고 모든 칸을 본문 폭 안에 같은 폭으로 나눈다(앱 디자인 점검 원 페이저 08)
 const SIZE = { wide: { width: 104, idle: 36, selected: 40 }, compact: { width: null, idle: 36, selected: 40 } };
 // DROP = 아래 선 굵기: 프리셋 · 속지 구분선과 같은 1(사용자 지시로 굵기 통일). 고른 탭은 이만큼 내려와 선을 덮는다
 const GAP = 6, GAP_COMPACT = 4, DROP = 1, CORNER = 8;
+// 탭 높이 36(고른 탭 41) + 위로 12 = 터치 48. 아래는 본문이라 넓히지 않는다
+const TAB_SLOP = { top: 12 };
 
 /**
  * 꾸미기 공방 종류 전환(폰트 · 스티커 · 표지 · 속지 · 프리셋). 한 번에 하나만 연다. 눌림 효과 · 장식 라벨은 없다.
  */
 export default function StudioTabs({ tabs, value, onChange, compact = false }) {
-  const size = compact ? SIZE.compact : SIZE.wide;
+  const [rowWidth, setRowWidth] = useState(0);
+  // 넓은 탭(104)이 다 들어가지 않는 창(세로 태블릿)에서는 폰처럼 같은 폭으로 나눈다. 글자 크기는 그대로다
+  const fit = compact || (rowWidth > 0 && tabs.length * (SIZE.wide.width + GAP) - GAP > rowWidth);
+  const size = fit ? SIZE.compact : SIZE.wide;
   const selectedIndex = Math.max(0, tabs.findIndex(tab => tab.id === value));
   return (
-    <View style={local.wrap}>
+    <View style={local.wrap} onLayout={event => setRowWidth(event.nativeEvent.layout.width)}>
       {/* 아래 선을 먼저 그리고 탭을 그 위에 그린다: 고른 탭만 선 아래까지 내려와 선을 덮는다 */}
       <View style={local.line} />
       {(() => {
@@ -24,13 +30,14 @@ export default function StudioTabs({ tabs, value, onChange, compact = false }) {
           const selected = index === selectedIndex;
           return (
             <Pressable key={tab.id} accessibilityRole="tab" accessibilityLabel={tab.label} accessibilityState={{ selected }}
+              hitSlop={TAB_SLOP}
               onPress={() => onChange(tab.id)}
-              style={[local.tab, compact ? local.tabCompact : { width: size.width }, { height: selected ? size.selected + DROP : size.idle }, selected ? local.tabSelected : local.tabIdle]}>
+              style={[local.tab, fit ? local.tabCompact : { width: size.width }, { height: selected ? size.selected + DROP : size.idle }, selected ? local.tabSelected : local.tabIdle]}>
               <Text numberOfLines={1} style={[local.label, compact && local.labelCompact, selected && local.labelSelected]}>{tab.label}</Text>
             </Pressable>
           );
         });
-        return compact
+        return fit
           ? <View accessibilityRole="tablist" style={[local.row, local.rowCompact]}>{items}</View>
           : <FadeScroll horizontal fadeRgb={CANVAS_FADE_RGB} accessibilityRole="tablist" contentContainerStyle={local.row}>{items}</FadeScroll>;
       })()}

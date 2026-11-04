@@ -118,7 +118,7 @@ const server = http.createServer((req, res) => {
     await button('초대 링크 만들기').click();
     await button('초대 링크 복사').waitFor();
     assert.equal(await page.getByText('보기 전용', { exact: true }).count(), 0);
-    assert.equal(await button('하루 참여 해제').count(), 0);
+    assert.equal(await button('하루 내보내기').count(), 0);
     await button('공유 창 닫기').click();
     await button('초대 목록 열기').click();
     await button('우리의 여행 기록 초대 수락').click();

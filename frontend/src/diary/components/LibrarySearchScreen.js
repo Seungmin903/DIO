@@ -65,12 +65,12 @@ export default function LibrarySearchScreen({ compact, query, onQueryChange, onB
     {selectionBar}
     {requestNotice}
     {!searching ? <View style={s.librarySearchHistory}>
-      <View style={s.librarySearchHistoryHeading}>
+      {history.length > 0 && <View style={s.librarySearchHistoryHeading}>
         <Text style={s.chipText}>최근 검색어</Text>
         <Pressable accessibilityRole="button" accessibilityLabel="최근 검색어 전체 지우기" disabled={!ready || !history.length} onPress={() => updateHistory([])} style={({ pressed }) => [s.librarySearchHistoryClear, pressed && s.pressed]}>
           <Text style={s.librarySearchHistoryMuted}>전체 지우기</Text>
         </Pressable>
-      </View>
+      </View>}
       {history.map(term => <View key={term} style={s.librarySearchHistoryRow}>
         <Pressable accessibilityRole="button" accessibilityLabel={`${term} 다시 검색`} onPress={() => { onQueryChange(term); remember(term); }} style={s.librarySearchHistoryTerm}>
           <Text style={s.librarySearchHistoryText}>{term}</Text>

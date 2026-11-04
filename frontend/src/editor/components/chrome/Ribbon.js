@@ -67,6 +67,7 @@ function Tool({ icon, label, active, dim, onPress, onAnchor, color }) {
       accessibilityLabel={label}
       accessibilityState={{ selected: active }}
       aria-pressed={Boolean(active)}
+      hitSlop={2}
       style={({ pressed }) => [styles.tool, active && styles.toolActive, pressed && styles.toolPressed, dim && styles.toolDim]}
     >
       <Icon name={icon} size={20} />

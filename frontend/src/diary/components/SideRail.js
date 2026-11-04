@@ -65,6 +65,7 @@ function SideRail({ page, filter, navigate, bottomInset = 0, collapsed, onToggle
         accessibilityRole="button"
         accessibilityLabel={label}
         accessibilityState={{ selected }}
+        hitSlop={{ left: 1, right: 1 }}
         onPress={() => navigate(id, nextFilter)}
         style={({ pressed }) => [s.railItem, selected && s.railItemSelected, style, pressed && s.pressed]}
       >

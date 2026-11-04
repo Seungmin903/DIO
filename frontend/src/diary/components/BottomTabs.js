@@ -21,7 +21,7 @@ function BottomTabs({ page, filter, navigate, bottomInset = 0, backgroundColor =
               onPress={() => navigateBottomTab(navigate, tab)}
               style={({ pressed }) => [s.tabItem, pressed && s.pressed]}
             >
-              <View style={[s.tabIconPill, selected && s.tabIconPillSelected]}>
+              <View collapsable={false} style={[s.tabIconPill, selected && s.tabIconPillSelected]}>
                 <AppIcon name={tab.icon} size={22} color={C.ink} fill="none" />
               </View>
               <Text numberOfLines={1} style={[s.tabLabel, selected && s.tabLabelSelected]}>{tab.label}</Text>

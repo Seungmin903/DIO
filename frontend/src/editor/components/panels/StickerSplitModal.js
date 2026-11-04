@@ -432,7 +432,7 @@ const s = StyleSheet.create({
   footer: { flexShrink: 0, backgroundColor: colors.surface },
   footerNotes: { paddingHorizontal: 16, paddingVertical: 12, gap: 8, borderTopWidth: 1, borderColor: colors.cardBorder },
   total: { color: colors.text, fontSize: 14, fontWeight: '700' },
-  input: { borderWidth: 1, borderColor: colors.primary, borderRadius: radius.md, color: colors.text, fontSize: 14, padding: 12, minHeight: 44 },
+  input: { borderWidth: 1, borderColor: colors.primary, borderRadius: radius.md, color: colors.text, fontSize: 14, padding: 12, minHeight: 48 },
   error: { color: colors.dangerStrong, fontSize: 14, fontWeight: '600', lineHeight: 21 },
   zoomOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: colors.scrim, justifyContent: 'center', padding: 20 },
   zoom: { backgroundColor: colors.surface, padding: 12, borderRadius: radius.xl, overflow: 'hidden' }, zoomHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },

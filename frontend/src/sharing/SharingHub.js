@@ -812,7 +812,7 @@ export default function SharingHub({
                             <Button label={`${member.nickname} 소유권 양도`} text="소유권 양도" secondary disabled={busy}
                               style={s.memberActionButton}
                               onPress={() => setQuestion({ kind: 'transfer', member })} />}
-                          <Button label={`${member.nickname} 참여 해제`} text="내보내기" secondary danger disabled={busy}
+                          <Button label={`${member.nickname} 내보내기`} text="내보내기" secondary danger disabled={busy}
                             style={s.memberActionButton}
                             onPress={() => setQuestion({ kind: 'remove', member })} />
                         </View>
@@ -874,7 +874,7 @@ export default function SharingHub({
                           accessibilityLabel="새로고침"
                           disabled={busy || mutation.status === 'saving' || refreshing}
                           onPress={store.refresh}
-                          hitSlop={4}
+                          hitSlop={6}
                           style={[s.toolbarButton, (busy || mutation.status === 'saving' || refreshing) && s.disabled]}
                         >
                           <Icon name="rotate" size={15} color={colors.primaryText} />
@@ -885,7 +885,7 @@ export default function SharingHub({
                           accessibilityLabel="모두 읽음"
                           disabled={readAllDisabled}
                           onPress={store.readAll}
-                          hitSlop={4}
+                          hitSlop={6}
                           style={[s.toolbarButton, readAllDisabled && s.disabled]}
                         >
                           <Icon name="check" size={18} forText={14} color={colors.primaryText} />

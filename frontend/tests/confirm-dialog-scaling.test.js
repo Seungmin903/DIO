@@ -26,6 +26,6 @@ test('확인창은 긴 내용과 확대된 버튼을 스크롤하고 두 동작�
   assert.ok(texts.every(node => node.props.maxFontSizeMultiplier === 0))
   const buttons = all.filter(node => node.type === 'Pressable' && node.props.accessibilityRole === 'button')
   assert.equal(buttons.length, 2)
-  buttons.forEach(button => { const style = button.props.style({ pressed: false })[0]; assert.equal(style.minHeight, 42); assert.equal(style.height, undefined); button.props.onPress() })
+  buttons.forEach(button => { const style = button.props.style({ pressed: false })[0]; assert.equal(style.minHeight, 48); assert.equal(style.height, undefined); button.props.onPress() })
   assert.equal(confirmed, 1); assert.equal(cancelled, 1)
 })

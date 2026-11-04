@@ -35,10 +35,10 @@ export const sharingStyles = StyleSheet.create({
   section: { paddingTop: 16, borderTopWidth: 1, borderColor: c.border, gap: 12 },
   notice: { padding: 12, borderRadius: radius.md, backgroundColor: c.surfaceMuted, gap: 8 },
   memberActions: { flexDirection: 'row', gap: 8, marginTop: 4 },
-  memberActionButton: { flex: 1, minWidth: 0, minHeight: 44, paddingHorizontal: 8,
+  memberActionButton: { flex: 1, minWidth: 0, minHeight: 48, paddingHorizontal: 8,
     backgroundColor: c.surface, borderWidth: 1, borderColor: c.border },
   sentInvite: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8 },
-  detailLink: { minHeight: 44, justifyContent: 'center', alignSelf: 'flex-start', paddingRight: 12 },
+  detailLink: { minHeight: 48, justifyContent: 'center', alignSelf: 'flex-start', paddingRight: 12 },
   summary: {
     padding: 12,
     backgroundColor: c.surfaceMuted,
@@ -213,7 +213,7 @@ export const sharingStyles = StyleSheet.create({
   linkTextContainer: { flex: 1, minWidth: 0, justifyContent: 'center' },
   linkText: { fontSize: 12.5, fontWeight: '600', color: c.text },
   button: {
-    minHeight: 44,
+    minHeight: 48,
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: radius.md,
@@ -269,7 +269,7 @@ export const sharingStyles = StyleSheet.create({
   // 참여자 사진은 칩 틀(테두리 · 흰 면) 없이 사진만 둔다
   barMembers: { height: 44, minWidth: 44, paddingHorizontal: 4, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
   barCounter: { width: 20, height: 20, borderRadius: 10, marginLeft: -4, alignItems: 'center', justifyContent: 'center', backgroundColor: c.surfaceMuted },
-  barCounterText: { fontSize: 10, fontWeight: '700', color: c.text },
+  barCounterText: { fontSize: 11, fontWeight: '700', color: c.text },
   barEntry: { height: 44, minWidth: 44, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, borderRadius: radius.md, borderWidth: 1, borderColor: c.cardBorder, backgroundColor: c.surface },
   barEntryIcon: { paddingHorizontal: 0 },
   barEntryPlain: { width: 40, minWidth: 40, height: 40, borderWidth: 0, backgroundColor: 'transparent' },
@@ -277,7 +277,7 @@ export const sharingStyles = StyleSheet.create({
   barText: { fontSize: 13, lineHeight: 18, fontWeight: '700', color: c.text },
   // 안 읽음 점: 글자 '공유' 오른쪽 위 모서리 바로 옆(글자가 없으면 아이콘 오른쪽 위)
   barDot: { position: 'absolute', top: 11, right: 6, width: 7, height: 7, borderRadius: 4, backgroundColor: c.notifyPink },
-  memberCircles: { minHeight: 44, flexDirection: 'row', alignItems: 'center', paddingLeft: 8 },
+  memberCircles: { minHeight: 48, flexDirection: 'row', alignItems: 'center', paddingLeft: 8 },
   memberCircle: {
     width: 30,
     height: 30,

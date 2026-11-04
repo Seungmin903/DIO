@@ -75,7 +75,7 @@ export default function PhotoCropper({ photo, onApply, onCancel, fixedAspect, as
   const cardWidth = Math.min(720, window.width - 48)
   const stageWidth = cardWidth - 48
   // 비율 칩 · 확대 · 버튼이 판 아래에 붙는다. 폰은 칩이 두 줄이고 시스템 바가 아래를 가려, 카드가 화면 밖으로 잘리지 않게 그만큼을 뺀다
-  const reserve = window.width < 600 ? 470 : 420
+  const reserve = window.width < 600 ? 540 : 450
   const stageHeight = Math.min(440, Math.max(180, Math.min(window.height * 0.5, window.height - reserve)))
   // 자유 자르기: 사진 전체를 무대 안에 맞춰 보여 준다
   const fullW = Math.min(stageWidth - FREE_PAD * 2, (stageHeight - FREE_PAD * 2) * imageAspect)
@@ -174,7 +174,7 @@ export default function PhotoCropper({ photo, onApply, onCancel, fixedAspect, as
             <View style={styles.titleGroup}>
               <Text style={styles.cardTitle}>{title}</Text>
             </View>
-            <Pressable onPress={onCancel} hitSlop={10} accessibilityLabel="자르기 닫기">
+            <Pressable onPress={onCancel} hitSlop={14} accessibilityLabel="자르기 닫기">
               <Icon name="close" size={20} />
             </Pressable>
           </View>
@@ -503,7 +503,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    minHeight: 40,
+    minHeight: 48,
     paddingHorizontal: 14,
     justifyContent: 'center',
     borderRadius: 10,
