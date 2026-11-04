@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useSyncExternalStore } from 'react'
+import { useEffect, useMemo, useSyncExternalStore } from 'react'
 import { AppState } from 'react-native'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { fetch as memberFetch } from 'expo/fetch'
@@ -9,12 +9,7 @@ import { createMemberAppStore } from '../services/memberAppStore.js'
 import { createId } from '../../editor/utils/common.js'
 
 export function useMemberDiaries(accountId) {
-  // Expiry opens a login overlay. Keep the previous store until a new login
-  // supplies a different key or this member screen is unmounted.
-  const lastSessionKey = useRef(null)
-  const currentSessionKey = authService.getSessionKey()
-  if (currentSessionKey) lastSessionKey.current = currentSessionKey
-  const sessionKey = lastSessionKey.current
+  const sessionKey = authService.getMemberSessionKey(accountId)
   const store = useMemo(() => createMemberAppStore({ accountId, storage: AsyncStorage, makeRequestId: () => createId(), serverLibrary: true,
     api: createMemberDiaryApi(createAuthenticatedMemberTransport({ auth: authService, accountId, baseUrl: apiBaseUrl,
       accessTokenHeader, fetchImpl: memberFetch })) }), [accountId, sessionKey])

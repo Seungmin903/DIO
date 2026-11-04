@@ -1,13 +1,16 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { notificationErrorNotice } from '../src/notifications/notificationErrorNotice.js';
+import { SESSION_EXPIRED_MESSAGE, AUTHENTICATION_FAILED_MESSAGE } from '../src/auth/sessionExpiry.js';
 import { createMockNotificationTransport } from '../src/notifications/mockNotificationTransport.js';
 import { createNotificationApi, createInvitationGateway } from '../src/notifications/notificationApi.js';
 import { createNotificationStore } from '../src/notifications/notificationStore.js';
 
-test('401·403·404는 같은 요청 재시도 대신 로그인/권한/목록 안내,5xx·네트워크는 수동 재시도', () => {
+test('401은 확인된 만료만 재로그인 안내,403·404는 권한/목록 안내,5xx·네트워크는 수동 재시도', () => {
   for (const status of [401, 403, 404]) assert.equal(notificationErrorNotice({ status }).canRetry, false);
-  assert.match(notificationErrorNotice({ status: 401 }).message, /로그인/);
+  assert.equal(notificationErrorNotice({ status: 401 }).message, AUTHENTICATION_FAILED_MESSAGE);
+  assert.equal(notificationErrorNotice({ status: 401, code: 'INVALID_TOKEN' }).message, AUTHENTICATION_FAILED_MESSAGE);
+  assert.equal(notificationErrorNotice({ status: 401, sessionExpired: true }).message, SESSION_EXPIRED_MESSAGE);
   assert.match(notificationErrorNotice({ status: 403 }).message, /권한/);
   assert.equal(notificationErrorNotice({ status: 404 }).refreshList, true);
   for (const status of [500, 502, 503]) { const notice = notificationErrorNotice({ status, message: 'internal secret' }); assert.equal(notice.canRetry, true); assert.match(notice.message, /서버 오류/); assert.ok(!notice.message.includes('secret')); }

@@ -7,7 +7,7 @@ import { createAuthApi } from '../src/auth/authApi.js'
 import { createAuthenticatedNotificationSession } from '../src/notifications/authenticatedNotifications.js'
 import { createAuthenticatedMemberTransport } from '../src/diary/services/memberTransport.js'
 import { createServer } from 'node:http'
-import { SESSION_EXPIRED_MESSAGE } from '../src/auth/sessionExpiry.js'
+import { SESSION_EXPIRED_MESSAGE, AUTHENTICATION_FAILED_MESSAGE } from '../src/auth/sessionExpiry.js'
 import { notificationErrorNotice } from '../src/notifications/notificationErrorNotice.js'
 import { mediaLibraryError } from '../src/diary/services/mediaLibraryApi.js'
 
@@ -92,6 +92,27 @@ test('회원·알림 동시 세션 만료는 한 번만 재로그인을 요청�
   await Promise.all([current.member({path:'/diaries'}),current.notifications.count()]);
   assert.equal(f.calls.length,2);
   await assert.rejects(old.member({path:'/diaries'}),{status:401});
+});
+
+test('일반 API의 401은 서버 코드가 INVALID_TOKEN이어도 만료 문구나 재로그인 이벤트로 바꾸지 않는다', async () => {
+ for(const code of ['HTTP_ERROR','INVALID_TOKEN','AUTHENTICATION_REQUIRED']){
+  const f=fixture({fetchData:()=>reply({code,detail:'gateway'},401)});
+  await login(f.auth);
+  const events=[];
+  f.auth.subscribeSessionExpired(event=>events.push(event));
+  const identity=f.auth.getMemberSessionKey('101'),c=f.channels();
+  const results=await Promise.allSettled([c.member({path:'/diaries'}),c.notifications.count()]);
+  for(const result of results){
+    assert.equal(result.status,'rejected');assert.equal(result.reason.status,401);
+    assert.equal(result.reason.message,AUTHENTICATION_FAILED_MESSAGE);
+    assert.equal(notificationErrorNotice(result.reason).message,AUTHENTICATION_FAILED_MESSAGE);
+    assert.equal(mediaLibraryError(result.reason),AUTHENTICATION_FAILED_MESSAGE);
+    assert.notEqual(result.reason.sessionExpired,true);
+  }
+  assert.deepEqual(events,[]);
+  assert.equal(f.auth.getCurrentUserId(),'101');
+  assert.equal(f.auth.getMemberSessionKey('101'),identity);
+ }
 });
 
 test('회원·알림 동시 만료 요청은 실제 인증 API의 갱신 한 번과 같은 새 토큰을 공유한다', async () => {

@@ -1,5 +1,5 @@
 import { NotificationError } from './notificationApi.js';
-import { SESSION_EXPIRED_MESSAGE } from '../auth/sessionExpiry.js';
+import { AUTHENTICATION_FAILED_MESSAGE } from '../auth/sessionExpiry.js';
 import { isInvitationNotification } from './notificationPresentation.js';
 
 const invalid = () => new NotificationError('INVALID_RESPONSE', '알림 응답을 확인하지 못했어요. 다시 시도해 주세요.');
@@ -15,7 +15,7 @@ export function createNotificationHttpTransport({ baseUrl, getAccessToken = asyn
     if (signal?.aborted) throw Object.assign(new Error('Cancelled'), { name: 'AbortError' });
     const token = await getAccessToken();
     if (signal?.aborted) throw Object.assign(new Error('Cancelled'), { name: 'AbortError' });
-    if (!id(token)) throw new NotificationError('AUTHENTICATION_REQUIRED', SESSION_EXPIRED_MESSAGE, 401);
+    if (!id(token)) throw new NotificationError('AUTHENTICATION_REQUIRED', '로그인이 필요해요.', 401);
     const search = Object.entries(query).filter(([, value]) => value != null)
       .map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(String(value))}`).join('&');
     const url = `${baseUrl.replace(/\/+$/, '')}${path}${search ? `?${search}` : ''}`;
@@ -41,7 +41,7 @@ export function createNotificationHttpTransport({ baseUrl, getAccessToken = asyn
     let result;
     try { result = await response.json(); } catch { result = null; }
     if (!response.ok) {
-      const message = response.status === 401 ? SESSION_EXPIRED_MESSAGE
+      const message = response.status === 401 ? AUTHENTICATION_FAILED_MESSAGE
         : response.status === 404 ? '알림을 찾을 수 없어요.' : '알림 요청을 처리하지 못했어요. 다시 시도해 주세요.';
       throw new NotificationError(result?.code || 'HTTP_ERROR', message, response.status);
     }

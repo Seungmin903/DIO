@@ -36,9 +36,13 @@ test('expired refresh emits one session-bound notification for concurrent reques
   assert.deepEqual(events, [{ userId: '7', sessionKey: oldKey }]);
   assert.ok(outcomes.every(item => item.status === 'rejected' && item.reason.status === 401 && item.reason.message === SESSION_EXPIRED_MESSAGE));
   assert.equal(api.getCurrentUserId(), null);
+  assert.equal(api.isSessionExpired(oldKey), true);
+  assert.equal(api.getMemberSessionKey('7'), oldKey);
   assert.equal(f.rows.size, 0);
   await login(api);
   assert.notEqual(api.getSessionKey(), oldKey);
+  assert.equal(api.isSessionExpired(oldKey), false);
+  assert.equal(api.getMemberSessionKey('7'), api.getSessionKey());
   assert.equal(await api.getAccessToken({ userId: '7', sessionKey: api.getSessionKey() }), 'access1');
   unsubscribe();
   await assert.rejects(api.refresh(), { code: 'INVALID_TOKEN' });

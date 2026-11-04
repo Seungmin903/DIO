@@ -89,10 +89,7 @@ export default function App() {
   const [fontsLoaded, fontError] = useFonts(PRETENDARD_FILES);
   const [previewSession, setPreviewSession] = useState(null);
   const authenticatedSession = previewSession?.mode === 'authenticated' ? previewSession : null;
-  const memberSessionKey = useRef(null);
-  const liveSessionKey = authService.getSessionKey?.();
-  if (liveSessionKey) memberSessionKey.current = liveSessionKey;
-  else if (!authenticatedSession) memberSessionKey.current = null;
+  const memberSessionKey = authenticatedSession ? authService.getMemberSessionKey(authenticatedSession.userId) : null;
   const [booting, setBooting] = useState(true);
   const finishBoot = useCallback(() => { setBooting(false); hideSplash(); }, []);
   // 로그인이 필요한 기능에서 연 로그인 화면 { feature, action }. 지금 화면 위에 겹쳐 띄워, 닫아도 보던 화면이 그대로 남는다.
@@ -133,7 +130,7 @@ export default function App() {
   // 이 기기의 메모리 세션만 지운다. 세션이 끝나면 로그인 화면이 아니라 게스트로 돌아간다.
   // 늦게 온 콜백(비밀번호 재설정 완료 등)이 그사이 바뀐 세션을 지우지 않게, 지금 세션이 지우려던 세션일 때만 끝낸다
   const sessionRef = useRef(previewSession);
-  sessionRef.current = previewSession;
+  useEffect(() => { sessionRef.current = previewSession; }, [previewSession]);
   useEffect(() => authService.subscribeSessionExpired?.(expired => {
     const current = sessionRef.current;
     if (current?.mode !== 'authenticated' || String(current.userId) !== expired.userId || authService.getSessionKey()) return;
@@ -178,14 +175,14 @@ export default function App() {
     <SafeAreaProvider style={s.provider}>
       <StatusBar hidden />
       {__DEV__ && process.env.EXPO_PUBLIC_DIARY_SOURCE === 'mock' ? <ConnectedDiaryLibrary /> : (
-        previewSession ? <LoginGateProvider authenticated={!!authenticatedSession && !loginRequest?.sessionExpired} onLogin={setLoginRequest}><SessionDiaryApp key={authenticatedSession ? `authenticated:${authenticatedSession.userId}${memberSessionKey.current ? `:${memberSessionKey.current}` : ''}` : 'preview'} previewUser={previewSession} loginOverlayOpen={Boolean(loginRequest)}
+        previewSession ? <LoginGateProvider authenticated={!!authenticatedSession && !loginRequest?.sessionExpired} onLogin={setLoginRequest}><SessionDiaryApp key={authenticatedSession ? `authenticated:${memberSessionKey || authenticatedSession.userId}` : 'preview'} previewUser={previewSession} loginOverlayOpen={Boolean(loginRequest)}
           onUpdatePreview={updated => setPreviewSession(current => current?.mode === updated.mode &&
             (current?.mode === 'authenticated' ? String(current.userId) === String(updated.userId) : current?.accountId === updated.accountId) ? updated : current)}
           onEndPreview={endSession} onClearSession={clearSession} onReady={finishBoot} /></LoginGateProvider> : null
       )}
       {loginRequest && <View style={[StyleSheet.absoluteFill, { zIndex: 10 }]}><AuthScreen key={loginRequest.sessionExpired ? 'expired' : 'login'} sessionExpired={loginRequest.sessionExpired === true} resumeSession={loginRequest.restoreSession === true} onContinue={continueFromLogin} onClose={() => {
         setLoginRequest(null);
-        if (loginRequest.sessionExpired && !authService.getSessionKey()) startGuest();
+        if (loginRequest.sessionExpired && sessionRef.current?.mode === 'authenticated' && !authService.getSessionKey()) startGuest();
       }} /></View>}
       <HandwritingStudio />
       {/* 프로필 사진 자르기(동그라미 틀). 로그인 화면 · 프로필 수정 모두 쓰므로 앱 맨 위에 하나 둔다 */}
