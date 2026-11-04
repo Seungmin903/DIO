@@ -98,7 +98,7 @@ class MediaServiceTests {
 
 		byte[] large = new byte[25 * 1024 * 1024 + 1]; System.arraycopy("%PDF-1.7".getBytes(), 0, large, 0, 8);
 		assertThatThrownBy(() -> service.upload(new MockMultipartFile("file", "layout.pdf", "application/pdf", large), null, 7L))
-			.isInstanceOfSatisfying(MediaRequestException.class, e -> { assertThat(e.status().value()).isEqualTo(413); assertThat(e.getMessage()).contains("25MiB"); });
+			.isInstanceOfSatisfying(MediaRequestException.class, e -> { assertThat(e.status().value()).isEqualTo(413); assertThat(e.getMessage()).contains("PDF 원본").contains("25MiB"); });
 
 		// 문서 이름을 붙인 큰 이미지는 판별 후 이미지 한도를 그대로 적용한다.
 		byte[] jpeg = new byte[6 * 1024 * 1024]; jpeg[0]=(byte)0xff; jpeg[1]=(byte)0xd8; jpeg[2]=(byte)0xff;
@@ -261,7 +261,7 @@ class MediaServiceTests {
 		byte[] jpeg = new byte[5 * 1024 * 1024 + 1]; jpeg[0]=(byte)0xff; jpeg[1]=(byte)0xd8; jpeg[2]=(byte)0xff;
 		assertThatThrownBy(()->service.upload(new MockMultipartFile("file","x.jpg","image/jpeg",jpeg),null,7L)).isInstanceOfSatisfying(MediaRequestException.class, e -> { assertThat(e.status().value()).isEqualTo(413); assertThat(e.code()).isEqualTo("MEDIA_FILE_TOO_LARGE"); assertThat(e.getMessage()).contains("5MiB"); });
 		byte[] ttf = new byte[25 * 1024 * 1024 + 1]; ttf[1]=1;
-		assertThatThrownBy(()->service.upload(new MockMultipartFile("file","x.ttf","font/ttf",ttf),null,7L)).isInstanceOfSatisfying(MediaRequestException.class, e -> { assertThat(e.status().value()).isEqualTo(413); assertThat(e.code()).isEqualTo("MEDIA_FILE_TOO_LARGE"); assertThat(e.getMessage()).contains("25MiB"); });
+		assertThatThrownBy(()->service.upload(new MockMultipartFile("file","x.ttf","font/ttf",ttf),null,7L)).isInstanceOfSatisfying(MediaRequestException.class, e -> { assertThat(e.status().value()).isEqualTo(413); assertThat(e.code()).isEqualTo("MEDIA_FILE_TOO_LARGE"); assertThat(e.getMessage()).contains("폰트 파일").contains("25MiB"); });
 		byte[] small = sampleFont(false);
 		assertThatThrownBy(()->service.upload(new MockMultipartFile("file","x.ttf","font/ttf",small),"PHOTO",7L)).isInstanceOf(MediaRequestException.class);
 	}

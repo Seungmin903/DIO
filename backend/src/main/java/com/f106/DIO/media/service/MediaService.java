@@ -41,7 +41,7 @@ public class MediaService {
 
 	public MediaFileResponse upload(MultipartFile upload, String requestedCategory, Long userId) {
 		long declaredSize = upload == null ? 0 : upload.getSize();
-		if (declaredSize > MAX_UPLOAD_SIZE) throw MediaRequestException.uploadTooLarge();
+		if (declaredSize > MAX_UPLOAD_SIZE) throw declaredTooLarge(upload);
 		try (var permit = admission.acquire(declaredSize)) {
 		byte[] content = read(upload);
 		MediaUploadInspector.FileKind kind = MediaUploadInspector.inspect(content);
@@ -103,6 +103,16 @@ public class MediaService {
 			if (content.length > limit) throw tooLarge(font, document, gif);
 			return content;
 		} catch (IOException error) { throw MediaRequestException.invalidFile(); }
+	}
+	private static MediaRequestException declaredTooLarge(MultipartFile upload) {
+		try (var in = upload.getInputStream()) {
+			if (in == null) return MediaRequestException.uploadTooLarge();
+			byte[] header = in.readNBytes(1024);
+			boolean font = MediaUploadInspector.isFontHeader(header);
+			boolean document = MediaUploadInspector.isPdfDocumentHeader(header);
+			boolean gif = MediaUploadInspector.isGifHeader(header);
+			return font || document || gif ? tooLarge(font, document, gif) : MediaRequestException.uploadTooLarge();
+		} catch (IOException error) { return MediaRequestException.uploadTooLarge(); }
 	}
 	private static int maxSize(MediaUploadInspector.FileKind kind) {
 		if (kind.mediaType() == MediaType.FONT) return MAX_FONT_SIZE;
