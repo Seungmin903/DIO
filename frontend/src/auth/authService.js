@@ -9,9 +9,9 @@ import { fetch as authFetch } from 'expo/fetch';
 
 const host = Platform.OS === 'android' ? '10.0.2.2' : (globalThis.location?.hostname || 'localhost');
 const configuredApiBaseUrl = process.env.EXPO_PUBLIC_API_BASE_URL;
-// EAS preview/production profiles inject the public HTTPS URL. Keep the fallback
-// loadable for local and static web builds, where the app otherwise cannot render.
-export const apiConfigurationError = !__DEV__ && Platform.OS !== 'web' && !configuredApiBaseUrl;
+// EAS release builds and static web exports must inject a public HTTPS URL.
+// The fallback is kept only for local development, where Expo sets __DEV__.
+export const apiConfigurationError = !__DEV__ && !configuredApiBaseUrl;
 export const apiBaseUrl = authBaseUrl(configuredApiBaseUrl || `http://${host}:8080/api`);
 export const accessTokenHeader = process.env.EXPO_PUBLIC_AUTH_TOKEN_HEADER || 'Authorization';
 export const authService = createAuthApi({

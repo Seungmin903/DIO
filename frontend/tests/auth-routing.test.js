@@ -41,7 +41,7 @@ test('authService 모듈은 공용 주소·헤더를 선언한 뒤 생성 인자
   assert.deepEqual(storeOptions, dev ? { platform: 'android', legacyKeychain: 'keychain' } : null)
  }
 })
-test('API 주소가 없는 정적 웹 번들도 모듈 로드 단계에서 중단되지 않는다', () => {
+test('API 주소가 없는 정적 웹 릴리스도 모듈 로드 대신 설정 오류 화면으로 분기한다', () => {
  const source = babel.transformSync(readFileSync(new URL('../src/auth/authService.js', import.meta.url), 'utf8'), {
   configFile: false, babelrc: false, plugins: [expo.resolve('@babel/plugin-transform-modules-commonjs')],
  }).code
@@ -50,10 +50,10 @@ test('API 주소가 없는 정적 웹 번들도 모듈 로드 단계에서 중�
   './photoUpload': { buildPhotoBody() {} }, './googleLogin': { signInWithGoogle() {} }, './appleLogin': { signInWithApple() {} },
   './developmentAccessStore': { createDevelopmentAccessStore() {} }, './legacyAccessKeychain': { legacyAccessKeychain: 'keychain' }, 'expo/fetch': { fetch() {} } }
  new Function('require', 'module', 'exports', '__DEV__', 'process', source)(id => mocks[id], mod, mod.exports, false, { env: {} })
- assert.equal(mod.exports.apiConfigurationError, false)
+ assert.equal(mod.exports.apiConfigurationError, true)
  assert.equal(mod.exports.apiBaseUrl, 'http://localhost:8080/api')
 })
-test('API 주소가 없는 네이티브 릴리스는 시작 설정 오류로 분기한다', () => {
+test('API 주소가 없는 네이티브 릴리스도 시작 설정 오류로 분기한다', () => {
  const source = babel.transformSync(readFileSync(new URL('../src/auth/authService.js', import.meta.url), 'utf8'), {
   configFile: false, babelrc: false, plugins: [expo.resolve('@babel/plugin-transform-modules-commonjs')],
  }).code

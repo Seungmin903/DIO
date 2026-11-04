@@ -43,7 +43,7 @@ uv run uvicorn app.main:app --port 8000   # → http://localhost:8000
 ```
 
 - 모바일 앱은 Expo 기반 React Native 앱입니다. 개발 서버만 열려면 `pnpm start`를 실행하고 Expo Go 또는 에뮬레이터에서 연결하세요.
-- 모바일 환경에서는 `/api` 같은 상대 경로를 사용할 수 없습니다. `EXPO_PUBLIC_API_BASE_URL`에 API 전체 주소를 설정하세요. Android 에뮬레이터에서는 `http://10.0.2.2:8080/api`, 실제 기기에서는 개발 PC의 LAN IP를 사용합니다. 정적 웹 export를 배포할 때도 이 값을 실제 HTTPS API 주소로 주입해야 하며, 주소가 없을 때의 `localhost:8080` 대체값은 로컬 웹 개발 전용입니다.
+- 모바일 환경에서는 `/api` 같은 상대 경로를 사용할 수 없습니다. `EXPO_PUBLIC_API_BASE_URL`에 API 전체 주소를 설정하세요. Android 에뮬레이터에서는 `http://10.0.2.2:8080/api`, 실제 기기에서는 개발 PC의 LAN IP를 사용합니다. 정적 웹 export를 배포할 때도 이 값을 실제 HTTPS API 주소로 주입해야 하며, 주소가 없는 릴리스 번들은 서버 설정 안내 화면을 표시합니다. `localhost:8080` 대체값은 로컬 웹 개발 전용입니다.
 - IntelliJ에서는 `backend/` 폴더를 Gradle 프로젝트로 열고, Project SDK를 17로 지정하세요.
 - 백엔드 테스트(`./gradlew test`)는 H2 인메모리 DB를 사용하므로 Docker 없이도 실행됩니다.
 - PostgreSQL 설정·연결 확인은 [로컬 DB 안내](docs/다이어리%20저장/로컬%20PostgreSQL.md)를 참고하세요. Swagger는 http://localhost:8080/swagger-ui.html 에서 확인합니다.
