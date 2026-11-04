@@ -155,6 +155,9 @@ export const setAppLock = async (scope, pin) => {
 
 /** 앱 잠금을 끈다. */
 export const clearAppLock = async scope => {
-  if (appLockSupported) await SecureStore.deleteItemAsync(keyOf(scope))
-  await Promise.all([AsyncStorage.removeItem(legacyKeyOf(scope)), AsyncStorage.removeItem(webAttemptsKeyOf(scope))])
+  const tasks = [AsyncStorage.removeItem(legacyKeyOf(scope)), AsyncStorage.removeItem(webAttemptsKeyOf(scope))]
+  if (appLockSupported) tasks.push(SecureStore.deleteItemAsync(keyOf(scope)))
+  const results = await Promise.allSettled(tasks)
+  const failed = results.find(result => result.status === 'rejected')
+  if (failed) throw failed.reason
 }

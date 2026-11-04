@@ -44,7 +44,14 @@ export default function ProfileScreen({ section = 'profile', compact = false, pr
   // 저장소 손상 등으로 현재 PIN 검증이 불가능할 때도, 회원은 로그아웃 후 재로그인으로 안전하게 잠금을 초기화할 수 있다.
   const recoverAppLock = authenticatedUser && onEndPreview ? () => confirmAction({
     title: '앱 잠금을 초기화할까요?', message: '로그아웃한 뒤 다시 로그인하면 앱 잠금을 새로 설정할 수 있어요.', confirmLabel: '로그아웃',
-    onConfirm: async () => { await clearAppLock(appLockScope(previewUser)).catch(() => {}); onEndPreview(); },
+    onConfirm: async () => {
+      try {
+        await clearAppLock(appLockScope(previewUser));
+        onEndPreview();
+      } catch {
+        notify('앱 잠금', '앱 잠금을 초기화하지 못했어요. 잠시 후 다시 시도해 주세요.');
+      }
+    },
   }) : undefined;
   // 앱 잠금: locked 는 이 계정에 잠금이 있는지(null = 읽는 중). pin 은 열려 있는 비밀번호 화면
   // ({ mode: 'setup' } 새로 켜기 · 바꾸기 2단계 | { mode: 'verify', next: 'off' | 'change' })

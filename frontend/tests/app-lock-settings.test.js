@@ -138,3 +138,14 @@ test('PIN 화면 오류 문구는 boolean·재시도 제한·저장소 오류 �
   assert.equal(pinFailureMessage({ok:false,retryAfterMs:1250}),'입력 횟수가 많아요. 2초 뒤에 다시 시도해 주세요');
   assert.equal(pinFailureMessage({ok:false,retryAfterMs:0,error:'storage'}),'앱 잠금을 확인하지 못했어요. 잠시 후 다시 시도해 주세요');
 });
+
+test('잠금 초기화는 모든 저장소 정리를 시도하고 보안 저장소 삭제 실패를 호출자에게 알린다', async()=>{
+  const asyncStorage=memoryStorage(),secure=secureStore(),scope='user:7';
+  secure.deleteItemAsync=async()=>{throw Error('keystore unavailable')};
+  await asyncStorage.setItem('dio.appLock.v1:user:7','legacy');
+  await asyncStorage.setItem('dio.appLock.v1.attempts:user:7','attempts');
+  const lock=nativeLock(secure,asyncStorage);
+  await assert.rejects(lock.clearAppLock(scope),/keystore unavailable/);
+  assert.equal(await asyncStorage.getItem('dio.appLock.v1:user:7'),null);
+  assert.equal(await asyncStorage.getItem('dio.appLock.v1.attempts:user:7'),null);
+});
