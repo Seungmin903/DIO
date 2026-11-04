@@ -2,6 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import {readFileSync} from 'node:fs'
 import {createRequire} from 'node:module'
+import * as apiBaseUrlPolicy from '../src/shared/apiBaseUrlPolicy.js'
 const require=createRequire(import.meta.url),expo=createRequire(require.resolve('expo/package.json')),babel=expo('@babel/core')
 const code=babel.transformSync(readFileSync(new URL('../App.js',import.meta.url),'utf8'),{configFile:false,babelrc:false,plugins:[[expo.resolve('@babel/plugin-transform-react-jsx'),{runtime:'automatic'}],expo.resolve('@babel/plugin-transform-modules-commonjs')]}).code
 // useState 순서: previewSession · booting · loginRequest
@@ -24,7 +25,7 @@ test('authService 모듈은 공용 주소·헤더를 선언한 뒤 생성 인자
   const mod = { exports: {} }
   const mocks = { './sessionStore': {sessionStore: null}, 'react-native': { Platform: { OS: 'android' } }, './authApi': {
    authBaseUrl: value => `${value}/api/v1`, createAuthApi: options => options,
-  }, './photoUpload': { buildPhotoBody() {} }, './googleLogin': { signInWithGoogle() {} }, './appleLogin': { signInWithApple() {} }, './appleLogin': { signInWithApple() {} }, 'expo/fetch': { fetch() {} },
+  }, './photoUpload': { buildPhotoBody() {} }, './googleLogin': { signInWithGoogle() {} }, './appleLogin': { signInWithApple() {} }, './appleLogin': { signInWithApple() {} }, '../shared/apiBaseUrlPolicy': apiBaseUrlPolicy, 'expo/fetch': { fetch() {} },
    './developmentAccessStore': { createDevelopmentAccessStore: options => { stores++; storeOptions = options; return 'store'; } },
    './legacyAccessKeychain': { legacyAccessKeychain: 'keychain' } }
   let stores = 0, storeOptions = null
@@ -48,7 +49,7 @@ test('API 주소가 없는 정적 웹 릴리스도 모듈 로드 대신 설정 �
  const mod = { exports: {} }
  const mocks = { './sessionStore': {sessionStore: null}, 'react-native': { Platform: { OS: 'web' } }, './authApi': { authBaseUrl: value => value, createAuthApi: options => options },
   './photoUpload': { buildPhotoBody() {} }, './googleLogin': { signInWithGoogle() {} }, './appleLogin': { signInWithApple() {} },
-  './developmentAccessStore': { createDevelopmentAccessStore() {} }, './legacyAccessKeychain': { legacyAccessKeychain: 'keychain' }, 'expo/fetch': { fetch() {} } }
+  './developmentAccessStore': { createDevelopmentAccessStore() {} }, './legacyAccessKeychain': { legacyAccessKeychain: 'keychain' }, '../shared/apiBaseUrlPolicy': apiBaseUrlPolicy, 'expo/fetch': { fetch() {} } }
  new Function('require', 'module', 'exports', '__DEV__', 'process', source)(id => mocks[id], mod, mod.exports, false, { env: {} })
  assert.equal(mod.exports.apiConfigurationError, true)
  assert.equal(mod.exports.apiBaseUrl, 'https://api-configuration.invalid/api')
@@ -60,7 +61,7 @@ test('API 주소가 없는 네이티브 릴리스도 시작 설정 오류로 분
  const mod = { exports: {} }
  const mocks = { './sessionStore': {sessionStore: null}, 'react-native': { Platform: { OS: 'android' } }, './authApi': { authBaseUrl: value => value, createAuthApi: options => options },
   './photoUpload': { buildPhotoBody() {} }, './googleLogin': { signInWithGoogle() {} }, './appleLogin': { signInWithApple() {} },
-  './developmentAccessStore': { createDevelopmentAccessStore() {} }, './legacyAccessKeychain': { legacyAccessKeychain: 'keychain' }, 'expo/fetch': { fetch() {} } }
+  './developmentAccessStore': { createDevelopmentAccessStore() {} }, './legacyAccessKeychain': { legacyAccessKeychain: 'keychain' }, '../shared/apiBaseUrlPolicy': apiBaseUrlPolicy, 'expo/fetch': { fetch() {} } }
  new Function('require', 'module', 'exports', '__DEV__', 'process', source)(id => mocks[id], mod, mod.exports, false, { env: {} })
  assert.equal(mod.exports.apiConfigurationError, true)
 })
@@ -70,7 +71,7 @@ test('평문 또는 잘못된 API 주소가 주입된 릴리스도 설정 오류
  }).code
  const mocks = { './sessionStore': {sessionStore: null}, 'react-native': { Platform: { OS: 'android' } }, './authApi': { authBaseUrl: value => value, createAuthApi: options => options },
   './photoUpload': { buildPhotoBody() {} }, './googleLogin': { signInWithGoogle() {} }, './appleLogin': { signInWithApple() {} },
-  './developmentAccessStore': { createDevelopmentAccessStore() {} }, './legacyAccessKeychain': { legacyAccessKeychain: 'keychain' }, 'expo/fetch': { fetch() {} } }
+  './developmentAccessStore': { createDevelopmentAccessStore() {} }, './legacyAccessKeychain': { legacyAccessKeychain: 'keychain' }, '../shared/apiBaseUrlPolicy': apiBaseUrlPolicy, 'expo/fetch': { fetch() {} } }
  for (const url of ['http://10.0.2.2:8080/api', 'not a URL']) {
   const mod = { exports: {} }
   new Function('require', 'module', 'exports', '__DEV__', 'process', source)(id => mocks[id], mod, mod.exports, false, { env: { EXPO_PUBLIC_API_BASE_URL: url } })
