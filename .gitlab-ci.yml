@@ -411,6 +411,11 @@ secret-scan:
       docker run --rm
       -v "$CI_PROJECT_DIR:/repo:ro"
       node:22-alpine
+      node /repo/infra/scripts/verify-firebase-android-config.test.mjs
+    - >
+      docker run --rm
+      -v "$CI_PROJECT_DIR:/repo:ro"
+      node:22-alpine
       node /repo/infra/scripts/verify-firebase-android-config.mjs /repo/frontend/google-services.json
     - >
       docker run --rm
