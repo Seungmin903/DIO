@@ -10,7 +10,7 @@ import AppLockSetting from '../components/AppLockSetting';
 import EditSetting from '../components/EditSetting';
 import PinScreen from '../components/PinScreen';
 import EditorModal from '../../editor/components/controls/EditorModal';
-import { appLockScope, appLockSupported, checkAppLock, clearAppLock, hasAppLock, setAppLock } from '../../shared/appLock';
+import { appLockScope, appLockSupported, checkAppLockStatus, clearAppLock, hasAppLock, setAppLock } from '../../shared/appLock';
 import { colors } from '../../shared/theme';
 import { notify } from '../../shared/dialogs';
 import DioButton from '../../shared/DioButton';
@@ -81,7 +81,7 @@ export default function ProfileScreen({ section = 'profile', compact = false, pr
     pinScreen = (
       <EditorModal visible animationType="none" statusBarTranslucent navigationBarTranslucent onRequestClose={() => setPin(null)}>
         <PinScreen key={`${pin.mode}:${pin.next || ''}`} mode={pin.mode} user={previewUser} getProfilePhotoSource={getProfilePhotoSource}
-          check={value => checkAppLock(lockScope, value)} onDone={done} onCancel={() => setPin(null)} />
+          check={value => checkAppLockStatus(lockScope, value)} onDone={done} onCancel={() => setPin(null)} />
       </EditorModal>
     );
   }

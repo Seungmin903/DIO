@@ -21,7 +21,7 @@ function setup(user,onUpdatePreview,onClearSession,extra={}){
   if(id==='../../auth/PasswordResetScreen')return PasswordForm;
   if(id==='../../auth/authService')return {authService:service};
   if(id==='../../auth/loginGate')return {useLoginEntry:()=>()=>logins.push('login')};
-  if(id==='../../shared/appLock')return {appLockScope:()=>'scope',hasAppLock:async()=>false,checkAppLock:async()=>true,clearAppLock:async()=>{},setAppLock:async()=>{}};
+  if(id==='../../shared/appLock')return {appLockScope:()=>'scope',appLockSupported:true,hasAppLock:async()=>false,checkAppLockStatus:async()=>({ok:true,retryAfterMs:0}),clearAppLock:async()=>{},setAppLock:async()=>{}};
   if(id==='../components/NotificationSetting')return 'NotificationSetting';
   if(id==='../components/AppLockSetting')return 'AppLockSetting';
   if(id==='../components/AppInformation')return 'AppInformation';
