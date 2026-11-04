@@ -12,7 +12,7 @@ function hasServiceAccountField(value) {
   return false;
 }
 
-export function validateFirebaseAndroidConfig(config, raw) {
+export function validateFirebaseAndroidConfig(config, raw, expectedPackage) {
   if (!config?.project_info?.project_number || !config?.project_info?.project_id
     || !Array.isArray(config.client) || config.client.length === 0) {
     throw new Error('Firebase Android config is missing project or client metadata');
@@ -22,6 +22,10 @@ export function validateFirebaseAndroidConfig(config, raw) {
     if (!client?.client_info?.mobilesdk_app_id || !client?.client_info?.android_client_info?.package_name) {
       throw new Error('Firebase Android config contains an invalid client entry');
     }
+  }
+
+  if (!config.client.some((client) => client.client_info.android_client_info.package_name === expectedPackage)) {
+    throw new Error(`Firebase Android config has no client for ${expectedPackage}`);
   }
 
   if (config.type === 'service_account' || hasServiceAccountField(config) || privateKeyPattern.test(raw)) {
@@ -38,11 +42,20 @@ export function validateFirebaseAndroidConfigFile(path) {
   } catch (error) {
     throw new Error(`Invalid Firebase Android JSON: ${error.message}`);
   }
-  validateFirebaseAndroidConfig(config, raw);
+  return { config, raw };
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
-  const path = process.argv[2];
-  if (!path) throw new Error('Firebase Android config path is required');
-  validateFirebaseAndroidConfigFile(path);
+  const [firebasePath, appConfigPath] = process.argv.slice(2);
+  if (!firebasePath || !appConfigPath) throw new Error('Firebase Android and Expo app config paths are required');
+  const { config, raw } = validateFirebaseAndroidConfigFile(firebasePath);
+  let appConfig;
+  try {
+    appConfig = JSON.parse(readFileSync(appConfigPath, 'utf8'));
+  } catch (error) {
+    throw new Error(`Invalid Expo app JSON: ${error.message}`);
+  }
+  const expectedPackage = appConfig?.expo?.android?.package;
+  if (!expectedPackage) throw new Error('Expo Android package is required');
+  validateFirebaseAndroidConfig(config, raw, expectedPackage);
 }
