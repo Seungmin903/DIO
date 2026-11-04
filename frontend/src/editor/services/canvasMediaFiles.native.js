@@ -7,7 +7,7 @@ import {needsShareJpeg,SHARE_MAX_BYTES} from '../utils/shareImagePlan.js'
 import {toShareJpeg} from '../utils/shareImage'
 import {pdfSourceUri,savePdfSourceBytes} from '../../diary/utils/pdfSourceStore.native.js'
 import {PDF_SHARE_MAX_BYTES} from '../../diary/utils/pdfSource.js'
-import {sharedGifMaxBytes} from '../../diary/services/mediaLibraryApi.js'
+import {sharedGifMaxBytes,sharedImageMaxBytes} from '../../shared/mediaLimits.js'
 // 업로드는 expo/fetch 로 보낸다. expo/fetch 는 RN FormData 의 {uri} 파일 칸을 못 읽고 보내기 전에 실패한다(NETWORK_ERROR 로 보임).
 // 그래서 bytes() 를 같이 붙여 expo/fetch 가 파일 내용을 읽게 하고, uri 는 RN 기본 fetch 용으로 남긴다.
 const filePart=(uri,type,name)=>({uri,type,name,bytes:()=>new File(uri).bytes()})
@@ -27,7 +27,7 @@ export const canvasMediaFiles={
   let blob=converted?stored.displayBlob:stored.blob
   // PDF 쪽처럼 5MB 를 넘는 불투명 PNG 는 올리는 순간에만 JPEG 로 낮춘다(기기 원본은 그대로)
   if(needsShareJpeg(media)){const jpeg=await toShareJpeg(blob.uri,{width:media.width,height:media.height,maxBytes:SHARE_MAX_BYTES});media={...media,extension:'jpg',mimeType:'image/jpeg',fileSize:jpeg.size};blob={uri:jpeg.uri}}
-  const maxBytes=media.extension==='gif'?sharedGifMaxBytes:5*1024*1024
+  const maxBytes=media.extension==='gif'?sharedGifMaxBytes:sharedImageMaxBytes
   if(media.fileSize>maxBytes)throw Object.assign(Error(media.extension==='gif'?'GIF는 15MB 이하만 공유할 수 있어요.':'공유 이미지는 기존 에셋 API 기준으로 5MB 이하만 사용할 수 있어요.'),{status:413,code:'MEDIA_FILE_TOO_LARGE'})
   if(!['jpg','jpeg','png','webp','gif'].includes(media.extension))throw Object.assign(Error('공유 이미지는 JPEG·PNG·WebP·GIF로 선택해 주세요.'),{status:415,code:'UNSUPPORTED_MEDIA_TYPE'})
   const body=new FormData();body.append('file',filePart(blob.uri,media.mimeType,`image.${media.extension}`));body.append('libraryCategory',category);return body

@@ -1,6 +1,7 @@
 import { authenticationErrorMessage } from '../../auth/sessionExpiry.js'
-export const MEDIA_LIBRARY_IMAGE_MAX_BYTES = 5 * 1024 * 1024
-export const sharedGifMaxBytes = 15 * 1024 * 1024
+import { sharedGifMaxBytes, sharedImageMaxBytes } from '../../shared/mediaLimits.js'
+export { sharedGifMaxBytes }
+export const MEDIA_LIBRARY_IMAGE_MAX_BYTES = sharedImageMaxBytes
 export const mediaLibraryMaxBytes = row => row?.mimeType === 'image/gif' ? sharedGifMaxBytes : MEDIA_LIBRARY_IMAGE_MAX_BYTES
 export const canSelectMediaPhoto = row => row?.mediaType === 'IMAGE' && Number.isSafeInteger(row.fileSize) && row.fileSize > 0 && row.fileSize <= mediaLibraryMaxBytes(row)
 import { isUuid } from '../../collaboration/canvasElements.js'

@@ -12,8 +12,9 @@ import com.f106.DIO.media.support.MediaRequestException;
 public final class MediaUploadAdmission {
  private final Semaphore active, waiters;
  private final long waitMillis;
- public MediaUploadAdmission(@Value("${dio.media.upload.max-concurrent:3}") int maxConcurrent,
-   @Value("${dio.media.upload.max-waiters:8}") int maxWaiters,
+ /** Each accepted upload is materialized as a byte array; defaults cap two 15MiB GIF uploads at once. */
+ public MediaUploadAdmission(@Value("${dio.media.upload.max-concurrent:2}") int maxConcurrent,
+	 @Value("${dio.media.upload.max-waiters:4}") int maxWaiters,
    @Value("${dio.media.upload.wait-millis:250}") long waitMillis) {
   if(maxConcurrent<1 || maxWaiters<0 || waitMillis<0 || waitMillis>60000)throw new IllegalArgumentException("Invalid upload admission limits");
   this.active=new Semaphore(maxConcurrent,true); this.waiters=new Semaphore(maxWaiters,true); this.waitMillis=waitMillis;
