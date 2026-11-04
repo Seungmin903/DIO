@@ -38,6 +38,7 @@ import { getSignupDocument, isConsentDocument } from '../shared/legalContent';
 import LegalDocumentScreen from './LegalDocumentScreen';
 import PasswordResetScreen from './PasswordResetScreen';
 import SignupTerms from './SignupTerms';
+import { SESSION_EXPIRED_MESSAGE } from './sessionExpiry.js';
 
 // 사진이 없을 때의 기본 프로필: 메뉴 아래 · 내 공간과 같은 그림
 import DefaultAvatar from '../shared/DefaultAvatar';
@@ -61,6 +62,7 @@ export default function AuthScreen({
   legalDocuments = signupDocuments,
   onClose = null,
   resumeSession = false,
+  sessionExpired = false,
   service = authService,
   photoPicker = pickProfilePhoto,
   verificationService = service.verificationService,
@@ -76,7 +78,7 @@ export default function AuthScreen({
   const [values, setValues] = useState(emptyValues);
   const [touched, setTouched] = useState({});
   const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState('');
+  const [message, setMessage] = useState(sessionExpired ? SESSION_EXPIRED_MESSAGE : '');
   const [info, setInfo] = useState(null);
   const [profile, setProfile] = useState(null);
   const [nickname, setNickname] = useState('');

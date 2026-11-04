@@ -1,4 +1,5 @@
 import { normalizeSharingNickname, sharingNicknameError, normalizeInviteEmail, inviteEmailError, SharingError } from './sharingContracts.js';
+import { AUTHENTICATION_FAILED_MESSAGE } from '../auth/sessionExpiry.js';
 
 // 로그인 세션에 묶인 공유 API. 로컬 다이어리를 서버 다이어리로 가장하지 않는다.
 export function createSharingApi({ user, auth, fetchImpl = globalThis.fetch, buildPhotoBody }) {
@@ -34,7 +35,7 @@ export function createSharingApi({ user, auth, fetchImpl = globalThis.fetch, bui
       const value = response.status === 204 ? null : await response.json().catch(() => null);
       if (!active || generation !== revision) fail('DISPOSED', '화면을 다시 열어 주세요.');
       if (!response.ok) {
-        const error = new SharingError(value?.code || 'HTTP_ERROR', value?.detail || '공유 요청을 처리하지 못했어요. 다시 시도해 주세요.');
+        const error = new SharingError(value?.code || 'HTTP_ERROR', response.status === 401 ? AUTHENTICATION_FAILED_MESSAGE : value?.detail || '공유 요청을 처리하지 못했어요. 다시 시도해 주세요.');
         error.status = response.status;
         const retryAfter = Number(response.headers?.get?.('Retry-After'));
         if (Number.isFinite(retryAfter) && retryAfter > 0) error.retryAfter = retryAfter;

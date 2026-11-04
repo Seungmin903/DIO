@@ -1,3 +1,4 @@
+import { authenticationErrorMessage } from '../../auth/sessionExpiry.js'
 export const MEDIA_LIBRARY_IMAGE_MAX_BYTES = 5 * 1024 * 1024
 export const canSelectMediaPhoto = row => row?.mediaType === 'IMAGE' && Number.isSafeInteger(row.fileSize) && row.fileSize > 0 && row.fileSize <= MEDIA_LIBRARY_IMAGE_MAX_BYTES
 import { isUuid } from '../../collaboration/canvasElements.js'
@@ -36,7 +37,7 @@ export function mergeMediaPages(previous, incoming) {
   return [...rows.values()]
 }
 export function mediaLibraryError(error) {
-  if(error?.status===401)return '다시 로그인한 뒤 보관함을 열어 주세요.'
+  if(error?.status===401)return authenticationErrorMessage(error)
   if(error?.status===403)return '이 파일에 접근할 권한이 없어요.'
   if(error?.status===404)return '파일을 찾을 수 없어요. 목록을 새로고침해 주세요.'
   if(error?.status===413)return '5MB를 넘는 사진은 선택할 수 없어요.'
