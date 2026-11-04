@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { createStroke } from '../src/editor/utils/strokes.js'
 import { createCompletedStrokePlanner } from '../src/editor/utils/completedStrokePlan.js'
-import { isSkiaPencil, pencilRasterBounds, pencilRasterKey, pencilBakesOpacity } from '../src/editor/skia/pencilRaster.js'
+import { isSkiaPencil, pencilRasterBounds, pencilRasterKey, pencilBakesOpacity, rememberRaster, reusableRaster } from '../src/editor/skia/pencilRaster.js'
 import { quantizeScale } from '../src/editor/skia/rasterBudget.js'
 
 const withDistance = points => { let d = 0; return points.map((p, i) => { if (i) d += Math.hypot(p.x - points[i - 1].x, p.y - points[i - 1].y); return { ...p, inkDistance: d } }) }
@@ -68,4 +68,27 @@ test('불투명도를 그림에 굽는 것은 Skia 그림으로 그리는 연필
   assert.equal(isSkiaPencil(old), false)
   assert.equal(pencilBakesOpacity(old), false)
   assert.equal(pencilBakesOpacity({ ...stroke, penKind: 'ball', opacity: 0.5 }), false)
+})
+
+test('이전 그림은 불투명도 · 배율만 바뀔 때만 대신 보여 주고, 모양이 바뀌면 보여 주지 않는다', () => {
+  const stroke = pencil('a'), raster = { uri: 'old' }, remembered = rememberRaster(stroke, raster)
+  assert.equal(reusableRaster(null, stroke), null)
+  assert.equal(reusableRaster(remembered, stroke), raster)
+  assert.equal(reusableRaster(remembered, { ...stroke, opacity: 0.4 }), raster)
+  assert.equal(reusableRaster(remembered, { ...stroke, x: 300, rotation: 20 }), raster, '위치 · 회전은 래퍼가 맡는다')
+  for (const changed of [{ color: '#ff0000' }, { strokeWidth: 9 }, { w: stroke.w * 2 }, { h: stroke.h * 2 }, { points: stroke.points.slice() }, { sampled: true }])
+    assert.equal(reusableRaster(remembered, { ...stroke, ...changed }), null, Object.keys(changed).join())
+})
+
+test('불투명도 슬라이더를 끄는 동안 값마다 굽지 않고, 멈춘 뒤 한 번 구우며 획당 그림은 하나만 남긴다', async () => {
+  const { readFileSync } = await import('node:fs')
+  const { REBAKE_DELAY_MS } = await import('../src/editor/skia/rasterBudget.js')
+  assert.ok(REBAKE_DELAY_MS >= 100 && REBAKE_DELAY_MS <= 300)
+  for (const name of ['PencilSkiaStroke.native.js', 'PencilSkiaStroke.web.js']) {
+    const source = readFileSync(new URL(`../src/editor/components/${name}`, import.meta.url), 'utf8')
+    assert.match(source, /forced\.current \|\| \(!reusableRaster\(last\.current, object\) && withinBudget\(\)\)/, `${name}: 이전 그림이 있으면 바로 굽지 않는다`)
+    assert.match(source, /reusableRaster\(last\.current, object\) \? REBAKE_DELAY_MS : 0/, `${name}: 값이 멈춘 뒤 굽는다`)
+    assert.match(source, /return \(\) => clearTimeout\(timer\)/, `${name}: 값이 또 바뀌면 타이머를 다시 잡는다`)
+    assert.match(source, /const cache = new WeakMap\(\)/, `${name}: 획(점 배열)당 그림 하나 — 열쇠가 바뀌면 덮어쓴다`)
+  }
 })

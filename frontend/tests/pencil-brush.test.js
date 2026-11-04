@@ -224,7 +224,7 @@ test('앱 연필은 그림을 못 만들었을 때만 SVG 를 붙인다: 화면 
   const { readFileSync } = await import('node:fs')
   const source = readFileSync(new URL('../src/editor/components/PencilSkiaStroke.native.js', import.meta.url), 'utf8')
   assert.match(source, /raster === false \|\| \(shown && broken === shown\.uri\) \? fallback : null/)
-  assert.match(source, /const shown = raster === null \? last\.current : raster/, '새 그림을 미루는 동안 이전 그림을 유지한다')
+  assert.match(source, /const shown = raster === null \? reusableRaster\(last\.current, object\) : raster/, '새 그림을 미루는 동안 이전 그림을 유지한다')
   assert.doesNotMatch(source, /showing \? null : fallback/)
 })
 

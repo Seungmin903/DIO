@@ -20,9 +20,14 @@ export function pencilRasterBounds(object) {
   return { left: -pad * sx, top: -pad * sy, width: object.w + 2 * pad * sx, height: object.h + 2 * pad * sy }
 }
 
+// 모양을 정하는 값(불투명도 · 배율 제외). 이 값과 점이 같으면 불투명도 · 배율만 다른 그림이라 잠깐 대신 보여 줘도 된다
+const pencilShapeKey = object => [object.color, object.strokeWidth, object.materialSeed, object.sampled, object.taperBaked,
+  object.grainOrigin?.x, object.grainOrigin?.y, object.inkStartDistance, object.w, object.h, object.baseWidth, object.baseHeight].join('|')
 // 같은 획 · 같은 배율이면 같은 그림이라는 열쇠
-export const pencilRasterKey = (object, scale) => [object.color, object.strokeWidth, object.materialSeed, object.sampled, object.taperBaked,
-  object.grainOrigin?.x, object.grainOrigin?.y, object.inkStartDistance, object.w, object.h, object.baseWidth, object.baseHeight, pencilBakesOpacity(object) ? object.opacity ?? 1 : 1, scale].join('|')
+export const pencilRasterKey = (object, scale) => [pencilShapeKey(object), pencilBakesOpacity(object) ? object.opacity ?? 1 : 1, scale].join('|')
+// 새 그림을 시간 예산 때문에 미루는 동안 대신 보여 줄 이전 그림: 불투명도 · 배율만 다를 때만(색 · 굵기 · 크기 · 점이 바뀌었으면 옛 그림을 보여 주지 않는다)
+export const rememberRaster = (object, raster) => ({ raster, points: object.points, shape: pencilShapeKey(object) })
+export const reusableRaster = (remembered, object) => remembered && remembered.points === object.points && remembered.shape === pencilShapeKey(object) ? remembered.raster : null
 
 // → { image: SkImage(투명 바탕), pxWidth, pxHeight, ...bounds, scale } · 그릴 수 없으면 null
 export function drawPencilRaster(runtime, object, scale) {

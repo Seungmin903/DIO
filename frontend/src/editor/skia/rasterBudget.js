@@ -8,5 +8,7 @@ export const withinBudget = () => {
   return spent < BUDGET_MS
 }
 export const spend = ms => { spent += ms }
+// 불투명도 · 배율만 바뀐 그림은 이전 그림을 보여 두고 값이 멈춘 뒤 한 번만 굽는다(슬라이더를 끄는 동안 값마다 굽지 않게)
+export const REBAKE_DELAY_MS = 150
 // 화면 배율은 1/8 단계로 맞춰 확대 중 매번 새로 그리지 않게 한다
 export const quantizeScale = value => Math.max(0.25, Math.round(value * 8) / 8)
