@@ -52,7 +52,7 @@ hr { border: 0; border-top: 1px solid #D9DCEF; margin: 4mm 0; }
 </tr>
 <tr>
 <td>iOS</td>
-<td>실기기 없음. <strong>코드 기준 점검만</strong> (§2). iPad · iPhone 실기 확인은 QA 필수 항목</td>
+<td>실기기 없음. <strong>코드 기준 점검만</strong> (§3). iPad · iPhone 실기 확인은 QA 필수 항목</td>
 </tr>
 <tr>
 <td>웹</td>
@@ -67,6 +67,7 @@ hr { border: 0; border-top: 1px solid #D9DCEF; margin: 4mm 0; }
 <p><strong>심각도</strong>: <code><span class="sev P0">P0</span></code> 출시 차단(크래시 · 심사 거절 · 데이터 손실 · 막다른 길) / <code><span class="sev P1">P1</span></code> 주요 기능 · 규격 위반 / <code><span class="sev P2">P2</span></code> 개선 필요 / <code><span class="sev P3">P3</span></code> 사소.
 <strong>위치</strong>는 <code>frontend/</code> 기준 경로:줄 이다. 캡처 아래 이름표의 번호는 <code>이미지/</code> 파일 이름과 같다.</p>
 <p><strong>초기 점검 집계</strong>(5번 정정 전): P0 <strong>6</strong> · P1 <strong>37</strong> · P2 <strong>60+</strong> · P3 <strong>30+</strong> (영역 간 중복은 §1에 한 번만 두고 나머지는 참조로 적었다). 08:00 이후 보강: §11 리서치(공식 근거 · 마감일), §12 Android 에뮬레이터(Pixel 7) · iPhone/iPad 뷰포트 캡처, <code>리서치/</code> 원문 4개.</p>
+<p>이 문서의 원본은 이 Markdown 파일이다. <code>빌드.py</code>를 실행하면 같은 폴더의 HTML·PDF가 함께 갱신되며, <code>이미지/</code>와 <code>정적 점검/</code>은 상대 링크로 참조하는 추적 파일이다. 내용 수정 시 세 산출물을 함께 갱신한다.</p>
 <blockquote>
 <p><strong>QA 때 헷갈리지 말 것</strong>: 화면 오른쪽에 떠 있는 회색 톱니(⚙ / "Tools")는 <strong>Expo 개발 클라이언트 버튼</strong>이지 앱 UI가 아니다. 캡처에도 다 찍혀 있다.</p>
 </blockquote>
@@ -190,9 +191,9 @@ hr { border: 0; border-top: 1px solid #D9DCEF; margin: 4mm 0; }
 </tr>
 <tr>
 <td>16</td>
-<td>확인 필요</td>
+<td><span class="sev P0">P0</span></td>
 <td>iOS</td>
-<td>태블릿 세로·가로 지원은 의도된 동작이다. <code>requireFullScreen: true</code> 및 iPad 리사이즈·Split View 영향은 별도 실기기 확인 필요 (§11.1)</td>
+<td>태블릿 세로·가로 지원은 의도된 동작이다. iPad 리사이즈·Split View에서 방향 잠금이 무시될 수 있으므로 production 실기기 확인 전에는 출시를 보류한다 (§11.1)</td>
 <td><code>app.json:13-17</code>, <code>useOrientationLock.js</code></td>
 </tr>
 <tr>
@@ -293,7 +294,7 @@ hr { border: 0; border-top: 1px solid #D9DCEF; margin: 4mm 0; }
 <ul>
 <li><code>allowBackup</code> 미지정(기본 true) → 로컬 다이어리 · 설정이 클라우드 백업에 포함되는데 SecureStore 키는 복원 안 돼 복원 후 오류 가능 → <code>android.allowBackup: false</code> 또는 dataExtractionRules.</li>
 <li><code>adaptiveIcon.monochromeImage</code> 없음(Android 13 테마 아이콘) → 추가.</li>
-<li>Skia 2.14 + 자체 네이티브 모듈 DioHandwriting(<code>handwriting/generator.js:9</code>, CMake)의 <code>.so</code> <strong>16KB 페이지 정렬</strong> 미확인 → NDK r27+ <code>-DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON</code>, <code>llvm-readelf -lW</code>로 LOAD 정렬 0x4000 확인, <code>zipalign -P 16</code>. Play는 2025-11부터 16KB 필수.</li>
+<li>Skia 2.14 + 자체 네이티브 모듈 DioHandwriting(<code>handwriting/generator.js:9</code>, CMake)의 <code>.so</code> <strong>16KB 페이지 정렬</strong> 미확인 → NDK r27+ <code>-DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON</code>, <code>llvm-readelf -lW</code>로 LOAD 정렬 0x4000 확인, <code>zipalign -P 16</code>. Play 업데이트 차단 기준은 <strong>2027-02-01</strong>부터다.</li>
 <li><code>expo.scheme</code> · <code>android.intentFilters</code> 없음 → 초대 링크로 앱이 안 열림(§7 P1과 같음).</li>
 <li><code>EXPO_PUBLIC_API_BASE_URL</code> 미설정 시 <code>http://10.0.2.2:8080/api</code> → Android 9+ cleartext 차단(§7 P0).</li>
 </ul>
