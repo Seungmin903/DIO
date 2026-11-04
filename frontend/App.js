@@ -452,40 +452,53 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
   // 준비가 늦어져도 정해진 시간 안에는 넘어가고, 그사이 다른 다이어리를 고르면 마지막 요청을 연다.
   const opening = useRef(null);
   useEffect(() => () => { opening.current = null; }, []);
-  const enterEditor = useCallback(async (diary) => {
+  const enterEditor = useCallback(async (diary, { canLeave, onOpened } = {}) => {
+    if (canLeave && !canLeave()) return 'blocked';
     const request = {};
     opening.current = request;
     try {
-      if (!await safety.canOpenDiary(diary) || opening.current !== request) return;
+      if (!await safety.canOpenDiary(diary) || opening.current !== request) return false;
       if (member) {
         const opened = await diaryState.store.open(diary.id);
-        if (opening.current !== request) return;
+        if (opening.current !== request) return false;
         diary = opened.diary;
         rememberEditorDoc(editorDocKey(diary), opened.doc, { overwrite: false });
       }
       await Promise.race([prepareEditor(diary), wait(EDITOR_PREPARE_LIMIT_MS)]);
-      if (opening.current !== request) return;
+      if (opening.current !== request) return false;
+      // 권한 확인·페이지 로딩 중 필기나 저장이 시작됐으면 이동을 보류한다.
+      if (canLeave && !canLeave()) { opening.current = null; return 'blocked'; }
       opening.current = null;
       const current = diary.sharedDiaryId ? sharedLibraryRef.current.find(item => item.id === diary.id) : diary;
-      if (!current) return;
+      if (!current) return false;
       setEditorOrientation(null);
       setActive(current);
       setTabIds(current => current.includes(diary.id) ? current : [...current, diary.id]);
       setPage('editor');
+      onOpened?.();
+      return true;
     } catch (error) {
-      if (opening.current !== request) return;
+      if (opening.current !== request) return false;
       opening.current = null;
       notify('다이어리를 열지 못했어요', error.message);
+      return false;
     }
   }, [member, diaryState.store, safety.canOpenDiary]);
   const open = enterEditor;
-  const openSharedDiary = useCallback((id) => {
-    const diary = sharedLibraryRef.current.find(item => item.sharedDiaryId === id);
-    if (!diary) return;
-    if (invitationLeaveGuard.current && !invitationLeaveGuard.current()) return;
-    setSharingRequest(null);
-    enterEditor(diary);
-  }, [enterEditor]);
+  const openSharedDiary = useCallback(async (id) => {
+    const diary = member ? { id, isShared: true } : sharedLibraryRef.current.find(item => item.sharedDiaryId === id);
+    if (!diary) return false;
+    const opened = await enterEditor(diary, {
+      canLeave: () => !invitationLeaveGuard.current || invitationLeaveGuard.current(),
+      onOpened: () => setSharingRequest(null),
+    });
+    if (opened === 'blocked') throw new Error('입력·자르기와 저장을 마친 뒤 다이어리를 열어 주세요.');
+    // 검색·필터는 유지하고 서버 보관함만 갱신한다. 조회 실패는 열기를 되돌리지 않는다.
+    if (member && opened) Promise.resolve().then(() => diaryState.store.reload()).catch(error => {
+      if (error.code !== 'STALE_ACCOUNT') notify('공유 목록을 확인하지 못했어요', error.message);
+    });
+    return opened;
+  }, [member, diaryState.store, enterEditor]);
 
   useEffect(() => {
     const ids = new Set(sharing.library.map(item => item.id));

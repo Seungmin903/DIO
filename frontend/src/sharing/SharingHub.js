@@ -257,7 +257,7 @@ export default function SharingHub({
     setError('');
     try {
       const result = await action();
-      if (alive.current && id === job.current) done(result);
+      if (alive.current && id === job.current) await done(result);
     } catch (error) {
       if (alive.current && id === job.current) {
         showFailure(error);
@@ -518,9 +518,12 @@ export default function SharingHub({
     run(() => editingProfile
       ? runtime.updateProfile(diary.id, { nickname, photoUri: draftPhoto })
       : runtime.accept(invite.inviteId, nickname, { photoUri: draftPhoto, ...(acknowledge === true ? { acknowledgeBlockedMembers: true } : {}) }),
-      result => {
+      async result => {
         dismissInput(); setDiary(result); setScreen('sharing'); store.refresh();
         setToast(result.profileWarning || (editingProfile ? '다이어리 프로필을 변경했어요.' : '다이어리에 참여했어요.'));
+        if (!editingProfile && !result.profileWarning && onOpenDiary && runtime.canOpenDiary !== false) {
+          await onOpenDiary(result.id);
+        }
       });
   };
   const content = (
@@ -768,7 +771,7 @@ export default function SharingHub({
                       <Button
                         label={!isOwner && onOpenDiary && runtime.canOpenDiary !== false ? '다이어리 열기' : '완료'}
                         onPress={() => {
-                          if (!isOwner && onOpenDiary && runtime.canOpenDiary !== false) onOpenDiary(diary.id);
+                          if (!isOwner && onOpenDiary && runtime.canOpenDiary !== false) run(() => onOpenDiary(diary.id));
                           else close();
                         }}
                         disabled={busy}

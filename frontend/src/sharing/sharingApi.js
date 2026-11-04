@@ -203,7 +203,7 @@ export function createSharingApi({ user, auth, fetchImpl = globalThis.fetch, bui
     return getSharing(id);
   }
   return {
-    self, server: true, supportsReadState: false, supportsExportSettings: false, canOpenDiary: false,
+    self, server: true, supportsReadState: false, supportsExportSettings: false, canOpenDiary: true,
     notificationApi: { list: received, async count() {
       let cursor = null, pending = 0;
       do { const result = await received({ cursor }); pending += result.items.filter(row => row.actionable).length; cursor = result.nextCursor; } while (cursor);
@@ -269,10 +269,17 @@ export function createSharingApi({ user, auth, fetchImpl = globalThis.fetch, bui
       const row = invitations.get(id) || await invitation(id);
       const result = await request(`/invites/${encodeURIComponent(row.token)}/accept`, { method: 'POST',
         ...(acknowledgeBlockedMembers === true ? { body: { acknowledgeBlockedMembers: true } } : {}) });
-      await getSharing(result.diaryId);
-      // 가입은 이미 완료됐으므로 프로필 오류를 참여 실패로 표시하지 않는다.
-      try { return await updateProfile(result.diaryId, { nickname, photoUri }); }
-      catch { return { ...diaries.get(result.diaryId), profileWarning: '참여했어요. 프로필은 공유 설정에서 다시 수정해 주세요.' }; }
+      ensureServerId(result.diaryId);
+      // 수락이 끝난 뒤 조회·프로필 저장에 실패해도 수락을 다시 보내지 않는다.
+      try {
+        await getSharing(result.diaryId);
+        return await updateProfile(result.diaryId, { nickname, photoUri });
+      } catch (error) {
+        if (!active || auth.getSessionKey() !== sessionKey || error.code === 'DISPOSED') throw error;
+        return { ...(diaries.get(result.diaryId) || { id: result.diaryId, title: row.diary?.title,
+          members: [{ ...self, role: 'EDITOR' }] }),
+          profileWarning: '참여했어요. 프로필은 공유 설정에서 다시 수정해 주세요.' };
+      }
     },
     async decline(id) { await request(`/me/invites/${encodeURIComponent(id)}/decline`, { method: 'POST' }); },
     async removeMember(id, memberId) { await request(`${path(id)}/members/${encodeURIComponent(memberId)}`, { method: 'DELETE' }); return getSharing(id); },

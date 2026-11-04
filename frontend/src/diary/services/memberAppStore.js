@@ -54,6 +54,15 @@ export function createMemberAppStore({ accountId, api, storage, makeRequestId, s
       active(); emit({ diaries, error: null }); return diary
     })
   }
+  const refreshDiary = async (id, allowUnlisted = false) => {
+    active()
+    const detailRequest = { version: version(id), sequence: (detailRequests.get(id) ?? 0) + 1 }
+    detailRequests.set(id, detailRequest.sequence)
+    const result = await api.get(id); active()
+    const previous = state.diaries.find(d => d.id === id)
+    if (!previous && !allowUnlisted) throw failure('UNKNOWN_MEMBER_DIARY', '이 기기에 저장된 회원 다이어리를 확인해 주세요.')
+    return publish(entry({ ...result, ...(allowUnlisted && result.myRole === 'EDITOR' ? { isShared: true } : {}) }, previous), detailRequest)
+  }
   const createDocument = (result, input) => {
     const diary = entry({ ...result, title: result.title, templateConfig: input.templateConfig, pageSize: input.pageSize,
       paperAppearance: input.paperAppearance, favorite: false, pageCount: result.pageIds.length, ...(input.cover ? { cover: input.cover } : {}) })
@@ -361,16 +370,11 @@ export function createMemberAppStore({ accountId, api, storage, makeRequestId, s
       active(); await storage.removeItem(keys.pending); active(); emit({pending:null,error:null});
     },
     async refresh(id) {
-      active()
-      const detailRequest = { version: version(id), sequence: (detailRequests.get(id) ?? 0) + 1 }
-      detailRequests.set(id, detailRequest.sequence)
-      const result = await api.get(id); active()
-      const previous = state.diaries.find(d => d.id === id)
-      if (!previous) throw failure('UNKNOWN_MEMBER_DIARY', '이 기기에 저장된 회원 다이어리를 확인해 주세요.')
-      return publish(entry(result, previous), detailRequest)
+      return refreshDiary(id)
     },
     async open(id) {
-      const diary = await this.refresh(id)
+      // 목록 밖 수락 ID도 서버 권한을 재검증하되, 일반 refresh 계약은 유지한다.
+      const diary = await refreshDiary(id, true)
       let doc = await readStoredDocument(storage, keys.doc(id));active()
       if (!doc && typeof api.loadPages === 'function') {
         const pages = await api.loadPages(id);active()

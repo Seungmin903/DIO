@@ -138,6 +138,58 @@ const find = (tree, label) =>
   nodes(tree).find((n) => n.props.accessibilityLabel === label || n.props.label === label);
 const tick = () => new Promise((r) => setImmediate(r));
 
+test('수락 후 저장 중 이탈 차단 안내는 공유 창의 접근 가능한 경고로 보이고 재시도할 수 있다', async () => {
+  let blocked = true, accepts = 0, opens = 0;
+  const diary = { id: 'd', members: [{ id: 'self', nickname: '소연', role: 'EDITOR' }] };
+  const ui = setup({ server: true, canOpenDiary: true, accept: async () => { accepts++; return diary; } },
+    undefined, { mode: 'invitations' }, { onOpenDiary: async () => {
+      opens++; if (blocked) throw new Error('입력·자르기와 저장을 마친 뒤 다이어리를 열어 주세요.');
+    } });
+  await nickname(ui); find(ui.render(), '수락하고 참여하기').props.onPress(); await tick();
+  const alert = nodes(ui.render()).find(n => n.props.accessibilityRole === 'alert' && n.props.children === '입력·자르기와 저장을 마친 뒤 다이어리를 열어 주세요.');
+  assert.ok(alert); assert.equal(accepts, 1); assert.equal(opens, 1);
+  blocked = false; find(ui.render(), '다이어리 열기').props.onPress(); await tick();
+  assert.equal(accepts, 1); assert.equal(opens, 2);
+  assert.ok(!nodes(ui.render()).some(n => n.props.accessibilityRole === 'alert' && n.props.children === alert.props.children));
+  ui.unmount();
+});
+
+test('수락 후 서버 다이어리를 바로 열고 열기 실패는 수락 재전송 없이 재시도한다', async () => {
+  let accepts = 0, opens = 0, release;
+  const diary = { id: 'd', members: [{ id: 'self', nickname: '소연', role: 'EDITOR' }] };
+  const ui = setup({ server: true, canOpenDiary: true, accept: async () => { accepts++; return diary; } },
+    undefined, { mode: 'invitations' }, { onOpenDiary: async id => {
+      assert.equal(id, 'd');
+      if (++opens === 1) throw new Error('페이지를 불러오지 못했어요.');
+      await new Promise(resolve => { release = resolve; });
+    } });
+  await nickname(ui);
+  find(ui.render(), '수락하고 참여하기').props.onPress(); await tick();
+  assert.equal(accepts, 1); assert.equal(opens, 1);
+  assert.equal(find(ui.render(), '수락하고 참여하기'), undefined);
+  assert.ok(nodes(ui.render()).some(n => n.props.children === '페이지를 불러오지 못했어요.'));
+  const retry = find(ui.render(), '다이어리 열기');
+  retry.props.onPress(); retry.props.onPress(); await tick();
+  assert.equal(accepts, 1); assert.equal(opens, 2);
+  assert.equal(find(ui.render(), '다이어리 열기').props.disabled, true);
+  release(); await tick();
+  assert.equal(find(ui.render(), '다이어리 열기').props.disabled, false);
+  assert.ok(!nodes(ui.render()).some(n => n.props.children === '페이지를 불러오지 못했어요.'));
+  ui.unmount();
+});
+
+test('프로필 후처리 경고는 수락 완료 화면에 남기고 열기 버튼으로 재시도한다', async () => {
+  let opens = 0;
+  const diary = { id: 'd', profileWarning: '참여했어요. 프로필을 다시 확인해 주세요.', members: [{ id: 'self', role: 'EDITOR' }] };
+  const ui = setup({ server: true, canOpenDiary: true, accept: async () => diary },
+    undefined, { mode: 'invitations' }, { onOpenDiary: async () => { opens++; } });
+  await nickname(ui); find(ui.render(), '수락하고 참여하기').props.onPress(); await tick();
+  assert.equal(opens, 0);
+  assert.ok(nodes(ui.render()).some(n => n.props.children === diary.profileWarning));
+  find(ui.render(), '다이어리 열기').props.onPress(); await tick();
+  assert.equal(opens, 1); ui.unmount();
+});
+
 test('개인 사본은 취소 시 생성하지 않고 이름을 유지해 실패 재시도하며 연타를 차단한다', async () => {
   const diary = { id: 'd', title: '공유 기록', members: [{ id: 'self', nickname: '소연', role: 'EDITOR' }] };
   let count = 0, resolve;
