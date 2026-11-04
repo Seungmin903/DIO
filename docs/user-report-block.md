@@ -164,3 +164,10 @@ V30은 이미 적용됐을 수 있으므로 변경하지 않는다. V31은 기�
 - 같은 clientRequestId와 동일 내용의 재전송은 새 접수 건수에 포함하지 않고 기존 결과(200)를 반환한다. 내용이 다르면 기존 409 계약을 유지한다.
 - 실패·위조 사진·재전송 반복으로 이미지 처리만 유발하는 요청도 제한한다. 인증·공유 멤버 확인 후 이미지 처리 전에 신고자당 인스턴스별 1시간 30회·24시간 100회를 허용한다. 처리 실패도 횟수에 포함한다. 이 보조 제한은 메모리의 제한된 LRU 캐시이며 재시작·오래된 항목 퇴출 시 초기화될 수 있다. 새 접수의 DB 한도는 별도로 유지한다. 다른 사용자에게 전역 429를 주지 않는다.
 - 초과 시 HTTP 429, Cache-Control: no-store, Retry-After(다시 요청할 수 있는 초 단위 대기 시간)를 반환한다. 새 접수 한도는 REPORT_RATE_LIMITED, 처리 요청 한도는 REPORT_ATTEMPT_RATE_LIMITED다. 브라우저에도 기존 CORS로 Retry-After를 노출한다.
+
+## 신고 업로드 프록시 한도와 인증 회귀 검증
+
+- dev·prod Nginx는 정확히 `/api/v1/reports`인 경로에만 `client_max_body_size 16m`을 적용한다. 사진 3장×5MiB와 multipart 메타데이터를 허용하며, 각 사진의 5MiB 제한은 기존 서버 검증을 유지한다.
+- 기존 기본 6MiB와 `/api/v1/media`의 26MiB 한도, 프록시 인증·전달 헤더는 변경하지 않는다. 16MiB를 넘는 요청은 Nginx에서 413으로 거절될 수 있으며 그 응답을 서버의 REPORT_EVIDENCE_TOO_LARGE JSON이라고 보장하지 않는다.
+- 적용하려면 백엔드 배포와 별개로 dev·prod 프록시도 갱신해야 한다. 환경변수 추가는 없다.
+- 신고·차단 GET/PUT/DELETE/POST는 전용 보안 체인이 최초 매칭되는지 검사하며, 토큰 누락·잘못된 토큰 모두 401 / INVALID_TOKEN, Cache-Control: no-store, WWW-Authenticate: Bearer를 반환하는지 검증한다.

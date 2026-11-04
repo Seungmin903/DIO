@@ -28,9 +28,23 @@ class ModerationTests extends SharingTestSupport {
  Pair pair(){var a=actor();var b=actor();var diary=diary(a);links.accept(links.create(diary,a.id()).token(),b.id());return new Pair(a,b,diary);}
  ReportRequest request(Pair p){return new ReportRequest(p.b.id(),p.diary,ReportReason.HARASSMENT,"설명",UUID.randomUUID());}
  @Test void newEndpointsRequireAuthentication()throws Exception{
-  mvc.perform(get("/api/v1/me/blocks")).andExpect(status().isUnauthorized()).andExpect(header().string("Cache-Control","no-store"));
-  mvc.perform(put("/api/v1/me/blocks/1").contentType(MediaType.APPLICATION_JSON).content("{}" )).andExpect(status().isUnauthorized());
-  mvc.perform(multipart("/api/v1/reports")).andExpect(status().isUnauthorized());
+  for(boolean invalidToken:List.of(false,true)){
+   var requests=List.of(get("/api/v1/me/blocks"),put("/api/v1/me/blocks/1").contentType(MediaType.APPLICATION_JSON).content("{}"),delete("/api/v1/me/blocks/1"),multipart("/api/v1/reports"));
+   for(var request:requests){
+    if(invalidToken)request.header("Authorization","Bearer invalid.jwt.token");
+    mvc.perform(request).andExpect(status().isUnauthorized()).andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+      .andExpect(header().string("Cache-Control","no-store")).andExpect(header().string("WWW-Authenticate","Bearer"))
+      .andExpect(jsonPath("code").value("INVALID_TOKEN")).andExpect(jsonPath("status").value(401));
+   }
+  }
+ }
+ @Autowired List<org.springframework.security.web.SecurityFilterChain> securityChains;
+ @Autowired @org.springframework.beans.factory.annotation.Qualifier("moderationSecurity") org.springframework.security.web.SecurityFilterChain moderationChain;
+ @Test void moderationRoutesMatchTheirOwnSecurityChainBeforeAnyOtherChain(){
+  for(String[] route:new String[][]{{"GET","/api/v1/me/blocks"},{"PUT","/api/v1/me/blocks/1"},{"DELETE","/api/v1/me/blocks/1"},{"POST","/api/v1/reports"}}){
+   var request=new org.springframework.mock.web.MockHttpServletRequest(route[0],route[1]);request.setServletPath(route[1]);
+   assertThat(securityChains.stream().filter(chain->chain.matches(request)).findFirst()).hasValue(moderationChain);
+  }
  }
  @Test void blockingPreservesMembershipAndOnlyExposesMyDirection()throws Exception{
   var p=pair();blocks.block(p.a.id(),p.b.id(),p.diary);blocks.block(p.a.id(),p.b.id(),p.diary);
