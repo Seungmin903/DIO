@@ -1,20 +1,25 @@
-import { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import AppIcon from '../../shared/AppIcon';
 import { colors, radius } from '../../shared/theme';
 import Header from '../components/Header';
+import { SettingSwitch } from '../components/SettingRow';
+import TermsConsentSection from '../components/TermsConsentSection';
 import {
   DEFAULT_NOTIFICATION_PREFERENCES,
   loadNotificationPreferences,
   saveNotificationPreferences,
 } from '../services/notificationPreferences';
 
-export default function NotificationSettingsScreen({ compact = false, onClose, userId }) {
+export default function NotificationSettingsScreen({ compact = false, onClose, userId, accountService }) {
   const [settings, setSettings] = useState(DEFAULT_NOTIFICATION_PREFERENCES);
   const [loaded, setLoaded] = useState(false);
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState('');
+  const [termsReady, setTermsReady] = useState(false);
+  const termsSave = useRef(null);
+  const savePending = useRef(false);
 
   useEffect(() => {
     let active = true;
@@ -35,15 +40,29 @@ export default function NotificationSettingsScreen({ compact = false, onClose, u
     setStatus('');
   };
   const save = async () => {
-    if (saving) return;
+    if (savePending.current || !loaded) return;
+    savePending.current = true;
     setSaving(true);
     setStatus('');
     try {
-      await saveNotificationPreferences(AsyncStorage, userId, settings);
-      setStatus('알림 설정을 이 기기에 저장했어요.');
-    } catch {
-      setStatus('알림 설정을 저장하지 못했어요. 다시 시도해 주세요.');
+      const saveTerms = termsReady ? termsSave.current : null;
+      const [local, terms] = await Promise.allSettled([
+        saveNotificationPreferences(AsyncStorage, userId, settings),
+        saveTerms ? Promise.resolve().then(() => saveTerms()) : Promise.resolve(),
+      ]);
+      if (local.status === 'rejected') {
+        setStatus(saveTerms && terms.status === 'fulfilled'
+          ? '선택 동의는 저장했지만 서비스 알림을 저장하지 못했어요. 다시 시도해 주세요.'
+          : '서비스 알림을 저장하지 못했어요. 다시 시도해 주세요.');
+      } else if (!saveTerms) {
+        setStatus('서비스 알림을 저장했어요. 선택 동의는 상태 조회 후 저장해 주세요.');
+      } else if (terms.status === 'rejected') {
+        setStatus('서비스 알림은 저장했어요. 선택 동의는 오류를 확인하고 다시 저장해 주세요.');
+      } else {
+        setStatus('알림 설정을 저장했어요.');
+      }
     } finally {
+      savePending.current = false;
       setSaving(false);
     }
   };
@@ -70,19 +89,12 @@ export default function NotificationSettingsScreen({ compact = false, onClose, u
           label="서비스 알림 받기"
           description="계정, 보안, 공유 다이어리 관련 안내를 알려드려요."
           value={settings.service}
-          disabled={!loaded}
+          disabled={!loaded || saving}
           onChange={(value) => set('service', value)}
         />
         <View style={styles.divider} />
         <Text style={styles.section}>마케팅 정보 수신</Text>
-        <SettingRow
-          label="마케팅 정보 받기"
-          description="새 기능과 이벤트 소식을 알려드려요."
-          value={settings.marketing}
-          disabled={!loaded}
-          onChange={(value) => set('marketing', value)}
-        />
-        <Text style={styles.note}>현재 설정은 이 기기에만 저장돼요.</Text>
+        <TermsConsentSection auth={accountService} userId={userId} saveRef={termsSave} onReadyChange={setTermsReady} />
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="알림 설정 저장"
@@ -107,15 +119,7 @@ function SettingRow({ label, description, value, disabled, onChange }) {
         <Text style={styles.rowLabel}>{label}</Text>
         <Text style={styles.description}>{description}</Text>
       </View>
-      <Switch
-        accessibilityLabel={label}
-        accessibilityState={{ checked: value, disabled }}
-        value={value}
-        disabled={disabled}
-        onValueChange={onChange}
-        trackColor={{ false: colors.surfaceMuted, true: colors.primary }}
-        thumbColor={colors.surface}
-      />
+      <SettingSwitch label={label} on={value} disabled={disabled} onToggle={onChange} />
     </View>
   );
 }
@@ -133,7 +137,6 @@ const styles = StyleSheet.create({
   rowLabel: { color: colors.text, fontSize: 15, fontWeight: '700' },
   description: { color: colors.textMuted, fontSize: 13, lineHeight: 20 },
   divider: { height: 1, marginVertical: 20, backgroundColor: colors.border },
-  note: { color: colors.textMuted, fontSize: 13, lineHeight: 20, marginTop: 12 },
   save: { minHeight: 52, marginTop: 24, borderRadius: radius.md, backgroundColor: colors.primaryStrong, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
   saveText: { color: colors.surface, fontSize: 15, fontWeight: '700' },
   status: { color: colors.primaryStrong, fontSize: 14, lineHeight: 21, marginTop: 16 },
