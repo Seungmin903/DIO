@@ -42,7 +42,7 @@ export const canvasMediaFiles={
  async save(id,bytes){
   const format=detectMediaType(bytes.slice(0,64))
   const source=new File(Paths.cache,`dio-shared-${id}.${format.extension}`)
-   source.create({overwrite:true});source.write(bytes)
+   source.create({overwrite:true});await source.write(bytes)
   const input={source,size:bytes.length,header:bytes.slice(0,64)}
   try{
    const dimensions=await repository.decode(input,format);checkDimensions(dimensions,format)
