@@ -257,10 +257,16 @@ export default function AuthScreen({
         back();
         return true;
       }
+      if (onClose) {
+        // 오버레이가 열려 있는 동안 뒤쪽 화면은 뒤로가기를 받지 않는다.
+        // 로그인 처리 중에는 '나중에' 버튼과 같이 닫지 않고 이벤트만 소비한다.
+        if (!running.current) { Keyboard.dismiss(); onClose(); }
+        return true;
+      }
       return false;
     });
     return () => listener.remove();
-  }, [route, profile, info, needsLoginAccess, activeDocument]);
+  }, [route, profile, info, needsLoginAccess, activeDocument, onClose]);
   const run = async (action, onSuccess, onFailure) => {
     if (running.current) return;
     running.current = true;
