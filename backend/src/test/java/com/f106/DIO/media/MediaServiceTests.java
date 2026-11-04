@@ -28,7 +28,7 @@ class MediaServiceTests {
 	private final MediaFileTransactionService transactions = mock(MediaFileTransactionService.class);
 	private final MediaStorageDeletionQueueService deletionQueue = mock(MediaStorageDeletionQueueService.class);
 	private final GuardedMediaOperations guarded = mock(GuardedMediaOperations.class);
-	private final MediaService service = new MediaService(storage, transactions, deletionQueue, guarded, new MediaUploadAdmission(3,8,250));
+	private final MediaService service = new MediaService(storage, transactions, deletionQueue, guarded, new MediaUploadAdmission(6,8,250));
 
 	@Test
 	void gifIsStoredAsImageAndKeepsGifMimeType() {
@@ -189,6 +189,37 @@ class MediaServiceTests {
 	}
 
 	@Test
+	void rejectsADeclarationBeyondTheLargestSupportedUploadBeforeAdmission() {
+		var file = mock(org.springframework.web.multipart.MultipartFile.class);
+		when(file.getSize()).thenReturn(25L * 1024 * 1024 + 1);
+
+		assertThatThrownBy(() -> service.upload(file, null, 7L))
+			.isInstanceOfSatisfying(MediaRequestException.class, error -> {
+				assertThat(error.status().value()).isEqualTo(413);
+				assertThat(error.getMessage()).contains("25MiB");
+			});
+		verify(file).getSize();
+	}
+
+	@Test
+	void gifUsesTheSeparateFifteenMegabyteLimit() {
+		byte[] accepted = new byte[15 * 1024 * 1024];
+		System.arraycopy("GIF89a".getBytes(), 0, accepted, 0, 6);
+		stubPersist();
+
+		var response = service.upload(new MockMultipartFile("file", "animated.gif", "image/gif", accepted), null, 7L);
+
+		assertThat(response.fileSize()).isEqualTo(15L * 1024 * 1024);
+		byte[] rejected = new byte[15 * 1024 * 1024 + 1];
+		System.arraycopy("GIF89a".getBytes(), 0, rejected, 0, 6);
+		assertThatThrownBy(() -> service.upload(new MockMultipartFile("file", "large.gif", "image/gif", rejected), null, 7L))
+			.isInstanceOfSatisfying(MediaRequestException.class, error -> {
+				assertThat(error.status().value()).isEqualTo(413);
+				assertThat(error.getMessage()).contains("15MiB");
+			});
+	}
+
+	@Test
 	void doesNotImmediatelyDeleteStorageWhenPersistenceFails() {
 		when(deletionQueue.reserveUploadCleanup(any(), any())).thenAnswer(invocation ->
 			new MediaStorageDeletionTask(invocation.getArgument(0), invocation.getArgument(1)));
@@ -230,7 +261,7 @@ class MediaServiceTests {
 		byte[] jpeg = new byte[5 * 1024 * 1024 + 1]; jpeg[0]=(byte)0xff; jpeg[1]=(byte)0xd8; jpeg[2]=(byte)0xff;
 		assertThatThrownBy(()->service.upload(new MockMultipartFile("file","x.jpg","image/jpeg",jpeg),null,7L)).isInstanceOfSatisfying(MediaRequestException.class, e -> { assertThat(e.status().value()).isEqualTo(413); assertThat(e.code()).isEqualTo("MEDIA_FILE_TOO_LARGE"); assertThat(e.getMessage()).contains("5MiB"); });
 		byte[] ttf = new byte[25 * 1024 * 1024 + 1]; ttf[1]=1;
-		assertThatThrownBy(()->service.upload(new MockMultipartFile("file","x.ttf","font/ttf",ttf),null,7L)).isInstanceOfSatisfying(MediaRequestException.class, e -> { assertThat(e.status().value()).isEqualTo(413); assertThat(e.code()).isEqualTo("MEDIA_FILE_TOO_LARGE"); assertThat(e.getMessage()).contains("25MiB"); });
+		assertThatThrownBy(()->service.upload(new MockMultipartFile("file","x.ttf","font/ttf",ttf),null,7L)).isInstanceOfSatisfying(MediaRequestException.class, e -> { assertThat(e.status().value()).isEqualTo(413); assertThat(e.code()).isEqualTo("MEDIA_FILE_TOO_LARGE"); assertThat(e.getMessage()).contains("폰트 파일").contains("25MiB"); });
 		byte[] small = sampleFont(false);
 		assertThatThrownBy(()->service.upload(new MockMultipartFile("file","x.ttf","font/ttf",small),"PHOTO",7L)).isInstanceOf(MediaRequestException.class);
 	}

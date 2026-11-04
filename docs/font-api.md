@@ -4,7 +4,7 @@
 
 ## 내 폰트 저장과 조회
 
-- `POST /api/v1/media`: multipart `file`로 완성된 TTF/OTF를 업로드한다. `libraryCategory=FONT`는 선택 사항이며 생략하면 서버가 형식에 따라 분류한다. 폰트는 최대 25 MiB, 이미지·오디오는 최대 5 MiB다. 저장 성공 시 201과 `mediaFileId`를 반환한다.
+- `POST /api/v1/media`: multipart `file`로 완성된 TTF/OTF를 업로드한다. `libraryCategory=FONT`는 선택 사항이며 생략하면 서버가 형식에 따라 분류한다. 폰트는 최대 25 MiB, GIF는 최대 15 MiB, 그 밖의 이미지·오디오는 최대 5 MiB다. 저장 성공 시 201과 `mediaFileId`를 반환한다.
 - `GET /api/v1/handwriting-fonts`: 소유한 `FONT`, `READY`, 미삭제 파일 목록을 반환한다. 각 항목은 `mediaFileId`, `name`(없으면 null), `mimeType`, `fileSize`, `enabled`를 포함한다.
 - `GET /api/v1/media/{mediaFileId}/file`: 소유 폰트를 내려받는다. 일반 미디어 API의 기존 공유 이미지 접근 정책도 유지된다.
 
