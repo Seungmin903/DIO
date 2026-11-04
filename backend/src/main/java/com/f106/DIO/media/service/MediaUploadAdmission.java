@@ -3,6 +3,8 @@ package com.f106.DIO.media.service;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -13,7 +15,9 @@ import com.f106.DIO.media.support.MediaRequestException;
 public final class MediaUploadAdmission {
  private static final long UNIT_BYTES=5L*1024*1024;
  private static final int MIN_IN_FLIGHT_UNITS=5, DEFAULT_IN_FLIGHT_UNITS=6;
+ private static final Logger log=LoggerFactory.getLogger(MediaUploadAdmission.class);
  private final Semaphore active, waiters;
+ private final int maxInFlightUnits;
  private final long waitMillis;
  /** Byte-weighted admission keeps up to three 5MiB uploads or two 15MiB GIFs in flight (30MiB maximum). */
  @Autowired
@@ -25,11 +29,15 @@ public final class MediaUploadAdmission {
  }
  public MediaUploadAdmission(int maxInFlightUnits,int maxWaiters,long waitMillis) {
   if(maxInFlightUnits<MIN_IN_FLIGHT_UNITS || maxWaiters<0 || waitMillis<0 || waitMillis>60000)throw new IllegalArgumentException("Invalid upload admission limits");
-  this.active=new Semaphore(maxInFlightUnits,true); this.waiters=new Semaphore(maxWaiters,true); this.waitMillis=waitMillis;
+  this.maxInFlightUnits=maxInFlightUnits;this.active=new Semaphore(maxInFlightUnits,true); this.waiters=new Semaphore(maxWaiters,true); this.waitMillis=waitMillis;
  }
- private static int resolveUnits(String configuredUnits,String legacyMaxConcurrent) {
+ static int resolveUnits(String configuredUnits,String legacyMaxConcurrent) {
   if(configuredUnits!=null&&!configuredUnits.isBlank())return parse(configuredUnits,"max-in-flight-units");
-  if(legacyMaxConcurrent!=null&&!legacyMaxConcurrent.isBlank())return Math.multiplyExact(parse(legacyMaxConcurrent,"max-concurrent"),2);
+  if(legacyMaxConcurrent!=null&&!legacyMaxConcurrent.isBlank()) {
+   int legacy=parse(legacyMaxConcurrent,"max-concurrent");long converted=(long)legacy*2;
+   if(converted<MIN_IN_FLIGHT_UNITS){log.warn("Deprecated dio.media.upload.max-concurrent={} is raised to {} units so 25MiB uploads remain available",legacy,MIN_IN_FLIGHT_UNITS);return MIN_IN_FLIGHT_UNITS;}
+   return converted>Integer.MAX_VALUE?Integer.MAX_VALUE:(int)converted;
+  }
   return DEFAULT_IN_FLIGHT_UNITS;
  }
  private static int parse(String value,String key) {
@@ -38,6 +46,7 @@ public final class MediaUploadAdmission {
  public Permit acquire() { return acquire(0); }
  public Permit acquire(long bytes) {
   int permits=permitsFor(bytes);
+  if(permits>maxInFlightUnits)throw MediaRequestException.tooLarge();
   boolean queued=false;
   try {
    if(active.tryAcquire(permits,0,TimeUnit.MILLISECONDS)) { return new Permit(active,permits); }

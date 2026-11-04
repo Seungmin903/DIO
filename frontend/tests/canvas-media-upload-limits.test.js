@@ -18,7 +18,8 @@ function compile(path, imports, extra = {}) {
   return module.exports
 }
 
-const limits = { sharedImageMaxBytes: 5 * MB, sharedGifMaxBytes: 15 * MB }
+const limits = { sharedImageMaxBytes: 5 * MB, sharedGifMaxBytes: 15 * MB,
+  mediaShareSizeMessage: extension => extension === 'gif' ? 'GIF limit' : 'image limit' }
 
 function uploader(platform) {
   let stored = { media: { extension: 'png', mimeType: 'image/png', fileSize: 1 }, blob: { uri: 'file:///image.png' } }

@@ -29,4 +29,15 @@ class MediaUploadAdmissionTests {
  @Test void rejectsAConfigurationThatCannotAdmitTheLargestSupportedUpload() {
   assertThatThrownBy(()->new MediaUploadAdmission(4,0,0)).isInstanceOf(IllegalArgumentException.class);
  }
+ @Test void resolvesNewAndLegacySettingsWithoutMakingSmallLegacyValuesUnavailable() {
+  assertThat(MediaUploadAdmission.resolveUnits("7","3")).isEqualTo(7);
+  assertThat(MediaUploadAdmission.resolveUnits(" ","1")).isEqualTo(5);
+  assertThat(MediaUploadAdmission.resolveUnits("","2")).isEqualTo(5);
+  assertThat(MediaUploadAdmission.resolveUnits("","")).isEqualTo(6);
+  assertThatThrownBy(()->MediaUploadAdmission.resolveUnits("abc","")).isInstanceOf(IllegalArgumentException.class);
+ }
+ @Test void rejectsRequestsThatCannotFitTheConfiguredByteBudgetAsTooLarge() {
+  var gate=new MediaUploadAdmission(5,0,0);
+  assertThatThrownBy(()->gate.acquire(26L*1024*1024)).isInstanceOfSatisfying(MediaRequestException.class,error->assertThat(error.status().value()).isEqualTo(413));
+ }
 }

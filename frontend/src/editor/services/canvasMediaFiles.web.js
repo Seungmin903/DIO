@@ -6,7 +6,7 @@ import {needsShareJpeg,SHARE_MAX_BYTES} from '../utils/shareImagePlan.js'
 import {toShareJpeg} from '../utils/shareImage'
 import {readPdfSource,savePdfSourceBytes} from '../../diary/utils/pdfSourceStore.web.js'
 import {PDF_SHARE_MAX_BYTES} from '../../diary/utils/pdfSource.js'
-import {sharedGifMaxBytes,sharedImageMaxBytes} from '../../shared/mediaLimits.js'
+import {mediaShareSizeMessage,sharedGifMaxBytes,sharedImageMaxBytes} from '../../shared/mediaLimits.js'
 export const canvasMediaFiles={
  registerRetry:registerRemoteMediaRetry,
  fail(id,error){mediaRegistry.fail(id,error)},
@@ -24,7 +24,7 @@ export const canvasMediaFiles={
   // PDF 쪽처럼 5MB 를 넘는 불투명 PNG 는 올리는 순간에만 JPEG 로 낮춘다(기기 원본은 그대로)
   if(needsShareJpeg(media)){const jpeg=await toShareJpeg(blob,{width:media.width,height:media.height,maxBytes:SHARE_MAX_BYTES});media={...media,extension:'jpg',mimeType:'image/jpeg',fileSize:jpeg.size};blob=jpeg.blob}
   const maxBytes=media.extension==='gif'?sharedGifMaxBytes:sharedImageMaxBytes
-  if(media.fileSize>maxBytes)throw Object.assign(Error(media.extension==='gif'?'GIF는 15MB 이하만 공유할 수 있어요.':'공유 이미지는 기존 에셋 API 기준으로 5MB 이하만 사용할 수 있어요.'),{status:413,code:'MEDIA_FILE_TOO_LARGE'})
+  if(media.fileSize>maxBytes)throw Object.assign(Error(mediaShareSizeMessage(media.extension)),{status:413,code:'MEDIA_FILE_TOO_LARGE'})
   if(!['jpg','jpeg','png','webp','gif'].includes(media.extension))throw Object.assign(Error('공유 이미지는 JPEG·PNG·WebP·GIF로 선택해 주세요.'),{status:415,code:'UNSUPPORTED_MEDIA_TYPE'})
   const body=new FormData();body.append('file',blob,`image.${media.extension}`);body.append('libraryCategory',category);return body
  },

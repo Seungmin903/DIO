@@ -1,10 +1,10 @@
 import { authenticationErrorMessage } from '../../auth/sessionExpiry.js'
-import { sharedGifMaxBytes, sharedImageMaxBytes } from '../../shared/mediaLimits.js'
+import { mediaLibrarySizeMessage, sharedGifMaxBytes, sharedImageMaxBytes } from '../../shared/mediaLimits.js'
 export { sharedGifMaxBytes }
 export const MEDIA_LIBRARY_IMAGE_MAX_BYTES = sharedImageMaxBytes
 export const mediaLibraryMaxBytes = row => row?.mimeType === 'image/gif' ? sharedGifMaxBytes : MEDIA_LIBRARY_IMAGE_MAX_BYTES
 export const canSelectMediaPhoto = row => row?.mediaType === 'IMAGE' && Number.isSafeInteger(row.fileSize) && row.fileSize > 0 && row.fileSize <= mediaLibraryMaxBytes(row)
-export const mediaLibrarySizeMessage = () => `사진은 ${sharedImageMaxBytes/1024/1024}MB 이하, GIF는 ${sharedGifMaxBytes/1024/1024}MB 이하만 선택할 수 있어요.`
+export { mediaLibrarySizeMessage }
 import { isUuid } from '../../collaboration/canvasElements.js'
 
 const invalid = () => { throw Object.assign(Error('미디어 정보를 확인하지 못했어요. 다시 불러와 주세요.'), { code:'INVALID_MEDIA_RESPONSE' }) }
