@@ -406,7 +406,8 @@ secret-scan:
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
   script:
-    - test -s frontend/google-services.json
+    - git ls-files --error-unmatch frontend/google-services.json
+    - node infra/scripts/verify-firebase-android-config.mjs frontend/google-services.json
     - >
       docker run --rm
       -v "$CI_PROJECT_DIR:/repo:ro"

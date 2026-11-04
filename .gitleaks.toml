@@ -6,10 +6,12 @@ useDefault = true
 [[allowlists]]
 # Firebase Android client config is public. This exception is limited to the
 # committed production client API key; service-account credentials are never allowed.
+# Rotate this exact value with google-services.json after verifying the new key's
+# Android package/SHA-1 and API restrictions in Google Cloud Console.
 description = "Firebase Android public client API key"
 condition = "AND"
 paths = [
-  '''^/repo/frontend/google-services\.json$'''
+  '''(^|/)frontend/google-services\.json$'''
 ]
 regexTarget = "line"
 regexes = [
