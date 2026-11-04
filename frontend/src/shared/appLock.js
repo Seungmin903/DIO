@@ -33,6 +33,7 @@ const legacyHash = (salt, pin) => digestStringAsync(CryptoDigestAlgorithm.SHA256
 const missing = { kind: 'missing' }
 const blocked = saved => ({ kind: 'locked', saved })
 const unavailable = kind => ({ kind })
+const readsInFlight = new Map()
 
 const readLegacy = async scope => {
   const legacyRaw = await AsyncStorage.getItem(legacyKeyOf(scope))
@@ -46,7 +47,7 @@ const readLegacy = async scope => {
   return blocked({ version: 1, legacy, failedAttempts: Number(attempts.failedAttempts) || 0, retryUntil: Number(attempts.retryUntil) || 0, lockouts: Number(attempts.lockouts) || 0 })
 }
 
-const read = async scope => {
+const readOnce = async scope => {
   // 웹은 새 앱 잠금을 제공하지 않는다. 다만 기존 v1 잠금은 조용히 해제하지 않고 계속 검증한다.
   if (!appLockSupported) {
     try { return await readLegacy(scope) } catch { return unavailable('storage') }
@@ -70,6 +71,15 @@ const read = async scope => {
   } catch {
     return unavailable('storage')
   }
+}
+// 첫 실행의 v1→v2 이전은 읽기·삭제 두 저장소를 건너므로 scope마다 한 번만 수행한다.
+// 동시에 들어온 hasAppLock/checkAppLock 호출은 같은 결과를 받아 잠금이 없는 것으로 보지 않는다.
+const read = scope => {
+  const running = readsInFlight.get(scope)
+  if (running) return running
+  const task = readOnce(scope).finally(() => { if (readsInFlight.get(scope) === task) readsInFlight.delete(scope) })
+  readsInFlight.set(scope, task)
+  return task
 }
 const write = (scope, saved) => {
   if (!appLockSupported) throw new Error('이 환경에서는 앱 잠금을 지원하지 않아요.')

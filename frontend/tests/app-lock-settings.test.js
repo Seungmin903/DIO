@@ -75,7 +75,7 @@ test('v1 잠금은 첫 실행에 보안 저장소로 옮기고, 올바른 PIN �
   const secure=secureStore(),asyncStorage=memoryStorage(),lock=nativeLock(secure,asyncStorage),scope='user:7';
   const salt='test-salt',hash=createHash('sha256').update(`${salt}:1234`).digest('hex');
   await asyncStorage.setItem('dio.appLock.v1:user:7',JSON.stringify({salt,hash}));
-  assert.equal(await lock.hasAppLock(scope),true);
+  assert.deepEqual(await Promise.all([lock.hasAppLock(scope),lock.hasAppLock(scope)]),[true,true]);
   assert.equal(await asyncStorage.getItem('dio.appLock.v1:user:7'),null);
   assert.match([...secure.data.values()][0],/legacy/);
   assert.deepEqual(await lock.checkAppLock(scope,'0000',1000),{ok:false,retryAfterMs:0});
