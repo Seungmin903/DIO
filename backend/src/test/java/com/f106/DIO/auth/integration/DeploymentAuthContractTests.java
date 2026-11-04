@@ -7,11 +7,18 @@ import org.springframework.core.io.FileSystemResource;
 import static org.assertj.core.api.Assertions.*;
 
 class DeploymentAuthContractTests {
-    @Test void releaseDeploymentWaitsForBackendTestsAndRejectsReleaseOnlyMigrations() throws Exception {
+    @Test void deploymentUsesTheQualityStageBarrierAndRunsTheSharedDbMigrationGuard() throws Exception {
         var loader = new YamlPropertySourceLoader();
         var ci = loader.load("ci", new FileSystemResource(Path.of("../.gitlab-ci.yml"))).get(0);
+        assertThat(ci.getProperty("deploy-development.stage")).isEqualTo("deploy");
         assertThat(ci.getProperty("deploy-development.needs[0].job")).isNull();
         assertThat(ci.getProperty("deploy-development.variables.GIT_DEPTH")).isEqualTo("0");
+        for (String job : new String[]{"backend-test", "release-migration-guard-test", "backend-postgres-auth-test", "backend-postgres-sharing-test", "backend-postgres-diary-test", "backend-postgres-lifecycle-test", "backend-postgres-push-test"}) {
+            assertThat(ci.getProperty(job + ".stage")).isEqualTo("quality");
+        }
+        assertThat(ci.getProperty("backend-test.rules[0].if")).isEqualTo("$CI_COMMIT_BRANCH =~ /^release\\/.+$/");
+        assertThat(ci.getProperty("release-migration-guard-test.rules[0].if")).isEqualTo("$CI_COMMIT_BRANCH =~ /^release\\/.+$/");
+        assertThat(ci.getProperty("release-migration-guard-test.script[1]")).isEqualTo("bash infra/scripts/test-assert-shared-db-migrations.sh");
         String text = Files.readString(Path.of("../.gitlab-ci.yml"));
         String deploy = block(text, "deploy-development:\n", "\ndeploy-production:");
         assertThat(deploy).contains("git fetch --no-tags origin +refs/heads/develop:refs/remotes/origin/develop",
