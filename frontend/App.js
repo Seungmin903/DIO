@@ -20,6 +20,7 @@ import { guestProfile } from './src/auth/guestProfileDevice';
 import { LoginGateProvider, useLoginGate } from './src/auth/loginGate';
 import { useSharing } from './src/sharing/useSharing';
 import SharingHub from './src/sharing/SharingHub';
+import EditorModal from './src/editor/components/controls/EditorModal';
 import SafetyProvider, { useSafety } from './src/safety/SafetyProvider';
 import { createSharingGate } from './src/sharing/sharingGate';
 import { AuthenticatedNotificationProvider, useOptionalSharedNotifications } from './src/notifications/NotificationProvider';
@@ -114,6 +115,12 @@ export default function App() {
   const [loginRequest, setLoginRequest] = useState(null);
   const openLogin = request => setLoginRequest(current => current?.sessionExpired
     ? { ...request, sessionExpired: true } : request);
+  const closeLogin = () => {
+    setLoginRequest(null);
+    const current = sessionRef.current;
+    if (current?.mode === 'authenticated' && !authService.getSessionKey() &&
+        authService.getMemberSessionKey(current.userId) === memberSessionKey) startGuest();
+  };
   // 개발용 목업 화면은 세션 없이 그리므로 게스트로 시작하지 않는다. 아래에서 따로 그리는 세 값만 목업으로 본다
   // (다른 mock* 값은 세션 분기로 내려가므로 게스트로 시작해야 빈 화면이 되지 않는다)
   const mockSource = __DEV__ && MOCK_SCREENS.includes(process.env.EXPO_PUBLIC_DIARY_SOURCE || '');
@@ -222,12 +229,7 @@ export default function App() {
             (current?.mode === 'authenticated' ? String(current.userId) === String(updated.userId) : current?.accountId === updated.accountId) ? updated : current)}
           onEndPreview={endSession} onClearSession={clearSession} onReady={finishBoot} /></LoginGateProvider> : null
       )}
-      {loginRequest && <View style={[StyleSheet.absoluteFill, { zIndex: 10 }]}><AuthScreen key={loginRequest.sessionExpired ? 'expired' : 'login'} sessionExpired={loginRequest.sessionExpired === true} resumeSession={loginRequest.restoreSession === true} onContinue={continueFromLogin} onClose={() => {
-        setLoginRequest(null);
-        const current = sessionRef.current;
-        if (current?.mode === 'authenticated' && !authService.getSessionKey() &&
-            authService.getMemberSessionKey(current.userId) === memberSessionKey) startGuest();
-      }} /></View>}
+      {loginRequest && <EditorModal visible transparent animationType="none" onRequestClose={closeLogin}><View style={[StyleSheet.absoluteFill, { zIndex: 10 }]}><AuthScreen key={loginRequest.sessionExpired ? 'expired' : 'login'} sessionExpired={loginRequest.sessionExpired === true} initialEmail={authenticatedSession?.email || ''} resumeSession={loginRequest.restoreSession === true} onContinue={continueFromLogin} onClose={closeLogin} /></View></EditorModal>}
       <HandwritingStudio />
       {/* 프로필 사진 자르기(동그라미 틀). 로그인 화면 · 프로필 수정 모두 쓰므로 앱 맨 위에 하나 둔다 */}
       <ProfileCropHost />

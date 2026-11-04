@@ -32,7 +32,7 @@ export const loginGateCopy = feature => ({
 /** open() — 안내 창 없이 로그인 화면을 바로 띄운다(내 공간의 `로그인 · 회원가입` 버튼). 회원가입은 로그인 화면에서 이어 간다 */
 export function useLoginEntry() {
   const { onLogin } = useContext(LoginGateContext);
-  return useCallback(() => onLogin?.({}), [onLogin]);
+  return useCallback((request = {}) => onLogin?.({ sessionExpired: request.sessionExpired === true }), [onLogin]);
 }
 
 /** guard(기능 이름, 동작) — 로그인한 사용자면 동작을 실행하고, 아니면 안내 창을 띄운다 */

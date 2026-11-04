@@ -6,6 +6,7 @@ import { notificationPresentation } from './notificationPresentation.js';
 import { notificationErrorNotice } from './notificationErrorNotice.js';
 import { showNotificationDetail } from './notificationDetailView.js';
 import AppIcon from '../shared/AppIcon';
+import AuthenticationRecovery from '../auth/AuthenticationRecovery';
 import { notify } from '../shared/dialogs';
 import Cover from '../diary/components/Cover';
 import { FALLBACK_COVER_COLOR } from '../diary/constants';
@@ -40,6 +41,7 @@ function QueryNotice({ state, retry, label, refreshList }) {
     </View>}
     {state.status === 'error' && <>
       <Text accessibilityRole="alert" accessibilityLiveRegion="polite" aria-live="polite" style={s.text}>{notice.message}</Text>
+      <AuthenticationRecovery error={state.error} />
       {state.data && <Text style={s.text}>이전 조회 결과를 표시하고 있어요.</Text>}
       {notice.canRetry && <NotificationButton label={`${label} 다시 시도`} onPress={retry} />}
       {notice.refreshList && refreshList && <NotificationButton label={`${label} 오류 후 목록 새로고침`} onPress={refreshList} />}
@@ -90,12 +92,14 @@ export default function NotificationPanel({ model, onInvitationReady }) {
         {model.canReadAll && <NotificationButton label="모두 읽음" quiet onPress={store.readAll} disabled={locked || list.status !== 'success' || !items.length} />}
       </View>
     </View>
-    <QueryNotice state={count} retry={store.refreshCount} label="알림 수" refreshList={store.refreshNotifications} />
+    {!(count.status === 'error' && list.status === 'error' && count.error?.status === 401 && list.error?.status === 401) &&
+      <QueryNotice state={count} retry={store.refreshCount} label="알림 수" refreshList={store.refreshNotifications} />}
     <QueryNotice state={list} retry={store.refreshList} label="알림 목록" refreshList={store.refreshNotifications} />
     {checkingInvitation && <Text accessibilityLiveRegion="polite" style={s.muted}>초대를 확인하고 있어요.</Text>}
     {mutation.status === 'saving' && <Text accessibilityLiveRegion="polite" aria-live="polite" style={s.text}>알림을 처리하고 있어요.</Text>}
     {mutation.status === 'error' && <View style={s.card}>
       <Text accessibilityRole="alert" accessibilityLiveRegion="polite" aria-live="polite" style={s.text}>{mutationNotice.message}</Text>
+      <AuthenticationRecovery error={mutation.error} />
       {mutation.canRetry ? <NotificationButton label="알림 처리 다시 시도" onPress={store.retryMutation} /> : <NotificationButton label="처리 안내 닫기" onPress={store.dismissMutation} />}
       {mutationNotice.refreshList && <NotificationButton label="처리 오류 후 목록 새로고침" onPress={store.refreshNotifications} />}
     </View>}

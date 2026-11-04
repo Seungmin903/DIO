@@ -115,6 +115,32 @@ test('일반 API의 401은 서버 코드가 INVALID_TOKEN이어도 만료 문구
  }
 });
 
+test('토큰 갱신 중 네트워크·503 오류는 로그아웃시키지 않고 연결 복구 후 같은 세션으로 재시도한다', async () => {
+  for (const failure of ['network', 'server']) {
+    let offline = true;
+    const f = fixture({ refresh: () => {
+      if (!offline) return reply(tokens('101', 'renewed'));
+      if (failure === 'network') throw new TypeError('offline');
+      return reply({ detail: '다시 로그인해 주세요.' }, 503);
+    } });
+    await login(f.auth);
+    const events = [], key = f.auth.getSessionKey();
+    f.auth.subscribeSessionExpired(event => events.push(event));
+    const c = f.channels(); f.expire();
+    for (const result of await Promise.allSettled([c.member({ path: '/diaries' }), c.notifications.count()])) {
+      assert.equal(result.status, 'rejected');
+      assert.notEqual(result.reason.status, 401);
+      assert.notEqual(result.reason.sessionExpired, true);
+      assert.doesNotMatch(result.reason.message, /로그인/);
+    }
+    assert.deepEqual(events, []); assert.equal(f.auth.getSessionKey(), key);
+    offline = false;
+    await Promise.all([c.member({ path: '/diaries' }), c.notifications.count()]);
+    assert.equal(f.auth.getSessionKey(), key);
+    assert.equal(f.calls.length, 2);
+  }
+});
+
 test('회원·알림 동시 만료 요청은 실제 인증 API의 갱신 한 번과 같은 새 토큰을 공유한다', async () => {
   const f = fixture(); await login(f.auth); const c = f.channels(); f.expire()
   await Promise.all([c.member({ path: '/member/diaries' }), c.notifications.count()])
