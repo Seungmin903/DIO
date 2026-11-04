@@ -10,7 +10,7 @@ export function SettingTitle({ children, on, onToggle }) {
   return (
     <View style={local.titleRow}>
       <Text accessibilityRole="header" style={[local.title, local.titleFlex]}>{children}</Text>
-      <Switch label={`${children} 받기`} on={on} onToggle={onToggle} />
+      <SettingSwitch label={`${children} 받기`} on={on} onToggle={onToggle} />
     </View>
   );
 }
@@ -40,9 +40,9 @@ export function SettingSection({ title, on, onToggle, children }) {
   );
 }
 
-function Switch({ label, on, onToggle, disabled = false }) {
+export function SettingSwitch({ label, on, onToggle, disabled = false, busy = false, accessibilityHint }) {
   return (
-    <Pressable accessibilityRole="switch" accessibilityLabel={label} accessibilityState={{ checked: on, disabled }} disabled={disabled}
+    <Pressable accessibilityRole="switch" accessibilityLabel={label} accessibilityHint={accessibilityHint} accessibilityState={{ checked: on, disabled, busy }} disabled={disabled}
       onPress={() => onToggle(!on)} hitSlop={8} style={[local.switch, on && local.switchOn, disabled && local.disabled]}>
       <View style={[local.knob, on && local.knobOn, on && local.knobMove]} />
     </Pressable>
@@ -73,7 +73,7 @@ export default function SettingRow({ label, options, value, onChange, disabled =
     <View style={local.row}>
       <Text style={local.label}>{label}</Text>
       {toggle ? (
-        <Switch label={label} on={value === 'on'} disabled={disabled} onToggle={next => onChange(next ? 'on' : 'off')} />
+        <SettingSwitch label={label} on={value === 'on'} disabled={disabled} onToggle={next => onChange(next ? 'on' : 'off')} />
       ) : options ? (
         <View style={local.chips} accessibilityRole="radiogroup" accessibilityLabel={label}>
           {options.map(option => {
