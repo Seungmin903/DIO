@@ -250,16 +250,16 @@ export default function TextEditor({ commitRef, object, zoom, onSave, onCancel, 
   </View>
   return <View style={{ position: 'absolute', left: object.x * zoom, top, width: boxWidth, transform: [{ rotate: `${object.rotation ?? 0}deg` }] }}>
     {object.autoWidth && <View pointerEvents="none" style={styles.widthProbe}>
-      <Text accessible={false} onLayout={(event) => setNaturalWidth(event.nativeEvent.layout.width)} style={[styles.widthProbeText, textStyle(object, scale, Platform.OS)]}>
+      <Text allowFontScaling={false} accessible={false} onLayout={(event) => setNaturalWidth(event.nativeEvent.layout.width)} style={[styles.widthProbeText, textStyle(object, scale, Platform.OS)]}>
         {rendered.text ? richTextSegments(rendered.text, rendered.ranges, rendered.formats).map((segment, index) => <Text key={index} style={segmentTextStyle(segment, scale, textSettings(object).lineSpacing)}>{segment.text}</Text>) : '텍스트 입력'}
       </Text>
     </View>}
-    <Text pointerEvents="none" accessible={false} importantForAccessibility="no-hide-descendants"
+    <Text allowFontScaling={false} pointerEvents="none" accessible={false} importantForAccessibility="no-hide-descendants"
       onTextLayout={(event) => { textLines.current = event.nativeEvent.lines; updateAnchor() }}
       style={[styles.measureText, textStyle(object, scale, Platform.OS)]}>
       {richTextSegments(rendered.text, rendered.ranges, rendered.formats).map((segment, index) => <Text key={index} style={segmentTextStyle(segment, scale, textSettings(object).lineSpacing)}>{segment.text}</Text>)}
     </Text>
-    {wrapInput(<TextInput ref={input} autoFocus multiline {...(Platform.OS !== 'android' && { defaultValue: object.text ?? '' })} accessibilityLabel="캔버스 텍스트 내용"
+    {wrapInput(<TextInput allowFontScaling={false} ref={input} autoFocus multiline {...(Platform.OS !== 'android' && { defaultValue: object.text ?? '' })} accessibilityLabel="캔버스 텍스트 내용"
       placeholder="텍스트 입력" textAlignVertical="top" scrollEnabled={false} showSoftInputOnFocus
       submitBehavior="newline" returnKeyType="default"
       onLayout={measure} onFocus={measure}
@@ -293,7 +293,7 @@ export default function TextEditor({ commitRef, object, zoom, onSave, onCancel, 
         },
       })} >
       {/* 안드로이드 입력창은 글자 조각을 직접 넣으므로 밑줄 · 취소선도 조각마다 준다(입력창 스타일의 장식이 조각에 이어지지 않는다) */}
-      {Platform.OS === 'android' ? <Text>{richTextSegments(rendered.text, rendered.ranges, rendered.formats).map((segment, index) => <Text key={index} style={{ textDecorationLine: textStyle(object, scale, Platform.OS).textDecorationLine, ...segmentTextStyle(segment, scale, textSettings(object).lineSpacing) }}>{segment.text}</Text>)}</Text> : null}
+      {Platform.OS === 'android' ? <Text allowFontScaling={false}>{richTextSegments(rendered.text, rendered.ranges, rendered.formats).map((segment, index) => <Text key={index} style={{ textDecorationLine: textStyle(object, scale, Platform.OS).textDecorationLine, ...segmentTextStyle(segment, scale, textSettings(object).lineSpacing) }}>{segment.text}</Text>)}</Text> : null}
     </TextInput>)}
     {linkSelection && <TextLinkDialog initialValue={formats.current.find(r => r.href && r.start < linkSelection.end && r.end > linkSelection.start)?.href ?? ''}
       onCancel={() => { linkEditing.current = false; setLinkSelection(null); input.current?.focus() }}

@@ -164,12 +164,12 @@ export default function ShapeTextEditor({ commitRef, object, zoom, onSave, bound
   useEffect(()=>()=>{if(paletteBounds)paletteBounds.current=null;onPaletteChange?.(null)},[onPaletteChange,paletteBounds])
   return <View onLayout={scheduleMeasure} style={{ position:'absolute',left:object.x*zoom,top:object.y*zoom,width:object.w*zoom,height:object.h*zoom,transform:[{rotate:`${object.rotation ?? 0}deg`}] }}>
     <ShapeContent object={object} zoom={zoom} hideText />
-    <TextInput ref={input} autoFocus multiline scrollEnabled {...(Platform.OS!=='android'&&{defaultValue:object.text??''})} accessibilityLabel="도형 내부 글" placeholder="글 입력" placeholderTextColor={colors.textMuted} onChangeText={updateDraft}
+    <TextInput allowFontScaling={false} ref={input} autoFocus multiline scrollEnabled {...(Platform.OS!=='android'&&{defaultValue:object.text??''})} accessibilityLabel="도형 내부 글" placeholder="글 입력" placeholderTextColor={colors.textMuted} onChangeText={updateDraft}
       onSelectionChange={event=>{if(restoreSelection(event.nativeEvent.selection))return;selection.current=event.nativeEvent.selection;setSelected(selection.current.start!==selection.current.end);scheduleMeasure()}}
       {...(Platform.OS==='web'&&{onCompositionStart:()=>{composing.current=true},onCompositionEnd:event=>{composing.current=false;updateDraft(event.target.value)}})}
       onContentSizeChange={event => { const height=event.nativeEvent.contentSize.height; if (Number.isFinite(height)&&height>0) setContentHeight(previous=>Math.abs(previous-height)>1?height:previous) }} onEndEditing={event=>{updateDraft(event.nativeEvent.text);composing.current=false;save()}}
       {...(Platform.OS==='web'&&{onBlur:event=>{if(typeof event.target?.value==='string')updateDraft(event.target.value);composing.current=false;save()}})} textAlignVertical="top" style={[shapeTextStyle(object,zoom,Platform.OS),{position:'absolute',padding:0,top:textBox.top+(object.verticalAlign==='top'?0:object.verticalAlign==='bottom'?textBox.height-inputHeight:(textBox.height-inputHeight)/2),left:textBox.left,width:textBox.width,height:inputHeight,borderWidth:1,borderColor:colors.primary,backgroundColor:'transparent',...(Platform.OS === 'web' && {outlineStyle:'none'})}]}>
-      {Platform.OS==='android'?<Text>{richTextSegments(rendered.text,rendered.ranges,rendered.formats).map((segment,index)=><Text key={index} style={segmentTextStyle(segment,zoom,textSettings(object).lineSpacing)}>{segment.text}</Text>)}</Text>:null}
+      {Platform.OS==='android'?<Text allowFontScaling={false}>{richTextSegments(rendered.text,rendered.ranges,rendered.formats).map((segment,index)=><Text key={index} style={segmentTextStyle(segment,zoom,textSettings(object).lineSpacing)}>{segment.text}</Text>)}</Text>:null}
     </TextInput>
   </View>
 }

@@ -17,14 +17,14 @@ export default function LegalDocumentScreen({ document, onClose, onAgree }) {
     <SafeAreaView style={styles.safe}>
       <View style={styles.container} accessibilityViewIsModal>
         <View style={styles.header}>
-          <Text accessibilityRole="header" style={styles.title}>{document.title}</Text>
+          <Text maxFontSizeMultiplier={0} accessibilityRole="header" style={styles.title}>{document.title}</Text>
           <Pressable accessibilityRole="button" accessibilityLabel="문서 닫기" onPress={onClose} style={styles.close}>
             <AppIcon name="close" size={22} color={colors.text} />
           </Pressable>
         </View>
         <ScrollView style={styles.scroll} contentContainerStyle={styles.body}>
           {document.blocks.filter(block => block.level !== 1).map((block, index) => (
-            <Text key={index} selectable accessibilityRole={block.type === 'heading' ? 'header' : undefined}
+            <Text key={index} selectable maxFontSizeMultiplier={0} accessibilityRole={block.type === 'heading' ? 'header' : undefined}
               style={[styles.paragraph, block.type === 'heading' && (block.level === 2 ? styles.heading : styles.subheading)]}>
               {block.type === 'listItem' ? `${block.number ? `${block.number}.` : '•'} ` : ''}
               {documentTextRuns(block).map((run, runIndex) => run.url
@@ -36,7 +36,7 @@ export default function LegalDocumentScreen({ document, onClose, onAgree }) {
         <View style={styles.footer}>
           <Pressable accessibilityRole="button" accessibilityLabel={canAgree ? '동의하고 돌아가기' : '닫기'}
             onPress={canAgree ? onAgree : onClose} style={styles.button}>
-            <Text style={styles.buttonText}>{canAgree ? '동의하고 돌아가기' : '닫기'}</Text>
+            <Text maxFontSizeMultiplier={0} style={styles.buttonText}>{canAgree ? '동의하고 돌아가기' : '닫기'}</Text>
           </Pressable>
         </View>
       </View>

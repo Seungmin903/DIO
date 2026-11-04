@@ -1,5 +1,5 @@
 import EditorModal from './EditorModal'
-import { Platform, Pressable, StyleSheet, Text, View } from 'react-native'
+import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { colors, shadow } from '../../../shared/theme'
 import { PANEL_RADIUS } from '../ToolPanel'
 
@@ -20,33 +20,36 @@ export function ConfirmDialogContent({ title, message, confirmLabel = '삭제', 
   return (
       <Pressable style={styles.backdrop} onPress={onCancel} accessibilityLabel="닫기">
         {/* 카드 안을 눌러도 닫히지 않게 터치를 여기서 받는다 */}
+        <ScrollView style={styles.cardScroll} keyboardShouldPersistTaps="handled">
         <Pressable style={styles.card} onPress={() => {}} accessibilityRole="alert">
-          <Text style={styles.title}>{title}</Text>
-          {message ? <Text lineBreakStrategyIOS="hangul-word" style={styles.message}>{message}</Text> : null}
+          <Text maxFontSizeMultiplier={0} style={styles.title}>{title}</Text>
+          {message ? <Text maxFontSizeMultiplier={0} lineBreakStrategyIOS="hangul-word" style={styles.message}>{message}</Text> : null}
           <View style={styles.actions}>
             {showCancel && <Pressable onPress={onCancel} style={({ pressed }) => [styles.button, pressed && styles.pressed]} accessibilityRole="button">
-              <Text style={styles.cancelText}>{cancelLabel}</Text>
+              <Text maxFontSizeMultiplier={0} style={styles.cancelText}>{cancelLabel}</Text>
             </Pressable>}
             <Pressable
               onPress={onConfirm}
               style={({ pressed }) => [styles.button, danger ? styles.danger : styles.primary, pressed && styles.confirmPressed]}
               accessibilityRole="button"
             >
-              <Text style={styles.confirmText}>{confirmLabel}</Text>
+              <Text maxFontSizeMultiplier={0} style={styles.confirmText}>{confirmLabel}</Text>
             </Pressable>
           </View>
         </Pressable>
+        </ScrollView>
       </Pressable>
   )
 }
 
 const styles = StyleSheet.create({
   backdrop: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24, backgroundColor: colors.scrim },
-  card: { width: 320, maxWidth: '100%', padding: 20, borderRadius: PANEL_RADIUS, backgroundColor: colors.surface, ...shadow.float },
+  cardScroll: { width: 320, maxWidth: '100%', maxHeight: '100%', flexGrow: 0, borderRadius: PANEL_RADIUS, backgroundColor: colors.surface, ...shadow.float },
+  card: { padding: 20 },
   title: { fontSize: 16, fontWeight: '700', color: colors.text },
   message: { marginTop: 8, fontSize: 13, lineHeight: 19, color: colors.textMuted, ...(Platform.OS === 'web' && { wordBreak: 'keep-all' }) }, // 한글은 단어 단위로 줄을 바꾼다
-  actions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 8, marginTop: 18 },
-  button: { minWidth: 76, height: 42, paddingHorizontal: 16, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  actions: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'flex-end', gap: 8, marginTop: 18 },
+  button: { minWidth: 76, minHeight: 42, paddingVertical: 10, paddingHorizontal: 16, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   pressed: {}, // 눌림 효과 없음(사용자 지시)
   danger: { backgroundColor: colors.dangerStrong }, // 흰 글자를 올리는 위험 버튼은 dangerStrong(6.0:1). danger(3.85:1)는 아이콘 · 테두리용
   primary: { backgroundColor: colors.primaryStrong },
