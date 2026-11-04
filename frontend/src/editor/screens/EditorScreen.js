@@ -80,6 +80,7 @@ import { clamp, createId, unionBounds } from '../utils/common'
 import { OPTIONS_TOP, OPTIONS_TOP_PHONE, OPTIONS_WIDTH, optionsPlacement, tabletToolPopover } from '../utils/toolPanelPlacement'
 import { automaticPageTurn, centeredOffset, clampOffset as clampViewportOffset, isFitView, panView } from '../utils/viewport.js'
 import { pickImages } from '../services/image'
+import { MEDIA_POLICY } from '../utils/mediaPolicy.js'
 import { discardGeneratedMedia } from '../services/mediaStore'
 import { createObjectFromDecor, emptyPhotoSlots, hasPhotoMedia, photoInnerBox, tapePieceRatio } from '../utils/objects'
 import { isTicketFrame } from '../components/canvas/PhotoFrame'
@@ -597,13 +598,15 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
   // 사진은 스티커·테이프처럼 틀 없이 바로 붙인다 (자르기는 두 번 누르거나 선택 바에서)
   const pickingPhotos = useRef(false)
   const { visible: photoPanelVisible, toggle: togglePhotoPanel, close: closePhotoPanel } = usePhotoPanel(readOnly)
+  // 회원 다이어리의 사진은 서버로 올라간다.
+  const photoLimit = textSync.enabled ? { sharedGifMaxBytes: MEDIA_POLICY.sharedGifMaxBytes } : {}
   const addPhotos = async (selectedImages) => {
     // 고르는 창이 떠 있는 동안 다시 누르면 무시한다
     if (pickingPhotos.current) return
     pickingPhotos.current = true
     try {
       setImportFailure(null)
-      const images = selectedImages ?? await pickImages()
+      const images = selectedImages ?? await pickImages(photoLimit)
       if (!images.length) return
       const center = randomCenter()
       const objects = []
@@ -631,7 +634,7 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
   const replacePhoto = async (id) => {
     try {
       setImportFailure(null)
-      const [image] = await pickImages({ multiple: false })
+      const [image] = await pickImages({ ...photoLimit, multiple: false })
       if (!image) return
       const target = pageNow.current.objects.find((o) => o.id === id)
       if (!target) { discardUnused([image]); return }
@@ -664,7 +667,7 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
       const all = emptyPhotoSlots(target)
       const empty = [...all.filter((i) => i >= start), ...all.filter((i) => i < start)]
       if (!empty.length) return
-      const images = await pickImages()
+      const images = await pickImages(photoLimit)
       if (!images.length) return
       const latest = pageNow.current.objects.find((o) => o.id === id)
       if (!latest?.cells) { discardUnused(images); return }
@@ -702,7 +705,7 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
   const replaceCell = async (id, index) => {
     try {
       setImportFailure(null)
-      const [image] = await pickImages({ multiple: false })
+      const [image] = await pickImages({ ...photoLimit, multiple: false })
       if (!image) return
       const target = pageNow.current.objects.find((o) => o.id === id)
       if (!target?.cells) { discardUnused([image]); return }
@@ -1467,6 +1470,7 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
                 onToast={showToast}
                 onClose={closeDrawer}
                 sheet={sheet}
+                photoLimit={photoLimit}
               />, [styles.drawerWrap, toolPopoverStyle(drawerWidth)], { onClose: closeDrawer, fixedHeight: true })
           )}
 
