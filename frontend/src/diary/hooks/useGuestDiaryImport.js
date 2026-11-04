@@ -5,7 +5,8 @@ import { authService, apiBaseUrl, accessTokenHeader } from '../../auth/authServi
 import { createMemberDiaryApi } from '../services/memberDiaryApi.js'
 import { createAuthenticatedMemberTransport } from '../services/memberTransport.js'
 import { memberKeys } from '../services/memberStorage.js'
-import { createGuestDiaryImporter, dismissGuestImport, listGuestImportCandidates, withUploadRetry } from '../services/guestDiaryImport.js'
+import { createGuestDiaryImporter, dismissGuestImport, listGuestImportCandidates, removeGuestOriginal, sweepMovedGuestDiaries, withUploadRetry } from '../services/guestDiaryImport.js'
+import { guestOriginalCleanup } from '../services/guestOriginalCleanup'
 import { createCanvasApi } from '../../collaboration/canvasApi.js'
 import { createCanvasMedia, createMediaRequest } from '../../collaboration/canvasMedia.js'
 import { canvasMediaFiles } from '../../editor/services/canvasMediaFiles'
@@ -14,7 +15,7 @@ import { createId } from '../../editor/utils/common.js'
 import { notify } from '../../shared/dialogs'
 
 /**
- * 로그인 직후 이 기기의 게스트 다이어리를 회원 보관함으로 가져올지 묻고 가져온다.
+ * 로그인 직후 이 기기의 게스트 다이어리를 회원 보관함으로 옮길지 묻고 옮긴다.
  * phase: null(물을 것 없음) · 'ask' · 'running' · 'done'. 실패한 다이어리는 done 에서 다시 시도할 수 있다.
  */
 export function useGuestDiaryImport(accountId, { enabled = true, onImported } = {}) {
@@ -26,13 +27,14 @@ export function useGuestDiaryImport(accountId, { enabled = true, onImported } = 
   const onImportedRef = useRef(onImported)
   onImportedRef.current = onImported
   const active = () => context.active && authService.getSessionKey() === sessionKey
+  const removeOriginal = useCallback(id => removeGuestOriginal(documentStorage, id, guestOriginalCleanup), [])
   const importer = useMemo(() => {
     const active = () => context.active && authService.getSessionKey() === sessionKey
     const transport = createAuthenticatedMemberTransport({ auth: authService, accountId, baseUrl: apiBaseUrl, accessTokenHeader, fetchImpl: memberFetch })
     const request = withUploadRetry(createMediaRequest({ auth: authService, accountId, sessionKey, baseUrl: apiBaseUrl, fetchImpl: memberFetch }))
-    return createGuestDiaryImporter({ accountId, storage: documentStorage, createId, transport, isActive: active,
+    return createGuestDiaryImporter({ accountId, storage: documentStorage, createId, transport, isActive: active, removeOriginal,
       api: createMemberDiaryApi(transport),
-      // 미디어를 넘기지 않아 응답의 사진을 다시 내려받지 않는다(원본은 이 기기에 있다).
+      // 미디어를 넘기지 않아 옮기는 동안 응답의 사진을 다시 내려받지 않는다.
       canvas: createCanvasApi(transport),
       // 편집기와 같은 기록 자리를 써서, 가져온 다이어리를 열 때 같은 사진을 다시 올리지 않는다.
       mediaFor: diaryId => createCanvasMedia({ request, files: canvasMediaFiles, storage: documentStorage, isActive: active,
@@ -54,12 +56,13 @@ export function useGuestDiaryImport(accountId, { enabled = true, onImported } = 
     if (!enabled || context.checked) return
 
     ;(async () => {
+      await sweepMovedGuestDiaries(documentStorage, accountId, removeOriginal).catch(() => {})
       const [{ diaries, unasked }, pending] = await Promise.all([listGuestImportCandidates(documentStorage, accountId), importer.pendingIds()])
       if (cancelled || !active()) return
       context.checked = true
       setState(current => ({ ...current, waiting: diaries }))
       if (!diaries.length) return
-      // 나중에로 미룬 다이어리는 다시 묻지 않는다. 끝나지 않은 가져오기와 새로 생긴 다이어리만 묻는다.
+      // 나중에를 고른 계정에는 다시 묻지 않는다. 끝나지 않은 옮기기만 이어서 묻는다.
       const unfinished = diaries.filter(diary => pending.includes(diary.id))
       if (!unasked.length && !unfinished.length) return
       setState(current => current.phase ? current : { ...current, phase: 'ask', candidates: unasked.length ? diaries : unfinished })

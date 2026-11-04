@@ -354,8 +354,8 @@ function LibraryScreen({
       </View>
       {selectionBar}
       {requestNotice}
-      {!selecting && guestImport && <Pressable accessibilityRole="button" accessibilityLabel={`이 기기의 다이어리 ${guestImport.count}권 가져오기`} hitSlop={8} onPress={guestImport.open} style={{ alignSelf: 'flex-start', paddingVertical: 8 }}>
-        <Text style={{ fontSize: 13, fontWeight: '600', color: C.ink }}>{`이 기기의 다이어리 ${guestImport.count}권 가져오기`}</Text>
+      {!selecting && guestImport && <Pressable accessibilityRole="button" accessibilityLabel={`이 기기의 다이어리 ${guestImport.count}권 옮기기`} hitSlop={8} onPress={guestImport.open} style={{ alignSelf: 'flex-start', paddingVertical: 8 }}>
+        <Text style={{ fontSize: 13, fontWeight: '700', color: C.ink }}>{`이 기기의 다이어리 ${guestImport.count}권 옮기기`}</Text>
       </Pressable>}
   </>);
   const body = (<>

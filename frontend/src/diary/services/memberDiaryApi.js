@@ -43,6 +43,16 @@ export function createMemberDiaryApi(transport) {
       return { id, userId: result.userId, favorite: result.favorite }
     },
     loadPages: id => loadServerPages(transport,id),
+    /** 첫 페이지 크기로 정한 방향. 목록 응답에는 방향이 없고 페이지 목록은 요소 없이 크기만 준다. 페이지가 없으면 null. */
+    async pageOrientation(id) {
+      if (!uuid(id)) throw invalid()
+      const result = await transport({ path: `/diaries/${encodeURIComponent(id)}/pages` })
+      if (!Array.isArray(result?.items)) throw invalid()
+      const first = result.items[0]
+      if (!first) return null
+      if (![first.canvasWidth, first.canvasHeight].every(value => Number.isFinite(value) && value > 0)) throw invalid()
+      return first.canvasWidth >= first.canvasHeight ? 'landscape' : 'portrait'
+    },
     async trashList({cursor,limit=100,q,signal}={}) {
       const body=await transport({path:'/member/diaries/trash',query:{cursor,limit,q},signal});
       if(!Array.isArray(body?.items) || typeof body.hasNext!=='boolean' || (body.hasNext?typeof body.nextCursor!=='string'||!body.nextCursor:body.nextCursor!==null)) throw invalid();

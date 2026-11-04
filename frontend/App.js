@@ -41,7 +41,7 @@ import ConnectedDiaryLibrary from './src/diary/screens/ConnectedDiaryLibrary';
 import MockLibraryApp from './src/diary/screens/MockLibraryApp';
 import { clearMockLibrary } from './src/diary/services/legacyMockCleanup';
 import { useLibraryMetadata } from './src/diary/hooks/useLibraryMetadata';
-import { parseSort, queryDiaries } from './src/diary/utils/libraryQuery';
+import { parseSort, queryDiaries, sortMovedByCreated } from './src/diary/utils/libraryQuery';
 import { savedLibraryView } from './src/diary/utils/libraryView';
 import ProfileScreen from './src/diary/screens/ProfileScreen';
 import ProfileCropHost from './src/auth/ProfileCropHost';
@@ -181,7 +181,7 @@ export default function App() {
     finally { clearSession(); }
   };
   // 로그인하면 게스트 보관함(LocalDiaryApp)이 회원 보관함(MemberDiaryApp)으로 통째로 바뀐다. 누른 기능(loginRequest.action)은
-  // 사라진 게스트 화면의 것이라 실행하지 않는다. 게스트가 기기에 만든 다이어리는 회원 보관함에서 가져올지 묻고 복사한다(GuestImportHost, 기기에는 남는다).
+  // 사라진 게스트 화면의 것이라 실행하지 않는다. 게스트가 기기에 만든 다이어리는 회원 보관함에서 옮길지 묻고 옮긴다(GuestImportHost, 다 옮긴 원본은 기기에서 지운다).
   const continueFromLogin = session => { setLoginRequest(null); startSession(session).catch(() => setPreviewSession(session)); };
   // 지난 실행에서 공유하고 남은 PDF 임시 파일을 정리한다. (공유 모듈은 불러오지 않는다)
   useEffect(() => { cleanupPdfShareCache().catch(() => {}) }, []);
@@ -709,10 +709,11 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
   const fullLoadPending = Boolean(sortReversed && memberLibraryMatches && diaryState.library.hasNext);
   const libraryDiaries = useMemo(() => {
     if (!member) return visibleDiaries;
-    const items = memberLibraryMatches ? diaryState.library.items : [];
+    const received = memberLibraryMatches ? diaryState.library.items : [];
+    const items = parseSort(librarySort).key === 'created' ? sortMovedByCreated(received) : received;
     if (!sortReversed) return items;
     return fullLoadPending ? [] : [...items].reverse();
-  }, [member, memberLibraryMatches, diaryState.library?.items, sortReversed, fullLoadPending, visibleDiaries]);
+  }, [member, memberLibraryMatches, diaryState.library?.items, librarySort, sortReversed, fullLoadPending, visibleDiaries]);
   const libraryReady = diaryState.library?.ready, libraryBusy = diaryState.library?.loading, libraryFailed = diaryState.library?.error, libraryCursor = diaryState.library?.nextCursor;
   useEffect(() => {
     // 한 페이지씩 이어서 불러온다. 오류가 나면 멈추고, 화면의 다시 시도 버튼이 재개한다.
