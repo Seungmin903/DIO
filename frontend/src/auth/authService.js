@@ -17,7 +17,7 @@ const hasSecureConfiguredApi = (() => {
 export const apiConfigurationError = !__DEV__ && !hasSecureConfiguredApi;
 // Keep authService loadable so App can show the configuration-error screen instead
 // of failing during module initialization when a release URL is invalid.
-export const apiBaseUrl = authBaseUrl(apiConfigurationError ? `http://${host}:8080/api` : (configuredApiBaseUrl || `http://${host}:8080/api`));
+export const apiBaseUrl = authBaseUrl(apiConfigurationError ? 'https://api-configuration.invalid/api' : (configuredApiBaseUrl || `http://${host}:8080/api`));
 export const accessTokenHeader = process.env.EXPO_PUBLIC_AUTH_TOKEN_HEADER || 'Authorization';
 export const authService = createAuthApi({
   baseUrl: apiBaseUrl,

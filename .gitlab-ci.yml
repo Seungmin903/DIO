@@ -33,6 +33,9 @@ deploy-development:
       artifacts: false
       # release 파이프라인에는 backend-test가 항상 생성되고, develop에는 없을 수 있다.
       optional: true
+    - job: release-migration-guard-test
+      artifacts: false
+      optional: true
   resource_group: development
   environment:
     name: development
@@ -40,20 +43,8 @@ deploy-development:
     # release 검증은 dev DB의 Flyway 이력을 공유하므로 양쪽 migration 집합이 같아야 한다.
     - >
       if printf '%s' "$CI_COMMIT_BRANCH" | grep -Eq '^release/'; then
-        git fetch --no-tags origin develop;
-        if ! git rev-parse --verify --quiet origin/develop >/dev/null; then
-          echo "Cannot resolve origin/develop for the shared-DB migration check." >&2;
-          exit 1;
-        fi;
-        migration_status=0;
-        git diff --quiet origin/develop HEAD -- backend/src/main/resources/db/migration || migration_status=$?;
-        if [ "$migration_status" -eq 1 ]; then
-          echo "Release and develop have different migrations; shared-DB verification is blocked." >&2;
-          exit 1;
-        elif [ "$migration_status" -ne 0 ]; then
-          echo "Could not compare release and develop migrations (git exit $migration_status)." >&2;
-          exit "$migration_status";
-        fi;
+        git fetch --no-tags origin +refs/heads/develop:refs/remotes/origin/develop;
+        bash infra/scripts/assert-shared-db-migrations.sh origin/develop HEAD;
       fi
     - export BACKEND_IMAGE="dio-backend:dev-${CI_COMMIT_SHORT_SHA}"
     # 필수 인증·SMTP·프록시 환경변수 누락 시 이미지 빌드/컨테이너 교체 전에 중단한다.
@@ -228,6 +219,22 @@ backend-test:
       - backend/build/reports/tests/test/
       - backend/build/contracts/
     expire_in: 7 days
+
+release-migration-guard-test:
+  stage: quality
+  tags:
+    - ec2-deploy
+  image: alpine:3.21
+  rules:
+    - if: '$CI_COMMIT_BRANCH =~ /^release\/.+$/'
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      changes:
+        - .gitlab-ci.yml
+        - infra/scripts/assert-shared-db-migrations.sh
+        - infra/scripts/test-assert-shared-db-migrations.sh
+  script:
+    - apk add --no-cache bash git
+    - bash infra/scripts/test-assert-shared-db-migrations.sh
 
 # PostgreSQL 잡: MR에서는 스키마·해당 테스트 변경에만 자동 실행하고 나머지는 수동, develop 파이프라인에서는 배포 전에 항상 실행한다.
 backend-postgres-auth-test:

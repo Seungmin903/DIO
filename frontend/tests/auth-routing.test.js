@@ -9,7 +9,7 @@ const code=babel.transformSync(readFileSync(new URL('../App.js',import.meta.url)
 function root(dev,mode,session=null,loginRequest=null,probe=null,apiConfigurationError=false){
  let calls=0
  const states=[session,true,loginRequest]
- const mod={exports:{}},mocks={react:{useState:()=>[states[calls++],()=>{}],useEffect(fn){probe?.effects.push(fn)},useCallback:f=>f,useRef:current=>({current})},'./src/auth/guestProfileDevice':{guestProfile:{start:async session=>session}},'./src/diary/services/legacyMockCleanup':{clearMockLibrary:async()=>{if(probe)probe.cleaned=(probe.cleaned||0)+1}},'expo-splash-screen':{preventAutoHideAsync:async()=>{},hideAsync:async()=>{if(probe)probe.hidden++}},'react-native':{Platform:{OS:'web'},StatusBar:'StatusBar',View:'View',Text:'Text',StyleSheet:{absoluteFill:{},create:value=>value}},'react-native-safe-area-context':{SafeAreaProvider:'SafeAreaProvider'},'expo-font':{useFonts:()=>[true,null]},'./src/auth/authService':{apiConfigurationError,authService:{}},'./src/shared/pretendardFiles':{PRETENDARD_FILES:{}},'./src/diary/styles':{styles:{empty:{},emptyTitle:{},emptyCopy:{}}},'./src/shared/useHiddenNavigationBar':{useHiddenNavigationBar(){}}}
+ const mod={exports:{}},mocks={react:{useState:()=>[states[calls++],()=>{}],useEffect(fn){probe?.effects.push(fn)},useCallback:f=>f,useRef:current=>({current})},'./src/auth/guestProfileDevice':{guestProfile:{start:async session=>{if(probe)probe.guestStarts=(probe.guestStarts||0)+1;return session}}},'./src/diary/services/legacyMockCleanup':{clearMockLibrary:async()=>{if(probe)probe.cleaned=(probe.cleaned||0)+1}},'expo-splash-screen':{preventAutoHideAsync:async()=>{},hideAsync:async()=>{if(probe)probe.hidden++}},'react-native':{Platform:{OS:'web'},StatusBar:'StatusBar',View:'View',Text:'Text',StyleSheet:{absoluteFill:{},create:value=>value}},'react-native-safe-area-context':{SafeAreaProvider:'SafeAreaProvider'},'expo-font':{useFonts:()=>[true,null]},'./src/auth/authService':{apiConfigurationError,authService:{}},'./src/shared/pretendardFiles':{PRETENDARD_FILES:{}},'./src/diary/styles':{styles:{empty:{},emptyTitle:{},emptyCopy:{}}},'./src/shared/useHiddenNavigationBar':{useHiddenNavigationBar(){}}}
  new Function('require','module','exports','__DEV__','process',code)(id=>mocks[id]??(id==='react/jsx-runtime'?require(id):{__esModule:true,default:id}),mod,mod.exports,dev,{env:{EXPO_PUBLIC_DIARY_SOURCE:mode}})
  return mod.exports.default()
 }
@@ -51,7 +51,7 @@ test('API 주소가 없는 정적 웹 릴리스도 모듈 로드 대신 설정 �
   './developmentAccessStore': { createDevelopmentAccessStore() {} }, './legacyAccessKeychain': { legacyAccessKeychain: 'keychain' }, 'expo/fetch': { fetch() {} } }
  new Function('require', 'module', 'exports', '__DEV__', 'process', source)(id => mocks[id], mod, mod.exports, false, { env: {} })
  assert.equal(mod.exports.apiConfigurationError, true)
- assert.equal(mod.exports.apiBaseUrl, 'http://localhost:8080/api')
+ assert.equal(mod.exports.apiBaseUrl, 'https://api-configuration.invalid/api')
 })
 test('API 주소가 없는 네이티브 릴리스도 시작 설정 오류로 분기한다', () => {
  const source = babel.transformSync(readFileSync(new URL('../src/auth/authService.js', import.meta.url), 'utf8'), {
@@ -78,12 +78,15 @@ test('평문 또는 잘못된 API 주소가 주입된 릴리스도 설정 오류
  }
 })
 test('설정 오류 플래그가 켜지면 App은 전용 오류 화면을 렌더링하고 빈 상태 스타일을 사용한다', () => {
- const tree = root(false, undefined, null, null, null, true)
+ const probe = { effects: [], guestStarts: 0 }
+ const tree = root(false, undefined, null, null, probe, true)
  assert.ok(has(tree, './src/shared/ApiConfigurationErrorScreen'))
  const errorScreen = readFileSync(new URL('../src/shared/ApiConfigurationErrorScreen.js', import.meta.url), 'utf8')
  const diaryStyles = readFileSync(new URL('../src/diary/styles.js', import.meta.url), 'utf8')
  assert.match(errorScreen, /styles\.empty(?:Title|Copy)?/)
  for (const key of ['empty:', 'emptyTitle:', 'emptyCopy:']) assert.ok(diaryStyles.includes(key), `${key} 스타일이 필요해요`)
+ probe.effects[0]()
+ assert.equal(probe.guestStarts, 0, '설정 오류 화면에서는 게스트 세션을 시작하지 않는다')
 })
 test('배포 EAS 프로필은 HTTPS 운영 API 주소를 번들에 주입한다', () => {
  const eas = JSON.parse(readFileSync(new URL('../eas.json', import.meta.url), 'utf8'))
