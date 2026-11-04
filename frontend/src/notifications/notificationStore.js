@@ -109,7 +109,7 @@ export function createNotificationStore(api, invitations) {
       await work;
       const result = invitation.getSnapshot();
       if (active && selectedInviteId === id && request === invitationGeneration && result.status === 'success'
-        && result.data?.inviteId === id && canOpenInvitation(result.data)) onReady(result.data);
+        && result.data?.inviteId === id && canOpenInvitation(result.data)) await onReady(result.data);
     },
     remove: id => mutate({ kind: 'remove', id }),
     readAll() { if (typeof api.readAll !== 'function') return; const id = list.getSnapshot().data?.items[0]?.id; if (id) return mutate({ kind: 'readAll', id }); },

@@ -191,3 +191,14 @@ test('알 수 없는 상태는 actionable하지 않고 잘못된 DTO/카운트/�
   await assert.rejects(createNotificationApi(async () => ({ unreadCount: 1, actionableUnreadCount: 2 })).count());
   await assert.rejects(createInvitationGateway(async () => ({ inviteId: 'other', status: 'PENDING' })).get('mine'));
 });
+
+test('초대 이동의 비동기 실패를 호출자에게 전달하고 이후 재확인이 가능하다', async () => {
+  const { store } = setup();
+  try {
+    await store.refresh(); await store.open(store.getSnapshot().items[0]);
+    await assert.rejects(store.proceedToInvitation(async () => { await Promise.resolve(); throw new Error('navigation failed'); }), /navigation failed/);
+    let moved = 0;
+    await store.proceedToInvitation(async () => { moved++; });
+    assert.equal(moved, 1);
+  } finally { store.dispose(); }
+});
