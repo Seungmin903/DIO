@@ -58,6 +58,20 @@ test('글꼴 로더는 쓰이는 글꼴만 한 번씩 등록하고 실패한 fac
   assert.deepEqual(calls.slice(before).flatMap(Object.keys), ['GowunBatang', 'GowunBatangBold'])
   for (const task of pending.values()) task.resolve()
   await forExport
+  // 11개 글꼴 파일 매핑 전체를 한 번에 확인한다. 글꼴은 쓰일 때 처음 불러오므로 매핑이 틀리면 고르는 순간에야 드러난다
+  const everything = module.exports.ensureTextFonts(text.TEXT_FONTS.map(font => font.id), { bold: true })
+  for (const task of pending.values()) task.resolve()
+  await everything
+  const expectedFiles = {
+    NanumGothic: /nanum-gothic\/400Regular\/NanumGothic_400Regular\.ttf$/, NanumGothicBold: /nanum-gothic\/700Bold\/NanumGothic_700Bold\.ttf$/,
+    NanumMyeongjo: /nanum-myeongjo\/400Regular\/NanumMyeongjo_400Regular\.ttf$/, NanumMyeongjoBold: /nanum-myeongjo\/700Bold\/NanumMyeongjo_700Bold\.ttf$/,
+    GowunDodum: /gowundodum\/GowunDodum-Regular\.ttf$/, GowunBatang: /gowunbatang\/GowunBatang-Regular\.ttf$/, GowunBatangBold: /gowunbatang\/GowunBatang-Bold\.ttf$/,
+    MaruBuri: /maruburi\/MaruBuri-Regular\.ttf$/, MaruBuriBold: /maruburi\/MaruBuri-Bold\.ttf$/,
+    NanumPenScript: /nanum-pen-script\/400Regular\/NanumPenScript_400Regular\.ttf$/, PoorStory: /poor-story\/400Regular\/PoorStory_400Regular\.ttf$/,
+  }
+  const allFiles = Object.assign({}, ...calls)
+  assert.deepEqual(Object.keys(allFiles).sort(), Object.keys(expectedFiles).sort())
+  for (const [family, pattern] of Object.entries(expectedFiles)) assert.match(allFiles[family], pattern, family)
 })
 
 test('나눔 굵게는 등록된 Bold face를 직접 선택하고 해제 시 Regular로 돌아간다', () => {
