@@ -312,10 +312,12 @@ export default function Viewport({ reading = false, readingLinkRef, onReadingAct
       <View
         style={[
           { position: 'absolute', left: offset.x, top: offset.y },
-          live && {
+          // 앱: 끌기를 시작 · 끝낼 때 변형이 붙었다 떨어지면 안쪽 Skia 캔버스(연필 획)가 한두 프레임 비어 깜박였다(2026-11-04 실기기 녹화).
+          // 그래서 변형은 늘 걸어 두고 값만 바꾼다. 웹은 변형이 있으면 글자가 흐려질 수 있어 예전 방식 그대로.
+          live ? {
             transformOrigin: 'left top',
             transform: [{ translateX: live.x - offset.x }, { translateY: live.y - offset.y }, { scale: live.zoom / zoom }],
-          },
+          } : Platform.OS !== 'web' ? { transformOrigin: 'left top', transform: [{ translateX: 0 }, { translateY: 0 }, { scale: 1 }] } : null,
         ]}
       >
         {children}
