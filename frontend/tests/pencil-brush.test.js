@@ -223,7 +223,8 @@ test('겹친 결 리본은 먼저 그려진 결이 남는다(DstOver): 한 획�
 test('앱 연필은 그림을 못 만들었을 때만 SVG 를 붙인다: 화면 밖 썸네일의 SVG 가 남아 Java 힙을 채우지 않는다', async () => {
   const { readFileSync } = await import('node:fs')
   const source = readFileSync(new URL('../src/editor/components/PencilSkiaStroke.native.js', import.meta.url), 'utf8')
-  assert.match(source, /raster === false \|\| \(raster && broken === raster\.uri\) \? fallback : null/)
+  assert.match(source, /raster === false \|\| \(shown && broken === shown\.uri\) \? fallback : null/)
+  assert.match(source, /const shown = raster === null \? last\.current : raster/, '새 그림을 미루는 동안 이전 그림을 유지한다')
   assert.doesNotMatch(source, /showing \? null : fallback/)
 })
 

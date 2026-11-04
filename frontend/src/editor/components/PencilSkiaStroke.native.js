@@ -38,6 +38,7 @@ export default function PencilSkiaStroke({ object, zoom, transform, fallback, on
   const [, again] = useState(0), forced = useRef(false)
   const [loaded, setLoaded] = useState(null)   // 화면에 올라온 그림의 uri
   const [broken, setBroken] = useState(null)   // 띄우지 못한 그림의 uri
+  const last = useRef(null)   // 불투명도 · 배율이 바뀌어 새 그림을 예산 때문에 미루는 동안 보여 줄 이전 그림(획이 잠깐 비지 않게)
   let raster = null   // null: 아직(SVG) · false: 그릴 수 없음(SVG 가 최종)
   if (runtime) {
     raster = peek(object, scale)
@@ -52,12 +53,14 @@ export default function PencilSkiaStroke({ object, zoom, transform, fallback, on
   const notify = useRef(onAssetLoad)
   notify.current = onAssetLoad
   useEffect(() => { if (raster === false) notify.current?.() }, [raster])
-  const showing = raster && loaded === raster.uri
+  if (raster) last.current = raster
+  const shown = raster === null ? last.current : raster
+  const showing = shown && loaded === shown.uri
   return <>
-    {raster === false || (raster && broken === raster.uri) ? fallback : null}
-    {raster ? <View pointerEvents="none" style={{ position: showing ? 'relative' : 'absolute', width: object.w * zoom, height: object.h * zoom, transform }}>
-      <Image source={{ uri: raster.uri }} fadeDuration={0} onLoad={() => { setLoaded(raster.uri); notify.current?.() }} onError={() => { setLoaded(null); setBroken(raster.uri); notify.current?.() }}
-        style={{ position: 'absolute', left: raster.left * zoom, top: raster.top * zoom, width: raster.width * zoom, height: raster.height * zoom, opacity: showing ? 1 : 0 }} />
+    {raster === false || (shown && broken === shown.uri) ? fallback : null}
+    {shown ? <View pointerEvents="none" style={{ position: showing ? 'relative' : 'absolute', width: object.w * zoom, height: object.h * zoom, transform }}>
+      <Image source={{ uri: shown.uri }} fadeDuration={0} onLoad={() => { setLoaded(shown.uri); notify.current?.() }} onError={() => { setLoaded(null); setBroken(shown.uri); notify.current?.() }}
+        style={{ position: 'absolute', left: shown.left * zoom, top: shown.top * zoom, width: shown.width * zoom, height: shown.height * zoom, opacity: showing ? 1 : 0 }} />
     </View> : null}
   </>
 }

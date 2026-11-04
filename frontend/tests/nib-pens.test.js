@@ -201,7 +201,7 @@ test('끝 꼬리: 곡선을 쓰는 중 다음 점이 와도 그린 곡선이 거
   for (let k = 4; k < points.length; k++) {
     const before = nibCurve(points.slice(0, k), { step: 2 }), after = nibCurve(points.slice(0, k + 1), { step: 2 })
     for (const p of before) assert.ok(distanceTo(p, after) < 0.35, `${k}점: 예전 직선 꼬리는 2 단위 안팎 움직였다 ${distanceTo(p, after)}`)
-    assert.ok(Math.hypot(before.at(-1).x - points[k - 1].x, before.at(-1).y - points[k - 1].y) < 3, '꼬리는 마지막 점 근처에서 끝난다')
+    assert.ok(Math.hypot(before.at(-1).x - points[k - 1].x, before.at(-1).y - points[k - 1].y) <= 1.5 + 1e-9, '꼬리는 마지막 점 1.5 단위 안에서 끝난다')
   }
 })
 test('끝 꼬리: 급히 꺾인 곳은 예측하지 않고 마지막 점까지 곧게 잇고, 같은 점이면 언제나 같은 곡선이다', () => {
@@ -210,4 +210,11 @@ test('끝 꼬리: 급히 꺾인 곳은 예측하지 않고 마지막 점까지 �
   assert.deepEqual([curve.at(-1).x, curve.at(-1).y], [60, 30])
   assert.deepEqual(nibCurve(arc(9), { step: 2 }), nibCurve(arc(9).map(p => ({ ...p })), { step: 2 }))
   assert.ok(nibCurve(arc(9), { step: 2 }).every((p, i, all) => !i || p.inkDistance >= all[i - 1].inkDistance), '진행 거리는 뒤로 가지 않는다')
+})
+test('끝 꼬리: 점이 아주 듬성하고 많이 꺾여도 끝이 마지막 점에서 1.5 단위 넘게 벗어나지 않는다', () => {
+  for (const spacing of [20, 45, 80, 200]) for (const turn of [0.3, 0.6, 0.9, 1.04]) {
+    const points = [[0, 0], [spacing, 0], [spacing + spacing * Math.cos(turn), spacing * Math.sin(turn)]].map(([x, y], i) => ({ x, y, inkDistance: i * spacing, pressure: 1 }))
+    const end = nibCurve(points, { step: 2 }).at(-1), last = points.at(-1)
+    assert.ok(Math.hypot(end.x - last.x, end.y - last.y) <= 1.5 + 1e-9, `간격 ${spacing} · 꺾임 ${turn}`)
+  }
 })

@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { createStroke } from '../src/editor/utils/strokes.js'
 import { createCompletedStrokePlanner } from '../src/editor/utils/completedStrokePlan.js'
-import { isSkiaPencil, pencilRasterBounds, pencilRasterKey } from '../src/editor/skia/pencilRaster.js'
+import { isSkiaPencil, pencilRasterBounds, pencilRasterKey, pencilBakesOpacity } from '../src/editor/skia/pencilRaster.js'
 import { quantizeScale } from '../src/editor/skia/rasterBudget.js'
 
 const withDistance = points => { let d = 0; return points.map((p, i) => { if (i) d += Math.hypot(p.x - points[i - 1].x, p.y - points[i - 1].y); return { ...p, inkDistance: d } }) }
@@ -59,4 +59,13 @@ test('묶음 계획: exclude 가 참인 획은 묶음에 넣지 않고 원래 �
   const plain = createCompletedStrokePlanner({ batchSize: 8, minBatchSize: 1 })(objects, options)
   assert.equal(plain.length, 1)
   assert.equal(plain[0].batch.objects.length, objects.length)
+})
+
+test('불투명도를 그림에 굽는 것은 Skia 그림으로 그리는 연필뿐이다(옛 획은 SVG + 요소 래퍼가 맡아 한 번만 곱해진다)', () => {
+  const stroke = pencil('a')
+  assert.equal(pencilBakesOpacity({ ...stroke, opacity: 0.5 }), true)
+  const old = { ...stroke, opacity: 0.5, points: stroke.points.map(({ inkDistance, ...p }) => p) }
+  assert.equal(isSkiaPencil(old), false)
+  assert.equal(pencilBakesOpacity(old), false)
+  assert.equal(pencilBakesOpacity({ ...stroke, penKind: 'ball', opacity: 0.5 }), false)
 })

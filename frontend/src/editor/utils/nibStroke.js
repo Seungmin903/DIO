@@ -55,13 +55,16 @@ export function withDistances(points, start = 0) {
 }
 // 끝 꼬리(마지막 점 앞 반 구간): 곡선은 이웃 점의 가운데까지만 확정이라 끝 반 구간은 다음 점이 와야 정해진다. 직선으로 잇고 있으면 다음 점이 올 때 곡선이 그 점을 비껴가며 꼬리가 움직였다(사용자: 쓰는 중 모양이 살짝 바뀐다).
 // 앞 두 구간의 꺾임으로 다음 점을 예측해 같은 2차 곡선의 앞 절반을 미리 그린다 → 다음 점이 와도 거의 같은 곡선 위에 놓인다. 점만으로 정해져 쓰는 중 = 뗀 뒤. 급히 꺾인 곳은 예측이 빗나가므로 그대로 직선
-const TAIL = { damp: 0.8, maxTurn: Math.PI / 3 }
+// gap: 꼬리 끝과 마지막 입력 점의 거리 상한(페이지 단위). 점이 아주 듬성한데 많이 꺾일 때 끝이 짧아지지 않게 예측 꺾임을 줄인다(실제 S펜 획은 최대 1.22)
+const TAIL = { damp: 0.8, maxTurn: Math.PI / 3, gap: 1.5 }
 function tailCurve(out, points, step) {
   const c = points.at(-1), b = points.at(-2), a = points.at(-3)
   const vx = c.x - b.x, vy = c.y - b.y, ux = a ? b.x - a.x : 0, uy = a ? b.y - a.y : 0
   const turn = a ? Math.atan2(ux * vy - uy * vx, ux * vx + uy * vy) : 0
   if (!a || !(vx || vy) || Math.abs(turn) > TAIL.maxTurn) { out.push({ ...c }); return }
-  const r = turn * TAIL.damp, cos = Math.cos(r), sin = Math.sin(r), s = middle(b, c)
+  // 끝과 c 의 거리 = |v|/4 · sin(|r|/2)
+  const limit = 2 * Math.asin(Math.min(1, 4 * TAIL.gap / Math.hypot(vx, vy)))
+  const r = Math.sign(turn) * Math.min(Math.abs(turn) * TAIL.damp, limit), cos = Math.cos(r), sin = Math.sin(r), s = middle(b, c)
   // 예측한 다음 점의 가운데 e = c + 회전한 v / 2. 2차 곡선 (s, c, e) 를 절반에서 자른 앞쪽 = (s, (s + c) / 2, 곡선 중점)
   const ex = c.x + (vx * cos - vy * sin) / 2, ey = c.y + (vx * sin + vy * cos) / 2
   const end = { ...c, x: (s.x + 2 * c.x + ex) / 4, y: (s.y + 2 * c.y + ey) / 4 }
