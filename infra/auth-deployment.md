@@ -45,7 +45,7 @@ CI는 이미지 빌드·컨테이너 교체 **전에** `docker compose ... confi
 만료 로그인 세션 정리 작업은 기본 활성화되어 있으며 원래 만료 시각이 지난 세션만 정리한다. 상세 정책과 실행 간격은 [세션 정리 문서](../docs/auth-session-retention-followup.md)를 참고한다.
 ## 공유 초대 링크 설정
 
-공유 링크 사용 시 `SHARING_INVITE_SECRET`에 별도의 32바이트 이상 Base64 비밀키를 지정한다. Compose dev/prod에서 백엔드로 전달한다. 미설정이면 다른 기능은 기동하며 초대 링크 기능만 503을 반환한다. `SHARING_INVITE_BASE_URL`은 실제 초대 화면 URL/딥링크 접두사이며 기본 `/invite/`는 상대 경로다. 프론트 라우팅 준비 후 실제 주소를 설정한다. 키 교체 시 기존 링크는 재발급해야 한다. [공유 API 문서](../docs/diary-sharing.md)를 참고한다.
+공유 링크 사용 시 `SHARING_INVITE_SECRET`에 별도의 32바이트 이상 Base64 비밀키를 지정한다. release는 이 값을 필수로 요구해 누락 시 컨테이너를 만들지 않는다. Compose dev/prod에서는 미설정이어도 다른 기능은 기동하며 초대 링크 기능만 503을 반환한다. `SHARING_INVITE_BASE_URL`은 실제 초대 화면 URL/딥링크 접두사이며 기본 `/invite/`는 상대 경로다. 프론트 라우팅 준비 후 실제 주소를 설정한다. 키 교체 시 기존 링크는 재발급해야 한다. [공유 API 문서](../docs/diary-sharing.md)를 참고한다.
 
 이메일 초대 발송은 `SHARING_INVITE_BASE_URL`이 클릭 가능한 절대 주소(http/https 또는 dio 스킴)여야 한다. 기본 상대 경로는 링크 API 확인용이며 메일 발송 시에는 503으로 거부한다. 기존 SMTP 설정을 재사용하며 전용 제한 실행기에서 커밋 후 발송한다. 실제 메일 도착과 프론트 초대 화면 라우팅은 배포 환경에서 확인한다.
 

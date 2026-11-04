@@ -498,8 +498,9 @@ deploy-release:
         curl --fail --retry 30 --retry-all-errors --retry-delay 2 --retry-max-time 90 --connect-timeout 3 --max-time 8 http://127.0.0.1:8083/actuator/health
       }
       cleanup_release_images() {
+        local keep_image="${1:-}"
         while IFS= read -r image; do
-          [ "$image" = "$BACKEND_IMAGE" ] || [ "$image" = "$previous_image" ] || docker image rm "$image" >/dev/null 2>&1 || true
+          { [ -n "$keep_image" ] && [ "$image" = "$keep_image" ]; } || { [ -n "$previous_image" ] && [ "$image" = "$previous_image" ]; } || docker image rm "$image" >/dev/null 2>&1 || true
         done < <(docker image ls --filter 'reference=dio-backend:release-*' --format '{{.Repository}}:{{.Tag}}' || true)
       }
       previous_container="$(docker compose --project-name dio-release-backend --env-file /home/gitlab-runner/dio-env/release.env -f infra/compose/compose.release.yml ps -q backend-release 2>/dev/null || true)"
@@ -536,6 +537,7 @@ deploy-release:
           echo "Initial release deployment failed; removing the unhealthy container." >&2
           docker compose --project-name dio-release-backend --env-file /home/gitlab-runner/dio-env/release.env -f infra/compose/compose.release.yml down --remove-orphans || true
         fi
+        cleanup_release_images "$previous_image"
         exit 1
       fi
-      cleanup_release_images
+      cleanup_release_images "$BACKEND_IMAGE"
