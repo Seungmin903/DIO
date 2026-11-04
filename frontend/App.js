@@ -14,6 +14,7 @@ import documentStorage from './src/editor/services/documentStorage';
 import EditorScreen from './src/editor/screens/EditorScreen';
 import { editorDocKey, loadEditorDoc, prefetchEditors, prepareEditor, rememberEditorDoc, saveEditorDoc } from './src/editor/services/editorDocs';
 import AuthScreen from './src/auth/AuthScreen';
+import SessionRestoreScreen from './src/auth/SessionRestoreScreen';
 import { apiConfigurationError, authService } from './src/auth/authService';
 import ApiConfigurationErrorScreen from './src/shared/ApiConfigurationErrorScreen';
 import { guestProfile } from './src/auth/guestProfileDevice';
@@ -113,6 +114,8 @@ export default function App() {
   const finishBoot = useCallback(() => { setBooting(false); hideSplash(); }, []);
   // 로그인이 필요한 기능에서 연 로그인 화면 { feature, action }. 지금 화면 위에 겹쳐 띄워, 닫아도 보던 화면이 그대로 남는다.
   const [loginRequest, setLoginRequest] = useState(null);
+  const [restoreState, setRestoreState] = useState({ status: 'loading', error: null });
+  const restoration = useRef({ active: false, busy: false, job: 0 });
   const openLogin = request => setLoginRequest(current => current?.sessionExpired
     ? { ...request, sessionExpired: true } : request);
   const closeLogin = () => {
@@ -143,23 +146,44 @@ export default function App() {
       if (stillCurrent()) setPreviewSession(guest);
     } catch { if (stillCurrent()) setPreviewSession(session); }
   };
+  const restoreLogin = async () => {
+    const control = restoration.current;
+    if (!control.active || control.busy) return;
+    control.busy = true;
+    const job = ++control.job;
+    const current = () => control.active && control.job === job;
+    setRestoreState(previous => ({ ...previous, status: 'loading' }));
+    try {
+      const restored = await authService.restoreSession();
+      if (!current()) return;
+      if (restored) setPreviewSession(restored);
+      else await startGuest(); // No saved login is the only automatic guest path.
+      if (current()) setRestoreState({ status: 'done', error: null });
+    } catch (error) {
+      if (!current()) return;
+      setRestoreState({ status: 'error', error });
+      finishBoot();
+      if (__DEV__ && error?.code === 'DEVELOPMENT_ACCESS_REQUIRED') setLoginRequest({ restoreSession: true });
+      else if (error?.status === 401 && error.code === 'INVALID_TOKEN') setLoginRequest({ sessionExpired: true });
+    } finally { if (current()) control.busy = false; }
+  };
+  const continueAsGuest = async () => {
+    const control = restoration.current;
+    if (control.busy) return;
+    control.busy = true;
+    const job = ++control.job;
+    setRestoreState(previous => ({ ...previous, status: 'guest' }));
+    try {
+      await startGuest();
+      if (control.active && control.job === job) setRestoreState({ status: 'done', error: null });
+    } finally { if (control.job === job) control.busy = false; }
+  };
   useEffect(() => {
     if (apiConfigurationError || mockSource) return;
-    let active = true;
-    (async () => {
-      let restored = null;
-      try { restored = await authService.restoreSession(); }
-      catch (error) {
-        // Development gateway credentials intentionally do not survive process restarts.
-        // Reuse its existing prompt, then resume refresh without asking for the member password.
-        if (active && __DEV__ && error?.code === 'DEVELOPMENT_ACCESS_REQUIRED') setLoginRequest({ restoreSession: true });
-        else if (active && error?.status === 401 && error.code === 'INVALID_TOKEN') setLoginRequest({ sessionExpired: true });
-      }
-      if (!active) return;
-      if (restored) setPreviewSession(restored);
-      else await startGuest();
-    })();
-    return () => { active = false; };
+    const control = restoration.current;
+    control.active = true;
+    restoreLogin();
+    return () => { control.active = false; control.job++; control.busy = false; };
   }, [apiConfigurationError, mockSource]);
   // 비밀번호 재설정 완료는 서버 세션이 이미 폐기됐을 수 있어, 별도 로그아웃 요청 없이
   // 이 기기의 메모리 세션만 지운다. 세션이 끝나면 로그인 화면이 아니라 게스트로 돌아간다.
@@ -190,7 +214,7 @@ export default function App() {
   };
   // 로그인하면 게스트 보관함(LocalDiaryApp)이 회원 보관함(MemberDiaryApp)으로 통째로 바뀐다. 누른 기능(loginRequest.action)은
   // 사라진 게스트 화면의 것이라 실행하지 않는다. 게스트가 기기에 만든 다이어리는 회원 보관함에서 옮길지 묻고 옮긴다(GuestImportHost, 다 옮긴 원본은 기기에서 지운다).
-  const continueFromLogin = session => { setLoginRequest(null); startSession(session).catch(() => setPreviewSession(session)); };
+  const continueFromLogin = session => { restoration.current.job++; restoration.current.busy = false; setRestoreState({ status: 'done', error: null }); setLoginRequest(null); startSession(session).catch(() => setPreviewSession(session)); };
   // 지난 실행에서 공유하고 남은 PDF 임시 파일을 정리한다. (공유 모듈은 불러오지 않는다)
   useEffect(() => { cleanupPdfShareCache().catch(() => {}) }, []);
   // 예전 저장소에 남은 다이어리 문서를 페이지별 파일로 옮긴다. 첫 화면과 겹치지 않게 조금 뒤에 시작한다.
@@ -207,6 +231,7 @@ export default function App() {
   // API 설정 오류도 앱이 그린 안내 화면이므로 네이티브 시작 화면을 즉시 내린다.
   useEffect(() => { if (apiConfigurationError && (fontsLoaded || fontError)) finishBoot(); }, [apiConfigurationError, fontsLoaded, fontError, finishBoot]);
   const SessionDiaryApp = authenticatedSession ? MemberDiaryApp : LocalDiaryApp;
+  const restoreFailed = !previewSession && !mockSource && Boolean(restoreState.error);
   if (!fontsLoaded && !fontError) return <SafeAreaProvider style={s.provider}><BootSplash onReady={hideSplash} /></SafeAreaProvider>;
   if (apiConfigurationError) return <SafeAreaProvider style={s.provider}><ApiConfigurationErrorScreen /></SafeAreaProvider>;
   if (__DEV__ && process.env.EXPO_PUBLIC_DIARY_SOURCE === 'mock-safety') {
@@ -229,11 +254,14 @@ export default function App() {
             (current?.mode === 'authenticated' ? String(current.userId) === String(updated.userId) : current?.accountId === updated.accountId) ? updated : current)}
           onEndPreview={endSession} onClearSession={clearSession} onReady={finishBoot} /></LoginGateProvider> : null
       )}
+      {restoreFailed && <SessionRestoreScreen error={restoreState.error} busy={restoreState.status !== 'error'} onRetry={restoreLogin}
+        onLogin={() => setLoginRequest({ sessionExpired: restoreState.error?.sessionExpired === true,
+          restoreSession: __DEV__ && restoreState.error?.code === 'DEVELOPMENT_ACCESS_REQUIRED' })} onGuest={continueAsGuest} />}
       {loginRequest && <EditorModal visible transparent animationType="none" onRequestClose={closeLogin}><View style={[StyleSheet.absoluteFill, { zIndex: 10 }]}><AuthScreen key={loginRequest.sessionExpired ? 'expired' : 'login'} sessionExpired={loginRequest.sessionExpired === true} initialEmail={authenticatedSession?.email || ''} resumeSession={loginRequest.restoreSession === true} onContinue={continueFromLogin} onClose={closeLogin} /></View></EditorModal>}
       <HandwritingStudio />
       {/* 프로필 사진 자르기(동그라미 틀). 로그인 화면 · 프로필 수정 모두 쓰므로 앱 맨 위에 하나 둔다 */}
       <ProfileCropHost />
-      {(booting || (!previewSession && !mockSource)) && <BootSplash onReady={hideSplash} />}
+      {!restoreFailed && (booting || (!previewSession && !mockSource)) && <BootSplash onReady={hideSplash} />}
     </SafeAreaProvider>
   );
 }
