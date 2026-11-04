@@ -20,8 +20,9 @@ export function collectMediaIds(value) {
     const id = mediaId(item)
     if (id) ids.add(id)
     if (typeof item === 'object') {
-      Object.values(item).forEach((child) => {
-        if (child && typeof child === 'object') visit(child)
+      // 요소에 붙은 원본 PDF(pdfSource)는 이미지 보관소에 없는 파일이다. 이미지로 찾으면 '원본을 찾을 수 없다'고 나온다.
+      Object.entries(item).forEach(([key, child]) => {
+        if (key !== 'pdfSource' && child && typeof child === 'object') visit(child)
       })
     }
   }
