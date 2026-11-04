@@ -1,4 +1,5 @@
 import { openCopyIfSafe } from './src/notifications/editorInvitationGuard';
+import { describeSharingInvitations } from './src/notifications/describeSharingInvitations';
 import MemberTrashNotice from './src/diary/components/MemberTrashNotice';
 import MemberLibraryNotice from './src/diary/components/MemberLibraryNotice';
 import { memberLibraryQuery } from './src/diary/services/memberLibraryQuery';
@@ -18,7 +19,7 @@ import { useSharing } from './src/sharing/useSharing';
 import SharingHub from './src/sharing/SharingHub';
 import { createSharingGate } from './src/sharing/sharingGate';
 import { AuthenticatedNotificationProvider, useOptionalSharedNotifications } from './src/notifications/NotificationProvider';
-import AuthenticatedNotificationDialog from './src/notifications/AuthenticatedNotificationDialog';
+import HomeNotificationFlow from './src/notifications/HomeNotificationFlow';
 import { isSessionDocumentKey } from './src/editor/services/sessionDocuments.js';
 import { startPushRuntime } from './src/notifications/pushRuntime';
 import { C, DEFAULT_FILTER, DESK_COLOR } from './src/diary/constants';
@@ -173,9 +174,10 @@ function MemberDiaryApp(props) {
 function DiaryApp(props) {
   const sharing = useSharing(props.previewUser);
   const createInvitations = useCallback(() => sharing.runtime.invitationGateway, [sharing.runtime]);
+  const describeInvitations = useCallback((ids, options) => describeSharingInvitations(sharing.runtime.notificationApi, ids, options), [sharing.runtime]);
   const content = <DiaryAppContent {...props} sharing={sharing} />;
   return props.previewUser.mode === 'authenticated'
-    ? <AuthenticatedNotificationProvider auth={authService} userId={props.previewUser.userId} createInvitations={createInvitations}>{content}</AuthenticatedNotificationProvider>
+    ? <AuthenticatedNotificationProvider auth={authService} userId={props.previewUser.userId} createInvitations={createInvitations} describeInvitations={describeInvitations}>{content}</AuthenticatedNotificationProvider>
     : content;
 }
 
@@ -967,8 +969,10 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
 
   return (
     <>
-      {authenticatedNotifications && sharingRequest?.mode === 'notifications'
-        ? <AuthenticatedNotificationDialog model={authenticatedNotifications} onClose={() => { setSharingRequest(null); if(member)diaryState.store.reload().catch(error=>notify('공유 목록을 확인하지 못했어요',error.message)); }} onInvitationReady={value => setSharingRequest({ mode: 'invitation', inviteId: value.inviteId })} />
+      {authenticatedNotifications && (sharingRequest?.mode === 'notifications' || sharingRequest?.returnToNotifications)
+        ? <HomeNotificationFlow request={sharingRequest} model={authenticatedNotifications} sharing={sharing} onRequest={setSharingRequest}
+            onClose={() => { setSharingRequest(null); if(member)diaryState.store.reload().catch(error=>notify('공유 목록을 확인하지 못했어요',error.message)); }}
+            onOpenDiary={openSharedDiary} onOpenCopy={diary => openCopyIfSafe(diary, invitationLeaveGuard.current, () => { setSharingRequest(null); if(member)diaryState.store.reload().catch(error=>notify('공유 목록을 확인하지 못했어요',error.message)); }, enterEditor)} />
         : <SharingHub onOpenCopy={diary => openCopyIfSafe(diary, invitationLeaveGuard.current, () => { setSharingRequest(null); if(member)diaryState.store.reload().catch(error=>notify('공유 목록을 확인하지 못했어요',error.message)); }, enterEditor)} onOpenDiary={openSharedDiary} request={sharingRequest} runtime={sharing.runtime} model={sharing.notifications} onClose={() => { setSharingRequest(null); if(member)diaryState.store.reload().catch(error=>notify('공유 목록을 확인하지 못했어요',error.message)); }} />}
       {/* 폰 세로 화면은 노치·다이내믹 아일랜드 아래부터 그린다. 안전 영역은 바로 옆(아래) 화면과 같은 색으로 칠해 경계가 보이지 않게 한다. */}
       <View style={s.safe}>

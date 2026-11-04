@@ -20,6 +20,7 @@ import { FALLBACK_COVER_COLOR } from '../diary/constants';
 import { pickProfilePhoto } from '../auth/profilePhoto';
 import MemberAvatar from './MemberAvatar';
 import { invitationStatusLabel } from '../notifications/NotificationPanel';
+import { notificationSender } from '../notifications/notificationPresentation';
 import { colors } from '../shared/theme';
 import { useFormFactor } from '../shared/useFormFactor';
 import { normalizeSharingNickname, sharingNicknameError, inviteEmailError, MAX_SHARING_MEMBERS, COPY_TITLE_LIMIT, copyTitleError, defaultCopyTitle } from './sharingContracts';
@@ -80,10 +81,13 @@ export default function SharingHub({
   onClose,
   onOpenDiary,
   onOpenCopy,
+  onReturnToNotifications,
+  embedded = false,
+  onBackReady,
   photoPicker = pickProfilePhoto,
 }) {
   const { isPhone } = useFormFactor();
-  const [screen, setScreen] = useState('invitations');
+  const [screen, setScreen] = useState(request?.inviteId ? 'detail' : 'invitations');
   const [diary, setDiary] = useState(null);
   const [invite, setInvite] = useState(null);
   const [nickname, setNickname] = useState('');
@@ -191,7 +195,7 @@ export default function SharingHub({
     dismissInput();
     if (request.inviteId) {
       const pending = job.current;
-      setScreen('invitations'); setBusy(true);
+      setScreen('detail'); setBusy(true);
       runtime.invitationGateway.get(request.inviteId).then(value => {
         if (!alive.current || pending !== job.current) return;
         if (value.inviteId !== request.inviteId || value.status !== 'PENDING' || value.canOpen !== true)
@@ -276,6 +280,10 @@ export default function SharingHub({
     }
     if (screen === 'email' || screen === 'members' || screen === 'copy') {
       setScreen('sharing'); setError(''); setToast('');
+    } else if (request?.returnToNotifications && screen === 'nickname') {
+      setScreen('detail'); setError('');
+    } else if (request?.returnToNotifications && onReturnToNotifications && (screen === 'detail' || screen === 'invitations')) {
+      onReturnToNotifications();
     } else if (screen === 'detail') {
       setScreen('invitations'); setInvite(null); setError('');
     } else if (screen === 'nickname' || screen === 'profile') {
@@ -368,6 +376,7 @@ export default function SharingHub({
           if (row && runtime.supportsReadState !== false) store.remove(row.id);
           else store.refresh();
           setInvite(null);
+          if (screen === 'detail' && request?.returnToNotifications && onReturnToNotifications) { onReturnToNotifications(); return; }
           if (screen === 'detail') setScreen('invitations');
           setToast('초대를 삭제했어요.');
         },
@@ -468,6 +477,11 @@ export default function SharingHub({
       </View>
     );
   };
+  useEffect(() => {
+    if (!embedded || !onBackReady) return;
+    onBackReady(back);
+    return () => onBackReady(null);
+  }, [embedded, onBackReady, back]);
   if (!request) return null;
   const mine = diary?.members.find((member) => member.id === runtime.self.id);
   const isOwner = mine?.role === 'OWNER';
@@ -480,8 +494,7 @@ export default function SharingHub({
     !editingProfile ||
     normalizeSharingNickname(nickname) !== mine?.nickname ||
     draftPhoto !== (mine?.photoUri || null);
-  return (
-    <EditorModal transparent animationType="none" visible onRequestClose={back}>
+  const content = (
       <SafeAreaView style={s.backdrop}>
         <Pressable testID="sharing-outside" accessible={false} style={s.keyboard} onPress={close}>
           <KeyboardAvoidingView
@@ -874,7 +887,7 @@ export default function SharingHub({
                         </View>
                       )}
                       {items.length > 0 && <View style={s.invitationList}>
-                      {items.map((row) => (
+                      {items.map((row) => { const sender = notificationSender(row.actor); return (
                         <View key={row.id} style={[s.invitation, !chipTone(row.status) && s.invitationPast]}>
                           <View style={s.invitationBody}>
                             <Pressable
@@ -907,7 +920,7 @@ export default function SharingHub({
                                     <Text style={[s.statusChipText, chipTone(row.status) && s[`statusChipText${chipTone(row.status)}`]]}>{chipLabel(row.status)}</Text>
                                   </View>
                                 </View>
-                                <Text style={s.invitationActor} numberOfLines={1}>{row.actor}님의 초대</Text>
+                                {Boolean(sender) && <Text style={s.invitationActor} numberOfLines={1}>{`${sender}님의 초대`}</Text>}
                               </View>
                             </Pressable>
                             {!isPhone && invitationActions(row)}
@@ -933,7 +946,7 @@ export default function SharingHub({
                             />
                           )}
                         </View>
-                      ))}
+                      ); })}
                       </View>}
                       {nextCursor && (
                         <Button
@@ -1190,6 +1203,6 @@ export default function SharingHub({
           onCancel={() => setQuestion(null)}
         />
       </SafeAreaView>
-    </EditorModal>
   );
+  return embedded ? content : <EditorModal transparent animationType="none" visible onRequestClose={back}>{content}</EditorModal>;
 }

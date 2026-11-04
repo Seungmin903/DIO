@@ -10,7 +10,7 @@ export function toNotification(row) {
   const invitation = isInvitationNotification({ notificationType: row.type });
   if (invitation && (!id(row?.invitation?.inviteId) || typeof row?.invitation?.status !== 'string')) throw invalid();
   return { id: row.notificationId, title: row.diary?.title || '사용할 수 없는 다이어리',
-    notificationType: row.type, actor: row.actor?.nickname || '다른 사용자', inviteId: invitation ? row.invitation.inviteId : null,
+    notificationType: row.type, actor: typeof row.actor?.nickname === 'string' ? row.actor.nickname.trim() || null : null, inviteId: invitation ? row.invitation.inviteId : null,
     status: invitation ? row.invitation.status : null, readAt: row.readAt ?? null, createdAt: row.createdAt,
     actionable: invitation && row.action?.enabled === true && row.invitation.status === 'PENDING' };
 }
