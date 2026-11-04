@@ -6,6 +6,7 @@ import * as legalContent from '../src/shared/legalContent.js'
 import * as profileNavigation from '../src/diary/components/profileNavigationModel.js'
 import {marketingDocuments} from '../src/shared/legalDocuments.js'
 import { createAuthApi } from '../src/auth/authApi.js'
+import * as sessionExpiry from '../src/auth/sessionExpiry.js'
 import test from 'node:test'
 import assert from 'node:assert/strict'
 const require=createRequire(import.meta.url),expo=createRequire(require.resolve('expo/package.json')),babel=expo('@babel/core')
@@ -16,6 +17,7 @@ function setup(service,photoPicker,options={emailVerificationEnabled:true}){
  const react={useState:initial=>{const i=si++;if(!(i in states))states[i]=typeof initial==='function'?initial():initial;return[states[i],v=>{states[i]=typeof v==='function'?v(states[i]):v}]},useRef:initial=>refs[ri++]??={current:initial},useEffect:(fn,next)=>{const i=ei++;if(!deps[i]||next.some((v,j)=>v!==deps[i][j])){cleanups[i]?.();deps[i]=next;cleanups[i]=fn()}}}
  const native={Linking:{openURL:async()=>{}},Keyboard:{dismiss(){},addListener:(name,fn)=>{keyboard[name]=fn;return{remove(){delete keyboard[name]}}}},Platform:{OS:'android'},BackHandler:{addEventListener:(_,fn)=>{back=fn;return{remove(){}}}}};for(const name of ['ActivityIndicator','KeyboardAvoidingView','Pressable','ScrollView','Text','TextInput','View'])native[name]=name
  const mocks={react,'../shared/legalContent':legalContent,'./LegalDocumentScreen':{__esModule:true,default:'LegalDocumentScreen'},'react-native':native,'react-native-safe-area-context':{SafeAreaView:'safe'},'../shared/useFormFactor':{useFormFactor:()=>({isPhone:false,formFactor:'tablet'})},'../shared/useOrientationLock':{useOrientationLock(){}},'./signupPolicy':signupPolicy,'./appleLogin':{isAppleLoginSupported:()=>false},'./validation':validation,'./styles':{authStyles:new Proxy({},{get:(_,key)=>key})},'../shared/theme':{colors:{}}}
+ mocks['./sessionExpiry.js']=sessionExpiry;
  const termsMod={exports:{}};new Function('require','module','exports',termsCode)(id=>id==='../shared/legalDocuments'?{marketingDocuments}:mocks[id]??(id==='react/jsx-runtime'?require(id):{__esModule:true,default:id}),termsMod,termsMod.exports);mocks['./SignupTerms']={__esModule:true,default:termsMod.exports.default}
  const mod={exports:{}};new Function('require','module','exports','__DEV__',code)(id=>mocks[id]??(id==='react/jsx-runtime'?require(id):{__esModule:true,default:id}),mod,mod.exports,options.developmentMode ?? false)
  const sessions=[],render=()=>{si=ri=ei=0;return mod.exports.default({service,onContinue:session=>sessions.push(session),photoPicker,legalDocuments:{service:'https://dio.test/legal/v2/service',privacy:'https://dio.test/legal/v2/consent',policy:'https://dio.test/legal/v2/privacy'},...options})}
@@ -37,6 +39,15 @@ function enterSocial(ui) {
  find(ui.render(),'동의하고 계속').props.onPress();
 }
 const tick=()=>new Promise(resolve=>setImmediate(resolve))
+
+test('세션 만료 재로그인은 기존 이메일·비밀번호 입력과 공통 안내를 표시한다',()=>{
+ const ui=setup({},undefined,{sessionExpired:true});
+ try{
+  const tree=ui.render();
+  assert.ok(find(tree,'이메일'));assert.ok(find(tree,'비밀번호'));
+  assert.ok(nodes(tree).some(node=>node.props?.children===sessionExpiry.SESSION_EXPIRED_MESSAGE));
+ }finally{ui.unmount()}
+});
 
 test('개발 서버 재인증 후 저장된 로그인은 회원 비밀번호 재입력 없이 복원한다', async()=>{
  let configured=false, logins=0, restores=0;

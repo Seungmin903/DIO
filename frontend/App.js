@@ -89,6 +89,10 @@ export default function App() {
   const [fontsLoaded, fontError] = useFonts(PRETENDARD_FILES);
   const [previewSession, setPreviewSession] = useState(null);
   const authenticatedSession = previewSession?.mode === 'authenticated' ? previewSession : null;
+  const memberSessionKey = useRef(null);
+  const liveSessionKey = authService.getSessionKey?.();
+  if (liveSessionKey) memberSessionKey.current = liveSessionKey;
+  else if (!authenticatedSession) memberSessionKey.current = null;
   const [booting, setBooting] = useState(true);
   const finishBoot = useCallback(() => { setBooting(false); hideSplash(); }, []);
   // 로그인이 필요한 기능에서 연 로그인 화면 { feature, action }. 지금 화면 위에 겹쳐 띄워, 닫아도 보던 화면이 그대로 남는다.
@@ -117,6 +121,7 @@ export default function App() {
         // Development gateway credentials intentionally do not survive process restarts.
         // Reuse its existing prompt, then resume refresh without asking for the member password.
         if (active && __DEV__ && error?.code === 'DEVELOPMENT_ACCESS_REQUIRED') setLoginRequest({ restoreSession: true });
+        else if (active && error?.status === 401 && error.code === 'INVALID_TOKEN') setLoginRequest({ sessionExpired: true });
       }
       if (!active) return;
       if (restored) setPreviewSession(restored);
@@ -129,6 +134,12 @@ export default function App() {
   // 늦게 온 콜백(비밀번호 재설정 완료 등)이 그사이 바뀐 세션을 지우지 않게, 지금 세션이 지우려던 세션일 때만 끝낸다
   const sessionRef = useRef(previewSession);
   sessionRef.current = previewSession;
+  useEffect(() => authService.subscribeSessionExpired?.(expired => {
+    const current = sessionRef.current;
+    if (current?.mode !== 'authenticated' || String(current.userId) !== expired.userId || authService.getSessionKey()) return;
+    // Keep the current document mounted beneath the existing login overlay.
+    setLoginRequest({ sessionExpired: true });
+  }), []);
   const clearSession = () => {
     const target = previewSession, current = sessionRef.current;
     if (!(current === target || (current?.accountId && current.accountId === target?.accountId))) return;
@@ -167,12 +178,15 @@ export default function App() {
     <SafeAreaProvider style={s.provider}>
       <StatusBar hidden />
       {__DEV__ && process.env.EXPO_PUBLIC_DIARY_SOURCE === 'mock' ? <ConnectedDiaryLibrary /> : (
-        previewSession ? <LoginGateProvider authenticated={!!authenticatedSession} onLogin={setLoginRequest}><SessionDiaryApp key={authenticatedSession ? `authenticated:${authenticatedSession.userId}` : 'preview'} previewUser={previewSession} loginOverlayOpen={Boolean(loginRequest)}
+        previewSession ? <LoginGateProvider authenticated={!!authenticatedSession && !loginRequest?.sessionExpired} onLogin={setLoginRequest}><SessionDiaryApp key={authenticatedSession ? `authenticated:${authenticatedSession.userId}${memberSessionKey.current ? `:${memberSessionKey.current}` : ''}` : 'preview'} previewUser={previewSession} loginOverlayOpen={Boolean(loginRequest)}
           onUpdatePreview={updated => setPreviewSession(current => current?.mode === updated.mode &&
             (current?.mode === 'authenticated' ? String(current.userId) === String(updated.userId) : current?.accountId === updated.accountId) ? updated : current)}
           onEndPreview={endSession} onClearSession={clearSession} onReady={finishBoot} /></LoginGateProvider> : null
       )}
-      {loginRequest && <View style={[StyleSheet.absoluteFill, { zIndex: 10 }]}><AuthScreen resumeSession={loginRequest.restoreSession === true} onContinue={continueFromLogin} onClose={() => setLoginRequest(null)} /></View>}
+      {loginRequest && <View style={[StyleSheet.absoluteFill, { zIndex: 10 }]}><AuthScreen key={loginRequest.sessionExpired ? 'expired' : 'login'} sessionExpired={loginRequest.sessionExpired === true} resumeSession={loginRequest.restoreSession === true} onContinue={continueFromLogin} onClose={() => {
+        setLoginRequest(null);
+        if (loginRequest.sessionExpired && !authService.getSessionKey()) startGuest();
+      }} /></View>}
       <HandwritingStudio />
       {/* 프로필 사진 자르기(동그라미 틀). 로그인 화면 · 프로필 수정 모두 쓰므로 앱 맨 위에 하나 둔다 */}
       <ProfileCropHost />

@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createAuthApi } from '../src/auth/authApi.js';
 import { createSecureSessionStore } from '../src/auth/secureSessionStore.js';
+import { SESSION_EXPIRED_MESSAGE } from '../src/auth/sessionExpiry.js';
 
 const baseUrl = 'https://api.example/api';
 const user = { userId: '7', email: 'member@example.com', nickname: '회원' };
@@ -18,6 +19,64 @@ function fixture() {
   return { rows, writes, sessionStore: createSecureSessionStore(keychain) };
 }
 const login = api => api.login({ email: user.email, password: 'Password123!' });
+
+test('expired refresh emits one session-bound notification for concurrent requests, then existing login recovers', async () => {
+  let clock = 0, refreshCalls = 0;
+  const events = [], f = fixture();
+  const api = createAuthApi({ baseUrl, now: () => clock, sessionStore: f.sessionStore, fetchImpl: async url => {
+    if (url.endsWith('/login')) return response(tokens(1));
+    refreshCalls++;
+    return response({ code: 'INVALID_TOKEN', detail: 'server-specific copy' }, 401);
+  } });
+  await login(api);
+  const oldKey = api.getSessionKey(), unsubscribe = api.subscribeSessionExpired(event => events.push(event));
+  clock = 900000;
+  const outcomes = await Promise.allSettled([1, 2, 3].map(() => api.getAccessToken({ userId: '7', sessionKey: oldKey })));
+  assert.equal(refreshCalls, 1);
+  assert.deepEqual(events, [{ userId: '7', sessionKey: oldKey }]);
+  assert.ok(outcomes.every(item => item.status === 'rejected' && item.reason.status === 401 && item.reason.message === SESSION_EXPIRED_MESSAGE));
+  assert.equal(api.getCurrentUserId(), null);
+  assert.equal(f.rows.size, 0);
+  await login(api);
+  assert.notEqual(api.getSessionKey(), oldKey);
+  assert.equal(await api.getAccessToken({ userId: '7', sessionKey: api.getSessionKey() }), 'access1');
+  unsubscribe();
+  await assert.rejects(api.refresh(), { code: 'INVALID_TOKEN' });
+  assert.equal(events.length, 1);
+});
+
+test('network, proxy, development gate and successful rotation never signal session expiry', async () => {
+  for (const failure of [null, {status: 403, code: 'INVALID_TOKEN'}, {status: 401, code: 'ACCESS_DENIED'}, {status: 401, code: 'INVALID_TOKEN', basic: true}, {status: 503}, 'network']) {
+    const events = [];
+    const api = createAuthApi({ baseUrl, fetchImpl: async url => {
+      if (url.endsWith('/login') || !failure) return response(tokens(1));
+      if (failure === 'network') throw new Error('offline');
+      return {...response({code: failure.code}, failure.status), headers: {get: name => name === 'WWW-Authenticate' && failure.basic ? 'Basic realm="DIO Development"' : null}};
+    } });
+    await login(api);
+    api.subscribeSessionExpired(event => events.push(event));
+    await api.refresh().catch(() => {});
+    assert.deepEqual(events, []);
+    assert.equal(api.getCurrentUserId(), '7');
+  }
+});
+
+test('late invalid refresh cannot clear or redirect a newer login', async () => {
+  let finish;
+  const api = createAuthApi({ baseUrl, fetchImpl: async url => url.endsWith('/login') ? response(tokens(1))
+    : new Promise(resolve => { finish = resolve; }) });
+  await login(api);
+  const events = [];
+  api.subscribeSessionExpired(event => events.push(event));
+  const pending = api.refresh();
+  await new Promise(resolve => setImmediate(resolve));
+  await login(api);
+  const key = api.getSessionKey();
+  finish(response({code: 'INVALID_TOKEN'}, 401));
+  await assert.rejects(pending, {code: 'INVALID_TOKEN'});
+  assert.equal(api.getSessionKey(), key);
+  assert.deepEqual(events, []);
+});
 
 test('process restart restores via refresh, rotates securely and keeps access tokens out of storage', async () => {
   const f = fixture();
@@ -248,7 +307,7 @@ for (const status of [401]) for (const operation of ['refresh', 'restoreSession'
     let api = createAuthApi(options);
     await login(api);
     if (operation === 'restoreSession') api = createAuthApi(options);
-    await assert.rejects(api[operation](), { status, code: 'INVALID_TOKEN', message: '인증이 만료됐어요.' });
+    await assert.rejects(api[operation](), { status, code: 'INVALID_TOKEN', message: SESSION_EXPIRED_MESSAGE });
     assert.equal(api.getCurrentUserId(), null);
     assert.equal(f.rows.size, 1);
     assert.deepEqual(warnings, [['[auth] SECURE_SESSION_CLEAR_FAILED']]);

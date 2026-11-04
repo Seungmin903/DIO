@@ -1,4 +1,5 @@
 import { FALLBACK_COVER_COLOR } from '../constants.js';
+import { SESSION_EXPIRED_MESSAGE } from '../../auth/sessionExpiry.js';
 
 // 229 합의 전 DTO는 이 어댑터 한 곳에서만 화면 모델로 변환한다.
 export class DiaryApiError extends Error {
@@ -78,7 +79,7 @@ export function createHttpTransport({ baseUrl, getAccessToken, fetchImpl = globa
   return async ({ path, signal, query = {}, method = 'GET', body: payload, requestId }) => {
     const token = await getAccessToken();
     if (signal?.aborted) throw Object.assign(new Error('Cancelled'), { name: 'AbortError' });
-    if (!token) throw new DiaryApiError('UNAUTHENTICATED', '로그인이 필요해요.', 401);
+    if (!token) throw new DiaryApiError('UNAUTHENTICATED', SESSION_EXPIRED_MESSAGE, 401);
     const search = new URLSearchParams(Object.entries(query).filter(([, v]) => v !== undefined).map(([k, v]) => [k, String(v)]));
     const queryString = search.toString();
     const url = `${baseUrl.replace(/\/$/, '')}${path}${queryString ? `?${queryString}` : ''}`;
@@ -105,7 +106,7 @@ export function createHttpTransport({ baseUrl, getAccessToken, fetchImpl = globa
     let body;
     try { body = await response.json(); } catch { body = null; }
     if (!response.ok) {
-      const message = response.status === 401 ? '로그인이 필요해요.'
+      const message = response.status === 401 ? SESSION_EXPIRED_MESSAGE
         : response.status === 403 ? '이 작업을 할 권한이 없어요.'
         : response.status === 404 ? '다이어리를 찾을 수 없어요.'
         : response.status === 409 ? '다른 변경이 있어요. 최신 내용을 확인한 뒤 다시 저장해 주세요.'

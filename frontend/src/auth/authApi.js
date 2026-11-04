@@ -1,6 +1,7 @@
 import { normalizeEmail, emailError, accountEmailError, normalizeNickname, nicknameError, passwordError } from './validation.js';
 import { signupAgreements } from './signupPolicy.js';
 import { developmentAuthorization } from './developmentAccess.js';
+import { SESSION_EXPIRED_MESSAGE } from './sessionExpiry.js';
 
 export function authBaseUrl(value) {
   const base = value.replace(/\/+$/, '');
@@ -44,6 +45,7 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
   const SOCIAL_NAMES = { google: '구글', apple: '애플' };
   let session = null, draft = null, verification = null, revision = 0, refreshing = null, accessRefreshAt = 0, sessionSequence = 0;
   let restoringSession = null, storageWrites = Promise.resolve();
+  const expiryListeners = new Set();
   const store = (method, value) => {
     const operation = storageWrites.then(() => sessionStore?.[method]?.(base, value));
     storageWrites = operation.catch(() => {});
@@ -105,7 +107,7 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
       throw new Error('로그인 요청이 취소되었어요.');
     }
   };
-  const unauthorized = () => Object.assign(new Error('다시 로그인해 주세요.'), { status: 401, code: 'AUTHENTICATION_REQUIRED' });
+  const unauthorized = () => Object.assign(new Error(SESSION_EXPIRED_MESSAGE), { status: 401, code: 'AUTHENTICATION_REQUIRED' });
   let passwordReset = null, resetRevision = 0, resetVerifying = null, verificationRevision = 0;
 
   const userView = (user) => ({
@@ -189,6 +191,10 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
     return userView(session.user);
   }
   const api = {
+    subscribeSessionExpired(listener) {
+      expiryListeners.add(listener);
+      return () => expiryListeners.delete(listener);
+    },
     getConnectionOptions() { return { baseUrl: base, accessTokenHeader, getAuthHeaders }; },
     getProfilePhotoSource(uri) {
       const target = new URL(uri, base), server = new URL(base);
@@ -438,7 +444,7 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
       return memberProfile(session, 'GET', undefined, '회원정보를 확인하지 못했어요. 다시 시도해 주세요.');
     },
     async changePassword(user, { currentPassword, password, confirmation }) {
-      if (!session || String(user?.userId) !== String(session.user.userId)) throw new Error('다시 로그인해 주세요.');
+      if (!session || String(user?.userId) !== String(session.user.userId)) throw unauthorized();
       if (!currentPassword || passwordError(password) || password !== confirmation || currentPassword === password)
         throw new Error('현재 비밀번호와 새 비밀번호·확인 입력을 확인해 주세요.');
       if (refreshing) await refreshing;
@@ -499,7 +505,7 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
     },
     async refresh() {
       if (refreshing) return refreshing;
-      if (!session) throw new Error('다시 로그인해 주세요.');
+      if (!session) throw unauthorized();
       const previous = session, attempt = revision;
       const operation = (async () => {
         try {
@@ -508,7 +514,18 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
           await acceptSession(result, { keepSessionOnStorageFailure: true });
           return userView(result.user);
         } catch (error) {
-          if (session === previous && invalidRefreshToken(error)) { session = null; await clearStoredSessionSafely(); }
+          if (session === previous && attempt === revision && invalidRefreshToken(error)) {
+            const expired = { userId: String(previous.user.userId), sessionKey: api.getSessionKey() };
+            session = null;
+            accessRefreshAt = 0;
+            // Notify once, before asynchronous cleanup. A later login must never
+            // be redirected by an older refresh response or a slow secure store.
+            for (const listener of expiryListeners) {
+              try { listener(expired); } catch { console.warn('[auth] SESSION_EXPIRY_LISTENER_FAILED'); }
+            }
+            await clearStoredSessionSafely();
+            error.message = SESSION_EXPIRED_MESSAGE;
+          }
           throw error;
         }
       })();
@@ -531,7 +548,10 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
           sessionSequence++;
           return userView(session.user);
         } catch (error) {
-          if (attempt === revision && invalidRefreshToken(error)) await clearStoredSessionSafely();
+          if (attempt === revision && invalidRefreshToken(error)) {
+            await clearStoredSessionSafely();
+            error.message = SESSION_EXPIRED_MESSAGE;
+          }
           throw error;
         }
       })();

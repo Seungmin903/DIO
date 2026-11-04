@@ -232,15 +232,31 @@ test('동시 갱신의 네트워크·5xx 실패는 세션을 보존하고 다음
 });
 
 test('갱신 인증 거부는 세션을 비우고 이전 알림 요청을 전송하지 않는다', async () => {
-  for (const status of [401, 403]) {
+  for (const status of [401]) {
     let time = 0, fetched = 0;
     const auth = createAuthApi({ baseUrl: 'https://api.example.test', now: () => time,
-      fetchImpl: async url => url.endsWith('/refresh') ? reply({ code: 'AUTHENTICATION_REQUIRED' }, status) : reply(tokens('1', 'initial')) });
+      fetchImpl: async url => url.endsWith('/refresh') ? reply({ code: 'INVALID_TOKEN' }, status) : reply(tokens('1', 'initial')) });
     await login(auth);
     const session = createAuthenticatedNotificationSession({ auth, userId: '1', fetchImpl: async () => { fetched++; } });
     time = 30000;
     await assert.rejects(session.api.count(), error => error.status === 401);
     assert.equal(auth.getSessionKey(), null); assert.equal(fetched, 0);
+  }
+});
+
+test('프록시 401·403은 저장 세션을 폐기하지 않고 다음 알림 조회에서 갱신을 재시도한다', async () => {
+  for (const status of [401,403]) {
+    let time=0, blocked=true, fetched=0;
+    const auth=createAuthApi({baseUrl:'https://api.example.test',now:()=>time,fetchImpl:async url=>
+      url.endsWith('/refresh')&&blocked ? reply({code:'AUTHENTICATION_REQUIRED'},status) : reply(tokens('1','renewed'))});
+    await login(auth);
+    const key=auth.getSessionKey();
+    const session=createAuthenticatedNotificationSession({auth,userId:'1',fetchImpl:async()=>{fetched++;return reply({unreadCount:0})}});
+    time=30000;
+    await assert.rejects(session.api.count(),error=>error.status===status);
+    assert.equal(auth.getSessionKey(),key);assert.equal(fetched,0);
+    blocked=false;
+    await session.api.count();assert.equal(fetched,1);
   }
 });
 

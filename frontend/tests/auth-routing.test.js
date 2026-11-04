@@ -10,11 +10,83 @@ function root(dev,mode,session=null,loginRequest=null,probe=null){
  let calls=0
  const states=[session,probe?.booting??true,loginRequest]
  const mod={exports:{}},mocks={'./src/shared/dialogs':{notify:(...args)=>probe?.notices?.push(args)},'./src/editor/utils/savePdfFile':{cleanupPdfShareCache:async()=>{}},'./src/auth/authService':{authService:{logout:async()=>{if(probe?.logoutError)throw probe.logoutError},restoreSession:async()=>{if(probe?.restoreError)throw probe.restoreError;return probe?.restored??null}}},react:{useState:()=>{const index=calls++;return [states[index],value=>probe?.updates?.push({index,value})]},useEffect(fn){probe?.effects.push(fn)},useCallback:f=>f,useRef:current=>({current})},'./src/auth/guestProfileDevice':{guestProfile:{start:async session=>session}},'./src/diary/services/legacyMockCleanup':{clearMockLibrary:async()=>{if(probe)probe.cleaned=(probe.cleaned||0)+1}},'expo-splash-screen':{preventAutoHideAsync:async()=>{},hideAsync:async()=>{if(probe)probe.hidden++}},'react-native':{Platform:{OS:'web'},StatusBar:'StatusBar',View:'View',StyleSheet:{absoluteFill:{}}},'react-native-safe-area-context':{SafeAreaProvider:'SafeAreaProvider'},'expo-font':{useFonts:()=>[true,null]},'./src/shared/pretendardFiles':{PRETENDARD_FILES:{}},'./src/diary/styles':{styles:{}},'./src/shared/useHiddenNavigationBar':{useHiddenNavigationBar(){}}}
+ Object.assign(mocks['./src/auth/authService'].authService, {
+  getSessionKey:()=>probe?.sessionKey??null,
+  subscribeSessionExpired(listener){if(probe)probe.expireSession=listener;return()=>{if(probe)probe.expireSession=null}},
+ });
  new Function('require','module','exports','__DEV__','process',code)(id=>mocks[id]??(id==='react/jsx-runtime'?require(id):{__esModule:true,default:id}),mod,mod.exports,dev,{env:{EXPO_PUBLIC_DIARY_SOURCE:mode}})
  return mod.exports.default()
 }
 const nodes=n=>!n||typeof n!=='object'?[]:[n,...[n.props?.children].flat(Infinity).flatMap(nodes)]
 const has=(tree,name)=>nodes(tree).some(n=>n.type===name||n.type?.name===name)
+
+test('만료 안내 중 회원 보관함 저장소를 유지하고 같은 계정 재로그인 후에만 새 저장소로 바꾼다',()=>{
+ const source=babel.transformSync(readFileSync(new URL('../src/diary/hooks/useMemberDiaries.js',import.meta.url),'utf8'),{configFile:false,babelrc:false,plugins:[expo.resolve('@babel/plugin-transform-modules-commonjs')]}).code;
+ let key='7:1',memo=null,ref={current:null},made=0;
+ const mocks={
+  react:{useRef:()=>ref,useEffect(){},useSyncExternalStore:(_,get)=>get(),useMemo(fn,deps){if(!memo||deps.some((value,index)=>value!==memo.deps[index]))memo={deps,value:fn()};return memo.value}},
+  '../../auth/authService':{authService:{getSessionKey:()=>key}},
+  '../services/memberAppStore.js':{createMemberAppStore:()=>({serial:++made,getSnapshot:()=>({diaries:[],trash:[]})})},
+  '../services/memberDiaryApi.js':{createMemberDiaryApi:()=>({})},
+  '../services/memberTransport.js':{createAuthenticatedMemberTransport:()=>({})},
+ };
+ const mod={exports:{}};
+ new Function('require','module','exports',source)(id=>mocks[id]??{},mod,mod.exports);
+ const before=mod.exports.useMemberDiaries('7').store;
+ key=null;
+ assert.equal(mod.exports.useMemberDiaries('7').store,before);
+ key='7:2';
+ assert.notEqual(mod.exports.useMemberDiaries('7').store,before);
+ assert.equal(made,2);
+});
+
+test('실제 세션 만료만 기존 로그인 화면을 열고 구독 해제·계정 교체 뒤 이벤트는 무시한다',()=>{
+ const member={mode:'authenticated',userId:'7'},probe={effects:[],updates:[],hidden:0};
+ root(false,undefined,member,null,probe);
+ const timer=globalThis.setTimeout;globalThis.setTimeout=()=>0;
+ let cleanups;
+ try{cleanups=probe.effects.map(fn=>fn())}finally{globalThis.setTimeout=timer}
+ probe.expireSession({userId:'8'});
+ assert.equal(probe.updates.some(update=>update.index===2),false);
+ probe.sessionKey='7:new';
+ probe.expireSession({userId:'7'});
+ assert.equal(probe.updates.some(update=>update.index===2),false);
+ probe.sessionKey=null;
+ probe.expireSession({userId:'7'});
+ assert.ok(probe.updates.some(update=>update.index===2&&update.value.sessionExpired));
+ for(const cleanup of cleanups)if(typeof cleanup==='function')cleanup();
+ assert.equal(probe.expireSession,null);
+});
+
+test('만료 안내는 기존 로그인 화면을 재사용하고 닫으면 게스트, 로그인 성공 시 회원 화면으로 복귀한다',async()=>{
+ const member={mode:'authenticated',userId:'7'},probe={effects:[],updates:[]};
+ const tree=root(false,undefined,member,{sessionExpired:true},probe);
+ const auth=nodes(tree).find(node=>node.type==='./src/auth/AuthScreen');
+ assert.equal(auth.props.sessionExpired,true);
+ assert.equal(auth.props.resumeSession,false);
+ assert.equal(nodes(tree).find(node=>node.props?.onLogin).props.authenticated,false);
+ assert.ok(has(tree,'MemberDiaryApp'));
+ const restored={mode:'authenticated',userId:'8'};
+ auth.props.onContinue(restored);
+ assert.ok(probe.updates.some(update=>update.index===0&&update.value===restored));
+ probe.updates.length=0;
+ auth.props.onClose();
+ await new Promise(resolve=>setImmediate(resolve));
+ assert.ok(probe.updates.some(update=>update.index===0&&update.value.provider==='guest'));
+});
+
+test('부팅 시 저장 토큰 만료는 재로그인을 열고 프록시·통신 오류는 자동으로 로그인 화면을 열지 않는다',async()=>{
+ for(const restoreError of [{status:401,code:'INVALID_TOKEN'},{status:403},{status:401,code:'ACCESS_DENIED'},{status:0}]){
+  const probe={effects:[],updates:[],hidden:0,restoreError};
+  root(false,undefined,null,null,probe);
+  const timer=globalThis.setTimeout;globalThis.setTimeout=()=>0;
+  let cleanups;
+  try{cleanups=probe.effects.map(fn=>fn())}finally{globalThis.setTimeout=timer}
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(probe.updates.some(update=>update.index===2&&update.value.sessionExpired),restoreError.code==='INVALID_TOKEN');
+  for(const cleanup of cleanups)if(typeof cleanup==='function')cleanup();
+ }
+});
 
 test('authService 모듈은 공용 주소·헤더를 선언한 뒤 생성 인자로 전달하고 운영 개발접속을 끈다', () => {
  const source = babel.transformSync(readFileSync(new URL('../src/auth/authService.js', import.meta.url), 'utf8'), {
