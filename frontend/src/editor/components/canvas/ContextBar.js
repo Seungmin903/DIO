@@ -1,12 +1,10 @@
 import { useState } from 'react'
-import { Linking, Pressable, StyleSheet, Text, View } from 'react-native'
+import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { colors, shadow, DISABLED_OPACITY } from '../../../shared/theme'
 import { PAGE_HEIGHT, PAGE_WIDTH } from '../../constants'
 import { clamp, unionBounds } from '../../utils/common'
 import { keepOutBox, placeHorizontal, placeVertical, POPOVER_EDGE } from '../../utils/popoverPlacement'
 import Icon from '../controls/Icon'
-import FadeScroll from '../controls/FadeScroll'
-import LassoSelectionMenu from '../LassoSelectionMenu'
 import { EDITOR_COLORS } from '../../utils/penSettings'
 import { usePalette } from '../../hooks/usePalettes'
 import { normalizeTextLink } from '../../utils/textFormats'
@@ -105,6 +103,15 @@ export default function ContextBar({
   const grouped = objects.length > 1 && objects.every((o) => o.groupId && o.groupId === objects[0].groupId)
   // 바에는 모드·묶기만 둔다 (자르기, 그룹). 테두리·그림자·프레임·사진 바꾸기 등은 옵션 패널 안에.
   const linkable = single && !single.locked && LINKABLE_TYPES.includes(single.type)
+  // 올가미로 잡았을 때 추가 선택 · 선택에서 제외도 같은 바에 둔다(바 옆에 따로 띄우면 두 줄이 됐다)
+  const lassoModes = lassoActions ? [
+    { icon: 'plus', label: '추가 선택', active: lassoActions.mode === 'add', onPress: () => lassoActions.onModeChange('add') },
+    { icon: 'minus', label: '선택에서 제외', active: lassoActions.mode === 'subtract', onPress: () => lassoActions.onModeChange('subtract') },
+  ] : []
+  const lassoButtons = lassoModes.length > 0 && <>
+    {lassoModes.map((action) => <BarButton key={action.label} {...action} />)}
+    <View style={styles.divider} />
+  </>
 
   // 요소 바 (폰 · 태블릿 같다): 바에 들어가는 만큼 앞에서부터 보이고, 넘치는 뒤쪽은 더보기 메뉴로 옮긴다.
   // 페이지가 좁거나 작게 보여도 버튼이 바 밖으로 삐져나가지 않는다. 고칠 수 있는 텍스트 · 필기는 아래 전용 바.
@@ -114,6 +121,7 @@ export default function ContextBar({
     const cropable = !single?.locked && (cropablePhoto(single) || (single?.type === 'tape' && single.src && single.imageWidth))
     const fillable = !single?.locked && hasEmptyCell(single)
     const leading = [
+      ...lassoModes,
       single?.type === 'shape' && !single.locked && {icon:'text',label:'서식',active:textSettingsOpen,onPress:()=>onTextSettings?.()},
       cropable && { icon: 'crop', label: '자르기', onPress: () => onCrop(single.id) },
       fillable && { icon: 'image', label: '사진 채우기', onPress: () => onFillCells(single.id) },
@@ -158,30 +166,30 @@ export default function ContextBar({
         {orderOpen && <OrderMenu placement={menuBelow ? 'below' : 'above'} right={Math.max(MENU_WIDTH, barWidth - 5)} objects={objects} allObjects={allObjects} onPick={(mode) => dispatch({ type: 'reorder', ids, mode })} />}
       </View>
       {linkCard}
-      {lassoActions && <LassoSelectionMenu objects={objects} mode={lassoActions.mode} onModeChange={lassoActions.onModeChange} zoom={zoom} origin={origin} area={area} anchor={{ top, height: BAR_HEIGHT }} />}
     </>
   }
 
   // 텍스트 요소 선택: 문자열 복사는 편집 모드에서, 여기서는 상자 전체를 복제한다.
   if (editingText) return <>
     <View accessibilityLabel="텍스트 빠른 편집" style={[styles.bar, { top, left, maxWidth: Math.max(120, areaW - EDGE * 2), opacity: barWidth ? 1 : 0 }]} onLayout={(event) => setBarWidth(event.nativeEvent.layout.width)} {...insideHandlers}>
-      <FadeScroll horizontal style={styles.barScroll} keyboardShouldPersistTaps="handled" contentContainerStyle={styles.barContent}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={styles.barContent}>
+        {lassoButtons}
         <BarButton icon="edit" label="수정" onPress={() => onEditText?.(single)} />
         <BarButton icon="text" label="서식" active={textSettingsOpen} onPress={() => onTextSettings?.()} />
         <BarButton icon="link" label="링크" active={single.styleRanges?.some((r) => r.href)} onPress={() => onTextLink?.(single)} />
         <View style={styles.divider} />
         <BarButton icon="duplicate" label="복제" onPress={() => dispatch({ type: 'duplicateObjects', ids })} />
         <BarButton icon="trash" label="삭제" danger onPress={() => dispatch({ type: 'removeObjects', ids })} />
-      </FadeScroll>
+      </ScrollView>
     </View>
     {linkCard}
-    {lassoActions && <LassoSelectionMenu objects={objects} mode={lassoActions.mode} onModeChange={lassoActions.onModeChange} zoom={zoom} origin={origin} area={area} anchor={{ top, height: BAR_HEIGHT }} />}
   </>
 
   // 남은 경우는 필기 편집뿐이다
   return <>
     <View accessibilityLabel="필기 빠른 편집" style={[styles.bar, { top, left, maxWidth: Math.max(120, areaW - EDGE * 2), opacity: barWidth ? 1 : 0 }]} onLayout={(event) => setBarWidth(event.nativeEvent.layout.width)} {...insideHandlers}>
-      <FadeScroll horizontal style={styles.barScroll} keyboardShouldPersistTaps="handled" contentContainerStyle={styles.barContent}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={styles.barContent}>
+        {lassoButtons}
         {penColors.map((color) => <Pressable key={color} accessibilityRole="button" accessibilityLabel={`선택 요소 색상 ${color}`} accessibilityState={{ selected: single.color?.toUpperCase() === color.toUpperCase() }}
           onPress={() => dispatch({ type: 'updateObject', id: single.id, record: true, patch: { color } })}
           style={[styles.swatch, { backgroundColor: color }, single.color?.toUpperCase() === color.toUpperCase() && styles.swatchChosen]} />)}
@@ -193,9 +201,8 @@ export default function ContextBar({
         <View style={styles.divider} />
         <BarButton icon="crop" label="잘라내기" onPress={() => onCut?.(objects)} />
         <BarButton icon="more" label="정렬·보정" active={moreOpen} onPress={onToggleMore} />
-      </FadeScroll>
+      </ScrollView>
     </View>
-    {lassoActions && <LassoSelectionMenu objects={objects} mode={lassoActions.mode} onModeChange={lassoActions.onModeChange} zoom={zoom} origin={origin} area={area} anchor={{ top, height: BAR_HEIGHT }} />}
   </>
 }
 
@@ -377,7 +384,6 @@ const styles = StyleSheet.create({
   divider: { width: 1, height: 22, marginHorizontal: 4, backgroundColor: colors.border },
   chipActive: { backgroundColor: colors.primarySoft },
   // 텍스트·필기 바도 스티커·마테·사진 바(bar)와 같은 모양: 둥글기 16, 테두리 없음, 버튼 간격 2
-  barScroll: { flexShrink: 1 },
   barContent: { alignItems: 'center', gap: 2 },
   kind: { alignSelf: 'stretch', justifyContent: 'center', paddingHorizontal: 12, marginVertical: 5, borderRadius: 20, backgroundColor: colors.text },
   kindText: { color: colors.surface, fontSize: 12, fontWeight: '700' },
