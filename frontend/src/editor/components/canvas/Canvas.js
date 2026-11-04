@@ -1,4 +1,4 @@
-import { Fragment, forwardRef, useEffect, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, forwardRef, memo, useEffect, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Keyboard, Platform, Pressable, StyleSheet, Text, View } from 'react-native'
 import Icon from '../controls/Icon'
 import { colors, radius, DISABLED_OPACITY } from '../../../shared/theme'
@@ -217,6 +217,9 @@ export default function Canvas({
     if (lassoOutline && !outlinePaths) setLassoOutline(null)
   }, [lassoOutline, outlinePaths])
   useEffect(() => { setLassoDrawing(false); setLassoCapture(false) }, [page.id, activeTool])
+  // 터치 상자가 제스처 시작·끝에 읽는 최신 값. 렌더마다 갱신한다.
+  const objectLive = useRef(null)
+  objectLive.current = { objects: page.objects, selectedIds, onEditText, onEditMedia, onEditFrameText }
   const [guides, setGuides] = useState(null)
   const [rotationLabel, setRotationLabel] = useState(null)
   const [interacting, setInteracting] = useState(false)
@@ -425,18 +428,14 @@ export default function Canvas({
             object={object}
             pageWidth={PAGE_WIDTH}
             pageHeight={PAGE_HEIGHT}
-            objects={page.objects}
+            live={objectLive}
             zoom={zoom}
-            selectedIds={selectedIds}
             cropping={cropping}
             isCropTarget={object.id === cropId}
             dispatch={dispatch}
             onGuides={setGuides}
             onInteracting={setInteracting}
             onDragging={setDraggingIds}
-            onEditText={onEditText}
-            onEditMedia={onEditMedia}
-            onEditFrameText={onEditFrameText}
             directEdit={Boolean(planner?.titleAt({ x: object.x + object.w / 2, y: object.y + object.h / 2 }, [object]))}
           />
         ))}
@@ -823,7 +822,9 @@ function ProgressiveCanvasDrawing({ page, enabled, generation, onReady, ...props
   return <StaticPage {...props} page={displayed} />
 }
 
-function CanvasObject({ object, objects, pageWidth: PAGE_WIDTH, pageHeight: PAGE_HEIGHT, zoom, selectedIds, cropping, isCropTarget, dispatch, onGuides, onInteracting, onDragging, onEditText, onEditMedia, onEditFrameText, directEdit = false }) {
+// 끌 때마다 바뀌는 값(objects·selectedIds·콜백)은 props 로 받지 않고 live ref 로 읽는다.
+// 그래야 memo 가 먹어 손가락 아래 요소가 아닌 터치 상자는 다시 그려지지 않는다.
+const CanvasObject = memo(function CanvasObject({ object, live, pageWidth: PAGE_WIDTH, pageHeight: PAGE_HEIGHT, zoom, cropping, isCropTarget, dispatch, onGuides, onInteracting, onDragging, directEdit = false }) {
   const gesture = useRef(null)
   const moveFrame = useRef(null)
   const pendingPatches = useRef(null)
@@ -846,6 +847,7 @@ function CanvasObject({ object, objects, pageWidth: PAGE_WIDTH, pageHeight: PAGE
   const panHandlers = usePan({
     disabled: cropping && !isCropTarget,
     onStart: (event) => {
+      const { objects, selectedIds } = live.current
       onInteracting(true)
       if (isCropTarget) {
         gesture.current = { mode: 'crop', crop: object.crop }
@@ -886,6 +888,7 @@ function CanvasObject({ object, objects, pageWidth: PAGE_WIDTH, pageHeight: PAGE
     onMove: (dx, dy) => {
       const g = gesture.current
       if (!g) return
+      const { objects } = live.current
       if (g.mode === 'toggle') return
       if (g.mode === 'crop') {
         panCrop(object, g.crop, dx, dy, zoom, dispatch)
@@ -911,6 +914,7 @@ function CanvasObject({ object, objects, pageWidth: PAGE_WIDTH, pageHeight: PAGE
       queueMove(patches)
     },
     onEnd: ({ moved, duration, cancelled }) => {
+      const { onEditText, onEditMedia, onEditFrameText } = live.current
       const g = gesture.current
       gesture.current = null
       if (g?.mode === 'move') flushMove()
@@ -987,7 +991,7 @@ function CanvasObject({ object, objects, pageWidth: PAGE_WIDTH, pageHeight: PAGE
       }}
     />
   )
-}
+})
 
 /** 자르기 중 드래그: 사진 안에서 보이는 위치(fx, fy)를 옮긴다. */
 function panCrop(photo, startCrop, dx, dy, zoom, dispatch) {
