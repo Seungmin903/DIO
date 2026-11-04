@@ -100,6 +100,11 @@ test('배포 EAS 프로필은 HTTPS 운영 API 주소를 번들에 주입한다'
   assert.equal(new URL(url).origin, origin)
  }
 })
+test('라이선스 웹 export는 production HTTPS API 주소가 없으면 시작하지 않는다', () => {
+ const source = readFileSync(new URL('../scripts/export-licensed-web.cjs', import.meta.url), 'utf8')
+ assert.match(source, /productionEnv\.EXPO_PUBLIC_API_BASE_URL/)
+ assert.match(source, /Web export requires a production HTTPS EXPO_PUBLIC_API_BASE_URL/)
+})
 test('처음 실행은 고르는 화면 없이 게스트로 시작하고, 로그인 화면은 로그인이 필요한 기능에서만 뜬다',()=>{
  // 세션을 만드는 동안은 로그인 화면을 그리지 않는다(게스트로 곧바로 시작)
  assert.equal(has(root(true,undefined),'./src/auth/AuthScreen'),false)
