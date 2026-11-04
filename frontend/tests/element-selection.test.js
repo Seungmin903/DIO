@@ -26,7 +26,7 @@ function fixture(objects, selectedIds = [], zoom = 1, multi = false) {
   const dispatch = (action) => { actions.push(action); state = reducer.editorReducer(state, action) }
   const module = { exports: {} }
   const load = (id) => {
-    if (id === 'react') return { forwardRef: fn => fn, useImperativeHandle() {}, useRef: (current) => ({ current }), useState: (value) => [value, () => {}], useEffect() {}, useLayoutEffect() {}, useMemo: fn => fn() }
+    if (id === 'react') return { forwardRef: fn => fn, memo: fn => fn, useImperativeHandle() {}, useRef: (current) => ({ current }), useState: (value) => [value, () => {}], useEffect() {}, useLayoutEffect() {}, useMemo: fn => fn() }
     if (id === 'react-native') return { View: 'view', Text: 'text', Pressable: 'pressable', Keyboard: { dismiss() {} }, Platform: { OS: 'android', select: (options) => options.default }, StyleSheet: { create: (value) => value } }
     if (id.endsWith('/usePageReadiness.js')) return { usePageReadiness: () => ({ pageReady: true, generation: {}, setReadyPage() {} }) }
     if (id.endsWith('/usePan')) return { usePan: (value) => { handlers = value; return {} } }
@@ -52,7 +52,7 @@ function fixture(objects, selectedIds = [], zoom = 1, multi = false) {
     actions, state: () => state,
     background: () => { module.exports.default({ page: state.doc.pages[0], zoom, selectedIds, dispatch }); return handlers },
     object: (object) => {
-      module.exports.CanvasObject({ object, objects, pageWidth: 1188, pageHeight: 840, zoom, selectedIds, dispatch, onGuides() {}, onInteracting() {}, onEditText() {} })
+      module.exports.CanvasObject({ object, live: { current: { objects, selectedIds, onEditText() {} } }, pageWidth: 1188, pageHeight: 840, zoom, dispatch, onGuides() {}, onInteracting() {} })
       return handlers
     },
   }
