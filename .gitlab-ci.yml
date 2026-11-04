@@ -490,13 +490,13 @@ deploy-release:
     - bash infra/scripts/assert-no-legacy-photo-env.sh /home/gitlab-runner/dio-env/release.env
     - bash infra/scripts/assert-release-env.sh /home/gitlab-runner/dio-env/release.env
     - bash infra/scripts/assert-release-db.sh /home/gitlab-runner/dio-env/release.env
+    - export BACKEND_IMAGE="dio-backend:release-${CI_COMMIT_SHORT_SHA}-${CI_PIPELINE_ID}"
     - docker compose --project-name dio-release-backend --env-file /home/gitlab-runner/dio-env/release.env -f infra/compose/compose.release.yml config --quiet
     - |
       health_check() {
-        curl --fail --retry 30 --retry-all-errors --retry-delay 2 --connect-timeout 3 --max-time 90 http://127.0.0.1:8083/actuator/health
+        curl --fail --retry 30 --retry-all-errors --retry-delay 2 --retry-max-time 90 --connect-timeout 3 --max-time 8 http://127.0.0.1:8083/actuator/health
       }
       previous_image="$(docker inspect --format '{{.Config.Image}}' dio-release-backend-backend-1 2>/dev/null || true)"
-      export BACKEND_IMAGE="dio-backend:release-${CI_COMMIT_SHORT_SHA}"
       docker build --tag "$BACKEND_IMAGE" ./backend
       docker compose --project-name dio-release-backend --env-file /home/gitlab-runner/dio-env/release.env -f infra/compose/compose.release.yml up -d --force-recreate
       if ! health_check; then
