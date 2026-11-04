@@ -40,15 +40,17 @@ export const TextMeasureReady = createContext(false)
  * 오브젝트 하나의 생김새. 위치·회전·불투명도는 바깥에서 잡고, 여기서는 zoom 배율로 내용만 그린다.
  * 편집 화면, 페이지 썸네일에서 함께 쓴다.
  */
-function ObjectContent({ object, zoom, areaPreview = false, still = false, onAssetLoad, onAssetError }) {
+function ObjectContent({ object, zoom, areaPreview = false, still: stillRequested = false, onAssetLoad, onAssetError }) {
   const fontStatus = useTextFont(object.type === 'text' ? object.font : null)
 
   const width = object.w * zoom
   const height = object.h * zoom
+  const failed = useMediaEntry(mediaId(object))?.status === 'error'
+  // 원본을 찾지 못해도 문서에 첫 장면이 있으면 그것을 그린다. (복구 안내는 화면 위 배너가 맡는다)
+  const still = stillRequested || (failed && Boolean(object.poster))
   const uri = useMediaUri(object, { still })
   const onTextMeasure = useContext(TextMeasure)
   const textMeasureReady = useContext(TextMeasureReady)
-  const failed = useMediaEntry(mediaId(object))?.status === 'error'
   if (object.type === 'text' && object.font?.startsWith('personal-') && !loadedFontFamily(object.font)) return (
     <View style={{ width, height, justifyContent: 'center' }}><Text style={{ fontSize: Math.max(8, 12 * zoom), color: colors.textMuted }}>{fontStatus.includes(':loading') ? '내 폰트를 준비하고 있어요…' : '내 폰트 파일을 가져와 주세요.'}</Text></View>
   )

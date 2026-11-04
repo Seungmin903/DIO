@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import documentStorage from '../../editor/services/documentStorage';
 import { saveJSON, STORAGE_KEYS } from '../../editor/services/storage';
 import { forgetEditorDoc } from '../../editor/services/editorDocs';
 import { forgetViewedPage } from '../../editor/services/editorViewState';
@@ -41,7 +41,7 @@ export function useDiaries() {
       let saved = [];
       let readable = true;
       try {
-        const raw = await AsyncStorage.getItem(STORAGE_KEYS.diaries);
+        const raw = await documentStorage.getItem(STORAGE_KEYS.diaries);
         try { saved = normalizeDiaries(raw ? JSON.parse(raw) : []); } catch { saved = []; }
       } catch {
         readable = false;
@@ -50,8 +50,8 @@ export function useDiaries() {
       try {
         const prefix = `${STORAGE_KEYS.doc}:`;
         const known = new Set(saved.map((diary) => `${prefix}${diary.id}`));
-        const keys = (await AsyncStorage.getAllKeys()).filter((key) => key.startsWith(prefix) && !known.has(key));
-        if (keys.length) entries = await AsyncStorage.multiGet(keys);
+        const keys = (await documentStorage.getAllKeys()).filter((key) => key.startsWith(prefix) && !known.has(key));
+        if (keys.length) entries = await documentStorage.multiGet(keys);
       } catch {
         // 복구 실패는 목록 표시를 막지 않는다.
       }
@@ -113,7 +113,7 @@ export function useDiaries() {
     deleting.current.add(id);
     try {
       return await enqueue(() => purgeTrashedDiary({
-        id, storage: AsyncStorage, keys: STORAGE_KEYS,
+        id, storage: documentStorage, keys: STORAGE_KEYS,
         getDiaries: () => currentDiaries.current, updateDiaries: setDiaries,
         forgetDoc: forgetEditorDoc, forgetView: forgetViewedPage, collectMediaIds, removeMedia: mediaRepository.remove,
         collectSourceIds: collectPdfSourceIds, removeSource: removePdfSource,

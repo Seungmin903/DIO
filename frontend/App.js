@@ -9,8 +9,9 @@ import PinScreen from './src/diary/components/PinScreen';
 import { appLockGraceOver, appLockScope, checkAppLock, clearAppLock, hasAppLock } from './src/shared/appLock';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { cleanupPdfShareCache } from './src/editor/utils/savePdfFile';
+import documentStorage from './src/editor/services/documentStorage';
 import EditorScreen from './src/editor/screens/EditorScreen';
-import { editorDocKey, loadEditorDoc, prepareEditor, rememberEditorDoc, saveEditorDoc } from './src/editor/services/editorDocs';
+import { editorDocKey, loadEditorDoc, prefetchEditors, prepareEditor, rememberEditorDoc, saveEditorDoc } from './src/editor/services/editorDocs';
 import AuthScreen from './src/auth/AuthScreen';
 import { authService } from './src/auth/authService';
 import { guestProfile } from './src/auth/guestProfileDevice';
@@ -79,6 +80,7 @@ const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 // (안드로이드는 네이티브 시작 화면에 로고 없이 바탕색만 둔다: plugins/withSplashWindowBackground.js).
 // 무엇이 실패해도 로고에 갇히지 않도록 SPLASH_LIMIT_MS 뒤에는 내린다.
 const SPLASH_LIMIT_MS = 8000;
+const DOCUMENT_MIGRATION_DELAY_MS = 3000;
 // 개발 빌드의 목업 화면(EXPO_PUBLIC_DIARY_SOURCE): mock = 연결 검증 보관함, mock-library = 보관함 · 알림 모의, mock-sharing = 공유 모의
 const MOCK_SCREENS = ['mock', 'mock-library', 'mock-sharing'];
 SplashScreen.preventAutoHideAsync().catch(() => {});
@@ -177,6 +179,11 @@ export default function App() {
   const continueFromLogin = session => { setLoginRequest(null); startSession(session).catch(() => setPreviewSession(session)); };
   // 지난 실행에서 공유하고 남은 PDF 임시 파일을 정리한다. (공유 모듈은 불러오지 않는다)
   useEffect(() => { cleanupPdfShareCache().catch(() => {}) }, []);
+  // 예전 저장소에 남은 다이어리 문서를 페이지별 파일로 옮긴다. 첫 화면과 겹치지 않게 조금 뒤에 시작한다.
+  useEffect(() => {
+    const timer = setTimeout(() => { documentStorage.migrateLegacyDocuments().catch(() => {}) }, DOCUMENT_MIGRATION_DELAY_MS);
+    return () => clearTimeout(timer);
+  }, []);
   useHiddenNavigationBar();
   useEffect(() => { const timer = setTimeout(finishBoot, SPLASH_LIMIT_MS); return () => clearTimeout(timer); }, [finishBoot]);
   // 첫 화면(BootSplash)이 그려졌으니 네이티브 시작 화면을 내린다. 로고는 BootSplash 에서 한 번만 보인다
@@ -751,12 +758,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
   useEffect(() => {
     if (!loaded || page !== 'library') return undefined;
     let cancelled = false;
-    const timer = setTimeout(async () => {
-      for (const diary of prefetchRef.current) {
-        if (cancelled) return;
-        await prepareEditor(diary, { media: false });
-      }
-    }, PREFETCH_DELAY_MS);
+    const timer = setTimeout(() => { prefetchEditors(prefetchRef.current, { isCancelled: () => cancelled }).catch(() => {}); }, PREFETCH_DELAY_MS);
     return () => { cancelled = true; clearTimeout(timer); };
   }, [loaded, page, prefetchKey]);
 

@@ -1,4 +1,4 @@
-import AsyncStorage from '@react-native-async-storage/async-storage'
+import documentStorage from '../../editor/services/documentStorage'
 import { STORAGE_KEYS } from '../../editor/services/storage'
 import * as mediaRepository from '../../editor/utils/mediaRepository'
 import { addImportGroup, normalizeImportGroups, removeImportGroup, sweepGroups } from './pdfImportSweep.js'
@@ -9,8 +9,8 @@ const KEY = STORAGE_KEYS.pdfImports
 let queue = Promise.resolve()
 const enqueue = task => { const run = queue.then(task); queue = run.catch(() => {}); return run }
 
-const read = async () => { try { return normalizeImportGroups(JSON.parse(await AsyncStorage.getItem(KEY) ?? '[]')) } catch { return [] } }
-const write = groups => AsyncStorage.setItem(KEY, JSON.stringify(groups))
+const read = async () => { try { return normalizeImportGroups(JSON.parse(await documentStorage.getItem(KEY) ?? '[]')) } catch { return [] } }
+const write = groups => documentStorage.setItem(KEY, JSON.stringify(groups))
 
 /** PDF 를 불러온 직후 기록한다. 실패해도 불러오기는 그대로 성공이다(그 PDF 만 고아 점검에서 빠진다). */
 export const registerPdfImport = ({ sourceId, mediaFileIds }) => enqueue(async () => { await write(addImportGroup(await read(), { sourceId, mediaFileIds })) }).catch(() => {})
@@ -26,8 +26,8 @@ export function sweepPdfImports({ now = Date.now() } = {}) {
   return enqueue(async () => {
     const groups = await read()
     if (!groups.length) return null
-    const keys = (await AsyncStorage.getAllKeys()).filter(key => key !== KEY)
-    const raws = keys.length ? (await AsyncStorage.multiGet(keys)).map(([, raw]) => raw) : []
+    const keys = (await documentStorage.getAllKeys()).filter(key => key !== KEY)
+    const raws = keys.length ? (await documentStorage.multiGet(keys)).map(([, raw]) => raw) : []
     const { mediaIds, sourceIds, remaining } = sweepGroups({ groups, raws, now })
     await Promise.allSettled([...mediaIds.map(id => mediaRepository.remove(id)), ...sourceIds.map(id => removePdfSource(id))])
     await write(remaining)

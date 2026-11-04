@@ -71,8 +71,8 @@ test('공통 openExport 핸들러는 비활성일 때 직접 호출해도 메뉴
   assert.ok(handler)
   for (const enabled of [false, true]) {
     const events = []
-    const fn = new Function('exportEnabled', 'textEditing', 'cropId', 'tapeCropId', 'showToast', 'Keyboard', 'setExportOpen', `return (${source.slice(handler.start, handler.end)})`)(
-      enabled, null, null, null, () => events.push(['toast']), { dismiss: () => events.push(['keyboard']) }, value => events.push(['export', value]),
+    const fn = new Function('exportEnabled', 'textEditing', 'cropId', 'tapeCropId', 'showToast', 'Keyboard', 'setExportOpen', 'state', 'PAGES_LOADING_MESSAGE', `return (${source.slice(handler.start, handler.end)})`)(
+      enabled, null, null, null, () => events.push(['toast']), { dismiss: () => events.push(['keyboard']) }, value => events.push(['export', value]), {}, '',
     )
     fn()
     assert.deepEqual(events, enabled ? [['keyboard'], ['export', true]] : [])

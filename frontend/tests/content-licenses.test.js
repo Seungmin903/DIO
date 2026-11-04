@@ -21,7 +21,7 @@ test('라이선스 모달 방향·상태바·닫기', () => {
 })
 test('출처 순서·숨김을 저장하고 앱 재시작 후 복원·숨김 해제', async () => {
   const disk = new Map()
-  const storage = load('../src/editor/services/storage.js', { '@react-native-async-storage/async-storage': { __esModule: true, default: { getItem: async k => disk.get(k) ?? null, setItem: async (k,v) => { disk.set(k,v) } } }, '../utils/storageContract.js': { STORAGE_KEYS: { customDecor: 'dio:editor:custom-decor:v2' } } })
+  const storage = load('../src/editor/services/storage.js', { './documentStorage': { __esModule: true, default: { getItem: async k => disk.get(k) ?? null, setItem: async (k,v) => { disk.set(k,v) } } }, '../utils/storageContract.js': { STORAGE_KEYS: { customDecor: 'dio:editor:custom-decor:v2' } } })
   function mount() {
     let states = [], deps = [], cursor = 0, effects = []
     const react = { useCallback: f => f, useState: v => { const i = cursor++; if (!(i in states)) states[i] = typeof v === 'function' ? v() : v; return [states[i], n => { states[i] = typeof n === 'function' ? n(states[i]) : n }] }, useEffect: (fn,next) => { const i = cursor++; if (!deps[i] || next.some((v,k) => !Object.is(v,deps[i][k]))) { effects.push(fn); deps[i] = next } } }

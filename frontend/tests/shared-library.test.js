@@ -21,12 +21,17 @@ function docsFixture() {
     },
   ).code;
   const mocks = {
-    '@react-native-async-storage/async-storage': {
+    './documentStorage': {
       __esModule: true,
       default: {
-        getItem: async (key) => {
+        loadDocument: async (key) => {
           calls.push(['get', key]);
-          return disk.get(key) ?? null;
+          const raw = disk.get(key);
+          return raw ? JSON.parse(raw) : null;
+        },
+        saveDocument: async (key, doc) => {
+          calls.push(['save', key]);
+          disk.set(key, JSON.stringify(doc));
         },
       },
     },
@@ -39,11 +44,6 @@ function docsFixture() {
     './editorViewState': { loadViewedPage: async () => null },
     './storage': {
       STORAGE_KEYS: { doc: 'personal:doc' },
-      saveJSON: async (key, doc) => {
-        calls.push(['save', key]);
-        disk.set(key, JSON.stringify(doc));
-        return true;
-      },
     },
   };
   const mod = { exports: {} };

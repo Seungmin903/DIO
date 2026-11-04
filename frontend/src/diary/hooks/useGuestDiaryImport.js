@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import AsyncStorage from '@react-native-async-storage/async-storage'
+import documentStorage from '../../editor/services/documentStorage'
 import { fetch as memberFetch } from 'expo/fetch'
 import { authService, apiBaseUrl, accessTokenHeader } from '../../auth/authService'
 import { createMemberDiaryApi } from '../services/memberDiaryApi.js'
@@ -30,15 +30,15 @@ export function useGuestDiaryImport(accountId, { enabled = true, onImported } = 
     const active = () => context.active && authService.getSessionKey() === sessionKey
     const transport = createAuthenticatedMemberTransport({ auth: authService, accountId, baseUrl: apiBaseUrl, accessTokenHeader, fetchImpl: memberFetch })
     const request = withUploadRetry(createMediaRequest({ auth: authService, accountId, sessionKey, baseUrl: apiBaseUrl, fetchImpl: memberFetch }))
-    return createGuestDiaryImporter({ accountId, storage: AsyncStorage, createId, transport, isActive: active,
+    return createGuestDiaryImporter({ accountId, storage: documentStorage, createId, transport, isActive: active,
       api: createMemberDiaryApi(transport),
       // 미디어를 넘기지 않아 응답의 사진을 다시 내려받지 않는다(원본은 이 기기에 있다).
       canvas: createCanvasApi(transport),
       // 편집기와 같은 기록 자리를 써서, 가져온 다이어리를 열 때 같은 사진을 다시 올리지 않는다.
-      mediaFor: diaryId => createCanvasMedia({ request, files: canvasMediaFiles, storage: AsyncStorage, isActive: active,
+      mediaFor: diaryId => createCanvasMedia({ request, files: canvasMediaFiles, storage: documentStorage, isActive: active,
         key: `${memberKeys(accountId).doc(diaryId)}:media-uploads:v1:${encodeURIComponent(apiBaseUrl)}` }),
       loadGuestDoc: async diary => {
-        const raw = await AsyncStorage.getItem(`${STORAGE_KEYS.doc}:${diary.id}`)
+        const raw = await documentStorage.getItem(`${STORAGE_KEYS.doc}:${diary.id}`)
         try { return raw ? JSON.parse(raw) : null } catch { throw Object.assign(new Error('기기의 다이어리 문서를 읽지 못했어요. 원본은 그대로 남아 있어요.'), { code: 'INVALID_LOCAL_DOCUMENT' }) }
       },
     })
@@ -54,7 +54,7 @@ export function useGuestDiaryImport(accountId, { enabled = true, onImported } = 
     if (!enabled || context.checked) return
 
     ;(async () => {
-      const [{ diaries, declined }, pending] = await Promise.all([listGuestImportCandidates(AsyncStorage, accountId), importer.pendingIds()])
+      const [{ diaries, declined }, pending] = await Promise.all([listGuestImportCandidates(documentStorage, accountId), importer.pendingIds()])
       if (cancelled || !active()) return
       context.checked = true
       if (!diaries.length) return
@@ -108,7 +108,7 @@ export function useGuestDiaryImport(accountId, { enabled = true, onImported } = 
       if (!enabled || !active() || running.current || context.declining) return
       context.declining = true
       setState(current => ({ ...current, phase: null }))
-      try { await declineGuestImport(AsyncStorage, accountId) }
+      try { await declineGuestImport(documentStorage, accountId) }
       catch {
         if (active()) notify('선택을 저장하지 못했어요', '다음 로그인 때 가져오기 안내가 다시 표시될 수 있어요. 기기의 다이어리 원본은 그대로 남아 있어요.')
       } finally { context.declining = false }
