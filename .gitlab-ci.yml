@@ -504,21 +504,34 @@ deploy-release:
       }
       previous_container="$(docker compose --project-name dio-release-backend --env-file /home/gitlab-runner/dio-env/release.env -f infra/compose/compose.release.yml ps -q backend-release 2>/dev/null || true)"
       previous_image=""
+      previous_revision=""
+      can_auto_rollback=true
       if [ -n "$previous_container" ]; then
         previous_image="$(docker inspect --format '{{.Config.Image}}' "$previous_container")"
+        previous_revision="$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$previous_image" 2>/dev/null || true)"
+        if [ -z "$previous_revision" ] || ! git cat-file -e "${previous_revision}^{commit}" 2>/dev/null; then
+          can_auto_rollback=false
+          echo "Previous release image has no usable source revision; automatic rollback is disabled." >&2
+        elif ! git diff --quiet "$previous_revision" "$CI_COMMIT_SHA" -- backend/src/main/resources/db/migration; then
+          can_auto_rollback=false
+          echo "Release includes Flyway migration changes; automatic rollback is disabled. Restore the database snapshot before using the previous image." >&2
+        fi
       fi
-      docker build --tag "$BACKEND_IMAGE" ./backend
-      docker compose --project-name dio-release-backend --env-file /home/gitlab-runner/dio-env/release.env -f infra/compose/compose.release.yml up -d --force-recreate backend-release
-      if ! health_check; then
+      docker build --label "org.opencontainers.image.revision=$CI_COMMIT_SHA" --tag "$BACKEND_IMAGE" ./backend
+      if ! docker compose --project-name dio-release-backend --env-file /home/gitlab-runner/dio-env/release.env -f infra/compose/compose.release.yml up -d --force-recreate backend-release || ! health_check; then
         docker compose --project-name dio-release-backend --env-file /home/gitlab-runner/dio-env/release.env -f infra/compose/compose.release.yml logs --tail=200 backend-release || true
-        if [ -n "$previous_image" ]; then
+        if [ -n "$previous_image" ] && [ "$can_auto_rollback" = true ]; then
           echo "Release health check failed; restoring $previous_image." >&2
           export BACKEND_IMAGE="$previous_image"
-          docker compose --project-name dio-release-backend --env-file /home/gitlab-runner/dio-env/release.env -f infra/compose/compose.release.yml up -d --force-recreate backend-release
-          if ! health_check; then
+          if ! docker compose --project-name dio-release-backend --env-file /home/gitlab-runner/dio-env/release.env -f infra/compose/compose.release.yml up -d --force-recreate backend-release; then
+            echo "Rollback container start failed; release remains unavailable." >&2
+            docker compose --project-name dio-release-backend --env-file /home/gitlab-runner/dio-env/release.env -f infra/compose/compose.release.yml logs --tail=200 backend-release || true
+          elif ! health_check; then
             echo "Rollback health check failed; release remains unavailable." >&2
             docker compose --project-name dio-release-backend --env-file /home/gitlab-runner/dio-env/release.env -f infra/compose/compose.release.yml logs --tail=200 backend-release || true
           fi
+        elif [ -n "$previous_image" ]; then
+          echo "Automatic rollback is disabled; restore the dio_release database snapshot before starting $previous_image manually." >&2
         else
           echo "Initial release deployment failed; removing the unhealthy container." >&2
           docker compose --project-name dio-release-backend --env-file /home/gitlab-runner/dio-env/release.env -f infra/compose/compose.release.yml down --remove-orphans || true
