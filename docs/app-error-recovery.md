@@ -1,10 +1,12 @@
 # 앱 오류 복구와 로컬 진단
 
-`index.js`는 기본 오류 처리 관찰을 설치한 뒤 `AppRoot`를 등록한다. `AppRoot`는 `AppErrorBoundary` 안에서 App 모듈을 평가하므로 App과 자식 화면의 JavaScript 모듈 평가·렌더 오류를 처리할 수 있다. 기존 App의 화면·Provider·SVG 속지 전용 경계는 유지한다.
+`index.js`는 기본 오류 처리 관찰을 설치한 뒤 `AppRoot`를 등록한다. `AppRoot`는 `AppErrorBoundary` 안에서 App 모듈을 평가하므로 해당 위치에서 발생한 평가·렌더 오류에 안내 화면을 표시할 수 있다. 기존 App의 화면·Provider·SVG 속지 전용 경계는 유지한다. 안내 화면 표시와 오류 원인의 복구는 별개다.
 
 ## 복구 화면
 
 렌더 오류가 발생하면 네이티브 시작 화면을 내리고 ‘화면을 불러오지 못했어요’와 ‘다시 시도’를 표시한다. 사용자 조작이 있을 때만 앱 트리를 다시 만든다. 계속 실패하면 다시 오류 안내에 머물며 자동 재시도 루프를 만들지 않는다.
+
+모듈 평가 실패는 Metro가 오류를 캐시할 수 있으므로 ‘다시 시도’로 App이나 하위 모듈이 다시 평가·복구된다고 보장하지 않는다. 이 경우 기존 화면 안내대로 앱을 완전히 종료한 뒤 다시 실행해야 할 수 있다. 재실행 후에도 원인이 남아 있으면 수정된 앱 빌드가 필요하다. 모듈 캐시를 임의로 삭제하거나 비공개 런타임 API로 재평가하지 않는다.
 
 surfaceSoft 바탕·네이비 본문·primaryStrong 버튼·모서리 10·높이 최소 48을 기존 공용 버튼과 맞춘다. 폰·태블릿 최대 본문 너비 480, 안전 영역·세로 스크롤·글자 확대를 지원하고 고정된 줄 수나 본문 높이를 두지 않는다. 오류 처리 자체가 실패하지 않도록 SVG·편집기·세션 Provider를 사용하지 않고 기본 컨트롤만 쓴다. Pretendard가 등록되기 전이거나 폰트 조회가 실패하면 시스템 글꼴을 사용한다. 눌림·페이드 효과는 없다.
 
@@ -39,5 +41,7 @@ React Native ErrorUtils의 기존 핸들러가 있을 때만 관찰용 핸들러
 
 - `pnpm test:stability`: 진단 메타데이터 제외·보관 상한·복원·만료·손상·저장 실패, 기본 핸들러 전달·중복 설치·웹 관찰, 경계 상태·진입점 등록 순서·폰트 실패 등을 검증.
 - `pnpm test:auth`: 기존 인증·앱 진입 회귀 검증.
-- 별도 Metro를 실행한 뒤 `METRO_PORT=<포트> node tests/app-error-recovery-browser.cjs`: 실제 React 렌더/모듈 오류·반복 실패·복구·저장소 보존·진단 수집을 320/390/1024 너비 브라우저에서 확인. 테스트 전용 fixture이며 정상 앱에 고의 오류 버튼을 추가하지 않는다.
+- 별도 Metro를 실행한 뒤 `METRO_PORT=<포트> node tests/app-error-recovery-browser.cjs`: React 렌더 오류·반복 실패·복구·저장소 보존·진단 수집을 320/390/1024 너비 브라우저에서 확인. 이 fixture는 실제 App 하위 모듈의 Metro 평가 실패·캐시·재평가 복구를 검증하지 않는다. 정상 앱에 고의 오류 버튼을 추가하지 않는다.
+- 브라우저는 기본적으로 Playwright가 설치한 Chromium을 사용한다. 없으면 `node node_modules/playwright-core/cli.js install chromium`으로 설치하거나, QA 환경변수 `BROWSER_PATH`에 설치된 브라우저 실행 파일의 절대 경로를 지정한다. 특정 OS의 Edge 경로를 기본값으로 고정하지 않는다. 앱 빌드용 환경변수가 아니다.
+- PowerShell 예: `$env:METRO_PORT='8133'; $env:BROWSER_PATH='C:\경로\브라우저.exe'; node tests/app-error-recovery-browser.cjs`. macOS/Linux 예: `METRO_PORT=8133 BROWSER_PATH=/경로/브라우저 node tests/app-error-recovery-browser.cjs`. 기본 Chromium 사용 시 `BROWSER_PATH`는 생략한다. Metro는 `pnpm exec expo start --web --localhost --port 8133`으로 별도 실행한다.
 - iOS·Android 실기기와 네이티브 크래시 수집 검증은 별도다.

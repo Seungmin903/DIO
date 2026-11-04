@@ -4,6 +4,15 @@ import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url), expo = createRequire(require.resolve('expo/package.json'));
 const React = require('react');
+const browserOptions = require('./helpers/stability-browser-options.cjs');
+
+test('브라우저 QA는 기본 Chromium 또는 명시한 실행 파일을 사용하며 OS 경로를 추측하지 않는다', () => {
+  assert.deepEqual(browserOptions({}), { headless: true });
+  assert.deepEqual(browserOptions({ BROWSER_PATH: '  ' }), { headless: true });
+  for (const executablePath of ['/usr/bin/chromium', '/Applications/Browser.app/Contents/MacOS/Browser', 'C:/custom/browser.exe']) {
+    assert.deepEqual(browserOptions({ BROWSER_PATH: ` ${executablePath} ` }), { headless: true, executablePath });
+  }
+});
 function compile(path, mocks) {
   const code = expo('@babel/core').transformSync(readFileSync(new URL(path, import.meta.url), 'utf8'), {
     configFile: false, babelrc: false, plugins: [[expo.resolve('@babel/plugin-transform-react-jsx'), { runtime: 'automatic' }], expo.resolve('@babel/plugin-transform-modules-commonjs')],

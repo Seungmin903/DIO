@@ -2,6 +2,7 @@ import AppErrorBoundary from './AppErrorBoundary';
 
 function Application() {
   // Evaluate App and its module imports inside the boundary, after global observation is installed.
+  // Metro may cache evaluation failures; remounting cannot guarantee re-evaluation.
   const App = require('../../App').default;
   return <App />;
 }
