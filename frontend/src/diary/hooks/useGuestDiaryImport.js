@@ -5,7 +5,7 @@ import { authService, apiBaseUrl, accessTokenHeader } from '../../auth/authServi
 import { createMemberDiaryApi } from '../services/memberDiaryApi.js'
 import { createAuthenticatedMemberTransport } from '../services/memberTransport.js'
 import { memberKeys } from '../services/memberStorage.js'
-import { createGuestDiaryImporter, declineGuestImport, listGuestImportCandidates, withUploadRetry } from '../services/guestDiaryImport.js'
+import { createGuestDiaryImporter, dismissGuestImport, listGuestImportCandidates, withUploadRetry } from '../services/guestDiaryImport.js'
 import { createCanvasApi } from '../../collaboration/canvasApi.js'
 import { createCanvasMedia, createMediaRequest } from '../../collaboration/canvasMedia.js'
 import { canvasMediaFiles } from '../../editor/services/canvasMediaFiles'
@@ -18,7 +18,7 @@ import { notify } from '../../shared/dialogs'
  * phase: null(물을 것 없음) · 'ask' · 'running' · 'done'. 실패한 다이어리는 done 에서 다시 시도할 수 있다.
  */
 export function useGuestDiaryImport(accountId, { enabled = true, onImported } = {}) {
-  const [state, setState] = useState({ phase: null, candidates: [], progress: null, imported: [], failed: [] })
+  const [state, setState] = useState({ phase: null, candidates: [], waiting: [], progress: null, imported: [], failed: [] })
   const [lookupAttempt, setLookupAttempt] = useState(0)
   const sessionKey = authService.getSessionKey()
   const context = useMemo(() => ({ active: true, checked: false }), [accountId, sessionKey])
@@ -54,14 +54,15 @@ export function useGuestDiaryImport(accountId, { enabled = true, onImported } = 
     if (!enabled || context.checked) return
 
     ;(async () => {
-      const [{ diaries, declined }, pending] = await Promise.all([listGuestImportCandidates(documentStorage, accountId), importer.pendingIds()])
+      const [{ diaries, unasked }, pending] = await Promise.all([listGuestImportCandidates(documentStorage, accountId), importer.pendingIds()])
       if (cancelled || !active()) return
       context.checked = true
+      setState(current => ({ ...current, waiting: diaries }))
       if (!diaries.length) return
-      // 가져오지 않기로 한 계정도 끝나지 않은 가져오기가 있으면 다시 묻는다.
+      // 나중에로 미룬 다이어리는 다시 묻지 않는다. 끝나지 않은 가져오기와 새로 생긴 다이어리만 묻는다.
       const unfinished = diaries.filter(diary => pending.includes(diary.id))
-      if (declined && !unfinished.length) return
-      setState(current => current.phase ? current : { ...current, phase: 'ask', candidates: declined ? unfinished : diaries })
+      if (!unasked.length && !unfinished.length) return
+      setState(current => current.phase ? current : { ...current, phase: 'ask', candidates: unasked.length ? diaries : unfinished })
     })().catch(error => {
       if (cancelled || !active()) return
       context.checked = true
@@ -83,7 +84,8 @@ export function useGuestDiaryImport(accountId, { enabled = true, onImported } = 
         setState(current => ({ ...current, progress: { index, count: targets.length, done, total, title: targets[index]?.title ?? '' } }))
       } })
       if (!active()) return
-      setState(current => ({ ...current, phase: 'done', progress: null, imported: [...current.imported, ...result.imported],
+      const done = new Set(result.imported.map(row => row.guestDiaryId))
+      setState(current => ({ ...current, phase: 'done', progress: null, waiting: current.waiting.filter(diary => !done.has(diary.id)), imported: [...current.imported, ...result.imported],
         failed: result.failed.map(row => ({ ...row, diary: targets.find(diary => diary.id === row.guestDiaryId) })) }))
       if (result.imported.length) onImportedRef.current?.()
     } finally { running.current = false }
@@ -103,15 +105,19 @@ export function useGuestDiaryImport(accountId, { enabled = true, onImported } = 
       }
       return run(state.failed.map(row => row.diary).filter(Boolean))
     },
-    later: () => setState(current => ({ ...current, phase: null })),
-    decline: async () => {
-      if (!enabled || !active() || running.current || context.declining) return
-      context.declining = true
+    open: () => {
+      if (!enabled || !active() || running.current) return
+      setState(current => current.phase || !current.waiting.length ? current : { ...current, phase: 'ask', candidates: current.waiting, imported: [], failed: [] })
+    },
+    later: async () => {
+      if (!enabled || !active() || running.current || context.dismissing) return
+      context.dismissing = true
+      const ids = state.candidates.map(diary => diary.id)
       setState(current => ({ ...current, phase: null }))
-      try { await declineGuestImport(documentStorage, accountId) }
+      try { await dismissGuestImport(documentStorage, accountId, ids) }
       catch {
-        if (active()) notify('선택을 저장하지 못했어요', '다음 로그인 때 가져오기 안내가 다시 표시될 수 있어요. 기기의 다이어리 원본은 그대로 남아 있어요.')
-      } finally { context.declining = false }
+        if (active()) notify('선택을 저장하지 못했어요', '다음 로그인 때 가져오기 안내가 다시 표시될 수 있어요. 기기의 다이어리는 그대로 남아 있어요.')
+      } finally { context.dismissing = false }
     },
     close: () => setState(current => ({ ...current, phase: null })),
   }

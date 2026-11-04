@@ -166,10 +166,10 @@ export function planGuestDiary(diary, doc, { createId }) {
 /** 게스트 쪽 기록: 어느 계정으로 가져왔는지, 다시 묻지 않기로 한 계정. 게스트 다이어리 자체는 그대로 둔다. */
 export async function readGuestImportLedger(storage) {
   const raw = await storage.getItem(GUEST_IMPORT_LEDGER_KEY)
-  if (!raw) return { imports: {}, declined: {} }
+  if (!raw) return { imports: {}, declined: {}, dismissed: {} }
   try {
     const value = JSON.parse(raw)
-    return { imports: value?.imports && typeof value.imports === 'object' ? value.imports : {}, declined: value?.declined && typeof value.declined === 'object' ? value.declined : {} }
+    return { imports: value?.imports && typeof value.imports === 'object' ? value.imports : {}, declined: value?.declined && typeof value.declined === 'object' ? value.declined : {}, dismissed: value?.dismissed && typeof value.dismissed === 'object' ? value.dismissed : {} }
   } catch { throw failure('INVALID_LOCAL_CACHE', '가져오기 기록을 읽지 못했어요.') }
 }
 async function updateLedger(storage, change) {
@@ -178,7 +178,8 @@ async function updateLedger(storage, change) {
   await storage.setItem(GUEST_IMPORT_LEDGER_KEY, JSON.stringify(next))
   return next
 }
-export const declineGuestImport = (storage, accountId) => updateLedger(storage, ledger => ({ ...ledger, declined: { ...ledger.declined, [accountId]: new Date().toISOString() } }))
+/** 나중에: 이 다이어리들은 자동으로 다시 묻지 않는다. 새로 생긴 게스트 다이어리만 한 번 더 묻는다. */
+export const dismissGuestImport = (storage, accountId, ids) => updateLedger(storage, ledger => ({ ...ledger, dismissed: { ...ledger.dismissed, [accountId]: [...new Set([...(ledger.dismissed[accountId] ?? []), ...ids])] } }))
 export const importedTo = (ledger, guestDiaryId, accountId) => ledger.imports[guestDiaryId]?.[accountId] ?? null
 
 /** 이 계정으로 아직 가져오지 않은 게스트 다이어리(휴지통 제외). */
@@ -191,7 +192,10 @@ export async function listGuestImportCandidates(storage, accountId) {
     diaries = normalizeDiaries(value)
   } catch { throw failure('INVALID_LOCAL_CACHE', '기기의 다이어리 목록을 읽지 못했어요. 원본은 그대로 남아 있어요.') }
   const ledger = await readGuestImportLedger(storage)
-  return { diaries: diaries.filter(diary => !diary.trashedAt && !importedTo(ledger, diary.id, accountId)), declined: Boolean(ledger.declined[accountId]) }
+  const candidates = diaries.filter(diary => !diary.trashedAt && !importedTo(ledger, diary.id, accountId))
+  const dismissed = new Set(ledger.dismissed[accountId] ?? [])
+  // 예전 앱에서 가져오지 않기를 고른 계정(declined)은 자동으로 묻지 않는다.
+  return { diaries: candidates, unasked: ledger.declined[accountId] ? [] : candidates.filter(diary => !dismissed.has(diary.id)) }
 }
 
 // ---------- 실행 ----------

@@ -6,7 +6,7 @@ import { createCanvasMedia } from '../src/collaboration/canvasMedia.js'
 import { createGuestImportJournalStore } from '../src/diary/services/guestImportJournal.js'
 import { STORAGE_KEYS } from '../src/editor/utils/storageContract.js'
 import {
-  planGuestDiary, splitStroke, batchElements, createGuestDiaryImporter, listGuestImportCandidates, declineGuestImport,
+  planGuestDiary, splitStroke, batchElements, createGuestDiaryImporter, listGuestImportCandidates, dismissGuestImport,
   readGuestImportLedger, guestImportJournalKey, skippedSummary, withUploadRetry, ELEMENT_PROPERTIES_LIMIT,
 } from '../src/diary/services/guestDiaryImport.js'
 
@@ -224,11 +224,30 @@ test('로그인이 끝나면 나머지 다이어리도 보내지 않고 실패�
   assert.deepEqual(result.failed.map(f => f.guestDiaryId), ['diary-1', 'diary-3'])
 })
 
-test('가져오지 않기를 고른 계정은 기록된다', async () => {
+test('나중에로 미룬 다이어리는 그 계정에 다시 묻지 않고 입구에는 남는다', async () => {
   const storage = guestStorage()
-  await declineGuestImport(storage, accountId)
-  assert.equal((await listGuestImportCandidates(storage, accountId)).declined, true)
-  assert.equal((await listGuestImportCandidates(storage, '8')).declined, false)
+  const { diaries } = await listGuestImportCandidates(storage, accountId)
+  assert.ok(diaries.length)
+  await dismissGuestImport(storage, accountId, diaries.map(diary => diary.id))
+  const after = await listGuestImportCandidates(storage, accountId)
+  assert.deepEqual(after.unasked, [])
+  assert.deepEqual(after.diaries.map(diary => diary.id), diaries.map(diary => diary.id))
+  assert.equal((await listGuestImportCandidates(storage, '8')).unasked.length, diaries.length)
+})
+
+test('미루지 않은 다이어리는 계속 묻는다', async () => {
+  const storage = guestStorage()
+  const { diaries } = await listGuestImportCandidates(storage, accountId)
+  await dismissGuestImport(storage, accountId, ['다른 다이어리'])
+  assert.deepEqual((await listGuestImportCandidates(storage, accountId)).unasked.map(diary => diary.id), diaries.map(diary => diary.id))
+})
+
+test('예전 앱에서 가져오지 않기를 고른 계정은 자동으로 묻지 않는다', async () => {
+  const storage = guestStorage()
+  await storage.setItem('dio:diary:guest-imports:v1', JSON.stringify({ imports: {}, declined: { [accountId]: '2026-11-01T00:00:00.000Z' } }))
+  const after = await listGuestImportCandidates(storage, accountId)
+  assert.deepEqual(after.unasked, [])
+  assert.ok(after.diaries.length)
 })
 
 test('업로드가 몰려 503 이면 기다렸다 다시 보낸다', async () => {
@@ -357,8 +376,8 @@ for (const status of [400, 413, 415, 422]) {
     assert.deepEqual(await engine.pendingIds(), [])
     assert.deepEqual(await importer(server, storage).pendingIds(), [])
     assert.equal(server.diaries.size, 0)
-    await declineGuestImport(storage, accountId)
-    assert.equal((await listGuestImportCandidates(storage, accountId)).declined, true)
+    await dismissGuestImport(storage, accountId, [guestDiary.id])
+    assert.deepEqual((await listGuestImportCandidates(storage, accountId)).unasked, [])
     rejected = false
     assert.equal((await engine.run([guestDiary])).imported.length, 1)
     assert.notEqual(keys[0], keys[1])
@@ -486,5 +505,5 @@ test('손상되거나 배열이 아닌 게스트 목록은 빈 목록으로 숨�
 
 test('게스트 목록 키가 없거나 정상 빈 배열이면 오류 없이 후보 없음으로 처리한다', async () => {
   for (const data of [memoryStorage(), memoryStorage({ [STORAGE_KEYS.diaries]: '[]' })])
-    assert.deepEqual(await listGuestImportCandidates(data, accountId), { diaries: [], declined: false })
+    assert.deepEqual(await listGuestImportCandidates(data, accountId), { diaries: [], unasked: [] })
 })

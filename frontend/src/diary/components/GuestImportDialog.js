@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { Platform, StyleSheet, Text, View } from 'react-native'
 import EditorModal from '../../editor/components/controls/EditorModal'
 import { PANEL_RADIUS } from '../../editor/components/ToolPanel'
@@ -21,7 +22,6 @@ export default function GuestImportDialog({ model }) {
             <Text style={styles.title}>이 기기의 다이어리를 가져올까요?</Text>
             <Text style={styles.message}>{`다이어리 ${candidates.length}권 · 기기에도 그대로 남아요`}</Text>
             <View style={styles.actions}>
-              <DioButton variant="ghost" label="가져오지 않기" onPress={model.decline} />
               <DioButton variant="tonal" label="나중에" onPress={model.later} />
               <DioButton variant="filled" label="가져오기" onPress={model.start} />
             </View>
@@ -66,7 +66,13 @@ const styles = StyleSheet.create({
 })
 
 /** 회원 보관함에만 붙인다. enabled 가 참이 된 뒤(앱 잠금을 푼 뒤) 한 번 묻는다. */
-export function GuestImportHost({ accountId, enabled, onImported }) {
+export function GuestImportHost({ accountId, enabled, onImported, onEntry }) {
   const model = useGuestDiaryImport(accountId, { enabled, onImported })
+  // 보관함의 가져오기 입구. 나중에로 미룬 뒤에도 여기서 다시 시작한다.
+  const count = enabled ? model.waiting.length : 0
+  useEffect(() => {
+    onEntry?.(count ? { count, open: model.open } : null)
+    return () => onEntry?.(null)
+  }, [count, enabled])
   return <GuestImportDialog model={model} />
 }
