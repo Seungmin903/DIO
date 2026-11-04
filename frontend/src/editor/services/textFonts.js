@@ -1,6 +1,7 @@
 import { loadAsync } from 'expo-font'
 import { markTextFontLoaded, markTextFontFailed, resolveFontId, setTextFontRequester, DEFAULT_TEXT_SETTINGS, TEXT_FONTS } from '../utils/text'
 import { refreshPersonalFonts } from '../../handwriting/library.js'
+import { paperDeviceFontIds } from '../templates/planners.js'
 
 // 글꼴 파일. 패키지 index 를 쓰면 모든 굵기 파일이 함께 묶이므로 쓰는 굵기 파일만 직접 가져온다.
 const FONT_FILES = {
@@ -63,6 +64,12 @@ export function ensureTextFontsFor(objects, extraIds = []) {
   }
   return Promise.all(jobs)
 }
+
+/**
+ * 내보내기 직전에 기다릴 글꼴: 글자 요소가 쓰는 글꼴(굵게면 Bold까지)과, 속지가 앱 글꼴로 그리는 글(데일리 플래너가 비추는 글의 마루부리).
+ * snapshot 은 createExportSnapshot 의 결과다(template = { backgroundAssetId, templateVersion } | null).
+ */
+export const ensureExportFonts = snapshot => ensureTextFontsFor(snapshot.objects, snapshot.template ? paperDeviceFontIds(snapshot.template.backgroundAssetId) : [])
 
 const PRELOAD_DELAY_MS = 600
 let loading = null

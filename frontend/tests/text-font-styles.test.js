@@ -5,22 +5,30 @@ import { readFileSync } from 'node:fs'
 import * as text from '../src/editor/utils/text.js'
 import { waitForExportFonts } from '../src/editor/utils/exportFonts.js'
 import { createExportSnapshot } from '../src/editor/utils/pageExport.js'
+import * as planners from '../src/editor/templates/planners.js'
 
 const require = createRequire(import.meta.url), expo = createRequire(require.resolve('expo/package.json'))
 
-test('글꼴 로더는 쓰이는 글꼴만 한 번씩 등록하고 실패한 face를 사용할 수 없는 상태로 알린다', async t => {
+// textFonts.js 를 가짜 expo-font 로 불러온다. autoResolve 면 loadAsync 가 바로 끝나고, 아니면 pending 에서 직접 끝낸다
+function loadFontModule({ autoResolve = false } = {}) {
   const calls = [], pending = new Map()
   const { code } = expo('@babel/core').transformSync(readFileSync(new URL('../src/editor/services/textFonts.js', import.meta.url), 'utf8'), {
     configFile: false, babelrc: false, plugins: [expo.resolve('@babel/plugin-transform-modules-commonjs')],
   })
   const module = { exports: {} }
   new Function('require', 'module', 'exports', code)(id => {
-    if (id === 'expo-font') return { loadAsync: files => { calls.push(files); return new Promise((resolve, reject) => pending.set(Object.keys(files)[0], { resolve, reject })) } }
+    if (id === 'expo-font') return { loadAsync: files => { calls.push(files); return autoResolve ? Promise.resolve() : new Promise((resolve, reject) => pending.set(Object.keys(files)[0], { resolve, reject })) } }
     if (id === '../utils/text') return text
+    if (id === '../templates/planners.js') return planners
     if (id === '../../handwriting/library.js') return { refreshPersonalFonts: async () => [] }
     if (id.endsWith('.ttf')) return id
     return require(id)
   }, module, module.exports)
+  return { module, calls, pending }
+}
+
+test('글꼴 로더는 쓰이는 글꼴만 한 번씩 등록하고 실패한 face를 사용할 수 없는 상태로 알린다', async t => {
+  const { module, calls, pending } = loadFontModule()
   // 앱이 켜져도 기본 글꼴 하나만 불러온다 (11개를 한꺼번에 읽지 않는다)
   mock.timers.enable({ apis: ['setTimeout'] })
   t.after(() => mock.timers.reset()) // 중간 assert 가 실패해도 가짜 타이머를 되돌린다
@@ -146,4 +154,22 @@ test('기울임은 글꼴 · 기기와 상관없이 같은 각도(12°)로 글�
     assert.equal(on.fontFamily, off.fontFamily); assert.equal(on.fontSize, off.fontSize) // 글자 크기 · 줄 높이는 그대로
   }
   assert.equal(text.ITALIC_SKEW_DEG, 12)
+})
+
+test('내보내기 전에는 글자 요소의 글꼴과 데일리 플래너가 비추는 글의 마루부리를 기다린다', async () => {
+  const { module, calls } = loadFontModule({ autoResolve: true })
+  const snapshotOf = (backgroundAssetId, extra = {}) => createExportSnapshot({ id: 'p', backgroundAssetId, templateVersion: '1.0.0', objects: [], ...extra })
+  const day = snapshotOf('day-planner-landscape')
+  assert.deepEqual(day.template, { backgroundAssetId: 'day-planner-landscape', templateVersion: '1.0.0' }) // 스냅샷의 template 필드 모양
+  await module.exports.ensureExportFonts(day)
+  assert.deepEqual(calls.flatMap(Object.keys).sort(), ['MaruBuri', 'MaruBuriBold'])
+  const before = calls.length
+  await module.exports.ensureExportFonts(snapshotOf('study-planner-landscape')) // 스터디 플래너 속지 글자는 글자 윤곽이라 글꼴이 필요 없다
+  await module.exports.ensureExportFonts(createExportSnapshot({ id: 'p', objects: [] })) // 속지 없음
+  assert.equal(calls.length, before)
+})
+
+test('글꼴을 정하지 않은 상태(null · undefined)는 글꼴 상태가 비어 있고 아무것도 요청하지 않는다', () => {
+  assert.equal(text.resolveFontId(null), null)
+  for (const id of [null, undefined]) { assert.equal(text.textFontSnapshot(id), ''); assert.equal(text.loadedFontFamily(id), null) }
 })
