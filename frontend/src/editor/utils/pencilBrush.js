@@ -40,7 +40,10 @@ export const PENCIL_BRUSH = {
   retrace: { on: true, window: 3 },
   // 48판 완성 구조(사용자: 완성형을 충분히 생각하고 최종본을. 검수판 — 굵기 1~16 을 손힘 약 → 세 → 약 낙서로 — 에서 드러난 뿌리): 묻은 양 하나(R)가 윤곽 · 진하기를 함께 정해서, 진하게 하면 힘을 빼도 같은 진하기 · 약한 선 끊김, 힘을 따르게 하면 굵은 획 둘레에 털 띠가 생기고 굵기 3~5 에서 다른 펜처럼 바뀌었다.
   // 셋으로 나눈다(같은 도장 한 번에 채널만 나누므로 그리기 비용은 그대로): R = 윤곽(gain 배로 빨리 차서 힘과 무관한 또렷한 테두리, 약한 선도 안 끊긴다) · B = 묻은 양(힘 비례, 몸통 톤. 차지 않아 힘이 끝까지 보인다) · G = 결. L1 = 윤곽을 결로 가르기, L2 = 톤(도장 합은 가장자리로 갈수록 줄어드는 타원 단면이라 B 만 쓰면 둘레가 흐린 띠가 된다 → R 을 조금 섞어 윤곽 안쪽에 바닥을 둔다). 행 [c0, R, B, G]. 결 세기는 굵기 따라 고르게 커진다
-  deposit: { on: true, fiber: false, fComp: true, fMax: 8, flow: 0.16, vFloor: 0, vFloorWide: 0, radius: 1.1, l: [{ width: 2.5, gain: 2.4, l2: [-0.12, 0.3, 0.95, -0.55], l1: [-0.1, 3, 0, -0.5] }, { width: 5, gain: 2.6, l2: [-0.17, 0.45, 0.9, -1.05], l1: [-0.6, 5, 0, -1.1] }, { width: 10, gain: 2.8, l2: [-0.15, 0.45, 0.9, -1.15], l1: [-1, 6.5, 0, -1.8] }, { width: 16, gain: 3, l2: [-0.15, 0.45, 0.9, -1.2], l1: [-1.2, 7, 0, -2.2] }] },
+  // 62판 겹침(2026-11-04, 21쪽 낙서 실측: 지나간 횟수 2 · 3 · 4~5 · 6~9 겹의 α 중앙값 .64 · .65 · .65 · .64, 최대 .799): B 가 두 번째 지남에서 1 로 잘리고 불투명도가 획 전체 알파라 그 뒤로 하나도 안 진해졌다.
+  // 도장을 Screen 으로 쌓는다(b + d − b·d): 묻을수록 덜 묻어 B = 1 − e^(−지난 양) — 실제 흑연처럼 겹칠수록 천천히 진해진다. 덧셈은 지날 때마다 같은 양씩 올라 4 겹이면 까맣게 막혔다(62a). bGain: 행의 B 계수 배율, 한 번 지난 톤을 덧셈 때와 같게 맞춘다
+  // accumulate: 불투명도를 '한 번 지난 알파'로 보고 L2 행에 곱한다(획 전체 알파를 걸지 않는다) — 겹치면 1 까지 올라간다
+  deposit: { on: true, fiber: false, fComp: true, fMax: 8, flow: 0.16, bGain: 1.38, accumulate: true, vFloor: 0, vFloorWide: 0, radius: 1.1, l: [{ width: 2.5, gain: 2.4, l2: [-0.12, 0.3, 0.95, -0.55], l1: [-0.1, 3, 0, -0.5] }, { width: 5, gain: 2.6, l2: [-0.17, 0.45, 0.9, -1.05], l1: [-0.6, 5, 0, -1.1] }, { width: 10, gain: 2.8, l2: [-0.15, 0.45, 0.9, -1.15], l1: [-1, 6.5, 0, -1.8] }, { width: 16, gain: 3, l2: [-0.15, 0.45, 0.9, -1.2], l1: [-1.2, 7, 0, -2.2] }] },
   // 결 G = tooth · 종이 이빨(페이지 고정 — 겹쳐 그려도 같은 자리가 비어 종이처럼 보인다) + strand · 가닥(획 좌표 리본 — 획을 따라 이어지는 흑연 줄). 합 1
   // step: 가닥 값 재배치(대부분 진한 쪽, 드물게 옅음). wide: 굵기 [from, to] 사이에서 가닥 칸을 scale 배로(줄은 굵기 따라 넓어져도 획 방향이라 얼룩이 안 된다. 종이 이빨까지 키우면 표범 무늬가 돼 기각)
   strand: { on: true, tooth: 0.7, strand: 0.3, step: [0, 1], wide: [5, 14, 1], toothWide: [5, 16, 1] },   // 46판: 참고의 결은 크기별 세기가 고르고 가장 고운 칸이 가장 세다 → 어느 굵기든 같은 칸 크기, 고운 종이 이빨을 주로, 가닥은 짧게(획 방향 8px 까지. 길게 늘이면 빗질 자국 = 사인펜). 45판 .55 · .45, wide .8
@@ -401,10 +404,14 @@ export const depositGate = width => {
   const i = rows.findIndex(row => row.width >= width), a = rows[i - 1], b = rows[i]
   return mix(a.l1, b.l1, (width - a.width) / (b.width - a.width))
 }
+// 연필은 불투명도를 색 행렬이 맡는다(strokeSkia 는 획 전체 알파를 걸지 않는다)
+export const pencilAccumulates = () => B.engine === 'own' && Boolean(B.deposit?.on && B.deposit.accumulate)
+// L2 행: B 계수 × bGain, 쌓임이면 행 전체 × 불투명도
+const buildRow = (row, op) => { const k = pencilAccumulates() ? op : 1; return [row[0] * k, row[1] * k, row[2] * (B.deposit.bGain ?? 1) * k, row[3] * k] }
 export function paperMatrices(width, [r, g, b], opacity = 1) {
   const { l1: lookL1, l2: base, c0op } = brushLook(width), op = clamp(Number.isFinite(opacity) ? opacity : 1, 0, 1)
   const dep = B.deposit?.on
-  const l2 = dep ? depositLook(width) : [base[0] + c0op[0] + c0op[1] * Math.min(1 - op, B.c0opSpan), base[1], base[2], base[3]]
+  const l2 = dep ? buildRow(depositLook(width), op) : [base[0] + c0op[0] + c0op[1] * Math.min(1 - op, B.c0opSpan), base[1], base[2], base[3]]
   // 'same': 진하기 = L × (m·L + 1 − m) — m = 1 이면 L²(31판), m 을 내리면 문턱이 완만해져 약한 필압이 덩어리 · 점으로 갈리지 않는다(테스트 담당 32: 실측 약한 손힘 .62 에서 큰 구멍 54%)
   const m = B.deposit.l1Mix ?? 1
   const l1 = !dep ? lookL1 : B.deposit.l1 === 'same' ? [l2[0] * m + (1 - m), l2[1] * m, l2[2] * m, l2[3] * m] : depositGate(width)

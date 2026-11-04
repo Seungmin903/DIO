@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { PixelRatio, Platform, View } from 'react-native'
 import PageBackground from './PageBackground'
-import ObjectContent, { objectOpacity } from './canvas/ObjectView'
+import ObjectContent, { objectDrawOpacity } from './canvas/ObjectView'
 import { pageImageQuality } from '../utils/pageImageQuality.js'
 import { capturePage } from '../utils/capturePage'
 import { exportObjectPosition } from '../utils/regionExport.js'
@@ -59,7 +59,7 @@ export default function PageImageSurface({ job }) {
         <PageBackground page={{ id: snapshot.pageId, ...snapshot.template, canvasWidth: snapshot.pageWidth ?? snapshot.width, canvasHeight: snapshot.pageHeight ?? snapshot.height }} zoom={scale} preparedXml={snapshot.backgroundXml} onReady={() => setBackgroundReady(true)} onError={backgroundError} />
       </View>}
       <SkiaPencilScale.Provider value={snapshot.pixelWidth / snapshot.width}>
-      {snapshot.objects.map((object) => <View key={object.id} needsOffscreenAlphaCompositing={snapshot.isolateObjectOpacity ? objectOpacity(object) < 1 : undefined} style={{ position: 'absolute', ...exportObjectPosition(object, snapshot, scale), width: object.w * scale, height: object.h * scale, transform: [{ rotate: `${object.rotation ?? 0}deg` }], opacity: objectOpacity(object) }}>
+      {snapshot.objects.map((object) => <View key={object.id} needsOffscreenAlphaCompositing={snapshot.isolateObjectOpacity ? objectDrawOpacity(object) < 1 : undefined} style={{ position: 'absolute', ...exportObjectPosition(object, snapshot, scale), width: object.w * scale, height: object.h * scale, transform: [{ rotate: `${object.rotation ?? 0}deg` }], opacity: objectDrawOpacity(object) }}>
         <ObjectContent object={object} zoom={scale} still onAssetLoad={() => setLoaded((previous) => new Set(previous).add(object.id))} onAssetError={assetError} />
       </View>)}
       </SkiaPencilScale.Provider>

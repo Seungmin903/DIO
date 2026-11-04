@@ -32,10 +32,11 @@ test('연필 그림 범위는 요소 상자 둘레에 굵기만큼 여백을 두
   assert.ok(Math.abs(resized.top + pad * 3) < 1e-9)
 })
 
-test('그림 열쇠는 색 · 굵기 · 배율이 바뀌면 달라지고 위치만 바뀌면 같다', () => {
+test('그림 열쇠는 색 · 굵기 · 배율 · 불투명도가 바뀌면 달라지고 위치만 바뀌면 같다', () => {
   const stroke = pencil('a')
   const key = pencilRasterKey(stroke, 2)
-  assert.equal(pencilRasterKey({ ...stroke, x: 500, y: 40, rotation: 30, opacity: 0.5 }, 2), key)
+  assert.equal(pencilRasterKey({ ...stroke, x: 500, y: 40, rotation: 30 }, 2), key)
+  assert.notEqual(pencilRasterKey({ ...stroke, opacity: 0.5 }, 2), key, '겹침이 쌓이도록 불투명도를 그림 안에 굽는다')
   assert.notEqual(pencilRasterKey(stroke, 3), key)
   assert.notEqual(pencilRasterKey({ ...stroke, color: '#ff0000' }, 2), key)
   assert.notEqual(pencilRasterKey({ ...stroke, strokeWidth: 8 }, 2), key)
