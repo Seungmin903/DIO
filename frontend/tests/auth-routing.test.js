@@ -8,8 +8,8 @@ const code=babel.transformSync(readFileSync(new URL('../App.js',import.meta.url)
 // probe 를 주면 useEffect 를 모아 두고 네이티브 시작 화면을 내린 횟수(hidden) · 예전 예시 다이어리 정리 횟수(cleaned)를 센다
 function root(dev,mode,session=null,loginRequest=null,probe=null){
  let calls=0
- const states=[session,true,loginRequest]
- const mod={exports:{}},mocks={react:{useState:()=>[states[calls++],()=>{}],useEffect(fn){probe?.effects.push(fn)},useCallback:f=>f,useRef:current=>({current})},'./src/auth/guestProfileDevice':{guestProfile:{start:async session=>session}},'./src/diary/services/legacyMockCleanup':{clearMockLibrary:async()=>{if(probe)probe.cleaned=(probe.cleaned||0)+1}},'expo-splash-screen':{preventAutoHideAsync:async()=>{},hideAsync:async()=>{if(probe)probe.hidden++}},'react-native':{Platform:{OS:'web'},StatusBar:'StatusBar',View:'View',StyleSheet:{absoluteFill:{}}},'react-native-safe-area-context':{SafeAreaProvider:'SafeAreaProvider'},'expo-font':{useFonts:()=>[true,null]},'./src/shared/pretendardFiles':{PRETENDARD_FILES:{}},'./src/diary/styles':{styles:{}},'./src/shared/useHiddenNavigationBar':{useHiddenNavigationBar(){}}}
+ const states=[session,probe?.booting??true,loginRequest]
+ const mod={exports:{}},mocks={'./src/shared/dialogs':{notify:(...args)=>probe?.notices?.push(args)},'./src/editor/utils/savePdfFile':{cleanupPdfShareCache:async()=>{}},'./src/auth/authService':{authService:{logout:async()=>{if(probe?.logoutError)throw probe.logoutError},restoreSession:async()=>{if(probe?.restoreError)throw probe.restoreError;return probe?.restored??null}}},react:{useState:()=>{const index=calls++;return [states[index],value=>probe?.updates?.push({index,value})]},useEffect(fn){probe?.effects.push(fn)},useCallback:f=>f,useRef:current=>({current})},'./src/auth/guestProfileDevice':{guestProfile:{start:async session=>session}},'./src/diary/services/legacyMockCleanup':{clearMockLibrary:async()=>{if(probe)probe.cleaned=(probe.cleaned||0)+1}},'expo-splash-screen':{preventAutoHideAsync:async()=>{},hideAsync:async()=>{if(probe)probe.hidden++}},'react-native':{Platform:{OS:'web'},StatusBar:'StatusBar',View:'View',StyleSheet:{absoluteFill:{}}},'react-native-safe-area-context':{SafeAreaProvider:'SafeAreaProvider'},'expo-font':{useFonts:()=>[true,null]},'./src/shared/pretendardFiles':{PRETENDARD_FILES:{}},'./src/diary/styles':{styles:{}},'./src/shared/useHiddenNavigationBar':{useHiddenNavigationBar(){}}}
  new Function('require','module','exports','__DEV__','process',code)(id=>mocks[id]??(id==='react/jsx-runtime'?require(id):{__esModule:true,default:id}),mod,mod.exports,dev,{env:{EXPO_PUBLIC_DIARY_SOURCE:mode}})
  return mod.exports.default()
 }
@@ -22,7 +22,7 @@ test('authService 모듈은 공용 주소·헤더를 선언한 뒤 생성 인자
  }).code
  for (const dev of [true, false]) {
   const mod = { exports: {} }
-  const mocks = { 'react-native': { Platform: { OS: 'android' } }, './authApi': {
+  const mocks = { './sessionStore': {sessionStore: null}, 'react-native': { Platform: { OS: 'android' } }, './authApi': {
    authBaseUrl: value => `${value}/api/v1`, createAuthApi: options => options,
   }, './photoUpload': { buildPhotoBody() {} }, './googleLogin': { signInWithGoogle() {} }, './appleLogin': { signInWithApple() {} }, './appleLogin': { signInWithApple() {} }, 'expo/fetch': { fetch() {} },
    './developmentAccessStore': { createDevelopmentAccessStore: options => { stores++; storeOptions = options; return 'store'; } },
@@ -98,3 +98,43 @@ test('내 공간의 로그인 · 회원가입처럼 기능 없이 연 로그인 
  assert.ok(auth);assert.ok(has(tree,'LocalDiaryApp'))
  assert.equal(typeof auth.props.onClose,'function');assert.equal(typeof auth.props.onContinue,'function')
 })
+
+ test('부팅 시 저장 세션이 복원되면 게스트 초기화 없이 회원 보관함으로 시작한다', async()=>{
+ const restored={mode:'authenticated',userId:'7',provider:'email',nickname:'회원'};
+ const probe={effects:[],updates:[],restored,hidden:0,cleaned:0};
+ root(true,undefined,null,null,probe);
+ const timer=globalThis.setTimeout;globalThis.setTimeout=()=>0;
+ try{for(const effect of probe.effects)effect()}finally{globalThis.setTimeout=timer}
+ await new Promise(resolve=>setImmediate(resolve));
+ assert.ok(probe.updates.some(update=>update.index===0&&update.value===restored));
+ assert.equal(probe.cleaned,0);
+ });
+
+test('개발 서버 Basic 인증이 필요한 복원은 기존 인증 화면을 자동으로 연다',async()=>{
+ const probe={effects:[],updates:[],restoreError:{code:'DEVELOPMENT_ACCESS_REQUIRED'},hidden:0,cleaned:0};
+ root(true,undefined,null,null,probe);
+ const timer=globalThis.setTimeout;globalThis.setTimeout=()=>0;
+ try{for(const effect of probe.effects)effect()}finally{globalThis.setTimeout=timer}
+ await new Promise(resolve=>setImmediate(resolve));
+ assert.ok(probe.updates.some(update=>update.index===2&&update.value.restoreSession===true));
+ const tree=root(true,undefined,{mode:'preview',provider:'guest'},{restoreSession:true});
+ const auth=nodes(tree).find(node=>node.type==='./src/auth/AuthScreen');
+ assert.equal(auth.props.resumeSession,true);
+});
+
+test('로그아웃 이중 실패 안내는 기기 로그인 정보를 지웠다는 문구를 덧붙이지 않는다',async()=>{
+ for(const incomplete of [true,false]){
+  const message=incomplete?'다음 실행에서 로그인이 복원될 수 있어요.':'서버에 연결하지 못했어요.';
+  const probe={notices:[],effects:[],updates:[],logoutError:Object.assign(new Error(message),{code:incomplete?'LOGOUT_INCOMPLETE':undefined})};
+  const tree=root(true,undefined,{mode:'authenticated',userId:'7'},null,probe);
+  const diary=nodes(tree).find(node=>node.type?.name==='MemberDiaryApp');
+  await diary.props.onEndPreview();
+  assert.deepEqual(probe.notices,[['로그아웃',incomplete?message:message+' 이 기기의 로그인 정보는 지웠어요.']]);
+ }
+});
+
+test('시작 화면 안전 타이머가 끝나도 세션 복원 중에는 기존 시작 화면을 유지한다',()=>{
+ assert.ok(has(root(false,undefined,null,null,{booting:false,effects:[]}),'./src/shared/BootSplash'));
+ assert.equal(has(root(false,undefined,{mode:'authenticated',userId:'7'},null,{booting:false,effects:[]}),'./src/shared/BootSplash'),false);
+ assert.equal(has(root(false,undefined,{mode:'preview',provider:'guest'},null,{booting:false,effects:[]}),'./src/shared/BootSplash'),false);
+});

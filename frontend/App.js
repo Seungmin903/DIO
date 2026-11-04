@@ -107,7 +107,23 @@ export default function App() {
     // 지난 프로필을 못 읽어도 빈 화면에 갇히지 않게 기본 게스트로 시작한다
     try { await startSession(session); } catch { setPreviewSession(session); }
   };
-  useEffect(() => { if (!mockSource) startGuest(); }, []);
+  useEffect(() => {
+    if (mockSource) return;
+    let active = true;
+    (async () => {
+      let restored = null;
+      try { restored = await authService.restoreSession(); }
+      catch (error) {
+        // Development gateway credentials intentionally do not survive process restarts.
+        // Reuse its existing prompt, then resume refresh without asking for the member password.
+        if (active && __DEV__ && error?.code === 'DEVELOPMENT_ACCESS_REQUIRED') setLoginRequest({ restoreSession: true });
+      }
+      if (!active) return;
+      if (restored) setPreviewSession(restored);
+      else await startGuest();
+    })();
+    return () => { active = false; };
+  }, []);
   // 비밀번호 재설정 완료는 서버 세션이 이미 폐기됐을 수 있어, 별도 로그아웃 요청 없이
   // 이 기기의 메모리 세션만 지운다. 세션이 끝나면 로그인 화면이 아니라 게스트로 돌아간다.
   // 늦게 온 콜백(비밀번호 재설정 완료 등)이 그사이 바뀐 세션을 지우지 않게, 지금 세션이 지우려던 세션일 때만 끝낸다
@@ -122,7 +138,9 @@ export default function App() {
   const endSession = async () => {
     try {
       if (authenticatedSession) await authService.logout();
-    } catch (error) { notify('로그아웃', `${error.message} 이 기기의 로그인 정보는 지웠어요.`); }
+    } catch (error) {
+      notify('로그아웃', error.code === 'LOGOUT_INCOMPLETE' ? error.message : `${error.message} 이 기기의 로그인 정보는 지웠어요.`);
+    }
     finally { clearSession(); }
   };
   // 로그인하면 게스트 보관함(LocalDiaryApp)이 회원 보관함(MemberDiaryApp)으로 통째로 바뀐다. 누른 기능(loginRequest.action)은
@@ -154,11 +172,11 @@ export default function App() {
             (current?.mode === 'authenticated' ? String(current.userId) === String(updated.userId) : current?.accountId === updated.accountId) ? updated : current)}
           onEndPreview={endSession} onClearSession={clearSession} onReady={finishBoot} /></LoginGateProvider> : null
       )}
-      {loginRequest && <View style={[StyleSheet.absoluteFill, { zIndex: 10 }]}><AuthScreen onContinue={continueFromLogin} onClose={() => setLoginRequest(null)} /></View>}
+      {loginRequest && <View style={[StyleSheet.absoluteFill, { zIndex: 10 }]}><AuthScreen resumeSession={loginRequest.restoreSession === true} onContinue={continueFromLogin} onClose={() => setLoginRequest(null)} /></View>}
       <HandwritingStudio />
       {/* 프로필 사진 자르기(동그라미 틀). 로그인 화면 · 프로필 수정 모두 쓰므로 앱 맨 위에 하나 둔다 */}
       <ProfileCropHost />
-      {booting && <BootSplash />}
+      {(booting || (!previewSession && !mockSource)) && <BootSplash />}
     </SafeAreaProvider>
   );
 }

@@ -60,6 +60,7 @@ export default function AuthScreen({
   onContinue,
   legalDocuments = signupDocuments,
   onClose = null,
+  resumeSession = false,
   service = authService,
   photoPicker = pickProfilePhoto,
   verificationService = service.verificationService,
@@ -67,6 +68,8 @@ export default function AuthScreen({
 }) {
   const { isPhone, formFactor } = useFormFactor();
   useOrientationLock(formFactor, false);
+  const canSetDevelopmentAccess = typeof __DEV__ !== 'undefined' && __DEV__ &&
+    typeof verificationService?.setDevelopmentAccess === 'function';
   const [route, setRoute] = useState('welcome');
   const [ageConfirmed, setAgeConfirmed] = useState(null);
   const [enrollmentProvider, setEnrollmentProvider] = useState('email');
@@ -83,12 +86,11 @@ export default function AuthScreen({
   const [photoUri, setPhotoUri] = useState(null);
   const [verificationAttempt, setVerificationAttempt] = useState(0);
   const [signupComplete, setSignupComplete] = useState(false);
-  const [needsLoginAccess, setNeedsLoginAccess] = useState(false);
+  const [needsLoginAccess, setNeedsLoginAccess] = useState(resumeSession && canSetDevelopmentAccess);
+  const restoreAfterAccess = useRef(resumeSession && canSetDevelopmentAccess);
   const socialAccessRetry = useRef(null);
   const [accessId, setAccessId] = useState('');
   const [accessPassword, setAccessPassword] = useState('');
-  const canSetDevelopmentAccess = typeof __DEV__ !== 'undefined' && __DEV__ &&
-    typeof verificationService?.setDevelopmentAccess === 'function';
   const job = useRef(0);
   const running = useRef(false);
   const enrollmentBlocked = useRef(false);
@@ -159,6 +161,7 @@ export default function AuthScreen({
     };
   }, []);
   const navigate = (next, provider = enrollmentProvider) => {
+    restoreAfterAccess.current = false;
     socialAccessRetry.current = null;
     documentRef.current = null;
     setActiveDocument(null);
@@ -314,7 +317,7 @@ export default function AuthScreen({
       setProfile({ provider: 'email', email: normalizeEmail(values.email) });
       navigate('verification');
     }
-    else if (!needsLoginAccess) submitLogin();
+    else if (!needsLoginAccess || !canSetDevelopmentAccess) submitLogin();
   };
   const submitLogin = () => {
     if (!credentialsValid(values, false)) return;
@@ -501,6 +504,7 @@ export default function AuthScreen({
                 }} />
             ) : route === 'welcome' || route === 'signup' ? (
               <View style={s.form}>
+                {!(needsLoginAccess && restoreAfterAccess.current && canSetDevelopmentAccess) ? <>
                 <FormField
                   onInputFocus={focusInput}
                   onInputBlur={blurInput}
@@ -551,24 +555,33 @@ export default function AuthScreen({
                     onSubmitEditing={credentialsSubmit}
                   />
                 )}
+                </> : null}
                 {!signup && needsLoginAccess && canSetDevelopmentAccess ? <>
                   <Text style={s.muted}>개발 서버 접속 인증 · 앱을 다시 실행하면 초기화돼요.</Text>
                   <FormField label="개발 서버 ID" value={accessId} onChange={setAccessId}
                     onInputFocus={focusInput} onInputBlur={blurInput} editable={!busy} />
                   <FormField label="개발 서버 비밀번호" value={accessPassword} onChange={setAccessPassword} password
                     onInputFocus={focusInput} onInputBlur={blurInput} editable={!busy} />
-                  {primary('접속 인증 후 로그인', () => {
+                  {primary(restoreAfterAccess.current ? '접속 인증 후 로그인 복원' : '접속 인증 후 로그인', () => {
                     if (running.current) return;
                     try {
                       verificationService.setDevelopmentAccess(accessId, accessPassword);
                       setAccessPassword('');
-                      setNeedsLoginAccess(false);
+                      if (!restoreAfterAccess.current) setNeedsLoginAccess(false);
                       const retry=socialAccessRetry.current;socialAccessRetry.current=null;
-                      if(retry)submitSocial(retry.provider,retry.eligibility);else submitLogin();
+                      if (restoreAfterAccess.current) {
+                        run(() => service.restoreSession(), result => {
+                          if (result) onContinue(result);
+                          else { restoreAfterAccess.current = false; setNeedsLoginAccess(false); setMessage('저장된 로그인이 없어요. 다시 로그인해 주세요.'); }
+                        }, error => {
+                          if (error?.code === 'DEVELOPMENT_ACCESS_REQUIRED') setNeedsLoginAccess(true);
+                          else if ([401, 403].includes(error?.status)) { restoreAfterAccess.current = false; setNeedsLoginAccess(false); }
+                        });
+                      } else if(retry)submitSocial(retry.provider,retry.eligibility);else submitLogin();
                     } catch (error) {
                       setMessage(error?.message || '개발 서버 접속 정보를 확인해 주세요.');
                     }
-                  }, !accessId.trim() || !accessPassword || (!socialAccessRetry.current && !credentialsValid(values, false)))}
+                  }, !accessId.trim() || !accessPassword || (!restoreAfterAccess.current && !socialAccessRetry.current && !credentialsValid(values, false)))}
                 </> : null}
                 <View style={s.submitArea}>
                   {message ? (
@@ -580,10 +593,10 @@ export default function AuthScreen({
                       {message}
                     </Text>
                   ) : null}
-                  {(signup || !needsLoginAccess) && primary(
+                  {(signup || !needsLoginAccess || !canSetDevelopmentAccess) && primary(
                     signup ? '다음' : '로그인',
                     credentialsSubmit,
-                    !credentialsValid(values, signup) || (!signup && needsLoginAccess),
+                    !credentialsValid(values, signup) || (!signup && needsLoginAccess && canSetDevelopmentAccess),
                   )}
                 </View>
                 {signup ? (
