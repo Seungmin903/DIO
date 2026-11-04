@@ -7,7 +7,8 @@ import { textStyle } from '../utils/text'
 const FONT_SCALE = { 'nanum-pen': 1.35, 'poor-story': 1.1 }
 
 /** [{ id, label, a11y, textStyle }] — PaperFontDropdown 이 그대로 받는다. */
-export const paperFontChips = () => PAPER_FONTS.map(({ id, label }) => ({
+// only: 만들 글꼴 ID 들(없으면 전부). 칩을 만드는 순간 그 글꼴 파일을 요청하므로, 보이지 않는 글꼴은 만들지 않는다.
+export const paperFontChips = (only) => PAPER_FONTS.filter(({ id }) => !only || only.includes(id)).map(({ id, label }) => ({
   id, label, a11y: `속지 글꼴 ${label}`,
   textStyle: (({ fontFamily, fontWeight, fontSize }) => ({ fontFamily, fontWeight, fontSize }))(textStyle({ font: id, fontSize: 12.5 * (FONT_SCALE[id] ?? 1), color: colors.text }, 1, Platform.OS)),
 }))

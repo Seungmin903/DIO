@@ -63,7 +63,11 @@ import { useFonts } from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
 import BootSplash from './src/shared/BootSplash';
 import { PRETENDARD_FILES } from './src/shared/pretendardFiles';
+import { preloadTextFonts } from './src/editor/services/textFonts';
 import ActionToast, { ACTION_TOAST_MS } from './src/shared/ActionToast';
+
+// 텍스트 글꼴은 쓰일 때 불러온다(textFonts.js). 앱이 켜진 뒤 잠잠해지면 기본 글꼴과 내 폰트 목록만 먼저 준비한다.
+preloadTextFonts();
 
 // 네이티브에는 전역 crypto가 없어 다이어리·페이지·요소 UUID를 expo-crypto로 만든다.
 if (Platform.OS !== 'web') setUuidGenerator(randomUUID);

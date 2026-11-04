@@ -3,7 +3,6 @@ import { Animated, Easing, Modal, Pressable, StatusBar, StyleSheet, Text, TextIn
 import { DEFAULT_PAPER_APPEARANCE, PAPER_BACKGROUNDS, normalizePaperAppearance } from '../../editor/templates/appearance.js';
 import { configuredPageIds } from '../../editor/templates/creation.js';
 import { normalizeOrientation, templateCanvasSize } from '../../editor/templates/catalog.js';
-import { preloadTextFonts } from '../../editor/services/textFonts';
 import { subscribeTextFonts } from '../../editor/utils/text';
 import { mediaFailureMessage } from '../../editor/utils/mediaRecovery.js';
 import { MODAL_ORIENTATIONS } from '../../editor/components/controls/EditorModal';
@@ -30,9 +29,7 @@ const SHEET_SLIDE = 600;
 const COVER_RATIO = 3 / 4;
 const SECTIONS = { basic: ['기본', 'edit'], cover: ['표지', 'book'], paper: ['속지', 'paper'], style: ['속지 색', 'roller'] };
 
-// 표지 글꼴은 편집기 텍스트 도구와 같은 파일을 쓴다. 다 불러오면 표지를 다시 그린다.
-preloadTextFonts();
-
+// 표지 글꼴은 편집기 텍스트 도구와 같은 파일을 쓴다(쓰일 때 불러온다). 불러오면 표지를 다시 그린다.
 function CoverFrame({ cover, name, width, height, edit }) {
   return <View style={[styles.coverFrame, { width, height }]}>
     <CoverArt cover={cover} name={name} width={width} height={height} edit={edit} shadow={shadow.card} />
