@@ -31,18 +31,18 @@ init_repo() {
 }
 
 init_repo
-"$guard" develop HEAD
+bash "$guard" develop HEAD
 
 printf '%s\n' release > backend/src/main/resources/db/migration/V2__release.sql
 git add . && git commit -qm release
-expect_status 1 "$guard" develop HEAD
+expect_status 1 bash "$guard" develop HEAD
 
 init_repo
 git switch -q develop
 printf '%s\n' develop > backend/src/main/resources/db/migration/V2__develop.sql
 git add . && git commit -qm develop
 git switch -q "$base_ref"
-expect_status 1 "$guard" develop HEAD
+expect_status 1 bash "$guard" develop HEAD
 
 init_repo
-expect_status 2 "$guard" missing-ref HEAD
+expect_status 2 bash "$guard" missing-ref HEAD

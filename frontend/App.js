@@ -136,6 +136,8 @@ export default function App() {
   useEffect(() => { hideSplash(); }, []);
   // 개발용 목업 화면은 보관함 로딩을 거치지 않으니 글꼴만 준비되면 내린다
   useEffect(() => { if ((fontsLoaded || fontError) && mockSource) finishBoot(); }, [fontsLoaded, fontError, finishBoot]); // eslint-disable-line react-hooks/exhaustive-deps
+  // API 설정 오류도 앱이 그린 안내 화면이므로 네이티브 시작 화면을 즉시 내린다.
+  useEffect(() => { if (apiConfigurationError && (fontsLoaded || fontError)) finishBoot(); }, [apiConfigurationError, fontsLoaded, fontError, finishBoot]);
   const SessionDiaryApp = authenticatedSession ? MemberDiaryApp : LocalDiaryApp;
   if (!fontsLoaded && !fontError) return <SafeAreaProvider style={s.provider}><BootSplash /></SafeAreaProvider>;
   if (apiConfigurationError) return <SafeAreaProvider style={s.provider}><ApiConfigurationErrorScreen /></SafeAreaProvider>;
