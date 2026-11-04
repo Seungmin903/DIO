@@ -52,6 +52,7 @@ test('긴 문서는 스크롤하며 본문·제목·동의 버튼의 줄 수를 
   assert.ok(all.some(node => node.type === 'ScrollView'));
   assert.equal(ui.tree.props.animationType, 'none');
   const texts = all.filter(node => node.type === 'Text');
+  assert.ok(texts.filter(node => node.props.accessibilityRole !== 'link').every(node => node.props.maxFontSizeMultiplier === 0));
   const flattenText = value => Array.isArray(value) ? value.map(flattenText).join('')
     : value && typeof value === 'object' ? flattenText(value.props?.children) : value ?? '';
   const rendered = flattenText(ui.tree);

@@ -33,7 +33,7 @@ test('DioText는 측정용 ref와 onLayout을 실제 네이티브 Text에 전달
   const react = { forwardRef: render => render, useContext: () => 'raw' };
   new Function('require','module','exports',code)(id => id === 'react' ? react
     : id === 'react-native' ? { StyleSheet: { flatten }, Text: 'NativeText', TextInput: 'NativeTextInput' }
-    : id === '../fontScope' ? { FontScope: { Provider: 'FontScope' } } : require(id), loaded, loaded.exports);
+    : id === '../fontScope' ? { FontScope: { Provider: 'FontScope' }, PageFontScaleScope: {} } : require(id), loaded, loaded.exports);
   const ref = { current: { measure() {} } }, onLayout = () => {};
   const element = loaded.exports.Text({ style: { fontSize: 28 }, onLayout, children: 'test' }, ref);
   const nativeText = element.props.children;
@@ -41,4 +41,24 @@ test('DioText는 측정용 ref와 onLayout을 실제 네이티브 Text에 전달
   assert.equal(nativeText.props.ref, ref);
   assert.equal(nativeText.props.onLayout, onLayout);
   assert.equal(typeof nativeText.props.ref.current.measure, 'function');
+});
+
+test('UI 텍스트·입력은 기본 확대 상한을 적용하고 명시적 설정과 속지 글자는 보존한다', () => {
+  let scope = null, pageText = false;
+  const fontScope = { Provider: 'FontScope' }, pageScope = {};
+  const loaded = { exports: {} };
+  const react = { forwardRef: render => render, useContext: context => context === pageScope ? pageText : scope };
+  new Function('require','module','exports',code)(id => id === 'react' ? react
+    : id === 'react-native' ? { StyleSheet: { flatten }, Text: 'NativeText', TextInput: 'NativeTextInput' }
+    : id === '../fontScope' ? { FontScope: fontScope, PageFontScaleScope: pageScope } : require(id), loaded, loaded.exports);
+  const text = props => loaded.exports.Text(props, null).props.children.props;
+  const input = props => loaded.exports.TextInput(props, null).props;
+  assert.equal(text({ children: 'UI' }).maxFontSizeMultiplier, 1.3);
+  assert.equal(input({}).maxFontSizeMultiplier, 1.3);
+  assert.equal(text({ maxFontSizeMultiplier: 0 }).maxFontSizeMultiplier, 0);
+  assert.equal(input({ maxFontSizeMultiplier: 2 }).maxFontSizeMultiplier, 2);
+  scope = 'dio'; assert.equal(text({}).maxFontSizeMultiplier, undefined);
+  scope = 'raw'; assert.equal(text({}).allowFontScaling, undefined);
+  pageText = true; assert.equal(text({}).allowFontScaling, false); assert.equal(input({}).allowFontScaling, false);
+  scope = null; pageText = false; assert.equal(text({ dioFont: false }).maxFontSizeMultiplier, undefined);
 });
