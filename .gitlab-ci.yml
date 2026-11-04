@@ -533,6 +533,7 @@ deploy-release:
           fi
         elif [ -n "$previous_image" ]; then
           echo "Automatic rollback is disabled; restore the dio_release database snapshot before starting $previous_image manually." >&2
+          docker compose --project-name dio-release-backend --env-file /home/gitlab-runner/dio-env/release.env -f infra/compose/compose.release.yml down --remove-orphans || true
         else
           echo "Initial release deployment failed; removing the unhealthy container." >&2
           docker compose --project-name dio-release-backend --env-file /home/gitlab-runner/dio-env/release.env -f infra/compose/compose.release.yml down --remove-orphans || true
