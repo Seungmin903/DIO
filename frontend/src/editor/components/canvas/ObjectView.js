@@ -41,7 +41,7 @@ export const TextMeasureReady = createContext(false)
  * 편집 화면, 페이지 썸네일에서 함께 쓴다.
  */
 function ObjectContent({ object, zoom, areaPreview = false, still: stillRequested = false, onAssetLoad, onAssetError }) {
-  const fontStatus = useTextFont(object.type === 'text' ? object.font : null)
+  const fontStatus = useTextFont(object.type === 'text' ? object.font : null, Boolean(object.bold))
 
   const width = object.w * zoom
   const height = object.h * zoom

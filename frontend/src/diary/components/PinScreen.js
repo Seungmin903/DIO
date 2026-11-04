@@ -4,6 +4,7 @@ import { colors } from '../../shared/theme';
 import { PIN_LENGTH } from '../../shared/appLock';
 import DioButton from '../../shared/DioButton';
 import ProfileAvatar from './ProfileAvatar';
+import { pinFailureMessage } from './pinScreenMessage';
 
 const KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'forgot', '0', 'erase'];
 
@@ -43,10 +44,14 @@ export default function PinScreen({ mode, user, getProfilePhotoSource, check, on
       return;
     }
     busy.current = true;
-    const ok = await check(pin).catch(() => false);
+    const result = await check(pin).catch(() => false);
     busy.current = false;
+    const ok = typeof result === 'object' ? result?.ok : result;
     if (ok) onDone(pin);
-    else { setDigits(''); setError('비밀번호가 달라요'); }
+    else {
+      setDigits('');
+      setError(pinFailureMessage(result));
+    }
   };
 
   const press = key => {
