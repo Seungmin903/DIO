@@ -98,6 +98,10 @@ function BackgroundAttempt({ page, zoom, preparedXml, onReady, onError, onRetry,
   </View>
 }
 
+// 글꼴 상태 문자열(useTextFont)을 한 번만 바뀌는 값으로 줄인다. 하나라도 불러오는 중이면 'loading', 모두 끝나면(실패 포함) 'settled', 쓰는 글꼴이 없으면 ''.
+// 마루부리 Regular · Bold 가 따로 도착해도 속지는 한 번만 다시 그리고, 처음부터 불러와 있으면 다시 그리지 않는다.
+export const fontPhase = (snapshot) => snapshot.includes(':loading') ? 'loading' : snapshot ? 'settled' : ''
+
 // 속지를 처음부터 다시 그리는 키. 글꼴 상태(printedFont)가 들어 있어, 속지가 쓰는 글꼴을 불러오면 속지를 다시 그린다(SVG 는 글꼴이 늦게 와도 저절로 바뀌지 않는다).
 export const backgroundKey = (page, printedFont, attempt) => [page.id, page.backgroundAssetId, page.templateVersion, normalizePaperAppearance(page.paperAppearance).font ?? '', printedFont, attempt].join(':')
 
@@ -105,7 +109,7 @@ function PageBackground(props) {
   const [attempt, setAttempt] = useState(0)
   // 데일리 플래너가 비추는 글은 마루부리 글꼴로 그려진다(속지 글꼴을 골라도 같다). 쓰일 때 불러오고, 불러오면 속지를 다시 그린다.
   const [deviceFont] = paperDeviceFontIds(props.page.backgroundAssetId)
-  const printedFont = useTextFont(deviceFont ?? null, true)
+  const printedFont = fontPhase(useTextFont(deviceFont ?? null, true))
   // 속지 글꼴이 바뀌면 처음부터 다시 불러온다
   const key = backgroundKey(props.page, printedFont, attempt)
   return <Keep><BackgroundAttempt key={key} {...props} onRetry={props.preparedXml == null ? () => setAttempt(value => value + 1) : undefined} /></Keep>

@@ -49,7 +49,7 @@ function fixture() {
     return require(id)
   }
   new Function('require', 'module', 'exports', code)(load, module, module.exports)
-  return { render: module.exports.BackgroundAttempt, backgroundKey: module.exports.backgroundKey, ast }
+  return { render: module.exports.BackgroundAttempt, backgroundKey: module.exports.backgroundKey, fontPhase: module.exports.fontPhase, ast }
 }
 
 test('실제 배경 컴포넌트에서 가이드가 바탕 위·속지 SVG 아래에 있고 출력 XML에는 들어가지 않는다', () => {
@@ -75,13 +75,20 @@ test('빈 속지에서도 바탕색과 가이드를 함께 유지하고 가이�
   assert.equal(plain.props.children[1].props.children.props.children.props.ast, f.ast)
 })
 
-test('속지에서 앱 글꼴이 필요한 것은 데일리 플래너가 비추는 글(마루부리)뿐이고, 글꼴 상태가 바뀌면 속지를 다시 그린다', () => {
+test('속지에서 앱 글꼴이 필요한 것은 데일리 플래너가 비추는 글(마루부리)뿐이다', () => {
   for (const id of ['day-planner-landscape', 'day-planner-portrait']) assert.deepEqual(planners.paperDeviceFontIds(id), ['maruburi'])
   for (const id of ['monthly', 'study-planner-landscape', undefined, null]) assert.deepEqual(planners.paperDeviceFontIds(id), [], String(id))
+})
+
+test('글꼴을 불러오면 속지를 한 번만 다시 그린다(Regular · Bold 가 따로 도착해도, 처음부터 불러와 있으면 다시 그리지 않는다)', () => {
   const f = fixture(), page = { id: 'p', backgroundAssetId: 'day-planner-landscape', paperAppearance: { font: 'nanum-gothic' } }
-  const loading = f.backgroundKey(page, 'MaruBuri:loading|MaruBuriBold:loading', 0)
-  assert.notEqual(loading, f.backgroundKey(page, 'MaruBuri:loaded|MaruBuriBold:loading', 0))
-  assert.notEqual(f.backgroundKey(page, 'MaruBuri:loaded|MaruBuriBold:loaded', 0), f.backgroundKey(page, 'MaruBuri:loaded|MaruBuriBold:error', 0))
-  assert.equal(loading, f.backgroundKey(page, 'MaruBuri:loading|MaruBuriBold:loading', 0)) // 상태가 같으면 다시 그리지 않는다
-  assert.notEqual(loading, f.backgroundKey(page, 'MaruBuri:loading|MaruBuriBold:loading', 1)) // 다시 시도
+  const key = state => f.backgroundKey(page, f.fontPhase(state), 0)
+  const loading = 'MaruBuri:loading|MaruBuriBold:loading', half = 'MaruBuri:loaded|MaruBuriBold:loading'
+  assert.equal(f.fontPhase(''), '') // 쓰는 글꼴이 없는 속지
+  assert.equal(key(loading), key(half)) // Regular 만 도착해서는 다시 그리지 않는다
+  assert.notEqual(key(half), key('MaruBuri:loaded|MaruBuriBold:loaded')) // 모두 끝나면 한 번 다시 그린다
+  assert.equal(key('MaruBuri:loaded|MaruBuriBold:loaded'), key('MaruBuri:loaded|MaruBuriBold:error')) // 실패도 끝난 것이다
+  assert.equal(key('MaruBuri:error|MaruBuriBold:loaded'), key('MaruBuri:loaded|MaruBuriBold:loaded'))
+  assert.notEqual(f.backgroundKey(page, 'settled', 0), f.backgroundKey(page, 'settled', 1)) // 다시 시도
+  assert.notEqual(f.backgroundKey(page, '', 0), f.backgroundKey(page, 'loading', 0))
 })
