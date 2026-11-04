@@ -102,8 +102,12 @@ export default function NotificationPanel({ model, onInvitationReady }) {
     {list.status === 'success' && items.length === 0 && <View style={s.empty}><AppIcon name="bell" size={32} color={C.primary} /><Text testID="notification-empty" accessible accessibilityLiveRegion="polite" aria-live="polite" style={s.muted}>받은 알림이 없어요.</Text></View>}
     {items.map(row => { const presentation = notificationPresentation(row);
       const pending = row.status === 'PENDING', joined = row.status === 'ACCEPTED';
+      const EntryContent = presentation.canInspectInvitation ? Pressable : View;
       return <View key={row.id} style={[shared.invitation, s.entry, presentation.invitation && !pending && !joined && shared.invitationPast]}>
-        <View style={s.entryTop}>
+        <EntryContent style={s.entryTop} {...(presentation.canInspectInvitation ? {
+          accessibilityRole: 'button', accessibilityLabel: `${presentation.title}, ${row.readAt ? '읽음' : '안 읽음'}, ${invitationStatusLabel(row.status)}, 초대 확인`,
+          accessibilityState: { disabled: locked }, disabled: locked, onPress: () => inspect(row),
+        } : {})}>
           <View style={shared.invitationCover} accessible={false}>{presentation.invitation ? <Cover diary={row.diary || { title: row.title, color: FALLBACK_COVER_COLOR }} thumbnailWidth={42} centered /> : <AppIcon name="bell" size={26} color={C.primaryText} />}</View>
           <View style={s.entryBody}>
             <View style={s.entryHeading}><Text accessible accessibilityLabel={`${presentation.title}, ${row.readAt ? '읽음' : '안 읽음'}`} numberOfLines={1} style={shared.invitationTitle}>{presentation.title}</Text>{!row.readAt && <View accessible={false} style={s.dot} />}{presentation.invitation && <View style={[shared.statusChip, pending && shared.statusChipPending, joined && shared.statusChipJoined]}><Text style={[shared.statusChipText, (pending || joined) && shared.statusChipTextPending]}>{invitationStatusLabel(row.status)}</Text></View>}</View>
@@ -111,7 +115,7 @@ export default function NotificationPanel({ model, onInvitationReady }) {
               ? Boolean(presentation.sender) && <Text style={s.text}>{presentation.message}</Text>
               : <Text style={s.text}>{presentation.message}</Text>}
           </View>
-        </View>
+        </EntryContent>
         <View style={s.entryFooter}>
           <View style={s.actions}>
             {presentation.canInspectInvitation ? <NotificationButton label={`초대 확인 ${row.id}`} text="초대 확인" icon="chevron-right" quiet disabled={locked} onPress={() => inspect(row)} />

@@ -35,6 +35,23 @@ const server = http.createServer((req, res) => {
       await button('알림 연결 검증').click();
       await button('알림 · 새 초대 2개').waitFor();
       await button('알림 더 보기').click(); await button('초대 확인 1').waitFor();
+      if (process.env.DIO_NOTIFICATION_QA_CARD_ONLY) {
+        await p.getByRole('button', { name: /A 계정 초대 4, 안 읽음, 응답 대기, 초대 확인/ }).click();
+        await p.getByText(/공유 화면 전달 확인: A-invite-4/).waitFor();
+        await button('알림으로 돌아가기').click();
+        await button('초대 확인 4').waitFor();
+        await button('알림 목 응답 설정').click();
+        await button('초대 만료').click();
+        await button('초대 확인 4').click();
+        await p.getByText('만료된 초대', { exact: true }).waitFor();
+        await button('초대 상세 닫기').click();
+        await button('알림 삭제 4').click();
+        await button('알림 삭제 4').waitFor({ state: 'hidden' });
+        assert.deepEqual(errors, []);
+        console.log(JSON.stringify({ viewport, result: 'passed', scenario: 'card-open-expired-delete', pageErrors: errors }));
+        await context.close();
+        continue;
+      }
       await button('알림 목 응답 설정').click();
       await button('공유 버튼 연결 검증 · 새 초대 2개').waitFor();
       await button('알림 목 응답 설정').click();
@@ -51,7 +68,8 @@ const server = http.createServer((req, res) => {
       await p.getByText('받은 알림이 없어요.', { exact: true }).waitFor();
       await button('목록 정상').click(); await button('알림 새로고침').click(); await button('초대 확인 4').waitFor();
       // 초대 확인은 열 수 있는 초대면 안쪽 카드 없이 곧장 공유 화면(수락)으로 넘긴다. 읽음 처리 실패는 알림 창에 남는다.
-      await button('읽음·삭제 한 번 실패').click(); await button('초대 확인 4').click();
+      await button('읽음·삭제 한 번 실패').click();
+      await p.getByRole('button', { name: /A 계정 초대 4, 안 읽음, 응답 대기, 초대 확인/ }).click();
       await p.getByText(/공유 화면 전달 확인: A-invite-4/).waitFor();
       await button('알림으로 돌아가기').click();
       assert.equal(await button('초대 화면으로 이동').count(), 0);
@@ -102,6 +120,10 @@ const server = http.createServer((req, res) => {
       await button('알림 삭제 7').click(); await button('알림 삭제 7').waitFor({ state: 'hidden' });
       await button('알림 샘플 계정 변경').click(); await p.getByText('B 계정 초대 4', { exact: true }).waitFor();
       assert.equal(await p.getByText('A 계정 초대 5', { exact: true }).count(), 0);
+      await p.getByRole('button', { name: /B 계정 초대 4, 안 읽음, 응답 대기, 초대 확인/ }).click();
+      await p.getByText(/공유 화면 전달 확인: B-invite-4/).waitFor();
+      await button('알림으로 돌아가기').click();
+      await button('초대 확인 4').waitFor();
       assert.equal(await p.evaluate(() => localStorage.getItem('dio:notification-qa-sentinel')), 'keep');
       await p.screenshot({ path: path.join(out, `${viewport.width}.png`), fullPage: true });
       assert.deepEqual(errors, []);
