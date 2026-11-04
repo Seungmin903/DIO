@@ -40,6 +40,7 @@ export default function TopBar({
   // 오른쪽 묶음은 창 폭에 따라 줄인다: 사진 2장 → 1장 → 사진만, 레이어 · 공유 글자 숨김. 내보내기는 끝까지 아이콘 + 글자. 640 아래에서는 탭 줄을 접는다
   const { width: windowWidth } = useWindowDimensions()
   const wide = windowWidth >= 1024, mid = windowWidth >= 834, semi = windowWidth >= 720
+  const [labeledPageWidth, setLabeledPageWidth] = useState(null)
   const [activeTabBox, setActiveTabBox] = useState(null) // 지금 보는 탭 자리 (탭이 많아 넘칠 때 그 탭이 보이게 넘긴다)
   if (compact) {
     return (
@@ -67,7 +68,12 @@ export default function TopBar({
         아래 페이지 목록과 양 끝을 맞춘다: ‹ + 로고(보관함으로 돌아가기)는 목록 왼쪽 끝, 페이지 버튼은 목록 오른쪽 끝.
         ‹ 는 아이패드 문서 앱(노트·Pages·굿노트)처럼 왼쪽 위에서 돌아가기를 알려 준다.
       */}
-      <View style={[styles.lead, pagesWidth && { width: LIST_LEFT + pagesWidth, gap: 0, paddingLeft: LIST_LEFT - CHEVRON_INSET + HOME_SHIFT }]}>
+      <View style={[styles.lead, pagesWidth && { width: LIST_LEFT + pagesWidth - (!mid && labeledPageWidth != null ? labeledPageWidth - 44 : 0), gap: 0, paddingLeft: LIST_LEFT - CHEVRON_INSET + HOME_SHIFT }]}>
+        {/* 글자가 있는 버튼의 실제 폭과 아이콘 버튼 폭 차이만큼 묶음을 줄인다. */}
+        <View pointerEvents="none" accessible={false} aria-hidden accessibilityElementsHidden importantForAccessibility="no-hide-descendants"
+          onLayout={(event) => setLabeledPageWidth(event.nativeEvent.layout.width)} style={styles.measureLabel}>
+          <View style={styles.chipToggle}><Icon name="panel" size={19} forText={13} /><Text style={styles.toggleText}>페이지</Text></View>
+        </View>
         <Pressable onPress={onHome} accessibilityRole="button" accessibilityLabel="다이어리 홈" hitSlop={6} style={({ pressed }) => [styles.home, pressed && styles.homePressed]}>
           <Icon name="chevronLeft" size={CHEVRON_SIZE} />
           <BrandLogo size={LOGO_SIZE} />
@@ -260,6 +266,7 @@ const styles = StyleSheet.create({
   chipToggleIcon: { width: 44, paddingHorizontal: 0 },
   chipToggleActive: { borderColor: colors.primaryStrong },
   toggleText: { fontSize: 13, fontWeight: '700', color: colors.text },
+  measureLabel: { position: 'absolute', opacity: 0 },
   // 내보내기: 크기·둥글기는 레이어 버튼과 같게 (색은 강조색 그대로)
   share: {
     flexDirection: 'row',

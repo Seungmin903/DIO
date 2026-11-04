@@ -23,7 +23,7 @@ blockquote { margin: 2mm 0; padding: 1.5mm 3mm; border-left: 3px solid #ABB1D8; 
 hr { border: 0; border-top: 1px solid #D9DCEF; margin: 4mm 0; }
 </style></head><body><h1>DIO 앱 QA 사전 점검 — 2026-11-04</h1>
 <blockquote>
-<p>내일 팀 QA 때 먼저 볼 항목을 한 번에 모았다. <strong>코드 정적 점검(6개 영역) + 실기기 점검(갤럭시 탭 S9 FE, Android 16)</strong> 결과이며, 항목마다 심각도 · 위치 · 근거 · 영향 · 해결안을 적었다. 수정은 하나도 하지 않았다.</p>
+<p>내일 팀 QA 때 먼저 볼 항목을 한 번에 모았다. <strong>코드 정적 점검(6개 영역) + 실기기 점검(갤럭시 탭 S9 FE, Android 16)</strong> 결과이며, 항목마다 심각도 · 위치 · 근거 · 영향 · 해결안을 적었다. 아래는 점검 당시 기록이며, 5번의 태블릿 방향 판정은 2026-11-04에 정정했다.</p>
 </blockquote>
 <h2 class="first">0. 범위 · 환경 · 읽는 법</h2>
 <table>
@@ -66,7 +66,7 @@ hr { border: 0; border-top: 1px solid #D9DCEF; margin: 4mm 0; }
 </table>
 <p><strong>심각도</strong>: <code><span class="sev P0">P0</span></code> 출시 차단(크래시 · 심사 거절 · 데이터 손실 · 막다른 길) / <code><span class="sev P1">P1</span></code> 주요 기능 · 규격 위반 / <code><span class="sev P2">P2</span></code> 개선 필요 / <code><span class="sev P3">P3</span></code> 사소.
 <strong>위치</strong>는 <code>frontend/</code> 기준 경로:줄 이다. 캡처 아래 이름표의 번호는 <code>이미지/</code> 파일 이름과 같다.</p>
-<p><strong>집계</strong>: P0 <strong>6</strong> · P1 <strong>37</strong> · P2 <strong>60+</strong> · P3 <strong>30+</strong> (영역 간 중복은 §1에 한 번만 두고 나머지는 참조로 적었다). 08:00 이후 보강: §11 리서치(공식 근거 · 마감일), §12 Android 에뮬레이터(Pixel 7) · iPhone/iPad 뷰포트 캡처, <code>리서치/</code> 원문 4개.</p>
+<p><strong>초기 점검 집계</strong>(5번 정정 전): P0 <strong>6</strong> · P1 <strong>37</strong> · P2 <strong>60+</strong> · P3 <strong>30+</strong> (영역 간 중복은 §1에 한 번만 두고 나머지는 참조로 적었다). 08:00 이후 보강: §11 리서치(공식 근거 · 마감일), §12 Android 에뮬레이터(Pixel 7) · iPhone/iPad 뷰포트 캡처, <code>리서치/</code> 원문 4개.</p>
 <blockquote>
 <p><strong>QA 때 헷갈리지 말 것</strong>: 화면 오른쪽에 떠 있는 회색 톱니(⚙ / "Tools")는 <strong>Expo 개발 클라이언트 버튼</strong>이지 앱 UI가 아니다. 캡처에도 다 찍혀 있다.</p>
 </blockquote>
@@ -113,10 +113,10 @@ hr { border: 0; border-top: 1px solid #D9DCEF; margin: 4mm 0; }
 </tr>
 <tr>
 <td>5</td>
-<td><span class="sev P0">P0</span></td>
+<td>정정</td>
 <td>실기기</td>
-<td><strong>Android 16 태블릿은 앱의 가로 잠금을 무시</strong>(<code>ignoreOrientationRequest=true</code> 확인) → 설계에 없던 <strong>세로 태블릿 배치</strong>가 그대로 노출(편집기 캔버스가 화면의 30%)</td>
-<td>§8 캡처 25 · 55</td>
+<td><strong>태블릿 세로·가로 지원은 의도된 동작</strong>. 점검 당시 세로 편집기에서 두 패널이 열려 캔버스가 좁았음. 방향 잠금과 패널 초기 상태를 수정했으며 실기기 재확인 필요</td>
+<td>§2.1 · 캡처 25 · 55</td>
 </tr>
 <tr>
 <td>6</td>
@@ -190,10 +190,10 @@ hr { border: 0; border-top: 1px solid #D9DCEF; margin: 4mm 0; }
 </tr>
 <tr>
 <td>16</td>
-<td><span class="sev P0">P0</span></td>
+<td>확인 필요</td>
 <td>iOS</td>
-<td><code>requireFullScreen: true</code> + iPad 가로 잠금 — <strong>Expo SDK 58(iOS 27 SDK)에서는 리사이즈 옵트아웃이 무시</strong>되어 iPad도 가로 고정이 보장되지 않음(TN3192, §11.1)</td>
-<td><code>app.json:13-17</code>, <code>useOrientationLock.js:18</code></td>
+<td>태블릿 세로·가로 지원은 의도된 동작이다. <code>requireFullScreen: true</code> 및 iPad 리사이즈·Split View 영향은 별도 실기기 확인 필요 (§11.1)</td>
+<td><code>app.json:13-17</code>, <code>useOrientationLock.js</code></td>
 </tr>
 <tr>
 <td>17</td>
@@ -228,12 +228,12 @@ hr { border: 0; border-top: 1px solid #D9DCEF; margin: 4mm 0; }
 <hr />
 <h2>2. 안드로이드 공식 규격 (Android 16 · Play 정책 · 대형 화면 가이드)</h2>
 <h3>2.1 실기기에서 확인한 것</h3>
-<h4><span class="sev P0">P0</span> Android 16이 태블릿의 가로 잠금 요청을 무시한다 (세로 배치가 그대로 노출)</h4>
+<h4>정정: 태블릿 세로·가로 지원과 편집기 공간</h4>
 <ul>
-<li>위치: <code>src/shared/useOrientationLock.js:18</code> (<code>formFactor !== 'phone' → OrientationLock.LANDSCAPE</code>), 주석 "태블릿은 가로로만 쓴다"</li>
+<li>제품 의도: 태블릿은 세로와 가로를 모두 지원한다. 세로 화면이 나타나는 것은 결함이 아니다. 점검 당시 코드가 요청한 가로 잠금은 이 의도와 달랐다.</li>
 <li>현상·근거: 탭 S9 FE(Android 16)에서 <code>dumpsys window</code> 값이 <code>ignoreOrientationRequest=true</code>. 앱이 LANDSCAPE를 요청해도 <strong>세로로 그대로 그려진다</strong>. Android 16(targetSdk 36)은 최단변 600dp 이상 기기에서 앱의 방향 · 크기 제한을 무시하는 것이 정식 동작이다.</li>
 <li>영향: 세로 태블릿에서 편집기는 페이지 목록 + 레이어 패널이 기본으로 열려 <strong>캔버스가 폭의 30%</strong>(캡처 25 · 55), 가로 다이어리는 손바닥만 하게 보인다. 보관함은 세로에서도 쓸 만하다(캡처 00).</li>
-<li>해결안: 가로 강제를 버리고 <strong>창 폭 구간(Compact &lt;600 · Medium 600–840 · Expanded ≥840dp)별 배치</strong>로 바꾼다. 최소한 세로 태블릿에서는 레이어 패널 기본 닫힘 + 페이지 목록 접힘 + 캔버스 폭 우선. <code>Platform.Version &gt;= 36</code> 분기로 잠금 호출을 생략.</li>
+<li>수정: 태블릿은 기기 방향을 따르도록 기본 방향을 요청한다. 세로 태블릿과 폭 600~839dp의 태블릿 창은 페이지 목록과 레이어를 닫고 시작하고 한 번에 하나씩 열어 캔버스 폭을 확보한다. 폭 840dp 이상인 가로 태블릿은 두 패널을 함께 쓸 수 있다. 폰·태블릿 구분은 기존 짧은 변 600dp 기준을 유지한다. Android · iPad 실기기에서 회전과 패널 동작을 재확인한다.</li>
 </ul>
 <div class="shots"><figure><img src="이미지/00-launch.jpg"><figcaption>00 보관함 (태블릿 세로)</figcaption></figure><figure><img src="이미지/25-after-create.jpg" class="wide"><figcaption>25 편집기 (태블릿 세로, 가로 다이어리)</figcaption></figure><figure><img src="이미지/55-editor-open.jpg"><figcaption>55 편집기 (태블릿 세로, 패널 둘 열림)</figcaption></figure><figure><img src="이미지/65-land-editor2.jpg" class="wide"><figcaption>65 편집기 (가로)</figcaption></figure></div>
 
@@ -343,9 +343,9 @@ hr { border: 0; border-top: 1px solid #D9DCEF; margin: 4mm 0; }
 <ul>
 <li><code>App.js:230-243</code> → <code>startPushRuntime</code> → <code>requestPermissionsAsync()</code> 즉시. 사전 설명 없음. iOS는 거부 후 재요청 불가. 알림 설정을 처음 켤 때 · 초대 수락 맥락에서 사전 안내 뒤 요청, 거부 상태면 <code>Linking.openSettings()</code>.</li>
 </ul>
-<h4><span class="sev P1">P1</span> iPad 가로 고정 + <code>requireFullScreen: true</code></h4>
+<h4>확인 필요 — iPad 방향과 <code>requireFullScreen: true</code></h4>
 <ul>
-<li><code>app.json:13-17</code>, <code>useOrientationLock.js:18</code>. Split View · Stage Manager 불가, 세로 iPad 불가. <code>orientation: "default"</code> 선언과 런타임 잠금이 다르다. <code>requireFullScreen</code> 제거 + 창 크기 대응(§2.1 P0과 같은 해법).</li>
+<li>태블릿 세로·가로는 의도된 지원 범위다. 이전 런타임 가로 잠금은 수정했다. <code>requireFullScreen: true</code>가 Split View · Stage Manager에 미치는 영향은 별도이며 iPad 실기기에서 확인해야 한다.</li>
 </ul>
 <h4><span class="sev P1">P1</span> StatusBar 항상 숨김, 상단 인셋은 폰에서만 — §2.1 참조. iPad 상단 UI 겹침 가능(추정).</h4>
 <h4><span class="sev P1">P1</span> Dynamic Type 대응 없음 — <code>maxFontSizeMultiplier</code> 0건, <code>allowFontScaling</code>은 <code>DrawingPad.js:57</code> 한 곳. DioText 래퍼에 <code>maxFontSizeMultiplier={1.3}</code> 기본값, 캔버스 글자는 <code>allowFontScaling={false}</code>.</h4>
@@ -486,9 +486,9 @@ hr { border: 0; border-top: 1px solid #D9DCEF; margin: 4mm 0; }
 <hr />
 <h2>6. UI/UX 디자인 미감 · 가이드 적용</h2>
 <h3>6.1 실기기에서 본 것</h3>
-<h4><span class="sev P2">P2</span> 세로 태블릿 편집기 — 패널 둘이 기본으로 열려 캔버스가 좁다</h4>
+<h4><span class="sev P2">P2</span> 세로 태블릿 편집기 — 점검 당시 패널 둘이 열려 캔버스가 좁았다</h4>
 <ul>
-<li>캡처 25 · 55. 레이어 패널은 "표시할 요소 없음"인데도 폭 30%를 차지한다. 세로에서는 레이어 기본 닫힘 + 페이지 목록 접힘.</li>
+<li>캡처 25 · 55는 수정 전이다. 세로에서는 레이어와 페이지 목록을 닫고 시작하고 한 번에 하나씩 열도록 수정했으며 실기기 재확인이 필요하다.</li>
 </ul>
 <h4><span class="sev P2">P2</span> 새 다이어리 모달 — 아래 1/3~1/2가 빈 공간</h4>
 <ul>
@@ -552,7 +552,7 @@ hr { border: 0; border-top: 1px solid #D9DCEF; margin: 4mm 0; }
 <ul>
 <li>새 다이어리 속지 탭(캡처 21) 썸네일 라벨 폭이 좁아 이름이 거의 안 보인다. 두 줄 허용 또는 폭 확대.</li>
 </ul>
-<h4><span class="sev P2">P2</span> 세로 태블릿 — 가로 다이어리 페이지가 작게 떠 있다 (캡처 25 · 62) — §2.1 P0과 같은 원인.</h4>
+<h4><span class="sev P2">P2</span> 세로 태블릿 — 가로 다이어리 페이지가 작게 떠 있다 (캡처 25 · 62) — §2.1에서 세로 태블릿 배치 정정 및 패널 초기 상태를 참고.</h4>
 <h4><span class="sev P2">P2</span> 키보드가 뜨면 시스템 내비 바(3버튼)가 다시 나타나 아래 60dp가 움직인다 (캡처 16 · 43 · p12).</h4>
 <h4><span class="sev P3">P3</span> 제목 편집 상태가 패널을 닫은 뒤에도 남는다 (캡처 45b) — 포커스 해제 시 편집 종료.</h4>
 <div class="shots"><figure><img src="이미지/43b-text-typed.jpg"><figcaption>43b 텍스트 입력 중</figcaption></figure><figure><img src="이미지/45b.jpg"><figcaption>45b 제목 편집 잔존</figcaption></figure><figure><img src="이미지/21-new-paper.jpg"><figcaption>21 나의 속지 이름 말줄임</figcaption></figure></div>
@@ -621,7 +621,7 @@ hr { border: 0; border-top: 1px solid #D9DCEF; margin: 4mm 0; }
 <td>1</td>
 <td>안드로이드 태블릿 <strong>세로</strong></td>
 <td>편집기 캔버스 크기 · 패널 기본 상태 · 보관함</td>
-<td>§2.1 P0</td>
+<td>§2.1 정정</td>
 </tr>
 <tr>
 <td>2</td>
@@ -743,7 +743,7 @@ hr { border: 0; border-top: 1px solid #D9DCEF; margin: 4mm 0; }
 </thead>
 <tbody>
 <tr>
-<td>태블릿 가로 잠금 무시(§2.1 P0)</td>
+<td>태블릿 방향 제한 동작(§2.1 정정)</td>
 <td>Android 16 동작으로 추정</td>
 <td><strong>정식 동작 확정</strong>: "For apps targeting Android 16 (API level 36), orientation, resizability, and aspect ratio restrictions no longer apply on displays with smallest width &gt;= 600dp." 임시 opt-out <code>PROPERTY_COMPAT_ALLOW_RESTRICTED_RESIZABILITY</code>는 <strong>targetSdk 37에서 제거</strong>(Android 17 문서)</td>
 <td><a href="https://developer.android.com/about/versions/16/behavior-changes-16">Android 16 behavior changes</a></td>
@@ -751,7 +751,7 @@ hr { border: 0; border-top: 1px solid #D9DCEF; margin: 4mm 0; }
 <tr>
 <td>iPad <code>requireFullScreen</code>(§3 P1)</td>
 <td>Split View 불가 정도</td>
-<td><strong>P0로 격상</strong>: Expo SDK 58은 <strong>iOS 27 SDK 빌드</strong>이고 TN3192가 "Starting in iOS 27 and iPadOS 27, <code>UIRequiresFullScreen</code> no longer opts your app out of resizing"라고 명시. Expo 변경 로그도 "<code>ScreenOrientation.lockAsync</code> may have no effect while the app is resizable". 즉 <strong>iPad에서도 가로 고정 배치가 보장되지 않는다</strong> — Android 16과 같은 문제</td>
+<td><strong>P0로 격상</strong>: Expo SDK 58은 <strong>iOS 27 SDK 빌드</strong>이고 TN3192가 "Starting in iOS 27 and iPadOS 27, <code>UIRequiresFullScreen</code> no longer opts your app out of resizing"라고 명시. Expo 변경 로그도 "<code>ScreenOrientation.lockAsync</code> may have no effect while the app is resizable". 태블릿 세로·가로 지원은 의도된 동작이며, iPad 리사이즈 대응과 설정은 별도 검증이 필요하다</td>
 <td><a href="https://developer.apple.com/documentation/technotes/tn3192-migrating-your-app-from-the-deprecated-uirequiresfullscreen-key">TN3192</a> · <a href="https://expo.dev/changelog/sdk-58">Expo SDK 58</a></td>
 </tr>
 <tr>
@@ -871,7 +871,7 @@ hr { border: 0; border-top: 1px solid #D9DCEF; margin: 4mm 0; }
 <tr>
 <td>Play targetSdk 37 + 방향 제한 opt-out 제거</td>
 <td>2027-08(블로그)</td>
-<td>가로 잠금 의존 설계는 이때 완전히 불가</td>
+<td>태블릿 세로·가로 지원을 유지하고 크기 변경을 검증</td>
 </tr>
 <tr>
 <td>iOS 27 launch screen 필수</td>
