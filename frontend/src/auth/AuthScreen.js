@@ -30,6 +30,7 @@ import {
 } from './validation';
 import { authStyles as s } from './styles';
 import ProviderIcon from './ProviderIcon';
+import AccountLinks from './AccountLinks';
 import { isAppleLoginSupported } from './appleLogin';
 import { pickProfilePhoto } from './profilePhoto';
 import EmailVerification from './EmailVerification';
@@ -611,44 +612,11 @@ export default function AuthScreen({
                     })}
                   </View>
                 ) : (
-                  <View style={s.accountLinks}>
-                    {link(
-                      '아이디 찾기',
-                      () =>
-                        setInfo({
-                          title: '아이디 찾기',
-                          body: '가입한 이메일 찾기는 계정 서비스 연결 후 이용할 수 있어요.',
-                        }),
-                      s.accountLink,
-                    )}
-                    <Text
-                      accessibilityElementsHidden
-                      importantForAccessibility="no"
-                      style={s.accountSeparator}
-                    >
-                      |
-                    </Text>
-                    {link(
-                      '비밀번호 찾기',
-                      () => navigate('password-reset'),
-                      s.accountLink,
-                    )}
-                    <Text
-                      accessibilityElementsHidden
-                      importantForAccessibility="no"
-                      style={s.accountSeparator}
-                    >
-                      |
-                    </Text>
-                    {link(
-                      '회원가입',
-                      () => {
-                        setValues(emptyValues());
-                        beginEnrollment('email');
-                      },
-                      s.accountLink,
-                    )}
-                  </View>
+                  <AccountLinks disabled={busy} onPress={(id) => {
+                    if (id === 'password-reset') { navigate('password-reset'); return; }
+                    setValues(emptyValues());
+                    beginEnrollment('email');
+                  }} />
                 )}
                 {!signup && (
                   <View style={s.socialSection}>

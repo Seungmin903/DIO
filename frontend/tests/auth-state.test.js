@@ -12,6 +12,7 @@ import assert from 'node:assert/strict'
 const require=createRequire(import.meta.url),expo=createRequire(require.resolve('expo/package.json')),babel=expo('@babel/core')
 const code=babel.transformSync(readFileSync(new URL('../src/auth/AuthScreen.js',import.meta.url),'utf8'),{configFile:false,babelrc:false,plugins:[[expo.resolve('@babel/plugin-transform-react-jsx'),{runtime:'automatic'}],expo.resolve('@babel/plugin-transform-modules-commonjs')]}).code
 const termsCode=babel.transformSync(readFileSync(new URL('../src/auth/SignupTerms.js',import.meta.url),'utf8'),{configFile:false,babelrc:false,plugins:[[expo.resolve('@babel/plugin-transform-react-jsx'),{runtime:'automatic'}],expo.resolve('@babel/plugin-transform-modules-commonjs')]}).code
+const accountLinksCode=babel.transformSync(readFileSync(new URL('../src/auth/AccountLinks.js',import.meta.url),'utf8'),{configFile:false,babelrc:false,plugins:[[expo.resolve('@babel/plugin-transform-react-jsx'),{runtime:'automatic'}],expo.resolve('@babel/plugin-transform-modules-commonjs')]}).code
 function setup(service,photoPicker,options={emailVerificationEnabled:true}){
  const states=[],refs=[],deps=[],cleanups=[],keyboard={};let si=0,ri=0,ei=0,back
  const react={useState:initial=>{const i=si++;if(!(i in states))states[i]=typeof initial==='function'?initial():initial;return[states[i],v=>{states[i]=typeof v==='function'?v(states[i]):v}]},useRef:initial=>refs[ri++]??={current:initial},useEffect:(fn,next)=>{const i=ei++;if(!deps[i]||next.some((v,j)=>v!==deps[i][j])){cleanups[i]?.();deps[i]=next;cleanups[i]=fn()}}}
@@ -19,11 +20,12 @@ function setup(service,photoPicker,options={emailVerificationEnabled:true}){
  const mocks={react,'../shared/legalContent':legalContent,'./LegalDocumentScreen':{__esModule:true,default:'LegalDocumentScreen'},'react-native':native,'react-native-safe-area-context':{SafeAreaView:'safe'},'../shared/useFormFactor':{useFormFactor:()=>({isPhone:false,formFactor:'tablet'})},'../shared/useOrientationLock':{useOrientationLock(){}},'./signupPolicy':signupPolicy,'./appleLogin':{isAppleLoginSupported:()=>false},'./validation':validation,'./styles':{authStyles:new Proxy({},{get:(_,key)=>key})},'../shared/theme':{colors:{}}}
  mocks['./sessionExpiry.js']=sessionExpiry;
  const termsMod={exports:{}};new Function('require','module','exports',termsCode)(id=>id==='../shared/legalDocuments'?{marketingDocuments}:mocks[id]??(id==='react/jsx-runtime'?require(id):{__esModule:true,default:id}),termsMod,termsMod.exports);mocks['./SignupTerms']={__esModule:true,default:termsMod.exports.default}
+ const linksMod={exports:{}};new Function('require','module','exports',accountLinksCode)(id=>mocks[id]??(id==='react/jsx-runtime'?require(id):{__esModule:true,default:id}),linksMod,linksMod.exports);mocks['./AccountLinks']=linksMod.exports
  const mod={exports:{}};new Function('require','module','exports','__DEV__',code)(id=>mocks[id]??(id==='react/jsx-runtime'?require(id):{__esModule:true,default:id}),mod,mod.exports,options.developmentMode ?? false)
  const sessions=[],render=()=>{si=ri=ei=0;return mod.exports.default({service,onContinue:session=>sessions.push(session),photoPicker,legalDocuments:{service:'https://dio.test/legal/v2/service',privacy:'https://dio.test/legal/v2/consent',policy:'https://dio.test/legal/v2/privacy'},...options})}
  return{render,sessions,keyboard,back:()=>back(),unmount:()=>cleanups.forEach(fn=>fn?.())}
 }
-const nodes=n=>!n||typeof n!=='object'?[]:typeof n.type==='function'&&n.type.name==='SignupTerms'?nodes(n.type(n.props)):[n,...[n.props?.children].flat(Infinity).flatMap(nodes)]
+const nodes=n=>!n||typeof n!=='object'?[]:typeof n.type==='function'&&(n.type.name==='SignupTerms'||n.type.name==='AccountLinks')?nodes(n.type(n.props)):[n,...[n.props?.children].flat(Infinity).flatMap(nodes)]
 const find=(tree,label)=>nodes(tree).find(n=>n.props.accessibilityLabel===label||n.props.label===label)
 function enterSignup(ui) {
  find(ui.render(),'회원가입').props.onPress();

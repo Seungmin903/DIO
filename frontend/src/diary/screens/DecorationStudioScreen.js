@@ -22,6 +22,7 @@ import { refreshPersonalFonts } from '../../handwriting/library';
 import { fontWorkflow } from '../../handwriting/manager';
 import { listStatus } from '../../handwriting/workflow';
 import { AI_FONT_LABEL, isAiHandwritingFont } from '../../handwriting/aiDisclosure';
+import { CUTOUT_ENTRANCE } from '../../shared/featureFlags';
 import { loadedFontFamily } from '../../editor/utils/text';
 import { useCustomDecor } from '../../editor/hooks/useCustomDecor';
 import { stickerSplit } from '../../editor/services/stickerSplit';
@@ -209,7 +210,7 @@ export default function DecorationStudioScreen({ compact = false, registerBackHa
     stacked={compact && !folder} right={folder ? <>
       <DioButton variant="ghost" icon="chevron-left" label="스티커 폴더 목록" text="폴더 목록" onPress={() => setFolderId(null)} />
       <DioButton variant="icon" icon="trash" label="스티커 폴더 삭제" onPress={() => setQuestion({ folder })} />
-    </> : addTool({ kind: 'sticker', icon: 'sticker', title: '스티커 추가', description: '스티커 시트 분리 · 사진 속 대상 오리기', disabled: !custom.loaded, menu: true })}>
+    </> : addTool({ kind: 'sticker', icon: 'sticker', title: '스티커 추가', description: CUTOUT_ENTRANCE ? '스티커 시트 분리 · 사진 속 대상 오리기' : '스티커 시트 분리', disabled: !custom.loaded, menu: true })}>
     {custom.saveError ? <DecorSaveNotice error={custom.saveError} pending={custom.savePending} onRetry={custom.retrySave} /> : null}
     {!custom.loaded ? <Text style={s.empty}>스티커를 불러오고 있어요.</Text>
       : folder ? (!folder.items.length ? <EmptyState compact={compact} art="dio" raised title="아직 스티커가 없어요" />
@@ -415,8 +416,9 @@ export default function DecorationStudioScreen({ compact = false, registerBackHa
     ] : [
       { id: 'split', label: stickerSplit.available ? '스티커 시트 분리' : `스티커 시트 분리, ${stickerSplit.reason || '이 기기에서는 쓸 수 없어요'}`, text: '스티커 시트 분리', icon: 'grid',
         disabled: !stickerSplit.available, onPress: () => { setAddMenu(null); loginGate('스티커 시트 분리', () => setTool('split')); } },
-      { id: 'cutout', label: '사진 속 대상 오리기', text: '사진 속 대상 오리기', icon: 'scissors',
-        onPress: () => { setAddMenu(null); loginGate('사진 속 대상 오리기', () => setTool('cutout')); } },
+      // 사진 속 대상 오리기: 저장이 아직 미리보기 단계라(StickerCutoutModal 확인창) 모든 빌드에서 입구를 감춘다
+      ...(CUTOUT_ENTRANCE ? [{ id: 'cutout', label: '사진 속 대상 오리기', text: '사진 속 대상 오리기', icon: 'scissors',
+        onPress: () => { setAddMenu(null); loginGate('사진 속 대상 오리기', () => setTool('cutout')); } }] : []),
     ]} />}
     {coverCrop && <PhotoCropper photo={coverCropPhoto(coverCrop.photo, coverCrop.ratio)} fixedAspect={coverCrop.ratio} title="표지 사진 자르기"
       onCancel={() => { coverCrop.resolve(null); setCoverCrop(null); }} onApply={({ crop }) => { coverCrop.resolve(crop); setCoverCrop(null); }} />}

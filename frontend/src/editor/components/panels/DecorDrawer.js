@@ -33,6 +33,7 @@ import { stickerSplit } from '../../services/stickerSplit'
 import { useLoginGate } from '../../../auth/loginGate'
 import SelectionBar from '../../../diary/components/SelectionBar'
 import SelectionButton from '../../../diary/components/SelectionButton'
+import { CUTOUT_ENTRANCE } from '../../../shared/featureFlags'
 
 export const DRAWER_TABS = [
   { id: 'sticker', name: '스티커', icon: 'sticker' },
@@ -870,7 +871,8 @@ function FolderView({
         { id: 'image', label: '이미지 그대로 추가', text: '이미지 그대로 추가', icon: 'image', disabled: busy, onPress: () => { setAdding(null); onAdd() } },
         { id: 'split', label: splitAvailable ? '스티커 시트 분리' : `스티커 시트 분리, ${splitReason || '이 기기에서는 쓸 수 없어요'}`, text: '스티커 시트 분리', icon: 'grid',
           disabled: busy || !splitAvailable, onPress: () => { setAdding(null); onSplit() } },
-        { id: 'cutout', label: '사진 속 대상 오리기', text: '사진 속 대상 오리기', icon: 'scissors', disabled: busy, onPress: () => { setAdding(null); onCutout() } },
+        // 사진 속 대상 오리기: 저장이 아직 미리보기 단계라 모든 빌드에서 입구를 감춘다
+        ...(CUTOUT_ENTRANCE ? [{ id: 'cutout', label: '사진 속 대상 오리기', text: '사진 속 대상 오리기', icon: 'scissors', disabled: busy, onPress: () => { setAdding(null); onCutout() } }] : []),
       ]} />}
     </View>
   )

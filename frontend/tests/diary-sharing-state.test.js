@@ -331,7 +331,7 @@ test('이메일 초대는 잘못된 입력·연타를 차단하고 실패 후 �
 test('정원 초과와 서버 미연결에서는 목 이메일 요청을 실행할 수 없다', async () => {
   const full = { id: 'local', members: [{ id: 'self', role: 'OWNER' }, ...['a', 'b', 'c'].map(id => ({ id, role: 'EDITOR' }))] };
   const ui = setup({ registerDiary: () => full, sendEmailInvite: async () => full }, undefined, { diary: full });
-  assert.ok(find(ui.render(), '추가 인원 안내'));
+  assert.equal(find(ui.render(), '추가 인원 안내'), undefined); // 유료 안내는 출시 전까지 감춘다
   assert.equal(find(ui.render(), '초대 링크 만들기').props.disabled, true);
   find(ui.render(), '이메일로 초대').props.onPress();
   assert.equal(find(ui.render(), '초대할 이메일').props.editable, false);
