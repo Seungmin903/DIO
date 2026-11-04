@@ -4,7 +4,7 @@ import { colors } from '../../../shared/theme'
 import StaticPage from '../canvas/StaticPage'
 import PageObject from '../canvas/PageObject'
 import PageBackground from '../PageBackground'
-import { TextMeasure, objectOpacity } from '../canvas/ObjectView'
+import { TextMeasure, objectDrawOpacity } from '../canvas/ObjectView'
 import { pageSize } from '../../utils/pageGeometry.js'
 import { createCompletedStrokePlanner } from '../../utils/completedStrokePlan.js'
 import { createStrokeRasterQueue } from '../../utils/strokeRasterQueue.js'
@@ -113,7 +113,7 @@ const ThumbnailBatch = memo(function ThumbnailBatch({ layer, zoom, queue, onMetr
     {/* The SVG is a serialization source, not a second visible preview. Keep its
         layout for extraction but avoid painting it before the bitmap is ready. */}
     {(!current && building || fallback) && <View ref={source} dataSet={fallback ? { dioThumbnailFallback: 'true' } : undefined} style={{ width: '100%', height: '100%', visibility: fallback ? 'visible' : 'hidden' }}>
-      {batch.objects.map(object => <PageObject key={object.id} object={object} zoom={zoom} originX={batch.left} originY={batch.top} opacity={objectOpacity(object)} still />)}
+      {batch.objects.map(object => <PageObject key={object.id} object={object} zoom={zoom} originX={batch.left} originY={batch.top} opacity={objectDrawOpacity(object)} still />)}
     </View>}
   </View>
 })
@@ -165,7 +165,7 @@ function CachedThumbnail({ page, zoom, showBackground }) {
   return <View ref={root} style={{ width: width * zoom, height: height * zoom, backgroundColor: colors.surface, overflow: 'hidden' }} pointerEvents="none">
     {showBackground && <PageBackground page={page} zoom={zoom} compact />}
     <TextMeasure.Provider value={null}>{layers.map(layer => layer.object
-      ? <PageObject key={layer.object.id} object={layer.object} zoom={zoom} opacity={objectOpacity(layer.object)} still />
+      ? <PageObject key={layer.object.id} object={layer.object} zoom={zoom} opacity={objectDrawOpacity(layer.object)} still />
       : <ThumbnailBatch key={layer.batch.objects[0].id} layer={layer} zoom={zoom} queue={queue.current} onMetrics={onMetrics} />)}</TextMeasure.Provider>
     {pending && <View style={{ position: 'absolute', bottom: 2, left: 2, right: 2, backgroundColor: colors.surfaceMuted }}><Text style={{ color: colors.textMuted, fontSize: 9 }}>미리보기 준비 중</Text></View>}
   </View>

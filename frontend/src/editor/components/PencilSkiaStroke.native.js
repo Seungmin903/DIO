@@ -2,8 +2,8 @@ import { useContext, useEffect, useRef, useState } from 'react'
 import { Image, PixelRatio, View } from 'react-native'
 import { SkiaPencilScale } from '../skia/skiaPencilScale.js'
 import { useSkiaRuntime } from '../skia/skiaRuntime'
-import { drawPencilRaster, pencilRasterKey } from '../skia/pencilRaster.js'
-import { quantizeScale, spend, withinBudget } from '../skia/rasterBudget.js'
+import { drawPencilRaster, pencilRasterKey, rememberRaster, reusableRaster } from '../skia/pencilRaster.js'
+import { quantizeScale, REBAKE_DELAY_MS, spend, withinBudget } from '../skia/rasterBudget.js'
 
 // 앱: 연필 획을 앱 Skia 오프스크린 그림(CompletedStrokeLayer.native 의 bake 와 같은 방식)으로 그려 PNG 로 띄운다 —
 // 썸네일 · 내보내기(view-shot 캡처)가 편집 화면의 Skia 연필과 같은 그림이 된다. SVG 그림(fallback)은 그림을 못 만들었을 때만 — 연필 SVG 는 결 무늬 경로가 Java 힙에 한 획 약 2MB 씩 올라가고,
@@ -38,26 +38,30 @@ export default function PencilSkiaStroke({ object, zoom, transform, fallback, on
   const [, again] = useState(0), forced = useRef(false)
   const [loaded, setLoaded] = useState(null)   // 화면에 올라온 그림의 uri
   const [broken, setBroken] = useState(null)   // 띄우지 못한 그림의 uri
+  const last = useRef(null)   // 불투명도 · 배율만 바뀌어 새 그림을 예산 때문에 미루는 동안 보여 줄 이전 그림(획이 잠깐 비지 않게)
   let raster = null   // null: 아직(SVG) · false: 그릴 수 없음(SVG 가 최종)
   if (runtime) {
     raster = peek(object, scale)
-    if (raster === null && (forced.current || withinBudget())) { forced.current = false; raster = make(runtime, object, scale) }
+    // 이전 그림을 대신 보여 줄 수 있으면 바로 굽지 않는다: 아래 타이머가 값이 멈춘 뒤 한 번만 굽는다
+    if (raster === null && (forced.current || (!reusableRaster(last.current, object) && withinBudget()))) { forced.current = false; raster = make(runtime, object, scale) }
   }
   useEffect(() => {
     if (!runtime || raster !== null) return undefined
-    const timer = setTimeout(() => { forced.current = true; again(n => n + 1) }, 0)
+    const timer = setTimeout(() => { forced.current = true; again(n => n + 1) }, reusableRaster(last.current, object) ? REBAKE_DELAY_MS : 0)
     return () => clearTimeout(timer)
   })
   // 그림을 못 만들었으면 SVG 가 최종 모양이다 → 내보내기가 바로 찍어도 된다(알림 함수는 매번 새로 만들어져 오므로 ref)
   const notify = useRef(onAssetLoad)
   notify.current = onAssetLoad
   useEffect(() => { if (raster === false) notify.current?.() }, [raster])
-  const showing = raster && loaded === raster.uri
+  if (raster) last.current = rememberRaster(object, raster)
+  const shown = raster === null ? reusableRaster(last.current, object) : raster
+  const showing = shown && loaded === shown.uri
   return <>
-    {raster === false || (raster && broken === raster.uri) ? fallback : null}
-    {raster ? <View pointerEvents="none" style={{ position: showing ? 'relative' : 'absolute', width: object.w * zoom, height: object.h * zoom, transform }}>
-      <Image source={{ uri: raster.uri }} fadeDuration={0} onLoad={() => { setLoaded(raster.uri); notify.current?.() }} onError={() => { setLoaded(null); setBroken(raster.uri); notify.current?.() }}
-        style={{ position: 'absolute', left: raster.left * zoom, top: raster.top * zoom, width: raster.width * zoom, height: raster.height * zoom, opacity: showing ? 1 : 0 }} />
+    {raster === false || (shown && broken === shown.uri) ? fallback : null}
+    {shown ? <View pointerEvents="none" style={{ position: showing ? 'relative' : 'absolute', width: object.w * zoom, height: object.h * zoom, transform }}>
+      <Image source={{ uri: shown.uri }} fadeDuration={0} onLoad={() => { setLoaded(shown.uri); notify.current?.() }} onError={() => { setLoaded(null); setBroken(shown.uri); notify.current?.() }}
+        style={{ position: 'absolute', left: shown.left * zoom, top: shown.top * zoom, width: shown.width * zoom, height: shown.height * zoom, opacity: showing ? 1 : 0 }} />
     </View> : null}
   </>
 }

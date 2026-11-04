@@ -1,7 +1,7 @@
 import { memo, useRef } from 'react'
 import { PixelRatio, Platform, View } from 'react-native'
 import { createCompletedStrokePlanner } from '../../utils/completedStrokePlan.js'
-import { objectOpacity, TextMeasure } from './ObjectView'
+import { objectDrawOpacity, TextMeasure } from './ObjectView'
 import PageObject from './PageObject'
 
 const Batch = memo(function Batch({ batch, zoom, rasterize }) {
@@ -12,7 +12,7 @@ const Batch = memo(function Batch({ batch, zoom, rasterize }) {
     {/* 텍스트 측정 콜백 변경이 완성된 필기까지 다시 렌더하지 않게 한다. */}
     <TextMeasure.Provider value={null}>
       {batch.objects.map(object => <PageObject key={object.id} object={object} zoom={zoom}
-        originX={batch.left} originY={batch.top} opacity={objectOpacity(object)} still />)}
+        originX={batch.left} originY={batch.top} opacity={objectDrawOpacity(object)} still />)}
     </TextMeasure.Provider>
   </View>
 })

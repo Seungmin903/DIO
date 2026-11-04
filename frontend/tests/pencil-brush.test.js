@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { brushPartSamples, brushSeed, brushSpacing, shaderCap, shaderDabAlpha, shaderUniforms, PENCIL_SHADER_SKSL, copyDabs, copySpacing, brushTipPower, PENCIL_BRUSH, paperMatrices, paperUniforms, partRange, partTotal, pencilDabs, PENCIL_PAPER_SKSL } from '../src/editor/utils/pencilBrush.js'
+import { brushPartSamples, brushSeed, brushSpacing, shaderCap, shaderDabAlpha, shaderUniforms, PENCIL_SHADER_SKSL, copyDabs, copySpacing, brushTipPower, PENCIL_BRUSH, pencilAccumulates, paperMatrices, paperUniforms, partRange, partTotal, pencilDabs, PENCIL_PAPER_SKSL } from '../src/editor/utils/pencilBrush.js'
 import { penPressure } from '../src/editor/utils/penSettings.js'
 import { createStrokePreview } from '../src/editor/utils/strokePreview.js'
 
@@ -100,8 +100,8 @@ test('32판 흑연 퇴적 모델: 보통 필압은 포화하지 않고(회색 �
   assert.equal(PENCIL_BRUSH.ribbon.on, false)
   assert.ok(PENCIL_BRUSH.deposit.on && PENCIL_BRUSH.strand.on)
   assert.ok(Math.abs(PENCIL_BRUSH.strand.tooth + PENCIL_BRUSH.strand.strand - 1) < 1e-9, '결 두 벌의 합이 1')
-  // 48판 세 채널: R = 윤곽(차 있음), B = 묻은 양(힘 비례), G = 결. 돔 경도 0.5, 간격 0.15D: 겹침 합 5.31
-  const amount = v => PENCIL_BRUSH.deposit.flow * v * 5.31
+  // 48판 세 채널: R = 윤곽(차 있음), B = 묻은 양(힘 비례), G = 결. 돔 경도 0.5, 간격 0.15D: 겹침 합 5.31. 62판: 도장을 Screen 으로 쌓아 B = 1 − e^(−지난 양)
+  const amount = v => 1 - Math.exp(-PENCIL_BRUSH.deposit.flow * v * 5.31)
   const ink = (width, R, B, G) => { const [m1] = paperMatrices(width, [0, 0, 0]), c = v => Math.min(1, Math.max(0, v)); return c(m1[15] * R + m1[16] * G + m1[17] * B + m1[19]) * c(m1[0] * R + m1[1] * G + m1[2] * B + m1[4]) }
   const normal = amount(1 / 1.48), weak = amount(0.62 / 1.48 * 0.6), hard = amount(1)
   assert.ok(hard < 1, `가장 세게 써도 B 는 차지 않아 힘이 끝까지 진하기로 보인다 ${hard}`)
@@ -110,7 +110,8 @@ test('32판 흑연 퇴적 모델: 보통 필압은 포화하지 않고(회색 �
   assert.ok(ink(10, 1, weak, 0.1) > 0.1, '굵은 약한 선도 돌기 자리는 칠해진다(옅고 듬성함, 소실 아님)')
   assert.ok(ink(2.5, 1, weak, 0.3) > 0.15, '얇은 약한 선은 이어진 옅은 선')
   assert.ok(ink(10, 1, weak, 0.2) < ink(10, 1, normal, 0.2) && ink(10, 1, normal, 0.2) < ink(10, 1, hard, 0.2), '세게 쓸수록 진하다')
-  assert.ok(ink(10, 1, hard, 0.05) === 1, '불투명도 100 에서 세게 쓰면 불투명까지 닿는다(돌기 자리)')
+  assert.ok(ink(10, 1, hard, 0.05) > 0.9, '불투명도 100 에서 세게 쓰면 돌기 자리는 거의 꽉 찬다')
+  assert.equal(ink(10, 1, 1 - (1 - hard) ** 2, 0.05), 1, '두 번 지나면 불투명까지 닿는다')
   assert.ok(ink(2.5, 1, normal, 0.75) > ink(10, 1, normal, 0.75), '얇은 선은 결을 덜 깎아 꽉 찬 선')
   assert.equal(ink(10, 0.05, normal, 0.5), 0, '윤곽 밖은 잘려 나간다')
   assert.ok(Math.abs(paperUniforms({ x: 0, y: 0 }, 1.75)[2] - PENCIL_BRUSH.grainScale * 1.75) < 1e-9, '기기 기본 배율 1.75 에선 결 크기가 확대 연동 전과 같다')
@@ -159,7 +160,8 @@ test('종이 결 행렬(포토샵 Height): 덮임이 없으면 칠하지 않고,
   // 48판: R = 윤곽, b = 묻은 양, h = 결
   for (const width of [2.5, 6, 10]) assert.equal(ink(width, 0, 0, 0), 0)
   for (const h of [0, 0.5, 1]) assert.ok(ink(2.5, 1, 0.7, h) > 0.1, '얇은 선 가운데는 결이 가장 깊어도 뚫리지 않는다')
-  const shallow = ink(10, 1, 0.8, 0.1), mid = ink(10, 1, 0.8, 0.5), deep = ink(10, 1, 0.8, 0.95)
+  // 62판: B 는 Screen 으로 쌓여 한 번 세게 지나도 .6 안팎이다(.8 은 여러 겹 지난 값 — 겹치면 깊은 골도 메워진다)
+  const shallow = ink(10, 1, 0.6, 0.1), mid = ink(10, 1, 0.6, 0.5), deep = ink(10, 1, 0.6, 0.95)
   assert.ok(shallow > 0.8)
   assert.ok(deep < mid && mid <= shallow && deep < shallow * 0.8, '굵은 선은 결이 깊을수록 옅다(깊은 골은 옅은 이빨)')
   assert.ok(deep < 0.2, '41판(사용자): 굵은 획은 거칠고 듬성하게 — 깊은 골은 종이까지 거의 비친다')
@@ -181,9 +183,15 @@ test('연필 필압은 실측 S펜 힘 0.02 ~ 0.64 전체에서 커진다(0.34 �
   assert.ok(Math.abs(sample.pressure - penPressure('pencil', 0, 0.6)) < 1e-9)
 })
 
-test('29판 준비: paperMatrices 는 불투명도 인자를 받고 c0op 가 0 이면 불투명도와 무관(30판에서 c0 연동 켬)', () => {
-  assert.deepEqual(paperMatrices(10, [0, 0, 0], 0.8), paperMatrices(10, [0, 0, 0], 1))
-  assert.deepEqual(paperMatrices(10, [0, 0, 0]), paperMatrices(10, [0, 0, 0], 1))
+test('62판 겹침: 불투명도는 한 번 지난 톤에 곱해지고, 겹쳐 묻으면 불투명도를 넘어 고르게 쌓이며 결 구멍은 천천히 메워진다', () => {
+  const pass = PENCIL_BRUSH.deposit.flow * (1 / 1.48) * 5.31   // 보통 힘 한 번 지남의 양
+  const ink = (n, G, op) => { const [m1] = paperMatrices(8, [0, 0, 0], op), c = v => Math.min(1, Math.max(0, v)), B = 1 - Math.exp(-pass * n); return c(m1[15] + m1[16] * G + m1[17] * B + m1[19]) * c(m1[0] + m1[1] * G + m1[2] * B + m1[4]) }
+  assert.ok(pencilAccumulates())
+  assert.ok(Math.abs(ink(1, 0.3, 0.8) - 0.8 * ink(1, 0.3, 1)) < 1e-6, '한 번 지난 몸통은 불투명도만큼 곱해진 톤')
+  for (const G of [0.3, 0.7]) for (const [a, b] of [[1, 2], [2, 4]]) assert.ok(ink(b, G, 0.8) > ink(a, G, 0.8) + 0.08, `결 ${G}: ${a}겹 < ${b}겹`)
+  assert.ok(ink(8, 0.1, 0.8) > 0.8, '돌기 자리는 겹치면 불투명도 80 을 넘는다')
+  assert.ok(ink(8, 0.7, 0.8) < 0.8, '깊은 골은 8 겹이어도 막히지 않는다(4 겹에 까맣게 막히던 덧셈과 다르다)')
+  assert.ok(ink(8, 0.3, 0.3) < 0.8, '불투명도가 낮으면 겹쳐도 천장이 낮다')
 })
 
 test('48판 기울기: 눕혀 쓰면 넓고 옅다, 기울기 값이 없는 획(환경설정 끔)은 그대로', () => {
@@ -215,7 +223,8 @@ test('겹친 결 리본은 먼저 그려진 결이 남는다(DstOver): 한 획�
 test('앱 연필은 그림을 못 만들었을 때만 SVG 를 붙인다: 화면 밖 썸네일의 SVG 가 남아 Java 힙을 채우지 않는다', async () => {
   const { readFileSync } = await import('node:fs')
   const source = readFileSync(new URL('../src/editor/components/PencilSkiaStroke.native.js', import.meta.url), 'utf8')
-  assert.match(source, /raster === false \|\| \(raster && broken === raster\.uri\) \? fallback : null/)
+  assert.match(source, /raster === false \|\| \(shown && broken === shown\.uri\) \? fallback : null/)
+  assert.match(source, /const shown = raster === null \? reusableRaster\(last\.current, object\) : raster/, '새 그림을 미루는 동안 이전 그림을 유지한다')
   assert.doesNotMatch(source, /showing \? null : fallback/)
 })
 

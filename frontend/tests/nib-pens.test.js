@@ -192,3 +192,76 @@ test('붓펜 몸통은 힘 배율이 1.16 을 넘어도 굵어진다(예전엔 �
   assert.ok(half(1.78) > half(1.0) * 1.6, `${half(1.78)} vs ${half(1.0)}`)
   assert.ok(half(1.78) < 8 * 2.4 / 2 + 0.5, '상한 2.4D')
 })
+
+// 끝 꼬리: 이미 그린 곡선은 다음 점이 와도 거의 그대로여야 한다(사용자: 쓰는 중 모양이 살짝 바뀐다)
+const distanceTo = (p, poly) => { let best = Infinity; for (let i = 1; i < poly.length; i++) { const a = poly[i - 1], b = poly[i], dx = b.x - a.x, dy = b.y - a.y, l = dx * dx + dy * dy, t = l ? Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / l)) : 0; best = Math.min(best, Math.hypot(p.x - a.x - t * dx, p.y - a.y - t * dy)) } return best }
+const arc = n => Array.from({ length: n }, (_, i) => { const a = i * 0.4; return { x: 100 + 60 * Math.cos(a), y: 100 + 60 * Math.sin(a), inkDistance: i * 24, pressure: 1 } })
+test('끝 꼬리: 곡선을 쓰는 중 다음 점이 와도 그린 곡선이 거의 움직이지 않고 끝 근처에서 멈춘다', () => {
+  const points = arc(14)
+  for (let k = 4; k < points.length; k++) {
+    const before = nibCurve(points.slice(0, k), { step: 2 }), after = nibCurve(points.slice(0, k + 1), { step: 2 })
+    for (const p of before) assert.ok(distanceTo(p, after) < 0.35, `${k}점: 예전 직선 꼬리는 2 단위 안팎 움직였다 ${distanceTo(p, after)}`)
+    assert.ok(Math.hypot(before.at(-1).x - points[k - 1].x, before.at(-1).y - points[k - 1].y) <= 1.5 + 1e-9, '꼬리는 마지막 점 1.5 단위 안에서 끝난다')
+  }
+})
+test('끝 꼬리: 급히 꺾인 곳은 예측하지 않고 마지막 점까지 곧게 잇고, 같은 점이면 언제나 같은 곡선이다', () => {
+  const corner = [{ x: 0, y: 0 }, { x: 30, y: 0 }, { x: 60, y: 0 }, { x: 60, y: 30 }].map((p, i) => ({ ...p, inkDistance: i * 30, pressure: 1 }))
+  const curve = nibCurve(corner, { step: 2 })
+  assert.deepEqual([curve.at(-1).x, curve.at(-1).y], [60, 30])
+  assert.deepEqual(nibCurve(arc(9), { step: 2 }), nibCurve(arc(9).map(p => ({ ...p })), { step: 2 }))
+  assert.ok(nibCurve(arc(9), { step: 2 }).every((p, i, all) => !i || p.inkDistance >= all[i - 1].inkDistance), '진행 거리는 뒤로 가지 않는다')
+})
+test('끝 꼬리: 점이 아주 듬성하고 많이 꺾여도 끝이 마지막 점에서 1.5 단위 넘게 벗어나지 않는다', () => {
+  for (const spacing of [20, 45, 80, 200]) for (const turn of [0.3, 0.6, 0.9, 1.04]) {
+    const points = [[0, 0], [spacing, 0], [spacing + spacing * Math.cos(turn), spacing * Math.sin(turn)]].map(([x, y], i) => ({ x, y, inkDistance: i * spacing, pressure: 1 }))
+    const end = nibCurve(points, { step: 2 }).at(-1), last = points.at(-1)
+    assert.ok(Math.hypot(end.x - last.x, end.y - last.y) <= 1.5 + 1e-9, `간격 ${spacing} · 꺾임 ${turn}`)
+  }
+})
+
+// 끝 꼬리가 곡선 끝을 최대 1.5 단위 옮겨도 끝을 기준으로 하는 처리가 어긋나지 않는다
+const numbers = path => (path.match(/-?\d+(\.\d+)?/g) ?? []).map(Number)
+const bendStroke = (kind, width = 8) => createStroke(arc(12).map((p, i) => ({ ...p, time: i * 40, speed: 0.6 })), { id: kind, kind, width, renderVersion: 3 })
+test('끝 꼬리: 곡선의 진행 거리는 마지막 입력 점과 같아 붓펜 수필 길이 · 전체 길이가 그대로다', () => {
+  const points = arc(12), curve = nibCurve(points)
+  assert.equal(curve.at(-1).inkDistance, points.at(-1).inkDistance)
+  const tapered = withTaper(curve, 8)
+  assert.equal(tapered.at(-1).inkDistance, withTaper(points, 8).at(-1).inkDistance)
+  assert.ok(Math.hypot(tapered.at(-1).x - points.at(-1).x, tapered.at(-1).y - points.at(-1).y) <= 1.5 + 1e-9)
+})
+test('끝 꼬리: 점 두 개 · 세 개 획과 같은 점이 겹친 끝도 끝 위치가 벗어나지 않고 NaN 이 없다', () => {
+  const at = (x, y, i) => ({ x, y, inkDistance: i * 20, pressure: 1 })
+  assert.equal(nibCurve([at(0, 0, 0), at(20, 0, 1)]).at(-1).x, 20)
+  const end3 = nibCurve([at(0, 0, 0), at(20, 0, 1), at(40, 5, 2)]).at(-1)
+  assert.ok(Math.hypot(end3.x - 40, end3.y - 5) <= 1.5 + 1e-9)
+  const repeated = nibCurve([at(0, 0, 0), at(20, 0, 1), at(40, 0, 2), at(40, 0, 2)])
+  assert.ok(repeated.every(p => Number.isFinite(p.x) && Number.isFinite(p.y)))
+  assert.deepEqual([repeated.at(-1).x, repeated.at(-1).y], [40, 0])
+})
+test('끝 꼬리: 끝 갈고리는 곡선 전 입력 점에서 잘리고, 잘린 뒤 점으로 그린 끝도 1.5 단위 안이다', () => {
+  const base = Array.from({ length: 10 }, (_, i) => ({ x: i * 10, y: 0, time: i * 16, pressure: 1 }))
+  const trimmed = trimEndHook([...base, { x: 92, y: 3, time: 160, pressure: 1 }], 1)
+  assert.equal(trimmed.length, base.length, '갈고리를 뺀 입력 점')
+  const end = nibCurve(withDistances(trimmed)).at(-1), last = trimmed.at(-1)
+  assert.ok(Math.hypot(end.x - last.x, end.y - last.y) <= 1.5 + 1e-9)
+})
+test('끝 꼬리: 캘리펜 · 붓펜 윤곽이 획 상자 여백을 벗어나지 않고 끝 근처까지 그린다', () => {
+  for (const kind of ['calligraphy', 'taperBrush']) {
+    const stroke = bendStroke(kind), values = numbers(nibContour(stroke)), last = stroke.points.at(-1), margin = stroke.strokeWidth * 2.5
+    assert.ok(values.length > 8, kind)
+    const xs = values.filter((_, i) => i % 2 === 0), ys = values.filter((_, i) => i % 2)
+    assert.ok(Math.min(...xs) >= -margin && Math.max(...xs) <= stroke.w + margin, `${kind} 가로`)
+    assert.ok(Math.min(...ys) >= -margin && Math.max(...ys) <= stroke.h + margin, `${kind} 세로`)
+    assert.ok(xs.some((x, i) => Math.hypot(x - last.x, ys[i] - last.y) <= stroke.strokeWidth * 2 + 1.5), `${kind} 끝 근처`)
+  }
+})
+test('끝 꼬리: 연필 영역 지우기의 뒤 조각은 곡선 끝까지 남고 NaN 이 없다', () => {
+  const stroke = bendStroke('pencil'), mid = stroke.points[5], page = { x: stroke.x + mid.x, y: stroke.y + mid.y }
+  const session = createEraserSession([stroke], 10, 'area')
+  session.move(page, page)
+  const pieces = session.finish().replacements[stroke.id]
+  assert.ok(pieces?.length >= 2, '가운데를 지우면 두 조각')
+  const tail = pieces.at(-1), end = tail.points.at(-1), last = stroke.points.at(-1)
+  assert.ok(tail.points.every(p => Number.isFinite(p.x) && Number.isFinite(p.y)))
+  assert.ok(Math.hypot(tail.x + end.x - stroke.x - last.x, tail.y + end.y - stroke.y - last.y) <= 2.5, '곡선 끝까지 남는다')
+})
