@@ -83,7 +83,7 @@ const PREFETCH_DELAY_MS = 400;
 const EDITOR_PREPARE_LIMIT_MS = 500;
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 // 시작 화면(로고)은 보관함이 다 그려질 때까지 둔다. 첫 렌더에 바로 내려가면 글꼴 · 게스트 · 보관함을 읽는 동안 빈 화면이 보인다.
-// 로고는 JS 시작 화면(BootSplash, 벡터)이 그린다. 네이티브 시작 화면은 BootSplash 가 처음 그려지면 바로 내린다
+// 로고는 JS 시작 화면(BootSplash, PNG)이 그린다. 네이티브 시작 화면은 BootSplash 가 처음 그려지면 바로 내린다
 // (안드로이드는 네이티브 시작 화면에 로고 없이 바탕색만 둔다: plugins/withSplashWindowBackground.js).
 // 무엇이 실패해도 로고에 갇히지 않도록 SPLASH_LIMIT_MS 뒤에는 내린다.
 const SPLASH_LIMIT_MS = 8000;
@@ -193,14 +193,14 @@ export default function App() {
   }, []);
   useHiddenNavigationBar();
   useEffect(() => { const timer = setTimeout(finishBoot, SPLASH_LIMIT_MS); return () => clearTimeout(timer); }, [finishBoot]);
-  // 첫 화면(BootSplash)이 그려졌으니 네이티브 시작 화면을 내린다. 로고는 BootSplash 에서 한 번만 보인다
-  useEffect(() => { hideSplash(); }, []);
+  // BootSplash 이미지 로드 완료(실패 포함) 뒤 네이티브 시작 화면을 내린다.
+  // 이미지가 응답하지 않는 경우에도 기존 8초 제한으로 앱 진입을 보장한다.
   // 개발용 목업 화면은 보관함 로딩을 거치지 않으니 글꼴만 준비되면 내린다
   useEffect(() => { if ((fontsLoaded || fontError) && mockSource) finishBoot(); }, [fontsLoaded, fontError, finishBoot]); // eslint-disable-line react-hooks/exhaustive-deps
   // API 설정 오류도 앱이 그린 안내 화면이므로 네이티브 시작 화면을 즉시 내린다.
   useEffect(() => { if (apiConfigurationError && (fontsLoaded || fontError)) finishBoot(); }, [apiConfigurationError, fontsLoaded, fontError, finishBoot]);
   const SessionDiaryApp = authenticatedSession ? MemberDiaryApp : LocalDiaryApp;
-  if (!fontsLoaded && !fontError) return <SafeAreaProvider style={s.provider}><BootSplash /></SafeAreaProvider>;
+  if (!fontsLoaded && !fontError) return <SafeAreaProvider style={s.provider}><BootSplash onReady={hideSplash} /></SafeAreaProvider>;
   if (apiConfigurationError) return <SafeAreaProvider style={s.provider}><ApiConfigurationErrorScreen /></SafeAreaProvider>;
   if (__DEV__ && process.env.EXPO_PUBLIC_DIARY_SOURCE === 'mock-safety') {
     const SafetyPreview = require('./src/safety/SafetyPreview').default;
@@ -231,7 +231,7 @@ export default function App() {
       <HandwritingStudio />
       {/* 프로필 사진 자르기(동그라미 틀). 로그인 화면 · 프로필 수정 모두 쓰므로 앱 맨 위에 하나 둔다 */}
       <ProfileCropHost />
-      {(booting || (!previewSession && !mockSource)) && <BootSplash />}
+      {(booting || (!previewSession && !mockSource)) && <BootSplash onReady={hideSplash} />}
     </SafeAreaProvider>
   );
 }

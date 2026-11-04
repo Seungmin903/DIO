@@ -144,6 +144,9 @@ importers:
       fake-indexeddb:
         specifier: ~6.2.6
         version: 6.2.6
+      jimp-compact:
+        specifier: 0.16.1
+        version: 0.16.1
       pdfjs-dist:
         specifier: 4.10.38
         version: 4.10.38
