@@ -33,11 +33,12 @@ public class UserReport {
   createdAt=updatedAt=notificationNextAttemptAt=Instant.now();
  }
  public void notificationSent(){notificationStatus="SENT";notificationAttempts++;notificationNextAttemptAt=null;updatedAt=Instant.now();}
+ public void notificationReserved(Instant until){notificationStatus="SENDING";notificationNextAttemptAt=until;updatedAt=Instant.now();}
  public void notificationFailed(){notificationStatus="FAILED";notificationAttempts++;notificationNextAttemptAt=Instant.now().plusSeconds(Math.min(3600,60L << Math.min(notificationAttempts,5)));updatedAt=Instant.now();}
- public void startReview(String operator,String history){if(operator==null||operator.isBlank())throw new IllegalArgumentException("Operator required");status="REVIEWING";handledBy=operator;historyJson=history;resolvedAt=null;updatedAt=Instant.now();}
+ public void startReview(String operator,String history){if(!"RECEIVED".equals(status))throw new IllegalStateException("Only received reports can start review");if(operator==null||operator.isBlank())throw new IllegalArgumentException("Operator required");status="REVIEWING";handledBy=operator;historyJson=history;resolvedAt=null;updatedAt=Instant.now();}
  /** Operations-only domain method. No public controller permits report processing or sanctions. */
  public void resolve(boolean violation,String action,Instant expires,String note,String operator,String history){
-  if(note==null||note.isBlank()||operator==null||operator.isBlank())throw new IllegalArgumentException("Resolution requires operator and reason");
+  if(!"REVIEWING".equals(status))throw new IllegalStateException("Only reviewing reports can be resolved");if(note==null||note.isBlank()||operator==null||operator.isBlank())throw new IllegalArgumentException("Resolution requires operator and reason");
   status=violation?"RESOLVED":"DISMISSED";actionType=action;actionExpiresAt=expires;resolutionNote=note;handledBy=operator;historyJson=history;resolvedAt=updatedAt=Instant.now();
  }
 }

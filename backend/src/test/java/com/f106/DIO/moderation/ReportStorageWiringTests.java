@@ -12,6 +12,7 @@ class ReportStorageWiringTests {
   @Bean ReportEvidence evidence(){return new ReportEvidence();}
   @Bean ObjectMapper json(){return new ObjectMapper();}
   @Bean JdbcTemplate jdbc(){return mock(JdbcTemplate.class);}
+  @Bean org.springframework.transaction.support.TransactionTemplate transactions(){return mock(org.springframework.transaction.support.TransactionTemplate.class);}
  }
  @Test void reportServiceResolvesConfiguredStorageWhenLocalAndS3BothExist(){
   new ApplicationContextRunner().withUserConfiguration(Config.class).withPropertyValues("dio.media.storage=s3").run(context->{

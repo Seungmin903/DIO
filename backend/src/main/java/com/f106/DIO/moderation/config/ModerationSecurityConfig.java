@@ -9,7 +9,8 @@ import org.springframework.security.oauth2.server.resource.web.BearerTokenResolv
 import org.springframework.security.web.SecurityFilterChain;
 @Configuration(proxyBeanMethods=false)
 public class ModerationSecurityConfig {
-    @Bean @Order(4)
+    // Collaboration's WebSocket chain uses order 4; keep the moderation HTTP chain distinct.
+    @Bean @Order(6)
     public SecurityFilterChain moderationSecurity(HttpSecurity http,@Qualifier("loginJwtDecoder") JwtDecoder decoder,
             @Qualifier("loginBearerTokenResolver") BearerTokenResolver resolver) throws Exception {
         // Own only moderation routes; preserve existing security chains.
