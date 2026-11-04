@@ -41,6 +41,11 @@ export default function ProfileScreen({ section = 'profile', compact = false, pr
   // 게스트(로그인 전 방문자)는 설정만 연다. 마이페이지는 사이드바에서 로그인으로 대신한다.
   const authenticatedUser = previewUser?.mode === 'authenticated';
   const guest = !authenticatedUser && previewUser?.provider === 'guest';
+  // 저장소 손상 등으로 현재 PIN 검증이 불가능할 때도, 회원은 로그아웃 후 재로그인으로 안전하게 잠금을 초기화할 수 있다.
+  const recoverAppLock = authenticatedUser && onEndPreview ? () => confirmAction({
+    title: '앱 잠금을 초기화할까요?', message: '로그아웃한 뒤 다시 로그인하면 앱 잠금을 새로 설정할 수 있어요.', confirmLabel: '로그아웃',
+    onConfirm: async () => { await clearAppLock(appLockScope(previewUser)).catch(() => {}); onEndPreview(); },
+  }) : undefined;
   // 앱 잠금: locked 는 이 계정에 잠금이 있는지(null = 읽는 중). pin 은 열려 있는 비밀번호 화면
   // ({ mode: 'setup' } 새로 켜기 · 바꾸기 2단계 | { mode: 'verify', next: 'off' | 'change' })
   const lockScope = appLockScope(previewUser);
@@ -81,7 +86,7 @@ export default function ProfileScreen({ section = 'profile', compact = false, pr
     pinScreen = (
       <EditorModal visible animationType="none" statusBarTranslucent navigationBarTranslucent onRequestClose={() => setPin(null)}>
         <PinScreen key={`${pin.mode}:${pin.next || ''}`} mode={pin.mode} user={previewUser} getProfilePhotoSource={getProfilePhotoSource}
-          check={value => checkAppLockStatus(lockScope, value)} onDone={done} onCancel={() => setPin(null)} />
+          check={value => checkAppLockStatus(lockScope, value)} onDone={done} onCancel={() => setPin(null)} onForgot={recoverAppLock} />
       </EditorModal>
     );
   }

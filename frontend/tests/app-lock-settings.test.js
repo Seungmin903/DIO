@@ -35,6 +35,12 @@ test('앱 잠금은 계정마다 따로 두고 PIN·시도 횟수를 보안 저�
   assert.equal(await lock.checkAppLock(member,'1234'),true);
   assert.equal(await lock.checkAppLock(member,'4321'),false);
   assert.equal([...storage.data.values()].some(value=>value.includes('1234')),false);
+  const legacy=memoryStorage();
+  await legacy.setItem('dio.appLock.v1:user:7',JSON.stringify({salt:'old',hash:'old'}));
+  const lockWithLegacy=nativeLock(storage,legacy);
+  assert.equal(await lockWithLegacy.hasAppLock(member),true);
+  await Promise.resolve();
+  assert.equal(await legacy.getItem('dio.appLock.v1:user:7'),null);
   await lock.clearAppLock(member);
   assert.equal(await lock.hasAppLock(member),false);
   assert.equal(await lock.checkAppLock(member,'1234'),false);

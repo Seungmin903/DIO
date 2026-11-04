@@ -58,7 +58,13 @@ const readOnce = async scope => {
     if (raw) {
       let saved
       try { saved = JSON.parse(raw) } catch { return unavailable('corrupt') }
-      return validV2(saved) || validLegacy(saved?.legacy) ? blocked(saved) : unavailable('corrupt')
+      if (validV2(saved) || validLegacy(saved?.legacy)) {
+        // 이전 실행에서 v2 저장 뒤 v1 삭제만 실패했을 수 있다. 보안 저장소 값은 이미 유효하므로
+        // 정리 실패로 앱을 막지 않고, 이후 읽을 때마다 약한 v1 검증값 삭제를 다시 시도한다.
+        AsyncStorage.removeItem(legacyKeyOf(scope)).catch(() => {})
+        return blocked(saved)
+      }
+      return unavailable('corrupt')
     }
     // v1은 다음 잠금 해제 때 PIN을 검증할 수 있도록 OS 보안 저장소로 먼저 옮긴다.
     // 보안 저장소 쓰기에 성공한 뒤에만 AsyncStorage의 약한 검증값을 지운다.
