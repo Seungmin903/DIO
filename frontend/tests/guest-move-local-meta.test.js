@@ -144,3 +144,13 @@ test('요소에 붙은 원본 PDF는 이미지 참조로 세지 않는다', () =
   const doc = { pages: [{ objects: [{ mediaFileId: 'page-image', pdfSource: { sourceId: 's', mediaFileId: 'pdf-file' } }] }] }
   assert.deepEqual(collectMediaIds(doc), ['page-image'])
 })
+
+test('미디어 참조를 모을 때 필기 점은 훑지 않고 다른 요소는 그대로 찾는다', () => {
+  const point = { get mediaFileId() { throw new Error('필기 점을 읽으면 안 된다') } }
+  const doc = { pages: [{ objects: [
+    { type: 'stroke', mediaFileId: 'stroke-brush', points: [point] },
+    { type: 'sticker', mediaFileId: 'sticker-image' },
+    { type: 'shape', points: [{ mediaFileId: 'shape-point' }] },
+  ] }] }
+  assert.deepEqual(collectMediaIds(doc).sort(), ['shape-point', 'sticker-image', 'stroke-brush'])
+})
