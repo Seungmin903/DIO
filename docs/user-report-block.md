@@ -152,3 +152,7 @@ API 응답의 items/page/size/hasNext, reportId/status/createdAt, 멤버 blocked
 운영자 지정 메일함만 이용하고 접근을 제한하며, 후속 처리 종료 시 메일함·휴지통·내려받은 사본을 함께 정리한다. 분쟁 대응 등 별도 보존이 필요한 경우 근거와 기간을 구분한다. Gmail 내부 삭제·백업 처리 기간까지 DIO가 보장하는 것은 아니다.
 
 근거: [개인정보 보호법 제28조의8](https://law.go.kr/lsLinkCommonInfo.do?lsJoLnkSeq=1033215841), [제26조](https://www.law.go.kr/LSW/lsLinkCommonInfo.do?chrClsCd=010202&lsJoLnkSeq=1029335233), [Gmail 첨부 한도](https://support.google.com/mail/answer/6584?hl=ko).
+
+## 메일 예약 상태 DB 제약 보완
+
+V30은 이미 적용됐을 수 있으므로 변경하지 않는다. V31은 기존 신고 행을 유지하면서 메일 상태 제약에 SENDING을 추가한다. 새 DB와 V30 적용 DB 모두 정상 Flyway 실행으로 보완된다. 수동 체크섬 변경이나 repair는 필요 없다. PostgreSQL 테스트는 V30에서 예약 실패를 재현한 뒤 V31 업그레이드와 PENDING → SENDING → FAILED → SENDING → SENT 저장 및 알 수 없는 상태 거부를 검증한다.
