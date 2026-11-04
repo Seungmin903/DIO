@@ -6,7 +6,8 @@ import { loadTemplateAst, peekTemplateAst } from '../templates/loadTemplate'
 import { colorTemplateAst, normalizePaperAppearance } from '../templates/appearance.js'
 import { pageSize } from '../utils/pageGeometry.js'
 import { plannerFor } from '../templates/planners.js'
-import { swapPaperFont } from '../templates/paperFont.js'
+import { paperPrintsText, swapPaperFont } from '../templates/paperFont.js'
+import { useTextFont } from '../hooks/useTextFont'
 import { KeepFont } from '../../shared/fontScope'
 
 // 속지 · 특수 속지 · 캔버스 요소는 정해진 글꼴을 그대로 쓴다(앱 UI 글꼴 Pretendard 를 넣지 않는다). 가짜 모듈인 테스트에서는 Fragment 로 그린다
@@ -100,7 +101,10 @@ function BackgroundAttempt({ page, zoom, preparedXml, onReady, onError, onRetry,
 function PageBackground(props) {
   const [attempt, setAttempt] = useState(0)
   // 속지 글꼴이 바뀌면 처음부터 다시 불러온다
-  const key = [props.page.id, props.page.backgroundAssetId, props.page.templateVersion, normalizePaperAppearance(props.page.paperAppearance).font ?? '', attempt].join(':')
+  const paperFont = normalizePaperAppearance(props.page.paperAppearance).font
+  // 속지 글꼴을 안 골랐으면 인쇄 글자는 원본 마루부리 글꼴로 그려진다. 쓰일 때 불러오고, 불러오면 속지를 다시 그린다(SVG 는 글꼴이 늦게 와도 저절로 바뀌지 않는다).
+  const printedFont = useTextFont(!paperFont && paperPrintsText(props.page.backgroundAssetId) ? 'maruburi' : null, true)
+  const key = [props.page.id, props.page.backgroundAssetId, props.page.templateVersion, paperFont ?? '', printedFont, attempt].join(':')
   return <Keep><BackgroundAttempt key={key} {...props} onRetry={props.preparedXml == null ? () => setAttempt(value => value + 1) : undefined} /></Keep>
 }
 export default memo(PageBackground)

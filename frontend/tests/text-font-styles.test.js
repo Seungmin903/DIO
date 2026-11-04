@@ -1,4 +1,4 @@
-import test from 'node:test'
+import test, { mock } from 'node:test'
 import assert from 'node:assert/strict'
 import { createRequire } from 'node:module'
 import { readFileSync } from 'node:fs'
@@ -8,7 +8,7 @@ import { createExportSnapshot } from '../src/editor/utils/pageExport.js'
 
 const require = createRequire(import.meta.url), expo = createRequire(require.resolve('expo/package.json'))
 
-test('글꼴 로더는 실제 Regular/Bold 파일을 한 번 등록하고 실패한 face를 사용할 수 없는 상태로 알린다', async () => {
+test('글꼴 로더는 쓰이는 글꼴만 한 번씩 등록하고 실패한 face를 사용할 수 없는 상태로 알린다', async () => {
   const calls = [], pending = new Map()
   const { code } = expo('@babel/core').transformSync(readFileSync(new URL('../src/editor/services/textFonts.js', import.meta.url), 'utf8'), {
     configFile: false, babelrc: false, plugins: [expo.resolve('@babel/plugin-transform-modules-commonjs')],
@@ -21,23 +21,41 @@ test('글꼴 로더는 실제 Regular/Bold 파일을 한 번 등록하고 실패
     if (id.endsWith('.ttf')) return id
     return require(id)
   }, module, module.exports)
+  // 앱이 켜져도 기본 글꼴 하나만 불러온다 (11개를 한꺼번에 읽지 않는다)
+  mock.timers.enable({ apis: ['setTimeout'] })
   const job = module.exports.preloadTextFonts()
   assert.equal(module.exports.preloadTextFonts(), job)
-  assert.equal(calls.length, 11)
+  assert.equal(calls.length, 0) // 첫 화면이 그려지기 전에는 아무것도 읽지 않는다
+  mock.timers.tick(600)
+  await new Promise(resolve => setImmediate(resolve))
+  mock.timers.reset()
+  assert.deepEqual(calls.flatMap(Object.keys), ['NanumGothic'])
+  // 글꼴을 찾는 순간 그 글꼴(굵게면 굵은 서체까지)만 한 번 불러온다
+  text.textStyle({ font: 'maruburi', bold: true }, 1, 'ios'); text.textStyle({ font: 'maruburi', bold: true }, 1, 'ios')
+  assert.deepEqual(calls.flatMap(Object.keys), ['NanumGothic', 'MaruBuri', 'MaruBuriBold'])
+  assert.equal(text.textStyleReady('nanum-gothic', 'bold'), false)
+  assert.deepEqual(calls.flatMap(Object.keys).slice(3), ['NanumGothicBold'])
   const files = Object.assign({}, ...calls)
   assert.match(files.NanumGothicBold, /700Bold\/NanumGothic_700Bold.ttf$/)
-  assert.match(files.NanumMyeongjoBold, /700Bold\/NanumMyeongjo_700Bold.ttf$/)
-  assert.match(files.GowunDodum, /GowunDodum-Regular.ttf$/)
-  assert.match(files.GowunBatangBold, /GowunBatang-Bold.ttf$/)
   assert.match(files.MaruBuri, /MaruBuri-Regular.ttf$/)
   assert.match(files.MaruBuriBold, /MaruBuri-Bold.ttf$/)
-  assert.equal(text.textStyleReady('nanum-gothic', 'bold'), false)
+  // 목록에 있는 글꼴을 직접 기다려 불러올 수도 있다 (내보내기 전). 이미 요청한 face는 다시 부르지 않는다
+  const ensured = module.exports.ensureTextFonts(['nanum-myeongjo', 'gowun-dodum', 'maruburi', 'sans'], { bold: true })
+  assert.deepEqual(calls.flatMap(Object.keys).slice(4).sort(), ['GowunDodum', 'NanumMyeongjo', 'NanumMyeongjoBold'])
+  assert.equal(calls.length, 7)
   for (const [family, task] of pending) family === 'NanumMyeongjoBold' ? task.reject(Error('font unavailable')) : task.resolve()
-  await job
+  await Promise.all([job, ensured])
   assert.equal(text.textStyleReady('nanum-gothic', 'bold'), true)
   assert.equal(text.textStyleReady('nanum-myeongjo', 'bold'), false)
   assert.match(text.textFontSnapshot('nanum-myeongjo'), /NanumMyeongjoBold:error/)
   assert.equal(text.textStyle({ font: 'nanum-myeongjo', bold: true }, 1, 'ios').fontFamily, 'NanumMyeongjo')
+  assert.equal(calls.length, 7) // 실패한 글꼴도 다시 시도하지 않는다
+  // 내보내기 전에는 요소가 쓰는 글꼴만 (굵게 쓴 것은 굵은 서체까지) 기다린다
+  const before = calls.length
+  const forExport = module.exports.ensureTextFontsFor([{ type: 'text', text: '가', font: 'gowun-batang', bold: true }, { type: 'image' }])
+  assert.deepEqual(calls.slice(before).flatMap(Object.keys), ['GowunBatang', 'GowunBatangBold'])
+  for (const task of pending.values()) task.resolve()
+  await forExport
 })
 
 test('나눔 굵게는 등록된 Bold face를 직접 선택하고 해제 시 Regular로 돌아간다', () => {

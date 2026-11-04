@@ -98,9 +98,23 @@ export function textFontSnapshot(id) {
   const font = getTextFonts().find(f => f.id === resolveFontId(id))
   return [font?.family, font?.boldFamily].filter(Boolean).map(f => `${f}:${loadedFamilies.has(f) ? 'loaded' : failedFamilies.has(f) ? 'error' : 'loading'}`).join('|')
 }
-/** 글꼴 id → 지금 쓸 수 있는 fontFamily. 앱 글꼴이 아니거나 아직 불러오기 전이면 null */
+// 글꼴 파일은 쓰일 때 불러온다(services/textFonts.js 가 등록). 글꼴을 찾는 순간이 곧 "쓰겠다"는 뜻이라,
+// 같은 글꼴은 한 번만 요청되고 불러오기가 끝나면 구독자에게 알려 다시 그린다. 등록 전(테스트 등)에는 아무 일도 하지 않는다.
+let fontRequester = null
+export const setTextFontRequester = (requester) => { fontRequester = requester }
+/** 글꼴 id 들을 미리 불러오도록 요청한다(이미 요청했으면 무시). bold 면 굵은 서체도 함께 */
+export function requestTextFonts(ids, { bold = false } = {}) {
+  if (!fontRequester) return
+  for (const id of ids) {
+    const font = getTextFonts().find((font) => font.id === resolveFontId(id))
+    if (font?.family) fontRequester(font, bold)
+  }
+}
+
+/** 글꼴 id → 지금 쓸 수 있는 fontFamily. 앱 글꼴이 아니거나 아직 불러오기 전이면 null (찾으면서 불러오기도 시작한다) */
 export function loadedFontFamily(id, bold = false) {
   const font = getTextFonts().find((font) => font.id === resolveFontId(id))
+  if (font?.family) fontRequester?.(font, bold)
   const family = bold && font?.boldFamily && loadedFamilies.has(font.boldFamily) ? font.boldFamily : font?.family
   return family && loadedFamilies.has(family) ? family : null
 }
@@ -119,6 +133,7 @@ export function textStyleSupport(id, platform = 'android') {
 
 export function textStyleReady(id, style) {
   const font = getTextFonts().find(f => f.id === resolveFontId(id))
+  if (font?.family) fontRequester?.(font, style === 'bold')
   return !font?.family || (loadedFamilies.has(font.family) && (style !== 'bold' || !font.boldFamily || loadedFamilies.has(font.boldFamily)))
 }
 

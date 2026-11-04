@@ -46,7 +46,6 @@ import TextSettings from '../components/TextSettings'
 import TextLinkDialog from '../components/TextLinkDialog'
 import GuideSettings from '../components/GuideSettings'
 import PageOverview from '../components/panels/PageOverview'
-import { preloadTextFonts } from '../services/textFonts'
 import { DEFAULT_GUIDES, hasGuides } from '../components/canvas/GridOverlay'
 import { TEXT_ACTION_BAR_HEIGHT, TEXT_ACTION_BAR_WIDTH } from '../components/TextActionBar'
 import { keyboardPanelBottom } from '../utils/textKeyboard'
@@ -88,9 +87,6 @@ import { startPagePanelMeasurement } from '../utils/pagePanelPerformance.js'
 
 import PageAddPicker, { prefetchPageAddPapers } from '../components/PageAddPicker'
 import { pageSize, pageTemplateOrientation } from '../utils/pageGeometry.js'
-
-// 텍스트 글꼴은 앱이 켜질 때(이 화면 모듈을 불러올 때) 미리 불러오기 시작한다. 편집기를 열 즈음에는 대부분 준비된다.
-preloadTextFonts()
 
 const TOAST_MS = 2000
 // 태블릿·폰의 내보내기 진입. 정책 결정으로 다시 켰다 (false 로 바꾸면 모든 진입을 숨긴다).
