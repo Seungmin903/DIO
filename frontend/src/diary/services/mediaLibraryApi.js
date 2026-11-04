@@ -4,6 +4,7 @@ export { sharedGifMaxBytes }
 export const MEDIA_LIBRARY_IMAGE_MAX_BYTES = sharedImageMaxBytes
 export const mediaLibraryMaxBytes = row => row?.mimeType === 'image/gif' ? sharedGifMaxBytes : MEDIA_LIBRARY_IMAGE_MAX_BYTES
 export const canSelectMediaPhoto = row => row?.mediaType === 'IMAGE' && Number.isSafeInteger(row.fileSize) && row.fileSize > 0 && row.fileSize <= mediaLibraryMaxBytes(row)
+export const mediaLibrarySizeMessage = () => `사진은 ${sharedImageMaxBytes/1024/1024}MB 이하, GIF는 ${sharedGifMaxBytes/1024/1024}MB 이하만 선택할 수 있어요.`
 import { isUuid } from '../../collaboration/canvasElements.js'
 
 const invalid = () => { throw Object.assign(Error('미디어 정보를 확인하지 못했어요. 다시 불러와 주세요.'), { code:'INVALID_MEDIA_RESPONSE' }) }
@@ -43,7 +44,7 @@ export function mediaLibraryError(error) {
   if(error?.status===401)return authenticationErrorMessage(error)
   if(error?.status===403)return '이 파일에 접근할 권한이 없어요.'
   if(error?.status===404)return '파일을 찾을 수 없어요. 목록을 새로고침해 주세요.'
-  if(error?.status===413)return '사진은 5MB 이하, GIF는 15MB 이하만 선택할 수 있어요.'
+  if(error?.status===413)return mediaLibrarySizeMessage()
   if(error?.status===415)return '서버에서 지원하지 않는 파일 형식이에요.'
   return '미디어를 처리하지 못했어요. 연결을 확인하고 다시 시도해 주세요.'
 }

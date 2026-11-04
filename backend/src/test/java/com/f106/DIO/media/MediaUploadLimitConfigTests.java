@@ -21,8 +21,8 @@ class MediaUploadLimitConfigTests {
 	private static final DataSize LARGE_UPLOAD_LIMIT = DataSize.ofMegabytes(25);
 	private static final DataSize LARGE_UPLOAD_REQUEST_LIMIT = DataSize.ofMegabytes(26);
 	private static final DataSize DEFAULT_REQUEST_LIMIT = DataSize.ofMegabytes(6);
-	private static final String MEDIA_UPLOAD_CONCURRENCY = "${MEDIA_UPLOAD_MAX_CONCURRENT:2}";
-	private static final String MEDIA_UPLOAD_WAITERS = "${MEDIA_UPLOAD_MAX_WAITERS:4}";
+	private static final String MEDIA_UPLOAD_UNITS = "${MEDIA_UPLOAD_MAX_IN_FLIGHT_UNITS:6}";
+	private static final String MEDIA_UPLOAD_WAITERS = "${MEDIA_UPLOAD_MAX_WAITERS:8}";
 
 	@Test
 	void multipartAndNginxLimitsAllowTheServiceUploadLimit() throws Exception {
@@ -34,7 +34,7 @@ class MediaUploadLimitConfigTests {
 
 		assertThat(maxFile).isEqualTo(LARGE_UPLOAD_LIMIT);
 		assertThat(maxRequest).isEqualTo(LARGE_UPLOAD_REQUEST_LIMIT);
-		assertThat(properties.getProperty("dio.media.upload.max-concurrent")).isEqualTo(MEDIA_UPLOAD_CONCURRENCY);
+		assertThat(properties.getProperty("dio.media.upload.max-in-flight-units")).isEqualTo(MEDIA_UPLOAD_UNITS);
 		assertThat(properties.getProperty("dio.media.upload.max-waiters")).isEqualTo(MEDIA_UPLOAD_WAITERS);
 		for (String profile : new String[] {"dev", "prod"}) {
 			Path conf = Path.of("..", "infra", "nginx", profile, "default.conf");

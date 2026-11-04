@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import {createRequire} from 'node:module'
 import {readFileSync} from 'node:fs'
-import {canSelectMediaPhoto} from '../src/diary/services/mediaLibraryApi.js'
+import {canSelectMediaPhoto,mediaLibrarySizeMessage} from '../src/diary/services/mediaLibraryApi.js'
 import {createCanvasMedia} from '../src/collaboration/canvasMedia.js'
 const require=createRequire(import.meta.url),expo=createRequire(require.resolve('expo/package.json'))
 const code=expo('@babel/core').transformSync(readFileSync(new URL('../src/diary/services/mediaLibraryRuntime.js',import.meta.url),'utf8'),{configFile:false,babelrc:false,plugins:[expo.resolve('@babel/plugin-transform-modules-commonjs')]}).code
@@ -19,7 +19,7 @@ function fixture({account='1',diaryAccount='1'}={}){
   '../../auth/authService':{authService:{getSessionKey:()=>session,getCurrentUserId:()=>currentAccount},apiBaseUrl:'https://dio.test/api/v1'},
   './memberTransport.js':{createAuthenticatedMemberTransport:()=>()=>{}},
   '../../collaboration/canvasMedia.js':{createMediaRequest:()=>()=>{}},
-  './mediaLibraryApi.js':{canSelectMediaPhoto,createMediaLibraryApi:()=>({get:async()=>row,file:async()=>{downloads++;return new Uint8Array([1])}})},
+  './mediaLibraryApi.js':{canSelectMediaPhoto,mediaLibrarySizeMessage,createMediaLibraryApi:()=>({get:async()=>row,file:async()=>{downloads++;return new Uint8Array([1])}})},
   '../../editor/services/canvasMediaFiles':{canvasMediaFiles:{cached:async()=>false,save:async()=>{},upload:async()=>uploads++}},
   '../../editor/services/image':{pickImages:async()=>[]},
  }
@@ -49,5 +49,5 @@ test('세션 문자열이 같아도 로그인 사용자가 달라지면 목록·
 })
 test('목록 미리보기는 원본을 내려받지 않으며 5MB 초과 선택도 요청 전에 거절한다',async()=>{
  const f=fixture();assert.equal(await f.api.previewCached(f.row),false);assert.equal(f.counts().downloads,0)
- await assert.rejects(f.api.selectPhoto({...f.row,fileSize:5*1024*1024+1},{source:'member-api',memberAccountId:'1'}),{status:413});assert.equal(f.counts().downloads,0);assert.equal(f.mappings.length,0)
+	await assert.rejects(f.api.selectPhoto({...f.row,fileSize:5*1024*1024+1},{source:'member-api',memberAccountId:'1'}),error=>error.status===413&&error.message===mediaLibrarySizeMessage());assert.equal(f.counts().downloads,0);assert.equal(f.mappings.length,0)
 })

@@ -84,10 +84,10 @@ dio:
     local-directory: ${MEDIA_LOCAL_DIRECTORY:.local-data/media}
     s3-bucket: ${MEDIA_S3_BUCKET:}
     s3-region: ${MEDIA_S3_REGION:ap-northeast-2}
-    # MediaService materializes each accepted upload as a byte array. Two 15MiB GIFs cap this path at 30MiB per process.
+    # MediaService materializes each accepted upload as a byte array. Six weighted units allow three 5MiB uploads or two 15MiB GIFs, capped at 30MiB per process.
     upload:
-      max-concurrent: ${MEDIA_UPLOAD_MAX_CONCURRENT:2}
-      max-waiters: ${MEDIA_UPLOAD_MAX_WAITERS:4}
+      max-in-flight-units: ${MEDIA_UPLOAD_MAX_IN_FLIGHT_UNITS:6}
+      max-waiters: ${MEDIA_UPLOAD_MAX_WAITERS:8}
       wait-millis: ${MEDIA_UPLOAD_WAIT_MILLIS:250}
     expiry-cleanup:
       enabled: ${MEDIA_EXPIRY_CLEANUP_ENABLED:false}

@@ -39,7 +39,7 @@ public class MediaService {
 	}
 
 	public MediaFileResponse upload(MultipartFile upload, String requestedCategory, Long userId) {
-		try (var permit = admission.acquire()) {
+		try (var permit = admission.acquire(upload == null ? 0 : upload.getSize())) {
 		byte[] content = read(upload);
 		MediaUploadInspector.FileKind kind = MediaUploadInspector.inspect(content);
 		if (content.length > maxSize(kind)) throw tooLarge(kind);
