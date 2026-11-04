@@ -9,7 +9,7 @@ const code=babel.transformSync(readFileSync(new URL('../App.js',import.meta.url)
 function root(dev,mode,session=null,loginRequest=null,probe=null){
  let calls=0
  const states=[session,true,loginRequest]
- const mod={exports:{}},mocks={react:{useState:()=>[states[calls++],()=>{}],useEffect(fn){probe?.effects.push(fn)},useCallback:f=>f,useRef:current=>({current})},'./src/auth/guestProfileDevice':{guestProfile:{start:async session=>session}},'./src/diary/services/legacyMockCleanup':{clearMockLibrary:async()=>{if(probe)probe.cleaned=(probe.cleaned||0)+1}},'expo-splash-screen':{preventAutoHideAsync:async()=>{},hideAsync:async()=>{if(probe)probe.hidden++}},'react-native':{Platform:{OS:'web'},StatusBar:'StatusBar',View:'View',StyleSheet:{absoluteFill:{}}},'react-native-safe-area-context':{SafeAreaProvider:'SafeAreaProvider'},'expo-font':{useFonts:()=>[true,null]},'./src/shared/pretendardFiles':{PRETENDARD_FILES:{}},'./src/diary/styles':{styles:{}},'./src/shared/useHiddenNavigationBar':{useHiddenNavigationBar(){}}}
+ const mod={exports:{}},mocks={react:{useState:()=>[states[calls++],()=>{}],useEffect(fn){probe?.effects.push(fn)},useCallback:f=>f,useRef:current=>({current})},'./src/auth/guestProfileDevice':{guestProfile:{start:async session=>session}},'./src/diary/services/legacyMockCleanup':{clearMockLibrary:async()=>{if(probe)probe.cleaned=(probe.cleaned||0)+1}},'expo-splash-screen':{preventAutoHideAsync:async()=>{},hideAsync:async()=>{if(probe)probe.hidden++}},'react-native':{Platform:{OS:'web'},StatusBar:'StatusBar',View:'View',Text:'Text',StyleSheet:{absoluteFill:{},create:value=>value}},'react-native-safe-area-context':{SafeAreaProvider:'SafeAreaProvider'},'expo-font':{useFonts:()=>[true,null]},'./src/shared/pretendardFiles':{PRETENDARD_FILES:{}},'./src/diary/styles':{styles:{}},'./src/shared/useHiddenNavigationBar':{useHiddenNavigationBar(){}}}
  new Function('require','module','exports','__DEV__','process',code)(id=>mocks[id]??(id==='react/jsx-runtime'?require(id):{__esModule:true,default:id}),mod,mod.exports,dev,{env:{EXPO_PUBLIC_DIARY_SOURCE:mode}})
  return mod.exports.default()
 }
@@ -46,18 +46,31 @@ test('API 주소가 없는 정적 웹 번들도 모듈 로드 단계에서 중�
   configFile: false, babelrc: false, plugins: [expo.resolve('@babel/plugin-transform-modules-commonjs')],
  }).code
  const mod = { exports: {} }
+ const mocks = { 'react-native': { Platform: { OS: 'web' } }, './authApi': { authBaseUrl: value => value, createAuthApi: options => options },
+  './photoUpload': { buildPhotoBody() {} }, './googleLogin': { signInWithGoogle() {} }, './appleLogin': { signInWithApple() {} },
+  './developmentAccessStore': { createDevelopmentAccessStore() {} }, './legacyAccessKeychain': { legacyAccessKeychain: 'keychain' }, 'expo/fetch': { fetch() {} } }
+ new Function('require', 'module', 'exports', '__DEV__', 'process', source)(id => mocks[id], mod, mod.exports, false, { env: {} })
+ assert.equal(mod.exports.apiConfigurationError, false)
+ assert.equal(mod.exports.apiBaseUrl, 'http://localhost:8080/api')
+})
+test('API 주소가 없는 네이티브 릴리스는 시작 설정 오류로 분기한다', () => {
+ const source = babel.transformSync(readFileSync(new URL('../src/auth/authService.js', import.meta.url), 'utf8'), {
+  configFile: false, babelrc: false, plugins: [expo.resolve('@babel/plugin-transform-modules-commonjs')],
+ }).code
+ const mod = { exports: {} }
  const mocks = { 'react-native': { Platform: { OS: 'android' } }, './authApi': { authBaseUrl: value => value, createAuthApi: options => options },
   './photoUpload': { buildPhotoBody() {} }, './googleLogin': { signInWithGoogle() {} }, './appleLogin': { signInWithApple() {} },
   './developmentAccessStore': { createDevelopmentAccessStore() {} }, './legacyAccessKeychain': { legacyAccessKeychain: 'keychain' }, 'expo/fetch': { fetch() {} } }
  new Function('require', 'module', 'exports', '__DEV__', 'process', source)(id => mocks[id], mod, mod.exports, false, { env: {} })
- assert.equal(mod.exports.apiBaseUrl, 'http://10.0.2.2:8080/api')
+ assert.equal(mod.exports.apiConfigurationError, true)
 })
 test('배포 EAS 프로필은 HTTPS 운영 API 주소를 번들에 주입한다', () => {
  const eas = JSON.parse(readFileSync(new URL('../eas.json', import.meta.url), 'utf8'))
- for (const profile of ['preview', 'production']) {
+ for (const [profile, origin] of [['preview', 'https://k15f106.p.ssafy.io:8444'], ['production', 'https://k15f106.p.ssafy.io']]) {
   const url = eas.build[profile].env.EXPO_PUBLIC_API_BASE_URL
   assert.equal(new URL(url).protocol, 'https:')
   assert.notEqual(new URL(url).hostname, '10.0.2.2')
+  assert.equal(new URL(url).origin, origin)
  }
 })
 test('처음 실행은 고르는 화면 없이 게스트로 시작하고, 로그인 화면은 로그인이 필요한 기능에서만 뜬다',()=>{

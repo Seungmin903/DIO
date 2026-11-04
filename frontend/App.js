@@ -3,7 +3,7 @@ import MemberTrashNotice from './src/diary/components/MemberTrashNotice';
 import MemberLibraryNotice from './src/diary/components/MemberLibraryNotice';
 import { memberLibraryQuery } from './src/diary/services/memberLibraryQuery';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AppState, BackHandler, Platform, StatusBar, StyleSheet, View, useWindowDimensions } from 'react-native';
+import { AppState, BackHandler, Platform, StatusBar, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import PinScreen from './src/diary/components/PinScreen';
 import { appLockGraceOver, appLockScope, checkAppLock, clearAppLock, hasAppLock } from './src/shared/appLock';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -11,7 +11,7 @@ import { cleanupPdfShareCache } from './src/editor/utils/savePdfFile';
 import EditorScreen from './src/editor/screens/EditorScreen';
 import { editorDocKey, loadEditorDoc, prepareEditor, rememberEditorDoc, saveEditorDoc } from './src/editor/services/editorDocs';
 import AuthScreen from './src/auth/AuthScreen';
-import { authService } from './src/auth/authService';
+import { apiConfigurationError, authService } from './src/auth/authService';
 import { guestProfile } from './src/auth/guestProfileDevice';
 import { LoginGateProvider, useLoginGate } from './src/auth/loginGate';
 import { useSharing } from './src/sharing/useSharing';
@@ -137,6 +137,7 @@ export default function App() {
   useEffect(() => { if ((fontsLoaded || fontError) && mockSource) finishBoot(); }, [fontsLoaded, fontError, finishBoot]); // eslint-disable-line react-hooks/exhaustive-deps
   const SessionDiaryApp = authenticatedSession ? MemberDiaryApp : LocalDiaryApp;
   if (!fontsLoaded && !fontError) return <SafeAreaProvider style={s.provider}><BootSplash /></SafeAreaProvider>;
+  if (apiConfigurationError) return <SafeAreaProvider style={s.provider}><View style={apiErrorStyles.screen}><Text style={apiErrorStyles.title}>서버 설정을 확인해 주세요</Text><Text style={apiErrorStyles.body}>앱에 연결할 서버 주소가 설정되지 않았어요. 앱을 업데이트한 뒤 다시 시도해 주세요.</Text></View></SafeAreaProvider>;
   if (__DEV__ && process.env.EXPO_PUBLIC_DIARY_SOURCE === 'mock-sharing') {
     const SharingFixture = require('./tests/fixtures/diary-sharing.fixture').default;
     return <SharingFixture />;
@@ -161,6 +162,12 @@ export default function App() {
     </SafeAreaProvider>
   );
 }
+
+const apiErrorStyles = StyleSheet.create({
+  screen: { flex: 1, padding: 32, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F7F8FD', gap: 12 },
+  title: { color: '#0B1957', fontSize: 20, fontWeight: '700' },
+  body: { color: '#454B59', fontSize: 15, lineHeight: 22, textAlign: 'center' },
+});
 
 function LocalDiaryApp(props) {
   const diaryState = useDiaries();

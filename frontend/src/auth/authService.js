@@ -11,6 +11,7 @@ const host = Platform.OS === 'android' ? '10.0.2.2' : (globalThis.location?.host
 const configuredApiBaseUrl = process.env.EXPO_PUBLIC_API_BASE_URL;
 // EAS preview/production profiles inject the public HTTPS URL. Keep the fallback
 // loadable for local and static web builds, where the app otherwise cannot render.
+export const apiConfigurationError = !__DEV__ && Platform.OS !== 'web' && !configuredApiBaseUrl;
 export const apiBaseUrl = authBaseUrl(configuredApiBaseUrl || `http://${host}:8080/api`);
 export const accessTokenHeader = process.env.EXPO_PUBLIC_AUTH_TOKEN_HEADER || 'Authorization';
 export const authService = createAuthApi({
