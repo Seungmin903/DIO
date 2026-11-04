@@ -231,6 +231,8 @@ export function createDocumentStore({ files }) {
         try {
           name = manifestName(await files.names(dir))
           if (!name) continue
+          // 폴더 이름만으로 키를 알 수 있다. 목록을 부를 때마다 큰 목차를 읽지 않는다.
+          if (name === MANIFEST) { keys.push(directoryKey(dir)); continue }
           const text = await files.read(dir, name)
           if (name === MANIFEST_TMP && !parsesAsManifest(text)) continue
           const { key } = JSON.parse(text)

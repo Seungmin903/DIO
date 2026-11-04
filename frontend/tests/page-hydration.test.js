@@ -154,6 +154,52 @@ test('문서가 커도 화면에 합치는 횟수는 일정하다', async () => 
   assert.equal(new Set(flushed.flat()).size, 5000)
 })
 
+test('읽어 두고 아직 합치지 않은 페이지로 넘어가면 바로 합친다', async () => {
+  const ids = Array.from({ length: 1000 }, (_, index) => `p${index}`)
+  let current = 'p0', hydrator
+  const flushed = [], gates = []
+  hydrator = createPageHydrator({ ids, currentId: () => current, onError: (error) => { throw error }, wait: async () => {},
+    read: (batch) => new Promise((resolve) => gates.push(() => resolve(batch.map((id) => ({ id, objects: [] }))))),
+    onPages: (items) => flushed.push(items.map((item) => item.id)) })
+  const tick = () => new Promise((resolve) => setImmediate(resolve))
+  const release = async () => { while (!gates.length) await tick(); gates.shift()(); await tick(); await tick() }
+  hydrator.start()
+  await release() // 첫 묶음: 지금 페이지가 있어 합친다
+  assert.equal(flushed.length, 1)
+  await release() // 둘째 묶음: 합치지 않고 쌓아 둔다
+  assert.equal(flushed.length, 1)
+  while (!gates.length) await tick()
+  const buffered = 'p30'
+  assert.equal(flushed.flat().includes(buffered), false)
+  current = buffered
+  hydrator.prioritize()
+  assert.equal(flushed.flat().includes(buffered), true)
+  hydrator.stop()
+  gates.shift()?.()
+})
+
+test('쉬는 중에 읽어 둔 페이지로 넘어가도 바로 합친다', async () => {
+  const ids = Array.from({ length: 1000 }, (_, index) => `p${index}`)
+  let current = 'p0'
+  const flushed = [], gates = []
+  const hydrator = createPageHydrator({ ids, currentId: () => current, onError: (error) => { throw error }, wait: async () => {},
+    read: (batch) => new Promise((resolve) => gates.push(() => resolve(batch.map((id) => ({ id, objects: [] }))))),
+    onPages: (items) => flushed.push(items.map((item) => item.id)) })
+  const tick = () => new Promise((resolve) => setImmediate(resolve))
+  const release = async () => { while (!gates.length) await tick(); gates.shift()(); await tick(); await tick() }
+  hydrator.start()
+  await release()
+  await release()
+  while (!gates.length) await tick()
+  hydrator.pause()
+  await release() // 쉬는 상태로 들어간다
+  current = 'p30'
+  hydrator.prioritize()
+  await tick()
+  assert.equal(flushed.flat().includes('p30'), true)
+  hydrator.stop()
+})
+
 test('보던 페이지가 바뀌면 다음 묶음은 그 근처에서 읽는다', async () => {
   const ids = Array.from({ length: 60 }, (_, index) => `p${index}`)
   let current = 'p0'

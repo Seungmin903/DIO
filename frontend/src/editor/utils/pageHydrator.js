@@ -50,6 +50,9 @@ export function createPageHydrator({ ids, allIds = ids, read, onPages, onError, 
     onPages(items, done)
   }
 
+  // 읽어 둔 이웃 페이지로 넘어오면 다음 합치기까지 입력이 막힌다. 지금 페이지가 버퍼에 있으면 바로 합친다.
+  const currentBuffered = () => buffer.some((item) => item.id === currentId())
+
   // 쉬는 동안에도 지금 페이지가 비어 있으면 읽는다. 그 페이지를 기다리는 입력을 막지 않기 위해서다.
   const mustRest = () => paused && !remaining.has(currentId())
   const rest = async () => {
@@ -90,7 +93,7 @@ export function createPageHydrator({ ids, allIds = ids, read, onPages, onError, 
         buffer.push(...items)
         if (!remaining.size) break
         // 합치면 화면 전체가 다시 그려지므로 쉬는 동안에는 지금 페이지가 아니면 합치지 않는다.
-        if (batch.includes(center) || (!paused && buffer.length >= flushSize)) flush(false)
+        if (batch.includes(center) || currentBuffered() || (!paused && buffer.length >= flushSize)) flush(false)
         await Promise.race([wait(0), new Promise((resolve) => { wake = resolve })])
       }
       if (!stopped) flush(true)
@@ -104,7 +107,10 @@ export function createPageHydrator({ ids, allIds = ids, read, onPages, onError, 
   return {
     start() { if (!running) loop() },
     /** 보고 있는 페이지가 바뀌면 다음 묶음을 바로 그 근처에서 읽는다. */
-    prioritize() { wake?.(); wakePause?.() },
+    prioritize() {
+      if (!stopped && currentBuffered()) flush(false)
+      wake?.(); wakePause?.()
+    },
     pause() {
       if (resumeTimer != null) clearTimeout(resumeTimer)
       resumeTimer = null

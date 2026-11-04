@@ -292,6 +292,15 @@ test('파일로 옮긴 두 문서가 같은 사진 · PDF 를 쓰면 한쪽을 �
   assert.ok(await wrapped.getItem(`${docKey}:b`))
 })
 
+test('문서 키 목록은 목차를 읽지 않고 폴더 이름으로 만든다', async () => {
+  const storage = memoryStorage(), files = memoryFiles()
+  const wrapped = createDocumentStorage({ storage, files })
+  const keyWithMarks = 'dio:member:v1:7:doc:가_나-1'
+  await wrapped.saveDocument(keyWithMarks, makeDoc())
+  const fresh = createDocumentStorage({ storage, files: { ...files, read: async () => { throw new Error('목차를 읽으면 안 된다') } } })
+  assert.ok((await fresh.getAllKeys()).includes(keyWithMarks))
+})
+
 test('옮긴 파일을 끝까지 읽지 못하면 다음 실행에도 옛 행을 지우지 않는다', async () => {
   const raw = JSON.stringify(makeDoc())
   const storage = memoryStorage({ [KEY]: raw }), files = memoryFiles()
