@@ -52,7 +52,7 @@
     "qa:palette": "node tests/palette-browser.cjs",
     "qa:eyedropper": "node tests/eyedropper-browser.cjs",
     "qa:pen-colors": "node tests/recent-pen-colors-browser.cjs",
-    "test:safety": "node --test tests/safety.test.js",
+    "test:safety": "node --test tests/safety.test.js tests/safety-api.test.js tests/safety-http.test.js tests/safety-screen.test.js",
     "qa:safety": "node qa/safety-browser.cjs"
   },
   "dependencies": {

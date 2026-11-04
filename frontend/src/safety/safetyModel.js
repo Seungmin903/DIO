@@ -1,24 +1,25 @@
 export const REPORT_REASONS = [
-  ['HARASSMENT', '욕설·괴롭힘'], ['SEXUAL_CONTENT', '음란하거나 부적절한 콘텐츠'],
-  ['PERSONAL_INFORMATION', '개인정보 노출'], ['COPYRIGHT', '저작권 침해 의심'],
-  ['SPAM', '스팸·광고'], ['AGE_REQUIREMENT', '이용 연령 기준 위반 의심'], ['OTHER', '기타'],
+  ['HARASSMENT', '욕설·괴롭힘'], ['HATE_DISCRIMINATION', '혐오·차별'], ['SEXUAL_CONTENT', '음란·성적 콘텐츠'],
+  ['THREAT_PRIVACY', '위협·개인정보 침해'], ['CHILD_SAFETY', '아동·청소년 안전 침해'],
+  ['SPAM_FRAUD', '스팸·사기'], ['RIGHTS_INFRINGEMENT', '저작권 등 권리 침해'], ['COLLABORATION_ABUSE', '공동 작업 방해'], ['OTHER', '기타'],
 ];
 export const MAX_DESCRIPTION = 1000;
-export const MAX_PHOTOS = 5;
-export const MAX_PHOTO_BYTES = 10 * 1024 * 1024;
+export const MAX_PHOTOS = 3;
+export const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
 export const UNAVAILABLE = '신고·차단 서버 연결을 준비하고 있어요. 아직 접수하거나 차단할 수 없어요.';
 
 export function validateEvidence(photo) {
   if (!['image/png', 'image/jpeg'].includes(photo.mimeType)) return 'PNG 또는 JPEG 사진을 선택해 주세요.';
   if (!Number.isFinite(photo.size) || photo.size <= 0) return '사진 크기를 확인하지 못했어요. 다른 사진을 선택해 주세요.';
-  if (photo.size > MAX_PHOTO_BYTES) return '사진은 한 장당 10MB까지 첨부할 수 있어요.';
+  if (photo.size > MAX_PHOTO_BYTES) return '사진은 한 장당 5MiB까지 첨부할 수 있어요.';
   return '';
 }
 export function validateReport({ reason, description, photos = [] }) {
   if (!REPORT_REASONS.some(([id]) => id === reason)) return '신고 사유를 선택해 주세요.';
-  if (!description?.trim()) return '상세 설명을 입력해 주세요.';
-  if (description.length > MAX_DESCRIPTION) return '상세 설명은 1,000자까지 입력할 수 있어요.';
-  if (photos.length > MAX_PHOTOS) return '사진은 최대 5장까지 첨부할 수 있어요.';
+  if (description != null && typeof description !== 'string') return '상세 설명을 확인해 주세요.';
+  if (reason === 'OTHER' && !description?.trim()) return '기타 사유의 상세 설명을 입력해 주세요.';
+  if (description?.length > MAX_DESCRIPTION) return '상세 설명은 1,000자까지 입력할 수 있어요.';
+  if (photos.length > MAX_PHOTOS) return '사진은 최대 3장까지 첨부할 수 있어요.';
   return photos.map(validateEvidence).find(Boolean) || '';
 }
 export function normalizeParticipants(rows = []) {
@@ -61,6 +62,9 @@ export function createSafetyStore(adapter = createUnavailableSafetyAdapter()) {
     publish({ busy: true, error: '' });
     try {
       const result = await action(); check(revision); apply?.(result); return result;
+    } catch (error) {
+      if (active && revision === generation && error.code === 'BLOCK_REFRESH_REQUIRED') publish({ status: 'error', error: error.message });
+      throw error;
     } finally { if (active && revision === generation) publish({ busy: false }); }
   }
   return {
@@ -86,8 +90,8 @@ export function createSafetyStore(adapter = createUnavailableSafetyAdapter()) {
       const rows = await adapter.listParticipants(diaryId); check(revision);
       return normalizeParticipants(rows);
     },
-    block(target) {
-      return mutate(() => adapter.block(target.id), result => {
+    block(target, diaryId) {
+      return mutate(() => adapter.block(target.id, diaryId), result => {
         if (!result?.blockedAt) throw new Error('차단 결과를 확인하지 못했어요. 다시 조회해 주세요.');
         publish({ blocks: [{ ...result, id: String(result.userId ?? target.id) }, ...snapshot.blocks.filter(row => row.id !== target.id)], status: 'ready' });
       });

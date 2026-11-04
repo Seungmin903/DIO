@@ -33,6 +33,22 @@ function fixture(overrides = {}) {
   return { runtime, calls, uploaded, logout() { available = false; } };
 }
 
+test('멤버 차단 상태는 내 방향 blockedByMe만 UI로 전달한다', async () => {
+  const f = fixture({ fetch: async url => url.endsWith('/members') ? reply({ members: [
+    { userId: '25', nickname: '친구', role: 'EDITOR', blockedByMe: true, blockedByOther: true, activeAccount: true },
+  ] }) : null });
+  const members = await f.runtime.getMembers(diaryId);
+  assert.equal(members[0].blockedByMe, true); assert.equal(members[0].blockedByOther, undefined);
+});
+test('받은 초대도 토큰 상세를 재조회하고 확인 후 수락에만 acknowledgeBlockedMembers를 보낸다', async () => {
+  const f = fixture({ fetch: async url => url.endsWith('/invites/private-token') ? reply({ diaryId, title: '우리 기록', status: 'PENDING', inviteType: 'EMAIL', requiresBlockedMemberConfirmation: true }) : null });
+  const invite = await f.runtime.invitationGateway.get('123');
+  assert.equal(invite.requiresBlockedMemberConfirmation, true);
+  await f.runtime.accept('123', '기본이름', { acknowledgeBlockedMembers: true });
+  const accepted = f.calls.find(call => call.url.endsWith('/accept'));
+  assert.deepEqual(JSON.parse(accepted.body), { acknowledgeBlockedMembers: true });
+});
+
 test('공유 조회의 일반 401은 만료 안내나 서버의 만료 표식으로 오인하지 않는다',async()=>{
  const auth={getSessionKey:()=> '10:1',getAccessToken:async()=> 'access',getConnectionOptions:()=>({baseUrl:'https://api.example.test/api/v1'})};
  const runtime=createSharingApi({user:{userId:'10',nickname:'회원'},auth,

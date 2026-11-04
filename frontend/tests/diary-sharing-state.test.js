@@ -340,6 +340,38 @@ async function nickname(ui) {
   await tick();
   return ui.render();
 }
+test('차단 멤버가 있는 초대는 취소 시 수락하지 않고 명시적으로 확인한 뒤에만 확인값을 전송한다', async () => {
+  const calls = [];
+  const invite = { inviteId: 'i', status: 'PENDING', diary: { diaryId: 'd', title: '초대' }, requiresBlockedMemberConfirmation: true };
+  const ui = setup({ invitationGateway: { get: async () => invite }, accept: async (id, name, options) => {
+    calls.push(options); return { id: 'd', members: [{ id: 'self', nickname: name, role: 'EDITOR' }] };
+  } });
+  await nickname(ui);
+  const dialog = () => nodes(ui.render()).find(n => n.props?.confirmLabel === '계속 참여하기');
+  assert.equal(dialog().props.open, true); assert.equal(calls.length, 0);
+  dialog().props.onCancel(); assert.equal(calls.length, 0);
+  find(ui.render(), '참여 프로필 설정').props.onPress(); await tick();
+  dialog().props.onConfirm();
+  find(ui.render(), '수락하고 참여하기').props.onPress(); await tick();
+  assert.equal(calls.length, 1); assert.equal(calls[0].acknowledgeBlockedMembers, true);
+  ui.unmount();
+});
+test('수락 시점에 차단 확인이 새로 필요하면 409를 자동 우회하지 않고 다시 확인한다', async () => {
+  const calls = [];
+  const ui = setup({ accept: async (id, name, options) => {
+    calls.push(options);
+    if (calls.length === 1) throw Object.assign(new Error('차단 확인 필요'), { code: 'BLOCKED_MEMBER_CONFIRMATION_REQUIRED', status: 409 });
+    return { id: 'd', members: [{ id: 'self', nickname: name, role: 'EDITOR' }] };
+  } });
+  await nickname(ui);
+  find(ui.render(), '수락하고 참여하기').props.onPress(); await tick();
+  assert.equal(calls.length, 1); assert.equal(calls[0].acknowledgeBlockedMembers, undefined);
+  const dialog = nodes(ui.render()).find(n => n.props?.confirmLabel === '계속 참여하기');
+  assert.equal(dialog.props.open, true);
+  dialog.props.onConfirm(); await tick();
+  assert.equal(calls.length, 2); assert.equal(calls[1].acknowledgeBlockedMembers, true);
+  ui.unmount();
+});
 test('참여 닉네임은 별도 확인 없이 형식으로 판단하고 같은 이름도 입력할 수 있다', async () => {
   const ui = setup();
   await nickname(ui);
