@@ -34,6 +34,8 @@ class MediaUploadAdmissionTests {
   assertThat(MediaUploadAdmission.resolveUnits(" ","1")).isEqualTo(5);
   assertThat(MediaUploadAdmission.resolveUnits("","2")).isEqualTo(5);
   assertThat(MediaUploadAdmission.resolveUnits("","")).isEqualTo(6);
+  assertThatThrownBy(()->MediaUploadAdmission.resolveUnits("","0")).isInstanceOf(IllegalArgumentException.class);
+  assertThatThrownBy(()->MediaUploadAdmission.resolveUnits("","-1")).isInstanceOf(IllegalArgumentException.class);
   assertThatThrownBy(()->MediaUploadAdmission.resolveUnits("abc","")).isInstanceOf(IllegalArgumentException.class);
  }
  @Test void rejectsRequestsThatCannotFitTheConfiguredByteBudgetAsTooLarge() {

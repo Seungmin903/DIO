@@ -35,6 +35,7 @@ public final class MediaUploadAdmission {
   if(configuredUnits!=null&&!configuredUnits.isBlank())return parse(configuredUnits,"max-in-flight-units");
   if(legacyMaxConcurrent!=null&&!legacyMaxConcurrent.isBlank()) {
    int legacy=parse(legacyMaxConcurrent,"max-concurrent");long converted=(long)legacy*2;
+   if(legacy<1)throw new IllegalArgumentException("Invalid media upload max-concurrent");
    if(converted<MIN_IN_FLIGHT_UNITS){log.warn("Deprecated dio.media.upload.max-concurrent={} is raised to {} units so 25MiB uploads remain available",legacy,MIN_IN_FLIGHT_UNITS);return MIN_IN_FLIGHT_UNITS;}
    return converted>Integer.MAX_VALUE?Integer.MAX_VALUE:(int)converted;
   }
