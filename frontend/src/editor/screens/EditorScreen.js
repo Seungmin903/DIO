@@ -566,6 +566,12 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
       else dispatch({type:'movePages',ids,anchorId,place})
     }catch(error){showToast(error.message||'페이지 순서를 저장하지 못했어요. 다시 확인해 주세요.')}
   }
+  const resetDiary = () => {
+    if(state.pagesLoading){showToast(PAGES_LOADING_MESSAGE);return}
+    if(cropId)finishCrop(false)
+    dispatch({type:'resetDiary'})
+    showToast('다이어리를 초기화했어요. 되돌리기로 복구할 수 있어요.')
+  }
   const removePages = async ids => {
     if(state.pagesLoading){showToast(PAGES_LOADING_MESSAGE);return}
     if(cropId)finishCrop(false)
@@ -1186,7 +1192,7 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
           initialFilter={overviewFilter}
           onSelect={(id) => { if (cropId) finishCrop(false); dispatch({ type: 'selectPage', id }) }}
           onToggleIndex={readOnly ? null : (id) => dispatch({ type: 'togglePageIndex', id })}
-          onReset={readOnly || textSync.enabled ? null : () => { if (cropId) finishCrop(false); dispatch({ type: 'resetDiary' }); showToast('다이어리를 초기화했어요. 되돌리기로 복구할 수 있어요.') }}
+          onReset={readOnly || textSync.enabled ? null : resetDiary}
           onDelete={readOnly ? null : removePages}
           onClose={() => setOverviewFilter(null)}
         />
@@ -1246,7 +1252,7 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
             onDuplicate={copyPage}
             onSettings={textSync.enabled && !readOnly ? setSettingsPageId : undefined}
             onToggleIndex={(id) => dispatch({ type: 'togglePageIndex', id })}
-            onReset={readOnly || textSync.enabled ? null : () => { if (cropId) finishCrop(false); dispatch({ type: 'resetDiary' }); showToast('다이어리를 초기화했어요. 되돌리기로 복구할 수 있어요.') }}
+            onReset={readOnly || textSync.enabled ? null : resetDiary}
             onRemovePages={removePages}
             onRemove={id=>removePages([id])}
           />

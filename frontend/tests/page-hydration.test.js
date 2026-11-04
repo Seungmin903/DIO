@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import { createInitialState, editorReducer } from '../src/editor/state/editorReducer.js'
 import { createPageHydrator } from '../src/editor/utils/pageHydrator.js'
 import { createDocumentStore } from '../src/editor/services/documentStore.js'
+import { readFileSync } from 'node:fs'
 
 const loaded = (id, objects = [{ id: `${id}-o`, type: 'sticker', x: 0, y: 0 }]) => ({ id, canvasWidth: 100, canvasHeight: 100, objects })
 const hollow = (id) => ({ id, canvasWidth: 100, canvasHeight: 100, objects: [], unloaded: true })
@@ -281,4 +282,11 @@ test('되돌리기 기록은 20단계까지 남긴다', () => {
   assert.equal(state.past.length, 0)
   assert.equal(editorReducer(state, { type: 'undo' }), state)
   assert.equal(state.doc.pages[0].objects.length, 6)
+})
+
+test('읽는 중 초기화는 안내만 하고 성공 안내를 띄우지 않는다', () => {
+  const screen = readFileSync(new URL('../src/editor/screens/EditorScreen.js', import.meta.url), 'utf8')
+  const handler = screen.match(/const resetDiary = \(\) => \{([\s\S]*?)\r?\n  \}/)?.[1] ?? ''
+  assert.ok(handler.indexOf('state.pagesLoading') >= 0 && handler.indexOf('state.pagesLoading') < handler.indexOf("dispatch({type:'resetDiary'})"))
+  assert.equal(screen.match(/dispatch\(\{ ?type: ?'resetDiary' ?\}\)/g).length, 1, '초기화는 이 입구 하나로만 보낸다')
 })

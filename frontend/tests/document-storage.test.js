@@ -2,6 +2,9 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { findUnusedIds } from '../src/diary/utils/storedScan.js'
+import { purgeTrashedDiary } from '../src/diary/utils/trashRetention.js'
+import { collectMediaIds } from '../src/editor/utils/mediaReferences.js'
+import { collectPdfSourceIds } from '../src/diary/utils/pdfSource.js'
 
 // 패키지 없이 포장 객체만 시험하려고 런타임 의존 줄을 뺀 사본을 불러온다.
 const source = readFileSync(new URL('../src/editor/services/documentStorage.js', import.meta.url), 'utf8')
@@ -263,4 +266,28 @@ test('파일 저장소가 없는 웹은 기존 저장소를 그대로 쓴다', a
   await wrapped.saveDocument(KEY, makeDoc())
   assert.deepEqual(JSON.parse(storage.rows.get(KEY)), makeDoc())
   assert.deepEqual(await wrapped.loadDocument(KEY), makeDoc())
+})
+
+test('파일로 옮긴 두 문서가 같은 사진 · PDF 를 쓰면 한쪽을 영구 삭제해도 공유 파일은 남는다', async () => {
+  const docKey = 'dio:editor:doc:v4'
+  const page = (id, ...mediaIds) => ({ id, objects: mediaIds.map((mediaFileId) => ({ id: `${id}-${mediaFileId}`, type: 'sticker', mediaFileId })) })
+  const source = (sourceId) => ({ sourceId, pageIndex: 0 })
+  const document = (id, sourceId, ...pages) => ({ id, title: id, pages: pages.map((item, index) => (index ? item : { ...item, pdfSource: source(sourceId) })) })
+  const storage = memoryStorage()
+  const files = memoryFiles()
+  const wrapped = createDocumentStorage({ storage, files })
+  await wrapped.saveDocument(`${docKey}:a`, document('a', 'pdf-shared', page('a1', 'photo-only-a'), page('a2', 'photo-shared')))
+  await wrapped.saveDocument(`${docKey}:b`, document('b', 'pdf-shared', page('b1'), page('b2', 'photo-shared')))
+  let diaries = [{ id: 'a', title: 'a', trashedAt: '2026-01-01T00:00:00.000Z' }, { id: 'b', title: 'b', trashedAt: null }]
+  const removedMedia = [], removedSources = []
+  const done = await purgeTrashedDiary({
+    id: 'a', storage: wrapped, keys: { diaries: 'diaries', doc: docKey, customDecor: 'decor', myCovers: 'covers', myPapers: 'papers' },
+    getDiaries: () => diaries, updateDiaries: (update) => { diaries = update(diaries) }, forgetDoc: () => {}, forgetView: async () => true,
+    collectMediaIds, removeMedia: async (id) => removedMedia.push(id), collectSourceIds: collectPdfSourceIds, removeSource: async (id) => removedSources.push(id),
+  })
+  assert.equal(done, true)
+  assert.deepEqual(removedMedia, ['photo-only-a'])
+  assert.deepEqual(removedSources, [])
+  assert.equal(await wrapped.getItem(`${docKey}:a`), null)
+  assert.ok(await wrapped.getItem(`${docKey}:b`))
 })
