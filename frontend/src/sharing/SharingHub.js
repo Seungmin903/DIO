@@ -81,6 +81,7 @@ export default function SharingHub({
   onClose,
   onOpenDiary,
   onOpenCopy,
+  onOpenParticipants,
   onReturnToNotifications,
   embedded = false,
   onBackReady,
@@ -618,8 +619,16 @@ export default function SharingHub({
                               {member.presence && !['소유자', '편집자'].includes(member.presence) ? ` · ${member.presence}` : ''}
                             </Text>
                           </View>
+                          {member.id !== runtime.self.id && onOpenParticipants && (
+                            <Pressable accessibilityRole="button" accessibilityLabel={`${member.nickname} 메뉴`} style={s.iconButton}
+                              disabled={busy} onPress={() => onOpenParticipants(diary, member)}>
+                              <Text style={s.bold}>⋯</Text>
+                            </Pressable>
+                          )}
                         </View>
                       ))}
+                      {onOpenParticipants && <Button label="전체 참여자 보기" secondary disabled={busy}
+                        onPress={() => onOpenParticipants(diary)} />}
                       {isOwner && diary.members.length > 1 && <Button label="참여자 관리" secondary disabled={busy}
                         onPress={() => { setScreen('members'); setError(''); setToast(''); }} />}
                       {isFull && (
