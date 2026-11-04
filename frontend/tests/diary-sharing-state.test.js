@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { notificationSender } from '../src/notifications/notificationPresentation.js';
 import * as validation from '../src/sharing/sharingContracts.js';
 const require = createRequire(import.meta.url),
   expo = createRequire(require.resolve('expo/package.json')),
@@ -17,7 +18,7 @@ const code = babel.transformSync(
     ],
   },
 ).code;
-function setup(runtime = {}, photoPicker, initialRequest = { mode: 'invitations' }) {
+function setup(runtime = {}, photoPicker, initialRequest = { mode: 'invitations' }, callbacks = {}) {
   const states = [],
     refs = [],
     deps = [],
@@ -81,6 +82,7 @@ function setup(runtime = {}, photoPicker, initialRequest = { mode: 'invitations'
     './sharingContracts': validation,
     './styles': { sharingStyles: new Proxy({}, { get: (_, k) => k }) },
     '../notifications/NotificationPanel': { invitationStatusLabel: (v) => v },
+    '../notifications/notificationPresentation': { notificationSender },
   };
   const mod = { exports: {} };
   new Function('require', 'module', 'exports', code)(
@@ -112,6 +114,7 @@ function setup(runtime = {}, photoPicker, initialRequest = { mode: 'invitations'
       runtime,
       model,
       photoPicker,
+      ...callbacks,
       onClose: () => {
         request = null;
       },
@@ -120,6 +123,7 @@ function setup(runtime = {}, photoPicker, initialRequest = { mode: 'invitations'
   render();
   return {
     render,
+    model,
     keyboard,
     runtime,
     unmount: () => cleanups.forEach((fn) => fn?.()),
@@ -759,5 +763,109 @@ test('서버 이메일 초대 화면은 기존 입력란을 활성화하고 입�
   await tick();
   assert.deepEqual(calls, [{ id: 'server-diary', email: 'friend@example.com' }]);
   assert.equal(find(ui.render(), '초대할 이메일').props.value, '');
+  ui.unmount();
+});
+
+test('홈 알림에서 연 초대의 이전 버튼은 공유 내부 목록 대신 홈 알림으로 복귀한다', async () => {
+  let returned = 0;
+  const ui = setup({ invitationGateway: { get: async () => ({ inviteId: 'i', status: 'PENDING', canOpen: true, diary: { diaryId: 'd', title: '초대' } }) } }, undefined,
+    { mode: 'invitation', inviteId: 'i', returnToNotifications: true }, { onReturnToNotifications: () => returned++ });
+  await tick();
+  find(ui.render(), '이전 공유 화면').props.onPress();
+  assert.equal(returned, 1);
+  ui.unmount();
+});
+
+test('홈 초대 상세 진입은 조회 대기 중에도 공유 알림 목록을 표시하지 않는다', async () => {
+  let finish;
+  const ui = setup({ invitationGateway: { get: () => new Promise(resolve => { finish = resolve; }) } }, undefined,
+    { mode: 'invitation', inviteId: 'i', returnToNotifications: true });
+  const waiting = ui.render();
+  assert.equal(find(waiting, '초대 초대 수락'), undefined);
+  assert.equal(find(waiting, '초대 초대 더보기'), undefined);
+  assert.ok(find(waiting, '이전 공유 화면'));
+  finish({ inviteId: 'i', status: 'PENDING', canOpen: true, diary: { diaryId: 'd', title: '초대' } });
+  await tick();
+  assert.ok(find(ui.render(), '참여 프로필 설정'));
+  ui.unmount();
+});
+
+test('편집기 직접 초대 ID 진입도 로딩 중 목록을 노출하지 않고 성공 시 상세를 연다', async () => {
+  let finish;
+  const ui = setup({ invitationGateway: { get: () => new Promise(resolve => { finish = resolve; }) } }, undefined, { mode: 'invitation', inviteId: 'i' });
+  const waiting = ui.render();
+  assert.equal(find(waiting, '초대 초대 더보기'), undefined);
+  assert.ok(find(waiting, '초대 불러오는 중'));
+  finish({ inviteId: 'i', status: 'PENDING', canOpen: true, diary: { diaryId: 'd', title: '초대' } });
+  await tick();
+  assert.ok(find(ui.render(), '참여 프로필 설정'));
+  find(ui.render(), '이전 공유 화면').props.onPress();
+  assert.ok(find(ui.render(), '초대 초대 더보기'));
+  ui.unmount();
+});
+
+test('편집기 직접 초대 조회 실패는 상세 안의 오류로 남고 이전으로 목록에 돌아간다', async () => {
+  const ui = setup({ invitationGateway: { get: async () => { throw new Error('초대 조회 실패'); } } }, undefined, { mode: 'invitation', inviteId: 'i' });
+  await tick();
+  const tree = ui.render();
+  assert.ok(nodes(tree).some(node => node.props?.accessibilityRole === 'alert' && node.props.children === '초대 조회 실패'));
+  assert.equal(find(tree, '참여 프로필 설정'), undefined);
+  assert.equal(find(tree, '초대 초대 더보기'), undefined);
+  find(tree, '이전 공유 화면').props.onPress();
+  assert.ok(find(ui.render(), '초대 초대 더보기'));
+  ui.unmount();
+});
+
+test('임베드 공유의 뒤로가기 핸들러는 최신 상태로 교체되고 언마운트 시 해제된다', () => {
+  const registered = [];
+  const ui = setup({}, undefined, { mode: 'invitations' }, { embedded: true, onBackReady: handler => registered.push(handler) });
+  assert.equal(typeof registered.at(-1), 'function');
+  const first = registered.at(-1);
+  ui.render();
+  assert.ok(registered.includes(null));
+  assert.equal(typeof registered.at(-1), 'function');
+  assert.notEqual(registered.at(-1), first);
+  ui.unmount();
+  assert.equal(registered.at(-1), null);
+});
+
+test('공유 알림의 발신자 누락은 숨기고 실제 닉네임 다른 사용자는 그대로 표시한다', () => {
+  const ui = setup();
+  for (const actor of [null, undefined, '', '   ', '다른 사용자', '하루']) {
+    ui.model.items[0].actor = actor;
+    const labels = nodes(ui.render()).filter(node => node.props?.style === 'invitationActor');
+    if (typeof actor === 'string' && actor.trim()) assert.deepEqual(labels.map(node => node.props.children), [`${actor.trim()}님의 초대`]);
+    else assert.equal(labels.length, 0);
+  }
+  ui.unmount();
+});
+
+test('홈 초대의 프로필 이전은 상세로 돌아가고 상세 이전만 홈 알림으로 복귀한다', async () => {
+  let returned = 0;
+  const invitation = { inviteId: 'i', status: 'PENDING', canOpen: true, diary: { diaryId: 'd', title: '초대' } };
+  const ui = setup({ invitationGateway: { get: async () => invitation } }, undefined,
+    { mode: 'invitation', inviteId: 'i', returnToNotifications: true }, { onReturnToNotifications: () => returned++ });
+  await tick();
+  find(ui.render(), '참여 프로필 설정').props.onPress();
+  await tick();
+  find(ui.render(), '다이어리 닉네임').props.onChangeText('작성중인 이름');
+  find(ui.render(), '이전 공유 화면').props.onPress();
+  assert.ok(find(ui.render(), '참여 프로필 설정'));
+  assert.equal(returned, 0);
+  find(ui.render(), '이전 공유 화면').props.onPress();
+  assert.equal(returned, 1);
+  ui.unmount();
+});
+
+test('홈에서 연 초대를 거절하면 공유 내부 목록 대신 홈 알림 복귀를 요청한다', async () => {
+  let returned = 0, declined = 0;
+  const invitation = { inviteId: 'i', status: 'PENDING', canOpen: true, diary: { diaryId: 'd', title: '초대' } };
+  const ui = setup({ supportsReadState: false, invitationGateway: { get: async () => invitation }, decline: async () => { declined++; } }, undefined,
+    { mode: 'invitation', inviteId: 'i', returnToNotifications: true }, { onReturnToNotifications: () => returned++ });
+  await tick();
+  find(ui.render(), '상세 초대 삭제').props.onPress();
+  nodes(ui.render()).find(node => node.props?.confirmLabel === '삭제' && node.props.onConfirm).props.onConfirm();
+  await tick();
+  assert.equal(declined, 1); assert.equal(returned, 1);
   ui.unmount();
 });

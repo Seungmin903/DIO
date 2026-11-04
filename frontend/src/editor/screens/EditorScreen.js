@@ -25,6 +25,7 @@ import PageSettingsDialog from '../components/panels/PageSettingsDialog'
 import PagePanelVisibility from '../components/panels/PagePanelVisibility'
 import { createThumbnailWorkQueue } from '../utils/thumbnailWorkQueue.js'
 import { createPageCloseScheduler } from '../utils/pageCloseScheduler.js'
+import { editorPanelLayout } from '../utils/panelLayout.js'
 import Ribbon from '../components/chrome/Ribbon'
 import PhoneSheet from '../components/chrome/PhoneSheet'
 import PhoneSidePanel from '../components/chrome/PhoneSidePanel'
@@ -112,7 +113,7 @@ function cellCropPhoto(strip, index) {
   return cell && box ? { ...cell, id: `${strip.id}:${index}`, cell: index, x: 0, y: 0, w: box.width, h: box.height, frame: 'shape', shape: 'rect' } : null
 }
 
-export default function EditorScreen({ registerInvitationLeaveGuard, sharingMembers = [], onOpenSharing, invitationCount = 0, onHome, onRenameDiary, diary, readOnly: permissionReadOnly = false, onRegionExport, compact = false, landscape = false, bottomInset = 0, onToggleOrientation, tabs, onSelectTab, onCloseTab, fixedViewportZoom = null, qaController = null }) {
+export default function EditorScreen({ registerInvitationLeaveGuard, sharingMembers = [], onOpenSharing, invitationCount = 0, onHome, onRenameDiary, diary, readOnly: permissionReadOnly = false, onRegionExport, compact = false, landscape = false, bottomInset = 0, onToggleOrientation, tabs, onSelectTab, onCloseTab, fixedViewportZoom = null, qaController = null, backDisabled = false }) {
   const [readingMode, setReadingMode] = useState(false)
   const [readerMenuVisible, setReaderMenuVisible] = useState(true)
   const readOnly = permissionReadOnly || readingMode
@@ -237,12 +238,13 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
   const [eraserMode, setEraserMode] = useToolPreference('eraserMode', 'stroke') // 획 지우기 | 영역 지우기
   const [penSettingsOpen, setPenSettingsOpen] = useState(false)
   const [moreOpen, setMoreOpen] = useState(false)
-  // 태블릿 편집기는 페이지 목록과 레이어를 둘 다 연 채로 시작한다. 폰은 두 패널이 작업창 위에 뜨고 한쪽만 열 수 있어 닫고 시작한다.
+  // 좁은 창과 세로 태블릿은 작업 영역 확보를 위해 패널을 닫고 시작한다.
   const [compactMenu, setCompactMenu] = useState(null)
-  const [layersOpen, setLayersOpen] = useState(!compact)
+  const panelLayout = editorPanelLayout(colorScreen.width, compact, landscape)
+  const [layersOpen, setLayersOpen] = useState(panelLayout.initialOpen)
   // 태블릿 레이어 창 폭: 상단바 오른쪽 묶음(공유 · 레이어 · 내보내기) 폭과 같게 해 왼쪽 끝을 공유 버튼에 맞춘다
   const [layerWidth, setLayerWidth] = useState(LAYER_PANEL_WIDTH)
-  const [pagesOpen, setPagesOpen] = useState(!compact)
+  const [pagesOpen, setPagesOpen] = useState(panelLayout.initialOpen)
   const [settingsPageId, setSettingsPageId] = useState(null)
   useEffect(() => { setSettingsPageId(null) }, [diary?.id, readOnly])
   useEffect(() => { if (settingsPageId && !state.doc.pages.some(p => p.id === settingsPageId)) setSettingsPageId(null) }, [settingsPageId, state.doc.pages])
@@ -265,6 +267,16 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
     setLayoutCompact(compact)
     setLayersOpen(false)
     setPagesOpen(false)
+  }
+  const [singlePanelLayout, setSinglePanelLayout] = useState(panelLayout.singlePanel)
+  if (singlePanelLayout !== panelLayout.singlePanel) {
+    setSinglePanelLayout(panelLayout.singlePanel)
+    if (panelLayout.singlePanel) { setLayersOpen(false); setPagesOpen(false) }
+  }
+  const [tabletPortrait, setTabletPortrait] = useState(!compact && !landscape)
+  if (tabletPortrait !== (!compact && !landscape)) {
+    setTabletPortrait(!compact && !landscape)
+    if (!compact && !landscape) { setLayersOpen(false); setPagesOpen(false) }
   }
   const stagePadding = readOnly ? (readerMenuVisible ? READING_PADDING : READING_PADDING_FULL) : compact ? PHONE_STAGE_PADDING : STAGE_PADDING
   const [focusMode, setFocusMode] = useState(false)
@@ -888,14 +900,14 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
   // 패널은 오른쪽 바깥 여백(16)을 덮으므로 작업창 폭은 패널 폭 + 간격 - 16 만큼 바뀐다.
   const toggleLayers = (open) => {
     if (open === showLayers) return
-    // 태블릿은 페이지 목록(왼쪽)과 레이어(오른쪽)를 각각 켜고 끌 수 있다. 폰은 둘 다 작업창 위에 띄우므로 한쪽을 열면 다른 쪽은 닫는다.
-    const closePages = compact && open && showPages
+    // 좁은 창에서는 한쪽을 열면 다른 쪽을 닫아 작업 공간을 확보한다.
+    const closePages = panelLayout.singlePanel && open && showPages
     if (closePages) setPagesOpen(false)
     setLayersOpen(open)
     // 폰은 레이어를 작업창 위에 띄우므로 작업창 크기가 그대로다.
     if (compact) return
     const delta = layerWidth + BODY_GAP - BODY_PADDING
-    setStageSize((prev) => prev && { ...prev, width: prev.width + (open ? -delta : delta) })
+    setStageSize((prev) => prev && { ...prev, width: prev.width + (open ? -delta : delta) + (closePages ? PAGE_LIST_WIDTH + BODY_GAP : 0) })
   }
 
   // 리본(태블릿)과 폰 도구 막대가 함께 쓰는 도구·보관함·내보내기 동작
@@ -974,15 +986,15 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
       })
       return
     }
-    // 태블릿은 레이어 패널과 각각 켜고 끈다. 폰은 한쪽을 열면 다른 쪽은 닫는다.
-    const closeLayers = compact && open && showLayers
+    // 좁은 창에서는 한쪽을 열면 다른 쪽을 닫는다.
+    const closeLayers = panelLayout.singlePanel && open && showLayers
     if (closeLayers) setLayersOpen(false)
     setPagesOpen(open)
     // 작업창 왼쪽 끝이 움직이므로 새 크기를 같은 화면에서 바로 써서 한 번에 맞춘다.
     // (측정값을 기다리면 페이지가 왼쪽 끝을 따라 한 번 밀렸다가 다시 가운데로 와서 두 번 움직였다)
     // 폰은 페이지 목록을 작업창 위에 띄우므로 작업창 크기가 그대로다.
     const delta = compact ? 0 : PAGE_LIST_WIDTH + BODY_GAP
-    if (delta) setStageSize((prev) => prev && { ...prev, width: prev.width + (showPages ? delta : -delta) })
+    if (delta) setStageSize((prev) => prev && { ...prev, width: prev.width + (showPages ? delta : -delta) + (closeLayers ? layerWidth + BODY_GAP - BODY_PADDING : 0) })
   }
   const switchLayers = () => {
     setFocusMode(false)
@@ -1007,7 +1019,7 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
   // 모든 화면 규격의 Android 뒤로가기는 현재 편집 상태를 한 단계씩 닫는다.
   // 모달·도구·선택·보조 패널이 모두 닫혀 있을 때만 보관함으로 이동한다.
   useEffect(() => {
-    if (Platform.OS !== 'android') return undefined
+    if (Platform.OS !== 'android' || backDisabled) return undefined
     const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
       if (colorPicker) return false // The topmost inline picker handles back first.
       if (readOnly) { goHome(); return true }
@@ -1033,7 +1045,7 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
       return true
     })
     return () => subscription.remove()
-  }, [readOnly, bubbleOpen, cropId, exportOpen, exportSnapshot, focusMode, frameTextEdit, importFailure, layersOpen, objectLinkTarget, overviewFilter, pagesOpen, photoCropId, regionOpen, state.selectedIds.length, tapeCropId, templatePickerOpen, textEditing, textLinkTarget, colorPicker])
+  }, [readOnly, bubbleOpen, cropId, exportOpen, exportSnapshot, focusMode, frameTextEdit, importFailure, layersOpen, objectLinkTarget, overviewFilter, pagesOpen, photoCropId, regionOpen, state.selectedIds.length, tapeCropId, templatePickerOpen, textEditing, textLinkTarget, colorPicker, backDisabled])
 
   useEffect(() => {
     if (colorPicker && (readOnly || page.id !== colorPicker.pageId || activeTool !== colorPicker.tool || colorScreen.width !== colorPicker.screen.width)) setColorPicker(null)

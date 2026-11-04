@@ -440,11 +440,22 @@ secret-scan:
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
   script:
+    - git ls-files --error-unmatch frontend/google-services.json
+    - >
+      docker run --rm
+      -v "$CI_PROJECT_DIR:/repo:ro"
+      node@sha256:fe4f6d74e20370acb04ad889077d14d0f64a9c8ea6a42bc60cddf1e844699914
+      node /repo/infra/scripts/verify-firebase-android-config.test.mjs
+    - >
+      docker run --rm
+      -v "$CI_PROJECT_DIR:/repo:ro"
+      node@sha256:fe4f6d74e20370acb04ad889077d14d0f64a9c8ea6a42bc60cddf1e844699914
+      node /repo/infra/scripts/verify-firebase-android-config.mjs /repo/frontend/google-services.json /repo/frontend/app.json
     - >
       docker run --rm
       -v "$CI_PROJECT_DIR:/repo:ro"
       ghcr.io/gitleaks/gitleaks:v8.30.1
-      dir /repo --redact --no-banner
+      dir /repo --config /repo/.gitleaks.toml --redact --no-banner
 
 ai-code-review:
   stage: review

@@ -6,6 +6,7 @@ import { pageSize } from '../../utils/pageGeometry.js'
 import { usePan } from '../../hooks/usePan'
 import { clamp } from '../../utils/common'
 import EditorModal from '../controls/EditorModal'
+import { ConfirmDialogContent } from '../controls/ConfirmDialog'
 import Icon from '../controls/Icon'
 import TapCatcher from '../controls/TapCatcher'
 import PageThumbnail from './PageThumbnail'
@@ -62,6 +63,8 @@ export default function PageList({ phone = false, pages, currentId, cropId, onSe
   pickModeRef.current = pickMode
   useEffect(() => { if (!pickedRef.current.includes(currentId)) setPicked([currentId]) }, [currentId])
   const [menuId, setMenuId] = useState(null)
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const deleteConfirmed = useRef(false)
   const [filter, setFilter] = useState('all') // 'all' | 'bookmarked'
   const shown = filter === 'bookmarked' ? pages.filter((page) => page.indexed) : pages
   const numberOf = (page) => pages.indexOf(page) + 1
@@ -193,7 +196,7 @@ export default function PageList({ phone = false, pages, currentId, cropId, onSe
     if (windowSize.current !== `${window.width}x${window.height}`) setMenuId(null)
     windowSize.current = `${window.width}x${window.height}`
   }, [window.width, window.height])
-  function openMenu(id) { setMenuId((current) => (current === id ? null : id)) }
+  function openMenu(id) { setConfirmDelete(false); setMenuId((current) => (current === id ? null : id)) }
   // 목록이 패널 안에서 시작하는 y(탭 줄 + 편집 줄 아래). 메뉴를 누른 페이지 높이에 맞추는 기준
   const [listTop, setListTop] = useState(0)
   // 메뉴는 그 페이지 높이에 맞춘다. 항목 위치는 앞 항목들 높이를 더해 구한다 (FlatList 항목의 onLayout y 는 늘 0)
@@ -308,7 +311,17 @@ export default function PageList({ phone = false, pages, currentId, cropId, onSe
           top={LIST_PADDING + itemTop(pages, layouts.current, drag.id) - scrollY + drag.dy} />
       </View>}
       {menuPage && origin && (
-        <EditorModal transparent animationType="none" statusBarTranslucent onRequestClose={() => setMenuId(null)}>
+        <EditorModal transparent animationType="none" statusBarTranslucent onRequestClose={() => { setConfirmDelete(false); setMenuId(null) }}>
+          {confirmDelete ? <ConfirmDialogContent title="페이지를 삭제할까요?"
+            message={canUndoDelete ? '페이지의 내용이 함께 삭제돼요. 되돌리기로 복구할 수 있어요.' : '페이지의 내용이 함께 삭제되고 공유 멤버에게도 반영돼요. 여기서 되돌릴 수 없어요.'}
+            onCancel={() => { setConfirmDelete(false); setMenuId(null) }}
+            onConfirm={() => {
+              if (deleteConfirmed.current) return
+              deleteConfirmed.current = true
+              if (pages.length > 1 && pages.some(page => page.id === menuId)) onRemove(menuId)
+              setConfirmDelete(false)
+              setMenuId(null)
+            }} /> : <>
           {/* 메뉴 바깥(캔버스 · 다른 패널 포함)을 누르면 닫는다 */}
           <Pressable accessibilityLabel="페이지 작업 메뉴 닫기" style={StyleSheet.absoluteFill} onPress={() => setMenuId(null)} />
           <View style={[styles.actionMenu, { top: origin.y + menuTop, left: origin.x + RAIL_INSET + thumbWidth - 2 }]}>
@@ -321,11 +334,12 @@ export default function PageList({ phone = false, pages, currentId, cropId, onSe
               <Icon name="copy" size={18} forText={14} color={colors.primary} /><Text style={styles.actionText}>페이지 복제</Text>
             </Pressable>
             {pages.length > 1 && (
-              <Pressable onPress={() => { onRemove(menuId); setMenuId(null) }} style={styles.action} accessibilityRole="button" accessibilityLabel="페이지 삭제">
+              <Pressable onPress={() => { deleteConfirmed.current = false; setConfirmDelete(true) }} style={styles.action} accessibilityRole="button" accessibilityLabel="페이지 삭제">
                 <Icon name="trash" size={18} forText={14} color={colors.danger} /><Text style={styles.deleteText}>페이지 삭제</Text>
               </Pressable>
             )}
           </View>
+          </>}
         </EditorModal>
       )}
       {!readOnly && !pickMode && (

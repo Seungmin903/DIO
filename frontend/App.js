@@ -1,4 +1,5 @@
 import { openCopyIfSafe } from './src/notifications/editorInvitationGuard';
+import { describeSharingInvitations } from './src/notifications/describeSharingInvitations';
 import MemberTrashNotice from './src/diary/components/MemberTrashNotice';
 import MemberLibraryNotice from './src/diary/components/MemberLibraryNotice';
 import { memberLibraryQuery } from './src/diary/services/memberLibraryQuery';
@@ -19,7 +20,7 @@ import { useSharing } from './src/sharing/useSharing';
 import SharingHub from './src/sharing/SharingHub';
 import { createSharingGate } from './src/sharing/sharingGate';
 import { AuthenticatedNotificationProvider, useOptionalSharedNotifications } from './src/notifications/NotificationProvider';
-import AuthenticatedNotificationDialog from './src/notifications/AuthenticatedNotificationDialog';
+import HomeNotificationFlow from './src/notifications/HomeNotificationFlow';
 import { isSessionDocumentKey } from './src/editor/services/sessionDocuments.js';
 import { startPushRuntime } from './src/notifications/pushRuntime';
 import { C, DEFAULT_FILTER, DESK_COLOR } from './src/diary/constants';
@@ -107,7 +108,23 @@ export default function App() {
     // 지난 프로필을 못 읽어도 빈 화면에 갇히지 않게 기본 게스트로 시작한다
     try { await startSession(session); } catch { setPreviewSession(session); }
   };
-  useEffect(() => { if (!apiConfigurationError && !mockSource) startGuest(); }, [apiConfigurationError, mockSource]);
+  useEffect(() => {
+    if (apiConfigurationError || mockSource) return;
+    let active = true;
+    (async () => {
+      let restored = null;
+      try { restored = await authService.restoreSession(); }
+      catch (error) {
+        // Development gateway credentials intentionally do not survive process restarts.
+        // Reuse its existing prompt, then resume refresh without asking for the member password.
+        if (active && __DEV__ && error?.code === 'DEVELOPMENT_ACCESS_REQUIRED') setLoginRequest({ restoreSession: true });
+      }
+      if (!active) return;
+      if (restored) setPreviewSession(restored);
+      else await startGuest();
+    })();
+    return () => { active = false; };
+  }, [apiConfigurationError, mockSource]);
   // 비밀번호 재설정 완료는 서버 세션이 이미 폐기됐을 수 있어, 별도 로그아웃 요청 없이
   // 이 기기의 메모리 세션만 지운다. 세션이 끝나면 로그인 화면이 아니라 게스트로 돌아간다.
   // 늦게 온 콜백(비밀번호 재설정 완료 등)이 그사이 바뀐 세션을 지우지 않게, 지금 세션이 지우려던 세션일 때만 끝낸다
@@ -122,7 +139,9 @@ export default function App() {
   const endSession = async () => {
     try {
       if (authenticatedSession) await authService.logout();
-    } catch (error) { notify('로그아웃', `${error.message} 이 기기의 로그인 정보는 지웠어요.`); }
+    } catch (error) {
+      notify('로그아웃', error.code === 'LOGOUT_INCOMPLETE' ? error.message : `${error.message} 이 기기의 로그인 정보는 지웠어요.`);
+    }
     finally { clearSession(); }
   };
   // 로그인하면 게스트 보관함(LocalDiaryApp)이 회원 보관함(MemberDiaryApp)으로 통째로 바뀐다. 누른 기능(loginRequest.action)은
@@ -152,16 +171,16 @@ export default function App() {
     <SafeAreaProvider style={s.provider}>
       <StatusBar hidden />
       {__DEV__ && process.env.EXPO_PUBLIC_DIARY_SOURCE === 'mock' ? <ConnectedDiaryLibrary /> : (
-        previewSession ? <LoginGateProvider authenticated={!!authenticatedSession} onLogin={setLoginRequest}><SessionDiaryApp key={authenticatedSession ? `authenticated:${authenticatedSession.userId}` : 'preview'} previewUser={previewSession}
+        previewSession ? <LoginGateProvider authenticated={!!authenticatedSession} onLogin={setLoginRequest}><SessionDiaryApp key={authenticatedSession ? `authenticated:${authenticatedSession.userId}` : 'preview'} previewUser={previewSession} loginOverlayOpen={Boolean(loginRequest)}
           onUpdatePreview={updated => setPreviewSession(current => current?.mode === updated.mode &&
             (current?.mode === 'authenticated' ? String(current.userId) === String(updated.userId) : current?.accountId === updated.accountId) ? updated : current)}
           onEndPreview={endSession} onClearSession={clearSession} onReady={finishBoot} /></LoginGateProvider> : null
       )}
-      {loginRequest && <View style={[StyleSheet.absoluteFill, { zIndex: 10 }]}><AuthScreen onContinue={continueFromLogin} onClose={() => setLoginRequest(null)} /></View>}
+      {loginRequest && <View style={[StyleSheet.absoluteFill, { zIndex: 10 }]}><AuthScreen resumeSession={loginRequest.restoreSession === true} onContinue={continueFromLogin} onClose={() => setLoginRequest(null)} /></View>}
       <HandwritingStudio />
       {/* 프로필 사진 자르기(동그라미 틀). 로그인 화면 · 프로필 수정 모두 쓰므로 앱 맨 위에 하나 둔다 */}
       <ProfileCropHost />
-      {booting && <BootSplash />}
+      {(booting || (!previewSession && !mockSource)) && <BootSplash />}
     </SafeAreaProvider>
   );
 }
@@ -177,13 +196,14 @@ function MemberDiaryApp(props) {
 function DiaryApp(props) {
   const sharing = useSharing(props.previewUser);
   const createInvitations = useCallback(() => sharing.runtime.invitationGateway, [sharing.runtime]);
+  const describeInvitations = useCallback((ids, options) => describeSharingInvitations(sharing.runtime.notificationApi, ids, options), [sharing.runtime]);
   const content = <DiaryAppContent {...props} sharing={sharing} />;
   return props.previewUser.mode === 'authenticated'
-    ? <AuthenticatedNotificationProvider auth={authService} userId={props.previewUser.userId} createInvitations={createInvitations}>{content}</AuthenticatedNotificationProvider>
+    ? <AuthenticatedNotificationProvider auth={authService} userId={props.previewUser.userId} createInvitations={createInvitations} describeInvitations={describeInvitations}>{content}</AuthenticatedNotificationProvider>
     : content;
 }
 
-function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePreview, onReady, diaryState, sharing }) {
+function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePreview, onReady, diaryState, sharing, loginOverlayOpen = false }) {
   const member = diaryState.source === 'member-api';
   const invitationLeaveGuard = useRef(null);
   const registerInvitationLeaveGuard = useCallback(guard => { invitationLeaveGuard.current = guard; return () => { if (invitationLeaveGuard.current === guard) invitationLeaveGuard.current = null; }; }, []);
@@ -411,7 +431,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
   // 모든 화면 규격의 Android 시스템 뒤로가기: 시트 → 보조 화면 → 기본 보관함 순서로 한 단계씩 돌아간다.
   // 편집기는 열린 도구·패널을 먼저 닫아야 하므로 EditorScreen에서 별도로 처리한다.
   useEffect(() => {
-    if (Platform.OS !== 'android' || page === 'editor') return undefined;
+    if (Platform.OS !== 'android' || page === 'editor' || loginOverlayOpen) return undefined;
     const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
       if (studioBackHandler.current?.()) return true;
       if (profileBackHandler.current) {
@@ -439,7 +459,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
       return false;
     });
     return () => subscription.remove();
-  }, [createOpen, filter, isPhone, navigate, page, railCollapsed, selection]);
+  }, [createOpen, filter, isPhone, navigate, page, railCollapsed, selection, loginOverlayOpen]);
 
   const create = useCallback(() => {
     if (savingRef.current) return;
@@ -823,6 +843,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
     content = (
       <EditorScreen
         key={active?.id || 'new'}
+        backDisabled={loginOverlayOpen}
         diary={active}
         compact={isPhone}
         landscape={isLandscape}
@@ -971,8 +992,10 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
 
   return (
     <>
-      {authenticatedNotifications && sharingRequest?.mode === 'notifications'
-        ? <AuthenticatedNotificationDialog model={authenticatedNotifications} onClose={() => { setSharingRequest(null); if(member)diaryState.store.reload().catch(error=>notify('공유 목록을 확인하지 못했어요',error.message)); }} onInvitationReady={value => setSharingRequest({ mode: 'invitation', inviteId: value.inviteId })} />
+      {authenticatedNotifications && (sharingRequest?.mode === 'notifications' || sharingRequest?.returnToNotifications)
+        ? <HomeNotificationFlow request={sharingRequest} model={authenticatedNotifications} sharing={sharing} onRequest={setSharingRequest}
+            onClose={() => { setSharingRequest(null); if(member)diaryState.store.reload().catch(error=>notify('공유 목록을 확인하지 못했어요',error.message)); }}
+            onOpenDiary={openSharedDiary} onOpenCopy={diary => openCopyIfSafe(diary, invitationLeaveGuard.current, () => { setSharingRequest(null); if(member)diaryState.store.reload().catch(error=>notify('공유 목록을 확인하지 못했어요',error.message)); }, enterEditor)} />
         : <SharingHub onOpenCopy={diary => openCopyIfSafe(diary, invitationLeaveGuard.current, () => { setSharingRequest(null); if(member)diaryState.store.reload().catch(error=>notify('공유 목록을 확인하지 못했어요',error.message)); }, enterEditor)} onOpenDiary={openSharedDiary} request={sharingRequest} runtime={sharing.runtime} model={sharing.notifications} onClose={() => { setSharingRequest(null); if(member)diaryState.store.reload().catch(error=>notify('공유 목록을 확인하지 못했어요',error.message)); }} />}
       {/* 폰 세로 화면은 노치·다이내믹 아일랜드 아래부터 그린다. 안전 영역은 바로 옆(아래) 화면과 같은 색으로 칠해 경계가 보이지 않게 한다. */}
       <View style={s.safe}>

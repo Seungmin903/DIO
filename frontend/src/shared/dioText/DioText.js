@@ -1,6 +1,6 @@
 import { forwardRef, useContext } from 'react';
 import { StyleSheet, Text as NativeText, TextInput as NativeTextInput } from 'react-native';
-import { FontScope } from '../fontScope';
+import { FontScope, PageFontScaleScope } from '../fontScope';
 
 // 앱 UI 글꼴(Pretendard). metro.config.cjs 가 src · App.js 의 react-native Text · TextInput 을 이 파일의 것으로 바꿔 끼운다
 // (src/shared/dioText/dioReactNative.js). 글꼴을 직접 정한 글자와 KeepFont 구역(속지 · 특수 속지 · 캔버스 요소)은 건드리지 않는다.
@@ -40,18 +40,24 @@ export function dioFontStyle(style) {
 // 'dio' 면 굵기를 따로 준 안쪽 글자만 그 굵기 파일로 바꾼다(굵기가 없으면 바깥 것을 그대로 이어받는다).
 export const Text = forwardRef(function DioText({ dioFont = true, style, children, ...props }, ref) {
   const outer = useContext(FontScope);
+  const pageText = useContext(PageFontScaleScope);
   const flat = StyleSheet.flatten(style) || {};
   const raw = !dioFont || outer === 'raw' || Boolean(flat.fontFamily);
   const font = !raw && !(outer === 'dio' && flat.fontWeight == null) ? dioFontStyle(flat) : null;
   return (
     <FontScope.Provider value={raw ? 'raw' : 'dio'}>
-      <NativeText ref={ref} style={font ? [style, font] : style} {...props}>{children}</NativeText>
+      <NativeText ref={ref} style={font ? [style, font] : style}
+        {...(pageText ? { allowFontScaling: false } : dioFont && outer == null ? { maxFontSizeMultiplier: 1.3 } : {})}
+        {...props}>{children}</NativeText>
     </FontScope.Provider>
   );
 });
 
 export const TextInput = forwardRef(function DioTextInput({ dioFont = true, style, ...props }, ref) {
   const outer = useContext(FontScope);
+  const pageText = useContext(PageFontScaleScope);
   const font = dioFont && outer !== 'raw' ? dioFontStyle(style) : null;
-  return <NativeTextInput ref={ref} style={font ? [style, font] : style} {...props} />;
+  return <NativeTextInput ref={ref} style={font ? [style, font] : style}
+    {...(pageText ? { allowFontScaling: false } : dioFont && outer == null ? { maxFontSizeMultiplier: 1.3 } : {})}
+    {...props} />;
 });

@@ -1,7 +1,7 @@
 import { BlendMode, FilterMode, MipmapMode, PaintStyle, Skia, StrokeCap, StrokeJoin, TileMode, VertexMode } from '@shopify/react-native-skia'
 import { createStrokePreview, partPath } from '../utils/strokePreview.js'
 import { ballPreviewPaths, ballSweepPath, ballVaries, isNibKind, nibContour, nibPreviewPaths } from '../utils/nibStroke.js'
-import { PENCIL_BRUSH, PENCIL_STRAND_SKSL, strandUniforms, brushPartSamples, depositFloor, depositGain, brushSampledPoints, brushSeed, ribbonStretch, copyDabs, previewSegmentFor, shaderCap, shaderDabAlpha, shaderUniforms, PENCIL_SHADER_SKSL, brushTipPower, partRange, partTotal, paperMatrices, paperUniforms, pencilDabs, PENCIL_PAPER_SKSL } from '../utils/pencilBrush.js'
+import { PENCIL_BRUSH, pencilAccumulates, PENCIL_STRAND_SKSL, strandUniforms, brushPartSamples, depositFloor, depositGain, brushSampledPoints, brushSeed, ribbonStretch, copyDabs, previewSegmentFor, shaderCap, shaderDabAlpha, shaderUniforms, PENCIL_SHADER_SKSL, brushTipPower, partRange, partTotal, paperMatrices, paperUniforms, pencilDabs, PENCIL_PAPER_SKSL } from '../utils/pencilBrush.js'
 import { HIGHLIGHTER_OPACITY } from '../utils/penSettings.js'
 import { PENCIL_CAP, PENCIL_CAP_DIAMETER, PENCIL_COPY, PENCIL_DOME, PENCIL_DOME_DIAMETER, PENCIL_DOME_FIBER, PENCIL_DOMES, PENCIL_GRAIN_PNG, PENCIL_SMALL, PENCIL_STRAND_PNG, PENCIL_SWEEP, PENCIL_TOOTH_PNG, PENCIL_TIP_DIAMETER, PENCIL_TIPS, PENCIL_TIPS_K2 } from './pencilGrain.js'
 
@@ -201,9 +201,9 @@ function drawDepositDabs(canvas, dabs, width = 6) {
     const fc = tier.k * (PENCIL_BRUSH.deposit.fComp ? Math.min(PENCIL_BRUSH.deposit.fMax, width / (2 * one.r)) : 1)
     colors.push(Float32Array.of(Math.min(1, flow * fc * gain * one.a), 0, Math.min(1, flow * fc * (vf + (1 - vf) * (one.v ?? 0.8)) * one.a), 1))
   }
-  const plus = Skia.Paint()
-  plus.setBlendMode(BlendMode.Plus)
-  canvas.drawAtlas(stamp, srcs, dsts, plus, BlendMode.Modulate, colors, TIP_SAMPLING)
+  const screen = Skia.Paint()
+  screen.setBlendMode(BlendMode.Screen)
+  canvas.drawAtlas(stamp, srcs, dsts, screen, BlendMode.Modulate, colors, TIP_SAMPLING)
 }
 function drawDabs(canvas, dabs, zoom = 1, width = 6) {
   if (!dabs.length) return
@@ -542,7 +542,7 @@ export function drawPreview(canvas, { parts, settings }, zoom = 1) {
   const first = parts[0]?.points[0]
   const style = { kind, width: settings.width, color: settings.color, lineCap: settings.lineCap,
     dotWidth: settings.width * (first?.pressure ?? 1), origin: kind === 'pencil' && PENCIL_BRUSH.strand?.on ? { x: 0, y: 0, seed: brushSeed(first) } : { x: first?.x ?? 0, y: first?.y ?? 0 }, zoom, opacity: settings.opacity ?? 1 }
-  withAlpha(canvas, kind === 'highlighter' ? HIGHLIGHTER_OPACITY : settings.opacity ?? 1, () => drawParts(canvas, parts, style))
+  withAlpha(canvas, kind === 'highlighter' ? HIGHLIGHTER_OPACITY : kind === 'pencil' && pencilAccumulates() ? 1 : settings.opacity ?? 1, () => drawParts(canvas, parts, style))
 }
 
 // 손을 뗀 획(요소 좌표): 쓰는 중과 같은 구간으로 나눠 같은 함수로 그린다. 지우개 조각(sampled)은 이미 곡선 표본이라 통째로.
@@ -604,7 +604,8 @@ function drawStroke(canvas, object, fade = 1, zoom = 1) {
   const sx = object.baseWidth ? w / object.baseWidth : 1, sy = object.baseHeight ? h / object.baseHeight : 1
   if (sx !== 1 || sy !== 1) canvas.scale(sx, sy)
   const kind = skiaKind(object.penKind)
-  withAlpha(canvas, (object.opacity ?? 1) * fade * (kind === 'highlighter' ? HIGHLIGHTER_OPACITY : 1), () => canvas.drawPicture(contentPicture(object, zoom)))
+  // 연필은 불투명도를 색 행렬이 맡는다(한 획 안에서 겹치면 쌓인다)
+  withAlpha(canvas, (kind === 'pencil' && pencilAccumulates() ? 1 : object.opacity ?? 1) * fade * (kind === 'highlighter' ? HIGHLIGHTER_OPACITY : 1), () => canvas.drawPicture(contentPicture(object, zoom)))
   canvas.restore()
 }
 

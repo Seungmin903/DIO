@@ -2,8 +2,8 @@ import { useContext, useEffect, useRef, useState } from 'react'
 import { PixelRatio, View } from 'react-native'
 import { SkiaPencilScale } from '../skia/skiaPencilScale.js'
 import { useSkiaRuntime } from '../skia/skiaRuntime'
-import { drawPencilRaster, pencilRasterKey } from '../skia/pencilRaster.js'
-import { quantizeScale, spend, withinBudget } from '../skia/rasterBudget.js'
+import { drawPencilRaster, pencilRasterKey, rememberRaster, reusableRaster } from '../skia/pencilRaster.js'
+import { quantizeScale, REBAKE_DELAY_MS, spend, withinBudget } from '../skia/rasterBudget.js'
 
 // 웹: 연필 획을 앱과 같은 Skia(CanvasKit)로 그려 2D 캔버스에 올린다. CanvasKit 를 불러오는 동안(또는 실패하면)은 SVG 그림(fallback)을 그대로 둔다.
 // 그림은 그리는 중(render)에 동기로 만들어 같은 화면 갱신에 SVG 없이 바로 캔버스가 뜬다(SVG 를 한 번 그렸다 바꾸지 않아 깜박임 · 중복 작업이 없다).
@@ -42,19 +42,20 @@ export default function PencilSkiaStroke({ object, zoom, transform, fallback, on
   let raster = null   // null: 아직(SVG) · false: 그릴 수 없음(SVG 가 최종)
   if (runtime) {
     raster = peek(object, scale)
-    if (raster === null && (forced.current || withinBudget())) { forced.current = false; raster = make(runtime, object, scale) }
+    // 이전 그림을 대신 보여 줄 수 있으면 바로 굽지 않는다: 아래 타이머가 값이 멈춘 뒤 한 번만 굽는다
+    if (raster === null && (forced.current || (!reusableRaster(last.current, object) && withinBudget()))) { forced.current = false; raster = make(runtime, object, scale) }
   }
-  if (raster) last.current = raster
+  if (raster) last.current = rememberRaster(object, raster)
   useEffect(() => {
     if (!runtime || raster !== null) return undefined
-    const timer = setTimeout(() => { forced.current = true; again(n => n + 1) }, 0)
+    const timer = setTimeout(() => { forced.current = true; again(n => n + 1) }, reusableRaster(last.current, object) ? REBAKE_DELAY_MS : 0)
     return () => clearTimeout(timer)
   })
   // 내보내기: 최종 그림(캔버스, 또는 CanvasKit 실패로 SVG)이 정해지면 한 번 알린다(알림 함수는 매번 새로 만들어져 오므로 ref)
   const notify = useRef(onAssetLoad)
   notify.current = onAssetLoad
   useEffect(() => { if (raster !== null || status === 'failed') notify.current?.() }, [raster, status])
-  const shown = raster || last.current
+  const shown = raster || reusableRaster(last.current, object)
   const draw = node => { if (node && shown) node.getContext('2d').drawImage(shown.source, 0, 0) }
   if (!shown) return fallback
   return <View pointerEvents="none" dataSet={{ skiaPencil: 'true' }} style={{ width: object.w * zoom, height: object.h * zoom, transform }}>

@@ -56,7 +56,7 @@ export function toServerNotification(item) {
   const invitation = isInvitationNotification(row);
   if (invitation && invite != null && (!id(invite.inviteId) || !id(invite.status) || typeof invite.canOpen !== 'boolean')) throw invalid();
   return { id: row.notificationId, notificationType: row.notificationType, diaryId: row.diaryId,
-    actorUserId: row.actorUserId, title: '다이어리 알림', actor: '다른 사용자',
+    actorUserId: row.actorUserId, title: '다이어리 알림', actor: null,
     inviteId: invitation ? invite?.inviteId ?? null : null, status: invitation ? invite?.status ?? 'UNAVAILABLE' : null,
     actionable: invitation && invite?.canOpen === true && invite.status === 'PENDING', readAt: row.readAt ?? null, createdAt: row.createdAt };
 }

@@ -2,7 +2,7 @@ import { memo, useContext, useLayoutEffect } from 'react'
 import { Platform, StyleSheet, View } from 'react-native'
 import { pageSize } from '../../utils/pageGeometry.js'
 import PageBackground from '../PageBackground'
-import { objectOpacity, TextMeasure, TextMeasureReady } from './ObjectView'
+import { objectDrawOpacity, TextMeasure, TextMeasureReady } from './ObjectView'
 import PageObject from './PageObject'
 import CompletedStrokeLayer from './CompletedStrokeLayer'
 import WebStrokeCache from './WebStrokeCache'
@@ -44,7 +44,7 @@ const StaticPage = memo(function StaticPage({ qaPageMeasurement = null, page, zo
     object.type === 'stroke' && (fadeIds?.includes(object.id) || stillIds?.includes(object.id)))
   const cacheAllowed = !cropId && !transformsInk
   const renderObject = object => <PageObject key={object.id} object={object} zoom={zoom} areaPreview={areaErasing && Boolean(areaPreviewObjects?.has(object))}
-    opacity={objectOpacity(object) * (cropId && object.id !== cropId ? 0.45 : 1) * (fadeIds?.includes(object.id) ? DRAG_OPACITY : 1)}
+    opacity={objectDrawOpacity(object) * (cropId && object.id !== cropId ? 0.45 : 1) * (fadeIds?.includes(object.id) ? DRAG_OPACITY : 1)}
     still={still || motion.moving || Boolean(fadeIds?.includes(object.id) || stillIds?.includes(object.id)) || offscreen(object, motion.visible)}
     crop={object.id === cropId} />
   return (

@@ -4,7 +4,7 @@ import { createCompletedStrokePlanner } from '../../utils/completedStrokePlan.js
 import { rasterizeStrokeBatch } from '../../utils/webStrokeRaster.js'
 import { createStrokeRasterQueue } from '../../utils/strokeRasterQueue.js'
 import { reusableStrokeRaster } from '../../utils/reusableStrokeRaster.js'
-import { objectOpacity, TextMeasure } from './ObjectView'
+import { objectDrawOpacity, TextMeasure } from './ObjectView'
 import PageObject from './PageObject'
 import { WebStrokeCachePreparation } from './WebStrokeCacheContext'
 import { rememberStrokeThumbnail } from '../../utils/strokeThumbnailRaster.web.js'
@@ -87,7 +87,7 @@ const Batch = memo(function Batch({ batch, zoom, rasterize, queue, areaPreviewOb
     {!displayed && <View ref={source} pointerEvents="none" style={{ width: '100%', height: '100%' }}>
       <TextMeasure.Provider value={null}>
         {batch.objects.map(object => <PageObject key={object.id} object={object} zoom={zoom} areaPreview={erasingBatch || (Boolean(deferredAreaObjects?.has(object)) && rasterize && !(failed?.batch === batch && failed.zoom === zoom))}
-          originX={batch.left} originY={batch.top} opacity={objectOpacity(object)} still />)}
+          originX={batch.left} originY={batch.top} opacity={objectDrawOpacity(object)} still />)}
       </TextMeasure.Provider>
     </View>}
   </View>

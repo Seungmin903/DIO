@@ -17,6 +17,7 @@ import { coverLayout, hasPhotoMedia, photoInnerBox, tapePieceRatio, tapeUnitH } 
 import { shapePath } from '../../utils/shapes'
 import { useSvgId } from '../../utils/svgId'
 import TapeView from './TapeView'
+import { pencilBakesOpacity } from '../../skia/pencilRaster.js'
 import FrameBackdrop, { emptySlotColor, isDarkColor, isTicketFrame, StripBackdrop, STRIP_DEFAULT_COLOR, stampPath } from './PhotoFrame'
 import { isStripFrame, stripCellBoxes } from '../../utils/photoStrip'
 import PhotoPathShadow from './PhotoPathShadow'
@@ -173,6 +174,8 @@ export const outlineOn = (object) => outlineOf(object).on
 export const shadowOn = (object) => shadowOf(object).on
 // 테이프는 기본 80% (살짝 비치는 마스킹테이프). 100% 면 완전히 불투명하다.
 export const objectOpacity = (object) => object.opacity ?? (object.type === 'tape' ? TAPE_DEFAULT_OPACITY : 1)
+// 요소 래퍼에 곱할 값: 연필은 그림 안에 불투명도를 구우므로 1
+export const objectDrawOpacity = (object) => pencilBakesOpacity(object) ? 1 : objectOpacity(object)
 // 특수 외곽(하트·별·우표)은 SVG 경로로, 나머지는 기존 View 그림자로 그린다.
 export const photoSupportsShadow = (photo) =>
   ['polaroid', 'film', 'frame', 'stamp', 'fourcut', 'filmstrip'].includes(photo.frame) || isTicketFrame(photo.frame) || (photo.frame === 'shape' && ['rect', 'round', 'circle', 'heart', 'star'].includes(photo.shape))

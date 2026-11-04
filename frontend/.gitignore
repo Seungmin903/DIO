@@ -45,3 +45,6 @@ expo-env.d.ts
 /third-party/cache/
 # Runtime notices, corresponding sources and the replaceable LGPL decoder are
 # distributed with the feature so a fresh clone has the same legal/runtime assets.
+
+/modules/dio-stylus/android/build/
+/modules/dio-stylus/android/.gradle/

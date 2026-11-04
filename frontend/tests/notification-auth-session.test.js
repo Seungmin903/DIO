@@ -40,7 +40,7 @@ test('AuthenticatedNotificationProvider는 createInvitations를 세션 gateway�
     babelrc: false, configFile: false,
     plugins: [[expoRequire.resolve('@babel/plugin-transform-react-jsx'), { runtime: 'automatic' }], expoRequire.resolve('@babel/plugin-transform-modules-commonjs')],
   });
-  let memoValue, providerProps;
+  let memoValue, providerProps, receivedDescribe;
   const react = { createContext: value => ({ value }), useContext: context => context.value,
     useMemo: factory => { memoValue = factory(); return memoValue; },
     createElement: (type, props, children) => { providerProps = { type, props: { ...props, children } }; return providerProps; } };
@@ -49,12 +49,14 @@ test('AuthenticatedNotificationProvider는 createInvitations를 세션 gateway�
     if (name === 'react') return react;
     if (name.endsWith('/useNotifications.js')) return { useNotifications: () => ({}) };
     if (name.endsWith('/useServerNotifications.js')) return { useServerNotifications: () => ({}) };
-    if (name.endsWith('/authenticatedNotifications.js')) return { createAuthenticatedNotificationSession: ({ createInvitations }) => ({ api: {}, invitations: createInvitations({}) }) };
+    if (name.endsWith('/authenticatedNotifications.js')) return { createAuthenticatedNotificationSession: ({ createInvitations, describeInvitations }) => { receivedDescribe = describeInvitations; return { api: {}, invitations: createInvitations({}) }; } };
     return require(name);
   }, module, module.exports);
   const factory = () => ({ get: async () => ({}) });
   const auth = { getSessionKey: () => 'session-1', getConnectionOptions: () => ({}), getAccessToken: async () => 'token' };
-  module.exports.AuthenticatedNotificationProvider({ auth, userId: 'user-1', createInvitations: factory, children: 'child' });
+  const describeInvitations = async () => new Map();
+  module.exports.AuthenticatedNotificationProvider({ auth, userId: 'user-1', createInvitations: factory, describeInvitations, children: 'child' });
+  assert.equal(receivedDescribe, describeInvitations);
   assert.equal(providerProps.props.invitations.get instanceof Function, true);
   assert.equal(memoValue.invitations.get instanceof Function, true);
 });
@@ -277,4 +279,15 @@ test('회원 초대 알림은 받은 초대 목록에서 다이어리 제목 · 
   assert.equal(page.items[1].title,'다이어리 알림');
   const failing=createAuthenticatedNotificationSession({auth:f.auth,userId:'1',fetchImpl,describeInvitations:async()=>{throw new Error('down');}});
   assert.equal((await failing.api.list()).items[0].title,'다이어리 알림');
+});
+
+test('공유 목록 보충 함수와 실제 세션이 제목·발신자를 적용하고 알림ID·읽음·상태를 유지한다', async () => {
+  const { describeSharingInvitations } = await import('../src/notifications/describeSharingInvitations.js');
+  const f = fixture(); await login(f.auth);
+  const response = { items: [{ notification: { notificationId: 'notice-7', notificationType: 'DIARY_INVITE', createdAt: '2026-11-01T00:00:00Z', readAt: null }, invitation: { inviteId: '7', status: 'PENDING', canOpen: true } }], hasNext: false };
+  const shared = { list: async () => ({ items: [{ id: 'different', inviteId: '7', title: '같은 기록', actor: '하루', diary: { title: '같은 기록' }, readAt: 'old', status: 'ACCEPTED' }], nextCursor: null }) };
+  const session = createAuthenticatedNotificationSession({ auth: f.auth, userId: '1', fetchImpl: async () => reply(response), describeInvitations: (ids, options) => describeSharingInvitations(shared, ids, options) });
+  const page = await session.api.list();
+  assert.equal(page.items[0].title, '같은 기록'); assert.equal(page.items[0].actor, '하루');
+  assert.equal(page.items[0].id, 'notice-7'); assert.equal(page.items[0].readAt, null); assert.equal(page.items[0].status, 'PENDING');
 });

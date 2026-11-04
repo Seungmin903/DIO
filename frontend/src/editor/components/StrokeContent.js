@@ -3,7 +3,7 @@ import Svg, { Path } from 'react-native-svg'
 import { strokeOutline, strokePath } from '../utils/strokes'
 import PencilStrokeContent from './PencilStrokeContent'
 import PencilSkiaStroke from './PencilSkiaStroke'
-import { isSkiaPencil } from '../skia/pencilRaster.js'
+import { isSkiaPencil, pencilBakesOpacity } from '../skia/pencilRaster.js'
 import InkStrokeContent from './InkStrokeContent'
 import FeltStrokeContent from './FeltStrokeContent'
 import NibStrokeContent from './NibStrokeContent'
@@ -26,7 +26,7 @@ export default function StrokeContent({ object, zoom, transform, areaPreview = f
   const pencil = kind === 'pencil'
   const highlighter = kind === 'highlighter'
   const dotWidth = width * (points[0]?.pressure ?? 1)
-  const svg = <Svg width={object.w * zoom} height={object.h * zoom} viewBox={`0 0 ${object.baseWidth} ${object.baseHeight}`} preserveAspectRatio="none" style={{ transform }}>
+  const svg = <Svg width={object.w * zoom} height={object.h * zoom} viewBox={`0 0 ${object.baseWidth} ${object.baseHeight}`} preserveAspectRatio="none" style={{ opacity: pencilBakesOpacity(object) ? object.opacity ?? 1 : undefined, transform }}>
     {isNibKind(kind) ? <NibStrokeContent object={object} color={color} />
       : modern && kind === 'felt' ? <FeltStrokeContent object={object} points={points} width={width} color={color} renderVersion={object.renderVersion} materialSeed={object.materialSeed} />
       : modern && variable ? <InkStrokeContent object={kind === 'ball' ? undefined : object} areaPreview={areaPreview} points={points} width={width} kind={kind} color={color} startDistance={object.inkStartDistance ?? 0} renderVersion={object.renderVersion} />
@@ -38,6 +38,6 @@ export default function StrokeContent({ object, zoom, transform, areaPreview = f
       strokeOpacity={!modern && pencil ? 0.65 : 1} strokeDasharray={!modern && pencil ? [1.5, 0.5] : undefined}
       strokeLinecap="round" strokeLinejoin="round" />}
   </Svg>
-  // 연필은 앱과 같은 Skia 그림으로(웹 · 썸네일 · 내보내기). 준비 전 · 실패는 위 SVG 그대로
+  // 연필은 앱과 같은 Skia 그림으로(웹 · 썸네일 · 내보내기). 준비 전 · 실패는 위 SVG 그대로(래퍼가 불투명도를 안 곱하므로 SVG 가 스스로)
   return isSkiaPencil(object) ? <PencilSkiaStroke object={object} zoom={zoom} transform={transform} fallback={svg} onAssetLoad={onAssetLoad} /> : svg
 }
