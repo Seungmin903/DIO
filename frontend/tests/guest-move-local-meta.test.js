@@ -4,6 +4,8 @@ import { createMemberAppStore } from '../src/diary/services/memberAppStore.js'
 import { memberKeys } from '../src/diary/services/memberStorage.js'
 import { sortMovedByCreated } from '../src/diary/utils/libraryQuery.js'
 import { purgeTrashedDiary } from '../src/diary/utils/trashRetention.js'
+import { loadServerPageSnapshot } from '../src/collaboration/serverPages.js'
+import { collectMediaIds } from '../src/editor/utils/mediaReferences.js'
 
 const accountId = '7', keys = memberKeys(accountId)
 const memory = (initial = {}) => {
@@ -127,4 +129,28 @@ test('회원 쪽 표지 · 문서가 쓰는 사진 파일은 게스트 다이어
   const removed = []
   assert.equal(await purgeTrashedDiary(purgeArgs(storage, removed)), true)
   assert.deepEqual(removed, ['photo-only'])
+})
+
+test('서버 페이지 목록의 크기가 속지 기본 크기보다 우선한다', async () => {
+  const diaryId = '00000000-0000-4000-8000-000000000001', pageId = '00000000-0000-4000-8000-000000000002'
+  const page = { pageId, diaryId, title: null, canvasWidth: 745, canvasHeight: 1024, templateId: 1, gridVisible: false, templateConfig: { blank: true }, templateCode: 'dio-blank-portrait', templateVersion: '1.0.0' }
+  const transport = async ({ path }) => path.endsWith('/pages') ? { items: [page] } : { page, elements: [] }
+  const { settings } = await loadServerPageSnapshot(transport, diaryId, { knownIds: [pageId] })
+  assert.equal(settings[0].canvasWidth, 745)
+  assert.equal(settings[0].canvasHeight, 1024)
+})
+
+test('요소에 붙은 원본 PDF는 이미지 참조로 세지 않는다', () => {
+  const doc = { pages: [{ objects: [{ mediaFileId: 'page-image', pdfSource: { sourceId: 's', mediaFileId: 'pdf-file' } }] }] }
+  assert.deepEqual(collectMediaIds(doc), ['page-image'])
+})
+
+test('미디어 참조를 모을 때 필기 점은 훑지 않고 다른 요소는 그대로 찾는다', () => {
+  const point = { get mediaFileId() { throw new Error('필기 점을 읽으면 안 된다') } }
+  const doc = { pages: [{ objects: [
+    { type: 'stroke', mediaFileId: 'stroke-brush', points: [point] },
+    { type: 'sticker', mediaFileId: 'sticker-image' },
+    { type: 'shape', points: [{ mediaFileId: 'shape-point' }] },
+  ] }] }
+  assert.deepEqual(collectMediaIds(doc).sort(), ['shape-point', 'sticker-image', 'stroke-brush'])
 })

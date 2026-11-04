@@ -34,7 +34,8 @@ function pageListSettings(p){
  if(code&&version){try{reference=localTemplateReference(code,version)}catch{return settings}}
  else if(p.templateId==null||p.templateConfig?.blank===true)reference={backgroundAssetId:null}
  else return settings
- return {...settings,...reference,serverTemplateId:p.templateId??null,serverTemplateConfig:p.templateConfig??{},
+ // 속지의 기본 크기가 서버에 저장된 페이지 크기(PDF 쪽 크기 등)를 덮지 않게 한다.
+ return {...reference,...settings,serverTemplateId:p.templateId??null,serverTemplateConfig:p.templateConfig??{},
   ...(p.templateConfig?.paperAppearance?{paperAppearance:p.templateConfig.paperAppearance}:{})}
 }
 function readPageSettings(response,diaryId,pageId){

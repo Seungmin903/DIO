@@ -20,7 +20,10 @@ export function collectMediaIds(value) {
     const id = mediaId(item)
     if (id) ids.add(id)
     if (typeof item === 'object') {
-      Object.values(item).forEach((child) => {
+      // 요소에 붙은 원본 PDF(pdfSource)는 이미지 보관소에 없는 파일이다. 이미지로 찾으면 '원본을 찾을 수 없다'고 나온다.
+      // 필기 점에는 미디어 참조가 없다. 큰 문서에서 점까지 훑으면 획을 그을 때마다 앱이 멈춘다.
+      Object.entries(item).forEach(([key, child]) => {
+        if (key === 'pdfSource' || (key === 'points' && item.type === 'stroke')) return
         if (child && typeof child === 'object') visit(child)
       })
     }
