@@ -249,7 +249,7 @@ function DiaryApp(props) {
   const createInvitations = useCallback(() => sharing.runtime.invitationGateway, [sharing.runtime]);
   const describeInvitations = useCallback((ids, options) => describeSharingInvitations(sharing.runtime.notificationApi, ids, options), [sharing.runtime]);
   const safetySession = props.previewUser?.mode === 'authenticated' ? authService.getSessionKey() : 'guest';
-  const content = <SafetyProvider key={`${props.previewUser?.userId || 'guest'}:${safetySession}`} user={props.previewUser}>
+  const content = <SafetyProvider key={`${props.previewUser?.userId || 'guest'}:${safetySession}`} user={props.previewUser} sharingRuntime={sharing.runtime}>
     <DiaryAppContent {...props} sharing={sharing} />
   </SafetyProvider>;
   return props.previewUser.mode === 'authenticated'

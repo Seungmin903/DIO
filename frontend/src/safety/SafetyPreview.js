@@ -53,7 +53,7 @@ function PreviewContent({ adapter, onSwitch, onOffline }) {
         <Text style={s.title}>신고·차단 화면 미리보기</Text>
         <Text style={s.muted}>샘플 계정과 사진만 사용해요. 실제 신고·차단·초대나 다이어리 변경은 발생하지 않아요.</Text>
         {!!setupError && <Text style={s.error}>{setupError}</Text>}
-        <View style={s.card}><Text style={s.heading}>우리의 계절</Text><Text style={s.muted}>현재 3명 · 이전 참여자 2명</Text>
+        <View style={s.card}><Text style={s.heading}>우리의 계절</Text><Text style={s.muted}>현재 참여자 3명 · 샘플 데이터</Text>
           <SafetyButton disabled={!diary} onPress={() => setRequest({ diary })}>공유 화면 열기</SafetyButton>
           <SafetyButton secondary disabled={!diary} onPress={() => safety.openParticipants(diary)}>참여자 화면 열기</SafetyButton>
           <SafetyButton secondary disabled={!diary} onPress={async () => { setOpened(false); if (await safety.canOpenDiary(diary)) setOpened(true); }}>공유 다이어리 열기</SafetyButton>

@@ -91,6 +91,7 @@ export default function SharingHub({
   const [screen, setScreen] = useState(request?.inviteId ? 'detail' : 'invitations');
   const [diary, setDiary] = useState(null);
   const [invite, setInvite] = useState(null);
+  const [blockedAcknowledged, setBlockedAcknowledged] = useState(false);
   const [nickname, setNickname] = useState('');
   const [draftPhoto, setDraftPhoto] = useState(null);
   const [photoMenu, setPhotoMenu] = useState(null);
@@ -185,6 +186,7 @@ export default function SharingHub({
     setPhotoMenu(null);
     setDraftPhoto(null);
     setInvite(null);
+    setBlockedAcknowledged(false);
     setLinkInput('');
     setInviteEmail('');
     setCapacityInfo(false);
@@ -253,8 +255,13 @@ export default function SharingHub({
       const result = await action();
       if (alive.current && id === job.current) done(result);
     } catch (error) {
-      if (alive.current && id === job.current)
+      if (alive.current && id === job.current) {
         setError(error.message || '처리하지 못했어요. 다시 시도해 주세요.');
+        if (error.code === 'BLOCKED_MEMBER_CONFIRMATION_REQUIRED' && screen === 'nickname') {
+          setBlockedAcknowledged(false);
+          setQuestion({ kind: 'blocked-members', stage: 'retry' });
+        }
+      }
     } finally {
       if (alive.current && id === job.current) {
         running.current = false;
@@ -317,7 +324,9 @@ export default function SharingHub({
     setInvite(value);
     setNickname(runtime.self.nickname);
     setDraftPhoto(runtime.self.photoUri || null);
+    setBlockedAcknowledged(false);
     setScreen('nickname');
+    if (value.requiresBlockedMemberConfirmation === true) setQuestion({ kind: 'blocked-members', stage: 'prepare' });
   };
   const prepareProfile = () => {
     const current = diary.members.find((member) => member.id === runtime.self.id);
@@ -363,6 +372,11 @@ export default function SharingHub({
   const confirmQuestion = () => {
     const current = question;
     setQuestion(null);
+    if (current.kind === 'blocked-members') {
+      setBlockedAcknowledged(true);
+      if (current.stage === 'retry') submitParticipation(true);
+      return;
+    }
     if (current.kind === 'cancel-email')
       run(
         () => runtime.cancelEmailInvite(diary.id, current.inviteId),
@@ -495,6 +509,16 @@ export default function SharingHub({
     !editingProfile ||
     normalizeSharingNickname(nickname) !== mine?.nickname ||
     draftPhoto !== (mine?.photoUri || null);
+  const submitParticipation = (acknowledge = blockedAcknowledged) => {
+    if (!nicknameReady) return;
+    run(() => editingProfile
+      ? runtime.updateProfile(diary.id, { nickname, photoUri: draftPhoto })
+      : runtime.accept(invite.inviteId, nickname, { photoUri: draftPhoto, ...(acknowledge === true ? { acknowledgeBlockedMembers: true } : {}) }),
+      result => {
+        dismissInput(); setDiary(result); setScreen('sharing'); store.refresh();
+        setToast(result.profileWarning || (editingProfile ? '다이어리 프로필을 변경했어요.' : '다이어리에 참여했어요.'));
+      });
+  };
   const content = (
       <SafeAreaView style={s.backdrop}>
         <Pressable testID="sharing-outside" accessible={false} style={s.keyboard} onPress={close}>
@@ -1100,30 +1124,7 @@ export default function SharingHub({
                           label={editingProfile ? '변경 사항 저장' : '수락하고 참여하기'}
                           style={s.acceptParticipation}
                           disabled={busy || !nicknameReady || !profileChanged}
-                          onPress={() => {
-                            if (nicknameReady) run(
-                                () =>
-                                  editingProfile
-                                    ? runtime.updateProfile(diary.id, {
-                                        nickname,
-                                        photoUri: draftPhoto,
-                                      })
-                                    : runtime.accept(invite.inviteId, nickname, {
-                                        photoUri: draftPhoto,
-                                      }),
-                                (result) => {
-                                  dismissInput();
-                                  setDiary(result);
-                                  setScreen('sharing');
-                                  store.refresh();
-                                  setToast(
-                                    result.profileWarning || (editingProfile
-                                      ? '다이어리 프로필을 변경했어요.'
-                                      : '다이어리에 참여했어요.'),
-                                  );
-                                },
-                              );
-                          }}
+                          onPress={() => submitParticipation()}
                         />
                       </View>
                     </>
@@ -1194,10 +1195,12 @@ export default function SharingHub({
         )}
         <ConfirmDialog
           open={!!question}
-          title={question?.kind === 'transfer' ? `${question.member.nickname}님에게 소유권을 양도할까요?` : question?.kind === 'remove' ? `${question.member.nickname}님을 내보낼까요?` : question?.kind === 'cancel-email' ? '보낸 초대를 취소할까요?' : question?.kind === 'decline' ? '초대를 삭제할까요?' : '참여를 해제할까요?'}
-          danger={question?.kind !== 'transfer'}
+          title={question?.kind === 'blocked-members' ? '차단한 사용자가 참여 중인 다이어리예요' : question?.kind === 'transfer' ? `${question.member.nickname}님에게 소유권을 양도할까요?` : question?.kind === 'remove' ? `${question.member.nickname}님을 내보낼까요?` : question?.kind === 'cancel-email' ? '보낸 초대를 취소할까요?' : question?.kind === 'decline' ? '초대를 삭제할까요?' : '참여를 해제할까요?'}
+          danger={question?.kind !== 'transfer' && question?.kind !== 'blocked-members'}
           message={
-            question?.kind === 'transfer'
+            question?.kind === 'blocked-members'
+              ? '참여하면 서로의 작업을 보고 함께 편집할 수 있어요. 계속 참여할까요?'
+              : question?.kind === 'transfer'
               ? '나는 편집자로 남아요. 참여자 관리 권한은 새 소유자에게 넘어가요.'
               : question?.kind === 'remove'
               ? '이 참여자는 다이어리를 열거나 편집할 수 없어요. 작성한 내용은 남고 기존 초대 링크는 무효화돼요.'
@@ -1207,9 +1210,9 @@ export default function SharingHub({
               ? '삭제하면 이 초대로는 다이어리에 참여할 수 없어요.'
               : '참여가 해제되면 이 다이어리를 함께 편집할 수 없어요.'
           }
-          confirmLabel={question?.kind === 'transfer' ? '양도' : question?.kind === 'remove' ? '내보내기' : question?.kind === 'cancel-email' ? '초대 취소' : question?.kind === 'decline' ? '삭제' : '참여 해제'}
+          confirmLabel={question?.kind === 'blocked-members' ? '계속 참여하기' : question?.kind === 'transfer' ? '양도' : question?.kind === 'remove' ? '내보내기' : question?.kind === 'cancel-email' ? '초대 취소' : question?.kind === 'decline' ? '삭제' : '참여 해제'}
           onConfirm={confirmQuestion}
-          onCancel={() => setQuestion(null)}
+          onCancel={() => { if (question?.kind === 'blocked-members' && question.stage === 'prepare') setScreen('detail'); setQuestion(null); }}
         />
       </SafeAreaView>
   );

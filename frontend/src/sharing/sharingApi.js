@@ -110,7 +110,14 @@ export function createSharingApi({ user, auth, fetchImpl = globalThis.fetch, bui
     let cursor = null;
     do {
       const result = await received({ cursor });
-      if (result.items.some(row => row.inviteId === id)) return invitations.get(id);
+      if (result.items.some(row => row.inviteId === id)) {
+        const own = invitations.get(id);
+        if (own.status !== 'PENDING') return own;
+        const detail = await request(`/invites/${encodeURIComponent(own.token)}`);
+        const fresh = { ...own, ...detail, inviteId: own.inviteId, token: own.token,
+          diary: { ...own.diary, title: detail.title || own.diary.title }, canOpen: detail.status === 'PENDING' };
+        invitations.set(id, fresh); return fresh;
+      }
       cursor = result.nextCursor;
     } while (cursor);
     fail('INVITE_NOT_FOUND', '받은 초대를 찾을 수 없어요.');
@@ -151,6 +158,18 @@ export function createSharingApi({ user, auth, fetchImpl = globalThis.fetch, bui
       diaries.set(id, diary); publish(); return diary;
     }
   }
+  const mapMembers = members => Promise.all(members.map(async m => ({ id: String(m.userId), nickname: m.nickname, role: m.role, color: m.memberColor || null,
+    activeAccount: m.activeAccount, blockedByMe: m.blockedByMe,
+    photoUri: m.usingAccountPhoto ? await accountPhoto(m.profilePhotoUrl) : await privatePhoto(m.profilePhotoUrl),
+    presence: m.role === 'OWNER' ? '소유자' : '편집자' })));
+  async function getMembers(id) {
+    const revision = generation;
+    const value = await request(`${path(id)}/members`);
+    if (!Array.isArray(value?.members)) fail('INVALID_RESPONSE', '참여자 목록을 확인하지 못했어요.');
+    const rows = await mapMembers(value.members);
+    if (!active || revision !== generation) fail('DISPOSED', '화면을 다시 열어 주세요.');
+    return rows;
+  }
   async function getSharing(id) {
     const revision = generation;
     ensureServerId(id);
@@ -159,9 +178,7 @@ export function createSharingApi({ user, auth, fetchImpl = globalThis.fetch, bui
     ]);
     if (!active || revision !== generation) fail('DISPOSED', '화면을 다시 열어 주세요.');
     const sent = sentPage(links?.emailInvites);
-    const mappedMembers = await Promise.all(members.members.map(async m => ({ id: String(m.userId), nickname: m.nickname, role: m.role, color: m.memberColor || null,
-      photoUri: m.usingAccountPhoto ? await accountPhoto(m.profilePhotoUrl) : await privatePhoto(m.profilePhotoUrl),
-      presence: m.role === 'OWNER' ? '소유자' : '편집자' })));
+    const mappedMembers = await mapMembers(members.members);
     if (!active || revision !== generation) fail('DISPOSED', '화면을 다시 열어 주세요.');
     const diary = { id, title: detail.diary.diaryTitle, color: detail.diary.coverColor,
       link: links.available ? uri(links.inviteUrl) : null, favorite: detail.diary.myMembership?.isFavorite === true,
@@ -193,7 +210,7 @@ export function createSharingApi({ user, auth, fetchImpl = globalThis.fetch, bui
       // 초대 API에는 읽음 상태가 없다. 이 값은 미수락 초대 수로만 사용한다.
       return { unreadCount: pending, actionableUnreadCount: pending };
     } },
-    invitationGateway: { get: invitation }, getSnapshot: () => snapshot,
+    invitationGateway: { get: invitation }, getMembers, getSnapshot: () => snapshot,
     subscribe(fn) { listeners.add(fn); return () => listeners.delete(fn); },
     activate() { active = true; }, dispose() { active = false; generation++; diaries.clear(); invitations.clear(); publish(); },
     setAccountProfile(value) { self.nickname = value.nickname; self.photoUri = value.photoUri || null; },
@@ -247,10 +264,11 @@ export function createSharingApi({ user, auth, fetchImpl = globalThis.fetch, bui
       const result = { ...row, inviteId: token, token, canOpen: row.status === 'PENDING', memberCount: row.currentMembers, diary: { diaryId: row.diaryId, title: row.title } };
       invitations.set(token, result); return result;
     },
-    async accept(id, nickname, { photoUri = self.photoUri } = {}) {
+    async accept(id, nickname, { photoUri = self.photoUri, acknowledgeBlockedMembers = false } = {}) {
       await checkNickname(id, nickname);
       const row = invitations.get(id) || await invitation(id);
-      const result = await request(`/invites/${encodeURIComponent(row.token)}/accept`, { method: 'POST' });
+      const result = await request(`/invites/${encodeURIComponent(row.token)}/accept`, { method: 'POST',
+        ...(acknowledgeBlockedMembers === true ? { body: { acknowledgeBlockedMembers: true } } : {}) });
       await getSharing(result.diaryId);
       // 가입은 이미 완료됐으므로 프로필 오류를 참여 실패로 표시하지 않는다.
       try { return await updateProfile(result.diaryId, { nickname, photoUri }); }

@@ -10,12 +10,15 @@ test('필수 사유/설명과 증빙 파일 종류·크기·수 제한', () => {
   assert.equal(validateReport(report), '');
   assert.match(validateReport({ ...report, reason: 'unknown' }), /사유/);
   assert.match(validateReport({ ...report, description: '  \n' }), /설명/);
+  assert.equal(validateReport({ ...report, reason: 'HARASSMENT', description: '' }), '');
+  assert.equal(validateReport({ ...report, reason: 'COLLABORATION_ABUSE', description: undefined }), '');
   assert.match(validateReport({ ...report, description: '가'.repeat(1001) }), /1,000/);
   assert.equal(validateReport({ ...report, photos: [photo] }), '');
-  for (const invalid of [{ ...photo, mimeType: 'image/gif' }, { ...photo, size: undefined }, { ...photo, size: 10 * 1024 * 1024 + 1 }]) {
+  assert.equal(validateReport({ ...report, photos: Array(3).fill({ ...photo, size: 5 * 1024 * 1024 }) }), '');
+  for (const invalid of [{ ...photo, mimeType: 'image/gif' }, { ...photo, size: undefined }, { ...photo, size: 5 * 1024 * 1024 + 1 }]) {
     assert.ok(validateReport({ ...report, photos: [invalid] }));
   }
-  assert.match(validateReport({ ...report, photos: Array(6).fill(photo) }), /5장/);
+  assert.match(validateReport({ ...report, photos: Array(4).fill(photo) }), /3장/);
 });
 test('재참여 계정은 현재 행 하나로 합치고 탈퇴 이름은 노출하지 않는다', () => {
   const rows = normalizeParticipants([{ id: 'x', nickname: '과거', leftAt: '2026-01-01' }, { userId: 'x', nickname: '현재' }, { id: 'gone', nickname: '실명', activeAccount: false }]);

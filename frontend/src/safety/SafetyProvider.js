@@ -2,13 +2,21 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { loadJSON, saveJSON } from '../editor/services/storage';
 import { blockedParticipants, createSafetyStore, warningIsDismissed, warningKey } from './safetyModel';
 import SafetyScreen from './SafetyScreen';
+import { createSafetyApi } from './safetyApi';
+import { authService } from '../auth/authService';
+import { fetch as safetyFetch } from 'expo/fetch';
+import { buildReportBody } from './reportBody';
+import { createUnavailableSafetyAdapter } from './safetyModel';
 
 const Context = createContext(null);
 export const useSafety = () => useContext(Context);
 
 // Mount with an account/session key: neither report drafts nor old requests survive a session change.
-export default function SafetyProvider({ user, adapter, children, evidencePicker }) {
-  const store = useMemo(() => createSafetyStore(adapter), [adapter]);
+export default function SafetyProvider({ user, adapter, sharingRuntime, children, evidencePicker }) {
+  const service = useMemo(() => adapter || (user?.mode === 'authenticated'
+    ? createSafetyApi({ userId: user.userId, auth: authService, fetchImpl: safetyFetch, buildReportBody,
+      getParticipants: sharingRuntime?.getMembers }) : createUnavailableSafetyAdapter()), [adapter, user?.mode, user?.userId, sharingRuntime]);
+  const store = useMemo(() => createSafetyStore(service), [service]);
   const state = useSyncExternalStore(store.subscribe, store.getSnapshot, store.getSnapshot);
   const [request, setRequest] = useState(null);
   const pendingWarning = useRef(null);
@@ -17,7 +25,7 @@ export default function SafetyProvider({ user, adapter, children, evidencePicker
   const accountId = String(user?.userId || user?.accountId || 'guest');
   useEffect(() => {
     alive.current = true; store.activate();
-    if (store.mode !== 'unavailable') store.refresh();
+    if (store.mode === 'preview') store.refresh();
     return () => {
       alive.current = false; guardJob.current++; store.dispose();
       pendingWarning.current?.(false); pendingWarning.current = null;
@@ -42,13 +50,13 @@ export default function SafetyProvider({ user, adapter, children, evidencePicker
   const canOpenDiary = useCallback(async diary => {
     const job = ++guardJob.current;
     pendingWarning.current?.(false); pendingWarning.current = null;
-    // No server block data exists yet. Do not invent restrictions or mutate diary access.
     if (store.mode === 'unavailable') return true;
-    await store.refresh();
-    if (!alive.current || job !== guardJob.current) return false;
-    if (store.getSnapshot().status !== 'ready') throw new Error('차단 정보를 확인하지 못했어요. 다시 시도해 주세요.');
+    // Personal diaries must not acquire a dependency on moderation endpoints.
+    if (store.mode === 'server' && !diary.sharedDiaryId && !diary.isShared && diary.visibility !== 'MEMBERS' && diary.type !== '공유') return true;
+    if (store.mode === 'preview') await store.refresh();
     const members = await store.participants(diary.sharedDiaryId || diary.id);
-    const rows = blockedParticipants(members, store.getSnapshot().blocks);
+    const rows = store.mode === 'server' ? members.filter(member => member.blockedByMe === true)
+      : blockedParticipants(members, store.getSnapshot().blocks);
     const saved = await loadJSON(warningKey(accountId, diary.id), []);
     if (!alive.current || job !== guardJob.current) return false;
     if (!rows.length || warningIsDismissed(Array.isArray(saved) ? saved : [], rows)) return true;
