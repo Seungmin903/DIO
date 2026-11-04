@@ -192,3 +192,22 @@ test('붓펜 몸통은 힘 배율이 1.16 을 넘어도 굵어진다(예전엔 �
   assert.ok(half(1.78) > half(1.0) * 1.6, `${half(1.78)} vs ${half(1.0)}`)
   assert.ok(half(1.78) < 8 * 2.4 / 2 + 0.5, '상한 2.4D')
 })
+
+// 끝 꼬리: 이미 그린 곡선은 다음 점이 와도 거의 그대로여야 한다(사용자: 쓰는 중 모양이 살짝 바뀐다)
+const distanceTo = (p, poly) => { let best = Infinity; for (let i = 1; i < poly.length; i++) { const a = poly[i - 1], b = poly[i], dx = b.x - a.x, dy = b.y - a.y, l = dx * dx + dy * dy, t = l ? Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / l)) : 0; best = Math.min(best, Math.hypot(p.x - a.x - t * dx, p.y - a.y - t * dy)) } return best }
+const arc = n => Array.from({ length: n }, (_, i) => { const a = i * 0.4; return { x: 100 + 60 * Math.cos(a), y: 100 + 60 * Math.sin(a), inkDistance: i * 24, pressure: 1 } })
+test('끝 꼬리: 곡선을 쓰는 중 다음 점이 와도 그린 곡선이 거의 움직이지 않고 끝 근처에서 멈춘다', () => {
+  const points = arc(14)
+  for (let k = 4; k < points.length; k++) {
+    const before = nibCurve(points.slice(0, k), { step: 2 }), after = nibCurve(points.slice(0, k + 1), { step: 2 })
+    for (const p of before) assert.ok(distanceTo(p, after) < 0.35, `${k}점: 예전 직선 꼬리는 2 단위 안팎 움직였다 ${distanceTo(p, after)}`)
+    assert.ok(Math.hypot(before.at(-1).x - points[k - 1].x, before.at(-1).y - points[k - 1].y) < 3, '꼬리는 마지막 점 근처에서 끝난다')
+  }
+})
+test('끝 꼬리: 급히 꺾인 곳은 예측하지 않고 마지막 점까지 곧게 잇고, 같은 점이면 언제나 같은 곡선이다', () => {
+  const corner = [{ x: 0, y: 0 }, { x: 30, y: 0 }, { x: 60, y: 0 }, { x: 60, y: 30 }].map((p, i) => ({ ...p, inkDistance: i * 30, pressure: 1 }))
+  const curve = nibCurve(corner, { step: 2 })
+  assert.deepEqual([curve.at(-1).x, curve.at(-1).y], [60, 30])
+  assert.deepEqual(nibCurve(arc(9), { step: 2 }), nibCurve(arc(9).map(p => ({ ...p })), { step: 2 }))
+  assert.ok(nibCurve(arc(9), { step: 2 }).every((p, i, all) => !i || p.inkDistance >= all[i - 1].inkDistance), '진행 거리는 뒤로 가지 않는다')
+})

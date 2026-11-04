@@ -53,6 +53,20 @@ export function withDistances(points, start = 0) {
     return { ...p, inkDistance: travelled }
   })
 }
+// 끝 꼬리(마지막 점 앞 반 구간): 곡선은 이웃 점의 가운데까지만 확정이라 끝 반 구간은 다음 점이 와야 정해진다. 직선으로 잇고 있으면 다음 점이 올 때 곡선이 그 점을 비껴가며 꼬리가 움직였다(사용자: 쓰는 중 모양이 살짝 바뀐다).
+// 앞 두 구간의 꺾임으로 다음 점을 예측해 같은 2차 곡선의 앞 절반을 미리 그린다 → 다음 점이 와도 거의 같은 곡선 위에 놓인다. 점만으로 정해져 쓰는 중 = 뗀 뒤. 급히 꺾인 곳은 예측이 빗나가므로 그대로 직선
+const TAIL = { damp: 0.8, maxTurn: Math.PI / 3 }
+function tailCurve(out, points, step) {
+  const c = points.at(-1), b = points.at(-2), a = points.at(-3)
+  const vx = c.x - b.x, vy = c.y - b.y, ux = a ? b.x - a.x : 0, uy = a ? b.y - a.y : 0
+  const turn = a ? Math.atan2(ux * vy - uy * vx, ux * vx + uy * vy) : 0
+  if (!a || !(vx || vy) || Math.abs(turn) > TAIL.maxTurn) { out.push({ ...c }); return }
+  const r = turn * TAIL.damp, cos = Math.cos(r), sin = Math.sin(r), s = middle(b, c)
+  // 예측한 다음 점의 가운데 e = c + 회전한 v / 2. 2차 곡선 (s, c, e) 를 절반에서 자른 앞쪽 = (s, (s + c) / 2, 곡선 중점)
+  const ex = c.x + (vx * cos - vy * sin) / 2, ey = c.y + (vx * sin + vy * cos) / 2
+  const end = { ...c, x: (s.x + 2 * c.x + ex) / 4, y: (s.y + 2 * c.y + ey) / 4 }
+  quadratic(out, s, middle(s, c), end, step)
+}
 // first · last 는 그릴 입력 점 범위(미리보기 구간은 앞 · 뒤 문맥 점을 함께 받는다). 구간을 이어 붙이면 저장 획과 같은 곡선이다.
 export function nibCurve(points, { first = 0, last = points.length - 1, start = first === 0, end = last === points.length - 1, step = CURVE_STEP } = {}) {
   if (points.length < 2 || last <= first) return points.slice(first, first + 1)
@@ -63,7 +77,7 @@ export function nibCurve(points, { first = 0, last = points.length - 1, start = 
     if (!out.length) out.push({ ...s })
     quadratic(out, s, points[k], middle(points[k], points[k + 1]), step)
   }
-  if (end) out.push({ ...points.at(-1) })
+  if (end) tailCurve(out, points, step)
   return out
 }
 // 지우개 조각처럼 이미 곡선 표본인 점(sampled)은 다시 펴지 않는다(다시 펴면 지울 때마다 모양이 조금씩 움직인다)
