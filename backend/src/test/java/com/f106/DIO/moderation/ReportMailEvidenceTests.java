@@ -1,6 +1,7 @@
 package com.f106.DIO.moderation;
 
 import com.f106.DIO.media.storage.MediaStorage;
+import com.f106.DIO.media.storage.MediaStorageException;
 import com.f106.DIO.moderation.domain.*;
 import com.f106.DIO.moderation.infrastructure.mail.*;
 import java.io.*;
@@ -37,6 +38,21 @@ class ReportMailEvidenceTests {
  }
  @Test void disabledFeatureNeverReadsEvidence(){var smtp=mock(JavaMailSender.class);var assets=mock(ReportMailEvidence.class);sender(smtp,assets,false).send(report("[]"));verify(smtp).send(any(SimpleMailMessage.class));verifyNoInteractions(assets);}
  @Test void transientEvidenceFailureRetriesWithoutSendingIncompleteNotification(){var assets=evidence();when(s3.read(key)).thenThrow(new IllegalStateException("temporary unavailable"));var smtp=mock(JavaMailSender.class);assertThatThrownBy(()->sender(smtp,assets,true).send(report(row(10)))).isInstanceOf(IllegalStateException.class);verifyNoInteractions(smtp);}
+ @Test void storageUnavailableRemainsRetryableAndNeverSendsBaseMail(){
+  var assets=evidence();var unavailable=MediaStorageException.unavailable();when(s3.read(key)).thenThrow(unavailable);
+  var smtp=mock(JavaMailSender.class);
+  assertThatThrownBy(()->sender(smtp,assets,true).send(report(row(10)))).isSameAs(unavailable);
+  verifyNoInteractions(smtp);
+ }
+ @Test void confirmedMissingObjectSendsWarningInsteadOfRetryingForever(){
+  for(String provider:List.of("LOCAL","S3")){
+   var assets=evidence();when((provider.equals("LOCAL")?local:s3).read(key)).thenThrow(MediaStorageException.missing());
+   var smtp=mock(JavaMailSender.class);sender(smtp,assets,true).send(report(row(10).replace("\"S3\"","\""+provider+"\"")));
+   var message=org.mockito.ArgumentCaptor.forClass(SimpleMailMessage.class);verify(smtp).send(message.capture());
+   assertThat(message.getValue().getText()).contains("증빙 첨부를 준비하지 못했습니다").doesNotContain(key,"private description");
+   verify(smtp,never()).send(any(MimeMessage.class));
+  }
+ }
  @Test void invalidEvidenceSendsBaseNotificationWithWarning(){var assets=evidence();var smtp=mock(JavaMailSender.class);sender(smtp,assets,true).send(report(row(10).replace("media/image/","media/audio/")));var message=org.mockito.ArgumentCaptor.forClass(SimpleMailMessage.class);verify(smtp).send(message.capture());assertThat(message.getValue().getText()).contains("증빙 첨부를 준비하지 못했습니다").doesNotContain("private description",key);verify(s3,never()).read(any());}
  @Test void rejectsWrongSizeAndNonImageKey() throws Exception {var assets=evidence();when(s3.read(key)).thenReturn(image());assertThatThrownBy(()->assets.read(report(row(1)))).isInstanceOf(InvalidReportMailEvidenceException.class);assertThatThrownBy(()->assets.read(report(row(1).replace("media/image/","media/audio/")))).isInstanceOf(InvalidReportMailEvidenceException.class);}
  @Test void rejectsMoreThanThreeAttachmentsBeforeStorageRead(){var assets=evidence();var one=row(1);var item=one.substring(1,one.length()-1);assertThatThrownBy(()->assets.read(report("["+String.join(",",Collections.nCopies(4,item))+"]"))).isInstanceOf(InvalidReportMailEvidenceException.class);verify(s3,never()).read(any());}

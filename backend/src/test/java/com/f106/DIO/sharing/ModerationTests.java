@@ -159,4 +159,15 @@ class ModerationTests extends SharingTestSupport {
   verify(smtp,never()).send(any(org.springframework.mail.SimpleMailMessage.class));
  }
 
+ @Test void confirmedMissingEvidenceCompletesBaseNotificationWithoutEndlessRetry()throws Exception{
+  var p=pair();var image=new java.io.ByteArrayOutputStream();javax.imageio.ImageIO.write(new java.awt.image.BufferedImage(2,2,java.awt.image.BufferedImage.TYPE_INT_RGB),"png",image);
+  var accepted=reports.submit(p.a.id(),request(p),List.of(new MockMultipartFile("evidenceFiles","proof.png","image/png",image.toByteArray())));long id=accepted.response().reportId();
+  doThrow(com.f106.DIO.media.storage.MediaStorageException.missing()).when(evidenceStorage).read(anyString());
+  delivery.deliver(id);delivery.deliver(id);
+  assertThat(reportRows.findById(id).orElseThrow().getNotificationStatus()).isEqualTo("SENT");
+  var message=org.mockito.ArgumentCaptor.forClass(org.springframework.mail.SimpleMailMessage.class);verify(smtp,times(1)).send(message.capture());
+  assertThat(message.getValue().getText()).contains("증빙 첨부를 준비하지 못했습니다").doesNotContain("storageKey","proof.png");
+  verify(smtp,never()).send(any(jakarta.mail.internet.MimeMessage.class));
+ }
+
 }

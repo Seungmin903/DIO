@@ -2,6 +2,7 @@ package com.f106.DIO.moderation.infrastructure.mail;
 
 import com.f106.DIO.media.storage.MediaStorage;
 import com.f106.DIO.media.storage.MediaStorageKeys;
+import com.f106.DIO.media.storage.MediaStorageException;
 import com.f106.DIO.moderation.domain.UserReport;
 import java.io.*;
 import java.awt.RenderingHints;
@@ -31,7 +32,13 @@ public class ReportMailEvidence {
    try{MediaStorageKeys.validate(key);}catch(IllegalArgumentException e){throw new InvalidReportMailEvidenceException(e);}
    if(!key.startsWith("media/image/")||!(mime.equals("image/png")&&key.endsWith(".png")||mime.equals("image/jpeg")&&key.endsWith(".jpg")))throw new InvalidReportMailEvidenceException();
    var storage=stores.stream().filter(s->s.provider().equalsIgnoreCase(provider)).findFirst().orElseThrow(()->new IllegalStateException("Evidence storage unavailable"));
-   byte[] bytes=storage.read(key);
+   byte[] bytes;
+   try{bytes=storage.read(key);}
+   catch(MediaStorageException error){
+    if(error.status()==org.springframework.http.HttpStatus.NOT_FOUND&&"MEDIA_FILE_CONTENT_NOT_FOUND".equals(error.code()))
+     throw new InvalidReportMailEvidenceException(error);
+    throw error;
+   }
    if(bytes.length==0||bytes.length>20*1024*1024||bytes.length!=row.path("size").asLong())throw new InvalidReportMailEvidenceException();
    try(var input=new javax.imageio.stream.MemoryCacheImageInputStream(new ByteArrayInputStream(bytes))){
     if(input==null)throw new IOException("Invalid image");

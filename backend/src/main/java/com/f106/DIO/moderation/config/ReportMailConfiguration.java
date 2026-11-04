@@ -20,7 +20,7 @@ public class ReportMailConfiguration {
   }catch(jakarta.mail.internet.AddressException error){throw new IllegalStateException("REPORT_NOTIFICATION_ENABLED requires a valid "+setting);}
  }
 
- @Bean(name="reportMailExecutor",destroyMethod="shutdown") public ExecutorService reportMailExecutor(){
+ @Bean(name="reportMailExecutor",defaultCandidate=false,destroyMethod="shutdown") public ExecutorService reportMailExecutor(){
   // Slow SMTP must never block the shared scheduler used by socket/session checks.
   return new ThreadPoolExecutor(1,1,0,TimeUnit.MILLISECONDS,new ArrayBlockingQueue<>(1),r->{var t=new Thread(r,"report-mail");t.setDaemon(true);return t;});
  }
