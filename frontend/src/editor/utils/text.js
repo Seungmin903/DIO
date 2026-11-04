@@ -86,12 +86,17 @@ const loadedFamilies = new Set()
 const failedFamilies = new Set()
 const fontListeners = new Set()
 export const subscribeTextFonts = (listener) => { fontListeners.add(listener); return () => fontListeners.delete(listener) }
+// 글꼴 불러오기 상태가 바뀔 때마다 오르는 번호. 특정 글꼴이 아니라 글꼴 전체(목록 미리보기 등)를 보여 주는 곳이 구독한다(useTextFont 는 한 글꼴용)
+let fontStateRevision = 0
+export const textFontStateSnapshot = () => `${fontListRevision}:${fontStateRevision}`
 export function markTextFontLoaded(family) {
   loadedFamilies.add(family); failedFamilies.delete(family)
+  fontStateRevision++
   fontListeners.forEach(listener => listener())
 }
 export function markTextFontFailed(family) {
   failedFamilies.add(family)
+  fontStateRevision++
   fontListeners.forEach(listener => listener())
 }
 export function textFontSnapshot(id) {

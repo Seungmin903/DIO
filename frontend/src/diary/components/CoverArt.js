@@ -15,6 +15,7 @@ import { stickerSource } from '../../editor/stickerAssets'
 import { clamp, normalizeAngle, rotateVector } from '../../editor/utils/common'
 import { ROTATE_OFFSET } from '../../editor/utils/popoverPlacement'
 import { textStyle } from '../../editor/utils/text'
+import { useTextFont } from '../../editor/hooks/useTextFont'
 import { STICKER_SIZE, bandAutoColor, coverTitle, createStickerCopy, coverLineColor, gradientStops, mix } from '../utils/coverDesign'
 import { colors } from '../../shared/theme'
 import { coverLayout } from '../../editor/utils/objects'
@@ -318,6 +319,7 @@ function TitleBox({ edit, ribbon, width, height, at, origin, onSelect, onMove, s
  * edit 를 넘기면 표지 위 제목 라벨과 스티커를 끌어 옮길 수 있다.
  */
 function CoverArt({ cover, name, width, height, edit = null, shadow = null, pixelScale = 1 }) {
+  useTextFont(cover.title.font, true) // 제목 글꼴을 늦게 불러와도 표지를 다시 그린다
   const [selected, setSelected] = useState(null)
   const titleOrigin = useRef({ x: 0, y: 0 })
   const drafts = useRef(null)

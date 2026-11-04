@@ -2,7 +2,7 @@ import { useRef, useState, useSyncExternalStore } from 'react'
 import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import Svg, { Path } from 'react-native-svg'
 import { bubble, colors } from '../../../shared/theme'
-import { fontLabel, getTextFonts, resolveFontId, subscribeTextFonts, textFontListSnapshot, textStyle } from '../../utils/text'
+import { fontLabel, getTextFonts, resolveFontId, subscribeTextFonts, textFontStateSnapshot, textStyle } from '../../utils/text'
 import { AI_FONT_LABEL } from '../../../handwriting/aiDisclosure.js'
 import PopoverMenu from '../../../diary/components/PopoverMenu'
 
@@ -17,7 +17,8 @@ const previewFont = (id) => ({ fontFamily: textStyle({ font: id }, 1, Platform.O
  * 바깥을 누르거나 뒤로 가기 · 회전이면 닫힌다(PopoverMenu). value: 글꼴 ID, onChange(id), label: 화면 읽기 이름, style: 칸 모양
  */
 export default function TextFontDropdown({ value, onChange, label = '글꼴', style }) {
-  useSyncExternalStore(subscribeTextFonts, textFontListSnapshot, textFontListSnapshot)
+  // 글꼴 목록이 바뀔 때와 글꼴을 불러왔을 때 다시 그린다(미리보기 글자가 늦게 온 글꼴로 바뀌어야 한다)
+  useSyncExternalStore(subscribeTextFonts, textFontStateSnapshot, textFontStateSnapshot)
   const fonts = getTextFonts()
   const personal = fonts.filter(font => font.personal)
   const groups = [...(personal.length ? [{ label: '내 폰트', fonts: personal }] : []), { label: '기본 글꼴', fonts: fonts.filter(font => !font.personal) }]
