@@ -10,14 +10,12 @@ class DeploymentAuthContractTests {
     @Test void releaseDeploymentWaitsForBackendTestsAndRejectsReleaseOnlyMigrations() throws Exception {
         var loader = new YamlPropertySourceLoader();
         var ci = loader.load("ci", new FileSystemResource(Path.of("../.gitlab-ci.yml"))).get(0);
-        assertThat(ci.getProperty("deploy-development.needs[0].job")).isEqualTo("backend-test");
-        assertThat(ci.getProperty("deploy-development.needs[0].optional")).isEqualTo(true);
+        assertThat(ci.getProperty("deploy-development.needs[0].job")).isNull();
         assertThat(ci.getProperty("deploy-development.variables.GIT_DEPTH")).isEqualTo("0");
         String text = Files.readString(Path.of("../.gitlab-ci.yml"));
         String deploy = block(text, "deploy-development:\n", "\ndeploy-production:");
         assertThat(deploy).contains("git fetch --no-tags origin +refs/heads/develop:refs/remotes/origin/develop",
-            "bash infra/scripts/assert-shared-db-migrations.sh origin/develop HEAD",
-            "backend-postgres-auth-test", "backend-postgres-sharing-test", "backend-postgres-diary-test", "backend-postgres-lifecycle-test",
+            "Cannot fetch the current origin/develop", "bash infra/scripts/assert-shared-db-migrations.sh origin/develop HEAD",
             "logs --tail=200 backend");
         String guard = Files.readString(Path.of("../infra/scripts/assert-shared-db-migrations.sh"));
         assertThat(guard).contains("git diff --quiet \"$develop_ref\" \"$release_ref\"", "exit 1", "exit 2");

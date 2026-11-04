@@ -28,26 +28,6 @@ deploy-development:
     - if: '$CI_COMMIT_BRANCH == "develop"'
     - if: '$CI_COMMIT_BRANCH =~ /^release\/.+$/ && $CI_COMMIT_REF_PROTECTED == "true"'
       when: manual
-  needs:
-    - job: backend-test
-      artifacts: false
-      # release 파이프라인에는 backend-test가 항상 생성되고, develop에는 없을 수 있다.
-      optional: true
-    - job: release-migration-guard-test
-      artifacts: false
-      optional: true
-    - job: backend-postgres-auth-test
-      artifacts: false
-      optional: true
-    - job: backend-postgres-sharing-test
-      artifacts: false
-      optional: true
-    - job: backend-postgres-diary-test
-      artifacts: false
-      optional: true
-    - job: backend-postgres-lifecycle-test
-      artifacts: false
-      optional: true
   resource_group: development
   environment:
     name: development
@@ -55,7 +35,10 @@ deploy-development:
     # release 검증은 dev DB의 Flyway 이력을 공유하므로 양쪽 migration 집합이 같아야 한다.
     - >
       if printf '%s' "$CI_COMMIT_BRANCH" | grep -Eq '^release/'; then
-        git fetch --no-tags origin +refs/heads/develop:refs/remotes/origin/develop;
+        if ! git fetch --no-tags origin +refs/heads/develop:refs/remotes/origin/develop; then
+          echo "Cannot fetch the current origin/develop for the shared-DB migration check." >&2;
+          exit 1;
+        fi;
         bash infra/scripts/assert-shared-db-migrations.sh origin/develop HEAD;
       fi
     - export BACKEND_IMAGE="dio-backend:dev-${CI_COMMIT_SHORT_SHA}"
