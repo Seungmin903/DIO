@@ -267,3 +267,20 @@ tasks.register('pushPostgresTest', Test) {
             throw new GradleException('Explicit marked disposable loopback push database is required; no fallback.')
     }
 }
+
+// Dedicated disposable PostgreSQL only; never reuse cached results for retention deletion checks.
+tasks.register('reportRetentionPostgresTest', Test) {
+    group = 'verification'
+    description = 'Verifies report legal holds, safe evidence parsing and deletion retries on disposable PostgreSQL.'
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+    useJUnitPlatform()
+    filter { includeTestsMatching 'com.f106.DIO.moderation.ReportRetentionPostgresTests' }
+    environment 'DIO_REPORT_RETENTION_QA', 'true'
+    outputs.upToDateWhen { false }
+    outputs.cacheIf { false }
+    doFirst {
+        if (!(environment['DIO_REPORT_RETENTION_URL']?.toString() ==~ /jdbc:postgresql:\/\/127\.0\.0\.1:[0-9]+\/dio_report_retention_qa/) || !environment['DIO_REPORT_RETENTION_PASSWORD'])
+            throw new GradleException('Explicit disposable loopback dio_report_retention_qa URL/password required; no fallback.')
+    }
+}

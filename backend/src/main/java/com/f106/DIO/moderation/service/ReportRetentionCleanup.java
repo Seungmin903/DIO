@@ -8,10 +8,43 @@ import java.time.*;import java.util.*;import org.slf4j.*;import org.springframew
  public ReportRetentionCleanup(UserReportRepository reports,ReportEvidenceDeletionTaskRepository evidenceTasks,MediaFiles files,ObjectMapper json,PlatformTransactionManager transactionManager,@Value("${dio.moderation.report-retention.retention:P30D}") Duration retention,@Value("${dio.moderation.report-retention.batch-size:100}") int batchSize){this.reports=reports;this.evidenceTasks=evidenceTasks;this.files=files;this.json=json;this.retention=retention.isNegative()||retention.isZero()?Duration.ofDays(30):retention;this.batchSize=Math.max(1,Math.min(500,batchSize));transactions=new TransactionTemplate(transactionManager);}
  public Result run(){int filesDeleted=retryEvidenceDeletes();int reportsDeleted=queueExpiredReports(Instant.now());filesDeleted+=retryEvidenceDeletes();return new Result(reportsDeleted,filesDeleted);}
  public int queueExpiredReports(Instant now){return required(()->queueExpiredReportsInTransaction(now));}
- private int queueExpiredReportsInTransaction(Instant now){int deleted=0;Instant cutoff=now.minus(retention);for(int batch=0;batch<MAX_BATCHES;batch++){var candidates=reports.retentionExpired(cutoff,PageRequest.of(0,batchSize));if(candidates.isEmpty())break;for(var report:candidates){for(String key:evidenceKeys(report))evidenceTasks.save(new ReportEvidenceDeletionTask(report.getReportId(),key));reports.delete(report);deleted++;}if(candidates.size()<batchSize)break;}return deleted;}
+ private int queueExpiredReportsInTransaction(Instant now){
+  int deleted=0; Instant cutoff=now.minus(retention),afterTime=null; Long afterId=null;
+  for(int batch=0;batch<MAX_BATCHES;batch++){
+   var page=PageRequest.of(0,batchSize);
+   var candidates=afterTime==null?reports.retentionExpired(cutoff,page):reports.retentionExpiredAfter(cutoff,afterTime,afterId,page);
+   if(candidates.isEmpty())break;
+   for(var report:candidates){
+    if(report.isRetentionHold())continue;
+    final List<String> keys;
+    try { keys=evidenceKeys(report); }
+    catch(RuntimeException error){
+     // Fail closed: keep the complete report/metadata so an operator can repair it.
+     log.warn("Report retention preserved invalid evidence metadata: reportId={}, errorType={}",report.getReportId(),error.getClass().getSimpleName());
+     continue;
+    }
+    for(String key:keys)evidenceTasks.save(new ReportEvidenceDeletionTask(report.getReportId(),key));
+    reports.delete(report);deleted++;
+   }
+   // Keyset traversal also advances past corrupt rows, without dropping them or starving later reports.
+   var last=candidates.get(candidates.size()-1);afterTime=last.getResolvedAt();afterId=last.getReportId();
+   if(candidates.size()<batchSize)break;
+  }
+  return deleted;
+ }
  public int retryEvidenceDeletes(){return required(this::retryEvidenceDeletesInTransaction);}
  private int retryEvidenceDeletesInTransaction(){int deleted=0;for(var task:evidenceTasks.findDueUnlocked(Instant.now(),batchSize))try{files.delete(task.getStorageKey());evidenceTasks.delete(task);deleted++;}catch(RuntimeException error){task.recordFailure(error.getClass().getSimpleName());log.warn("Report evidence deletion will retry: deletionId={}, errorType={}",task.getDeletionId(),error.getClass().getSimpleName());}return deleted;}
  private int required(java.util.function.Supplier<Integer> work){Integer result=transactions.execute(status->work.get());if(result==null)throw new IllegalStateException("Report retention transaction did not complete");return result;}
- private List<String> evidenceKeys(UserReport report){try{JsonNode evidence=json.readTree(report.getEvidenceJson());if(!evidence.isArray())throw new IllegalArgumentException("Evidence metadata is not an array");var keys=new LinkedHashSet<String>();for(JsonNode item:evidence){JsonNode key=item.path("storageKey");if(!key.isTextual())throw new IllegalArgumentException("Evidence storage key is missing");MediaStorageKeys.validate(key.asText());keys.add(key.asText());}return new ArrayList<>(keys);}catch(RuntimeException error){log.warn("Report retention deleted row with invalid evidence metadata: reportId={}, errorType={}",report.getReportId(),error.getClass().getSimpleName());return List.of();}}
+ private List<String> evidenceKeys(UserReport report){
+  JsonNode evidence=json.readTree(report.getEvidenceJson());
+  if(evidence==null||!evidence.isArray())throw new IllegalArgumentException("Evidence metadata is not an array");
+  var keys=new LinkedHashSet<String>();
+  for(JsonNode item:evidence){
+   JsonNode key=item.path("storageKey");
+   if(!key.isTextual())throw new IllegalArgumentException("Evidence storage key is missing");
+   MediaStorageKeys.validate(key.asText());keys.add(key.asText());
+  }
+  return new ArrayList<>(keys);
+ }
  public record Result(int reportsDeleted,int evidenceFilesDeleted){}
 }

@@ -23,6 +23,10 @@ public class UserReport {
  @Column(nullable=false) private Instant createdAt;
  @Column(nullable=false) private Instant updatedAt;
  private Instant resolvedAt;
+ @Column(nullable=false) private boolean retentionHold;
+ @Column(length=1000) private String retentionHoldReason;
+ @Column(length=100) private String retentionHoldBy;
+ private Instant retentionHoldAt;
  @Column(nullable=false,length=20) private String notificationStatus="PENDING";
  @Column(nullable=false) private int notificationAttempts;
  private Instant notificationNextAttemptAt;
