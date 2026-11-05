@@ -22,10 +22,7 @@ import NotificationSettingsScreen from './NotificationSettingsScreen';
 import AppIcon from '../../shared/AppIcon';
 import DefaultAvatar from '../../shared/DefaultAvatar';
 import { useLoginEntry } from '../../auth/loginGate';
-import { showsInlineSettings } from '../components/profileNavigationModel';
-
-// 이름 옆 로그인 버튼이 이름을 자르지 않고 들어가는 창 폭(글자 배율을 뺀 dp). 게스트 이름 `방문자` 기준 실측
-const LOGIN_INLINE_MIN_WIDTH = 340;
+import { placesLoginBelow, showsInlineSettings } from '../components/profileNavigationModel';
 
 // 마이페이지는 프로필·계정, 설정은 알림·보안·편집(그리기 입력)·앱 정보로 분리한다. 두 화면은 잠금·알림 세부 화면만 공통으로 쓴다.
 export default function ProfileScreen({ guestImport = null, section = 'profile', compact = false, onBack = null, previewUser, onEndPreview, onClearSession = onEndPreview, onUpdatePreview, registerLeaveGuard, getProfilePhotoSource, accountService, onOpenBlockedUsers }) {
@@ -117,7 +114,7 @@ export default function ProfileScreen({ guestImport = null, section = 'profile',
   // 판 오른쪽 끝은 계정 상태의 대표 행동: 게스트는 `로그인 · 회원가입`, 회원은 `프로필 수정` 윤곽 버튼.
   // 로그인 화면은 지금 화면 위에 덮어 뜨고, 회원가입은 로그인 화면에서 이어 간다
   // 폰도 이름 옆이 기본이고, 좁은 창 · 큰 글자 설정에서 이름이 잘리면 이름 아래 전폭으로 내린다
-  const loginBelow = guest && compact && windowSize.width / windowSize.fontScale < LOGIN_INLINE_MIN_WIDTH;
+  const loginBelow = placesLoginBelow({ guest, compact, width: windowSize.width, fontScale: windowSize.fontScale });
   const loginButton = guest ? <DioButton variant="filled" label="로그인 · 회원가입" onPress={openLogin} block={loginBelow} style={loginBelow ? local.loginCompact : compact ? local.loginInline : local.login} /> : null;
   // 폰: 프로필 줄 전체가 편집 진입(오른쪽 ›) — 버튼을 빼서 닉네임 · 이메일이 줄임 없이 보인다(코덱스 2026-11-03 시안 A)
   // 게스트는 프로필을 고치지 않는다(사용자 결정 2026-11-05). 회원만 수정 입구가 있다
