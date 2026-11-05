@@ -30,6 +30,6 @@ export async function pickImages({ multiple = true, usage = 'photo', sharedGifMa
     })
   } catch (error) {
     if (error instanceof MediaError) throw error
-    throw new MediaError('PICKER_FAILED', '사진 보관함을 열지 못했어요. 접근 권한을 확인하고 다시 시도해 주세요.', error)
+    throw new MediaError('PICKER_FAILED', '사진 보관함을 열지 못했어요. 다시 시도해 주세요.', error)
   } finally { picking = false }
 }

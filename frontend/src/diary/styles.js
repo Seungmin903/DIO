@@ -25,8 +25,8 @@ export const styles = StyleSheet.create({
   tabLabel: { color: C.muted, fontSize: 11, lineHeight: 14, fontWeight: '600' },
   tabLabelSelected: { color: C.ink, fontWeight: '800' },
 
-  // 좌측 바 바탕은 앱 바깥 셸과 같은 surfaceSoft(#F8F7FD): 햇살 책상(보관함) · 흰 면(공방 · 휴지통 · 내 공간) 어느 화면에서도 같은 색으로 두 공간을 잇는다(앱 디자인 점검 원 페이저 01)
-  rail: { width: 218, padding: 20, overflow: 'hidden', backgroundColor: C.canvas, borderRightWidth: 1, borderRightColor: C.line },
+  // 좌측 바는 폰 하단 탭처럼 흰 면, 본문은 surfaceSoft. 경계는 cardBorder 1px
+  rail: { width: 218, padding: 20, overflow: 'hidden', backgroundColor: C.white, borderRightWidth: 1, borderRightColor: colors.cardBorder },
   railSlot: { width: 78 },
   // 메뉴 오른쪽(접힌 폭 이후)부터 화면 끝까지 덮는 반투명 막. 불투명도는 메뉴 펼침 정도(0~1)를 따른다.
   railScrim: { position: 'absolute', top: 0, bottom: 0, left: 0, right: 0, zIndex: 19, elevation: 19 }, // elevation 은 배경 있는 뷰에 주면 안드로이드가 가장자리에 그림자 띠를 그려, 배경 없는 래퍼에만 둔다
@@ -47,7 +47,6 @@ export const styles = StyleSheet.create({
   railToggleText: { color: C.ink, fontSize: 19, lineHeight: 22, fontWeight: '700' },
   // 새 다이어리: 편집 화면의 주 버튼(내보내기)과 같은 색
   libraryRoot: { flex: 1 },
-  workRoot: { backgroundColor: C.white }, // 작업 화면(휴지통)의 흰 면
   // 보관함 오른쪽 아래에 떠 있는 새 다이어리 버튼 (예전 사이드 메뉴 + 버튼과 같은 색 · 모서리)
   // + 아이콘만(글자 없음, 사용자 결정). 태블릿은 이 화면의 유일한 주 동작이라 56×56 · 오른쪽 · 아래 24 · 그림자 0 4 10 / 10%(코덱스 2026-11-01: 보조 버튼 36~40보다 분명히 크고 표지 폭 172와는 다투지 않는 크기)
   // 폰은 44×44 · 오른쪽 · 아래 16. 모서리는 둘 다 12. 좌측 바 아래 프로필 원과 다른 축(본문 오른쪽)에 둔다

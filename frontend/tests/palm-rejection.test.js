@@ -11,16 +11,21 @@ const compile = (path) => expo('@babel/core').transformSync(readFileSync(new URL
 }).code
 
 // 손바닥 거르기 훅을 React 없이 돌린다. os 로 플랫폼(iOS 는 force, Android 는 pointerType)을 고른다.
-// input 은 그리기 입력 설정(shared/drawingInput: auto · pen · any)
-function load(os = 'android', input = 'auto') {
+// input 은 그리기 입력 설정(shared/drawingInput: pen · any). unset 은 고른 적 없는 상태(펜을 본 뒤로 pen)
+function load(os = 'android', input = 'unset', nativePen = () => false) {
   const stylusModule = { exports: {} }
   new Function('require', 'module', 'exports', compile('../src/editor/utils/stylus.js'))(
-    (id) => (id === 'react-native' ? { Platform: { OS: os } } : require(id)), stylusModule, stylusModule.exports)
+    (id) => {
+      if (id === 'react-native') return { Platform: { OS: os } }
+      if (id.endsWith('/drawingInput')) return { markPenSeen() {} }
+      if (id.endsWith('/stylusSensor.js')) return { nativePenAt: nativePen }
+      return require(id)
+    }, stylusModule, stylusModule.exports)
   const hookModule = { exports: {} }
   new Function('require', 'module', 'exports', compile('../src/editor/hooks/usePalmRejection.js'))((id) => {
     if (id === 'react') return { createContext: (value) => ({ value }), useRef: (current) => ({ current }), useLayoutEffect: (fn) => fn() }
     if (id.endsWith('/stylus')) return stylusModule.exports
-    if (id.endsWith('/drawingInput')) return { getDrawingInput: () => input }
+    if (id.endsWith('/drawingInput')) return { getDrawingInput: () => input === 'unset' ? (stylusModule.exports.stylus.seen ? 'pen' : 'any') : input }
     return require(id)
   }, hookModule, hookModule.exports)
   return { stylus: stylusModule.exports, usePalmRejectingPan: hookModule.exports.usePalmRejectingPan }
@@ -254,4 +259,18 @@ test('손바닥 해제 좌표는 펜 끝점에 섞이지 않고 취소된 획도
   t.responder.onResponderTerminate({ nativeEvent: { identifier: 0, pageX: 90, pageY: 0 } })
   assert.deepEqual(t.log.at(-1), ['end', true])
   assert.equal(t.log.length, 3)
+})
+
+
+test('터치가 포인터 이벤트보다 먼저 와도 네이티브가 본 펜이면 바로 펜이다', () => {
+  const { stylus } = load('android', 'pen', stamp => stamp === 500)
+  assert.equal(stylus.touchKind({ identifier: 0, timestamp: 500 }), 'pen')
+  assert.equal(stylus.stylus.seen, true)
+  assert.equal(stylus.touchKind({ identifier: 1, timestamp: 900 }), 'unknown')
+})
+
+test('펜이 이미 닿아 있으면 새로 모르는 터치는 네이티브 시각이 가까워도 펜으로 보지 않는다(손바닥)', () => {
+  const { stylus } = load('android', 'pen', () => true)
+  stylus.setPenPointerActive(0, true)
+  assert.equal(stylus.touchKind({ identifier: 1, timestamp: 500 }), 'unknown')
 })

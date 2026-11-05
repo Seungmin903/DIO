@@ -30,7 +30,7 @@ export function createMediaLibraryApi({ transport, fileRequest }) {
       return {items,nextCursor:body.nextCursor??null}
     },
     async get(id) { return readMedia(await transport({path:path(id)}),id) },
-    file(id,options) { path(id);return fileRequest(`/media/${id}/file`,{...options,binary:true}) },
+    file(id,options) { path(id);return fileRequest(`/media/${id}/file`,{timeoutMs:120000,...options,binary:true}) },
   }
 }
 
