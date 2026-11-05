@@ -849,6 +849,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
   const libraryScreen = useMemo(() => (
     <LibraryScreen
       compact={isPhone}
+      guestImport={guestImport}
       portrait={tabletPortrait}
       diaries={libraryDiaries}
       metadata={libraryMetadata}
