@@ -87,7 +87,7 @@ test('폰·태블릿은 카드 길게 누르기로 선택 모드에 들어가고
   assert.ok(!findControl(tree,'다이어리 선택'));
   assert.ok(!findControl(tree,'편집'));
   findControl(tree,'보관함 옵션').props.onPress();tree=render(props);
-  assert.equal(nodes(tree).filter(n=>n.props.accessibilityRole==='radio').length,4);
+  assert.equal(nodes(tree).filter(n=>n.props.accessibilityRole==='radio'&&!/ 보기$/.test(n.props.accessibilityLabel??'')).length,4);
   assert.ok(findControl(tree,'정렬 기준'));
   assert.ok(!findControl(tree,'편집'));assert.ok(!findControl(tree,'선택'));assert.ok(!findControl(tree,'선택 완료'));
   findControl(tree,'보관함 옵션').props.onPress();tree=render(props);
@@ -163,7 +163,7 @@ test('보관함 검색·초기화·빈 결과·정렬 선택을 연결하고 새
  assert.equal(tree.props.query,'');
  tree.props.onBack();tree=render(props);
  find(tree,'보관함 옵션').props.onPress();tree=render(props);
- const options=nodes(tree).filter(n=>n.props.accessibilityRole==='radio');assert.equal(options.length,4);
+ const options=nodes(tree).filter(n=>n.props.accessibilityRole==='radio'&&!/ 보기$/.test(n.props.accessibilityLabel??''));assert.equal(options.length,4);
  options[2].props.onPress();tree=render(props);
  assert.deepEqual(nodes(tree).filter(n=>n.type==='../components/DiaryCard').map(n=>n.props.diary.id),['b','a']);
  assert.ok(nodes(tree).some(n=>n.props?.accessibilityLabel==='새 다이어리 만들기'));
@@ -177,10 +177,10 @@ test('접힌·펼친 사이드바 모두 생성 버튼 없이 기존 탐색을 �
  for(const label of ['내 다이어리','공유된 다이어리','휴지통','설정','마이페이지'])assert.ok(labels.includes(label));
  }
 });
-test('방문자 사이드바의 아래 항목은 로그인 화면을 바로 여는 로그인 하기다',()=>{
+test('방문자 사이드바의 아래 항목은 로그인 화면을 바로 여는 로그인 · 회원가입이다',()=>{
  const render=setup('../src/diary/components/SideRail.js');
  const tree=render({collapsed:false,page:'library',filter:'all',user:{mode:'preview',provider:'guest'}});
- const login=nodes(tree).find(n=>n.props.accessibilityLabel==='로그인 하기');
+ const login=nodes(tree).find(n=>n.props.accessibilityLabel==='로그인 · 회원가입');
  assert.ok(login);assert.equal(nodes(tree).some(n=>n.props.accessibilityLabel==='마이페이지'),false);
 });
 

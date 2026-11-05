@@ -17,7 +17,7 @@ export const DEFAULT_GUIDES = { grid: 'none', spacing: 'normal', center: false, 
 export const hasGuides = (guides) => guides.grid !== 'none' || guides.center || guides.thirds || guides.margin
 
 const MARGIN = 48
-// 불투명 색으로 그린다. 반투명이면 가로·세로 선이 겹치는 교차점이 진하게 보였다 (흰 바탕 위 rgba(129,138,195,0.32) 와 같은 색)
+// 불투명 색으로 그린다. 반투명이면 가로·세로 선이 겹치는 교차점이 진하게 보였다 (흰 바탕 위 rgba(129,125,185,0.32) 와 같은 색)
 const GUIDE_COLOR = 'rgba(232,93,140,0.7)'
 
 /**

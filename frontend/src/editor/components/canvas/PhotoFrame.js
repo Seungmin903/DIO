@@ -4,10 +4,10 @@ import { FRAME_TEXT } from '../../constants'
 
 const FILM_COLOR = '#1F2026'
 // 흰 종이에 흰 폴라로이드를 올려도 가장자리가 보이게 아주 옅은 선
-const EDGE = 'rgba(11,23,102,0.26)'
+const EDGE = 'rgba(28,28,28,0.26)'
 const EDGE_WIDTH = 1
 // 사진 틀 고르는 칸처럼 작게 그릴 때 흰 틀이 바탕에 묻히지 않게 쓰는 진한 선
-export const PREVIEW_EDGE = 'rgba(11,23,102,0.38)'
+export const PREVIEW_EDGE = 'rgba(28,28,28,0.38)'
 // 바깥 선은 틀 안쪽으로 들여 그린다. 가장자리에 걸치면 기기의 픽셀 반올림으로 오른쪽 · 아래 선이 그림 영역 밖으로 잘린다.
 const EDGE_INSET = EDGE_WIDTH / 2 + 1
 const FILM_PRINT = '#F2C46B' // 필름 가장자리에 인쇄된 글자 (주황빛 노랑)

@@ -35,6 +35,12 @@ test('넓은 창은 104 폭 탭을 가로로 밀고, 좁은 창(세로 태블릿
   assert.deepEqual(tabWidths(narrow), [undefined, undefined, undefined, undefined, undefined, undefined])
 })
 
-test('폰은 재기 전후 모두 같은 폭으로 나눈다', () => {
-  assert.equal(tablist(render({ compact: true, width: 379 })).type, 'View')
+test('폰은 칸 72가 다 들어가면 같은 폭으로 나누고, 모자라면 72 칸을 가로로 민다', () => {
+  // 6칸 × 72 + 5 × 4 = 452. 379 폭(411dp 폰)에는 안 들어가 스크롤, 460 폭에는 들어가 균등
+  const narrow = render({ compact: true, width: 379 })
+  assert.equal(tablist(narrow).type, 'FadeScroll')
+  assert.deepEqual(tabWidths(narrow), [72, 72, 72, 72, 72, 72])
+  assert.equal(tablist(render({ compact: true, width: 460 })).type, 'View')
+  // 재기 전(폭 0)에는 균등 분할로 시작한다
+  assert.equal(tablist(render({ compact: true, width: 0 })).type, 'View')
 })

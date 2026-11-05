@@ -3,6 +3,7 @@ import { Image } from 'expo-image';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { styles as s } from '../styles';
 import Header from '../components/Header';
+import BackButton from '../components/BackButton';
 import AppInformation from '../components/AppInformation';
 import { SettingCard, SettingSection } from '../components/SettingRow';
 import NotificationSetting from '../components/NotificationSetting';
@@ -24,7 +25,7 @@ import { useLoginEntry } from '../../auth/loginGate';
 import { shouldShowProfileSettingsButton } from '../components/profileNavigationModel';
 
 // 마이페이지는 프로필·계정, 설정은 알림·보안·편집(그리기 입력)·앱 정보로 분리한다. 두 화면은 잠금·알림 세부 화면만 공통으로 쓴다.
-export default function ProfileScreen({ section = 'profile', compact = false, previewUser, onEndPreview, onClearSession = onEndPreview, onUpdatePreview, registerLeaveGuard, getProfilePhotoSource, accountService, onOpenSettings, onOpenBlockedUsers }) {
+export default function ProfileScreen({ section = 'profile', compact = false, onBack = null, previewUser, onEndPreview, onClearSession = onEndPreview, onUpdatePreview, registerLeaveGuard, getProfilePhotoSource, accountService, onOpenSettings, onOpenBlockedUsers }) {
   // home · edit(회원정보 수정) · password(비밀번호 재설정 4단계) · notifications(서버 알림 설정, 회원)
   const [route, setRoute] = useState('home');
   const settingsPage = section === 'settings';
@@ -105,11 +106,12 @@ export default function ProfileScreen({ section = 'profile', compact = false, pr
   // 로그인 화면은 지금 화면 위에 덮어 뜨고, 회원가입은 로그인 화면에서 이어 간다
   const loginButton = guest ? <DioButton variant="filled" label="로그인 · 회원가입" onPress={openLogin} block={compact} style={compact ? local.loginCompact : local.login} /> : null;
   // 폰: 프로필 줄 전체가 편집 진입(오른쪽 ›) — 버튼을 빼서 닉네임 · 이메일이 줄임 없이 보인다(코덱스 2026-11-03 시안 A)
+  // 게스트는 프로필을 고치지 않는다(사용자 결정 2026-11-05). 회원만 수정 입구가 있다
   const canEditProfile = !guest && Boolean(previewUser?.accountId || (authenticatedUser && accountService));
   const rowEdit = compact && canEditProfile;
-  const profileAction = rowEdit ? null : guest ? null : previewUser?.accountId || (authenticatedUser && accountService) ? (
+  const profileAction = rowEdit || !canEditProfile ? null : (
     <DioButton variant="ghost" outline label="회원정보 수정" text="프로필 수정" icon="edit" onPress={() => setEditing(true)} style={local.editButton} />
-  ) : null;
+  );
 
   // 로그아웃은 로그인한 사용자만 있다.
   const logout = onEndPreview && !guest ? <DioButton variant="ghost" outline label="로그아웃" onPress={() => confirmAction({ title: '로그아웃', message: '로그아웃하시겠어요?', confirmLabel: '로그아웃', danger: false, onConfirm: onEndPreview })} block /> : null;
@@ -129,7 +131,8 @@ export default function ProfileScreen({ section = 'profile', compact = false, pr
     <ScrollView style={local.root} contentContainerStyle={[s.screen, compact && s.screenCompact, local.content]} showsVerticalScrollIndicator={false}>
       {/* 설정 본문은 다른 화면처럼 좌우 여백까지 꽉 채운다(760 제한은 실기기에서 오른쪽만 비어 좌우가 맞지 않았다). 조작은 모두 오른쪽 끝선 */}
       <View style={local.column}>
-      <Header title={settingsPage ? '설정' : '마이페이지'} icon={settingsPage ? 'settings' : 'person'} compact={compact} right={settingsButton} />
+      <Header title={settingsPage ? '설정' : '마이페이지'} icon={settingsPage ? 'settings' : 'person'} compact={compact} right={settingsButton}
+        left={onBack ? <BackButton label="마이페이지로 돌아가기" onPress={onBack} /> : undefined} />
       {!settingsPage && <View style={[local.identity, compact && local.identityCompact, rowEdit && local.identityRowEdit]}>
         <Pressable accessibilityRole={rowEdit ? 'button' : undefined} accessibilityLabel={rowEdit ? '회원정보 수정' : undefined} disabled={!rowEdit} onPress={() => setEditing(true)} style={[local.identityRow, rowEdit && { gap: 14 }]}>
           <View style={[local.avatarWrap, compact && (rowEdit ? local.avatarRowEdit : local.avatarCompact)]}>
@@ -188,7 +191,7 @@ const local = StyleSheet.create({
   // 카드 대신 화면 전체를 흰 면 한 장으로 둔다(공방과 같다)
   root: { flex: 1, backgroundColor: colors.surface },
   content: { paddingBottom: 36 },
-  settingsButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+  settingsButton: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center' },
   // 정체성 판(원 페이저 12): 옅은 면(surfaceMuted) + 모서리 16 한 장, 테두리 없음. 화면에서 면이 있는 판은 이것 하나다
   identity: { minHeight: 112, justifyContent: 'center', gap: 16, padding: 20, borderRadius: 16, backgroundColor: colors.surfaceMuted },
   identityCompact: { padding: 16 },

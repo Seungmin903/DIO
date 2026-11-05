@@ -27,7 +27,7 @@ function loadCard() {
     if (id === './DiaryActionBubble') return { __esModule: true, default: 'sheet' };
     if (id === './SelectionMark') return { __esModule: true, default: 'SelectionMark' };
     if (id === '../utils/coverDesign') return { COVER_GRADIENTS: [], relativeLuminance: () => 0.5, normalizeCover: () => ({ enabled: true, kind: 'color', color: '#BDC2E1' }) };
-    if (id === 'react-native') return { Animated: { View: 'animated' }, Pressable: 'button', Text: 'text', View: 'view' };
+    if (id === 'react-native') return { Animated: { View: 'animated' }, Platform: { OS: 'web' }, BackHandler: { addEventListener: () => ({ remove() {} }) }, Pressable: 'button', Text: 'text', View: 'view' };
     if (id === '../constants') return { C: {} };
     if (id === '../utils/libraryQuery') return { isSharedDiary };
     if (id === '../utils/libraryView') return { cardTapAction };

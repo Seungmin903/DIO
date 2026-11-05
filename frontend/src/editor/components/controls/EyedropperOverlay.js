@@ -103,5 +103,5 @@ const styles = StyleSheet.create({
   ringHalf: { flex: 1 },
   window: { position: 'absolute', overflow: 'hidden', backgroundColor: colors.surface, borderWidth: 1, borderColor: 'rgba(255,255,255,0.9)' },
   // 조준 칸: 흰 테두리 + 남색 바깥선으로 어떤 바탕에서도 보인다
-  aim: { position: 'absolute', width: LENS.aim, height: LENS.aim, borderWidth: 1.5, borderColor: colors.surface, boxShadow: '0px 0px 0px 1px rgba(11, 23, 102, 0.75)' },
+  aim: { position: 'absolute', width: LENS.aim, height: LENS.aim, borderWidth: 1.5, borderColor: colors.surface, boxShadow: '0px 0px 0px 1px rgba(28, 28, 28, 0.75)' },
 })

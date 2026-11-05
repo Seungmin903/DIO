@@ -21,7 +21,7 @@ function loadFontModule({ autoResolve = false } = {}) {
     if (id === '../utils/text') return text
     if (id === '../templates/planners.js') return planners
     if (id === '../../handwriting/library.js') return { refreshPersonalFonts: async () => [] }
-    if (id.endsWith('.ttf')) return id
+    if (/\.(ttf|otf)$/.test(id)) return id
     return require(id)
   }, module, module.exports)
   return { module, calls, pending }
@@ -71,6 +71,7 @@ test('글꼴 로더는 쓰이는 글꼴만 한 번씩 등록하고 실패한 fac
   for (const task of pending.values()) task.resolve()
   await everything
   const expectedFiles = {
+    'Pretendard-Regular': /pretendard\/Pretendard-Regular\.otf$/, 'Pretendard-Bold': /pretendard\/Pretendard-Bold\.otf$/,
     NanumGothic: /nanum-gothic\/400Regular\/NanumGothic_400Regular\.ttf$/, NanumGothicBold: /nanum-gothic\/700Bold\/NanumGothic_700Bold\.ttf$/,
     NanumMyeongjo: /nanum-myeongjo\/400Regular\/NanumMyeongjo_400Regular\.ttf$/, NanumMyeongjoBold: /nanum-myeongjo\/700Bold\/NanumMyeongjo_700Bold\.ttf$/,
     GowunDodum: /gowundodum\/GowunDodum-Regular\.ttf$/, GowunBatang: /gowunbatang\/GowunBatang-Regular\.ttf$/, GowunBatangBold: /gowunbatang\/GowunBatang-Bold\.ttf$/,

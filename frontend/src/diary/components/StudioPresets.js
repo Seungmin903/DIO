@@ -84,7 +84,8 @@ export function GroupHead({ icon, title, right = null, line = true, wide = false
       <Text accessibilityRole={section ? 'header' : undefined} style={[local.groupTitle, section && local.sectionTitle, count && local.groupTitleFit]}>{title}</Text>
       {count ? <Text style={local.groupCount}>{count}</Text> : null}
       {count ? <View style={local.grow} /> : null}
-      {right}
+      {/* 오른쪽 버튼은 줄 폭을 넘지 않는다(폰 좁은 폭에서 `PDF 불러오는 중 n/m` 같은 긴 글자가 제목을 밀지 않게) */}
+      {right ? <View style={local.headRight}>{right}</View> : null}
     </View>
     {line && <View style={local.line} />}
   </>;
@@ -111,6 +112,7 @@ const local = StyleSheet.create({
   groupTitleFit: { flex: 0, flexShrink: 1 },
   groupCount: { fontSize: 14, fontWeight: '700', color: colors.textMuted },
   grow: { flex: 1 },
+  headRight: { flexShrink: 1, minWidth: 0, marginLeft: 8 },
   reset: { minHeight: 32, paddingHorizontal: 10 },
   error: { fontSize: 12.5, fontWeight: '600', lineHeight: 19, color: colors.dangerStrong },
   // 이름과 색 사이의 옅은 선(사용자 지시로 다시 넣음). 길이는 색 7개의 첫 원 왼쪽 끝부터 마지막 원 오른쪽 끝까지:

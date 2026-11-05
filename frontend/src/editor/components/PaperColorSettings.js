@@ -98,9 +98,9 @@ function DayPlannerOptions({ options, onChange }) {
 const styles = StyleSheet.create({
   section: { gap: 8 },
   row: { flexDirection: 'row', flexWrap: 'wrap', columnGap: 16, rowGap: 16 },
-  swatch: { width: 32, height: 32, borderRadius: 16, borderWidth: 1, borderColor: 'rgba(11,23,102,0.15)' },
+  swatch: { width: 32, height: 32, borderRadius: 16, borderWidth: 1, borderColor: 'rgba(28,28,28,0.15)' },
   swatchOn: { borderWidth: 3, borderColor: colors.primary },
-  restSwatch: { width: 28, height: 28, borderRadius: 14, borderWidth: 1, borderColor: 'rgba(11,23,102,0.15)', alignItems: 'center', justifyContent: 'center' },
+  restSwatch: { width: 28, height: 28, borderRadius: 14, borderWidth: 1, borderColor: 'rgba(28,28,28,0.15)', alignItems: 'center', justifyContent: 'center' },
   none: { backgroundColor: colors.surface },
   noneText: { fontSize: 11, fontWeight: '700', color: colors.textMuted },
 })

@@ -294,7 +294,7 @@ export default function ProfileEditScreen({
           <View style={s.heading}>
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="내 공간으로 돌아가기"
+              accessibilityLabel="마이페이지로 돌아가기"
               disabled={busy}
               onPress={() => leave(onClose)}
               style={s.back}

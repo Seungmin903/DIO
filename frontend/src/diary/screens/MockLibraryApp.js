@@ -57,7 +57,7 @@ function RemoteLibrary({ account, onSwitchAccount, onOpenNotifications }) {
   const [viewport, setViewport] = useState({ width, height });
   const frame = isPhone ? null : fitTabletFrame(viewport.width, viewport.height);
   const mock = useMemo(() => createMockDiaryTransport(account === 'A' ? {} : { initialRows: [{
-    diaryId: 'mock-account-b', diaryTitle: '다른 계정 일기', coverColor: '#ABB1D8', visibility: 'PRIVATE',
+    diaryId: 'mock-account-b', diaryTitle: '다른 계정 일기', coverColor: '#B2AFD5', visibility: 'PRIVATE',
     pageCount: 3, version: '1', canEdit: true, myMembership: { isFavorite: true }, createdAt: '2026-10-24T03:00:00Z', updatedAt: '2026-10-24T03:00:00Z',
   }] }), [account]);
   const api = useMemo(() => createDiaryApi(mock.transport), [mock]);
@@ -325,7 +325,7 @@ function RemoteLibrary({ account, onSwitchAccount, onOpenNotifications }) {
         <ScrollView horizontal contentContainerStyle={s.row}>
           {[['success', '저장 정상'], ['fail-once', '저장 한 번 실패'], ['error', '저장 계속 실패'], ['forbidden', '권한 없음'], ['conflict', '버전 충돌'], ['response-lost', '응답 유실']].map(([value, label]) =>
             <Button key={value} label={`${writeMode === value ? '✓ ' : ''}${label}`} disabled={editSaving} onPress={() => {
-              if (value === 'conflict') mock.simulateEdit(editing.source.id, { diaryTitle: '다른 기기에서 수정한 이름', coverColor: '#ABB1D8', coverPattern: 'STRIPE' });
+              if (value === 'conflict') mock.simulateEdit(editing.source.id, { diaryTitle: '다른 기기에서 수정한 이름', coverColor: '#B2AFD5', coverPattern: 'STRIPE' });
               mock.setWriteScenario(value); setWriteMode(value);
             }} />)}
         </ScrollView>

@@ -9,7 +9,7 @@ import FrameBackdrop, { FrameShape, PREVIEW_EDGE, StripBackdrop } from '../canva
 
 export const PREVIEW = 54 // 코덱스 24번: 틀 모양이 크게 보이게 (카드 88×92)
 export const PHOTO_FILL = '#B9CBE6' // 미리보기 안의 사진 자리
-const PREVIEW_SHADOW = 'rgba(11,23,102,0.14)'
+const PREVIEW_SHADOW = 'rgba(28,28,28,0.14)'
 
 /**
  * 사진 틀 칸 (오프라인 에셋 '④ 사진 틀'). 위젯 칸의 사진 틀(누르면 빈 틀을 붙인다)이 쓴다.

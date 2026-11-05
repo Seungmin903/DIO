@@ -4,9 +4,9 @@ import FadeScroll, { CANVAS_FADE_RGB } from '../../editor/components/controls/Fa
 import { colors } from '../../shared/theme';
 
 // 견출지 스택형 인덱스(1020 감성 점검 시안 C, 사용자 선택): 위 모서리만 둥근 직사각 탭을 겹치지 않고 6 간격으로 세운다.
-// 고른 탭은 lavender100 으로 4 더 높이 서고 아래 선(cardBorder)까지 내려와 선을 덮어 아래 면과 이어진다. 나머지는 surfaceSoft(#F7F8FD), 테두리 · 그림자 없음.
-// 높이 36(고른 탭 40). 폰은 가로로 밀지 않고 모든 칸을 본문 폭 안에 같은 폭으로 나눈다(앱 디자인 점검 원 페이저 08)
-const SIZE = { wide: { width: 104, idle: 36, selected: 40 }, compact: { width: null, idle: 36, selected: 40 } };
+// 고른 탭은 lavender100 으로 4 더 높이 서고 아래 선(cardBorder)까지 내려와 선을 덮어 아래 면과 이어진다. 나머지는 surfaceSoft(#F8F7FD), 테두리 · 그림자 없음.
+// 높이 36(고른 탭 40). 폰: 칸이 모두 들어가면 같은 폭으로 나누고, 모자라면 Material 스크롤 탭처럼 칸 최소 72로 가로로 민다(2026-11-05 조사 §16-2. 6칸 균등 분할은 칸당 68.5로 72 미만)
+const SIZE = { wide: { width: 104, idle: 36, selected: 40 }, compact: { width: 72, idle: 36, selected: 40 } };
 // DROP = 아래 선 굵기: 프리셋 · 속지 구분선과 같은 1(사용자 지시로 굵기 통일). 고른 탭은 이만큼 내려와 선을 덮는다
 const GAP = 6, GAP_COMPACT = 4, DROP = 1, CORNER = 8;
 // 탭 높이 36(고른 탭 41) + 위로 12 = 터치 48. 아래는 본문이라 넓히지 않는다
@@ -17,9 +17,11 @@ const TAB_SLOP = { top: 12 };
  */
 export default function StudioTabs({ tabs, value, onChange, compact = false }) {
   const [rowWidth, setRowWidth] = useState(0);
-  // 넓은 탭(104)이 다 들어가지 않는 창(세로 태블릿)에서는 폰처럼 같은 폭으로 나눈다. 글자 크기는 그대로다
-  const fit = compact || (rowWidth > 0 && tabs.length * (SIZE.wide.width + GAP) - GAP > rowWidth);
-  const size = fit ? SIZE.compact : SIZE.wide;
+  // 넓은 탭(104)이 다 들어가지 않는 창(세로 태블릿)에서는 같은 폭으로 나눈다. 글자 크기는 그대로다
+  // 폰: 칸 72씩 들어가면 같은 폭으로 나누고(fit), 안 들어가면 72 칸을 가로로 민다(scroll)
+  const overflowCompact = compact && rowWidth > 0 && tabs.length * (SIZE.compact.width + GAP_COMPACT) - GAP_COMPACT > rowWidth;
+  const fit = !overflowCompact && (compact || (rowWidth > 0 && tabs.length * (SIZE.wide.width + GAP) - GAP > rowWidth));
+  const size = fit || overflowCompact ? SIZE.compact : SIZE.wide;
   const selectedIndex = Math.max(0, tabs.findIndex(tab => tab.id === value));
   return (
     <View style={local.wrap} onLayout={event => setRowWidth(event.nativeEvent.layout.width)}>
@@ -39,7 +41,7 @@ export default function StudioTabs({ tabs, value, onChange, compact = false }) {
         });
         return fit
           ? <View accessibilityRole="tablist" style={[local.row, local.rowCompact]}>{items}</View>
-          : <FadeScroll horizontal fadeRgb={CANVAS_FADE_RGB} accessibilityRole="tablist" contentContainerStyle={local.row}>{items}</FadeScroll>;
+          : <FadeScroll horizontal fadeRgb={CANVAS_FADE_RGB} accessibilityRole="tablist" contentContainerStyle={[local.row, overflowCompact && local.rowScrollCompact]}>{items}</FadeScroll>;
       })()}
     </View>
   );
@@ -49,11 +51,12 @@ const local = StyleSheet.create({
   wrap: { marginBottom: 24 },
   row: { alignItems: 'flex-end', gap: GAP, paddingRight: 8 },
   rowCompact: { flexDirection: 'row', gap: GAP_COMPACT, paddingRight: 0 },
+  rowScrollCompact: { gap: GAP_COMPACT, paddingRight: 24 },
   tabCompact: { flex: 1, minWidth: 0 },
   tab: { alignItems: 'center', justifyContent: 'center', borderTopLeftRadius: CORNER, borderTopRightRadius: CORNER },
   tabIdle: { backgroundColor: colors.surfaceSoft, marginBottom: DROP },
   tabSelected: { backgroundColor: colors.lavender100, paddingTop: DROP },
-  // 글자 16/600 #0B1766(1020 코덱스 5번): 안 고른 탭도 같은 색, 고른 탭은 면 · 높이로만 구분
+  // 글자 16/600 #1C1C1C(1020 코덱스 5번): 안 고른 탭도 같은 색, 고른 탭은 면 · 높이로만 구분
   label: { fontSize: 16, fontWeight: '600', color: colors.text },
   labelCompact: { fontSize: 13 }, // 폰: 13(고른 탭은 아래 labelSelected 로 700)
   labelSelected: { fontWeight: '700' },

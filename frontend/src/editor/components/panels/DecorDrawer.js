@@ -748,7 +748,7 @@ export default function DecorDrawer({ tab, onAdd, onTapeInserted, onToast, onClo
       >
         {/* iPadOS 창 손잡이처럼 보관함 모서리 곡선과 같은 중심의 호 */}
         <Svg width={GRIP} height={GRIP} pointerEvents="none">
-          <Path d={GRIP_ARC} stroke="rgba(11,23,102,0.32)" strokeWidth={4} strokeLinecap="round" fill="none" />
+          <Path d={GRIP_ARC} stroke="rgba(28,28,28,0.32)" strokeWidth={4} strokeLinecap="round" fill="none" />
         </Svg>
       </View>}
     </View>
@@ -1187,8 +1187,8 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1.5,
     borderStyle: 'dashed',
-    borderColor: 'rgba(129,138,195,0.6)',
-    backgroundColor: 'rgba(129,138,195,0.06)',
+    borderColor: 'rgba(129,125,185,0.6)',
+    backgroundColor: 'rgba(129,125,185,0.06)',
   },
   addTileBusy: { opacity: 0.5 },
   // 칸 테두리(TILE_GAP 안쪽)에서 위·왼쪽 모두 4 만큼 들어온 자리
