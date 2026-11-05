@@ -25,10 +25,7 @@ import { useLoginEntry } from '../../auth/loginGate';
 import { showsInlineSettings } from '../components/profileNavigationModel';
 
 // 마이페이지는 프로필·계정, 설정은 알림·보안·편집(그리기 입력)·앱 정보로 분리한다. 두 화면은 잠금·알림 세부 화면만 공통으로 쓴다.
-// 이름 옆 로그인 버튼이 이름을 자르지 않고 들어가는 창 폭(글자 배율을 뺀 dp). 게스트 이름 `방문자` 기준 실측
-const LOGIN_INLINE_MIN_WIDTH = 340;
-
-export default function ProfileScreen({ guestImport = null, section = 'profile', compact = false, onBack = null, previewUser, onEndPreview, onClearSession = onEndPreview, onUpdatePreview, registerLeaveGuard, getProfilePhotoSource, accountService, onOpenBlockedUsers }) {
+export default function ProfileScreen({ section = 'profile', compact = false, onBack = null, previewUser, onEndPreview, onClearSession = onEndPreview, onUpdatePreview, registerLeaveGuard, getProfilePhotoSource, accountService, onOpenSettings, onOpenBlockedUsers }) {
   // home · edit(회원정보 수정) · password(비밀번호 재설정 4단계) · notifications(서버 알림 설정, 회원)
   const [route, setRoute] = useState('home');
   const settingsPage = section === 'settings';
@@ -142,9 +139,9 @@ export default function ProfileScreen({ guestImport = null, section = 'profile',
     <ScrollView style={local.root} contentContainerStyle={[s.screen, compact && s.screenCompact, local.content]} showsVerticalScrollIndicator={false}>
       {/* 설정 본문은 다른 화면처럼 좌우 여백까지 꽉 채운다(760 제한은 실기기에서 오른쪽만 비어 좌우가 맞지 않았다). 조작은 모두 오른쪽 끝선 */}
       <View style={local.column}>
-      <Header title={settingsPage ? '설정' : '마이페이지'} icon={settingsPage ? 'settings' : 'person'} compact={compact}
+      <Header title={settingsPage ? '설정' : '마이페이지'} icon={settingsPage ? 'settings' : 'person'} compact={compact} right={settingsButton}
         left={onBack ? <BackButton label="마이페이지로 돌아가기" onPress={onBack} /> : undefined} />
-      {!settingsPage && <View style={[local.identity, compact && local.identityCompact, guest && compact && !loginBelow && local.identityGuestInline, rowEdit && local.identityRowEdit]}>
+      {!settingsPage && <View style={[local.identity, compact && local.identityCompact, rowEdit && local.identityRowEdit]}>
         <Pressable accessibilityRole={rowEdit ? 'button' : undefined} accessibilityLabel={rowEdit ? '회원정보 수정' : undefined} disabled={!rowEdit} onPress={() => setEditing(true)} style={[local.identityRow, rowEdit && { gap: 14 }]}>
           <View style={[local.avatarWrap, compact && (rowEdit ? local.avatarRowEdit : local.avatarCompact)]}>
             <View style={[local.avatar, compact && (rowEdit ? local.avatarRowEdit : local.avatarCompact)]}>
@@ -211,6 +208,7 @@ const local = StyleSheet.create({
   // 카드 대신 화면 전체를 흰 면 한 장으로 둔다(공방과 같다)
   root: { flex: 1, backgroundColor: colors.surface },
   content: { paddingBottom: 36 },
+  settingsButton: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center' },
   // 정체성 판(원 페이저 12): 옅은 면(surfaceMuted) + 모서리 16 한 장, 테두리 없음. 화면에서 면이 있는 판은 이것 하나다
   identity: { minHeight: 112, justifyContent: 'center', gap: 16, padding: 20, borderRadius: 16, backgroundColor: colors.surfaceMuted },
   identityCompact: { padding: 16 },
@@ -234,7 +232,6 @@ const local = StyleSheet.create({
   nameRow: { flexDirection: 'row', alignItems: 'center' },
   nameShrink: { flexShrink: 1 },
   login: { minHeight: 48, minWidth: 160, marginLeft: 8 }, // 정체성 묶음과 최소 24(줄 간격 16 + 8)
-  loginInline: { minHeight: 48, flexShrink: 0 },
   loginCompact: { minHeight: 48, marginTop: -4 }, // 판 안 간격 16 에서 4 당겨 첫 줄과 12
   linkRow: { minHeight: 64, flexDirection: 'row', alignItems: 'center', gap: 16, borderBottomWidth: 1, borderBottomColor: colors.border },
   linkLabel: { flex: 1, color: colors.text, fontSize: 15, fontWeight: '700' },

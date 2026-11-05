@@ -208,7 +208,7 @@ const styles = StyleSheet.create({
   },
   // 모바일은 상태 표시줄의 Safe Area와 같은 단색을 사용해 경계가 생기지 않게 한다.
   barCompact: { height: 60, gap: 4, paddingLeft: 14, paddingRight: 8, backgroundColor: colors.surface }, // 왼쪽은 본문 여백 14에 맞춰 ‹ 가 화면 가장자리에 붙지 않게 한다(코덱스 2026-11-03)
-  homeCompact: { minWidth: 36, minHeight: 48, flexDirection: 'row', alignItems: 'center' },
+  homeCompact: { minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: 4, paddingRight: 2 },
   home: { flexDirection: 'row', alignItems: 'center', gap: 8, height: 40 },
   homePressed: {}, // 눌림 효과 없음(사용자 지시)
   lead: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingLeft: 16 },
@@ -236,6 +236,7 @@ const styles = StyleSheet.create({
   },
   docTitle: { flex: 1, minWidth: 0, marginLeft: 4, justifyContent: 'center' },
   docTitleText: { fontSize: 15, fontWeight: '700', letterSpacing: -0.3 },
+  pageLabel: { marginTop: 2, fontSize: 11, fontWeight: '700', letterSpacing: 0.6, color: colors.textMuted },
   titleInputCompact: { minWidth: 0, alignSelf: 'stretch' },
   // 오른쪽 구분선: 흰 표지면 색 띠가 흰 탭과 이어져 보이지 않으므로 늘 한 줄 긋는다
   spine: { position: 'absolute', left: 0, top: 0, bottom: 0, width: 20, opacity: 0.92, borderRightWidth: 1, borderRightColor: colors.cardBorder },

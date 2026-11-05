@@ -14,7 +14,7 @@ test('보관함 탭은 현재 범위와 일치할 때만 선택된다', () => {
   assert.equal(isBottomTabSelected('library', 'personal', shared), false);
 });
 
-test('정규화되지 않은 settings 에서도 마이페이지 탭이, 휴지통 화면에서는 휴지통 탭이 선택 상태다', () => {
+test('설정 화면에서는 마이페이지 탭이, 휴지통 화면에서는 휴지통 탭이 선택 상태다', () => {
   assert.deepEqual(BOTTOM_TABS.map(tab => isBottomTabSelected('settings', 'personal', tab)), [false, false, false, false, true]);
   assert.deepEqual(BOTTOM_TABS.map(tab => isBottomTabSelected('trash', 'personal', tab)), [false, false, false, true, false]);
 });
