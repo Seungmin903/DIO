@@ -43,7 +43,8 @@ test('실제 이메일 계정은 회원정보 수정의 비밀번호 변경에�
  const edit=ui.render();assert.equal(edit.type,ui.PasswordForm);assert.equal(typeof edit.props.onPasswordReset,'function');
  edit.props.onPasswordReset();
  const form=ui.render();assert.equal(form.type,ui.PasswordForm);assert.equal(form.props.service,ui.service);assert.equal(form.props.email,'member@example.com');
- form.props.onClose();assert.ok(find(ui.render(),'회원정보 수정'));
+ assert.equal(form.props.backLabel,'프로필 수정으로 돌아가기');
+ form.props.onClose();assert.equal(typeof ui.render().props.onPasswordReset,'function');
 });
 test('비밀번호 재설정 완료는 서버 로그아웃 대신 로컬 세션 정리로 끝낸다',()=>{
  let cleared=0;

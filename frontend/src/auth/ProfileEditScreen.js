@@ -166,7 +166,7 @@ export default function ProfileEditScreen({
       if (mounted.current) setBusy(false);
     }
   };
-  const save = () => {
+  const save = (onSaved) => {
     if (!ready) return;
     run(
       () => requireService('updateProfile')(saved, {
@@ -181,9 +181,27 @@ export default function ProfileEditScreen({
         setBio(result.bio || '');
         form.dismiss();
         setNotice(guest ? '프로필을 저장했어요.' : '회원정보를 저장했어요.');
+        onSaved?.();
       },
       onUpdate,
     );
+  };
+  const openPasswordChange = () => {
+    if (running.current) return;
+    if (!onPasswordReset) {
+      showDialog('password');
+      return;
+    }
+    if (!changed) {
+      form.dismiss();
+      onPasswordReset();
+      return;
+    }
+    if (!ready) {
+      setError('닉네임 입력을 확인한 뒤 프로필을 저장해 주세요.');
+      return;
+    }
+    showDialog('save-before-password');
   };
   const changeNickname = (value) => {
     request.current++;
@@ -254,7 +272,8 @@ export default function ProfileEditScreen({
     if (compact || !photoTrigger.current?.measureInWindow) return setPhotoMenu({});
     photoTrigger.current.measureInWindow((x, y, w, h) => setPhotoMenu({ x, y, w, h }));
   };
-  const modalTitle =
+  const saveBeforePassword = dialog === 'save-before-password';
+  const modalTitle = saveBeforePassword ? '프로필을 저장할까요?' :
     dialog === 'withdraw'
       ? '정말 탈퇴하시겠어요?'
       : dialog === 'password'
@@ -376,7 +395,7 @@ export default function ProfileEditScreen({
                     accessibilityLabel="비밀번호 변경"
                     accessibilityState={{ disabled: !!busy }}
                     disabled={busy}
-                    onPress={() => (onPasswordReset ? leave(onPasswordReset) : showDialog('password'))}
+                    onPress={openPasswordChange}
                     style={s.infoRow}
                   >
                     <Text style={s.infoLabel}>비밀번호 변경</Text>
@@ -423,7 +442,7 @@ export default function ProfileEditScreen({
             label="변경사항 저장"
             disabled={busy || !ready}
             busy={busy}
-            onPress={save}
+            onPress={() => save()}
             style={[s.barButton, compact && s.phoneSave]}
           />
         </View>
@@ -494,6 +513,11 @@ export default function ProfileEditScreen({
                     지금 나가면 수정한 내용이 저장되지 않아요.
                   </Text>
                 )}
+                {saveBeforePassword && (
+                  <Text style={s.muted}>
+                    비밀번호를 바꾸면 다시 로그인해야 해요. 수정한 프로필을 먼저 저장하고 비밀번호 변경을 이어갈 수 있어요.
+                  </Text>
+                )}
                 {dialog === 'password' && (
                   <>
                     <Text style={s.muted}>변경하면 모든 기기에서 로그아웃돼요. 새 비밀번호로 다시 로그인해 주세요.</Text>
@@ -529,7 +553,9 @@ export default function ProfileEditScreen({
               {!discardDialog && (
               <View style={s.dialogActions}>
                 <Button label="취소" secondary disabled={busy} onPress={closeDialog} style={s.grow} />
-                <Button
+                {saveBeforePassword ? (
+                  <Button label="저장하고 계속" disabled={busy || !ready} busy={busy} onPress={() => save(onPasswordReset)} style={s.grow} />
+                ) : <Button
                   label={dialog === 'withdraw' ? '탈퇴하기' : '변경'}
                   danger={dialog === 'withdraw'}
                   disabled={
@@ -543,7 +569,7 @@ export default function ProfileEditScreen({
                   busy={busy}
                   onPress={dialog === 'withdraw' ? withdraw : changePassword}
                   style={s.grow}
-                />
+                />}
               </View>
               )}
             </View>
