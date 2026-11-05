@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Image } from 'expo-image';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { styles as s } from '../styles';
 import Header from '../components/Header';
 import BackButton from '../components/BackButton';
@@ -22,14 +22,20 @@ import NotificationSettingsScreen from './NotificationSettingsScreen';
 import AppIcon from '../../shared/AppIcon';
 import DefaultAvatar from '../../shared/DefaultAvatar';
 import { useLoginEntry } from '../../auth/loginGate';
-import { shouldShowProfileSettingsButton } from '../components/profileNavigationModel';
+import { showsInlineSettings } from '../components/profileNavigationModel';
 
 // 마이페이지는 프로필·계정, 설정은 알림·보안·편집(그리기 입력)·앱 정보로 분리한다. 두 화면은 잠금·알림 세부 화면만 공통으로 쓴다.
-export default function ProfileScreen({ section = 'profile', compact = false, onBack = null, previewUser, onEndPreview, onClearSession = onEndPreview, onUpdatePreview, registerLeaveGuard, getProfilePhotoSource, accountService, onOpenSettings, onOpenBlockedUsers }) {
+// 이름 옆 로그인 버튼이 이름을 자르지 않고 들어가는 창 폭(글자 배율을 뺀 dp). 게스트 이름 `방문자` 기준 실측
+const LOGIN_INLINE_MIN_WIDTH = 340;
+
+export default function ProfileScreen({ guestImport = null, section = 'profile', compact = false, onBack = null, previewUser, onEndPreview, onClearSession = onEndPreview, onUpdatePreview, registerLeaveGuard, getProfilePhotoSource, accountService, onOpenBlockedUsers }) {
   // home · edit(회원정보 수정) · password(비밀번호 재설정 4단계) · notifications(서버 알림 설정, 회원)
   const [route, setRoute] = useState('home');
   const settingsPage = section === 'settings';
+  // 폰은 마이페이지 안에 설정을 펼친다. 태블릿은 설정 화면(settingsPage)이 따로 있다.
+  const settingsBody = settingsPage || showsInlineSettings({ compact, section });
   const openLogin = useLoginEntry();
+  const windowSize = useWindowDimensions();
   const editing = route === 'edit';
   const setEditing = on => setRoute(on ? 'edit' : 'home');
   const [failedPhoto, setFailedPhoto] = useState(null);
@@ -74,6 +80,12 @@ export default function ProfileScreen({ section = 'profile', compact = false, on
     return () => { active = false; };
     // previewUser 는 갱신 결과로 바뀌므로 계정 · 화면 전환 때만 다시 불러온다.
   }, [userId, route, settingsPage]); // eslint-disable-line react-hooks/exhaustive-deps
+  // 폰 마이페이지의 알림 설정 하위 화면: 안드로이드 뒤로 키는 마이페이지 본문으로 돌아온다(다른 하위 화면과 같은 규칙)
+  const notificationsOpen = route === 'notifications';
+  useEffect(() => {
+    if (!notificationsOpen || !registerLeaveGuard) return undefined;
+    return registerLeaveGuard(move => move(), () => setRoute('home'));
+  }, [notificationsOpen, registerLeaveGuard]);
   // 회원 설정은 서버 인증이 끝난 세션이나 게스트만 연다(이전 체험 세션 값은 그리지 않는다)
   if (!authenticatedUser && !guest) return null;
   // 비밀번호 화면은 앱 전체(왼쪽 메뉴 · 아래 탭까지)를 덮는 전체 화면이다. 내 공간 본문 안에 두면 잘리고 메뉴가 남는다.
@@ -104,7 +116,9 @@ export default function ProfileScreen({ section = 'profile', compact = false, on
 
   // 판 오른쪽 끝은 계정 상태의 대표 행동: 게스트는 `로그인 · 회원가입`, 회원은 `프로필 수정` 윤곽 버튼.
   // 로그인 화면은 지금 화면 위에 덮어 뜨고, 회원가입은 로그인 화면에서 이어 간다
-  const loginButton = guest ? <DioButton variant="filled" label="로그인 · 회원가입" onPress={openLogin} block={compact} style={compact ? local.loginCompact : local.login} /> : null;
+  // 폰도 이름 옆이 기본이고, 좁은 창 · 큰 글자 설정에서 이름이 잘리면 이름 아래 전폭으로 내린다
+  const loginBelow = guest && compact && windowSize.width / windowSize.fontScale < LOGIN_INLINE_MIN_WIDTH;
+  const loginButton = guest ? <DioButton variant="filled" label="로그인 · 회원가입" onPress={openLogin} block={loginBelow} style={loginBelow ? local.loginCompact : compact ? local.loginInline : local.login} /> : null;
   // 폰: 프로필 줄 전체가 편집 진입(오른쪽 ›) — 버튼을 빼서 닉네임 · 이메일이 줄임 없이 보인다(코덱스 2026-11-03 시안 A)
   // 게스트는 프로필을 고치지 않는다(사용자 결정 2026-11-05). 회원만 수정 입구가 있다
   const canEditProfile = !guest && Boolean(previewUser?.accountId || (authenticatedUser && accountService));
@@ -122,18 +136,15 @@ export default function ProfileScreen({ section = 'profile', compact = false, on
       <AppIcon name="chevron-right" size={18} forText={15} color={colors.textMuted} />
     </Pressable>
   ) : null;
-  const settingsButton = shouldShowProfileSettingsButton({ compact, settingsPage, onOpenSettings }) ? <Pressable accessibilityRole="button" accessibilityLabel="설정" onPress={onOpenSettings} style={local.settingsButton}>
-    <AppIcon name="settings" size={20} color={colors.primary} />
-  </Pressable> : null;
 
   return (
     <>
     <ScrollView style={local.root} contentContainerStyle={[s.screen, compact && s.screenCompact, local.content]} showsVerticalScrollIndicator={false}>
       {/* 설정 본문은 다른 화면처럼 좌우 여백까지 꽉 채운다(760 제한은 실기기에서 오른쪽만 비어 좌우가 맞지 않았다). 조작은 모두 오른쪽 끝선 */}
       <View style={local.column}>
-      <Header title={settingsPage ? '설정' : '마이페이지'} icon={settingsPage ? 'settings' : 'person'} compact={compact} right={settingsButton}
+      <Header title={settingsPage ? '설정' : '마이페이지'} icon={settingsPage ? 'settings' : 'person'} compact={compact}
         left={onBack ? <BackButton label="마이페이지로 돌아가기" onPress={onBack} /> : undefined} />
-      {!settingsPage && <View style={[local.identity, compact && local.identityCompact, rowEdit && local.identityRowEdit]}>
+      {!settingsPage && <View style={[local.identity, compact && local.identityCompact, guest && compact && !loginBelow && local.identityGuestInline, rowEdit && local.identityRowEdit]}>
         <Pressable accessibilityRole={rowEdit ? 'button' : undefined} accessibilityLabel={rowEdit ? '회원정보 수정' : undefined} disabled={!rowEdit} onPress={() => setEditing(true)} style={[local.identityRow, rowEdit && { gap: 14 }]}>
           <View style={[local.avatarWrap, compact && (rowEdit ? local.avatarRowEdit : local.avatarCompact)]}>
             <View style={[local.avatar, compact && (rowEdit ? local.avatarRowEdit : local.avatarCompact)]}>
@@ -151,14 +162,14 @@ export default function ProfileScreen({ section = 'profile', compact = false, on
             <View style={local.nameRow}>
               <Text numberOfLines={1} style={[local.name, compact && local.nameCompact, rowEdit && local.nameRowEdit, local.nameShrink]}>{previewUser?.nickname || '나'}</Text>
             </View>
-            <Text numberOfLines={1} style={[local.space, rowEdit && local.spaceRowEdit]}>{previewUser?.bio || (previewUser?.nickname ? `${previewUser.nickname}님의 기록 공간` : '나의 기록 공간')}</Text>
+            {!guest && <Text numberOfLines={1} style={[local.space, rowEdit && local.spaceRowEdit]}>{previewUser?.bio || (previewUser?.nickname ? `${previewUser.nickname}님의 기록 공간` : '나의 기록 공간')}</Text>}
           </View>
           {profileAction}
           {rowEdit && <AppIcon name="chevron-right" size={24} forText={15} color={colors.primary} />}
-          {!compact && loginButton}
+          {!loginBelow && loginButton}
         </Pressable>
         {/* 폰: 이름 줄 아래 판 안에 전폭 한 줄 */}
-        {compact && loginButton}
+        {loginBelow && loginButton}
       </View>}
       <View style={local.cards}>
         {!settingsPage && authenticatedUser && <SettingCard compact={compact}>
@@ -169,14 +180,23 @@ export default function ProfileScreen({ section = 'profile', compact = false, on
             </Pressable>
           </SettingSection>
         </SettingCard>}
-        {settingsPage ? <>
-          <SettingCard compact={compact}>
-            <NotificationSetting compact={compact}>{serverNotifications}</NotificationSetting>
-            {(appLockSupported !== false || locked) && <AppLockSetting compact={compact} locked={locked} canEnable={appLockSupported !== false} onTurnOn={() => setPin({ mode: 'setup' })} onTurnOff={() => setPin({ mode: 'verify', next: 'off' })} onChange={() => setPin({ mode: 'verify', next: 'change' })} />}
-            <EditSetting compact={compact} />
-            <AppInformation />
-          </SettingCard>
-        </> : logout && <SettingCard compact={compact}>
+        {settingsBody && <SettingCard compact={compact}>
+          <NotificationSetting compact={compact}>{serverNotifications}</NotificationSetting>
+          {/* 게스트는 새로 켤 수 없다. 이미 켠 게스트는 끌 수 있게 끄기만 남긴다 */}
+          {((appLockSupported !== false && !guest) || locked) && <AppLockSetting compact={compact} locked={locked} canEnable={appLockSupported !== false && !guest} onTurnOn={() => setPin({ mode: 'setup' })} onTurnOff={() => setPin({ mode: 'verify', next: 'off' })} onChange={() => setPin({ mode: 'verify', next: 'change' })} />}
+          <EditSetting compact={compact} />
+          <AppInformation />
+        </SettingCard>}
+        {/* 기기 다이어리를 계정으로 옮기고 원본을 지우는 계정 · 데이터 동작이라 보관함이 아니라 여기 둔다(사용자 결정 2026-11-05) */}
+        {!settingsPage && guestImport && <SettingCard compact={compact}>
+          <SettingSection title="이 기기">
+            <Pressable accessibilityRole="button" accessibilityLabel={`이 기기의 다이어리 ${guestImport.count}권 옮기기`} onPress={guestImport.open} style={local.linkRow}>
+              <Text style={local.linkLabel}>{`이 기기의 다이어리 ${guestImport.count}권 옮기기`}</Text>
+              <AppIcon name="chevron-right" size={18} forText={15} color={colors.textMuted} />
+            </Pressable>
+          </SettingSection>
+        </SettingCard>}
+        {!settingsPage && logout && <SettingCard compact={compact}>
           <SettingSection title="계정"><View style={local.accountBody}>{logout}</View></SettingSection>
         </SettingCard>}
       </View>
@@ -191,10 +211,10 @@ const local = StyleSheet.create({
   // 카드 대신 화면 전체를 흰 면 한 장으로 둔다(공방과 같다)
   root: { flex: 1, backgroundColor: colors.surface },
   content: { paddingBottom: 36 },
-  settingsButton: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center' },
   // 정체성 판(원 페이저 12): 옅은 면(surfaceMuted) + 모서리 16 한 장, 테두리 없음. 화면에서 면이 있는 판은 이것 하나다
   identity: { minHeight: 112, justifyContent: 'center', gap: 16, padding: 20, borderRadius: 16, backgroundColor: colors.surfaceMuted },
   identityCompact: { padding: 16 },
+  identityGuestInline: { minHeight: 80 }, // 폰 게스트: 아바타 48 · 버튼 48 한 줄
   editButton: { minHeight: 32, minWidth: 92, paddingHorizontal: 12, borderColor: colors.secondary, backgroundColor: colors.surface },
   identityRow: { flexDirection: 'row', alignItems: 'center', gap: 16 },
   identityText: { flex: 1, minWidth: 0, gap: 2 },
@@ -210,10 +230,11 @@ const local = StyleSheet.create({
   nameCompact: { fontSize: 20, lineHeight: 26 },
   space: { color: colors.primaryStrong, fontSize: 14, fontWeight: '600' },
   accountBody: { paddingVertical: 12 },
-  // 게스트: 로그인 · 회원가입 채움 40
+  // 게스트: 로그인 · 회원가입 채움 48
   nameRow: { flexDirection: 'row', alignItems: 'center' },
   nameShrink: { flexShrink: 1 },
   login: { minHeight: 48, minWidth: 160, marginLeft: 8 }, // 정체성 묶음과 최소 24(줄 간격 16 + 8)
+  loginInline: { minHeight: 48, flexShrink: 0 },
   loginCompact: { minHeight: 48, marginTop: -4 }, // 판 안 간격 16 에서 4 당겨 첫 줄과 12
   linkRow: { minHeight: 64, flexDirection: 'row', alignItems: 'center', gap: 16, borderBottomWidth: 1, borderBottomColor: colors.border },
   linkLabel: { flex: 1, color: colors.text, fontSize: 15, fontWeight: '700' },

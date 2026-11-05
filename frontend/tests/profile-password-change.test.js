@@ -12,7 +12,7 @@ function setup(user,onUpdatePreview,onClearSession,extra={}){
  const values=[];let cursor=0;const effects=[];const mod={exports:{}};const PasswordForm=()=>null;const service={changePassword(){}};
  const load=id=>{
   if(id==='react')return {useEffect:(effect,deps)=>effects.push({effect,deps}),useState:initial=>{const i=cursor++;if(!(i in values))values[i]=initial;return [values[i],v=>values[i]=v]}};
-  if(id==='react-native')return {Pressable:'Pressable',ScrollView:'ScrollView',Text:'Text',View:'View',StyleSheet:{create:v=>v}};
+  if(id==='react-native')return {Pressable:'Pressable',ScrollView:'ScrollView',Text:'Text',View:'View',StyleSheet:{create:v=>v},useWindowDimensions:()=>extra.windowSize||{width:411,height:914,fontScale:1}};
   if(id==='expo-image')return {Image:'Image'};
   if(id==='../styles')return {styles:{}};
   if(id==='../../shared/theme')return {colors:{},radius:{}};
@@ -26,6 +26,7 @@ function setup(user,onUpdatePreview,onClearSession,extra={}){
   if(id==='../components/NotificationSetting')return 'NotificationSetting';
   if(id==='../components/AppLockSetting')return 'AppLockSetting';
   if(id==='../components/AppInformation')return 'AppInformation';
+  if(id==='../components/EditSetting')return 'EditSetting';
   if(id==='../components/profileNavigationModel')return profileNavigation;
   if(id==='react/jsx-runtime')return require(id);
   return ()=>null;
@@ -127,4 +128,77 @@ test('게스트 설정은 회원이 아닌 초기화 경로에 읽은 잠금 상
  ui.render();
  assert.equal(recoveryCalls.at(-1).member,false);assert.equal(recoveryCalls.at(-1).state,null);
  assert.equal(typeof recoveryCalls.at(-1).onCleared,'function');
+});
+const order=(tree)=>nodes(tree).map(node=>typeof node.type==='string'&&node.type!=='View'&&node.type!=='Text'&&node.type!=='Pressable'?node.type:node.props?.title).filter(Boolean);
+const texts=tree=>nodes(tree).filter(node=>node.type==='Text').map(node=>[node.props.children].flat(Infinity).join(''));
+test('폰 마이페이지는 설정을 안에 펼친다: 사용자 관리 → 알림 → 보안 → 편집 → 앱 정보 → 계정 순, 톱니 버튼 없음',()=>{
+ const user={mode:'authenticated',userId:'7',provider:'email',email:'member@example.com',nickname:'회원'};
+ const phone=setup(user,undefined,undefined,{compact:true}).render();
+ assert.deepEqual(order(phone).filter(x=>['사용자 관리','NotificationSetting','AppLockSetting','EditSetting','AppInformation','계정'].includes(x)),['사용자 관리','NotificationSetting','AppLockSetting','EditSetting','AppInformation','계정']);
+ assert.equal(find(phone,'설정'),null);
+ assert.ok(find(phone,'로그아웃'));assert.ok(find(phone,'차단한 사용자'));
+ // 태블릿 프로필 화면은 그대로: 설정 묶음 없음
+ const tablet=setup(user).render();
+ assert.ok(!order(tablet).includes('NotificationSetting'));assert.ok(!order(tablet).includes('EditSetting'));
+ // 태블릿 설정 화면도 그대로: 계정 · 프로필 없음
+ const tabletSettings=setup(user,undefined,undefined,{section:'settings'}).render();
+ assert.ok(order(tabletSettings).includes('EditSetting'));assert.equal(find(tabletSettings,'로그아웃'),null);assert.equal(find(tabletSettings,'차단한 사용자'),null);
+});
+test('폰 마이페이지의 알림 설정 하위 화면은 안드로이드 뒤로 키 처리를 등록하고 마이페이지 본문으로 돌아온다',()=>{
+ const user={mode:'authenticated',userId:'7',provider:'email',email:'member@example.com',nickname:'회원'};
+ const registered=[];const registerLeaveGuard=(guard,back)=>{registered.push({guard,back});return()=>{}};
+ const ui=setup(user,undefined,undefined,{compact:true,registerLeaveGuard});
+ const home=ui.render();find(home,'알림 설정').props.onPress();
+ const sub=ui.render();assert.notEqual(find(sub,'알림 설정')?.props.accessibilityLabel,'알림 설정');
+ const guardEffect=ui.effects.find(entry=>entry.deps?.[0]===true&&entry.deps?.[1]===registerLeaveGuard);
+ guardEffect.effect();assert.equal(registered.length,1);
+ let moved=0;registered[0].guard(()=>moved++);assert.equal(moved,1);
+ registered[0].back();assert.ok(find(ui.render(),'로그아웃'));
+});
+test('게스트 프로필 칸에는 한 줄 소개를 보이지 않고, 회원은 그대로 보인다(폰 · 태블릿)',()=>{
+ for(const compact of [true,false]){
+  const guest=setup({mode:'preview',provider:'guest',nickname:'방문자'},undefined,undefined,{compact}).render();
+  assert.ok(!texts(guest).some(t=>t.includes('기록 공간')));assert.ok(texts(guest).includes('방문자'));
+  const member=setup({mode:'authenticated',userId:'7',provider:'email',email:'m@example.com',nickname:'회원'},undefined,undefined,{compact}).render();
+  assert.ok(texts(member).includes('회원님의 기록 공간'));
+ }
+});
+test('폰에서는 저장된 settings 화면을 마이페이지로 읽고 태블릿 값은 바꾸지 않는다',()=>{
+ assert.equal(profileNavigation.normalizePageForFormFactor('settings',true),'profile');
+ assert.equal(profileNavigation.normalizePageForFormFactor('settings',false),'settings');
+ for(const page of ['library','studio','profile','trash','editor'])for(const phone of [true,false])assert.equal(profileNavigation.normalizePageForFormFactor(page,phone),page);
+ assert.equal(profileNavigation.showsInlineSettings({compact:true,section:'profile'}),true);
+ assert.equal(profileNavigation.showsInlineSettings({compact:false,section:'profile'}),false);
+ assert.equal(profileNavigation.showsInlineSettings({compact:false,section:'settings'}),false);
+});
+
+test('게스트는 앱 잠금을 새로 켤 수 없다(이미 켠 게스트는 끌 수 있게 남긴다), 회원은 켤 수 있다',async()=>{
+  const guest=setup({mode:'preview',provider:'guest',nickname:'방문자'},undefined,undefined,{compact:true});
+  assert.equal(nodes(guest.render()).find(node=>node.type==='AppLockSetting'),undefined);
+  const source=readFileSync(new URL('../src/diary/screens/ProfileScreen.js',import.meta.url),'utf8');
+  assert.match(source,/\(\(appLockSupported !== false && !guest\) \|\| locked\) && <AppLockSetting/);
+  assert.match(source,/canEnable=\{appLockSupported !== false && !guest\}/);
+});
+
+test('옮기기 입구는 마이페이지에만 있고 누르면 옮기기를 연다(폰 · 태블릿), 옮길 것이 없으면 없다',()=>{
+  const label='이 기기의 다이어리 2권 옮기기', member={mode:'authenticated',userId:7,nickname:'회원',email:'a@b.c'};
+  for(const compact of [true,false]){
+    let opened=0;
+    const tree=setup(member,undefined,undefined,{compact,guestImport:{count:2,open:()=>{opened+=1}}}).render();
+    const row=nodes(tree).find(node=>node.props?.accessibilityLabel===label);
+    assert.ok(row); row.props.onPress(); assert.equal(opened,1);
+    assert.equal(nodes(setup(member,undefined,undefined,{compact}).render()).find(node=>node.props?.accessibilityLabel===label),undefined);
+    assert.equal(nodes(setup(member,undefined,undefined,{compact,section:'settings',guestImport:{count:2,open(){}}}).render()).find(node=>node.props?.accessibilityLabel===label),undefined);
+  }
+  assert.ok(!readFileSync(new URL('../src/diary/screens/LibraryScreen.js',import.meta.url),'utf8').includes('guestImport'));
+});
+
+test('폰 게스트 로그인 버튼은 넉넉하면 이름 옆, 좁거나 글자가 크면 이름 아래 전폭이고 하나만 그린다',()=>{
+  const guest={mode:'preview',provider:'guest',nickname:'방문자'};
+  const login=windowSize=>nodes(setup(guest,undefined,undefined,{compact:true,windowSize}).render()).filter(node=>node.props?.label==='로그인 · 회원가입');
+  for(const [windowSize,block] of [[{width:340,height:800,fontScale:1},false],[{width:339,height:800,fontScale:1},true],[{width:411,height:914,fontScale:1.3},true]]){
+    const rows=login(windowSize);
+    assert.equal(rows.length,1);
+    assert.equal(Boolean(rows[0].props.block),block);
+  }
 });
