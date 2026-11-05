@@ -248,6 +248,14 @@ test('iPad 펜만: 손가락에 압력이 있고 터치가 먼저 와도 펜으�
   assert.deepEqual(t.log, [])
 })
 
+test('iOS 펜만: 포인터가 끝내 오지 않아도 압력이 있는 미확인 터치를 펜으로 추측하지 않는다', () => {
+  const t = setup('ios', 'pen')
+  t.down(0, 20, { force: 0.7 })
+  t.move(0, 40, { force: 0.7 })
+  t.up(0)
+  assert.deepEqual(t.log, [])
+})
+
 test('iOS 펜·손가락: 포인터 이벤트가 없어도 손가락 획을 즉시 시작하고 확정한다', () => {
   const t = setup('ios', 'any')
   t.down(0, 20, { force: 0 })
