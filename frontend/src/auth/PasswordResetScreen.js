@@ -29,6 +29,7 @@ const timeLabel = (value) => {
 export default function PasswordResetScreen({
   email = '',
   compact = false,
+  backLabel = '마이페이지로 돌아가기',
   onClose,
   onComplete,
   service = authService,
@@ -141,7 +142,7 @@ export default function PasswordResetScreen({
       style={styles.root}
       behavior={Platform.OS === 'ios' ? 'padding' : Platform.OS === 'android' ? 'height' : undefined}
     >
-      <MakerHeader title={heading} onBack={step !== 'success' ? leave : null} backLabel="마이페이지로 돌아가기" busy={busy} compact={compact} />
+      <MakerHeader title={heading} onBack={step !== 'success' ? leave : null} backLabel={backLabel} busy={busy} compact={compact} />
       <ScrollView
         contentContainerStyle={[styles.scroll, compact && styles.phoneScroll]}
         keyboardShouldPersistTaps="handled"

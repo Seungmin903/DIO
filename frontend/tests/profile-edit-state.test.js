@@ -227,6 +227,40 @@ test('중복 확인 없이 저장하고 실패 시 입력을 유지한다', asyn
  assert.ok(nodes(ui.render()).some(n=>n.props.children==='저장 실패'));ui.unmount();
 });
 
+test('사진을 바꾼 뒤 비밀번호 변경을 누르면 저장 성공 후에만 이동한다', async () => {
+  const photoUri = 'file:///new.jpg';
+  const calls = [];
+  let attempts = 0;
+  const ui = setup({
+    async updateProfile(user, draft) {
+      calls.push(draft.photoUri);
+      if (++attempts === 1) throw new Error('사진 저장 실패');
+      return { ...user, ...draft };
+    },
+  }, async () => photoUri, { onPasswordReset: () => calls.push('password') });
+
+  press(ui, '프로필 사진 변경');
+  press(ui, '프로필 사진 선택');
+  await tick();
+  press(ui, '비밀번호 변경');
+  assert.equal(find(ui, '저장하지 않고 나가기'), undefined);
+  press(ui, '확인 창 닫기');
+  assert.deepEqual(calls, []);
+  assert.equal(find(ui, '프로필 사진').props.source.uri, photoUri);
+
+  press(ui, '비밀번호 변경');
+  press(ui, '저장하고 계속');
+  await tick();
+  assert.deepEqual(calls, [photoUri]);
+  assert.ok(nodes(ui.render()).some((node) => node.props.children === '사진 저장 실패'));
+  assert.equal(find(ui, '프로필 사진').props.source.uri, photoUri);
+  press(ui, '저장하고 계속');
+  await tick();
+  assert.deepEqual(calls, [photoUri, photoUri, 'password']);
+  assert.equal(ui.updates[0].photoUri, photoUri);
+  ui.unmount();
+});
+
 test('탈퇴합니다 정확히 입력해야 탈퇴 가능하고 취소는 수정값을 보존하며 연타는 한 번만 실행한다', async () => {
   let resolve,
     calls = 0;
