@@ -1,3 +1,4 @@
+import {sharedGifMaxBytes} from '../shared/mediaLimits.js'
 // Existing /media API adapter. All platform file I/O is injected for testing.
 const uuid=id=>typeof id==='string'&&/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)
 const clone=v=>JSON.parse(JSON.stringify(v))
@@ -18,7 +19,7 @@ export function createCanvasMedia({request,files,storage,key,isActive=()=>true,n
    const saved=await storage.getItem(`${key}:${id}`);active()
    if(saved&&uuid(saved)){remote.add(saved);return saved}
    const input=await files.upload(id,category);active()
-   const body=await request('/media',{method:'POST',body:input});active()
+   const body=await request('/media',{method:'POST',body:input,timeoutMs:120000});active()
    if(!uuid(body?.mediaFileId))throw Error('이미지 업로드 응답을 확인하지 못했어요.')
    await storage.setItem(`${key}:${id}`,body.mediaFileId);active()
    remote.add(body.mediaFileId);return body.mediaFileId
@@ -54,7 +55,7 @@ export function createCanvasMedia({request,files,storage,key,isActive=()=>true,n
   if(downloaded.has(id)||failure&&now()<failure.retryAt)return Promise.resolve()
   const job=(async()=>{
    try{
-    if(!await files.cached(id)){active();const bytes=await request(`/media/${id}/file`,{binary:true});active();await files.save(id,bytes)}
+    if(!await files.cached(id)){active();const bytes=await request(`/media/${id}/file`,{binary:true,maxBytes:sharedGifMaxBytes,timeoutMs:120000});active();await files.save(id,bytes)}
     active();downloaded.add(id);failures.delete(id)
    }catch(error){
     active()
@@ -112,7 +113,7 @@ export function createCanvasMedia({request,files,storage,key,isActive=()=>true,n
 
 export function createMediaRequest({auth,accountId,sessionKey,baseUrl,fetchImpl}){
  const active=()=>{if(auth.getSessionKey()!==sessionKey)throw Error('로그인 상태가 변경됐어요.')}
- return async(path,{method='GET',body,binary=false,maxBytes=5*1024*1024,timeoutMs=30000}={})=>{
+ return async(path,{method='GET',body,binary=false,maxBytes=sharedGifMaxBytes,timeoutMs=30000}={})=>{
   if(!/^\/media(?:\/[0-9a-f-]+\/file)?$/i.test(path))throw Error('미디어 API 경로를 확인해 주세요.')
   const url=baseUrl.replace(/\/$/,'')+path
   const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),timeoutMs)

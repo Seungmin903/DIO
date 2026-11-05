@@ -28,7 +28,7 @@ import { AuthenticatedNotificationProvider, useOptionalSharedNotifications } fro
 import HomeNotificationFlow from './src/notifications/HomeNotificationFlow';
 import { isSessionDocumentKey } from './src/editor/services/sessionDocuments.js';
 import { startPushRuntime } from './src/notifications/pushRuntime';
-import { C, DEFAULT_FILTER, DESK_COLOR } from './src/diary/constants';
+import { C, DEFAULT_FILTER } from './src/diary/constants';
 import { useDiaries } from './src/diary/hooks/useDiaries';
 import { useMemberDiaries } from './src/diary/hooks/useMemberDiaries';
 import MemberRequestNotice from './src/diary/components/MemberRequestNotice';
@@ -39,7 +39,7 @@ import SideRail, { RAIL_WIDTH } from './src/diary/components/SideRail';
 import BottomTabs from './src/diary/components/BottomTabs';
 import { backTarget, createRouteMemory } from './src/diary/utils/routeMemory';
 import { PhoneBellProvider } from './src/diary/components/PhoneBell';
-import { normalizePageForFormFactor } from './src/diary/components/profileNavigationModel';
+import { createProfileSettingsNavigation } from './src/diary/components/profileNavigationModel';
 import SharingEntry from './src/sharing/SharingEntry';
 import LibraryScreen from './src/diary/screens/LibraryScreen';
 import ConnectedDiaryLibrary from './src/diary/screens/ConnectedDiaryLibrary';
@@ -384,9 +384,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
   // 로그인 · 로그아웃으로 세션이 바뀌면 본문(SessionDiaryApp)이 새로 그려진다. 기능 가드에서 로그인한 뒤 보관함으로 튕기지 않도록
   // 마지막 화면 · 범위를 모듈 변수에 두고 다음 본문이 그 자리에서 시작한다(편집기는 열린 다이어리가 없어 제외)
   const routeOwner = member ? (previewUser?.userId || previewUser?.accountId || 'member') : null;
-  const [rawPage, setPage] = useState(() => routeMemory.read(routeOwner).page);
-  // 폰에는 별도 설정 화면이 없다(마이페이지 안에 설정이 펼쳐진다). 저장된 마지막 화면 · 분할 화면 전환으로 settings 가 남아도 마이페이지로 읽는다
-  const page = normalizePageForFormFactor(rawPage, isPhone);
+  const [page, setPage] = useState(() => routeMemory.read(routeOwner).page);
   const [railCollapsed, setRailCollapsed] = useState(true);  // 메뉴가 다 열리거나 닫혔을 때의 폭. 캐러셀은 '줄 폭 + 이 값'(메뉴와 상관없이 같은 값)으로 목록 폭을 정해,
   // 메뉴에 밀려 함께 움직이는 동안과 멈춘 뒤에도 목록 폭이 바뀌지 않게 한다. 다시 그리지 않도록 ref로 넘긴다.
   const railWidthRef = useRef(RAIL_WIDTH.collapsed);
@@ -575,7 +573,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
         setRailCollapsed(true);
         return true;
       }
-      const target = backTarget({ page, filter }, HOME_ROUTE);
+      const target = backTarget({ isPhone, page, filter }, HOME_ROUTE);
       if (!target) return false;
       navigate(target.page, target.filter);
       return true;
@@ -851,6 +849,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
   const libraryScreen = useMemo(() => (
     <LibraryScreen
       compact={isPhone}
+      guestImport={guestImport}
       portrait={tabletPortrait}
       diaries={libraryDiaries}
       metadata={libraryMetadata}
@@ -898,7 +897,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
         }} /></> : null}
       suppressEmpty={member && Boolean(fullLoadPending || !memberLibraryMatches || diaryState.library.loading || diaryState.library.error || diaryState.error || diaryState.refreshing)}
     />
-  ), [carousel, navigate, changeCarousel, changeFilter, changeView, changeLibrarySort, create, edit, favorite, filter, isPhone, tabletPortrait,libraryMetadata, librarySort, moveDiaryToTrash, moveSelectedToTrash, open, selection, trashing, view, libraryDiaries, member, memberLibraryMatches, remoteQuery, diaryState.library, diaryState.bulkTrash, diaryState.pending, diaryState.error, diaryState.refreshing, diaryState.lifecycle, diaryState.trashLoading, diaryState.trashError, diaryState.store, saving, enterEditor]);
+  ), [guestImport, carousel, navigate, changeCarousel, changeFilter, changeView, changeLibrarySort, create, edit, favorite, filter, isPhone, tabletPortrait,libraryMetadata, librarySort, moveDiaryToTrash, moveSelectedToTrash, open, selection, trashing, view, libraryDiaries, member, memberLibraryMatches, remoteQuery, diaryState.library, diaryState.bulkTrash, diaryState.pending, diaryState.error, diaryState.refreshing, diaryState.lifecycle, diaryState.trashLoading, diaryState.trashError, diaryState.store, saving, enterEditor]);
 
   // 보관함(libraryScreen)처럼 요소를 memo 해 둔다. 사이드 메뉴를 여닫느라 App 이 다시 그려져도 휴지통 목록은 다시 그리지 않는다.
   const trashScreen = useMemo(() => (
@@ -995,7 +994,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
       accountService={previewUser?.mode === 'authenticated' ? authService : undefined}
       getProfilePhotoSource={previewUser?.mode === 'authenticated' ? authService.getProfilePhotoSource : undefined} />;
   } else if (page === 'settings') {
-    content = <ProfileScreen onOpenBlockedUsers={safety.openBlocks} key="settings" section="settings" compact={isPhone} previewUser={previewUser} onEndPreview={onEndPreview} onClearSession={onClearSession} onUpdatePreview={onUpdatePreview}
+    content = <ProfileScreen onOpenBlockedUsers={safety.openBlocks} key="settings" section="settings" compact={isPhone} onBack={isPhone ? () => navigate('profile') : undefined} previewUser={previewUser} onEndPreview={onEndPreview} onClearSession={onClearSession} onUpdatePreview={onUpdatePreview}
       accountService={previewUser?.mode === 'authenticated' ? authService : undefined}
       getProfilePhotoSource={previewUser?.mode === 'authenticated' ? authService.getProfilePhotoSource : undefined} />;
   }
@@ -1041,9 +1040,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
     />
   );
 
-  // 다이어리 홈(태블릿)은 단색 책상 바탕 위에 놓인다. 폰은 셸 바탕 그대로다.
-  const desk = page === 'library' && loaded && !isPhone;
-  const phoneSurface = page === 'library' ? C.canvas : C.white;
+  const phoneSurface = C.canvas;
   let shell;
   if (page === 'editor') {
     shell = content;
@@ -1064,7 +1061,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
           getProfilePhotoSource={previewUser?.mode === 'authenticated' ? authService.getProfilePhotoSource : undefined}
           collapsed={railCollapsed}          onToggle={() => setRailCollapsed((current) => !current)}
         />}
-        <View style={[s.workspace, !isPhone && { paddingBottom: insets.bottom }, desk && { backgroundColor: DESK_COLOR }]}>
+        <View style={[s.workspace, !isPhone && { paddingBottom: insets.bottom }]}>
           <PhoneBellProvider value={isPhone ? <SharingEntry notifications notificationCount={authenticatedNotifications?.count}
             notificationLabel={authenticatedNotifications ? '알림' : '받은 초대'} compact
             count={unreadInvites} onPress={openInvitations} /> : null}>
@@ -1082,11 +1079,11 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
     );
   }
 
-  // 위: 폰 편집기 세로는 흰 상단 바, 그 밖은 보관함 바탕. 왼쪽: 편집기 밖은 좌측 바와 같은 바탕(C.canvas). 오른쪽: 보관함·편집기 바탕.
+  // 위: 폰 편집기 세로는 흰 상단 바, 그 밖은 앱 바탕(C.canvas). 좌우도 앱 바탕.
   const safeAreaColors = {
-    top: page === 'editor' && !isLandscape ? C.white : desk ? DESK_COLOR : C.canvas,
-    left: page !== 'editor' ? C.canvas : desk ? DESK_COLOR : C.canvas,
-    right: desk ? DESK_COLOR : C.canvas,
+    top: page === 'editor' && !isLandscape ? C.white : C.canvas,
+    left: !isPhone && page !== 'editor' ? C.white : C.canvas, // 태블릿 좌측 바와 이어진다
+    right: C.canvas,
   };
 
   const measureViewport = ({ nativeEvent: { layout } }) => {
