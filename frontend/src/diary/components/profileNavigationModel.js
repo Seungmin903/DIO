@@ -1,8 +1,6 @@
-// 설정은 폰의 내 공간에서만 별도 진입점을 둔다. 태블릿은 좌측 레일의 설정 항목을 사용한다.
-export const shouldShowProfileSettingsButton = ({ compact, settingsPage, onOpenSettings }) => Boolean(
-  compact && !settingsPage && onOpenSettings,
-);
+// 설정 진입은 폼 팩터마다 다르다. 폰은 마이페이지 안에 설정이 펼쳐지고(별도 설정 화면 없음),
+// 태블릿은 프로필 화면과 좌측 바 `설정`의 별도 설정 화면이 분리된다.
+export const showsInlineSettings = ({ compact, section = 'profile' }) => Boolean(compact && section !== 'settings');
 
-export const createProfileSettingsNavigation = (isPhone, navigate) => (
-  isPhone ? () => navigate('settings') : undefined
-);
+// 폰에서 settings 는 마이페이지로 읽는다(저장된 마지막 화면 · 태블릿 설정 화면에서 창이 좁아진 경우). 태블릿 값은 그대로 둔다.
+export const normalizePageForFormFactor = (page, isPhone) => (isPhone && page === 'settings' ? 'profile' : page);

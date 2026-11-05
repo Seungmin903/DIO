@@ -7,14 +7,13 @@ import BrandLogo from '../../../shared/BrandLogo'
 import SharingEntry from '../../../sharing/SharingEntry'
 
 
-// compact: 폰 세로 배치. 이름·쪽수를 두 줄로 보이고 내보내기는 상단 맨 오른쪽에 둔다.
+// compact: 폰 세로 배치. 이름 한 줄을 오른쪽 아이콘과 같은 중심선에 두고 내보내기는 상단 맨 오른쪽에 둔다.
 // 폰 세로는 방향 전환 버튼 없이 기기를 돌리는 대로 따른다. 그 자리에 공유 버튼을 둔다. 페이지 목록 · 레이어 버튼은 도구 줄 아래 좌우 끝(PhoneCornerButtons)에 있다.
 export default function TopBar({
   sharingMembers = [],
   onOpenSharing,
   invitationCount = 0,
   compact = false,
-  pageLabel,
   onToggleOrientation,
   doc,
   layersOpen,
@@ -47,11 +46,9 @@ export default function TopBar({
       <View style={[styles.bar, styles.barCompact]}>
         <Pressable onPress={onHome} accessibilityRole="button" accessibilityLabel="다이어리 홈" hitSlop={6} style={styles.homeCompact}>
           <Icon name="chevronLeft" size={20} />
-          <BrandLogo size={24} />
         </Pressable>
         <View style={styles.docTitle}>
           <TitleField compact title={doc.title} renamable={!readOnly && Boolean(onRename)} onCommit={onRename} />
-          {pageLabel ? <Text style={styles.pageLabel} numberOfLines={1}>{pageLabel}</Text> : null}
         </View>
         <View style={[styles.right, styles.rightCompact]}>
           {onOpenSharing && <SharingEntry variant="bar" members={sharingMembers} count={invitationCount} onPress={onOpenSharing} showLabel={false} memberLimit={1} hideCounter plain />}

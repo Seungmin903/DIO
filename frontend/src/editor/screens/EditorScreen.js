@@ -1144,7 +1144,6 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
       )}
       {!readOnly && !phoneLandscape && !phoneFocus && <TopBar
         compact={compact}
-        pageLabel={`PAGE ${pageIndex + 1} / ${state.doc.pages.length}`}
         doc={state.doc}
         onRename={diary?.canManage === false ? undefined : async (title) => {
           const accepted = await onRenameDiary?.(title)
