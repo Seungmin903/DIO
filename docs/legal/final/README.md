@@ -63,3 +63,7 @@
 | 광고 앱 푸시 | [열기](https://docs.google.com/document/d/1eayAytEi19rbAq0evV4aVyFTHBGl3E1712ZSVPqpCLU) |
 | 야간 광고 앱 푸시 | [열기](https://docs.google.com/document/d/1m1NlzKlZ13tPsBMmiQPOb16zQpak2KElRr2CRTr8NFI) |
 | 계정·데이터 삭제 요청 | [열기](https://docs.google.com/document/d/1V25q4R9vXjx7ofu8dRz0obcQbCyE5Cr2zTkjJhzabF8) |
+
+## 로그인 유지 기간 변경 반영
+
+개인정보처리방침의 세션 보유 설명을 최초 기본 30일·정상 갱신 시 기본 30일 연장·기기별 최초 로그인부터 최대 90일로 맞췄다. 개인정보 수집·이용 동의의 세션 정리 기준은 이 방침을 참조한다. 시행일·약관 버전·기존 동의 항목과 화면은 유지한다. 실제 동작은 로그인 갱신 개선 MR !387의 병합·서버 배포를 확인한다. 이 문서 MR에는 인증 구현을 합치지 않는다. Google Docs의 같은 문단도 갱신했다.
