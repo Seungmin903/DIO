@@ -155,8 +155,8 @@ test('친구 기기는 서버 PDF 를 sourceId 로 보관하고, 이미 있으�
   await assert.rejects(html.fetchDocument(sourceId, remotePdf), { code: 'INVALID_SERVER_MEDIA' })
 })
 
-test('미디어 요청은 PDF 원본에 한해 더 큰 응답과 더 긴 시간을 받는다', async () => {
-  const body = new Uint8Array(6 * 1024 * 1024).fill(1)
+test('미디어 요청은 기본 15MiB(GIF 상한)까지만 받고 PDF 원본에 한해 더 큰 응답을 받는다', async () => {
+  const body = new Uint8Array(16 * 1024 * 1024).fill(1)
   const auth = { getSessionKey: () => 's', getAccessToken: async () => 't', getConnectionOptions: () => ({ getAuthHeaders: () => ({}) }) }
   const request = createMediaRequest({ auth, accountId: '1', sessionKey: 's', baseUrl: 'http://x/api/v1', fetchImpl: async () => new Response(body, { status: 200 }) })
   await assert.rejects(request(`/media/${remotePdf}/file`, { binary: true }), { code: 'INVALID_SERVER_MEDIA' })
