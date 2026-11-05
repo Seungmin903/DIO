@@ -4,6 +4,8 @@ import { colors, shadow } from '../../../shared/theme'
 import { readingDragLocked, readingGestureAction } from '../../utils/readingGestures.js'
 import { notePointerDown, notePointerUp, touchKind, stylus, resetStylusPointers } from '../../utils/stylus'
 
+const FINGER_PAN_SLOP = 12
+
 const WHEEL_IDLE_MS = 160 // 휠이 이만큼 멈추면 확대·이동을 확정한다
 const LONG_PRESS_MS = 450 // 캔버스 빈 곳 길게 누르기와 같은 시간
 
@@ -30,7 +32,7 @@ const viewTransform = (live, offset, zoom) => live
  * onLongPress(point): 한 손가락을 움직이지 않고 오래 누르면 그 자리의 페이지 좌표 { x, y } 를 알린다.
  *   손바닥 도구에서는 페이지도 이 영역이 받으므로, 캔버스 빈 곳 메뉴(붙여넣기 · 속지 색)를 여기서 연다. 그 뒤 손을 뗄 때까지 화면을 옮기지 않는다.
  */
-export default function Viewport({ reading = false, readingLinkRef, onReadingAction, onReadingDrag, zoom, offset, scale, resolveZoom, resolvePan, onView, onMovingChange, onTapEmpty, onLongPress, dragToPan = false, interactionLocked = false, children, style, onLayout }) {
+export default function Viewport({ fingerPan = false, reading = false, readingLinkRef, onReadingAction, onReadingDrag, zoom, offset, scale, resolveZoom, resolvePan, onView, onMovingChange, onTapEmpty, onLongPress, dragToPan = false, interactionLocked = false, children, style, onLayout }) {
   const readerGesture = useRef(null)
   const viewportWidth = useRef(0)
   const viewportHeight = useRef(0)
@@ -41,6 +43,8 @@ export default function Viewport({ reading = false, readingLinkRef, onReadingAct
   const nodeRef = useRef(null)
   const tap = useRef(null) // 페이지 밖 여백을 한 손가락으로 누른 위치
   const panFrom = useRef(null) // 손바닥 도구: 지난번 손가락 위치
+  const fingerFrom = useRef(null)
+  const fingerPanning = useRef(false)
   const hold = useRef(null) // 길게 누르기 { timer, fired }
   const motion = useRef({ panY: 0, zoomed: false, cancelled: false })
   const latest = useRef({})
@@ -64,7 +68,7 @@ export default function Viewport({ reading = false, readingLinkRef, onReadingAct
       clearTimeout(hold.current?.timer)
     }
   }, [])
-  latest.current = { reading, readingLinkRef, onReadingAction, onReadingDrag, zoom, offset, scale, resolveZoom, resolvePan, onView, onMovingChange, onTapEmpty, onLongPress, dragToPan: interactionLocked ? false : dragToPan, interactionLocked }
+  latest.current = { fingerPan, reading, readingLinkRef, onReadingAction, onReadingDrag, zoom, offset, scale, resolveZoom, resolvePan, onView, onMovingChange, onTapEmpty, onLongPress, dragToPan: interactionLocked ? false : dragToPan, interactionLocked }
   const currentView = () => liveRef.current ?? { scale: latest.current.scale, zoom: latest.current.zoom, x: latest.current.offset.x, y: latest.current.offset.y }
   const preview = (view) => {
     if (!liveRef.current) latest.current.onMovingChange?.(true)
@@ -93,6 +97,14 @@ export default function Viewport({ reading = false, readingLinkRef, onReadingAct
     if (latest.current.interactionLocked || stylus?.activePen) return false
     const touches = event.nativeEvent.touches ?? []
     return touches.length >= 2 && !touches.some((t) => touchKind(t) === 'pen')
+  }
+  // 펜만 그리는 동안 펜 · 형광펜 · 지우개 위의 한 손가락은 화면을 옮긴다. 살짝 얹은 손바닥이 옮기지 않게 조금 움직인 뒤에 잡는다.
+  const fingerPans = (event) => {
+    const touches = event.nativeEvent.touches ?? []
+    if (latest.current.interactionLocked || !latest.current.fingerPan) return false
+    if (stylus?.activePen || touches.length !== 1 || touchKind(touches[0]) !== 'touch') return false
+    const from = fingerFrom.current
+    return Boolean(from && Math.hypot(touches[0].pageX - from.x, touches[0].pageY - from.y) > FINGER_PAN_SLOP)
   }
   const cancelHold = () => {
     clearTimeout(hold.current?.timer)
@@ -144,31 +156,44 @@ export default function Viewport({ reading = false, readingLinkRef, onReadingAct
         }
         else if (readerGesture.current) readerGesture.current.pinched = true
       }
+      const started = event.nativeEvent.touches ?? []
+      fingerFrom.current = started.length === 1 ? { x: started[0].pageX, y: started[0].pageY } : null
       return twoFingers(event)
     },
     onMoveShouldSetResponderCapture: event => {
-      if (twoFingers(event)) return true
+      if (twoFingers(event) || fingerPans(event)) return true
       const g = readerGesture.current
       return Boolean(latest.current.reading && !latest.current.interactionLocked && g && Math.hypot(event.nativeEvent.pageX - g.x, event.nativeEvent.pageY - g.y) > 10)
     },
     // 페이지가 받지 않은 한 손가락 터치(= 페이지 밖 여백)도 여기서 받는다. 떼면 선택 해제.
     onStartShouldSetResponder: () => !latest.current.interactionLocked && !(latest.current.reading && readerGesture.current?.link),
     // 여백에 얹힌 손바닥(탭 대기 중)이 펜 입력을 막지 않게, 확대·축소나 손바닥 도구로 옮기는 중이 아니면 넘긴다.
-    onResponderTerminationRequest: () => !pinch.current && !latest.current.dragToPan,
+    onResponderTerminationRequest: () => !pinch.current && !latest.current.dragToPan && !fingerPanning.current,
     onResponderGrant: (event) => {
       if (latest.current.interactionLocked) return
       measure()
       if (latest.current.reading && !readerGesture.current) readerGesture.current = startReader(event)
       resetMotion()
-      panFrom.current = latest.current.dragToPan ? { x: event.nativeEvent.pageX, y: event.nativeEvent.pageY } : null
+      fingerPanning.current = fingerPans(event)
+      panFrom.current = latest.current.dragToPan || fingerPanning.current ? { x: event.nativeEvent.pageX, y: event.nativeEvent.pageY } : null
       if (twoFingers(event)) { if (readerGesture.current) readerGesture.current.pinched = true; startPinch(event) }
-      else {
+      else if (!fingerPanning.current) {
         tap.current = { x: event.nativeEvent.pageX, y: event.nativeEvent.pageY }
         if (!latest.current.reading) startHold(event.nativeEvent.pageX, event.nativeEvent.pageY)
       }
     },
     onResponderMove: (event) => {
       if (latest.current.interactionLocked) return
+      // 손가락(손바닥)으로 옮기던 중에 펜이 닿으면 옮기던 것을 되돌리고 펜에 맡긴다
+      if (fingerPanning.current && stylus?.activePen) {
+        fingerPanning.current = false
+        panFrom.current = null
+        liveRef.current = null
+        setLive(null)
+        latest.current.onMovingChange?.(false)
+        resetMotion()
+        return
+      }
       if (latest.current.reading && readerGesture.current) {
         const g = readerGesture.current
         g.lastX = event.nativeEvent.pageX
@@ -188,6 +213,13 @@ export default function Viewport({ reading = false, readingLinkRef, onReadingAct
           if (g.turning) drag({ type: 'move', dx })
         }
       }
+      // 페이지 밖 여백에서 시작해 이미 받은 터치도 조금 움직이면 손가락 이동으로 넘어간다
+      if (!fingerPanning.current && !pinch.current && fingerPans(event)) {
+        fingerPanning.current = true
+        panFrom.current = { x: event.nativeEvent.pageX, y: event.nativeEvent.pageY }
+        tap.current = null
+        cancelHold()
+      }
       if (tap.current && Math.hypot(event.nativeEvent.pageX - tap.current.x, event.nativeEvent.pageY - tap.current.y) > 10)
         tap.current = null
       if (!tap.current && hold.current && !hold.current.fired) cancelHold()
@@ -197,7 +229,7 @@ export default function Viewport({ reading = false, readingLinkRef, onReadingAct
         // 한 손가락으로 줄어든 뒤의 새 핀치는 현재 배율과 새 거리에서 시작한다.
         pinch.current = null
         // 손바닥 도구: 한 손가락으로 끌어 화면 이동 (두 손가락에서 한 손가락으로 돌아오면 그 자리부터 다시)
-        if ((latest.current.reading ? currentView().scale > 1 : latest.current.dragToPan) && (event.nativeEvent.touches?.length ?? 1) === 1) {
+        if ((latest.current.reading ? currentView().scale > 1 : latest.current.dragToPan || fingerPanning.current) && (event.nativeEvent.touches?.length ?? 1) === 1) {
           const { pageX, pageY } = event.nativeEvent
           if (panFrom.current) {
             const dy = pageY - panFrom.current.y
@@ -226,6 +258,7 @@ export default function Viewport({ reading = false, readingLinkRef, onReadingAct
       if (!twoFingers(event)) { pinch.current = null; panFrom.current = null }
     },
     onResponderRelease: (event) => {
+      fingerPanning.current = false
       const held = hold.current?.fired
       cancelHold()
       pinch.current = null
@@ -252,6 +285,7 @@ export default function Viewport({ reading = false, readingLinkRef, onReadingAct
       tap.current = null
     },
     onResponderTerminate: () => {
+      fingerPanning.current = false
       cancelHold()
       pinch.current = null
       panFrom.current = null
