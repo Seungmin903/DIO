@@ -24,3 +24,12 @@ test('Android 12 이하의 사진 저장에 필요한 쓰기 권한은 막지 �
   // expo-media-library 는 Android 12 이하에서 이 권한이 없으면 사진첩 저장을 거부한다.
   assert.equal(blocked.includes('android.permission.WRITE_EXTERNAL_STORAGE'), false)
 })
+
+test('iOS 는 시스템 사진 선택 창과 저장 추가 권한만 쓰므로 사진 읽기 설명을 넣지 않는다', () => {
+  for (const name of ['expo-image-picker', 'expo-media-library']) {
+    const plugin = expo.plugins.find((item) => Array.isArray(item) && item[0] === name)
+    assert.equal(plugin[1].photosPermission, false)
+  }
+  const library = expo.plugins.find((item) => Array.isArray(item) && item[0] === 'expo-media-library')
+  assert.ok(library[1].savePhotosPermission)
+})
