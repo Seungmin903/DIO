@@ -90,6 +90,50 @@ class ModerationTests extends SharingTestSupport {
   var third=diary(p.a);emails.send(third,p.a.id(),new EmailInviteRequest(email));assertThat(invites.pendingEmail(third,p.b.id())).isEmpty();
   blocks.unblock(p.b.id(),p.a.id());assertThat(links.accept(token,p.b.id()).alreadyMember()).isFalse();
  }
+ @Test void acceptedEmailCanBeReacceptedByExistingMemberAfterEitherPartyBlocks(){
+  for(boolean recipientBlocks:List.of(false,true)){
+   var p=pair();var target=diary(p.a);String email=users.findById(p.b.id()).orElseThrow().getEmail();
+   emails.send(target,p.a.id(),new EmailInviteRequest(email));var invite=invites.pendingEmail(target,p.b.id()).orElseThrow();
+   String token=tokenSigner.token(invite);assertThat(links.accept(token,p.b.id()).alreadyMember()).isFalse();
+   blocks.block(recipientBlocks?p.b.id():p.a.id(),recipientBlocks?p.a.id():p.b.id(),target);
+   var replay=links.accept(token,p.b.id());assertThat(replay.alreadyMember()).isTrue();
+   assertThat(replay.currentMembers()).isEqualTo(2);assertThat(replay.role()).isEqualTo("EDITOR");
+   assertThat(invites.findById(invite.getInviteId()).orElseThrow().getUseCount()).isEqualTo(1);
+  }
+ }
+ record ExistingEmail(Pair members,com.f106.DIO.sharing.domain.DiaryInvite invite,String token){}
+ ExistingEmail pendingEmailForExistingMember(Instant created){
+  var p=pair();
+  // Legacy/concurrent membership paths can leave a pending email for an existing member.
+  var invite=invites.saveAndFlush(com.f106.DIO.sharing.domain.DiaryInvite.email(p.diary,p.a.id(),p.b.id(),created.truncatedTo(java.time.temporal.ChronoUnit.MICROS)));
+  String token=tokenSigner.token(invite);invite.initializeHash(tokenSigner.hash(token));invites.saveAndFlush(invite);
+  blocks.block(p.b.id(),p.a.id(),p.diary);return new ExistingEmail(p,invite,token);
+ }
+ @Test void existingBlockedMemberConsumesPendingEmailOnlyOnce(){
+  var fixture=pendingEmailForExistingMember(Instant.now());var p=fixture.members();
+  assertThat(links.accept(fixture.token(),p.b.id()).alreadyMember()).isTrue();
+  assertThat(links.accept(fixture.token(),p.b.id()).alreadyMember()).isTrue();
+  var saved=invites.findById(fixture.invite().getInviteId()).orElseThrow();
+  assertThat(saved.status()).isEqualTo("ACCEPTED");assertThat(saved.getUseCount()).isEqualTo(1);
+  assertThat(members.countByDiaryIdAndLeftAtIsNull(p.diary)).isEqualTo(2);
+ }
+ @Test void existingMembershipNeverBypassesEmailTokenAndRecipientValidation(){
+  var fixture=pendingEmailForExistingMember(Instant.now());var p=fixture.members();
+  String forged=fixture.token().substring(0,fixture.token().indexOf('.')+1)+"A".repeat(43);
+  assertThatThrownBy(()->links.accept(forged,p.b.id())).isInstanceOfSatisfying(SharingException.class,e->assertThat(e.code).isEqualTo("INVITE_NOT_FOUND"));
+  assertThatThrownBy(()->links.accept(fixture.token(),p.a.id())).isInstanceOfSatisfying(SharingException.class,e->assertThat(e.code).isEqualTo("DIARY_ACCESS_DENIED"));
+  assertThat(invites.findById(fixture.invite().getInviteId()).orElseThrow().status()).isEqualTo("PENDING");
+ }
+ @Test void existingMembershipNeverBypassesPendingEmailExpiry(){
+  var fixture=pendingEmailForExistingMember(Instant.now().minusSeconds(8L*86400));
+  assertThatThrownBy(()->links.accept(fixture.token(),fixture.members().b.id())).isInstanceOfSatisfying(SharingException.class,e->assertThat(e.code).isEqualTo("INVITE_EXPIRED"));
+ }
+ @Test void existingMembershipNeverBypassesEmailCancellation(){
+  var fixture=pendingEmailForExistingMember(Instant.now());var p=fixture.members();
+  emails.cancel(p.diary,p.a.id(),fixture.invite().getInviteId());
+  assertThatThrownBy(()->links.accept(fixture.token(),p.b.id())).isInstanceOfSatisfying(SharingException.class,e->assertThat(e.code).isEqualTo("INVITE_REVOKED"));
+  assertThat(members.countByDiaryIdAndLeftAtIsNull(p.diary)).isEqualTo(2);
+ }
  @Test void reportWithoutEvidenceIsIdempotentAndDoesNotBlock(){var p=pair();var r=request(p);var first=reports.submit(p.a.id(),r,List.of());assertThat(first.created()).isTrue();var again=reports.submit(p.a.id(),r,List.of());assertThat(again.created()).isFalse();assertThat(again.response().reportId()).isEqualTo(first.response().reportId());assertThat(blocks.between(p.a.id(),p.b.id())).isFalse();assertThat(reportRows.findById(first.response().reportId()).orElseThrow().getEvidenceJson()).isEqualTo("[]");}
  @Test void differentContentWithSameRequestIdConflicts(){var p=pair();var r=request(p);reports.submit(p.a.id(),r,List.of());assertThatThrownBy(()->reports.submit(p.a.id(),new ReportRequest(r.reportedUserId(),r.diaryId(),r.reasonCode(),"다름",r.clientRequestId()),List.of())).isInstanceOfSatisfying(ModerationException.class,e->assertThat(e.code).isEqualTo("REPORT_REQUEST_CONFLICT"));}
  @Test void otherRequiresDescriptionAndSelfReportRejected(){var p=pair();assertThatThrownBy(()->reports.submit(p.a.id(),new ReportRequest(p.b.id(),p.diary,ReportReason.OTHER,"  ",UUID.randomUUID()),List.of())).isInstanceOf(ModerationException.class);assertThatThrownBy(()->reports.submit(p.a.id(),new ReportRequest(p.a.id(),p.diary,ReportReason.HARASSMENT,null,UUID.randomUUID()),List.of())).isInstanceOf(ModerationException.class);}

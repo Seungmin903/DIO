@@ -73,7 +73,6 @@ public class DiaryInviteService {
         if(!invite.email())blocks.lockPair(actor,actor);
         if(invite.email()){
             blocks.lockPair(actor,invite.getInviterUserId());
-            if(blocks.between(actor,invite.getInviterUserId()))throw new SharingException(HttpStatus.CONFLICT,"INVITE_UNAVAILABLE","이 초대에 참여할 수 없어요.");
         }
         access.activeUser(actor);access.initializeOwner(diary);
         var member=members.findById(new DiaryMemberId(id,actor)).orElse(null);
@@ -83,6 +82,7 @@ public class DiaryInviteService {
             if(invite.pendingEmail())invite.acceptedEmail(Instant.now());
             return new InviteAcceptResponse(id,member.getRole(),true,count,SharingPolicy.MAX_MEMBERS);
         }
+        if(invite.email()&&blocks.between(actor,invite.getInviterUserId()))throw new SharingException(HttpStatus.CONFLICT,"INVITE_UNAVAILABLE","이 초대에 참여할 수 없어요.");
         if(requiresConfirmation(diary,actor)&&!acknowledgeBlockedMembers)throw new SharingException(HttpStatus.CONFLICT,"BLOCKED_MEMBER_CONFIRMATION_REQUIRED","차단한 사용자가 참여 중이에요. 확인 후 참여해 주세요.");
         if(invite.email()&&!invite.pendingEmail())throw new SharingException(HttpStatus.GONE,"INVITE_ALREADY_USED","이미 사용한 이메일 초대예요.");
         if(count>=SharingPolicy.MAX_MEMBERS)throw new SharingException(HttpStatus.CONFLICT,"DIARY_MEMBER_LIMIT_REACHED","최대 4명까지 참여할 수 있어요.");

@@ -82,7 +82,7 @@ GET page >= 0, size 1~100. 최근 차단 시각 내림차순·대상 ID 오름�
 
 - GET `/api/v1/diaries/{diaryId}/members`: 각 멤버에 `blockedByMe` boolean 추가. 상대가 나를 차단했는지는 공개하지 않는다.
 - POST `/api/v1/diaries/{diaryId}/invites/email`: 초대자·수신자 중 어느 쪽이 차단했든 초대/알림 생성 안 함. 기존 공통 202 응답 유지.
-- 이메일 초대 수락도 차단 중에는 409 INVITE_UNAVAILABLE. 초대를 자동 취소하지 않으므로 해제 후에도 유효한 초대는 수락 가능하다. 취소·만료된 초대는 복구하지 않는다.
+- 이메일 초대를 통한 신규·재참여는 차단 중이면 409 INVITE_UNAVAILABLE. 이미 참여 중인 활성 멤버의 재수락은 토큰·수신자·만료·취소 검증을 통과한 경우 alreadyMember=true로 반환하며 차단 관계 때문에 거절하지 않는다. 대기 중인 이메일 초대는 이때 한 번만 수락 처리한다. 초대를 자동 취소하지 않으므로 해제 후에도 유효한 초대는 수락 가능하다. 취소·만료된 초대는 복구하지 않는다.
 - GET `/api/v1/invites/{token}`: `requiresBlockedMemberConfirmation` 추가. 비로그인은 false이며 로그인한 본인이 차단한 현재 멤버에 대해서만 true.
 - POST `/api/v1/invites/{token}/accept`: 선택 본문 `{"acknowledgeBlockedMembers":true}` 추가. 생략/false 기본값.
 - 본인이 차단한 멤버가 있으면 false일 때 409 BLOCKED_MEMBER_CONFIRMATION_REQUIRED, true면 기존 정원·권한 검사 후 참여.
