@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { BackHandler, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors } from '../../shared/theme';
 import { PIN_LENGTH } from '../../shared/appLock';
 import DioButton from '../../shared/DioButton';
@@ -97,13 +98,13 @@ export default function PinScreen({ mode, user, getProfilePhotoSource, check, on
 
   return (
     // 모달(안드로이드) 안에서는 absoluteFill 이 창 높이를 못 받아 내용이 위로 쏠리므로 창 크기를 직접 준다. 앱 위에 덮는 잠금 화면(unlock)은 창 높이가 화면보다 작은 기기에서 아래 탭이 비치지 않게 부모를 그대로 채운다
-    <View style={[local.root, mode !== 'unlock' && { width, height }]} accessibilityViewIsModal>
+    <SafeAreaView edges={['top']} style={[local.root, mode !== 'unlock' && { width, height }]} accessibilityViewIsModal>
       <View style={local.top}>{mode !== 'unlock' && onCancel ? <DioButton variant="ghost" icon="chevron-left" label="돌아가기" onPress={onCancel} /> : null}</View>
       <ScrollView style={local.scroll} contentContainerStyle={[local.center, small && local.centerSmall, side && local.centerSide]} showsVerticalScrollIndicator={false}>
         {header}
         {pad}
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
 

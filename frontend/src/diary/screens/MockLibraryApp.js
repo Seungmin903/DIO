@@ -290,7 +290,7 @@ function RemoteLibrary({ account, onSwitchAccount, onOpenNotifications }) {
           : <View style={shell.shell}><SideRail page={page} filter={options.filter} navigate={navigate} collapsed={collapsed} onToggle={() => setCollapsed(value => !value)} bottomInset={insets.bottom} />{content}</View>}
       </View>
     </View>
-    {createMounted && <DiaryCreateModal visible={createOpen} sheet={isPhone} bottomInset={insets.bottom}
+    {createMounted && <DiaryCreateModal visible={createOpen} sheet={isPhone} topInset={isPhone ? insets.top : 0} bottomInset={insets.bottom}
       saving={saving} locked={creation.canRetry} submitLabel={creation.canRetry ? '같은 입력 다시 저장' : undefined}
       onSubmit={submitCreate} onCancel={closeCreate}
       footerNotice={<View style={s.notice}>
@@ -311,7 +311,7 @@ function RemoteLibrary({ account, onSwitchAccount, onOpenNotifications }) {
       </View>
     </Modal>
     {editing.source && <DiaryCreateModal key={editing.source.id} diary={editing.source} visible={editing.visible}
-      sheet={isPhone} bottomInset={insets.bottom} saving={editSaving} locked={editLocked}
+      sheet={isPhone} topInset={isPhone ? insets.top : 0} bottomInset={insets.bottom} saving={editSaving} locked={editLocked}
       submitLabel={editing.mutation.canRetry ? '같은 입력 다시 저장' : undefined}
       submitDisabled={editing.needsReview || editing.permissionBlocked || editing.latestStatus === 'loading'}
       messageResetKey={editing.latest} onSubmit={submitEdit} onCancel={editing.editor.close}

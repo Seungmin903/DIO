@@ -42,7 +42,7 @@ function CoverFrame({ cover, name, width, height, edit }) {
  * 오른쪽은 요소 줄을 한 번에 하나만 펼친다. 수정에서는 방향을 잠그고 속지 구역이 없다.
  * sheet: 폰에서는 아래에서 올라오는 시트로 띄운다.
  */
-export default function DiaryCreateModal({ diary, onSubmit, onCancel, saving = false, sheet = false, bottomInset = 0,
+export default function DiaryCreateModal({ diary, onSubmit, onCancel, saving = false, sheet = false, topInset = 0, bottomInset = 0,
   visible = true, blankOnly = false, locked = false, submitLabel, submitDisabled = false, footerNotice = null, messageResetKey, onLibrarySaveFailed }) {
   const editing = Boolean(diary);
   // 세로 화면은 폰이 아니어도 구역 카드를 위에, 옵션을 아래에 쌓는다
@@ -352,7 +352,7 @@ export default function DiaryCreateModal({ diary, onSubmit, onCancel, saving = f
       <View accessibilityViewIsModal style={styles.overlay}>
         <Animated.View style={[styles.dialog, !stacked && { paddingBottom: bottomInset }, sheet && { transform: [{ translateY: slide.interpolate({ inputRange: [0, 1], outputRange: [0, SHEET_SLIDE] }) }] }]}>
           <Workbench title={editing ? '다이어리 수정' : '새 다이어리'} actionLabel={actionLabel} onCancel={cancel} cancelDisabled={saving} onSubmit={onSave} submitDisabled={disabled}
-            sections={sections} section={section} onSection={id => { setSection(id); setNotice(''); }} sheet={stacked} roomy={!sheet} bottomInset={bottomInset}
+            sections={sections} section={section} onSection={id => { setSection(id); setNotice(''); }} sheet={stacked} roomy={!sheet} topInset={topInset} bottomInset={bottomInset}
             onStageLayout={setStage} stage={preview} panel={panel} panelLocked={editLocked} foot={foot} />
         </Animated.View>
         <ConfirmDialog open={leaving} title="저장하지 않고 닫을까요?" message="바꾼 내용은 저장되지 않아요." confirmLabel="닫기"
