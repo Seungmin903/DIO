@@ -248,6 +248,22 @@ test('iPad 펜만: 손가락에 압력이 있고 터치가 먼저 와도 펜으�
   assert.deepEqual(t.log, [])
 })
 
+test('iOS 펜·손가락: 포인터 이벤트가 없어도 손가락 획을 즉시 시작하고 확정한다', () => {
+  const t = setup('ios', 'any')
+  t.down(0, 20, { force: 0 })
+  assert.deepEqual(t.log, [['start', 1, 20]])
+  t.move(0, 40, { force: 0 }); t.up(0)
+  assert.deepEqual(t.log, [['start', 1, 20], ['move', 20, 1], ['end', false]])
+})
+
+test('iOS 펜·손가락: 터치 뒤 손가락 포인터가 도착해도 획을 중복 시작하지 않는다', () => {
+  const t = setup('ios', 'any')
+  t.down(0, 20, { force: 0 })
+  t.pointer(2, 'touch', 20)
+  t.move(0, 40, { force: 0 }); t.up(0)
+  assert.deepEqual(t.log, [['start', 1, 20], ['move', 20, 1], ['end', false]])
+})
+
 test('그리기 입력 펜 · 손가락: 펜을 본 뒤에도 손가락으로 그린다', () => {
   const t = setup('android', 'any')
   t.stylus.notePointerDown({ nativeEvent: { pointerId: 9, pointerType: 'pen' } })
