@@ -34,7 +34,7 @@ export default function PaperColorSettings({ appearance, onChange, onClose, styl
               {presets.map(([name, color]) => {
                 const on = appearance[key]?.toUpperCase() === color.toUpperCase()
                 return (
-                  <Pressable key={color} onPress={() => pick({ [key]: color })} accessibilityRole="radio" accessibilityLabel={`${label} ${name}`} accessibilityState={{ selected: on }}
+                  <Pressable hitSlop={8} key={color} onPress={() => pick({ [key]: color })} accessibilityRole="radio" accessibilityLabel={`${label} ${name}`} accessibilityState={{ selected: on }}
                     style={[styles.swatch, { backgroundColor: color }, on && styles.swatchOn]} />
                 )
               })}
@@ -65,7 +65,7 @@ function PlannerOptions({ options, onChange }) {
             const on = (options.restColor ?? null) === (color && color.toUpperCase())
             return (
               <Pressable key={color ?? 'none'} onPress={() => onChange?.({ restColor: color && color.toUpperCase() })} accessibilityRole="radio"
-                accessibilityLabel={color ? `쉬는 시간 색 ${color}` : '쉬는 시간 색 없음'} accessibilityState={{ selected: on }}
+                accessibilityLabel={color ? `쉬는 시간 색 ${color}` : '쉬는 시간 색 없음'} accessibilityState={{ selected: on }} hitSlop={10}
                 style={[styles.restSwatch, color ? { backgroundColor: color } : styles.none, on && styles.swatchOn]}>
                 {!color && <Text style={styles.noneText}>없음</Text>}
               </Pressable>
@@ -97,10 +97,10 @@ function DayPlannerOptions({ options, onChange }) {
 
 const styles = StyleSheet.create({
   section: { gap: 8 },
-  row: { flexDirection: 'row', justifyContent: 'space-between' },
-  swatch: { width: 32, height: 32, borderRadius: 16, borderWidth: 1, borderColor: 'rgba(11,23,102,0.15)' },
+  row: { flexDirection: 'row', flexWrap: 'wrap', columnGap: 16, rowGap: 16 },
+  swatch: { width: 32, height: 32, borderRadius: 16, borderWidth: 1, borderColor: 'rgba(28,28,28,0.15)' },
   swatchOn: { borderWidth: 3, borderColor: colors.primary },
-  restSwatch: { width: 28, height: 28, borderRadius: 14, borderWidth: 1, borderColor: 'rgba(11,23,102,0.15)', alignItems: 'center', justifyContent: 'center' },
+  restSwatch: { width: 28, height: 28, borderRadius: 14, borderWidth: 1, borderColor: 'rgba(28,28,28,0.15)', alignItems: 'center', justifyContent: 'center' },
   none: { backgroundColor: colors.surface },
-  noneText: { fontSize: 9, fontWeight: '700', color: colors.textMuted },
+  noneText: { fontSize: 11, fontWeight: '700', color: colors.textMuted },
 })

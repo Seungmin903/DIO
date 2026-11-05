@@ -104,8 +104,8 @@ const local = StyleSheet.create({
   // 행 48 바로 아래에 구분선(원 페이저 12). 이름과 오른쪽 조작은 높이 가운데에 맞춘다
   row: { minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: colors.cardBorder }, // 위아래 12: 스위치(32) 줄과 같은 여백을 칩(44) · 버튼(48) 줄에도 둔다
   label: { flex: 1, minWidth: 80, fontSize: 16, lineHeight: 22, fontWeight: '600', color: colors.text, textAlignVertical: 'center' },
-  // 스위치 52×32(터치는 hitSlop 으로 48 이상): 끔은 옅은 판 + 왼쪽 손잡이, 켬은 primary(#818AC3, 흰 면 위 3.3:1) + 오른쪽 손잡이(원 페이저 12)
-  switch: { width: 52, height: 32, borderRadius: 16, padding: 4, justifyContent: 'center', backgroundColor: colors.surfaceMuted, borderWidth: 1, borderColor: colors.cardBorder }, // 끔: #F0F1F9 면 + #D9DCEF 테두리(코덱스 6 · 7번)
+  // 스위치 52×32(터치는 hitSlop 으로 48 이상): 끔은 옅은 판 + 왼쪽 손잡이, 켬은 primary(#817DB9, 흰 면 위 3.3:1) + 오른쪽 손잡이(원 페이저 12)
+  switch: { width: 52, height: 32, borderRadius: 16, padding: 4, justifyContent: 'center', backgroundColor: colors.surfaceMuted, borderWidth: 1, borderColor: colors.cardBorder }, // 끔: #F1F0F9 면 + #D9D8EA 테두리(코덱스 6 · 7번)
   disabled: { opacity: DISABLED_OPACITY },
   switchOn: { backgroundColor: colors.primary, borderColor: colors.primary },
   knob: { width: 24, height: 24, borderRadius: 12, backgroundColor: colors.secondary },
@@ -113,7 +113,7 @@ const local = StyleSheet.create({
   knobMove: { alignSelf: 'flex-end' },
   // 테두리 칩(B안): 흰 면 + cardBorder 테두리, 고르면 primaryStrong 테두리 · text 글자
   chips: { flexDirection: 'row', gap: 6 },
-  chip: { minHeight: 44, minWidth: 84, paddingHorizontal: 14, alignItems: 'center', justifyContent: 'center', borderRadius: 10, borderWidth: 1, borderColor: colors.cardBorder, backgroundColor: colors.surface },
+  chip: { minHeight: 48, minWidth: 84, paddingHorizontal: 14, alignItems: 'center', justifyContent: 'center', borderRadius: 10, borderWidth: 1, borderColor: colors.cardBorder, backgroundColor: colors.surface },
   chipSelected: { borderColor: colors.primaryStrong },
   chipText: { fontSize: 14, fontWeight: '600', color: colors.primaryText },
   chipTextSelected: { color: colors.text, fontWeight: '800' },

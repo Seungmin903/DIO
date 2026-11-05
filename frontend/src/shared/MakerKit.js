@@ -115,7 +115,7 @@ const local = StyleSheet.create({
   badgeTextOn: { color: colors.surface },
   stepText: { fontSize: 13, fontWeight: '700', color: colors.textMuted },
   stepTextOn: { color: colors.text },
-  stepLink: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 44 },
+  stepLink: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 48 },
   stepTextLink: { color: colors.text, textDecorationLine: 'underline', textDecorationColor: colors.primary },
   nav: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   prev: { minWidth: 80 }, next: { flexGrow: 1, flexShrink: 1, minWidth: 160 },

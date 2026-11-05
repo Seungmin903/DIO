@@ -5,6 +5,8 @@ import { paperDeviceFontIds } from '../templates/planners.js'
 
 // 글꼴 파일. 패키지 index 를 쓰면 모든 굵기 파일이 함께 묶이므로 쓰는 굵기 파일만 직접 가져온다.
 const FONT_FILES = {
+  'Pretendard-Regular': require('../../../assets/fonts/pretendard/Pretendard-Regular.otf'),
+  'Pretendard-Bold': require('../../../assets/fonts/pretendard/Pretendard-Bold.otf'),
   NanumGothic: require('@expo-google-fonts/nanum-gothic/400Regular/NanumGothic_400Regular.ttf'),
   NanumGothicBold: require('@expo-google-fonts/nanum-gothic/700Bold/NanumGothic_700Bold.ttf'),
   NanumMyeongjo: require('@expo-google-fonts/nanum-myeongjo/400Regular/NanumMyeongjo_400Regular.ttf'),

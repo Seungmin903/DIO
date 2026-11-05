@@ -6,7 +6,7 @@ import BrandLogo from './BrandLogo';
 // 보관함이 준비될 때까지 맨 위에 덮어 둔다.
 // 네이티브 시작 화면과 같은 정사각 마스코트를 공용 BrandLogo로 표시한다.
 // app.json 에서 플러그인 설정을 못 찾아도 앱이 뜨도록 지금 값과 같은 기본값을 둔다
-const SPLASH_FALLBACK = { backgroundColor: '#F7F8FD', imageWidth: 160 };
+const SPLASH_FALLBACK = { backgroundColor: '#F8F7FD', imageWidth: 160 };
 const splashPlugin = appConfig.expo?.plugins?.find(plugin => Array.isArray(plugin) && plugin[0] === 'expo-splash-screen');
 export const SPLASH = { ...SPLASH_FALLBACK, ...(splashPlugin?.[1] ?? {}) };
 // Native splash uses the full square image at imageWidth.

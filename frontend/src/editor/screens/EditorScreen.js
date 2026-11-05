@@ -862,6 +862,18 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
     setTextSettingsOpen(false)
     setGuidesOpen(false)
   }
+  // 폰: 내보내기 창이 열린 패널 위에 겹치지 않게 패널을 닫는다(좁은 창은 한쪽만)
+  useEffect(() => { if (exportOpen && compact) { setLayersOpen(false); setPagesOpen(false) } }, [exportOpen, compact])
+  // 폰 회전: 세로 시트와 떠 있는 창은 다른 부품이라 안의 입력이 조용히 사라진다. 창을 닫아 둔다(태블릿 세로 전환과 같은 처리).
+  const sheetLayout = useRef(phoneSheet)
+  useEffect(() => {
+    if (sheetLayout.current === phoneSheet) return
+    sheetLayout.current = phoneSheet
+    if (!compact) return
+    closeBubbles()
+    setLayersOpen(false)
+    setPagesOpen(false)
+  }, [phoneSheet]) // eslint-disable-line react-hooks/exhaustive-deps
   const closeOnOutside = {
     [pressEvent]: () => {
       if (bubbleOpen && !colorPicker && !touchInside.current) closeBubbles()
@@ -1050,8 +1062,8 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
       if (bubbleOpen) { closeBubbles(); return true }
       if (focusMode) { setFocusMode(false); return true }
       if (state.selectedIds.length) { dispatch({ type: 'select', ids: [] }); return true }
-      if (pagesOpen) { togglePages(); return true }
-      if (layersOpen) { toggleLayers(false); return true }
+      // 태블릿 가로에서 페이지 목록 · 레이어가 함께 열려 있으면 한 번에 닫는다(한 번씩 세 번 누르던 것)
+      if (pagesOpen || layersOpen) { if (pagesOpen) togglePages(); if (layersOpen) toggleLayers(false); return true }
       goHome()
       return true
     })
@@ -1171,6 +1183,7 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
           onAnchor={setToolAnchor}
           penColor={penSettings.color}
           highlighterColor={highlighterSettings.color}
+          onPresetColor={(tool, color) => (tool === 'highlighter' ? setHighlighterSettings({ ...highlighterSettings, color }) : setPenSettings({ ...penSettings, color }))}
           activeTool={activeTool}
           drawerTab={photoPanelVisible ? 'photo' : drawerTab}
           onOpenDrawer={openDrawer}
@@ -1433,11 +1446,12 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
           )}
           {/* 텍스트 서식: 고른 텍스트를 고칠 때는 다른 옵션 창처럼 요소 옆에, 텍스트 도구의 기본값을 정할 때는 툴바 아래에 */}
           {!readOnly && textSettingsOpen && !textEditing && !drawerTab && (
-            (selectedText
+            // 폰 세로는 고른 글자가 있어도 하단 시트(다른 도구 옵션과 같은 자리 · 열고 닫는 손짓이 같다)
+            (selectedText && !phoneSheet
               ? <View style={[styles.optionsWrap, optionsPlacement(selectedObjects, zoom, offset, stageSize, compact ? OPTIONS_TOP_PHONE : OPTIONS_TOP)]} pointerEvents="box-none" {...markInside}>
                   <TextSettings verticalAlignment={selectedText?.type === 'shape'} settings={currentTextSettings} onChange={changeTextSettings} onClose={() => setTextSettingsOpen(false)} />
                 </View>
-              : renderPanel((sheet) => <TextSettings verticalAlignment={false} settings={currentTextSettings} onChange={changeTextSettings} onClose={() => setTextSettingsOpen(false)} sheet={Boolean(sheet)} dragHandlers={sheet?.dragHandlers} />, [styles.penSettingsWrap, toolPopoverStyle()], { onClose: () => setTextSettingsOpen(false) }))
+              : renderPanel((sheet) => <TextSettings verticalAlignment={selectedText?.type === 'shape'} settings={currentTextSettings} onChange={changeTextSettings} onClose={() => setTextSettingsOpen(false)} sheet={Boolean(sheet)} dragHandlers={sheet?.dragHandlers} />, [styles.penSettingsWrap, toolPopoverStyle()], { onClose: () => setTextSettingsOpen(false) }))
           )}
           {!readOnly && ['pen', 'highlighter'].includes(activeTool) && penSettingsOpen && !drawerTab && (
             renderPanel((sheet) => <PenSettings onOpenColorPicker={request => setColorPicker({ ...request, tool: activeTool, pageId: page.id, screen: { width: colorScreen.width, height: colorScreen.height } })} key={activeTool} settings={activeTool === 'highlighter' ? highlighterSettings : penSettings} onChange={activeTool === 'highlighter' ? setHighlighterSettings : setPenSettings} onClose={() => { setColorPicker(null); setPenSettingsOpen(false) }} straightAssist={straightAssist} onStraightAssistChange={setStraightAssist} sheet={Boolean(sheet)} dragHandlers={sheet?.dragHandlers} />, [styles.penSettingsWrap, toolPopoverStyle()], { onClose: () => { setColorPicker(null); setPenSettingsOpen(false) } })
@@ -1598,6 +1612,7 @@ function RoundButton({ icon, label, disabled, active, onPress }) {
       onPress={onPress}
       disabled={disabled}
       accessibilityLabel={label}
+      hitSlop={6}
       style={({ pressed }) => [
         styles.roundButton,
         active && styles.roundActive,
@@ -1616,7 +1631,7 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.surfaceSoft },
   // 폰 가로 편집: 양옆 막대만큼 작업창을 비켜 둔다. 읽기는 양쪽 막대를 숨긴다.
   rootBetweenRails: { paddingLeft: PHONE_TOOLBAR_RAIL, paddingRight: PHONE_TOOLBAR_RAIL },
-  focusExit: { position: 'absolute', top: 10, left: 10, zIndex: 30, flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 44, paddingHorizontal: 14, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.95)', ...shadow.card },
+  focusExit: { position: 'absolute', top: 10, left: 10, zIndex: 30, flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 48, paddingHorizontal: 14, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.95)', ...shadow.card },
   focusExitPortrait: { top: 72 },
   focusExitText: { fontSize: 12.5, fontWeight: '700', color: colors.text },
   body: { flex: 1, flexDirection: 'row', gap: BODY_GAP, padding: BODY_PADDING },
@@ -1641,7 +1656,7 @@ const styles = StyleSheet.create({
     bottom: 12,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 2,
+    gap: 6,
     padding: 4,
     borderRadius: 12,
     backgroundColor: 'rgba(255,255,255,0.95)',

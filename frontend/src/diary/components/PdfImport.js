@@ -119,11 +119,11 @@ const styles = StyleSheet.create({
   pressed: {}, // 눌림 효과 없음(사용자 지시)
   thumb: { backgroundColor: '#FFFFFF', overflow: 'hidden', borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
   line: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  button: { height: 44, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', gap: 6, borderRadius: 999, backgroundColor: colors.surfaceMuted },
+  button: { height: 48, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', gap: 6, borderRadius: 999, backgroundColor: colors.surfaceMuted },
   buttonText: { color: colors.text, fontSize: 12.5, fontWeight: '700' },
   clear: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center', borderRadius: 18, backgroundColor: colors.surfaceMuted },
   file: { color: colors.textMuted, fontSize: 12, fontWeight: '700' },
-  toggleRow: { minHeight: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, paddingVertical: 2 },
+  toggleRow: { minHeight: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, paddingVertical: 2 },
   toggleLabel: { flex: 1, color: colors.text, fontSize: 13.5, fontWeight: '700' },
   tiles: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
   tileBox: { width: 76, gap: 4, alignItems: 'center' },

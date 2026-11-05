@@ -291,6 +291,16 @@ test('새 다이어리 표지는 무늬 없이 시작하고, 뺀 무늬 · 그�
   assert.equal(normalizeCover({ cover: { gradient: 9 } }).gradient, 9)
 })
 
+test('새 표지 제목은 프리텐다드로 시작하고 글자 도구 기본값은 그대로다', async () => {
+  const { DEFAULT_TEXT_SETTINGS } = await import('../src/editor/utils/text.js')
+  assert.equal(newDiaryCover().title.font, 'pretendard')
+  assert.equal(normalizeCover({ cover: { enabled: true, title: { font: 'nanum-gothic' } } }).title.font, 'nanum-gothic')
+  // 글꼴 없이 저장된 표지도 나눔고딕 그대로, 표지 값 자체가 없는 다이어리만 새 기본값으로 그린다
+  assert.equal(normalizeCover({ cover: { enabled: true, title: {} } }).title.font, 'nanum-gothic')
+  assert.equal(normalizeCover({ title: '이름' }).title.font, 'pretendard')
+  assert.equal(DEFAULT_TEXT_SETTINGS.font, 'nanum-gothic')
+})
+
 test('표지 제목 글씨체는 편집기 텍스트 글꼴 목록과 같다: 앱 글꼴 · 내 폰트는 그대로, 모르는 글꼴과 뺀 글꼴은 나눔고딕', async () => {
   const { TEXT_FONTS } = await import('../src/editor/utils/text.js')
   const font = value => normalizeCover({ cover: { enabled: true, title: { font: value } } }).title.font

@@ -11,8 +11,9 @@ function fixture(){
  const api={list:async()=>{if(fail)throw Error('refresh failed');return {items:[],hasNext:false,nextCursor:null}},
    trashList:async()=>({items:present?[{id,title:'owned',canRestore:true,canPermanentlyDelete:permission}]:[],hasNext:false,nextCursor:null}),
    purge:async()=>{calls++;if(hold)await hold;if(error)throw error;present=false;if(lost){lost=false;throw Error('lost response')}}};
- const store=createMemberAppStore({accountId:'101',api,storage:{getItem:async k=>values.get(k)??null,setItem:async(k,v)=>values.set(k,v),removeItem:async k=>values.delete(k)}});
- return {store,values,keys,api,get calls(){return calls},set lost(x){lost=x},set fail(x){fail=x},set error(x){error=x},set hold(x){hold=x},set permission(x){permission=x}};
+ const storage={getItem:async k=>values.get(k)??null,setItem:async(k,v)=>values.set(k,v),removeItem:async k=>values.delete(k)};
+ const store=createMemberAppStore({accountId:'101',api,storage});
+ return {store,storage,values,keys,api,get calls(){return calls},set lost(x){lost=x},set fail(x){fail=x},set error(x){error=x},set hold(x){hold=x},set permission(x){permission=x}};
 }
 test('실제 Spring의 영구 삭제·완료 재시도 204와 명시적 휴지통 권한을 소비한다',async()=>{
  const source=JSON.parse(await readFile(new URL('../../backend/build/contracts/member-diary-purge-http.json',import.meta.url),'utf8')),calls=[];
@@ -45,4 +46,44 @@ test('로그아웃 후 영구 삭제 지연 응답은 계정 캐시를 바꾸지
 test('삭제 전의 지연 휴지통 응답은 삭제 완료 후 항목을 되살리지 않는다',async()=>{
  const f=fixture();await f.store.load();await f.store.loadTrash();const original=f.api.trashList;let release,slow=true;f.api.trashList=async()=>{if(slow){slow=false;await new Promise(r=>release=r);return {items:[{id,canPermanentlyDelete:true}],hasNext:false,nextCursor:null}}return original()};
  const reading=f.store.loadTrash();reading.catch(()=>{});const deleting=f.store.lifecycle('purge',id);await new Promise(r=>setTimeout(r,0));release();await deleting;await assert.rejects(reading,{code:'LIST_CHANGED'});assert.deepEqual(f.store.getSnapshot().trash,[]);
+});
+
+
+test('영구 삭제 성공 후 해당 표지 메타만 지우고 실패 시 유지한다',async()=>{
+ for(const rejected of [false,true]) {
+  const f=fixture();const meta={[id]:{cover:{photo:{src:'file:///cover.jpg'}}},other:{cover:{color:'#123456'}}};
+  f.values.set(f.keys.localMeta,JSON.stringify(meta));await f.store.load();await f.store.loadTrash();
+  if(rejected){f.error=Object.assign(Error('denied'),{status:403});await assert.rejects(f.store.lifecycle('purge',id));assert.deepEqual(JSON.parse(f.values.get(f.keys.localMeta)),meta)}
+  else {await f.store.lifecycle('purge',id);assert.deepEqual(JSON.parse(f.values.get(f.keys.localMeta)),{other:meta.other})}
+ }
+});
+
+test('손상 메타가 있어도 서버 영구 삭제와 목록 갱신을 끝내고 다음 작업을 잠그지 않는다',async()=>{
+ for(const raw of ['{bad','null','[]','42','"text"']) {
+  const f=fixture();f.values.set(f.keys.localMeta,raw);await f.store.load();await f.store.loadTrash();
+  assert.equal(f.store.getSnapshot().metadataError.code,'LOCAL_METADATA_UNAVAILABLE');
+  await f.store.lifecycle('purge',id);
+  assert.equal(f.calls,1);assert.equal(f.store.getSnapshot().lifecycle,null);
+  assert.deepEqual(f.store.getSnapshot().trash,[]);
+  assert.equal(f.store.getSnapshot().metadataCleanupError.code,'LOCAL_METADATA_CLEANUP_FAILED');
+  assert.equal(f.values.get(f.keys.localMeta),raw);
+  await assert.rejects(f.store.lifecycle('restore',id),{code:'FORBIDDEN'});
+  f.values.set(f.keys.localMeta,'{}');await f.store.loadTrash();
+  assert.equal(f.store.getSnapshot().metadataError,null);assert.equal(f.store.getSnapshot().metadataCleanupError.code,'LOCAL_METADATA_CLEANUP_FAILED');
+  f.store.dismissMetadataCleanupWarning();assert.equal(f.store.getSnapshot().metadataCleanupError,null);
+ }
+});
+
+
+test('정상 메타의 쓰기만 실패해도 후속 재조회가 정리 경고를 숨기지 않는다',async()=>{
+ const f=fixture();const raw=JSON.stringify({[id]:{cover:{photo:{src:'file:///cover.jpg'}}}});
+ f.values.set(f.keys.localMeta,raw);await f.store.load();await f.store.loadTrash();
+ const write=f.storage.setItem;f.storage.setItem=async(k,v)=>{if(k===f.keys.localMeta)throw Error('disk full');return write(k,v)};
+ await f.store.lifecycle('purge',id);
+ assert.equal(f.calls,1);assert.equal(f.store.getSnapshot().lifecycle,null);assert.deepEqual(f.store.getSnapshot().trash,[]);
+ assert.equal(f.values.get(f.keys.localMeta),raw);
+ assert.equal(f.store.getSnapshot().metadataCleanupError.code,'LOCAL_METADATA_CLEANUP_FAILED');
+ await f.store.loadTrash();assert.equal(f.store.getSnapshot().metadataCleanupError.code,'LOCAL_METADATA_CLEANUP_FAILED');
+ f.store.dismissMetadataCleanupWarning();assert.equal(f.store.getSnapshot().metadataCleanupError,null);
+ assert.equal(f.values.get(f.keys.localMeta),raw);
 });

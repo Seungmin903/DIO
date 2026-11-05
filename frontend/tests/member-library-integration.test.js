@@ -91,7 +91,8 @@ test('일괄 이동은 최대 3개 동시 호출·중복 탭 결합·명시적 �
   f.api.trash=async id=>{f.calls.push(['trash',id]);max=Math.max(max,++inFlight);await gate.promise;f.deleted.add(id);inFlight--}
   const first=f.store.bulkTrash(['a','b','c','d','e']),duplicate=f.store.bulkTrash(['a','b','c','d','e']);assert.equal(first,duplicate)
   await assert.rejects(f.store.lifecycle('trash','a'),{code:'OPERATION_PENDING'})
-  gate.resolve();const result=await first;assert.equal(max,3);assert.equal(result.succeeded.length,5);assert.deepEqual(result.failed,[])
+  for(let i=0;i<20&&inFlight<3;i++)await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(inFlight,3);gate.resolve();const result=await first;assert.equal(max,3);assert.equal(result.succeeded.length,5);assert.deepEqual(result.failed,[])
   assert.deepEqual(f.store.getSnapshot().library.items,[]);assert.equal(f.disk.get(f.keys.doc('a')),'handwriting-kept')
 })
 
@@ -143,3 +144,13 @@ test('응답 유실 일괄 작업을 정리하기 전에는 복원·새 이동�
   await assert.rejects(f.store.retryBulkTrash(),{code:'NO_PENDING_OPERATION'})
   assert.equal(f.deleted.has('a'),false);assert.equal(f.disk.get(f.keys.doc('a')),'handwriting-kept')
 })
+
+
+test('선택 휴지통 이동도 각 표지·방향을 계정별 저장소에 보존한다',async()=>{
+ const f=fixture(['a','b']);await f.store.load();
+ await f.store.setDiaries(rows=>rows.map((row,i)=>({...row,pageSize:i?'landscape':'portrait',cover:{enabled:true,color:i?'#112233':'#445566',elastic:Boolean(i)}})));
+ await f.store.bulkTrash(['a','b']);
+ const meta=JSON.parse(f.disk.get(f.keys.localMeta));
+ for(const item of f.store.getSnapshot().trash){assert.deepEqual(item.cover,meta[item.id].cover);assert.equal(item.pageSize,meta[item.id].pageSize)}
+ assert.equal(f.store.getSnapshot().trash.length,2);
+});

@@ -1,6 +1,7 @@
 import { Segmented, ToolPanelHeader, toolPanelStyles } from './ToolPanel'
 import FadeScroll from './controls/FadeScroll'
-import { Pressable, StyleSheet, Text, View, Switch } from 'react-native'
+import { Pressable, StyleSheet, Text, View } from 'react-native'
+import { SettingSwitch } from '../../diary/components/SettingRow'
 import { colors } from '../../shared/theme'
 import EditablePalette, { paletteSwatchStyles } from './controls/EditablePalette'
 import Slider from './controls/Slider'
@@ -64,33 +65,33 @@ export default function PenSettings({ settings, onChange, onClose, straightAssis
           onChange={(value) => onChange({ ...settings, opacity: Math.round(value / 5) * 5 / 100 })} />
       </>}
       <EditablePalette allowDirect scope={highlighter ? 'highlighter' : 'pen'} label={label} value={settings.color} onPick={chooseColor} onOpenEditor={onOpenColorPicker} />
+      {recentColors.length > 0 && <>
       <Text style={toolPanelStyles.label}>마지막으로 사용했던 색</Text>
       <View accessibilityLabel={`${label} 최근 사용 색상`} style={paletteSwatchStyles.row}>
         {recentColors.map(color => <Pressable key={color} accessibilityRole="button"
           accessibilityLabel={`최근 사용한 ${label} 색상 ${color}`} accessibilityState={{ selected: settings.color === color }}
-          onPress={() => chooseColor(color)} style={paletteSwatchStyles.cell}>
+          hitSlop={1} onPress={() => chooseColor(color)} style={paletteSwatchStyles.cell}>
           <View style={[paletteSwatchStyles.dot,{backgroundColor:color},settings.color === color && paletteSwatchStyles.chosen]} />
         </Pressable>)}
-        {!recentColors.length && <Text style={styles.recentEmpty}>필기에 사용한 색이 여기에 저장돼요.</Text>}
       </View>
+      </>}
       <View style={styles.assist}>
         <Text style={styles.assistText}>끝점을 길게 눌러 직선 만들기</Text>
-        <Switch accessibilityLabel="끝점에서 길게 눌러 직선 만들기" value={straightAssist} onValueChange={onStraightAssistChange} trackColor={{ false: colors.border, true: colors.primary }} thumbColor={colors.surface} activeThumbColor={colors.surface} />
+        <SettingSwitch label="끝점에서 길게 눌러 직선 만들기" on={straightAssist} onToggle={onStraightAssistChange} />
       </View>
     </FadeScroll>
   </View>
 }
 
 const styles = StyleSheet.create({
-  recentEmpty: { color: colors.textMuted, fontSize: 12 },
   preview: { backgroundColor: '#FAFAF7', borderRadius: 12 },
   // 제목을 왼쪽에 붙인 한 줄(펜 종류 · 끝 모양): 막대의 제목 칸과 같은 폭 52
   inlineRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   fill: { flex: 1 },
   inlineLabel: { width: 52, color: colors.textMuted, fontSize: 12, fontWeight: '700' },
-  types: { flex: 1, flexDirection: 'row', gap: 4, padding: 3, borderRadius: 11, backgroundColor: colors.surfaceMuted },
-  type: { flex: 1, borderRadius: 8, paddingVertical: 6 },
-  typeSelected: { backgroundColor: colors.surface, boxShadow: '0px 1px 3px rgba(11, 23, 102, 0.07)' },
+  types: { flex: 1, flexDirection: 'row', gap: 4 },
+  type: { flex: 1, minHeight: 48, justifyContent: 'center', borderRadius: 10, borderWidth: 1, borderColor: colors.cardBorder, backgroundColor: colors.surface, paddingVertical: 6 },
+  typeSelected: { borderWidth: 2, borderColor: colors.primaryStrong }, // 페이지 목록 탭과 같은 선택 표시(테두리 2)
   typeText: { textAlign: 'center', color: colors.textMuted, fontSize: 11.5, fontWeight: '600' },
   typeTextSelected: { color: colors.text, fontWeight: '800' },
   assist: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, minHeight: 40 },

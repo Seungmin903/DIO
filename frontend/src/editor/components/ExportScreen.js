@@ -64,7 +64,7 @@ const styles = StyleSheet.create({
   sideContent: { paddingTop: 18, paddingBottom: 18 },
   side: { width: 320, alignSelf: 'flex-start', maxHeight: '100%' },
   sideNarrow: { width: '100%', maxHeight: '45%' },
-  button: { minHeight: 40, paddingHorizontal: 12, alignItems: 'center', justifyContent: 'center', borderRadius: 10, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.cardBorder },
+  button: { minHeight: 48, paddingHorizontal: 12, alignItems: 'center', justifyContent: 'center', borderRadius: 10, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.cardBorder },
   buttonText: { fontSize: 12.5, fontWeight: '700', color: colors.text },
   selected: { backgroundColor: colors.surface, borderColor: colors.primaryStrong, borderWidth: 2 },
   pressed: {}, // 눌림 효과 없음(사용자 지시)

@@ -262,7 +262,7 @@ export function CompactMenu({ position, maxHeight, insideHandlers, actions }) {
 
 function MenuAction({ icon, label, danger, disabled, onPress, style }) {
   const color = danger ? colors.danger : disabled ? colors.border : colors.text
-  return <Pressable onPress={onPress} disabled={disabled} accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ disabled: Boolean(disabled) }} style={({ pressed }) => [styles.menuItem, style, pressed && styles.pressed]}>
+  return <Pressable onPress={onPress} disabled={disabled} hitSlop={3} accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ disabled: Boolean(disabled) }} style={({ pressed }) => [styles.menuItem, style, pressed && styles.pressed]}>
     <Icon name={icon} size={18} forText={13} color={color} /><Text style={[styles.menuText, { color }]}>{label}</Text>
   </Pressable>
 }
@@ -373,10 +373,10 @@ const styles = StyleSheet.create({
   compactMenu: { position: 'absolute', width: 166, borderRadius: 14, backgroundColor: colors.surface, zIndex: 8, overflow: 'hidden', ...shadow.float },
   compactMenuContent: { paddingVertical: 5 },
   compactMenuItem: { paddingHorizontal: 15, borderRadius: 0 },
-  compactMenuThumb: { position: 'absolute', right: 3, width: 3, borderRadius: 2, backgroundColor: 'rgba(11,23,102,0.25)' },
+  compactMenuThumb: { position: 'absolute', right: 3, width: 3, borderRadius: 2, backgroundColor: 'rgba(28,28,28,0.25)' },
   menuItem: { flexDirection: 'row', alignItems: 'center', gap: 10, height: 44, paddingHorizontal: 10, borderRadius: 10 },
   menuText: { fontSize: 13, fontWeight: '700', color: colors.text },
-  menuTextDisabled: { color: 'rgba(11,23,102,0.3)' },
+  menuTextDisabled: { color: 'rgba(28,28,28,0.3)' },
   button: { flexDirection: 'row', alignItems: 'center', gap: 5, height: 42, paddingHorizontal: 10, borderRadius: 11 },
   buttonText: { fontSize: 12.5, fontWeight: '700', color: colors.text },
   buttonDisabled: { opacity: DISABLED_OPACITY },
