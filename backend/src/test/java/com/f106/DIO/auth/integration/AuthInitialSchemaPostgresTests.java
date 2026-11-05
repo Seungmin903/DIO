@@ -43,6 +43,38 @@ class AuthInitialSchemaPostgresTests {
     com.f106.DIO.auth.repository.EmailVerificationRepository verifications;
     @org.springframework.test.context.bean.override.mockito.MockitoBean
     com.f106.DIO.auth.infrastructure.mail.SignupMailSender mail;
+    @Autowired com.f106.DIO.auth.service.LoginSessionService loginSessions;
+    @Autowired com.f106.DIO.auth.service.EmailLoginService loginService;
+    @Autowired com.f106.DIO.auth.repository.RefreshTokenRepository refreshTokens;
+    @Autowired com.f106.DIO.user.repository.UserRepository refreshUsers;
+    @Autowired org.springframework.transaction.PlatformTransactionManager refreshTransactions;
+    @Test void concurrentRefreshRetriesConvergeAndRenewExpiryOnPostgres() throws Exception {
+        var tx = new org.springframework.transaction.support.TransactionTemplate(refreshTransactions);
+        String email = "refresh-" + UUID.randomUUID() + "@example.com";
+        var first = tx.execute(status -> {
+            var user = refreshUsers.saveAndFlush(new com.f106.DIO.user.domain.User(email,"갱신검증",java.time.Instant.now()));
+            return loginSessions.create(user,"pg-qa",java.time.Instant.now());
+        });
+        var pool = java.util.concurrent.Executors.newFixedThreadPool(2);
+        try {
+            var start = new java.util.concurrent.CountDownLatch(1);
+            java.util.concurrent.Callable<com.f106.DIO.auth.dto.LoginResponse> attempt = () -> {
+                start.await(); return loginService.refresh(first.refreshToken());
+            };
+            var a=pool.submit(attempt); var b=pool.submit(attempt); start.countDown();
+            var left=a.get(20,java.util.concurrent.TimeUnit.SECONDS);
+            var right=b.get(20,java.util.concurrent.TimeUnit.SECONDS);
+            assertThat(left.refreshToken()).isEqualTo(right.refreshToken()).isNotEqualTo(first.refreshToken());
+            assertThat(loginService.refresh(first.refreshToken()).refreshToken()).isEqualTo(left.refreshToken());
+            var token=refreshTokens.findById(refreshTokens.findIdByTokenHash(
+                com.f106.DIO.auth.support.LoginSecrets.hash(left.refreshToken())).orElseThrow()).orElseThrow();
+            assertThat(token.getRevokedAt()).isNull();
+            assertThat(token.getTokenHash()).isEqualTo(com.f106.DIO.auth.support.LoginSecrets.hash(left.refreshToken()));
+        } finally {
+            pool.shutdownNow(); pool.awaitTermination(20,java.util.concurrent.TimeUnit.SECONDS);
+            tx.executeWithoutResult(status -> refreshUsers.findByEmail(email).ifPresent(refreshUsers::delete));
+        }
+    }
     @Test void postgresSerializesFirstVerificationInsertWithoutOverwritingWinner() throws Exception {
         com.f106.DIO.auth.integration.VerificationRaceAssertions.verify(mvc, verifications, mail, verification, entityManager, "pg-race@example.com");
     }

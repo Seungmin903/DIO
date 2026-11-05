@@ -34,6 +34,7 @@ public class EmailLoginService {
     private final RefreshTokenRepository tokens;
     private final RefreshTokenHistoryRepository history;
     private final LoginJwt jwt;
+    private final com.f106.DIO.auth.support.RefreshRotation rotation;
     private final LoginThrottle throttle;
     private final TransactionTemplate readTransaction;
     private final TransactionTemplate writeTransaction;
@@ -43,9 +44,11 @@ public class EmailLoginService {
     public EmailLoginService(UserRepository users, EmailAuthProviderRepository accounts, LoginSessionService sessions,
             RefreshTokenRepository tokens, RefreshTokenHistoryRepository history, LoginJwt jwt,
             LoginThrottle throttle, PlatformTransactionManager transactionManager,
+            com.f106.DIO.auth.support.RefreshRotation rotation,
             com.f106.DIO.push.service.PushSessionRevocation pushRevocation,
             @Qualifier("authPasswordEncoder") PasswordEncoder passwords) {
         this.pushRevocation = pushRevocation;
+        this.rotation = rotation;
         this.passwords = passwords;
         this.dummyHash = passwords.encode("dummy-password-never-authenticates");
         this.users = users; this.accounts = accounts; this.sessions = sessions; this.tokens = tokens;
@@ -95,17 +98,31 @@ public class EmailLoginService {
         // 고정 세션 행을 잠가 재발급/로그아웃/재사용 감지를 직렬화한다.
         RefreshToken token = tokens.findForUpdate(id).orElseThrow(LoginException::token);
         Instant now = Instant.now();
-        if (!token.active(now)) throw LoginException.token();
-        if (!LoginSecrets.matches(hash, token.getTokenHash())) {
-            pushRevocation.revokeLockedSession(token.getSessionId(), token.getUserId(), now); token.revoke(now); throw LoginException.token();
-        }
+        if (!token.active(now) || !now.isBefore(token.getCreatedAt().plus(java.time.Duration.ofDays(90))))
+            throw LoginException.token();
         User user = users.findById(token.getUserId()).orElse(null);
         if (user == null || !user.isActive()) { pushRevocation.revokeLockedSession(token.getSessionId(), token.getUserId(), now); token.revoke(now); throw LoginException.token(); }
-        String nextRefresh = LoginSecrets.refresh();
-        // 설정/서명 실패 전에 기존 토큰을 소비하지 않는다.
-        LoginResponse response = sessions.response(user, token, nextRefresh, now);
+        var previous = history.findFirstByTokenIdOrderByRotatedAtDesc(token.getTokenId()).orElse(null);
+        boolean grace = previous != null && rotation.withinGrace(previous.getRotatedAt(), now);
+        if (!LoginSecrets.matches(hash, token.getTokenHash())) {
+            // Fixed, non-sliding window: only the immediately preceding token can recover its successor.
+            if (grace && LoginSecrets.matches(hash, previous.getTokenHash())) {
+                String successor = rotation.successor(refresh, token.getSessionId());
+                if (LoginSecrets.matches(LoginSecrets.hash(successor), token.getTokenHash()))
+                    return sessions.response(user, token, successor, now);
+            }
+            pushRevocation.revokeLockedSession(token.getSessionId(), token.getUserId(), now);
+            token.revoke(now); throw LoginException.token();
+        }
+        // Freeze the current token during this window, so concurrent current/previous requests converge.
+        if (grace) return sessions.response(user, token, refresh, now);
+        String nextRefresh = rotation.successor(refresh, token.getSessionId());
+        Instant nextExpiry = sessions.refreshedExpiry(token, now);
+        // Build/sign before modifying persistence: configuration failures must not consume a token.
+        LoginResponse response = sessions.response(user, token, nextRefresh, now, nextExpiry);
         history.saveAndFlush(new RefreshTokenHistory(token, now));
         token.rotate(LoginSecrets.hash(nextRefresh));
+        token.extendUntil(nextExpiry);
         tokens.saveAndFlush(token);
         return response;
     }
