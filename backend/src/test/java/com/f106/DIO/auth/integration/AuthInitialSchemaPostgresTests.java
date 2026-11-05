@@ -109,6 +109,38 @@ class AuthInitialSchemaPostgresTests {
         assertThat(jdbc.queryForObject("select count(*) from refresh_token_history where token_id=988", Long.class)).isEqualTo(1);
         assertThat(cleanup.purgeExpired()).isZero();
     }
+    @Test void latestHistoryIndexUpgradesExistingDataAndSupportsOrderedLookup() throws Exception {
+        String schema = "auth_index_" + UUID.randomUUID().toString().replace("-", "");
+        Flyway.configure().dataSource(url(), "postgres", password()).schemas(schema).defaultSchema(schema).target("32").load().migrate();
+        try (var connection = DriverManager.getConnection(url(), "postgres", password())) {
+            connection.setSchema(schema);
+            try (var statement = connection.createStatement()) {
+                statement.execute("insert into users(user_id,email,nickname,nickname_key) values (123,'index@example.com','index','index')");
+                statement.execute("insert into refresh_tokens(token_id,user_id,token_hash,expires_at) values (123,123,repeat('ab',32),now()+interval '1 day')");
+                statement.execute("insert into refresh_token_history(token_hash,token_id,rotated_at) select lpad(to_hex(n),64,'0'),123,now()-make_interval(secs => n) from generate_series(1,1000) n");
+            }
+        }
+        Flyway.configure().dataSource(url(), "postgres", password()).schemas(schema).defaultSchema(schema).load().migrate();
+        assertThat(jdbc.queryForObject("select count(*) from " + schema + ".refresh_token_history", Long.class)).isEqualTo(1000);
+        assertThat(jdbc.queryForObject("select i.indisvalid and i.indisready from pg_index i where i.indexrelid=?::regclass", Boolean.class,
+            schema + ".refresh_token_history_token_rotated_idx")).isTrue();
+        assertThat(jdbc.queryForObject("select pg_get_indexdef(?::regclass)", String.class,
+            schema + ".refresh_token_history_token_rotated_idx")).contains("(token_id, rotated_at DESC)");
+        assertThat(jdbc.queryForObject("select token_hash from " + schema + ".refresh_token_history where token_id=123 order by rotated_at desc limit 1", String.class))
+            .isEqualTo("0".repeat(63) + "1");
+        // Verify index eligibility, not cost-based planner choice on a small fixture.
+        try (var connection = DriverManager.getConnection(url(), "postgres", password())) {
+            connection.setSchema(schema);
+            try (var statement = connection.createStatement()) {
+                statement.execute("set enable_seqscan=off");
+                try (var result = statement.executeQuery("explain select * from refresh_token_history where token_id=123 order by rotated_at desc limit 1")) {
+                    var plan = new StringBuilder();
+                    while (result.next()) plan.append(result.getString(1));
+                    assertThat(plan.toString()).contains("refresh_token_history_token_rotated_idx");
+                }
+            }
+        }
+    }
     @Test void upgradingExistingInitialSchemaPreservesUserDiaryAndSession() throws Exception {
         String schema = "auth_upgrade_" + UUID.randomUUID().toString().replace("-", "");
         var config = Flyway.configure().dataSource(url(), "postgres", password()).schemas(schema).defaultSchema(schema);
