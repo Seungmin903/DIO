@@ -3,8 +3,6 @@ import { colors } from '../shared/theme.js';
 // 표지 색이 없는 기존 문서·API 응답의 호환 기본값. UI 배경색과 독립적으로 유지한다.
 export const FALLBACK_COVER_COLOR = '#D4D7ED';
 
-// 보관함(책상) 바탕 단색. 시간대 창빛(햇살 책상)은 뺐다 — 코드는 docs/다이어리 홈 햇살 책상/보관 코드
-export const DESK_COLOR = '#F3F3F7';
 
 // 화면 틀 색은 편집 화면과 같은 디자인 토큰(shared/theme)을 쓴다. 표지·꾸밈 색은 아래에 따로 둔다.
 export const C = {

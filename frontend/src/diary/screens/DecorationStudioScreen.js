@@ -458,8 +458,8 @@ export default function DecorationStudioScreen({ compact = false, registerBackHa
 }
 
 const s = StyleSheet.create({
-  // 카드를 쌓지 않는 대신 화면 전체를 흰 면(surface) 한 장으로 둔다. 옅은 면(surfaceMuted)의 탭 · 도구함이 그 위에서 보인다
-  root: { flex: 1, backgroundColor: colors.surface }, content: { flexGrow: 1, paddingBottom: 36 },
+  // 카드를 쌓지 않는 대신 화면 전체를 앱 바탕(surfaceSoft) 한 장으로 둔다. 옅은 면(surfaceMuted)의 탭 · 도구함이 그 위에서 보인다
+  root: { flex: 1, backgroundColor: colors.surfaceSoft }, content: { flexGrow: 1, paddingBottom: 36 },
   // 폰은 하단 내비게이션 위에서 끝나게 104(코덱스 11번)
   contentCompact: { paddingBottom: 104 },
   alert: { gap: 8, alignItems: 'flex-start' },

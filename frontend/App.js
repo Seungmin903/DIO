@@ -28,7 +28,7 @@ import { AuthenticatedNotificationProvider, useOptionalSharedNotifications } fro
 import HomeNotificationFlow from './src/notifications/HomeNotificationFlow';
 import { isSessionDocumentKey } from './src/editor/services/sessionDocuments.js';
 import { startPushRuntime } from './src/notifications/pushRuntime';
-import { C, DEFAULT_FILTER, DESK_COLOR } from './src/diary/constants';
+import { C, DEFAULT_FILTER } from './src/diary/constants';
 import { useDiaries } from './src/diary/hooks/useDiaries';
 import { useMemberDiaries } from './src/diary/hooks/useMemberDiaries';
 import MemberRequestNotice from './src/diary/components/MemberRequestNotice';
@@ -1040,9 +1040,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
     />
   );
 
-  // 다이어리 홈(태블릿)은 단색 책상 바탕 위에 놓인다. 폰은 셸 바탕 그대로다.
-  const desk = page === 'library' && loaded && !isPhone;
-  const phoneSurface = page === 'library' ? C.canvas : C.white;
+  const phoneSurface = C.canvas;
   let shell;
   if (page === 'editor') {
     shell = content;
@@ -1063,7 +1061,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
           getProfilePhotoSource={previewUser?.mode === 'authenticated' ? authService.getProfilePhotoSource : undefined}
           collapsed={railCollapsed}          onToggle={() => setRailCollapsed((current) => !current)}
         />}
-        <View style={[s.workspace, !isPhone && { paddingBottom: insets.bottom }, desk && { backgroundColor: DESK_COLOR }]}>
+        <View style={[s.workspace, !isPhone && { paddingBottom: insets.bottom }]}>
           <PhoneBellProvider value={isPhone ? <SharingEntry notifications notificationCount={authenticatedNotifications?.count}
             notificationLabel={authenticatedNotifications ? '알림' : '받은 초대'} compact
             count={unreadInvites} onPress={openInvitations} /> : null}>
@@ -1081,11 +1079,11 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
     );
   }
 
-  // 위: 폰 편집기 세로는 흰 상단 바, 그 밖은 보관함 바탕. 왼쪽: 편집기 밖은 좌측 바와 같은 바탕(C.canvas). 오른쪽: 보관함·편집기 바탕.
+  // 위: 폰 편집기 세로는 흰 상단 바, 그 밖은 앱 바탕(C.canvas). 좌우도 앱 바탕.
   const safeAreaColors = {
-    top: page === 'editor' && !isLandscape ? C.white : desk ? DESK_COLOR : C.canvas,
-    left: page !== 'editor' ? C.canvas : desk ? DESK_COLOR : C.canvas,
-    right: desk ? DESK_COLOR : C.canvas,
+    top: page === 'editor' && !isLandscape ? C.white : C.canvas,
+    left: !isPhone && page !== 'editor' ? C.white : C.canvas, // 태블릿 좌측 바와 이어진다
+    right: C.canvas,
   };
 
   const measureViewport = ({ nativeEvent: { layout } }) => {
