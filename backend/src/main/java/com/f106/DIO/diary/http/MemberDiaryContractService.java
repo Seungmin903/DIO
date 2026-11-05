@@ -45,18 +45,22 @@ public class MemberDiaryContractService {
         String title=patch.getDiaryTitle()==null?previous.diaryTitle():patch.getDiaryTitle();
         String color=patch.getCoverColor()==null?previous.coverColor():patch.getCoverColor();
         String style=patch.getCoverStyle()==null?previous.coverStyle():patch.getCoverStyle();
-        if(title.equals(previous.diaryTitle()) && color.equals(previous.coverColor()) && style.equals(previous.coverStyle())) return enrich(id,before);
+        String oldCover=jdbc.queryForObject("select cover_json from diaries where diary_id=?",String.class,id);
+        String cover=oldCover;
+        if(request.getCover()!=null)try {cover=DiaryCoverDesign.prepare(request.getCover(),DiaryCoverDesign.read(oldCover),user,jdbc);}
+        catch(IllegalArgumentException error) {throw new DiaryDetailException(HttpStatus.BAD_REQUEST,"INVALID_DIARY_COVER","표지 자료를 확인해 주세요.");}
+        if(title.equals(previous.diaryTitle()) && color.equals(previous.coverColor()) && style.equals(previous.coverStyle()) && java.util.Objects.equals(cover,oldCover)) return enrich(id,before);
         if(current==Long.MAX_VALUE) throw new DiaryDetailException(HttpStatus.CONFLICT,"VERSION_EXHAUSTED","다이어리 버전을 더 갱신할 수 없어요.");
         var now=java.time.Instant.now().truncatedTo(java.time.temporal.ChronoUnit.MICROS);
         if(!now.isAfter(previous.updatedAt())) now=previous.updatedAt().plus(1,java.time.temporal.ChronoUnit.MICROS);
-        int changed=jdbc.update("update diaries set title=?,cover_color=?,cover_style=?,updated_at=?,version=version+1 where diary_id=? and version=? and deleted_at is null",
-            title,color,style,java.sql.Timestamp.from(now),id,current);
+        int changed=jdbc.update("update diaries set title=?,cover_color=?,cover_style=?,cover_json=?,updated_at=?,version=version+1 where diary_id=? and version=? and deleted_at is null",
+            title,color,style,cover,java.sql.Timestamp.from(now),id,current);
         if(changed!=1) throw new DiaryDetailException(HttpStatus.CONFLICT,"DIARY_METADATA_CONFLICT","최신 내용을 확인한 뒤 다시 시도해 주세요.");
         return enrich(id,detail.getAuthorized(id));
     }
     private MemberDiaryResponses.Diary enrich(UUID id,DiaryDetailService.Authorized authorized) {
         long user=identity.requireUserId(DiaryDetailException::unauthorized);
-        return jdbc.queryForObject("select d.version,m.role,m.is_favorite from diaries d join diary_members m on m.diary_id=d.diary_id and m.user_id=? where d.diary_id=?",
-            (rs,n)->MemberDiaryResponses.Diary.from(authorized.diary(),authorized.canEdit(),Long.toString(rs.getLong("version")),rs.getString("role"),rs.getBoolean("is_favorite")),user,id);
+        return jdbc.queryForObject("select d.version,d.cover_json,m.role,m.is_favorite from diaries d join diary_members m on m.diary_id=d.diary_id and m.user_id=? where d.diary_id=?",
+            (rs,n)->MemberDiaryResponses.Diary.from(authorized.diary(),authorized.canEdit(),Long.toString(rs.getLong("version")),rs.getString("role"),rs.getBoolean("is_favorite")).withCover(DiaryCoverDesign.read(rs.getString("cover_json"))),user,id);
     }
 }

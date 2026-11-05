@@ -29,6 +29,6 @@ export function diaryCreateInput(form) {
     templateConfig: { ...templateCanvasSize(templateConfig.orientation), paperAppearance: { ...paperAppearance }, blank: true } });
   return { title, color: form.color, pattern: form.pattern ?? null, pageSize: templateConfig.orientation,
     templateConfig, paperAppearance, initialPages, ...(importedPages ? { importedPages } : {}),
-    // 표지 꾸미기(사진 · 고무줄 · 라벨 · 스티커)는 서버가 아직 저장하지 않아 이 기기에만 둔다. 서버 요청에는 실리지 않는다.
+    // 표지 꾸미기는 생성 후 업로드·버전 검사를 거쳐 회원 메타데이터에 저장한다.
     ...(form.cover && typeof form.cover === 'object' ? { cover: form.cover } : {}) };
 }

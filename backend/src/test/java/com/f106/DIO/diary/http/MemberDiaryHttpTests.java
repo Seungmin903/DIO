@@ -49,6 +49,8 @@ class MemberDiaryHttpTests {
     @Autowired LoginJwt jwt;
     @Autowired RefreshTokenRepository sessions;
     @Autowired RefreshTokenHistoryRepository history;
+    @Autowired com.f106.DIO.media.repository.MediaFileRepository mediaFiles;
+    @Autowired com.f106.DIO.media.service.MediaFileTransactionService mediaAccess;
     @MockitoSpyBean MemberDiaryCreationService creation;
     @MockitoSpyBean MemberDiaryListQuery lists;
     String owner,other,lastKey;
@@ -492,6 +494,38 @@ class MemberDiaryHttpTests {
         mvc.perform(patch(path).header("Authorization","Bearer "+owner).contentType(MediaType.APPLICATION_JSON).content(max.replace("changed","member")))
             .andExpect(status().isOk()).andExpect(jsonPath("$.diary.version").value("9223372036854775807"));
     }
+    @Test void photoCoverIsSharedOnlyWithActiveDiaryMembers() throws Exception {
+        var created=create(); UUID diaryId=UUID.fromString(id(created)); String path=PATH+"/"+diaryId;
+        UUID media=UUID.randomUUID();
+        mediaFiles.saveAndFlush(new com.f106.DIO.media.domain.MediaFile(media,101L,
+            com.f106.DIO.media.domain.MediaType.IMAGE,com.f106.DIO.media.domain.MediaLibraryCategory.PHOTO,
+            "cover-fixture-"+media,"cover.png","image/png",42,null));
+        var cover=Map.of("kind","photo","enabled",true,"photo",Map.of("src","media:"+media,"mediaFileId",media.toString(),
+            "aspect",1.4,"crop",Map.of("x",0.1,"y",0.2,"w",0.7,"h",0.6)),"subtitle",Map.of("text","같은 사진 표지"));
+        String payload=json.writeValueAsString(Map.of("expectedVersion","1","cover",cover));
+        try {
+            mvc.perform(patch(path).header("Authorization","Bearer "+owner).contentType(MediaType.APPLICATION_JSON)
+                .content(payload.replace("media:"+media,"file:///private-cover.png")))
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("INVALID_DIARY_COVER"));
+            mvc.perform(patch(path).header("Authorization","Bearer "+owner).contentType(MediaType.APPLICATION_JSON).content(payload))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.diary.version").value("2"))
+                .andExpect(jsonPath("$.diary.cover.photo.mediaFileId").value(media.toString()));
+            mvc.perform(get(path).header("Authorization","Bearer "+other)).andExpect(status().isNotFound());
+            assertThatThrownBy(()->mediaAccess.storageReference(media,202L)).isInstanceOf(com.f106.DIO.media.support.MediaFileNotFoundException.class);
+            jdbc.update("insert into diary_members(diary_id,user_id,role,member_color,joined_at) values (?,202,'EDITOR','#654321',?)",diaryId,Timestamp.from(Instant.now()));
+            mvc.perform(get(path).header("Authorization","Bearer "+other)).andExpect(status().isOk())
+                .andExpect(jsonPath("$.diary.cover.photo.src").value("media:"+media))
+                .andExpect(jsonPath("$.diary.cover.photo.crop.x").value(0.1));
+            mvc.perform(get(PATH).param("filter","shared").header("Authorization","Bearer "+other)).andExpect(status().isOk())
+                .andExpect(jsonPath("$.items[0].diary.cover.photo.mediaFileId").value(media.toString()));
+            assertThat(mediaAccess.storageReference(media,202L).storageKey()).isEqualTo("cover-fixture-"+media);
+            mvc.perform(patch(path).header("Authorization","Bearer "+other).contentType(MediaType.APPLICATION_JSON).content(payload.replace("\"1\"","\"2\"")))
+                .andExpect(status().isForbidden());
+            jdbc.update("update diary_members set left_at=? where diary_id=? and user_id=202",Timestamp.from(Instant.now()),diaryId);
+            assertThatThrownBy(()->mediaAccess.storageReference(media,202L)).isInstanceOf(com.f106.DIO.media.support.MediaFileNotFoundException.class);
+        } finally {mediaFiles.deleteById(media);}
+    }
+
     @Test void concurrentSameVersionWritesHaveExactlyOneWinner() throws Exception {
         var created=create();String path=PATH+"/"+id(created),payload=patchBody(created,"winner");
         var executor=java.util.concurrent.Executors.newFixedThreadPool(2);

@@ -1,7 +1,7 @@
 // 게스트(로그인 전)가 이 기기에 만든 다이어리를 로그인한 회원의 서버 보관함으로 옮긴다.
 // 지금 서버 API만 쓴다: 다이어리 생성(initialPages) → 페이지 크기 · 속지 글꼴 · 이름 · 격자(PATCH /pages) → 사진 업로드 후 id 교체 → 요소 전송(canvas-operations) → 즐겨찾기.
 // 단계마다 기기에 기록해 앱이 꺼져도 같은 키로 이어서 보내므로 서버에 두 번 생기지 않는다. 끝나면 '옮김'을 기록하고 원본을 지운다.
-// 서버가 받지 못하는 표지 꾸밈 · 방향 · 처음 만든 날짜는 회원 쪽 기기 값(localMeta)으로 잇는다.
+// 표지는 서버에 저장하고, 방향 · 처음 만든 날짜 등 기기 값은 localMeta로 잇는다.
 // 내용이 빠지는 것(날짜 글자 · 15MB 넘는 GIF 등)은 skipped 로 모아 화면에 알리고, 그 다이어리의 원본은 기기에 남긴다. 정리: docs/다이어리 저장/게스트 다이어리 가져오기.md
 import { createDefaultDoc } from '../../editor/state/defaultDoc.js'
 import { STORAGE_KEYS } from '../../editor/utils/storageContract.js'
@@ -365,6 +365,11 @@ export function createGuestDiaryImporter({ accountId, storage, api, transport, c
         throw error
       }
       entry.diaryId = result.id; entry.pageIds = result.pageIds; await persist()
+    }
+    if(!entry.coverDone&&api.saveInitialCover&&coverDecorated(diary.cover)) {
+      assertActive()
+      await api.saveInitialCover(entry.diaryId,copy(diary.cover));assertActive()
+      entry.coverDone=true;await persist()
     }
     step()
     for (const [index, page] of plan.pages.entries()) {
