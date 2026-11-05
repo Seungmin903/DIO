@@ -45,7 +45,7 @@ COMMIT;
 
 ## 배포
 
-V32·V33 적용과 테스트 결과, 실제 저장소 삭제, DB 보존 설정 권한·절차를 확인하기 전에는 REPORT_RETENTION_CLEANUP_ENABLED=false를 유지한다. 기본값 true만 보고 준비 완료로 판단하지 않는다. 테스트·운영 승인 후 활성화한다. 파일 삭제는 현재 MediaFiles 저장소를 사용하므로 이전 provider 자료가 있으면 별도로 확인한다. 이번 코드 작업에서 운영 DB·환경변수·개인정보처리방침 공개 상태는 변경하지 않는다.
+V32·V33 적용과 테스트 결과, 실제 저장소 삭제, DB 보존 설정 권한·절차를 확인하기 전에는 REPORT_RETENTION_CLEANUP_ENABLED=false를 유지한다. 기본값은 false이며 설정이 누락되면 스케줄을 등록하지 않는다. 테스트·운영 승인 후 REPORT_RETENTION_CLEANUP_ENABLED=true를 명시해 활성화한다. 파일 삭제는 현재 MediaFiles 저장소를 사용하므로 이전 provider 자료가 있으면 별도로 확인한다. 이번 코드 작업에서 운영 DB·환경변수·개인정보처리방침 공개 상태는 변경하지 않는다.
 
 ## 검증 명령
 

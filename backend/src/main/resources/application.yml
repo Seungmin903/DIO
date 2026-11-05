@@ -102,7 +102,7 @@ dio:
     # RESOLVED·DISMISSED 신고는 처리 완료 시각부터 30일 후 DB에서 삭제한다.
     # 증빙 파일은 별도 재시도 대기열로 넘겨 저장소 장애가 끝난 뒤에도 회수한다.
     report-retention:
-      enabled: ${REPORT_RETENTION_CLEANUP_ENABLED:true}
+      enabled: ${REPORT_RETENTION_CLEANUP_ENABLED:false}
       delay-ms: ${REPORT_RETENTION_CLEANUP_DELAY_MS:3600000}
       initial-delay-ms: ${REPORT_RETENTION_CLEANUP_INITIAL_DELAY_MS:900000}
       retention: ${REPORT_RETENTION:P30D}
