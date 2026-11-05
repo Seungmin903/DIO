@@ -64,6 +64,7 @@ class DioGalleryModule : Module() {
       val uris = urisOf(payload.data!!)
       Thread {
         try {
+          removeOldCopies()
           val assets = uris.map(::copyToCache)
           promise.resolve(mapOf("canceled" to assets.isEmpty(), "assets" to assets))
         } catch (error: Exception) {
@@ -79,6 +80,12 @@ class DioGalleryModule : Module() {
     return listOfNotNull(data.data)
   }
 
+  // 앱은 고른 파일을 자기 보관소로 다시 옮기므로, 하루 지난 임시 복사본은 지운다
+  private fun removeOldCopies() {
+    val limit = System.currentTimeMillis() - COPY_LIFETIME_MS
+    File(context.cacheDir, "dio-gallery").listFiles()?.forEach { if (it.lastModified() < limit) it.delete() }
+  }
+
   private fun copyToCache(uri: Uri): Map<String, Any?> {
     val resolver = context.contentResolver
     val mimeType = resolver.getType(uri)
@@ -87,8 +94,9 @@ class DioGalleryModule : Module() {
       if (cursor.moveToFirst()) name = cursor.getString(0)
     }
     val directory = File(context.cacheDir, "dio-gallery").apply { mkdirs() }
-    val extension = name?.substringAfterLast('.', "")?.takeIf { it.isNotEmpty() }
-      ?: mimeType?.substringAfter('/') ?: "jpg"
+    // 표시 이름은 제공 앱이 정한 값이라 경로 문자가 들어갈 수 있다. 영문 · 숫자 확장자만 쓴다
+    val extension = sequenceOf(name?.substringAfterLast('.', ""), mimeType?.substringAfter('/'))
+      .firstOrNull { it != null && SAFE_EXTENSION.matches(it) } ?: "jpg"
     val target = File(directory, "${UUID.randomUUID()}.$extension")
     requireNotNull(resolver.openInputStream(uri)).use { input -> target.outputStream().use { input.copyTo(it) } }
     val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
@@ -108,5 +116,7 @@ class DioGalleryModule : Module() {
     const val GALLERY_PACKAGE = "com.sec.android.gallery3d"
     const val REQUEST_CODE = 41907
     const val MAX_ITEMS = 100
+    const val COPY_LIFETIME_MS = 24L * 60 * 60 * 1000
+    val SAFE_EXTENSION = Regex("[A-Za-z0-9]{1,5}")
   }
 }

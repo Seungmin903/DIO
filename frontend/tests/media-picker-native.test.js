@@ -48,3 +48,19 @@ test('모듈 · 갤러리가 없거나 실패하면 시스템 창을 쓰고, iOS
   }
   delete globalThis.expo;
 });
+
+test('갤러리에서 고른 뒤 읽기에 실패하면 시스템 창을 다시 열지 않고 실패를 알린다', async () => {
+  const failure = Object.assign(new Error('x'), { code: 'ERR_GALLERY_READ' });
+  const { selectImages, calls } = load('android', { isAvailable: () => true, pick: async () => { throw failure; } });
+  await assert.rejects(selectImages({ multiple: true }), failure);
+  assert.equal(calls.length, 0);
+  delete globalThis.expo;
+});
+
+test('갤러리를 열지 못하면 시스템 창으로 넘어간다', async () => {
+  const failure = Object.assign(new Error('x'), { code: 'ERR_GALLERY_OPEN' });
+  const { selectImages, calls } = load('android', { isAvailable: () => true, pick: async () => { throw failure; } });
+  assert.deepEqual((await selectImages({ multiple: false })).assets, ['system']);
+  assert.equal(calls.length, 1);
+  delete globalThis.expo;
+});

@@ -6,7 +6,7 @@ const systemPicker = ({ multiple }) => ImagePicker.launchImageLibraryAsync({
   preferredAssetRepresentationMode: ImagePicker.UIImagePickerPreferredAssetRepresentationMode.Current,
 })
 
-// 삼성 기기는 구글 포토가 함께 뜨는 시스템 선택 창 대신 기기 갤러리를 연다(modules/dio-gallery). 모듈 · 갤러리가 없거나 실패하면 시스템 창을 쓴다.
+// 삼성 기기는 구글 포토가 함께 뜨는 시스템 선택 창 대신 기기 갤러리를 연다(modules/dio-gallery). 모듈 · 갤러리가 없거나 열지 못하면 시스템 창을 쓴다.
 const gallery = () => {
   if (Platform.OS !== 'android') return null
   const native = globalThis.expo?.modules?.DioGallery
@@ -16,7 +16,10 @@ const gallery = () => {
 export async function selectImages({ multiple }) {
   const native = gallery()
   if (native) {
-    try { return await native.pick(Boolean(multiple)) } catch { /* 아래 시스템 창으로 */ }
+    try { return await native.pick(Boolean(multiple)) } catch (error) {
+      // 고른 뒤 읽지 못한 것은 창을 다시 띄우지 않고 실패로 알린다. 열지 못했을 때만 시스템 창으로 넘어간다
+      if (error?.code === 'ERR_GALLERY_READ') throw error
+    }
   }
   return systemPicker({ multiple })
 }
