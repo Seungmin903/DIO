@@ -34,7 +34,16 @@ const BAR_SHORT = 8
  * 기능마다 다른 점은 옵션으로만 준다: fixedAspect(비율 고정) · aspectRange([최소, 최대] 가로:세로, 자유 비율의 범위) ·
  * round(동그라미 틀, 프로필) · extra(추가 조절, 테이프 두께) · confirmLabel. 적용하면 { crop, aspect, rect(사진 안 0~1 영역) } 를 함께 넘긴다.
  */
-export default function PhotoCropper({ photo, onApply, onCancel, fixedAspect, aspectRange, round = false, extra = null, confirmLabel = '적용', title = '사진 자르기' }) {
+// 여러 장을 차례로 자를 때 창을 닫았다 열지 않고 안쪽만 바꾼다(창을 다시 만들면 화면이 튄다). bodyKey 가 바뀌면 자르기 상태를 새로 시작한다.
+export default function PhotoCropper({ bodyKey, ...props }) {
+  return (
+    <EditorModal transparent animationType="none" onRequestClose={props.onCancel}>
+      <PhotoCropperBody key={bodyKey} {...props} />
+    </EditorModal>
+  )
+}
+
+function PhotoCropperBody({ photo, onApply, onCancel, fixedAspect, aspectRange, round = false, extra = null, confirmLabel = '적용', title = '사진 자르기' }) {
   const window = useWindowDimensions()
   const uri = useMediaUri(photo)
   const bordered = isBorderFrame(photo.frame)
@@ -166,7 +175,6 @@ export default function PhotoCropper({ photo, onApply, onCancel, fixedAspect, as
   }
 
   return (
-    <EditorModal transparent animationType="none" onRequestClose={onCancel}>
       <View style={styles.backdrop}>
         <CropViewport>
         <View style={[styles.card, { width: cardWidth }]}>
@@ -237,7 +245,6 @@ export default function PhotoCropper({ photo, onApply, onCancel, fixedAspect, as
         </View>
         </CropViewport>
       </View>
-    </EditorModal>
   )
 }
 

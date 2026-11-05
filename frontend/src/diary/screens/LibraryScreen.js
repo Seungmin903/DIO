@@ -14,7 +14,7 @@ import PhoneBell from '../components/PhoneBell';
 import SelectionBar from '../components/SelectionBar';
 import SelectionButton from '../components/SelectionButton';
 import LibrarySearchScreen from '../components/LibrarySearchScreen';
-import { emptyGuestImportAction, filterFavorite, filterScope, nextSort, parseSort, queryDiaries, SORT_OPTIONS, withFavorite } from '../utils/libraryQuery';
+import { filterFavorite, filterScope, nextSort, parseSort, queryDiaries, SORT_OPTIONS, withFavorite } from '../utils/libraryQuery';
 import OpenBookShelf, { preloadOpenBooks } from '../components/OpenBookShelf';
 import { useDiaryGrid } from '../utils/useDiaryGrid';
 import { CAROUSEL_LIFT, CAROUSEL_SCALE } from '../utils/carouselFollow';
@@ -72,7 +72,6 @@ function LibraryScreen({
   onDelete,
   onShare, // 다이어리 ⋯ 말풍선의 `공유`. 없으면 그 줄을 두지 않는다
   onCreate,
-  guestImport = null,
   railWidthRef = null, // 태블릿: 메뉴가 다 열리거나 닫혔을 때의 폭 (ref라 바뀌어도 다시 그리지 않는다)
   selection = null, // 관리 모드에서 고른 다이어리 id 목록. null이면 관리 모드가 아니다.
   onSelectionChange,
@@ -126,8 +125,6 @@ function LibraryScreen({
   const scope = LIBRARY_SCOPES.find(item => item.id === filterScope(filter)) ?? null;
   const favoriteOnly = filterFavorite(filter);
   const emptyTitle = favoriteOnly ? FILTERS[1].empty : scope?.empty ?? '다이어리가 없어요';
-  // 회원의 내 다이어리가 비어 있고 이 기기에 옮길 다이어리가 있을 때만 빈 화면에 옮기기 입구를 둔다(평소 입구는 마이페이지)
-  const emptyAction = emptyGuestImportAction(guestImport, scope?.id, favoriteOnly);
   // 보이는 다이어리만 선택으로 센다. 필터를 바꾸면 숨은 다이어리는 선택에서 빠진다.
   const manageable = useMemo(() => shown.filter(diary => diary.canManage !== false && diary.canDelete !== false), [shown]);
   const selected = useMemo(() => (selecting ? visibleSelection(selection, manageable) : []), [selecting, selection, manageable]);
@@ -367,7 +364,7 @@ function LibraryScreen({
   </>);
   const body = (<>
       {!carouselItems.length && suppressEmpty ? null : !carouselItems.length ? (
-        <EmptyState compact={compact} raised title={emptyTitle} action={emptyAction} />
+        <EmptyState compact={compact} raised title={emptyTitle} />
       ) : displayView === 'open' ? (
         <OpenBookShelf diaries={carouselItems} index={activeIndex} onIndexChange={onCarouselChange} onOpen={onOpen} onFavorite={onFavorite} onEdit={onEdit} onDelete={onDelete} onShare={onShare} compact={compact} />
       ) : displayView === 'carousel' ? (

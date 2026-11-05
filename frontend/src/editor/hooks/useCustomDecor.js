@@ -55,20 +55,9 @@ function persistVisible(next) {
   return latestSave
 }
 
-// 보관함 내용은 화면이 아니라 여기 한 벌만 둔다. 스티커를 붙이면 보관함이 같은 순간 닫히므로, 화면 상태에만 담으면 저장 전에 버려진다
-const itemListeners = new Set()
-function publishItems(next) {
-  cached = next
-  for (const listener of itemListeners) listener(next)
-}
-function commitItems(next) {
-  publishItems(next)
-  persistVisible(next)
-}
-
 /** 사용자가 직접 추가한 스티커·테이프 목록 + 최근 쓴 스티커 */
 export function useCustomDecor() {
-  const [items, setLocalItems] = useState(() => cached ?? EMPTY)
+  const [items, setItems] = useState(() => cached ?? EMPTY)
   const [loaded, setLoaded] = useState(cached != null)
   const [lastStickerCategory, setLastStickerCategory] = useState(cachedCategory)
   const [saveStatus, setSaveStatus] = useState(() => saveState)
@@ -80,27 +69,12 @@ export function useCustomDecor() {
   }, [])
 
   useEffect(() => {
-    itemListeners.add(setLocalItems)
-    if (cached) setLocalItems(cached)
-    return () => { itemListeners.delete(setLocalItems) }
-  }, [])
-
-  // 읽기 전 변경은 지금처럼 읽은 내용으로 덮이고, 읽은 뒤에는 공용 목록을 바로 고쳐 저장한다
-  const setItems = useCallback((update) => {
-    if (!cached) { setLocalItems(update); return }
-    const next = typeof update === 'function' ? update(cached) : update
-    if (next !== cached) commitItems(next)
-  }, [])
-
-  useEffect(() => {
     if (cached) return undefined
     let cancelled = false
     Promise.all([loadJSON(STORAGE_KEYS.customDecor, EMPTY), loadJSON(STORAGE_KEYS.stickerCategory, null)])
       .then(async ([saved, preference]) => {
         await hydrateMedia(saved)
         if (cancelled) return
-        // 다른 화면이 먼저 읽었으면 그 내용을 그대로 쓴다
-        if (cached) { setLocalItems(cached); setLastStickerCategory(cachedCategory); setLoaded(true); return }
         const next = { ...EMPTY, ...saved }
         // 구형 보관함의 필드는 읽기 호환용으로 남기고 새 선택은 별도 키에만 쓴다.
         const category = preference && Object.hasOwn(preference, 'category') ? preference.category : next.lastStickerCategory
@@ -118,11 +92,17 @@ export function useCustomDecor() {
         }
         // 사진 파일 이름(IMG_2031.jpg 등)으로 저장된 테이프는 폴더 안 순서대로 '테이프 n' 으로 바꾼다(코덱스 2026-11-02)
         next.tapeFolders = next.tapeFolders.map((f) => ({ ...f, items: nameFileTapes(f.items) }))
-        commitItems(next)
+        setItems(next)
         setLoaded(true)
       })
     return () => { cancelled = true }
   }, [])
+
+  useEffect(() => {
+    if (!loaded) return
+    cached = items
+    persistVisible(items)
+  }, [items, loaded])
 
   const retrySave = useCallback(() => {
     if (!cached) return Promise.resolve(false)
@@ -182,14 +162,12 @@ export function useCustomDecor() {
     const id = folderId ?? createId()
     if (folderId && !current.folders.some(f => f.id === folderId)) throw new Error('폴더가 없어졌어요. 새 폴더로 다시 저장해 주세요.')
     const adding = stickers.map(stickerRef)
-    const withFolder = base => ({ ...base, folders: folderId
-      ? base.folders.map(f => f.id === id ? { ...f, items: [...adding, ...f.items] } : f)
-      : [...base.folders, { id, name: cleanName, items: adding }] })
-    const next = withFolder(current)
+    const next = { ...current, folders: folderId
+      ? current.folders.map(f => f.id === id ? { ...f, items: [...adding, ...f.items] } : f)
+      : [...current.folders, { id, name: cleanName, items: adding }] }
     await persist(next)
-    // 저장하는 동안 들어온 변경(최근 기록 등)을 덮지 않게 그 위에 폴더만 다시 얹어 저장한다
-    if (cached && cached !== current) commitItems(withFolder(cached))
-    else publishItems(next)
+    cached = next
+    setItems(next)
     return id
   }, [items, loaded])
   const removeFromFolder = useCallback((id, sticker) => {

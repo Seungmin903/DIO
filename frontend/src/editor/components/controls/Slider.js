@@ -82,7 +82,7 @@ export default function Slider({
 
   return (
     <View style={[styles.row, name && styles.rowInline]}>
-      {name ? <Text style={styles.name} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>{name}</Text> : null}
+      {name ? <Text style={styles.name} numberOfLines={1}>{name}</Text> : null}
       <Pressable onPress={() => nudge(-step)} hitSlop={name ? 6 : 4} style={[styles.stepButton, name && styles.stepCompact]} accessibilityLabel={minusLabel}>
         <Icon name="minus" size={16} />
       </Pressable>
@@ -116,9 +116,9 @@ export default function Slider({
 const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   rowInline: { gap: 4, minHeight: 44 },
-  name: { width: 56, fontSize: 12, fontWeight: '700', color: colors.textMuted },
+  name: { width: 52, fontSize: 12, fontWeight: '700', color: colors.textMuted },
   stepCompact: { width: 36, height: 36 },
-  inputCompact: { width: 52, height: 36, marginLeft: 4 },
+  inputCompact: { width: 44, height: 36, marginLeft: 4 },
   inputBox: {
     flexDirection: 'row',
     alignItems: 'center',

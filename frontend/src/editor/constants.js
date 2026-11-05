@@ -15,7 +15,7 @@ export const OBJECT_TYPE_LABELS = {
   shape: '도형',
   stroke: '필기',
   sticker: '스티커',
-  tape: '테이프',
+  tape: '마스킹테이프',
   photo: '사진',
 }
 

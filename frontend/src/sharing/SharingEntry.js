@@ -110,7 +110,7 @@ export default function SharingEntry({
           closePeople();
           onPress?.();
         }}
-        style={bar ? [s.barEntry, !showLabel && s.barEntryIcon, plain && s.barEntryPlain] : notifications && summary && compact ? [s.entry, { flexDirection: 'column', gap: 0 }] : s.entry}
+        style={bar ? [s.barEntry, !showLabel && s.barEntryIcon, plain && s.barEntryPlain] : notifications && compact ? [s.entry, s.entryBell, summary && { flexDirection: 'column', gap: 0 }] : s.entry}
       >
         <Icon name={notifications ? 'bell' : 'userPlus'} size={20} forText={bar && showLabel ? 13 : undefined} />
         {!compact && (!bar || showLabel) && <Text style={bar ? s.barText : s.bold}>{notifications ? '알림' : '공유'}</Text>}

@@ -14,8 +14,8 @@ from build_app_release import CSS, DOCUMENTS, blocks, inline
 
 BASE = Path(__file__).parent
 ROOT = BASE / 'final'
-EFFECTIVE_DATE = '2026-11-04'
-EFFECTIVE_LABEL = '시행일: 2026년 11월 4일'
+EFFECTIVE_DATE = '2026-11-05'
+EFFECTIVE_LABEL = '시행일: 2026년 11월 5일'
 
 
 def render(title, body, navigation=True):
@@ -68,7 +68,7 @@ def build():
     app_bundle = BASE.parent.parent / 'frontend/src/shared/legalContent.json'
     app_bundle.write_text(json.dumps({'schemaVersion': 1, 'documents': documents[:7]},
                                      ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
-    index = '<h1>DIO 약관·개인정보 안내</h1><p>시행일: 2026년 11월 4일</p><p>운영자: 신승민 · 문의: <a href="mailto:dioapp.official@gmail.com">dioapp.official@gmail.com</a></p><ul>'
+    index = f'<h1>DIO 약관·개인정보 안내</h1><p>{escape(EFFECTIVE_LABEL)}</p><p>운영자: 신승민 · 문의: <a href="mailto:dioapp.official@gmail.com">dioapp.official@gmail.com</a></p><ul>'
     index += ''.join(f'<li><a href="{d["html"]}">{escape(d["title"])}</a></li>' for d in documents)
     index += '</ul>'
     (ROOT / 'index.html').write_text(render('DIO 약관·개인정보 안내', index, navigation=False), encoding='utf-8')
