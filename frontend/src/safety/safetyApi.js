@@ -40,8 +40,10 @@ export function createSafetyApi({ userId, auth, fetchImpl = globalThis.fetch, bu
             ...(!multipart && body !== undefined ? { 'Content-Type': 'application/json' } : {}) },
           ...(body === undefined ? {} : { body: multipart ? body : JSON.stringify(body) }) });
         check();
-        if (response.status === 401 && attempt === 0) { await auth.refresh(); check(); continue; }
         const data = response.status === 204 ? null : await response.json().catch(() => null); check();
+        if (response.status === 401 && data?.code === 'DEVELOPMENT_ACCESS_REQUIRED')
+          throw failure(data.code, '개발 서버 접속 인증을 확인해 주세요.', 401);
+        if (response.status === 401 && attempt === 0) { await auth.refresh(); check(); continue; }
         if (!response.ok) {
           if (response.status === 401) throw sessionError();
           const code = data?.code || 'HTTP_ERROR';

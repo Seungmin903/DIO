@@ -19,6 +19,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 @Service
 public class EmailInviteService {
+    private final com.f106.DIO.moderation.service.BlockService blocks;
     @jakarta.persistence.PersistenceContext private jakarta.persistence.EntityManager entities;
     private final SharingAccessService access;private final DiaryInviteRepository invites;private final DiaryMemberRepository members;
     private final UserRepository users;private final InviteTokens tokens;
@@ -26,9 +27,9 @@ public class EmailInviteService {
     private final ApplicationEventPublisher events;private final InviteViews views;private final DiaryInviteService links;
     private final com.f106.DIO.sharing.support.EmailInviteAttemptThrottle attempts;
     public EmailInviteService(SharingAccessService access,DiaryInviteRepository invites,DiaryMemberRepository members,UserRepository users,
-            InviteTokens tokens,ApplicationEventPublisher events,InviteViews views,DiaryInviteService links,org.springframework.transaction.PlatformTransactionManager manager,com.f106.DIO.sharing.support.EmailInviteAttemptThrottle attempts){
+            InviteTokens tokens,ApplicationEventPublisher events,InviteViews views,DiaryInviteService links,org.springframework.transaction.PlatformTransactionManager manager,com.f106.DIO.sharing.support.EmailInviteAttemptThrottle attempts,com.f106.DIO.moderation.service.BlockService blocks){
         this.write=new org.springframework.transaction.support.TransactionTemplate(manager);
-        this.access=access;this.invites=invites;this.members=members;this.users=users;this.tokens=tokens;this.events=events;this.views=views;this.links=links;this.attempts=attempts;
+        this.blocks=blocks;this.access=access;this.invites=invites;this.members=members;this.users=users;this.tokens=tokens;this.events=events;this.views=views;this.links=links;this.attempts=attempts;
     }
     @Transactional(propagation=org.springframework.transaction.annotation.Propagation.NEVER)
     public EmailInviteAcknowledgement send(UUID diaryId,long actor,EmailInviteRequest request){
@@ -42,6 +43,8 @@ public class EmailInviteService {
         attempts.reserve(diaryId,actor,request.email(),now);
         var recipient=users.findByEmail(request.email()).filter(u->u.isActive()).orElse(null);
         if(recipient==null)return;
+        blocks.lockPair(actor,recipient.getUserId());
+        if(blocks.between(actor,recipient.getUserId()))return;
         if(members.findById(new DiaryMemberId(diaryId,recipient.getUserId())).filter(DiaryMember::active).isPresent())return;
         var pending=invites.pendingEmail(diaryId,recipient.getUserId()).orElse(null);
         if(pending!=null){

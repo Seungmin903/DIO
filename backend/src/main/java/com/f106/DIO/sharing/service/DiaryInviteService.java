@@ -16,13 +16,14 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @Transactional
 public class DiaryInviteService {
+    private final com.f106.DIO.moderation.service.BlockService blocks;
     private final SharingAccessService access;
     private final DiaryMemberRepository members;
     private final DiaryInviteRepository invites;
     private final InviteTokens tokens;
     private final jakarta.persistence.EntityManager entities;
-    public DiaryInviteService(SharingAccessService access,DiaryMemberRepository members,DiaryInviteRepository invites,InviteTokens tokens,jakarta.persistence.EntityManager entities){
-        this.access=access;this.members=members;this.invites=invites;this.tokens=tokens;this.entities=entities;
+    public DiaryInviteService(SharingAccessService access,DiaryMemberRepository members,DiaryInviteRepository invites,InviteTokens tokens,jakarta.persistence.EntityManager entities,com.f106.DIO.moderation.service.BlockService blocks){
+        this.blocks=blocks;this.access=access;this.members=members;this.invites=invites;this.tokens=tokens;this.entities=entities;
     }
     @Transactional(readOnly=true)
     public InviteLinkResponse current(UUID id,long actor) {
@@ -55,16 +56,24 @@ public class DiaryInviteService {
         long inviteId=tokens.id(token);
         var invite=valid(inviteId,token,actor);UUID id=invite.getDiaryId();
         var diary=access.read(id);
-        int count=access.visibleMembers(diary).size();
-        return new InvitePreviewResponse(id,diary.getTitle(),invite.publicExpiresAt(),count,SharingPolicy.MAX_MEMBERS,count>=SharingPolicy.MAX_MEMBERS,invite.email()?"EMAIL":"LINK",invite.status());
+        var currentMembers=access.visibleMembers(diary);
+        int count=currentMembers.size();
+        boolean alreadyMember=actor!=null&&currentMembers.stream().anyMatch(m->m.getUserId().equals(actor)&&m.active()&&m.supportedRole());
+        return new InvitePreviewResponse(id,diary.getTitle(),invite.publicExpiresAt(),count,SharingPolicy.MAX_MEMBERS,count>=SharingPolicy.MAX_MEMBERS,invite.email()?"EMAIL":"LINK",invite.status(),actor!=null&&!alreadyMember&&requiresConfirmation(diary,actor));
     }
-    public InviteAcceptResponse accept(String token,long actor) {
+    public InviteAcceptResponse accept(String token,long actor) {return accept(token,actor,false);}
+    public InviteAcceptResponse accept(String token,long actor,boolean acknowledgeBlockedMembers) {
         long inviteId=tokens.id(token);
         var invite=valid(inviteId,token,actor);UUID id=invite.getDiaryId();
         var diary=access.lock(id);
         // Another transaction may have cancelled/consumed the invite while we waited.
         // Refresh the first-level JPA cache before validating again under the parent lock.
-        entities.refresh(invite);invite=valid(inviteId,token,actor);
+        try{entities.refresh(invite);}catch(jakarta.persistence.EntityNotFoundException e){throw tokens.notFound();}
+        invite=valid(inviteId,token,actor);
+        if(!invite.email())blocks.lockPair(actor,actor);
+        if(invite.email()){
+            blocks.lockPair(actor,invite.getInviterUserId());
+        }
         access.activeUser(actor);access.initializeOwner(diary);
         var member=members.findById(new DiaryMemberId(id,actor)).orElse(null);
         int count=Math.toIntExact(members.countByDiaryIdAndLeftAtIsNull(id));
@@ -73,6 +82,8 @@ public class DiaryInviteService {
             if(invite.pendingEmail())invite.acceptedEmail(Instant.now());
             return new InviteAcceptResponse(id,member.getRole(),true,count,SharingPolicy.MAX_MEMBERS);
         }
+        if(invite.email()&&blocks.between(actor,invite.getInviterUserId()))throw new SharingException(HttpStatus.CONFLICT,"INVITE_UNAVAILABLE","이 초대에 참여할 수 없어요.");
+        if(requiresConfirmation(diary,actor)&&!acknowledgeBlockedMembers)throw new SharingException(HttpStatus.CONFLICT,"BLOCKED_MEMBER_CONFIRMATION_REQUIRED","차단한 사용자가 참여 중이에요. 확인 후 참여해 주세요.");
         if(invite.email()&&!invite.pendingEmail())throw new SharingException(HttpStatus.GONE,"INVITE_ALREADY_USED","이미 사용한 이메일 초대예요.");
         if(count>=SharingPolicy.MAX_MEMBERS)throw new SharingException(HttpStatus.CONFLICT,"DIARY_MEMBER_LIMIT_REACHED","최대 4명까지 참여할 수 있어요.");
         if(invite.getMaxUses()!=null&&invite.getUseCount()>=invite.getMaxUses())throw new SharingException(HttpStatus.GONE,"INVITE_EXHAUSTED","사용이 끝난 초대 링크예요.");
@@ -83,6 +94,9 @@ public class DiaryInviteService {
         // Joining by a shared link also consumes a pending invitation for this recipient.
         invites.pendingEmail(id,actor).ifPresent(i->i.acceptedEmail(Instant.now()));
         return new InviteAcceptResponse(id,"EDITOR",false,count+1,SharingPolicy.MAX_MEMBERS);
+    }
+    private boolean requiresConfirmation(com.f106.DIO.diary.domain.Diary diary,long actor){
+        var blocked=blocks.targets(actor);return access.visibleMembers(diary).stream().anyMatch(m->blocked.contains(m.getUserId()));
     }
     private DiaryInvite valid(long id,String token,Long actor) {
         tokens.configured();var invite=invites.findById(id).orElseThrow(tokens::notFound);
