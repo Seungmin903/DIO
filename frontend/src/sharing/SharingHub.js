@@ -230,6 +230,19 @@ export default function SharingHub({
     } else setScreen('invitations');
     store.refresh();
   }, [request, runtime, store]);
+  // A different member can join, leave, or receive ownership while this sheet is open.
+  // Subscribe to the runtime store so the visible role and member count follow its refresh.
+  useEffect(() => {
+    if (!diary?.id || typeof runtime.subscribe !== 'function') return undefined;
+    return runtime.subscribe(() => {
+      const current = runtime.getSnapshot?.().diaries?.find(value => value.id === diary.id);
+      if (current) setDiary(current);
+    });
+  }, [diary?.id, runtime]);
+  useEffect(() => {
+    if (!diary?.id || !runtime.server || typeof runtime.watchDiary !== 'function') return undefined;
+    return runtime.watchDiary(diary.id);
+  }, [diary?.id, runtime]);
   useEffect(() => {
     if (!toast) return;
     const timer = setTimeout(() => setToast(''), 2500);

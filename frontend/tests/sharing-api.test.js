@@ -68,6 +68,25 @@ test('서버 공유 조회는 실제 사용자 ID와 권한을 사용하며 로�
   assert.equal(f.runtime.canOpenDiary, true);
 });
 
+test('보고 있는 공유 다이어리는 참여자와 역할을 다시 읽고 구독자에게 알린다', async () => {
+  let owner = '10';
+  const f = fixture({ fetch: async url => url.endsWith('/members') ? reply({ members: [
+    { userId: '10', nickname: '나', role: owner === '10' ? 'OWNER' : 'EDITOR', usingAccountPhoto: true },
+    { userId: '20', nickname: '친구', role: owner === '20' ? 'OWNER' : 'EDITOR', usingAccountPhoto: true },
+  ] }) : null });
+  await f.runtime.getSharing(diaryId);
+  let notified = 0;
+  const stop = f.runtime.subscribe(() => { notified++; });
+  const release = f.runtime.watchDiary(diaryId);
+  owner = '20';
+  // The initial watcher refresh is asynchronous; wait for it instead of relying on timers.
+  await new Promise(resolve => setTimeout(resolve, 0));
+  await f.runtime.refreshMembers(diaryId);
+  assert.deepEqual(f.runtime.getSnapshot().diaries[0].members.map(member => member.role), ['EDITOR', 'OWNER']);
+  assert.ok(notified > 0);
+  release(); stop();
+});
+
 test('수락 후 공유 상세 조회 실패는 수락 완료 ID와 경고를 반환하고 재수락하지 않는다', async () => {
   for (const status of [401, 403, 503]) {
     const f = fixture({ fetch: async url => url.endsWith('/members') ? reply({ detail: '후처리 오류' }, status) : null });

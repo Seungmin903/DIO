@@ -6,7 +6,7 @@ export const GUEST_SNAPSHOT = Object.freeze({ diaries: [], joined: [], library: 
 // 서버 공유 런타임(createSharingApi)에서 화면이 부르는 비동기 동작. 게스트는 모두 로그인 필요 오류로 거절한다.
 export const GUEST_REJECTED_ACTIONS = Object.freeze([
   'getSharing', 'createLink', 'resolveLink', 'accept', 'decline', 'leave', 'removeMember', 'transferOwner',
-  'updateProfile', 'sendEmailInvite', 'cancelEmailInvite', 'loadMoreEmailInvites', 'toggleFavorite',
+  'updateProfile', 'sendEmailInvite', 'cancelEmailInvite', 'loadMoreEmailInvites', 'toggleFavorite', 'watchDiary',
 ]);
 
 // 게스트는 공유 데이터를 만들거나 가짜 초대를 받지 않는다. 공유 진입(공유 버튼 · 받은 초대)은 LoginGate가 로그인으로 안내하고,

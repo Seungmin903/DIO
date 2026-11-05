@@ -2,11 +2,12 @@ import { normalizeSharingNickname, sharingNicknameError, normalizeInviteEmail, i
 import { AUTHENTICATION_FAILED_MESSAGE } from '../auth/sessionExpiry.js';
 
 // 로그인 세션에 묶인 공유 API. 로컬 다이어리를 서버 다이어리로 가장하지 않는다.
-export function createSharingApi({ user, auth, fetchImpl = globalThis.fetch, buildPhotoBody }) {
+export function createSharingApi({ user, auth, fetchImpl = globalThis.fetch, buildPhotoBody,
+  setIntervalImpl = setInterval, clearIntervalImpl = clearInterval, memberRefreshIntervalMs = 5000 }) {
   const { baseUrl, accessTokenHeader = 'Authorization', getAuthHeaders } = auth.getConnectionOptions();
   const sessionKey = auth.getSessionKey();
   const self = { id: String(user.userId), nickname: user.nickname, photoUri: user.photoUri || null };
-  const diaries = new Map(), invitations = new Map(), listeners = new Set();
+  const diaries = new Map(), invitations = new Map(), listeners = new Set(), watchedDiaries = new Map();
   let active = true, generation = 0, snapshot = { diaries: [], joined: [], library: [] };
   const fail = (code, message) => { throw new SharingError(code, message); };
   const publish = () => {
@@ -170,6 +171,46 @@ export function createSharingApi({ user, auth, fetchImpl = globalThis.fetch, bui
     if (!active || revision !== generation) fail('DISPOSED', '화면을 다시 열어 주세요.');
     return rows;
   }
+  // Canvas WebSocket notifications intentionally contain only canvas operations. Keep the
+  // small membership view fresh separately while somebody is looking at this diary.
+  async function refreshMembers(id) {
+    const revision = generation;
+    const members = await getMembers(id);
+    if (!active || revision !== generation) fail('DISPOSED', '화면을 다시 열어 주세요.');
+    const previous = diaries.get(id);
+    if (!previous) return getSharing(id);
+    diaries.set(id, { ...previous, members });
+    publish();
+    return diaries.get(id);
+  }
+  function watchDiary(id) {
+    ensureServerId(id);
+    let watch = watchedDiaries.get(id);
+    if (!watch) {
+      watch = { count: 0, timer: null, refreshing: null };
+      watchedDiaries.set(id, watch);
+    }
+    watch.count++;
+    const refresh = () => {
+      if (!active || watch.refreshing) return watch.refreshing;
+      watch.refreshing = (diaries.has(id) ? refreshMembers(id) : getSharing(id))
+        .catch(() => null)
+        .finally(() => { if (watchedDiaries.get(id) === watch) watch.refreshing = null; });
+      return watch.refreshing;
+    };
+    refresh();
+    if (!watch.timer) watch.timer = setIntervalImpl(refresh, memberRefreshIntervalMs);
+    let released = false;
+    return () => {
+      if (released) return;
+      released = true;
+      watch.count--;
+      if (watch.count <= 0) {
+        clearIntervalImpl(watch.timer);
+        watchedDiaries.delete(id);
+      }
+    };
+  }
   async function getSharing(id) {
     const revision = generation;
     ensureServerId(id);
@@ -214,10 +255,10 @@ export function createSharingApi({ user, auth, fetchImpl = globalThis.fetch, bui
     } },
     invitationGateway: { get: invitation }, getMembers, getSnapshot: () => snapshot,
     subscribe(fn) { listeners.add(fn); return () => listeners.delete(fn); },
-    activate() { active = true; }, dispose() { active = false; generation++; diaries.clear(); invitations.clear(); publish(); },
+    activate() { active = true; }, dispose() { active = false; generation++; watchedDiaries.forEach(watch => clearIntervalImpl(watch.timer)); watchedDiaries.clear(); diaries.clear(); invitations.clear(); publish(); },
     setAccountProfile(value) { self.nickname = value.nickname; self.photoUri = value.photoUri || null; },
     registerDiary(source) { ensureServerId(source.sharedDiaryId || source.id); return diaries.get(source.sharedDiaryId || source.id) || { ...source, members: [] }; },
-    getSharing, loadMoreEmailInvites, checkProfileNickname: checkNickname, checkNickname, updateProfile,
+    getSharing, refreshMembers, watchDiary, loadMoreEmailInvites, checkProfileNickname: checkNickname, checkNickname, updateProfile,
     hasMembership(id) { return diaries.get(invitations.get(id)?.diary.diaryId)?.members.some(m => m.id === self.id) === true; },
     async sendEmailInvite(id, email) {
       ensureServerId(id);
