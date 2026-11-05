@@ -61,6 +61,17 @@ function fakeServer({ serverId = ids() } = {}) {
       const response = { diary, firstPageId: pageIds[0], pageIds }
       keys.set(request.requestId, response); return structuredClone(response)
     }
+    const diaryMatch=/^\/member\/diaries\/([0-9a-f-]+)$/.exec(path)
+    if(diaryMatch) {
+      const diary=diaries.get(diaryMatch[1]);if(!diary)throw err(404,'DIARY_NOT_FOUND')
+      if(method==='PATCH') {
+        assert.equal(body.expectedVersion,diary.version)
+        if(body.cover?.photo)assert.ok(media.has(body.cover.photo.mediaFileId))
+        diary.cover=structuredClone(body.cover)
+        diary.version=String(Number(diary.version)+1)
+      }
+      return {diary:structuredClone(diary)}
+    }
     const pageMatch = /^\/pages\/([0-9a-f-]+)(\/canvas-operations)?$/.exec(path)
     if (pageMatch) {
       const page = pages.get(pageMatch[1]); if (!page) throw err(404, 'PAGE_NOT_FOUND')
@@ -100,7 +111,7 @@ function fakeServer({ serverId = ids() } = {}) {
 }
 
 function importer(server, storage, { createId = ids(), isActive = () => true, removeOriginal } = {}) {
-  const api = createMemberDiaryApi(server.transport)
+  const api = createMemberDiaryApi(server.transport,{media:createCanvasMedia({request:server.mediaRequest,files:server.files,storage,key:'cover-uploads'})})
   const canvas = createCanvasApi(server.transport)
   const mediaFor = diaryId => createCanvasMedia({ request: server.mediaRequest, files: server.files, storage, key: `dio:member:v1:${accountId}:doc:${diaryId}:media-uploads:v1:test` })
   return createGuestDiaryImporter({ accountId, storage, api, transport: server.transport, canvas, mediaFor, createId, isActive, removeOriginal,
@@ -260,7 +271,7 @@ const moveCleanup = () => {
 
 test('다 옮긴 다이어리는 원본을 지우고, 옮긴 표지가 쓰는 사진 파일은 남긴다', async () => {
   const storage = guestStorage()
-  const coverPhoto = { kind: 'photo', photo: { src: 'media:cover-photo', mediaFileId: 'cover-photo' } }
+  const coverPhoto = { kind: 'photo', photo: { src: `media:${photoId}`, mediaFileId: photoId } }
   const diary = { id: 'diary-2', title: '세로 일기', color: '#F2A7A0', pageSize: 'portrait', createdAt: '2026-03-01T00:00:00.000Z', cover: coverPhoto }
   const doc = { pages: [{ id: 'p', canvasWidth: 600, canvasHeight: 800, backgroundAssetId: null, objects: [] }], cover: coverPhoto }
   await storage.setItem(STORAGE_KEYS.diaries, JSON.stringify([diary]))
@@ -276,7 +287,9 @@ test('다 옮긴 다이어리는 원본을 지우고, 옮긴 표지가 쓰는 �
   assert.equal(await storage.getItem(`${STORAGE_KEYS.doc}:diary-2`), null)
   assert.deepEqual(removed, [])
   const meta = JSON.parse(storage.disk.get(`dio:member:v1:${accountId}:local-meta`))[result.imported[0].diaryId]
-  assert.equal(meta.pageSize, 'portrait'); assert.equal(meta.cover.photo.mediaFileId, 'cover-photo')
+  assert.equal(meta.pageSize, 'portrait'); assert.equal(meta.cover.photo.mediaFileId, photoId)
+  const sharedCover=server.diaries.get(result.imported[0].diaryId).cover
+  assert.notEqual(sharedCover.photo.mediaFileId,photoId)
 })
 
 test('끊긴 옮기기를 이어서 끝내도 그 사이 게스트에서 더 쓴 원본은 지우지 않는다', async () => {

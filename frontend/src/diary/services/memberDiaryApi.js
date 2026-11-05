@@ -1,6 +1,7 @@
 import {loadServerPages} from '../../collaboration/serverPages.js'
 import { DiaryApiError } from './diaryApi.js'
 import { toServerInitialPageSelections } from '../../editor/templates/serverCatalog.js'
+import { createSharedCover } from './sharedCover.js'
 
 const invalid = () => new DiaryApiError('INVALID_RESPONSE', '회원 다이어리 응답을 확인하지 못했어요.')
 const uuid = value => typeof value === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)
@@ -33,7 +34,16 @@ const idempotencyMessages = {
   IDEMPOTENCY_RESULT_UNAVAILABLE: '기존 생성 결과를 반환할 수 없어요. 보관함에서 상태를 확인해 주세요.',
 }
 // 기존 목/비회원 API와 분리한 실제 회원 HTTP 경계.
-export function createMemberDiaryApi(transport) {
+export function createMemberDiaryApi(transport, { media, hydrateCovers = true } = {}) {
+  const covers=createSharedCover(media)
+  const mapDiary=body=>{
+    const result=diary(body)
+    if(body.diary.cover!=null) {
+      if(typeof body.diary.cover!=='object'||Array.isArray(body.diary.cover))throw invalid()
+      result.cover=hydrateCovers?covers.hydrate(body.diary.cover):body.diary.cover
+    }
+    return result
+  }
   return {
     async setFavorite(id, favorite) {
       if (!uuid(id) || typeof favorite !== 'boolean') throw invalid()
@@ -74,7 +84,7 @@ export function createMemberDiaryApi(transport) {
       if (!Array.isArray(body?.items) || typeof body.hasNext !== 'boolean' ||
           (body.hasNext ? typeof body.nextCursor !== 'string' || !body.nextCursor.trim() : body.nextCursor !== null)) throw invalid()
       const items = body.items.map(item => {
-        const result = diary(item)
+        const result = mapDiary(item)
         if (!Number.isSafeInteger(item.pageCount) || item.pageCount < 0 || typeof item.shared !== 'boolean') throw invalid()
         return { ...result, pageCount: item.pageCount, isShared: item.shared }
       })
@@ -97,6 +107,11 @@ export function createMemberDiaryApi(transport) {
         || !body.pageIds.every(uuid) || body.firstPageId !== body.pageIds[0]) throw invalid()
       return { ...result, firstPageId: body.firstPageId, pageIds: [...body.pageIds] }
     },
+    async saveInitialCover(id, cover) {
+      // A retried creation receipt must not overwrite a newer server cover.
+      const current=await this.get(id)
+      return current.cover?current:this.update(id,{cover,expectedVersion:current.version})
+    },
     // PDF 쪽: 만들어 둔 빈 페이지의 크기를 쪽 비율에 맞춘다(초기 페이지는 속지 목록의 크기로만 만들 수 있다). 같은 값을 다시 보내도 같은 결과다.
     async setPageSizes(sizes, options = {}) {
       let next = 0
@@ -111,7 +126,7 @@ export function createMemberDiaryApi(transport) {
       await Promise.all(Array.from({ length: Math.min(3, sizes.length) }, worker))
     },
     async get(id, options = {}) {
-      const result = diary(await transport({ ...options, method: 'GET', path: `/member/diaries/${encodeURIComponent(id)}` }))
+      const result = mapDiary(await transport({ ...options, method: 'GET', path: `/member/diaries/${encodeURIComponent(id)}` }))
       if (result.id !== id) throw invalid()
       return result
     },
@@ -121,9 +136,11 @@ export function createMemberDiaryApi(transport) {
       if (input.title !== undefined) body.diaryTitle = input.title
       if (input.color !== undefined) body.coverColor = input.color
       if (input.coverStyle !== undefined) body.coverStyle = input.coverStyle
+      if (input.cover !== undefined) body.cover = await covers.prepare(input.cover)
       if (Object.keys(body).length === 1) throw new DiaryApiError('INVALID_REQUEST', '수정할 항목을 골라 주세요.', 400)
-      const result = diary(await transport({ ...options, method: 'PATCH', path: `/member/diaries/${encodeURIComponent(id)}`, body }))
+      const result = mapDiary(await transport({ ...options, method: 'PATCH', path: `/member/diaries/${encodeURIComponent(id)}`, body }))
       if (result.id !== id) throw invalid()
+      if(input.cover!==undefined&&!result.cover)throw new DiaryApiError('COVER_NOT_SAVED','서버에 표지가 저장되지 않았어요. 다시 시도해 주세요.')
       return result
     },
   }

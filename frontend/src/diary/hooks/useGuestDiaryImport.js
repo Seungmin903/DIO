@@ -33,8 +33,9 @@ export function useGuestDiaryImport(accountId, { enabled = true, onImported } = 
     const transport = createAuthenticatedMemberTransport({ auth: authService, accountId, baseUrl: apiBaseUrl, accessTokenHeader, fetchImpl: memberFetch })
     const request = withUploadRetry(createMediaRequest({ auth: authService, accountId, sessionKey, baseUrl: apiBaseUrl, fetchImpl: memberFetch }))
     return createGuestDiaryImporter({ accountId, storage: documentStorage, createId, transport, isActive: active, removeOriginal,
-      api: createMemberDiaryApi(transport),
-      // 미디어를 넘기지 않아 옮기는 동안 응답의 사진을 다시 내려받지 않는다.
+      api: createMemberDiaryApi(transport,{hydrateCovers:false,media:createCanvasMedia({request,files:canvasMediaFiles,storage:documentStorage,isActive:active,
+        key:`dio:cover-uploads:${accountId}:${apiBaseUrl}`})}),
+      // 가져오기 중에는 올리기만 하고, 보관함에서 서버 사진을 내려받는다.
       canvas: createCanvasApi(transport),
       // 편집기와 같은 기록 자리를 써서, 가져온 다이어리를 열 때 같은 사진을 다시 올리지 않는다.
       mediaFor: diaryId => createCanvasMedia({ request, files: canvasMediaFiles, storage: documentStorage, isActive: active,
