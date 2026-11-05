@@ -1,11 +1,9 @@
-import { sharedGifMaxBytes } from '../../shared/mediaLimits.js'
 export const MEDIA_POLICY = Object.freeze({
   maxBytes: 50 * 1024 * 1024, maxDimension: 12000, maxPixels: 64000000,
   // GIF 파일 크기는 사진과 같이 50MiB까지. 가로·세로는 내보내기(첫 장면 PNG)가 4096px 까지라 그대로 둔다.
   gifMaxBytes: 50 * 1024 * 1024, gifMaxDimension: 4096,
   // 회원 다이어리의 사진은 서버로 올린다. GIF 는 변환하면 움직임을 잃으므로 서버 한도를 넘으면 넣기 전에 막는다.
-  // 값은 shared/mediaLimits.js 하나만 쓴다(서버 GIF 상한 15MiB).
-  sharedGifMaxBytes,
+  sharedGifMaxBytes: 5 * 1024 * 1024,
   // 사진 표시본은 태블릿 화면(2560px)을 꽉 채워도 흐려지지 않게 긴 변 3072px. 캔버스는 이 표시본을 줄이지 않고 그대로 푼다(ObjectView).
   displayMaxDimension: { photo: 3072, sticker: 512, tape: 1400 },
 })

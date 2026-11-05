@@ -312,6 +312,102 @@
       "url": "https://codeload.github.com/facebook/fresco/tar.gz/refs/tags/v3.7.0",
       "sha256": "941c4aac39e2e9dd1fc0197ec80b37a8a5330bdf7ed6db03c9035e8eff6a6f35",
       "bytes": 41958897
+    },
+    {
+      "file": "skia-m154-LICENSE.txt",
+      "url": "https://skia.googlesource.com/skia/+/45acf92b3bd0b7ceffe1ae5180e79e3c097ab66f/LICENSE?format=TEXT",
+      "sha256": "bd3944af94c3d8a6e2340cd8f2562a790ba9e9bdbe7fd11031e8436f5fb9b490",
+      "bytes": 2012
+    },
+    {
+      "file": "skia-m154-DEPS.txt",
+      "url": "https://skia.googlesource.com/skia/+/45acf92b3bd0b7ceffe1ae5180e79e3c097ab66f/DEPS?format=TEXT",
+      "sha256": "1dcb51b484bedd6747f67a99c26f8dd8e91a7e95b5f0b0233e906654a3da9fbf",
+      "bytes": 14292
+    },
+    {
+      "file": "skia-freetype-LICENSE.txt",
+      "url": "https://chromium.googlesource.com/chromium/src/third_party/freetype2.git/+/264b5fbf5b912b39f98d038bf75d39be0a73f21b/LICENSE.TXT?format=TEXT",
+      "sha256": "ee91be56d34d6f10aea199833cbc1fe5f7be2782228f95bd9166ea8bb4f4bc85",
+      "bytes": 2868
+    },
+    {
+      "file": "skia-freetype-FTL.txt",
+      "url": "https://chromium.googlesource.com/chromium/src/third_party/freetype2.git/+/264b5fbf5b912b39f98d038bf75d39be0a73f21b/docs/FTL.TXT?format=TEXT",
+      "sha256": "25583f0ff56971f957fc1db6e0e877c766ced1f29de8285525316599eb8f0866",
+      "bytes": 8992
+    },
+    {
+      "file": "skia-harfbuzz-COPYING.txt",
+      "url": "https://chromium.googlesource.com/external/github.com/harfbuzz/harfbuzz.git/+/9cb1fee51069b206effb4736e443b038d230789d/COPYING?format=TEXT",
+      "sha256": "84db39e4c28b8f5012cc4bc0903ca95121f229d4f0054c11fe06111c33248109",
+      "bytes": 2628
+    },
+    {
+      "file": "skia-icu-LICENSE.txt",
+      "url": "https://chromium.googlesource.com/chromium/deps/icu.git/+/d578f2e8b7bd5938e21cfb6bf15c079e0aa5b738/LICENSE?format=TEXT",
+      "sha256": "5454b44b5ca65cbfdf73f11dd63ca33e2ec90fec2a6c187d64ff8368999127be",
+      "bytes": 36960
+    },
+    {
+      "file": "skia-jpeg-turbo-LICENSE.txt",
+      "url": "https://chromium.googlesource.com/chromium/deps/libjpeg_turbo.git/+/e14cbfaa85529d47f9f55b0f104a579c1061f9ad/LICENSE.md?format=TEXT",
+      "sha256": "4409224b390dbcddeec14fab15cc9fd4f43954700995db63c419ec67312c792b",
+      "bytes": 7496
+    },
+    {
+      "file": "skia-jpeg-turbo-IJG.txt",
+      "url": "https://chromium.googlesource.com/chromium/deps/libjpeg_turbo.git/+/e14cbfaa85529d47f9f55b0f104a579c1061f9ad/README.ijg?format=TEXT",
+      "sha256": "1ef1cea1d49a188bc4c3d791c3ad86e515b17b57e8883fd77901bf53c1c8c827",
+      "bytes": 17068
+    },
+    {
+      "file": "skia-libpng-LICENSE.txt",
+      "url": "https://skia.googlesource.com/third_party/libpng.git/+/d5515b5b8be3901aac04e5bd8bd5c89f287bcd33/LICENSE?format=TEXT",
+      "sha256": "52e9b8d1082de7e54fd06a60fe61f80bbded3c027b6ae269b87ab0edc298e166",
+      "bytes": 7128
+    },
+    {
+      "file": "skia-webp-COPYING.txt",
+      "url": "https://chromium.googlesource.com/webm/libwebp.git/+/845d5476a866141ba35ac133f856fa62f0b7445f/COPYING?format=TEXT",
+      "sha256": "cd38893a47087d081767960fb7269a1207296c8248da567ed0060a06c4a40c18",
+      "bytes": 1996
+    },
+    {
+      "file": "skia-webp-PATENTS.txt",
+      "url": "https://chromium.googlesource.com/webm/libwebp.git/+/845d5476a866141ba35ac133f856fa62f0b7445f/PATENTS?format=TEXT",
+      "sha256": "161dd76ae97de98bd2989c5874137d6bae2a6f1edd05e1fc517a05ff30cbc3b5",
+      "bytes": 1916
+    },
+    {
+      "file": "skia-wuffs-LICENSE.txt",
+      "url": "https://skia.googlesource.com/external/github.com/google/wuffs-mirror-release-c.git/+/e3f919ccfe3ef542cfc983a82146070258fb57f8/LICENSE?format=TEXT",
+      "sha256": "01cd5191f2c0ccdb7085cc8ec6db495c955eaed85546081304c1f9317699a368",
+      "bytes": 15144
+    },
+    {
+      "file": "skia-zlib-LICENSE.txt",
+      "url": "https://chromium.googlesource.com/chromium/src/third_party/zlib/+/646b7f569718921d7d4b5b8e22572ff6c76f2596/LICENSE?format=TEXT",
+      "sha256": "a933cce44298f130692ed93dd7820bb26de792251c4b4c4677bf746f4dd9492d",
+      "bytes": 1216
+    },
+    {
+      "file": "skia-expat-COPYING.txt",
+      "url": "https://chromium.googlesource.com/external/github.com/libexpat/libexpat.git/+/6154446fccefbf3ca644894f598969113b0c7bcd/expat/COPYING?format=TEXT",
+      "sha256": "7004952702402557a3d1613542ecd5ecbe458063e5bebea1b6383e9149fab0a1",
+      "bytes": 1528
+    },
+    {
+      "file": "skia-dng-sdk-LICENSE.txt",
+      "url": "https://android.googlesource.com/platform/external/dng_sdk.git/+/dbe0a676450d9b8c71bf00688bb306409b779e90/LICENSE?format=TEXT",
+      "sha256": "7847c4c840c05e9683c1239916f5e85f75a6a982605248e2c001de03b7477c44",
+      "bytes": 6988
+    },
+    {
+      "file": "skia-piex-LICENSE.txt",
+      "url": "https://android.googlesource.com/platform/external/piex.git/+/bb217acdca1cc0c16b704669dd6f91a1b509c406/LICENSE?format=TEXT",
+      "sha256": "809de781cc0f213b7f149616cf0f71025a098690dee6c169f260fa7babf1be5b",
+      "bytes": 15144
     }
   ]
 }

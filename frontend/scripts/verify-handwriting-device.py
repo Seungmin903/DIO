@@ -25,7 +25,7 @@ def main():
     job_id = (folder / 'full-job-id.txt').read_text(encoding='utf-8-sig').strip()
     if not re.fullmatch(r'[a-f0-9-]{36}', job_id):
         raise ValueError('Invalid local job id')
-    prefix = [args.adb, '-s', args.serial, 'exec-out', 'run-as', 'com.f106.DIO.handwritingdev']
+    prefix = [args.adb, '-s', args.serial, 'exec-out', 'run-as', 'com.f106.DIO.dev']
 
     def device(*command):
         return subprocess.check_output(prefix + list(command))
