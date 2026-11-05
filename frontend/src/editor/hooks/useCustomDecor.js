@@ -6,9 +6,10 @@ import { loadJSON, saveJSON, STORAGE_KEYS } from '../services/storage'
 
 // folders: 사용자가 만든 스티커 폴더 [{ id, name, items: [스티커 정보] }] (보관함 분류 칩 옆에 보인다)
 // tapeFolders: 내 테이프 폴더 [{ id, name, items: [테이프 정보] }]. 꾸미기 공방 '테이프' 탭과 편집기 보관함 테이프 칸(스티커 칸과 같은 칩 · 목록 편집)에서 관리한다.
+// recentPhotos: 회원 서버에 올리지 않는 다이어리에 최근 넣은 사진(사진 패널 '최근 추가한 사진'). 여기 있는 동안 기기의 원본을 지우지 않는다
 // tapeFavorites · recentTapes: 테이프 즐겨찾기 · 최근(기본 무늬는 { pattern }, 사진 테이프는 테이프 정보), tapeCategoryOrder · hiddenTapeCategories · lastTapeCategory: 테이프 칩 순서 · 숨긴 기본 폴더 · 마지막 칩
 // favorites: 즐겨찾기한 스티커, categoryOrder: 분류 칩 순서(분류 id·'folder:폴더id'), hiddenCategories: 숨긴 기본 분류 id
-const EMPTY = { widgetFavorites: [], recentWidgets: [], stickers: [], tapes: [], tapeFolders: [], tapeFavorites: [], recentTapes: [], tapeCategoryOrder: [], hiddenTapeCategories: [], lastTapeCategory: null, recentStickers: [], folders: [], favorites: [], categoryOrder: [], hiddenCategories: [], lastStickerCategory: null }
+const EMPTY = { recentPhotos: [], widgetFavorites: [], recentWidgets: [], stickers: [], tapes: [], tapeFolders: [], tapeFavorites: [], recentTapes: [], tapeCategoryOrder: [], hiddenTapeCategories: [], lastTapeCategory: null, recentStickers: [], folders: [], favorites: [], categoryOrder: [], hiddenCategories: [], lastStickerCategory: null }
 export const DEFAULT_TAPE_FOLDER = '내 테이프'
 // 최근은 스티커 · 위젯 · 테이프 모두 12개까지(보관함 기본 폭 4칸 × 3줄). 새로 쓴 것이 맨 앞, 13번째로 밀리면 사라진다
 export const RECENT_LIMIT = 12
@@ -255,6 +256,14 @@ export function useCustomDecor() {
   }, [])
 
   // 위젯(메모지 · 디데이 · 사진 틀) 최근 · 즐겨찾기. 스티커 · 테이프와 같은 규칙
+  // 한 번에 고른 여러 장은 고른 순서대로 앞에 둔다
+  const markRecentPhotos = useCallback((photos) => {
+    const added = photos.map(photoRef).filter(photo => photoKey(photo))
+    if (!added.length) return
+    const keys = new Set(added.map(photoKey))
+    setItems((prev) => ({ ...prev, recentPhotos: [...added, ...(prev.recentPhotos ?? []).filter((item) => !keys.has(photoKey(item)))].slice(0, RECENT_LIMIT) }))
+  }, [])
+
   const markRecentWidget = useCallback((widget) => {
     const key = widgetKey(widget)
     setItems((prev) => ({ ...prev, recentWidgets: [widgetRef(widget), ...prev.recentWidgets.filter((item) => widgetKey(item) !== key)].slice(0, RECENT_LIMIT) }))
@@ -318,6 +327,7 @@ export function useCustomDecor() {
     renameTape,
     markRecentTape,
     markRecentWidget,
+    markRecentPhotos,
     toggleWidgetFavorite,
     toggleTapeFavorite,
     setTapeCategoryOrder,
@@ -329,6 +339,9 @@ export function useCustomDecor() {
     toggleHidden,
   }
 }
+
+const photoRef = (photo) => ({ src: photo.src, mediaFileId: photo.mediaFileId, poster: photo.poster, name: photo.name, width: photo.width, height: photo.height, extension: photo.extension })
+export const photoKey = (photo) => mediaId(photo) ?? photo.src
 
 // 저장해 둘 스티커 정보만 골라 담는다 (최근 사용·폴더)
 const stickerRef = (sticker) => ({

@@ -4,6 +4,7 @@ import { ToolPanelHeader, toolPanelStyles } from '../ToolPanel'
 import Icon from '../controls/Icon'
 import MediaImage from '../canvas/MediaImage'
 import { useMediaUri } from '../../hooks/useMediaUri'
+import { photoKey, useCustomDecor } from '../../hooks/useCustomDecor'
 import { createMediaLibraryRuntime } from '../../../diary/services/mediaLibraryRuntime'
 import { mediaLibraryError, mergeMediaPages, canSelectMediaPhoto } from '../../../diary/services/mediaLibraryApi.js'
 import AppIcon from '../../../shared/AppIcon'
@@ -19,14 +20,24 @@ function PhotoRow({row,api,busy,onSelect,columns}) {
     <View style={s.thumbnail}>{src&&!failed?<MediaImage source={{uri:src}} animated={row.mimeType==='image/gif'} resizeMode="contain" style={s.image} onError={()=>setFailed(true)}/>:<View style={s.placeholder}><AppIcon name="image" size={28} color={colors.textMuted}/><Text style={s.placeholderText}>{!supported?mediaTooLargeLabel(row.mimeType):failed?'미리보기 실패':'선택해 불러오기'}</Text></View>}
       {row.mimeType==='image/gif'&&<View style={s.badge}><Text style={s.badgeText}>GIF</Text></View>}
     </View>
-    <Text numberOfLines={1} style={s.name}>{row.originalFilename}</Text>
   </Pressable>
 }
 
-export default function PhotoSourcePicker({diary,onClose,onDevice,onSelect,runtime,sheet=null}) {
-  const columns=2
+// 기기에 보관한 최근 사진. 파일이 없어져 보이지 않으면 고를 수 없다.
+function RecentPhotoRow({photo,onSelect,columns}) {
+  const src=useMediaUri(photo)
+  const label=photo.name||'사진'
+  return <Pressable accessibilityRole="button" accessibilityLabel={`사진 선택: ${label}`} accessibilityState={{disabled:!src}} disabled={!src} onPress={()=>onSelect(photo)} style={[s.tile,{maxWidth:`${100/columns}%`}]}>
+    <View style={s.thumbnail}>{src?<MediaImage source={{uri:src}} animated={photo.extension==='gif'||/\.gif$/i.test(label)} resizeMode="contain" style={s.image}/>:<AppIcon name="image" size={28} color={colors.textMuted}/>}</View>
+  </Pressable>
+}
+
+export default function PhotoSourcePicker({diary,onClose,onDevice,onSelect,onSelectRecent,runtime,sheet=null}) {
+  const columns=3
+  const member=diary?.source==='member-api'
+  const recentPhotos=useCustomDecor().items.recentPhotos??[]
   const [api,setApi]=useState(null),[items,setItems]=useState([]),[cursor,setCursor]=useState(null)
-  const [saved,setSaved]=useState(false),[busy,setBusy]=useState(false),[error,setError]=useState(null),[loaded,setLoaded]=useState(false)
+  const [busy,setBusy]=useState(false),[error,setError]=useState(null),[loaded,setLoaded]=useState(false)
   const alive=useRef(true),pending=useRef(false),current=useRef({onSelect});current.current={onSelect}
   useEffect(()=>{alive.current=true;return()=>{alive.current=false}},[])
   const run=async work=>{
@@ -41,26 +52,29 @@ export default function PhotoSourcePicker({diary,onClose,onDevice,onSelect,runti
     if(!alive.current)return
     setApi(client);setItems(previous=>more?mergeMediaPages(previous,result.items):result.items);setCursor(result.nextCursor);setLoaded(true)
   })
+  // 회원 다이어리는 패널을 열면 바로 서버 목록을 읽는다
+  useEffect(()=>{if(member)load()},[member]) // eslint-disable-line react-hooks/exhaustive-deps
   const choose=row=>run(async()=>{
     const image=await api.selectPhoto(row,diary)
     if(alive.current)current.current.onSelect(image)
   })
-  return <View accessibilityLabel="사진 패널" style={[toolPanelStyles.card,saved&&s.galleryCard,sheet&&toolPanelStyles.sheetCard,sheet&&s.sheetCard]}>
-      <ToolPanelHeader icon="image" title={saved?'최근 추가한 사진':'사진'} onClose={onClose} closeLabel="닫기" dragHandlers={sheet?.dragHandlers}>
-        {saved&&<Pressable accessibilityRole="button" accessibilityLabel="사진 추가로 돌아가기" onPress={()=>setSaved(false)} hitSlop={6} style={s.backButton}><Icon name="chevronLeft" size={14}/><Text style={s.backText}>뒤로</Text></Pressable>}
-      </ToolPanelHeader>
-      {!saved?<View style={[toolPanelStyles.content,s.sources]}>
+  const gridProps={numColumns:columns,style:s.list,contentContainerStyle:s.grid,columnWrapperStyle:s.gridRow,initialNumToRender:12,windowSize:3}
+  const showGrid=member||recentPhotos.length>0
+  return <View accessibilityLabel="사진 패널" style={[toolPanelStyles.card,showGrid&&s.galleryCard,sheet&&toolPanelStyles.sheetCard,sheet&&s.sheetCard]}>
+      <ToolPanelHeader icon="image" title="사진" onClose={onClose} closeLabel="닫기" dragHandlers={sheet?.dragHandlers}/>
+      <View style={[toolPanelStyles.content,s.sources]}>
         <SourceOption label="새 사진 추가" forward onPress={onDevice}/>
-        {diary?.source==='member-api'&&<SourceOption label="최근 추가한 사진" forward onPress={()=>{setSaved(true);load()}}/>}
-      </View>:<>
+      </View>
+      {showGrid&&<Text accessibilityRole="header" style={s.section}>최근 추가한 사진</Text>}
+      {member?<>
         {error&&<View accessibilityRole="alert" style={s.notice}><Text style={s.error}>{error}</Text><SourceOption label="다시 불러오기" disabled={busy} onPress={()=>load()}/></View>}
         {busy&&<ActivityIndicator style={s.loading} accessibilityLabel="사진 불러오는 중" color={colors.primaryStrong}/>}
-        <FlatList key={columns} numColumns={columns} style={s.list} contentContainerStyle={s.grid} columnWrapperStyle={s.gridRow}
-          data={items.filter(row=>row.mediaType==='IMAGE')} keyExtractor={row=>row.mediaFileId} initialNumToRender={6} windowSize={3}
+        <FlatList key={columns} {...gridProps} data={items.filter(row=>row.mediaType==='IMAGE')} keyExtractor={row=>row.mediaFileId}
           renderItem={({item})=><PhotoRow row={item} api={api} busy={busy} onSelect={choose} columns={columns}/>}
-          ListEmptyComponent={loaded&&!busy?<View style={s.empty}><AppIcon name="image" size={36} color={colors.textMuted}/><Text style={s.emptyText}>{cursor?'아직 사진이 없어요':'올린 사진이 없어요'}</Text><Text style={s.muted}>{cursor?'더 불러와서 사진을 찾아보세요.':'기기에서 사진을 선택해 먼저 넣어보세요.'}</Text></View>:null}
+          ListEmptyComponent={loaded&&!busy&&!error?<View style={s.empty}><AppIcon name="image" size={36} color={colors.textMuted}/><Text style={s.emptyText}>올린 사진이 없어요</Text></View>:null}
           ListFooterComponent={cursor?<SourceOption label="더 불러오기" disabled={busy} onPress={()=>load(true)}/>:null}/>
-      </>}
+      </>:recentPhotos.length>0&&<FlatList key={columns} {...gridProps} data={recentPhotos} keyExtractor={photoKey}
+        renderItem={({item})=><RecentPhotoRow photo={item} onSelect={onSelectRecent} columns={columns}/>}/>}
   </View>
 }
 
@@ -74,13 +88,13 @@ function SourceOption({label,forward=false,disabled=false,onPress}) {
 const s=StyleSheet.create({
   galleryCard:{height:480,maxHeight:'100%'},
   sheetCard:{flex:1,height:'100%',minHeight:0},
-  backButton:{height:32,flexDirection:'row',alignItems:'center',gap:4,paddingHorizontal:8},backText:{fontSize:12,fontWeight:'600',color:colors.textMuted},
+  section:{paddingHorizontal:16,paddingTop:14,fontSize:12.5,fontWeight:'700',color:colors.text},
   sources:{paddingTop:10},source:{minHeight:48,paddingHorizontal:12,flexDirection:'row',alignItems:'center',gap:8,borderWidth:1,borderColor:colors.cardBorder,borderRadius:radius.md},
   sourceTitle:{flex:1,fontSize:12.5,fontWeight:'600',color:colors.text},
-  list:{flex:1},grid:{paddingHorizontal:16,paddingTop:10,paddingBottom:12,gap:12},gridRow:{gap:10},tile:{flex:1,gap:6,minWidth:0},
+  list:{flex:1},grid:{paddingHorizontal:16,paddingTop:10,paddingBottom:12,gap:6},gridRow:{gap:6},tile:{flex:1,minWidth:0},
   thumbnail:{aspectRatio:1,width:'100%',backgroundColor:colors.surfaceSoft,borderRadius:radius.sm,overflow:'hidden',alignItems:'center',justifyContent:'center'},image:{width:'100%',height:'100%'},
   placeholder:{alignItems:'center',gap:8},placeholderText:{fontSize:12,color:colors.textMuted},
-  name:{fontSize:12,color:colors.text},muted:{fontSize:12,color:colors.textMuted,lineHeight:18},
+  muted:{fontSize:12,color:colors.textMuted,lineHeight:18},
   notice:{paddingHorizontal:16,paddingVertical:10,gap:8},error:{fontSize:12,color:colors.danger},loading:{marginVertical:10},disabled:{opacity:DISABLED_OPACITY},
   badge:{position:'absolute',bottom:6,left:6,paddingHorizontal:6,paddingVertical:2,borderRadius:radius.sm,backgroundColor:colors.surface},badgeText:{fontSize:11,fontWeight:'700',color:colors.text},
   empty:{paddingVertical:32,alignItems:'center',gap:10},emptyText:{fontSize:13,fontWeight:'700',color:colors.text},

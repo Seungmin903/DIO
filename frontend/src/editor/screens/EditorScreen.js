@@ -1,5 +1,6 @@
 import { usePhotoPanel, discardUnusedPhotoImports } from '../hooks/usePhotoPanel'
 import PhotoSourcePicker from '../components/panels/PhotoSourcePicker'
+import { useCustomDecor } from '../hooks/useCustomDecor'
 import { canLeaveForInvitation } from '../../notifications/editorInvitationGuard';
 import { useCallback, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Animated, BackHandler, Easing, Keyboard, Platform, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native'
@@ -608,12 +609,15 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
   const { visible: photoPanelVisible, toggle: togglePhotoPanel, close: closePhotoPanel } = usePhotoPanel(readOnly)
   // 회원 다이어리의 사진은 서버로 올라간다.
   const photoLimit = textSync.enabled ? { sharedGifMaxBytes: MEDIA_POLICY.sharedGifMaxBytes } : {}
-  const addPhotos = async (selectedImages) => {
+  const { markRecentPhotos } = useCustomDecor()
+  const addPhotos = async (selectedImages, { recent = false } = {}) => {
     // 고르는 창이 떠 있는 동안 다시 누르면 무시한다
     if (pickingPhotos.current) return
     pickingPhotos.current = true
     try {
       setImportFailure(null)
+      // 새 사진을 넣기 시작하면 이전 선택을 푼다(취소하고 돌아와도 남지 않게)
+      clearSelection()
       const images = selectedImages ?? await pickImages(photoLimit)
       if (!images.length) return
       const center = randomCenter()
@@ -627,9 +631,12 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
         const patch = await askCrop(object, images.length > 1 ? `사진 자르기 ${index + 1}/${images.length}` : undefined)
         if (patch) { objects.push({ ...object, ...patch }); used.push(image) }
       }
-      discardUnused(images, used)
+      // 최근 목록에서 고른 사진은 자르기를 취소해도 원본을 지우지 않는다
+      if (!recent) discardUnused(images, used)
       if (!objects.length) return
       dispatch({ type: 'addObjects', objects })
+      // 회원 다이어리는 서버의 '최근 추가한 사진'을 쓴다
+      if (diary?.source !== 'member-api') markRecentPhotos(used)
       closeAfterInsert()
     } catch (error) {
       showToast(mediaFailureMessage(error), () => addPhotos())
@@ -1478,7 +1485,8 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
           {photoPanelVisible && (
             renderPanel((sheet) => <PhotoSourcePicker diary={diary} sheet={sheet} onClose={closePhotoPanel}
                 onDevice={()=>{closePhotoPanel();addPhotos()}}
-                onSelect={image=>{closePhotoPanel();addPhotos([image])}} />,
+                onSelect={image=>{closePhotoPanel();addPhotos([image])}}
+                onSelectRecent={image=>{closePhotoPanel();addPhotos([image],{recent:true})}} />,
               [styles.drawerWrap, toolPopoverStyle(320)], { onClose: closePhotoPanel, fixedHeight: true })
           )}
 
