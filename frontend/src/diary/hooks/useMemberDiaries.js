@@ -7,12 +7,21 @@ import { createMemberDiaryApi } from '../services/memberDiaryApi.js'
 import { createAuthenticatedMemberTransport } from '../services/memberTransport.js'
 import { createMemberAppStore } from '../services/memberAppStore.js'
 import { createId } from '../../editor/utils/common.js'
+import { createCanvasMedia, createMediaRequest } from '../../collaboration/canvasMedia.js'
+import { canvasMediaFiles } from '../../editor/services/canvasMediaFiles'
 
 export function useMemberDiaries(accountId) {
   const sessionKey = authService.getMemberSessionKey(accountId)
-  const store = useMemo(() => createMemberAppStore({ accountId, storage: documentStorage, makeRequestId: () => createId(), serverLibrary: true,
-    api: createMemberDiaryApi(createAuthenticatedMemberTransport({ auth: authService, accountId, baseUrl: apiBaseUrl,
-      accessTokenHeader, fetchImpl: memberFetch })) }), [accountId, sessionKey])
+  const store = useMemo(() => {
+    const media=createCanvasMedia({request:createMediaRequest({auth:authService,accountId,sessionKey,baseUrl:apiBaseUrl,fetchImpl:memberFetch}),
+      files:canvasMediaFiles,storage:documentStorage,key:`dio:cover-uploads:${accountId}:${apiBaseUrl}`,
+      isActive:()=>authService.getSessionKey()===sessionKey})
+    const result=createMemberAppStore({ accountId, storage: documentStorage, makeRequestId: () => createId(), serverLibrary: true,
+      api: createMemberDiaryApi(createAuthenticatedMemberTransport({ auth: authService, accountId, baseUrl: apiBaseUrl,
+        accessTokenHeader, fetchImpl: memberFetch }),{media}) })
+    const dispose=result.dispose;result.dispose=()=>{media.dispose();dispose()}
+    return result
+  }, [accountId, sessionKey])
   const state = useSyncExternalStore(store.subscribe, store.getSnapshot)
   useEffect(() => { store.load().catch(() => {}); return () => store.dispose() }, [store])
   useEffect(()=>{const subscription=AppState.addEventListener('change',next=>{if(next==='active'){store.reload().catch(()=>{});if(store.getSnapshot().trashLoaded)store.loadTrash().catch(()=>{});}});return ()=>subscription.remove();},[store]);
