@@ -537,7 +537,7 @@ function LayerRow({ object, nested, selected, renamable, dispatch, multi, onTogg
               })
             }
           />
-          <Text style={styles.rowType}>{OBJECT_TYPE_LABELS[object.type]}</Text>
+          <Text style={styles.rowType} numberOfLines={1}>{OBJECT_TYPE_LABELS[object.type]}</Text>
         </View>
         <ToggleButtons
           show={selected}

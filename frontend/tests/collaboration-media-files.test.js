@@ -3,6 +3,8 @@ import assert from 'node:assert/strict'
 import {createRequire} from 'node:module'
 import {readFileSync} from 'node:fs'
 import {detectMediaType,checkDimensions} from '../src/editor/utils/mediaPolicy.js'
+import {MEDIA_POLICY} from '../src/editor/utils/mediaPolicy.js'
+import * as limits from '../src/shared/mediaLimits.js'
 import * as plan from '../src/editor/utils/shareImagePlan.js'
 import {shareJpegAttempts} from '../src/editor/utils/shareImagePlan.js'
 const require=createRequire(import.meta.url),expo=createRequire(require.resolve('expo/package.json'))
@@ -13,7 +15,7 @@ function adapter(platform,stored){
  class Form{append(...args){parts.push(args)}}
  const code=expo('@babel/core').transformSync(readFileSync(new URL(`../src/editor/services/canvasMediaFiles.${platform}.js`,import.meta.url),'utf8'),{configFile:false,babelrc:false,plugins:[expo.resolve('@babel/plugin-transform-modules-commonjs')]}).code
  const module={exports:{}}
- new Function('require','module','exports','FormData',code)(name=>name.endsWith('/mediaStore')?{mediaRegistry:{seed:(id,value)=>seeds.push({id,...value})}}:name.includes('mediaRepository')?repository:name.includes('mediaPolicy')?{detectMediaType,checkDimensions}:name.includes('shareImagePlan')?plan:name.includes('shareImage')?{toShareJpeg:async(source,options)=>{jpegCalls.push({source,options});return {uri:'jpeg-uri',blob:{jpeg:true},size:1234}}}:{File,Paths:{cache:'cache'}},module,module.exports,Form)
+ new Function('require','module','exports','FormData',code)(name=>name.endsWith('/mediaStore')?{mediaRegistry:{seed:(id,value)=>seeds.push({id,...value})}}:name.includes('mediaRepository')?repository:name.includes('mediaLimits')?limits:name.includes('mediaPolicy')?{detectMediaType,checkDimensions}:name.includes('shareImagePlan')?plan:name.includes('shareImage')?{toShareJpeg:async(source,options)=>{jpegCalls.push({source,options});return {uri:'jpeg-uri',blob:{jpeg:true},size:1234}}}:{File,Paths:{cache:'cache'}},module,module.exports,Form)
  return {files:module.exports.canvasMediaFiles,writes,temps,parts,seeds,jpegCalls}
 }
 for(const platform of ['web','native']){
@@ -24,9 +26,13 @@ for(const platform of ['web','native']){
   assert.equal(platform==='web'?a.parts[0][1]:a.parts[0][1].uri,platform==='web'?display:'display')
   assert.equal(a.temps.length,0)
  })
- test(`${platform}: 큰 GIF는 원본을 변환하거나 업로드하지 않고 거절한다`,async()=>{
-  const a=adapter(platform,{media:{fileSize:6*1024*1024,extension:'gif'},blob:{}})
+ test(`${platform}: 15MiB 를 넘는 GIF는 원본을 변환하거나 업로드하지 않고 거절한다`,async()=>{
+  const a=adapter(platform,{media:{fileSize:16*1024*1024,extension:'gif'},blob:{}})
   await assert.rejects(a.files.upload('id','PHOTO'),error=>error.status===413);assert.equal(a.parts.length,0)
+ })
+ test(`${platform}: 5MiB 를 넘고 15MiB 이하인 GIF는 그대로 올린다`,async()=>{
+  const a=adapter(platform,{media:{fileSize:6*1024*1024,extension:'gif',mimeType:'image/gif'},blob:{uri:'gif'}})
+  await a.files.upload('id','PHOTO');assert.equal(a.parts.length,2);assert.equal(a.jpegCalls.length,0)
  })
  test(`${platform}: 받은 바이트는 서버 ID로 기존 기기 보관소에 저장한다`,async()=>{
   const a=adapter(platform,{}),bytes=new Uint8Array([137,80,78,71,13,10,26,10,0])
@@ -72,4 +78,8 @@ test('JPEG 로 낮출 때는 품질을 먼저 낮추고, 그래도 크면 크기
  assert.equal(plan.needsShareJpeg({opaque:true,extension:'png',fileSize:plan.SHARE_MAX_BYTES}),false)
  assert.equal(plan.needsShareJpeg({opaque:true,extension:'gif',fileSize:9e6}),false)
  assert.equal(plan.needsShareJpeg({extension:'png',fileSize:9e6}),false)
+})
+
+test('편집기 선택 한도(MEDIA_POLICY)와 공유 한도(mediaLimits)는 같은 값이다',()=>{
+ assert.equal(MEDIA_POLICY.sharedGifMaxBytes,limits.sharedGifMaxBytes);assert.equal(limits.sharedGifMaxBytes,15*1024*1024)
 })
