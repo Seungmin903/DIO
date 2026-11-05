@@ -1,9 +1,18 @@
-const { withProjectBuildGradle, withAppBuildGradle } = require('expo/config-plugins')
+const { withProjectBuildGradle, withAppBuildGradle, withGradleProperties } = require('expo/config-plugins')
 const crypto = require('crypto')
 const path = require('path')
 
 // Optional local toolchain override. The normal RN/Expo NDK stays the default.
 module.exports = function withHandwritingAndroid(config) {
+  // EAS 빌드 서버에서는 Skia · expo-modules-core 의 C++ 빌드가 동시에 돌면 메모리가 바닥나 Gradle 데몬이 죽는다.
+  // EAS_BUILD 일 때만 동시 작업 수를 2로 줄인다(로컬 빌드 속도는 그대로).
+  if (process.env.EAS_BUILD === 'true') {
+    config = withGradleProperties(config, mod => {
+      mod.modResults = mod.modResults.filter(item => !(item.type === 'property' && item.key === 'org.gradle.workers.max'))
+      mod.modResults.push({ type: 'property', key: 'org.gradle.workers.max', value: '2' })
+      return mod
+    })
+  }
   config = withProjectBuildGradle(config, mod => {
     const version = process.env.DIO_ANDROID_NDK_VERSION
     if (version) {
