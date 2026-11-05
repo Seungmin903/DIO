@@ -103,7 +103,7 @@ export default function NotificationPanel({ model, onInvitationReady }) {
       {mutation.canRetry ? <NotificationButton label="알림 처리 다시 시도" onPress={store.retryMutation} /> : <NotificationButton label="처리 안내 닫기" onPress={store.dismissMutation} />}
       {mutationNotice.refreshList && <NotificationButton label="처리 오류 후 목록 새로고침" onPress={store.refreshNotifications} />}
     </View>}
-    {list.status === 'success' && items.length === 0 && <View style={s.empty}><AppIcon name="bell" size={32} color={C.primary} /><Text testID="notification-empty" accessible accessibilityLiveRegion="polite" aria-live="polite" style={s.muted}>받은 알림이 없어요.</Text></View>}
+    {list.status === 'success' && items.length === 0 && <View style={s.empty}><AppIcon name="bell" size={32} color={C.primary} /><Text testID="notification-empty" accessible accessibilityLiveRegion="polite" aria-live="polite" style={s.muted}>받은 알림이 없어요</Text></View>}
     {items.map(row => { const presentation = notificationPresentation(row);
       const pending = row.status === 'PENDING', joined = row.status === 'ACCEPTED';
       const EntryContent = presentation.canInspectInvitation ? Pressable : View;
@@ -149,7 +149,7 @@ const s = StyleSheet.create({
   entryHeading: { minWidth: 0, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6 },
   muted: { color: C.textMuted, fontSize: 12.5, lineHeight: 19, fontWeight: '600' },
   empty: { flex: 1, minHeight: 160, alignItems: 'center', justifyContent: 'center', gap: 16 },
-  button: { minHeight: 44, minWidth: 44, maxWidth: '100%', flexShrink: 1, flexDirection: 'row', alignItems: 'center', gap: 6, justifyContent: 'center', paddingHorizontal: 12, borderRadius: radius.md, backgroundColor: C.surfaceMuted },
+  button: { minHeight: 48, minWidth: 44, maxWidth: '100%', flexShrink: 1, flexDirection: 'row', alignItems: 'center', gap: 6, justifyContent: 'center', paddingHorizontal: 12, borderRadius: radius.md, backgroundColor: C.surfaceMuted },
   quiet: { backgroundColor: 'transparent' },
   leadingButton: { alignSelf: 'flex-start', paddingLeft: 0 },
   buttonText: { color: C.text, fontSize: 13, fontWeight: '700' },

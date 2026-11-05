@@ -16,7 +16,7 @@ export default function DecorSaveNotice({ error, pending, onRetry }) {
 const styles = StyleSheet.create({
   notice: { marginHorizontal: 16, marginBottom: 8, padding: 12, gap: 8, borderWidth: 1, borderColor: colors.danger, borderRadius: radius.md, backgroundColor: colors.surface },
   message: { color: colors.danger, fontSize: 12, lineHeight: 18 },
-  button: { alignSelf: 'flex-start', minHeight: 44, paddingHorizontal: 12, justifyContent: 'center', borderWidth: 1, borderColor: colors.border, borderRadius: radius.md },
+  button: { alignSelf: 'flex-start', minHeight: 48, paddingHorizontal: 12, justifyContent: 'center', borderWidth: 1, borderColor: colors.border, borderRadius: radius.md },
   buttonText: { color: colors.text, fontSize: 12, fontWeight: '700' },
   disabled: { opacity: DISABLED_OPACITY },
 })

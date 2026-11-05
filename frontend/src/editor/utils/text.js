@@ -52,6 +52,7 @@ export const TEXT_AUTO_MIN_WIDTH = 60
 export const TEXT_AUTO_MAX_WIDTH = 480
 
 export const TEXT_FONTS = [
+  { id: 'pretendard', label: '프리텐다드', family: 'Pretendard-Regular', boldFamily: 'Pretendard-Bold' },
   { id: 'nanum-gothic', label: '나눔고딕', family: 'NanumGothic', boldFamily: 'NanumGothicBold' },
   { id: 'nanum-myeongjo', label: '나눔명조', family: 'NanumMyeongjo', boldFamily: 'NanumMyeongjoBold' },
   { id: 'gowun-dodum', label: '고운돋움', family: 'GowunDodum' },

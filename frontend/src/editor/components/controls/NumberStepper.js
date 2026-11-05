@@ -29,7 +29,7 @@ export default function NumberStepper({ value, min, max, step, onChange, scale =
 
   return (
     <View style={styles.row}>
-      <Pressable accessibilityRole="button" accessibilityLabel={minusLabel} onPress={() => nudge(-step)} style={styles.stepButton}>
+      <Pressable accessibilityRole="button" accessibilityLabel={minusLabel} onPress={() => nudge(-step)} hitSlop={STEP_SLOP} style={styles.stepButton}>
         <Icon name="minus" size={16} />
       </Pressable>
       <View style={styles.inputBox}>
@@ -37,16 +37,19 @@ export default function NumberStepper({ value, min, max, step, onChange, scale =
           // iOS 숫자 키패드에는 - 가 없어 음수(자간)를 받는 칸은 기호가 있는 키패드를 쓴다
           keyboardType={Platform.OS === 'ios' && min < 0 ? 'numbers-and-punctuation' : 'numeric'} selectTextOnFocus maxLength={5} style={styles.input} accessibilityLabel={`${label} 숫자 입력`} />
       </View>
-      <Pressable accessibilityRole="button" accessibilityLabel={plusLabel} onPress={() => nudge(step)} style={styles.stepButton}>
+      <Pressable accessibilityRole="button" accessibilityLabel={plusLabel} onPress={() => nudge(step)} hitSlop={STEP_SLOP} style={styles.stepButton}>
         <Icon name="plus" size={16} />
       </Pressable>
     </View>
   )
 }
 
+// 보이는 36×40 + 둘레 = 터치 48
+const STEP_SLOP = { top: 4, bottom: 4, left: 6, right: 6 }
+
 const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   stepButton: { width: 36, height: 40, borderRadius: 9, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surfaceMuted },
   inputBox: { flex: 1, minWidth: 0, height: 40, paddingHorizontal: 4, justifyContent: 'center', borderRadius: 9, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface },
-  input: { padding: 0, textAlign: 'center', fontSize: 14, fontWeight: '700', color: colors.text, includeFontPadding: false },
+  input: { flex: 1, padding: 0, textAlign: 'center', fontSize: 14, fontWeight: '700', color: colors.text, includeFontPadding: false },
 })

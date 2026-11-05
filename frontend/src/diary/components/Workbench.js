@@ -1,7 +1,6 @@
 import { createContext, useMemo, useRef } from 'react'
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native'
 import Icon from '../../editor/components/controls/Icon'
-import FadeScroll, { CANVAS_FADE_RGB } from '../../editor/components/controls/FadeScroll'
 import { colors, DISABLED_OPACITY, shadow } from '../../shared/theme'
 
 /** 옵션 패널 스크롤: 펼친 요소 줄이 화면 밖이면 보이도록 끌어온다 (ElementRow 가 쓴다) */
@@ -27,11 +26,13 @@ export default function Workbench({ title, actionLabel, onCancel, onSubmit, subm
       } catch { /* 잴 수 없으면 그대로 둔다 */ }
     },
   }), [])
+  const { width: windowWidth } = useWindowDimensions()
   const cards = sections.map(item => {
     const on = item.id === section
     return <Pressable key={item.id} accessibilityRole="tab" accessibilityLabel={`${item.title}, ${item.summary}`} accessibilityState={{ selected: on }}
       onPress={() => onSection(item.id)} style={({ pressed }) => [styles.card, sheet && styles.cardSheet, on && styles.cardOn, pressed && styles.pressed]}>
-      <View style={[styles.cardIcon, sheet && styles.cardIconSheet]}><Icon name={item.icon} size={sheet ? 18 : 22} color={on ? colors.primaryStrong : colors.text} /></View>
+      {/* 폭이 좁은 폰에서는 이름이 잘리지 않게 아이콘을 뺀다 */}
+      {(!sheet || windowWidth >= SHEET_ICON_MIN_WIDTH) && <View style={[styles.cardIcon, sheet && styles.cardIconSheet]}><Icon name={item.icon} size={sheet ? 16 : 22} color={on ? colors.primaryStrong : colors.text} /></View>}
       <Text numberOfLines={1} style={styles.cardTitle}>{item.title}</Text>
     </Pressable>
   })
@@ -47,7 +48,7 @@ export default function Workbench({ title, actionLabel, onCancel, onSubmit, subm
       </Pressable>
     </View>
     <View style={[styles.main, sheet && styles.mainSheet]}>
-      {sheet ? <FadeScroll horizontal fadeRgb={CANVAS_FADE_RGB} style={styles.cardsSheetScroll} contentContainerStyle={styles.cardsSheet}>{cards}</FadeScroll>
+      {sheet ? <View style={styles.cardsSheet}>{cards}</View>
         : <ScrollView style={styles.cards} contentContainerStyle={styles.cardsBody}>{cards}</ScrollView>}
       <View style={[styles.stage, !sheet && styles.stageWide, sheet && styles.stageSheet, sheet && (roomy ? styles.stageRoomy : styles.stagePhone)]} onLayout={event => { const { width, height } = event.nativeEvent.layout; onStageLayout({ width, height }) }}>
         {stage}
@@ -77,29 +78,30 @@ export function fit(ratio, maxWidth, maxHeight) {
   return { width, height: width / ratio }
 }
 
+const SHEET_ICON_MIN_WIDTH = 390
+
 const styles = StyleSheet.create({
   pressed: {}, // 눌림 효과 없음(사용자 지시)
   topbar: { height: 60, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, gap: 8, backgroundColor: colors.surface, borderBottomWidth: 1, borderBottomColor: colors.border },
-  cancel: { minWidth: 60, height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 12 },
+  cancel: { minWidth: 60, height: 48, alignItems: 'center', justifyContent: 'center', borderRadius: 12 },
   cancelText: { color: colors.textMuted, fontSize: 14, fontWeight: '700' },
   topTitle: { flex: 1, textAlign: 'center', color: colors.text, fontSize: 16, fontWeight: '800' },
-  submit: { minWidth: 120, height: 44, paddingHorizontal: 18, alignItems: 'center', justifyContent: 'center', borderRadius: 12, backgroundColor: colors.primaryStrong },
+  submit: { minWidth: 120, height: 48, paddingHorizontal: 18, alignItems: 'center', justifyContent: 'center', borderRadius: 12, backgroundColor: colors.primaryStrong },
   submitSheet: { minWidth: 72 },
   submitText: { color: '#FFFFFF', fontSize: 14, fontWeight: '700' },
   main: { flex: 1, minHeight: 0, flexDirection: 'row', justifyContent: 'center', paddingTop: 12 },
   mainSheet: { flexDirection: 'column', paddingTop: 0 },
   cards: { width: 200, flexGrow: 0 },
   cardsBody: { paddingHorizontal: 12, paddingBottom: 12, gap: 8 },
-  cardsSheetScroll: { flexGrow: 0 },
-  cardsSheet: { paddingHorizontal: 16, paddingRight: 24, paddingVertical: 10, gap: 8 },
+  cardsSheet: { flexDirection: 'row', paddingHorizontal: 16, paddingVertical: 10, gap: 8 },
   card: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, paddingRight: 20, borderRadius: 16, borderWidth: 2, borderColor: 'transparent', backgroundColor: 'rgba(255,255,255,.55)' },
-  // 폰 구역 칩 44: 기본은 #F0F1F9 면, 고르면 흰 면 + primaryStrong 2px 테두리(코덱스 9번)
-  cardSheet: { minHeight: 44, paddingVertical: 6, paddingHorizontal: 10, gap: 8, borderRadius: 999, backgroundColor: colors.surfaceMuted },
+  // 폰 구역 칩 48(네 칸이 잘리지 않게 같은 폭으로 나눈다): 기본은 #F1F0F9 면, 고르면 흰 면 + primaryStrong 2px 테두리(코덱스 9번)
+  cardSheet: { flex: 1, justifyContent: 'center', minHeight: 48, paddingVertical: 6, paddingLeft: 4, paddingRight: 4, gap: 4, borderRadius: 999, backgroundColor: colors.surfaceMuted },
   cardOn: { borderColor: colors.primaryStrong, backgroundColor: colors.surface },
   cardIcon: { width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surfaceMuted },
-  cardIconSheet: { width: 30, height: 30, borderRadius: 15 },
+  cardIconSheet: { width: 24, height: 24, borderRadius: 12 },
   cardTitle: { flexShrink: 1, color: colors.text, fontSize: 14.5, fontWeight: '800' },
-  stage: { flex: 1, minWidth: 0, marginRight: 12, marginBottom: 12, borderRadius: 12, alignItems: 'center', justifyContent: 'center', gap: 14, backgroundColor: colors.surfaceMuted }, // 면 #F0F1F9 · 모서리 12 · 그림자 없음(코덱스 8번)
+  stage: { flex: 1, minWidth: 0, marginRight: 12, marginBottom: 12, borderRadius: 12, alignItems: 'center', justifyContent: 'center', gap: 14, backgroundColor: colors.surfaceMuted }, // 면 #F1F0F9 · 모서리 12 · 그림자 없음(코덱스 8번)
   // 미리보기 판은 남는 폭 · 높이를 다 채워 오른쪽 설정 패널이 기기 오른쪽 끝에 붙게 한다(판 자체를 620×560으로 줄이면 가운데 정렬된 줄 전체가 좁아져 패널이 끝에서 떨어졌다). 안의 표지 · 속지는 높이 352까지만(DiaryCreateModal)
   stageWide: {},
   stageSheet: { flex: 0, flexGrow: 0, flexShrink: 0, flexBasis: 'auto', marginHorizontal: 16, marginBottom: 0, borderRadius: 12, gap: 8 },

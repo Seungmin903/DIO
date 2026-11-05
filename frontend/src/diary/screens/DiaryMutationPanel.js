@@ -119,7 +119,7 @@ export default function DiaryMutationPanel({ api, mock, diaries, onChanged }) {
 }
 const s = StyleSheet.create({
   panel: { padding: 20, gap: 12, backgroundColor: C.white }, row: { flexDirection: 'row', gap: 8, alignItems: 'center' },
-  button: { minHeight: 44, padding: 12, borderRadius: 12, backgroundColor: C.pale, justifyContent: 'center' },
-  input: { minHeight: 44, padding: 12, borderWidth: 1, borderColor: C.line, color: C.ink, borderRadius: 12 },
+  button: { minHeight: 48, padding: 12, borderRadius: 12, backgroundColor: C.pale, justifyContent: 'center' },
+  input: { minHeight: 48, padding: 12, borderWidth: 1, borderColor: C.line, color: C.ink, borderRadius: 12 },
   text: { color: C.ink, fontSize: 14 }, title: { color: C.ink, fontSize: 20, fontWeight: '600' },
 });

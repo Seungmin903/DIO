@@ -49,7 +49,7 @@ function SideRail({ page, filter, navigate, bottomInset = 0, collapsed, onToggle
   const countDescription = summary ? (summary.value === null ? '' : `, ${summary.label} ${summary.value}개`) : (invitationCount ? `, 새 초대 ${invitationCount}개` : '');
   const needsCheck = notificationCount?.status === 'error' ? ', 알림 수 확인 필요' : '';
 
-  // 고른 메뉴: 라벤더 면 + primaryText 아이콘, 나머지 아이콘은 primary(#818AC3, 바 바탕 위 3.1:1) — 원 페이저 04
+  // 고른 메뉴: 라벤더 면 + primaryText 아이콘, 나머지 아이콘은 primary(#817DB9, 바 바탕 위 3.1:1) — 원 페이저 04
   // 접힘은 아이콘 뒤 36×36 타일, 펼치면 같은 면이 줄 오른쪽 끝까지 늘어나 알약이 된다(왼쪽은 아이콘 앞 8, 코덱스 2026-11-01). 메뉴 펼침 값(progress)에 묶어 함께 늘어난다
   const itemPad = 12.5;
   const itemWidth = widths.expanded - 1 - paddings.expanded * 2; // 펼친 메뉴의 항목 폭(오른쪽 선 1 제외)
@@ -65,6 +65,7 @@ function SideRail({ page, filter, navigate, bottomInset = 0, collapsed, onToggle
         accessibilityRole="button"
         accessibilityLabel={label}
         accessibilityState={{ selected }}
+        hitSlop={{ left: 1, right: 1 }}
         onPress={() => navigate(id, nextFilter)}
         style={({ pressed }) => [s.railItem, selected && s.railItemSelected, style, pressed && s.pressed]}
       >
@@ -151,12 +152,12 @@ function SideRail({ page, filter, navigate, bottomInset = 0, collapsed, onToggle
       <Animated.View style={[s.railProfileLine, { marginHorizontal: between(-paddings.collapsed, -paddings.expanded) }]} />
       {visitor ? <Pressable
         accessibilityRole="button"
-        accessibilityLabel="로그인 하기"
+        accessibilityLabel="로그인 · 회원가입"
         onPress={openLogin}
         style={[s.railItem, s.railProfile]}
       >
         <View style={s.railAvatarSlot}><ProfileAvatar user={user} getSource={getProfilePhotoSource} size={30} /></View>
-        <AnimatedText numberOfLines={1} style={[s.railLabel, { opacity: labelOpacity }]}>로그인 하기</AnimatedText>
+        <AnimatedText numberOfLines={1} style={[s.railLabel, { opacity: labelOpacity }]}>로그인 · 회원가입</AnimatedText>
       </Pressable> : <Pressable
         accessibilityRole="button"
         accessibilityLabel="마이페이지"

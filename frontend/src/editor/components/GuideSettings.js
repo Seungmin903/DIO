@@ -1,4 +1,5 @@
-import { StyleSheet, Switch, Text, View } from 'react-native'
+import { StyleSheet, Text, View } from 'react-native'
+import { SettingSwitch } from '../../diary/components/SettingRow'
 import { colors } from '../../shared/theme'
 import { GRID_SPACINGS } from './canvas/GridOverlay'
 import { Segmented, ToolPanelHeader, toolPanelStyles } from './ToolPanel'
@@ -19,14 +20,7 @@ export default function GuideSettings({ guides, onChange, onClose, sheet = false
         {/* 격자는 모눈 하나라 켜고 끄기만 한다 */}
         <View style={styles.switchRow}>
           <Text style={toolPanelStyles.label}>격자</Text>
-          <Switch
-            accessibilityLabel="격자 켜기"
-            value={!gridOff}
-            onValueChange={(on) => onChange({ ...guides, grid: on ? 'lines' : 'none' })}
-            trackColor={{ false: colors.border, true: colors.primary }}
-            thumbColor={colors.surface}
-            activeThumbColor={colors.surface} // 웹(react-native-web)은 켜진 손잡이 색을 따로 받는다
-          />
+          <SettingSwitch label="격자 켜기" on={!gridOff} onToggle={(on) => onChange({ ...guides, grid: on ? 'lines' : 'none' })} />
         </View>
         {/* 격자 바로 아래 좁게·보통·넓게가 간격이라 제목 없이 둔다 */}
         <Segmented

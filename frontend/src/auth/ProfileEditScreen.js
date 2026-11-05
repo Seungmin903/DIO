@@ -9,6 +9,7 @@ import {
   Text,
   TextInput,
   View,
+  useWindowDimensions,
 } from 'react-native';
 import AppIcon from '../shared/AppIcon';
 import { SettingCard } from '../diary/components/SettingRow';
@@ -245,6 +246,9 @@ export default function ProfileEditScreen({
   // 사진 변경 메뉴: 열려 있으면 트리거의 화면 위치(말풍선 자리)를 들고 있다
   const [photoMenu, setPhotoMenu] = useState(null);
   const photoTrigger = useRef(null);
+  // 화면 크기(회전)가 바뀌면 버튼 자리가 달라져 어긋나므로 닫는다
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+  useEffect(() => { setPhotoMenu(null); }, [windowWidth, windowHeight]);
   const openPhotoMenu = () => {
     form.dismiss();
     if (compact || !photoTrigger.current?.measureInWindow) return setPhotoMenu({});
@@ -290,7 +294,7 @@ export default function ProfileEditScreen({
           <View style={s.heading}>
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="내 공간으로 돌아가기"
+              accessibilityLabel="마이페이지로 돌아가기"
               disabled={busy}
               onPress={() => leave(onClose)}
               style={s.back}
@@ -446,7 +450,6 @@ export default function ProfileEditScreen({
             scrollEventThrottle={16}
           >
             <View style={[s.dialog, discardDialog && s.discardDialog, discardDialog && compact && s.sheetDialog]} accessibilityViewIsModal>
-              {discardDialog && compact && <View style={s.sheetGrab} />}
               <View style={s.dialogHeading}>
                 <Text accessibilityRole="header" style={s.dialogTitle}>
                   {modalTitle}
@@ -555,7 +558,6 @@ export default function ProfileEditScreen({
             onPress={(event) => event.stopPropagation()}
             style={compact ? s.photoSheet : [s.photoPopover, { left: photoMenu?.x ?? 0, top: (photoMenu?.y ?? 0) + (photoMenu?.h ?? 0) + 8 }]}
           >
-            {compact && <View style={s.sheetGrab} />}
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="프로필 사진 선택"

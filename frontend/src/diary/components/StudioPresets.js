@@ -30,10 +30,10 @@ function Dot({ bg, fg, active }) {
 const TOOL_ICON = { pen: 'pen', highlighter: 'highlighter', tape: 'tape', text: 'text' };
 
 
-// 견본 한 칸(원 30 · 터치 칸 36). active 면 2px primaryText 고리. role 은 고르는 줄(기본 속지 설정)이면 'radio'
+// 견본 한 칸(원 30 · 보이는 칸 36 · 터치 48). active 면 2px primaryText 고리. role 은 고르는 줄(기본 속지 설정)이면 'radio'
 export function Swatch({ label, bg, fg, active, onPress, cellRef, role = 'button' }) {
   return <Pressable accessibilityRole={role} accessibilityLabel={label} accessibilityState={role === 'radio' ? { checked: active, selected: active } : undefined}
-    ref={cellRef} collapsable={false} onPress={onPress} style={local.cell}>
+    ref={cellRef} collapsable={false} hitSlop={6} onPress={onPress} style={local.cell}>
     <Dot bg={bg} fg={fg} active={active} />
   </Pressable>;
 }
@@ -84,7 +84,8 @@ export function GroupHead({ icon, title, right = null, line = true, wide = false
       <Text accessibilityRole={section ? 'header' : undefined} style={[local.groupTitle, section && local.sectionTitle, count && local.groupTitleFit]}>{title}</Text>
       {count ? <Text style={local.groupCount}>{count}</Text> : null}
       {count ? <View style={local.grow} /> : null}
-      {right}
+      {/* 오른쪽 버튼은 줄 폭을 넘지 않는다(폰 좁은 폭에서 `PDF 불러오는 중 n/m` 같은 긴 글자가 제목을 밀지 않게) */}
+      {right ? <View style={local.headRight}>{right}</View> : null}
     </View>
     {line && <View style={local.line} />}
   </>;
@@ -102,8 +103,8 @@ const local = StyleSheet.create({
   gridCompact: { flexDirection: 'column', rowGap: 24 },
   card: { gap: 8 },
   cardCompact: { width: 'auto' },
-  // 제목 줄은 아래 구분선(282)과 같은 폭: 오른쪽 '기본 색으로' 버튼 끝이 선 끝에 맞는다(칸이 넓어도 선 밖으로 나가지 않게)
-  head: { width: 282, maxWidth: '100%', minHeight: 32, flexDirection: 'row', alignItems: 'center', gap: 10 },
+  // 제목 줄은 아래 구분선(318)과 같은 폭: 오른쪽 '기본 색으로' 버튼 끝이 선 끝에 맞는다(칸이 넓어도 선 밖으로 나가지 않게)
+  head: { width: 318, maxWidth: '100%', minHeight: 32, flexDirection: 'row', alignItems: 'center', gap: 10 },
   preview: { width: 28, height: 28, alignItems: 'center', justifyContent: 'center' },
   groupTitle: { flex: 1, fontSize: 17, fontWeight: '800', color: colors.text },
   headWide: { width: '100%' },
@@ -111,13 +112,14 @@ const local = StyleSheet.create({
   groupTitleFit: { flex: 0, flexShrink: 1 },
   groupCount: { fontSize: 14, fontWeight: '700', color: colors.textMuted },
   grow: { flex: 1 },
+  headRight: { flexShrink: 1, minWidth: 0, marginLeft: 8 },
   reset: { minHeight: 32, paddingHorizontal: 10 },
   error: { fontSize: 12.5, fontWeight: '600', lineHeight: 19, color: colors.dangerStrong },
   // 이름과 색 사이의 옅은 선(사용자 지시로 다시 넣음). 길이는 색 7개의 첫 원 왼쪽 끝부터 마지막 원 오른쪽 끝까지:
-  // 칸 7×36 + 사이 6×6 − 칸 안 여백 3×2 = 282. 좁은 화면에서는 칸 폭을 넘지 않는다
-  line: { width: 282, maxWidth: '100%', height: 1, backgroundColor: colors.cardBorder },
+  // 칸 7×36 + 사이 6×12 − 칸 안 여백 3×2 = 318. 좁은 화면에서는 칸 폭을 넘지 않는다
+  line: { width: 318, maxWidth: '100%', height: 1, backgroundColor: colors.cardBorder },
   // 칸(36)이 원(30)보다 3씩 넓어, 첫 원의 왼쪽 끝이 제목 왼쪽 끝과 맞도록 줄을 3 당긴다
-  row: { width: 288, maxWidth: '100%', flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', columnGap: 6, rowGap: 8, marginLeft: -3 },
+  row: { width: 324, maxWidth: '100%', flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', columnGap: 12, rowGap: 12, marginLeft: -3 },
   cell: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
   // 고리 자리(36)는 늘 두고 바꾸는 중일 때만 색을 칠해, 고리가 생겨도 원이 움직이지 않는다
   ring: { width: 36, height: 36, borderRadius: 18, borderWidth: 2, borderColor: 'transparent', alignItems: 'center', justifyContent: 'center' },

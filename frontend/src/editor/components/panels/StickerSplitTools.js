@@ -53,7 +53,7 @@ export default function StickerSplitTools({ section, onChange, disabled, hasResu
 const s = StyleSheet.create({
   tools: { backgroundColor: colors.surface },
   tabs: { flexGrow: 1, gap: 4, paddingTop: 4, paddingHorizontal: 8, backgroundColor: colors.surfaceMuted, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, borderBottomWidth: 1, borderColor: colors.cardBorder },
-  tab: { flexGrow: 1, minWidth: 108, minHeight: 44, paddingHorizontal: 12, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: colors.surfaceMuted, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, borderBottomColor: colors.cardBorder, marginBottom: -1 },
+  tab: { flexGrow: 1, minWidth: 108, minHeight: 48, paddingHorizontal: 12, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: colors.surfaceMuted, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, borderBottomColor: colors.cardBorder, marginBottom: -1 },
   tabSelected: { backgroundColor: colors.surface, borderColor: colors.cardBorder, borderBottomColor: colors.surface },
   tabPhone: { minWidth: 0, flexBasis: 0, paddingHorizontal: 2 },
   sectionTitle: { color: colors.text, fontSize: 14, fontWeight: '700' },

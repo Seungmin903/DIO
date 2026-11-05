@@ -15,7 +15,8 @@ public class InviteController {
     public InviteController(DiaryInviteService service){this.service=service;}
     @GetMapping @Operation(summary="초대 링크 정보 조회",description="일반 공유 링크는 비로그인 조회 가능. 이메일 초대는 지정된 수신자 로그인 필요.")
     public InvitePreviewResponse preview(@PathVariable String token,@AuthenticationPrincipal Jwt jwt){return service.preview(token,jwt==null?null:SharingActor.require(jwt));}
+    public record AcceptRequest(boolean acknowledgeBlockedMembers) {}
     @PostMapping("/accept") @SecurityRequirement(name="bearerAuth")
     @Operation(summary="초대 수락",description="소유자 포함 최대 4명, 편집자로 참여. 이미 참여한 멤버는 중복 추가하지 않음.")
-    public InviteAcceptResponse accept(@PathVariable String token,@AuthenticationPrincipal Jwt jwt){return service.accept(token,SharingActor.require(jwt));}
+    public InviteAcceptResponse accept(@PathVariable String token,@AuthenticationPrincipal Jwt jwt,@RequestBody(required=false) AcceptRequest request){return service.accept(token,SharingActor.require(jwt),request!=null&&request.acknowledgeBlockedMembers());}
 }

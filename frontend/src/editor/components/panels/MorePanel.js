@@ -218,7 +218,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surfaceMuted,
   },
   tab: { flex: 1, height: 38, alignItems: 'center', justifyContent: 'center', borderRadius: 9 },
-  tabActive: { backgroundColor: colors.surface, boxShadow: '0px 1px 3px rgba(11, 23, 102, 0.07)' },
+  tabActive: { backgroundColor: colors.surface, boxShadow: '0px 1px 3px rgba(28, 28, 28, 0.07)' },
   tabText: { fontSize: 13, fontWeight: '700', color: colors.textMuted },
   tabTextActive: { color: colors.text, fontWeight: '800' },
   title: { fontSize: 15, fontWeight: '700', color: colors.text },
@@ -230,7 +230,7 @@ const styles = StyleSheet.create({
   sectionTitle: { marginBottom: 8, fontSize: 12, fontWeight: '700', color: colors.textMuted },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   chip: {
-    minHeight: 40,
+    minHeight: 48,
     paddingHorizontal: 12,
     justifyContent: 'center',
     borderRadius: 10,

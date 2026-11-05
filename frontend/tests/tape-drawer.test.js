@@ -21,7 +21,7 @@ const load = (source, deps) => { const module = { exports: {} }; new Function('r
 const sizes = [{ id: 'slim', w: 200, h: 11 }, { id: 'standard', w: 180, h: 34 }, { id: 'wide', w: 200, h: 68 }]
 const make = save => createTapePreferences({ load: async () => ({ size: 'wide', palette: 'sky', pattern: 'dot' }), save: save || (async () => true), sizes: sizes.map(s => s.id), palettes: ['sky', 'pink'], patterns: ['dot', 'solid'], defaultSize: 'standard' })
 const nodes = node => !node || typeof node !== 'object' ? [] : [node, ...[node.props?.children].flat(Infinity).flatMap(nodes)]
-function drawer(store, callbacks = {}, ready = true, saveStatus = {}, hooks = {}) {
+function drawer(store, callbacks = {}, ready = true, saveStatus = {}, hooks = {}, flags = {}) {
   const mocks = {
     react: { createContext: () => ({ Provider: 'provider' }), useContext: () => 4, useRef: value => ({ current: value }), useState: value => [typeof value === 'function' ? value() : value, () => {}], ...hooks },
     'react-native': { View: 'view', Text: 'text', Platform: { OS: 'web', select: values => values.web }, StyleSheet: { create: value => value } },
@@ -34,6 +34,7 @@ function drawer(store, callbacks = {}, ready = true, saveStatus = {}, hooks = {}
     '../../hooks/useTapePreferences': { useTapePreferences: () => [store.getSnapshot(), store.update, ready] },
     '../../services/stickerSplit': { stickerSplit: { available: false } },
     '../../../auth/loginGate': { useLoginGate: () => (_feature, action) => action() }, // 로그인한 사용자: 그대로 통과
+    '../../../shared/featureFlags': { CUTOUT_ENTRANCE: false, ...flags },
     '../../widgets/dday': { WIDGET_ITEMS: [{ widget: 'dday', style: 'label', name: '디데이 라벨' }] },
     '../../widgets/memo': { MEMO_ITEMS: [{ kind: 'memo', memo: 'plain', name: '무지 메모' }, { kind: 'memo', memo: 'lined', name: '줄 메모' }] },
     '../../hooks/usePan': { usePan: () => ({}) },
@@ -208,4 +209,38 @@ test('위젯 · 스티커 · 테이프 칸마다 왼쪽 위 별로 즐겨찾기�
   assert.deepEqual(added.map(item => item.memo), ['lined'])
   // 테이프 칸도 같은 별 버튼을 가진다
   assert.equal(typeof tapeTile(drawer(store, { onToast() {} }), '도트').props.onFavorite, 'function')
+})
+
+// 스티커 칸의 별: 모양만 두고(누르는 곳 아님) 넣고 빼기는 칸 길게 누르기 · 접근성 동작 '즐겨찾기'다(사용자 결정 2026-11-05)
+test('스티커 칸의 별은 누르는 곳이 아니고, 길게 누르기와 접근성 동작으로 즐겨찾기를 바꾼다', () => {
+  const items = { folders: [{ id: 'mine', name: '내 폴더', items: [{ id: 's1', emoji: '🌼' }] }], favorites: [], recentStickers: [], categoryOrder: [], hiddenCategories: [], tapes: [], lastStickerCategory: 'folder:mine' }
+  const toggled = []
+  const view = nodes(drawer(make(), { tab: 'sticker', onToast() {} }, true, { items, toggleFavorite: item => toggled.push(item.id) })).find(node => node.type?.name === 'FolderView')
+  const tile = nodes(view.type(view.props)).find(node => node.type?.name === 'Tile' && node.props.onFavorite)
+  assert.ok(tile, '즐겨찾기가 가능한 칸')
+  const rendered = nodes(tile.type(tile.props))
+  // 별은 터치를 받지 않는 View 안에만 있다
+  assert.ok(!rendered.some(node => node.type === 'Pressable' && /즐겨찾기/.test(node.props.accessibilityLabel ?? '')))
+  const press = rendered.find(node => node.props?.onLongPress)
+  assert.equal(press.props.accessibilityHint, '길게 누르면 즐겨찾기')
+  assert.deepEqual(press.props.accessibilityActions.map(action => action.name), ['favorite'])
+  press.props.onLongPress()
+  press.props.onAccessibilityAction({ nativeEvent: { actionName: 'favorite' } })
+  assert.equal(toggled.length, 2)
+})
+
+// 폴더의 + 말풍선: FolderView 를 열린 상태(adding)로 펼쳐 동작 목록을 본다
+const folderActions = (flags) => {
+  const items = { folders: [{ id: 'mine', name: '내 폴더', items: [] }], favorites: [], recentStickers: [], categoryOrder: [], hiddenCategories: [], tapes: [], lastStickerCategory: 'folder:mine' }
+  // 서랍 전체는 기본 훅으로 그리고, FolderView 만 따로 펼친다. FolderView 의 첫 useState 가 adding 이라 그 호출만 열린 값으로 준다
+  let index = null // null: 서랍 전체를 그리는 중(기본값 그대로), 숫자: FolderView 안의 useState 호출 순서
+  const hooks = { useState: value => { const opened = index !== null && index++ === 0; return [opened ? { anchor: {} } : typeof value === 'function' ? value() : value, () => {}] } }
+  const view = nodes(drawer(make(), { tab: 'sticker' }, true, { items }, hooks, flags)).find(node => node.type?.name === 'FolderView')
+  index = 0
+  const bubble = nodes(view.type(view.props)).find(node => Array.isArray(node.props?.actions))
+  return bubble.props.actions.map(action => action.id)
+}
+test('스티커 폴더의 추가 말풍선은 오리기 입구를 스위치로 감추고, 켜면 돌려놓는다', () => {
+  assert.deepEqual(folderActions(), ['image', 'split'])
+  assert.deepEqual(folderActions({ CUTOUT_ENTRANCE: true }), ['image', 'split', 'cutout'])
 })

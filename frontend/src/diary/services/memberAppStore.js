@@ -28,12 +28,40 @@ export function createMemberAppStore({ accountId, api, storage, makeRequestId, s
     try { return JSON.parse(value) } catch { throw failure('INVALID_LOCAL_CACHE', '이 계정의 저장 자료를 읽지 못했어요. 기존 자료는 유지했어요.') }
   }
   const write = (key, value) => storage.setItem(key, JSON.stringify(value))
+  const isMetaObject = value => value !== null && typeof value === 'object' && !Array.isArray(value)
   // 옮겨 온 다이어리의 기기 값. 서버가 받지 않는 값이라 목록에 없으면 이것으로 채운다(이후 사용자가 고친 값이 우선이다).
   const localMeta = async () => {
-    try { const value = await read(keys.localMeta, {}); return value && typeof value === 'object' && !Array.isArray(value) ? value : {} }
-    catch { return {} }
+    try {
+      const value = await read(keys.localMeta, {})
+      if (!value || typeof value !== 'object' || Array.isArray(value)) throw failure('INVALID_LOCAL_CACHE', '표지 자료 형식을 확인하지 못했어요.')
+      const entries = Object.entries(value).filter(([, item]) => isMetaObject(item))
+      emit({ metadataError: entries.length === Object.keys(value).length ? null : failure('LOCAL_METADATA_UNAVAILABLE', '기기의 일부 표지 설정을 읽지 못해 원래 모습과 다를 수 있어요.') })
+      return Object.fromEntries(entries)
+    } catch (error) {
+      if (disposed) throw error
+      // Display/restore still use authoritative server rows; warn instead of hiding the list.
+      emit({ metadataError: failure('LOCAL_METADATA_UNAVAILABLE', '기기의 표지 설정을 읽지 못해 일부 표지가 원래 모습과 다를 수 있어요.') })
+      return {}
+    }
   }
   const active = () => { if (disposed) throw failure('STALE_ACCOUNT', '계정이 바뀌어 요청을 중단했어요.') }
+  const appearanceOf = row => Object.fromEntries(['cover', 'pageSize', 'templateConfig', 'paperAppearance']
+    .filter(key => row?.[key] !== undefined).map(key => [key, row[key]]))
+  // Persist before removing the active index entry; the trash DTO has no detailed cover/orientation.
+  const preserveAppearance = id => enqueue(async () => {
+    active()
+    let meta
+    try { meta = await read(keys.localMeta, {}) }
+    catch (error) {
+      if (error.code !== 'INVALID_LOCAL_CACHE') throw error
+      throw failure('INVALID_LOCAL_CACHE', '표지 저장 자료가 손상되어 휴지통으로 옮기지 않았어요. 기존 자료는 유지했어요.')
+    }
+    if (!meta || typeof meta !== 'object' || Array.isArray(meta)) throw failure('INVALID_LOCAL_CACHE', '표지 저장 자료가 손상되어 휴지통으로 옮기지 않았어요. 기존 자료는 유지했어요.')
+    if (Object.hasOwn(meta, id) && !isMetaObject(meta[id])) throw failure('INVALID_LOCAL_CACHE', '이 다이어리의 표지 저장 자료가 손상되어 휴지통으로 옮기지 않았어요. 기존 자료는 유지했어요.')
+    active()
+    await write(keys.localMeta, { ...meta, [id]: { ...meta[id], ...appearanceOf(state.diaries.find(row => row.id === id)) } })
+    active()
+  })
   const entry = (result, previous = {}) => ({ ...previous, ...result, source: 'member-api', memberAccountId: accountId,
     type: (result.isShared ?? previous.isShared) ? '공유' : '개인', canManage: result.canEdit, canDelete: result.permissions?.canTrash===true, trashedAt: null })
   const publish = (diary, detailRequest) => {
@@ -109,7 +137,7 @@ export function createMemberAppStore({ accountId, api, storage, makeRequestId, s
     })().finally(() => { creating = null })
     return creating
   }
-  const retryable = error => ![400, 401, 403, 404, 409, 410, 422].includes(error?.status)
+  const retryable = error => error?.code !== 'INVALID_LOCAL_CACHE' && ![400, 401, 403, 404, 409, 410, 422].includes(error?.status)
   const bulkResult = request => ({ ids: request.ids, succeeded: [...request.succeeded], hasRetryableFailures: [...request.failed.values()].some(retryable), failed: [...request.failed].map(([id, error]) => ({ id, error })), refreshError: request.refreshError })
   const runBulkTrash = (request, targets) => {
     revision++; invalidateDetails(targets)
@@ -121,7 +149,7 @@ export function createMemberAppStore({ accountId, api, storage, makeRequestId, s
         while (position < targets.length) {
           active(); const id = targets[position++]
           if (authError) { request.failed.set(id, authError); continue }
-          try { await api.trash(id); active() }
+          try { await preserveAppearance(id); await api.trash(id); active() }
           catch (error) { active(); request.failed.set(id, error); if (error.status === 401) authError = error; publishBulk(true); continue }
           request.succeeded.add(id); request.failed.delete(id); revision++; invalidateDetails([id])
           await enqueue(async () => {
@@ -306,6 +334,7 @@ export function createMemberAppStore({ accountId, api, storage, makeRequestId, s
       if (!bulkRequest || !state.bulkTrash?.canRetry) return Promise.reject(failure('NO_PENDING_OPERATION', '다시 확인할 선택 작업이 없어요.'))
       return runBulkTrash(bulkRequest, [...bulkRequest.failed].filter(([, error]) => retryable(error)).map(([id]) => id))
     },
+    dismissMetadataCleanupWarning() { emit({ metadataCleanupError: null }) },
     dismissBulkTrash() { if (!bulkRunning) { bulkRequest = null; emit({ bulkTrash: null }) } },
     loadTrash() {
       if(trashListing) return trashListing;
@@ -314,7 +343,11 @@ export function createMemberAppStore({ accountId, api, storage, makeRequestId, s
         do {const page=await api.trashList({cursor});active();for(const item of page.items)rows.set(item.id,item);
           if(!page.hasNext)break;if(!page.nextCursor||seen.has(page.nextCursor))throw failure('INVALID_LIST_CURSOR','휴지통 다음 목록을 확인하지 못했어요.');seen.add(page.nextCursor);cursor=page.nextCursor;
         }while(true);
-        active();if(startRevision!==revision)throw failure('LIST_CHANGED','휴지통을 다시 확인해 주세요.');emit({trash:[...rows.values()],trashLoaded:true,trashError:null});return [...rows.values()];
+        const meta = await localMeta();active();
+        if(startRevision!==revision)throw failure('LIST_CHANGED','휴지통을 다시 확인해 주세요.');
+        const known = new Map([...state.trash, ...state.diaries].map(row => [row.id, row]));
+        const trash = [...rows.values()].map(row => ({ ...appearanceOf(meta[row.id]), ...appearanceOf(known.get(row.id)), ...row }));
+        emit({trash,trashLoaded:true,trashError:null});return trash;
       }catch(error){if(!disposed)emit({trashError:error});throw error;}finally {if(!disposed)emit({trashLoading:false});}})().finally(()=>{trashListing=null});return trashListing;
     },
     lifecycle(kind,id) {
@@ -331,13 +364,31 @@ export function createMemberAppStore({ accountId, api, storage, makeRequestId, s
       }
       const request=lifecycleRequest;revision++;invalidateDetails([id]);emit({lifecycle:{kind,id,busy:true,canRetry:false,error:null}});
       lifecycleRunning=(async()=>{try {
-        if(!request.committed){request.result=kind==='trash'?await api.trash(id):kind==='purge'?await api.purge(id):await api.restore(id);request.committed=true;active();revision++;invalidateDetails([id]);}
-        if(kind==='restore') await publish(entry(request.result,state.diaries.find(x=>x.id===id)));
-        else await enqueue(async()=>{active();const diaries=state.diaries.filter(x=>x.id!==id);await write(keys.index,diaries);active();emit({diaries});});
+        if(!request.committed){if(kind==='trash')await preserveAppearance(id);request.result=kind==='trash'?await api.trash(id):kind==='purge'?await api.purge(id):await api.restore(id);request.committed=true;active();revision++;invalidateDetails([id]);}
+        if(kind==='restore') {
+          const meta = await localMeta();active();
+          await publish(entry(request.result,{ ...appearanceOf(meta[id]), ...appearanceOf(state.trash.find(x=>x.id===id)), ...state.diaries.find(x=>x.id===id) }));
+        }
+        else await enqueue(async()=>{
+          active();
+          if(kind==='purge') {
+            try {
+              const meta=await read(keys.localMeta, {});active();
+              if(!meta || typeof meta!=='object' || Array.isArray(meta)) throw failure('INVALID_LOCAL_CACHE','표지 자료 형식을 확인하지 못했어요.');
+              if(Object.hasOwn(meta,id)) {delete meta[id];await write(keys.localMeta,meta);active();}
+              emit({metadataCleanupError:null});
+            } catch(error) {
+              active();
+              // The server purge is final. Local cleanup must not lock subsequent operations.
+              emit({metadataCleanupError:failure('LOCAL_METADATA_CLEANUP_FAILED','영구 삭제는 완료됐지만 기기에 남은 표지 설정은 정리하지 못했어요.')});
+            }
+          }
+          const diaries=state.diaries.filter(x=>x.id!==id);await write(keys.index,diaries);active();emit({diaries});
+        });
         // Await older list requests before issuing the authoritative post-mutation refresh.
         if(listing)await listing.catch(()=>{});if(trashListing)await trashListing.catch(()=>{});
         await this.reload();await this.loadTrash();active();lifecycleRequest=null;emit({lifecycle:null});return true;
-      }catch(error){if(!disposed){const canRetry=request.committed||(![400,401,403,404,409,410].includes(error.status));
+      }catch(error){if(!disposed){const canRetry=request.committed||(error.code!=='INVALID_LOCAL_CACHE' && ![400,401,403,404,409,410].includes(error.status));
         emit({lifecycle:{kind,id,busy:false,canRetry,error,resultKnown:request.committed}});
         if(!canRetry){lifecycleRequest=null;await this.reload().catch(()=>{});await this.loadTrash().catch(()=>{});}
       }throw error;}})().finally(()=>{lifecycleRunning=null});return lifecycleRunning;

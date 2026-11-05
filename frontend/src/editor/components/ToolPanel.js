@@ -9,7 +9,7 @@ export function ToolPanelHeader({ icon, title, onClose, closeLabel, disabled = f
   return <View style={toolPanelStyles.heading} {...dragHandlers}>
     <View style={toolPanelStyles.titleRow}><Icon name={icon} size={18} forText={15} /><Text style={toolPanelStyles.title}>{title}</Text></View>
     {children}
-    <Pressable accessibilityRole="button" accessibilityLabel={closeLabel ?? `${title} 닫기`} disabled={disabled} onPress={onClose} style={[toolPanelStyles.close, disabled && { opacity: DISABLED_OPACITY }]}><Icon name="close" size={18} /></Pressable>
+    <Pressable accessibilityRole="button" accessibilityLabel={closeLabel ?? `${title} 닫기`} disabled={disabled} hitSlop={4} onPress={onClose} style={[toolPanelStyles.close, disabled && { opacity: DISABLED_OPACITY }]}><Icon name="close" size={18} /></Pressable>
   </View>
 }
 
@@ -20,6 +20,9 @@ export function ToolPanelHeader({ icon, title, onClose, closeLabel, disabled = f
  * separate: 글자 칸을 여러 개 켜고 끄는 줄(보조선)은 켜진 칸끼리 붙어 보여 간격이 달라 보이므로, 칸마다 바탕을 두고 같은 간격으로 띄운다.
  */
 // steadyLabel: 켜고 꺼도 칸 안 글자는 그대로 두고 켜짐은 테두리로만 보인다(글자 서식 B · I · U · S 처럼 글자 자체가 표시인 칸)
+// 보이는 높이 40 + 위아래 4 = 터치 48
+const SEGMENT_SLOP = { top: 4, bottom: 4 }
+
 export function Segmented({ items, selected, onPress, disabled = false, separate = false, steadyLabel = false }) {
   return (
     <View style={[separate ? toolPanelStyles.chips : toolPanelStyles.segment, disabled && toolPanelStyles.dim]}>
@@ -33,6 +36,7 @@ export function Segmented({ items, selected, onPress, disabled = false, separate
             accessibilityLabel={item.a11y ?? item.label}
             accessibilityState={{ selected: on, disabled: itemDisabled }}
             disabled={itemDisabled}
+            hitSlop={SEGMENT_SLOP}
             onPress={() => onPress(item.id)}
             style={[toolPanelStyles.segmentItem, separate && toolPanelStyles.chip, on && (separate ? toolPanelStyles.chipActive : toolPanelStyles.segmentActive), item.disabled && toolPanelStyles.dim]}
           >

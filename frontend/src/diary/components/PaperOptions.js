@@ -147,9 +147,9 @@ const ALL_GROUPS = PAPER_GROUPS.map(group => ({ ...group, papers: papersIn(group
 
 function Stepper({ label, text, onPrev, onNext, prevDisabled, nextDisabled }) {
   return <View style={styles.stepper}>
-    <Pressable accessibilityRole="button" accessibilityLabel={`이전 ${label}`} disabled={prevDisabled} onPress={onPrev} hitSlop={6} style={[styles.step, prevDisabled && styles.dim]}><Icon name="chevronLeft" size={16} forText={13.5} /></Pressable>
+    <Pressable accessibilityRole="button" accessibilityLabel={`이전 ${label}`} disabled={prevDisabled} onPress={onPrev} hitSlop={{ top: 8, bottom: 8, left: 10, right: 10 }} style={[styles.step, prevDisabled && styles.dim]}><Icon name="chevronLeft" size={16} forText={13.5} /></Pressable>
     <Text style={styles.stepText}>{text}</Text>
-    <Pressable accessibilityRole="button" accessibilityLabel={`다음 ${label}`} disabled={nextDisabled} onPress={onNext} hitSlop={6} style={[styles.step, nextDisabled && styles.dim]}><Icon name="chevronRight" size={16} forText={13.5} /></Pressable>
+    <Pressable accessibilityRole="button" accessibilityLabel={`다음 ${label}`} disabled={nextDisabled} onPress={onNext} hitSlop={{ top: 8, bottom: 8, left: 10, right: 10 }} style={[styles.step, nextDisabled && styles.dim]}><Icon name="chevronRight" size={16} forText={13.5} /></Pressable>
   </View>
 }
 
@@ -193,7 +193,7 @@ function Joint({ mixed, onChange, label, disabled = false }) {
     {[[false, '이어서'], [true, '섞어서']].map(([value, text]) => {
       const on = value === mixed
       return <Pressable key={text} accessibilityRole="radio" accessibilityLabel={`${label} ${text}`} accessibilityState={{ selected: on, checked: on, disabled: disabled && !on }}
-        disabled={on || disabled} hitSlop={4} onPress={() => onChange(value)} style={({ pressed }) => [styles.jointItem, on && styles.jointItemOn, disabled && !on && styles.dim, pressed && styles.pressed]}>
+        disabled={on || disabled} hitSlop={10} onPress={() => onChange(value)} style={({ pressed }) => [styles.jointItem, on && styles.jointItemOn, disabled && !on && styles.dim, pressed && styles.pressed]}>
         <Icon name={value ? 'swap' : 'down'} size={13} forText={12} color={on ? colors.primaryStrong : colors.textMuted} />
         <Text style={[styles.jointText, on && styles.jointTextOn]}>{text}</Text>
       </Pressable>
@@ -227,13 +227,13 @@ function PaperRow({ section, row, number, orientation, appearance, open, onToggl
         </View>
         <View style={open && styles.flip}><Icon name="chevronDown" size={15} forText={13.5} color={colors.textMuted} /></View>
       </Pressable>
-      {onUp && <Pressable accessibilityRole="button" accessibilityLabel={`${number}번째 속지 위로`} hitSlop={4} onPress={onUp} style={({ pressed }) => [styles.rowTool, pressed && styles.pressed]}>
+      {onUp && <Pressable accessibilityRole="button" accessibilityLabel={`${number}번째 속지 위로`} hitSlop={8} onPress={onUp} style={({ pressed }) => [styles.rowTool, pressed && styles.pressed]}>
         <Icon name="up" size={15} color={colors.textMuted} />
       </Pressable>}
-      {onDown && <Pressable accessibilityRole="button" accessibilityLabel={`${number}번째 속지 아래로`} hitSlop={4} onPress={onDown} style={({ pressed }) => [styles.rowTool, pressed && styles.pressed]}>
+      {onDown && <Pressable accessibilityRole="button" accessibilityLabel={`${number}번째 속지 아래로`} hitSlop={8} onPress={onDown} style={({ pressed }) => [styles.rowTool, pressed && styles.pressed]}>
         <Icon name="down" size={15} color={colors.textMuted} />
       </Pressable>}
-      <Pressable accessibilityRole="button" accessibilityLabel={`${number}번째 속지 빼기`} hitSlop={4} onPress={onRemove} style={({ pressed }) => [styles.rowTool, pressed && styles.pressed]}>
+      <Pressable accessibilityRole="button" accessibilityLabel={`${number}번째 속지 빼기`} hitSlop={8} onPress={onRemove} style={({ pressed }) => [styles.rowTool, pressed && styles.pressed]}>
         <Icon name="close" size={14} color={colors.textMuted} />
       </Pressable>
       <Grip label={`${number}번째 속지 끌어서 옮기기`} {...drag.handlers} />
@@ -364,7 +364,7 @@ const styles = StyleSheet.create({
   dim: { opacity: 0.3 },
   preview: { overflow: 'hidden', borderRadius: 5, borderWidth: 1, borderColor: colors.border },
   tabs: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: colors.border },
-  tab: { flex: 1, minHeight: 44, alignItems: 'center', justifyContent: 'flex-end' },
+  tab: { flex: 1, minHeight: 48, alignItems: 'center', justifyContent: 'flex-end' },
   tabText: { paddingBottom: 9, color: colors.textMuted, fontSize: 13.5, fontWeight: '700' },
   tabTextOn: { color: colors.text, fontWeight: '800' },
   tabLine: { alignSelf: 'stretch', height: 2.5, marginBottom: -1, borderRadius: 2, backgroundColor: 'transparent' },
@@ -385,7 +385,7 @@ const styles = StyleSheet.create({
   row: { gap: 8, padding: 8, borderRadius: 12, borderWidth: 1.5, borderColor: colors.border, backgroundColor: colors.surface },
   rowOn: { borderColor: colors.primary },
   rowHead: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  rowPick: { flex: 1, minWidth: 0, minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 10, paddingRight: 6, borderRadius: 8 },
+  rowPick: { flex: 1, minWidth: 0, minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: 10, paddingRight: 6, borderRadius: 8 },
   rowText: { flex: 1, minWidth: 0, gap: 2 },
   rowName: { color: colors.text, fontSize: 13.5, fontWeight: '800' },
   rowAmount: { color: colors.textMuted, fontSize: 12, fontWeight: '700' },

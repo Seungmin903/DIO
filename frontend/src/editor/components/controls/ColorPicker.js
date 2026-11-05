@@ -280,7 +280,7 @@ const styles = StyleSheet.create({
     borderWidth: 3,
     borderColor: '#FFFFFF',
     // 아주 밝은 색 위에서도 손잡이 자리가 보이게 바깥에 가는 남색 테두리 한 겹
-    boxShadow: '0px 0px 0px 1px rgba(82, 95, 173, 0.55), 0px 1px 3px rgba(11, 23, 102, 0.17)',
+    boxShadow: '0px 0px 0px 1px rgba(81, 74, 150, 0.55), 0px 1px 3px rgba(28, 28, 28, 0.17)',
   },
   hueThumb: { top: (HUE_HEIGHT + 8 - THUMB) / 2 },
   hexRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },

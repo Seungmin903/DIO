@@ -11,7 +11,7 @@ export default function IconButton({ label, icon, iconName, iconFill, onPress, s
       accessibilityLabel={label}
       accessibilityState={{ selected }}
       onPress={onPress}
-      hitSlop={small || bare ? 2 : undefined}
+      hitSlop={small || bare ? 4 : 2}
       style={({ pressed }) => [s.iconButton, small && s.iconButtonPhone, compact && s.iconButtonCompact, bare && s.iconButtonBare, selected && s.iconButtonSelected, pressed && s.pressed]}
     >
       {iconName ? (

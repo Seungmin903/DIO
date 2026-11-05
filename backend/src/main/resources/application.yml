@@ -19,7 +19,7 @@ server:
   port: 8080
 
 springdoc:
-  paths-to-match: /api/v1/diaries/**, /api/v1/diaries, /api/v1/pages/**, /api/v1/media/**, /api/v1/sticker-cutouts, /api/v1/sticker-cutouts/**, /api/v1/member/diaries/**, /api/v1/member/diaries, /api/v1/auth/**, /api/v1/notifications, /api/v1/notifications/**, /api/v1/invites/**, /api/v1/me, /api/v1/me/**, /api/v1/handwriting-fonts, /api/v1/push/installations, /api/v1/push/installations/**
+  paths-to-match: /api/v1/reports, /api/v1/diaries/**, /api/v1/diaries, /api/v1/pages/**, /api/v1/media/**, /api/v1/sticker-cutouts, /api/v1/sticker-cutouts/**, /api/v1/member/diaries/**, /api/v1/member/diaries, /api/v1/auth/**, /api/v1/notifications, /api/v1/notifications/**, /api/v1/invites/**, /api/v1/me, /api/v1/me/**, /api/v1/handwriting-fonts, /api/v1/push/installations, /api/v1/push/installations/**
   swagger-ui:
     path: /swagger-ui.html
     operations-sorter: method
@@ -97,3 +97,10 @@ dio:
       initial-delay-ms: ${MEDIA_EXPIRY_CLEANUP_INITIAL_DELAY_MS:900000}
       batch-size: ${MEDIA_EXPIRY_CLEANUP_BATCH_SIZE:100}
       retention: ${MEDIA_DELETE_RETENTION:PT24H}
+
+  moderation:
+    report-mail:
+      enabled: ${REPORT_NOTIFICATION_ENABLED:false}
+      to: ${REPORT_NOTIFICATION_TO:}
+      delay-ms: ${REPORT_NOTIFICATION_DELAY_MS:60000}
+      initial-delay-ms: ${REPORT_NOTIFICATION_INITIAL_DELAY_MS:10000}

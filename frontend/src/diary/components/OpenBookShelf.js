@@ -42,7 +42,7 @@ const REACH = 3; // 펼친 다이어리 앞뒤로 그려 두는 닫힌 권수
 const SWIPE = 36; // 이만큼 밀리면(손을 떼기 전이라도) 옆 다이어리를 펼친다
 const FLICK = 0.3; // 이보다 빠르게(px/ms) 튕기고 놓으면 SWIPE 보다 덜 밀었어도 넘긴다
 const FLICK_MIN = 16; // 튕기기로 치는 가장 짧은 거리(톡 친 것과 구분)
-const SHADOW = '0 8px 16px rgba(11,23,102,0.12)';
+const SHADOW = '0 8px 16px rgba(28,28,28,0.12)';
 
 const orientationOf = diary => normalizeOrientation(diary?.templateConfig?.orientation ?? diary?.pageSize);
 const devicePx = value => PixelRatio.roundToNearestPixel(value); // 기기 픽셀(1px)의 정수배로
@@ -212,8 +212,8 @@ function OpenBook({ diary, size, left: placed, top, shown, compact, peek = null,
         {light && <View pointerEvents="none" style={[StyleSheet.absoluteFill, styles.outline, { borderRadius: radius }, compact && { borderTopLeftRadius: 0, borderBottomLeftRadius: 0, borderLeftWidth: 0 }]} />}
         {/* 제본선 골: 가운데가 가장 깊고 양옆으로 부드럽게 사라진다 (폰은 왼쪽 책등 쪽만) */}
         <View pointerEvents="none" style={[styles.gutter, { top: board.top, height: leaf.height },
-          compact ? { left: 0, width: 10, backgroundImage: 'linear-gradient(to right, rgba(11,23,102,0.12), rgba(11,23,102,0))' }
-            : { left: width / 2 - 20, width: 40, backgroundImage: 'linear-gradient(to right, rgba(11,23,102,0) 0%, rgba(11,23,102,0.07) 38%, rgba(11,23,102,0.16) 50%, rgba(11,23,102,0.07) 62%, rgba(11,23,102,0) 100%)' }]} />
+          compact ? { left: 0, width: 10, backgroundImage: 'linear-gradient(to right, rgba(28,28,28,0.12), rgba(28,28,28,0))' }
+            : { left: width / 2 - 20, width: 40, backgroundImage: 'linear-gradient(to right, rgba(28,28,28,0) 0%, rgba(28,28,28,0.07) 38%, rgba(28,28,28,0.16) 50%, rgba(28,28,28,0.07) 62%, rgba(28,28,28,0) 100%)' }]} />
       </Pressable>
       {/* 이름 줄: 한눈에 · 스와이프 카드와 같은 구조 — 책 왼쪽 끝에 맞춘 이름 · 쪽수 두 줄, 오른쪽 끝에 별 · ⋯. 카드 · 테두리 없이 글자만
           (별은 판 위가 아니라 줄 안: 판 가장자리는 6~8px 뿐이라 별이 사용자의 속지 위에 놓인다) */}
@@ -224,10 +224,10 @@ function OpenBook({ diary, size, left: placed, top, shown, compact, peek = null,
         </View>
         <View style={styles.captionTools}>
           {onFavorite && <Pressable accessibilityRole="button" accessibilityLabel={diary.favorite ? `${diary.title} 즐겨찾기 해제` : `${diary.title} 즐겨찾기`}
-            accessibilityState={{ selected: !!diary.favorite }} onPress={() => onFavorite(diary)} hitSlop={10}>
+            accessibilityState={{ selected: !!diary.favorite }} onPress={() => onFavorite(diary)} hitSlop={13}>
             <FavoriteStar filled={!!diary.favorite} outline={captionInk} size={22} />
           </Pressable>}
-          {actions.length > 0 && <Pressable ref={moreRef} accessibilityRole="button" accessibilityLabel={`${diary.title} 더보기`} accessibilityState={{ expanded: menu !== null }} hitSlop={10}
+          {actions.length > 0 && <Pressable ref={moreRef} accessibilityRole="button" accessibilityLabel={`${diary.title} 더보기`} accessibilityState={{ expanded: menu !== null }} hitSlop={13}
             onPress={() => {
               const node = moreRef.current;
               if (node?.measureInWindow) node.measureInWindow((mx, my, w, h) => setMenu({ anchor: { x: mx, y: my, width: w, height: h + PAGE_COUNT_ROW } })); // 말풍선이 이름 밑 쪽수 줄을 가리지 않게 그만큼 아래에 연다(DiaryCard 와 같은 값)
@@ -388,9 +388,9 @@ const styles = StyleSheet.create({
   leftLeaf: { borderTopLeftRadius: 4, borderBottomLeftRadius: 4 },
   rightLeaf: { borderTopRightRadius: 4, borderBottomRightRadius: 4 },
   // 책등 띠는 빛을 덜 받아 조금 어둡고, 홈은 더 어둡다. 오른쪽에 얇은 밝은 선을 둬 접힌 골처럼 보인다
-  spineBand: { position: 'absolute', backgroundColor: 'rgba(11,23,102,0.08)' },
-  outline: { borderWidth: 1, borderColor: 'rgba(17,33,106,0.12)' },
-  groove: { position: 'absolute', top: 0, bottom: 0, backgroundColor: 'rgba(11,23,102,0.18)', boxShadow: '1px 0 0 rgba(255,255,255,0.3)' },
+  spineBand: { position: 'absolute', backgroundColor: 'rgba(28,28,28,0.08)' },
+  outline: { borderWidth: 1, borderColor: 'rgba(28,28,28,0.12)' },
+  groove: { position: 'absolute', top: 0, bottom: 0, backgroundColor: 'rgba(28,28,28,0.18)', boxShadow: '1px 0 0 rgba(255,255,255,0.3)' },
   headband: { position: 'absolute', flexDirection: 'row', overflow: 'hidden' },
   gutter: { position: 'absolute' },
   noCover: { backgroundColor: PAPER, justifyContent: 'center', alignItems: 'center', padding: 16, boxShadow: SHADOW },
@@ -398,5 +398,5 @@ const styles = StyleSheet.create({
   // 이름 줄: DiaryCard 의 cardInfoGrid(위 10 · 좌우 4)와 같은 여백, 별 · ⋯ 는 cardMoreSlot 처럼 이름 첫 줄에 맞춘다
   caption: { position: 'absolute', left: 0, flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 6, paddingHorizontal: 4 },
   captionText: { flex: 1, minWidth: 0 },
-  captionTools: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: -1 },
+  captionTools: { flexDirection: 'row', alignItems: 'center', gap: 26, marginTop: -1 },
 });

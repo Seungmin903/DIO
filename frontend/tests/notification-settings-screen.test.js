@@ -7,7 +7,7 @@ const code=expo('@babel/core').transformSync(readFileSync(new URL('../src/diary/
  configFile:false,babelrc:false,plugins:[[expo.resolve('@babel/plugin-transform-react-jsx'),{runtime:'automatic'}],expo.resolve('@babel/plugin-transform-modules-commonjs')]
 }).code;
 const nodes=n=>!n||typeof n!=='object'?[]:[n,...[n.props?.children].flat(Infinity).flatMap(nodes)];
-function setup(){
+function setup(flags){
  const values=[],refs=[],deps=[],cleanups=[];let sc,rc,ec,writes=0,back;
  const mocks={
   react:{useState:initial=>{const i=sc++;if(!(i in values))values[i]=initial;return [values[i],v=>{values[i]=typeof v==='function'?v(values[i]):v;}];},
@@ -15,14 +15,15 @@ function setup(){
   'react-native':{ActivityIndicator:'ActivityIndicator',Pressable:'Pressable',ScrollView:'ScrollView',Text:'Text',View:'View',Platform:{OS:'android'},BackHandler:{addEventListener:(_,fn)=>{back=fn;return {remove(){back=null}}}},StyleSheet:{create:v=>v}},
   '../../shared/AppIcon':{__esModule:true,default:'Icon'},'../../shared/theme':{colors:{},radius:{},DISABLED_OPACITY:0.4},
   '../components/Header':{__esModule:true,default:'Header'},'../components/TermsConsentSection':{__esModule:true,default:'Terms'},
+  '../../shared/featureFlags':{SERVICE_SECTION_ENABLED:false,...flags},
  };
  const mod={exports:{}};new Function('require','module','exports',code)(id=>id==='react/jsx-runtime'?require(id):mocks[id],mod,mod.exports);
  return {render(){sc=rc=ec=0;return mod.exports.default({userId:'101',accountService:{},onClose(){}})},
   ready(tree,fn=async()=>{}){const terms=nodes(tree).find(n=>n.type==='Terms');terms.props.saveRef.current=async()=>{writes++;return fn()};terms.props.onReadyChange(true);return terms.props},
   writes:()=>writes,back:()=>back,close(){cleanups.forEach(fn=>fn?.());}};
 }
-test('서버 미연결 서비스 알림은 준비 중으로 보여 주고 동작하는 스위치를 제공하지 않는다',()=>{
- const ui=setup(),tree=ui.render();assert.ok(JSON.stringify(tree).includes('준비 중'));
+test('서버 미연결 서비스 알림은 구역째 숨기고 동작하는 스위치를 제공하지 않는다',()=>{
+ const ui=setup(),tree=ui.render();assert.ok(!JSON.stringify(tree).includes('준비 중'));
  assert.ok(!nodes(tree).some(n=>n.props.accessibilityRole==='switch'));ui.close();
 });
 test('동의 저장 실패에서만 재시도를 제공하고 재시도 성공을 표시한다',async()=>{
@@ -35,4 +36,9 @@ test('서버에 동의 저장 중에는 화면 뒤로가기를 막는다',()=>{
  const ui=setup(),props=ui.ready(ui.render());props.onSavingChange(true);
  const tree=ui.render(),back=nodes(tree).find(n=>n.type==='Header').props.left;
  assert.equal(back.props.disabled,true);assert.equal(ui.back()(),true);ui.close();
+});
+test('서비스 알림 스위치를 켜면 구역이 다시 그려진다',()=>{
+ const ui=setup({SERVICE_SECTION_ENABLED:true}),tree=ui.render();
+ assert.ok(nodes(tree).some(n=>n.props.children==='서비스 알림'));
+ assert.ok(nodes(tree).some(n=>n.props.children==='마케팅 정보 수신'));ui.close();
 });

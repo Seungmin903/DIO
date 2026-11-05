@@ -103,9 +103,9 @@ const server = http.createServer((req, res) => {
       await shared.getByRole('button', { name: '우리의 여행 기록 더보기', exact: true }).click();
       assert.equal(await button('우리의 여행 기록 수정').count(), 0);
       assert.equal(await button('우리의 여행 기록 휴지통으로 이동').count(), 0);
-      await page.getByRole('button', { name: '즐겨찾기 추가', exact: true }).click();
+      await page.getByRole('button', { name: '우리의 여행 기록 즐겨찾기 추가', exact: true }).click();
       await shared.getByRole('button', { name: '우리의 여행 기록 더보기', exact: true }).click();
-      await page.getByRole('button', { name: '즐겨찾기 해제', exact: true }).waitFor();
+      await page.getByRole('button', { name: '우리의 여행 기록 즐겨찾기 해제', exact: true }).waitFor();
       await page.getByRole('button', { name: '닫기', exact: true }).last().click();
       await page.screenshot({ path: path.join(out, `library-${width}.png`) });
       await shared.click();

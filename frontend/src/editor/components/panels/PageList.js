@@ -223,7 +223,7 @@ export default function PageList({ phone = false, pages, currentId, cropId, onSe
               key={id}
               onPress={() => { setMenuId(null); endPickMode(); setFilter(id) }}
               accessibilityRole="button"
-              hitSlop={{ top: 8, bottom: 8 }}
+              hitSlop={{ top: 10, bottom: 10 }}
               accessibilityLabel={`${label} 페이지 보기`}
               accessibilityState={{ selected: filter === id }}
               style={[styles.tab, filter === id && styles.tabActive]}
@@ -236,7 +236,7 @@ export default function PageList({ phone = false, pages, currentId, cropId, onSe
       </View>
       {!readOnly && <View style={styles.actions}>
         {pickMode ? <PageBulkDelete pages={pages} ids={picked} onDelete={onRemovePages} onReset={onReset} canUndoDelete={canUndoDelete} onDone={endPickMode} />
-          : <Pressable accessibilityRole="button" accessibilityLabel="페이지 편집" hitSlop={{ top: 6, bottom: 6 }} style={({ pressed }) => [styles.editButton, pressed && styles.editPressed]} onPress={() => { setMenuId(null); setPicked([]); setPickMode(true) }}><Icon name="edit" size={16} forText={12} /><Text style={styles.editText}>편집</Text></Pressable>}
+          : <Pressable accessibilityRole="button" accessibilityLabel="페이지 편집" hitSlop={{ top: 8, bottom: 8 }} style={({ pressed }) => [styles.editButton, pressed && styles.editPressed]} onPress={() => { setMenuId(null); setPicked([]); setPickMode(true) }}><Icon name="edit" size={16} forText={12} /><Text style={styles.editText}>편집</Text></Pressable>}
       </View>}
       <FlatList
         ref={listRef}
@@ -343,7 +343,7 @@ export default function PageList({ phone = false, pages, currentId, cropId, onSe
         </EditorModal>
       )}
       {!readOnly && !pickMode && (
-        <Pressable onPress={onAdd} style={({ pressed }) => [styles.add, phone && styles.addPhone, pressed && styles.addPressed]} accessibilityRole="button" accessibilityLabel="페이지 추가">
+        <Pressable onPress={onAdd} hitSlop={1} style={({ pressed }) => [styles.add, phone && styles.addPhone, pressed && styles.addPressed]} accessibilityRole="button" accessibilityLabel="페이지 추가">
           <Icon name="plus" size={20} color={colors.primaryText} />
         </Pressable>
       )}
@@ -563,11 +563,11 @@ const styles = StyleSheet.create({
   activeRing: { position: 'absolute', top: -THUMB_BORDER, left: -THUMB_BORDER, right: -THUMB_BORDER, bottom: -THUMB_BORDER, borderRadius: 8, borderWidth: 2, borderColor: colors.primaryStrong },
   pickedRing: { position: 'absolute', top: -THUMB_BORDER, left: -THUMB_BORDER, right: -THUMB_BORDER, bottom: -THUMB_BORDER, borderRadius: 8, borderWidth: 1, borderColor: colors.primary },
   header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: RAIL_INSET, paddingTop: 16 },
-  tabs: { flex: 1, flexDirection: 'row', padding: 2, borderRadius: 10, backgroundColor: colors.surfaceMuted },
-  tab: { flex: 1, height: 28, alignItems: 'center', justifyContent: 'center', borderRadius: 8 },
-  tabActive: { backgroundColor: colors.surface },
+  tabs: { flex: 1, flexDirection: 'row', gap: 4 },
+  tab: { flex: 1, height: 28, alignItems: 'center', justifyContent: 'center', borderRadius: 8, borderWidth: 1, borderColor: colors.cardBorder, backgroundColor: colors.surface },
+  tabActive: { borderWidth: 2, borderColor: colors.primaryStrong },
   tabText: { fontSize: 12, fontWeight: '700', color: colors.textMuted },
-  tabTextActive: { color: colors.primaryText },
+  tabTextActive: { color: colors.text, fontWeight: '800' },
   thumbDragging: {
     shadowColor: colors.text,
     shadowOpacity: 0.12,

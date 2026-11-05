@@ -35,7 +35,7 @@ export default function TextFontDropdown({ value, onChange, label = '글꼴', st
   const height = Math.min(MAX_HEIGHT, groups.reduce((sum, group) => sum + GROUP + group.fonts.reduce((height, font) => height + (font.aiGenerated ? AI_ROW : ROW), 0), 0)) + 2
   return <View style={local.wrap}>
     <View ref={field} collapsable={false}>
-      <Pressable accessibilityRole="button" accessibilityLabel={`${label} 선택`} accessibilityState={{ expanded: open }} onPress={() => (open ? setOpen(false) : show())} style={[local.field, style]}>
+      <Pressable accessibilityRole="button" accessibilityLabel={`${label} 선택`} accessibilityState={{ expanded: open }} hitSlop={4} onPress={() => (open ? setOpen(false) : show())} style={[local.field, style]}>
         <Text style={[local.fieldText, previewFont(current.id)]} numberOfLines={1}>{fontLabel(current, Platform.OS)}</Text>
         <Svg width={12} height={12} viewBox="0 0 24 24"><Path d={open ? 'M6 15l6-6 6 6' : 'M6 9l6 6 6-6'} fill="none" stroke={colors.text} strokeWidth={2} /></Svg>
       </Pressable>

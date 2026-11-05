@@ -365,7 +365,7 @@ function CoverArt({ cover, name, width, height, edit = null, shadow = null, pixe
     ? { top: 0, bottom: 0, width: bandWidth, ...(cover.band.pos === 'center' ? { left: '50%', marginLeft: -bandWidth / 2 } : { right: '15%' }) }
     : { left: 0, right: 0, height: bandWidth, ...(cover.band.pos === 'center' ? { top: '50%', marginTop: -bandWidth / 2 } : { bottom: '14%' }) })
   // 종이 라벨은 왼쪽 · 오른쪽 정렬이어도 칸 전체 폭까지 쓴다. 칸이 오른쪽 고무줄 자리만큼 이미 줄어 있어(표지 폭 67%) 78% 를 또 걸면
-  // 세로 표지에서 '새 다이어리'(나눔고딕 굵게 4.98em)부터 두 줄이 됐다. 판 없는 글씨만 예전처럼 78% 로 줄 길이를 묶는다.
+  // 세로 표지에서 '새 다이어리'(글꼴에 따라 4.55~4.98em)부터 두 줄이 됐다. 판 없는 글씨만 예전처럼 78% 로 줄 길이를 묶는다.
   const titleArea = (title || hasSubtitle) ? <View pointerEvents="box-none" style={[styles.titleBox, place]}
     onLayout={event => { titleOrigin.current = event.nativeEvent.layout }}>
     <TitleBox edit={edit} ribbon={ribbon} width={bodyWidth} height={bodyHeight} at={at} origin={titleOrigin}
@@ -452,7 +452,7 @@ const styles = StyleSheet.create({
   cornerHandle: { backgroundColor: colors.surface, borderWidth: 2, borderColor: colors.primary },
   rotateHandle: { backgroundColor: colors.primaryStrong, borderWidth: 1, borderColor: colors.surface },
   stickerBar: { position: 'absolute', width: BAR.width, height: BAR.height, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 2, borderRadius: 12,
-    backgroundColor: colors.surface, borderWidth: 1, borderColor: 'rgba(129,138,195,0.2)', shadowColor: colors.text, shadowOpacity: 0.16, shadowRadius: 7, shadowOffset: { width: 0, height: 3 }, elevation: 6 },
+    backgroundColor: colors.surface, borderWidth: 1, borderColor: 'rgba(129,125,185,0.2)', shadowColor: colors.text, shadowOpacity: 0.16, shadowRadius: 7, shadowOffset: { width: 0, height: 3 }, elevation: 6 },
   barButton: { width: 42, height: 34, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
   barPressed: {}, // 눌림 효과 없음(사용자 지시)
   none: { ...StyleSheet.absoluteFill, alignItems: 'center', justifyContent: 'center', gap: 6, padding: 12, borderWidth: 2, borderStyle: 'dashed', borderColor: colors.border, backgroundColor: 'rgba(255,255,255,.7)' },

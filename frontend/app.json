@@ -7,7 +7,7 @@
     "version": "1.0.0",
     "orientation": "default",
     "userInterfaceStyle": "light",
-    "backgroundColor": "#F7F8FD",
+    "backgroundColor": "#F8F7FD",
     "experiments": {
       "reactCompiler": true
     },
@@ -61,7 +61,7 @@
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 160,
           "resizeMode": "contain",
-          "backgroundColor": "#F7F8FD"
+          "backgroundColor": "#F8F7FD"
         }
       ],
       "expo-asset",

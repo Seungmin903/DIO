@@ -22,6 +22,7 @@ import { refreshPersonalFonts } from '../../handwriting/library';
 import { fontWorkflow } from '../../handwriting/manager';
 import { listStatus } from '../../handwriting/workflow';
 import { AI_FONT_LABEL, isAiHandwritingFont } from '../../handwriting/aiDisclosure';
+import { CUTOUT_ENTRANCE } from '../../shared/featureFlags';
 import { loadedFontFamily } from '../../editor/utils/text';
 import { useCustomDecor } from '../../editor/hooks/useCustomDecor';
 import { stickerSplit } from '../../editor/services/stickerSplit';
@@ -172,13 +173,13 @@ export default function DecorationStudioScreen({ compact = false, registerBackHa
     if (node?.measureInWindow) node.measureInWindow((x, y, width, height) => setAddMenu({ kind, anchor: { x, y, width, height } }));
     else setAddMenu({ kind, anchor: null });
   };
-  // 공방의 '○○ 추가' 버튼(폰은 제목 아래 전폭). menu 이면 말풍선을 열고, 아니면 onPress 를 바로 부른다
+  // 공방의 '○○ 추가' 버튼(폰 · 태블릿 모두 제목 줄 오른쪽). menu 이면 말풍선을 열고, 아니면 onPress 를 바로 부른다
   const addTool = ({ kind, icon, title, description, disabled = false, menu = false, onPress }) =>
-    <View ref={node => { addButtons.current[kind] = node; }} collapsable={false} style={compact && s.toolBlock}>
-      <StudioTool icon={icon} title={title} description={description} block={compact} disabled={disabled} onPress={menu ? () => openAddMenu(kind) : onPress} />
+    <View ref={node => { addButtons.current[kind] = node; }} collapsable={false}>
+      <StudioTool icon={icon} title={title} description={description} disabled={disabled} onPress={menu ? () => openAddMenu(kind) : onPress} />
     </View>;
 
-  const fontSection = <StudioSection fill={fontReady && !fontTotal} title="폰트" count={fontReady ? count({ length: fontTotal }) : null} stacked={compact}
+  const fontSection = <StudioSection fill={fontReady && !fontTotal} title="폰트" count={fontReady ? count({ length: fontTotal }) : null}
     right={addTool({ kind: 'font', icon: 'text', title: '폰트 추가', description: '손글씨를 나만의 글꼴로', onPress: () => loginGate('내 폰트 만들기', () => openFontStudio({ create: true })) })}>
     {shelfError === 'font' && <Text accessibilityRole="alert" style={s.error}>폰트를 지우지 못했어요. 다시 시도해 주세요.</Text>}
     {/* 손글씨 공방 상태를 못 읽으면(loaded 가 오지 않음) 불러오는 중에 갇히지 않게 오류와 다시 불러오기를 보인다 */}
@@ -206,10 +207,10 @@ export default function DecorationStudioScreen({ compact = false, registerBackHa
   </StudioSection>;
 
   const stickerSection = <StudioSection fill={custom.loaded && (folder ? !folder.items.length : !custom.items.folders.length)} title={folder ? folder.name : '스티커'} count={custom.loaded ? (folder ? count(folder.items) : count(custom.items.folders)) : null}
-    stacked={compact && !folder} right={folder ? <>
+    right={folder ? <>
       <DioButton variant="ghost" icon="chevron-left" label="스티커 폴더 목록" text="폴더 목록" onPress={() => setFolderId(null)} />
       <DioButton variant="icon" icon="trash" label="스티커 폴더 삭제" onPress={() => setQuestion({ folder })} />
-    </> : addTool({ kind: 'sticker', icon: 'sticker', title: '스티커 추가', description: '스티커 시트 분리 · 사진 속 대상 오리기', disabled: !custom.loaded, menu: true })}>
+    </> : addTool({ kind: 'sticker', icon: 'sticker', title: '스티커 추가', description: CUTOUT_ENTRANCE ? '스티커 시트 분리 · 사진 속 대상 오리기' : '스티커 시트 분리', disabled: !custom.loaded, menu: true })}>
     {custom.saveError ? <DecorSaveNotice error={custom.saveError} pending={custom.savePending} onRetry={custom.retrySave} /> : null}
     {!custom.loaded ? <Text style={s.empty}>스티커를 불러오고 있어요.</Text>
       : folder ? (!folder.items.length ? <EmptyState compact={compact} art="dio" raised title="아직 스티커가 없어요" />
@@ -306,7 +307,7 @@ export default function DecorationStudioScreen({ compact = false, registerBackHa
   };
   const tapeCardWidth = tapeGrid.cellWidth - 32; // 테이프 카드 안쪽(좌우 16)
   const tapeSection = <StudioSection fill={custom.loaded && (tapeFolder ? !tapeFolder.items.length : !tapeFolders.length)} title={tapeFolder ? tapeFolder.name : '테이프'} count={custom.loaded ? (tapeFolder ? count(tapeFolder.items) : count(tapeFolders)) : null}
-    stacked={compact && !tapeFolder} right={tapeFolder ? <>
+    right={tapeFolder ? <>
       <DioButton variant="ghost" icon="chevron-left" label="테이프 폴더 목록" text="폴더 목록" onPress={() => { setTapeFolderId(null); setTapeRename(null); }} />
       <DioButton variant="icon" icon="add" label="이 폴더에 테이프 추가" onPress={() => addTapeFromPhoto(tapeFolder.id)} />
       <DioButton variant="icon" icon="edit" label="테이프 폴더 이름 바꾸기" onPress={() => setTapeRename(tapeFolder.name)} />
@@ -349,7 +350,7 @@ export default function DecorationStudioScreen({ compact = false, registerBackHa
         </View>}
   </StudioSection>;
 
-  const coverSection = <StudioSection fill={library.ready && !library.covers.length} title="표지" count={library.ready ? count(library.covers) : null} stacked={compact}
+  const coverSection = <StudioSection fill={library.ready && !library.covers.length} title="표지" count={library.ready ? count(library.covers) : null}
     right={addTool({ kind: 'cover', icon: 'book', title: addTitle('cover', '표지 추가'), description: 'PDF로 만들기 · 사진으로 만들기', disabled: !library.ready || Boolean(making), menu: true })}>
     {makeAlert('cover')}
     {!library.ready ? <Text style={s.empty}>표지를 불러오고 있어요.</Text>
@@ -379,8 +380,7 @@ export default function DecorationStudioScreen({ compact = false, registerBackHa
   const paperSection = paperDetail ||  <StudioSection fill={papersReady && !library.papers.length} title="속지">
     {papersReady && <StudioPaperStyle compact={compact} style={paperStyle.style} save={paperStyle.save} />}
     {papersReady && <View style={[s.divider, s.paperDivider]} />}
-    {papersReady && <GroupHead title="내 속지" section line={false} wide count={count(library.papers)} right={compact ? null : paperAdd} />}
-    {papersReady && compact && paperAdd}
+    {papersReady && <GroupHead title="내 속지" section line={false} wide count={count(library.papers)} right={paperAdd} />}
     {makeAlert('paper')}
     {!papersReady ? <Text style={s.empty}>속지를 불러오고 있어요.</Text>
       : !library.papers.length ? <EmptyState compact={compact} art="dio" raised title="아직 저장한 속지가 없어요" />
@@ -415,8 +415,9 @@ export default function DecorationStudioScreen({ compact = false, registerBackHa
     ] : [
       { id: 'split', label: stickerSplit.available ? '스티커 시트 분리' : `스티커 시트 분리, ${stickerSplit.reason || '이 기기에서는 쓸 수 없어요'}`, text: '스티커 시트 분리', icon: 'grid',
         disabled: !stickerSplit.available, onPress: () => { setAddMenu(null); loginGate('스티커 시트 분리', () => setTool('split')); } },
-      { id: 'cutout', label: '사진 속 대상 오리기', text: '사진 속 대상 오리기', icon: 'scissors',
-        onPress: () => { setAddMenu(null); loginGate('사진 속 대상 오리기', () => setTool('cutout')); } },
+      // 사진 속 대상 오리기: 저장이 아직 미리보기 단계라(StickerCutoutModal 확인창) 모든 빌드에서 입구를 감춘다
+      ...(CUTOUT_ENTRANCE ? [{ id: 'cutout', label: '사진 속 대상 오리기', text: '사진 속 대상 오리기', icon: 'scissors',
+        onPress: () => { setAddMenu(null); loginGate('사진 속 대상 오리기', () => setTool('cutout')); } }] : []),
     ]} />}
     {coverCrop && <PhotoCropper photo={coverCropPhoto(coverCrop.photo, coverCrop.ratio)} fixedAspect={coverCrop.ratio} title="표지 사진 자르기"
       onCancel={() => { coverCrop.resolve(null); setCoverCrop(null); }} onApply={({ crop }) => { coverCrop.resolve(crop); setCoverCrop(null); }} />}
@@ -434,7 +435,6 @@ export default function DecorationStudioScreen({ compact = false, registerBackHa
 const s = StyleSheet.create({
   // 카드를 쌓지 않는 대신 화면 전체를 흰 면(surface) 한 장으로 둔다. 옅은 면(surfaceMuted)의 탭 · 도구함이 그 위에서 보인다
   root: { flex: 1, backgroundColor: colors.surface }, content: { flexGrow: 1, paddingBottom: 36 },
-  toolBlock: { width: '100%' }, // 폰: '○○ 추가' 버튼을 감싼 칸도 전폭(말풍선 자리를 재려고 감쌌다)
   // 폰은 하단 내비게이션 위에서 끝나게 104(코덱스 11번)
   contentCompact: { paddingBottom: 104 },
   alert: { gap: 8, alignItems: 'flex-start' },
@@ -479,6 +479,6 @@ const s = StyleSheet.create({
   tapeNameText: { flexShrink: 1 },
   tapeNameInput: { minHeight: 32, alignSelf: 'stretch', paddingVertical: 0, paddingHorizontal: 6, borderRadius: 8, borderWidth: 1, borderColor: colors.primary, textAlign: 'center' },
   renameRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
-  renameInput: { flex: 1, minWidth: 0, height: 44, paddingHorizontal: 12, borderRadius: 12, borderWidth: 1, borderColor: colors.primary, color: colors.text, fontSize: 15, fontWeight: '700', backgroundColor: colors.surface },
+  renameInput: { flex: 1, minWidth: 0, height: 48, paddingHorizontal: 12, borderRadius: 12, borderWidth: 1, borderColor: colors.primary, color: colors.text, fontSize: 15, fontWeight: '700', backgroundColor: colors.surface },
   stickerRemove: { position: 'absolute', top: -6, right: -6, width: 24, height: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
 });
