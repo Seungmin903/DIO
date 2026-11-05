@@ -30,6 +30,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 @Service
 public class EmailLoginService {
+    private static final org.slf4j.Logger LOG = org.slf4j.LoggerFactory.getLogger(EmailLoginService.class);
     private final UserRepository users;
     private final EmailAuthProviderRepository accounts;
     private final LoginSessionService sessions;
@@ -112,6 +113,8 @@ public class EmailLoginService {
                 String successor = rotation.successor(refresh, token.getSessionId());
                 if (LoginSecrets.matches(LoginSecrets.hash(successor), token.getTokenHash()))
                     return sessions.response(user, token, successor, now);
+                // Do not log token hashes, account IDs or keys. This differs from an expired/older replay.
+                LOG.warn("Refresh recovery mismatch; session revoked: code=REFRESH_RECOVERY_MISMATCH");
             }
             pushRevocation.revokeLockedSession(token.getSessionId(), token.getUserId(), now);
             token.revoke(now); throw LoginException.token();

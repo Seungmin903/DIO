@@ -462,6 +462,24 @@ class EmailLoginTests {
         } finally {ReflectionTestUtils.setField(rotation,"properties",previous);}
         assertThat(service.refresh(first.refreshToken()).refreshToken()).isNotEqualTo(first.refreshToken());
     }
+    @Test void unmatchedGraceSuccessorRevokesSessionAndLogsOnlyDiagnosticCode() throws Exception {
+        register();var first=login();service.refresh(first.refreshToken());
+        // Simulate a previous random-token deployment or another instance using a different rotation key.
+        String legacySuccessor=LoginSecrets.refresh();var current=tokens.findAll().get(0);
+        current.rotate(LoginSecrets.hash(legacySuccessor));tokens.saveAndFlush(current);
+        var logger=(ch.qos.logback.classic.Logger)org.slf4j.LoggerFactory.getLogger(EmailLoginService.class);
+        var appender=new ch.qos.logback.core.read.ListAppender<ch.qos.logback.classic.spi.ILoggingEvent>();
+        appender.start();logger.addAppender(appender);
+        try {
+            mvc.perform(post("/api/v1/auth/refresh").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"refreshToken\":\""+first.refreshToken()+"\"}"))
+                .andExpect(status().isUnauthorized()).andExpect(jsonPath("$.code").value("INVALID_TOKEN"));
+            assertThat(tokens.findById(current.getTokenId()).orElseThrow().getRevokedAt()).isNotNull();
+            var messages=appender.list.stream().map(ch.qos.logback.classic.spi.ILoggingEvent::getFormattedMessage).toList();
+            assertThat(messages).contains("Refresh recovery mismatch; session revoked: code=REFRESH_RECOVERY_MISMATCH");
+            for(String message:messages)assertThat(message).doesNotContain(first.refreshToken(),legacySuccessor,current.getTokenHash());
+        } finally {logger.detachAppender(appender);appender.stop();}
+    }
     private void expireRotationGrace() {
         jdbc.update("update refresh_token_history set rotated_at=?", java.sql.Timestamp.from(Instant.now().minusSeconds(31)));
     }
