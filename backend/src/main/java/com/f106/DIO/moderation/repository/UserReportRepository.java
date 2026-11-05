@@ -12,5 +12,7 @@ public interface UserReportRepository extends JpaRepository<UserReport,Long> {
  List<Instant> recentByTarget(long actor,long target,Instant since,Pageable page);
  @Query("select r.reportId from UserReport r where r.notificationStatus <> 'SENT' and r.notificationNextAttemptAt <= :now order by r.notificationNextAttemptAt,r.reportId")
  List<Long> due(Instant now,Pageable page);
+ @Lock(LockModeType.PESSIMISTIC_WRITE) @Query("select r from UserReport r where r.status in ('RESOLVED','DISMISSED') and r.resolvedAt <= :cutoff order by r.resolvedAt,r.reportId")
+ List<UserReport> retentionExpired(Instant cutoff,Pageable page);
  @Lock(LockModeType.PESSIMISTIC_WRITE) @Query("select r from UserReport r where r.reportId=:id") Optional<UserReport> lock(Long id);
 }

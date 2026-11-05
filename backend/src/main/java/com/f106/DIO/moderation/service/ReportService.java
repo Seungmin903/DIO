@@ -44,11 +44,12 @@ public class ReportService {
     return new Accepted(ReportResponse.of(saved),true);
    });
    if(accepted==null)throw new IllegalStateException("Report transaction did not complete");
-   if(!accepted.created())deleteAll(keys,"duplicate cleanup");
+   if(!accepted.created())deleteUploadedEvidence(keys,"duplicate cleanup");
    return accepted;
-  }catch(RuntimeException e){deleteAll(keys,"rollback cleanup");throw e;}
+  }catch(RuntimeException e){deleteUploadedEvidence(keys,"rollback cleanup");throw e;}
  }
- private void deleteAll(List<String> keys,String context){for(String key:keys)try{storage.delete(key);}catch(RuntimeException e){LOG.warn("Report evidence {} failed: type={}",context,e.getClass().getSimpleName());}}
+ /** Submission compensation only. Retention cleanup deletes completed reports and queues their evidence separately. */
+ private void deleteUploadedEvidence(List<String> keys,String context){for(String key:keys)try{storage.delete(key);}catch(RuntimeException e){LOG.warn("Report evidence {} failed: type={}",context,e.getClass().getSimpleName());}}
  private String hash(ReportRequest r,String description,List<ReportEvidence.Image> images){
   try{var digest=MessageDigest.getInstance("SHA-256");digest.update(json.writeValueAsString(Arrays.asList(r.reportedUserId(),r.diaryId(),r.reasonCode(),description)).getBytes(StandardCharsets.UTF_8));
    for(var image:images){digest.update(MessageDigest.getInstance("SHA-256").digest(image.original()));}return HexFormat.of().formatHex(digest.digest());
