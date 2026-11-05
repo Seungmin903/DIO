@@ -1,11 +1,11 @@
 import { createContext, useLayoutEffect, useRef } from 'react'
-import { stylus, touchKind } from '../utils/stylus'
+import { touchKind } from '../utils/stylus'
 import { getDrawingInput } from '../../shared/drawingInput'
 
 /**
  * 펜으로 그릴 때 손바닥(손)이 함께 닿는 경우의 처리. 그림 앱들(GoodNotes·Notability·삼성 노트)이 쓰는 방식을 따른다.
  *
- * 그리기 입력 설정(shared/drawingInput)이 '펜만'이면 처음부터, '자동'이면 펜을 본 뒤로 아래처럼 펜만 그린다. '펜 · 손가락'이면 '구분할 수 없을 때'의 판정을 쓰되 펜 획은 지킨다.
+ * 그리기 입력 설정(shared/drawingInput)이 '펜만'이면 아래처럼 펜만 그린다. '펜 · 손가락'이면 손가락도 그리고, 펜으로 그리는 중에 닿은 손은 거른다.
  * 펜을 구분할 수 있을 때 (iOS Apple Pencil, Android 개발 빌드·웹의 pointerType)
  *  - 펜이 한 번 보이면 그 뒤로는 펜만 그린다. 손가락·손바닥은 그리지 않고, 두 손가락은 확대·축소·이동만 한다.
  *  - 손바닥이 먼저 닿아 있어도 펜 획은 그대로 그려지고, 펜으로 그리는 중에는 화면이 확대·축소되지 않는다.
@@ -57,9 +57,9 @@ export function usePalmRejectingPan(handlers) {
   const consider = (s, t) => {
     if (s.track?.id === t.identifier || s.ignored.has(t.identifier)) return
     const kind = touchKind(t)
-    // 그리기 입력 설정(shared/drawingInput): 펜만이면 처음부터, 자동이면 펜을 본 뒤로 펜만 그린다. 펜 · 손가락이면 아래 판정으로 둘 다 그린다
+    // 그리기 입력 설정(shared/drawingInput): 펜만이면 펜만 그린다. 펜 · 손가락이면 아래 판정으로 넘어간다
     const input = getDrawingInput()
-    if (input === 'pen' || (input === 'auto' && stylus.seen)) {
+    if (input === 'pen') {
       if (kind === 'pen') {
         // 손가락으로 그리던 획(펜을 보기 전에 시작한)은 버리고 펜으로 옮긴다.
         if (s.track && !s.track.pen) finish(s, true)
@@ -69,7 +69,7 @@ export function usePalmRejectingPan(handlers) {
       // 펜 모드에서는 손가락·손바닥으로 그리지 않는다.
       // 아직 종류를 모르면(포인터 이벤트가 터치보다 늦게 올 수 있다) 첫 움직임 때 다시 본다.
       // 펜만이면 첫 터치라 포인터 이벤트를 아직 못 봤어도 기다린다(종류를 모르는 터치로 그리지 않는다)
-      if (kind === 'unknown' && (stylus.pointerEvents || input === 'pen')) s.pending.set(t.identifier, t)
+      if (kind === 'unknown') s.pending.set(t.identifier, t)
       else s.ignored.add(t.identifier)
       return
     }
