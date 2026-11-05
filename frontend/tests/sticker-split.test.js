@@ -494,3 +494,19 @@ test('생성 폴더를 저장하는 동안 들어온 최근 기록이 사라지�
   assert.equal(storage.value.recentStickers[0].builtin, 'moa-basic')
   assert.ok(storage.value.folders.some(f => f.id === id))
 })
+
+test('최근 사진: 고른 순서로 앞에 두고 같은 사진은 옮기며 12장까지 남기고, 보관함을 바로 닫아도 저장한다', async () => {
+  const storage = { value: { folders: [] } }
+  const photo = n => ({ src: `media:p${n}`, mediaFileId: `p${n}`, name: `${n}.jpg`, width: 10, height: 20, extra: 'x' })
+  const harness = await decorHarness(storage)
+  harness.api.markRecentPhotos(Array.from({ length: 13 }, (_, n) => photo(n)))
+  harness.api.markRecentPhotos([photo(5)])
+  harness.unmount()
+  await settleDecor()
+  const saved = storage.value.recentPhotos
+  assert.equal(saved.length, 12)
+  assert.equal(saved[0].mediaFileId, 'p5')
+  assert.equal(saved.filter(item => item.mediaFileId === 'p5').length, 1)
+  assert.equal(saved[0].extra, undefined)
+  assert.equal(saved[0].width, 10)
+})
