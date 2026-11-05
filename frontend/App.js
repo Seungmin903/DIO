@@ -39,7 +39,7 @@ import SideRail, { RAIL_WIDTH } from './src/diary/components/SideRail';
 import BottomTabs from './src/diary/components/BottomTabs';
 import { backTarget, createRouteMemory } from './src/diary/utils/routeMemory';
 import { PhoneBellProvider } from './src/diary/components/PhoneBell';
-import { createProfileSettingsNavigation } from './src/diary/components/profileNavigationModel';
+import { normalizePageForFormFactor } from './src/diary/components/profileNavigationModel';
 import SharingEntry from './src/sharing/SharingEntry';
 import LibraryScreen from './src/diary/screens/LibraryScreen';
 import ConnectedDiaryLibrary from './src/diary/screens/ConnectedDiaryLibrary';
@@ -384,7 +384,9 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
   // 로그인 · 로그아웃으로 세션이 바뀌면 본문(SessionDiaryApp)이 새로 그려진다. 기능 가드에서 로그인한 뒤 보관함으로 튕기지 않도록
   // 마지막 화면 · 범위를 모듈 변수에 두고 다음 본문이 그 자리에서 시작한다(편집기는 열린 다이어리가 없어 제외)
   const routeOwner = member ? (previewUser?.userId || previewUser?.accountId || 'member') : null;
-  const [page, setPage] = useState(() => routeMemory.read(routeOwner).page);
+  const [rawPage, setPage] = useState(() => routeMemory.read(routeOwner).page);
+  // 폰에는 별도 설정 화면이 없다(마이페이지 안에 설정이 펼쳐진다). 저장된 마지막 화면 · 분할 화면 전환으로 settings 가 남아도 마이페이지로 읽는다
+  const page = normalizePageForFormFactor(rawPage, isPhone);
   const [railCollapsed, setRailCollapsed] = useState(true);  // 메뉴가 다 열리거나 닫혔을 때의 폭. 캐러셀은 '줄 폭 + 이 값'(메뉴와 상관없이 같은 값)으로 목록 폭을 정해,
   // 메뉴에 밀려 함께 움직이는 동안과 멈춘 뒤에도 목록 폭이 바뀌지 않게 한다. 다시 그리지 않도록 ref로 넘긴다.
   const railWidthRef = useRef(RAIL_WIDTH.collapsed);
@@ -573,7 +575,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
         setRailCollapsed(true);
         return true;
       }
-      const target = backTarget({ isPhone, page, filter }, HOME_ROUTE);
+      const target = backTarget({ page, filter }, HOME_ROUTE);
       if (!target) return false;
       navigate(target.page, target.filter);
       return true;
@@ -994,7 +996,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
       accountService={previewUser?.mode === 'authenticated' ? authService : undefined}
       getProfilePhotoSource={previewUser?.mode === 'authenticated' ? authService.getProfilePhotoSource : undefined} />;
   } else if (page === 'settings') {
-    content = <ProfileScreen onOpenBlockedUsers={safety.openBlocks} key="settings" section="settings" compact={isPhone} onBack={isPhone ? () => navigate('profile') : undefined} previewUser={previewUser} onEndPreview={onEndPreview} onClearSession={onClearSession} onUpdatePreview={onUpdatePreview}
+    content = <ProfileScreen onOpenBlockedUsers={safety.openBlocks} key="settings" section="settings" compact={isPhone} previewUser={previewUser} onEndPreview={onEndPreview} onClearSession={onClearSession} onUpdatePreview={onUpdatePreview}
       accountService={previewUser?.mode === 'authenticated' ? authService : undefined}
       getProfilePhotoSource={previewUser?.mode === 'authenticated' ? authService.getProfilePhotoSource : undefined} />;
   }
