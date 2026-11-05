@@ -119,8 +119,18 @@ class PushPostgresTests {
         User u=users.saveAndFlush(new User(nonce+"@example.test",nonce,now));String refresh=com.f106.DIO.auth.support.LoginSecrets.refresh();
         RefreshToken session=sessions.saveAndFlush(new RefreshToken(u.getUserId(),com.f106.DIO.auth.support.LoginSecrets.hash(refresh),"test",now,now.plusSeconds(3600)));
         Jwt jwt=tokens.decode(tokens.issue(u.getUserId(),session.getSessionId(),now,now.plusSeconds(300)));UUID first=UUID.randomUUID();
-        push.register(jwt,first,UUID.randomUUID(),input("ExpoPushToken["+first+"]"));login.refresh(refresh);
-        assertThatThrownBy(()->login.refresh(refresh)).isInstanceOf(RuntimeException.class);
+        push.register(jwt,first,UUID.randomUUID(),input("ExpoPushToken["+first+"]"));
+        var renewed=login.refresh(refresh);
+        // A lost response can be recovered within the fixed grace window without disabling push.
+        assertThat(login.refresh(refresh).refreshToken()).isEqualTo(renewed.refreshToken());
+        assertThat(jdbc.queryForObject("select revoked_at is null from refresh_tokens where session_id=?",Boolean.class,session.getSessionId())).isTrue();
+        assertThat(jdbc.queryForObject("select disabled_at is null from push_installations where installation_id=?",Boolean.class,first)).isTrue();
+        // Advance the persisted rotation timestamp instead of sleeping for 30 seconds.
+        jdbc.update("update refresh_token_history set rotated_at=? where token_id=?",
+            Timestamp.from(Instant.now().minus(com.f106.DIO.auth.config.LoginSessionPolicy.ROTATION_GRACE).minusSeconds(1)),session.getTokenId());
+        assertThatThrownBy(()->login.refresh(refresh)).isInstanceOf(com.f106.DIO.auth.exception.LoginException.class)
+            .satisfies(error->assertThat(((com.f106.DIO.auth.exception.LoginException)error).code).isEqualTo("INVALID_TOKEN"));
+        assertThat(jdbc.queryForObject("select revoked_at is not null from refresh_tokens where session_id=?",Boolean.class,session.getSessionId())).isTrue();
         assertThat(jdbc.queryForObject("select disabled_at is not null from push_installations where installation_id=?",Boolean.class,first)).isTrue();
         var next=person();UUID second=UUID.randomUUID();push.register(next.jwt(),second,UUID.randomUUID(),input("ExpoPushToken["+second+"]"));
         jdbc.update("update refresh_tokens set expires_at=? where session_id=?",java.sql.Timestamp.from(Instant.now().minusSeconds(60)),next.sid());
