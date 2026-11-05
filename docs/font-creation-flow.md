@@ -92,10 +92,12 @@ MR !320 충돌 재해결(2026-11-03): develop `add007fb`를 기능 브랜치에 
 ### 재현 가능한 준비 순서
 
 1. `frontend`에서 `./scripts/prepare-handwriting-models.ps1 -SourceDirectory <검증된 inference-v2 모델 번들 폴더>`를 실행한다. 스크립트가 인코더·디코더 해시와 번들 검증 결과 및 고지를 확인한다. 모델은 Git에 추가하지 않는다.
-2. 모델 준비 후 Android APK를 다시 빌드한다. 기존 APK의 Reload만으로는 모델 자산이나 네이티브 모듈이 추가되지 않는다.
+2. 모델 준비 후 Android 개발 APK를 다시 빌드한다. Debug 빌드는 두 모델이 없거나 해시가 다르면 중단한다. ONNX Runtime은 Android 네이티브 모듈의 Gradle 의존성으로 함께 패키징한다.
 3. 생성한 APK에 `assets/dio_handwriting/encoder.fp32.onnx` 및 `decoder.fp32.onnx`가 포함되고 준비 스크립트에 고정된 SHA-256과 일치하는지 확인한다.
 4. 개발 클라이언트는 `pnpm exec expo start --dev-client --lan`으로 Metro에 연결한다. 단독 실행 APK는 JavaScript 번들을 포함하므로 Metro가 필요 없다.
 5. 폰트 작성 화면을 열어 지원 상태를 확인하고, 36자 작성 후 샘플 확인을 실행한다. 완성 샘플 표시와 앱 생존 여부를 확인한다. 기존 앱 데이터는 삭제하지 않는다.
+
+EAS로 Android 개발 빌드를 만들 때는 검증된 모델을 준비한 `frontend`를 업로드 루트로 사용한다. `frontend/.easignore`는 손글씨 네이티브 모듈과 두 ONNX 파일을 포함한다. EAS development 환경의 `GOOGLE_SERVICES_JSON`에는 `com.f106.DIO.handwritingdev`용 Firebase 설정이 필요하다. PowerShell에서 `frontend`로 이동한 뒤 `$env:EAS_NO_VCS='1'`과 `$env:EAS_PROJECT_ROOT=(Get-Location).Path`를 설정하고 `eas build --platform android --profile development`를 실행한다.
 
 ### 검증 수준과 한계
 
