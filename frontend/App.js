@@ -1037,6 +1037,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
       key={editingDiaryId ?? 'new'}
       blankOnly={member && !editingDiaryId}
       sheet={isPhone}
+      topInset={isPhone ? insets.top : 0}
       bottomInset={insets.bottom}
       diary={editingDiaryId ? diaries.find(item => item.id === editingDiaryId) : null}
       saving={saving}

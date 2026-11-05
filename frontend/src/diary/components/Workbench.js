@@ -12,7 +12,7 @@ export const PanelScroll = createContext(null)
  * sheet(폰)에서는 구역 카드를 위쪽 가로 줄로, 미리보기를 그 아래 낮은 판으로, 옵션을 남은 높이에 둔다.
  */
 export default function Workbench({ title, actionLabel, onCancel, onSubmit, submitDisabled = false, cancelDisabled = false,
-  sections, section, onSection, sheet = false, roomy = false, bottomInset = 0, onStageLayout, stage, panel, foot, panelLocked = false }) {
+  sections, section, onSection, sheet = false, roomy = false, topInset = 0, bottomInset = 0, onStageLayout, stage, panel, foot, panelLocked = false }) {
   const scrollRef = useRef(null), contentRef = useRef(null)
   const view = useRef({ y: 0, height: 0 })
   const scroll = useMemo(() => ({
@@ -37,7 +37,7 @@ export default function Workbench({ title, actionLabel, onCancel, onSubmit, subm
     </Pressable>
   })
   return <>
-    <View style={styles.topbar}>
+    <View style={[styles.topbar, topInset > 0 && { height: TOPBAR_HEIGHT + topInset, paddingTop: topInset }]}>
       <Pressable accessibilityRole="button" accessibilityLabel="취소" disabled={cancelDisabled} onPress={onCancel} style={({ pressed }) => [styles.cancel, pressed && styles.pressed]}>
         <Text style={styles.cancelText}>취소</Text>
       </Pressable>
@@ -79,10 +79,11 @@ export function fit(ratio, maxWidth, maxHeight) {
 }
 
 const SHEET_ICON_MIN_WIDTH = 390
+const TOPBAR_HEIGHT = 60
 
 const styles = StyleSheet.create({
   pressed: {}, // 눌림 효과 없음(사용자 지시)
-  topbar: { height: 60, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, gap: 8, backgroundColor: colors.surface, borderBottomWidth: 1, borderBottomColor: colors.border },
+  topbar: { height: TOPBAR_HEIGHT, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, gap: 8, backgroundColor: colors.surface, borderBottomWidth: 1, borderBottomColor: colors.border },
   cancel: { minWidth: 60, height: 48, alignItems: 'center', justifyContent: 'center', borderRadius: 12 },
   cancelText: { color: colors.textMuted, fontSize: 14, fontWeight: '700' },
   topTitle: { flex: 1, textAlign: 'center', color: colors.text, fontSize: 16, fontWeight: '800' },
