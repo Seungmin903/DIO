@@ -11,7 +11,7 @@ const ART = {
   dio: { source: require('../../../assets/characters/dio.png'), width: 100, compactWidth: 86, ratio: 393 / 360, scale: CHARACTER_SCALE.dio }, // 디오: 휴지통이 비었을 때(조용한 화면)
 };
 
-export default function EmptyState({ title, onCreate, search = false, compact = false, art = 'moa', raised = false }) {
+export default function EmptyState({ title, onCreate, action = null, search = false, compact = false, art = 'moa', raised = false }) {
   const picture = search ? null : ART[art] || ART.moa;
   const width = picture ? Math.round((compact ? picture.compactWidth : picture.width) * picture.scale) : 0;
   return (
@@ -25,6 +25,12 @@ export default function EmptyState({ title, onCreate, search = false, compact = 
         </View>
       )}
       <Text accessibilityRole="header" style={s.emptyTitle}>{title}</Text>
+      {action && (
+        <Pressable accessibilityRole="button" onPress={action.onPress} style={({ pressed }) => [s.secondary, pressed && s.pressed]}>
+          <Text style={s.secondaryText}>{action.label}</Text>
+          <AppIcon name="chevron-right" size={20} forText={13} color={C.ink} />
+        </Pressable>
+      )}
       {onCreate && (
         <Pressable accessibilityRole="button" onPress={onCreate} style={({ pressed }) => [s.secondary, pressed && s.pressed]}>
           <Text style={s.secondaryText}>새 다이어리 만들기</Text>

@@ -190,7 +190,9 @@ test('옮기기 입구는 마이페이지에만 있고 누르면 옮기기를 �
     assert.equal(nodes(setup(member,undefined,undefined,{compact}).render()).find(node=>node.props?.accessibilityLabel===label),undefined);
     assert.equal(nodes(setup(member,undefined,undefined,{compact,section:'settings',guestImport:{count:2,open(){}}}).render()).find(node=>node.props?.accessibilityLabel===label),undefined);
   }
-  assert.ok(!readFileSync(new URL('../src/diary/screens/LibraryScreen.js',import.meta.url),'utf8').includes('guestImport'));
+  const library=readFileSync(new URL('../src/diary/screens/LibraryScreen.js',import.meta.url),'utf8');
+  assert.match(library,/<EmptyState compact=\{compact\} raised title=\{emptyTitle\} action=\{emptyAction\} \/>/);
+  assert.match(library,/emptyGuestImportAction\(guestImport, scope\?\.id, favoriteOnly\)/);
 });
 
 test('폰 게스트 로그인 버튼은 넉넉하면 이름 옆, 좁거나 글자가 크면 이름 아래 전폭이고 하나만 그린다',()=>{

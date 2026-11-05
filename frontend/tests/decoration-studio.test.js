@@ -27,6 +27,8 @@ function fixture({ supported = false, failFonts = false, family = null, failRemo
   }
   const custom = { loaded: true, items: { folders: [{ id: 'f1', name: '공용 폴더', items: [{ emoji: '🌼' }] }] },
     saveGenerated: async (...args) => { saves.push(args); return 'new-folder' },
+    addFolder: name => { custom.items.folders.push({ id: 'f-new', name, items: [] }); return 'f-new' },
+    renameFolder: (id, name) => { custom.items.folders.find(f => f.id === id).name = name },
     removeFolder: id => removals.push(['folder', id]), removeFromFolder: (...args) => removals.push(['sticker', ...args]), retrySave() {},
   }
   const library = { ready: libraryReady, covers: [{ id: 'c1', name: '봄 표지', cover: {} }], papers: [{ id: 'p1', name: '월간 속지', orientation: 'portrait', pages: [{}, {}] }],
@@ -146,6 +148,19 @@ test('작성 중인 폰트만 지울 수 있고 확인을 거친 뒤에 지운�
   assert.deepEqual(ui.draftRemovals,['e1']);
   ui.unmount();
 });
+test('스티커 새 폴더: 시트 분리 없이 만들고 바로 들어가 이름을 고친다', async () => {
+  const ui=fixture({supported:true}); ui.render(); await tick(); ui.tab('stickers')
+  stickerAction(ui,'새 폴더').onPress()
+  const opened=ui.render()
+  assert.equal(find(opened,'스티커 폴더 이름').props.value,'새 폴더')
+  assert.ok(find(opened,'이 폴더에 스티커 추가'))
+  find(opened,'스티커 폴더 이름').props.onChangeText('여름')
+  find(ui.render(),'스티커 폴더 이름 저장').props.onPress()
+  assert.equal(nodes(ui.render()).some(n=>n.props?.accessibilityLabel==='스티커 폴더 이름'),false)
+  find(ui.render(),'스티커 폴더 목록').props.onPress()
+  assert.ok(find(ui.render(),'여름 스티커 폴더'))
+  ui.unmount()
+})
 test('폴더 안의 뒤로가기는 목록을 먼저 복원하고 이후 상위 화면에 넘긴다', async () => {
   const ui=fixture(); ui.render(); await tick(); ui.tab('stickers');
   assert.equal(ui.back(),false);
