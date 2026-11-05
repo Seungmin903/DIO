@@ -18,12 +18,11 @@ import static org.assertj.core.api.Assertions.*;
 import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
-@TestPropertySource(properties={"spring.datasource.url=jdbc:h2:mem:moderation-tests;MODE=PostgreSQL;DB_CLOSE_DELAY=-1","dio.media.local-directory=build/test-report-media","dio.signup.mail-from=notifications@dio.test","dio.moderation.report-mail.to=ops@dio.test","dio.moderation.report-mail.attach-evidence=true"})
+@TestPropertySource(properties={"spring.datasource.url=jdbc:h2:mem:moderation-tests;MODE=PostgreSQL;DB_CLOSE_DELAY=-1","dio.media.local-directory=build/test-report-media","dio.signup.mail-from=notifications@dio.test","dio.moderation.report-mail.to=ops@dio.test"})
 class ModerationTests extends SharingTestSupport {
  @Autowired BlockService blocks;@Autowired ReportService reports;@Autowired UserReportRepository reportRows;
  @Autowired UserBlockRepository blockRows;@Autowired EmailInviteService emails;@Autowired ReportMailDelivery delivery;
  @org.springframework.test.context.bean.override.mockito.MockitoSpyBean MediaStorage evidenceStorage;
- @org.springframework.test.context.bean.override.mockito.MockitoSpyBean com.f106.DIO.moderation.infrastructure.mail.ReportMailEvidence mailEvidence;
  record Pair(Actor a,Actor b,UUID diary){}
  Pair pair(){var a=actor();var b=actor();var diary=diary(a);links.accept(links.create(diary,a.id()).token(),b.id());return new Pair(a,b,diary);}
  ReportRequest request(Pair p){return new ReportRequest(p.b.id(),p.diary,ReportReason.HARASSMENT,"설명",UUID.randomUUID());}
@@ -164,28 +163,27 @@ class ModerationTests extends SharingTestSupport {
   try{var a=pool.submit(task);var b=pool.submit(task);start.countDown();assertThat(List.of(a.get(15,java.util.concurrent.TimeUnit.SECONDS),b.get(15,java.util.concurrent.TimeUnit.SECONDS))).containsExactlyInAnyOrder("CREATED","REPORT_RATE_LIMITED");}
   finally{pool.shutdownNow();}
  }
- @Test void temporaryEvidenceFailureRemainsRetryableUntilAttachmentIsAvailable()throws Exception{
+
+
+ @Test void noticeContainsNoReportDataAndPreservesDatabaseAndPrivateEvidence()throws Exception{
   var p=pair();var image=new java.io.ByteArrayOutputStream();javax.imageio.ImageIO.write(new java.awt.image.BufferedImage(2,2,java.awt.image.BufferedImage.TYPE_INT_RGB),"png",image);
-  var accepted=reports.submit(p.a.id(),request(p),List.of(new MockMultipartFile("evidenceFiles","proof.png","image/png",image.toByteArray())));long id=accepted.response().reportId();
-  when(smtp.createMimeMessage()).thenAnswer(call->new jakarta.mail.internet.MimeMessage(jakarta.mail.Session.getInstance(new Properties())));
-  doThrow(new IllegalStateException("temporary storage outage")).doCallRealMethod().when(mailEvidence).read(any());
-  delivery.deliver(id);assertThat(reportRows.findById(id).orElseThrow().getNotificationStatus()).isEqualTo("FAILED");
-  verify(smtp,never()).send(any(org.springframework.mail.SimpleMailMessage.class));
-  jdbc.update("update user_reports set notification_next_attempt_at=? where report_id=?",Instant.now().minusSeconds(1),id);
-  delivery.deliver(id);assertThat(reportRows.findById(id).orElseThrow().getNotificationStatus()).isEqualTo("SENT");
-  verify(smtp).send(any(jakarta.mail.internet.MimeMessage.class));
-  verify(smtp,never()).send(any(org.springframework.mail.SimpleMailMessage.class));
+  var request=request(p);var accepted=reports.submit(p.a.id(),request,List.of(new MockMultipartFile("evidenceFiles","proof.png","image/png",image.toByteArray())));long id=accepted.response().reportId();
+  var before=reportRows.findById(id).orElseThrow();String metadata=before.getEvidenceJson();
+  String key=new tools.jackson.databind.ObjectMapper().readTree(metadata).get(0).path("storageKey").asText();byte[] stored=evidenceStorage.read(key);
+  clearInvocations(evidenceStorage);
+  doThrow(com.f106.DIO.media.storage.MediaStorageException.unavailable()).when(evidenceStorage).read(anyString());
+  delivery.deliver(id);delivery.deliver(id);
+  var message=org.mockito.ArgumentCaptor.forClass(org.springframework.mail.SimpleMailMessage.class);verify(smtp,times(1)).send(message.capture());
+  assertThat(message.getValue().getSubject()).isEqualTo("[DIO] 새 신고가 접수됐습니다");
+  assertThat(message.getValue().getText()).isEqualTo("새 신고가 접수됐습니다.");
+  verify(smtp,never()).createMimeMessage();verify(smtp,never()).send(any(jakarta.mail.internet.MimeMessage.class));
+  verify(evidenceStorage,never()).read(anyString());verify(evidenceStorage,never()).put(anyString(),any(),anyString());verify(evidenceStorage,never()).delete(anyString());
+  var after=reportRows.findById(id).orElseThrow();assertThat(after.getNotificationStatus()).isEqualTo("SENT");assertThat(after.getStatus()).isEqualTo("RECEIVED");
+  assertThat(after.getReporterUserId()).isEqualTo(p.a.id());assertThat(after.getReportedUserId()).isEqualTo(p.b.id());
+  assertThat(after.getReasonCode()).isEqualTo(request.reasonCode());assertThat(after.getDescription()).isEqualTo(request.description());
+  assertThat(after.getEvidenceJson()).isEqualTo(metadata);assertThat(after.getDiaryId()).isEqualTo(p.diary);
+  doCallRealMethod().when(evidenceStorage).read(anyString());assertThat(evidenceStorage.read(key)).isEqualTo(stored);
  }
 
- @Test void confirmedMissingEvidenceCompletesBaseNotificationWithoutEndlessRetry()throws Exception{
-  var p=pair();var image=new java.io.ByteArrayOutputStream();javax.imageio.ImageIO.write(new java.awt.image.BufferedImage(2,2,java.awt.image.BufferedImage.TYPE_INT_RGB),"png",image);
-  var accepted=reports.submit(p.a.id(),request(p),List.of(new MockMultipartFile("evidenceFiles","proof.png","image/png",image.toByteArray())));long id=accepted.response().reportId();
-  doThrow(com.f106.DIO.media.storage.MediaStorageException.missing()).when(evidenceStorage).read(anyString());
-  delivery.deliver(id);delivery.deliver(id);
-  assertThat(reportRows.findById(id).orElseThrow().getNotificationStatus()).isEqualTo("SENT");
-  var message=org.mockito.ArgumentCaptor.forClass(org.springframework.mail.SimpleMailMessage.class);verify(smtp,times(1)).send(message.capture());
-  assertThat(message.getValue().getText()).contains("증빙 첨부를 준비하지 못했습니다").doesNotContain("storageKey","proof.png");
-  verify(smtp,never()).send(any(jakarta.mail.internet.MimeMessage.class));
- }
 
 }

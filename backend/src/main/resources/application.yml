@@ -101,7 +101,6 @@ dio:
   moderation:
     report-mail:
       enabled: ${REPORT_NOTIFICATION_ENABLED:false}
-      attach-evidence: ${REPORT_NOTIFICATION_ATTACH_EVIDENCE:false}
       to: ${REPORT_NOTIFICATION_TO:}
       delay-ms: ${REPORT_NOTIFICATION_DELAY_MS:60000}
       initial-delay-ms: ${REPORT_NOTIFICATION_INITIAL_DELAY_MS:10000}

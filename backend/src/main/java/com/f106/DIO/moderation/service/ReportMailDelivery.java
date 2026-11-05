@@ -14,7 +14,7 @@ public class ReportMailDelivery {
    row.notificationReserved(Instant.now().plus(LEASE));return row;
   });
   if(report==null)return;
-  try{sender.send(report);transactions.executeWithoutResult(status->reports.lock(id).ifPresent(row->row.notificationSent()));}
+  try{sender.send();transactions.executeWithoutResult(status->reports.lock(id).ifPresent(row->row.notificationSent()));}
   catch(RuntimeException e){transactions.executeWithoutResult(status->reports.lock(id).ifPresent(row->row.notificationFailed()));LOG.warn("Report notification failed: reportId={}, type={}",id,e.getClass().getSimpleName());}
  }
 }
