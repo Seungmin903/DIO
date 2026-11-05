@@ -300,6 +300,12 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
   // { photo, fixedAspect, title, resolve } — 취소하면 그 사진은 넣지 않는다(resolve(null))
   const [cropAsk, setCropAsk] = useState(null)
   const askCrop = (photo, title) => new Promise((resolve) => setCropAsk({ photo, fixedAspect: fixedAspectOf(photo), title, resolve }))
+  // 다음 사진을 물으면 그 내용으로 바로 바뀌고, 더 물을 것이 없을 때만 창을 닫는다(사진마다 창이 닫혔다 열리며 튀지 않게)
+  const settleCropAsk = (result) => {
+    const ask = cropAsk
+    ask.resolve(result)
+    setTimeout(() => setCropAsk((current) => (current === ask ? null : current)), 0)
+  }
   const [photoCropId, setPhotoCropId] = useState(null) // 자르기 창을 연 사진
   useEffect(() => registerInvitationLeaveGuard?.(() => {
     const allowed = canLeaveForInvitation({ loaded, saveStatus, editing: Boolean(textEditing || cropId || tapeCropId || photoCropId) });
@@ -1538,12 +1544,12 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
           )}
           {cropAsk && (
             <PhotoCropper
-              key={`ask-${cropAsk.photo.id}-${cropAsk.title ?? ''}`}
+              bodyKey={`ask-${cropAsk.photo.id}-${cropAsk.title ?? ''}`}
               photo={cropAsk.photo}
               fixedAspect={cropAsk.fixedAspect}
               title={cropAsk.title}
-              onCancel={() => { cropAsk.resolve(null); setCropAsk(null) }}
-              onApply={({ aspect, rect, ...patch }) => { cropAsk.resolve(patch); setCropAsk(null) }}
+              onCancel={() => settleCropAsk(null)}
+              onApply={({ aspect, rect, ...patch }) => settleCropAsk(patch)}
             />
           )}
           {tapeCrop && (

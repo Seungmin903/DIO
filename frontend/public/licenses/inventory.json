@@ -4,19 +4,51 @@
   "weightsRightsExcluded": true,
   "sourceMaps": [
     {
-      "file": "AppEntry-4e7f33e97a700454d8bd93819fa5bd1e.js.map",
-      "sha256": "9c19b067171d61c891cbb54b3c1601e965d9c49b247c524aeaeba864dd8e9e06",
-      "sources": 1496
+      "file": "__common-95f81c68ece97fca22b3ba6256a3fab9.js.map",
+      "sha256": "8c04bfe334f27f4c7e1f614afa65cd742c5159ba4ec738a811f213985e3878ae",
+      "sources": 316
     },
     {
-      "file": "gifFirstFrame-17749f2f01cea73ef859b1e441309f0f.js.map",
-      "sha256": "8de1290a0ce6dd47deac2ce078afe6a79c1a79a5153a4c2309b5260b4602c85d",
+      "file": "__expo-metro-runtime-97703ae02682710149335928b974f18d.js.map",
+      "sha256": "26947bae26997c79ee8e1c5db2f1d3ae4dd69b41e6117deb5a626f1f8167e6c4",
+      "sources": 6
+    },
+    {
+      "file": "gifFirstFrame-cd9e513e510f70a272b382edc32fb7ff.js.map",
+      "sha256": "13f7fc0a1d4fbeb59ec6c748d0ecec4d5337914dcc1143dbd354d479496364f9",
       "sources": 1
+    },
+    {
+      "file": "index-d9fe746cc6b0c8656a219329525dbe80.js.map",
+      "sha256": "695541c2336c9ce26f397b12b9d7442262d6d9e5b8f9f86409db7e42a25d8fe2",
+      "sources": 1376
+    },
+    {
+      "file": "index-fb49067da085fc49a94227c209e076c1.js.map",
+      "sha256": "0d66cce2c8c78dacd61310beddd1f63ab6d7740dcbf182a9fd625c3d06b0bf68",
+      "sources": 4
+    },
+    {
+      "file": "strokeSkia-970abb76ebb3288feb20c4f5eb72cc70.js.map",
+      "sha256": "d51fed114c4a29b1c96d458af6537b502c88d59dde733327dc6e23dd70115721",
+      "sources": 2
     }
   ],
   "nativeBinaries": [],
   "pomEvidence": [],
   "components": [
+    {
+      "id": "embedded:CanvasKit (Skia WebAssembly) bundled notices@0.41.0; reference notices Skia m154",
+      "name": "CanvasKit (Skia WebAssembly) bundled notices",
+      "version": "0.41.0; reference notices Skia m154",
+      "license": "BSD-3-Clause / FTL / MIT / Unicode-3.0 / IJG / libpng-2.0 / Zlib / Apache-2.0 / DNG SDK",
+      "creator": "See original copyright notices below",
+      "sourceUrl": "https://skia.googlesource.com/skia/+/main/modules/canvaskit",
+      "licenseUrl": "https://skia.googlesource.com/skia/+/main/modules/canvaskit",
+      "usage": "웹 연필 그리기 · public/vendor/canvaskit 에서 처음 쓸 때 불러오는 wasm",
+      "changes": "Original notices retained. Third-party notices are the Skia m154 DEPS superset; the CanvasKit build may include fewer components.",
+      "notice": "Portions of this software are copyright © The FreeType Project (www.freetype.org). All rights reserved. This product includes DNG technology under license by Adobe Systems Incorporated. This software is based in part on the work of the Independent JPEG Group."
+    },
     {
       "id": "embedded:Emscripten runtime@upstream generated runtime; reference notices 3.1.72",
       "name": "Emscripten runtime",
@@ -54,6 +86,54 @@
       "notice": ""
     },
     {
+      "id": "embedded:Lucide icons@1.66.0",
+      "name": "Lucide icons",
+      "version": "1.66.0",
+      "license": "ISC / MIT (Feather-derived icons)",
+      "creator": "See original copyright notices below",
+      "sourceUrl": "https://github.com/lucide-icons/lucide",
+      "licenseUrl": "https://github.com/lucide-icons/lucide",
+      "usage": "Embedded runtime component",
+      "changes": "Original notices retained; no license terms translated.",
+      "notice": ""
+    },
+    {
+      "id": "embedded:MaruBuri@bundled font files",
+      "name": "MaruBuri",
+      "version": "bundled font files",
+      "license": "OFL-1.1",
+      "creator": "See original copyright notices below",
+      "sourceUrl": "https://hangeul.naver.com/font",
+      "licenseUrl": "https://hangeul.naver.com/font",
+      "usage": "Embedded runtime component",
+      "changes": "Original notices retained; no license terms translated.",
+      "notice": ""
+    },
+    {
+      "id": "embedded:Phosphor Icons@2.1.1 (@phosphor-icons/core, Eyedropper regular)",
+      "name": "Phosphor Icons",
+      "version": "2.1.1 (@phosphor-icons/core, Eyedropper regular)",
+      "license": "MIT",
+      "creator": "See original copyright notices below",
+      "sourceUrl": "https://github.com/phosphor-icons/core",
+      "licenseUrl": "https://github.com/phosphor-icons/core",
+      "usage": "Embedded runtime component",
+      "changes": "Original notices retained; no license terms translated.",
+      "notice": ""
+    },
+    {
+      "id": "embedded:Pretendard@bundled font files",
+      "name": "Pretendard",
+      "version": "bundled font files",
+      "license": "OFL-1.1",
+      "creator": "See original copyright notices below",
+      "sourceUrl": "https://github.com/orioncactus/pretendard",
+      "licenseUrl": "https://github.com/orioncactus/pretendard",
+      "usage": "Embedded runtime component",
+      "changes": "Original notices retained; no license terms translated.",
+      "notice": ""
+    },
+    {
       "id": "embedded:libde265@1.0.16",
       "name": "libde265",
       "version": "1.0.16",
@@ -67,8 +147,8 @@
       "sourceArchives": [
         {
           "fileName": "heic-decoder-sources.zip",
-          "bytes": 9441955,
-          "sha256": "68572d9099d159b43207a9cd1cb357b57d1819e8846e87b932da14699844a4d7",
+          "bytes": 9446032,
+          "sha256": "aec29af83ea17ee64579a123dc1235f91d8f53bce6b4ed10181c22f103b8a3c5",
           "url": "licenses/sources/heic-decoder-sources.zip",
           "asset": "asset:///dio_licenses/sources/heic-decoder-sources.zip"
         }
@@ -88,8 +168,8 @@
       "sourceArchives": [
         {
           "fileName": "heic-decoder-sources.zip",
-          "bytes": 9441955,
-          "sha256": "68572d9099d159b43207a9cd1cb357b57d1819e8846e87b932da14699844a4d7",
+          "bytes": 9446032,
+          "sha256": "aec29af83ea17ee64579a123dc1235f91d8f53bce6b4ed10181c22f103b8a3c5",
           "url": "licenses/sources/heic-decoder-sources.zip",
           "asset": "asset:///dio_licenses/sources/heic-decoder-sources.zip"
         }
@@ -231,6 +311,36 @@
       }
     },
     {
+      "id": "npm:@shopify/react-native-skia@2.14.0",
+      "name": "@shopify/react-native-skia",
+      "version": "2.14.0",
+      "license": "MIT",
+      "creator": "See original copyright notices below",
+      "sourceUrl": "https://github.com/Shopify/react-native-skia",
+      "licenseUrl": "https://github.com/Shopify/react-native-skia",
+      "usage": "JavaScript / native module",
+      "changes": "Original notices retained; no license terms translated.",
+      "notice": "",
+      "evidence": {
+        "packageJsonSha256": "f3da4adc84cd39ced585e55201fc758337e3f40aa07f6efe344d8f67e8b003a1"
+      }
+    },
+    {
+      "id": "npm:canvaskit-wasm@0.41.0",
+      "name": "canvaskit-wasm",
+      "version": "0.41.0",
+      "license": "BSD-3-Clause",
+      "creator": "See original copyright notices below",
+      "sourceUrl": "https://github.com/google/skia/tree/main/modules/canvaskit",
+      "licenseUrl": "https://github.com/google/skia/tree/main/modules/canvaskit",
+      "usage": "JavaScript / native module",
+      "changes": "Original notices retained; no license terms translated.",
+      "notice": "",
+      "evidence": {
+        "packageJsonSha256": "235205c5194d3793b86d486e9f53889d5ca3a98aed697e396278a9f91cb6eeeb"
+      }
+    },
+    {
       "id": "npm:css-in-js-utils@3.1.0",
       "name": "css-in-js-utils",
       "version": "3.1.0",
@@ -291,6 +401,21 @@
       }
     },
     {
+      "id": "npm:expo-file-system@58.0.11",
+      "name": "expo-file-system",
+      "version": "58.0.11",
+      "license": "MIT",
+      "creator": "See original copyright notices below",
+      "sourceUrl": "https://github.com/expo/expo",
+      "licenseUrl": "https://github.com/expo/expo",
+      "usage": "JavaScript / native module",
+      "changes": "Original notices retained; no license terms translated.",
+      "notice": "",
+      "evidence": {
+        "packageJsonSha256": "3b44f4722b3a6de383388eabd6520adc09de677ad03b9cc003442331c01b6c4a"
+      }
+    },
+    {
       "id": "npm:expo-font@58.0.10",
       "name": "expo-font",
       "version": "58.0.10",
@@ -303,6 +428,21 @@
       "notice": "",
       "evidence": {
         "packageJsonSha256": "c5e1bb077f5a2193b58e5942ce0713398d08afa1cd0cf2372e196bce47d5e9c4"
+      }
+    },
+    {
+      "id": "npm:expo-image-manipulator@58.0.15",
+      "name": "expo-image-manipulator",
+      "version": "58.0.15",
+      "license": "MIT",
+      "creator": "See original copyright notices below",
+      "sourceUrl": "https://github.com/expo/expo",
+      "licenseUrl": "https://github.com/expo/expo",
+      "usage": "JavaScript / native module",
+      "changes": "Original notices retained; no license terms translated.",
+      "notice": "",
+      "evidence": {
+        "packageJsonSha256": "d207ea89d7deb7353ba50118ddaff2e217ed756f4c6c92eab891b87066e72418"
       }
     },
     {
@@ -366,6 +506,36 @@
       }
     },
     {
+      "id": "npm:expo-secure-store@58.0.2",
+      "name": "expo-secure-store",
+      "version": "58.0.2",
+      "license": "MIT",
+      "creator": "See original copyright notices below",
+      "sourceUrl": "https://github.com/expo/expo",
+      "licenseUrl": "https://github.com/expo/expo",
+      "usage": "JavaScript / native module",
+      "changes": "Original notices retained; no license terms translated.",
+      "notice": "",
+      "evidence": {
+        "packageJsonSha256": "810fd562270182b7497ef1045a7a09a038861f7733e2967e165aa686bbad34e6"
+      }
+    },
+    {
+      "id": "npm:expo-splash-screen@58.0.11",
+      "name": "expo-splash-screen",
+      "version": "58.0.11",
+      "license": "MIT",
+      "creator": "See original copyright notices below",
+      "sourceUrl": "https://github.com/expo/expo",
+      "licenseUrl": "https://github.com/expo/expo",
+      "usage": "JavaScript / native module",
+      "changes": "Original notices retained; no license terms translated.",
+      "notice": "",
+      "evidence": {
+        "packageJsonSha256": "4ec5820ab18a6a9ee4a1192f134b6c5477db6e46b20af18d47e7d2db3966197d"
+      }
+    },
+    {
       "id": "npm:expo@58.0.19",
       "name": "expo",
       "version": "58.0.19",
@@ -412,8 +582,8 @@
       "sourceArchives": [
         {
           "fileName": "heic-decoder-sources.zip",
-          "bytes": 9441955,
-          "sha256": "68572d9099d159b43207a9cd1cb357b57d1819e8846e87b932da14699844a4d7",
+          "bytes": 9446032,
+          "sha256": "aec29af83ea17ee64579a123dc1235f91d8f53bce6b4ed10181c22f103b8a3c5",
           "url": "licenses/sources/heic-decoder-sources.zip",
           "asset": "asset:///dio_licenses/sources/heic-decoder-sources.zip"
         }
@@ -675,6 +845,21 @@
       }
     },
     {
+      "id": "npm:react-reconciler@0.31.0",
+      "name": "react-reconciler",
+      "version": "0.31.0",
+      "license": "MIT",
+      "creator": "See original copyright notices below",
+      "sourceUrl": "https://github.com/facebook/react",
+      "licenseUrl": "https://github.com/facebook/react",
+      "usage": "JavaScript / native module",
+      "changes": "Original notices retained; no license terms translated.",
+      "notice": "",
+      "evidence": {
+        "packageJsonSha256": "7c954dad4f248841047d3fa650a33e02c408fb83cef37e34e439eed12eae311f"
+      }
+    },
+    {
       "id": "npm:react@19.3.0",
       "name": "react",
       "version": "19.3.0",
@@ -687,6 +872,21 @@
       "notice": "",
       "evidence": {
         "packageJsonSha256": "6e003e4e9ed25afa7fdd55613f8aa877cefa9b359d9c13f81ee704030248e24e"
+      }
+    },
+    {
+      "id": "npm:scheduler@0.25.0",
+      "name": "scheduler",
+      "version": "0.25.0",
+      "license": "MIT",
+      "creator": "See original copyright notices below",
+      "sourceUrl": "https://github.com/facebook/react",
+      "licenseUrl": "https://github.com/facebook/react",
+      "usage": "JavaScript / native module",
+      "changes": "Original notices retained; no license terms translated.",
+      "notice": "",
+      "evidence": {
+        "packageJsonSha256": "3877c4465b7d25658b0aba07484191ab273aafcd2839c502da64a2da0fbe23eb"
       }
     },
     {
