@@ -205,8 +205,8 @@ export default function ProfileScreen({ section = 'profile', compact = false, on
 }
 
 const local = StyleSheet.create({
-  // 카드 대신 화면 전체를 흰 면 한 장으로 둔다(공방과 같다)
-  root: { flex: 1, backgroundColor: colors.surface },
+  // 카드 대신 앱 바탕(surfaceSoft) 위에 바로 놓는다(공방과 같다)
+  root: { flex: 1, backgroundColor: colors.surfaceSoft },
   content: { paddingBottom: 36 },
   settingsButton: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center' },
   // 정체성 판(원 페이저 12): 옅은 면(surfaceMuted) + 모서리 16 한 장, 테두리 없음. 화면에서 면이 있는 판은 이것 하나다

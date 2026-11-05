@@ -2,7 +2,7 @@ import { memo, useDeferredValue, useEffect, useMemo, useRef, useState } from 're
 import { PanResponder, PixelRatio, Pressable, StyleSheet, Text, View } from 'react-native';
 import AppIcon from '../../shared/AppIcon';
 import FavoriteStar from '../../shared/FavoriteStar';
-import { C, DESK_COLOR } from '../constants';
+import { C } from '../constants';
 import { styles as s } from '../styles';
 import CoverArt, { CoverSurface } from './CoverArt';
 import { PAGE_COUNT_ROW } from './DiaryCard';
@@ -365,7 +365,7 @@ function OpenBookShelf({ diaries, index, onIndexChange, onOpen, onFavorite, onEd
         <Pressable key={side} accessibilityRole="button" accessibilityLabel={step < 0 ? '이전 다이어리' : '다음 다이어리'} onPress={() => goRef.current(step)}
           style={[s.carouselArrow, { top: lift + layout.base - tallest / 2 - 24, [side]: BLEED + 4 }]}>
           <View style={StyleSheet.absoluteFill} pointerEvents="none">
-            <View style={styles.arrowHalo}><AppIcon name={`chevron-${side}`} size={24} color={DESK_COLOR} strokeWidth={6.5} /></View>
+            <View style={styles.arrowHalo}><AppIcon name={`chevron-${side}`} size={24} color={C.canvas} strokeWidth={6.5} /></View>
           </View>
           <AppIcon name={`chevron-${side}`} size={24} color={C.ink} strokeWidth={2.1} />
         </Pressable>

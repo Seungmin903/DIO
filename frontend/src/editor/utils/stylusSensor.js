@@ -23,3 +23,14 @@ export function withStylusSensor(sample) {
   }
   return { ...sample, pointerType: 'pen', ...(Number.isFinite(pressure) && !sample.isRelease && { pressure }), ...(Number.isFinite(tiltX) && { tiltX, tiltY }) }
 }
+
+// 이 시각의 터치가 펜인지(모듈이 없으면 모른다). 먼저 닿은 손바닥이 뒤이어 온 펜으로 읽히지 않게 뒤쪽 폭을 좁게 둔다. 놓쳐도 포인터 이벤트가 곧 확정한다.
+const FIRST_CONTACT_MS = 16
+export function nativePenAt(stamp) {
+  const native = sensor()
+  if (!native || !Number.isFinite(stamp)) return false
+  try {
+    const time = native.sample()?.[3]
+    return Number.isFinite(time) && time >= stamp - SAME_EVENT_MS && time <= stamp + FIRST_CONTACT_MS
+  } catch { return false }
+}

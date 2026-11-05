@@ -293,6 +293,8 @@ export const sharingStyles = StyleSheet.create({
   memberCircleAlternate: { backgroundColor: c.primarySoft },
   memberCounter: { backgroundColor: c.surfaceMuted },
   memberCircleCompact: { width: 24, height: 24, borderRadius: 12 },
+  // 폰 제목 줄의 알림 아이콘: 면 없이 아이콘만
+  entryBell: { backgroundColor: 'transparent', borderWidth: 0 },
   entry: {
     minWidth: 44,
     height: 44,

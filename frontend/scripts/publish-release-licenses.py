@@ -109,6 +109,31 @@ pathlib.Path('publicsuffixes.gz').write_bytes(gzip.compress(payload,mtime=0))
     assert b''.join(r+b'\n' for r in sorted(r for r in dat.splitlines() if r and not r.startswith((b'//',b'!'))))==rules
     target=CACHE/'okhttp-publicsuffix-sources.zip';zip_files(target,files);return target,notice.decode()
 
+# Skia m154 (react-native-skia-android 154.0.0 정적 라이브러리)와 웹 CanvasKit wasm 에 함께 들어가는 서드파티.
+# 리비전은 skia-m154-DEPS.txt(chrome/m154 의 DEPS)에 고정된 커밋이다. 원문은 googlesource ?format=TEXT(base64) 그대로 캐시한다.
+SKIA_THIRD_PARTY=[
+    ('Skia','skia-m154-LICENSE.txt'),
+    ('FreeType (FreeType License selected from FTL/GPL-2.0 choice)','skia-freetype-LICENSE.txt'),('FreeType FTL','skia-freetype-FTL.txt'),
+    ('HarfBuzz','skia-harfbuzz-COPYING.txt'),('ICU','skia-icu-LICENSE.txt'),
+    ('libjpeg-turbo','skia-jpeg-turbo-LICENSE.txt'),('libjpeg-turbo README.ijg','skia-jpeg-turbo-IJG.txt'),
+    ('libpng','skia-libpng-LICENSE.txt'),('libwebp','skia-webp-COPYING.txt'),('libwebp PATENTS','skia-webp-PATENTS.txt'),
+    ('Wuffs','skia-wuffs-LICENSE.txt'),('zlib (Chromium)','skia-zlib-LICENSE.txt'),('Expat','skia-expat-COPYING.txt'),
+    ('Adobe DNG SDK','skia-dng-sdk-LICENSE.txt'),('piex','skia-piex-LICENSE.txt'),
+]
+
+def skia_component(platform):
+    texts=[(label+' ('+file+')',base64.b64decode((CACHE/file).read_bytes()).decode('utf-8')) for label,file in SKIA_THIRD_PARTY]
+    if platform=='web':
+        value=component('CanvasKit (Skia WebAssembly) bundled notices','0.41.0; reference notices Skia m154','BSD-3-Clause / FTL / MIT / Unicode-3.0 / IJG / libpng-2.0 / Zlib / Apache-2.0 / DNG SDK','https://skia.googlesource.com/skia/+/main/modules/canvaskit',texts)
+        value['usage']='웹 연필 그리기 · public/vendor/canvaskit 에서 처음 쓸 때 불러오는 wasm'
+        value['changes']='Original notices retained. Third-party notices are the Skia m154 DEPS superset; the CanvasKit build may include fewer components.'
+    else:
+        value=component('Skia native libraries (react-native-skia-android)','154.0.0 / Skia m154','BSD-3-Clause / FTL / MIT / Unicode-3.0 / IJG / libpng-2.0 / Zlib / Apache-2.0 / DNG SDK','https://skia.googlesource.com/skia/+/refs/heads/chrome/m154',texts)
+        value['usage']='Android 연필 · 펜 그리기 (libreact-native-skia.so 에 정적 링크)'
+        value['changes']='Original notices retained. Third-party revisions follow the Skia chrome/m154 DEPS; ICU is listed because libskunicode_icu is linked.'
+    value['notice']='Portions of this software are copyright © The FreeType Project (www.freetype.org). All rights reserved. This product includes DNG technology under license by Adobe Systems Incorporated. This software is based in part on the work of the Independent JPEG Group.'
+    return value
+
 def additions(platform, native_inventory, ndk):
     records=[]; sources=[]
     for folder,name in [('gowundodum','Gowun Dodum'),('gowunbatang','Gowun Batang'),('maruburi','MaruBuri'),('pretendard','Pretendard')]:
@@ -117,6 +142,7 @@ def additions(platform, native_inventory, ndk):
     records.append(component('Lucide icons',(ROOT/'third-party/lucide-VERSION.txt').read_text(encoding='utf-8').strip(),'ISC / MIT (Feather-derived icons)','https://github.com/lucide-icons/lucide',[('Bundled original LICENSE',audit.read(ROOT/'third-party/lucide-LICENSE.txt'))]))
     # 스포이드 아이콘(editor/components/controls/EyedropperIcon.js)은 Phosphor Icons 의 Eyedropper(regular) 그림을 그대로 쓴다.
     records.append(component('Phosphor Icons',(ROOT/'third-party/phosphor-VERSION.txt').read_text(encoding='utf-8').strip(),'MIT','https://github.com/phosphor-icons/core',[('Bundled original LICENSE',audit.read(ROOT/'third-party/phosphor-LICENSE.txt'))]))
+    records.append(skia_component(platform))
     if platform=='web':
         archive=heic_sources();sources.append(archive)
         for name,version,file in [('libheif','1.23.6','libheif-source.tar.gz'),('libde265','1.0.16','libde265-source.tar.gz')]:

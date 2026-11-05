@@ -11,7 +11,7 @@ const { code } = expo('@babel/core').transformSync(readFileSync(new URL('../src/
   plugins: [[expo.resolve('@babel/plugin-transform-react-jsx'), { runtime: 'automatic' }], expo.resolve('@babel/plugin-transform-modules-commonjs')],
 })
 const padding = { top: 84, bottom: 76, side: 28 }
-function fixture(stage, hand, effects = false, interactionLocked = false, readingScale = null) {
+function fixture(stage, hand, effects = false, interactionLocked = false, readingScale = null, extra = {}) {
   const commits = [], readingActions = [], module = { exports: {} }
   const cleanups = [], appState = [], stylus = { activePen: false }
   const load = id => {
@@ -25,7 +25,7 @@ function fixture(stage, hand, effects = false, interactionLocked = false, readin
   }
   new Function('require', 'module', 'exports', code)(load, module, module.exports)
   const zoom = Math.min((stage.width - 56) / 1188, (stage.height - 160) / 840)
-  const tree = module.exports.default({ interactionLocked, reading: readingScale != null, onReadingAction: action => readingActions.push(action), scale: readingScale ?? 1, zoom, offset: { x: 100, y: 100 }, dragToPan: hand,
+  const tree = module.exports.default({ ...extra, interactionLocked, reading: readingScale != null, onReadingAction: action => readingActions.push(action), scale: readingScale ?? 1, zoom, offset: { x: 100, y: 100 }, dragToPan: hand,
     onView: v => commits.push(v),
     resolvePan: (from, dx, dy) => ({ ...from, ...panView(from, dx, dy, zoom, stage, 1188, 840, padding) }),
     resolveZoom: (scale, point, screen) => ({ scale, zoom: zoom * scale,
@@ -35,7 +35,7 @@ function fixture(stage, hand, effects = false, interactionLocked = false, readin
     const a = { pageX: 100 + i * 3, pageY: 200 - i * 2 }
     return { nativeEvent: { ...a, touches: hand ? [a] : [a, { pageX: a.pageX + 40, pageY: a.pageY }] } }
   }
-  return { commits, readingActions, handlers: tree.props, appState, unmount: () => cleanups.forEach(fn => fn()), run() {
+  return { stylus, commits, readingActions, handlers: tree.props, appState, unmount: () => cleanups.forEach(fn => fn()), run() {
     tree.props.onResponderGrant(event(0))
     for (let i = 1; i <= 30; i += 1) tree.props.onResponderMove(event(i))
     assert.equal(commits.length, 0, '이동 중에는 부모 상태를 확정하지 않는다')
@@ -209,4 +209,53 @@ test('링크 DOM 터치는 부모 responder와 메뉴 토글을 실행하지 않
   assert.equal(h.onStartShouldSetResponder(),false)
   h.onResponderGrant(e);h.onResponderRelease(e)
   assert.deepEqual(f.readingActions,[])
+})
+
+const oneFinger = (x, y = 300, kind = 'touch') => { const t = { identifier: 1, pageX: x, pageY: y, kind }; return { nativeEvent: { ...t, touches: [t] } } }
+
+test('펜만일 때 한 손가락은 12px 넘게 움직인 뒤에야 페이지에서 화면 이동을 넘겨받는다', () => {
+  const f = fixture({ width: 1000, height: 700 }, false, false, false, null, { fingerPan: true }), h = f.handlers
+  assert.equal(h.onStartShouldSetResponderCapture(oneFinger(100)), false)
+  assert.equal(h.onMoveShouldSetResponderCapture(oneFinger(105)), false)
+  assert.equal(h.onMoveShouldSetResponderCapture(oneFinger(120)), true)
+  h.onResponderGrant(oneFinger(120))
+  h.onResponderMove(oneFinger(170))
+  assert.equal(h.onResponderTerminationRequest(), false)
+  h.onResponderRelease()
+  assert.equal(f.commits.length, 1)
+})
+
+test('펜만일 때 여백에서 시작한 한 손가락도 움직이면 화면을 옮기고, 설정이 꺼져 있으면 옮기지 않는다', () => {
+  const on = fixture({ width: 1000, height: 700 }, false, false, false, null, { fingerPan: true })
+  on.handlers.onStartShouldSetResponderCapture(oneFinger(100))
+  on.handlers.onResponderGrant(oneFinger(100))
+  on.handlers.onResponderMove(oneFinger(120))
+  on.handlers.onResponderMove(oneFinger(170))
+  on.handlers.onResponderRelease()
+  assert.equal(on.commits.length, 1)
+  const off = fixture({ width: 1000, height: 700 }, false, false, false, null, { fingerPan: false })
+  off.handlers.onStartShouldSetResponderCapture(oneFinger(100))
+  assert.equal(off.handlers.onMoveShouldSetResponderCapture(oneFinger(170)), false)
+  off.handlers.onResponderGrant(oneFinger(100))
+  off.handlers.onResponderMove(oneFinger(170))
+  off.handlers.onResponderRelease()
+  assert.equal(off.commits.length, 0)
+})
+
+test('손가락으로 옮기던 중 펜이 닿으면 옮기던 것을 버린다(손바닥 + 펜)', () => {
+  const f = fixture({ width: 1000, height: 700 }, false, false, false, null, { fingerPan: true }), h = f.handlers
+  h.onStartShouldSetResponderCapture(oneFinger(100))
+  h.onResponderGrant(oneFinger(120))
+  h.onResponderMove(oneFinger(120))
+  h.onResponderMove(oneFinger(170))
+  f.stylus.activePen = true
+  h.onResponderMove(oneFinger(220))
+  h.onResponderRelease()
+  assert.equal(f.commits.length, 0)
+})
+
+test('펜 접촉이면 한 손가락 이동으로 넘겨받지 않는다', () => {
+  const h = fixture({ width: 1000, height: 700 }, false, false, false, null, { fingerPan: true }).handlers
+  h.onStartShouldSetResponderCapture(oneFinger(100, 300, 'pen'))
+  assert.equal(h.onMoveShouldSetResponderCapture(oneFinger(170, 300, 'pen')), false)
 })

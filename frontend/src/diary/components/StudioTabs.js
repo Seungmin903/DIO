@@ -54,7 +54,7 @@ const local = StyleSheet.create({
   rowScrollCompact: { gap: GAP_COMPACT, paddingRight: 24 },
   tabCompact: { flex: 1, minWidth: 0 },
   tab: { alignItems: 'center', justifyContent: 'center', borderTopLeftRadius: CORNER, borderTopRightRadius: CORNER },
-  tabIdle: { backgroundColor: colors.surfaceSoft, marginBottom: DROP },
+  tabIdle: { backgroundColor: colors.surface, marginBottom: DROP },
   tabSelected: { backgroundColor: colors.lavender100, paddingTop: DROP },
   // 글자 16/600 #1C1C1C(1020 코덱스 5번): 안 고른 탭도 같은 색, 고른 탭은 면 · 높이로만 구분
   label: { fontSize: 16, fontWeight: '600', color: colors.text },

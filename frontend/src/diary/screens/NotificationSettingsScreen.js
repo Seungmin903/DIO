@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, BackHandler, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, AppState, BackHandler, Linking, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import AppIcon from '../../shared/AppIcon';
 import { colors, radius, DISABLED_OPACITY } from '../../shared/theme';
 import Header from '../components/Header';
 import TermsConsentSection from '../components/TermsConsentSection';
 import { SERVICE_SECTION_ENABLED } from '../../shared/featureFlags';
+import { notificationsBlocked } from '../../notifications/notificationPermission';
 
 export default function NotificationSettingsScreen({ compact = false, onClose, userId, accountService }) {
   const [termsReady, setTermsReady] = useState(false);
@@ -14,6 +15,15 @@ export default function NotificationSettingsScreen({ compact = false, onClose, u
   const [termsSaving, setTermsSaving] = useState(false);
   const termsSave = useRef(null);
   const savePending = useRef(false);
+  // OS 알림 권한: 이 화면에 들어올 때와 설정 앱에서 돌아올 때 다시 읽는다
+  const [blocked, setBlocked] = useState(false);
+  useEffect(() => {
+    let active = true;
+    const read = () => notificationsBlocked().then(value => { if (active) setBlocked(value); });
+    read();
+    const subscription = AppState.addEventListener('change', state => { if (state === 'active') read(); });
+    return () => { active = false; subscription.remove(); };
+  }, []);
   useEffect(() => {
     if (Platform.OS !== 'android' || !(saving || termsSaving)) return undefined;
     const subscription = BackHandler.addEventListener('hardwareBackPress', () => true);
@@ -38,6 +48,15 @@ export default function NotificationSettingsScreen({ compact = false, onClose, u
         </Pressable>
       )} />
       <View style={[styles.card, compact && styles.phoneCard]}>
+        {blocked && <>
+          <View style={styles.blockedRow}>
+            <Text style={styles.rowLabel}>알림이 꺼져 있어요</Text>
+            <Pressable accessibilityRole="button" accessibilityLabel="기기 설정에서 알림 켜기" onPress={() => Linking.openSettings()} hitSlop={4} style={styles.openSettings}>
+              <Text style={styles.openSettingsText}>설정 열기</Text>
+            </Pressable>
+          </View>
+          <View style={styles.divider} />
+        </>}
         {SERVICE_SECTION_ENABLED && <>
           <Text style={styles.section}>서비스 알림</Text>
           <View style={styles.row}>
@@ -73,6 +92,9 @@ const styles = StyleSheet.create({
   phoneCard: { padding: 20, borderRadius: radius.lg },
   section: { color: colors.text, fontSize: 15, fontWeight: '700', marginBottom: 4 },
   row: { minHeight: 88, flexDirection: 'row', alignItems: 'center', gap: 16, paddingVertical: 16 },
+  blockedRow: { minHeight: 48, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
+  openSettings: { minHeight: 44, paddingHorizontal: 14, alignItems: 'center', justifyContent: 'center', borderRadius: radius.md, backgroundColor: colors.surfaceMuted },
+  openSettingsText: { color: colors.primaryText, fontSize: 13, fontWeight: '700' },
   rowCopy: { flex: 1, minWidth: 0, gap: 6 },
   rowLabel: { color: colors.text, fontSize: 15, fontWeight: '700' },
   description: { color: colors.textMuted, fontSize: 13, lineHeight: 20 },
