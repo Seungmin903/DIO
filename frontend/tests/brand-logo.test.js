@@ -118,14 +118,33 @@ test('언마운트 후 접근성 응답과 애니메이션 종료는 완료를 �
  assert.equal(animated.stops,1);assert.equal(completed,0);
 });
 
-test('Android 아이콘의 모든 전경 픽셀은 중앙 원형 안전 영역 안에 있다',async()=>{
+test('Android 아이콘은 표시 영역을 채우고 얼굴과 책갈피 중심은 안전 영역에 있다',async()=>{
  const Jimp=require('jimp-compact');
  const image=await Jimp.read(fileURLToPath(new URL('../assets/images/adaptive-icon.png',import.meta.url)));
  assert.equal(image.bitmap.width,1024);assert.equal(image.bitmap.height,1024);
  const radius=1024*66/108/2;
- let visible=0;
- image.scan(0,0,1024,1024,function(x,y,index){
-  if(this.bitmap.data[index+3]){visible++;assert.ok(Math.hypot(x+0.5-512,y+0.5-512)<=radius,`outside safe zone: ${x},${y}`);}
- });
- assert.ok(visible>0);
+ const size=Math.round(1024*72/108),offset=Math.floor((1024-size)/2);
+ // Original SVG coordinates for both eyes, the smile, and the bookmark center.
+ for(const [x,y] of [[319,743],[660,805],[470,863],[1160,600]]){
+  const px=Math.round(offset+x*size/1254),py=Math.round(offset+y*size/1254);
+  assert.ok(Math.hypot(px-512,py-512)<radius);
+  assert.equal(Jimp.intToRGBA(image.getPixelColor(px,py)).a,255);
+ }
+ assert.ok(Jimp.intToRGBA(image.getPixelColor(offset+size/2,offset+size-1)).a>0);
+});
+
+test('설치 아이콘은 정사각형 전체가 불투명하고 모서리까지 원본 색으로 채워진다',async()=>{
+ const Jimp=require('jimp-compact');
+ const icon=await Jimp.read(fileURLToPath(new URL('../assets/images/icon.png',import.meta.url)));
+ assert.equal(icon.bitmap.width,1024);assert.equal(icon.bitmap.height,1024);
+ icon.scan(0,0,1024,1024,function(x,y,index){assert.equal(this.bitmap.data[index+3],255)});
+ assert.equal(icon.getPixelColor(0,0),0xf0ecfdff);
+ assert.equal(icon.getPixelColor(0,1023),0xf0ecfdff);
+ const source=await Jimp.read(fileURLToPath(new URL('../assets/brand/launcher/app-icon-square-combined.png',import.meta.url)));
+ source.resize(1024,1024,Jimp.RESIZE_HERMITE);
+ assert.deepEqual(icon.bitmap.data,source.bitmap.data);
+ const adaptive=await Jimp.read(fileURLToPath(new URL('../assets/images/adaptive-icon.png',import.meta.url)));
+ assert.equal(Jimp.intToRGBA(adaptive.getPixelColor(171,171)).a,0);
+ const config=JSON.parse(readFileSync(new URL('../app.json',import.meta.url),'utf8'));
+ assert.equal(config.expo.android.adaptiveIcon.backgroundColor,'#F0ECFD');
 });
