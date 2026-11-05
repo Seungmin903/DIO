@@ -27,11 +27,15 @@ GRADLE = Path.home() / '.gradle/caches/modules-2/files-2.1'
 LEGAL_NAME = re.compile(r'^(?:licen[sc]e|copying|notice|third.?party.?notices|copyright|patents)(?:[._-].*)?$', re.I)
 GOOGLE_SDK_ARTIFACTS = {
     'com.android.installreferrer:installreferrer:2.2': False,
-    'com.google.android.gms:play-services-base:18.1.0': True,
-    'com.google.android.gms:play-services-basement:18.3.0': True,
+    'com.google.android.gms:play-services-auth:21.4.0': True,
+    'com.google.android.gms:play-services-auth-api-phone:18.0.2': True,
+    'com.google.android.gms:play-services-auth-base:18.0.10': True,
+    'com.google.android.gms:play-services-base:18.5.0': True,
+    'com.google.android.gms:play-services-basement:18.5.0': True,
     'com.google.android.gms:play-services-cloud-messaging:17.2.0': True,
+    'com.google.android.gms:play-services-fido:20.0.1': True,
     'com.google.android.gms:play-services-stats:17.0.2': True,
-    'com.google.android.gms:play-services-tasks:18.1.0': True,
+    'com.google.android.gms:play-services-tasks:18.2.0': True,
     'com.google.firebase:firebase-iid-interop:17.1.0': True,
     'com.google.firebase:firebase-measurement-connector:19.0.0': True,
 }
