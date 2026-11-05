@@ -37,12 +37,11 @@ test('휴지통에서 시작한 회원 본문은 목록을 불러온다', () => 
   assert.match(app, /useEffect\(\(\) => \{ if \(member && page === 'trash'\) diaryState\.store\.loadTrash\(\)/);
 });
 
-test('뒤로 키: 폰 설정은 마이페이지로, 다른 화면은 기본 보관함으로, 기본 보관함이면 앱에 맡긴다', () => {
-  assert.deepEqual(backTarget({ isPhone: true, page: 'settings', filter: 'all' }, HOME), { page: 'profile' });
-  assert.deepEqual(backTarget({ isPhone: false, page: 'settings', filter: 'all' }, HOME), HOME);
-  assert.deepEqual(backTarget({ isPhone: true, page: 'trash', filter: 'all' }, HOME), HOME);
-  assert.deepEqual(backTarget({ isPhone: true, page: 'library', filter: 'shared' }, HOME), HOME);
-  assert.equal(backTarget({ isPhone: true, page: 'library', filter: 'all' }, HOME), null);
+test('뒤로 키: 다른 화면은 기본 보관함으로, 기본 보관함이면 앱에 맡긴다', () => {
+  assert.deepEqual(backTarget({ page: 'trash', filter: 'all' }, HOME), HOME);
+  assert.deepEqual(backTarget({ page: 'profile', filter: 'all' }, HOME), HOME);
+  assert.deepEqual(backTarget({ page: 'library', filter: 'shared' }, HOME), HOME);
+  assert.equal(backTarget({ page: 'library', filter: 'all' }, HOME), null);
 });
 
 test('검색이 열려 있으면 뒤로 키는 앱을 나가지 않고 검색만 닫는다', () => {
