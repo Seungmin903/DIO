@@ -17,9 +17,8 @@ export function createRouteMemory(home) {
   };
 }
 
-// Android 뒤로 키가 갈 곳. 폰 설정은 마이페이지 안의 화면이라 마이페이지로, 그 밖에는 기본 보관함으로, 기본 보관함이면 null(앱 기본 동작)
-export function backTarget({ isPhone, page, filter }, home) {
-  if (isPhone && page === 'settings') return { page: 'profile' };
+// Android 뒤로 키가 갈 곳. 기본 보관함이 아니면 기본 보관함으로, 기본 보관함이면 null(앱 기본 동작)
+export function backTarget({ page, filter }, home) {
   if (page !== home.page || filter !== home.filter) return home;
   return null;
 }
