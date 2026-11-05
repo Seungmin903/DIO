@@ -73,7 +73,7 @@ const styles = StyleSheet.create({
 /** 회원 보관함에만 붙인다. enabled 가 참이 된 뒤(앱 잠금을 푼 뒤) 한 번 묻는다. */
 export function GuestImportHost({ accountId, enabled, onImported, onEntry }) {
   const model = useGuestDiaryImport(accountId, { enabled, onImported })
-  // 마이페이지 · 빈 내 다이어리의 옮기기 입구. 나중에로 미룬 뒤에도 여기서 다시 시작한다.
+  // 마이페이지의 옮기기 입구. 나중에로 미룬 뒤에도 여기서 다시 시작한다.
   const count = enabled ? model.waiting.length : 0
   useEffect(() => {
     onEntry?.(count ? { count, open: model.open } : null)

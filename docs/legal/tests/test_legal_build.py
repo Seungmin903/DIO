@@ -83,10 +83,11 @@ class LegalBuildTests(unittest.TestCase):
     def test_versions_dates_and_signup_contract(self):
         final.build()
         docs = self.read_bundle()['documents']
+        self.assertIn(final.EFFECTIVE_LABEL, (final.ROOT / 'index.html').read_text(encoding='utf-8'))
         expected = {key: version for key, _, _, version in candidate.DOCUMENTS}
         for doc in docs:
             self.assertEqual(doc['termsVersion'], expected[doc['id']])
-            self.assertEqual(doc['effectiveDate'], '2026-11-04')
+            self.assertEqual(doc['effectiveDate'], '2026-11-05')
             self.assertIn('문서 버전: ' + doc['termsVersion'], [b['text'] for b in doc['blocks']])
             self.assertIn(final.EFFECTIVE_LABEL, [b['text'] for b in doc['blocks']])
         repo = LEGAL.parent.parent
