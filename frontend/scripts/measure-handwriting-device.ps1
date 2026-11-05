@@ -1,6 +1,6 @@
 param(
   [Parameter(Mandatory)][ValidatePattern('^[A-Za-z0-9._:-]+$')][string]$Serial,
-  [ValidatePattern('^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z][A-Za-z0-9_]*)+$')][string]$PackageName = 'com.f106.DIO.handwritingdev',
+  [ValidatePattern('^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z][A-Za-z0-9_]*)+$')][string]$PackageName = 'com.f106.DIO.dev',
   [ValidatePattern('^$|^[a-f0-9-]{36}$')][string]$JobId = '',
   [string]$JobIdFile = '',
   [switch]$WaitForProcessing,
