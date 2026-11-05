@@ -1,6 +1,7 @@
 package com.f106.DIO.auth.security;
 
 import com.f106.DIO.auth.config.LoginProperties;
+import com.f106.DIO.auth.config.LoginSessionPolicy;
 import com.f106.DIO.auth.exception.LoginException;
 
 import java.time.Duration;
@@ -39,7 +40,7 @@ public class LoginJwt {
             try { bytes = Base64.getDecoder().decode(properties.secret()); }
             catch (IllegalArgumentException error) { throw notConfigured(); }
             if (bytes.length < 32 || properties.accessSeconds() < 60 || properties.accessSeconds() > 86400
-                    || properties.refreshSeconds() <= properties.accessSeconds() || properties.refreshSeconds() > 90L * 86400) throw notConfigured();
+                    || properties.refreshSeconds() <= properties.accessSeconds() || properties.refreshSeconds() > LoginSessionPolicy.ABSOLUTE_LIFETIME.getSeconds()) throw notConfigured();
             var key = new SecretKeySpec(bytes, "HmacSHA256");
             var encoder = new NimbusJwtEncoder(new ImmutableSecret<SecurityContext>(key));
             var decoder = NimbusJwtDecoder.withSecretKey(key).macAlgorithm(MacAlgorithm.HS256).build();
@@ -52,6 +53,6 @@ public class LoginJwt {
         }
     }
     private LoginException notConfigured() {
-        return new LoginException(HttpStatus.SERVICE_UNAVAILABLE, "LOGIN_NOT_CONFIGURED", "로그인 서버 설정을 확인해 주세요.");
+        return LoginException.notConfigured();
     }
 }

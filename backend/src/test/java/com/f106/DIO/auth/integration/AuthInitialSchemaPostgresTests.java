@@ -43,6 +43,38 @@ class AuthInitialSchemaPostgresTests {
     com.f106.DIO.auth.repository.EmailVerificationRepository verifications;
     @org.springframework.test.context.bean.override.mockito.MockitoBean
     com.f106.DIO.auth.infrastructure.mail.SignupMailSender mail;
+    @Autowired com.f106.DIO.auth.service.LoginSessionService loginSessions;
+    @Autowired com.f106.DIO.auth.service.EmailLoginService loginService;
+    @Autowired com.f106.DIO.auth.repository.RefreshTokenRepository refreshTokens;
+    @Autowired com.f106.DIO.user.repository.UserRepository refreshUsers;
+    @Autowired org.springframework.transaction.PlatformTransactionManager refreshTransactions;
+    @Test void concurrentRefreshRetriesConvergeAndRenewExpiryOnPostgres() throws Exception {
+        var tx = new org.springframework.transaction.support.TransactionTemplate(refreshTransactions);
+        String email = "refresh-" + UUID.randomUUID() + "@example.com";
+        var first = tx.execute(status -> {
+            var user = refreshUsers.saveAndFlush(new com.f106.DIO.user.domain.User(email,"갱신검증",java.time.Instant.now()));
+            return loginSessions.create(user,"pg-qa",java.time.Instant.now());
+        });
+        var pool = java.util.concurrent.Executors.newFixedThreadPool(2);
+        try {
+            var start = new java.util.concurrent.CountDownLatch(1);
+            java.util.concurrent.Callable<com.f106.DIO.auth.dto.LoginResponse> attempt = () -> {
+                start.await(); return loginService.refresh(first.refreshToken());
+            };
+            var a=pool.submit(attempt); var b=pool.submit(attempt); start.countDown();
+            var left=a.get(20,java.util.concurrent.TimeUnit.SECONDS);
+            var right=b.get(20,java.util.concurrent.TimeUnit.SECONDS);
+            assertThat(left.refreshToken()).isEqualTo(right.refreshToken()).isNotEqualTo(first.refreshToken());
+            assertThat(loginService.refresh(first.refreshToken()).refreshToken()).isEqualTo(left.refreshToken());
+            var token=refreshTokens.findById(refreshTokens.findIdByTokenHash(
+                com.f106.DIO.auth.support.LoginSecrets.hash(left.refreshToken())).orElseThrow()).orElseThrow();
+            assertThat(token.getRevokedAt()).isNull();
+            assertThat(token.getTokenHash()).isEqualTo(com.f106.DIO.auth.support.LoginSecrets.hash(left.refreshToken()));
+        } finally {
+            pool.shutdownNow(); pool.awaitTermination(20,java.util.concurrent.TimeUnit.SECONDS);
+            tx.executeWithoutResult(status -> refreshUsers.findByEmail(email).ifPresent(refreshUsers::delete));
+        }
+    }
     @Test void postgresSerializesFirstVerificationInsertWithoutOverwritingWinner() throws Exception {
         com.f106.DIO.auth.integration.VerificationRaceAssertions.verify(mvc, verifications, mail, verification, entityManager, "pg-race@example.com");
     }
@@ -76,6 +108,38 @@ class AuthInitialSchemaPostgresTests {
         assertThat(jdbc.queryForObject("select count(*) from refresh_tokens where token_id=988", Long.class)).isEqualTo(1);
         assertThat(jdbc.queryForObject("select count(*) from refresh_token_history where token_id=988", Long.class)).isEqualTo(1);
         assertThat(cleanup.purgeExpired()).isZero();
+    }
+    @Test void latestHistoryIndexUpgradesExistingDataAndSupportsOrderedLookup() throws Exception {
+        String schema = "auth_index_" + UUID.randomUUID().toString().replace("-", "");
+        Flyway.configure().dataSource(url(), "postgres", password()).schemas(schema).defaultSchema(schema).target("32").load().migrate();
+        try (var connection = DriverManager.getConnection(url(), "postgres", password())) {
+            connection.setSchema(schema);
+            try (var statement = connection.createStatement()) {
+                statement.execute("insert into users(user_id,email,nickname,nickname_key) values (123,'index@example.com','index','index')");
+                statement.execute("insert into refresh_tokens(token_id,user_id,token_hash,expires_at) values (123,123,repeat('ab',32),now()+interval '1 day')");
+                statement.execute("insert into refresh_token_history(token_hash,token_id,rotated_at) select lpad(to_hex(n),64,'0'),123,now()-make_interval(secs => n) from generate_series(1,1000) n");
+            }
+        }
+        Flyway.configure().dataSource(url(), "postgres", password()).schemas(schema).defaultSchema(schema).load().migrate();
+        assertThat(jdbc.queryForObject("select count(*) from " + schema + ".refresh_token_history", Long.class)).isEqualTo(1000);
+        assertThat(jdbc.queryForObject("select i.indisvalid and i.indisready from pg_index i where i.indexrelid=?::regclass", Boolean.class,
+            schema + ".refresh_token_history_token_rotated_idx")).isTrue();
+        assertThat(jdbc.queryForObject("select pg_get_indexdef(?::regclass)", String.class,
+            schema + ".refresh_token_history_token_rotated_idx")).contains("(token_id, rotated_at DESC)");
+        assertThat(jdbc.queryForObject("select token_hash from " + schema + ".refresh_token_history where token_id=123 order by rotated_at desc limit 1", String.class))
+            .isEqualTo("0".repeat(63) + "1");
+        // Verify index eligibility, not cost-based planner choice on a small fixture.
+        try (var connection = DriverManager.getConnection(url(), "postgres", password())) {
+            connection.setSchema(schema);
+            try (var statement = connection.createStatement()) {
+                statement.execute("set enable_seqscan=off");
+                try (var result = statement.executeQuery("explain select * from refresh_token_history where token_id=123 order by rotated_at desc limit 1")) {
+                    var plan = new StringBuilder();
+                    while (result.next()) plan.append(result.getString(1));
+                    assertThat(plan.toString()).contains("refresh_token_history_token_rotated_idx");
+                }
+            }
+        }
     }
     @Test void upgradingExistingInitialSchemaPreservesUserDiaryAndSession() throws Exception {
         String schema = "auth_upgrade_" + UUID.randomUUID().toString().replace("-", "");

@@ -26,4 +26,5 @@ public class RefreshToken {
 
     public void revoke(Instant now) { revokedAt = now; }
     public void rotate(String hash) { tokenHash = hash; }
+    public void extendUntil(Instant expiry) { expiresAt = expiry; }
 }

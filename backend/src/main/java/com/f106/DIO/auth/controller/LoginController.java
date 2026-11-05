@@ -30,7 +30,7 @@ public class LoginController {
             .body(service.login(request, http.getRemoteAddr()));
     }
     @PostMapping("/refresh")
-    @Operation(summary = "로그인 토큰 재발급", description = "Authorization 없이 refreshToken을 전달합니다. 성공하면 새 Access/Refresh Token으로 모두 교체하세요. 이전 Refresh Token을 다시 사용하면 해당 기기 세션을 종료합니다. 최초 로그인 후 30일이 지나면 다시 로그인해야 합니다.")
+    @Operation(summary = "로그인 토큰 재발급", description = "Authorization 없이 refreshToken을 전달합니다. 성공 응답의 Access/Refresh Token을 함께 저장하세요. 갱신 시 만료일을 기본 30일 연장하되 최초 로그인부터 90일을 넘지 않습니다. 교체 후 30초 동안 직전 토큰 재시도에는 같은 Refresh Token을 반환하며 유예 시간은 연장하지 않습니다. 유예 밖 이전 토큰 재사용은 해당 기기 세션을 종료합니다.")
     public ResponseEntity<LoginResponse> refresh(@Valid @RequestBody RefreshRequest request) {
         return ResponseEntity.ok().header("Cache-Control", "no-store").header("Pragma", "no-cache")
             .body(service.refresh(request.refreshToken()));

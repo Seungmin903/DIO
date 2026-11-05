@@ -1,6 +1,7 @@
 package com.f106.DIO.auth.service;
 
 import com.f106.DIO.auth.config.LoginProperties;
+import com.f106.DIO.auth.config.LoginSessionPolicy;
 import com.f106.DIO.auth.domain.RefreshToken;
 import com.f106.DIO.auth.dto.LoginResponse;
 import com.f106.DIO.auth.dto.LoginUserResponse;
@@ -33,14 +34,23 @@ public class LoginSessionService {
         tokens.saveAndFlush(token);user.recordLogin(now);
         return result;
     }
+    public Instant refreshedExpiry(RefreshToken session, Instant now) {
+        Instant sliding = now.plusSeconds(properties.refreshSeconds());
+        Instant absolute = session.getCreatedAt().plus(LoginSessionPolicy.ABSOLUTE_LIFETIME);
+        return sliding.isBefore(absolute) ? sliding : absolute;
+    }
     @Transactional(propagation=Propagation.MANDATORY)
     public LoginResponse response(User user,RefreshToken session,String refresh,Instant now) {
+        return response(user, session, refresh, now, session.getExpiresAt());
+    }
+    @Transactional(propagation=Propagation.MANDATORY)
+    public LoginResponse response(User user,RefreshToken session,String refresh,Instant now,Instant sessionExpiry) {
         Instant expiry=now.plusSeconds(properties.accessSeconds());
-        if(session.getExpiresAt().isBefore(expiry))expiry=session.getExpiresAt();
+        if(sessionExpiry.isBefore(expiry))expiry=sessionExpiry;
         String access=jwt.issue(user.getUserId(),session.getSessionId(),now,expiry);
         String photo=photos.findByUserId(user.getUserId()).map(ProfilePhoto::url).orElse(null);
         return new LoginResponse("Bearer",access,Duration.between(now,expiry).getSeconds(),refresh,
-            Duration.between(now,session.getExpiresAt()).getSeconds(),
+            Duration.between(now,sessionExpiry).getSeconds(),
             new LoginUserResponse(user.getUserId().toString(),user.getEmail(),user.getNickname(),photo));
     }
 }

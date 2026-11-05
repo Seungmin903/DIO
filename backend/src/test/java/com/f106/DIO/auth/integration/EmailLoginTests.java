@@ -73,6 +73,7 @@ class EmailLoginTests {
     @Autowired MockMvc mvc;
     @Autowired EmailLoginService service;
     @Autowired LoginJwt jwt;
+    @Autowired com.f106.DIO.auth.support.RefreshRotation rotation;
     @Autowired EmailSignupService signup;
     @Autowired EmailVerificationService verification;
     @Autowired UserRepository users;
@@ -353,17 +354,18 @@ class EmailLoginTests {
             .andExpect(status().isTooManyRequests()).andExpect(header().string("Retry-After", "900"));
         assertThat(tokens.count()).isZero();
     }
-    @Test void refreshRotatesTokenAndPreservesAbsoluteSessionExpiry() throws Exception {
+    @Test void refreshRotatesTokenAndExtendsIdleExpiry() throws Exception {
         register(); var first = login(); Instant originalExpiry = tokens.findAll().get(0).getExpiresAt();
         mvc.perform(post("/api/v1/auth/refresh").contentType(MediaType.APPLICATION_JSON)
             .content("{\"refreshToken\":\"" + first.refreshToken() + "\"}"))
             .andExpect(status().isOk()).andExpect(header().string("Cache-Control", "no-store"))
             .andExpect(jsonPath("$.accessToken").isString()).andExpect(jsonPath("$.refreshToken").value(org.hamcrest.Matchers.not(first.refreshToken())));
         assertThat(history.count()).isEqualTo(1); assertThat(tokens.count()).isEqualTo(1);
-        assertThat(tokens.findAll().get(0).getExpiresAt()).isEqualTo(originalExpiry);
+        assertThat(tokens.findAll().get(0).getExpiresAt()).isAfter(originalExpiry);
     }
     @Test void reusedRefreshRevokesSessionAndRevocationSurvivesError() throws Exception {
         register(); var first = login(); var next = service.refresh(first.refreshToken());
+        expireRotationGrace();
         assertThatThrownBy(() -> service.refresh(first.refreshToken())).isInstanceOf(LoginException.class);
         assertThat(tokens.findAll().get(0).getRevokedAt()).isNotNull();
         assertThatThrownBy(() -> service.refresh(next.refreshToken())).isInstanceOf(LoginException.class);
@@ -443,20 +445,113 @@ class EmailLoginTests {
         assertThatThrownBy(() -> service.refresh(response.refreshToken())).isInstanceOf(LoginException.class);
         assertThat(tokens.findAll().get(0).getRevokedAt()).isNotNull();
     }
+    @Test void refreshKeyMisconfigurationReturns503WithoutConsumingSession() throws Exception {
+        register();var first=login();var original=tokens.findAll().get(0);
+        var previous=ReflectionTestUtils.getField(rotation,"properties");
+        try {
+            for(String secret:List.of("","not-base64!",Base64.getEncoder().encodeToString(new byte[16]))) {
+                ReflectionTestUtils.setField(rotation,"properties",new com.f106.DIO.auth.config.LoginProperties(secret,900,2592000));
+                mvc.perform(post("/api/v1/auth/refresh").contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"refreshToken\":\""+first.refreshToken()+"\"}"))
+                    .andExpect(status().isServiceUnavailable()).andExpect(jsonPath("$.code").value("LOGIN_NOT_CONFIGURED"));
+                var row=tokens.findById(original.getTokenId()).orElseThrow();
+                assertThat(row.getTokenHash()).isEqualTo(original.getTokenHash());
+                assertThat(row.getExpiresAt()).isEqualTo(original.getExpiresAt());
+                assertThat(row.getRevokedAt()).isNull();assertThat(history.count()).isZero();
+            }
+        } finally {ReflectionTestUtils.setField(rotation,"properties",previous);}
+        assertThat(service.refresh(first.refreshToken()).refreshToken()).isNotEqualTo(first.refreshToken());
+    }
+    @Test void unmatchedGraceSuccessorRevokesSessionAndLogsOnlyDiagnosticCode() throws Exception {
+        register();var first=login();service.refresh(first.refreshToken());
+        // Simulate a previous random-token deployment or another instance using a different rotation key.
+        String legacySuccessor=LoginSecrets.refresh();var current=tokens.findAll().get(0);
+        current.rotate(LoginSecrets.hash(legacySuccessor));tokens.saveAndFlush(current);
+        var logger=(ch.qos.logback.classic.Logger)org.slf4j.LoggerFactory.getLogger(EmailLoginService.class);
+        var appender=new ch.qos.logback.core.read.ListAppender<ch.qos.logback.classic.spi.ILoggingEvent>();
+        appender.start();logger.addAppender(appender);
+        try {
+            mvc.perform(post("/api/v1/auth/refresh").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"refreshToken\":\""+first.refreshToken()+"\"}"))
+                .andExpect(status().isUnauthorized()).andExpect(jsonPath("$.code").value("INVALID_TOKEN"));
+            assertThat(tokens.findById(current.getTokenId()).orElseThrow().getRevokedAt()).isNotNull();
+            var messages=appender.list.stream().map(ch.qos.logback.classic.spi.ILoggingEvent::getFormattedMessage).toList();
+            assertThat(messages).contains("Refresh recovery mismatch; session revoked: code=REFRESH_RECOVERY_MISMATCH");
+            for(String message:messages)assertThat(message).doesNotContain(first.refreshToken(),legacySuccessor,current.getTokenHash());
+        } finally {logger.detachAppender(appender);appender.stop();}
+    }
+    private void expireRotationGrace() {
+        jdbc.update("update refresh_token_history set rotated_at=?", java.sql.Timestamp.from(Instant.now().minusSeconds(31)));
+    }
+    @Test void failedRotationDoesNotExtendExpiryOrConsumeCurrentToken() {
+        register(); var first=login(); var original=tokens.findAll().get(0);
+        doThrow(new org.springframework.dao.DataAccessResourceFailureException("rotation write failure"))
+            .when(history).saveAndFlush(any(RefreshTokenHistory.class));
+        assertThatThrownBy(()->service.refresh(first.refreshToken())).isInstanceOf(org.springframework.dao.DataAccessResourceFailureException.class);
+        var remaining=tokens.findAll().get(0);
+        assertThat(remaining.getTokenHash()).isEqualTo(original.getTokenHash());
+        assertThat(remaining.getExpiresAt()).isEqualTo(original.getExpiresAt());
+        assertThat(remaining.getRevokedAt()).isNull();
+        assertThat(history.count()).isZero();
+        reset(history);
+        assertThat(service.refresh(first.refreshToken()).refreshToken()).isNotEqualTo(first.refreshToken());
+    }
+    @Test void inactiveAccountCannotUseGraceToken() {
+        register(); var first=login(); service.refresh(first.refreshToken());
+        var user=users.findAll().get(0); ReflectionTestUtils.setField(user,"status","SUSPENDED"); users.saveAndFlush(user);
+        assertThatThrownBy(()->service.refresh(first.refreshToken())).isInstanceOf(LoginException.class);
+        assertThat(tokens.findAll().get(0).getRevokedAt()).isNotNull();
+    }
+    @Test void lostResponseRecoversSameTokenAndDoesNotSlideGrace() {
+        register(); var first=login(); var next=service.refresh(first.refreshToken());
+        var before=history.findAll().get(0).getRotatedAt(); var expiry=tokens.findAll().get(0).getExpiresAt();
+        assertThat(service.refresh(first.refreshToken()).refreshToken()).isEqualTo(next.refreshToken());
+        assertThat(service.refresh(next.refreshToken()).refreshToken()).isEqualTo(next.refreshToken());
+        assertThat(history.count()).isEqualTo(1);
+        assertThat(history.findAll().get(0).getRotatedAt()).isEqualTo(before);
+        assertThat(tokens.findAll().get(0).getExpiresAt()).isEqualTo(expiry);
+        assertThat(tokens.findAll().get(0).getRevokedAt()).isNull();
+    }
+    @Test void renewalAndAccessTokenAreCappedAtNinetyDays() {
+        register(); var first=login();
+        jdbc.update("update refresh_tokens set created_at=?",java.sql.Timestamp.from(Instant.now().minus(java.time.Duration.ofDays(90)).plusSeconds(120)));
+        Instant cap=tokens.findAll().get(0).getCreatedAt().plus(java.time.Duration.ofDays(90));
+        var next=service.refresh(first.refreshToken());
+        assertThat(tokens.findAll().get(0).getExpiresAt()).isEqualTo(cap);
+        assertThat(jwt.decode(next.accessToken()).getExpiresAt()).isEqualTo(cap.truncatedTo(java.time.temporal.ChronoUnit.SECONDS));
+        assertThat(next.refreshExpiresIn()).isBetween(110L,120L);
+    }
+    @Test void expiredIdleOrAbsoluteSessionCannotBeRevived() {
+        register(); var first=login();
+        jdbc.update("update refresh_tokens set created_at=?",java.sql.Timestamp.from(Instant.now().minus(java.time.Duration.ofDays(90)).minusSeconds(1)));
+        assertThatThrownBy(()->service.refresh(first.refreshToken())).isInstanceOfSatisfying(LoginException.class,e->assertThat(e.code).isEqualTo("INVALID_TOKEN"));
+        jdbc.update("update refresh_tokens set created_at=?,expires_at=?",java.sql.Timestamp.from(Instant.now().minusSeconds(100)),java.sql.Timestamp.from(Instant.now().minusSeconds(1)));
+        assertThatThrownBy(()->service.refresh(first.refreshToken())).isInstanceOf(LoginException.class);
+    }
+    @Test void olderThanImmediatePreviousTokenStillRevokesSession() {
+        register(); var first=login(); var second=service.refresh(first.refreshToken());
+        expireRotationGrace(); var third=service.refresh(second.refreshToken());
+        assertThat(third.refreshToken()).isNotEqualTo(second.refreshToken());
+        assertThatThrownBy(()->service.refresh(first.refreshToken())).isInstanceOf(LoginException.class);
+        assertThat(tokens.findAll().get(0).getRevokedAt()).isNotNull();
+    }
+    @Test void logoutRejectsBothTokensEvenWithinGrace() {
+        register(); var first=login(); var second=service.refresh(first.refreshToken());
+        service.logout(jwt.decode(second.accessToken()));
+        assertThatThrownBy(()->service.refresh(first.refreshToken())).isInstanceOf(LoginException.class);
+        assertThatThrownBy(()->service.refresh(second.refreshToken())).isInstanceOf(LoginException.class);
+    }
     @Test void concurrentRefreshCannotCreateTwoValidDescendants() throws Exception {
         register(); var first = login();
         var pool = java.util.concurrent.Executors.newFixedThreadPool(2);
         try {
             var start = new java.util.concurrent.CountDownLatch(1);
-            java.util.concurrent.Callable<Boolean> refresh = () -> {
-                start.await();
-                try { service.refresh(first.refreshToken()); return true; }
-                catch (LoginException expected) { return false; }
-            };
+            java.util.concurrent.Callable<String> refresh = () -> { start.await(); return service.refresh(first.refreshToken()).refreshToken(); };
             var a = pool.submit(refresh); var b = pool.submit(refresh); start.countDown();
-            assertThat(List.of(a.get(20, java.util.concurrent.TimeUnit.SECONDS), b.get(20, java.util.concurrent.TimeUnit.SECONDS)))
-                .containsExactlyInAnyOrder(true, false);
-            assertThat(tokens.findAll().get(0).getRevokedAt()).isNotNull(); assertThat(history.count()).isEqualTo(1);
+            var left = a.get(20, java.util.concurrent.TimeUnit.SECONDS);
+            assertThat(left).isEqualTo(b.get(20, java.util.concurrent.TimeUnit.SECONDS)).isNotEqualTo(first.refreshToken());
+            assertThat(LoginSecrets.hash(left)).isEqualTo(tokens.findAll().get(0).getTokenHash());
+            assertThat(tokens.findAll().get(0).getRevokedAt()).isNull(); assertThat(history.count()).isEqualTo(1);
         } finally { pool.shutdownNow(); }
     }
     @Test void loginSwaggerRequiresBearerForLogoutAndSavedDiaryApis() throws Exception {
