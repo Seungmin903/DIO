@@ -850,7 +850,6 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
     <LibraryScreen
       compact={isPhone}
       portrait={tabletPortrait}
-      guestImport={guestImport}
       diaries={libraryDiaries}
       metadata={libraryMetadata}
       sort={librarySort}
@@ -990,8 +989,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
   } else if (page === 'studio') {
     content = <DecorationStudioScreen compact={isPhone} registerBackHandler={registerStudioBackHandler} />;
   } else if (page === 'profile') {
-    content = <ProfileScreen onOpenBlockedUsers={safety.openBlocks} key="profile" compact={isPhone} diaries={visibleDiaries} previewUser={previewUser} onEndPreview={onEndPreview} onClearSession={onClearSession} onUpdatePreview={onUpdatePreview} registerLeaveGuard={registerProfileLeaveGuard}
-      onOpenSettings={createProfileSettingsNavigation(isPhone, navigate)}
+    content = <ProfileScreen onOpenBlockedUsers={safety.openBlocks} key="profile" guestImport={guestImport} compact={isPhone} diaries={visibleDiaries} previewUser={previewUser} onEndPreview={onEndPreview} onClearSession={onClearSession} onUpdatePreview={onUpdatePreview} registerLeaveGuard={registerProfileLeaveGuard}
       accountService={previewUser?.mode === 'authenticated' ? authService : undefined}
       getProfilePhotoSource={previewUser?.mode === 'authenticated' ? authService.getProfilePhotoSource : undefined} />;
   } else if (page === 'settings') {
