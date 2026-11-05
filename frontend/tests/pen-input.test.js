@@ -22,11 +22,23 @@ const { code } = expo('@babel/core').transformSync(readFileSync(new URL('../src/
   configFile: false, babelrc: false,
   plugins: [[expo.resolve('@babel/plugin-transform-react-jsx'), { runtime: 'automatic' }], expo.resolve('@babel/plugin-transform-modules-commonjs')],
 })
-function fixture(kind, zoom = 1, straightAssist = true, web = false) {
+function fixture(kind, zoom = 1, straightAssist = true, web = false, realStylus = false) {
   let handlers, timer, cursor = 0, tree, strokeSequence = 0
   const refs = [], effects = [], cleanups = []
   const actions = [], converted = []
   const module = { exports: {} }
+  const stylusModule = { exports: {} }
+  if (realStylus) {
+    const source = expo('@babel/core').transformSync(readFileSync(new URL('../src/editor/utils/stylus.js', import.meta.url), 'utf8'), {
+      configFile: false, babelrc: false, plugins: [expo.resolve('@babel/plugin-transform-modules-commonjs')],
+    }).code
+    new Function('require', 'module', 'exports', source)((id) => {
+      if (id === 'react-native') return { Platform: { OS: web ? 'web' : 'ios' } }
+      if (id.endsWith('/drawingInput')) return { markPenSeen() {} }
+      if (id.endsWith('/stylusSensor.js')) return stylusSensor
+      return require(id)
+    }, stylusModule, stylusModule.exports)
+  }
   const load = (id) => {
     if (id === 'react') return {
       useRef: (current) => { const i = cursor++; return refs[i] ??= { current } },
@@ -50,7 +62,7 @@ function fixture(kind, zoom = 1, straightAssist = true, web = false) {
     if (id.endsWith('/penPointerInput.js')) return pointer
     if (id.endsWith('/penMaterials.js')) return materials
     if (id.endsWith('/stylusSensor.js')) return stylusSensor
-    if (id.endsWith('/stylus')) return { setPenPointerActive() {} }
+    if (id.endsWith('/stylus')) return realStylus ? stylusModule.exports : { setPenPointerActive() {}, isSameIOSPenContact: (touch, pointerId) => touch?.identifier === 1 && pointerId === 9 }
     if (id.endsWith('/PenPreview')) return { __esModule: true, default: () => null }
     if (id.endsWith('/StrokePreview')) return { __esModule: true, default: () => null }
     if (id.endsWith('/strokeAssist')) return { createHighlighterHold: (options) => assist.createHighlighterHold({ ...options,
@@ -62,7 +74,7 @@ function fixture(kind, zoom = 1, straightAssist = true, web = false) {
   new Function('require', 'module', 'exports', code)(load, module, module.exports)
   const render = (next = {}) => { cursor = 0; tree = module.exports.default({ zoom, straightAssist, dispatch: (a) => actions.push(a), settings: { kind, color: '#123456', width: 4 }, ...next }) }
   render()
-  return { get handlers() { return handlers }, get pointers() { return tree.props }, get store() { return tree.props.children.props.store }, actions, converted, render, unmount: () => cleanups.forEach(fn => fn()), hold: () => { const callback = timer; timer = null; callback?.() } }
+  return { get handlers() { return handlers }, get pointers() { return tree.props }, get store() { return tree.props.children.props.store }, stylus: stylusModule.exports, actions, converted, render, unmount: () => cleanups.forEach(fn => fn()), hold: () => { const callback = timer; timer = null; callback?.() } }
 }
 
 test('색 선택·취소는 기록하지 않고 확정된 실제 획 색을 한 번만 전달한다', () => {
@@ -111,6 +123,79 @@ test('Pencil 포인터 실측 필압은 responder와 중복 저장하지 않고 
   assert.equal(stroke.points.at(-1).force, 0.8)
   assert.equal(stroke.points.at(-1).time, 20)
   assert.equal(stroke.points.at(-1).x - stroke.points[0].x, 60)
+})
+
+test('responder가 먼저 그린 뒤 같은 Pencil 포인터가 시작해도 처음부터 한 획으로 보존한다', () => {
+  const f = fixture('fountain', 1, false)
+  const event = (x, timeStamp) => ({ nativeEvent: { pointerId: 9, pointerType: 'pen', offsetX: x, offsetY: 30,
+    clientX: x + 100, clientY: 230, pressure: 0.5, timeStamp } })
+  f.handlers.onStart({ locationX: 10, locationY: 30, identifier: 1, pageX: 110, pageY: 230, force: 0 })
+  f.handlers.onMove(10, 0, { force: 0 })
+  f.pointers.onPointerDown(event(20, 100))
+  f.pointers.onPointerMove(event(40, 110))
+  f.handlers.onEnd({ cancelled: false })
+  f.pointers.onPointerUp(event(50, 120))
+  f.handlers.onEnd({ cancelled: false })
+  const additions = f.actions.filter(action => action.type === 'addObjects')
+  assert.equal(additions.length, 1)
+  const stroke = additions[0].objects[0], points = stroke.points
+  assert.equal(stroke.x + points[0].x, 10)
+  assert.equal(stroke.x + points.at(-1).x, 50)
+})
+
+test('실제 iOS 접촉 판정과 PenInput: 터치가 먼저 오고 포인터가 늦어도 한 획의 처음과 끝을 보존한다', () => {
+  const f = fixture('fountain', 1, false, false, true)
+  const event = (x, timeStamp) => ({ nativeEvent: { pointerId: 9, pointerType: 'pen', offsetX: x, offsetY: 30,
+    clientX: x + 100, clientY: 230, pressure: 0.5, timeStamp } })
+  f.handlers.onStart({ locationX: 10, locationY: 30, identifier: 1, pageX: 110, pageY: 230, force: 0 })
+  f.handlers.onMove(10, 0, { force: 0 })
+  f.stylus.notePointerDown(event(10, 100))
+  f.pointers.onPointerDown(event(10, 100))
+  f.pointers.onPointerMove(event(40, 110))
+  f.handlers.onEnd({ cancelled: false })
+  f.pointers.onPointerUp(event(50, 120))
+  f.handlers.onEnd({ cancelled: false })
+  const additions = f.actions.filter(action => action.type === 'addObjects')
+  assert.equal(additions.length, 1)
+  const stroke = additions[0].objects[0]
+  assert.equal(stroke.x + stroke.points[0].x, 10)
+  assert.equal(stroke.x + stroke.points.at(-1).x, 50)
+})
+
+test('실제 iOS 접촉 판정과 PenInput: 포인터가 먼저 오면 responder와 중복 저장하지 않는다', () => {
+  const f = fixture('highlighter', 1, false, false, true)
+  const event = (x, timeStamp) => ({ nativeEvent: { pointerId: 9, pointerType: 'pen', offsetX: x, offsetY: 30,
+    clientX: x + 100, clientY: 230, pressure: 0.5, timeStamp } })
+  f.stylus.notePointerDown(event(10, 100))
+  f.pointers.onPointerDown(event(10, 100))
+  f.handlers.onStart({ locationX: 10, locationY: 30, identifier: 1, pageX: 110, pageY: 230 })
+  f.handlers.onMove(20, 0, { force: 0 })
+  f.pointers.onPointerMove(event(30, 110))
+  f.pointers.onPointerUp(event(50, 120))
+  f.handlers.onEnd({ cancelled: false })
+  const additions = f.actions.filter(action => action.type === 'addObjects')
+  assert.equal(additions.length, 1)
+  const stroke = additions[0].objects[0]
+  assert.equal(stroke.x + stroke.points[0].x, 10)
+  assert.equal(stroke.x + stroke.points.at(-1).x, 50)
+})
+
+test('실제 iOS 접촉 판정과 PenInput: 다른 위치의 손가락 획을 Pencil에 결합하지 않는다', () => {
+  const f = fixture('fountain', 1, false, false, true)
+  const event = (x, timeStamp) => ({ nativeEvent: { pointerId: 9, pointerType: 'pen', offsetX: x, offsetY: 30,
+    clientX: x + 100, clientY: 230, pressure: 0.5, timeStamp } })
+  f.stylus.notePointerDown({ nativeEvent: { pointerId: 2, pointerType: 'touch', clientX: 110, clientY: 230 } })
+  f.handlers.onStart({ locationX: 10, locationY: 30, identifier: 1, pageX: 110, pageY: 230, force: 0 })
+  f.handlers.onMove(10, 0, { force: 0 })
+  f.stylus.notePointerDown(event(60, 100))
+  f.pointers.onPointerDown(event(60, 100))
+  f.pointers.onPointerMove(event(80, 110))
+  f.pointers.onPointerUp(event(90, 120))
+  const additions = f.actions.filter(action => action.type === 'addObjects')
+  assert.equal(additions.length, 1)
+  const stroke = additions[0].objects[0]
+  assert.equal(stroke.x + stroke.points[0].x, 60)
+  assert.equal(stroke.x + stroke.points.at(-1).x, 90)
 })
 
 test('미지원 responder의 0은 force로 저장하지 않고, 실측 수신 뒤의 0만 보존한다', () => {
