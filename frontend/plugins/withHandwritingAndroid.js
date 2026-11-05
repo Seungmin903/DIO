@@ -14,8 +14,11 @@ module.exports = function withHandwritingAndroid(config) {
     return mod
   })
   return withAppBuildGradle(config, mod => {
-    const marker = '// DIO isolated handwriting development build'
-    if (!mod.modResults.contents.includes(marker)) mod.modResults.contents += `\n${marker}\nandroid { buildTypes { debug { applicationIdSuffix '.handwritingdev'; resValue 'string', 'app_name', 'DIO Font Dev' } } }\n`
+    // 개발(debug) 빌드는 com.f106.DIO.dev 로 따로 설치해 Play 앱을 덮어쓰지 않는다. 예전 .handwritingdev 블록은 지운다.
+    const legacyDevBlock = /\n?\/\/ DIO isolated handwriting development build\r?\nandroid \{ buildTypes \{ debug \{[^\r\n]*\} \} \}\r?\n?/g
+    mod.modResults.contents = mod.modResults.contents.replace(legacyDevBlock, '\n')
+    const marker = '// DIO isolated development build'
+    if (!mod.modResults.contents.includes(marker)) mod.modResults.contents += `\n${marker}\nandroid { buildTypes { debug { applicationIdSuffix '.dev'; resValue 'string', 'app_name', 'DIO Dev' } } }\n`
     const licenseMarker = '// DIO offline license/source build gate'
     if (!mod.modResults.contents.includes(licenseMarker)) mod.modResults.contents += `\n${licenseMarker}\ndef dioLicenseCheck = tasks.register('verifyDioLicenseAssets', Exec) {\n    workingDir rootDir.parentFile\n    commandLine 'node', new File(rootDir.parentFile, 'scripts/verify-prepared-licenses.cjs').absolutePath, 'android'\n}\ntasks.named('preBuild').configure { dependsOn dioLicenseCheck }\n`
     const bundleMarker = '// DIO license JSON must invalidate the Hermes bundle'
