@@ -7,7 +7,7 @@ import { colors } from '../../../shared/theme'
 export const FADE_STEPS = 8
 export const FADE_SIZE = 28
 export const FADE_MAX = 0.75
-// 앱 바탕(colors.surfaceSoft #F7F8FD)과 같은 색의 'r,g,b' — 바탕이 흰색이 아닌 화면에 넘기는 fadeRgb
+// 앱 바탕(colors.surfaceSoft #F8F7FD)과 같은 색의 'r,g,b' — 바탕이 흰색이 아닌 화면에 넘기는 fadeRgb
 export const CANVAS_FADE_RGB = [1, 3, 5].map(i => parseInt(colors.surfaceSoft.slice(i, i + 2), 16)).join(',')
 
 export function EdgeFade({ edge, size = FADE_SIZE, rgb = '255,255,255' }) {

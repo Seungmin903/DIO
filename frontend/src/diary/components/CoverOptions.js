@@ -291,7 +291,7 @@ const styles = StyleSheet.create({
   patternCell: { width: '25%', alignItems: 'center', gap: 4 },
   patternTile: { width: 48, height: 48, padding: 2, borderRadius: 12, borderWidth: 2, borderColor: 'transparent' },
   patternTileOn: { borderColor: colors.primary },
-  patternFill: { flex: 1, overflow: 'hidden', borderRadius: 9, borderWidth: 1, borderColor: 'rgba(11,23,102,.12)' },
+  patternFill: { flex: 1, overflow: 'hidden', borderRadius: 9, borderWidth: 1, borderColor: 'rgba(28,28,28,.12)' },
   patternName: { color: colors.textMuted, fontSize: 11.5, fontWeight: '700' },
   patternNameOn: { color: colors.text, fontWeight: '800' },
   fontField: { height: 48, borderRadius: 12, borderColor: colors.border, backgroundColor: colors.surfaceSoft }, // 옆 글상자(제목 · 소제목)와 같은 높이 · 모양

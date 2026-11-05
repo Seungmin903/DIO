@@ -25,7 +25,7 @@ export const styles = StyleSheet.create({
   tabLabel: { color: C.muted, fontSize: 11, lineHeight: 14, fontWeight: '600' },
   tabLabelSelected: { color: C.ink, fontWeight: '800' },
 
-  // 좌측 바 바탕은 앱 바깥 셸과 같은 surfaceSoft(#F7F8FD): 햇살 책상(보관함) · 흰 면(공방 · 휴지통 · 내 공간) 어느 화면에서도 같은 색으로 두 공간을 잇는다(앱 디자인 점검 원 페이저 01)
+  // 좌측 바 바탕은 앱 바깥 셸과 같은 surfaceSoft(#F8F7FD): 햇살 책상(보관함) · 흰 면(공방 · 휴지통 · 내 공간) 어느 화면에서도 같은 색으로 두 공간을 잇는다(앱 디자인 점검 원 페이저 01)
   rail: { width: 218, padding: 20, overflow: 'hidden', backgroundColor: C.canvas, borderRightWidth: 1, borderRightColor: C.line },
   railSlot: { width: 78 },
   // 메뉴 오른쪽(접힌 폭 이후)부터 화면 끝까지 덮는 반투명 막. 불투명도는 메뉴 펼침 정도(0~1)를 따른다.
@@ -51,8 +51,8 @@ export const styles = StyleSheet.create({
   // 보관함 오른쪽 아래에 떠 있는 새 다이어리 버튼 (예전 사이드 메뉴 + 버튼과 같은 색 · 모서리)
   // + 아이콘만(글자 없음, 사용자 결정). 태블릿은 이 화면의 유일한 주 동작이라 56×56 · 오른쪽 · 아래 24 · 그림자 0 4 10 / 10%(코덱스 2026-11-01: 보조 버튼 36~40보다 분명히 크고 표지 폭 172와는 다투지 않는 크기)
   // 폰은 44×44 · 오른쪽 · 아래 16. 모서리는 둘 다 12. 좌측 바 아래 프로필 원과 다른 축(본문 오른쪽)에 둔다
-  createFab: { position: 'absolute', right: 24, bottom: 24, width: 56, height: 56, alignItems: 'center', justifyContent: 'center', borderRadius: 12, backgroundColor: C.blueStrong, boxShadow: '0px 4px 10px rgba(11, 23, 102, 0.10)' },
-  createFabCompact: { right: 16, bottom: 16, width: 44, height: 44 },
+  createFab: { position: 'absolute', right: 24, bottom: 24, width: 56, height: 56, alignItems: 'center', justifyContent: 'center', borderRadius: 12, backgroundColor: C.blueStrong, boxShadow: '0px 4px 10px rgba(28, 28, 28, 0.10)' },
+  createFabCompact: { right: 16, bottom: 16, width: 56, height: 56 }, // Material FAB 기본 56 · 끝 여백 16(2026-11-05 조사 §16-3)
   railCreate: { minHeight: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', borderRadius: 12, backgroundColor: C.blueStrong },
   railPlus: { color: C.white, fontSize: 23, lineHeight: 25, fontWeight: '300' },
   railCreateText: { color: C.white, fontSize: 13, fontWeight: '700' },
@@ -91,22 +91,21 @@ export const styles = StyleSheet.create({
   libraryGridScrollCompact: { paddingHorizontal: 14, paddingBottom: 20 },
   // 새 다이어리 버튼이 떠 있을 때는 마지막 줄이 버튼 밑에 깔리지 않게 버튼 높이 + 위아래 여백만큼 비운다
   libraryGridScrollFab: { paddingBottom: 24 + 56 + 16 },
-  libraryGridScrollFabCompact: { paddingBottom: 16 + 44 + 16 },
+  libraryGridScrollFabCompact: { paddingBottom: 16 + 56 + 16 },
   libraryScreenCarouselCompact: { flexGrow: 1, paddingBottom: 8 },
   libraryHeader: { minHeight: 45, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  // 폰: 제목 길이(`내 다이어리` · `공유된 다이어리`)와 상관없이 보기 전환 · 알림은 늘 같은 자리(오른쪽 한 줄)다.
-  // 줄바꿈 대신 제목이 줄어든다(한 줄 · 글자 크기 최소 0.75배, 2026-11-05 사용자 지적: 탭마다 버튼 자리가 달라지면 안 된다)
+  // 폰: 제목 줄은 제목 + 검색 · ⋮ · 알림. 제목이 길면 줄바꿈 대신 한 줄에서 줄어든다(최소 0.75배)
   libraryHeaderCompact: { minHeight: 44, columnGap: 8 },
   headerTitleRowCompact: { flexShrink: 1, minWidth: 0 },
   libraryTitleCompact: { fontSize: 24, letterSpacing: -0.5, flexShrink: 1 },
-  libraryViewSwitchCompact: { width: 132, height: 36, marginLeft: 'auto' },
   libraryTitle: { color: C.ink, fontSize: 28, letterSpacing: -0.6, fontWeight: '800' },
   // 보기 전환: 아이콘 셋을 132×36 흰 판 하나(모서리 10)에 묶는다. 고른 칸만 라벤더 면 + primaryText 아이콘, 나머지는 면 · 테두리 없음(원 페이저 03)
   // 칸은 보이는 28×28 + hitSlop 으로 터치 48(칸 사이 20). 폰 · 태블릿 같은 모양이라 390폭에서도 `공유된 다이어리` 제목과 한 줄에 선다
   // 태블릿: 136×40 판 · 칸 32 · 아이콘 18(칸 크기는 코덱스 2026-11-01, 칸 사이 16은 터치 48 때문). 폰: 132×36 · 칸 28 · 아이콘 16
-  libraryViewSwitch: { width: 136, height: 40, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 4, borderRadius: 10, backgroundColor: C.white },
-  libraryViewOption: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center', borderRadius: 8 },
-  libraryViewOptionCompact: { width: 28, height: 28 },
+  libraryViewSwitch: { height: 40, flexDirection: 'row', alignItems: 'center', gap: 2, paddingHorizontal: 4, borderRadius: 10, backgroundColor: C.white },
+  libraryViewOption: { height: 32, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, paddingHorizontal: 10, borderRadius: 8 },
+  libraryViewOptionText: { color: C.blue, fontSize: 13, fontWeight: '600' },
+  libraryViewOptionTextSelected: { color: C.blueText, fontWeight: '700' },
   libraryViewOptionSelected: { backgroundColor: C.lavender100 },
   libraryViewIcon: { color: C.inkSoft, fontSize: 16, lineHeight: 18, fontWeight: '800' },
   libraryViewText: { color: C.inkSoft, fontSize: 12, fontWeight: '700' },
@@ -114,10 +113,13 @@ export const styles = StyleSheet.create({
   libraryToolbarWrap: { flexWrap: 'wrap', gap: 8, zIndex: 10 },
   librarySortIcon: { transform: [{ rotate: '90deg' }] },
   libraryActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  librarySortMenu: { ...bubble, position: 'absolute', top: '100%', right: 0, width: 230, padding: 8, gap: 4, zIndex: 20 },
+  librarySortMenu: { ...bubble, position: 'absolute', top: '100%', right: 0, width: 230, padding: 8, zIndex: 20 },
   libraryOptionsDivider: { height: 1, backgroundColor: C.line, marginVertical: 8 },
   // 고른 항목의 파란 테두리(1.5)와 같은 두께를 모든 항목이 갖고(안 고른 건 투명), 체크 자리를 따로 두므로 왼쪽 여백은 줄인다. 그래야 글자가 항목마다 같은 자리에 선다.
-  librarySortOption: { minHeight: 48, alignSelf: 'stretch', alignItems: 'flex-start', paddingHorizontal: 10, borderWidth: 1.5, borderColor: 'transparent', borderRadius: 10 },
+  librarySortOption: { minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 14, borderRadius: 10 },
+  librarySortText: { flex: 1, color: C.ink, fontSize: 12, fontWeight: '600' },
+  librarySortHeader: { height: 28, paddingHorizontal: 14, color: C.blueStrong, fontSize: 12, lineHeight: 28, fontWeight: '700' },
+  librarySortDivider: { height: 1, marginVertical: 6, backgroundColor: colors.cardBorder }, // 정렬(이 목록을 어떻게 볼지)과 휴지통(다른 곳으로 이동)을 나눈다
   librarySearchHeading: { flexDirection: 'row', alignItems: 'center', gap: 12, zIndex: 10 },
   librarySearchPageInput: { height: 48, marginTop: 32, borderWidth: 1, borderColor: C.blueStrong },
   librarySearchClearSlot: { width: 44, height: 44, flexShrink: 0 },
@@ -138,7 +140,7 @@ export const styles = StyleSheet.create({
   // flexBasis 0: 웹에서 가로 ScrollView 가 칩 전체 폭으로 늘어나 검색 · 더보기 밑으로 깔리지 않게 남은 폭만 쓴다
   libraryFilterScroll: { flex: 1, flexBasis: 0, minWidth: 0, flexGrow: 1 },
   libraryFilterScrollContent: { alignItems: 'center', paddingRight: 8 },
-  libraryActionsCompact: { flexShrink: 0, gap: 8, marginLeft: 8 },
+  libraryActionsCompact: { flexShrink: 0, gap: 4, flexDirection: 'row', alignItems: 'center' },
   // 선택 모드 도구줄(보관함 · 휴지통 공용, SelectionBar): 선택 개수 + 동작 버튼. 좁은 폰에서는 버튼이 다음 줄로 내려간다.
   // 규격은 같은 화면의 칩과 맞춘다: 버튼 · 칩은 높이 40 · 모서리 10 · cardBorder 1px · 글자 12/700 (터치 44는 hitSlop), 판은 모서리 16(코덱스 2026-10-31)
   selectBar: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginTop: 14, paddingVertical: 10, paddingHorizontal: 14, borderRadius: 16, borderWidth: 1, borderColor: colors.cardBorder, backgroundColor: C.white },
@@ -169,7 +171,7 @@ export const styles = StyleSheet.create({
   headerRightCompact: { flexDirection: 'row', alignItems: 'center', gap: 4, flexShrink: 0 },
   libraryHeadToolsCompact: { flexDirection: 'row', alignItems: 'center', gap: 4, marginLeft: 'auto', flexShrink: 0 },
   headerActions: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  iconButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 12, backgroundColor: C.white, borderWidth: 1, borderColor: colors.cardBorder }, // 칩 규칙: 흰 면 + #D9DCEF 테두리
+  iconButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 12, backgroundColor: C.white, borderWidth: 1, borderColor: colors.cardBorder }, // 칩 규칙: 흰 면 + #D9D8EA 테두리
   iconButtonPhone: { width: 40, height: 40, borderRadius: 10 }, // 폰 도구줄의 검색 · 더보기(보이는 40 + hitSlop 으로 터치 44)
   iconButtonCompact: { width: 44, height: 44, borderRadius: 12, borderWidth: 0, backgroundColor: 'transparent' },
   // 보관함 도구줄의 검색 · 더보기: 테두리 · 면 없는 40 아이콘(터치는 hitSlop 으로 44, 원 페이저 03)
@@ -251,7 +253,7 @@ headerCreateText: { color: C.white, fontSize: 13, fontWeight: '700' },
   cardCoverWrap: { position: 'relative' },
   // 관리 모드: 고른 카드는 파란 테두리, 표지 위 오른쪽에 체크 원을 띄운다. 테두리 두께는 그대로 둬 카드가 밀리지 않게 한다.
   cardSelected: { borderColor: C.blueStrong },
-  cardCheck: { position: 'absolute', top: 12, right: 12, zIndex: 3, width: 30, height: 30, alignItems: 'center', justifyContent: 'center', borderRadius: 15, borderWidth: 2, borderColor: C.white, backgroundColor: 'rgba(11,23,102,.28)' },
+  cardCheck: { position: 'absolute', top: 12, right: 12, zIndex: 3, width: 30, height: 30, alignItems: 'center', justifyContent: 'center', borderRadius: 15, borderWidth: 2, borderColor: C.white, backgroundColor: 'rgba(28,28,28,.28)' },
   cardCheckCompact: { top: 6, right: 6, width: 24, height: 24, borderRadius: 12 }, // 폰: 즐겨찾기 별(24칸 · 모서리 6)과 같은 크기 · 자리
   cardCheckOn: { backgroundColor: C.blueStrong },
   sortOptionRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
@@ -270,28 +272,28 @@ headerCreateText: { color: C.white, fontSize: 13, fontWeight: '700' },
 
   cover: { height: 219, padding: 19, overflow: 'hidden', justifyContent: 'center' },
   // 책상 위 표지: 오후 빛과 같은 방향(오른쪽 아래)의 옅은 그림자
-  coverCarousel: { height: 318, borderTopLeftRadius: 9, borderTopRightRadius: 18, borderBottomRightRadius: 18, borderBottomLeftRadius: 9, boxShadow: '0px 6px 16px rgba(11, 23, 102, 0.06)' }, // 카드 그림자는 옅은 한 겹(코덱스 1번). elevation 은 안드로이드에서 표지 둘레에 옅은 테두리를 만들어 방향 있는 boxShadow 를 쓴다
+  coverCarousel: { height: 318, borderTopLeftRadius: 9, borderTopRightRadius: 18, borderBottomRightRadius: 18, borderBottomLeftRadius: 9, boxShadow: '0px 6px 16px rgba(28, 28, 28, 0.06)' }, // 카드 그림자는 옅은 한 겹(코덱스 1번). elevation 은 안드로이드에서 표지 둘레에 옅은 테두리를 만들어 방향 있는 boxShadow 를 쓴다
   coverCarouselCompact: { height: 268, padding: 16 },
   coverCarouselLarge: { height: 440, padding: 22 }, // 태블릿 세로 (cardCarouselLarge 폭과 같은 높이)
   // 한눈에 칸은 정사각형. 세로 · 가로 다이어리 모두 긴 변이 칸 크기와 같다 (선반 배치)
   // 스와이프 표지 프레임: 표지 칸 바깥으로 두께만큼 나와 표지를 감싼다. 자리와 모서리 둥글기는 표지 크기에서 Cover 가 계산한다(크기가 커지면 표지 모서리도 같이 커진다)
   coverFrame: { position: 'absolute' },
-  coverFrameIdle: { borderWidth: 2, borderColor: 'rgba(217,220,239,0.7)' },
-  coverFrameActive: { borderWidth: 3, borderColor: C.white, boxShadow: '0px 8px 16px rgba(11, 23, 102, 0.06)' },
+  coverFrameIdle: { borderWidth: 2, borderColor: 'rgba(217,216,234,0.7)' },
+  coverFrameActive: { borderWidth: 3, borderColor: C.white, boxShadow: '0px 8px 16px rgba(28, 28, 28, 0.06)' },
   coverGrid: { aspectRatio: 1, borderRadius: 12, shadowColor: C.ink, shadowOpacity: 0.07, shadowRadius: 10, shadowOffset: { width: 0, height: 6 }, elevation: 4 },
   coverGridCompact: { padding: 15 },
   coverSmall: { width: 143, height: '100%', minHeight: 118, padding: 13 },
   coverPreview: { width: 250, height: 330, borderRadius: 12, padding: 27, shadowColor: C.ink, shadowOpacity: 0.1, shadowRadius: 19, shadowOffset: { width: 0, height: 13 }, elevation: 6 },
   coverLine: { position: 'absolute', top: 17, left: 0, width: '54%', height: 4, borderTopRightRadius: 5, borderBottomRightRadius: 5, backgroundColor: 'rgba(255,255,255,.52)' },
   coverRing: { position: 'absolute', top: -28, right: -21, width: 116, height: 116, borderRadius: 58, borderWidth: 16, borderColor: 'rgba(255,255,255,.20)' },
-  coverKicker: { color: 'rgba(11,23,102,.65)', fontSize: 9, fontWeight: '900', letterSpacing: 1.1, marginBottom: 12 },
+  coverKicker: { color: 'rgba(28,28,28,.65)', fontSize: 9, fontWeight: '900', letterSpacing: 1.1, marginBottom: 12 },
   coverKickerSmall: { fontSize: 7, marginBottom: 8 },
   coverTitle: { color: C.ink, fontSize: 22, lineHeight: 27, fontWeight: '900', letterSpacing: -0.85 },
   coverTitleSmall: { fontSize: 14, lineHeight: 17 },
   coverTitleGridCompact: { fontSize: 18, lineHeight: 23, letterSpacing: -0.6 },
   coverFooter: { position: 'absolute', left: 19, right: 19, bottom: 17, flexDirection: 'row', alignItems: 'center', gap: 8 },
-  coverRule: { flex: 1, height: 1, backgroundColor: 'rgba(11,23,102,.34)' },
-  coverYear: { color: 'rgba(11,23,102,.72)', fontSize: 10, fontWeight: '900' },
+  coverRule: { flex: 1, height: 1, backgroundColor: 'rgba(28,28,28,.34)' },
+  coverYear: { color: 'rgba(28,28,28,.72)', fontSize: 10, fontWeight: '900' },
   coverYearSmall: { fontSize: 8 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', columnGap: '2%', paddingTop: 16 }, // 태블릿은 useDiaryGrid 가 폭 · 칸 · 줄 간격을 정한다(utils/gridLayout). 폰은 gridCompact. 첫 줄은 필터 · 칩 바로 아래(16)에서 시작한다
   gridCompact: { columnGap: 0, rowGap: 20, justifyContent: 'space-between', paddingTop: 20 },
@@ -326,8 +328,8 @@ headerCreateText: { color: C.white, fontSize: 13, fontWeight: '700' },
   colorLabel: { marginTop: 24 },
   colors: { flexDirection: 'row', justifyContent: 'space-between', gap: 7 },
   colorChoice: { width: 66, minHeight: 67, paddingVertical: 8, alignItems: 'center', justifyContent: 'center', gap: 5, borderRadius: 12, borderWidth: 1, borderColor: 'transparent' },
-  colorSelected: { borderColor: C.ink, backgroundColor: '#F7F8FD' },
-  colorDot: { width: 29, height: 29, borderRadius: 12, borderWidth: 2, borderColor: 'rgba(11,23,102,.10)' },
+  colorSelected: { borderColor: C.ink, backgroundColor: '#F8F7FD' },
+  colorDot: { width: 29, height: 29, borderRadius: 12, borderWidth: 2, borderColor: 'rgba(28,28,28,.10)' },
   colorName: { color: C.inkSoft, fontSize: 10, fontWeight: '700' },
   formDivider: { height: 1, marginTop: 25, backgroundColor: C.line },
   formTip: { color: C.muted, fontSize: 10.5, lineHeight: 16, marginTop: 14, marginBottom: 18 },
@@ -350,8 +352,8 @@ headerCreateText: { color: C.white, fontSize: 13, fontWeight: '700' },
   createPreviewMeta: { color: C.inkSoft, fontSize: 11.5, fontWeight: '700', marginTop: 26 },
   createPreviewCopy: { color: C.inkSoft, fontSize: 11.5, fontWeight: '600', marginTop: 5, textAlign: 'center' },
   bookPreview: { width: 185, height: 246, overflow: 'hidden', borderTopLeftRadius: 6, borderBottomLeftRadius: 6, borderTopRightRadius: 14, borderBottomRightRadius: 14, shadowColor: C.ink, shadowOpacity: 0.11, shadowRadius: 16, shadowOffset: { width: 0, height: 12 }, elevation: 8 },
-  bookSpine: { position: 'absolute', top: 0, bottom: 0, left: 0, width: 9, backgroundColor: 'rgba(11,23,102,.16)' },
-  bookBand: { position: 'absolute', top: 0, bottom: 0, right: 30, width: 7, backgroundColor: 'rgba(11,23,102,.20)' },
+  bookSpine: { position: 'absolute', top: 0, bottom: 0, left: 0, width: 9, backgroundColor: 'rgba(28,28,28,.16)' },
+  bookBand: { position: 'absolute', top: 0, bottom: 0, right: 30, width: 7, backgroundColor: 'rgba(28,28,28,.20)' },
   bookLabel: { position: 'absolute', top: 50, left: 25, right: 26, paddingHorizontal: 12, paddingVertical: 10, borderRadius: 3, backgroundColor: 'rgba(255,253,248,.96)', shadowColor: C.ink, shadowOpacity: 0.06, shadowRadius: 3, shadowOffset: { width: 0, height: 1 } },
   bookLabelTitle: { color: '#3B3F4A', fontSize: 15, fontWeight: '700' },
   bookLabelMeta: { color: '#9A9DA6', fontSize: 8.5, fontWeight: '800', letterSpacing: 1.4, marginTop: 6 },
@@ -365,14 +367,14 @@ headerCreateText: { color: C.white, fontSize: 13, fontWeight: '700' },
   createLabelRow: { flexDirection: 'row', alignItems: 'baseline', gap: 8, marginBottom: 9 },
   createLabelInline: { marginBottom: 0 },
   createLabelNote: { color: C.muted, fontSize: 10.5, fontWeight: '600' },
-  createField: { height: 46, paddingHorizontal: 14, color: C.ink, fontSize: 14, fontWeight: '700', borderRadius: 12, borderWidth: 1, borderColor: C.line, backgroundColor: '#F7F8FD' },
+  createField: { height: 46, paddingHorizontal: 14, color: C.ink, fontSize: 14, fontWeight: '700', borderRadius: 12, borderWidth: 1, borderColor: C.line, backgroundColor: '#F8F7FD' },
   createHelperRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 6, marginBottom: 16 },
   // 오류 문구가 없어도 글자 수는 늘 오른쪽 끝에 둔다.
   createCount: { marginLeft: 'auto' },
   createColors: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 18 },
   createColorChoice: { width: 38, height: 38, alignItems: 'center', justifyContent: 'center', borderRadius: 19, borderWidth: 2, borderColor: 'transparent' },
   createColorSelected: { borderColor: C.ink },
-  createColorDot: { width: 30, height: 30, borderRadius: 15, borderWidth: 1, borderColor: 'rgba(11,23,102,.10)' },
+  createColorDot: { width: 30, height: 30, borderRadius: 15, borderWidth: 1, borderColor: 'rgba(28,28,28,.10)' },
   createChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 18 },
   formChip: { minHeight: 36, paddingHorizontal: 13, flexDirection: 'row', alignItems: 'center', gap: 8, borderRadius: 11, borderWidth: 1, borderColor: C.line, backgroundColor: C.white },
   formChipSelected: { borderColor: C.blueStrong, backgroundColor: C.white },

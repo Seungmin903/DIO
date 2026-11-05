@@ -128,7 +128,7 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6 },
   scroll: { alignSelf: 'stretch', flex: 1 },
   scrollContent: { flexGrow: 1, alignItems: 'center', justifyContent: 'center', padding: 8 },
-  page: { borderRadius: 4, overflow: 'hidden', backgroundColor: colors.surface, boxShadow: '0px 8px 20px rgba(11, 23, 102, 0.07)' },
+  page: { borderRadius: 4, overflow: 'hidden', backgroundColor: colors.surface, boxShadow: '0px 8px 20px rgba(28, 28, 28, 0.07)' },
   zoom: { minWidth: 48, textAlign: 'center', fontSize: 12.5, fontWeight: '700', color: colors.text },
   fields: { gap: 8 },
   field: { gap: 4 },

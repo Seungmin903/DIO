@@ -153,7 +153,7 @@ const server = http.createServer((req, res) => {
       await button('변경사항 저장').click();
       await page.getByText('회원정보를 저장했어요.').waitFor();
       assert.ok(await button('변경사항 저장').isDisabled());
-      await button('내 공간으로 돌아가기').click();
+      await button('마이페이지로 돌아가기').click();
       await (width < 700 ? page.getByRole('tab', { name: '다이어리', exact: true }) : button('모든 다이어리')).click();
       await button('우리의 여행 기록 열기').click();
       await page.getByRole('button', { name: /^다이어리 공유/ }).click();
@@ -173,7 +173,7 @@ const server = http.createServer((req, res) => {
       await input('현재 비밀번호').fill('Password123');
       await button('변경').click();
       await page.getByText('비밀번호를 변경했어요.').waitFor();
-      await button('내 공간으로 돌아가기').click();
+      await button('마이페이지로 돌아가기').click();
       await page.getByText('마지막이름님의 기록 공간', { exact: true }).waitFor();
       await button('로그아웃').click();
       await login('Password123');

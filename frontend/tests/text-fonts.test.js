@@ -16,7 +16,7 @@ test('기기 글꼴(기본 고딕 · 기본 명조)과 고정폭은 목록에서
   assert.ok(!TEXT_FONTS.some((f) => f.id === 'sans' || f.id === 'serif'))
   assert.equal(fontLabel(TEXT_FONTS.find((f) => f.id === 'nanum-gothic'), 'ios'), '나눔고딕')
   assert.equal(fontLabel(TEXT_FONTS.find((f) => f.id === 'poor-story'), 'ios'), '푸어스토리')
-  assert.deepEqual(TEXT_FONTS.filter((f) => f.family).map((f) => f.label), ['나눔고딕', '나눔명조', '고운돋움', '고운바탕', '마루부리', '나눔손글씨 펜', '푸어스토리'])
+  assert.deepEqual(TEXT_FONTS.filter((f) => f.family).map((f) => f.label), ['프리텐다드', '나눔고딕', '나눔명조', '고운돋움', '고운바탕', '마루부리', '나눔손글씨 펜', '푸어스토리'])
   assert.ok(!TEXT_FONTS.some((f) => f.id === 'jua'))
   assert.ok(!TEXT_FONTS.some((f) => f.id === 'mono'))
   // 한글을 일부만 지원하는 검은고딕은 뺐고, 예전 글자는 기본 고딕으로 그린다

@@ -45,6 +45,6 @@ export default function TextBoxInput({ zoom, onCreate, pageWidth: PAGE_WIDTH = D
     },
   })
   return <View accessibilityLabel="드래그하여 텍스트 상자 만들기" style={StyleSheet.absoluteFill} {...handlers}>
-    {box && <View pointerEvents="none" style={{ position: 'absolute', left: box.x * zoom, top: box.y * zoom, width: box.width * zoom, height: box.h * zoom, borderWidth: 1, borderColor: '#818AC3', backgroundColor: 'rgba(129,138,195,0.12)' }} />}
+    {box && <View pointerEvents="none" style={{ position: 'absolute', left: box.x * zoom, top: box.y * zoom, width: box.width * zoom, height: box.h * zoom, borderWidth: 1, borderColor: '#817DB9', backgroundColor: 'rgba(129,125,185,0.12)' }} />}
   </View>
 }

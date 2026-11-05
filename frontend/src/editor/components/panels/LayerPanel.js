@@ -639,7 +639,7 @@ const styles = StyleSheet.create({
     marginRight: -16,
     borderLeftWidth: 1,
     borderLeftColor: colors.border, // 페이지 패널 구분선과 같은 값(코덱스 2026-11-02: 8% 는 큰 화면에서 너무 흐렸다)
-    backgroundColor: colors.surfaceSoft, // 열린 패널 바탕은 앱 바탕색(#F7F8FD)
+    backgroundColor: colors.surfaceSoft, // 열린 패널 바탕은 앱 바탕색(#F8F7FD)
   },
   close: { width: 48, height: 48, marginRight: -12, alignItems: 'center', justifyContent: 'center' }, // 터치 48, 아이콘 자리는 그대로
   header: { paddingHorizontal: 16, paddingTop: 10, paddingBottom: 10 }, // 제목 위치를 왼쪽 페이지 패널 탭 높이에 맞춘다
@@ -696,10 +696,10 @@ const styles = StyleSheet.create({
     top: 0,
     bottom: 0,
     width: 2,
-    backgroundColor: 'rgba(129,138,195,0.35)',
+    backgroundColor: 'rgba(129,125,185,0.35)',
   },
   chevron: { marginLeft: -6, marginRight: -4, padding: 2 },
-  rowSelected: { backgroundColor: 'rgba(129,138,195,0.18)' },
+  rowSelected: { backgroundColor: 'rgba(129,125,185,0.18)' },
   // 고른 행: 연한 면 + 왼쪽 3 막대(윤곽 링 대신, 코덱스 2026-11-02). 내용 자리는 밀지 않게 겹쳐 그린다
   selectedBar: { position: 'absolute', left: 0, top: 0, bottom: 0, width: 3, backgroundColor: colors.primaryStrong },
   rowDragging: {

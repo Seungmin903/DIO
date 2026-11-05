@@ -1,5 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, FlatList, Pressable, ScrollView, Text, View } from 'react-native';
+import { Animated, BackHandler, FlatList, Platform, Pressable, ScrollView, Text, View } from 'react-native';
 import PopoverMenu from '../components/PopoverMenu';
 import FadeScroll, { CANVAS_FADE_RGB } from '../../editor/components/controls/FadeScroll';
 import { CAROUSEL_GAP, CAROUSEL_ITEM_WIDTH, CAROUSEL_STEP, FILTERS, LIBRARY_SCOPES, C } from '../constants';
@@ -20,6 +20,8 @@ import { useDiaryGrid } from '../utils/useDiaryGrid';
 import { CAROUSEL_LIFT, CAROUSEL_SCALE } from '../utils/carouselFollow';
 
 const AnimatedFlatList = Animated.createAnimatedComponent(FlatList);
+// 보관함 세 보기
+const LIBRARY_VIEWS = [{ id: 'open', label: '펼쳐서', icon: 'book-open' }, { id: 'carousel', label: '스와이프', icon: 'swap' }, { id: 'grid', label: '한눈에', icon: 'grid' }];
 // 줄 폭 변화가 이만큼 멈춰 있어야 새 폭으로 다시 그린다 (사이드 메뉴 애니메이션 240ms가 끝난 뒤).
 const CAROUSEL_RESIZE_SETTLE_MS = 120;
 // 버튼으로 한 칸 넘기는 부드러운 스크롤이 끝나기를 기다리는 시간(스크롤 끝 이벤트가 없을 때의 보험)
@@ -96,6 +98,12 @@ function LibraryScreen({
   const setSearchOpen = remoteQuery ? remoteQuery.onSearchOpenChange : setLocalSearchOpen;
   const query = remoteQuery ? remoteQuery.query : localQuery;
   const setQuery = remoteQuery ? remoteQuery.onQueryChange : setLocalQuery;
+  // Android 뒤로 키: 검색이 열려 있으면 앱을 나가지 않고 검색부터 닫는다(폰은 기본 보관함에서 뒤로 키가 앱 종료라 검색 중에 종료되던 것)
+  useEffect(() => {
+    if (Platform.OS !== 'android' || !searchOpen) return undefined;
+    const subscription = BackHandler.addEventListener('hardwareBackPress', () => { setSearchOpen(false); setQuery(''); return true; });
+    return () => subscription.remove();
+  }, [searchOpen, setSearchOpen, setQuery]);
   const [optionsOpen, setOptionsOpen] = useState(false);
   // 옵션 말풍선은 버튼 자리에 맞춰 띄우고, 바깥을 누르면 닫힌다(투명한 바탕 · Modal)
   const optionsButton = useRef(null);
@@ -233,14 +241,30 @@ function LibraryScreen({
   ), [scrollX]);
 
   const { key: sortKey, direction } = parseSort(sort);
+  const chooseView = (id) => { setSearchOpen(false); setQuery(''); onViewChange(id); if (id === 'carousel') showCurrentAtCenter(); };
   const optionsMenu = !selecting && <>
     <Pressable accessibilityRole="button" accessibilityLabel="보관함 옵션" accessibilityValue={{ text: SORT_OPTIONS.find(item => item.id === sortKey)?.label }} accessibilityState={{ expanded: optionsOpen }} ref={optionsButton} onPress={openOptions} hitSlop={4} style={({ pressed }) => [s.iconButton, s.iconButtonBare, pressed && s.pressed]}>
       <View style={s.librarySortIcon}><AppIcon name="more" size={21} color={C.ink} /></View>
     </Pressable>
-    <PopoverMenu open={optionsOpen} anchor={optionsAnchor} width={230} height={170} label="보관함 옵션 목록" style={s.librarySortMenu} onClose={() => setOptionsOpen(false)}>
+    <PopoverMenu open={optionsOpen} anchor={optionsAnchor} width={230} height={compact ? 430 : 250} rightInset={compact ? 13 : null} label="보관함 옵션 목록" style={s.librarySortMenu} onClose={() => setOptionsOpen(false)}>
+      {/* 폰: 보기 전환은 정렬과 같은 묶음(이 목록을 어떻게 볼지)이라 머리줄이 아니라 여기에 둔다(사용자 결정 2026-11-05).
+          고른 항목은 체크로만 표시하고(HIG Menus · Material 3 · 코덱스 2026-11-05) 묶음마다 머리글을 둔다 */}
+      {compact && <>
+        <Text accessibilityRole="header" style={s.librarySortHeader}>보기</Text>
+        <View accessibilityRole="radiogroup" accessibilityLabel="보기">
+          {LIBRARY_VIEWS.map(item => <Pressable key={item.id} accessibilityRole="radio" accessibilityState={{ checked: displayView === item.id }} accessibilityLabel={`${item.label} 보기`} onPress={() => { chooseView(item.id); setOptionsOpen(false); }} style={({ pressed }) => [s.librarySortOption, pressed && s.pressed]}>
+            <View style={s.sortOptionCheck}>{displayView === item.id && <AppIcon name="check" size={14} forText={12} color={C.blueStrong} />}</View>
+            <Text style={s.librarySortText}>{item.label}</Text>
+          </Pressable>)}
+        </View>
+        <View style={s.librarySortDivider} />
+      </>}
+      <Text accessibilityRole="header" style={s.librarySortHeader}>정렬 기준</Text>
       <View accessibilityRole="radiogroup" accessibilityLabel="정렬 기준">
-        {SORT_OPTIONS.map(item => <Pressable key={item.id} accessibilityRole="radio" accessibilityState={{ checked: sortKey === item.id }} accessibilityLabel={`${item.label}, ${sortKey === item.id ? (direction === 'asc' ? '오름차순' : '내림차순') + ', 누르면 방향 바꾸기' : '선택'}`} onPress={() => { onSortChange(nextSort(sort, item.id)); resetPosition(); }} style={({ pressed }) => [s.chip, s.librarySortOption, sortKey === item.id && s.chipSelected, pressed && s.pressed]}>
-          <View style={s.sortOptionRow}><View style={s.sortOptionCheck}>{sortKey === item.id && <AppIcon name={direction === 'asc' ? 'arrow-up' : 'arrow-down'} size={14} forText={12} color={C.ink} />}</View><Text style={s.chipText}>{item.label}</Text></View>
+        {SORT_OPTIONS.map(item => <Pressable key={item.id} accessibilityRole="radio" accessibilityState={{ checked: sortKey === item.id }} accessibilityLabel={`${item.label}, ${sortKey === item.id ? (direction === 'asc' ? '오름차순' : '내림차순') + ', 누르면 방향 바꾸기' : '선택'}`} onPress={() => { onSortChange(nextSort(sort, item.id)); resetPosition(); }} style={({ pressed }) => [s.librarySortOption, pressed && s.pressed]}>
+          <View style={s.sortOptionCheck}>{sortKey === item.id && <AppIcon name="check" size={14} forText={12} color={C.blueStrong} />}</View>
+          <Text style={s.librarySortText}>{item.label}</Text>
+          {sortKey === item.id && <AppIcon name={direction === 'asc' ? 'arrow-up' : 'arrow-down'} size={14} forText={12} color={C.ink} />}
         </Pressable>)}
       </View>
     </PopoverMenu>
@@ -280,47 +304,29 @@ function LibraryScreen({
 
   // 한눈에 보기는 제목 · 필터 · 도구를 위에 고정하고 카드 목록만 스크롤한다.
   const isGrid = displayView === 'grid';
+  // 폰: 첫 줄은 제목 + 검색 · ⋮ · 알림, 둘째 줄은 필터 칩. 보기 전환은 ⋮ 안(제목 길이와 상관없이 버튼 자리가 같다)
+  // 태블릿: 자리가 넉넉해 밖에 두고 아이콘만으로 뜻이 모호한 것을 글자로 보탠다
+  const viewSwitch = (
+        <View style={s.libraryViewSwitch} accessibilityRole="tablist">
+          {LIBRARY_VIEWS.map(item => <Pressable key={item.id} accessibilityRole="tab" accessibilityLabel={`${item.label} 보기`} hitSlop={VIEW_HIT_SLOP} accessibilityState={{ selected: displayView === item.id }}
+            onPress={() => chooseView(item.id)}
+            style={({ pressed }) => [s.libraryViewOption, displayView === item.id && s.libraryViewOptionSelected, pressed && s.pressed]}>
+            <AppIcon name={item.icon} size={18} forText={13} color={displayView === item.id ? C.blueText : C.blue} />
+            <Text style={[s.libraryViewOptionText, displayView === item.id && s.libraryViewOptionTextSelected]}>{item.label}</Text>
+          </Pressable>)}
+        </View>
+  );
+  const libraryActions = !selecting && <View style={[s.libraryActions, compact && s.libraryActionsCompact]}>
+          <IconButton bare label="다이어리 검색" iconName="search" onPress={() => { setSearchOpen(true); setQuery(''); setOptionsOpen(false); resetPosition(); }} />
+          {optionsMenu}
+        </View>;
   const top = (<>
       <View style={[s.libraryHeader, compact && s.libraryHeaderCompact]}>
         <View style={[s.headerTitleRow, compact && s.headerTitleRowCompact]}>
           <AppIcon name={scope?.icon ?? 'book'} size={compact ? 24 : 27} color={C.ink} strokeWidth={2.4} />
           <Text accessibilityRole="header" numberOfLines={compact ? 1 : undefined} adjustsFontSizeToFit={compact} minimumFontScale={0.75} style={[s.libraryTitle, compact && s.libraryTitleCompact]}>{scope?.label ?? '다이어리'}</Text>
         </View>
-        <View style={compact && s.libraryHeadToolsCompact}>
-        <View style={[s.libraryViewSwitch, compact && s.libraryViewSwitchCompact]} accessibilityRole="tablist">
-          <Pressable
-            accessibilityRole="tab"
-            accessibilityLabel="펼쳐서 보기"
-            hitSlop={compact ? VIEW_HIT_SLOP_COMPACT : VIEW_HIT_SLOP}
-            accessibilityState={{ selected: displayView === 'open' }}
-            onPress={() => { setSearchOpen(false); setQuery(''); onViewChange('open'); }}
-            style={({ pressed }) => [s.libraryViewOption, compact && s.libraryViewOptionCompact, displayView === 'open' && s.libraryViewOptionSelected, pressed && s.pressed]}
-          >
-            <AppIcon name="book-open" size={compact ? 16 : 18} color={displayView === 'open' ? C.blueText : C.blue} />
-          </Pressable>
-          <Pressable
-            accessibilityRole="tab"
-            accessibilityLabel="스와이프 보기"
-            hitSlop={compact ? VIEW_HIT_SLOP_COMPACT : VIEW_HIT_SLOP}
-            accessibilityState={{ selected: displayView === 'carousel' }}
-            onPress={() => { setSearchOpen(false); setQuery(''); onViewChange('carousel'); showCurrentAtCenter(); }}
-            style={({ pressed }) => [s.libraryViewOption, compact && s.libraryViewOptionCompact, displayView === 'carousel' && s.libraryViewOptionSelected, pressed && s.pressed]}
-          >
-            <AppIcon name="swap" size={compact ? 16 : 18} color={displayView === 'carousel' ? C.blueText : C.blue} />
-          </Pressable>
-          <Pressable
-            accessibilityRole="tab"
-            accessibilityLabel="한눈에 보기"
-            hitSlop={compact ? VIEW_HIT_SLOP_COMPACT : VIEW_HIT_SLOP}
-            accessibilityState={{ selected: displayView === 'grid' }}
-            onPress={() => { setSearchOpen(false); setQuery(''); onViewChange('grid'); }}
-            style={({ pressed }) => [s.libraryViewOption, compact && s.libraryViewOptionCompact, displayView === 'grid' && s.libraryViewOptionSelected, pressed && s.pressed]}
-          >
-            <AppIcon name="grid" size={compact ? 16 : 18} color={displayView === 'grid' ? C.blueText : C.blue} />
-          </Pressable>
-        </View>
-        {compact && <PhoneBell />}
-        </View>
+        {compact ? <View style={s.libraryHeadToolsCompact}>{libraryActions}<PhoneBell /></View> : viewSwitch}
       </View>
 
       <View style={[s.libraryToolbar, s.libraryToolbarWrap, compact && s.libraryToolbarCompact]}>
@@ -352,10 +358,7 @@ function LibraryScreen({
             ? <FadeScroll horizontal fadeRgb={CANVAS_FADE_RGB} style={s.libraryFilterScroll} contentContainerStyle={s.libraryFilterScrollContent}>{filterChips}</FadeScroll>
             : filterChips;
         })()}
-        {!selecting && <View style={[s.libraryActions, compact && s.libraryActionsCompact]}>
-          <IconButton bare label="다이어리 검색" iconName="search" onPress={() => { setSearchOpen(true); setQuery(''); setOptionsOpen(false); resetPosition(); }} />
-          {optionsMenu}
-        </View>}
+        {compact ? null : libraryActions}
       </View>
       {selectionBar}
       {requestNotice}
@@ -473,8 +476,7 @@ function LibraryScreen({
 }
 
 // 보기 전환 칸: 보이는 칸(폰 28 · 태블릿 32) 둘레를 넓혀 터치 48. 칸 사이가 좌우 slop 합과 같아 옆 칸과 겹치지 않는다
-const VIEW_HIT_SLOP_COMPACT = { top: 10, bottom: 10, left: 10, right: 10 };
-const VIEW_HIT_SLOP = { top: 8, bottom: 8, left: 8, right: 8 };
+const VIEW_HIT_SLOP = { top: 8, bottom: 8 };
 // 필터 칩: 보이는 높이 36 + 위아래 6 = 터치 48
 const FILTER_HIT_SLOP = { top: 6, bottom: 6 };
 

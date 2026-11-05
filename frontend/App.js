@@ -37,6 +37,7 @@ import { withPdfPages } from './src/diary/utils/pdfImport';
 import { coverTabPaint } from './src/diary/utils/coverDesign';
 import SideRail, { RAIL_WIDTH } from './src/diary/components/SideRail';
 import BottomTabs from './src/diary/components/BottomTabs';
+import { backTarget, createRouteMemory } from './src/diary/utils/routeMemory';
 import { PhoneBellProvider } from './src/diary/components/PhoneBell';
 import { createProfileSettingsNavigation } from './src/diary/components/profileNavigationModel';
 import SharingEntry from './src/sharing/SharingEntry';
@@ -288,6 +289,10 @@ function DiaryApp(props) {
     : content;
 }
 
+// 세션 교체 뒤 돌아갈 화면(위 주석 참고). 앱을 새로 켜면 보관함이다
+const HOME_ROUTE = { page: 'library', filter: DEFAULT_FILTER };
+const routeMemory = createRouteMemory(HOME_ROUTE);
+
 function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePreview, onReady, diaryState, sharing, loginOverlayOpen = false }) {
   const safety = useSafety();
   const member = diaryState.source === 'member-api';
@@ -376,13 +381,19 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
   const { isPhone, isLandscape } = useFormFactor();
   const tabletPortrait = !isPhone && !isLandscape;
   const [viewport, setViewport] = useState({ width: windowWidth, height: windowHeight });
-  const [page, setPage] = useState('library');
+  // 로그인 · 로그아웃으로 세션이 바뀌면 본문(SessionDiaryApp)이 새로 그려진다. 기능 가드에서 로그인한 뒤 보관함으로 튕기지 않도록
+  // 마지막 화면 · 범위를 모듈 변수에 두고 다음 본문이 그 자리에서 시작한다(편집기는 열린 다이어리가 없어 제외)
+  const routeOwner = member ? (previewUser?.userId || previewUser?.accountId || 'member') : null;
+  const [page, setPage] = useState(() => routeMemory.read(routeOwner).page);
   const [railCollapsed, setRailCollapsed] = useState(true);  // 메뉴가 다 열리거나 닫혔을 때의 폭. 캐러셀은 '줄 폭 + 이 값'(메뉴와 상관없이 같은 값)으로 목록 폭을 정해,
   // 메뉴에 밀려 함께 움직이는 동안과 멈춘 뒤에도 목록 폭이 바뀌지 않게 한다. 다시 그리지 않도록 ref로 넘긴다.
   const railWidthRef = useRef(RAIL_WIDTH.collapsed);
   // 메뉴는 메인 화면 위에 겹쳐 열리므로 메인 화면을 비켜 주는 폭은 늘 접힌 폭이다.
   // 보관함 필터: 범위(내 다이어리 · 공유된 다이어리) + 즐겨찾기 여부 (libraryQuery.filterScope · filterFavorite)
-  const [filter, setFilter] = useState(DEFAULT_FILTER);
+  const [filter, setFilter] = useState(() => routeMemory.read(routeOwner).filter);
+  useEffect(() => { routeMemory.remember({ page, filter }, routeOwner); }, [page, filter, routeOwner]);
+  // navigate 를 거치지 않고 휴지통에서 시작하면 목록도 여기서 불러온다
+  useEffect(() => { if (member && page === 'trash') diaryState.store.loadTrash().catch(()=>{}); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const [view, setView] = useState('carousel');
   // 사용자가 마지막으로 고른 보기(펼쳐서 · 스와이프 · 한눈에)를 기기에 남겨 다음에 열 때 그 보기로 시작한다.
   // 읽어 오는 사이에 사용자가 이미 보기를 바꿨으면 늦게 도착한 저장값으로 되돌리지 않는다.
@@ -527,6 +538,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
     if (member && next === 'trash') diaryState.store.loadTrash().catch(()=>{});
     const move = () => {
       setSelection(null);
+      setRailCollapsed(true); // 태블릿: 펼친 메뉴(오버레이)는 목적지를 고르면 닫힌다(Material modal drawer). 폰은 늘 true
       if (next === 'library') {
         setMemberSearchOpen(false); setMemberSearch('');
         setFilter(nextFilter || DEFAULT_FILTER);
@@ -561,11 +573,10 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
         setRailCollapsed(true);
         return true;
       }
-      if (page !== 'library' || filter !== DEFAULT_FILTER) {
-        navigate('library', DEFAULT_FILTER);
-        return true;
-      }
-      return false;
+      const target = backTarget({ isPhone, page, filter }, HOME_ROUTE);
+      if (!target) return false;
+      navigate(target.page, target.filter);
+      return true;
     });
     return () => subscription.remove();
   }, [createOpen, filter, isPhone, navigate, page, railCollapsed, selection, loginOverlayOpen]);
@@ -886,7 +897,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
         }} /></> : null}
       suppressEmpty={member && Boolean(fullLoadPending || !memberLibraryMatches || diaryState.library.loading || diaryState.library.error || diaryState.error || diaryState.refreshing)}
     />
-  ), [guestImport, carousel, changeCarousel, changeFilter, changeView, changeLibrarySort, create, edit, favorite, filter, isPhone, tabletPortrait,libraryMetadata, librarySort, moveDiaryToTrash, moveSelectedToTrash, open, selection, trashing, view, libraryDiaries, member, memberLibraryMatches, remoteQuery, diaryState.library, diaryState.bulkTrash, diaryState.pending, diaryState.error, diaryState.refreshing, diaryState.lifecycle, diaryState.trashLoading, diaryState.trashError, diaryState.store, saving, enterEditor]);
+  ), [guestImport, carousel, navigate, changeCarousel, changeFilter, changeView, changeLibrarySort, create, edit, favorite, filter, isPhone, tabletPortrait,libraryMetadata, librarySort, moveDiaryToTrash, moveSelectedToTrash, open, selection, trashing, view, libraryDiaries, member, memberLibraryMatches, remoteQuery, diaryState.library, diaryState.bulkTrash, diaryState.pending, diaryState.error, diaryState.refreshing, diaryState.lifecycle, diaryState.trashLoading, diaryState.trashError, diaryState.store, saving, enterEditor]);
 
   // 보관함(libraryScreen)처럼 요소를 memo 해 둔다. 사이드 메뉴를 여닫느라 App 이 다시 그려져도 휴지통 목록은 다시 그리지 않는다.
   const trashScreen = useMemo(() => (
@@ -984,7 +995,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
       accountService={previewUser?.mode === 'authenticated' ? authService : undefined}
       getProfilePhotoSource={previewUser?.mode === 'authenticated' ? authService.getProfilePhotoSource : undefined} />;
   } else if (page === 'settings') {
-    content = <ProfileScreen onOpenBlockedUsers={safety.openBlocks} key="settings" section="settings" compact={isPhone} previewUser={previewUser} onEndPreview={onEndPreview} onClearSession={onClearSession} onUpdatePreview={onUpdatePreview}
+    content = <ProfileScreen onOpenBlockedUsers={safety.openBlocks} key="settings" section="settings" compact={isPhone} onBack={isPhone ? () => navigate('profile') : undefined} previewUser={previewUser} onEndPreview={onEndPreview} onClearSession={onClearSession} onUpdatePreview={onUpdatePreview}
       accountService={previewUser?.mode === 'authenticated' ? authService : undefined}
       getProfilePhotoSource={previewUser?.mode === 'authenticated' ? authService.getProfilePhotoSource : undefined} />;
   }

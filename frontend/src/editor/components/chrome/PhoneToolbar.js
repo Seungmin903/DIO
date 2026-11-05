@@ -144,7 +144,7 @@ const card = {
   padding: 4,
   borderRadius: 16,
   borderWidth: 1,
-  borderColor: 'rgba(129,138,195,0.2)',
+  borderColor: 'rgba(129,125,185,0.2)',
   backgroundColor: 'rgba(255,255,255,0.97)',
   ...shadow.card,
 }
@@ -156,7 +156,7 @@ const styles = StyleSheet.create({
   bar: { backgroundColor: colors.surface, borderTopWidth: 1, borderTopColor: colors.border, borderBottomWidth: 1, borderBottomColor: colors.border, paddingVertical: 4 },
   barViewport: { overflow: 'hidden' },
   barRow: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 12 },
-  rowDivider: { width: 1, height: 28, marginHorizontal: 5, backgroundColor: 'rgba(11,23,102,0.12)' },
+  rowDivider: { width: 1, height: 28, marginHorizontal: 5, backgroundColor: 'rgba(28,28,28,0.12)' },
   // 가로 배치의 양옆 막대
   rail: { position: 'absolute', top: 8, width: PHONE_TOOLBAR_RAIL - 8 },
   railLeft: { left: 8, bottom: 8 },
@@ -170,7 +170,7 @@ const styles = StyleSheet.create({
   fade: { position: 'absolute', left: 1, right: 1, height: 30 },
   fadeTop: { top: 1, borderTopLeftRadius: 15, borderTopRightRadius: 15, overflow: 'hidden' },
   fadeBottom: { bottom: 1, borderBottomLeftRadius: 15, borderBottomRightRadius: 15, overflow: 'hidden' },
-  railDivider: { width: 28, height: 1, marginVertical: 5, backgroundColor: 'rgba(11,23,102,0.12)' },
+  railDivider: { width: 28, height: 1, marginVertical: 5, backgroundColor: 'rgba(28,28,28,0.12)' },
   // iOS HIG 최소 터치 영역 44pt
   tool: { width: 44, height: 44, borderRadius: 10, borderWidth: 2, borderColor: 'transparent', alignItems: 'center', justifyContent: 'center' },
   toolActive: { backgroundColor: colors.surface, borderColor: colors.primary }, // 선택: 흰 면 + 테두리 2px

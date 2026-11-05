@@ -1038,7 +1038,7 @@ const styles = StyleSheet.create({
   // 층 밖으로 나간 상자도 눌리는 것은 overflow 가 visible 일 때뿐이라 명시해 둔다(안드로이드 터치 대상 검색 · iOS RCTView hitTest 는
   // 자르지 않는 뷰면 영역 밖 자식도 찾고, 웹은 DOM 이 원래 그렇다). hidden 으로 바꾸지 않는다.
   hitLayer: { position: 'absolute', top: 0, left: 0, right: 0, overflow: 'visible' },
-  emptyMenu: { position: 'absolute', zIndex: 6, flexDirection: 'row', justifyContent: 'space-between', padding: 4, borderRadius: 16, backgroundColor: colors.surface, borderWidth: 1, borderColor: 'rgba(129,138,195,0.2)', boxShadow: '0px 6px 14px rgba(11, 23, 102, 0.16)' },
+  emptyMenu: { position: 'absolute', zIndex: 6, flexDirection: 'row', justifyContent: 'space-between', padding: 4, borderRadius: 16, backgroundColor: colors.surface, borderWidth: 1, borderColor: 'rgba(129,125,185,0.2)', boxShadow: '0px 6px 14px rgba(28, 28, 28, 0.16)' },
   menuButton: { flexDirection: 'row', alignItems: 'center', gap: 5, height: 42, paddingHorizontal: 10, borderRadius: 11 },
   menuPressed: {}, // 눌림 효과 없음(사용자 지시)
   menuDisabled: { opacity: DISABLED_OPACITY },
@@ -1079,7 +1079,7 @@ const styles = StyleSheet.create({
     borderStyle: 'dashed',
     borderColor: colors.primary,
     borderRadius: 4,
-    backgroundColor: 'rgba(129,138,195,0.12)',
+    backgroundColor: 'rgba(129,125,185,0.12)',
   },
   groupFrame: {
     position: 'absolute',
@@ -1088,7 +1088,7 @@ const styles = StyleSheet.create({
     borderColor: colors.primary,
     borderRadius: 12,
   },
-  groupFrameInside: { borderWidth: 1.5, borderColor: 'rgba(129,138,195,0.55)' },
+  groupFrameInside: { borderWidth: 1.5, borderColor: 'rgba(129,125,185,0.55)' },
   groupLabel: {
     position: 'absolute',
     top: -26,
