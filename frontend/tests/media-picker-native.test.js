@@ -1,0 +1,50 @@
+import assert from 'node:assert/strict';
+import { createRequire } from 'node:module';
+import { readFileSync } from 'node:fs';
+import test from 'node:test';
+
+const require = createRequire(import.meta.url), expo = createRequire(require.resolve('expo/package.json'));
+const { code } = expo('@babel/core').transformSync(readFileSync(new URL('../src/editor/utils/mediaPicker.native.js', import.meta.url), 'utf8'), {
+  configFile: false, babelrc: false, plugins: [expo.resolve('@babel/plugin-transform-modules-commonjs')],
+});
+
+function load(os, native) {
+  const calls = [];
+  globalThis.expo = native ? { modules: { DioGallery: native } } : {};
+  const m = { exports: {} };
+  new Function('require', 'module', 'exports', code)(id => id === 'react-native' ? { Platform: { OS: os } } : {
+    UIImagePickerPreferredAssetRepresentationMode: { Current: 'current' },
+    launchImageLibraryAsync: async options => { calls.push(options); return { canceled: false, assets: ['system'] }; },
+  }, m, m.exports);
+  return { selectImages: m.exports.selectImages, calls };
+}
+
+test('안드로이드에 갤러리가 있으면 갤러리를 열고 고른 결과를 그대로 돌려준다', async () => {
+  let asked;
+  const { selectImages, calls } = load('android', { isAvailable: () => true, pick: async multiple => { asked = multiple; return { canceled: false, assets: ['gallery'] }; } });
+  assert.deepEqual((await selectImages({ multiple: true })).assets, ['gallery']);
+  assert.equal(asked, true);
+  assert.equal(calls.length, 0);
+});
+
+test('갤러리에서 취소하면 시스템 창을 다시 열지 않는다', async () => {
+  const { selectImages, calls } = load('android', { isAvailable: () => true, pick: async () => ({ canceled: true, assets: [] }) });
+  assert.equal((await selectImages({ multiple: false })).canceled, true);
+  assert.equal(calls.length, 0);
+});
+
+test('모듈 · 갤러리가 없거나 실패하면 시스템 창을 쓰고, iOS 는 언제나 시스템 창이다', async () => {
+  for (const [os, native] of [
+    ['android', null],
+    ['android', { isAvailable: () => false }],
+    ['android', { isAvailable: () => { throw new Error('x'); } }],
+    ['android', { isAvailable: () => true, pick: async () => { throw new Error('x'); } }],
+    ['ios', { isAvailable: () => true, pick: async () => ({ canceled: false, assets: ['gallery'] }) }],
+  ]) {
+    const { selectImages, calls } = load(os, native);
+    assert.deepEqual((await selectImages({ multiple: true })).assets, ['system']);
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].allowsMultipleSelection, true);
+  }
+  delete globalThis.expo;
+});
