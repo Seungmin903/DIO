@@ -83,6 +83,7 @@ class LegalBuildTests(unittest.TestCase):
     def test_versions_dates_and_signup_contract(self):
         final.build()
         docs = self.read_bundle()['documents']
+        self.assertIn(final.EFFECTIVE_LABEL, (final.ROOT / 'index.html').read_text(encoding='utf-8'))
         expected = {key: version for key, _, _, version in candidate.DOCUMENTS}
         for doc in docs:
             self.assertEqual(doc['termsVersion'], expected[doc['id']])
