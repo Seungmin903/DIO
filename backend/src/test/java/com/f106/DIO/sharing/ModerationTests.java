@@ -64,6 +64,24 @@ class ModerationTests extends SharingTestSupport {
   assertThat(links.preview(token).requiresBlockedMemberConfirmation()).isFalse();
   assertThatThrownBy(()->links.accept(token,p.b.id())).isInstanceOfSatisfying(SharingException.class,e->assertThat(e.code).isEqualTo("BLOCKED_MEMBER_CONFIRMATION_REQUIRED"));
   assertThat(links.accept(token,p.b.id(),true).alreadyMember()).isFalse();
+  assertThat(links.preview(token,p.b.id()).requiresBlockedMemberConfirmation()).isFalse();
+  assertThat(links.accept(token,p.b.id()).alreadyMember()).isTrue();
+ }
+ @Test void existingOwnerAndEditorPreviewDoNotRequireBlockedMemberAcknowledgement()throws Exception{
+  var p=pair();blocks.block(p.a.id(),p.b.id(),p.diary);blocks.block(p.b.id(),p.a.id(),p.diary);
+  var token=links.create(p.diary,p.a.id()).token();
+  for(var member:List.of(p.a,p.b)){
+   mvc.perform(get("/api/v1/invites/"+token).header("Authorization","Bearer "+member.token()))
+    .andExpect(status().isOk()).andExpect(jsonPath("requiresBlockedMemberConfirmation").value(false));
+   var accepted=links.accept(token,member.id());assertThat(accepted.alreadyMember()).isTrue();
+   assertThat(accepted.currentMembers()).isEqualTo(2);
+  }
+ }
+ @Test void legacyOwnerPreviewSkipsWarningWithoutWritingMembership(){
+  var p=pair();blocks.block(p.a.id(),p.b.id(),p.diary);var token=links.create(p.diary,p.a.id()).token();
+  var ownerKey=new com.f106.DIO.diary.domain.DiaryMemberId(p.diary,p.a.id());members.deleteById(ownerKey);members.flush();
+  assertThat(links.preview(token,p.a.id()).requiresBlockedMemberConfirmation()).isFalse();
+  assertThat(members.findById(ownerKey)).isEmpty();
  }
  @Test void emailSendSuppressedAndPendingAcceptanceBlockedUntilUnblocked(){
   var p=pair();var other=diary(p.a);String email=users.findById(p.b.id()).orElseThrow().getEmail();

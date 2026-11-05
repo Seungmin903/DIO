@@ -56,8 +56,10 @@ public class DiaryInviteService {
         long inviteId=tokens.id(token);
         var invite=valid(inviteId,token,actor);UUID id=invite.getDiaryId();
         var diary=access.read(id);
-        int count=access.visibleMembers(diary).size();
-        return new InvitePreviewResponse(id,diary.getTitle(),invite.publicExpiresAt(),count,SharingPolicy.MAX_MEMBERS,count>=SharingPolicy.MAX_MEMBERS,invite.email()?"EMAIL":"LINK",invite.status(),actor!=null&&requiresConfirmation(diary,actor));
+        var currentMembers=access.visibleMembers(diary);
+        int count=currentMembers.size();
+        boolean alreadyMember=actor!=null&&currentMembers.stream().anyMatch(m->m.getUserId().equals(actor)&&m.active()&&m.supportedRole());
+        return new InvitePreviewResponse(id,diary.getTitle(),invite.publicExpiresAt(),count,SharingPolicy.MAX_MEMBERS,count>=SharingPolicy.MAX_MEMBERS,invite.email()?"EMAIL":"LINK",invite.status(),actor!=null&&!alreadyMember&&requiresConfirmation(diary,actor));
     }
     public InviteAcceptResponse accept(String token,long actor) {return accept(token,actor,false);}
     public InviteAcceptResponse accept(String token,long actor,boolean acknowledgeBlockedMembers) {
