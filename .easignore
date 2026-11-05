@@ -1,0 +1,61 @@
+# EAS reads this file from the Git repository root.  This repository contains
+# several services, while the Expo application lives exclusively in frontend/.
+# None of the following paths participate in the mobile build.
+/.git
+/.claude
+/.archify
+/.idea
+/.gitlab
+/ai
+/backend
+/docs
+/infra
+/promo-mockups
+/tmp
+
+# Root-local files and editor metadata.
+/*.pdf
+.env
+.env.*
+!.env.example
+*.jks
+*.keystore
+.DS_Store
+Thumbs.db
+.local-data/
+*.iml
+.vscode/
+
+# Local installations and generated files inside the Expo app.
+/frontend/node_modules/
+/frontend/.npm/
+/frontend/.pnpm-store/
+/frontend/.expo/
+/frontend/.env
+/frontend/.env.*
+!/frontend/.env.example
+/frontend/*.local
+/frontend/*.jks
+/frontend/*.keystore
+/frontend/*.p12
+/frontend/google-services.json
+/frontend/GoogleService-Info.plist
+/frontend/android/
+/frontend/ios/
+/frontend/dist/
+/frontend/dist-android/
+/frontend/web-build/
+/frontend/.tmp-context-menu-export/
+/frontend/logs/
+/frontend/*.log
+/frontend/.vscode/
+/frontend/.idea/
+/frontend/qa/.out/
+/frontend/qa/license-release-*/
+/frontend/third-party/cache/
+/frontend/modules/dio-handwriting/android/build/
+/frontend/modules/dio-handwriting/android/.gradle/
+/frontend/modules/dio-handwriting/android/src/androidTest/assets/
+/frontend/modules/dio-handwriting/android/src/main/assets/dio_handwriting/*.onnx
+/frontend/modules/dio-stylus/android/build/
+/frontend/modules/dio-stylus/android/.gradle/

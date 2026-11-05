@@ -58,6 +58,7 @@ import { createText } from '../utils/text'
 import { DEFAULT_HIGHLIGHTER_SETTINGS } from '../utils/penSettings'
 import { usePenSettings } from '../hooks/usePenSettings'
 import { recordPenColorUse } from '../hooks/useRecentPenColors'
+import { useDrawingInput } from '../../shared/drawingInput'
 import { useReadingPreviews } from '../hooks/useReadingPreviews'
 import { useToolPreference } from '../utils/toolPreferences'
 import SaveIndicator from '../components/controls/SaveIndicator'
@@ -194,6 +195,7 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
   const [drawerTab, setDrawerTab] = useState(null)
   // 편집 화면은 선택 도구로 시작한다(바로 요소를 눌러 고를 수 있게). 화면 이동은 손바닥 · 두 손가락으로 한다.
   const [activeTool, setActiveTool] = useState(() => qaController?.initialTool === 'pen' ? 'pen' : 'select')
+  const drawingInput = useDrawingInput()
   // 손바닥 도구로 페이지를 길게 누른 자리 (캔버스가 빈 곳 메뉴를 띄운다)
   const [pageMenuRequest, setPageMenuRequest] = useState(null)
   useEffect(() => { setPageMenuRequest(null) }, [page.id, activeTool])
@@ -297,6 +299,12 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
   // { photo, fixedAspect, title, resolve } — 취소하면 그 사진은 넣지 않는다(resolve(null))
   const [cropAsk, setCropAsk] = useState(null)
   const askCrop = (photo, title) => new Promise((resolve) => setCropAsk({ photo, fixedAspect: fixedAspectOf(photo), title, resolve }))
+  // 다음 사진을 물으면 그 내용으로 바로 바뀌고, 더 물을 것이 없을 때만 창을 닫는다(사진마다 창이 닫혔다 열리며 튀지 않게)
+  const settleCropAsk = (result) => {
+    const ask = cropAsk
+    ask.resolve(result)
+    setTimeout(() => setCropAsk((current) => (current === ask ? null : current)), 0)
+  }
   const [photoCropId, setPhotoCropId] = useState(null) // 자르기 창을 연 사진
   useEffect(() => registerInvitationLeaveGuard?.(() => {
     const allowed = canLeaveForInvitation({ loaded, saveStatus, editing: Boolean(textEditing || cropId || tapeCropId || photoCropId) });
@@ -1283,6 +1291,7 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
           {/* 선택 바는 페이지 밖(보이는 작업 영역 안)까지 나가므로 페이지가 아니라 작업창 위 층에 그린다. 확대·이동하는 동안은 숨긴다. */}
           <StageOverlayHost hidden={viewMoving}>
           <Viewport
+            fingerPan={drawingInput === 'pen' && !readOnly && ['pen', 'highlighter', 'eraser'].includes(activeTool)}
             reading={readOnly}
             readingLinkRef={readingLinkRef}
             onReadingAction={readingAction}
@@ -1527,12 +1536,12 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
           )}
           {cropAsk && (
             <PhotoCropper
-              key={`ask-${cropAsk.photo.id}-${cropAsk.title ?? ''}`}
+              bodyKey={`ask-${cropAsk.photo.id}-${cropAsk.title ?? ''}`}
               photo={cropAsk.photo}
               fixedAspect={cropAsk.fixedAspect}
               title={cropAsk.title}
-              onCancel={() => { cropAsk.resolve(null); setCropAsk(null) }}
-              onApply={({ aspect, rect, ...patch }) => { cropAsk.resolve(patch); setCropAsk(null) }}
+              onCancel={() => settleCropAsk(null)}
+              onApply={({ aspect, rect, ...patch }) => settleCropAsk(patch)}
             />
           )}
           {tapeCrop && (

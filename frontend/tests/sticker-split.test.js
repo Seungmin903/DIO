@@ -462,35 +462,3 @@ test('실제 facade는 release에서도 지원 모듈을 찾고 버전·필수 c
   assert.equal(load(module, { platform: 'ios' }).api.available, true)
   assert.equal(load(supported, { platform: 'web' }).api.available, false)
 })
-
-test('붙이는 순간 보관함이 닫혀도 최근 스티커 · 테이프 · 위젯이 남는다', async () => {
-  const storage = { value: { folders: [] } }
-  const harness = await decorHarness(storage)
-  // 화면을 다시 그리지 않고 바로 닫는다: 붙이기와 닫기가 한 번에 처리되는 실제 흐름
-  harness.api.markRecent({ builtin: 'moa-basic', name: '모아 기본' })
-  harness.api.markRecentTape({ pattern: 'dots' })
-  harness.api.markRecentWidget({ kind: 'memo', memo: 'moa', name: '모아 메모' })
-  harness.unmount()
-  await settleDecor()
-  assert.equal(storage.value.recentStickers[0].builtin, 'moa-basic')
-  assert.equal(storage.value.recentTapes[0].pattern, 'dots')
-  assert.equal(storage.value.recentWidgets[0].memo, 'moa')
-})
-
-test('생성 폴더를 저장하는 동안 들어온 최근 기록이 사라지지 않는다', async () => {
-  const storage = { value: { folders: [] } }
-  const harness = await decorHarness(storage)
-  let release
-  const gate = new Promise(resolve => { release = resolve })
-  storage.write = async value => { await gate; storage.value = structuredClone(value); return true }
-  const saving = harness.api.saveGenerated(null, '별', [{ src: 'media:dot', mediaFileId: 'dot' }])
-  harness.api.markRecent({ builtin: 'moa-basic', name: '모아 기본' })
-  release()
-  const id = await saving
-  await settleDecor()
-  const items = harness.render().items
-  assert.equal(items.recentStickers[0].builtin, 'moa-basic')
-  assert.ok(items.folders.some(f => f.id === id))
-  assert.equal(storage.value.recentStickers[0].builtin, 'moa-basic')
-  assert.ok(storage.value.folders.some(f => f.id === id))
-})

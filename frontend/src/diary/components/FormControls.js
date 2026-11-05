@@ -157,7 +157,7 @@ export function AutoSwatch({ color, on, onPress, label }) {
   return <Pressable accessibilityRole="radio" accessibilityLabel={label} accessibilityState={{ selected: on, checked: on }} onPress={onPress} hitSlop={6}
     style={[styles.ring, { width: size, height: size, borderRadius: size / 2 }, on && styles.ringOn]}>
     <View style={[styles.swatch, { width: inner, height: inner, borderRadius: inner / 2, backgroundColor: color }]}>
-      <Text allowFontScaling={false} numberOfLines={1} style={[styles.autoText, { color: dark(color) ? '#FFFFFF' : colors.text }]}>맞춤</Text>
+      <Text style={[styles.autoText, { color: dark(color) ? '#FFFFFF' : colors.text }]}>맞춤</Text>
     </View>
   </Pressable>
 }
