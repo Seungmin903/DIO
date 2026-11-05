@@ -31,6 +31,7 @@ import { sharingStyles as s } from './styles';
 function isInviteFull(invite) {
   return invite.full ?? (Number.isInteger(invite.memberCount) && invite.memberCount >= MAX_SHARING_MEMBERS);
 }
+const isSharingDiaryId = id => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id || '');
 
 function Button({
   label,
@@ -240,7 +241,7 @@ export default function SharingHub({
     });
   }, [diary?.id, runtime]);
   useEffect(() => {
-    if (!diary?.id || !runtime.server || typeof runtime.watchDiary !== 'function') return undefined;
+    if (!isSharingDiaryId(diary?.id) || !runtime.server || typeof runtime.watchDiary !== 'function') return undefined;
     return runtime.watchDiary(diary.id);
   }, [diary?.id, runtime]);
   useEffect(() => {

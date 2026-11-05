@@ -86,6 +86,7 @@ const PREFETCH_DELAY_MS = 400;
 // 편집기 진입 전 준비를 기다리는 최대 시간. 보통은 이보다 훨씬 빨리 끝난다.
 const EDITOR_PREPARE_LIMIT_MS = 500;
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+const isSharingDiaryId = id => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id || '');
 // 시작 화면(로고)은 보관함이 다 그려질 때까지 둔다. 첫 렌더에 바로 내려가면 글꼴 · 게스트 · 보관함을 읽는 동안 빈 화면이 보인다.
 // 로고는 JS 시작 화면(BootSplash, PNG)이 그린다. 네이티브 시작 화면은 BootSplash 가 처음 그려지면 바로 내린다
 // (안드로이드는 네이티브 시작 화면에 로고 없이 바탕색만 둔다: plugins/withSplashWindowBackground.js).
@@ -355,6 +356,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
     let disposed = false, stop = () => {};
     const onPushError = error => {
       if (__DEV__) console.warn('푸시 연결 오류', /^PUSH_[A-Z_]+$/.test(error?.message || '') ? error.message : 'UNKNOWN');
+
       if (!pushWarningShown.current && ((error?.status === 409 && error?.message !== 'PUSH_BINDING_CONFLICT') || error?.message === 'PUSH_RECOVERY_REQUIRES_ORIGINAL_ACCOUNT')) {
         pushWarningShown.current = true;
         notify('알림 연결 확인', '이전에 사용한 계정으로 로그인해 기기 알림을 확인해 주세요.');
@@ -452,7 +454,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
   // Keep the editor's participant chips current even when the sharing sheet is closed.
   useEffect(() => {
     const diaryId = active?.sharedDiaryId || active?.id;
-    if (!member || !diaryId || !sharing.runtime.server || typeof sharing.runtime.watchDiary !== 'function') return undefined;
+    if (!member || !isSharingDiaryId(diaryId) || !sharing.runtime.server || typeof sharing.runtime.watchDiary !== 'function') return undefined;
     return sharing.runtime.watchDiary(diaryId);
   }, [member, active?.id, active?.sharedDiaryId, sharing.runtime]);
   // 상단 바에 열어 둔 다이어리 탭 (id 순서대로). 다이어리를 열면 탭이 생기고, 탭을 눌러 오가며, 닫으면 옆 탭으로 간다.

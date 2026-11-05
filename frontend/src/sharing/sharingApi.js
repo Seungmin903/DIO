@@ -1,6 +1,8 @@
 import { normalizeSharingNickname, sharingNicknameError, normalizeInviteEmail, inviteEmailError, SharingError } from './sharingContracts.js';
 import { AUTHENTICATION_FAILED_MESSAGE } from '../auth/sessionExpiry.js';
 
+export const isSharingDiaryId = id => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id || '');
+
 // 로그인 세션에 묶인 공유 API. 로컬 다이어리를 서버 다이어리로 가장하지 않는다.
 export function createSharingApi({ user, auth, fetchImpl = globalThis.fetch, buildPhotoBody,
   setIntervalImpl = setInterval, clearIntervalImpl = clearInterval, memberRefreshIntervalMs = 5000 }) {
@@ -8,7 +10,7 @@ export function createSharingApi({ user, auth, fetchImpl = globalThis.fetch, bui
   const sessionKey = auth.getSessionKey();
   const self = { id: String(user.userId), nickname: user.nickname, photoUri: user.photoUri || null };
   const diaries = new Map(), invitations = new Map(), listeners = new Set(), watchedDiaries = new Map();
-  let active = true, generation = 0, snapshot = { diaries: [], joined: [], library: [] };
+  let active = true, watchingActive = true, generation = 0, snapshot = { diaries: [], joined: [], library: [] };
   const fail = (code, message) => { throw new SharingError(code, message); };
   const publish = () => {
     snapshot = { diaries: [...diaries.values()], joined: [...diaries.values()].filter(d => d.members.some(m => m.id === self.id && m.role === 'EDITOR')), library: [] };
@@ -92,7 +94,7 @@ export function createSharingApi({ user, auth, fetchImpl = globalThis.fetch, bui
     finally { clearTimeout(timer); }
   }
   const ensureServerId = id => {
-    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id || ''))
+    if (!isSharingDiaryId(id))
       fail('LOCAL_DIARY', '서버에서 만든 다이어리만 공유할 수 있어요.');
   };
   const inviteView = row => ({ ...row, inviteId: String(row.inviteId), canOpen: row.status === 'PENDING',
@@ -163,6 +165,9 @@ export function createSharingApi({ user, auth, fetchImpl = globalThis.fetch, bui
     activeAccount: m.activeAccount, blockedByMe: m.blockedByMe,
     photoUri: m.usingAccountPhoto ? await accountPhoto(m.profilePhotoUrl) : await privatePhoto(m.profilePhotoUrl),
     presence: m.role === 'OWNER' ? '소유자' : '편집자' })));
+  const withMemberRoles = (diary, members) => ({ ...diary, members,
+    ownerId: members.find(member => member.role === 'OWNER')?.id || null,
+    myRole: members.find(member => member.id === self.id)?.role || null });
   async function getMembers(id) {
     const revision = generation;
     const value = await request(`${path(id)}/members`);
@@ -179,7 +184,7 @@ export function createSharingApi({ user, auth, fetchImpl = globalThis.fetch, bui
     if (!active || revision !== generation) fail('DISPOSED', '화면을 다시 열어 주세요.');
     const previous = diaries.get(id);
     if (!previous) return getSharing(id);
-    diaries.set(id, { ...previous, members });
+    diaries.set(id, withMemberRoles(previous, members));
     publish();
     return diaries.get(id);
   }
@@ -187,28 +192,40 @@ export function createSharingApi({ user, auth, fetchImpl = globalThis.fetch, bui
     ensureServerId(id);
     let watch = watchedDiaries.get(id);
     if (!watch) {
-      watch = { count: 0, timer: null, refreshing: null };
+      watch = { count: 0, timer: null, refreshing: null, failures: 0, skipTicks: 0, stopped: false };
       watchedDiaries.set(id, watch);
     }
     watch.count++;
+    const stop = () => {
+      watch.stopped = true;
+      if (watch.timer !== null) clearIntervalImpl(watch.timer);
+      watch.timer = null;
+      if (watchedDiaries.get(id) === watch) watchedDiaries.delete(id);
+    };
     const refresh = () => {
-      if (!active || watch.refreshing) return watch.refreshing;
+      if (!active || !watchingActive || watch.stopped || watch.refreshing) return watch.refreshing;
       watch.refreshing = (diaries.has(id) ? refreshMembers(id) : getSharing(id))
-        .catch(() => null)
+        .then(value => { watch.failures = 0; watch.skipTicks = 0; return value; })
+        .catch(error => {
+          if ([401, 403, 404].includes(error?.status) || error?.code === 'DISPOSED') stop();
+          else { watch.failures = Math.min(watch.failures + 1, 3); watch.skipTicks = 2 ** watch.failures - 1; }
+          return null;
+        })
         .finally(() => { if (watchedDiaries.get(id) === watch) watch.refreshing = null; });
       return watch.refreshing;
     };
+    watch.refresh = refresh;
     refresh();
-    if (!watch.timer) watch.timer = setIntervalImpl(refresh, memberRefreshIntervalMs);
+    if (!watch.timer) watch.timer = setIntervalImpl(() => {
+      if (watch.skipTicks > 0) { watch.skipTicks--; return; }
+      refresh();
+    }, memberRefreshIntervalMs);
     let released = false;
     return () => {
       if (released) return;
       released = true;
       watch.count--;
-      if (watch.count <= 0) {
-        clearIntervalImpl(watch.timer);
-        watchedDiaries.delete(id);
-      }
+      if (watch.count <= 0) stop();
     };
   }
   async function getSharing(id) {
@@ -221,11 +238,11 @@ export function createSharingApi({ user, auth, fetchImpl = globalThis.fetch, bui
     const sent = sentPage(links?.emailInvites);
     const mappedMembers = await mapMembers(members.members);
     if (!active || revision !== generation) fail('DISPOSED', '화면을 다시 열어 주세요.');
-    const diary = { id, title: detail.diary.diaryTitle, color: detail.diary.coverColor,
+    const diary = withMemberRoles({ id, title: detail.diary.diaryTitle, color: detail.diary.coverColor,
       ...(detail.diary.cover?{cover:detail.diary.cover}:{}),
       pattern:detail.diary.coverStyle==='PLAIN'?null:detail.diary.coverStyle?.toLowerCase(),
       link: links.available ? uri(links.inviteUrl) : null, favorite: detail.diary.myMembership?.isFavorite === true,
-      members: mappedMembers, linkExpiresAt: links.expiresAt || null, emailInvites: sent.items, emailNextPage: sent.nextPage };
+      linkExpiresAt: links.expiresAt || null, emailInvites: sent.items, emailNextPage: sent.nextPage }, mappedMembers);
     diaries.set(id, diary); publish(); return diary;
   }
   const checkNickname = async (_id, nickname) => {
@@ -255,7 +272,8 @@ export function createSharingApi({ user, auth, fetchImpl = globalThis.fetch, bui
     } },
     invitationGateway: { get: invitation }, getMembers, getSnapshot: () => snapshot,
     subscribe(fn) { listeners.add(fn); return () => listeners.delete(fn); },
-    activate() { active = true; }, dispose() { active = false; generation++; watchedDiaries.forEach(watch => clearIntervalImpl(watch.timer)); watchedDiaries.clear(); diaries.clear(); invitations.clear(); publish(); },
+    activate() { active = true; }, dispose() { active = false; generation++; watchedDiaries.forEach(watch => { watch.stopped = true; clearIntervalImpl(watch.timer); }); watchedDiaries.clear(); diaries.clear(); invitations.clear(); publish(); },
+    setWatchingActive(value) { watchingActive = value === true; if (watchingActive) watchedDiaries.forEach(watch => { watch.skipTicks = 0; watch.refresh?.(); }); },
     setAccountProfile(value) { self.nickname = value.nickname; self.photoUri = value.photoUri || null; },
     registerDiary(source) { ensureServerId(source.sharedDiaryId || source.id); return diaries.get(source.sharedDiaryId || source.id) || { ...source, members: [] }; },
     getSharing, refreshMembers, watchDiary, loadMoreEmailInvites, checkProfileNickname: checkNickname, checkNickname, updateProfile,
@@ -279,8 +297,8 @@ export function createSharingApi({ user, auth, fetchImpl = globalThis.fetch, bui
       await request(`${path(id)}/transfer-owner`, { method: 'POST', body: { newOwnerUserId: String(memberId) } });
       const previous = diaries.get(id);
       if (previous) {
-        diaries.set(id, { ...previous, members: previous.members.map(member => ({ ...member,
-          role: member.id === String(memberId) ? 'OWNER' : 'EDITOR', presence: member.id === String(memberId) ? '소유자' : '편집자' })) });
+        diaries.set(id, withMemberRoles(previous, previous.members.map(member => ({ ...member,
+          role: member.id === String(memberId) ? 'OWNER' : 'EDITOR', presence: member.id === String(memberId) ? '소유자' : '편집자' }))));
         publish();
       }
       return refreshChanged(id);

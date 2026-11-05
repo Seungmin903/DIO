@@ -29,7 +29,8 @@ function fixture(overrides = {}) {
     return reply(null, 204);
   };
   const runtime = createSharingApi({ user: { userId: 10, nickname: '기본이름', photoUri: 'https://api.dio.test/account.png' }, auth, fetchImpl,
-    buildPhotoBody: async (body, photo, part) => { uploaded.push({ body, photo, part }); return { body: 'multipart', dispose() { uploaded.push('disposed'); } }; } });
+    buildPhotoBody: async (body, photo, part) => { uploaded.push({ body, photo, part }); return { body: 'multipart', dispose() { uploaded.push('disposed'); } }; },
+    ...overrides.runtimeOptions });
   return { runtime, calls, uploaded, logout() { available = false; } };
 }
 
@@ -68,23 +69,52 @@ test('서버 공유 조회는 실제 사용자 ID와 권한을 사용하며 로�
   assert.equal(f.runtime.canOpenDiary, true);
 });
 
-test('보고 있는 공유 다이어리는 참여자와 역할을 다시 읽고 구독자에게 알린다', async () => {
+test('보고 있는 공유 다이어리는 타이머로 참여자·역할을 갱신하고 마지막 구독 해제 때 정리한다', async () => {
   let owner = '10';
-  const f = fixture({ fetch: async url => url.endsWith('/members') ? reply({ members: [
+  const timers = new Map(), cleared = [];
+  const f = fixture({ runtimeOptions: {
+    setIntervalImpl: callback => { const id = `timer-${timers.size + 1}`; timers.set(id, callback); return id; },
+    clearIntervalImpl: id => { cleared.push(id); timers.delete(id); },
+  }, fetch: async url => url.endsWith('/members') ? reply({ members: [
     { userId: '10', nickname: '나', role: owner === '10' ? 'OWNER' : 'EDITOR', usingAccountPhoto: true },
     { userId: '20', nickname: '친구', role: owner === '20' ? 'OWNER' : 'EDITOR', usingAccountPhoto: true },
   ] }) : null });
   await f.runtime.getSharing(diaryId);
   let notified = 0;
   const stop = f.runtime.subscribe(() => { notified++; });
-  const release = f.runtime.watchDiary(diaryId);
-  owner = '20';
-  // The initial watcher refresh is asynchronous; wait for it instead of relying on timers.
+  const release = f.runtime.watchDiary(diaryId), secondRelease = f.runtime.watchDiary(diaryId);
   await new Promise(resolve => setTimeout(resolve, 0));
-  await f.runtime.refreshMembers(diaryId);
+  assert.equal(timers.size, 1);
+  owner = '20';
+  [...timers.values()][0]();
+  await new Promise(resolve => setTimeout(resolve, 0));
   assert.deepEqual(f.runtime.getSnapshot().diaries[0].members.map(member => member.role), ['EDITOR', 'OWNER']);
   assert.ok(notified > 0);
-  release(); stop();
+  release(); assert.deepEqual(cleared, []);
+  secondRelease(); assert.deepEqual(cleared, ['timer-1']);
+  f.runtime.watchDiary(diaryId); f.runtime.dispose();
+  assert.deepEqual(cleared, ['timer-1', 'timer-1']);
+  stop();
+});
+
+test('폴링은 권한·인증 오류 후 멈추고 일시 오류는 백오프한다', async () => {
+  const timers = new Map(), cleared = [];
+  let status = 503;
+  const f = fixture({ runtimeOptions: {
+    setIntervalImpl: callback => { const id = `timer-${timers.size + 1}`; timers.set(id, callback); return id; },
+    clearIntervalImpl: id => { cleared.push(id); timers.delete(id); },
+  }, fetch: async url => url.endsWith('/members') ? reply({ detail: '실패' }, status) : null });
+  const release = f.runtime.watchDiary(diaryId);
+  await new Promise(resolve => setTimeout(resolve, 0));
+  const timer = [...timers.values()][0], callsAfterFailure = f.calls.length;
+  timer();
+  await new Promise(resolve => setTimeout(resolve, 0));
+  assert.equal(f.calls.length, callsAfterFailure); // 첫 실패 뒤 한 틱은 건너뛴다.
+  status = 403;
+  timer(); timer(); timer(); timer();
+  await new Promise(resolve => setTimeout(resolve, 0));
+  assert.deepEqual(cleared, ['timer-1']);
+  release();
 });
 
 test('수락 후 공유 상세 조회 실패는 수락 완료 ID와 경고를 반환하고 재수락하지 않는다', async () => {
@@ -208,6 +238,7 @@ test('이메일은 정규화하고 202 후 서버 목록만 표시하며 비공�
   assert.deepEqual(JSON.parse(f.calls.find(c=>c.method==='POST').body),{email:'friend@example.com'});
   assert.deepEqual(diary.emailInvites,[{id:'1',email:'friend@example.com',status:'PENDING',createdAt:undefined}]);
   await assert.rejects(f.runtime.sendEmailInvite(diaryId,'bad'),{code:'INVALID_EMAIL'});
+
   await assert.rejects(f.runtime.sendEmailInvite('local','a@example.com'),{code:'LOCAL_DIARY'});
 });
 test('보낸 목록은 ID별로 합치고 페이지 실패 후 재시도하며 취소는 DELETE로 요청한다',async()=>{
