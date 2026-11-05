@@ -1,5 +1,7 @@
 package com.f106.DIO.auth.service;
 
+import com.f106.DIO.auth.config.LoginSessionPolicy;
+
 import com.f106.DIO.auth.dto.LoginRequest;
 import com.f106.DIO.auth.dto.LoginResponse;
 
@@ -98,7 +100,7 @@ public class EmailLoginService {
         // 고정 세션 행을 잠가 재발급/로그아웃/재사용 감지를 직렬화한다.
         RefreshToken token = tokens.findForUpdate(id).orElseThrow(LoginException::token);
         Instant now = Instant.now();
-        if (!token.active(now) || !now.isBefore(token.getCreatedAt().plus(java.time.Duration.ofDays(90))))
+        if (!token.active(now) || !now.isBefore(token.getCreatedAt().plus(LoginSessionPolicy.ABSOLUTE_LIFETIME)))
             throw LoginException.token();
         User user = users.findById(token.getUserId()).orElse(null);
         if (user == null || !user.isActive()) { pushRevocation.revokeLockedSession(token.getSessionId(), token.getUserId(), now); token.revoke(now); throw LoginException.token(); }

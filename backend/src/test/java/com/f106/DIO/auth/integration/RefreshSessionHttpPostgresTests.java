@@ -41,6 +41,7 @@ class RefreshSessionHttpPostgresTests {
     }
     @LocalServerPort int port;
     @Autowired ObjectMapper json;
+    @Autowired com.f106.DIO.auth.support.RefreshRotation rotation;
     @Autowired JdbcTemplate jdbc;
     @Autowired UserRepository users;
     @Autowired EmailAuthProviderRepository accounts;
@@ -88,6 +89,23 @@ class RefreshSessionHttpPostgresTests {
     private void ageGrace(Session s) { jdbc.update("update refresh_token_history set rotated_at=? where token_id=?",java.sql.Timestamp.from(Instant.now().minusSeconds(31)),s.tokenId); }
     private void unauthorized(Reply r) { assertThat(r.status).isEqualTo(401); assertThat(r.body.path("code").asText()).isEqualTo("INVALID_TOKEN"); }
 
+    @Test void badKeyUses503AndPreservesSessionOnActualHttp() throws Exception {
+        var s=login();var original=row(s);
+        var previous=org.springframework.test.util.ReflectionTestUtils.getField(rotation,"properties");
+        try {
+            for(String key:List.of("","not-base64!",Base64.getEncoder().encodeToString(new byte[16]))) {
+                org.springframework.test.util.ReflectionTestUtils.setField(rotation,"properties",new com.f106.DIO.auth.config.LoginProperties(key,900,2592000));
+                var reply=refresh(s.refresh);
+                assertThat(reply.status).isEqualTo(503);
+                assertThat(reply.body.path("code").asText()).isEqualTo("LOGIN_NOT_CONFIGURED");
+                assertThat(row(s).getTokenHash()).isEqualTo(original.getTokenHash());
+                assertThat(row(s).getExpiresAt()).isEqualTo(original.getExpiresAt());
+                assertThat(row(s).getRevokedAt()).isNull();
+                assertThat(jdbc.queryForObject("select count(*) from refresh_token_history where token_id=?",Long.class,s.tokenId)).isZero();
+            }
+        } finally {org.springframework.test.util.ReflectionTestUtils.setField(rotation,"properties",previous);}
+        assertThat(refresh(s.refresh).status).isEqualTo(200);
+    }
     @Test void actualHttpRefreshExtendsThirtyDaysAndPersistsAcrossNewClient() throws Exception {
         var s=login();
         jdbc.update("update refresh_tokens set expires_at=? where token_id=?",java.sql.Timestamp.from(Instant.now().plusSeconds(300)),s.tokenId);

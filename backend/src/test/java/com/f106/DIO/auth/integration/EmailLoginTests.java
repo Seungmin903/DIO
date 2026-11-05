@@ -73,6 +73,7 @@ class EmailLoginTests {
     @Autowired MockMvc mvc;
     @Autowired EmailLoginService service;
     @Autowired LoginJwt jwt;
+    @Autowired com.f106.DIO.auth.support.RefreshRotation rotation;
     @Autowired EmailSignupService signup;
     @Autowired EmailVerificationService verification;
     @Autowired UserRepository users;
@@ -443,6 +444,23 @@ class EmailLoginTests {
             .andExpect(status().isUnauthorized());
         assertThatThrownBy(() -> service.refresh(response.refreshToken())).isInstanceOf(LoginException.class);
         assertThat(tokens.findAll().get(0).getRevokedAt()).isNotNull();
+    }
+    @Test void refreshKeyMisconfigurationReturns503WithoutConsumingSession() throws Exception {
+        register();var first=login();var original=tokens.findAll().get(0);
+        var previous=ReflectionTestUtils.getField(rotation,"properties");
+        try {
+            for(String secret:List.of("","not-base64!",Base64.getEncoder().encodeToString(new byte[16]))) {
+                ReflectionTestUtils.setField(rotation,"properties",new com.f106.DIO.auth.config.LoginProperties(secret,900,2592000));
+                mvc.perform(post("/api/v1/auth/refresh").contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"refreshToken\":\""+first.refreshToken()+"\"}"))
+                    .andExpect(status().isServiceUnavailable()).andExpect(jsonPath("$.code").value("LOGIN_NOT_CONFIGURED"));
+                var row=tokens.findById(original.getTokenId()).orElseThrow();
+                assertThat(row.getTokenHash()).isEqualTo(original.getTokenHash());
+                assertThat(row.getExpiresAt()).isEqualTo(original.getExpiresAt());
+                assertThat(row.getRevokedAt()).isNull();assertThat(history.count()).isZero();
+            }
+        } finally {ReflectionTestUtils.setField(rotation,"properties",previous);}
+        assertThat(service.refresh(first.refreshToken()).refreshToken()).isNotEqualTo(first.refreshToken());
     }
     private void expireRotationGrace() {
         jdbc.update("update refresh_token_history set rotated_at=?", java.sql.Timestamp.from(Instant.now().minusSeconds(31)));

@@ -1,6 +1,7 @@
 package com.f106.DIO.auth.service;
 
 import com.f106.DIO.auth.config.LoginProperties;
+import com.f106.DIO.auth.config.LoginSessionPolicy;
 import com.f106.DIO.auth.domain.RefreshToken;
 import com.f106.DIO.auth.dto.LoginResponse;
 import com.f106.DIO.auth.dto.LoginUserResponse;
@@ -35,7 +36,7 @@ public class LoginSessionService {
     }
     public Instant refreshedExpiry(RefreshToken session, Instant now) {
         Instant sliding = now.plusSeconds(properties.refreshSeconds());
-        Instant absolute = session.getCreatedAt().plus(Duration.ofDays(90));
+        Instant absolute = session.getCreatedAt().plus(LoginSessionPolicy.ABSOLUTE_LIFETIME);
         return sliding.isBefore(absolute) ? sliding : absolute;
     }
     @Transactional(propagation=Propagation.MANDATORY)
