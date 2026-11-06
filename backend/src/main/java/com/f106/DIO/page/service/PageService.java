@@ -24,6 +24,8 @@ public class PageService {
 	@Transactional(readOnly=true) public PageListResponse list(UUID diaryId,Long userId){diaryAccessService.requireRead(diaryId,userId);return listWithoutDiaryCheck(diaryId);}
 	@Transactional public PageResponse create(UUID diaryId,PageCreateRequest r,Long userId){
 		diaryAccessService.requireWrite(diaryId,userId); PageTemplate t=findTemplate(r.getTemplateId());
+        // 원격 속지(V34)는 형식에 맞는 remoteTemplate 이 있어야 하고 다른 속지에는 둘 수 없다(공유 구성원 앱이 이 값으로 속지를 찾는다)
+        RemoteTemplates.requireValidConfig(r.getTemplateConfig(),t==null?null:t.getCode());
         String requestId=r.getTemplateConfig()==null?null:r.getTemplateConfig().path("clientPageRequestId").asText(null);
         if(requestId!=null){
             UUID.fromString(requestId);
@@ -52,6 +54,11 @@ public class PageService {
 		DiaryPage page=requirePage(pageId); diaryAccessService.requireWrite(page.getDiaryId(),userId); PageTemplate t=findTemplate(r.getTemplateId()); BigDecimal w=r.getCanvasWidth(),h=r.getCanvasHeight();
 		if(t!=null&&w==null){w=t.getCanvasWidth();h=t.getCanvasHeight();}
 		boolean replaceTemplateConfig=r.getTemplateConfig()!=null||t!=null;
+		if(replaceTemplateConfig){
+			// 바뀔 설정을 원격 속지 규칙으로 검사한다. 속지를 바꾸지 않으면 지금 페이지의 속지 코드를 기준으로 본다
+			PageTemplate current=t!=null?t:page.getTemplateId()==null?null:templateRepository.findById(page.getTemplateId()).orElse(null);
+			RemoteTemplates.requireValidConfig(r.getTemplateConfig()!=null?r.getTemplateConfig():t==null||t.getDefaultConfig()==null?null:JSON.readTree(t.getDefaultConfig()),current==null?null:current.getCode());
+		}
 		String templateConfig=r.getTemplateConfig()==null?defaultConfig(t):copy(r.getTemplateConfig());
 		if(replaceTemplateConfig)templateConfig=preserveCreationRequestId(page.getTemplateConfig(),templateConfig);
 		page.updateSettings(r.getTemplateId(),templateConfig,replaceTemplateConfig,r.getTitle(),w,h,r.getGridVisible(),r.getGridColor()); pageRepository.flush(); events.publishEvent(new PageCatalogChanged(page.getDiaryId())); return new PageResponse(pageData(page));

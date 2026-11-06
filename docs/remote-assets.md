@@ -15,7 +15,7 @@
    - 원격 속지는 한 장짜리 속지로, 속지 고르기의 노트·플래너·일기 탭 끝에 붙는다. 앱 안에서는 `remote-<id>-<방향>`이다.
      - 속지 탭도 목록(`templateGroups`, 원본 `remote-content/template-groups.json`)으로 더한다. 새 탭은 앱 탭 3개 뒤에 붙고, 속지가 없거나 숨긴 탭은 보이지 않는다. 탭이 4개를 넘으면 가로로 넘긴다(`PaperTabs`).
      - 서버(V34)에는 방향마다 범용 속지 행 `dio-remote-landscape`·`dio-remote-portrait`가 하나씩 있다. 페이지 설정 `remoteTemplate: <id>`가 어떤 그림인지 정한다. 서버는 id 형식만 검사하고, 그림은 앱이 catalog.json에서 찾는다.
-     - 다이어리 생성(`JdbcDiaryInitialPages`)은 `remoteTemplate`을 원격 행에서만 받고, 원격 행에는 꼭 요구한다. 페이지 추가·수정 API는 원래 설정을 그대로 저장한다.
+     - 다이어리 생성(`JdbcDiaryInitialPages`)은 `remoteTemplate`을 원격 행에서만 받고, 원격 행에는 꼭 요구한다. 페이지 추가·수정 API(`PageService`)도 같은 규칙(`page.domain.RemoteTemplates`)으로 검사한다. 속지 코드는 템플릿 행 또는 설정의 `templateCode`로 판단하며, 어긋나면 400 `INVALID_PAGE_REQUEST`다. 공유 다이어리의 다른 구성원 앱이 이 값으로 속지를 찾으므로 잘못된 값이 저장되지 않게 한다.
      - 앱 쪽 연결: `editor/templates/remoteTemplates.js`(ID·목록), `serverCatalog.js`(서버 코드↔앱 ID), `collaboration/serverPages.js`(페이지 추가·읽기), `diary/utils/paperChoice.js`(고르기 탭).
      - 목록을 아직 못 받은 기기는 페이지 크기·방향은 ID로 알고, 그림은 목록이 올 때까지 최대 10초 기다린 뒤 "내지를 불러오지 못했어요"를 보인다.
      - 마이그레이션 번호는 develop의 V32(공유 다이어리 표지)·V33(갱신 토큰 인덱스) 다음인 V34다(2026-11-06 기준). 이 MR보다 먼저 다른 마이그레이션이 develop에 들어가면 번호를 다시 맞춘다.
@@ -51,7 +51,7 @@
 
 | 위치 | 값 |
 | --- | --- |
-| `EXPO_PUBLIC_ASSET_BASE_URL` | CloudFront 주소 + 접두사(예: `https://<배포ID>.cloudfront.net/static-assets`). 출시 빌드·웹 배포본은 HTTPS가 아니면 원격 에셋을 쓰지 않는다. `eas.json`의 preview·production `env`에 넣는다. |
+| `EXPO_PUBLIC_ASSET_BASE_URL` | 에셋 저장소 주소. DIO는 CloudFront 원본 경로(Origin path)를 `/static-assets`로 설정했으므로 **배포 도메인만** 쓴다(dev `https://d1ztiesifzfjld.cloudfront.net`, prod `https://d2hvhno2v5g650.cloudfront.net`). 원본 경로를 비운 배포라면 끝에 `/static-assets`를 붙인다. 어느 쪽이든 `<주소>/catalog.json`이 첫 업로드 뒤 200으로 열려야 한다. 출시 빌드·웹 배포본은 HTTPS가 아니면 원격 에셋을 쓰지 않는다. `eas.json`의 preview·production `env`에 넣는다. |
 | 개발 실행 | 값을 비우면 `http://<PC>:8090`(Android 에뮬레이터는 `10.0.2.2`)을 쓴다. `pnpm assets:remote` 후 `pnpm assets:serve`로 띄운다. 실제 기기는 PC의 LAN IP를 넣는다. |
 
 ## 인프라
@@ -94,7 +94,7 @@
 ## 검증 범위
 
 - 단위 테스트: 매니페스트 일치, 주소 정책, 웹 주소, 원격 글꼴 실패 후 재시도, catalog.json·스티커 팩 해석, 목록 불러오기(저장본·오프라인·깨진 응답), remote-content 빌드와 형식 오류 안내, 숨긴 글꼴·팩 처리
-- 웹 개발 서버 + 예시 원격 속지 1개: 새 다이어리 속지 고르기의 노트 탭에 나오고, 고르면 미리보기·편집기에서 에셋 저장소의 SVG로 그려지며, 기기 문서에 `remote-<id>-<방향>`으로 저장되는 것을 확인했다(게스트). 회원 생성·페이지 추가·서버 응답 해석은 단위 테스트로, 백엔드 검증은 H2 계약 테스트로 확인했다. 실제 PostgreSQL에서 V34과 생성 테스트(`./gradlew postgresMemberDiaryCreationTest`)는 아직 돌리지 않았다.
+- 웹 개발 서버 + 예시 원격 속지 1개: 새 다이어리 속지 고르기의 노트 탭에 나오고, 고르면 미리보기·편집기에서 에셋 저장소의 SVG로 그려지며, 기기 문서에 `remote-<id>-<방향>`으로 저장되는 것을 확인했다(게스트). 회원 생성·페이지 추가·서버 응답 해석은 단위 테스트로, 백엔드 검증은 H2 계약 테스트로 확인했다. 실제 PostgreSQL 17(CI 스크립트와 같은 임시 컨테이너)에서 `postgresMemberDiaryCreationTest`(V34 행·원격 속지 생성 계약 포함 53개)와 `postgresDiaryDetailTest`(16개)가 통과했다. MR 파이프라인의 `backend-postgres-diary-test`가 같은 검사를 한다. `page_templates.category`에는 값 제약이 없어 `REMOTE`를 그대로 받는다.
 - 웹 개발 서버 + 예시 remote-content(글꼴 1개, 스티커 팩 1개): 앱이 catalog.json과 팩을 받아 기기에 저장하고, 글꼴 목록에 원격 글꼴을 넣어 불러오고, 보관함 칩에서 원격 스티커를 골라 페이지에 붙여 그리는 것을 확인했다.
 - 웹 개발 서버 + `assets:serve`: 2026 월간 속지 SVG와 고운바탕 Regular·Bold를 원격에서 받아 적용하는 것을 확인했다.
 - 아직 확인하지 않은 것:

@@ -11,6 +11,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 
+import com.f106.DIO.page.domain.RemoteTemplates;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import tools.jackson.core.JacksonException;
@@ -26,9 +27,6 @@ import tools.jackson.databind.node.ObjectNode;
 public class JdbcDiaryInitialPages implements DiaryInitialPages {
     private static final int MAX_CONFIG_LENGTH = 16384;
     private static final List<String> CONFIG_KEYS = List.of("width", "height", "paperAppearance", "blank", "remoteTemplate");
-    /** 원격 속지(V34). 그림은 앱이 에셋 저장소의 catalog.json 에서 remoteTemplate id 로 찾는다. 서버는 id 형식만 검사한다. */
-    static final String REMOTE_TEMPLATE_PREFIX = "dio-remote-";
-    private static final String REMOTE_TEMPLATE_ID = "[a-z0-9][a-z0-9-]{0,39}";
     private static final List<String> COLOR_KEYS = List.of("backgroundColor", "layoutColor");
     private final JdbcTemplate jdbc;
     private final String catalogLock;
@@ -86,7 +84,7 @@ public class JdbcDiaryInitialPages implements DiaryInitialPages {
             var rows = jdbc.query("select template_id,canvas_width,canvas_height,orientation,default_config,is_active from page_templates"
                 + " where code=? and template_version=? order by template_id"+catalogLock,
                 (rs,row) -> new Template(rs.getLong("template_id"),rs.getBigDecimal("canvas_width"),rs.getBigDecimal("canvas_height"),
-                    rs.getString("orientation"),rs.getString("default_config"),rs.getBoolean("is_active"),key.code.startsWith(REMOTE_TEMPLATE_PREFIX)),key.code,key.version);
+                    rs.getString("orientation"),rs.getString("default_config"),rs.getBoolean("is_active"),RemoteTemplates.isRemoteCode(key.code)),key.code,key.version);
             // 코드·버전은 공개 식별자다. 비활성 중복도 숨기지 않고 모호한 매핑은 거부한다.
             if (rows.size()!=1 || !rows.get(0).active) throw new InvalidSelection("Unknown, inactive or ambiguous template");
             var template = rows.get(0);
@@ -135,8 +133,8 @@ public class JdbcDiaryInitialPages implements DiaryInitialPages {
             }
         }
         if (value.has("blank") && !value.get("blank").isBoolean()) throw new InvalidSelection("Invalid blank flag");
-        if (value.has("remoteTemplate") && (!template.remote || !value.get("remoteTemplate").isString()
-                || !value.get("remoteTemplate").asString().matches(REMOTE_TEMPLATE_ID))) {
+        // 원격 속지(V34) 규칙은 페이지 추가 · 수정과 같다(page.domain.RemoteTemplates)
+        if (value.has(RemoteTemplates.CONFIG_KEY) && (!template.remote || !RemoteTemplates.isValidId(value.get(RemoteTemplates.CONFIG_KEY)))) {
             throw new InvalidSelection("Invalid remote template");
         }
         if (value.has("paperAppearance")) {

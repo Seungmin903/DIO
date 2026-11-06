@@ -257,6 +257,35 @@ class PageApiTests {
 
 
 	@Test
+	void remoteTemplatePagesNeedAWellFormedRemoteTemplateOnCreateAndUpdate() throws Exception {
+		String diaryId=createDiary("원격 속지 페이지");
+		// 앱이 페이지를 더하는 방식: templateId 없이 설정의 templateCode 로 속지를 알린다
+		String pageId=createPage(diaryId,"{\"templateConfig\":{\"templateCode\":\"dio-remote-portrait\",\"templateVersion\":\"1.0.0\",\"remoteTemplate\":\"spring-note\"}}");
+		for (String bad:new String[]{"{\"templateCode\":\"dio-remote-portrait\"}","{\"templateCode\":\"dio-remote-portrait\",\"remoteTemplate\":123}",
+				"{\"templateCode\":\"dio-remote-portrait\",\"remoteTemplate\":\"../Spring Note\"}","{\"templateCode\":\"dio-remote-portrait\",\"remoteTemplate\":\""+"a".repeat(41)+"\"}",
+				"{\"templateCode\":\"2026-cover-portrait\",\"remoteTemplate\":\"spring-note\"}","{\"remoteTemplate\":\"spring-note\"}"}) {
+			mvc.perform(post("/api/v1/diaries/"+diaryId+"/pages").with(authenticated()).contentType(MediaType.APPLICATION_JSON).content("{\"templateConfig\":"+bad+"}"))
+				.andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("INVALID_PAGE_REQUEST"));
+		}
+		// templateId 로 원격 행을 고르면 그 행의 코드로 검사한다
+		PageTemplate remote=activeTemplate("dio-remote-landscape",new BigDecimal("1024.00"),new BigDecimal("768.00"),"{\"blank\":false}");
+		mvc.perform(post("/api/v1/diaries/"+diaryId+"/pages").with(authenticated()).contentType(MediaType.APPLICATION_JSON).content("{\"templateId\":"+remote.getTemplateId()+"}"))
+			.andExpect(status().isBadRequest());
+		mvc.perform(post("/api/v1/diaries/"+diaryId+"/pages").with(authenticated()).contentType(MediaType.APPLICATION_JSON)
+				.content("{\"templateId\":"+remote.getTemplateId()+",\"templateConfig\":{\"remoteTemplate\":\"summer\"}}"))
+			.andExpect(status().isCreated()).andExpect(jsonPath("$.page.templateConfig.remoteTemplate").value("summer"));
+		// 수정도 같은 규칙: 원격 페이지의 remoteTemplate 을 깨뜨리는 설정은 거부하고, 맞는 값은 받는다
+		mvc.perform(patch("/api/v1/pages/"+pageId).with(authenticated()).contentType(MediaType.APPLICATION_JSON)
+				.content("{\"templateConfig\":{\"templateCode\":\"dio-remote-portrait\",\"remoteTemplate\":\"Bad Id\"}}"))
+			.andExpect(status().isBadRequest());
+		mvc.perform(patch("/api/v1/pages/"+pageId).with(authenticated()).contentType(MediaType.APPLICATION_JSON)
+				.content("{\"templateConfig\":{\"templateCode\":\"dio-remote-portrait\",\"templateVersion\":\"1.0.0\",\"remoteTemplate\":\"autumn\"}}"))
+			.andExpect(status().isOk()).andExpect(jsonPath("$.page.templateConfig.remoteTemplate").value("autumn"));
+		// 일반 페이지 설정은 그대로 받는다
+		createPage(diaryId,"{\"templateConfig\":{\"paperColor\":\"#FFFFFF\"}}");
+	}
+
+	@Test
 	void staleElementVersionIsRejectedInsteadOfOverwriting() throws Exception {
 		String pageId=createPage(createDiary("버전 검증"),"{}");
 		String elementId=createElement(pageId,"");
