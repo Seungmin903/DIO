@@ -11,7 +11,10 @@ import org.springframework.mail.MailSendException;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.mockito.ArgumentCaptor;
 import jakarta.mail.Session;
+import jakarta.mail.Multipart;
+import jakarta.mail.Part;
 import jakarta.mail.internet.MimeMessage;
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.util.Properties;
 import static org.assertj.core.api.Assertions.*;
@@ -39,8 +42,10 @@ class SignupMailTests {
         ArgumentCaptor<MimeMessage> captor = ArgumentCaptor.forClass(MimeMessage.class);
         verify(sender).send(captor.capture());
         assertThat(captor.getValue().getFrom()[0].toString()).isEqualTo("noreply@example.com");
-        assertThat(captor.getValue().getAllRecipients()[0].toString()).isEqualTo("member@example.com");
-        assertThat(raw(captor.getValue())).contains("123456", "text/html");
+        assertThat(captor.getValue().getAllRecipients()).extracting(Object::toString).containsExactly("member@example.com");
+        MimeMessage rendered = rendered(captor.getValue());
+        assertThat(part(rendered, "text/plain")).contains("123456", "10분 동안", "본인이 요청하지 않았다면");
+        assertThat(part(rendered, "text/html")).contains("123456", "#DDDAF5", "#6B6B6B");
     }
     @SuppressWarnings("unchecked")
     ObjectProvider<JavaMailSender> provider(JavaMailSender sender) {
@@ -50,7 +55,18 @@ class SignupMailTests {
         return provider;
     }
     SignupProperties properties() { return new SignupProperties("test-secret-at-least-32-bytes-long", "noreply@example.com"); }
-    private static String raw(MimeMessage message) throws Exception {
-        var output = new ByteArrayOutputStream(); message.writeTo(output); return output.toString(java.nio.charset.StandardCharsets.UTF_8);
+    private static MimeMessage rendered(MimeMessage message) throws Exception {
+        var output = new ByteArrayOutputStream(); message.writeTo(output);
+        return new MimeMessage(Session.getInstance(new Properties()), new ByteArrayInputStream(output.toByteArray()));
+    }
+    private static String part(Part part, String mimeType) throws Exception {
+        Object body = part.getContent();
+        if (part.isMimeType(mimeType) && body instanceof String text) return text;
+        if (!(body instanceof Multipart multipart)) return null;
+        for (int index = 0; index < multipart.getCount(); index++) {
+            String content = part(multipart.getBodyPart(index), mimeType);
+            if (content != null) return content;
+        }
+        return null;
     }
 }

@@ -10,7 +10,10 @@ import org.springframework.beans.factory.support.StaticListableBeanFactory;
 import org.springframework.mail.*;
 import org.springframework.mail.javamail.JavaMailSender;
 import jakarta.mail.Session;
+import jakarta.mail.Multipart;
+import jakarta.mail.Part;
 import jakarta.mail.internet.MimeMessage;
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.util.Properties;
 import static org.assertj.core.api.Assertions.*;
@@ -23,8 +26,10 @@ class PasswordResetMailTests {
         new SmtpPasswordResetMailSender(factory.getBeanProvider(JavaMailSender.class),properties).send("member@example.com","123456");
         var message = ArgumentCaptor.forClass(MimeMessage.class);verify(mail).send(message.capture());
         assertThat(message.getValue().getSubject()).isEqualTo("[DIO] 비밀번호 재설정 인증번호");
-        assertThat(raw(message.getValue())).contains("123456", "text/html");
-        assertThat(message.getValue().getAllRecipients()[0].toString()).isEqualTo("member@example.com");
+        MimeMessage rendered = rendered(message.getValue());
+        assertThat(part(rendered, "text/plain")).contains("123456", "600초 동안", "본인이 요청하지 않았다면");
+        assertThat(part(rendered, "text/html")).contains("123456", "600초 동안", "본인이 요청하지 않았다면");
+        assertThat(message.getValue().getAllRecipients()).extracting(Object::toString).containsExactly("member@example.com");
     }
     @Test void transportErrorsAreSanitized() {
         var mail = sender();var factory = new StaticListableBeanFactory();factory.addBean("mail",mail);
@@ -37,7 +42,18 @@ class PasswordResetMailTests {
         when(sender.createMimeMessage()).thenReturn(new MimeMessage(Session.getInstance(new Properties())));
         return sender;
     }
-    private static String raw(MimeMessage message) throws Exception {
-        var output = new ByteArrayOutputStream(); message.writeTo(output); return output.toString(java.nio.charset.StandardCharsets.UTF_8);
+    private static MimeMessage rendered(MimeMessage message) throws Exception {
+        var output = new ByteArrayOutputStream(); message.writeTo(output);
+        return new MimeMessage(Session.getInstance(new Properties()), new ByteArrayInputStream(output.toByteArray()));
+    }
+    private static String part(Part part, String mimeType) throws Exception {
+        Object body = part.getContent();
+        if (part.isMimeType(mimeType) && body instanceof String text) return text;
+        if (!(body instanceof Multipart multipart)) return null;
+        for (int index = 0; index < multipart.getCount(); index++) {
+            String content = part(multipart.getBodyPart(index), mimeType);
+            if (content != null) return content;
+        }
+        return null;
     }
 }
