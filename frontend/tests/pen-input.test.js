@@ -180,6 +180,29 @@ test('실제 iOS 접촉 판정과 PenInput: 포인터가 먼저 오면 responder
   assert.equal(stroke.x + stroke.points.at(-1).x, 50)
 })
 
+test('iOS 확대·이동 뒤 responder에서 포인터로 인계해도 한 획의 시작과 끝이 유지된다', () => {
+  for (const zoom of [0.5, 2]) for (const origin of [{ x: 100, y: 200 }, { x: -80, y: 430 }]) {
+    const f = fixture('fountain', zoom, false, false, true)
+    const pointer = (x, stamp) => ({ nativeEvent: { pointerId: 9, pointerType: 'pen', offsetX: x, offsetY: 30 * zoom,
+      clientX: origin.x + x, clientY: origin.y + 30 * zoom, pressure: 0.5, timeStamp: stamp } })
+    const startX = 10 * zoom
+    f.handlers.onStart({ locationX: startX, locationY: 30 * zoom, identifier: 1,
+      pageX: origin.x + startX, pageY: origin.y + 30 * zoom, force: 0 })
+    f.handlers.onMove(10 * zoom, 0, { force: 0 })
+    f.stylus.notePointerDown(pointer(startX, 100))
+    f.pointers.onPointerDown(pointer(20 * zoom, 100))
+    f.pointers.onPointerMove(pointer(40 * zoom, 110))
+    f.handlers.onEnd({ cancelled: false })
+    f.pointers.onPointerUp(pointer(50 * zoom, 120))
+    const additions = f.actions.filter(action => action.type === 'addObjects')
+    assert.equal(additions.length, 1, `zoom=${zoom}, origin=${origin.x}`)
+    const stroke = additions[0].objects[0]
+    assert.equal(stroke.x + stroke.points[0].x, 10)
+    assert.equal(stroke.x + stroke.points.at(-1).x, 50)
+    f.stylus.resetStylusPointers()
+  }
+})
+
 test('실제 iOS 접촉 판정과 PenInput: 다른 위치의 손가락 획을 Pencil에 결합하지 않는다', () => {
   const f = fixture('fountain', 1, false, false, true)
   const event = (x, timeStamp) => ({ nativeEvent: { pointerId: 9, pointerType: 'pen', offsetX: x, offsetY: 30,
