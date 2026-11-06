@@ -79,12 +79,12 @@ export function parseStickerPack(pack, value) {
     if (sticker.image != null) {
       const image = file(sticker.image)
       if (!image || !/\.png$/i.test(image.key) || !imageSize(sticker.width) || !imageSize(sticker.height)) return null
-      return { id: sticker.id, builtin: `remote:${pack.id}:${sticker.id}`, name: label(sticker.name), image, iw: sticker.width, ih: sticker.height }
+      return { id: sticker.id, builtin: `remote:${pack.id}:${sticker.id}`, name: label(sticker.name), image, iw: sticker.width, ih: sticker.height, hidden: sticker.hidden === true }
     }
     if (!size(sticker.w) || !size(sticker.h)) return null
     const paths = Array.isArray(sticker.paths) ? sticker.paths : []
     if (!paths.length || paths.length > 32 || !paths.every(p => Array.isArray(p) && p.length === 2 && COLOR.test(p[0]) && typeof p[1] === 'string' && PATH.test(p[1]))) return null
-    return { id: sticker.id, builtin: `remote:${pack.id}:${sticker.id}`, name: label(sticker.name), w: sticker.w, h: sticker.h, paths: paths.map(([c, d]) => [c, d]) }
+    return { id: sticker.id, builtin: `remote:${pack.id}:${sticker.id}`, name: label(sticker.name), w: sticker.w, h: sticker.h, paths: paths.map(([c, d]) => [c, d]), hidden: sticker.hidden === true }
   }).filter(Boolean)).map(({ id, ...item }) => item)
   return { id: `remote:${pack.id}`, name: pack.name, hidden: pack.hidden, items }
 }

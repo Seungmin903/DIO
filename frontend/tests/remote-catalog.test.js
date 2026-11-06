@@ -49,7 +49,7 @@ test('스티커 팩은 기본 스티커와 같은 모양으로 바꾸고 잘못�
   const pack = parseStickerPack({ id: 'spring', name: '봄' }, { stickers: [sticker, { ...sticker, id: 'bad', paths: [['red', 'M0 0']] }, { ...sticker, id: 'big', w: 65 }, { ...sticker, id: 'inject', paths: [['#ffffff', 'M0 0"/><script>']] }] })
   assert.equal(pack.id, 'remote:spring')
   assert.deepEqual(pack.items.map(item => item.builtin), ['remote:spring:tulip'])
-  assert.deepEqual(Object.keys(pack.items[0]).sort(), ['builtin', 'h', 'name', 'paths', 'w'])
+  assert.deepEqual(Object.keys(pack.items[0]).sort(), ['builtin', 'h', 'hidden', 'name', 'paths', 'w'])
 })
 
 test('원격 스티커 팩은 보관함 기본 분류 · 검색 · 그리기에 들어가고, 숨긴 팩은 보관함에서만 빠진다', () => {
@@ -232,6 +232,44 @@ test('업로드 안전장치: 이미 공개한 글꼴 · 스티커 팩 · 속지
   assert.deepEqual(compareCatalogs(before, { ...before, fonts: [{ id: 'hahmlet', hidden: true }], templates: [{ id: 'spring-note' }, { id: 'summer' }] }),
     { removed: [], added: ['속지 summer'] })
   assert.deepEqual(compareCatalogs(before, { schemaVersion: 1, fonts: [], stickerPacks: [{ id: 'spring' }] }).removed, ['글꼴 hahmlet', '속지 spring-note'])
+})
+
+test('업로드 안전장치: 팩 안의 스티커가 빠져도 알리고, 지금 목록이 깨졌으면 비교를 건너뛰지 않는다', async () => {
+  const { compareCatalogs, readPreviousCatalog } = await import('../scripts/compare-remote-catalog.mjs')
+  const before = { schemaVersion: 1, stickerPacks: [{ id: 'spring', stickers: ['tulip', 'cherry'] }] }
+  // 팩은 남았지만 그 안의 스티커 하나가 빠짐 → 이미 붙인 스티커가 빈 자리가 되므로 막는다
+  assert.deepEqual(compareCatalogs(before, { schemaVersion: 1, stickerPacks: [{ id: 'spring', stickers: ['tulip', 'leaf'] }] }),
+    { removed: ['스티커 spring:cherry'], added: ['스티커 spring:leaf'] })
+  // 예전 목록에 스티커 id 목록이 없으면(이 기능 전 목록) 팩 단위로만 비교한다
+  assert.deepEqual(compareCatalogs({ schemaVersion: 1, stickerPacks: [{ id: 'spring' }] }, before).removed, [])
+  // 빈 파일 = 처음 올림, 내용이 있는데 깨졌으면 오류
+  assert.equal(readPreviousCatalog(''), null)
+  assert.equal(readPreviousCatalog('  \n'), null)
+  assert.deepEqual(readPreviousCatalog('{"schemaVersion":1}'), { schemaVersion: 1 })
+  assert.throws(() => readPreviousCatalog('{"schemaVersion":1,"fonts":['), /읽지 못했습니다/)
+  assert.throws(() => readPreviousCatalog('[]'), /형식이 올바르지 않습니다/)
+})
+
+test('스티커마다 숨길 수 있다: 보관함 · 검색에서는 빠지고 이미 붙인 스티커는 계속 그린다', t => {
+  const pack = parseStickerPack({ id: 'spring', name: '봄' }, { stickers: [sticker, { ...sticker, id: 'retired', name: '은퇴한 별', hidden: true }] })
+  assert.deepEqual(pack.items.map(item => [item.builtin, item.hidden]), [['remote:spring:tulip', false], ['remote:spring:retired', true]])
+  registerRemoteStickerPack(pack)
+  t.after(() => retainRemoteStickerPacks([]))
+  const items = { folders: [], favorites: [], recentStickers: [], categoryOrder: [], hiddenCategories: [] }
+  assert.deepEqual(stickerLibrary(items, 'remote:spring', '').pack.items.map(item => item.builtin), ['remote:spring:tulip'])
+  assert.equal(stickerLibrary(items, null, '은퇴한').packMatches.length, 0)
+  assert.equal(builtinStickerOf('remote:spring:retired').name, '은퇴한 별')
+})
+
+test('remote-content 빌드: catalog.json 의 스티커 팩에 스티커 id 목록을 적는다(안전장치 비교용)', t => {
+  const dir = mkdtempSync(join(tmpdir(), 'dio-remote-ids-'))
+  t.after(() => rmSync(dir, { recursive: true, force: true }))
+  mkdirSync(join(dir, 'stickers', 'spring'), { recursive: true })
+  writeFileSync(join(dir, 'stickers', 'spring', 'pack.json'), JSON.stringify({ name: '봄', stickers: [sticker, { ...sticker, id: 'leaf', name: '잎새', hidden: true }] }))
+  const built = buildCatalog(dir)
+  assert.deepEqual(built.errors, [])
+  assert.deepEqual(built.catalog.stickerPacks[0].stickers, ['tulip', 'leaf'])
+  assert.equal(parseCatalog(built.catalog).stickerPacks.length, 1) // 앱 해석은 그대로 통과한다
 })
 
 test('속지 탭도 목록으로 더한다: 새 탭은 앱 탭 뒤에 붙고, 숨긴 탭과 그 속지는 고르기에서 빠진다', async () => {

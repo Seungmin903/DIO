@@ -15,7 +15,8 @@ export function stickerLibrary(items, category, keyword) {
   const recents = plain(items.recentStickers).slice(0, RECENT_LIMIT)
   const favoriteKeys = new Set(favorites.map(stickerKey))
   // base: 지우지 못하고 숨기기만 하는 기본 분류
-  const packs = stickerPacks().filter((p) => !p.hidden)
+  // 숨긴 팩 · 숨긴 스티커(원격 팩의 hidden)는 보관함과 검색에서만 뺀다. 이미 붙인 스티커는 builtinStickerOf 로 계속 그린다
+  const packs = stickerPacks().filter((p) => !p.hidden).map((p) => (p.items.some((item) => item.hidden) ? { ...p, items: p.items.filter((item) => !item.hidden) } : p))
   const orderable = [...packs.map((p) => ({ id: p.id, name: p.name, base: true })), ...folders.map((f) => ({ id: `folder:${f.id}`, name: f.name }))]
   const order = items.categoryOrder
   const rank = (item, index) => {

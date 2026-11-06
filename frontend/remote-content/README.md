@@ -8,7 +8,7 @@
 4. 운영은 master 파이프라인에서 `publish-remote-assets-prod` 잡을 **직접 눌러** 올립니다.
 5. 앱은 켜질 때 `catalog.json`을 받아 목록을 고칩니다(CloudFront 캐시로 최대 1분). 오프라인이면 기기에 저장된 마지막 목록을 씁니다.
 
-- `catalog.json`은 매번 이 폴더 전체로 새로 만들어집니다. 이미 공개한 항목이 빠지면 업로드가 멈춥니다(안전장치). 내릴 때는 `"hidden": true`를 쓰세요.
+- `catalog.json`은 매번 이 폴더 전체로 새로 만들어집니다. 이미 공개한 글꼴·스티커 팩·팩 안의 스티커·속지가 빠지면 업로드가 멈춥니다(안전장치). 내릴 때는 지우지 말고 `"hidden": true`를 쓰세요.
 - 급할 때는 AWS 키가 있는 PC에서 직접 올릴 수도 있습니다. 같은 안전장치를 거칩니다: `pnpm assets:remote` 다음 `sh scripts/upload-remote-assets.sh <버킷> static-assets`.
 - 로컬 미리보기: `pnpm assets:remote`, `pnpm assets:serve`를 실행하고 `.env`의 `EXPO_PUBLIC_ASSET_BASE_URL`을 비운 채 `pnpm web`.
 
@@ -63,7 +63,7 @@ remote-content/stickers/<id>/
 | `name` | 보관함 분류 칩과 스티커 이름(1~40자). 검색에도 씁니다. |
 | `w` · `h` | 도트 칸 수(1~64). 페이지에 처음 붙을 때 한 칸은 기본 스티커와 같은 크기입니다. |
 | `paths` | 뒤에서 앞으로 칠하는 `[색 #RRGGBB, 경로]`, 32개 이하. 경로는 `viewBox 0 0 w h` 기준으로 `M·H·V·L·Z`와 숫자만 씁니다. 형식은 앱의 '디오&모아' 스티커(`src/editor/builtinStickers.js`)와 같습니다. |
-| `hidden` | `true`면 보관함에서만 숨깁니다. 이미 붙인 스티커는 계속 그립니다. |
+| `hidden` | 팩에 쓰면 팩 전체를, 스티커 하나에 쓰면 그 스티커만 보관함과 검색에서 숨깁니다. 이미 붙인 스티커는 계속 그립니다. 팩 안의 스티커를 지우면 업로드 안전장치가 막으므로, 내릴 때는 스티커에 `"hidden": true`를 씁니다. |
 
 보관함의 기본 분류 칩에 '디오&모아' 다음으로 나옵니다. 사용자는 이 칩을 숨기거나 순서를 바꿀 수 있지만 지울 수는 없습니다.
 

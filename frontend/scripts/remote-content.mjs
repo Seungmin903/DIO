@@ -100,7 +100,7 @@ export function buildCatalog(content) {
     const data = Buffer.from(JSON.stringify({ stickers }))
     const key = hashed(`stickers/${id}`, 'pack.json', data)
     uploads.push(...images, { data, key })
-    stickerPacks.push({ id, name: meta.name, file: { key, size: data.length, sha256: sha256(data) }, ...(meta.hidden ? { hidden: true } : {}), order: meta.order })
+    stickerPacks.push({ id, name: meta.name, file: { key, size: data.length, sha256: sha256(data) }, stickers: stickers.map(sticker => sticker.id), ...(meta.hidden ? { hidden: true } : {}), order: meta.order })
   }
   // 새 속지 탭: remote-content/template-groups.json  [{ "id": "travel", "name": "여행", "order": 10, "hidden": false }]
   const templateGroups = []
