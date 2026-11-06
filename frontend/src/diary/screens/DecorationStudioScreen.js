@@ -87,11 +87,11 @@ export default function DecorationStudioScreen({ compact = false, registerBackHa
   const [tapeNameEdit, setTapeNameEdit] = useState(null);
   // 사진으로 표지 만들기의 자르기 창: { photo, ratio, resolve }
   const [coverCrop, setCoverCrop] = useState(null);
-  // 좌우 끝을 목록 여백에 맞추는 격자: 폴더 · 스티커는 칸을 늘리고, 속지 쪽 썸네일은 크기가 정해져 사이를 넓힌다(useFillGrid)
+  // 화면 폭에 맞춰 격자 칸을 배치한다.
   const folderGrid = useFillGrid({ cell: 164, gap: 14, minColumns: 2 });
   const stickerGrid = useFillGrid({ cell: 88, gap: 12, minColumns: 3 });
   const tapeGrid = useFillGrid({ cell: 200, gap: 14, minColumns: 1 });
-  const pageGrid = useFillGrid({ cell: library.papers.find(item => item.id === paperId)?.orientation === 'landscape' ? 154 : 116, gap: 14 });
+  const pageGrid = useFillGrid({ cell: compact ? 140 : 190, gap: 14, maxColumns: compact ? 2 : 4 });
   // '○○ 추가' 말풍선: 어느 종류인지와 버튼 자리(anchor). 버튼마다 자리를 재려고 감싼 칸을 기억해 둔다
   const [addMenu, setAddMenu] = useState(null);
   const pickerAfterMenu = useRef(null);
@@ -396,15 +396,15 @@ export default function DecorationStudioScreen({ compact = false, registerBackHa
   // 기본 속지 설정과 저장한 속지 목록을 둘 다 읽은 뒤 한 번에 그린다(따로 그리면 늦게 온 쪽이 끼어들며 아래 것이 밀려 내려갔다)
   const papersReady = library.ready && paperStyle.ready;
   const openPaper = library.papers.find(item => item.id === paperId);
-  const wide = openPaper?.orientation === 'landscape';
+
   // 속지 하나를 펼친 모습: 스티커 폴더처럼 안의 쪽을 전부 보여 준다(쪽 번호 아래)
   const paperDetail = openPaper && <StudioSection title={openPaper.name} count={`${openPaper.pages.length}장`}
     right={<>
       <DioButton variant="ghost" icon="chevron-left" label="속지 목록" text="속지 목록" onPress={() => setPaperId(null)} />
       <DioButton variant="icon" icon="trash" label="속지 삭제" onPress={() => setQuestion({ paper: openPaper })} />
     </>}>
-    <View style={[s.pages, { columnGap: pageGrid.spreadGap }]} onLayout={pageGrid.onLayout}>{openPaper.pages.map((page, index) => <View key={`${page.mediaFileId}-${index}`} style={s.page}>
-      <PdfPageThumb page={page} width={wide ? 154 : 116} ratio={wide ? 4 / 3 : 3 / 4} style={s.pageThumb} />
+    <View style={s.pages} onLayout={pageGrid.onLayout}>{openPaper.pages.map((page, index) => <View key={`${page.mediaFileId}-${index}`} style={s.page}>
+      <PdfPageThumb page={page} width={pageGrid.cellWidth} maxHeight={pageGrid.cellWidth * 1.5} style={s.pageThumb} />
       <Text style={s.pageNumber}>{index + 1}</Text>
     </View>)}</View>
   </StudioSection>;

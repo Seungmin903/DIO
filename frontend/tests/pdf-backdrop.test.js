@@ -1,7 +1,8 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { pdfDocPage, pdfPageCanvasSize, withPdfPages } from '../src/diary/utils/pdfImport.js'
-import { isBackdrop, keepBackdropBottom } from '../src/editor/utils/backdrop.js'
+import { fitBackdropToPage, isBackdrop, keepBackdropBottom } from '../src/editor/utils/backdrop.js'
+import { createExportSnapshot } from '../src/editor/utils/pageExport.js'
 import { lassoHitIds } from '../src/editor/utils/lassoGeometry.js'
 import { createDefaultDoc } from '../src/editor/state/defaultDoc.js'
 import { editorReducer, createInitialState } from '../src/editor/state/editorReducer.js'
@@ -26,6 +27,18 @@ test('PDF 쪽은 페이지를 꽉 채우는 바탕 요소 하나이고, 비율�
   assert.deepEqual([image.x, image.y, Math.round(image.w), Math.round(image.h)], [0, 0, a4.canvasWidth, a4.canvasHeight])
   const doc = withPdfPages(createDefaultDoc({ title: '시험', pageSize: 'portrait' }), [page(0.7, 1), page(1.5, 2)], 'portrait', {})
   assert.deepEqual(doc.pages.map(p => [p.canvasWidth, p.canvasHeight]), [[717, 1024], [1024, 683]])
+})
+
+test('기존 PDF 바탕은 현재 페이지 영역에 맞추고 저장된 좌표와 일반 스티커는 유지한다', () => {
+  const background = { ...pdfDocPage(page(0.75), 'portrait', {}).objects[0], x: 10, y: 20, w: 384, h: 512 }
+  const sticker = { ...background, id: 'regular', backdrop: false }
+  const resized = { id: 'page', canvasWidth: 1000, canvasHeight: 800, objects: [background, sticker] }
+  const fit = fitBackdropToPage(background, resized.canvasWidth, resized.canvasHeight)
+  assert.deepEqual([fit.x, fit.y, fit.w, fit.h], [200, 0, 600, 800])
+  assert.equal(fitBackdropToPage(fit, 1000, 800), fit)
+  assert.equal(fitBackdropToPage(sticker, 1000, 800), sticker)
+  assert.deepEqual(createExportSnapshot(resized).objects, [fit, sticker])
+  assert.deepEqual([background.x, background.y, background.w, background.h], [10, 20, 384, 512])
 })
 
 test('바탕 요소는 항상 맨 아래에 있고, 그 아래로 다른 요소가 내려가지 않는다', () => {

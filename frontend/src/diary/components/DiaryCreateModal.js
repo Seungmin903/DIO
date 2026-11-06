@@ -17,7 +17,7 @@ import Workbench, { StagePill, fit } from './Workbench';
 import ConfirmDialog from '../../editor/components/controls/ConfirmDialog';
 import { coverSummary, newDiaryCover, normalizeCover } from '../utils/coverDesign';
 import { defaultSections, savedPaperSummary, sectionTitle, sectionsTemplateConfig } from '../utils/paperChoice';
-import { PdfImportError, coverBackupOf, coverForLibrary, coverWithPdfPage, pdfOrientation, pdfPapersSummary, restoreCoverBase, splitPdfPages } from '../utils/pdfImport';
+import { PdfImportError, coverBackupOf, coverForLibrary, coverWithPdfPage, pdfOrientation, pdfPageAspect, pdfPapersSummary, restoreCoverBase, splitPdfPages } from '../utils/pdfImport';
 import { pickPdfPages } from '../utils/pdfPages';
 import { discardPdfImport } from '../utils/pdfCleanup';
 import useMyLibrary from '../hooks/useMyLibrary';
@@ -233,6 +233,7 @@ export default function DiaryCreateModal({ diary, onSubmit, onCancel, saving = f
   // ---------- 가운데 미리보기: 지금 고치는 것만 ----------
   const paperRatio = (() => { const { width, height } = templateCanvasSize(orientation); return width / height; })();
   const coverRatio = orientation === 'landscape' ? 1 / COVER_RATIO : COVER_RATIO;
+  const pdfRatio = pdfPageAspect(pdfPapers[0], paperRatio);
   let preview = null;
   if (stage.width > 0) {
     const maxHeight = stage.height - (stacked ? 44 : 80);
@@ -241,11 +242,11 @@ export default function DiaryCreateModal({ diary, onSubmit, onCancel, saving = f
       const gap = stacked ? 16 : 32; // 표지 · 속지 높이는 최대 352(264×352 · 200×352), 둘은 같은 기준선(코덱스 8번)
       const half = (stage.width - (stacked ? 32 : 80) - gap) / 2;
       const coverSize = fit(coverRatio, half, Math.min(maxHeight, 352));
-      const paperSize = fit(paperRatio, half, Math.min(maxHeight, 352));
+      const paperSize = fit(usingPdf ? pdfRatio : paperRatio, half, Math.min(maxHeight, 352));
       preview = <>
         <View style={[styles.pair, { gap }]}>
           <CoverFrame cover={cover} name={title} width={coverSize.width} height={coverSize.height} />
-          {usingPdf ? <PdfPageThumb page={pdfPapers[0]} width={paperSize.width} ratio={paperRatio} style={styles.paperShadow} />
+          {usingPdf ? <PdfPageThumb page={pdfPapers[0]} width={paperSize.width} ratio={pdfRatio} style={styles.paperShadow} />
             : firstPageId ? <TemplatePreview assetId={firstPageId} width={paperSize.width} appearance={paperAppearance} style={styles.paperShadow} />
             : <BlankPreview orientation={orientation} width={paperSize.width} appearance={paperAppearance} style={styles.paperShadow} />}
         </View>
@@ -259,11 +260,12 @@ export default function DiaryCreateModal({ diary, onSubmit, onCancel, saving = f
     } else if (section === 'paper' && usingPdf) {
       const stripCount = Math.min(pdfPapers.length, stacked ? 6 : 8);
       const stripWidth = Math.min(stacked ? 34 : 46, (wide - (stripCount - 1) * 6) / Math.max(1, stripCount));
-      const size = fit(paperRatio, wide, maxHeight - stripWidth / paperRatio - (stacked ? 12 : 20));
+      const stripHeight = stacked ? 48 : 64;
+      const size = fit(pdfRatio, wide, maxHeight - (stripCount > 1 ? stripHeight + (stacked ? 12 : 20) : 0));
       preview = <>
-        <PdfPageThumb page={pdfPapers[0]} width={size.width} ratio={paperRatio} style={styles.paperShadow} />
+        <PdfPageThumb page={pdfPapers[0]} width={size.width} ratio={pdfRatio} style={styles.paperShadow} />
         {stripCount > 1 && <View style={styles.strip}>
-          {pdfPapers.slice(0, stripCount).map((page, index) => <PdfPageThumb key={`${page.mediaFileId}-${index}`} page={page} width={stripWidth} ratio={paperRatio} />)}
+          {pdfPapers.slice(0, stripCount).map((page, index) => <PdfPageThumb key={`${page.mediaFileId}-${index}`} page={page} width={stripWidth} maxHeight={stripHeight} />)}
           {pdfPapers.length > stripCount && <Text style={styles.stripMore}>…</Text>}
         </View>}
         <StagePill>전체 {pdfPapers.length}페이지</StagePill>

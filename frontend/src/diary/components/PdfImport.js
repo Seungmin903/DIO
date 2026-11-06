@@ -6,6 +6,8 @@ import { mediaId } from '../../editor/utils/mediaReferences.js'
 import { colors } from '../../shared/theme'
 import { OptionRow, Toggle } from './FormControls'
 import CoverArt from './CoverArt'
+import { pdfPageAspect } from '../utils/pdfImport.js'
+import { usePdfPageRaster } from '../hooks/usePdfPageRaster'
 
 // 쪽 그림의 표시 주소. 보여 주는 동안만 붙들고, 읽기가 끝나면 상태로 받아 그린다.
 function usePageUri(page) {
@@ -24,9 +26,12 @@ function usePageUri(page) {
 }
 
 /** PDF 한 쪽(미디어 보관함 그림) 미리보기. 비율은 지키고 남는 곳은 흰 종이. */
-export function PdfPageThumb({ page, width, ratio, style }) {
-  const uri = usePageUri(page)
-  return <View pointerEvents="none" style={[styles.thumb, { width, height: width / ratio }, style]}>
+export function PdfPageThumb({ page, width, ratio = pdfPageAspect(page), maxHeight = Infinity, style }) {
+  const stored = usePageUri(page)
+  const raster = usePdfPageRaster(page?.pdfSource)
+  const uri = raster.pending ? null : raster.uri ?? stored
+  const height = Math.min(width / ratio, maxHeight)
+  return <View pointerEvents="none" style={[styles.thumb, { width, height }, style]}>
     {uri ? <Image source={{ uri }} style={StyleSheet.absoluteFill} resizeMode="contain" /> : null}
   </View>
 }
@@ -102,12 +107,12 @@ export function MyPaperList({ items, selectedId, onPick, onRemove, disabled }) {
   if (!items.length) return null
   return <OptionRow label="나의 속지">
     <View style={styles.tiles}>
-      {items.map(item => <View key={item.id} style={[styles.tileBox, disabled && styles.dim]}>
+      {items.map(item => <View key={item.id} style={[styles.tileBox, styles.paperTileBox, disabled && styles.dim]}>
         <Pressable accessibilityRole="button" accessibilityLabel={`나의 속지 ${item.name} ${item.pages.length}장 쓰기`} accessibilityState={{ selected: selectedId === item.id }} disabled={disabled} onPress={() => onPick(item)}
           style={({ pressed }) => [styles.paperTile, selectedId === item.id && styles.tileOn, pressed && styles.pressed]}>
-          <PdfPageThumb page={item.pages[0]} width={item.orientation === 'landscape' ? 72 : 54} ratio={item.orientation === 'landscape' ? 4 / 3 : 3 / 4} />
+          <PdfPageThumb page={item.pages[0]} width={104} ratio={1} />
         </Pressable>
-        <Text numberOfLines={1} style={styles.tileName}>{`${item.name} · ${item.pages.length}장`}</Text>
+        <Text numberOfLines={1} style={[styles.tileName, styles.paperTileName]}>{`${item.name} · ${item.pages.length}장`}</Text>
         {!disabled && <Remove label={`나의 속지 ${item.name} 지우기`} onPress={() => onRemove(item)} />}
       </View>)}
     </View>
@@ -128,7 +133,9 @@ const styles = StyleSheet.create({
   tiles: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
   tileBox: { width: 76, gap: 4, alignItems: 'center' },
   coverTile: { padding: 3, borderRadius: 8, borderWidth: 2, borderColor: 'transparent' },
-  paperTile: { width: 76, height: 76, borderRadius: 6, borderWidth: 2, borderColor: 'transparent', justifyContent: 'center', alignItems: 'center' },
+  paperTileBox: { width: 112 },
+  paperTileName: { maxWidth: 112 },
+  paperTile: { width: 112, height: 112, borderRadius: 6, borderWidth: 2, borderColor: 'transparent', justifyContent: 'center', alignItems: 'center' },
   tileOn: { borderColor: colors.primary },
   tileName: { maxWidth: 76, color: colors.textMuted, fontSize: 11, fontWeight: '700' },
   remove: { position: 'absolute', top: -4, right: 0, width: 20, height: 20, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primaryStrong },

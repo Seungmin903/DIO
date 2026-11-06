@@ -6,9 +6,10 @@ import FadeScroll, { CANVAS_FADE_RGB } from '../../editor/components/controls/Fa
 import CoverArt from './CoverArt';
 import { PdfPageThumb } from './PdfImport';
 
-// 견본 칸(모서리 14): 세로 116×154, 가로 154×116. 표지 · 속지 모두 저장한 방향대로 칸을 세우거나 눕힌다.
+// 표지는 기존 크기를 쓰고, PDF 속지는 본문을 더 쉽게 읽도록 더 큰 견본을 쓴다.
 const SLOT = { width: 116, height: 154 };
 const WIDE_SLOT = { width: 154, height: 116 };
+const PAPER_SLOT = { portrait: { width: 148, height: 208 }, landscape: { width: 208, height: 148 } };
 
 /**
  * 내 표지 · 내 속지 진열: 가로로 미는 선반 한 줄. 칸 사이 14, 화면 끝에서 다음 칸이 잘려 보여 더 있다는 것을 알린다.
@@ -32,13 +33,13 @@ export default function StudioShelf({ kind, items, onRemove, onRename, onOpen })
     <FadeScroll horizontal fadeRgb={CANVAS_FADE_RGB} contentContainerStyle={local.row}>
       {items.map(item => {
         const paper = kind === 'paper';
-        const slot = item.orientation === 'landscape' ? WIDE_SLOT : SLOT;
+        const slot = paper ? PAPER_SLOT[item.orientation] : item.orientation === 'landscape' ? WIDE_SLOT : SLOT;
         const label = paper ? `${item.name} · ${item.pages.length}장` : item.name;
         return (
           <View key={item.id} style={{ width: slot.width }}>
             {(() => {
               const art = paper
-                ? <PdfPageThumb page={item.pages[0]} width={slot.width - 16} ratio={slot.width / slot.height} />
+                ? <PdfPageThumb page={item.pages[0]} width={slot.width - 2} ratio={slot.width / slot.height} maxHeight={slot.height - 2} />
                 : <CoverArt cover={item.cover} name={item.name} width={slot.width} height={slot.height} />;
               return onOpen
                 ? <Pressable accessibilityRole="button" accessibilityLabel={`${label} ${paper ? '속지' : '표지'} 펼치기`} onPress={() => onOpen(item)} style={[local.art, slot]}>{art}</Pressable>

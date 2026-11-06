@@ -13,8 +13,22 @@ public class DioPdfRenderModule: Module {
   }
   private var cacheDirectory: URL { FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0].appendingPathComponent("dio-pdf-render") }
 
+  private func pagePointSize(_ page: CGPDFPage) -> CGSize {
+    let box = page.getBoxRect(.cropBox)
+    let turned = page.rotationAngle % 180 != 0
+    return CGSize(width: turned ? box.height : box.width, height: turned ? box.width : box.height)
+  }
+
+  private func draw(_ page: CGPDFPage, in context: CGContext, target: CGSize, points: CGSize) {
+    // Set the raster scale explicitly. The page-box transform is responsible for rotation and origin.
+    context.scaleBy(x: target.width / points.width, y: target.height / points.height)
+    context.concatenate(page.getDrawingTransform(.cropBox, rect: CGRect(origin: .zero, size: points), rotate: 0, preserveAspectRatio: true))
+    context.drawPDFPage(page)
+  }
+
   public func definition() -> ModuleDefinition {
     Name("DioPdfRender")
+    Function("supportsScaledRendering") { true }
 
     AsyncFunction("pageCount") { (uri: String) -> Int in try self.document(uri).pageCount }
 
@@ -23,12 +37,10 @@ public class DioPdfRenderModule: Module {
       let document = try self.document(uri)
       guard index >= 0, index < document.pageCount, let page = document.page(at: index), let pdfPage = page.pageRef else { throw self.fail("INVALID_PAGE") }
       // 쪽 회전을 반영한 크기로 긴 변을 longEdge 에 맞춘다
-      let box = pdfPage.getBoxRect(.cropBox)
-      let turned = pdfPage.rotationAngle % 180 != 0
-      let pageWidth = turned ? box.height : box.width
-      let pageHeight = turned ? box.width : box.height
-      let scale = CGFloat(longEdge) / max(pageWidth, pageHeight)
-      let size = CGSize(width: max(1, (pageWidth * scale).rounded()), height: max(1, (pageHeight * scale).rounded()))
+      let points = self.pagePointSize(pdfPage)
+      guard points.width > 0, points.height > 0 else { throw self.fail("INVALID_PAGE") }
+      let scale = CGFloat(longEdge) / max(points.width, points.height)
+      let size = CGSize(width: max(1, (points.width * scale).rounded()), height: max(1, (points.height * scale).rounded()))
       let format = UIGraphicsImageRendererFormat()
       format.scale = 1
       format.opaque = true
@@ -38,8 +50,7 @@ public class DioPdfRenderModule: Module {
         let cg = context.cgContext
         cg.translateBy(x: 0, y: size.height)
         cg.scaleBy(x: 1, y: -1)
-        cg.concatenate(pdfPage.getDrawingTransform(.cropBox, rect: CGRect(origin: .zero, size: size), rotate: 0, preserveAspectRatio: true))
-        cg.drawPDFPage(pdfPage)
+        self.draw(pdfPage, in: cg, target: size, points: points)
       }
       guard let data = image.pngData() else { throw self.fail("INTERNAL_ERROR") }
       try FileManager.default.createDirectory(at: self.cacheDirectory, withIntermediateDirectories: true)
@@ -55,6 +66,8 @@ public class DioPdfRenderModule: Module {
       let document = try self.document(uri)
       guard index >= 0, index < document.pageCount, let page = document.page(at: index), let pdfPage = page.pageRef else { throw self.fail("INVALID_PAGE") }
       // 쪽 전체를 이 크기로 그렸을 때의 가상 크기. 영역은 여기서 잘라 낸다.
+      let points = self.pagePointSize(pdfPage)
+      guard points.width > 0, points.height > 0 else { throw self.fail("INVALID_PAGE") }
       let fullWidth = CGFloat(outWidth) / CGFloat(width)
       let fullHeight = CGFloat(outHeight) / CGFloat(height)
       let size = CGSize(width: outWidth, height: outHeight)
@@ -69,8 +82,7 @@ public class DioPdfRenderModule: Module {
         cg.scaleBy(x: 1, y: -1)
         // 뒤집힌(위쪽이 +y) 좌표에서 영역의 왼쪽 아래가 원점에 오도록 옮긴다.
         cg.translateBy(x: -CGFloat(left) * fullWidth, y: -(1 - CGFloat(top) - CGFloat(height)) * fullHeight)
-        cg.concatenate(pdfPage.getDrawingTransform(.cropBox, rect: CGRect(x: 0, y: 0, width: fullWidth, height: fullHeight), rotate: 0, preserveAspectRatio: true))
-        cg.drawPDFPage(pdfPage)
+        self.draw(pdfPage, in: cg, target: CGSize(width: fullWidth, height: fullHeight), points: points)
       }
       guard let data = image.jpegData(compressionQuality: 0.95) else { throw self.fail("INTERNAL_ERROR") }
       try FileManager.default.createDirectory(at: self.cacheDirectory, withIntermediateDirectories: true)

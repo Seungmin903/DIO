@@ -125,6 +125,8 @@ const loadNativePages = (native, store = { saved: [], removed: [] }) => {
   const mocks = {
     'expo-document-picker': { getDocumentAsync: async () => ({ canceled: false, assets: [{ uri: 'file:///a.pdf', name: '문서.pdf' }] }) },
     'expo-modules-core': { requireOptionalNativeModule: () => native },
+    'expo-file-system': { File: class { delete() {} } },
+    './pdfPageRaster.native.js': { renderPdfPageBitmap: async (...args) => ({ ...await native.renderPage(...args), fitted: true }) },
     '../../editor/services/mediaStore': { importMedia: async ([asset]) => [{ src: `media:${asset.fileName}`, mediaFileId: asset.fileName }], discardGeneratedMedia: async () => {} },
     '../../editor/utils/mediaPolicy.js': { MediaError: class extends Error {} },
     './pdfImport.js': { PDF_PAGE_LIMIT: 60, PDF_RENDER_EDGE: 3000, PdfImportError },
@@ -156,7 +158,10 @@ test('기기에서 PDF 쪽마다 그림으로 바꾸고, 메모리가 모자라�
   // 원본 PDF 를 보관하고, 쪽마다 원본 위치와 기본 그림의 긴 변(메모리 부족으로 줄인 쪽은 1500)을 남긴다
   assert.deepEqual(store.saved, [['source-1', 'file:///a.pdf']]);
   assert.equal(result.sourceId, 'source-1');
-  assert.deepEqual(result.pages.map(page => page.pdfSource), [{ sourceId: 'source-1', pageIndex: 0, edge: 3000 }, { sourceId: 'source-1', pageIndex: 1, edge: 1500 }]);
+  assert.deepEqual(result.pages.map(page => page.pdfSource), [
+    { sourceId: 'source-1', pageIndex: 0, edge: 3000, renderVersion: 2 },
+    { sourceId: 'source-1', pageIndex: 1, edge: 1500, renderVersion: 2 },
+  ]);
   assert.deepEqual(store.removed, []);
   assert.deepEqual(store.registered, { sourceId: 'source-1', mediaFileIds: ['문서-1.png', '문서-2.png'] });
 });
@@ -176,4 +181,32 @@ test('나의 표지 · 속지 이름은 고칠 수 있고, 비우면 원래 이�
   assert.equal(renamed.find(item => item.id === first.id).name, first.name);
   assert.equal(renameEntry(list, second.id, '   ').find(item => item.id === second.id).name, second.name);
   assert.equal(second.name, 'a', '원본 목록은 바뀌지 않는다');
+});
+
+test('iOS 구형 PDF 렌더러에는 실제 쪽 크기 이하를 요청하고 새 렌더러에는 원래 해상도를 요청한다', async () => {
+  const require = createRequire(import.meta.url), expo = createRequire(require.resolve('expo/package.json')), babel = expo('@babel/core');
+  const code = babel.transformSync(readFileSync(new URL('../src/diary/utils/pdfPageRaster.native.js', import.meta.url), 'utf8'), {
+    configFile: false, babelrc: false, plugins: [expo.resolve('@babel/plugin-transform-modules-commonjs')],
+  }).code;
+  for (const supportsScaling of [false, true]) {
+    const requests = [], native = {
+      ...(supportsScaling ? { supportsScaledRendering: () => true } : {}),
+      renderPage: async (_uri, _index, edge) => { requests.push(edge); return { width: 595, height: edge }; },
+      renderRegion() {},
+    };
+    const mocks = {
+      'react-native': { Platform: { OS: 'ios' } },
+      'expo-file-system': { File: class { async bytes() { return new Uint8Array(); } } },
+      'expo-modules-core': { requireOptionalNativeModule: () => native },
+      'pdf-lib/dist/pdf-lib.js': { PDFDocument: { load: async () => ({ getPage: () => ({ getCropBox: () => ({ width: 595.32, height: 841.92 }) }) }) } },
+      './pdfSourceStore.native.js': {},
+      './pdfSource.js': {},
+    };
+    const mod = { exports: {} };
+    new Function('require', 'module', 'exports', code)(id => mocks[id], mod, mod.exports);
+    const result = await mod.exports.renderPdfPageBitmap('file:///a.pdf', 0, 3000);
+    assert.deepEqual(requests, [supportsScaling ? 3000 : 840]);
+    assert.equal(result.fitted, true);
+    assert.equal(mod.exports.canRenderPdfDetail(), supportsScaling);
+  }
 });

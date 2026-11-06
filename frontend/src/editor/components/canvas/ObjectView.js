@@ -7,11 +7,13 @@ import { isAnimatedMedia, isRetiredSticker, stickerSource } from '../../stickerA
 import BuiltinStickerArt from './BuiltinStickerArt'
 import MediaImage from './MediaImage'
 import PdfDetail from './PdfDetail'
+import { usePdfPageRaster } from '../../../diary/hooks/usePdfPageRaster'
 import StickerFrame from './StickerFrame'
 import { boxShadowStyle, insetShadowStyle, outlineOf, shadowOf, shadowOffset } from '../../utils/effects'
 import { reportMediaDisplayError } from '../../services/mediaStore'
 import { colors } from '../../../shared/theme'
 import { mediaId } from '../../utils/mediaReferences.js'
+import { isBackdrop } from '../../utils/backdrop.js'
 import { useMediaEntry, useMediaUri } from '../../hooks/useMediaUri'
 import { coverLayout, hasPhotoMedia, photoInnerBox, tapePieceRatio, tapeUnitH } from '../../utils/objects'
 import { shapePath } from '../../utils/shapes'
@@ -76,10 +78,7 @@ function ObjectContent({ object, zoom, areaPreview = false, still: stillRequeste
       return <StrokeContent areaPreview={areaPreview} object={object} zoom={zoom} transform={flipTransform(object)} onAssetLoad={onAssetLoad} onAssetError={onAssetError} />
     case 'sticker':
       if (object.widget) return <View style={{ transform: flipTransform(object) }}><DdayWidget widget={object.widget} width={width} height={height} /></View>
-      if (object.pdfSource) return <View style={{ width, height }}>
-        <StickerContent object={object} width={width} height={height} zoom={zoom} still={still} onAssetLoad={onAssetLoad} onAssetError={onAssetError} />
-        <PdfDetail object={object} zoom={zoom} />
-      </View>
+      if (object.pdfSource) return <PdfStickerContent object={object} width={width} height={height} zoom={zoom} still={still} onAssetLoad={onAssetLoad} onAssetError={onAssetError} />
       return <StickerContent object={object} width={width} height={height} zoom={zoom} still={still} onAssetLoad={onAssetLoad} onAssetError={onAssetError} />
     case 'tape':
       return (
@@ -223,7 +222,17 @@ const DIRECTIONS = [
  * - 그림자: 그림자 색 실루엣을 방향·거리만큼 옮기고, 흐림만큼 둥글게 퍼뜨려 옅게 겹친다.
  *   테두리가 있으면 테두리 바깥 끝을 기준으로 그린다. (사진은 테두리가 상자 안쪽에 그려져 boxShadow 가 원래 테두리 끝 기준)
  */
-function StickerContent({ object, width, height, zoom, still, onAssetLoad, onAssetError }) {
+function PdfStickerContent({ object, width, height, zoom, ...props }) {
+  const raster = usePdfPageRaster(object.pdfSource)
+  return <View style={{ width, height }}>
+    {!raster.pending && <>
+      <StickerContent {...props} object={object} width={width} height={height} zoom={zoom} pdfUri={raster.uri} />
+      <PdfDetail object={object} zoom={zoom} />
+    </>}
+  </View>
+}
+
+function StickerContent({ object, width, height, zoom, still, pdfUri, onAssetLoad, onAssetError }) {
   const outline = outlineOf(object)
   const shadow = shadowOf(object)
   const stroke = outline.on ? Math.max(0.75, outline.width * zoom) : 0
@@ -231,7 +240,7 @@ function StickerContent({ object, width, height, zoom, still, onAssetLoad, onAss
   const blurSpread = shadow.blur * zoom * 0.45
   const box = { width, height }
   const uri = useMediaUri(object, { still })
-  const originalSource = stickerSource(object, still, uri)
+  const originalSource = pdfUri ? { uri: pdfUri } : stickerSource(object, still, uri)
   const originalAnimated = !still && isAnimatedMedia(object)
   const synchronized = (Platform.OS === 'ios' || Platform.OS === 'android') && originalAnimated && (outline.on || shadow.on)
   const playback = useStickerPlayback(synchronized ? originalSource : null)
@@ -332,7 +341,8 @@ function StickerContent({ object, width, height, zoom, still, onAssetLoad, onAss
         // View 로 감싼다: 웹의 <svg> 는 위치 지정 요소가 아니라서 그대로 두면 테두리 · 그림자 층 아래로 깔린다
         <View style={box}><BuiltinStickerArt sticker={builtin} width={width} height={height} /></View>
       ) : source ? (
-        <MediaImage animated={animated} onLoad={onAssetLoad} onError={() => { if (!synchronized) reportMediaDisplayError(object); onAssetError?.() }} source={source} style={box} resizeMode="contain" />
+        <MediaImage animated={animated} onLoad={onAssetLoad} onError={() => { if (!synchronized) reportMediaDisplayError(object); onAssetError?.() }}
+          source={source} style={box} resizeMode={isBackdrop(object) ? 'stretch' : 'contain'} />
       ) : (
         <Text style={[styles.emoji, emojiText(height)]}>{object.emoji}</Text>
       )}

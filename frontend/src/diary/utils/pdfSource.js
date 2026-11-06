@@ -29,7 +29,8 @@ export function normalizePdfSource(value) {
   // 파일 이름으로 쓰므로 공유 문서에서 와도 경로를 벗어나지 못하게 문자를 제한한다.
   if (typeof sourceId !== 'string' || !/^[A-Za-z0-9_-]{1,64}$/.test(sourceId.trim())) return null
   if (!Number.isInteger(pageIndex) || pageIndex < 0) return null
-  return { sourceId: sourceId.trim(), pageIndex, edge: finite(edge) && edge > 0 ? Math.round(edge) : null }
+  return { sourceId: sourceId.trim(), pageIndex, edge: finite(edge) && edge > 0 ? Math.round(edge) : null,
+    ...(value.renderVersion === 2 ? { renderVersion: 2 } : {}) }
 }
 
 const intersect = (a, b) => {
