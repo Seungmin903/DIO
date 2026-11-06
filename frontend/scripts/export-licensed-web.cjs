@@ -11,6 +11,8 @@ const productionEnv=JSON.parse(fs.readFileSync(path.join(root,'eas.json'),'utf8'
 async function main(){
 const {isSecureApiBaseUrl}=await import('../src/shared/apiBaseUrlPolicy.js')
 if(!isSecureApiBaseUrl(productionEnv.EXPO_PUBLIC_API_BASE_URL))throw new Error('Web export requires a production HTTPS EXPO_PUBLIC_API_BASE_URL.')
+// 번들에서 뺀 글꼴·속지와 원격 목록(catalog.json)을 받는 에셋 저장소(CloudFront). 없으면 웹 배포본이 그 글꼴·속지를 쓰지 못한다
+if(!isSecureApiBaseUrl(productionEnv.EXPO_PUBLIC_ASSET_BASE_URL))throw new Error('Web export requires a production HTTPS EXPO_PUBLIC_ASSET_BASE_URL.')
 run(cli,['export','--platform','web','--source-maps','--output-dir',audit],{...process.env,...productionEnv})
 fs.mkdirSync(output,{recursive:true})
 fs.cpSync(audit,output,{recursive:true,filter:source=>!source.endsWith('.map')})
