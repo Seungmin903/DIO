@@ -22,10 +22,11 @@ import { setPdfSourceFetcher } from '../services/pdfSourceRemote.js'
 // PDF 쪽 바탕(원본 PDF 를 올리기 전)이 아직 서버에 없는 쪽인지
 const needsPdfSeed=page=>(page.objects??[]).some(o=>o.backdrop&&o.pdfSource&&!o.pdfSource.mediaFileId)
 
-export function useMemberCanvasCollaboration({diary,page,state,loaded,readOnly,dispatch,onMembersChanged=()=>{}}){
+export function useMemberCanvasCollaboration({diary,page,state,loaded,readOnly,dispatch,onMembersChanged=()=>{},onCollaborationStateChange=()=>{}}){
   const enabled=diary?.source==='member-api'&&!readOnly
   const latest=useRef({page,state});latest.current={page,state}
   const membersChanged=useRef(onMembersChanged);membersChanged.current=onMembersChanged
+  const collaborationStateChange=useRef(onCollaborationStateChange);collaborationStateChange.current=onCollaborationStateChange
   const runtime=useRef(null)
   const [view,setView]=useState({status:null,history:null,busy:false,pageId:null})
   const sessionKey=authService.getSessionKey()
@@ -222,7 +223,7 @@ export function useMemberCanvasCollaboration({diary,page,state,loaded,readOnly,d
       onDiagnostic:diagnostics.socket,
       makeSocket:url=>Platform?.OS==='web'?new globalThis.WebSocket(url):new globalThis.WebSocket(url,[],{headers:headersFor(url)}),
       getAccessToken:({forceRefresh=false}={})=>authService.getAccessToken({userId:diary.memberAccountId,sessionKey,forceRefresh}),
-      onReady:()=>{diagnostics.event('ws-ready');refresh()},onUnavailable:()=>diagnostics.event('ws-unavailable'),onPagesChanged:refreshPagesQuietly,onMembersChanged:()=>membersChanged.current(),onChange:frame=>{
+      onReady:()=>{diagnostics.event('ws-ready');collaborationStateChange.current(diary.id,true);refresh()},onUnavailable:()=>{diagnostics.event('ws-unavailable');collaborationStateChange.current(diary.id,false)},onPagesChanged:refreshPagesQuietly,onMembersChanged:()=>membersChanged.current(),onChange:frame=>{
         diagnostics.event('ws-change')
         if([...r.loaded.values()].some(engine=>engine.ownsCommand(frame.clientOperationId)))return
         if(frame.pageId===latest.current.page.id)refresh()
@@ -232,7 +233,7 @@ export function useMemberCanvasCollaboration({diary,page,state,loaded,readOnly,d
     // Periodic reconciliation also covers an event lost after commit or a proxy without WebSocket support.
     const timer=setInterval(()=>{diagnostics.event('poll');refresh()},5000)
     const appState=AppState.addEventListener('change',next=>{if(next==='active')refresh();else dispatch({type:'commitCheckpoint'})})
-    return ()=>{r.alive=false;setPdfSourceFetcher(null);media.dispose();socket.close();clearInterval(timer);appState.remove();if(runtime.current===r)runtime.current=null}
+    return ()=>{r.alive=false;collaborationStateChange.current(diary.id,false);setPdfSourceFetcher(null);media.dispose();socket.close();clearInterval(timer);appState.remove();if(runtime.current===r)runtime.current=null}
   },[enabled,loaded,diary?.id,diary?.memberAccountId,sessionKey])
   useEffect(()=>{
     const r=runtime.current;if(!r||!enabled||!loaded)return

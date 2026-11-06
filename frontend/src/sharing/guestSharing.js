@@ -25,7 +25,7 @@ export function createGuestSharing(user = {}) {
     hasMembership: () => false,
     getSnapshot: () => GUEST_SNAPSHOT,
     subscribe: () => () => {}, activate() {}, dispose() {},
-    watchDiary: () => () => {}, setWatchingActive() {},
+    watchDiary: () => () => {}, setWatchingActive() {}, setWatchingRealtime() {},
     setAccountProfile(value = {}) { self.nickname = value.nickname || '방문자'; self.photoUri = value.photoUri || null; },
   };
 }

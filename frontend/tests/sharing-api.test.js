@@ -178,6 +178,25 @@ test('앱이 다시 활성화되면 멈춘 참여자 갱신을 즉시 재개한�
   release();
 });
 
+test('편집기 WebSocket이 준비된 동안 참여자 폴링을 멈추고 끊기면 즉시 재개한다', async () => {
+  const timers = new Map();
+  const f = fixture({ runtimeOptions: {
+    setIntervalImpl: callback => { const id = `timer-`; timers.set(id, callback); return id; },
+    clearIntervalImpl: id => timers.delete(id),
+  } });
+  await f.runtime.getSharing(diaryId);
+  const release = f.runtime.watchDiary(diaryId);
+  await new Promise(resolve => setTimeout(resolve, 0));
+  const timer = [...timers.values()][0], before = f.calls.length;
+  f.runtime.setWatchingRealtime(diaryId, true); timer();
+  await new Promise(resolve => setTimeout(resolve, 0));
+  assert.equal(f.calls.length, before);
+  f.runtime.setWatchingRealtime(diaryId, false);
+  await new Promise(resolve => setTimeout(resolve, 0));
+  assert.ok(f.calls.length > before);
+  release();
+});
+
 test('수락 후 공유 상세 조회 실패는 수락 완료 ID와 경고를 반환하고 재수락하지 않는다', async () => {
   for (const status of [401, 403, 503]) {
     const f = fixture({ fetch: async url => url.endsWith('/members') ? reply({ detail: '후처리 오류' }, status) : null });

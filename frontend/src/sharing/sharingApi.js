@@ -10,7 +10,7 @@ export function createSharingApi({ user, auth, fetchImpl = globalThis.fetch, bui
   const { baseUrl, accessTokenHeader = 'Authorization', getAuthHeaders } = auth.getConnectionOptions();
   const sessionKey = auth.getSessionKey();
   const self = { id: String(user.userId), nickname: user.nickname, photoUri: user.photoUri || null };
-  const diaries = new Map(), invitations = new Map(), listeners = new Set(), watchedDiaries = new Map(), photoCache = new Map();
+  const diaries = new Map(), invitations = new Map(), listeners = new Set(), watchedDiaries = new Map(), realtimeDiaries = new Set(), photoCache = new Map();
   let active = true, watchingActive = true, generation = 0, snapshot = { diaries: [], joined: [], library: [] };
   const fail = (code, message) => { throw new SharingError(code, message); };
   const publish = () => {
@@ -224,7 +224,8 @@ export function createSharingApi({ user, auth, fetchImpl = globalThis.fetch, bui
       if (watchedDiaries.get(id) === watch) watchedDiaries.delete(id);
       if (message) watch.unavailable.forEach(listener => { try { listener(message); } catch {} });
     };
-    const refresh = () => {
+    const refresh = (force = false) => {
+      if (!force && realtimeDiaries.has(id)) return null;
       if (!active || !watchingActive || watch.stopped || watch.refreshing) return watch.refreshing;
       watch.refreshing = (diaries.has(id) ? refreshMembers(id) : getSharing(id))
         .then(value => { watch.failures = 0; watch.skipTicks = 0; return value; })
@@ -242,7 +243,7 @@ export function createSharingApi({ user, auth, fetchImpl = globalThis.fetch, bui
       return watch.refreshing;
     };
     watch.refresh = refresh;
-    refresh();
+    refresh(true);
     if (!watch.timer) watch.timer = setIntervalImpl(() => {
       if (watch.skipTicks > 0) { watch.skipTicks--; return; }
       refresh();
@@ -300,8 +301,9 @@ export function createSharingApi({ user, auth, fetchImpl = globalThis.fetch, bui
     } },
     invitationGateway: { get: invitation }, getMembers, getSnapshot: () => snapshot,
     subscribe(fn) { listeners.add(fn); return () => listeners.delete(fn); },
-    activate() { active = true; }, dispose() { active = false; generation++; watchedDiaries.forEach(watch => { watch.stopped = true; clearIntervalImpl(watch.timer); }); watchedDiaries.clear(); photoCache.clear(); diaries.clear(); invitations.clear(); publish(); },
+    activate() { active = true; }, dispose() { active = false; generation++; watchedDiaries.forEach(watch => { watch.stopped = true; clearIntervalImpl(watch.timer); }); watchedDiaries.clear(); realtimeDiaries.clear(); photoCache.clear(); diaries.clear(); invitations.clear(); publish(); },
     setWatchingActive(value) { watchingActive = value === true; if (watchingActive) watchedDiaries.forEach(watch => { watch.skipTicks = 0; watch.refresh?.(); }); },
+    setWatchingRealtime(id, connected) { if (!isSharingDiaryId(id)) return; if (connected) realtimeDiaries.add(id); else { realtimeDiaries.delete(id); watchedDiaries.get(id)?.refresh?.(true); } },
     setAccountProfile(value) { self.nickname = value.nickname; self.photoUri = value.photoUri || null; for (const key of photoCache.keys()) if (key.startsWith('account:')) photoCache.delete(key); },
     registerDiary(source) { ensureServerId(source.sharedDiaryId || source.id); return diaries.get(source.sharedDiaryId || source.id) || { ...source, members: [] }; },
     getSharing, refreshMembers, watchDiary, loadMoreEmailInvites, checkProfileNickname: checkNickname, checkNickname, updateProfile,

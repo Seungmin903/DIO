@@ -76,13 +76,13 @@ Jira: S15P31F106-350~355. 커서는 이번 범위에서 제외한다.
 {"type":"AUTH","accessToken":"발급받은 Access Token"}
 ```
 
-인증·참여 검증 후 `READY`가 온다. 변경 트랜잭션이 커밋되면 `PAGE_CHANGED`(pageId, operationId, clientOperationId, actorUserId, revision, action)를 보낸다. 프론트는 알림을 받고 HTTP로 최신 페이지를 조회한다. WS로 요소 변경이나 커서는 전송하지 않는다.
+인증·참여 검증 후 `READY`가 온다. 변경 트랜잭션이 커밋되면 `PAGE_CHANGED`(pageId, operationId, clientOperationId, actorUserId, revision, action)를 보낸다. 페이지 목록이 바뀌면 `PAGES_CHANGED`, 참여·탈퇴·강퇴·소유권 이전이 커밋되면 `MEMBERS_CHANGED`를 각각 `{"type":"PAGES_CHANGED","diaryId":"UUID"}`, `{"type":"MEMBERS_CHANGED","diaryId":"UUID"}` 형식으로 보낸다. 프론트는 페이지·참여자 이벤트를 받은 뒤 해당 HTTP 목록을 다시 조회하며, 소유자·역할 표시는 그 결과로 갱신한다. WS로 요소 변경이나 커서는 전송하지 않는다.
 
 클라이언트는 15초 간격으로 PING을 보내고 PONG을 받는다. Access Token이 갱신되면 AUTH로 교체한다. 서버는 주기적으로 세션·참여 권한도 검사하고 로그아웃·강퇴·만료 시 1008로 닫는다. 미인증 연결은 약 5~6초 후 닫는다. 프레임 크기·빈도와 서버/IP/사용자별 연결 수를 제한한다.
 
 Origin은 기존 `AUTH_ALLOWED_ORIGINS`를 재사용한다. dev/prod Nginx에 `/ws/` Upgrade 전달을 추가한다. dev의 기존 Basic 인증은 유지한다. Expo native는 개발 인증 헤더를 같은 서버에만 전달하며, 브라우저 dev 테스트는 해당 서버의 Basic 인증을 먼저 통과한 상태여야 한다. 프록시·Origin 설정은 실제 배포에서도 확인해야 한다.
 
-이벤트는 커밋 후 별도 executor에서 전달하므로 소켓 I/O가 쓰기 트랜잭션을 붙잡지 않는다. 큐 포화·연결 유실·WS 미지원 시에도 5초 주기 HTTP 확인과 재접속 시 전체 조회로 보완한다. 이벤트를 영속 보관하는 outbox나 새 테이블은 없다. 현재 전달은 **단일 백엔드 인스턴스 내부** 기준이며, 다중 인스턴스 운영에는 공용 메시지 전달 수단이 추가로 필요하다.
+이벤트는 커밋 후 별도 executor에서 전달하므로 소켓 I/O가 쓰기 트랜잭션을 붙잡지 않는다. 편집기 소켓이 `READY`인 동안 참여자 목록은 `MEMBERS_CHANGED`로만 다시 조회하고, 5초 HTTP 폴링은 연결 유실·WS 미지원 또는 공유 시트만 열려 있는 경우의 보조 수단이다. 이벤트를 영속 보관하는 outbox나 새 테이블은 없다. 현재 전달은 **단일 백엔드 인스턴스 내부** 기준이며, 다중 인스턴스 운영에는 공용 메시지 전달 수단이 추가로 필요하다.
 
 ## 오프라인·기존 화면 연결
 
