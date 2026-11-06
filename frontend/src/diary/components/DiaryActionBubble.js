@@ -27,14 +27,14 @@ export function bubblePlacement(anchor, size, window) {
  * anchor: 버튼의 창 안 자리 { x, y, width, height } (재지 못했으면 null, 화면 가운데에 뜬다).
  * actions: [{ id, label(접근성 이름), text, icon, filled, disabled, onPress }]. 휴지통으로 보내기는 30일 안에 되돌릴 수 있어 적색이 아니라 네이비다.
  */
-export default function DiaryActionBubble({ anchor, title, actions, onClose }) {
+export default function DiaryActionBubble({ anchor, title, actions, onClose, visible = true, onDismiss }) {
   const window = useWindowDimensions();
   // 화면 크기(회전)가 바뀌면 버튼 자리가 달라져 어긋나므로 닫는다
   const size = useRef(`${window.width}x${window.height}`);
   useEffect(() => { if (size.current !== `${window.width}x${window.height}`) onClose(); }, [window.width, window.height]); // eslint-disable-line react-hooks/exhaustive-deps
   const place = bubblePlacement(anchor, actions.length, window);
   return (
-    <EditorModal transparent animationType="none" statusBarTranslucent onRequestClose={onClose}>
+    <EditorModal visible={visible} onDismiss={onDismiss} transparent animationType="none" statusBarTranslucent onRequestClose={onClose}>
       {/* 바깥을 누르면 닫힌다. 막(scrim)은 깔지 않는다 */}
       <Pressable style={StyleSheet.absoluteFill} onPress={onClose} accessibilityLabel="닫기" />
       <View accessibilityRole="menu" accessibilityLabel={`${title} 동작`} style={[local.bubble, { left: place.left, top: place.top, height: place.height }]}>

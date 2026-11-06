@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import Header from '../components/Header';
 import StudioPaperStyle from '../components/StudioPaperStyle';
 import useDefaultPaperStyle from '../hooks/useDefaultPaperStyle';
@@ -32,7 +32,7 @@ import StickerThumbImage from '../../editor/components/controls/StickerThumbImag
 import TapeView, { tapePreviewBox } from '../../editor/components/canvas/TapeView';
 import TapeCropper from '../../editor/components/panels/TapeCropper';
 import PhotoCropper from '../../editor/components/panels/PhotoCropper';
-import { COVER_PHOTO_RATIO, coverCropPhoto } from '../utils/coverPhotoCrop';
+import { COVER_PHOTO_RATIO, coverCropPhoto, coverPhotoWithAspect } from '../utils/coverPhotoCrop';
 import { TAPE_SIZES } from '../../editor/constants';
 import ConfirmDialog from '../../editor/components/controls/ConfirmDialog';
 import DecorSaveNotice from '../../editor/components/panels/DecorSaveNotice';
@@ -94,7 +94,22 @@ export default function DecorationStudioScreen({ compact = false, registerBackHa
   const pageGrid = useFillGrid({ cell: library.papers.find(item => item.id === paperId)?.orientation === 'landscape' ? 154 : 116, gap: 14 });
   // '○○ 추가' 말풍선: 어느 종류인지와 버튼 자리(anchor). 버튼마다 자리를 재려고 감싼 칸을 기억해 둔다
   const [addMenu, setAddMenu] = useState(null);
+  const pickerAfterMenu = useRef(null);
   const addButtons = useRef({});
+  // iOS에서는 메뉴 모달이 완전히 닫힌 뒤 시스템 선택 창을 연다.
+  const openPickerAfterMenu = action => {
+    if (Platform.OS !== 'ios') { setAddMenu(null); action(); return; }
+    if (pickerAfterMenu.current) return;
+    pickerAfterMenu.current = action;
+    setAddMenu(menu => menu ? { ...menu, closing: true } : menu);
+  };
+  const onAddMenuDismiss = () => {
+    const action = pickerAfterMenu.current;
+    pickerAfterMenu.current = null;
+    if (!action) return;
+    setAddMenu(null);
+    requestAnimationFrame(() => { if (alive.current) action(); });
+  };
   // 공방에서 표지 · 속지 만들기: 지금 하는 일('cover-pdf' | 'cover-photo' | 'paper'), PDF 쪽 그리기 진행, 실패 알림({ kind, text })
   const [making, setMaking] = useState(null), [makeProgress, setMakeProgress] = useState(null), [makeError, setMakeError] = useState(null);
   const setTab = id => { lastTab = id; setTabState(id); setFolderId(null); setPaperId(null); setTapeFolderId(null); setTapeRename(null); };
@@ -263,13 +278,15 @@ export default function DecorationStudioScreen({ compact = false, registerBackHa
     try {
       const [item] = await pickImages({ multiple: false, usage: 'photo' });
       if (!item) return;
+      // 사진 가져오기는 width/height를 주므로, 표지 렌더러가 자른 위치를 복원할 비율을 함께 저장한다.
+      const photo = coverPhotoWithAspect(item);
       // 사진 넣기 흐름: 고르기 → 사진 방향의 표지 비율로 자르기 → 나의 표지에 보인다. 자르기를 닫으면 만들지 않는다
-      const orientation = pdfOrientation(item.aspect);
-      const crop = await new Promise(resolve => setCoverCrop({ photo: item, ratio: COVER_PHOTO_RATIO[orientation], resolve }));
+      const orientation = pdfOrientation(photo.aspect);
+      const crop = await new Promise(resolve => setCoverCrop({ photo, ratio: COVER_PHOTO_RATIO[orientation], resolve }));
       if (!crop) { discardGeneratedMedia([item]).catch(() => {}); return; }
       // 이름은 편집기 사진과 같은 규칙: 파일 이름, 없으면(뜻 없는 이름 포함) 나의 표지 안에서 '사진 n'
       const last = library.covers.reduce((max, cover) => Math.max(max, Number(cover.name.match(/^사진 (\d+)$/)?.[1] ?? 0)), 0);
-      const base = coverWithPdfPage(newDiaryCover(), item);
+      const base = coverWithPdfPage(newDiaryCover(), photo);
       const saved = await library.addCover({ name: item.name || `사진 ${last + 1}`, orientation, cover: { ...base, photo: { ...base.photo, crop } } });
       if (!saved) { discardGeneratedMedia([item]).catch(() => {}); if (alive.current) setMakeError({ kind: 'cover', text: saveFailed('cover') }); }
     } catch (failure) {
@@ -406,12 +423,12 @@ export default function DecorationStudioScreen({ compact = false, registerBackHa
     }} />}
     {tool === 'cutout' && <StickerCutoutModal folder={folder} onClose={() => setTool(null)} />}
     {/* 스티커는 편집기 스티커 보관함의 + 와 같은 이름 · 순서 · 아이콘(그곳의 '이미지 그대로 추가'는 폴더 안에서만 쓴다) */}
-    {addMenu && <DiaryActionBubble anchor={addMenu.anchor} title={addMenu.kind === 'cover' ? '표지 추가' : addMenu.kind === 'tape' ? '테이프 추가' : '스티커 추가'} onClose={() => setAddMenu(null)} actions={addMenu.kind === 'tape' ? [
-      { id: 'photo', label: '사진으로 만들기', text: '사진으로 만들기', icon: 'image', onPress: () => { setAddMenu(null); addTapeFromPhoto(null); } },
+    {addMenu && <DiaryActionBubble visible={!addMenu.closing} onDismiss={onAddMenuDismiss} anchor={addMenu.anchor} title={addMenu.kind === 'cover' ? '표지 추가' : addMenu.kind === 'tape' ? '테이프 추가' : '스티커 추가'} onClose={() => setAddMenu(null)} actions={addMenu.kind === 'tape' ? [
+      { id: 'photo', label: '사진으로 만들기', text: '사진으로 만들기', icon: 'image', onPress: () => openPickerAfterMenu(() => addTapeFromPhoto(null)) },
       { id: 'folder', label: '새 폴더', text: '새 폴더', icon: 'folder', onPress: () => { setAddMenu(null); newTapeFolder(); } },
     ] : addMenu.kind === 'cover' ? [
-      { id: 'pdf', label: 'PDF로 만들기', text: 'PDF로 만들기', icon: 'upload', onPress: () => { setAddMenu(null); makeFromPdf('cover'); } },
-      { id: 'photo', label: '사진으로 만들기', text: '사진으로 만들기', icon: 'image', onPress: () => { setAddMenu(null); makeCoverFromPhoto(); } },
+      { id: 'pdf', label: 'PDF로 만들기', text: 'PDF로 만들기', icon: 'upload', onPress: () => openPickerAfterMenu(() => makeFromPdf('cover')) },
+      { id: 'photo', label: '사진으로 만들기', text: '사진으로 만들기', icon: 'image', onPress: () => openPickerAfterMenu(makeCoverFromPhoto) },
     ] : [
       { id: 'split', label: stickerSplit.available ? '스티커 시트 분리' : `스티커 시트 분리, ${stickerSplit.reason || '이 기기에서는 쓸 수 없어요'}`, text: '스티커 시트 분리', icon: 'grid',
         disabled: !stickerSplit.available, onPress: () => { setAddMenu(null); loginGate('스티커 시트 분리', () => setTool('split')); } },
