@@ -257,6 +257,7 @@ function normalizeSelection(state) {
 }
 
 export function editorReducer(state, action) {
+  if (action.type === 'revertToCheckpoint' && action.checkpointOwner && state.pendingCheckpoint?.owner !== action.checkpointOwner) return state
   const objects = getCurrentPage(state).objects
   if (state.pagesLoading && (NEEDS_ALL_PAGES.has(action.type) || (NEEDS_CURRENT_PAGE.has(action.type) && getCurrentPage(state).unloaded))) return state
 
@@ -301,14 +302,16 @@ export function editorReducer(state, action) {
       return {
         ...withHistory(state),
         // 취소한 드래그는 새 편집이 아니므로 이전 Redo와 이력 상한 이전의 Past도 복원한다.
-        pendingCheckpoint: { doc: state.doc, past: state.past, future: state.future },
+        pendingCheckpoint: { doc: state.doc, past: state.past, future: state.future, ...(action.checkpointOwner ? { owner: action.checkpointOwner } : {}) },
       }
 
     // 자르기 취소처럼 checkpoint 이후의 변경을 버리고 그 시점으로 돌아간다.
     case 'revertToCheckpoint': {
       if (state.pendingCheckpoint) return normalizeSelection({
         ...state,
-        ...state.pendingCheckpoint,
+        doc: state.pendingCheckpoint.doc,
+        past: state.pendingCheckpoint.past,
+        future: state.pendingCheckpoint.future,
         pendingCheckpoint: null,
       })
       if (!state.past.length) return state
