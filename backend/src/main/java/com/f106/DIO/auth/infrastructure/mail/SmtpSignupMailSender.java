@@ -5,10 +5,12 @@ import com.f106.DIO.auth.exception.SignupException;
 
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.http.HttpStatus;
-import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.MailException;
 import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Component;
+
+import jakarta.mail.MessagingException;
 
 @Component
 public class SmtpSignupMailSender implements SignupMailSender {
@@ -24,11 +26,15 @@ public class SmtpSignupMailSender implements SignupMailSender {
             log.warn("Signup mail is not configured: mailSender={}, mailFrom={}", mail != null, !properties.mailFrom().isBlank());
             throw unavailable();
         }
-        SimpleMailMessage message = new SimpleMailMessage();
-        message.setFrom(properties.mailFrom()); message.setTo(email);
-        message.setSubject("[DIO] 회원가입 이메일 인증번호");
-        message.setText("회원가입 인증번호: " + code + "\n10분 안에 입력해 주세요. 본인이 요청하지 않았다면 무시해 주세요.");
-        try { mail.send(message); } catch (MailException error) {
+        try {
+            var message = mail.createMimeMessage();
+            var helper = new MimeMessageHelper(message, true, "UTF-8");
+            helper.setFrom(properties.mailFrom()); helper.setTo(email);
+            helper.setSubject("[DIO] 회원가입 이메일 인증번호");
+            helper.setText(AuthMailTemplate.text("회원가입 이메일 인증", code, "10분 동안"),
+                AuthMailTemplate.html("회원가입을 마무리해 주세요", "DIO에서 함께 기록을 시작하려면 아래 인증번호를 입력해 주세요.", code, "10분 동안"));
+            mail.send(message);
+        } catch (MailException | MessagingException error) {
             // 예외 메시지에는 수신 주소가 들어갈 수 있어 예외 종류만 남긴다.
             log.warn("Signup mail delivery failed: error={}, cause={}", error.getClass().getSimpleName(), rootCause(error));
             throw unavailable();

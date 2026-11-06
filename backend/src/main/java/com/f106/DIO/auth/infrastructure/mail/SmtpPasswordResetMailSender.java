@@ -9,8 +9,11 @@ import com.f106.DIO.auth.infrastructure.mail.PasswordResetMailSender;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.mail.*;
 import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Component;
 import org.springframework.http.HttpStatus;
+
+import jakarta.mail.MessagingException;
 
 @Component
 public class SmtpPasswordResetMailSender implements PasswordResetMailSender {
@@ -22,11 +25,15 @@ public class SmtpPasswordResetMailSender implements PasswordResetMailSender {
     public void send(String email, String code) {
         JavaMailSender mail = sender.getIfAvailable();
         if (mail == null || properties.mailFrom().isBlank()) throw unavailable();
-        var message = new SimpleMailMessage();
-        message.setFrom(properties.mailFrom()); message.setTo(email);
-        message.setSubject("[DIO] 비밀번호 재설정 인증번호");
-        message.setText("비밀번호 재설정 인증번호: " + code + "\n" + CODE_TTL_SECONDS + "초 안에 입력해 주세요. 본인이 요청하지 않았다면 무시해 주세요.");
-        try { mail.send(message); } catch (MailException error) { throw unavailable(); }
+        try {
+            var message = mail.createMimeMessage();
+            var helper = new MimeMessageHelper(message, true, "UTF-8");
+            helper.setFrom(properties.mailFrom()); helper.setTo(email);
+            helper.setSubject("[DIO] 비밀번호 재설정 인증번호");
+            helper.setText(AuthMailTemplate.text("비밀번호 재설정 인증", code, CODE_TTL_SECONDS + "초 동안"),
+                AuthMailTemplate.html("비밀번호를 다시 설정해 주세요", "아래 인증번호를 입력하면 비밀번호를 다시 설정할 수 있어요.", code, CODE_TTL_SECONDS + "초 동안"));
+            mail.send(message);
+        } catch (MailException | MessagingException error) { throw unavailable(); }
     }
     private PasswordResetException unavailable() {
         return new PasswordResetException(HttpStatus.SERVICE_UNAVAILABLE, "EMAIL_DELIVERY_UNAVAILABLE", "인증 메일을 보내지 못했어요.");
