@@ -5,7 +5,8 @@ export const isSharingDiaryId = id => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9
 
 // 로그인 세션에 묶인 공유 API. 로컬 다이어리를 서버 다이어리로 가장하지 않는다.
 export function createSharingApi({ user, auth, fetchImpl = globalThis.fetch, buildPhotoBody,
-  setIntervalImpl = setInterval, clearIntervalImpl = clearInterval, memberRefreshIntervalMs = 5000 }) {
+  setIntervalImpl = setInterval, clearIntervalImpl = clearInterval, memberRefreshIntervalMs = 5000,
+  photoCacheTtlMs = 60_000, maxPhotoCacheEntries = 32, now = Date.now }) {
   const { baseUrl, accessTokenHeader = 'Authorization', getAuthHeaders } = auth.getConnectionOptions();
   const sessionKey = auth.getSessionKey();
   const self = { id: String(user.userId), nickname: user.nickname, photoUri: user.photoUri || null };
@@ -54,10 +55,18 @@ export function createSharingApi({ user, auth, fetchImpl = globalThis.fetch, bui
   const path = id => { ensureServerId(id); return `/diaries/${encodeURIComponent(id)}`; };
   const uri = value => value ? new URL(value, baseUrl).href : null;
   const cachedPhoto = (key, load) => {
-    if (photoCache.has(key)) return photoCache.get(key);
+    const cached = photoCache.get(key);
+    if (cached && cached.expiresAt > now()) {
+      // Map insertion order is our small LRU policy.
+      photoCache.delete(key); photoCache.set(key, cached);
+      return cached.value;
+    }
+    photoCache.delete(key);
     const pending = Promise.resolve().then(load);
-    photoCache.set(key, pending);
-    pending.then(value => { if (!value && photoCache.get(key) === pending) photoCache.delete(key); }, () => { if (photoCache.get(key) === pending) photoCache.delete(key); });
+    const entry = { value: pending, expiresAt: now() + photoCacheTtlMs };
+    photoCache.set(key, entry);
+    while (photoCache.size > maxPhotoCacheEntries) photoCache.delete(photoCache.keys().next().value);
+    pending.then(value => { if (!value && photoCache.get(key) === entry) photoCache.delete(key); }, () => { if (photoCache.get(key) === entry) photoCache.delete(key); });
     return pending;
   };
   async function privatePhoto(value) {
@@ -286,7 +295,7 @@ export function createSharingApi({ user, auth, fetchImpl = globalThis.fetch, bui
     subscribe(fn) { listeners.add(fn); return () => listeners.delete(fn); },
     activate() { active = true; }, dispose() { active = false; generation++; watchedDiaries.forEach(watch => { watch.stopped = true; clearIntervalImpl(watch.timer); }); watchedDiaries.clear(); photoCache.clear(); diaries.clear(); invitations.clear(); publish(); },
     setWatchingActive(value) { watchingActive = value === true; if (watchingActive) watchedDiaries.forEach(watch => { watch.skipTicks = 0; watch.refresh?.(); }); },
-    setAccountProfile(value) { self.nickname = value.nickname; self.photoUri = value.photoUri || null; },
+    setAccountProfile(value) { self.nickname = value.nickname; self.photoUri = value.photoUri || null; for (const key of photoCache.keys()) if (key.startsWith('account:')) photoCache.delete(key); },
     registerDiary(source) { ensureServerId(source.sharedDiaryId || source.id); return diaries.get(source.sharedDiaryId || source.id) || { ...source, members: [] }; },
     getSharing, refreshMembers, watchDiary, loadMoreEmailInvites, checkProfileNickname: checkNickname, checkNickname, updateProfile,
     hasMembership(id) { return diaries.get(invitations.get(id)?.diary.diaryId)?.members.some(m => m.id === self.id) === true; },

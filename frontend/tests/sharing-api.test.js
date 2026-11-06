@@ -128,6 +128,21 @@ test('참여자 사진은 URL이 바뀌기 전까지 한 번만 내려받는다'
   assert.equal(f.calls.filter(call => call.url.endsWith('/profile-photo?v=1')).length, 1);
 });
 
+test('계정 프로필 사진 캐시는 유효 시간 뒤 같은 URL도 다시 읽는다', async () => {
+  let clock = 0;
+  const photoUrl = 'https://api.dio.test/api/v1/auth/profile-photos/account-photo';
+  const f = fixture({ runtimeOptions: { now: () => clock, photoCacheTtlMs: 60_000 },
+    photoSource: () => ({ uri: photoUrl, headers: { Authorization: 'Basic photo' } }), fetch: url => {
+      if (url.endsWith('/members')) return reply({ members: [{ userId: '10', nickname: '나', role: 'OWNER', usingAccountPhoto: true, profilePhotoUrl: photoUrl }] });
+      if (url === photoUrl) return { ok: true, headers: new Headers({ 'content-type': 'image/png' }), arrayBuffer: async () => new Uint8Array([137, 80, 78, 71]).buffer };
+    } });
+  await f.runtime.getMembers(diaryId); await f.runtime.getMembers(diaryId);
+  assert.equal(f.calls.filter(call => call.url === photoUrl).length, 1);
+  clock = 60_001;
+  await f.runtime.getMembers(diaryId);
+  assert.equal(f.calls.filter(call => call.url === photoUrl).length, 2);
+});
+
 test('앱이 다시 활성화되면 멈춘 참여자 갱신을 즉시 재개한다', async () => {
   let owner = '10';
   const timers = new Map();
