@@ -2,6 +2,7 @@ package com.f106.DIO.sharing.service;
 import com.f106.DIO.user.service.UserWithdrawalDiaries;
 import com.f106.DIO.user.exception.UserException;
 import com.f106.DIO.sharing.repository.DiaryPermanentDeletionRepository;
+import com.f106.DIO.sharing.domain.DiaryMembershipChanged;
 import java.time.Instant;
 import java.util.*;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -10,8 +11,8 @@ import org.springframework.transaction.annotation.*;
 @Component @Transactional(propagation=Propagation.MANDATORY)
 public class UserWithdrawalDiaryAdapter implements UserWithdrawalDiaries {
     private final JdbcTemplate jdbc;
-    private final DiaryPermanentDeletionRepository deletion;
-    public UserWithdrawalDiaryAdapter(JdbcTemplate jdbc,DiaryPermanentDeletionRepository deletion){this.jdbc=jdbc;this.deletion=deletion;}
+    private final DiaryPermanentDeletionRepository deletion;private final org.springframework.context.ApplicationEventPublisher events;
+    public UserWithdrawalDiaryAdapter(JdbcTemplate jdbc,DiaryPermanentDeletionRepository deletion,org.springframework.context.ApplicationEventPublisher events){this.jdbc=jdbc;this.deletion=deletion;this.events=events;}
     public void remove(long actor,Instant now){
         var ids=jdbc.queryForList("select diary_id from diaries where owner_user_id=? or diary_id in (select diary_id from diary_members where user_id=? and left_at is null) order by diary_id",UUID.class,actor,actor);
         var owned=new ArrayList<UUID>();
@@ -27,6 +28,7 @@ public class UserWithdrawalDiaryAdapter implements UserWithdrawalDiaries {
         }
         for(var id:owned)deletion.delete(id);
         jdbc.update("update diary_members set left_at=coalesce(left_at,?),member_nickname=null,member_profile_photo_id=null,last_opened_page_id=null,is_favorite=false where user_id=?",java.sql.Timestamp.from(now),actor);
+        ids.stream().filter(id->!owned.contains(id)).forEach(id->events.publishEvent(new DiaryMembershipChanged(id)));
         jdbc.update("update diary_invites set revoked_at=?,invite_type=case when invite_type='EMAIL' then 'EMAIL_CANCELLED' else invite_type end,retention_until=case when invite_type='EMAIL' then ? else retention_until end where revoked_at is null and ((invite_type='LINK' and inviter_user_id=?) or ((inviter_user_id=? or invitee_user_id=?) and use_count=0))",java.sql.Timestamp.from(now),java.sql.Timestamp.from(now.plusSeconds(com.f106.DIO.sharing.domain.SharingPolicy.EMAIL_INVITE_TTL_SECONDS)),actor,actor,actor);
     }
 }

@@ -9,11 +9,13 @@ import { isAnimatedMedia, isRetiredSticker, stickerSource } from '../../stickerA
 import BuiltinStickerArt from './BuiltinStickerArt'
 import MediaImage from './MediaImage'
 import PdfDetail from './PdfDetail'
+import { usePdfPageRaster } from '../../../diary/hooks/usePdfPageRaster'
 import StickerFrame from './StickerFrame'
 import { boxShadowStyle, insetShadowStyle, outlineOf, shadowOf, shadowOffset } from '../../utils/effects'
 import { reportMediaDisplayError } from '../../services/mediaStore'
 import { colors } from '../../../shared/theme'
 import { mediaId } from '../../utils/mediaReferences.js'
+import { isBackdrop } from '../../utils/backdrop.js'
 import { useMediaEntry, useMediaUri } from '../../hooks/useMediaUri'
 import { coverLayout, hasPhotoMedia, photoInnerBox, tapePieceRatio, tapeUnitH } from '../../utils/objects'
 import { shapePath } from '../../utils/shapes'
@@ -78,10 +80,7 @@ function ObjectContent({ object, zoom, areaPreview = false, still: stillRequeste
       return <StrokeContent areaPreview={areaPreview} object={object} zoom={zoom} transform={flipTransform(object)} onAssetLoad={onAssetLoad} onAssetError={onAssetError} />
     case 'sticker':
       if (object.widget) return <View style={{ transform: flipTransform(object) }}><DdayWidget widget={object.widget} width={width} height={height} /></View>
-      if (object.pdfSource) return <View style={{ width, height }}>
-        <StickerContent object={object} width={width} height={height} zoom={zoom} still={still} onAssetLoad={onAssetLoad} onAssetError={onAssetError} />
-        <PdfDetail object={object} zoom={zoom} />
-      </View>
+      if (object.pdfSource) return <PdfStickerContent object={object} width={width} height={height} zoom={zoom} still={still} onAssetLoad={onAssetLoad} onAssetError={onAssetError} />
       return <StickerContent object={object} width={width} height={height} zoom={zoom} still={still} onAssetLoad={onAssetLoad} onAssetError={onAssetError} />
     case 'tape':
       return (
@@ -234,7 +233,7 @@ function StickerContent({ object, width, height, zoom, still, onAssetLoad, onAss
   const blurSpread = shadow.blur * zoom * 0.45
   const box = { width, height }
   const uri = useMediaUri(object, { still })
-  const originalSource = stickerSource(object, still, uri)
+  const originalSource = pdfUri ? { uri: pdfUri } : stickerSource(object, still, uri)
   const originalAnimated = !still && isAnimatedMedia(object)
   const synchronized = (Platform.OS === 'ios' || Platform.OS === 'android') && originalAnimated && (outline.on || shadow.on)
   const playback = useStickerPlayback(synchronized ? originalSource : null)

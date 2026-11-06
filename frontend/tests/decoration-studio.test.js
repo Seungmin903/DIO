@@ -2,6 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { createRequire } from 'node:module'
 import { readFileSync } from 'node:fs'
+import { coverPhotoWithAspect } from '../src/diary/utils/coverPhotoCrop.js'
 const require = createRequire(import.meta.url), expo = createRequire(require.resolve('expo/package.json'))
 const transform = file => expo('@babel/core').transformSync(readFileSync(new URL(file, import.meta.url), 'utf8'), {
   configFile: false, babelrc: false, plugins: [[expo.resolve('@babel/plugin-transform-react-jsx'), { runtime: 'automatic' }], expo.resolve('@babel/plugin-transform-modules-commonjs')],
@@ -14,7 +15,7 @@ const stickerAction = (ui, text) => {
   find(ui.render(), '스티커 추가').props.onPress()
   return nodes(ui.render()).find(n => n.type === '../components/DiaryActionBubble').props.actions.find(action => action.text === text)
 }
-function fixture({ supported = false, failFonts = false, family = null, failRemove = false, libraryReady = true, entries = [], cutout = false } = {}) {
+function fixture({ supported = false, failFonts = false, family = null, failRemove = false, libraryReady = true, entries = [], cutout = false, platform = 'web', pickerCalls = [], pickedImage = null, discarded = [] } = {}) {
   const states = [], refs = [], deps = [], cleanups = [], saves = [], removals = []
   let si, ri, ei, studio = null, fontLoads = 0, backHandler = null
   const opened = [], draftRemovals = []
@@ -39,7 +40,12 @@ function fixture({ supported = false, failFonts = false, family = null, failRemo
     if (id.endsWith('/useMyLibrary')) return { __esModule: true, default: () => library }
     if (id.endsWith('/useDefaultPaperStyle')) return { __esModule: true, default: () => ({ style: {}, ready: true, save: async () => true }) }
     if (id === 'react/jsx-runtime') return require(id)
-    if (id === 'react-native') return { StyleSheet: {create:v=>v}, View:'View', Text:'Text', Pressable:'Pressable', ScrollView:'ScrollView' }
+    if (id === 'react-native') return { Platform: { OS: platform }, StyleSheet: {create:v=>v}, View:'View', Text:'Text', Pressable:'Pressable', ScrollView:'ScrollView' }
+    if (id.endsWith('/services/image')) return { pickImages: async opts => { pickerCalls.push(['photo', opts.usage]); return pickedImage ? [pickedImage] : [] } }
+    if (id.endsWith('/services/mediaStore')) return { discardGeneratedMedia: async items => { discarded.push(...items) } }
+    if (id.endsWith('/utils/mediaRecovery.js')) return { mediaFailureMessage: error => error.message }
+    if (id.endsWith('/utils/coverPhotoCrop')) return { coverPhotoWithAspect, coverCropPhoto() {}, COVER_PHOTO_RATIO: { portrait: 0.75, landscape: 4 / 3 } }
+    if (id.endsWith('/utils/pdfPages')) return { pickPdfPages: async () => { pickerCalls.push(['pdf']); return null } }
     if (id.endsWith('/theme')) return {colors:{},radius:{},DISABLED_OPACITY:.4}
     if (id.endsWith('/useFillGrid')) return { __esModule: true, default: ({ cell, gap }) => ({ onLayout() {}, columns: 1, cellWidth: cell, spreadGap: gap }) } // 격자 폭 재기(훅 순서를 바꾸지 않게 상태 없이)
     if (id.endsWith('/styles')) return {styles:{}}
@@ -61,6 +67,71 @@ function fixture({ supported = false, failFonts = false, family = null, failRemo
   const tab = id => { nodes(render()).find(n => n.type === '../components/StudioTabs').props.onChange(id) }
   return {render, tab, back:()=>backHandler?.(), custom, saves, removals, opened, draftRemovals, closeFont(){studio=null}, get studio(){return studio}, get fontLoads(){return fontLoads}, unmount(){cleanups.forEach(fn=>fn?.())}}
 }
+test('iOS 공방의 사진·PDF 선택은 메뉴가 닫힌 뒤 한 번만 연다', async () => {
+  const previous = globalThis.requestAnimationFrame
+  globalThis.requestAnimationFrame = callback => callback()
+  try {
+    for (const [tab, label, action, expected] of [
+      ['tapes', '테이프 추가', '사진으로 만들기', ['photo', 'tape']],
+      ['covers', '표지 추가', '사진으로 만들기', ['photo', 'photo']],
+      ['covers', '표지 추가', 'PDF로 만들기', ['pdf']],
+    ]) {
+      const calls = [], ui = fixture({ platform: 'ios', pickerCalls: calls })
+      ui.render(); await tick(); ui.tab(tab)
+      find(ui.render(), label).props.onPress()
+      let bubble = nodes(ui.render()).find(n => n.type === '../components/DiaryActionBubble')
+      const choose = bubble.props.actions.find(item => item.text === action).onPress
+      choose(); choose()
+      bubble = nodes(ui.render()).find(n => n.type === '../components/DiaryActionBubble')
+      assert.equal(bubble.props.visible, false)
+      assert.deepEqual(calls, [])
+      bubble.props.onDismiss(); bubble.props.onDismiss()
+      await tick()
+      assert.deepEqual(calls, [expected])
+      ui.unmount()
+    }
+  } finally { globalThis.requestAnimationFrame = previous }
+})
+test('사진 크기가 잘못되면 가져온 미디어를 정리하고 오류를 표시한다', async () => {
+  const item = { mediaFileId: 'bad', width: 100, height: 0 }, discarded = []
+  const ui = fixture({ pickedImage: item, discarded }); ui.render(); await tick(); ui.tab('covers')
+  find(ui.render(), '표지 추가').props.onPress()
+  const bubble = nodes(ui.render()).find(n => n.type === '../components/DiaryActionBubble')
+  bubble.props.actions.find(action => action.text === '사진으로 만들기').onPress()
+  await tick(); await tick()
+  assert.deepEqual(discarded, [item])
+  assert.ok(nodes(ui.render()).some(n => n.props.children === '사진 크기를 확인하지 못했어요.'))
+  ui.unmount()
+})
+test('iOS 메뉴 닫힘 취소·이벤트 유실 후 다시 선택할 수 있고 이전 닫힘은 새 요청을 열지 않는다', async () => {
+  const oldTimeout = globalThis.setTimeout, oldClear = globalThis.clearTimeout, oldFrame = globalThis.requestAnimationFrame
+  const timers = new Map(); let seq = 0
+  globalThis.setTimeout = fn => { const id = ++seq; timers.set(id, fn); return id }
+  globalThis.clearTimeout = id => timers.delete(id)
+  globalThis.requestAnimationFrame = fn => fn()
+  try {
+    const calls = [], ui = fixture({ platform: 'ios', pickerCalls: calls })
+    ui.render(); await tick(); ui.tab('tapes')
+    const open = () => {
+      find(ui.render(), '테이프 추가').props.onPress()
+      const menu = nodes(ui.render()).find(n => n.type === '../components/DiaryActionBubble')
+      menu.props.actions.find(item => item.text === '사진으로 만들기').onPress()
+      return nodes(ui.render()).find(n => n.type === '../components/DiaryActionBubble')
+    }
+    const first = open(); first.props.onClose()
+    const second = open(); first.props.onDismiss()
+    assert.deepEqual(calls, [])
+    second.props.onDismiss(); await tick()
+    assert.deepEqual(calls, [['photo', 'tape']])
+    const third = open(); [...timers.values()][0]() // 닫힘 이벤트가 오지 않는 경우
+    assert.equal(nodes(ui.render()).some(n => n.type === '../components/DiaryActionBubble'), false)
+    assert.ok(nodes(ui.render()).some(n => n.props.children === '사진을 불러오지 못했어요. 다시 시도해 주세요.'))
+    const fourth = open(); third.props.onDismiss(); fourth.props.onDismiss(); await tick()
+    assert.deepEqual(calls, [['photo', 'tape'], ['photo', 'tape']])
+    open(); ui.tab('covers'); assert.equal(timers.size, 0)
+    ui.unmount()
+  } finally { globalThis.setTimeout = oldTimeout; globalThis.clearTimeout = oldClear; globalThis.requestAnimationFrame = oldFrame }
+})
 test('폰트 제작 재사용·닫기 후 목록 새로고침과 파일 오류 안내를 제공한다', async () => {
   const ui = fixture(); ui.render(); await tick()
   assert.equal(find(ui.render(),'폰트 관리'),undefined)

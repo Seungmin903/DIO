@@ -1,5 +1,6 @@
 import { colorTemplateXml, normalizePaperAppearance } from '../templates/appearance.js'
 import { pageSize } from './pageGeometry.js'
+import { fitBackdropToPage } from './backdrop.js'
 import { templateReference } from '../templates/catalog.js'
 import { plannerFor } from '../templates/planners.js'
 import { normalizeTextLink } from './textFormats.js'
@@ -53,7 +54,7 @@ export function createExportSnapshot(page, { width = pageSize(page).width, heigh
       (object.penKind === 'highlighter' && !['round', 'square'].includes(object.lineCap))
     )) throw new PageExportError('EXPORT_GEOMETRY_INVALID', '필기 좌표를 확인해 주세요.')
     if (![object.x, object.y, object.w, object.h, object.rotation ?? 0].every(Number.isFinite) || object.w <= 0 || object.h <= 0) throw new PageExportError('EXPORT_GEOMETRY_INVALID', '요소의 위치와 크기를 확인해 주세요.')
-    return JSON.parse(JSON.stringify(object))
+    return JSON.parse(JSON.stringify(fitBackdropToPage(object, width, height)))
   })
   let template
   try { template = templateReference(page) }

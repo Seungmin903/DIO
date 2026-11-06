@@ -6,6 +6,25 @@ import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url), expo = createRequire(require.resolve('expo/package.json'));
 const babel = expo('@babel/core');
 
+test('말풍선의 닫힘 상태와 콜백은 iOS Modal까지 전달된다', () => {
+  const compile = file => babel.transformSync(readFileSync(new URL(file, import.meta.url), 'utf8'), {
+    configFile: false, babelrc: false,
+    plugins: [[expo.resolve('@babel/plugin-transform-react-jsx'), { runtime: 'automatic' }], expo.resolve('@babel/plugin-transform-modules-commonjs')],
+  }).code;
+  const jsx = { jsx: (type, props) => ({ type, props }), jsxs: (type, props) => ({ type, props }) };
+  const react = { useEffect() {}, useRef: value => ({ current: value }) };
+  const native = { Modal: 'NativeModal', StyleSheet: { create: value => value, absoluteFill: {}, hairlineWidth: 1 }, Pressable: 'Pressable', Text: 'Text', View: 'View', useWindowDimensions: () => ({ width: 500, height: 800 }) };
+  const module = { exports: {} };
+  new Function('require', 'module', 'exports', compile('../src/editor/components/controls/EditorModal.js'))(id => id === 'react-native' ? native : jsx, module, module.exports);
+  const EditorModal = module.exports.default;
+  const mocks = { react, 'react-native': native, 'react/jsx-runtime': jsx, '../../editor/components/controls/EditorModal': { __esModule: true, default: EditorModal }, '../../shared/theme': { bubble: {}, colors: {}, radius: {} } };
+  const bubble = { exports: {} };
+  new Function('require', 'module', 'exports', compile('../src/diary/components/DiaryActionBubble.js'))(id => mocks[id] ?? { __esModule: true, default: id }, bubble, bubble.exports);
+  const onDismiss = () => {}, element = bubble.exports.default({ title: '표지', actions: [], visible: false, onDismiss, onClose() {} });
+  const modal = element.type(element.props);
+  assert.equal(modal.type, 'NativeModal'); assert.equal(modal.props.visible, false); assert.equal(modal.props.onDismiss, onDismiss);
+})
+
 // 말풍선 컴포넌트 파일에서 순수 함수 bubblePlacement 만 꺼낸다(화면 모듈은 빈 껍데기로 대신한다)
 function loadPlacement() {
   const code = babel.transformSync(readFileSync(new URL('../src/diary/components/DiaryActionBubble.js', import.meta.url), 'utf8'), {

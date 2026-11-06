@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useSyncExternalStore } from 'react';
+import { AppState } from 'react-native';
 import { useNotifications } from '../notifications/useNotifications';
 import { createSharingApi } from './sharingApi';
 import { createGuestSharing } from './guestSharing';
@@ -17,6 +18,11 @@ export function useSharing(user) {
   useEffect(() => {
     runtime.activate();
     return () => runtime.dispose();
+  }, [runtime]);
+  useEffect(() => {
+    runtime.setWatchingActive?.(AppState.currentState === 'active');
+    const subscription = AppState.addEventListener('change', next => runtime.setWatchingActive?.(next === 'active'));
+    return () => subscription.remove();
   }, [runtime]);
   return { runtime, notifications, ...state };
 }

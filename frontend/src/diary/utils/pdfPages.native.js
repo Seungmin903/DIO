@@ -1,11 +1,13 @@
 import * as Picker from 'expo-document-picker'
 import { requireOptionalNativeModule } from 'expo-modules-core'
+import { File } from 'expo-file-system'
 import { importMedia, discardGeneratedMedia } from '../../editor/services/mediaStore'
 import { MediaError } from '../../editor/utils/mediaPolicy.js'
 import { PDF_PAGE_LIMIT, PDF_RENDER_EDGE, PdfImportError } from './pdfImport.js'
 import { createId } from '../../editor/utils/common.js'
 import { removePdfSource, savePdfSource } from './pdfSourceStore.native.js'
 import { registerPdfImport } from './pdfImportRegistry'
+import { renderPdfPageBitmap } from './pdfPageRaster.native.js'
 
 // 쪽 그리기는 modules/dio-pdf-render (Android PdfRenderer · iOS PDFKit). 개발 빌드가 아니면(Expo Go) 연결되어 있지 않다.
 let native = null
@@ -21,9 +23,9 @@ const failure = error => {
 
 // 3000px 비트맵(약 36MB)을 못 잡는 기기에서는 긴 변을 절반으로 줄여 한 번 더 그린다. 그래도 모자라면 메모리 부족으로 알린다.
 async function renderWithRetry(uri, index) {
-  try { return await native.renderPage(uri, index, PDF_RENDER_EDGE) } catch (error) {
+  try { return await renderPdfPageBitmap(uri, index, PDF_RENDER_EDGE) } catch (error) {
     if (!String(error?.message ?? '').includes('OUT_OF_MEMORY')) throw error
-    return native.renderPage(uri, index, Math.round(PDF_RENDER_EDGE / 2))
+    return renderPdfPageBitmap(uri, index, Math.round(PDF_RENDER_EDGE / 2))
   }
 }
 
@@ -50,10 +52,14 @@ export async function pickPdfPages({ onProgress } = {}) {
       onProgress?.(index, total)
       let rendered
       try { rendered = await renderWithRetry(file.uri, index) } catch (error) { throw failure(error) }
-      const [media] = await importMedia([{ uri: rendered.uri, fileName: `${baseName}-${index + 1}.png`, width: rendered.width, height: rendered.height, opaque: true }], { usage: 'photo' })
-      saved.push(media)
-      pages.push({ src: media.src, mediaFileId: media.mediaFileId, aspect: rendered.width / rendered.height, name: `${baseName} ${index + 1}쪽`,
-        pdfSource: { sourceId, pageIndex: index, edge: Math.max(rendered.width, rendered.height) } })
+      try {
+        const [media] = await importMedia([{ uri: rendered.uri, fileName: `${baseName}-${index + 1}.png`, width: rendered.width, height: rendered.height, opaque: true }], { usage: 'photo' })
+        saved.push(media)
+        pages.push({ src: media.src, mediaFileId: media.mediaFileId, aspect: rendered.width / rendered.height, name: `${baseName} ${index + 1}쪽`,
+          pdfSource: { sourceId, pageIndex: index, edge: Math.max(rendered.width, rendered.height), ...(rendered.fitted ? { renderVersion: 2 } : {}) } })
+      } finally {
+        try { new File(rendered.uri).delete() } catch { /* 캐시 정리에 맡긴다. */ }
+      }
     }
     onProgress?.(total, total)
     // 어디에도 담기지 않고 남은 쪽 그림 · 원본을 나중에 찾을 수 있게 기록한다.
@@ -64,5 +70,5 @@ export async function pickPdfPages({ onProgress } = {}) {
     await removePdfSource(sourceId)
     if (error instanceof PdfImportError || error instanceof MediaError) throw error
     throw failure(error)
-  } finally { native.cleanup?.().catch?.(() => {}) }
+  }
 }
