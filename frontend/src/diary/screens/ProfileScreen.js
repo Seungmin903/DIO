@@ -22,10 +22,10 @@ import NotificationSettingsScreen from './NotificationSettingsScreen';
 import AppIcon from '../../shared/AppIcon';
 import DefaultAvatar from '../../shared/DefaultAvatar';
 import { useLoginEntry } from '../../auth/loginGate';
-import { showsInlineSettings } from '../components/profileNavigationModel';
+import { placesLoginBelow, showsInlineSettings } from '../components/profileNavigationModel';
 
 // 마이페이지는 프로필·계정, 설정은 알림·보안·편집(그리기 입력)·앱 정보로 분리한다. 두 화면은 잠금·알림 세부 화면만 공통으로 쓴다.
-export default function ProfileScreen({ section = 'profile', compact = false, onBack = null, previewUser, onEndPreview, onClearSession = onEndPreview, onUpdatePreview, registerLeaveGuard, getProfilePhotoSource, accountService, onOpenSettings, onOpenBlockedUsers }) {
+export default function ProfileScreen({ guestImport = null, section = 'profile', compact = false, onBack = null, previewUser, onEndPreview, onClearSession = onEndPreview, onUpdatePreview, registerLeaveGuard, getProfilePhotoSource, accountService, onOpenBlockedUsers }) {
   // home · edit(회원정보 수정) · password(비밀번호 재설정 4단계) · notifications(서버 알림 설정, 회원)
   const [route, setRoute] = useState('home');
   const settingsPage = section === 'settings';
@@ -108,13 +108,13 @@ export default function ProfileScreen({ section = 'profile', compact = false, on
   const editService = authenticatedUser && accountService ? accountService : null;
   // 비밀번호 변경 · 탈퇴는 서버가 모든 세션을 폐기하므로 로그아웃 요청을 또 보내지 않고 이 기기의 세션만 정리한다(onClearSession)
   if (editing) return <ProfileEditScreen {...(editService ? { service: editService } : {})} compact={compact} user={previewUser} onClose={() => setEditing(false)} onUpdate={onUpdatePreview} onEndSession={onClearSession} onPasswordReset={authenticatedUser && accountService ? () => setRoute('password') : undefined} getProfilePhotoSource={getProfilePhotoSource} registerLeaveGuard={registerLeaveGuard} />
-  if (route === 'password' && authenticatedUser && accountService) return <PasswordResetScreen compact={compact} email={previewUser?.email || ''} service={accountService} onClose={() => setRoute('home')} onComplete={onClearSession} />;
+  if (route === 'password' && authenticatedUser && accountService) return <PasswordResetScreen compact={compact} email={previewUser?.email || ''} service={accountService} backLabel="프로필 수정으로 돌아가기" onClose={() => setRoute('edit')} onComplete={onClearSession} />;
   if (route === 'notifications' && authenticatedUser) return <NotificationSettingsScreen compact={compact} userId={userId} accountService={accountService} onClose={() => setRoute('home')} />;
 
   // 판 오른쪽 끝은 계정 상태의 대표 행동: 게스트는 `로그인 · 회원가입`, 회원은 `프로필 수정` 윤곽 버튼.
   // 로그인 화면은 지금 화면 위에 덮어 뜨고, 회원가입은 로그인 화면에서 이어 간다
   // 폰도 이름 옆이 기본이고, 좁은 창 · 큰 글자 설정에서 이름이 잘리면 이름 아래 전폭으로 내린다
-  const loginBelow = guest && compact && windowSize.width / windowSize.fontScale < LOGIN_INLINE_MIN_WIDTH;
+  const loginBelow = placesLoginBelow({ guest, compact, width: windowSize.width, fontScale: windowSize.fontScale });
   const loginButton = guest ? <DioButton variant="filled" label="로그인 · 회원가입" onPress={openLogin} block={loginBelow} style={loginBelow ? local.loginCompact : compact ? local.loginInline : local.login} /> : null;
   // 폰: 프로필 줄 전체가 편집 진입(오른쪽 ›) — 버튼을 빼서 닉네임 · 이메일이 줄임 없이 보인다(코덱스 2026-11-03 시안 A)
   // 게스트는 프로필을 고치지 않는다(사용자 결정 2026-11-05). 회원만 수정 입구가 있다
@@ -139,9 +139,9 @@ export default function ProfileScreen({ section = 'profile', compact = false, on
     <ScrollView style={local.root} contentContainerStyle={[s.screen, compact && s.screenCompact, local.content]} showsVerticalScrollIndicator={false}>
       {/* 설정 본문은 다른 화면처럼 좌우 여백까지 꽉 채운다(760 제한은 실기기에서 오른쪽만 비어 좌우가 맞지 않았다). 조작은 모두 오른쪽 끝선 */}
       <View style={local.column}>
-      <Header title={settingsPage ? '설정' : '마이페이지'} icon={settingsPage ? 'settings' : 'person'} compact={compact} right={settingsButton}
+      <Header title={settingsPage ? '설정' : '마이페이지'} icon={settingsPage ? 'settings' : 'person'} compact={compact}
         left={onBack ? <BackButton label="마이페이지로 돌아가기" onPress={onBack} /> : undefined} />
-      {!settingsPage && <View style={[local.identity, compact && local.identityCompact, rowEdit && local.identityRowEdit]}>
+      {!settingsPage && <View style={[local.identity, compact && local.identityCompact, guest && compact && !loginBelow && local.identityGuestInline, rowEdit && local.identityRowEdit]}>
         <Pressable accessibilityRole={rowEdit ? 'button' : undefined} accessibilityLabel={rowEdit ? '회원정보 수정' : undefined} disabled={!rowEdit} onPress={() => setEditing(true)} style={[local.identityRow, rowEdit && { gap: 14 }]}>
           <View style={[local.avatarWrap, compact && (rowEdit ? local.avatarRowEdit : local.avatarCompact)]}>
             <View style={[local.avatar, compact && (rowEdit ? local.avatarRowEdit : local.avatarCompact)]}>
@@ -208,7 +208,6 @@ const local = StyleSheet.create({
   // 카드 대신 앱 바탕(surfaceSoft) 위에 바로 놓는다(공방과 같다)
   root: { flex: 1, backgroundColor: colors.surfaceSoft },
   content: { paddingBottom: 36 },
-  settingsButton: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center' },
   // 정체성 판(원 페이저 12): 옅은 면(surfaceMuted) + 모서리 16 한 장, 테두리 없음. 화면에서 면이 있는 판은 이것 하나다
   identity: { minHeight: 112, justifyContent: 'center', gap: 16, padding: 20, borderRadius: 16, backgroundColor: colors.surfaceMuted },
   identityCompact: { padding: 16 },
@@ -232,6 +231,7 @@ const local = StyleSheet.create({
   nameRow: { flexDirection: 'row', alignItems: 'center' },
   nameShrink: { flexShrink: 1 },
   login: { minHeight: 48, minWidth: 160, marginLeft: 8 }, // 정체성 묶음과 최소 24(줄 간격 16 + 8)
+  loginInline: { minHeight: 48, flexShrink: 0 },
   loginCompact: { minHeight: 48, marginTop: -4 }, // 판 안 간격 16 에서 4 당겨 첫 줄과 12
   linkRow: { minHeight: 64, flexDirection: 'row', alignItems: 'center', gap: 16, borderBottomWidth: 1, borderBottomColor: colors.border },
   linkLabel: { flex: 1, color: colors.text, fontSize: 15, fontWeight: '700' },

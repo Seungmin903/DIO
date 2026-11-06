@@ -31,7 +31,7 @@ export const SERVER_TEMPLATE_CATALOG = Object.freeze([
   ...DAY_PLANNER_TEMPLATES.map(asset => entry(asset)),
   ...['landscape', 'portrait'].map(orientation => entry({ id: `dio-blank-${orientation}`,
     templateVersion: catalog.templateVersion, name: `빈 속지 · ${orientation === 'portrait' ? '세로' : '가로'}`, orientation }, true)),
-  // 원격 속지(V33): 방향마다 범용 행 하나. 어떤 그림인지는 페이지 설정 remoteTemplate 이 정한다(remoteTemplates.js)
+  // 원격 속지(V34): 방향마다 범용 행 하나. 어떤 그림인지는 페이지 설정 remoteTemplate 이 정한다(remoteTemplates.js)
   ...['landscape', 'portrait'].map(orientation => Object.freeze({ ...entry({ id: REMOTE_SERVER_CODE(orientation), templateVersion: REMOTE_TEMPLATE_VERSION,
     name: `추가 속지 · ${orientation === 'portrait' ? '세로' : '가로'}`, orientation, type: 'remote' }), backgroundAssetId: null, remote: true })),
 ])

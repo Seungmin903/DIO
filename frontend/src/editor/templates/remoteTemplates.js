@@ -1,6 +1,6 @@
 // 원격 속지: 앱 배포 없이 에셋 저장소(catalog.json)에 올린 한 장짜리 속지.
 // - 앱 안 ID: 'remote-<id>-<landscape|portrait>' (방향 접미사는 다른 속지와 같은 규칙)
-// - 서버: 범용 속지 행 'dio-remote-<방향>'(V33) + 페이지 설정 { remoteTemplate: <id> }  (serverCatalog.js 가 바꾼다)
+// - 서버: 범용 속지 행 'dio-remote-<방향>'(V34) + 페이지 설정 { remoteTemplate: <id> }  (serverCatalog.js 가 바꾼다)
 // - 그림: 목록 항목의 방향별 SVG 파일. 목록을 아직 못 받았으면 잠시 기다리고(waitForRemoteTemplate), 그래도 없으면 불러오기 오류다.
 // 다른 속지 모듈을 가져오지 않는다(catalog.js · serverCatalog.js 가 이 파일을 가져온다).
 

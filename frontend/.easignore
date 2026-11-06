@@ -13,7 +13,6 @@ google-services.json
 GoogleService-Info.plist
 
 # Local builds, native build caches, and generated browser output.
-# Only the generated top-level native projects; local Expo modules keep modules/*/android and ios.
 /android/
 /ios/
 dist/
@@ -38,3 +37,7 @@ modules/dio-handwriting/android/build/
 modules/dio-handwriting/android/.gradle/
 modules/dio-handwriting/android/src/androidTest/assets/
 modules/dio-handwriting/android/src/main/assets/dio_handwriting/*.onnx
+
+# Include the two prepared Android inference graphs in EAS uploads.
+!modules/dio-handwriting/android/src/main/assets/dio_handwriting/encoder.fp32.onnx
+!modules/dio-handwriting/android/src/main/assets/dio_handwriting/decoder.fp32.onnx

@@ -19,8 +19,15 @@ public final class MemberDiaryResponses {
         @Schema(requiredMode=Schema.RequiredMode.REQUIRED,type="string",pattern="^[1-9][0-9]{0,18}$",description="양의 BIGINT 문자열") String version,
         @Schema(requiredMode=Schema.RequiredMode.REQUIRED) String myRole,
         @Schema(requiredMode=Schema.RequiredMode.REQUIRED) Membership myMembership,
-        @Schema(requiredMode=Schema.RequiredMode.REQUIRED) Permissions permissions
+        @Schema(requiredMode=Schema.RequiredMode.REQUIRED) Permissions permissions,
+        tools.jackson.databind.JsonNode cover
     ) {
+        public Diary(String id,String title,String color,String style,String visibility,Instant created,Instant updated,boolean canEdit,String version,String role,Membership membership,Permissions permissions) {
+            this(id,title,color,style,visibility,created,updated,canEdit,version,role,membership,permissions,null);
+        }
+        public Diary withCover(tools.jackson.databind.JsonNode value) {
+            return new Diary(diaryId,diaryTitle,coverColor,coverStyle,visibility,createdAt,updatedAt,canEdit,version,myRole,myMembership,permissions,value);
+        }
         public Diary(String id,String title,String color,String style,String visibility,Instant created,Instant updated,boolean canEdit) {
             this(id,title,color,style,visibility,created,updated,canEdit,"1",canEdit?"OWNER":"EDITOR",new Membership(false),new Permissions(canEdit,true,canEdit,false,false));
         }

@@ -1,5 +1,9 @@
 # DIO final mascot
 
+## 설치 아이콘 모서리 보완
+
+설치용 원본은 사용자 제공 app-icon-square.zip의 6개 파일을 launcher/에 보관한다. 일반 아이콘은 app-icon-square-combined.png를 1024px로 축소한다. Android 전경은 해당 SVG의 background 레이어를 제외한 정수 사각 경로를 렌더링해 중앙 683px 표시 영역에 배치한다. 얼굴과 책갈피 중심은 66/108 안전 영역 안에 두며 표지 외곽은 시스템 마스크로 잘린다. 배경은 app.json의 #F0ECFD가 전체를 채운다. 실제 원형·둥근 사각형 외곽은 런처가 결정한다. 설치 아이콘은 새 네이티브 빌드에서 확인한다.
+
 Jira: S15P31F106-476. 사용자 제공 최종 원본(2026-11-04).
 
 - mascot-final-combined.png/svg: 승인된 완성본

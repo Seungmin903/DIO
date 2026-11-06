@@ -142,7 +142,7 @@ function densify(points, step) {
 // 남은 조각을 원래 획과 같은 모양의 획으로 만든다. 돌리거나 늘이지 않은 획은 조각 크기에 맞게 경계를 다시 잡는다.
 function fragmentStroke(source, points, id, caps) {
   const legacy = ![2, 3].includes(source.renderVersion) && ['brush', 'fountain'].includes(source.penKind)
-  const tail = legacy ? { eraserCaps: caps } : {}
+  const tail = { eraserFragment: true, ...(legacy ? { eraserCaps: caps } : {}) }
   const ink = points[0]?.inkDistance != null ? { inkStartDistance: points[0].inkDistance } : {}
   points = source.renderVersion === 3 ? points : points.map(({ inkDistance, ...point }) => point)
   if (!['brush', 'fountain', 'felt'].includes(source.penKind)) tail.sampled = true
@@ -190,8 +190,6 @@ function createAreaEraserSession(objects, radius) {
   const targets = objects.map(eraserTarget).filter(Boolean)
   const pieces = new Map() // 원래 획 id → 남은 조각들 [{ points(요소 좌표), page(페이지 좌표) }]
   const previewFragments = new WeakMap()
-  const fragmentToken = createId()
-  let previewSerial = 0
   const built = new Map() // 원래 획 id → 만들어 둔 조각 획들 (바뀐 획만 다시 만든다)
   let finished = false, cached = null
   const piecesOf = (target) => {
@@ -278,7 +276,7 @@ function createAreaEraserSession(objects, radius) {
           const source = targets.find((t) => t.id === id).object
           built.set(id, list.map(piece => {
             let fragment = previewFragments.get(piece)
-            if (!fragment) { fragment = fragmentStroke(source, piece.points, `${id}-fragment-${fragmentToken}-${++previewSerial}`, piece.caps); previewFragments.set(piece, fragment) }
+            if (!fragment) { fragment = fragmentStroke(source, piece.points, createId(), piece.caps); previewFragments.set(piece, fragment) }
             return fragment
           }))
         }

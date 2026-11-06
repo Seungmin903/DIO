@@ -13,6 +13,7 @@
     },
     "preview": {
       "env": {
+        "DIO_IOS_POINTER_EVENTS": "1",
         "EXPO_PUBLIC_API_BASE_URL": "https://k15f106.p.ssafy.io:8444/api",
         "EXPO_PUBLIC_ASSET_BASE_URL": "https://d1ztiesifzfjld.cloudfront.net",
         "EXPO_PUBLIC_PLANNER_TEMPLATES_ENABLED": "0",
@@ -24,6 +25,7 @@
     },
     "production": {
       "env": {
+        "DIO_IOS_POINTER_EVENTS": "1",
         "EXPO_PUBLIC_API_BASE_URL": "https://k15f106.p.ssafy.io/api",
         "EXPO_PUBLIC_ASSET_BASE_URL": "https://d2hvhno2v5g650.cloudfront.net",
         "EXPO_PUBLIC_PLANNER_TEMPLATES_ENABLED": "0",

@@ -118,6 +118,7 @@ tasks.register('authPostgresTest', Test) {
 	useJUnitPlatform()
 	filter {
 		includeTestsMatching 'com.f106.DIO.auth.integration.AuthInitialSchemaPostgresTests'
+		includeTestsMatching 'com.f106.DIO.auth.integration.RefreshSessionHttpPostgresTests'
 		includeTestsMatching 'com.f106.DIO.notification.NotificationPostgresSchemaTests'
 		includeTestsMatching 'com.f106.DIO.auth.integration.PasswordResetPostgresTests'
 	}

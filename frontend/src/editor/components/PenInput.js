@@ -17,7 +17,7 @@ import { createPenPointerInput } from '../utils/penPointerInput.js'
 import { withStylusSensor } from '../utils/stylusSensor.js'
 import { createPenMotion, penEventTime } from '../utils/penMotion.js'
 import { endHookLength, trimEndHook } from '../utils/penHook.js'
-import { setPenPointerActive } from '../utils/stylus'
+import { isSameIOSPenContact, setPenPointerActive } from '../utils/stylus'
 import { penMaterialSeed } from '../utils/penMaterials.js'
 
 // 렌더링 환경에 requestAnimationFrame이 없으면(Node 테스트 등) 기다리지 않고 바로 실행한다.
@@ -104,6 +104,12 @@ export default function PenInput({ zoom, dispatch, pageWidth = PAGE_WIDTH, pageH
     onStart: (raw) => {
       // 안드로이드 S펜 필압 · 기울기는 네이티브 센서에서 붙인다(터치 경로에는 없다)
       const event = withStylusSensor(raw)
+      const previous = gesture.current
+      if (event.pointerType === 'pen' && previous?.inputSource === 'responder' && isSameIOSPenContact(previous.responderTouch, event.pointerId)) {
+        previous.pointerOffset = { x: event.locationX / zoom - previous.start.x, y: event.locationY / zoom - previous.start.y }
+        previous.inputSource = 'pointer'
+        return
+      }
       gesture.current?.hold?.cancel()
       gesture.current?.measurement?.end({ cancelled: true, reason: 'restart' })
       gesture.current = null
@@ -119,7 +125,7 @@ export default function PenInput({ zoom, dispatch, pageWidth = PAGE_WIDTH, pageH
       if (dynamics.tilt) for (const key of ['tiltX', 'tiltY']) if (Number.isFinite(event[key])) first[key] = event[key]
       const points = [first]
       const id = createId()
-      gesture.current = { start, points, rawPoints: points, lastRaw: first, pressure, inputSource: event.pointerType === 'pen' ? 'pointer' : 'responder', motion: createPenMotion(first), preview: createStrokePreview(previewSegmentFor(settings.kind)), id,
+      gesture.current = { start, points, rawPoints: points, lastRaw: first, pressure, inputSource: event.pointerType === 'pen' ? 'pointer' : 'responder', responderTouch: { identifier: event.identifier, pageX: event.pageX, pageY: event.pageY }, motion: createPenMotion(first), preview: createStrokePreview(previewSegmentFor(settings.kind)), id,
         // 연필도 버전 3: 점마다 속도를 저장해 빠르게 쓴 곳을 옅게 그린다(pencilStroke)
         settings: { ...settings, ...(['fountain', 'felt', 'pencil'].includes(settings.kind) && { renderVersion: 3, materialSeed: penMaterialSeed(id) }) }, time, startTime: time, tilt: dynamics.tilt }
       const g = gesture.current
@@ -149,7 +155,8 @@ export default function PenInput({ zoom, dispatch, pageWidth = PAGE_WIDTH, pageH
       }
       const last = g.rawPoints[g.rawPoints.length - 1]
       // 바깥 좌표도 그대로 보존하고, 페이지 영역에서만 잘라 표시한다.
-      const next = { x: g.start.x + dx / zoom, y: g.start.y + dy / zoom }
+      const offset = event.pointerType === 'pen' ? g.pointerOffset : null
+      const next = { x: g.start.x + dx / zoom + (offset?.x ?? 0), y: g.start.y + dy / zoom + (offset?.y ?? 0) }
       const outside = next.x < 0 || next.x > pageWidth || next.y < 0 || next.y > pageHeight
       if (outside) { g.hold?.cancel(); g.straight = false; g.points = g.rawPoints }
       const now = Math.max(g.time, penEventTime(event))

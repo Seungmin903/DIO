@@ -26,7 +26,7 @@ import tools.jackson.databind.node.ObjectNode;
 public class JdbcDiaryInitialPages implements DiaryInitialPages {
     private static final int MAX_CONFIG_LENGTH = 16384;
     private static final List<String> CONFIG_KEYS = List.of("width", "height", "paperAppearance", "blank", "remoteTemplate");
-    /** 원격 속지(V33). 그림은 앱이 에셋 저장소의 catalog.json 에서 remoteTemplate id 로 찾는다. 서버는 id 형식만 검사한다. */
+    /** 원격 속지(V34). 그림은 앱이 에셋 저장소의 catalog.json 에서 remoteTemplate id 로 찾는다. 서버는 id 형식만 검사한다. */
     static final String REMOTE_TEMPLATE_PREFIX = "dio-remote-";
     private static final String REMOTE_TEMPLATE_ID = "[a-z0-9][a-z0-9-]{0,39}";
     private static final List<String> COLOR_KEYS = List.of("backgroundColor", "layoutColor");

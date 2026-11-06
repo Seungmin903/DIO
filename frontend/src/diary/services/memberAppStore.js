@@ -86,14 +86,24 @@ export function createMemberAppStore({ accountId, api, storage, makeRequestId, s
     active()
     const detailRequest = { version: version(id), sequence: (detailRequests.get(id) ?? 0) + 1 }
     detailRequests.set(id, detailRequest.sequence)
-    const result = await api.get(id); active()
+    let result = await api.get(id); active()
     const previous = state.diaries.find(d => d.id === id)
+    // Older releases kept detailed covers only on the creator's device. Migrate
+    // on the owner's next open, using the current server version and local media.
+    if(!result.cover&&result.myRole==='OWNER'&&previous?.cover) {
+      try { result=await api.update(id,{cover:previous.cover,expectedVersion:result.version});active() }
+      catch(error) {
+        active()
+        if(error.status===409) { result=await api.get(id);active() }
+        else emit({metadataError:failure('COVER_SYNC_FAILED','이 기기의 표지를 공유하지 못했어요. 표지를 다시 저장해 주세요.')})
+      }
+    }
     if (!previous && !allowUnlisted) throw failure('UNKNOWN_MEMBER_DIARY', '이 기기에 저장된 회원 다이어리를 확인해 주세요.')
     return publish(entry({ ...result, ...(allowUnlisted && result.myRole === 'EDITOR' ? { isShared: true } : {}) }, previous), detailRequest)
   }
   const createDocument = (result, input) => {
     const diary = entry({ ...result, title: result.title, templateConfig: input.templateConfig, pageSize: input.pageSize,
-      paperAppearance: input.paperAppearance, favorite: false, pageCount: result.pageIds.length, ...(input.cover ? { cover: input.cover } : {}) })
+      paperAppearance: input.paperAppearance, favorite: false, pageCount: result.pageIds.length, ...(result.cover || input.cover ? { cover: result.cover ?? input.cover } : {}) })
     const doc = createDefaultDoc(diary)
     doc.memberAccountId = accountId
     doc.pages = input.initialPages.map((selected, index) => {
@@ -114,8 +124,12 @@ export function createMemberAppStore({ accountId, api, storage, makeRequestId, s
       active()
       let received = false
       try {
-        const result = await api.create(clone(pending.input), { requestId: pending.requestId })
+        let result = await api.create(clone(pending.input), { requestId: pending.requestId })
         received = true; active()
+        if(pending.input.cover&&api.saveInitialCover) {
+          const saved=await api.saveInitialCover(result.id,pending.input.cover);active()
+          result={...result,...saved}
+        }
         const { diary, doc } = createDocument(result, pending.input)
         if (pending.input.importedPages?.length) { await api.setPageSizes(doc.pages.map(page => ({ pageId: page.id, canvasWidth: page.canvasWidth, canvasHeight: page.canvasHeight }))); active() }
         const saved = await readStoredDocument(storage, keys.doc(result.id))
@@ -446,11 +460,11 @@ export function createMemberAppStore({ accountId, api, storage, makeRequestId, s
       const previous = state.diaries.find(d => d.id === id)
       if (!previous?.canEdit) throw failure('FORBIDDEN', '소유자만 제목과 표지를 수정할 수 있어요.')
       try {
-        const result = await api.update(id, { title: form.title, color: form.color, coverStyle: form.pattern ? form.pattern.toUpperCase() : 'PLAIN', expectedVersion: previous.version })
+        const result = await api.update(id, { title: form.title, color: form.color, coverStyle: form.pattern ? form.pattern.toUpperCase() : 'PLAIN', ...(form.cover?{cover:form.cover}:{}), expectedVersion: previous.version })
         active()
         const metadata = favoriteVersion !== favoriteVersions.get(id)
           ? { ...result, favorite: state.diaries.find(row => row.id === id)?.favorite } : result
-        const updated = await publish(entry(form.cover ? { ...metadata, cover: form.cover } : metadata, previous))
+        const updated = await publish(entry(metadata, previous))
         if (serverLibrary) await this.reload().catch(() => {})
         return updated
       } catch (error) {

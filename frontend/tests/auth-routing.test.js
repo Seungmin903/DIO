@@ -12,8 +12,12 @@ const code=babel.transformSync(readFileSync(new URL('../App.js',import.meta.url)
 // probe 를 주면 useEffect 를 모아 두고 네이티브 시작 화면을 내린 횟수(hidden) · 예전 예시 다이어리 정리 횟수(cleaned)를 센다
 function root(dev,mode,session=null,loginRequest=null,probe=null,apiConfigurationError=false){
  let calls=0
- const states=[session,probe?.booting??true,loginRequest,probe?.restoreState??{status:'loading',error:null}]
+ const states=[session,probe?.booting??false,loginRequest,probe?.restoreState??{status:'loading',error:null}]
  const mod={exports:{}},mocks={'./src/diary/utils/routeMemory':routeMemory,'./src/shared/dialogs':{notify:(...args)=>probe?.notices?.push(args)},'./src/editor/utils/savePdfFile':{cleanupPdfShareCache:async()=>{}},'./src/auth/authService':{apiConfigurationError,authService:{logout:async()=>{if(probe?.logoutError)throw probe.logoutError},restoreSession:async()=>{if(probe?.restoreMock)return probe.restoreMock();if(probe?.restoreError)throw probe.restoreError;return probe?.restored??null}}},react:{useState:()=>{const index=calls++;return [states[index],value=>probe?.updates?.push({index,value})]},useEffect(fn){probe?.effects.push(fn)},useCallback:f=>f,useRef:current=>({current})},'./src/auth/guestProfileDevice':{guestProfile:{start:async session=>{if(probe)probe.guestStarts=(probe.guestStarts||0)+1;return session}}},'./src/diary/services/legacyMockCleanup':{clearMockLibrary:async()=>{if(probe)probe.cleaned=(probe.cleaned||0)+1}},'expo-splash-screen':{preventAutoHideAsync:async()=>{},hideAsync:async()=>{if(probe)probe.hidden++}},'react-native':{Platform:{OS:'web'},StatusBar:'StatusBar',View:'View',Text:'Text',StyleSheet:{absoluteFill:{},create:value=>value}},'react-native-safe-area-context':{SafeAreaProvider:'SafeAreaProvider'},'expo-font':{useFonts:()=>[true,null]},'./src/shared/pretendardFiles':{PRETENDARD_FILES:{}},'./src/editor/services/textFonts':{preloadTextFonts(){}},'./src/shared/remoteAssets/remoteCatalogService':{loadRemoteCatalog(){}},'./src/diary/styles':{styles:{empty:{},emptyTitle:{},emptyCopy:{}}},'./src/shared/useHiddenNavigationBar':{useHiddenNavigationBar(){}}}
+ mocks['expo-font']={useFonts:()=>[probe?.fontsLoaded??true,null]};
+ mocks['react-native'].Platform.OS=probe?.platform??'web';
+ mocks['./src/editor/utils/common']={setUuidGenerator(){}};
+ mocks['./src/shared/BootSplash']={__esModule:true,default:'./src/shared/BootSplash',SPLASH:{backgroundColor:'#F0ECFD'}};
  Object.assign(mocks['./src/auth/authService'].authService, {
   getSessionKey:()=>probe?.sessionKey??null,
   getMemberSessionKey:userId=>probe?.memberSessionKey??`${userId}:1`,
@@ -39,13 +43,18 @@ function root(dev,mode,session=null,loginRequest=null,probe=null,apiConfiguratio
 const nodes=n=>!n||typeof n!=='object'?[]:[n,...[n.props?.children].flat(Infinity).flatMap(nodes)]
 
 async function failStartup(error) {
- const probe={effects:[],updates:[],hidden:0,restoreError:error};
+ const probe={effects:[],updates:[],hidden:0,restoreError:error,booting:true};
  root(false,undefined,null,null,probe);
  const timer=globalThis.setTimeout;globalThis.setTimeout=()=>0;
  let cleanups;
  try{cleanups=probe.effects.map(fn=>fn())}finally{globalThis.setTimeout=timer}
  await new Promise(resolve=>setImmediate(resolve));
  probe.restoreState=probe.updates.filter(update=>update.index===3).at(-1).value;
+ const before=nodes(root(false,undefined,null,null,probe));
+ assert.ok(!before.some(node=>node.type==='./src/auth/SessionRestoreScreen'));
+ before.find(node=>node.type==='./src/shared/BootSplash').props.onComplete();
+ assert.ok(probe.updates.some(update=>update.index===1&&update.value===false));
+ probe.booting=false;
  const screen=nodes(root(false,undefined,null,null,probe)).find(node=>node.type==='./src/auth/SessionRestoreScreen');
  return {probe,screen,cleanup:()=>cleanups.forEach(fn=>{if(typeof fn==='function')fn()})};
 }
@@ -142,6 +151,7 @@ test('인증 모듈의 로그인 세대로 만료 중 저장소를 유지하고 
   '../services/memberAppStore.js':{createMemberAppStore:()=>({serial:++made,getSnapshot:()=>({diaries:[],trash:[]})})},
   '../services/memberDiaryApi.js':{createMemberDiaryApi:()=>({})},
   '../services/memberTransport.js':{createAuthenticatedMemberTransport:()=>({})},
+  '../../collaboration/canvasMedia.js':{createMediaRequest:()=>()=>{},createCanvasMedia:()=>({dispose(){}})},
  };
  const mod={exports:{}};
  new Function('require','module','exports',source)(id=>mocks[id]??{},mod,mod.exports);
@@ -397,7 +407,7 @@ test('개발 전용 보관함 목 모드는 기존 경로를 유지한다',()=>{
 })
 
 test('부팅 중 BootSplash 이미지 준비 완료 뒤에 네이티브 시작 화면을 내린다',()=>{
- const probe={effects:[],hidden:0}
+ const probe={effects:[],hidden:0,booting:true}
  const first=root(false,undefined,null,null,probe)
  // 로고는 BootSplash 가 그린다(안드로이드 네이티브 시작 화면은 바탕색만). 첫 렌더에 빠지면 로고 없는 빈 화면이 보인다
  assert.ok(has(first,'./src/shared/BootSplash'))
@@ -461,8 +471,52 @@ test('로그아웃 이중 실패 안내는 기기 로그인 정보를 지웠다�
  }
 });
 
-test('시작 화면 안전 타이머가 끝나도 세션 복원 중에는 기존 시작 화면을 유지한다',()=>{
- assert.ok(has(root(false,undefined,null,null,{booting:false,effects:[]}),'./src/shared/BootSplash'));
+test('세션 확인이 늦으면 스플래시 종료 후 준비 안내를 표시한다',()=>{
+ const tree=root(false,undefined,null,null,{booting:false,effects:[]});
+ assert.equal(has(tree,'./src/shared/BootSplash'),false);
+ assert.ok(nodes(tree).some(node=>node.props?.children==='앱을 준비하고 있어요…'));
  assert.equal(has(root(false,undefined,{mode:'authenticated',userId:'7'},null,{booting:false,effects:[]}),'./src/shared/BootSplash'),false);
  assert.equal(has(root(false,undefined,{mode:'preview',provider:'guest'},null,{booting:false,effects:[]}),'./src/shared/BootSplash'),false);
+});
+
+test('글꼴 로딩이 멈춰도 부팅 제한 시간이 지나면 기본 글꼴로 화면을 연다',()=>{
+ const probe={fontsLoaded:false,booting:true,effects:[],updates:[],hidden:0,platform:'android'};
+ assert.equal(root(false,undefined,null,null,probe),null);
+ const originalTimer=globalThis.setTimeout,originalClear=globalThis.clearTimeout;
+ const timers=[];
+ globalThis.setTimeout=(callback,delay)=>{timers.push({callback,delay});return timers.length};
+ globalThis.clearTimeout=()=>{};
+ let cleanups;
+ try{cleanups=probe.effects.map(effect=>effect())}finally{
+  globalThis.setTimeout=originalTimer;globalThis.clearTimeout=originalClear;
+ }
+ timers.find(timer=>timer.delay===8000).callback();
+ assert.ok(probe.updates.some(update=>update.index===1&&update.value===false));
+ assert.equal(probe.hidden,1);
+ probe.booting=false;
+ assert.ok(nodes(root(false,undefined,null,null,probe)).some(node=>node.props?.children==='앱을 준비하고 있어요…'));
+ assert.ok(nodes(root(false,undefined,{mode:'preview',provider:'guest'},null,probe)).some(node=>node.type?.name==='LocalDiaryApp'));
+ cleanups.forEach(cleanup=>{if(typeof cleanup==='function')cleanup()});
+});
+
+test('웹은 글꼴을 기다리는 동안 스플래시 배경을 표시한다',()=>{
+ const tree=root(false,undefined,null,null,{fontsLoaded:false,booting:true,effects:[]});
+ assert.equal(tree.type,'View');
+ assert.equal(tree.props.style[1].backgroundColor,'#F0ECFD');
+ assert.equal(has(tree,'./src/shared/BootSplash'),false);
+});
+
+test('준비 안내가 사용하는 공용 스타일은 실제 스타일 모듈에 정의돼 있다',()=>{
+ const source=babel.transformSync(readFileSync(new URL('../src/diary/styles.js',import.meta.url),'utf8'),{configFile:false,babelrc:false,plugins:[expo.resolve('@babel/plugin-transform-modules-commonjs')]}).code;
+ const mod={exports:{}};
+ const tokens=new Proxy({},{get:()=> '#123456'});
+ const mocks={
+  'react-native':{Platform:{OS:'web',select:options=>options.web??options.default},StyleSheet:{create:value=>value,hairlineWidth:1}},
+  './constants':{C:tokens},'../shared/theme':{colors:tokens,bubble:{},DISABLED_OPACITY:0.5},
+  './utils/gridLayout':{LIBRARY_SIDE_PADDING:24},
+ };
+ new Function('require','module','exports',source)(id=>mocks[id],mod,mod.exports);
+ const {empty,emptyCopy}=mod.exports.styles;
+ assert.equal(empty.flex,1);assert.equal(empty.alignItems,'center');assert.equal(empty.justifyContent,'center');
+ assert.equal(emptyCopy.fontSize,13);assert.equal(emptyCopy.lineHeight,21);assert.equal(emptyCopy.color,tokens.muted);
 });

@@ -8,7 +8,7 @@
 //     stickerPacks: [{ id, name, file: 파일, hidden? }],
 //     templates: [{ id, name, group, landscape: 파일, portrait: 파일, hidden? }],
 //     templateGroups: [{ id, name, hidden? }] }
-//   속지는 한 장짜리(장수를 고르는 속지)이며 서버에는 범용 행 dio-remote-<방향>(V33) + 페이지 설정 remoteTemplate 으로 저장된다.
+//   속지는 한 장짜리(장수를 고르는 속지)이며 서버에는 범용 행 dio-remote-<방향>(V34) + 페이지 설정 remoteTemplate 으로 저장된다.
 //   group 은 앱 탭(note · planner · diary) 또는 templateGroups 에 적은 새 탭이다. 새 탭은 앱 탭 뒤에 목록 순서대로 붙는다.
 //   파일 = { key, size, sha256 }  (key 는 에셋 저장소 기준 경로, 이름에 내용 해시가 들어 있다)
 // hidden: 목록(글꼴 고르기 · 스티커 보관함)에서만 숨긴다. 이미 쓴 문서는 계속 그린다. 항목을 지우면 그 문서가 기본 모양으로 바뀐다.

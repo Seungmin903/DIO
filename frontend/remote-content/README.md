@@ -96,7 +96,7 @@ remote-content/templates/<id>/
   4. 도형(`path` `line` `rect` `circle` `ellipse` `polyline` `polygon`)과 `g`·`title`·`metadata`만 씁니다. 글자는 윤곽선(path)으로 바꿉니다. `style` 속성, `<style>`, `<text>`, `<image>`, 링크, 필터는 쓸 수 없습니다.
   5. 모든 도형에 `fill`이 있어야 합니다(자기나 감싼 `g`에). 없으면 검정으로 칠해집니다.
 - 틀린 곳이 있으면 `pnpm assets:remote`가 파일과 이유를 알려 줍니다.
-- 회원 다이어리는 서버 마이그레이션 V33(`dio-remote-landscape`·`dio-remote-portrait`)이 적용된 서버에서만 만들 수 있습니다.
+- 회원 다이어리는 서버 마이그레이션 V34(`dio-remote-landscape`·`dio-remote-portrait`)이 적용된 서버에서만 만들 수 있습니다.
 
 ### 속지 탭 더하기
 
