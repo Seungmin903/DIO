@@ -6,14 +6,14 @@ import { saveLastJob } from './storage.js'
 
 let module, lifecycle, activeId
 export function nativeGenerator() {
-  if (module === undefined) module = Platform.OS === 'android' ? requireOptionalNativeModule('DioHandwriting') : null
+  if (module === undefined) module = ['android', 'ios'].includes(Platform.OS) ? requireOptionalNativeModule('DioHandwriting') : null
   return module
 }
 export async function capabilities() {
   const native = nativeGenerator()
   const support = native && (!native.isBusy || !native.getJobDraft)
-    ? { available: false, reason: '폰트 작업 관리를 사용하려면 최신 Android 개발 빌드로 업데이트해 주세요.' }
-    : native ? await native.capabilities() : { available: false, reason: Platform.OS === 'android' ? '실제 글자 생성은 Android 개발 빌드에서 사용할 수 있어요. Expo Go에서는 작성·자동 크기 맞춤·완성 폰트 적용을 확인할 수 있어요.' : '폰트 생성은 Android 개발 빌드에서 사용할 수 있어요.' }
+    ? { available: false, reason: '폰트 작업 관리를 사용하려면 최신 앱 빌드로 업데이트해 주세요.' }
+    : native ? await native.capabilities() : { available: false, reason: '폰트 생성에는 모델이 포함된 Android 또는 iOS 앱 빌드가 필요해요.' }
   // Development-only diagnosis: versions/support only; never handwriting or user data.
   if (typeof __DEV__ !== 'undefined' && __DEV__) console.info('[DIO_FONT_SUPPORT]', JSON.stringify(support))
   return support
@@ -34,7 +34,7 @@ export async function createSnapshot(draft, onProgress = () => {}) {
   const inputHash = await digestStringAsync(CryptoDigestAlgorithm.SHA256, JSON.stringify(body))
   return { ...body, inputHash }
 }
-function requireGenerator() { const native = nativeGenerator(); if (!native) throw new Error('실제 생성에는 Android 개발 빌드가 필요해요.'); return native }
+function requireGenerator() { const native = nativeGenerator(); if (!native) throw new Error('폰트 생성에는 모델이 포함된 앱 빌드가 필요해요.'); return native }
 export function initializeGeneratorLifecycle() {
   if (lifecycle) return
   lifecycle = AppState.addEventListener('change', next => { if (next !== 'active' && activeId) nativeGenerator()?.pauseJob(activeId).catch(() => {}) })
