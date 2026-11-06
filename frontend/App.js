@@ -981,7 +981,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
         invitationCount={unreadInvites}
         sharingMembers={sharingMembers}
         onMembersChanged={() => { const diaryId = active?.sharedDiaryId || active?.id; if (isSharingDiaryId(diaryId)) sharing.runtime.refreshMembers(diaryId).catch(() => {}); }}
-        onCollaborationStateChange={(diaryId, connected) => sharing.runtime.setWatchingRealtime?.(active?.sharedDiaryId || diaryId, connected)}
+        onCollaborationStateChange={(diaryId, connected) => sharing.runtime.setWatchingRealtime?.(diaryId, connected)}
         onRenameDiary={async title => {
           if (!active?.id) return false;
           try {
