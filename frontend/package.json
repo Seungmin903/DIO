@@ -33,7 +33,7 @@
     "test:trash": "node --test tests/trash-retention.test.js tests/trash-lifecycle.test.js tests/trash-selection.test.js tests/diary-library.test.js",
     "test:export": "node --test tests/capture-pixels.test.js tests/export-content.test.js tests/pdf-file-save.test.js tests/region-export.test.js tests/export-selection.test.js tests/region-geometry.test.js tests/region-selection.test.js tests/page-image-renderer.test.js tests/pdf-export.test.js tests/pdf-menu.test.js tests/page-export.test.js tests/gif-first-frame.test.js tests/png-file-save.test.js tests/editor-page-management.test.js",
     "test:media": "node --test tests/media.test.js tests/native-media.test.js tests/media-binding.test.js tests/media-recovery.test.js",
-    "test:templates": "node --test tests/templates.test.js tests/server-template-catalog.test.js tests/remote-assets.test.js",
+    "test:templates": "node --test tests/templates.test.js tests/server-template-catalog.test.js tests/remote-assets.test.js tests/remote-catalog.test.js",
     "test:creation": "node --test tests/pdf-import.test.js tests/diary-creation-presets.test.js tests/diary-renewal.test.js tests/dated-templates.test.js tests/templates.test.js tests/diary-library.test.js",
     "test:templates:browser": "node tests/templates-browser.cjs",
     "test:templates:readonly": "node tests/templates-readonly.cjs",

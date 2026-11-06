@@ -121,6 +121,7 @@ function renderBuiltin(options) {
     '../../builtinStickers': builtinStickers,
     '../../hooks/useMediaUri': { useMediaUri: () => undefined },
     '../../hooks/useStickerPlayback': { useStickerPlayback: () => ({ source: null, error: null }) },
+    '../../hooks/useStickerPacks': { useStickerPacks: () => 0 },
     './BuiltinStickerArt': { __esModule: true, default: 'BuiltinStickerArt' },
     '../../../shared/theme': { colors: {} },
   }

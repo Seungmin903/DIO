@@ -1,9 +1,10 @@
-import { BUILTIN_PACK, BUILTIN_STICKERS } from './builtinStickers'
+import { stickerPacks } from './builtinStickers'
 import { RECENT_LIMIT, stickerKey } from './hooks/useCustomDecor'
 
 /**
  * 스티커 보관함의 분류와 목록. 편집기 보관함과 표지 스티커가 같은 즐겨찾기 · 최근 · 기본 분류(디오&모아) · 내 폴더 · 분류 순서를 쓴다.
  * items: useCustomDecor().items, category: 마지막으로 고른 칩, keyword: 검색어(앞뒤 공백 없이)
+ * 기본 분류는 앱의 '디오&모아'와 원격 스티커 팩(앱 배포 없이 추가, 숨긴 팩 제외)이다. 지우지 못하고 숨기기만 한다.
  * 외부 출처 기본 스티커는 없앴고 위젯(디데이)은 위젯 칸으로 옮겼다. 예전 즐겨찾기 · 최근 · 폴더에 남은 둘은 보여 주지 않는다.
  */
 export function stickerLibrary(items, category, keyword) {
@@ -14,7 +15,8 @@ export function stickerLibrary(items, category, keyword) {
   const recents = plain(items.recentStickers).slice(0, RECENT_LIMIT)
   const favoriteKeys = new Set(favorites.map(stickerKey))
   // base: 지우지 못하고 숨기기만 하는 기본 분류
-  const orderable = [{ id: BUILTIN_PACK.id, name: BUILTIN_PACK.name, base: true }, ...folders.map((f) => ({ id: `folder:${f.id}`, name: f.name }))]
+  const packs = stickerPacks().filter((p) => !p.hidden)
+  const orderable = [...packs.map((p) => ({ id: p.id, name: p.name, base: true })), ...folders.map((f) => ({ id: `folder:${f.id}`, name: f.name }))]
   const order = items.categoryOrder
   const rank = (item, index) => {
     const at = order.indexOf(item.id)
@@ -31,9 +33,9 @@ export function stickerLibrary(items, category, keyword) {
   const fallback = favorites.length ? 'favorites' : recents.length ? 'recent' : chips.find((c) => c.id !== 'favorites' && c.id !== 'recent')?.id ?? 'favorites'
   const active = chips.some((c) => c.id === category) ? category : fallback
   const folder = !keyword && active?.startsWith('folder:') ? folders.find((f) => `folder:${f.id}` === active) : null
-  const pack = !keyword && active === BUILTIN_PACK.id ? { ...BUILTIN_PACK, items: BUILTIN_STICKERS } : null
+  const pack = (!keyword && packs.find((p) => p.id === active)) || null
   // 검색: 기본 스티커와 폴더 안 스티커를 이름으로 찾는다
-  const packMatches = keyword ? BUILTIN_STICKERS.filter(matches) : []
+  const packMatches = keyword ? packs.flatMap((p) => p.items).filter(matches) : []
   const folderMatches = keyword
     ? folders.flatMap((f) => f.items.filter(matches).map((item) => ({ ...item, folderId: f.id })))
     : []

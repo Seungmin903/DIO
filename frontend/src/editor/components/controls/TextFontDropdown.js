@@ -2,7 +2,7 @@ import { useRef, useState, useSyncExternalStore } from 'react'
 import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import Svg, { Path } from 'react-native-svg'
 import { bubble, colors } from '../../../shared/theme'
-import { fontLabel, getTextFonts, resolveFontId, subscribeTextFonts, textFontStateSnapshot, textStyle } from '../../utils/text'
+import { fontLabel, getPickableTextFonts, getTextFonts, resolveFontId, subscribeTextFonts, textFontStateSnapshot, textStyle } from '../../utils/text'
 import { AI_FONT_LABEL } from '../../../handwriting/aiDisclosure.js'
 import PopoverMenu from '../../../diary/components/PopoverMenu'
 
@@ -20,8 +20,10 @@ export default function TextFontDropdown({ value, onChange, label = '글꼴', st
   // 글꼴 목록이 바뀔 때와 글꼴을 불러왔을 때 다시 그린다(미리보기 글자가 늦게 온 글꼴로 바뀌어야 한다)
   useSyncExternalStore(subscribeTextFonts, textFontStateSnapshot, textFontStateSnapshot)
   const fonts = getTextFonts()
-  const personal = fonts.filter(font => font.personal)
-  const groups = [...(personal.length ? [{ label: '내 폰트', fonts: personal }] : []), { label: '기본 글꼴', fonts: fonts.filter(font => !font.personal) }]
+  // 숨긴 원격 글꼴은 고르는 목록에서만 뺀다(이미 고른 글꼴이면 칸에는 그대로 보인다)
+  const pickable = getPickableTextFonts()
+  const personal = pickable.filter(font => font.personal)
+  const groups = [...(personal.length ? [{ label: '내 폰트', fonts: personal }] : []), { label: '기본 글꼴', fonts: pickable.filter(font => !font.personal) }]
   const currentId = resolveFontId(value)
   const current = fonts.find(font => font.id === currentId) ?? fonts[0]
   const field = useRef(null)

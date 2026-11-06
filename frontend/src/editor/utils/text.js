@@ -64,14 +64,26 @@ export const TEXT_FONTS = [
 // 예전 '기본 고딕 · 기본 명조'(기기마다 다른 글꼴)는 목록에서 뺐다. 저장된 글자는 앱 글꼴 나눔고딕 · 나눔명조로 읽는다.
 const FONT_ALIASES = { sans: 'nanum-gothic', serif: 'nanum-myeongjo' }
 export const resolveFontId = (id) => FONT_ALIASES[id] ?? id
-let personalFonts = [], allFonts = TEXT_FONTS, fontListRevision = 0
+// 원격 글꼴(앱 배포 없이 에셋 저장소에 올린 글꼴, shared/remoteAssets/remoteCatalog.js)은 앱 글꼴 뒤 · 내 폰트 앞에 둔다.
+// hidden 은 글꼴 고르기 목록(getPickableTextFonts)에서만 빠지고, 이미 쓴 글자는 계속 그 글꼴로 그린다.
+let personalFonts = [], catalogFonts = [], allFonts = TEXT_FONTS, fontListRevision = 0
 export const getTextFonts = () => allFonts
+export const getPickableTextFonts = () => allFonts.filter(font => !font.hidden)
 export const textFontListSnapshot = () => fontListRevision
-export function registerPersonalTextFonts(fonts) {
-  personalFonts = fonts.filter(f => /^personal-[a-f0-9-]{36}$/.test(f.id) && /^DIOHW_[a-f0-9]{32}$/.test(f.family)).map(f => ({ id: f.id, label: f.label, family: f.family, personal: true, aiGenerated: isAiHandwritingFont(f) }))
-  allFonts = [...TEXT_FONTS, ...personalFonts]
+function rebuildFontList() {
+  allFonts = [...TEXT_FONTS, ...catalogFonts, ...personalFonts]
   fontListRevision++
   fontListeners.forEach(listener => listener())
+}
+export function registerPersonalTextFonts(fonts) {
+  personalFonts = fonts.filter(f => /^personal-[a-f0-9-]{36}$/.test(f.id) && /^DIOHW_[a-f0-9]{32}$/.test(f.family)).map(f => ({ id: f.id, label: f.label, family: f.family, personal: true, aiGenerated: isAiHandwritingFont(f) }))
+  rebuildFontList()
+}
+/** 문서에 저장된 글꼴 id 를 받아도 되는지. 원격 글꼴은 목록을 아직 못 받았어도(오프라인 첫 실행) 기본 글꼴로 그리므로 받는다 */
+export const isKnownTextFontId = (id) => getTextFonts().some(font => font.id === resolveFontId(id)) || /^remote-[a-z0-9-]{1,40}$/.test(id)
+export function registerCatalogTextFonts(fonts) {
+  catalogFonts = fonts.filter(f => /^remote-[a-z0-9-]{1,40}$/.test(f.id) && /^DIOR_[a-z0-9_]{1,40}$/.test(f.family) && f.files?.[f.family])
+  rebuildFontList()
 }
 // 목록에서 뺀 글꼴. 저장된 글자는 기본 고딕으로 그리고 내보내기도 막지 않는다.
 // - mono(고정폭): 한글 글리프가 없어 실제로는 고딕으로 보였다.

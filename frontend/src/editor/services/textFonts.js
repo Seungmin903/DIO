@@ -1,5 +1,5 @@
 import { loadAsync } from 'expo-font'
-import { markTextFontLoaded, markTextFontFailed, resolveFontId, setTextFontRequester, DEFAULT_TEXT_SETTINGS, TEXT_FONTS } from '../utils/text'
+import { markTextFontLoaded, markTextFontFailed, resolveFontId, setTextFontRequester, DEFAULT_TEXT_SETTINGS, getTextFonts } from '../utils/text'
 import { refreshPersonalFonts } from '../../handwriting/library.js'
 import { paperDeviceFontIds } from '../templates/planners.js'
 import { isRemoteAsset, remoteAsset } from '../../shared/remoteAssets/remoteAssets.js'
@@ -28,8 +28,10 @@ const FONT_FILES = {
 // (렌더마다 요청이 오므로 실패하자마자 지우면 오프라인에서 끝없이 다시 받는다).
 export const REMOTE_RETRY_MS = 30000
 const loads = new Map()
-function loadFamily(family) {
-  const file = FONT_FILES[family]
+// 앱 글꼴은 FONT_FILES, 원격 목록(catalog.json)의 글꼴은 목록 항목의 files 에 face 별 파일이 있다
+const fileOf = (font, family) => FONT_FILES[family] ?? font?.files?.[family]
+function loadFamily(family, font) {
+  const file = fileOf(font, family)
   if (!file) return Promise.resolve() // 내 폰트 등 파일이 따로 관리되는 글꼴
   if (!loads.has(family)) {
     const remote = isRemoteAsset(file)
@@ -43,25 +45,25 @@ function loadFamily(family) {
 }
 
 function loadFont(font, bold) {
-  const jobs = [loadFamily(font.family)]
-  if (bold && font.boldFamily) jobs.push(loadFamily(font.boldFamily))
+  const jobs = [loadFamily(font.family, font)]
+  if (bold && font.boldFamily) jobs.push(loadFamily(font.boldFamily, font))
   return Promise.all(jobs)
 }
 
 // 글꼴을 찾거나 쓰는 곳(textStyle · loadedFontFamily · useTextFont)이 요청하면 그때 불러온다.
 // 앱이 켜질 때 11개(약 57MB)를 한꺼번에 읽던 것을, 화면에 실제로 쓰이는 글꼴만 읽는 것으로 바꿨다.
 // 렌더 경로에서 매번 불릴 수 있어, 이미 요청한 글꼴이면 Promise · 배열을 만들지 않고 Map 조회만 한다.
-const needsLoad = family => FONT_FILES[family] !== undefined && !loads.has(family)
+const needsLoad = (font, family) => fileOf(font, family) !== undefined && !loads.has(family)
 setTextFontRequester((font, bold) => {
-  if (needsLoad(font.family)) loadFamily(font.family)
-  if (bold && font.boldFamily && needsLoad(font.boldFamily)) loadFamily(font.boldFamily)
+  if (needsLoad(font, font.family)) loadFamily(font.family, font)
+  if (bold && font.boldFamily && needsLoad(font, font.boldFamily)) loadFamily(font.boldFamily, font)
 })
 
 /** 글꼴 id 들의 파일을 불러오고 끝날 때까지 기다린다. bold 면 굵은 서체도 함께 */
 export function ensureTextFonts(ids, { bold = false } = {}) {
   const jobs = []
   for (const id of new Set(ids)) {
-    const font = TEXT_FONTS.find(f => f.id === resolveFontId(id))
+    const font = getTextFonts().find(f => f.id === resolveFontId(id))
     if (font) jobs.push(loadFont(font, bold))
   }
   return Promise.all(jobs)

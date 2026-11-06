@@ -10,6 +10,7 @@ import { mediaService } from '../../editor/services/mediaStore'
 import { mediaId } from '../../editor/utils/mediaReferences.js'
 import { usePan } from '../../editor/hooks/usePan'
 import { builtinStickerOf } from '../../editor/builtinStickers'
+import { useStickerPacks } from '../../editor/hooks/useStickerPacks'
 import BuiltinStickerArt from '../../editor/components/canvas/BuiltinStickerArt'
 import { stickerSource } from '../../editor/stickerAssets'
 import { clamp, normalizeAngle, rotateVector } from '../../editor/utils/common'
@@ -125,6 +126,7 @@ function PhotoImage({ photo }) {
 }
 
 function StickerImage({ item }) {
+  useStickerPacks() // 원격 스티커 팩이 늦게 들어오면 다시 그린다
   const uri = useMediaUri(item.asset || item.builtin ? null : item, { still: true })
   const source = stickerSource(item, true, uri)
   const builtin = builtinStickerOf(item.builtin)

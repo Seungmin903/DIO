@@ -25,7 +25,7 @@ const recents = [{ widget: 'dday', style: 'ticket', name: '디데이 티켓' }, 
 const decor = { folders: [], favorites: [{ widget: 'dday', style: 'label', name: '디데이 라벨' }, retiredSticker, mySticker], recentStickers: recents, categoryOrder: [], hiddenCategories: [] }
 const library = (items, category, keyword) => load('../src/editor/stickerLibrary.js', {
   './hooks/useCustomDecor': { RECENT_LIMIT: 8, stickerKey: (s) => s.src ?? s.asset ?? (s.widget ? `widget:${s.widget}:${s.style}` : null) },
-  './builtinStickers': { BUILTIN_PACK: { id: 'builtin:dio-moa', name: '디오&모아' }, BUILTIN_STICKERS: [] },
+  './builtinStickers': { stickerPacks: () => [{ id: 'builtin:dio-moa', name: '디오&모아', items: [] }] },
 }).stickerLibrary(items, category, keyword)
 
 test('스티커 보관함에는 위젯 · 없앤 기본 스티커가 즐겨찾기 · 최근 · 칩 어디에도 남지 않는다', () => {

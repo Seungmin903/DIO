@@ -5,3 +5,10 @@ import { assetBaseUrl, remoteAssetUrl } from './remoteAssets.js'
 export async function fetchRemoteAsset(asset) {
   return remoteAssetUrl(asset, assetBaseUrl())
 }
+
+/** 원격 텍스트 파일(스티커 팩 JSON 등)을 읽는다 */
+export async function readRemoteText(asset) {
+  const response = await fetch(await fetchRemoteAsset(asset))
+  if (!response.ok) throw new Error('HTTP ' + response.status)
+  return response.text()
+}

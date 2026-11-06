@@ -32,6 +32,11 @@ async function download(asset) {
   }
 }
 
+/** 원격 텍스트 파일(스티커 팩 JSON 등)을 기기에 받아(크기 · 해시 확인) 읽는다 */
+export async function readRemoteText(asset) {
+  return new File(await fetchRemoteAsset(asset)).text()
+}
+
 /** 원격 에셋을 기기에 받아(이미 있으면 그대로) file:// 주소를 돌려준다. 같은 파일 동시 요청은 하나로 합친다 */
 export function fetchRemoteAsset(asset) {
   if (!pending.has(asset.key)) pending.set(asset.key, download(asset).finally(() => pending.delete(asset.key)))

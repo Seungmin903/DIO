@@ -3,6 +3,7 @@ import { Platform, StyleSheet, Text, View } from 'react-native'
 import Svg, { ClipPath, Defs, Image as SvgImage, Path } from 'react-native-svg'
 import { TAPE_DEFAULT_OPACITY } from '../../constants'
 import { builtinStickerOf } from '../../builtinStickers'
+import { useStickerPacks } from '../../hooks/useStickerPacks'
 import { isAnimatedMedia, isRetiredSticker, stickerSource } from '../../stickerAssets'
 import BuiltinStickerArt from './BuiltinStickerArt'
 import MediaImage from './MediaImage'
@@ -224,6 +225,7 @@ const DIRECTIONS = [
  *   테두리가 있으면 테두리 바깥 끝을 기준으로 그린다. (사진은 테두리가 상자 안쪽에 그려져 boxShadow 가 원래 테두리 끝 기준)
  */
 function StickerContent({ object, width, height, zoom, still, onAssetLoad, onAssetError }) {
+  useStickerPacks() // 원격 스티커 팩이 늦게 들어오면 다시 그린다
   const outline = outlineOf(object)
   const shadow = shadowOf(object)
   const stroke = outline.on ? Math.max(0.75, outline.width * zoom) : 0

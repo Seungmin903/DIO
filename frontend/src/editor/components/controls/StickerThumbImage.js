@@ -5,6 +5,7 @@ import { useMediaEntry, useMediaUri } from '../../hooks/useMediaUri'
 import { mediaService, reportMediaDisplayError } from '../../services/mediaStore'
 import { mediaId } from '../../utils/mediaReferences.js'
 import { builtinStickerOf } from '../../builtinStickers'
+import { useStickerPacks } from '../../hooks/useStickerPacks'
 import { stickerSource } from '../../stickerAssets'
 import { colors } from '../../../shared/theme'
 import BuiltinStickerArt from '../canvas/BuiltinStickerArt'
@@ -23,10 +24,12 @@ const RETRIES = 2
  * - 불러오지 못하면 잠깐 뒤 두 번까지 다시 시도하고, 그래도 안 되면 흐린 자리표시만 남긴다.
  */
 export default function StickerThumbImage({ item, style }) {
+  useStickerPacks() // 원격 스티커 팩이 늦게 들어오면 다시 그린다
   if (item.kind === 'memo') return <MemoThumb item={item} style={style} />
   if (item.widget) return <WidgetThumb item={item} style={style} />
   const builtin = builtinStickerOf(item.builtin)
   if (builtin) return <View style={style}><BuiltinStickerArt sticker={builtin} canvas width="100%" height="100%" /></View>
+  if (item.builtin) return <View style={style} /> // 아직 받지 못한 원격 스티커: 빈 칸으로 두고 팩이 오면 그린다
   return <ImageThumb item={item} style={style} />
 }
 

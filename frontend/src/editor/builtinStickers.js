@@ -30,5 +30,30 @@ export const BUILTIN_STICKERS = [
   {"builtin":"i_dots","name":"점점점 말풍선","w":15,"h":13,"paths":[["#ffffff","M3 0h9v1h-9zM1 1h3v1h-3zM11 1h3v1h-3zM1 2h1v1h-1zM4 2h7v1h-7zM13 2h1v1h-1zM0 3h2v1h-2zM3 3h9v1h-9zM13 3h2v1h-2zM0 4h1v1h-1zM2 4h11v1h-11zM14 4h1v1h-1zM0 5h1v1h-1zM2 5h2v1h-2zM5 5h2v1h-2zM8 5h2v1h-2zM11 5h2v1h-2zM14 5h1v1h-1zM0 6h1v1h-1zM2 6h11v1h-11zM14 6h1v1h-1zM0 7h2v1h-2zM3 7h9v1h-9zM13 7h2v1h-2zM1 8h1v1h-1zM3 8h9v1h-9zM13 8h1v1h-1zM1 9h2v1h-2zM4 9h2v1h-2zM12 9h2v1h-2zM2 10h1v1h-1zM6 10h7v1h-7zM2 11h1v1h-1zM4 11h3v1h-3zM2 12h3v1h-3z"],["#5b3a29","M4 1h7v1h-7zM2 2h2v1h-2zM11 2h2v1h-2zM2 3h1v1h-1zM12 3h1v1h-1zM1 4h1v1h-1zM13 4h1v1h-1zM1 5h1v1h-1zM4 5h1v1h-1zM7 5h1v1h-1zM10 5h1v1h-1zM13 5h1v1h-1zM1 6h1v1h-1zM13 6h1v1h-1zM2 7h1v1h-1zM12 7h1v1h-1zM2 8h1v1h-1zM12 8h1v1h-1zM3 9h1v1h-1zM6 9h6v1h-6zM3 10h3v1h-3zM3 11h1v1h-1z"]]},
 ]
 
-const BY_ID = new Map(BUILTIN_STICKERS.map((sticker) => [sticker.builtin, sticker]))
-export const builtinStickerOf = (id) => BY_ID.get(id) ?? null
+// 원격 스티커 팩(앱 배포 없이 에셋 저장소에 올린 팩, shared/remoteAssets/remoteCatalog.js). 그림 형식은 기본 스티커와 같고
+// id 는 'remote:<팩>', 스티커 builtin 은 'remote:<팩>:<스티커>'다. hidden 팩은 보관함에서만 숨기고 이미 붙인 스티커는 그린다.
+let remotePacks = []
+let byId = new Map(BUILTIN_STICKERS.map((sticker) => [sticker.builtin, sticker]))
+let packRevision = 0
+const packListeners = new Set()
+export const builtinStickerOf = (id) => byId.get(id) ?? null
+/** 보관함에 보일 팩: 기본(디오&모아) + 원격 팩. 숨긴 팩도 포함하므로 보관함은 hidden 을 거른다 */
+export const stickerPacks = () => [{ ...BUILTIN_PACK, items: BUILTIN_STICKERS }, ...remotePacks]
+export const subscribeStickerPacks = (listener) => { packListeners.add(listener); return () => packListeners.delete(listener) }
+export const stickerPacksSnapshot = () => packRevision
+function publishPacks(packs) {
+  remotePacks = packs
+  byId = new Map([...BUILTIN_STICKERS, ...packs.flatMap((pack) => pack.items)].map((sticker) => [sticker.builtin, sticker]))
+  packRevision++
+  packListeners.forEach((listener) => listener())
+}
+/** 원격 팩을 넣거나 바꾼다(같은 id 면 교체, 순서는 처음 넣은 자리) */
+export function registerRemoteStickerPack(pack) {
+  const at = remotePacks.findIndex((item) => item.id === pack.id)
+  publishPacks(at < 0 ? [...remotePacks, pack] : remotePacks.map((item, index) => (index === at ? pack : item)))
+}
+/** 목록(catalog.json)에 남은 팩만 남기고 순서를 목록대로 맞춘다 */
+export function retainRemoteStickerPacks(ids) {
+  const next = ids.map((id) => remotePacks.find((pack) => pack.id === id)).filter(Boolean)
+  if (next.length !== remotePacks.length || next.some((pack, index) => pack !== remotePacks[index])) publishPacks(next)
+}
