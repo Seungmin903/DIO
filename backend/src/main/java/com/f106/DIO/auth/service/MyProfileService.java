@@ -6,6 +6,8 @@ import com.f106.DIO.user.domain.User;
 import com.f106.DIO.user.dto.ProfileUpdateRequest;
 import com.f106.DIO.user.repository.ProfilePhotoRepository;
 import com.f106.DIO.user.repository.UserRepository;
+import com.f106.DIO.diary.repository.DiaryMemberRepository;
+import com.f106.DIO.sharing.domain.DiaryMembershipChanged;
 import com.f106.DIO.user.service.UserPhotoService;
 import com.f106.DIO.user.service.UserWithdrawalService;
 import java.time.Instant;
@@ -22,14 +24,16 @@ public class MyProfileService {
     private final ProfilePhotoRepository photos;
     private final UserPhotoService photoService;
     private final UserWithdrawalService withdrawal;
+    private final DiaryMemberRepository members;private final org.springframework.context.ApplicationEventPublisher events;
     private final TransactionTemplate writeTransaction;
 
     public MyProfileService(UserRepository users, ProfilePhotoRepository photos, UserPhotoService photoService,
-            UserWithdrawalService withdrawal, PlatformTransactionManager manager) {
+            UserWithdrawalService withdrawal, DiaryMemberRepository members, PlatformTransactionManager manager, org.springframework.context.ApplicationEventPublisher events) {
         this.users = users;
         this.photos = photos;
         this.photoService = photoService;
         this.withdrawal = withdrawal;
+        this.members=members;this.events=events;
         writeTransaction = new TransactionTemplate(manager);
     }
 
@@ -46,13 +50,15 @@ public class MyProfileService {
             return writeTransaction.execute(status -> {
                 var user = activeUser(userId);
                 Instant now = Instant.now();
-                if (!request.nickname().equals(user.getNickname())) {
+                boolean nicknameChanged=!request.nickname().equals(user.getNickname());
+                if (nicknameChanged) {
                     user.changeNickname(request.nickname(), now);
                 }
                 if (pending != null) {
                     pending.enlist();
                 }
                 String url = photoService.replace(userId, pending, Boolean.TRUE.equals(request.removeProfilePhoto()), now);
+                if(nicknameChanged||pending!=null||Boolean.TRUE.equals(request.removeProfilePhoto()))members.activeDiaryIdsByUserId(userId).forEach(id->events.publishEvent(new DiaryMembershipChanged(id)));
                 return response(user, url);
             });
         }
