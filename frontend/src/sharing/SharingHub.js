@@ -26,12 +26,12 @@ import { colors } from '../shared/theme';
 import { useFormFactor } from '../shared/useFormFactor';
 import { normalizeSharingNickname, sharingNicknameError, inviteEmailError, MAX_SHARING_MEMBERS, COPY_TITLE_LIMIT, copyTitleError, defaultCopyTitle } from './sharingContracts';
 import { sharingStyles as s } from './styles';
+import { isSharingDiaryId } from './sharingApi';
 
 // 미리보기 초대는 full 을 채우고, 서버 초대는 참여 인원(memberCount)만 준다
 function isInviteFull(invite) {
   return invite.full ?? (Number.isInteger(invite.memberCount) && invite.memberCount >= MAX_SHARING_MEMBERS);
 }
-const isSharingDiaryId = id => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id || '');
 
 function Button({
   label,

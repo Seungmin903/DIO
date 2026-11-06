@@ -207,8 +207,12 @@ export function createSharingApi({ user, auth, fetchImpl = globalThis.fetch, bui
       watch.refreshing = (diaries.has(id) ? refreshMembers(id) : getSharing(id))
         .then(value => { watch.failures = 0; watch.skipTicks = 0; return value; })
         .catch(error => {
-          if ([401, 403, 404].includes(error?.status) || error?.code === 'DISPOSED') stop();
-          else { watch.failures = Math.min(watch.failures + 1, 3); watch.skipTicks = 2 ** watch.failures - 1; }
+          if (error?.code === 'DISPOSED') stop();
+          else if ([403, 404].includes(error?.status)) {
+            const previous = diaries.get(id);
+            if (previous) { diaries.set(id, { ...previous, refreshWarning: '공유 권한 또는 다이어리 상태가 바뀌었어요. 목록을 다시 확인해 주세요.' }); publish(); }
+            stop();
+          } else { watch.failures = Math.min(watch.failures + 1, 3); watch.skipTicks = 2 ** watch.failures - 1; }
           return null;
         })
         .finally(() => { if (watchedDiaries.get(id) === watch) watch.refreshing = null; });

@@ -117,6 +117,29 @@ test('폴링은 권한·인증 오류 후 멈추고 일시 오류는 백오프�
   release();
 });
 
+test('앱이 다시 활성화되면 멈춘 참여자 갱신을 즉시 재개한다', async () => {
+  let owner = '10';
+  const timers = new Map();
+  const f = fixture({ runtimeOptions: {
+    setIntervalImpl: callback => { const id = `timer-${timers.size + 1}`; timers.set(id, callback); return id; },
+    clearIntervalImpl: id => timers.delete(id),
+  }, fetch: async url => url.endsWith('/members') ? reply({ members: [
+    { userId: '10', nickname: '나', role: owner === '10' ? 'OWNER' : 'EDITOR', usingAccountPhoto: true },
+    { userId: '20', nickname: '친구', role: owner === '20' ? 'OWNER' : 'EDITOR', usingAccountPhoto: true },
+  ] }) : null });
+  await f.runtime.getSharing(diaryId);
+  const release = f.runtime.watchDiary(diaryId);
+  await new Promise(resolve => setTimeout(resolve, 0));
+  const timer = [...timers.values()][0], before = f.calls.length;
+  f.runtime.setWatchingActive(false); owner = '20'; timer();
+  await new Promise(resolve => setTimeout(resolve, 0));
+  assert.equal(f.calls.length, before);
+  f.runtime.setWatchingActive(true);
+  await new Promise(resolve => setTimeout(resolve, 0));
+  assert.deepEqual(f.runtime.getSnapshot().diaries[0].members.map(member => member.role), ['EDITOR', 'OWNER']);
+  release();
+});
+
 test('수락 후 공유 상세 조회 실패는 수락 완료 ID와 경고를 반환하고 재수락하지 않는다', async () => {
   for (const status of [401, 403, 503]) {
     const f = fixture({ fetch: async url => url.endsWith('/members') ? reply({ detail: '후처리 오류' }, status) : null });
@@ -238,7 +261,6 @@ test('이메일은 정규화하고 202 후 서버 목록만 표시하며 비공�
   assert.deepEqual(JSON.parse(f.calls.find(c=>c.method==='POST').body),{email:'friend@example.com'});
   assert.deepEqual(diary.emailInvites,[{id:'1',email:'friend@example.com',status:'PENDING',createdAt:undefined}]);
   await assert.rejects(f.runtime.sendEmailInvite(diaryId,'bad'),{code:'INVALID_EMAIL'});
-
   await assert.rejects(f.runtime.sendEmailInvite('local','a@example.com'),{code:'LOCAL_DIARY'});
 });
 test('보낸 목록은 ID별로 합치고 페이지 실패 후 재시도하며 취소는 DELETE로 요청한다',async()=>{
