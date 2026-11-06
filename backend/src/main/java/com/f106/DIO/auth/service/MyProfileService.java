@@ -58,7 +58,7 @@ public class MyProfileService {
                     pending.enlist();
                 }
                 String url = photoService.replace(userId, pending, Boolean.TRUE.equals(request.removeProfilePhoto()), now);
-                if(nicknameChanged||pending!=null||Boolean.TRUE.equals(request.removeProfilePhoto()))members.activeDiaryIdsByUserId(userId).forEach(id->events.publishEvent(new DiaryMembershipChanged(id)));
+                if(membershipAppearanceChanged(nicknameChanged,pending!=null,Boolean.TRUE.equals(request.removeProfilePhoto())))members.activeDiaryIdsByUserId(userId).forEach(id->events.publishEvent(new DiaryMembershipChanged(id)));
                 return response(user, url);
             });
         }
@@ -76,4 +76,5 @@ public class MyProfileService {
     private LoginUserResponse response(User user, String photoUrl) {
         return new LoginUserResponse(user.getUserId().toString(), user.getEmail(), user.getNickname(), photoUrl);
     }
+    public static boolean membershipAppearanceChanged(boolean nicknameChanged,boolean replacingPhoto,boolean removingPhoto){return nicknameChanged||replacingPhoto||removingPhoto;}
 }
