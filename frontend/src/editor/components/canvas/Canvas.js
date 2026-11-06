@@ -47,6 +47,7 @@ import { paperPrintsText } from '../../templates/paperFont.js'
 import { LinkBadges, ObjectLinkOverlay } from './ObjectLinks'
 import { isBackdrop } from '../../utils/backdrop.js'
 import { shouldCacheCompletedStrokes } from '../../utils/completedStrokePlan.js'
+import { groupResizeStart, groupResizePatches } from '../../utils/groupResize.js'
 
 // 렌더링 환경에 requestAnimationFrame이 없으면(Node 테스트 등) 기다리지 않고 바로 실행한다.
 const requestFrame = (callback) => (typeof requestAnimationFrame === 'function' ? requestAnimationFrame(callback) : (callback(), 0))
@@ -523,7 +524,7 @@ export default function Canvas({
         />
         </View>
       )}
-      {!outlinePaths && !replacingLasso && selected.length > 1 && !marquee && <GroupFrame objects={selected} zoom={zoom} />}
+      {!replacingLasso && !lassoDrawing && selected.length > 1 && !marquee && <View pointerEvents="box-none" style={styles.selectionControls}><GroupFrame objects={selected} zoom={zoom} enabled={canTouch && !cropping && !lassoCapture && selected.length === selectedIds.length} dispatch={dispatch} onInteracting={setInteracting} /></View>}
       {!outlinePaths && !replacingLasso && selected.length === 1 && selected[0].groupId && !cropping && !marquee && (
         <GroupFrame objects={visible.filter((o) => o.groupId === selected[0].groupId)} zoom={zoom} inside />
       )}
@@ -682,12 +683,13 @@ function HitOutline({ object, zoom }) {
   )
 }
 
-function GroupFrame({ objects, zoom, inside }) {
+function GroupFrame({ objects, zoom, inside, enabled, dispatch, onInteracting }) {
   const bounds = unionBounds(objects)
   const pad = 8
+  const canResize = enabled && objects.every(object => !object.locked) && Boolean(groupResizeStart(objects, 1, 1))
   return (
     <View
-      pointerEvents="none"
+      pointerEvents={canResize ? 'box-none' : 'none'}
       style={[
         styles.groupFrame,
         inside && styles.groupFrameInside,
@@ -699,9 +701,38 @@ function GroupFrame({ objects, zoom, inside }) {
         },
       ]}
     >
-      {!inside && <Text style={styles.groupLabel}>{objects.length}개 선택</Text>}
+      {!inside && <Text pointerEvents="none" style={styles.groupLabel}>{objects.length}개 선택</Text>}
+      {canResize && [[-1,-1],[1,-1],[-1,1],[1,1]].map(([sx,sy]) =>
+        <GroupResizeHandle key={`${sx},${sy}`} objects={objects} zoom={zoom} sx={sx} sy={sy} dispatch={dispatch} onInteracting={onInteracting} />)}
     </View>
   )
+}
+
+function GroupResizeHandle({ objects, zoom, sx, sy, dispatch, onInteracting }) {
+  const gesture = useRef(null)
+  const pan = usePan({
+    onStart: () => { gesture.current = { start: groupResizeStart(objects, sx, sy), zoom, checkpointed: false }; onInteracting(true) },
+    onMove: (dx, dy) => {
+      const g = gesture.current
+      if (!g?.start) return
+      const patches = groupResizePatches(g.start, dx / g.zoom, dy / g.zoom)
+      if (!patches) {
+        if (g.checkpointed) { dispatch({ type: 'revertToCheckpoint' }); g.checkpointed = false }
+        return
+      }
+      if (!g.checkpointed) { dispatch({ type: 'checkpoint' }); g.checkpointed = true }
+      dispatch({ type: 'updateMany', patches })
+    },
+    onEnd: ({ cancelled }) => {
+      const g = gesture.current
+      gesture.current = null
+      if (cancelled && g?.checkpointed) dispatch({ type: 'revertToCheckpoint' })
+      else if (g?.checkpointed) dispatch({ type: 'commitCheckpoint' })
+      onInteracting(false)
+    },
+  })
+  return <View {...pan} accessibilityLabel="선택한 요소 크기 조절" hitSlop={8}
+    style={[styles.groupResizeHandle, sx < 0 ? { left: 0 } : { right: 0 }, sy < 0 ? { top: 0 } : { bottom: 0 }]} />
 }
 
 const contains = (rect, p) => p.x >= rect.left && p.x <= rect.right && p.y >= rect.top && p.y <= rect.bottom
@@ -1089,6 +1120,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   groupFrameInside: { borderWidth: 1.5, borderColor: 'rgba(129,125,185,0.55)' },
+  groupResizeHandle: { position: 'absolute', width: 18, height: 18, borderRadius: 9, borderWidth: 2, borderColor: colors.primary, backgroundColor: colors.surface },
   groupLabel: {
     position: 'absolute',
     top: -26,
