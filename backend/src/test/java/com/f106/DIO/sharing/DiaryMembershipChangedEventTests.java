@@ -23,7 +23,7 @@ class DiaryMembershipChangedEventTests {
         new DiaryMembershipService(access,members,invites,mock(MemberProfileResolver.class),mock(DiaryPermanentDeletionRepository.class),mock(com.f106.DIO.moderation.service.BlockService.class),events).remove(id,2L,2L);
         verify(events).publishEvent(new DiaryMembershipChanged(id));
 
-        reset(events);var owner=new DiaryMember(id,1L,"OWNER"),successor=new DiaryMember(id,3L,"EDITOR");
+        reset(events);var owner=new DiaryMember(id,1L,"OWNER");var successor=new DiaryMember(id,3L,"EDITOR");
         when(access.member(diary,1L)).thenReturn(owner);when(access.member(diary,3L)).thenReturn(successor);
         new DiaryOwnershipService(access,events).transfer(id,1L,3L);
         verify(events).publishEvent(new DiaryMembershipChanged(id));
