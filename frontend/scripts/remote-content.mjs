@@ -82,12 +82,26 @@ export function buildCatalog(content) {
     uploads.push({ data, key })
     stickerPacks.push({ id, name: meta.name, file: { key, size: data.length, sha256: sha256(data) }, ...(meta.hidden ? { hidden: true } : {}), order: meta.order })
   }
+  // 새 속지 탭: remote-content/template-groups.json  [{ "id": "travel", "name": "여행", "order": 10, "hidden": false }]
+  const templateGroups = []
+  const groupsPath = join(content, 'template-groups.json')
+  if (existsSync(groupsPath)) {
+    const list = readJson(groupsPath, errors)
+    if (list && !Array.isArray(list)) errors.push('template-groups.json: 배열([...])이어야 해요')
+    for (const group of Array.isArray(list) ? list : []) {
+      if (!ID.test(group?.id ?? '')) { errors.push(`template-groups.json: id ${group?.id} 는 영문 소문자·숫자·- (40자 이내)`); continue }
+      if (TEMPLATE_GROUPS.includes(group.id)) { errors.push(`template-groups.json: ${group.id} 는 앱에 이미 있는 탭이에요`); continue }
+      if (templateGroups.some(item => item.id === group.id)) { errors.push(`template-groups.json: ${group.id} 가 두 번 있어요`); continue }
+      templateGroups.push({ id: group.id, name: group.name, ...(group.hidden ? { hidden: true } : {}), order: group.order })
+    }
+  }
+  const groupIds = [...TEMPLATE_GROUPS, ...templateGroups.map(group => group.id)]
   for (const id of folders(join(content, 'templates'))) {
     const dir = join(content, 'templates', id)
     if (!ID.test(id)) { errors.push(`templates/${id}: 폴더 이름은 영문 소문자·숫자·- (40자 이내)`); continue }
     const meta = readJson(join(dir, 'template.json'), errors)
     if (!meta) continue
-    if (!TEMPLATE_GROUPS.includes(meta.group)) { errors.push(`templates/${id}: group 은 ${TEMPLATE_GROUPS.join(' · ')} 중 하나예요`); continue }
+    if (!groupIds.includes(meta.group)) { errors.push(`templates/${id}: group 은 ${groupIds.join(' · ')} 중 하나예요(새 탭은 template-groups.json 에 먼저 적어요)`); continue }
     const landscape = templateFile(dir, id, 'landscape', meta.landscape, errors)
     const portrait = templateFile(dir, id, 'portrait', meta.portrait, errors)
     if (!landscape || !portrait) continue
@@ -96,10 +110,12 @@ export function buildCatalog(content) {
     templates.push({ id, name: meta.name, group: meta.group, landscape: strip(landscape), portrait: strip(portrait), ...(meta.hidden ? { hidden: true } : {}), order: meta.order })
   }
   const clean = ({ order, ...item }) => item
-  const catalog = { schemaVersion: CATALOG_SCHEMA_VERSION, fonts: fonts.sort(byOrder).map(clean), stickerPacks: stickerPacks.sort(byOrder).map(clean), templates: templates.sort(byOrder).map(clean) }
+  const catalog = { schemaVersion: CATALOG_SCHEMA_VERSION, fonts: fonts.sort(byOrder).map(clean), stickerPacks: stickerPacks.sort(byOrder).map(clean), templates: templates.sort(byOrder).map(clean),
+    templateGroups: templateGroups.sort(byOrder).map(clean) }
   // 앱의 해석기를 통과하는지 마지막으로 확인한다(이름 길이 등)
   const check = parseCatalog(catalog)
-  if (!check || check.fonts.length !== catalog.fonts.length || check.stickerPacks.length !== catalog.stickerPacks.length || check.templates.length !== catalog.templates.length) {
+  if (!check || check.fonts.length !== catalog.fonts.length || check.stickerPacks.length !== catalog.stickerPacks.length
+    || check.templates.length !== catalog.templates.length || check.templateGroups.length !== catalog.templateGroups.length) {
     errors.push('catalog.json 이 앱 형식 검사를 통과하지 못했어요(이름은 1~40자)')
   }
   return { catalog, uploads, errors }

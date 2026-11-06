@@ -21,15 +21,19 @@ export const remoteServerOrientation = code => (typeof code === 'string' ? SERVE
 
 // id → { id, name, group, hidden, files: { landscape, portrait } }
 let templates = new Map()
+// 목록이 더한 속지 탭 [{ id, name, hidden }] (앱 탭 노트 · 플래너 · 일기 뒤에 붙는다, diary/utils/paperChoice.js)
+let groups = []
 let revision = 0
 const listeners = new Set()
 export const subscribeRemoteTemplates = listener => { listeners.add(listener); return () => listeners.delete(listener) }
 export const remoteTemplatesSnapshot = () => revision
 export const remoteTemplateList = () => [...templates.values()]
 export const remoteTemplateOf = id => templates.get(id) ?? null
+export const remoteTemplateGroups = () => groups
 
-export function registerRemoteTemplates(list) {
+export function registerRemoteTemplates(list, groupList = []) {
   templates = new Map(list.filter(item => REMOTE_TEMPLATE_ID.test(item?.id ?? '') && item.files?.landscape && item.files?.portrait).map(item => [item.id, item]))
+  groups = groupList.filter(group => REMOTE_TEMPLATE_ID.test(group?.id ?? '') && typeof group.name === 'string')
   revision++
   listeners.forEach(listener => listener())
 }

@@ -6,8 +6,10 @@
 //   { schemaVersion: 1,
 //     fonts: [{ id, label, regular: 파일, bold?: 파일, hidden? }],
 //     stickerPacks: [{ id, name, file: 파일, hidden? }],
-//     templates: [{ id, name, group: 'note'|'planner'|'diary', landscape: 파일, portrait: 파일, hidden? }] }
+//     templates: [{ id, name, group, landscape: 파일, portrait: 파일, hidden? }],
+//     templateGroups: [{ id, name, hidden? }] }
 //   속지는 한 장짜리(장수를 고르는 속지)이며 서버에는 범용 행 dio-remote-<방향>(V33) + 페이지 설정 remoteTemplate 으로 저장된다.
+//   group 은 앱 탭(note · planner · diary) 또는 templateGroups 에 적은 새 탭이다. 새 탭은 앱 탭 뒤에 목록 순서대로 붙는다.
 //   파일 = { key, size, sha256 }  (key 는 에셋 저장소 기준 경로, 이름에 내용 해시가 들어 있다)
 // hidden: 목록(글꼴 고르기 · 스티커 보관함)에서만 숨긴다. 이미 쓴 문서는 계속 그린다. 항목을 지우면 그 문서가 기본 모양으로 바뀐다.
 
@@ -26,7 +28,7 @@ function file(value) {
   return { remote: true, path: value.key, key: value.key, size: value.size, sha256: value.sha256 }
 }
 
-/** 원격 속지를 넣을 속지 고르기 탭(diary/utils/paperChoice.js 의 PAPER_GROUPS) */
+/** 앱에 들어 있는 속지 고르기 탭(diary/utils/paperChoice.js 의 PAPER_GROUPS). catalog 의 templateGroups 로 탭을 더할 수 있다 */
 export const TEMPLATE_GROUPS = ['note', 'planner', 'diary']
 const unique = items => { const seen = new Set(); return items.filter(item => !seen.has(item.id) && seen.add(item.id)) }
 
@@ -43,12 +45,18 @@ export function parseCatalog(value) {
     if (!ID.test(pack?.id ?? '') || !label(pack.name) || !packFile) return null
     return { id: pack.id, name: label(pack.name), file: packFile, hidden: pack.hidden === true }
   }).filter(Boolean)
+  // 새 속지 탭: 앱 탭과 같은 id 는 받지 않는다
+  const templateGroups = unique((Array.isArray(value.templateGroups) ? value.templateGroups : []).map(group => {
+    if (!ID.test(group?.id ?? '') || TEMPLATE_GROUPS.includes(group.id) || !label(group.name)) return null
+    return { id: group.id, name: label(group.name), hidden: group.hidden === true }
+  }).filter(Boolean))
+  const groupIds = new Set([...TEMPLATE_GROUPS, ...templateGroups.map(group => group.id)])
   const templates = (Array.isArray(value.templates) ? value.templates : []).map(template => {
     const landscape = file(template?.landscape), portrait = file(template?.portrait)
-    if (!ID.test(template?.id ?? '') || !label(template.name) || !TEMPLATE_GROUPS.includes(template.group) || !landscape || !portrait) return null
+    if (!ID.test(template?.id ?? '') || !label(template.name) || !groupIds.has(template.group) || !landscape || !portrait) return null
     return { id: template.id, name: label(template.name), group: template.group, hidden: template.hidden === true, files: { landscape, portrait } }
   }).filter(Boolean)
-  return { fonts: unique(fonts), stickerPacks: unique(stickerPacks), templates: unique(templates) }
+  return { fonts: unique(fonts), stickerPacks: unique(stickerPacks), templates: unique(templates), templateGroups }
 }
 
 const COLOR = /^#[0-9a-fA-F]{6}$/
@@ -80,7 +88,7 @@ export function catalogTextFonts(fonts) {
 /**
  * 원격 목록 불러오기. 의존성을 받아 테스트할 수 있게 한다.
  * fetchCatalog(): catalog.json 글자, storage: { getItem, setItem }, readText(파일): 스티커 팩 글자,
- * applyFonts(목록 항목들), applyStickerPack(팩) · retainStickerPacks(팩 id 들), applyTemplates(속지 항목들)
+ * applyFonts(목록 항목들), applyStickerPack(팩) · retainStickerPacks(팩 id 들), applyTemplates(속지 항목들, 새 속지 탭들)
  */
 export function createRemoteCatalog({ fetchCatalog, storage, readText, applyFonts, applyStickerPack, retainStickerPacks, applyTemplates = () => {}, log = () => {} }) {
   let appliedText = null
@@ -91,7 +99,7 @@ export function createRemoteCatalog({ fetchCatalog, storage, readText, applyFont
     if (!catalog) return false
     appliedText = text
     applyFonts(catalogTextFonts(catalog.fonts))
-    applyTemplates(catalog.templates)
+    applyTemplates(catalog.templates, catalog.templateGroups)
     const ids = catalog.stickerPacks.map(pack => `remote:${pack.id}`)
     retainStickerPacks(ids) // 목록에서 빠진 팩을 먼저 뺀다
     await Promise.all(catalog.stickerPacks.map(async pack => {

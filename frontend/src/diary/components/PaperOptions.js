@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
-import { Platform, Pressable, StyleSheet, Text, View } from 'react-native'
+import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { SvgAst, parse } from 'react-native-svg'
 import PageBackground from '../../editor/components/PageBackground'
 import Icon from '../../editor/components/controls/Icon'
@@ -15,7 +15,7 @@ import EditablePalette from '../../editor/components/controls/EditablePalette'
 import PaperSketch, { paperSketchKey } from './PaperSketch'
 import { DEFAULT_PAPER_FONT } from '../../editor/templates/paperFont.js'
 import {
-  COUNT_LIMIT, COUNT_STEPS, INSERT_LIMIT, MONTH_LIMIT, MONTH_STEPS, PAPER_EVERY, PAPER_GROUPS, PAPER_YEARS, REPEAT_LIMIT, ROW_LIMIT,
+  COUNT_LIMIT, COUNT_STEPS, INSERT_LIMIT, MONTH_LIMIT, MONTH_STEPS, PAPER_EVERY, PAPER_YEARS, REPEAT_LIMIT, ROW_LIMIT, paperGroups,
   appendPaper, changeRow, changeRowPaper, isPeriodSection, mergeSections, mixOrder, moveDown, movePaper, moveUp, paperById, paperPreviewId, papersIn, periodLabel,
   removePaper, rowAmount, splitSection,
 } from '../utils/paperChoice'
@@ -98,18 +98,22 @@ export function BlankPreview({ orientation, width: previewWidth, appearance, sty
   return <View pointerEvents="none" style={[styles.preview, { width: previewWidth, height: previewWidth * height / width, backgroundColor: appearance?.backgroundColor ?? '#FFFFFF' }, style]} />
 }
 
-/** 위쪽 가로 분류 탭 (노트 · 플래너 · 일기). 고른 탭은 밑줄. */
+// 탭이 이보다 많으면(목록이 탭을 더했을 때) 같은 폭으로 나누지 않고 가로로 넘긴다
+const TAB_FIT = 4
+
+/** 위쪽 가로 분류 탭 (노트 · 플래너 · 일기 + 목록이 더한 탭). 고른 탭은 밑줄. 탭이 많으면 가로로 넘긴다. */
 export function PaperTabs({ groups, value, onChange }) {
-  return <View accessibilityRole="tablist" style={styles.tabs}>
-    {groups.map(group => {
-      const on = group.id === value
-      return <Pressable key={group.id} accessibilityRole="tab" accessibilityLabel={group.name} accessibilityState={{ selected: on }} onPress={() => onChange(group.id)}
-        style={({ pressed }) => [styles.tab, pressed && styles.pressed]}>
-        <Text style={[styles.tabText, on && styles.tabTextOn]}>{group.name}</Text>
-        <View style={[styles.tabLine, on && styles.tabLineOn]} />
-      </Pressable>
-    })}
-  </View>
+  const scroll = groups.length > TAB_FIT
+  const tabs = groups.map(group => {
+    const on = group.id === value
+    return <Pressable key={group.id} accessibilityRole="tab" accessibilityLabel={group.name} accessibilityState={{ selected: on }} onPress={() => onChange(group.id)}
+      style={({ pressed }) => [styles.tab, scroll && styles.tabScroll, pressed && styles.pressed]}>
+      <Text numberOfLines={1} style={[styles.tabText, on && styles.tabTextOn]}>{group.name}</Text>
+      <View style={[styles.tabLine, on && styles.tabLineOn]} />
+    </Pressable>
+  })
+  if (!scroll) return <View accessibilityRole="tablist" style={styles.tabs}>{tabs}</View>
+  return <ScrollView horizontal showsHorizontalScrollIndicator={false} accessibilityRole="tablist" style={[styles.tabs, styles.tabsScrollBox]} contentContainerStyle={styles.tabsScroll}>{tabs}</ScrollView>
 }
 
 /**
@@ -140,12 +144,13 @@ function PaperPicker({ groups, selected, onSelect, orientation, appearance, peri
   const [group, setGroup] = useState(() => groups.find(item => item.papers.some(paper => paper.id === selected))?.id ?? groups[0].id)
   return <View style={styles.picker}>
     <PaperTabs groups={groups} value={group} onChange={setGroup} />
-    <PaperGrid papers={groups.find(item => item.id === group).papers} selected={selected} onSelect={onSelect} orientation={orientation} appearance={appearance} period={period} />
+    <PaperGrid papers={(groups.find(item => item.id === group) ?? groups[0]).papers} selected={selected} onSelect={onSelect} orientation={orientation} appearance={appearance} period={period} />
   </View>
 }
 
 // 탭별 속지. 원격 속지(catalog.json)가 바뀌면 다시 만든다(PaperOptions 의 useRemoteTemplates)
-const allGroups = () => PAPER_GROUPS.map(group => ({ ...group, papers: papersIn(group.id) }))
+// 목록이 더한 탭은 속지가 하나도 없으면(모두 숨김 등) 보이지 않는다
+const allGroups = () => paperGroups().map(group => ({ ...group, papers: papersIn(group.id) })).filter(group => !group.remote || group.papers.length)
 
 function Stepper({ label, text, onPrev, onNext, prevDisabled, nextDisabled }) {
   return <View style={styles.stepper}>
@@ -369,6 +374,9 @@ const styles = StyleSheet.create({
   preview: { overflow: 'hidden', borderRadius: 5, borderWidth: 1, borderColor: colors.border },
   tabs: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: colors.border },
   tab: { flex: 1, minHeight: 48, alignItems: 'center', justifyContent: 'flex-end' },
+  tabScroll: { flex: 0, minWidth: 76, paddingHorizontal: 12 },
+  tabsScroll: { flexGrow: 1 },
+  tabsScrollBox: { flexGrow: 0 },
   tabText: { paddingBottom: 9, color: colors.textMuted, fontSize: 13.5, fontWeight: '700' },
   tabTextOn: { color: colors.text, fontWeight: '800' },
   tabLine: { alignSelf: 'stretch', height: 2.5, marginBottom: -1, borderRadius: 2, backgroundColor: 'transparent' },

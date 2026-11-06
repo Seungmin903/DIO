@@ -229,3 +229,47 @@ test('업로드 안전장치: 이미 공개한 글꼴 · 스티커 팩 · 속지
     { removed: [], added: ['속지 summer'] })
   assert.deepEqual(compareCatalogs(before, { schemaVersion: 1, fonts: [], stickerPacks: [{ id: 'spring' }] }).removed, ['글꼴 hahmlet', '속지 spring-note'])
 })
+
+test('속지 탭도 목록으로 더한다: 새 탭은 앱 탭 뒤에 붙고, 숨긴 탭과 그 속지는 고르기에서 빠진다', async () => {
+  const { registerRemoteTemplates } = await import('../src/editor/templates/remoteTemplates.js')
+  const { paperGroups, papersIn, paperById } = await import('../src/diary/utils/paperChoice.js')
+  const parsed = parseCatalog({ schemaVersion: 1,
+    templateGroups: [{ id: 'travel', name: '여행' }, { id: 'note', name: '앱 탭과 같은 id' }, { id: 'old', name: '옛 탭', hidden: true }],
+    templates: [
+      { id: 'trip-log', name: '여행 기록', group: 'travel', landscape: file('a.svg'), portrait: file('b.svg') },
+      { id: 'old-map', name: '옛 지도', group: 'old', landscape: file('c.svg'), portrait: file('d.svg') },
+      { id: 'lost', name: '탭 없음', group: 'nowhere', landscape: file('e.svg'), portrait: file('f.svg') },
+    ] })
+  assert.deepEqual(parsed.templateGroups.map(group => group.id), ['travel', 'old'])
+  assert.deepEqual(parsed.templates.map(item => item.id), ['trip-log', 'old-map'])
+
+  registerRemoteTemplates(parsed.templates, parsed.templateGroups)
+  assert.deepEqual(paperGroups().map(group => group.id), ['note', 'planner', 'diary', 'travel'])
+  assert.deepEqual(papersIn('travel').map(paper => paper.id), ['remote:trip-log'])
+  assert.deepEqual(papersIn('old'), []) // 숨긴 탭의 속지는 고르기에 없다
+  assert.equal(paperById('remote:old-map').name, '옛 지도') // 이미 고른 줄에서는 그대로
+  registerRemoteTemplates([], [])
+  assert.deepEqual(paperGroups().map(group => group.id), ['note', 'planner', 'diary'])
+})
+
+test('remote-content 속지 탭: template-groups.json 의 탭만 쓸 수 있고 앱 탭 · 중복 id 는 거부한다', t => {
+  const dir = mkdtempSync(join(tmpdir(), 'dio-remote-groups-'))
+  t.after(() => rmSync(dir, { recursive: true, force: true }))
+  const svg = (w, h) => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}"><rect width="1" height="1"/></svg>`
+  mkdirSync(join(dir, 'templates', 'trip-log'), { recursive: true })
+  writeFileSync(join(dir, 'templates', 'trip-log', 'template.json'), JSON.stringify({ name: '여행 기록', group: 'travel', landscape: 'l.svg', portrait: 'p.svg' }))
+  writeFileSync(join(dir, 'templates', 'trip-log', 'l.svg'), svg(1024, 768))
+  writeFileSync(join(dir, 'templates', 'trip-log', 'p.svg'), svg(768, 1024))
+  assert.match(buildCatalog(dir).errors.join('\n'), /trip-log: group 은 note · planner · diary 중 하나예요/)
+
+  writeFileSync(join(dir, 'template-groups.json'), JSON.stringify([{ id: 'travel', name: '여행', order: 1 }]))
+  const ok = buildCatalog(dir)
+  assert.deepEqual(ok.errors, [])
+  assert.deepEqual(ok.catalog.templateGroups, [{ id: 'travel', name: '여행' }])
+  assert.equal(parseCatalog(ok.catalog).templates[0].group, 'travel')
+
+  writeFileSync(join(dir, 'template-groups.json'), JSON.stringify([{ id: 'travel', name: '여행' }, { id: 'travel', name: '다시' }, { id: 'diary', name: '일기2' }]))
+  const bad = buildCatalog(dir).errors.join('\n')
+  assert.match(bad, /travel 가 두 번/)
+  assert.match(bad, /diary 는 앱에 이미 있는 탭/)
+})

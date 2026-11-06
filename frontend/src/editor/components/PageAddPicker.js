@@ -6,13 +6,13 @@ import { PdfPageThumb } from '../../diary/components/PdfImport'
 import { TEMPLATE_VERSION } from '../templates/catalog.js'
 import { loadTemplate } from '../templates/loadTemplate'
 import Icon from './controls/Icon'
-import { PAPER_GROUPS, countAssetId, papersIn } from '../../diary/utils/paperChoice'
+import { countAssetId, paperGroups, papersIn } from '../../diary/utils/paperChoice'
 import { PANEL_RADIUS, ToolPanelHeader } from './ToolPanel'
 import { useRemoteTemplates } from '../hooks/useRemoteTemplates'
 
 // 페이지로 더할 수 있는 속지: 장수로 넣는 속지만 (날짜 속지는 다이어리를 만들 때 기간으로 넣는다)
 // 탭별 장수 속지. 원격 속지(catalog.json)가 바뀌면 다시 만든다(PageAddPicker 의 useRemoteTemplates)
-const countGroups = () => PAPER_GROUPS.map(group => ({ ...group, papers: papersIn(group.id).filter(paper => paper.kind === 'count') })).filter(group => group.papers.length)
+const countGroups = () => paperGroups().map(group => ({ ...group, papers: papersIn(group.id).filter(paper => paper.kind === 'count') })).filter(group => group.papers.length)
 const CARD_WIDTH = 340
 const SLOTS = 6 // 분류마다 두 줄(3열)로 맞춘다
 const MINE_GAP = 12
@@ -57,7 +57,7 @@ export default function PageAddPicker({ compact = false, orientation, appearance
         </Pressable>}
         <PaperTabs groups={myPapers.length && onSelectMine ? [...GROUPS, MINE] : GROUPS} value={group} onChange={setGroup} />
         {group === MINE.id ? <MyPaperGrid items={myPapers} onSelect={onSelectMine} />
-          : <PaperGrid papers={GROUPS.find(item => item.id === group).papers} selected={null} orientation={orientation} appearance={appearance} minSlots={SLOTS}
+          : <PaperGrid papers={(GROUPS.find(item => item.id === group) ?? GROUPS[0]).papers} selected={null} orientation={orientation} appearance={appearance} minSlots={SLOTS}
             onSelect={id => onSelect(countAssetId(id, orientation))} />}
       </ScrollView>
     </View>
