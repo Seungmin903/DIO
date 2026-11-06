@@ -62,6 +62,8 @@ public class DiaryProfileService {
     private void updateMember(UUID diary,DiaryMember member,DiaryProfileUpdateRequest request,boolean photoProvided,UUID photoId){
         member.update(request.getFavorite(),request.getLastOpenedPageId(),Instant.now());
         member.changeProfile(request.isNicknameProvided(),request.getNickname(),photoProvided,photoId);
-        if(request.isNicknameProvided()||photoProvided)events.publishEvent(new DiaryMembershipChanged(diary));
+        if(memberIdentityChanged(request,photoProvided))events.publishEvent(new DiaryMembershipChanged(diary));
     }
+    // Called inside TransactionTemplate#execute, so the socket's AFTER_COMMIT listener is retained.
+    static boolean memberIdentityChanged(DiaryProfileUpdateRequest request,boolean photoProvided){return request.isNicknameProvided()||photoProvided;}
 }
