@@ -63,11 +63,25 @@ const COLOR = /^#[0-9a-fA-F]{6}$/
 const PATH = /^[MmHhVvZzLl0-9 .,-]{1,20000}$/
 const size = value => Number.isInteger(value) && value >= 1 && value <= 64
 
-/** 스티커 팩 JSON({ stickers: [{ id, name, w, h, paths: [[색, 경로]] }] }) → 기본 스티커와 같은 모양. builtin 은 'remote:<팩>:<스티커>' */
+export const STICKER_IMAGE_MAX = 2048
+const imageSize = value => Number.isInteger(value) && value >= 1 && value <= STICKER_IMAGE_MAX
+
+/**
+ * 스티커 팩 JSON → 보관함 항목. builtin 은 'remote:<팩>:<스티커>' 로 페이지에 저장된다.
+ * 스티커 하나는 둘 중 하나다.
+ *   도트 스티커  { id, name, w, h, paths: [[색, 경로]] }  기본 스티커(디오&모아)와 같은 모양
+ *   그림 스티커  { id, name, image: 파일(PNG), width, height }  → 항목에 image(원격 파일) · iw · ih
+ */
 export function parseStickerPack(pack, value) {
   const stickers = Array.isArray(value?.stickers) ? value.stickers : []
   const items = unique(stickers.map(sticker => {
-    if (!ID.test(sticker?.id ?? '') || !label(sticker.name) || !size(sticker.w) || !size(sticker.h)) return null
+    if (!ID.test(sticker?.id ?? '') || !label(sticker.name)) return null
+    if (sticker.image != null) {
+      const image = file(sticker.image)
+      if (!image || !/\.png$/i.test(image.key) || !imageSize(sticker.width) || !imageSize(sticker.height)) return null
+      return { id: sticker.id, builtin: `remote:${pack.id}:${sticker.id}`, name: label(sticker.name), image, iw: sticker.width, ih: sticker.height }
+    }
+    if (!size(sticker.w) || !size(sticker.h)) return null
     const paths = Array.isArray(sticker.paths) ? sticker.paths : []
     if (!paths.length || paths.length > 32 || !paths.every(p => Array.isArray(p) && p.length === 2 && COLOR.test(p[0]) && typeof p[1] === 'string' && PATH.test(p[1]))) return null
     return { id: sticker.id, builtin: `remote:${pack.id}:${sticker.id}`, name: label(sticker.name), w: sticker.w, h: sticker.h, paths: paths.map(([c, d]) => [c, d]) }

@@ -21,6 +21,7 @@ function render({ platform = 'ios', still = false, outline = true, shadow = true
     '../../builtinStickers': { builtinStickerOf: () => null },
     '../../hooks/useMediaUri': { useMediaUri: () => undefined },
     '../../hooks/useStickerPacks': { useStickerPacks: () => 0 },
+    '../../../shared/remoteAssets/useRemoteAssetUri': { useRemoteAssetUri: () => null },
     '../../hooks/useStickerPlayback': { useStickerPlayback: (source) => { request = source; return { source: frame, error } } },
     './StickerFrame': { __esModule: true, default: 'StickerFrame' },
     './MediaImage': { __esModule: true, default: 'MediaImage' },

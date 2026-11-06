@@ -6,6 +6,7 @@ import { mediaService, reportMediaDisplayError } from '../../services/mediaStore
 import { mediaId } from '../../utils/mediaReferences.js'
 import { builtinStickerOf } from '../../builtinStickers'
 import { useStickerPacks } from '../../hooks/useStickerPacks'
+import { useRemoteAssetUri } from '../../../shared/remoteAssets/useRemoteAssetUri'
 import { stickerSource } from '../../stickerAssets'
 import { colors } from '../../../shared/theme'
 import BuiltinStickerArt from '../canvas/BuiltinStickerArt'
@@ -28,9 +29,17 @@ export default function StickerThumbImage({ item, style }) {
   if (item.kind === 'memo') return <MemoThumb item={item} style={style} />
   if (item.widget) return <WidgetThumb item={item} style={style} />
   const builtin = builtinStickerOf(item.builtin)
+  if (builtin?.image) return <RemoteImageThumb image={builtin.image} style={style} />
   if (builtin) return <View style={style}><BuiltinStickerArt sticker={builtin} canvas width="100%" height="100%" /></View>
   if (item.builtin) return <View style={style} /> // 아직 받지 못한 원격 스티커: 빈 칸으로 두고 팩이 오면 그린다
   return <ImageThumb item={item} style={style} />
+}
+
+/** 원격 그림 스티커(팩의 PNG). 받기 전에는 흐린 자리표시 */
+function RemoteImageThumb({ image, style }) {
+  const uri = useRemoteAssetUri(image)
+  if (!uri) return <View style={[styles.placeholder, style]} />
+  return <Image source={{ uri }} style={style} contentFit="contain" cachePolicy="memory-disk" transition={0} recyclingKey={image.key} />
 }
 
 // 미리보기는 늘 'D-37' 샘플이다. 매 렌더 새 객체를 만들어 위젯의 memo 가 무력화되지 않게 모듈 상수로 둔다.

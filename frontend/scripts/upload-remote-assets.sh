@@ -27,6 +27,8 @@ IMMUTABLE="public, max-age=31536000, immutable"
 aws s3 sync "$DIST" "s3://$BUCKET/$PREFIX/" --only-show-errors --exclude "*" --include "*.svg" --content-type "image/svg+xml" --cache-control "$IMMUTABLE"
 aws s3 sync "$DIST" "s3://$BUCKET/$PREFIX/" --only-show-errors --exclude "*" --include "*.ttf" --content-type "font/ttf" --cache-control "$IMMUTABLE"
 aws s3 sync "$DIST" "s3://$BUCKET/$PREFIX/" --only-show-errors --exclude "*" --include "*.otf" --content-type "font/otf" --cache-control "$IMMUTABLE"
+# 그림 스티커 PNG(팩 JSON 보다 먼저 올린다)
+aws s3 sync "$DIST" "s3://$BUCKET/$PREFIX/" --only-show-errors --exclude "*" --include "*.png" --content-type "image/png" --cache-control "$IMMUTABLE"
 # 스티커 팩 JSON(이름에 해시 포함)
 aws s3 sync "$DIST" "s3://$BUCKET/$PREFIX/" --only-show-errors --exclude "*" --include "*.json" --exclude "catalog.json" --content-type "application/json; charset=utf-8" --cache-control "$IMMUTABLE"
 # 라이선스 파일은 해시 없는 고정 경로라 짧게 캐시한다

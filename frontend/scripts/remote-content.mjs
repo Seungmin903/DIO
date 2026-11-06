@@ -3,13 +3,12 @@
 import { createHash } from 'node:crypto'
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { extname, join, posix } from 'node:path'
-import { CATALOG_SCHEMA_VERSION, parseCatalog, parseStickerPack, TEMPLATE_GROUPS } from '../src/shared/remoteAssets/remoteCatalog.js'
+import { CATALOG_SCHEMA_VERSION, parseCatalog, parseStickerPack, STICKER_IMAGE_MAX, TEMPLATE_GROUPS } from '../src/shared/remoteAssets/remoteCatalog.js'
+import { checkTemplateSvg } from './template-svg-rules.mjs'
 
 const ID = /^[a-z0-9][a-z0-9-]{0,39}$/
 const FONT_MAX = 30 * 1024 * 1024
 const SVG_MAX = 2 * 1024 * 1024
-// 앱 속지 좌표(editor/templates/data.js coordinateSystems)와 같아야 페이지에 꼭 맞는다
-const SVG_SIZE = { landscape: '0 0 1024 768', portrait: '0 0 768 1024' }
 const PREFIX = 'catalog'
 
 const sha256 = data => createHash('sha256').update(data).digest('hex')
@@ -33,19 +32,29 @@ function fontFile(dir, id, name, errors) {
   return { source: path, key: hashed(`fonts/${id}`, name, data), size: data.length, sha256: sha256(data) }
 }
 
+// 그림 스티커는 PNG 만 받는다(투명 배경, 기기 · 웹 · 내보내기에서 같게 그려진다). 2 MiB · 한 변 2048px 이하
+const STICKER_PNG_MAX = 2 * 1024 * 1024
+const PNG_SIGNATURE = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]
+function stickerImage(dir, packId, name, errors) {
+  const path = join(dir, name)
+  if (!/^[A-Za-z0-9._-]+\.png$/.test(name) || !existsSync(path)) { errors.push(`stickers/${packId}: 그림 ${name} 이 없거나 이름이 올바르지 않아요(.png, 영문·숫자·-_.)`); return null }
+  const data = readFileSync(path)
+  if (data.length < 24 || PNG_SIGNATURE.some((byte, i) => data[i] !== byte) || data.subarray(12, 16).toString('latin1') !== 'IHDR') { errors.push(`stickers/${packId}/${name}: PNG 파일이 아니에요`); return null }
+  const width = data.readUInt32BE(16), height = data.readUInt32BE(20)
+  if (data.length > STICKER_PNG_MAX) { errors.push(`stickers/${packId}/${name}: 2 MiB 를 넘어요`); return null }
+  if (width < 1 || height < 1 || width > STICKER_IMAGE_MAX || height > STICKER_IMAGE_MAX) { errors.push(`stickers/${packId}/${name}: 한 변이 ${STICKER_IMAGE_MAX}px 이하여야 해요(지금 ${width}×${height})`); return null }
+  return { source: path, key: hashed(`stickers/${packId}`, name, data), size: data.length, sha256: sha256(data), width, height }
+}
+
 function templateFile(dir, id, orientation, name, errors) {
   const path = join(dir, name ?? '')
   if (typeof name !== 'string' || !/^[A-Za-z0-9._-]+\.svg$/.test(name) || !existsSync(path)) { errors.push(`templates/${id}: ${orientation} SVG ${name} 이 없거나 이름이 올바르지 않아요(.svg, 영문·숫자·-_.)`); return null }
   const data = readFileSync(path)
-  const xml = data.toString('utf8')
-  const root = /<svg\b[^>]*>/i.exec(xml)?.[0] ?? ''
-  const viewBox = /\bviewBox\s*=\s*"([^"]*)"/.exec(root)?.[1]?.trim().replace(/\s+/g, ' ')
-  if (data.length > SVG_MAX) errors.push(`templates/${id}/${name}: 2 MiB 를 넘어요`)
-  else if (viewBox !== SVG_SIZE[orientation]) errors.push(`templates/${id}/${name}: ${orientation} 속지는 viewBox="${SVG_SIZE[orientation]}" 이어야 해요(지금 ${viewBox ?? '없음'})`)
-  // 앱은 SVG 를 그대로 그린다. 스크립트 · 외부 그림 · 글자 요소는 기기마다 다르거나 위험해서 받지 않는다(글자는 윤곽선으로 바꿔 넣는다)
-  else if (/<(script|image|foreignObject|text)\b/i.test(xml) || /\b(xlink:)?href\s*=\s*"(?!#)/i.test(xml)) errors.push(`templates/${id}/${name}: script · image · text · 외부 링크는 쓸 수 없어요(글자는 윤곽선으로)`)
-  else return { source: path, key: hashed(`templates/${id}`, name, data), size: data.length, sha256: sha256(data) }
-  return null
+  if (data.length > SVG_MAX) { errors.push(`templates/${id}/${name}: 2 MiB 를 넘어요`); return null }
+  // 앱 속지와 같은 DIO 속지 형식만 받는다(크기 · 종이 사각형 · 선 색 6가지 · 도형만). 그래야 속지 색 바꾸기가 그대로 적용된다
+  const problems = checkTemplateSvg(data.toString('utf8'), orientation)
+  if (problems.length) { for (const problem of problems) errors.push(`templates/${id}/${name}: ${problem}`); return null }
+  return { source: path, key: hashed(`templates/${id}`, name, data), size: data.length, sha256: sha256(data) }
 }
 
 /** content 폴더 → { catalog, uploads: [{ source | data, key }], errors } */
@@ -69,7 +78,18 @@ export function buildCatalog(content) {
     if (!ID.test(id)) { errors.push(`stickers/${id}: 폴더 이름은 영문 소문자·숫자·- (40자 이내)`); continue }
     const meta = readJson(join(content, 'stickers', id, 'pack.json'), errors)
     if (!meta) continue
-    const stickers = Array.isArray(meta.stickers) ? meta.stickers : []
+    // 그림 스티커: "image": "cherry.png"(팩 폴더 안의 PNG) → 해시 이름 파일 + 원본 크기
+    const images = []
+    let imageError = false
+    const stickers = (Array.isArray(meta.stickers) ? meta.stickers : []).map(sticker => {
+      if (typeof sticker?.image !== 'string') return sticker
+      const image = stickerImage(join(content, 'stickers', id), id, sticker.image, errors)
+      if (!image) { imageError = true; return null }
+      images.push(image)
+      const { image: _, ...rest } = sticker
+      return { ...rest, image: { key: image.key, size: image.size, sha256: image.sha256 }, width: image.width, height: image.height }
+    })
+    if (imageError) continue
     // 앱과 같은 검사를 거쳐 하나라도 빠지면 오류로 알린다(앱에서 조용히 사라지지 않게)
     const parsed = parseStickerPack({ id, name: meta.name ?? '' }, { stickers })
     if (!stickers.length || parsed.items.length !== stickers.length) {
@@ -79,7 +99,7 @@ export function buildCatalog(content) {
     }
     const data = Buffer.from(JSON.stringify({ stickers }))
     const key = hashed(`stickers/${id}`, 'pack.json', data)
-    uploads.push({ data, key })
+    uploads.push(...images, { data, key })
     stickerPacks.push({ id, name: meta.name, file: { key, size: data.length, sha256: sha256(data) }, ...(meta.hidden ? { hidden: true } : {}), order: meta.order })
   }
   // 새 속지 탭: remote-content/template-groups.json  [{ "id": "travel", "name": "여행", "order": 10, "hidden": false }]

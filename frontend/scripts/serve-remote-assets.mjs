@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', 'remote-assets-dist')
 const PORT = Number(process.env.ASSET_PORT || 8090)
-const TYPES = { '.svg': 'image/svg+xml', '.ttf': 'font/ttf', '.otf': 'font/otf', '.txt': 'text/plain; charset=utf-8' }
+const TYPES = { '.svg': 'image/svg+xml', '.ttf': 'font/ttf', '.otf': 'font/otf', '.png': 'image/png', '.json': 'application/json; charset=utf-8', '.txt': 'text/plain; charset=utf-8' }
 
 createServer((request, response) => {
   response.setHeader('Access-Control-Allow-Origin', '*')

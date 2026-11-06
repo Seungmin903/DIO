@@ -43,6 +43,23 @@ test('기본 스티커는 모아 4 · 디오 4 · 소품 12, 모두 20종이고 
   }
 })
 
+test('원격 그림(PNG) 스티커는 긴 변 110 에 그림 비율로 붙고, 페이지에는 builtin id 만 남는다', () => {
+  const image = { remote: true, key: 'catalog/stickers/spring/cherry.0123456789abcdef.png', size: 10, sha256: 'a'.repeat(64) }
+  builtinStickers.registerRemoteStickerPack({ id: 'remote:spring', name: '봄', items: [
+    { builtin: 'remote:spring:wide', name: '가로', image, iw: 300, ih: 150 },
+    { builtin: 'remote:spring:tall', name: '세로', image, iw: 100, ih: 200 },
+  ] })
+  try {
+    const { createSticker } = objects()
+    const wide = createSticker({ builtin: 'remote:spring:wide' }, { x: 500, y: 400 })
+    assert.deepEqual([wide.w, wide.h, wide.builtin, wide.name, wide.src], [110, 55, 'remote:spring:wide', '가로', undefined])
+    const tall = createSticker({ builtin: 'remote:spring:tall' }, { x: 500, y: 400 })
+    assert.deepEqual([tall.w, tall.h], [55, 110])
+    // 서버 저장 · 공동편집 대상이다(그림 주소를 요소에 넣지 않아 media 규칙에 걸리지 않는다)
+    assert.equal(sharedObject({ ...wide, id: '00000000-0000-4000-8000-000000000009' }), true)
+  } finally { builtinStickers.retainRemoteStickerPacks([]) }
+})
+
 test('페이지에 붙으면 칸 크기가 같아 그림 비율과 그림끼리의 크기 비율이 시트와 같다', () => {
   const { createSticker } = objects()
   for (const sticker of BUILTIN_STICKERS) {
@@ -122,6 +139,7 @@ function renderBuiltin(options) {
     '../../hooks/useMediaUri': { useMediaUri: () => undefined },
     '../../hooks/useStickerPlayback': { useStickerPlayback: () => ({ source: null, error: null }) },
     '../../hooks/useStickerPacks': { useStickerPacks: () => 0 },
+    '../../../shared/remoteAssets/useRemoteAssetUri': { useRemoteAssetUri: () => null },
     './BuiltinStickerArt': { __esModule: true, default: 'BuiltinStickerArt' },
     '../../../shared/theme': { colors: {} },
   }

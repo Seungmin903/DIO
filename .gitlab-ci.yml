@@ -533,6 +533,7 @@ backend-postgres-push-test:
   - frontend/scripts/compare-remote-catalog.mjs
   - frontend/scripts/fetch-remote-catalog.sh
   - frontend/scripts/upload-remote-assets.sh
+  - frontend/scripts/template-svg-rules.mjs
   - .gitlab-ci.yml
 
 # 형식 검사만 한다(키 · 네트워크 없음). 틀린 글꼴 · 스티커 · 속지는 MR 에서 막는다.

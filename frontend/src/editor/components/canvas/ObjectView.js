@@ -4,6 +4,7 @@ import Svg, { ClipPath, Defs, Image as SvgImage, Path } from 'react-native-svg'
 import { TAPE_DEFAULT_OPACITY } from '../../constants'
 import { builtinStickerOf } from '../../builtinStickers'
 import { useStickerPacks } from '../../hooks/useStickerPacks'
+import { useRemoteAssetUri } from '../../../shared/remoteAssets/useRemoteAssetUri'
 import { isAnimatedMedia, isRetiredSticker, stickerSource } from '../../stickerAssets'
 import BuiltinStickerArt from './BuiltinStickerArt'
 import MediaImage from './MediaImage'
@@ -241,9 +242,13 @@ function StickerContent({ object, width, height, zoom, still, onAssetLoad, onAss
   // 준비 중에도 원본과 효과를 같은 첫 장면으로 표시한다. 출력(still)은 기존 경로를 쓴다.
   // Bundled GIFs have a PNG poster; do not fall back to an animated imported GIF.
   const fallback = object.asset || object.poster ? stickerSource(object, true, posterUri) : null
-  const source = synchronized ? playback.source ?? fallback : originalSource
+  // 원격 그림 스티커(팩의 PNG, builtin: 'remote:<팩>:<스티커>')는 그림 스티커와 같은 경로(MediaImage · 테두리 · 그림자 실루엣)로 그린다
+  const packSticker = builtinStickerOf(object.builtin)
+  const remoteImage = packSticker?.image ?? null
+  const remoteUri = useRemoteAssetUri(remoteImage, onAssetError)
+  const source = remoteImage ? (remoteUri ? { uri: remoteUri } : null) : synchronized ? playback.source ?? fallback : originalSource
   const animated = originalAnimated && !synchronized
-  const builtin = builtinStickerOf(object.builtin)
+  const builtin = remoteImage ? null : packSticker
 
   const silhouette = synchronized
     ? (key, color, dx, dy, opacity = 1) => ({ key, color, dx, dy, opacity })
@@ -334,7 +339,7 @@ function StickerContent({ object, width, height, zoom, still, onAssetLoad, onAss
         // View 로 감싼다: 웹의 <svg> 는 위치 지정 요소가 아니라서 그대로 두면 테두리 · 그림자 층 아래로 깔린다
         <View style={box}><BuiltinStickerArt sticker={builtin} width={width} height={height} /></View>
       ) : source ? (
-        <MediaImage animated={animated} onLoad={onAssetLoad} onError={() => { if (!synchronized) reportMediaDisplayError(object); onAssetError?.() }} source={source} style={box} resizeMode="contain" />
+        <MediaImage animated={animated} onLoad={onAssetLoad} onError={() => { if (!synchronized && !remoteImage) reportMediaDisplayError(object); onAssetError?.() }} source={source} style={box} resizeMode="contain" />
       ) : (
         <Text style={[styles.emoji, emojiText(height)]}>{object.emoji}</Text>
       )}

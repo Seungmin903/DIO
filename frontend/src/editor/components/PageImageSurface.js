@@ -10,6 +10,7 @@ import { ensurePersonalFonts } from '../../handwriting/library.js'
 import { ensureExportFonts } from '../services/textFonts'
 import { SkiaPencilScale } from '../skia/skiaPencilScale.js'
 import { isSkiaPencil } from '../skia/pencilRaster.js'
+import { builtinStickerOf } from '../builtinStickers'
 
 /** PNG/PDF가 공유하는 전용 surface. 편집 UI와 저장 UI는 포함하지 않는다. */
 export default function PageImageSurface({ job }) {
@@ -29,7 +30,8 @@ export default function PageImageSurface({ job }) {
   const scale = Platform.OS === 'web' || !area ? 1 : Math.min(1, area.width / snapshot.width, area.height / snapshot.height)
   // 여러 칸 사진 틀은 사진이 든 칸이 모두 그려지면 한 번 알린다.
   // 연필 획은 앱 Skia 그림(PNG · 캔버스)이 올라와야 찍을 수 있다 — 못 그리면 SVG 로 두고 알려 온다(PencilSkiaStroke)
-  const ready = snapshot.objects.filter((o) => o.src || o.cells?.some(Boolean) || isSkiaPencil(o)).every((o) => loaded.has(o.id))
+  // 원격 그림 스티커(팩의 PNG)도 그림이 올라온 뒤 찍는다
+  const ready = snapshot.objects.filter((o) => o.src || o.cells?.some(Boolean) || isSkiaPencil(o) || builtinStickerOf(o.builtin)?.image).every((o) => loaded.has(o.id))
   useEffect(() => {
     if (!ready || !backgroundReady || !fontsReady || !laidOut || started.current || signal.aborted || failed.current) return
     started.current = true

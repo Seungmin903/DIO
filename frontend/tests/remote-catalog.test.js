@@ -167,10 +167,14 @@ test('원격 속지: 목록 해석 · 속지 고르기 탭 · 앱 속지 ID · �
   assert.equal(await waitForRemoteTemplateFile('remote-spring-note-portrait', 10), null)
 })
 
-test('remote-content 속지: 방향별 SVG 크기와 금지 요소를 검사한다', t => {
+// DIO 속지 형식(scripts/template-svg-rules.mjs)에 맞는 최소 속지
+const paperSvg = (w, h, body = '<line x1="0" y1="10" x2="10" y2="10" fill="none" stroke="#d7d9dc" />') =>
+  `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}"><rect width="${w}" height="${h}" fill="#ffffff" />${body}</svg>`
+
+test('remote-content 속지: 방향별 SVG 크기와 DIO 속지 형식을 검사한다', t => {
   const dir = mkdtempSync(join(tmpdir(), 'dio-remote-templates-'))
   t.after(() => rmSync(dir, { recursive: true, force: true }))
-  const svg = (w, h, body = '<rect width="10" height="10"/>') => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}">${body}</svg>`
+  const svg = paperSvg
   const add = (id, meta, files) => {
     mkdirSync(join(dir, 'templates', id), { recursive: true })
     writeFileSync(join(dir, 'templates', id, 'template.json'), JSON.stringify(meta))
@@ -186,9 +190,9 @@ test('remote-content 속지: 방향별 SVG 크기와 금지 요소를 검사한�
   add('script', { name: '스크립트', group: 'note', landscape: 'l.svg', portrait: 'p.svg' }, { 'l.svg': svg(1024, 768, '<script>x</script>'), 'p.svg': svg(768, 1024, '<image href="https://x/y.png"/>') })
   add('badgroup', { name: '분류', group: 'misc', landscape: 'l.svg', portrait: 'p.svg' }, { 'l.svg': svg(1024, 768), 'p.svg': svg(768, 1024) })
   const bad = buildCatalog(dir)
-  assert.match(bad.errors.join('\n'), /swapped\/p\.svg: landscape 속지는 viewBox="0 0 1024 768"/)
-  assert.match(bad.errors.join('\n'), /script\/l\.svg: script/)
-  assert.match(bad.errors.join('\n'), /script\/p\.svg: script/)
+  assert.match(bad.errors.join('\n'), /swapped\/p\.svg: 가로 속지는 width="1024"/)
+  assert.match(bad.errors.join('\n'), /script\/l\.svg: <script> 는 쓸 수 없어요/)
+  assert.match(bad.errors.join('\n'), /script\/p\.svg: <image> 는 쓸 수 없어요/)
   assert.match(bad.errors.join('\n'), /badgroup: group/)
 })
 
@@ -255,7 +259,7 @@ test('속지 탭도 목록으로 더한다: 새 탭은 앱 탭 뒤에 붙고, �
 test('remote-content 속지 탭: template-groups.json 의 탭만 쓸 수 있고 앱 탭 · 중복 id 는 거부한다', t => {
   const dir = mkdtempSync(join(tmpdir(), 'dio-remote-groups-'))
   t.after(() => rmSync(dir, { recursive: true, force: true }))
-  const svg = (w, h) => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}"><rect width="1" height="1"/></svg>`
+  const svg = (w, h) => paperSvg(w, h)
   mkdirSync(join(dir, 'templates', 'trip-log'), { recursive: true })
   writeFileSync(join(dir, 'templates', 'trip-log', 'template.json'), JSON.stringify({ name: '여행 기록', group: 'travel', landscape: 'l.svg', portrait: 'p.svg' }))
   writeFileSync(join(dir, 'templates', 'trip-log', 'l.svg'), svg(1024, 768))
@@ -272,4 +276,52 @@ test('remote-content 속지 탭: template-groups.json 의 탭만 쓸 수 있고 
   const bad = buildCatalog(dir).errors.join('\n')
   assert.match(bad, /travel 가 두 번/)
   assert.match(bad, /diary 는 앱에 이미 있는 탭/)
+})
+
+// PNG 머리(서명 + IHDR 의 가로 · 세로)만 있는 작은 파일. 빌드 검사는 머리만 읽는다
+function fakePng(width, height) {
+  const data = Buffer.alloc(33)
+  Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]).copy(data, 0)
+  data.writeUInt32BE(13, 8)
+  data.write('IHDR', 12, 'latin1')
+  data.writeUInt32BE(width, 16)
+  data.writeUInt32BE(height, 20)
+  return data
+}
+
+test('그림(PNG) 스티커: 팩에 도트 스티커와 함께 넣을 수 있고, 해시 이름 PNG 와 원본 크기가 팩에 실린다', t => {
+  const dir = mkdtempSync(join(tmpdir(), 'dio-remote-png-'))
+  t.after(() => rmSync(dir, { recursive: true, force: true }))
+  mkdirSync(join(dir, 'stickers', 'spring'), { recursive: true })
+  writeFileSync(join(dir, 'stickers', 'spring', 'cherry.png'), fakePng(300, 200))
+  writeFileSync(join(dir, 'stickers', 'spring', 'pack.json'), JSON.stringify({ name: '봄', stickers: [sticker, { id: 'cherry', name: '벚꽃', image: 'cherry.png' }] }))
+  const ok = buildCatalog(dir)
+  assert.deepEqual(ok.errors, [])
+  const png = ok.uploads.find(upload => /cherry\.[a-f0-9]{16}\.png$/.test(upload.key))
+  assert.ok(png, 'PNG 가 올릴 파일에 들어간다')
+  const packJson = JSON.parse(ok.uploads.find(upload => upload.data).data.toString('utf8'))
+  const cherry = packJson.stickers.find(item => item.id === 'cherry')
+  assert.deepEqual([cherry.width, cherry.height, cherry.image.key], [300, 200, png.key])
+
+  // 앱 해석: 그림 스티커는 image(원격 파일) · iw · ih 를 갖고, 도트 스티커는 그대로
+  const pack = parseStickerPack({ id: 'spring', name: '봄' }, packJson)
+  assert.deepEqual(pack.items.map(item => item.builtin), ['remote:spring:tulip', 'remote:spring:cherry'])
+  const image = pack.items[1]
+  assert.deepEqual([image.iw, image.ih, image.image.remote, image.paths], [300, 200, true, undefined])
+  registerRemoteStickerPack(pack)
+  assert.equal(builtinStickerOf('remote:spring:cherry').image.key, png.key)
+  retainRemoteStickerPacks([])
+
+  // 형식 오류: PNG 가 아님 · 너무 큼 · 파일 없음
+  writeFileSync(join(dir, 'stickers', 'spring', 'fake.png'), 'not png')
+  writeFileSync(join(dir, 'stickers', 'spring', 'huge.png'), fakePng(4096, 10))
+  writeFileSync(join(dir, 'stickers', 'spring', 'pack.json'), JSON.stringify({ name: '봄', stickers: [
+    { id: 'a', name: '가', image: 'fake.png' }, { id: 'b', name: '나', image: 'huge.png' }, { id: 'c', name: '다', image: 'none.png' },
+  ] }))
+  const bad = buildCatalog(dir).errors.join('\n')
+  assert.match(bad, /fake\.png: PNG 파일이 아니에요/)
+  assert.match(bad, /huge\.png: 한 변이 2048px 이하/)
+  assert.match(bad, /none\.png 이 없거나/)
+  // 앱도 PNG 가 아니거나 크기가 없는 그림 스티커는 받지 않는다
+  assert.equal(parseStickerPack({ id: 'x', name: 'x' }, { stickers: [{ id: 'svg', name: '그림', image: file('a.svg'), width: 10, height: 10 }, { id: 'nosize', name: '그림', image: file('a.png') }] }).items.length, 0)
 })

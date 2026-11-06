@@ -38,15 +38,24 @@ remote-content/fonts/<id>/
 
 ## 스티커 팩
 
+운영자가 올린 스티커 팩이 모든 사용자의 보관함에 나타납니다(사용자가 직접 올리는 '내 스티커'와는 별개입니다). 한 팩에 그림(PNG) 스티커와 도트 스티커를 섞을 수 있습니다.
+
 ```
-remote-content/stickers/<id>/pack.json
+remote-content/stickers/<id>/
+├── pack.json
+├── cherry.png        ← 그림 스티커 파일
+└── ...
 ```
 
 ```json
 { "name": "봄", "order": 10, "stickers": [
+  { "id": "cherry", "name": "벚꽃", "image": "cherry.png" },
   { "id": "tulip", "name": "튤립", "w": 13, "h": 15, "paths": [["#ffffff", "M2 0h9v1h-9z"], ["#e85d75", "M3 1h7v1h-7z"]] }
 ] }
 ```
+
+- **그림 스티커(`image`)**: 같은 폴더의 PNG 파일 이름. 투명 배경 PNG, 2 MiB · 한 변 2048px 이하. 크기는 빌드가 파일에서 읽습니다. 페이지에 처음 붙을 때 긴 변 110에 그림 비율을 맞추고, 테두리 · 그림자 꾸미기도 됩니다.
+- **도트 스티커(`w`·`h`·`paths`)**: 아래 형식.
 
 | 항목 | 설명 |
 | --- | --- |
@@ -80,8 +89,13 @@ remote-content/templates/<id>/
 | `hidden` | `true`면 속지 고르기에서만 숨깁니다. 이미 만든 페이지는 계속 그립니다. |
 
 - 장수를 고르는 한 장짜리 속지로 들어갑니다(새 다이어리의 속지 묶음, 편집기의 페이지 추가).
-- SVG에는 `<script>`, `<image>`, `<text>`, `<foreignObject>`, 외부 링크를 쓸 수 없습니다. 글자는 윤곽선(path)으로 바꿔 넣습니다. 앱 속지와 같은 규칙입니다.
-- 앱의 속지 색 바꾸기, 속지 글꼴 바꾸기는 앱 속지의 색·글자 규칙에 맞춰 만든 SVG에만 적용됩니다. 기본은 그린 그대로 보입니다.
+- **앱 속지와 같은 DIO 속지 형식만 받습니다**(`scripts/template-svg-rules.mjs`, 앱 속지 286장이 모두 이 검사를 통과합니다). 그래야 사용자의 속지 색·선 색 바꾸기가 그대로 적용됩니다.
+  1. 루트 `<svg>`의 `width`·`height`·`viewBox`가 위 크기와 같아야 합니다.
+  2. 처음 그리는 요소는 종이 전체를 덮는 `<rect width=".." height=".." fill="#ffffff"/>`입니다.
+  3. `fill`·`stroke`는 `none` 또는 선 색 6가지(`#292929` `#666666` `#aeb3b8` `#bfc1c4` `#d7d9dc` `#e8e9eb`)만 씁니다. 진한 색일수록 진한 선이 됩니다.
+  4. 도형(`path` `line` `rect` `circle` `ellipse` `polyline` `polygon`)과 `g`·`title`·`metadata`만 씁니다. 글자는 윤곽선(path)으로 바꿉니다. `style` 속성, `<style>`, `<text>`, `<image>`, 링크, 필터는 쓸 수 없습니다.
+  5. 모든 도형에 `fill`이 있어야 합니다(자기나 감싼 `g`에). 없으면 검정으로 칠해집니다.
+- 틀린 곳이 있으면 `pnpm assets:remote`가 파일과 이유를 알려 줍니다.
 - 회원 다이어리는 서버 마이그레이션 V33(`dio-remote-landscape`·`dio-remote-portrait`)이 적용된 서버에서만 만들 수 있습니다.
 
 ### 속지 탭 더하기
