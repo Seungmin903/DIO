@@ -10,7 +10,7 @@ export function createSharingApi({ user, auth, fetchImpl = globalThis.fetch, bui
   const { baseUrl, accessTokenHeader = 'Authorization', getAuthHeaders } = auth.getConnectionOptions();
   const sessionKey = auth.getSessionKey();
   const self = { id: String(user.userId), nickname: user.nickname, photoUri: user.photoUri || null };
-  const diaries = new Map(), invitations = new Map(), listeners = new Set(), watchedDiaries = new Map(), realtimeDiaries = new Set(), photoCache = new Map();
+  const diaries = new Map(), invitations = new Map(), listeners = new Set(), watchedDiaries = new Map(), memberRefreshes = new Map(), realtimeDiaries = new Set(), photoCache = new Map();
   let active = true, watchingActive = true, generation = 0, snapshot = { diaries: [], joined: [], library: [] };
   const fail = (code, message) => { throw new SharingError(code, message); };
   const publish = () => {
@@ -194,7 +194,7 @@ export function createSharingApi({ user, auth, fetchImpl = globalThis.fetch, bui
   }
   // Canvas WebSocket notifications intentionally contain only canvas operations. Keep the
   // small membership view fresh separately while somebody is looking at this diary.
-  async function refreshMembers(id) {
+  async function refreshMembersNow(id) {
     const revision = generation;
     const members = await getMembers(id);
     if (!active || revision !== generation) fail('DISPOSED', '화면을 다시 열어 주세요.');
@@ -207,6 +207,18 @@ export function createSharingApi({ user, auth, fetchImpl = globalThis.fetch, bui
     diaries.set(id, next);
     publish();
     return diaries.get(id);
+  }
+  function refreshMembers(id) {
+    let entry = memberRefreshes.get(id);
+    if (entry) { entry.repeat = true; return entry.promise; }
+    entry = { repeat: false, promise: null };
+    entry.promise = (async () => {
+      let value;
+      do { entry.repeat = false; value = await refreshMembersNow(id); } while (entry.repeat);
+      return value;
+    })().finally(() => { if (memberRefreshes.get(id) === entry) memberRefreshes.delete(id); });
+    memberRefreshes.set(id, entry);
+    return entry.promise;
   }
   function watchDiary(id, { onUnavailable } = {}) {
     ensureServerId(id);
@@ -307,7 +319,7 @@ export function createSharingApi({ user, auth, fetchImpl = globalThis.fetch, bui
     } },
     invitationGateway: { get: invitation }, getMembers, getSnapshot: () => snapshot,
     subscribe(fn) { listeners.add(fn); return () => listeners.delete(fn); },
-    activate() { active = true; }, dispose() { active = false; generation++; watchedDiaries.forEach(watch => { watch.stopped = true; clearIntervalImpl(watch.timer); }); watchedDiaries.clear(); realtimeDiaries.clear(); photoCache.clear(); diaries.clear(); invitations.clear(); publish(); },
+    activate() { active = true; }, dispose() { active = false; generation++; watchedDiaries.forEach(watch => { watch.stopped = true; clearIntervalImpl(watch.timer); }); watchedDiaries.clear(); memberRefreshes.clear(); realtimeDiaries.clear(); photoCache.clear(); diaries.clear(); invitations.clear(); publish(); },
     setWatchingActive(value) { watchingActive = value === true; if (watchingActive) watchedDiaries.forEach(watch => { watch.skipTicks = 0; watch.refresh?.(); }); },
     setWatchingRealtime(id, connected) { if (!isSharingDiaryId(id)) return; const watch = watchedDiaries.get(id); if (connected) { realtimeDiaries.add(id); if (watch) watch.realtimeTicks = 0; } else { realtimeDiaries.delete(id); if (watch) { watch.realtimeTicks = 0; watch.refresh?.(true); } } },
     setAccountProfile(value) { self.nickname = value.nickname; self.photoUri = value.photoUri || null; for (const key of photoCache.keys()) if (key.startsWith('account:')) photoCache.delete(key); },

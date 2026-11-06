@@ -140,6 +140,19 @@ test('변경 없는 참여자 재조회는 공유 스냅샷을 다시 발행하�
   stop();
 });
 
+test('겹친 참여자 갱신은 늦은 응답 대신 한 번 더 읽은 최신 역할을 반영한다', async () => {
+  const pending = [];
+  const f = fixture({ fetch: url => url.endsWith('/members') && pending.length ? pending.shift().promise : null });
+  await f.runtime.getSharing(diaryId);
+  const deferred = () => { let resolve; return { promise: new Promise(done => { resolve = done; }), resolve }; };
+  const old = deferred(), fresh = deferred(); pending.push(old, fresh);
+  const first = f.runtime.refreshMembers(diaryId), second = f.runtime.refreshMembers(diaryId);
+  old.resolve(reply({ members: [{ userId: '10', nickname: '나', role: 'EDITOR', usingAccountPhoto: true }, { userId: '20', nickname: '친구', role: 'OWNER', usingAccountPhoto: true }] }));
+  await new Promise(resolve => setTimeout(resolve, 0));
+  fresh.resolve(reply({ members: [{ userId: '10', nickname: '나', role: 'OWNER', usingAccountPhoto: true }, { userId: '20', nickname: '친구', role: 'EDITOR', usingAccountPhoto: true }] }));
+  await Promise.all([first, second]);
+  assert.equal(f.runtime.getSnapshot().diaries[0].ownerId, '10');
+});
 test('계정 프로필 사진 캐시는 유효 시간 뒤 같은 URL도 다시 읽는다', async () => {
   let clock = 0;
   const photoUrl = 'https://api.dio.test/api/v1/auth/profile-photos/account-photo';
