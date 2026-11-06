@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { createRequire } from 'node:module'
 import { readFileSync } from 'node:fs'
-import { groupResizeStart, groupResizePatches } from '../src/editor/utils/groupResize.js'
+import { groupResizeBounds, groupResizeStart, groupResizePatches } from '../src/editor/utils/groupResize.js'
 import { unionBounds } from '../src/editor/utils/common.js'
 import * as common from '../src/editor/utils/common.js'
 import { createLassoOutline, resolveLassoOutline } from '../src/editor/utils/lassoOutline.js'
@@ -36,6 +36,14 @@ test('잠긴 요소 또는 유효하지 않은 크기가 포함되면 조절하�
   assert.equal(groupResizeStart([objects[0],{...objects[1],locked:true}],1,1),null)
   assert.equal(groupResizeStart([objects[0],{...objects[1],w:0}],1,1),null)
   assert.equal(groupResizeStart([objects[0]],1,1),null)
+})
+
+test('회전 값이 없는 기존 요소는 0도로 해석해 정상 확대한다', () => {
+  const legacy={...objects[0]}; delete legacy.rotation
+  const pair=[legacy,objects[1]], start=groupResizeStart(pair,1,1)
+  assert.ok(start); const patch=groupResizePatches(start,30,30)[legacy.id]
+  assert.equal(patch.rotation,0); assert.ok(patch.w>legacy.w)
+  assert.ok(Object.values(groupResizeBounds(pair)).every(Number.isFinite))
 })
 
 test('축소 한계, 텍스트 기준 너비, 테이프 조각 및 필기 원본 좌표를 보존한다', () => {
@@ -118,10 +126,10 @@ test('실제 손잡이 이벤트는 배율을 반영하고 취소하면 원상�
   const actions=[], dispatch=action=>{actions.push(action.type);s=editorReducer(s,action)}
   const mod={exports:{}}
   const load=id=>{
-    if(id==='react')return {forwardRef:f=>f,memo:f=>f,useRef:v=>({current:v}),useState:v=>[v,()=>{}],useEffect:f=>{cleanup=f()},useLayoutEffect(){},useMemo:f=>f(),useImperativeHandle(){}}
+    if(id==='react')return {forwardRef:f=>f,memo:f=>f,useRef:v=>({current:v}),useState:v=>[v,()=>{}],useEffect:(f,deps)=>{assert.deepEqual(deps,[]);cleanup=f()},useLayoutEffect(){},useMemo:f=>f(),useImperativeHandle(){}}
     if(id==='react-native')return {View:'view',Text:'text',Platform:{OS:'ios',select:options=>options.ios??options.default},StyleSheet:{create:v=>v}}
     if(id.endsWith('/usePan'))return {usePan:h=>{handlers=h;return {}}}
-    if(id.endsWith('/groupResize.js'))return {groupResizeStart,groupResizePatches}
+    if(id.endsWith('/groupResize.js'))return {groupResizeBounds,groupResizeStart,groupResizePatches}
     if(id.endsWith('/common'))return common
     if(id.endsWith('/theme'))return {colors:{},radius:{},DISABLED_OPACITY:0.5}
     if(id.startsWith('.'))return {__esModule:true,default:()=>null}
@@ -131,6 +139,11 @@ test('실제 손잡이 이벤트는 배율을 반영하고 취소하면 원상�
   const frame=mod.exports.GroupFrame({objects,zoom:2,enabled:true,dispatch,onInteracting(){}})
   assert.equal(frame.props.pointerEvents,'box-none')
   assert.equal(frame.props.children[1].length,4)
+  const small=mod.exports.GroupFrame({objects,zoom:0.1,enabled:true,pageWidth:200,pageHeight:200,dispatch,onInteracting(){}})
+  assert.equal(small.props.children[1].length,1)
+  const target=small.props.children[1][0].props
+  assert.equal(target.sx,-1); assert.equal(target.sy,-1)
+  assert.ok(target.targetPosition.left>=0 && target.targetPosition.top>=0)
   assert.equal(mod.exports.GroupFrame({objects:[objects[0],{...objects[1],locked:true}],zoom:2,enabled:true}).props.pointerEvents,'none')
   const handle=mod.exports.GroupResizeHandle({objects,zoom:2,sx:1,sy:1,dispatch,onInteracting(){}})
   assert.equal(handle.props.style[0].width,44); assert.equal(handle.props.style[0].height,44)

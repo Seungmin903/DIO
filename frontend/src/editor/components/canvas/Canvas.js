@@ -47,7 +47,7 @@ import { paperPrintsText } from '../../templates/paperFont.js'
 import { LinkBadges, ObjectLinkOverlay } from './ObjectLinks'
 import { isBackdrop } from '../../utils/backdrop.js'
 import { shouldCacheCompletedStrokes } from '../../utils/completedStrokePlan.js'
-import { groupResizeStart, groupResizePatches } from '../../utils/groupResize.js'
+import { groupResizeBounds, groupResizeStart, groupResizePatches } from '../../utils/groupResize.js'
 
 // 렌더링 환경에 requestAnimationFrame이 없으면(Node 테스트 등) 기다리지 않고 바로 실행한다.
 const requestFrame = (callback) => (typeof requestAnimationFrame === 'function' ? requestAnimationFrame(callback) : (callback(), 0))
@@ -524,7 +524,7 @@ export default function Canvas({
         />
         </View>
       )}
-      {!replacingLasso && !lassoDrawing && selected.length > 1 && !marquee && <View pointerEvents="box-none" style={styles.selectionControls}><GroupFrame objects={selected} zoom={zoom} enabled={canTouch && !cropping && !lassoCapture && selected.length === selectedIds.length} dispatch={dispatch} onInteracting={setInteracting} /></View>}
+      {!replacingLasso && !lassoDrawing && selected.length > 1 && !marquee && <View pointerEvents="box-none" style={styles.selectionControls}><GroupFrame objects={selected} zoom={zoom} pageWidth={PAGE_WIDTH} pageHeight={PAGE_HEIGHT} enabled={canTouch && !cropping && !lassoCapture && selected.length === selectedIds.length} dispatch={dispatch} onInteracting={setInteracting} /></View>}
       {!outlinePaths && !replacingLasso && selected.length === 1 && selected[0].groupId && !cropping && !marquee && (
         <GroupFrame objects={visible.filter((o) => o.groupId === selected[0].groupId)} zoom={zoom} inside />
       )}
@@ -683,12 +683,16 @@ function HitOutline({ object, zoom }) {
   )
 }
 
-function GroupFrame({ objects, zoom, inside, enabled, dispatch, onInteracting }) {
-  const bounds = unionBounds(objects)
+function GroupFrame({ objects, zoom, inside, enabled, dispatch, onInteracting, pageWidth = Infinity, pageHeight = Infinity }) {
+  const bounds = groupResizeBounds(objects)
   const canResize = enabled && objects.every(object => !object.locked) && Boolean(groupResizeStart(objects, 1, 1))
+  const small = canResize && ((bounds.right-bounds.left)*zoom < 44 || (bounds.bottom-bounds.top)*zoom < 44)
   // Keep the whole 44pt target inside its parent; Android cannot hit outside it.
-  const pad = canResize ? 22 : 8
+  const pad = canResize ? (small ? 52 : 22) : 8
   const inset = pad - 8
+  // Place the small selection's single target outside the objects, toward the page interior.
+  const smallX = (pageWidth - bounds.right) * zoom < 48 ? -1 : 1
+  const smallY = (pageHeight - bounds.bottom) * zoom < 48 ? -1 : 1
   return (
     <View
       pointerEvents={canResize ? 'box-none' : 'none'}
@@ -705,20 +709,23 @@ function GroupFrame({ objects, zoom, inside, enabled, dispatch, onInteracting })
       <View pointerEvents="none" style={[styles.groupFrame, inside && styles.groupFrameInside, { left:inset, top:inset, right:inset, bottom:inset }]}>
         {!inside && <Text style={styles.groupLabel}>{objects.length}개 선택</Text>}
       </View>
-      {canResize && [[-1,-1],[1,-1],[-1,1],[1,1]].map(([sx,sy]) =>
-        <GroupResizeHandle key={`${sx},${sy}`} objects={objects} zoom={zoom} sx={sx} sy={sy} dispatch={dispatch} onInteracting={onInteracting} />)}
+      {canResize && (small ? [[smallX,smallY]] : [[-1,-1],[1,-1],[-1,1],[1,1]]).map(([sx,sy]) =>
+        <GroupResizeHandle key={`${sx},${sy}`} objects={objects} zoom={zoom} sx={sx} sy={sy} dispatch={dispatch} onInteracting={onInteracting}
+          targetPosition={small ? {left:smallX > 0 ? pad+(bounds.right-bounds.left)*zoom+4 : pad-48,top:smallY > 0 ? pad+(bounds.bottom-bounds.top)*zoom+4 : pad-48} : null} />)}
     </View>
   )
 }
 
-function GroupResizeHandle({ objects, zoom, sx, sy, dispatch, onInteracting }) {
+function GroupResizeHandle({ objects, zoom, sx, sy, dispatch, onInteracting, targetPosition }) {
   const gesture = useRef(null)
+  const callbacks = useRef({ dispatch, onInteracting })
+  callbacks.current = { dispatch, onInteracting }
   useEffect(() => () => {
     const g = gesture.current
     gesture.current = null
-    if (g?.checkpointed) dispatch({ type:'revertToCheckpoint', checkpointOwner:g.owner })
-    if (g) onInteracting(false)
-  }, [dispatch, onInteracting])
+    if (g?.checkpointed) callbacks.current.dispatch({ type:'revertToCheckpoint', checkpointOwner:g.owner })
+    if (g) callbacks.current.onInteracting(false)
+  }, [])
   const pan = usePan({
     onStart: () => { gesture.current = { start: groupResizeStart(objects, sx, sy), zoom, owner:createId(), checkpointed: false }; onInteracting(true) },
     onMove: (dx, dy) => {
@@ -741,7 +748,7 @@ function GroupResizeHandle({ objects, zoom, sx, sy, dispatch, onInteracting }) {
     },
   })
   return <View {...pan} accessibilityLabel="선택한 요소 크기 조절"
-    style={[styles.groupResizeTarget, sx < 0 ? { left: 0 } : { right: 0 }, sy < 0 ? { top: 0 } : { bottom: 0 }]}>
+    style={[styles.groupResizeTarget, targetPosition ?? [sx < 0 ? { left: 0 } : { right: 0 }, sy < 0 ? { top: 0 } : { bottom: 0 }]]}>
     <View pointerEvents="none" style={styles.groupResizeHandle} />
   </View>
 }
