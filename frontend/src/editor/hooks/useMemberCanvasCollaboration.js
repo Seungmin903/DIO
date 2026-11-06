@@ -223,7 +223,7 @@ export function useMemberCanvasCollaboration({diary,page,state,loaded,readOnly,d
       onDiagnostic:diagnostics.socket,
       makeSocket:url=>Platform?.OS==='web'?new globalThis.WebSocket(url):new globalThis.WebSocket(url,[],{headers:headersFor(url)}),
       getAccessToken:({forceRefresh=false}={})=>authService.getAccessToken({userId:diary.memberAccountId,sessionKey,forceRefresh}),
-      onReady:()=>{diagnostics.event('ws-ready');collaborationStateChange.current(diary.id,true);refresh()},onUnavailable:()=>{diagnostics.event('ws-unavailable');collaborationStateChange.current(diary.id,false)},onPagesChanged:refreshPagesQuietly,onMembersChanged:()=>membersChanged.current(),onChange:frame=>{
+      onReady:()=>{diagnostics.event('ws-ready');collaborationStateChange.current(diary.sharedDiaryId||diary.id,true);refresh()},onUnavailable:()=>{diagnostics.event('ws-unavailable');collaborationStateChange.current(diary.sharedDiaryId||diary.id,false)},onPagesChanged:refreshPagesQuietly,onMembersChanged:()=>membersChanged.current(),onChange:frame=>{
         diagnostics.event('ws-change')
         if([...r.loaded.values()].some(engine=>engine.ownsCommand(frame.clientOperationId)))return
         if(frame.pageId===latest.current.page.id)refresh()
@@ -233,7 +233,7 @@ export function useMemberCanvasCollaboration({diary,page,state,loaded,readOnly,d
     // Periodic reconciliation also covers an event lost after commit or a proxy without WebSocket support.
     const timer=setInterval(()=>{diagnostics.event('poll');refresh()},5000)
     const appState=AppState.addEventListener('change',next=>{if(next==='active')refresh();else dispatch({type:'commitCheckpoint'})})
-    return ()=>{r.alive=false;collaborationStateChange.current(diary.id,false);setPdfSourceFetcher(null);media.dispose();socket.close();clearInterval(timer);appState.remove();if(runtime.current===r)runtime.current=null}
+    return ()=>{r.alive=false;collaborationStateChange.current(diary.sharedDiaryId||diary.id,false);setPdfSourceFetcher(null);media.dispose();socket.close();clearInterval(timer);appState.remove();if(runtime.current===r)runtime.current=null}
   },[enabled,loaded,diary?.id,diary?.memberAccountId,sessionKey])
   useEffect(()=>{
     const r=runtime.current;if(!r||!enabled||!loaded)return
