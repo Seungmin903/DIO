@@ -205,19 +205,21 @@ export function createSharingApi({ user, auth, fetchImpl = globalThis.fetch, bui
     publish();
     return diaries.get(id);
   }
-  function watchDiary(id) {
+  function watchDiary(id, { onUnavailable } = {}) {
     ensureServerId(id);
     let watch = watchedDiaries.get(id);
     if (!watch) {
-      watch = { count: 0, timer: null, refreshing: null, failures: 0, skipTicks: 0, stopped: false };
+      watch = { count: 0, timer: null, refreshing: null, failures: 0, skipTicks: 0, stopped: false, unavailable: new Set() };
       watchedDiaries.set(id, watch);
     }
     watch.count++;
-    const stop = () => {
+    if (typeof onUnavailable === 'function') watch.unavailable.add(onUnavailable);
+    const stop = message => {
       watch.stopped = true;
       if (watch.timer !== null) clearIntervalImpl(watch.timer);
       watch.timer = null;
       if (watchedDiaries.get(id) === watch) watchedDiaries.delete(id);
+      if (message) watch.unavailable.forEach(listener => { try { listener(message); } catch {} });
     };
     const refresh = () => {
       if (!active || !watchingActive || watch.stopped || watch.refreshing) return watch.refreshing;
@@ -227,8 +229,9 @@ export function createSharingApi({ user, auth, fetchImpl = globalThis.fetch, bui
           if (error?.code === 'DISPOSED') stop();
           else if ([401, 403, 404].includes(error?.status)) {
             const previous = diaries.get(id);
-            if (previous) { diaries.set(id, { ...previous, refreshWarning: error.status === 401 ? '로그인 상태가 바뀌었어요. 다시 로그인해 주세요.' : '공유 권한 또는 다이어리 상태가 바뀌었어요. 목록을 다시 확인해 주세요.' }); publish(); }
-            stop();
+            const message = error.status === 401 ? '로그인 상태가 바뀌었어요. 다시 로그인해 주세요.' : '공유 권한 또는 다이어리 상태가 바뀌었어요. 목록을 다시 확인해 주세요.';
+            if (previous) { diaries.set(id, { ...previous, refreshWarning: message }); publish(); }
+            stop(message);
           } else { watch.failures = Math.min(watch.failures + 1, 3); watch.skipTicks = 2 ** watch.failures - 1; }
           return null;
         })
@@ -246,6 +249,7 @@ export function createSharingApi({ user, auth, fetchImpl = globalThis.fetch, bui
       if (released) return;
       released = true;
       watch.count--;
+      if (typeof onUnavailable === 'function') watch.unavailable.delete(onUnavailable);
       if (watch.count <= 0) stop();
     };
   }

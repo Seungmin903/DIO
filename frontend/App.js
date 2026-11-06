@@ -454,7 +454,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
   useEffect(() => {
     const diaryId = active?.sharedDiaryId || active?.id;
     if (!member || !isSharingDiaryId(diaryId) || !sharing.runtime.server || typeof sharing.runtime.watchDiary !== 'function') return undefined;
-    return sharing.runtime.watchDiary(diaryId);
+    return sharing.runtime.watchDiary(diaryId, { onUnavailable: message => notify('공유 상태 변경', message) });
   }, [member, active?.id, active?.sharedDiaryId, sharing.runtime]);
   // 상단 바에 열어 둔 다이어리 탭 (id 순서대로). 다이어리를 열면 탭이 생기고, 탭을 눌러 오가며, 닫으면 옆 탭으로 간다.
   const [tabIds, setTabIds] = useState([]);

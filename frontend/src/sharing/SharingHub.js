@@ -237,12 +237,12 @@ export default function SharingHub({
     if (!diary?.id || typeof runtime.subscribe !== 'function') return undefined;
     return runtime.subscribe(() => {
       const current = runtime.getSnapshot?.().diaries?.find(value => value.id === diary.id);
-      if (current) setDiary(current);
+      if (current) setDiary(previous => previous?.id === current.id ? { ...previous, ...current } : current);
     });
   }, [diary?.id, runtime]);
   useEffect(() => {
     if (!isSharingDiaryId(diary?.id) || !runtime.server || typeof runtime.watchDiary !== 'function') return undefined;
-    return runtime.watchDiary(diary.id);
+    return runtime.watchDiary(diary.id, { onUnavailable: setError });
   }, [diary?.id, runtime]);
   useEffect(() => {
     if (!toast) return;

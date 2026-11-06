@@ -100,11 +100,12 @@ test('보고 있는 공유 다이어리는 타이머로 참여자·역할을 갱
 test('폴링은 권한·인증 오류 후 멈추고 일시 오류는 백오프한다', async () => {
   const timers = new Map(), cleared = [];
   let status = 503;
+  let unavailable = null;
   const f = fixture({ runtimeOptions: {
     setIntervalImpl: callback => { const id = `timer-${timers.size + 1}`; timers.set(id, callback); return id; },
     clearIntervalImpl: id => { cleared.push(id); timers.delete(id); },
   }, fetch: async url => url.endsWith('/members') ? reply({ detail: '실패' }, status) : null });
-  const release = f.runtime.watchDiary(diaryId);
+  const release = f.runtime.watchDiary(diaryId, { onUnavailable: message => { unavailable = message; } });
   await new Promise(resolve => setTimeout(resolve, 0));
   const timer = [...timers.values()][0], callsAfterFailure = f.calls.length;
   timer();
@@ -114,6 +115,7 @@ test('폴링은 권한·인증 오류 후 멈추고 일시 오류는 백오프�
   timer(); timer(); timer(); timer();
   await new Promise(resolve => setTimeout(resolve, 0));
   assert.deepEqual(cleared, ['timer-1']);
+  assert.match(unavailable, /로그인 상태/);
   release();
 });
 
