@@ -6,6 +6,7 @@ import PageObject from '../canvas/PageObject'
 import PageBackground from '../PageBackground'
 import { TextMeasure, objectDrawOpacity } from '../canvas/ObjectView'
 import { pageSize } from '../../utils/pageGeometry.js'
+import { fitBackdropToPage } from '../../utils/backdrop.js'
 import { createCompletedStrokePlanner } from '../../utils/completedStrokePlan.js'
 import { createStrokeRasterQueue } from '../../utils/strokeRasterQueue.js'
 import { rasterizeStrokeBatch } from '../../utils/webStrokeRaster.js'
@@ -23,7 +24,7 @@ function thumbnailLayers(objects, width, height, skia) {
   const plan = createCompletedStrokePlanner({ batchSize: 2, minBatchSize: 1 })
   for (let index = 0; index < visible.length;) {
     const object = visible[index]
-    if (object.type !== 'stroke' || (skia && isSkiaPencil(object))) { layers.push({ object }); index++; continue }
+    if (object.type !== 'stroke' || (skia && isSkiaPencil(object))) { layers.push({ object: fitBackdropToPage(object, width, height) }); index++; continue }
     const cached = strokeThumbnails.get(visible, index, width, height)
     if (cached) { layers.push({ batch: cached.batch, cached }); index += cached.batch.objects.length; continue }
     const group = [object]; index++

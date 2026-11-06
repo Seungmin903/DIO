@@ -3,6 +3,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } fr
 import { colors, shadow } from '../../shared/theme'
 import { PaperGrid, PaperTabs, TemplatePreview } from '../../diary/components/PaperOptions'
 import { PdfPageThumb } from '../../diary/components/PdfImport'
+import { pdfPageAspect } from '../../diary/utils/pdfImport.js'
 import { TEMPLATE_VERSION } from '../templates/catalog.js'
 import { loadTemplate } from '../templates/loadTemplate'
 import Icon from './controls/Icon'
@@ -61,7 +62,7 @@ export default function PageAddPicker({ compact = false, orientation, appearance
 }
 
 /**
- * 나의 속지 묶음 타일(코덱스 안 2026-11-02): 흰 카드 안 16:10 미리보기(첫 쪽을 비율 그대로) + 이름 + 쪽 수, 3열 · 간격 12.
+ * 나의 속지 묶음 타일: 두 열에 쪽의 비율을 유지하며 보여 준다.
  * 묶음은 한 장이 아니라서 속지 타일과 달리 카드 틀을 둔다.
  * 묶음을 누르면 그 안의 쪽을 같은 타일로 펼친다(굿노트 내 템플릿처럼 한 장씩 고른다). 쪽을 누르면 그 한 장, `전체 넣기` 는 묶음 전부. 한 장짜리 묶음은 바로 넣는다.
  */
@@ -69,12 +70,12 @@ function MyPaperGrid({ items, onSelect }) {
   const [width, setWidth] = useState(0)
   const [openId, setOpenId] = useState(null)
   const open = items.find(item => item.id === openId) ?? null
-  const tile = width ? Math.floor((width - MINE_GAP * 2) / 3) : 0
+  const tile = width ? Math.floor((width - MINE_GAP) / 2) : 0
   const preview = tile - 18 // 안쪽 8 · 테두리 1 씩
   const card = ({ key, page, name, count, label, onPress }) => {
-    const aspect = page.aspect > 0 ? page.aspect : 0.75
-    const box = preview * 10 / 16
-    const thumb = aspect >= preview / box ? preview : box * aspect
+    const aspect = pdfPageAspect(page)
+    const box = preview / Math.min(1.6, Math.max(0.75, aspect))
+    const thumb = Math.min(preview, box * aspect)
     return <Pressable key={key} accessibilityRole="button" accessibilityLabel={label} onPress={onPress}
       style={({ pressed }) => [styles.mineTile, { width: tile }, pressed && styles.pressed]}>
       <View style={[styles.minePreview, { height: box }]}><PdfPageThumb page={page} width={thumb} ratio={aspect} /></View>
