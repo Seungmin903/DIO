@@ -387,7 +387,8 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
   // 로그인 · 로그아웃으로 세션이 바뀌면 본문(SessionDiaryApp)이 새로 그려진다. 기능 가드에서 로그인한 뒤 보관함으로 튕기지 않도록
   // 마지막 화면 · 범위를 모듈 변수에 두고 다음 본문이 그 자리에서 시작한다(편집기는 열린 다이어리가 없어 제외)
   const routeOwner = member ? (previewUser?.userId || previewUser?.accountId || 'member') : null;
-  const [rawPage, setPage] = useState(() => routeMemory.read(routeOwner).page);
+  const [routePage, setPage] = useState(() => routeMemory.read(routeOwner).page);
+  const rawPage = !signedIn && routePage === 'studio' ? HOME_ROUTE.page : routePage;
   // 폰에는 별도 설정 화면이 없다(마이페이지 안에 설정이 펼쳐진다). 저장된 마지막 화면 · 분할 화면 전환으로 settings 가 남아도 마이페이지로 읽는다
   const page = normalizePageForFormFactor(rawPage, isPhone);
   const [railCollapsed, setRailCollapsed] = useState(true);  // 메뉴가 다 열리거나 닫혔을 때의 폭. 캐러셀은 '줄 폭 + 이 값'(메뉴와 상관없이 같은 값)으로 목록 폭을 정해,
@@ -551,8 +552,13 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
       }
       setPage(next);
     };
-    if (next !== 'profile' && profileLeaveGuard.current) profileLeaveGuard.current(move); else move();
-  }, [member,diaryState.store]);
+    const leaveThenMove = () => {
+      if (next !== 'profile' && profileLeaveGuard.current) profileLeaveGuard.current(move);
+      else move();
+    };
+    if (next === 'studio') loginGate('꾸미기 공방', leaveThenMove);
+    else leaveThenMove();
+  }, [member, diaryState.store, loginGate]);
 
   // 모든 화면 규격의 Android 시스템 뒤로가기: 시트 → 보조 화면 → 기본 보관함 순서로 한 단계씩 돌아간다.
   // 편집기는 열린 도구·패널을 먼저 닫아야 하므로 EditorScreen에서 별도로 처리한다.
