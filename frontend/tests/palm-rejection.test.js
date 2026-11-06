@@ -109,6 +109,20 @@ test('Pencil pointerId별로 해제하고 손바닥 pointerdown은 활성 펜을
   assert.equal(module.stylus.seen, true, '백그라운드 복귀 후 펜 선호 정책은 유지한다')
 })
 
+test('iOS 종료된 접촉의 pointerup 유실은 일반 모드 fallback을 막지 않으며 활성 접촉은 차단을 유지한다', () => {
+  const { stylus: s } = load('ios')
+  s.notePointerDown({ nativeEvent: { pointerId: 9, pointerType: 'pen', clientX: 10, clientY: 0 } })
+  assert.equal(s.touchKind({ identifier: 1, pageX: 10, pageY: 0 }, { requirePointer: true }), 'pen')
+  s.forgetStylusTouch(1)
+  const next = { identifier: 2, pageX: 30, pageY: 0, force: 0.5 }
+  assert.equal(s.touchKind(next), 'pen')
+  assert.equal(s.touchKind(next, { requirePointer: true }), 'unknown')
+  s.notePointerDown({ nativeEvent: { pointerId: 10, pointerType: 'touch', clientX: 50, clientY: 0 } })
+  assert.equal(s.touchKind(next), 'unknown')
+  s.notePointerUp({ nativeEvent: { pointerId: 10 } }) // pointercancel에도 같은 정리 함수를 사용
+  assert.equal(s.touchKind(next), 'pen')
+})
+
 test('Android 펜 모드: 손바닥이 먼저 닿아 있어도 펜 획만 그리고, 입력에는 터치 하나만 넘긴다', () => {
   const t = setup('android')
   t.pointer(0, 'touch')

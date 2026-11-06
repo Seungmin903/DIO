@@ -79,7 +79,9 @@ export function touchKind(touch, { requirePointer = false } = {}) {
     if (kind) return 'touch'
     // 펜·손가락 모드에서는 포인터가 없을 때 기존 압력 fallback을 유지한다.
     // 활성 포인터와 대응이 모호할 때는 손가락을 펜으로 추정하지 않는다.
-    if (!requirePointer && !iosContacts.size && (touch?.force ?? 0) > 0) {
+    // 터치가 끝난 접촉은 pointerup이 유실돼도 새로운 터치의 fallback을 막지 않는다.
+    // 아직 살아 있는 포인터가 있으면 모호한 접촉을 펜으로 추측하지 않는다.
+    if (!requirePointer && ![...iosContacts.values()].some(contact => !contact.retired) && (touch?.force ?? 0) > 0) {
       // 3D 터치 아이폰은 손가락도 force 가 있어, 기기 기본값은 아이패드 펜일 때만 남긴다
       if (Platform.isPad) notePen(); else stylus.seen = true
       return 'pen'
