@@ -20,6 +20,7 @@ import ApiConfigurationErrorScreen from './src/shared/ApiConfigurationErrorScree
 import { guestProfile } from './src/auth/guestProfileDevice';
 import { LoginGateProvider, useLoginGate } from './src/auth/loginGate';
 import { useSharing } from './src/sharing/useSharing';
+import { isSharingDiaryId } from './src/sharing/sharingApi';
 import SharingHub from './src/sharing/SharingHub';
 import EditorModal from './src/editor/components/controls/EditorModal';
 import SafetyProvider, { useSafety } from './src/safety/SafetyProvider';
@@ -453,6 +454,12 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
   const sharedLibraryRef = useRef(sharing.library);
   sharedLibraryRef.current = sharing.library;
   const sharingMembers = (signedIn && sharing.diaries.find(value => value.id === (active?.sharedDiaryId || active?.id))?.members) || [];
+  // Keep the editor's participant chips current even when the sharing sheet is closed.
+  useEffect(() => {
+    const diaryId = active?.sharedDiaryId || active?.id;
+    if (!member || !isSharingDiaryId(diaryId) || !sharing.runtime.server || typeof sharing.runtime.watchDiary !== 'function') return undefined;
+    return sharing.runtime.watchDiary(diaryId, { onUnavailable: message => notify('공유 상태 변경', message) });
+  }, [member, active?.id, active?.sharedDiaryId, sharing.runtime]);
   // 상단 바에 열어 둔 다이어리 탭 (id 순서대로). 다이어리를 열면 탭이 생기고, 탭을 눌러 오가며, 닫으면 옆 탭으로 간다.
   const [tabIds, setTabIds] = useState([]);
   const [createOpen, setCreateOpen] = useState(false);
@@ -984,6 +991,8 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
         readOnly={member && active?.permissions?.canEditCanvas !== true}
         invitationCount={unreadInvites}
         sharingMembers={sharingMembers}
+        onMembersChanged={() => { const diaryId = active?.sharedDiaryId || active?.id; if (isSharingDiaryId(diaryId)) { sharing.runtime.invalidateMemberPhotos?.(); sharing.runtime.refreshMembers?.(diaryId)?.catch(() => sharing.runtime.setWatchingRealtime?.(diaryId, false)); } }}
+        onCollaborationStateChange={(diaryId, connected) => sharing.runtime.setWatchingRealtime?.(diaryId, connected)}
         onRenameDiary={async title => {
           if (!active?.id) return false;
           try {

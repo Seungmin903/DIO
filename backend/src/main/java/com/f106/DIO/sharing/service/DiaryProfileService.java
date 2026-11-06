@@ -2,6 +2,7 @@ package com.f106.DIO.sharing.service;
 import com.f106.DIO.diary.domain.DiaryMember;
 import com.f106.DIO.diary.domain.DiaryMemberId;
 import com.f106.DIO.diary.repository.DiaryMemberRepository;
+import com.f106.DIO.sharing.domain.DiaryMembershipChanged;
 import com.f106.DIO.sharing.domain.*;
 import com.f106.DIO.sharing.dto.*;
 import com.f106.DIO.sharing.exception.SharingException;
@@ -21,10 +22,10 @@ import org.springframework.web.multipart.MultipartFile;
 public class DiaryProfileService {
     private final SharingAccessService access;private final DiaryPermanentDeletionRepository pages;
     private final SharingProfileMediaRepository media;private final SharingPhotoStorage storage;
-    private final MemberProfileResolver views;private final Validator validator;private final TransactionTemplate write;
+    private final MemberProfileResolver views;private final Validator validator;private final TransactionTemplate write;private final org.springframework.context.ApplicationEventPublisher events;
     public DiaryProfileService(SharingAccessService access,DiaryPermanentDeletionRepository pages,SharingProfileMediaRepository media,
-            SharingPhotoStorage storage,MemberProfileResolver views,Validator validator,PlatformTransactionManager manager){
-        this.access=access;this.pages=pages;this.media=media;this.storage=storage;this.views=views;this.validator=validator;write=new TransactionTemplate(manager);
+            SharingPhotoStorage storage,MemberProfileResolver views,Validator validator,PlatformTransactionManager manager,org.springframework.context.ApplicationEventPublisher events){
+        this.access=access;this.pages=pages;this.media=media;this.storage=storage;this.views=views;this.validator=validator;this.events=events;write=new TransactionTemplate(manager);
     }
     @Transactional(propagation=Propagation.NEVER)
     public DiaryProfileResponse update(UUID diary,long actor,DiaryProfileUpdateRequest request,MultipartFile photo){
@@ -44,7 +45,7 @@ public class DiaryProfileService {
                 var book=access.lock(diary);var member=access.member(book,actor);
                 validatePage(diary,request);pending.enlist();
                 media.saveAndFlush(new SharingProfileMedia(id,actor,pending.getLocation().key(),png.length,width,height,Instant.now()));
-                updateMember(member,request,true,id);return views.profile(member);
+                updateMember(diary,member,request,true,id);return views.profile(member);
             });
         }
     }
@@ -53,13 +54,16 @@ public class DiaryProfileService {
         UUID photoId=request.getMemberProfilePhotoId();
         if(request.isPhotoProvided()&&photoId!=null)
             media.findById(photoId).filter(m->m.usableBy(actor)).orElseThrow(()->SharingException.invalid("본인이 업로드한 유효한 다이어리 프로필 사진을 선택해 주세요."));
-        updateMember(member,request,request.isPhotoProvided(),photoId);return views.profile(member);
+        updateMember(diary,member,request,request.isPhotoProvided(),photoId);return views.profile(member);
     }
     private void validatePage(UUID diary,DiaryProfileUpdateRequest request){
         if(request.getLastOpenedPageId()!=null&&!pages.activePage(diary,request.getLastOpenedPageId()))throw SharingException.invalid("이 다이어리의 유효한 페이지를 선택해 주세요.");
     }
-    private void updateMember(DiaryMember member,DiaryProfileUpdateRequest request,boolean photoProvided,UUID photoId){
+    private void updateMember(UUID diary,DiaryMember member,DiaryProfileUpdateRequest request,boolean photoProvided,UUID photoId){
         member.update(request.getFavorite(),request.getLastOpenedPageId(),Instant.now());
         member.changeProfile(request.isNicknameProvided(),request.getNickname(),photoProvided,photoId);
+        if(memberIdentityChanged(request,photoProvided))events.publishEvent(new DiaryMembershipChanged(diary));
     }
+    // Called inside TransactionTemplate#execute, so the socket's AFTER_COMMIT listener is retained.
+    public static boolean memberIdentityChanged(DiaryProfileUpdateRequest request,boolean photoProvided){return request.isNicknameProvided()||photoProvided;}
 }

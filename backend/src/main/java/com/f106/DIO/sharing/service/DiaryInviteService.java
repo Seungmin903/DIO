@@ -2,6 +2,7 @@ package com.f106.DIO.sharing.service;
 import com.f106.DIO.diary.domain.DiaryMember;
 import com.f106.DIO.diary.domain.DiaryMemberId;
 import com.f106.DIO.diary.repository.DiaryMemberRepository;
+import com.f106.DIO.sharing.domain.DiaryMembershipChanged;
 import com.f106.DIO.sharing.domain.*;
 import com.f106.DIO.sharing.dto.*;
 import com.f106.DIO.sharing.exception.SharingException;
@@ -22,8 +23,9 @@ public class DiaryInviteService {
     private final DiaryInviteRepository invites;
     private final InviteTokens tokens;
     private final jakarta.persistence.EntityManager entities;
-    public DiaryInviteService(SharingAccessService access,DiaryMemberRepository members,DiaryInviteRepository invites,InviteTokens tokens,jakarta.persistence.EntityManager entities,com.f106.DIO.moderation.service.BlockService blocks){
-        this.blocks=blocks;this.access=access;this.members=members;this.invites=invites;this.tokens=tokens;this.entities=entities;
+    private final org.springframework.context.ApplicationEventPublisher events;
+    public DiaryInviteService(SharingAccessService access,DiaryMemberRepository members,DiaryInviteRepository invites,InviteTokens tokens,jakarta.persistence.EntityManager entities,com.f106.DIO.moderation.service.BlockService blocks,org.springframework.context.ApplicationEventPublisher events){
+        this.blocks=blocks;this.access=access;this.members=members;this.invites=invites;this.tokens=tokens;this.entities=entities;this.events=events;
     }
     @Transactional(readOnly=true)
     public InviteLinkResponse current(UUID id,long actor) {
@@ -93,6 +95,7 @@ public class DiaryInviteService {
         if(invite.email())invite.acceptedEmail(Instant.now());else invite.used();
         // Joining by a shared link also consumes a pending invitation for this recipient.
         invites.pendingEmail(id,actor).ifPresent(i->i.acceptedEmail(Instant.now()));
+        events.publishEvent(new DiaryMembershipChanged(id));
         return new InviteAcceptResponse(id,"EDITOR",false,count+1,SharingPolicy.MAX_MEMBERS);
     }
     private boolean requiresConfirmation(com.f106.DIO.diary.domain.Diary diary,long actor){

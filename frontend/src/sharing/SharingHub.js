@@ -26,6 +26,7 @@ import { colors } from '../shared/theme';
 import { useFormFactor } from '../shared/useFormFactor';
 import { normalizeSharingNickname, sharingNicknameError, inviteEmailError, MAX_SHARING_MEMBERS, COPY_TITLE_LIMIT, copyTitleError, defaultCopyTitle } from './sharingContracts';
 import { sharingStyles as s } from './styles';
+import { isSharingDiaryId } from './sharingApi';
 
 // 미리보기 초대는 full 을 채우고, 서버 초대는 참여 인원(memberCount)만 준다
 function isInviteFull(invite) {
@@ -230,6 +231,19 @@ export default function SharingHub({
     } else setScreen('invitations');
     store.refresh();
   }, [request, runtime, store]);
+  // A different member can join, leave, or receive ownership while this sheet is open.
+  // Subscribe to the runtime store so the visible role and member count follow its refresh.
+  useEffect(() => {
+    if (!diary?.id || typeof runtime.subscribe !== 'function') return undefined;
+    return runtime.subscribe(() => {
+      const current = runtime.getSnapshot?.().diaries?.find(value => value.id === diary.id);
+      if (current) setDiary(previous => previous?.id === current.id ? { ...previous, members: current.members, ownerId: current.ownerId, myRole: current.myRole } : current);
+    });
+  }, [diary?.id, runtime]);
+  useEffect(() => {
+    if (!isSharingDiaryId(diary?.id) || !runtime.server || typeof runtime.watchDiary !== 'function') return undefined;
+    return runtime.watchDiary(diary.id, { onUnavailable: setError });
+  }, [diary?.id, runtime]);
   useEffect(() => {
     if (!toast) return;
     const timer = setTimeout(() => setToast(''), 2500);
