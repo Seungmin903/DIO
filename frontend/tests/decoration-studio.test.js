@@ -88,6 +88,35 @@ test('iOS 공방의 사진·PDF 선택은 메뉴가 닫힌 뒤 한 번만 연다
     }
   } finally { globalThis.requestAnimationFrame = previous }
 })
+test('iOS 메뉴 닫힘 취소·이벤트 유실 후 다시 선택할 수 있고 이전 닫힘은 새 요청을 열지 않는다', async () => {
+  const oldTimeout = globalThis.setTimeout, oldClear = globalThis.clearTimeout, oldFrame = globalThis.requestAnimationFrame
+  const timers = new Map(); let seq = 0
+  globalThis.setTimeout = fn => { const id = ++seq; timers.set(id, fn); return id }
+  globalThis.clearTimeout = id => timers.delete(id)
+  globalThis.requestAnimationFrame = fn => fn()
+  try {
+    const calls = [], ui = fixture({ platform: 'ios', pickerCalls: calls })
+    ui.render(); await tick(); ui.tab('tapes')
+    const open = () => {
+      find(ui.render(), '테이프 추가').props.onPress()
+      const menu = nodes(ui.render()).find(n => n.type === '../components/DiaryActionBubble')
+      menu.props.actions.find(item => item.text === '사진으로 만들기').onPress()
+      return nodes(ui.render()).find(n => n.type === '../components/DiaryActionBubble')
+    }
+    const first = open(); first.props.onClose()
+    const second = open(); first.props.onDismiss()
+    assert.deepEqual(calls, [])
+    second.props.onDismiss(); await tick()
+    assert.deepEqual(calls, [['photo', 'tape']])
+    const third = open(); [...timers.values()][0]() // 닫힘 이벤트가 오지 않는 경우
+    assert.equal(nodes(ui.render()).some(n => n.type === '../components/DiaryActionBubble'), false)
+    assert.ok(nodes(ui.render()).some(n => n.props.children === '사진을 불러오지 못했어요. 다시 시도해 주세요.'))
+    const fourth = open(); third.props.onDismiss(); fourth.props.onDismiss(); await tick()
+    assert.deepEqual(calls, [['photo', 'tape'], ['photo', 'tape']])
+    open(); ui.tab('covers'); assert.equal(timers.size, 0)
+    ui.unmount()
+  } finally { globalThis.setTimeout = oldTimeout; globalThis.clearTimeout = oldClear; globalThis.requestAnimationFrame = oldFrame }
+})
 test('폰트 제작 재사용·닫기 후 목록 새로고침과 파일 오류 안내를 제공한다', async () => {
   const ui = fixture(); ui.render(); await tick()
   assert.equal(find(ui.render(),'폰트 관리'),undefined)

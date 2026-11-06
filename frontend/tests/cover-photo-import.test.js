@@ -16,3 +16,9 @@ test('가져온 가로 사진은 가로 표지로 만들고 자른 위치와 비
   assert.equal(saved.photo.aspect, 1600 / 900)
   assert.deepEqual(saved.photo.crop, crop)
 })
+
+test('사진 크기가 없거나 유효하지 않으면 잘못된 표지를 저장하지 않는다', () => {
+  for (const photo of [{}, { width: 100, height: 0 }, { width: Infinity, height: 10 }, { width: -1, height: 10 }]) {
+    assert.throws(() => coverPhotoWithAspect(photo), /사진 크기/)
+  }
+})

@@ -3,7 +3,11 @@
 export const COVER_PHOTO_RATIO = { portrait: 3 / 4, landscape: 4 / 3 }
 
 // 가져온 이미지에는 픽셀 크기가 있고 표지에는 가로/세로 비율이 필요하다.
-export const coverPhotoWithAspect = photo => ({ ...photo, aspect: photo.width / photo.height })
+export function coverPhotoWithAspect(photo) {
+  const { width, height } = photo ?? {}
+  if (![width, height].every(value => Number.isFinite(value) && value > 0)) throw new Error('사진 크기를 확인하지 못했어요.')
+  return { ...photo, aspect: width / height }
+}
 
 export function coverCropPhoto(photo, ratio) {
   const imageWidth = photo.width ?? (photo.aspect ? photo.aspect * 1000 : 1000)

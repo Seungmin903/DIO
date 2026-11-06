@@ -95,24 +95,38 @@ export default function DecorationStudioScreen({ compact = false, registerBackHa
   // '○○ 추가' 말풍선: 어느 종류인지와 버튼 자리(anchor). 버튼마다 자리를 재려고 감싼 칸을 기억해 둔다
   const [addMenu, setAddMenu] = useState(null);
   const pickerAfterMenu = useRef(null);
+  const pickerTimer = useRef(null), pickerEpoch = useRef(0);
   const addButtons = useRef({});
+  const clearPickerTimer = () => { if (pickerTimer.current != null) clearTimeout(pickerTimer.current); pickerTimer.current = null; };
+  const closeAddMenu = () => { clearPickerTimer(); pickerAfterMenu.current = null; pickerEpoch.current++; setAddMenu(null); };
   // iOS에서는 메뉴 모달이 완전히 닫힌 뒤 시스템 선택 창을 연다.
   const openPickerAfterMenu = action => {
-    if (Platform.OS !== 'ios') { setAddMenu(null); action(); return; }
+    if (Platform.OS !== 'ios') { closeAddMenu(); action(); return; }
     if (pickerAfterMenu.current) return;
-    pickerAfterMenu.current = action;
-    setAddMenu(menu => menu ? { ...menu, closing: true } : menu);
+    const kind = addMenu?.kind;
+    setShelfError(null); setMakeError(null);
+    const token = ++pickerEpoch.current;
+    pickerAfterMenu.current = { token, action };
+    setAddMenu(menu => menu ? { ...menu, closing: true, token } : menu);
+    // 닫힘 이벤트가 유실되면 취소해 사용자가 다시 시도할 수 있게 한다.
+    pickerTimer.current = setTimeout(() => {
+      if (pickerAfterMenu.current?.token !== token) return;
+      closeAddMenu();
+      if (kind === 'tape') setShelfError('tape');
+      else if (kind === 'cover') setMakeError({ kind: 'cover', text: '선택 창을 열지 못했어요. 다시 시도해 주세요.' });
+    }, 2000);
   };
-  const onAddMenuDismiss = () => {
-    const action = pickerAfterMenu.current;
+  const onAddMenuDismiss = token => {
+    const pending = pickerAfterMenu.current;
+    if (!pending || pending.token !== token) return;
+    clearPickerTimer();
     pickerAfterMenu.current = null;
-    if (!action) return;
     setAddMenu(null);
-    requestAnimationFrame(() => { if (alive.current) action(); });
+    requestAnimationFrame(() => { if (alive.current && pickerEpoch.current === token) pending.action(); });
   };
   // 공방에서 표지 · 속지 만들기: 지금 하는 일('cover-pdf' | 'cover-photo' | 'paper'), PDF 쪽 그리기 진행, 실패 알림({ kind, text })
   const [making, setMaking] = useState(null), [makeProgress, setMakeProgress] = useState(null), [makeError, setMakeError] = useState(null);
-  const setTab = id => { lastTab = id; setTabState(id); setFolderId(null); setPaperId(null); setTapeFolderId(null); setTapeRename(null); };
+  const setTab = id => { closeAddMenu(); lastTab = id; setTabState(id); setFolderId(null); setPaperId(null); setTapeFolderId(null); setTapeRename(null); };
   const alive = useRef(false), request = useRef(0);
   const folderRef = useRef(null);
   folderRef.current = folderId;
@@ -136,7 +150,7 @@ export default function DecorationStudioScreen({ compact = false, registerBackHa
       if (alive.current && token === request.current) { setFonts(next); setFontState('ready'); }
     } catch { if (alive.current && token === request.current) setFontState('error'); }
   }
-  useEffect(() => { alive.current = true; return () => { alive.current = false; request.current++; }; }, []);
+  useEffect(() => { alive.current = true; return () => { alive.current = false; request.current++; clearPickerTimer(); pickerAfterMenu.current = null; pickerEpoch.current++; }; }, []);
   useEffect(() => { if (!studio) refreshFonts(); }, [studio]);
 
   // 지우기 확인 창: 스티커 · 스티커 폴더 · 나의 표지 · 나의 속지가 하나의 창을 쓴다.
@@ -423,18 +437,18 @@ export default function DecorationStudioScreen({ compact = false, registerBackHa
     }} />}
     {tool === 'cutout' && <StickerCutoutModal folder={folder} onClose={() => setTool(null)} />}
     {/* 스티커는 편집기 스티커 보관함의 + 와 같은 이름 · 순서 · 아이콘(그곳의 '이미지 그대로 추가'는 폴더 안에서만 쓴다) */}
-    {addMenu && <DiaryActionBubble visible={!addMenu.closing} onDismiss={onAddMenuDismiss} anchor={addMenu.anchor} title={addMenu.kind === 'cover' ? '표지 추가' : addMenu.kind === 'tape' ? '테이프 추가' : '스티커 추가'} onClose={() => setAddMenu(null)} actions={addMenu.kind === 'tape' ? [
+    {addMenu && <DiaryActionBubble visible={!addMenu.closing} onDismiss={() => onAddMenuDismiss(addMenu.token)} anchor={addMenu.anchor} title={addMenu.kind === 'cover' ? '표지 추가' : addMenu.kind === 'tape' ? '테이프 추가' : '스티커 추가'} onClose={closeAddMenu} actions={addMenu.kind === 'tape' ? [
       { id: 'photo', label: '사진으로 만들기', text: '사진으로 만들기', icon: 'image', onPress: () => openPickerAfterMenu(() => addTapeFromPhoto(null)) },
-      { id: 'folder', label: '새 폴더', text: '새 폴더', icon: 'folder', onPress: () => { setAddMenu(null); newTapeFolder(); } },
+      { id: 'folder', label: '새 폴더', text: '새 폴더', icon: 'folder', onPress: () => { closeAddMenu(); newTapeFolder(); } },
     ] : addMenu.kind === 'cover' ? [
       { id: 'pdf', label: 'PDF로 만들기', text: 'PDF로 만들기', icon: 'upload', onPress: () => openPickerAfterMenu(() => makeFromPdf('cover')) },
       { id: 'photo', label: '사진으로 만들기', text: '사진으로 만들기', icon: 'image', onPress: () => openPickerAfterMenu(makeCoverFromPhoto) },
     ] : [
       { id: 'split', label: stickerSplit.available ? '스티커 시트 분리' : `스티커 시트 분리, ${stickerSplit.reason || '이 기기에서는 쓸 수 없어요'}`, text: '스티커 시트 분리', icon: 'grid',
-        disabled: !stickerSplit.available, onPress: () => { setAddMenu(null); loginGate('스티커 시트 분리', () => setTool('split')); } },
+        disabled: !stickerSplit.available, onPress: () => { closeAddMenu(); loginGate('스티커 시트 분리', () => setTool('split')); } },
       // 사진 속 대상 오리기: 저장이 아직 미리보기 단계라(StickerCutoutModal 확인창) 모든 빌드에서 입구를 감춘다
       ...(CUTOUT_ENTRANCE ? [{ id: 'cutout', label: '사진 속 대상 오리기', text: '사진 속 대상 오리기', icon: 'scissors',
-        onPress: () => { setAddMenu(null); loginGate('사진 속 대상 오리기', () => setTool('cutout')); } }] : []),
+        onPress: () => { closeAddMenu(); loginGate('사진 속 대상 오리기', () => setTool('cutout')); } }] : []),
     ]} />}
     {coverCrop && <PhotoCropper photo={coverCropPhoto(coverCrop.photo, coverCrop.ratio)} fixedAspect={coverCrop.ratio} title="표지 사진 자르기"
       onCancel={() => { coverCrop.resolve(null); setCoverCrop(null); }} onApply={({ crop }) => { coverCrop.resolve(crop); setCoverCrop(null); }} />}
