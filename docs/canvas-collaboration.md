@@ -76,7 +76,7 @@ Jira: S15P31F106-350~355. 커서는 이번 범위에서 제외한다.
 {"type":"AUTH","accessToken":"발급받은 Access Token"}
 ```
 
-인증·참여 검증 후 `READY`가 온다. 변경 트랜잭션이 커밋되면 `PAGE_CHANGED`(pageId, operationId, clientOperationId, actorUserId, revision, action)를 보낸다. 페이지 목록이 바뀌면 `PAGES_CHANGED`, 참여·탈퇴·강퇴·소유권 이전이 커밋되면 `MEMBERS_CHANGED`를 각각 `{"type":"PAGES_CHANGED","diaryId":"UUID"}`, `{"type":"MEMBERS_CHANGED","diaryId":"UUID"}` 형식으로 보낸다. 프론트는 페이지·참여자 이벤트를 받은 뒤 해당 HTTP 목록을 다시 조회하며, 소유자·역할 표시는 그 결과로 갱신한다. WS로 요소 변경이나 커서는 전송하지 않는다.
+인증·참여 검증 후 `READY`가 온다. 변경 트랜잭션이 커밋되면 `PAGE_CHANGED`(pageId, operationId, clientOperationId, actorUserId, revision, action)를 보낸다. 페이지 목록이 바뀌면 `PAGES_CHANGED`, 참여·탈퇴·강퇴·소유권 이전·멤버 닉네임/프로필 사진 변경·계정 탈퇴에 따른 멤버 이탈이 커밋되면 `MEMBERS_CHANGED`를 각각 `{"type":"PAGES_CHANGED","diaryId":"UUID"}`, `{"type":"MEMBERS_CHANGED","diaryId":"UUID"}` 형식으로 보낸다. 프론트는 페이지·참여자 이벤트를 받은 뒤 해당 HTTP 목록을 다시 조회하며, 소유자·역할 표시는 그 결과로 갱신한다. WS로 요소 변경이나 커서는 전송하지 않는다.
 
 클라이언트는 15초 간격으로 PING을 보내고 PONG을 받는다. Access Token이 갱신되면 AUTH로 교체한다. 서버는 주기적으로 세션·참여 권한도 검사하고 로그아웃·강퇴·만료 시 1008로 닫는다. 미인증 연결은 약 5~6초 후 닫는다. 프레임 크기·빈도와 서버/IP/사용자별 연결 수를 제한한다.
 
