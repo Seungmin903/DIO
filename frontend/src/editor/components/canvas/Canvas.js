@@ -6,7 +6,7 @@ import { PHOTO_SHAPES } from '../../constants'
 import { usePan } from '../../hooks/usePan'
 import { installDrawingSelectionGuard } from '../../utils/drawingSelectionGuard.js'
 import { expandGroups } from '../../state/editorReducer'
-import { centerOf, clamp, rotateVector, unionBounds } from '../../utils/common'
+import { centerOf, clamp, createId, rotateVector, unionBounds } from '../../utils/common'
 import { isMultiSelectKey } from '../../utils/modifiers'
 import { coverLayout, photoInnerBox } from '../../utils/objects'
 import { isStripFrame, stripCellAt } from '../../utils/photoStrip'
@@ -685,14 +685,15 @@ function HitOutline({ object, zoom }) {
 
 function GroupFrame({ objects, zoom, inside, enabled, dispatch, onInteracting }) {
   const bounds = unionBounds(objects)
-  const pad = 8
   const canResize = enabled && objects.every(object => !object.locked) && Boolean(groupResizeStart(objects, 1, 1))
+  // Keep the whole 44pt target inside its parent; Android cannot hit outside it.
+  const pad = canResize ? 22 : 8
+  const inset = pad - 8
   return (
     <View
       pointerEvents={canResize ? 'box-none' : 'none'}
       style={[
-        styles.groupFrame,
-        inside && styles.groupFrameInside,
+        styles.groupFrameContainer,
         {
           left: bounds.left * zoom - pad,
           top: bounds.top * zoom - pad,
@@ -701,7 +702,9 @@ function GroupFrame({ objects, zoom, inside, enabled, dispatch, onInteracting })
         },
       ]}
     >
-      {!inside && <Text pointerEvents="none" style={styles.groupLabel}>{objects.length}개 선택</Text>}
+      <View pointerEvents="none" style={[styles.groupFrame, inside && styles.groupFrameInside, { left:inset, top:inset, right:inset, bottom:inset }]}>
+        {!inside && <Text style={styles.groupLabel}>{objects.length}개 선택</Text>}
+      </View>
       {canResize && [[-1,-1],[1,-1],[-1,1],[1,1]].map(([sx,sy]) =>
         <GroupResizeHandle key={`${sx},${sy}`} objects={objects} zoom={zoom} sx={sx} sy={sy} dispatch={dispatch} onInteracting={onInteracting} />)}
     </View>
@@ -710,29 +713,37 @@ function GroupFrame({ objects, zoom, inside, enabled, dispatch, onInteracting })
 
 function GroupResizeHandle({ objects, zoom, sx, sy, dispatch, onInteracting }) {
   const gesture = useRef(null)
+  useEffect(() => () => {
+    const g = gesture.current
+    gesture.current = null
+    if (g?.checkpointed) dispatch({ type:'revertToCheckpoint', checkpointOwner:g.owner })
+    if (g) onInteracting(false)
+  }, [dispatch, onInteracting])
   const pan = usePan({
-    onStart: () => { gesture.current = { start: groupResizeStart(objects, sx, sy), zoom, checkpointed: false }; onInteracting(true) },
+    onStart: () => { gesture.current = { start: groupResizeStart(objects, sx, sy), zoom, owner:createId(), checkpointed: false }; onInteracting(true) },
     onMove: (dx, dy) => {
       const g = gesture.current
       if (!g?.start) return
       const patches = groupResizePatches(g.start, dx / g.zoom, dy / g.zoom)
       if (!patches) {
-        if (g.checkpointed) { dispatch({ type: 'revertToCheckpoint' }); g.checkpointed = false }
+        if (g.checkpointed) { dispatch({ type: 'revertToCheckpoint', checkpointOwner:g.owner }); g.checkpointed = false }
         return
       }
-      if (!g.checkpointed) { dispatch({ type: 'checkpoint' }); g.checkpointed = true }
+      if (!g.checkpointed) { dispatch({ type: 'checkpoint', checkpointOwner:g.owner, collaborationId:g.owner }); g.checkpointed = true }
       dispatch({ type: 'updateMany', patches })
     },
     onEnd: ({ cancelled }) => {
       const g = gesture.current
       gesture.current = null
-      if (cancelled && g?.checkpointed) dispatch({ type: 'revertToCheckpoint' })
+      if (cancelled && g?.checkpointed) dispatch({ type: 'revertToCheckpoint', checkpointOwner:g.owner })
       else if (g?.checkpointed) dispatch({ type: 'commitCheckpoint' })
       onInteracting(false)
     },
   })
-  return <View {...pan} accessibilityLabel="선택한 요소 크기 조절" hitSlop={8}
-    style={[styles.groupResizeHandle, sx < 0 ? { left: 0 } : { right: 0 }, sy < 0 ? { top: 0 } : { bottom: 0 }]} />
+  return <View {...pan} accessibilityLabel="선택한 요소 크기 조절"
+    style={[styles.groupResizeTarget, sx < 0 ? { left: 0 } : { right: 0 }, sy < 0 ? { top: 0 } : { bottom: 0 }]}>
+    <View pointerEvents="none" style={styles.groupResizeHandle} />
+  </View>
 }
 
 const contains = (rect, p) => p.x >= rect.left && p.x <= rect.right && p.y >= rect.top && p.y <= rect.bottom
@@ -1112,6 +1123,7 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     backgroundColor: 'rgba(129,125,185,0.12)',
   },
+  groupFrameContainer: { position:'absolute' },
   groupFrame: {
     position: 'absolute',
     borderWidth: 2,
@@ -1120,7 +1132,8 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   groupFrameInside: { borderWidth: 1.5, borderColor: 'rgba(129,125,185,0.55)' },
-  groupResizeHandle: { position: 'absolute', width: 18, height: 18, borderRadius: 9, borderWidth: 2, borderColor: colors.primary, backgroundColor: colors.surface },
+  groupResizeTarget: { position:'absolute', width:44, height:44, alignItems:'center', justifyContent:'center' },
+  groupResizeHandle: { width: 18, height: 18, borderRadius: 9, borderWidth: 2, borderColor: colors.primary, backgroundColor: colors.surface },
   groupLabel: {
     position: 'absolute',
     top: -26,

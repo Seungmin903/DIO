@@ -4,6 +4,8 @@ import { createRequire } from 'node:module'
 import { readFileSync } from 'node:fs'
 import { groupResizeStart, groupResizePatches } from '../src/editor/utils/groupResize.js'
 import { unionBounds } from '../src/editor/utils/common.js'
+import * as common from '../src/editor/utils/common.js'
+import { createLassoOutline, resolveLassoOutline } from '../src/editor/utils/lassoOutline.js'
 import { editorReducer, createInitialState } from '../src/editor/state/editorReducer.js'
 import { collaborationReducer } from '../src/collaboration/collaborationReducer.js'
 import { encodeElement, decodeElement } from '../src/collaboration/canvasElements.js'
@@ -49,6 +51,39 @@ test('축소 한계, 텍스트 기준 너비, 테이프 조각 및 필기 원본
   assert.equal(groupResizePatches(start,0,0),null)
 })
 
+test('극단적인 확대와 반복 축소에서도 서버의 좌표·크기 범위를 지킨다', () => {
+  let current=objects
+  const start=groupResizeStart(current,1,1), huge=groupResizePatches(start,1e15,1e15)
+  for (const patch of Object.values(huge)) for (const key of ['x','y','w','h']) assert.ok(Math.abs(patch[key])<=999999999.001)
+  for(let i=0;i<60;i++) {
+    const next=groupResizeStart(current,1,1), patches=groupResizePatches(next,-next.width*5,-next.height*5)
+    if (!patches) break
+    current=current.map(o=>({...o,...patches[o.id]}))
+  }
+  assert.ok(current.every(o=>o.w>=0.001-1e-10&&o.h>=0.001-1e-10))
+})
+
+test('올가미로 선택한 요소를 크기 조절하면 이전 선택 윤곽은 사라진다', () => {
+  const ids=objects.map(o=>o.id), polygon=[{x:-100,y:-100},{x:300,y:-100},{x:300,y:300},{x:-100,y:300}]
+  const outline=createLassoOutline(null,'page',[],ids,objects,polygon,'replace')
+  assert.ok(outline); assert.ok(resolveLassoOutline(outline,'page',ids,objects))
+  const start=groupResizeStart(objects,1,1), patches=groupResizePatches(start,30,30)
+  assert.equal(resolveLassoOutline(outline,'page',ids,objects.map(o=>({...o,...patches[o.id]}))),null)
+})
+
+test('이전 손잡이의 취소가 새 제스처의 체크포인트를 건드리지 않는다', () => {
+  for (const shared of [false,true]) {
+    let s=createInitialState({pages:[{id:'page',objects}]})
+    const reduce=(state,action)=>shared?collaborationReducer(editorReducer,state,{collaborationId:action.checkpointOwner??'other',...action}):editorReducer(state,action)
+    s=reduce(s,{type:'checkpoint',checkpointOwner:'old'})
+    s=reduce(s,{type:'updateMany',patches:groupResizePatches(groupResizeStart(objects,1,1),10,10)})
+    s=reduce(s,{type:'checkpoint',checkpointOwner:'new'})
+    const before=s
+    s=reduce(s,{type:'revertToCheckpoint',checkpointOwner:'old'})
+    assert.equal(s,before)
+  }
+})
+
 test('다중 크기 변경은 한 번에 되돌리고 공유 편집 큐에 하나의 작업으로 기록한다', () => {
   let s=createInitialState({pages:[{id:'page',objects}]})
   const apply = action => { s=collaborationReducer(editorReducer,s,{collaborationId:'30000000-0000-4000-8000-000000000001',...action}) }
@@ -76,24 +111,34 @@ test('크기를 바꾼 그룹 요소가 공유 캔버스 직렬화와 재조회�
 test('실제 손잡이 이벤트는 배율을 반영하고 취소하면 원상복구한다', () => {
   const require=createRequire(import.meta.url), expo=createRequire(require.resolve('expo/package.json'))
   const source=readFileSync(new URL('../src/editor/components/canvas/Canvas.js',import.meta.url),'utf8')
-  const {code}=expo('@babel/core').transformSync(source+'\nexport { GroupResizeHandle }',{
+  const {code}=expo('@babel/core').transformSync(source+'\nexport { GroupFrame, GroupResizeHandle }',{
     configFile:false,babelrc:false,plugins:[[expo.resolve('@babel/plugin-transform-react-jsx'),{runtime:'automatic'}],expo.resolve('@babel/plugin-transform-modules-commonjs')],
   })
-  let handlers, s=createInitialState({pages:[{id:'page',objects}]})
+  let handlers, cleanup, s=createInitialState({pages:[{id:'page',objects}]})
   const actions=[], dispatch=action=>{actions.push(action.type);s=editorReducer(s,action)}
   const mod={exports:{}}
   const load=id=>{
-    if(id==='react')return {forwardRef:f=>f,memo:f=>f,useRef:v=>({current:v}),useState:v=>[v,()=>{}],useEffect(){},useLayoutEffect(){},useMemo:f=>f(),useImperativeHandle(){}}
+    if(id==='react')return {forwardRef:f=>f,memo:f=>f,useRef:v=>({current:v}),useState:v=>[v,()=>{}],useEffect:f=>{cleanup=f()},useLayoutEffect(){},useMemo:f=>f(),useImperativeHandle(){}}
     if(id==='react-native')return {View:'view',Text:'text',Platform:{OS:'ios',select:options=>options.ios??options.default},StyleSheet:{create:v=>v}}
     if(id.endsWith('/usePan'))return {usePan:h=>{handlers=h;return {}}}
     if(id.endsWith('/groupResize.js'))return {groupResizeStart,groupResizePatches}
+    if(id.endsWith('/common'))return common
     if(id.endsWith('/theme'))return {colors:{},radius:{},DISABLED_OPACITY:0.5}
     if(id.startsWith('.'))return {__esModule:true,default:()=>null}
     return require(id)
   }
   new Function('require','module','exports',code)(load,mod,mod.exports)
-  mod.exports.GroupResizeHandle({objects,zoom:2,sx:1,sy:1,dispatch,onInteracting(){}})
+  const frame=mod.exports.GroupFrame({objects,zoom:2,enabled:true,dispatch,onInteracting(){}})
+  assert.equal(frame.props.pointerEvents,'box-none')
+  assert.equal(frame.props.children[1].length,4)
+  assert.equal(mod.exports.GroupFrame({objects:[objects[0],{...objects[1],locked:true}],zoom:2,enabled:true}).props.pointerEvents,'none')
+  const handle=mod.exports.GroupResizeHandle({objects,zoom:2,sx:1,sy:1,dispatch,onInteracting(){}})
+  assert.equal(handle.props.style[0].width,44); assert.equal(handle.props.style[0].height,44)
   handlers.onStart(); handlers.onMove(60,60); handlers.onEnd({cancelled:true})
+  assert.deepEqual(actions,['checkpoint','updateMany','revertToCheckpoint'])
+  assert.deepEqual(s.doc.pages[0].objects,objects)
+  actions.length=0
+  handlers.onStart(); handlers.onMove(60,60); cleanup()
   assert.deepEqual(actions,['checkpoint','updateMany','revertToCheckpoint'])
   assert.deepEqual(s.doc.pages[0].objects,objects)
 })

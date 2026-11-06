@@ -38,6 +38,7 @@ const geometryChanges = (state,action) => {
   return {ids,updates}
 }
 export function collaborationReducer(reduce,state,action) {
+  if(action.type==='revertToCheckpoint'&&action.checkpointOwner&&state.pendingCheckpoint?.owner!==action.checkpointOwner)return state
   if (action.type === 'canvasLimitNoticeShown') return state.collaborationLimitError?.id === action.id
     ? {...state,collaborationLimitError:null} : state
   const geometry=geometryChanges(state,action)
