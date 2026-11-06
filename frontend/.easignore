@@ -20,6 +20,12 @@ dist-android/
 web-build/
 .tmp-context-menu-export/
 
+# Remote assets (fonts · stickers · templates) are served from S3/CloudFront, not bundled.
+# Metro only bundles required files, but EAS uploads the project folder, so keep their sources and
+# the local upload folder out of the build upload (remote-assets-dist is ~54 MB).
+remote-content/
+remote-assets-dist/
+
 # Logs and editor metadata.
 logs/
 *.log
