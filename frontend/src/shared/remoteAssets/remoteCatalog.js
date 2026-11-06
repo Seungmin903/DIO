@@ -1,11 +1,13 @@
 // 앱 배포 없이 추가하는 에셋 목록(에셋 저장소의 catalog.json).
 // scripts/build-remote-assets.mjs 가 remote-content/ 에서 만들고, 앱은 켜질 때 받아 기기에 저장해 둔다(오프라인이면 저장본).
-// 목록에는 이름과 파일 위치만 있고, 글꼴 파일은 쓸 때, 스티커 팩(작은 JSON)은 목록을 읽을 때 받는다.
+// 목록에는 이름과 파일 위치만 있고, 글꼴 · 속지 파일은 쓸 때, 스티커 팩(작은 JSON)은 목록을 읽을 때 받는다.
 //
 // catalog.json
 //   { schemaVersion: 1,
 //     fonts: [{ id, label, regular: 파일, bold?: 파일, hidden? }],
-//     stickerPacks: [{ id, name, file: 파일, hidden? }] }
+//     stickerPacks: [{ id, name, file: 파일, hidden? }],
+//     templates: [{ id, name, group: 'note'|'planner'|'diary', landscape: 파일, portrait: 파일, hidden? }] }
+//   속지는 한 장짜리(장수를 고르는 속지)이며 서버에는 범용 행 dio-remote-<방향>(V33) + 페이지 설정 remoteTemplate 으로 저장된다.
 //   파일 = { key, size, sha256 }  (key 는 에셋 저장소 기준 경로, 이름에 내용 해시가 들어 있다)
 // hidden: 목록(글꼴 고르기 · 스티커 보관함)에서만 숨긴다. 이미 쓴 문서는 계속 그린다. 항목을 지우면 그 문서가 기본 모양으로 바뀐다.
 
@@ -24,6 +26,8 @@ function file(value) {
   return { remote: true, path: value.key, key: value.key, size: value.size, sha256: value.sha256 }
 }
 
+/** 원격 속지를 넣을 속지 고르기 탭(diary/utils/paperChoice.js 의 PAPER_GROUPS) */
+export const TEMPLATE_GROUPS = ['note', 'planner', 'diary']
 const unique = items => { const seen = new Set(); return items.filter(item => !seen.has(item.id) && seen.add(item.id)) }
 
 /** catalog.json → 쓸 수 있는 항목만. 형식이 다른 항목은 건너뛰고, 스키마 버전이 다르면 null(예전 앱이 모르는 형식) */
@@ -39,7 +43,12 @@ export function parseCatalog(value) {
     if (!ID.test(pack?.id ?? '') || !label(pack.name) || !packFile) return null
     return { id: pack.id, name: label(pack.name), file: packFile, hidden: pack.hidden === true }
   }).filter(Boolean)
-  return { fonts: unique(fonts), stickerPacks: unique(stickerPacks) }
+  const templates = (Array.isArray(value.templates) ? value.templates : []).map(template => {
+    const landscape = file(template?.landscape), portrait = file(template?.portrait)
+    if (!ID.test(template?.id ?? '') || !label(template.name) || !TEMPLATE_GROUPS.includes(template.group) || !landscape || !portrait) return null
+    return { id: template.id, name: label(template.name), group: template.group, hidden: template.hidden === true, files: { landscape, portrait } }
+  }).filter(Boolean)
+  return { fonts: unique(fonts), stickerPacks: unique(stickerPacks), templates: unique(templates) }
 }
 
 const COLOR = /^#[0-9a-fA-F]{6}$/
@@ -71,9 +80,9 @@ export function catalogTextFonts(fonts) {
 /**
  * 원격 목록 불러오기. 의존성을 받아 테스트할 수 있게 한다.
  * fetchCatalog(): catalog.json 글자, storage: { getItem, setItem }, readText(파일): 스티커 팩 글자,
- * applyFonts(목록 항목들), applyStickerPack(팩) · retainStickerPacks(팩 id 들)
+ * applyFonts(목록 항목들), applyStickerPack(팩) · retainStickerPacks(팩 id 들), applyTemplates(속지 항목들)
  */
-export function createRemoteCatalog({ fetchCatalog, storage, readText, applyFonts, applyStickerPack, retainStickerPacks, log = () => {} }) {
+export function createRemoteCatalog({ fetchCatalog, storage, readText, applyFonts, applyStickerPack, retainStickerPacks, applyTemplates = () => {}, log = () => {} }) {
   let appliedText = null
   async function apply(text) {
     if (text === appliedText) return true
@@ -82,6 +91,7 @@ export function createRemoteCatalog({ fetchCatalog, storage, readText, applyFont
     if (!catalog) return false
     appliedText = text
     applyFonts(catalogTextFonts(catalog.fonts))
+    applyTemplates(catalog.templates)
     const ids = catalog.stickerPacks.map(pack => `remote:${pack.id}`)
     retainStickerPacks(ids) // 목록에서 빠진 팩을 먼저 뺀다
     await Promise.all(catalog.stickerPacks.map(async pack => {

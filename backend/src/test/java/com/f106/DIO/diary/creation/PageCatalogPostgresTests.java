@@ -110,7 +110,8 @@ class PageCatalogPostgresTests {
 
         flyway("latest").migrate();
 
-        assertThat(jdbc.queryForObject("select count(*) from page_templates",Long.class)).isEqualTo(292);
+        // V9 288 + V27 플래너 4 + V33 원격 속지 2
+        assertThat(jdbc.queryForObject("select count(*) from page_templates",Long.class)).isEqualTo(294);
         assertThat(jdbc.queryForList("select code from page_templates where code in ('study-planner-landscape','study-planner-portrait','day-planner-landscape','day-planner-portrait') order by code",String.class))
             .containsExactly("day-planner-landscape","day-planner-portrait","study-planner-landscape","study-planner-portrait");
         assertPlannerTemplate("study-planner-landscape","STUDY","LANDSCAPE",1024,768,288);
@@ -135,6 +136,13 @@ class PageCatalogPostgresTests {
         assertThat(jdbc.queryForObject("select version from pages where page_id=?",Long.class,landscapeWithCode)).isEqualTo(7L);
         assertThat(jdbc.queryForObject("select t.code from pages p join page_templates t on t.template_id=p.template_id where p.page_id=?",String.class,landscapeWithoutCode)).isEqualTo("day-planner-landscape");
         assertThat(jdbc.queryForObject("select version from pages where page_id=?",Long.class,landscapeWithoutCode)).isEqualTo(5L);
+    }
+
+    @Test void V33RegistersOneRemoteTemplatePerOrientationAndIsRepeatable() {
+        flyway("latest").migrate();
+        assertThat(jdbc.queryForList("select code||':'||category||':'||orientation||':'||canvas_width::int||'x'||canvas_height::int from page_templates where code like 'dio-remote-%' order by code",String.class))
+            .containsExactly("dio-remote-landscape:REMOTE:LANDSCAPE:1024x768","dio-remote-portrait:REMOTE:PORTRAIT:768x1024");
+        assertThat(jdbc.queryForObject("select default_config->>'blank' from page_templates where code='dio-remote-landscape'",String.class)).isEqualTo("false");
     }
 
     @Test void V27RejectsPageTemplateGeometryThatDoesNotMatchTheReplacement() throws Exception {

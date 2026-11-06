@@ -7,7 +7,7 @@ import { createDefaultDoc } from '../../editor/state/defaultDoc.js'
 import { STORAGE_KEYS } from '../../editor/utils/storageContract.js'
 import { TEMPLATE_VERSION, templateCanvasSize } from '../../editor/templates/catalog.js'
 import { datedBaseId, datedTemplate } from '../../editor/templates/dated.js'
-import { serverTemplateReference } from '../../editor/templates/serverCatalog.js'
+import { serverTemplateConfigFor, serverTemplateReference } from '../../editor/templates/serverCatalog.js'
 import { sharedObject, encodeElement } from '../../collaboration/canvasElements.js'
 import { mediaIds } from '../../collaboration/canvasMedia.js'
 import { pageSettingsBody } from '../../collaboration/pageSettings.js'
@@ -163,7 +163,7 @@ export function planGuestDiary(diary, doc, { createId }) {
     const appearance = page.paperAppearance ?? source.paperAppearance ?? diary.paperAppearance
     const serverAppearance = serverPaperAppearance(appearance)
     const initialPage = { templateId: template.assetId, templateCode: template.templateCode, templateVersion: template.templateVersion,
-      templateConfig: { width: defaultSize.width, height: defaultSize.height, ...(serverAppearance ? { paperAppearance: { backgroundColor: serverAppearance.backgroundColor, layoutColor: serverAppearance.layoutColor } } : {}), ...(template.assetId === null ? { blank: true } : {}) } }
+      templateConfig: { width: defaultSize.width, height: defaultSize.height, ...serverTemplateConfigFor(template.assetId), ...(serverAppearance ? { paperAppearance: { backgroundColor: serverAppearance.backgroundColor, layoutColor: serverAppearance.layoutColor } } : {}), ...(template.assetId === null ? { blank: true } : {}) } }
     const width = Number.isFinite(page.canvasWidth) ? page.canvasWidth : defaultSize.width
     const height = Number.isFinite(page.canvasHeight) ? page.canvasHeight : defaultSize.height
     // 생성 요청에 실을 수 없는 페이지 설정은 만든 뒤 PATCH 로 넣는다(속지 글꼴은 templateConfig 를 통째로 바꿔 넣는다).

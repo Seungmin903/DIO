@@ -4,6 +4,7 @@ import { STUDY_PLANNER_MENU_ITEM, STUDY_PLANNER_TEMPLATES } from './studyPlanner
 import { DAY_PLANNER_MENU_ITEM, DAY_PLANNER_TEMPLATES } from './dayPlanner.js'
 import { datedTemplate } from './dated.js'
 import { PLANNER_TEMPLATE_SELECTION_ENABLED } from './serverCatalog.js'
+import { remoteTemplateAsset } from './remoteTemplates.js'
 
 export const TEMPLATE_VERSION = catalog.templateVersion
 export const ANNUAL_PAGE_IDS = annualBook.pages
@@ -37,8 +38,8 @@ export class TemplateError extends Error {
 }
 
 export function getTemplate(id, version = TEMPLATE_VERSION) {
-  // 날짜 속지(dated-…)는 파일 없이 ID 에서 항목을 만든다
-  const asset = assets.get(id) ?? datedTemplate(id)
+  // 날짜 속지(dated-…)는 파일 없이 ID 에서 항목을 만든다. 원격 속지(remote-…)는 목록(catalog.json)에서 찾는다
+  const asset = assets.get(id) ?? datedTemplate(id) ?? remoteTemplateAsset(id)
   if (!asset || !['landscape', 'portrait'].includes(asset.orientation) || version !== asset.templateVersion) {
     throw new TemplateError('이 페이지의 내지 또는 버전을 찾을 수 없어요.')
   }

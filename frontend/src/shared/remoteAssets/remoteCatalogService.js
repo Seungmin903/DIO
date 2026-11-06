@@ -2,11 +2,12 @@ import AsyncStorage from '@react-native-async-storage/async-storage'
 import { Platform } from 'react-native'
 import { registerCatalogTextFonts } from '../../editor/utils/text'
 import { registerRemoteStickerPack, retainRemoteStickerPacks } from '../../editor/builtinStickers'
+import { registerRemoteTemplates } from '../../editor/templates/remoteTemplates.js'
 import { assetBaseUrl } from './remoteAssets.js'
 import { readRemoteText } from './remoteAssetFile'
 import { CATALOG_KEY, createRemoteCatalog } from './remoteCatalog.js'
 
-// 앱이 쓰는 원격 목록. App 이 켜질 때 한 번 부른다(loadRemoteCatalog). 실패해도 앱 동작에는 영향이 없다.
+// 앱이 쓰는 원격 목록(글꼴 · 스티커 팩 · 속지). App 이 켜질 때 한 번 부른다(loadRemoteCatalog). 실패해도 앱 동작에는 영향이 없다.
 async function fetchCatalog() {
   const baseUrl = assetBaseUrl({ os: Platform.OS })
   if (!baseUrl) throw new Error('asset base url not configured')
@@ -27,6 +28,7 @@ const catalog = createRemoteCatalog({
   applyFonts: registerCatalogTextFonts,
   applyStickerPack: registerRemoteStickerPack,
   retainStickerPacks: retainRemoteStickerPacks,
+  applyTemplates: registerRemoteTemplates,
   log: (...args) => { if (globalThis.__DEV__) console.info('[DIO_REMOTE_CATALOG]', ...args.map(String)) },
 })
 

@@ -5,8 +5,44 @@ import { spawnSync } from 'node:child_process'
 import { catalog } from '../src/editor/templates/data.js'
 import { UNDATED_TEMPLATES } from '../src/editor/templates/undated.js'
 import { getTemplate } from '../src/editor/templates/catalog.js'
-import { SERVER_TEMPLATE_CATALOG, serverTemplateReference, localTemplateReference, toServerInitialPageSelections, plannerTemplatesEnabled } from '../src/editor/templates/serverCatalog.js'
+import { SERVER_TEMPLATE_CATALOG, serverTemplateConfigFor, serverTemplateReference, localTemplateReference, toServerInitialPageSelections, plannerTemplatesEnabled } from '../src/editor/templates/serverCatalog.js'
 import { catalogContract, seedMigration, catalogResource, migrationResource, V9_CONTRACT_SHA256, normalizeV9ContractSource } from '../scripts/generate-page-template-catalog.mjs'
+
+const remoteMigrationResource = new URL('../../backend/src/main/resources/db/migration/V33__add_remote_page_templates.sql', import.meta.url)
+
+test('V33 원격 속지 시드는 프런트 원격 행과 같은 코드·규격·기본 설정을 쓴다', async () => {
+  const sql = await readFile(remoteMigrationResource, 'utf8')
+  const rows = SERVER_TEMPLATE_CATALOG.filter(row => row.remote)
+  assert.deepEqual(rows.map(row => row.templateCode), ['dio-remote-landscape', 'dio-remote-portrait'])
+  for (const row of rows) {
+    const seed = `('${row.templateCode}', '${row.templateVersion}', '${row.name}', '${row.category}', '${row.orientation}', ${row.canvasWidth}, ${row.canvasHeight}, '${JSON.stringify(row.defaultConfig)}'::jsonb`
+    assert.ok(sql.includes(seed), `missing V33 seed: ${row.templateCode}`)
+  }
+})
+
+test('원격 속지는 범용 서버 행과 remoteTemplate 설정으로 오가고, 어긋난 조합은 거부한다', () => {
+  for (const orientation of ['landscape', 'portrait']) {
+    const assetId = `remote-spring-note-${orientation}`
+    const ref = serverTemplateReference(assetId, '1.0.0', orientation)
+    assert.equal(ref.templateCode, `dio-remote-${orientation}`)
+    assert.deepEqual(serverTemplateConfigFor(assetId), { remoteTemplate: 'spring-note' })
+    const local = localTemplateReference(ref.templateCode, ref.templateVersion, { remoteTemplate: 'spring-note' })
+    assert.equal(local.backgroundAssetId, assetId)
+    assert.equal(getTemplate(assetId, local.templateVersion).orientation, orientation) // 목록을 못 받아도 방향은 안다
+    const config = { ...catalog.coordinateSystems[orientation], remoteTemplate: 'spring-note' }
+    assert.deepEqual(JSON.parse(toServerInitialPageSelections([{ templateId: assetId, ...ref, templateConfig: config }])[0].configurationJson), config)
+    assert.throws(() => localTemplateReference(ref.templateCode, ref.templateVersion)) // remoteTemplate 없음
+    assert.throws(() => localTemplateReference(ref.templateCode, ref.templateVersion, { remoteTemplate: '../x' }))
+    assert.throws(() => toServerInitialPageSelections([{ templateId: assetId, ...ref, templateConfig: { ...config, remoteTemplate: 'other' } }]))
+    assert.throws(() => toServerInitialPageSelections([{ templateId: assetId, ...ref, templateConfig: { ...config, blank: true } }]))
+  }
+  assert.throws(() => serverTemplateReference('remote-spring-note-landscape', '1.0.0', 'portrait'))
+  assert.throws(() => serverTemplateReference('remote-spring-note-landscape', '2.0.0', 'landscape'))
+  assert.equal(serverTemplateConfigFor('2026-cover-landscape').remoteTemplate, undefined)
+  // 일반 속지에 remoteTemplate 을 보내면 서버가 거부하므로 앞에서 막는다
+  const cover = serverTemplateReference('2026-cover-landscape', catalog.templateVersion, 'landscape')
+  assert.throws(() => toServerInitialPageSelections([{ templateId: '2026-cover-landscape', ...cover, templateConfig: { width: 1024, height: 768, remoteTemplate: 'x' } }]))
+})
 
 const plannerMigrationResource = new URL('../../backend/src/main/resources/db/migration/V27__add_study_and_daily_planner_templates.sql', import.meta.url)
 
@@ -15,8 +51,9 @@ test('전체 속지·플래너·빈 속지가 독립된 서버 코드로 매핑�
     { id: `study-planner-${orientation}`, templateVersion: '1.0.0', orientation, type: 'study' },
     { id: `day-planner-${orientation}`, templateVersion: '1.0.0', orientation, type: 'day' },
   ])
-  assert.equal(SERVER_TEMPLATE_CATALOG.length, 292)
-  assert.equal(new Set(SERVER_TEMPLATE_CATALOG.map(t => `${t.templateCode}\0${t.templateVersion}`)).size, 292)
+  // V9 288 + V27 플래너 4 + V33 원격 속지 2
+  assert.equal(SERVER_TEMPLATE_CATALOG.length, 294)
+  assert.equal(new Set(SERVER_TEMPLATE_CATALOG.map(t => `${t.templateCode}\0${t.templateVersion}`)).size, 294)
   for (const asset of [...catalog.assets, ...UNDATED_TEMPLATES, ...plannerAssets]) {
     const before = structuredClone(asset)
     const ref = serverTemplateReference(asset.id, asset.templateVersion, asset.orientation)

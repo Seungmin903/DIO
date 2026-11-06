@@ -4,6 +4,7 @@ import { SvgAst, parse } from 'react-native-svg'
 import PageBackground from '../../editor/components/PageBackground'
 import Icon from '../../editor/components/controls/Icon'
 import { usePan } from '../../editor/hooks/usePan'
+import { useRemoteTemplates } from '../../editor/hooks/useRemoteTemplates'
 import { TEMPLATE_VERSION, getTemplate, templateCanvasSize } from '../../editor/templates/catalog.js'
 import { colorTemplateXml, withPaperBackground } from '../../editor/templates/appearance.js'
 import { loadTemplate, peekTemplate } from '../../editor/templates/loadTemplate'
@@ -143,7 +144,8 @@ function PaperPicker({ groups, selected, onSelect, orientation, appearance, peri
   </View>
 }
 
-const ALL_GROUPS = PAPER_GROUPS.map(group => ({ ...group, papers: papersIn(group.id) }))
+// 탭별 속지. 원격 속지(catalog.json)가 바뀌면 다시 만든다(PaperOptions 의 useRemoteTemplates)
+const allGroups = () => PAPER_GROUPS.map(group => ({ ...group, papers: papersIn(group.id) }))
 
 function Stepper({ label, text, onPrev, onNext, prevDisabled, nextDisabled }) {
   return <View style={styles.stepper}>
@@ -254,6 +256,8 @@ function PaperRow({ section, row, number, orientation, appearance, open, onToggl
  * 속지 이름을 누르면 그 자리에서 바꾸고, 맨 아래 '속지 추가' 는 고르기를 먼저 펼친다.
  */
 export default function PaperOptions({ sections, onChange, orientation, appearance }) {
+  const remoteRevision = useRemoteTemplates()
+  const groups = useMemo(allGroups, [remoteRevision])
   const [picking, setPicking] = useState(null) // null | 'new' | 줄 key
   // 끌기: 시작할 때 줄마다 화면 위 가운데 높이를 재 두고, 끄는 줄의 가운데가 지나간 줄 수로 놓을 자리(뺀 뒤 목록 기준)를 정한다
   const [drag, setDrag] = useState(null) // { key, dy }
@@ -289,7 +293,7 @@ export default function PaperOptions({ sections, onChange, orientation, appearan
     if (others[target] === key) return 'before'
     return target === others.length && others[others.length - 1] === key ? 'after' : null
   }
-  const picker = (selected, onSelect, period) => <PaperPicker groups={ALL_GROUPS} selected={selected} orientation={orientation} appearance={appearance} period={period}
+  const picker = (selected, onSelect, period) => <PaperPicker groups={groups} selected={selected} orientation={orientation} appearance={appearance} period={period}
     onSelect={id => { onSelect(id); setPicking(null) }} />
   const set = (index, next) => onChange(sections.map((section, s) => s === index ? next : section))
   let number = 0

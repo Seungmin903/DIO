@@ -32,6 +32,7 @@ function drawer(store, callbacks = {}, ready = true, saveStatus = {}, hooks = {}
         markRecentTape() {}, setTapeCategory() {}, toggleTapeFavorite() {}, markRecentWidget() {}, toggleWidgetFavorite() {}, ...saveStatus }) },
     '../../hooks/usePalettes': { tapeColors: id => (id.startsWith('custom:') ? { bg: id.split(':')[1], fg: id.split(':')[2] } : { bg: '#EEE', fg: '#999' }), usePalette: () => ({ colors: ['sky', 'pink'] }) },
     '../../hooks/useTapePreferences': { useTapePreferences: () => [store.getSnapshot(), store.update, ready] },
+    '../../hooks/useStickerPacks': { useStickerPacks: () => 0 },
     '../../services/stickerSplit': { stickerSplit: { available: false } },
     '../../../auth/loginGate': { useLoginGate: () => (_feature, action) => action() }, // 로그인한 사용자: 그대로 통과
     '../../../shared/featureFlags': { CUTOUT_ENTRANCE: false, ...flags },
@@ -42,7 +43,7 @@ function drawer(store, callbacks = {}, ready = true, saveStatus = {}, hooks = {}
     '../../utils/common': { clamp: value => value },
     './PhotoFramePicker': { FramePreview: 'FramePreview', frameLabel: frame => `사진 틀 ${frame.name}` },
   }
-  mocks['../../stickerLibrary'] = load(library, { './hooks/useCustomDecor': mocks['../../hooks/useCustomDecor'], './builtinStickers': { BUILTIN_PACK: { id: 'builtin:dio-moa', name: '디오&모아' }, BUILTIN_STICKERS: [] } })
+  mocks['../../stickerLibrary'] = load(library, { './hooks/useCustomDecor': mocks['../../hooks/useCustomDecor'], './builtinStickers': { stickerPacks: () => [{ id: 'builtin:dio-moa', name: '디오&모아', items: [] }] } })
   mocks['../../tapeLibrary'] = load(tapeLibrarySource, { './hooks/useCustomDecor': mocks['../../hooks/useCustomDecor'], './constants': mocks['../../constants'] })
   const module = { exports: {} }
   new Function('require', 'module', 'exports', code)(id => mocks[id] ?? (id === 'react/jsx-runtime' ? require(id) : { __esModule: true, default: id }), module, module.exports)

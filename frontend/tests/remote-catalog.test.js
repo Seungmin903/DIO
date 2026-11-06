@@ -141,3 +141,83 @@ test('remote-content 폴더에서 catalog.json 과 해시 이름 파일을 만�
   assert.match(bad.errors.join('\n'), /notfont\/A\.ttf: TTF\/OTF/)
   assert.match(bad.errors.join('\n'), /broken: .*\(bad\)/)
 })
+
+test('원격 속지: 목록 해석 · 속지 고르기 탭 · 앱 속지 ID · 그림 파일 기다리기', async () => {
+  const { registerRemoteTemplates, waitForRemoteTemplateFile } = await import('../src/editor/templates/remoteTemplates.js')
+  const { papersIn, paperById, countAssetId } = await import('../src/diary/utils/paperChoice.js')
+  const { getTemplate } = await import('../src/editor/templates/catalog.js')
+  const parsed = parseCatalog({ schemaVersion: 1, templates: [
+    { id: 'spring-note', name: '봄 노트', group: 'note', landscape: file('l.svg'), portrait: file('p.svg') },
+    { id: 'old', name: '옛 속지', group: 'diary', landscape: file('l2.svg'), portrait: file('p2.svg'), hidden: true },
+    { id: 'nogroup', name: '분류 없음', group: 'misc', landscape: file('a.svg'), portrait: file('b.svg') },
+    { id: 'half', name: '한 방향만', group: 'note', landscape: file('a.svg') },
+  ] })
+  assert.deepEqual(parsed.templates.map(item => item.id), ['spring-note', 'old'])
+
+  const waiting = waitForRemoteTemplateFile('remote-spring-note-portrait', 1000) // 목록이 들어오면 풀린다
+  registerRemoteTemplates(parsed.templates)
+  assert.equal((await waiting).key, 'p.svg')
+  assert.ok(papersIn('note').some(paper => paper.id === 'remote:spring-note'))
+  assert.ok(!papersIn('diary').some(paper => paper.id === 'remote:old')) // 숨긴 속지는 탭에 없다
+  assert.equal(paperById('remote:old').name, '옛 속지') // 이미 고른 줄에서는 그대로
+  assert.equal(countAssetId('remote:spring-note', 'portrait'), 'remote-spring-note-portrait')
+  assert.equal(getTemplate('remote-spring-note-landscape').name, '봄 노트')
+  registerRemoteTemplates([])
+  assert.equal(paperById('remote:spring-note').name, '추가 속지') // 목록을 못 받아도 줄은 유지
+  assert.equal(await waitForRemoteTemplateFile('remote-spring-note-portrait', 10), null)
+})
+
+test('remote-content 속지: 방향별 SVG 크기와 금지 요소를 검사한다', t => {
+  const dir = mkdtempSync(join(tmpdir(), 'dio-remote-templates-'))
+  t.after(() => rmSync(dir, { recursive: true, force: true }))
+  const svg = (w, h, body = '<rect width="10" height="10"/>') => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}">${body}</svg>`
+  const add = (id, meta, files) => {
+    mkdirSync(join(dir, 'templates', id), { recursive: true })
+    writeFileSync(join(dir, 'templates', id, 'template.json'), JSON.stringify(meta))
+    for (const [name, text] of Object.entries(files)) writeFileSync(join(dir, 'templates', id, name), text)
+  }
+  add('spring-note', { name: '봄 노트', group: 'note', landscape: 'l.svg', portrait: 'p.svg' }, { 'l.svg': svg(1024, 768), 'p.svg': svg(768, 1024) })
+  const ok = buildCatalog(dir)
+  assert.deepEqual(ok.errors, [])
+  assert.match(ok.catalog.templates[0].portrait.key, /^catalog\/templates\/spring-note\/p\.[a-f0-9]{16}\.svg$/)
+  assert.equal(parseCatalog(ok.catalog).templates.length, 1)
+
+  add('swapped', { name: '방향 바뀜', group: 'note', landscape: 'p.svg', portrait: 'l.svg' }, { 'l.svg': svg(1024, 768), 'p.svg': svg(768, 1024) })
+  add('script', { name: '스크립트', group: 'note', landscape: 'l.svg', portrait: 'p.svg' }, { 'l.svg': svg(1024, 768, '<script>x</script>'), 'p.svg': svg(768, 1024, '<image href="https://x/y.png"/>') })
+  add('badgroup', { name: '분류', group: 'misc', landscape: 'l.svg', portrait: 'p.svg' }, { 'l.svg': svg(1024, 768), 'p.svg': svg(768, 1024) })
+  const bad = buildCatalog(dir)
+  assert.match(bad.errors.join('\n'), /swapped\/p\.svg: landscape 속지는 viewBox="0 0 1024 768"/)
+  assert.match(bad.errors.join('\n'), /script\/l\.svg: script/)
+  assert.match(bad.errors.join('\n'), /script\/p\.svg: script/)
+  assert.match(bad.errors.join('\n'), /badgroup: group/)
+})
+
+test('원격 속지로 회원 다이어리를 만들면 서버 요청에 remoteTemplate 이 실리고, 돌아온 페이지는 같은 속지로 열린다', async () => {
+  const { diaryCreateInput } = await import('../src/diary/services/diaryCreateInput.js')
+  const { toServerInitialPageSelections, localTemplateReference } = await import('../src/editor/templates/serverCatalog.js')
+  const { createServerPage, decodeServerPage } = await import('../src/collaboration/serverPages.js')
+  const input = diaryCreateInput({ title: '봄', color: '#A9BFA6', pageSize: 'portrait',
+    templateConfig: { orientation: 'portrait', sections: [{ kind: 'pages', items: [{ assetId: 'remote-spring-note-portrait', count: 2 }], repeat: 1 }] },
+    paperAppearance: { backgroundColor: '#FFF8E7', layoutColor: '#33476B' } })
+  assert.equal(input.initialPages.length, 2)
+  assert.equal(input.initialPages[0].templateConfig.remoteTemplate, 'spring-note')
+  const [selection] = toServerInitialPageSelections(input.initialPages)
+  assert.equal(selection.templateCode, 'dio-remote-portrait')
+  assert.equal(localTemplateReference(selection.templateCode, selection.templateVersion, JSON.parse(selection.configurationJson)).backgroundAssetId, 'remote-spring-note-portrait')
+
+  // 편집기에서 페이지 추가: 범용 행 + remoteTemplate 으로 만들고, 응답을 같은 속지로 읽는다
+  const diaryId = '11111111-1111-4111-8111-111111111111', pageId = '22222222-2222-4222-8222-222222222222'
+  const disk = new Map(), calls = []
+  const storage = { getItem: async k => disk.get(k) ?? null, setItem: async (k, v) => disk.set(k, v), removeItem: async k => disk.delete(k) }
+  const transport = async request => {
+    calls.push(request)
+    const p = { pageId, diaryId, templateId: 7, title: null, sortKey: 1, canvasWidth: request.body.canvasWidth, canvasHeight: request.body.canvasHeight,
+      gridVisible: false, gridColor: null, version: 1, templateCode: request.body.templateConfig.templateCode, templateVersion: request.body.templateConfig.templateVersion, templateConfig: request.body.templateConfig }
+    return { page: p }
+  }
+  const page = await createServerPage({ transport, diaryId, backgroundAssetId: 'remote-spring-note-landscape', storage, key: 'pending', createId: () => '33333333-3333-4333-8333-333333333333' })
+  assert.equal(calls[0].body.templateConfig.templateCode, 'dio-remote-landscape')
+  assert.equal(calls[0].body.templateConfig.remoteTemplate, 'spring-note')
+  assert.equal(page.backgroundAssetId, 'remote-spring-note-landscape')
+  assert.equal(decodeServerPage({ page: (await transport({ body: calls[0].body })).page, elements: [] }, diaryId).backgroundAssetId, 'remote-spring-note-landscape')
+})

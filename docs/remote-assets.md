@@ -3,14 +3,19 @@
 에셋 저장소(S3 + CloudFront)는 두 가지 용도로 쓴다.
 
 1. **번들에서 뺀 에셋**: 앱 코드가 이미 아는 큰 글꼴과 2026 속지. 목록(`manifest.js`)이 앱과 함께 배포된다.
-2. **앱 배포 없이 추가하는 글꼴·스티커**: `frontend/remote-content/`에 넣고 올리면, 앱이 켜질 때 `catalog.json`을 받아 목록에 넣는다.
+2. **앱 배포 없이 추가하는 글꼴·스티커·속지**: `frontend/remote-content/`에 넣고 올리면, 앱이 켜질 때 `catalog.json`을 받아 목록에 넣는다.
    - 올리는 방법과 파일 형식은 [remote-content/README.md](../frontend/remote-content/README.md)에 있다.
    - 앱 쪽 코드는 `src/shared/remoteAssets/remoteCatalog.js`(해석·불러오기)와 `remoteCatalogService.js`(앱 연결)다.
    - 원격 글꼴은 글꼴 목록에서 기본 글꼴 뒤에 놓인다. 문서에는 `remote-<id>`로 저장되고, 처음 쓸 때 파일을 받는다.
    - 원격 스티커 팩은 보관함의 기본 분류 칩으로 들어간다. 그림은 '디오&모아'와 같은 도트 형식이고, 페이지에는 `builtin: remote:<팩>:<스티커>`로 저장된다.
    - 목록은 기기에 저장해 두므로 오프라인에서도 마지막 목록을 쓴다. 목록을 아직 못 받은 기기에서는 원격 글꼴 글자를 기본 글꼴로, 원격 스티커를 빈 자리로 그린다. 받으면 다시 그린다.
-   - 서버는 글꼴 id와 스티커 id를 검사하지 않으므로 백엔드 변경이 필요 없다.
-   - **속지는 아직 이 방식으로 추가할 수 없다.** 회원 다이어리의 페이지는 서버 DB의 속지 행(`page_template`, Flyway 시드)을 참조하고, 페이지 설정은 `width·height·blank·paperAppearance` 키만 받는다. 백엔드 지원이 먼저 필요하다.
+   - 서버는 글꼴 id와 스티커 id를 검사하지 않는다.
+   - 원격 속지는 한 장짜리 속지로, 속지 고르기의 노트·플래너·일기 탭 끝에 붙는다. 앱 안에서는 `remote-<id>-<방향>`이다.
+     - 서버(V33)에는 방향마다 범용 속지 행 `dio-remote-landscape`·`dio-remote-portrait`가 하나씩 있다. 페이지 설정 `remoteTemplate: <id>`가 어떤 그림인지 정한다. 서버는 id 형식만 검사하고, 그림은 앱이 catalog.json에서 찾는다.
+     - 다이어리 생성(`JdbcDiaryInitialPages`)은 `remoteTemplate`을 원격 행에서만 받고, 원격 행에는 꼭 요구한다. 페이지 추가·수정 API는 원래 설정을 그대로 저장한다.
+     - 앱 쪽 연결: `editor/templates/remoteTemplates.js`(ID·목록), `serverCatalog.js`(서버 코드↔앱 ID), `collaboration/serverPages.js`(페이지 추가·읽기), `diary/utils/paperChoice.js`(고르기 탭).
+     - 목록을 아직 못 받은 기기는 페이지 크기·방향은 ID로 알고, 그림은 목록이 올 때까지 최대 10초 기다린 뒤 "내지를 불러오지 못했어요"를 보인다.
+     - V32는 다른 작업(신고 증빙 보관, 아직 develop 미반영)이 쓰고 있어 비워 두었다. 그 작업이 다른 번호로 들어가면 Flyway 순서를 다시 맞춰야 한다.
 
 아래 "범위"·"동작" 절은 1번(번들에서 뺀 에셋)을 설명한다. 설정·인프라·업로드는 두 용도가 같다.
 
@@ -70,6 +75,7 @@
 ## 검증 범위
 
 - 단위 테스트: 매니페스트 일치, 주소 정책, 웹 주소, 원격 글꼴 실패 후 재시도, catalog.json·스티커 팩 해석, 목록 불러오기(저장본·오프라인·깨진 응답), remote-content 빌드와 형식 오류 안내, 숨긴 글꼴·팩 처리
+- 웹 개발 서버 + 예시 원격 속지 1개: 새 다이어리 속지 고르기의 노트 탭에 나오고, 고르면 미리보기·편집기에서 에셋 저장소의 SVG로 그려지며, 기기 문서에 `remote-<id>-<방향>`으로 저장되는 것을 확인했다(게스트). 회원 생성·페이지 추가·서버 응답 해석은 단위 테스트로, 백엔드 검증은 H2 계약 테스트로 확인했다. 실제 PostgreSQL에서 V33과 생성 테스트(`./gradlew postgresMemberDiaryCreationTest`)는 아직 돌리지 않았다.
 - 웹 개발 서버 + 예시 remote-content(글꼴 1개, 스티커 팩 1개): 앱이 catalog.json과 팩을 받아 기기에 저장하고, 글꼴 목록에 원격 글꼴을 넣어 불러오고, 보관함 칩에서 원격 스티커를 골라 페이지에 붙여 그리는 것을 확인했다.
 - 웹 개발 서버 + `assets:serve`: 2026 월간 속지 SVG와 고운바탕 Regular·Bold를 원격에서 받아 적용하는 것을 확인했다.
 - 아직 확인하지 않은 것:

@@ -10,6 +10,7 @@ import { plannerFor } from './planners.js'
 import { datedBaseId, datedSvg, isDatedId } from './dated.js'
 import { isRemoteAsset } from '../../shared/remoteAssets/remoteAssets.js'
 import { fetchRemoteAsset } from '../../shared/remoteAssets/remoteAssetFile'
+import { parseRemoteTemplateAssetId, waitForRemoteTemplateFile } from './remoteTemplates.js'
 
 // 번들 속지는 expo-asset 으로, 원격 속지(2026 날짜 속지 등)는 에셋 저장소에서 받아 읽는다.
 // 받지 못하면 TemplateError 로 바뀌고, 캐시는 실패를 남기지 않아 다음에 다시 받는다.
@@ -30,7 +31,8 @@ const load = createTemplateCache(async key => {
   if (planner) { const xml = planner.baseSvg(); return { xml, ast: parse(xml) } }
   // 날짜 속지는 같은 양식의 만년형 속지를 불러와 날짜를 얹는다
   const fileId = isDatedId(id) ? datedBaseId(id) : id
-  const module = UNDATED_ASSETS[fileId] ?? TEMPLATE_ASSETS[fileId]
+  // 원격 속지(앱 배포 없이 추가한 속지)는 목록(catalog.json)의 파일을 받는다. 목록을 못 받았으면 잠시 기다린다
+  const module = UNDATED_ASSETS[fileId] ?? TEMPLATE_ASSETS[fileId] ?? (parseRemoteTemplateAssetId(fileId) ? await waitForRemoteTemplateFile(fileId) : null)
   if (!module) throw new TemplateError()
   const file = await readSvg(await templateUri(module))
   const xml = isDatedId(id) ? datedSvg(id, file) : file

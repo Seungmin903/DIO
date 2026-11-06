@@ -71,7 +71,7 @@ if (process.argv.includes('--check')) {
     console.error('원격 에셋 매니페스트가 assets/ 와 다릅니다. pnpm assets:remote 로 다시 만드세요.')
     process.exit(1)
   }
-  console.log(`원격 에셋 매니페스트 일치 (${Object.keys(files).length}개), remote-content 글꼴 ${content.catalog.fonts.length} · 스티커 팩 ${content.catalog.stickerPacks.length}`)
+  console.log(`원격 에셋 매니페스트 일치 (${Object.keys(files).length}개), remote-content 글꼴 ${content.catalog.fonts.length} · 스티커 팩 ${content.catalog.stickerPacks.length} · 속지 ${content.catalog.templates.length}`)
 } else {
   writeFileSync(MANIFEST, text)
   rmSync(DIST, { recursive: true, force: true })
@@ -91,5 +91,5 @@ if (process.argv.includes('--check')) {
   const total = Object.values(files).reduce((sum, entry) => sum + entry.size, 0)
   console.log(`원격 에셋 ${Object.keys(files).length}개 (${(total / 1024 / 1024).toFixed(1)} MiB) → ${toPosix(relative(ROOT, DIST))}/`)
   console.log(`매니페스트 → ${toPosix(relative(ROOT, MANIFEST))}`)
-  console.log(`catalog.json: 글꼴 ${content.catalog.fonts.length} · 스티커 팩 ${content.catalog.stickerPacks.length} (remote-content/)`)
+  console.log(`catalog.json: 글꼴 ${content.catalog.fonts.length} · 스티커 팩 ${content.catalog.stickerPacks.length} · 속지 ${content.catalog.templates.length} (remote-content/)`)
 }

@@ -20,6 +20,7 @@ function render({ platform = 'ios', still = false, outline = true, shadow = true
     '../../stickerAssets': { isAnimatedMedia: () => true, stickerSource: (_object, isStill) => ({ uri: isStill ? 'poster' : 'original.gif' }) },
     '../../builtinStickers': { builtinStickerOf: () => null },
     '../../hooks/useMediaUri': { useMediaUri: () => undefined },
+    '../../hooks/useStickerPacks': { useStickerPacks: () => 0 },
     '../../hooks/useStickerPlayback': { useStickerPlayback: (source) => { request = source; return { source: frame, error } } },
     './StickerFrame': { __esModule: true, default: 'StickerFrame' },
     './MediaImage': { __esModule: true, default: 'MediaImage' },
