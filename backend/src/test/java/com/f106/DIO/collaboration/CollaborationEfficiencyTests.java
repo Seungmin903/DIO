@@ -133,7 +133,7 @@ class CollaborationEfficiencyTests {
         var access=mock(CollaborationAccess.class);var decoder=mock(JwtDecoder.class);UUID diary=UUID.randomUUID(),sid=UUID.randomUUID();
         when(decoder.decode("token")).thenReturn(Jwt.withTokenValue("token").header("alg","HS256").subject("42").claim("sid",sid.toString()).expiresAt(Instant.now().plusSeconds(600)).build());
         var handler=new CollaborationSocket(access,decoder,JsonMapper.builder().build(),Runnable::run,Runnable::run);
-        var matching=pendingSocket("matching",diary,"one"),other=pendingSocket("other",UUID.randomUUID(),"two");
+        var matching=pendingSocket("matching",diary,"one");var other=pendingSocket("other",UUID.randomUUID(),"two");
         handler.afterConnectionEstablished(matching);handler.afterConnectionEstablished(other);
         handler.handleMessage(matching,new TextMessage("{\"type\":\"AUTH\",\"accessToken\":\"token\"}"));
         handler.membersChanged(new com.f106.DIO.sharing.domain.DiaryMembershipChanged(diary));
