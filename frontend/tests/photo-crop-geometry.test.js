@@ -1,6 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { changeCropRatio, cropFromRect, freeTransform, freeZoom, resizeFreeCrop, visibleRect } from '../src/editor/utils/photoCropGeometry.js'
+import { encodeElement, decodeElement } from '../src/collaboration/canvasElements.js'
 
 const close = (a, b) => assert.ok(Math.abs(a - b) < 0.001, `${a} != ${b}`)
 const center = r => [(r.u0 + r.u1) / 2, (r.v0 + r.v1) / 2]
@@ -81,4 +82,16 @@ test('두 변을 모두 줄여도 확대값이 무한대로 커지지 않는다'
   const tiny = resizeFreeCrop({ u0: 0.4, v0: 0.4, u1: 0.45, v1: 0.45 }, { sx: 1, sy: 1 }, -1, -1, 1 / 32)
   assert.ok(freeZoom(tiny) <= 32 + 1e-9)
   assert.ok(Number.isFinite(cropFromRect(tiny).zoom))
+})
+
+test('9배를 넘는 자르기는 공유 요소 직렬화와 재편집에서 보존된다', () => {
+  const rect = { u0: 0.4, v0: 0.3, u1: 0.43125, v1: 0.32 }
+  const crop = cropFromRect(rect)
+  assert.equal(crop.zoom, 32)
+  const photo = { id: 'e0fa1af4-8507-4abc-b28d-13b5a20a4511', type: 'photo', x: 0, y: 0, w: 250, h: 120, crop }
+  const encoded = encodeElement(photo)
+  const decoded = decodeElement({ ...encoded, version: 1 })
+  assert.deepEqual(decoded.crop, crop)
+  const restored = visibleRect(decoded.crop, (rect.u1 - rect.u0) / (rect.v1 - rect.v0) * 4 / 3, 4 / 3)
+  for (const key of ['u0', 'v0', 'u1', 'v1']) close(restored[key], rect[key])
 })
