@@ -131,3 +131,35 @@ test('9배를 넘는 자르기에서 확대 막대 범위는 드래그가 끝날
   slider().onEnd()
   close(slider().max, 18)
 })
+
+test('실제 Slider와 usePan은 드래그 시작, 종료와 취소를 전달한다', () => {
+  const react = {
+    useState: value => [typeof value === 'function' ? value() : value, () => {}],
+    useRef: value => ({ current: value }), useEffect() {},
+    useLayoutEffect: effect => { effect() }, useContext: () => null,
+  }
+  const jsx = { jsx: (type, props) => ({ type, props }), jsxs: (type, props) => ({ type, props }) }
+  const native = { AppState: null, PanResponder: { create: handlers => ({ panHandlers: handlers }) }, Pressable: 'Pressable', Text: 'Text', View: 'View', StyleSheet: { create: value => value } }
+  function load(path, mocks) {
+    const code = expo('@babel/core').transformSync(readFileSync(new URL(path, import.meta.url), 'utf8'), { configFile: false, babelrc: false, plugins: [[expo.resolve('@babel/plugin-transform-react-jsx'), { runtime: 'automatic' }], expo.resolve('@babel/plugin-transform-modules-commonjs')] }).code
+    const mod = { exports: {} }
+    new Function('require', 'module', 'exports', code)(id => mocks[id] ?? { __esModule: true, default: id }, mod, mod.exports)
+    return mod.exports
+  }
+  const pan = load('../src/editor/hooks/usePan.js', { react, 'react-native': native, './usePalmRejection': { PalmRejectionContext: {}, usePalmRejectingPan: () => ({}) }, '../utils/penPointerInput.js': { createPenPointerInput: () => ({ active: false, cancel() {} }) }, '../utils/stylus': { setPenPointerActive() {} } })
+  const slider = load('../src/editor/components/controls/Slider.js', { react, 'react/jsx-runtime': jsx, 'react-native': native, '../../hooks/usePan': pan, '../../utils/common': { clamp: (x, lo, hi) => Math.min(hi, Math.max(lo, x)) }, '../../../shared/theme': { colors: {} } }).default
+  const starts = [], ends = [], changes = []
+  const tree = slider({ value: 10, min: 1, max: 20, step: 0.1, onStart: () => starts.push(true), onEnd: event => ends.push(event), onChange: value => changes.push(value) })
+  const track = nodes(tree).find(n => n.props?.onPanResponderGrant)
+  assert.ok(track)
+  track.props.onPanResponderGrant({ nativeEvent: { locationX: 14 } })
+  track.props.onPanResponderMove({ nativeEvent: {} }, { dx: 5, dy: 0 })
+  track.props.onPanResponderRelease()
+  track.props.onPanResponderGrant({ nativeEvent: { locationX: 14 } })
+  track.props.onPanResponderTerminate()
+  assert.equal(starts.length, 2)
+  assert.equal(ends.length, 2)
+  assert.equal(ends[0].cancelled, undefined)
+  assert.equal(ends[1].cancelled, true)
+  assert.ok(changes.length >= 2)
+})
