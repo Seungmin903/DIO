@@ -14,14 +14,19 @@ import { createPageImageRenderer } from '../src/editor/utils/pageImageRenderer.j
 import { readSvg } from '../src/editor/templates/readSvg.web.js'
 import { REGION_PRESETS, fitRegionPreset, validRegion } from '../src/editor/utils/regionGeometry.js'
 
-test('가로·세로 SVG 각 138개가 원본 ID·방향별 좌표로 모두 번들 매핑된다', async () => {
+test('가로·세로 SVG 각 138개가 원본 ID·방향별 좌표로 모두 매핑된다(공용 속지만 번들, 나머지는 원격)', async () => {
   const directory = new URL('../assets/templates/2026/SVG/', import.meta.url)
   const files = await readdir(directory)
   assert.equal(files.length, 276)
   assert.equal(catalog.assets.length, 276)
   for (const orientation of ['landscape', 'portrait']) assert.equal(catalog.assets.filter(asset => asset.orientation === orientation).length, 138)
   const mapping = await readFile(new URL('../src/editor/templates/assets.js', import.meta.url), 'utf8')
-  assert.equal((mapping.match(/require\(/g) ?? []).length, 276)
+  const bundled = [...mapping.matchAll(/require\("\.\.\/\.\.\/\.\.\/assets\/templates\/2026\/SVG\/([^"]+)"\)/g)].map(match => match[1])
+  const remote = [...mapping.matchAll(/remoteAsset\("templates\/2026\/SVG\/([^"]+)"\)/g)].map(match => match[1])
+  assert.equal(bundled.length + remote.length, 276)
+  assert.equal(bundled.length, 14)
+  assert.ok(bundled.every(name => name.startsWith('2026-reusable-')))
+  assert.ok(remote.every(name => !name.startsWith('2026-reusable-')))
   for (const asset of catalog.assets) {
     assert.ok(['landscape', 'portrait'].includes(asset.orientation))
     assert.ok(mapping.includes(JSON.stringify(asset.id)))

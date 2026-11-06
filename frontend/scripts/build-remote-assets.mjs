@@ -1,0 +1,76 @@
+// 앱 번들에 넣지 않고 S3(CloudFront)에서 내려받는 에셋을 준비한다.
+//
+//   node scripts/build-remote-assets.mjs          매니페스트(src/shared/remoteAssets/manifest.js)와 업로드용 폴더(remote-assets-dist/)를 만든다
+//   node scripts/build-remote-assets.mjs --check  매니페스트가 지금 파일과 같은지만 검사한다(다르면 실패)
+//
+// 원본은 그대로 assets/ 에 둔다(속지·글꼴 생성 스크립트와 백엔드 테스트가 이 경로를 읽는다).
+// Metro는 require 한 파일만 번들에 넣으므로, 여기 고른 파일은 코드에서 require 하지 않으면 번들에서 빠진다.
+// 객체 키에는 내용 해시를 붙여 같은 키의 내용이 바뀌지 않게 한다(CloudFront·앱 캐시를 무효화할 필요가 없다).
+import { createHash } from 'node:crypto'
+import { copyFileSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { dirname, extname, join, posix, relative, sep } from 'node:path'
+import { fileURLToPath } from 'node:url'
+
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
+const ASSETS = join(ROOT, 'assets')
+const DIST = join(ROOT, 'remote-assets-dist')
+const MANIFEST = join(ROOT, 'src/shared/remoteAssets/manifest.js')
+
+// 원격으로 옮기는 파일. 기본(번들 유지): Pretendard(UI 글꼴), 나눔 계열(npm 패키지), 만년형 속지, 2026 공용 속지(reusable)
+const REMOTE_RULES = [
+  { dir: 'fonts/gowundodum', test: name => /\.ttf$/.test(name) },
+  { dir: 'fonts/gowunbatang', test: name => /\.ttf$/.test(name) },
+  { dir: 'fonts/maruburi', test: name => /\.ttf$/.test(name) },
+  { dir: 'templates/2026/SVG', test: name => name.endsWith('.svg') && !name.startsWith('2026-reusable-') },
+]
+// 글꼴 폴더의 라이선스 파일은 글꼴과 함께 배포한다(OFL). 해시를 붙이지 않은 고정 경로로 올린다.
+const LICENSE_FILES = ['fonts/gowundodum/OFL.txt', 'fonts/gowunbatang/OFL.txt', 'fonts/maruburi/OFL.txt']
+
+const toPosix = path => path.split(sep).join('/')
+
+function collect() {
+  const files = {}
+  for (const rule of REMOTE_RULES) {
+    for (const name of readdirSync(join(ASSETS, rule.dir)).sort()) {
+      if (!rule.test(name)) continue
+      const path = posix.join(rule.dir, name)
+      const data = readFileSync(join(ASSETS, path))
+      const sha256 = createHash('sha256').update(data).digest('hex')
+      const ext = extname(name)
+      const key = posix.join(rule.dir, `${name.slice(0, -ext.length)}.${sha256.slice(0, 16)}${ext}`)
+      files[path] = { key, size: data.length, sha256 }
+    }
+  }
+  return files
+}
+
+const render = files => `// 이 파일은 scripts/build-remote-assets.mjs 가 만든다. 직접 고치지 말 것.
+// 키: assets/ 기준 원본 경로, key: 에셋 저장소(EXPO_PUBLIC_ASSET_BASE_URL) 기준 객체 경로
+export const REMOTE_ASSET_MANIFEST = ${JSON.stringify(files, null, 2)}
+`
+
+const files = collect()
+const text = render(files)
+if (process.argv.includes('--check')) {
+  let current = ''
+  try { current = readFileSync(MANIFEST, 'utf8') } catch { /* 없는 경우도 불일치로 본다 */ }
+  if (current !== text) {
+    console.error('원격 에셋 매니페스트가 assets/ 와 다릅니다. pnpm assets:remote 로 다시 만드세요.')
+    process.exit(1)
+  }
+  console.log(`원격 에셋 매니페스트 일치 (${Object.keys(files).length}개)`)
+} else {
+  writeFileSync(MANIFEST, text)
+  rmSync(DIST, { recursive: true, force: true })
+  for (const [path, entry] of Object.entries(files)) {
+    mkdirSync(dirname(join(DIST, entry.key)), { recursive: true })
+    copyFileSync(join(ASSETS, path), join(DIST, entry.key))
+  }
+  for (const path of LICENSE_FILES) {
+    mkdirSync(dirname(join(DIST, path)), { recursive: true })
+    copyFileSync(join(ASSETS, path), join(DIST, path))
+  }
+  const total = Object.values(files).reduce((sum, entry) => sum + entry.size, 0)
+  console.log(`원격 에셋 ${Object.keys(files).length}개 (${(total / 1024 / 1024).toFixed(1)} MiB) → ${toPosix(relative(ROOT, DIST))}/`)
+  console.log(`매니페스트 → ${toPosix(relative(ROOT, MANIFEST))}`)
+}
