@@ -65,7 +65,8 @@ class PageCatalogPostgresTests {
         flyway("latest").migrate();
         var templates=contract.get("templates");
         var stored=jdbc.queryForList("select code,template_version,orientation,canvas_width,canvas_height from page_templates");
-        assertThat(stored).hasSize(292);
+        // V9 288 + V27 플래너 4 + V34 원격 속지 2
+        assertThat(stored).hasSize(294);
         for(int i=0;i<templates.size();i++) {
             var row=templates.get(i);
             var actual=stored.stream().filter(s -> s.get("code").equals(row.get("templateCode").asString())
@@ -234,7 +235,8 @@ class PageCatalogPostgresTests {
         jdbc.update("insert into diaries(diary_id,owner_user_id,title,cover_color,cover_style,visibility) values(?,1,'historical','#123456','PLAIN','PRIVATE')",diary);
         jdbc.update("insert into pages(page_id,diary_id,template_id,template_config,sort_key,canvas_width,canvas_height) values(?,?,987,'{\"legacy\":true}'::jsonb,1,1280,800)",page,diary);
         flyway("latest").migrate();
-        assertThat(jdbc.queryForObject("select count(*) from page_templates",Long.class)).isEqualTo(293);
+        // 기존 1 + 예전 버전 1 + 나머지 V9 287 + V27 4 + V34 2
+        assertThat(jdbc.queryForObject("select count(*) from page_templates",Long.class)).isEqualTo(295);
         assertThat(jdbc.queryForObject("select template_id from page_templates where code=? and template_version=?",Long.class,row.get("templateCode").asString(),row.get("templateVersion").asString())).isEqualTo(987);
         assertThat(jdbc.queryForObject("select is_active from page_templates where template_id=987",Boolean.class)).isFalse();
         assertThat(jdbc.queryForObject("select name from page_templates where template_id=987",String.class)).isEqualTo("custom name");
@@ -246,7 +248,8 @@ class PageCatalogPostgresTests {
         try(var stream=getClass().getResourceAsStream("/db/migration/V9__seed_page_template_catalog.sql")) {
             jdbc.execute(new String(stream.readAllBytes(),StandardCharsets.UTF_8));
         }
-        assertThat(jdbc.queryForObject("select count(*) from page_templates",Long.class)).isEqualTo(293);
+        // 기존 1 + 예전 버전 1 + 나머지 V9 287 + V27 4 + V34 2
+        assertThat(jdbc.queryForObject("select count(*) from page_templates",Long.class)).isEqualTo(295);
         assertThat(jdbc.queryForObject("select count(*) from pages",Long.class)).isEqualTo(1);
     }
 
