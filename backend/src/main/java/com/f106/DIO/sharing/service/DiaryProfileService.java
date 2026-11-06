@@ -65,5 +65,5 @@ public class DiaryProfileService {
         if(memberIdentityChanged(request,photoProvided))events.publishEvent(new DiaryMembershipChanged(diary));
     }
     // Called inside TransactionTemplate#execute, so the socket's AFTER_COMMIT listener is retained.
-    static boolean memberIdentityChanged(DiaryProfileUpdateRequest request,boolean photoProvided){return request.isNicknameProvided()||photoProvided;}
+    public static boolean memberIdentityChanged(DiaryProfileUpdateRequest request,boolean photoProvided){return request.isNicknameProvided()||photoProvided;}
 }
