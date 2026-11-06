@@ -6,7 +6,7 @@ export const isSharingDiaryId = id => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9
 // 로그인 세션에 묶인 공유 API. 로컬 다이어리를 서버 다이어리로 가장하지 않는다.
 export function createSharingApi({ user, auth, fetchImpl = globalThis.fetch, buildPhotoBody,
   setIntervalImpl = setInterval, clearIntervalImpl = clearInterval, memberRefreshIntervalMs = 5000,
-  photoCacheTtlMs = 60_000, maxPhotoCacheEntries = 32, now = Date.now }) {
+  memberRealtimeReconcileMs = 60_000, photoCacheTtlMs = 60_000, maxPhotoCacheEntries = 32, now = Date.now }) {
   const { baseUrl, accessTokenHeader = 'Authorization', getAuthHeaders } = auth.getConnectionOptions();
   const sessionKey = auth.getSessionKey();
   const self = { id: String(user.userId), nickname: user.nickname, photoUri: user.photoUri || null };
@@ -212,7 +212,7 @@ export function createSharingApi({ user, auth, fetchImpl = globalThis.fetch, bui
     ensureServerId(id);
     let watch = watchedDiaries.get(id);
     if (!watch) {
-      watch = { count: 0, timer: null, refreshing: null, failures: 0, skipTicks: 0, stopped: false, unavailable: new Set() };
+      watch = { count: 0, timer: null, refreshing: null, failures: 0, skipTicks: 0, realtimeTicks: 0, stopped: false, unavailable: new Set() };
       watchedDiaries.set(id, watch);
     }
     watch.count++;
@@ -246,6 +246,12 @@ export function createSharingApi({ user, auth, fetchImpl = globalThis.fetch, bui
     refresh(true);
     if (!watch.timer) watch.timer = setIntervalImpl(() => {
       if (watch.skipTicks > 0) { watch.skipTicks--; return; }
+      if (realtimeDiaries.has(id)) {
+        watch.realtimeTicks++;
+        if (watch.realtimeTicks * memberRefreshIntervalMs < memberRealtimeReconcileMs) return;
+        watch.realtimeTicks = 0;
+        refresh(true); return;
+      }
       refresh();
     }, memberRefreshIntervalMs);
     let released = false;
@@ -303,7 +309,7 @@ export function createSharingApi({ user, auth, fetchImpl = globalThis.fetch, bui
     subscribe(fn) { listeners.add(fn); return () => listeners.delete(fn); },
     activate() { active = true; }, dispose() { active = false; generation++; watchedDiaries.forEach(watch => { watch.stopped = true; clearIntervalImpl(watch.timer); }); watchedDiaries.clear(); realtimeDiaries.clear(); photoCache.clear(); diaries.clear(); invitations.clear(); publish(); },
     setWatchingActive(value) { watchingActive = value === true; if (watchingActive) watchedDiaries.forEach(watch => { watch.skipTicks = 0; watch.refresh?.(); }); },
-    setWatchingRealtime(id, connected) { if (!isSharingDiaryId(id)) return; if (connected) realtimeDiaries.add(id); else { realtimeDiaries.delete(id); watchedDiaries.get(id)?.refresh?.(true); } },
+    setWatchingRealtime(id, connected) { if (!isSharingDiaryId(id)) return; const watch = watchedDiaries.get(id); if (connected) { realtimeDiaries.add(id); if (watch) watch.realtimeTicks = 0; } else { realtimeDiaries.delete(id); if (watch) { watch.realtimeTicks = 0; watch.refresh?.(true); } } },
     setAccountProfile(value) { self.nickname = value.nickname; self.photoUri = value.photoUri || null; for (const key of photoCache.keys()) if (key.startsWith('account:')) photoCache.delete(key); },
     registerDiary(source) { ensureServerId(source.sharedDiaryId || source.id); return diaries.get(source.sharedDiaryId || source.id) || { ...source, members: [] }; },
     getSharing, refreshMembers, watchDiary, loadMoreEmailInvites, checkProfileNickname: checkNickname, checkNickname, updateProfile,

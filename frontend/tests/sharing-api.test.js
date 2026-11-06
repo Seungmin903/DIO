@@ -181,7 +181,8 @@ test('앱이 다시 활성화되면 멈춘 참여자 갱신을 즉시 재개한�
 test('편집기 WebSocket이 준비된 동안 참여자 폴링을 멈추고 끊기면 즉시 재개한다', async () => {
   const timers = new Map();
   const f = fixture({ runtimeOptions: {
-    setIntervalImpl: callback => { const id = `timer-`; timers.set(id, callback); return id; },
+    memberRefreshIntervalMs: 5, memberRealtimeReconcileMs: 10,
+    setIntervalImpl: callback => { const id = `timer-${timers.size + 1}`; timers.set(id, callback); return id; },
     clearIntervalImpl: id => timers.delete(id),
   } });
   await f.runtime.getSharing(diaryId);
@@ -191,9 +192,13 @@ test('편집기 WebSocket이 준비된 동안 참여자 폴링을 멈추고 끊�
   f.runtime.setWatchingRealtime(diaryId, true); timer();
   await new Promise(resolve => setTimeout(resolve, 0));
   assert.equal(f.calls.length, before);
+  timer();
+  await new Promise(resolve => setTimeout(resolve, 0));
+  assert.ok(f.calls.length > before); // 유실된 MEMBERS_CHANGED를 느린 보정 조회로 회복한다.
+  const afterReconcile = f.calls.length;
   f.runtime.setWatchingRealtime(diaryId, false);
   await new Promise(resolve => setTimeout(resolve, 0));
-  assert.ok(f.calls.length > before);
+  assert.ok(f.calls.length > afterReconcile);
   release();
 });
 
