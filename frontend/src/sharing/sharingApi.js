@@ -321,7 +321,7 @@ export function createSharingApi({ user, auth, fetchImpl = globalThis.fetch, bui
     subscribe(fn) { listeners.add(fn); return () => listeners.delete(fn); },
     activate() { active = true; }, dispose() { active = false; generation++; watchedDiaries.forEach(watch => { watch.stopped = true; clearIntervalImpl(watch.timer); }); watchedDiaries.clear(); memberRefreshes.clear(); realtimeDiaries.clear(); photoCache.clear(); diaries.clear(); invitations.clear(); publish(); },
     setWatchingActive(value) { watchingActive = value === true; if (watchingActive) watchedDiaries.forEach(watch => { watch.skipTicks = 0; watch.refresh?.(); }); },
-    setWatchingRealtime(id, connected) { if (!isSharingDiaryId(id)) return; const watch = watchedDiaries.get(id); if (connected) { realtimeDiaries.add(id); if (watch) watch.realtimeTicks = 0; } else { realtimeDiaries.delete(id); if (watch) { watch.realtimeTicks = 0; watch.refresh?.(true); } } },
+    setWatchingRealtime(id, connected) { if (!isSharingDiaryId(id)) return; const watch = watchedDiaries.get(id); if (connected) { realtimeDiaries.add(id); if (watch) { watch.realtimeTicks = 0; watch.refresh?.(true); } } else { realtimeDiaries.delete(id); if (watch) { watch.realtimeTicks = 0; watch.refresh?.(true); } } },
     setAccountProfile(value) { self.nickname = value.nickname; self.photoUri = value.photoUri || null; for (const key of photoCache.keys()) if (key.startsWith('account:')) photoCache.delete(key); },
     registerDiary(source) { ensureServerId(source.sharedDiaryId || source.id); return diaries.get(source.sharedDiaryId || source.id) || { ...source, members: [] }; },
     getSharing, refreshMembers, watchDiary, loadMoreEmailInvites, checkProfileNickname: checkNickname, checkNickname, updateProfile,

@@ -202,12 +202,16 @@ test('편집기 WebSocket이 준비된 동안 참여자 폴링을 멈추고 끊�
   const release = f.runtime.watchDiary(diaryId);
   await new Promise(resolve => setTimeout(resolve, 0));
   const timer = [...timers.values()][0], before = f.calls.length;
-  f.runtime.setWatchingRealtime(diaryId, true); timer();
+  f.runtime.setWatchingRealtime(diaryId, true);
   await new Promise(resolve => setTimeout(resolve, 0));
-  assert.equal(f.calls.length, before);
+  assert.ok(f.calls.length > before); // READY 직후 끊긴 동안 놓친 멤버 변경을 맞춘다.
+  const afterReady = f.calls.length;
   timer();
   await new Promise(resolve => setTimeout(resolve, 0));
-  assert.ok(f.calls.length > before); // 유실된 MEMBERS_CHANGED를 느린 보정 조회로 회복한다.
+  assert.equal(f.calls.length, afterReady);
+  timer();
+  await new Promise(resolve => setTimeout(resolve, 0));
+  assert.ok(f.calls.length > afterReady); // 유실된 MEMBERS_CHANGED를 느린 보정 조회로 회복한다.
   const afterReconcile = f.calls.length;
   f.runtime.setWatchingRealtime(diaryId, false);
   await new Promise(resolve => setTimeout(resolve, 0));
