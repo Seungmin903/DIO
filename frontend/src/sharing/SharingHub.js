@@ -237,7 +237,7 @@ export default function SharingHub({
     if (!diary?.id || typeof runtime.subscribe !== 'function') return undefined;
     return runtime.subscribe(() => {
       const current = runtime.getSnapshot?.().diaries?.find(value => value.id === diary.id);
-      if (current) setDiary(previous => previous?.id === current.id ? { ...previous, ...current } : current);
+      if (current) setDiary(previous => previous?.id === current.id ? { ...previous, members: current.members, ownerId: current.ownerId, myRole: current.myRole } : current);
     });
   }, [diary?.id, runtime]);
   useEffect(() => {
