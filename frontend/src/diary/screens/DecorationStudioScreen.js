@@ -293,7 +293,9 @@ export default function DecorationStudioScreen({ compact = false, registerBackHa
       const [item] = await pickImages({ multiple: false, usage: 'photo' });
       if (!item) return;
       // 사진 가져오기는 width/height를 주므로, 표지 렌더러가 자른 위치를 복원할 비율을 함께 저장한다.
-      const photo = coverPhotoWithAspect(item);
+      let photo;
+      try { photo = coverPhotoWithAspect(item); }
+      catch (error) { await discardGeneratedMedia([item]).catch(() => {}); throw error; }
       // 사진 넣기 흐름: 고르기 → 사진 방향의 표지 비율로 자르기 → 나의 표지에 보인다. 자르기를 닫으면 만들지 않는다
       const orientation = pdfOrientation(photo.aspect);
       const crop = await new Promise(resolve => setCoverCrop({ photo, ratio: COVER_PHOTO_RATIO[orientation], resolve }));
