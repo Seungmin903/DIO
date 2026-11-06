@@ -110,11 +110,22 @@ test('폴링은 권한·인증 오류 후 멈추고 일시 오류는 백오프�
   timer();
   await new Promise(resolve => setTimeout(resolve, 0));
   assert.equal(f.calls.length, callsAfterFailure); // 첫 실패 뒤 한 틱은 건너뛴다.
-  status = 403;
+  status = 401;
   timer(); timer(); timer(); timer();
   await new Promise(resolve => setTimeout(resolve, 0));
   assert.deepEqual(cleared, ['timer-1']);
   release();
+});
+
+test('참여자 사진은 URL이 바뀌기 전까지 한 번만 내려받는다', async () => {
+  const photoUrl = `/api/v1/diaries/${diaryId}/members/10/profile-photo?v=1`;
+  const f = fixture({ fetch: url => {
+    if (url.endsWith('/members')) return reply({ members: [{ userId: '10', nickname: '나', role: 'OWNER', usingAccountPhoto: false, profilePhotoUrl: photoUrl }] });
+    if (url.endsWith('/profile-photo?v=1')) return { ok: true, headers: new Headers({ 'content-type': 'image/png' }), arrayBuffer: async () => new Uint8Array([137, 80, 78, 71]).buffer };
+  } });
+  await f.runtime.getSharing(diaryId);
+  await f.runtime.refreshMembers(diaryId);
+  assert.equal(f.calls.filter(call => call.url.endsWith('/profile-photo?v=1')).length, 1);
 });
 
 test('앱이 다시 활성화되면 멈춘 참여자 갱신을 즉시 재개한다', async () => {
