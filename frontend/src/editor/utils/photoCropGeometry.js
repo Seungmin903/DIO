@@ -1,5 +1,7 @@
 import { clamp } from './common.js'
 
+const MIN_SELECTION_SIDE = 0.001
+
 export function visibleRect(crop, boxAspect, imageAspect) {
   const vw = Math.min(1, Math.min(1, boxAspect / imageAspect) / crop.zoom)
   const vh = Math.min(1, Math.min(1, imageAspect / boxAspect) / crop.zoom)
@@ -29,11 +31,11 @@ export function changeCropRatio(rect, ratio) {
   return { u0: cx - w / 2, v0: cy - h / 2, u1: cx + w / 2, v1: cy + h / 2 }
 }
 
-// 自由比率では短い辺も小さくできる。長い辺が最小値を下回る場合だけ制限する。
+// 짧은 변도 작게 만들되 긴 변이 최소 크기보다 작아지지 않도록 한다.
 export function resizeFreeCrop(rect, handle, du, dv, minLongSide) {
   const r = { ...rect }
   const width = r.u1 - r.u0, height = r.v1 - r.v0
-  const minWidth = Math.min(width, 0.001), minHeight = Math.min(height, 0.001)
+  const minWidth = Math.min(width, MIN_SELECTION_SIDE), minHeight = Math.min(height, MIN_SELECTION_SIDE)
   if (handle.sx < 0) r.u0 = clamp(r.u0 + du, 0, r.u1 - minWidth)
   if (handle.sx > 0) r.u1 = clamp(r.u1 + du, r.u0 + minWidth, 1)
   if (handle.sy < 0) r.v0 = clamp(r.v0 + dv, 0, r.v1 - minHeight)

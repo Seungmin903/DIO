@@ -95,6 +95,7 @@ function PhotoCropperBody({ photo, onApply, onCancel, fixedAspect, aspectRange, 
   const full = { left: (stageWidth - fullW) / 2, top: (stageHeight - fullH) / 2, width: fullW, height: fullH }
   // 자유 자르기 화면의 사진 자리. 확대하면 틀은 화면에서 그대로 두고 사진이 커진다. (null: 사진 전체가 보이게 맞춤)
   const [freeView, setFreeView] = useState(null)
+  const [sliderMax, setSliderMax] = useState(null)
   const view = freeView ?? full
   function zoomFree(zoom) {
     const next = freeTransform(rect, view, zoom, 0, 0)
@@ -209,7 +210,9 @@ function PhotoCropperBody({ photo, onApply, onCancel, fixedAspect, aspectRange, 
             <Slider
               value={freeZoom(rect)}
               min={1}
-              max={Math.max(1 / FREE_MIN, freeZoom(rect))}
+              max={sliderMax ?? Math.max(1 / FREE_MIN, freeZoom(rect))}
+              onStart={() => setSliderMax(Math.max(1 / FREE_MIN, freeZoom(rect)))}
+              onEnd={() => setSliderMax(null)}
               step={0.1}
               minusLabel="사진 축소"
               plusLabel="사진 확대"

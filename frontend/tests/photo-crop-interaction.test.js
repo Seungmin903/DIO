@@ -117,3 +117,17 @@ test('작은 자유 영역을 고정 비율로 바꾼 뒤 꼭짓점을 눌러도
   const after = nodes(ui.render()).find(n => n.type?.name === 'FreeCrop').props.rect
   for (const key of ['u0', 'v0', 'u1', 'v1']) close(after[key], before[key])
 })
+
+test('9배를 넘는 자르기에서 확대 막대 범위는 드래그가 끝날 때까지 유지된다', () => {
+  const ui = fixture(); let tree = ui.render()
+  nodes(tree).find(n => n.props?.label === '자유' && n.props?.onPress).props.onPress()
+  nodes(ui.render()).find(n => n.type?.name === 'FreeCrop').props.onChange({ u0: 0.4, v0: 0.4, u1: 0.45, v1: 0.45 })
+  const slider = () => nodes(ui.render()).find(n => n.props?.label === '확대' && n.props?.onChange).props
+  close(slider().max, 20)
+  slider().onStart(); slider().onChange(12)
+  close(slider().max, 20)
+  slider().onChange(18)
+  close(slider().value, 18)
+  slider().onEnd()
+  close(slider().max, 18)
+})
