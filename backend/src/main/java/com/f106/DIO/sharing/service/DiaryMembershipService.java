@@ -21,9 +21,10 @@ public class DiaryMembershipService {
     private final DiaryInviteRepository invites;
     private final MemberProfileResolver views;
     private final DiaryPermanentDeletionRepository deletion;
+    private final org.springframework.context.ApplicationEventPublisher events;
     public DiaryMembershipService(SharingAccessService access,DiaryMemberRepository members,DiaryInviteRepository invites,
-            MemberProfileResolver views,DiaryPermanentDeletionRepository deletion,com.f106.DIO.moderation.service.BlockService blocks) {
-        this.blocks=blocks;this.access=access;this.members=members;this.invites=invites;this.views=views;this.deletion=deletion;
+            MemberProfileResolver views,DiaryPermanentDeletionRepository deletion,com.f106.DIO.moderation.service.BlockService blocks,org.springframework.context.ApplicationEventPublisher events) {
+        this.blocks=blocks;this.access=access;this.members=members;this.invites=invites;this.views=views;this.deletion=deletion;this.events=events;
     }
     @Transactional(readOnly=true)
     public MemberListResponse list(UUID id,long actor) {
@@ -44,5 +45,6 @@ public class DiaryMembershipService {
         }
         member.leave(Instant.now());
         if(actor!=target)invites.revokeLinks(id,Instant.now());
+        events.publishEvent(new DiaryMembershipChanged(id));
     }
 }

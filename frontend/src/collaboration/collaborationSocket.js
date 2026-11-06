@@ -4,7 +4,7 @@ export function collaborationSocketUrl(baseUrl,diaryId,allowDevelopmentHttp=fals
   if(url.protocol==='http:'&&!allowDevelopmentHttp&&!['localhost','127.0.0.1','[::1]','10.0.2.2'].includes(url.hostname))throw new Error('안전한 공동 편집 서버 주소가 필요해요.')
   url.protocol=url.protocol==='https:'?'wss:':'ws:';url.pathname=`/ws/diaries/${diaryId}`;return url.toString()
 }
-export function connectCollaboration({baseUrl,diaryId,getAccessToken,onChange,onPagesChanged=()=>{},onReady=()=>{},onUnavailable=()=>{},onDiagnostic=()=>{},isActive=()=>true,allowDevelopmentHttp=false,makeSocket=null,WebSocketImpl=globalThis.WebSocket,schedule=setTimeout,cancel=clearTimeout}){
+export function connectCollaboration({baseUrl,diaryId,getAccessToken,onChange,onPagesChanged=()=>{},onMembersChanged=()=>{},onReady=()=>{},onUnavailable=()=>{},onDiagnostic=()=>{},isActive=()=>true,allowDevelopmentHttp=false,makeSocket=null,WebSocketImpl=globalThis.WebSocket,schedule=setTimeout,cancel=clearTimeout}){
   const diagnostic=(stage,code)=>{try{onDiagnostic({stage,...(Number.isInteger(code)?{code}:{})})}catch{}}
   let socket=null,stopped=false,reconnect=null,heartbeat=null,backoff=1000,connection=0,policyRetries=0,recoverAuth=false
   const active=id=>!stopped&&isActive()&&id===connection
@@ -28,6 +28,7 @@ export function connectCollaboration({baseUrl,diaryId,getAccessToken,onChange,on
       let frame;try{frame=JSON.parse(event.data)}catch{return}
       if(frame.type==='READY'&&frame.diaryId===diaryId){ready=true;policyRetries=0;backoff=1000;onReady()}
       else if(ready&&frame.type==='PAGES_CHANGED'&&frame.diaryId===diaryId)onPagesChanged()
+      else if(ready&&frame.type==='MEMBERS_CHANGED'&&frame.diaryId===diaryId)onMembersChanged()
       else if(ready&&frame.type==='PAGE_CHANGED'&&/^[0-9a-f-]{36}$/i.test(frame.pageId)&&typeof frame.operationId==='string')onChange(frame)
     }
     target.onerror=unavailable

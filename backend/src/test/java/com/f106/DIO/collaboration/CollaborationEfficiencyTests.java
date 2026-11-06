@@ -110,7 +110,7 @@ class CollaborationEfficiencyTests {
         Thread.sleep(5100);handler.expirePendingConnections();verify(pending).close(CloseStatus.POLICY_VIOLATION);verify(active,never()).close(any());
     }
     @Test void transientInfrastructureAndRevokedAccessUseDifferentCloseCodesAcrossValidationPaths()throws Exception{
-        for(String path:List.of("canvas","pages","check"))for(boolean sessionFailure:List.of(true,false))for(boolean transientFailure:List.of(true,false)){
+        for(String path:List.of("canvas","pages","members","check"))for(boolean sessionFailure:List.of(true,false))for(boolean transientFailure:List.of(true,false)){
             var access=mock(CollaborationAccess.class);var decoder=mock(JwtDecoder.class);UUID diary=UUID.randomUUID(),sid=UUID.randomUUID();
             when(decoder.decode("token")).thenReturn(Jwt.withTokenValue("token").header("alg","HS256").subject("42").claim("sid",sid.toString()).expiresAt(Instant.now().plusSeconds(600)).build());
             var handler=new CollaborationSocket(access,decoder,JsonMapper.builder().build(),Runnable::run,Runnable::run);
@@ -122,11 +122,23 @@ class CollaborationEfficiencyTests {
             switch(path){
                 case "canvas"->handler.committed(new CanvasCommitted(diary,UUID.randomUUID(),"1",UUID.randomUUID(),42,0,"APPLY"));
                 case "pages"->handler.pagesChanged(new com.f106.DIO.page.domain.PageCatalogChanged(diary));
+                case "members"->handler.membersChanged(new com.f106.DIO.sharing.domain.DiaryMembershipChanged(diary));
                 default->handler.checkConnections();
             }
             verify(socket).close(transientFailure?CloseStatus.SERVER_ERROR:CloseStatus.POLICY_VIOLATION);
             verify(socket,never()).close(transientFailure?CloseStatus.POLICY_VIOLATION:CloseStatus.SERVER_ERROR);
         }
+    }
+    @Test void membershipChangesAreSentOnlyToAuthenticatedDiarySockets()throws Exception{
+        var access=mock(CollaborationAccess.class);var decoder=mock(JwtDecoder.class);UUID diary=UUID.randomUUID(),sid=UUID.randomUUID();
+        when(decoder.decode("token")).thenReturn(Jwt.withTokenValue("token").header("alg","HS256").subject("42").claim("sid",sid.toString()).expiresAt(Instant.now().plusSeconds(600)).build());
+        var handler=new CollaborationSocket(access,decoder,JsonMapper.builder().build(),Runnable::run,Runnable::run);
+        var matching=pendingSocket("matching",diary,"one"),other=pendingSocket("other",UUID.randomUUID(),"two");
+        handler.afterConnectionEstablished(matching);handler.afterConnectionEstablished(other);
+        handler.handleMessage(matching,new TextMessage("{\"type\":\"AUTH\",\"accessToken\":\"token\"}"));
+        handler.membersChanged(new com.f106.DIO.sharing.domain.DiaryMembershipChanged(diary));
+        verify(matching).sendMessage(argThat(message->message instanceof TextMessage text&&text.getPayload().contains("\"MEMBERS_CHANGED\"")));
+        verify(other,never()).sendMessage(argThat(message->message instanceof TextMessage text&&text.getPayload().contains("\"MEMBERS_CHANGED\"")));
     }
     @Test void immediatePingAndReauthenticationAreAllowedButPingFloodIsRejected()throws Exception{
         var access=mock(CollaborationAccess.class);var decoder=mock(JwtDecoder.class);UUID diary=UUID.randomUUID(),sid=UUID.randomUUID();

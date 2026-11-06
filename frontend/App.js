@@ -980,6 +980,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
         readOnly={member && active?.permissions?.canEditCanvas !== true}
         invitationCount={unreadInvites}
         sharingMembers={sharingMembers}
+        onMembersChanged={() => { const diaryId = active?.sharedDiaryId || active?.id; if (isSharingDiaryId(diaryId)) sharing.runtime.refreshMembers(diaryId).catch(() => {}); }}
         onRenameDiary={async title => {
           if (!active?.id) return false;
           try {
