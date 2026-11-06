@@ -130,6 +130,16 @@ test('참여자 사진은 URL이 바뀌기 전까지 한 번만 내려받는다'
   assert.equal(f.calls.filter(call => call.url.endsWith('/profile-photo?v=1')).length, 1);
 });
 
+test('변경 없는 참여자 재조회는 공유 스냅샷을 다시 발행하지 않는다', async () => {
+  const f = fixture();
+  await f.runtime.getSharing(diaryId);
+  let notified = 0;
+  const stop = f.runtime.subscribe(() => { notified++; });
+  await f.runtime.refreshMembers(diaryId);
+  assert.equal(notified, 0);
+  stop();
+});
+
 test('계정 프로필 사진 캐시는 유효 시간 뒤 같은 URL도 다시 읽는다', async () => {
   let clock = 0;
   const photoUrl = 'https://api.dio.test/api/v1/auth/profile-photos/account-photo';

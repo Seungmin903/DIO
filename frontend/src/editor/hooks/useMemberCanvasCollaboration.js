@@ -25,6 +25,7 @@ const needsPdfSeed=page=>(page.objects??[]).some(o=>o.backdrop&&o.pdfSource&&!o.
 export function useMemberCanvasCollaboration({diary,page,state,loaded,readOnly,dispatch,onMembersChanged=()=>{}}){
   const enabled=diary?.source==='member-api'&&!readOnly
   const latest=useRef({page,state});latest.current={page,state}
+  const membersChanged=useRef(onMembersChanged);membersChanged.current=onMembersChanged
   const runtime=useRef(null)
   const [view,setView]=useState({status:null,history:null,busy:false,pageId:null})
   const sessionKey=authService.getSessionKey()
@@ -221,7 +222,7 @@ export function useMemberCanvasCollaboration({diary,page,state,loaded,readOnly,d
       onDiagnostic:diagnostics.socket,
       makeSocket:url=>Platform?.OS==='web'?new globalThis.WebSocket(url):new globalThis.WebSocket(url,[],{headers:headersFor(url)}),
       getAccessToken:({forceRefresh=false}={})=>authService.getAccessToken({userId:diary.memberAccountId,sessionKey,forceRefresh}),
-      onReady:()=>{diagnostics.event('ws-ready');refresh()},onUnavailable:()=>diagnostics.event('ws-unavailable'),onPagesChanged:refreshPagesQuietly,onMembersChanged,onChange:frame=>{
+      onReady:()=>{diagnostics.event('ws-ready');refresh()},onUnavailable:()=>diagnostics.event('ws-unavailable'),onPagesChanged:refreshPagesQuietly,onMembersChanged:()=>membersChanged.current(),onChange:frame=>{
         diagnostics.event('ws-change')
         if([...r.loaded.values()].some(engine=>engine.ownsCommand(frame.clientOperationId)))return
         if(frame.pageId===latest.current.page.id)refresh()

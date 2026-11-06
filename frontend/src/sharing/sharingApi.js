@@ -201,7 +201,10 @@ export function createSharingApi({ user, auth, fetchImpl = globalThis.fetch, bui
     const previous = diaries.get(id);
     if (!previous) return getSharing(id);
     const { refreshWarning, ...current } = previous;
-    diaries.set(id, withMemberRoles(current, members));
+    const next = withMemberRoles(current, members);
+    if (JSON.stringify({ members: previous.members, ownerId: previous.ownerId, myRole: previous.myRole }) === JSON.stringify({ members: next.members, ownerId: next.ownerId, myRole: next.myRole }) && !refreshWarning)
+      return previous;
+    diaries.set(id, next);
     publish();
     return diaries.get(id);
   }
