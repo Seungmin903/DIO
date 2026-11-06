@@ -181,7 +181,10 @@ test('앱이 다시 활성화되면 멈춘 참여자 갱신을 즉시 재개한�
   await f.runtime.getSharing(diaryId);
   const release = f.runtime.watchDiary(diaryId);
   await new Promise(resolve => setTimeout(resolve, 0));
-  const timer = [...timers.values()][0], before = f.calls.length;
+  const timer = [...timers.values()][0];
+  f.runtime.setWatchingRealtime(diaryId, true);
+  await new Promise(resolve => setTimeout(resolve, 0));
+  const before = f.calls.length;
   f.runtime.setWatchingActive(false); owner = '20'; timer();
   await new Promise(resolve => setTimeout(resolve, 0));
   assert.equal(f.calls.length, before);
