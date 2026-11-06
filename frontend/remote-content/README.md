@@ -1,17 +1,16 @@
 # remote-content — 앱 배포 없이 추가하는 글꼴·스티커·속지
 
-이 폴더에 파일을 넣고 아래 두 명령을 실행하면, 앱을 다시 배포하지 않아도 사용자 앱에 새 글꼴·스티커·속지가 나타납니다.
+이 폴더에 파일을 넣고 커밋해 develop에 병합하면, 앱을 다시 배포하지 않아도 사용자 앱에 새 글꼴·스티커·속지가 나타납니다. 올리는 일은 GitLab CI가 합니다.
 
-```bash
-pnpm assets:remote
-sh scripts/upload-remote-assets.sh <버킷> static-assets
-```
+1. 이 폴더에 파일과 설명 json을 넣고(아래 형식) `frontend` 폴더에서 `pnpm assets:remote`로 형식을 확인합니다. 틀리면 무엇이 틀렸는지 알려 줍니다.
+2. 커밋하고 MR을 올립니다. `remote-assets-check` 잡이 같은 검사를 다시 합니다.
+3. develop에 병합되면 `publish-remote-assets-dev` 잡이 **개발** 에셋 버킷에 자동으로 올립니다.
+4. 운영은 master 파이프라인에서 `publish-remote-assets-prod` 잡을 **직접 눌러** 올립니다.
+5. 앱은 켜질 때 `catalog.json`을 받아 목록을 고칩니다(CloudFront 캐시로 최대 1분). 오프라인이면 기기에 저장된 마지막 목록을 씁니다.
 
-1. `pnpm assets:remote`(`frontend` 폴더에서 실행)가 `remote-assets-dist/`에 해시 이름의 파일과 `catalog.json`을 만듭니다. 형식이 틀리면 무엇이 틀렸는지 알려 주고 멈춥니다.
-2. 업로드 스크립트가 파일을 먼저 올리고 `catalog.json`을 마지막에 올립니다.
-3. 앱은 켜질 때 `catalog.json`을 받아 목록을 고칩니다. 오프라인이면 기기에 저장된 마지막 목록을 씁니다.
-
-이 폴더는 git에 커밋합니다. `catalog.json`은 매번 이 폴더 전체로 새로 만들어지므로, 여기서 지운 항목은 다음 업로드 때 목록에서도 빠집니다.
+- `catalog.json`은 매번 이 폴더 전체로 새로 만들어집니다. 이미 공개한 항목이 빠지면 업로드가 멈춥니다(안전장치). 내릴 때는 `"hidden": true`를 쓰세요.
+- 급할 때는 AWS 키가 있는 PC에서 직접 올릴 수도 있습니다. 같은 안전장치를 거칩니다: `pnpm assets:remote` 다음 `sh scripts/upload-remote-assets.sh <버킷> static-assets`.
+- 로컬 미리보기: `pnpm assets:remote`, `pnpm assets:serve`를 실행하고 `.env`의 `EXPO_PUBLIC_ASSET_BASE_URL`을 비운 채 `pnpm web`.
 
 ## 글꼴
 

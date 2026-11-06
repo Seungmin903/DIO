@@ -2,7 +2,8 @@
 //
 //   node scripts/build-remote-assets.mjs          매니페스트(src/shared/remoteAssets/manifest.js)와 업로드용 폴더(remote-assets-dist/)를 만든다
 //   node scripts/build-remote-assets.mjs --check  매니페스트가 지금 파일과 같은지, remote-content/ 형식이 맞는지만 검사한다(다르면 실패)
-//   --content <폴더> --out <폴더>                  remote-content/ · remote-assets-dist/ 대신 쓸 폴더(테스트용)
+//   node scripts/build-remote-assets.mjs --dist-only --out <폴더>  매니페스트는 고치지 않고(일치만 검사) 업로드용 폴더만 만든다(CI 게시용)
+//   --content <폴더> --out <폴더>                  remote-content/ · remote-assets-dist/ 대신 쓸 폴더
 //
 // 두 가지를 함께 만든다.
 // 1) 앱 코드가 아는 원격 에셋(assets/ 의 글꼴 · 2026 속지): manifest.js 에 적혀 앱과 함께 배포된다.
@@ -64,16 +65,21 @@ if (content.errors.length) {
   console.error(['remote-content/ 를 확인해 주세요:', ...content.errors.map(error => '  - ' + error)].join('\n'))
   process.exit(1)
 }
-if (process.argv.includes('--check')) {
+// --check · --dist-only 는 저장소 파일을 고치지 않는다. 커밋된 매니페스트가 assets/ 와 다르면 실패한다
+// (앱과 함께 배포된 매니페스트와 올리는 파일이 어긋나면 앱이 받은 파일의 해시가 맞지 않는다).
+const readOnly = process.argv.includes('--check') || process.argv.includes('--dist-only')
+if (readOnly) {
   let current = ''
   try { current = readFileSync(MANIFEST, 'utf8') } catch { /* 없는 경우도 불일치로 본다 */ }
   if (current !== text) {
-    console.error('원격 에셋 매니페스트가 assets/ 와 다릅니다. pnpm assets:remote 로 다시 만드세요.')
+    console.error('원격 에셋 매니페스트가 assets/ 와 다릅니다. pnpm assets:remote 로 다시 만들어 커밋하세요.')
     process.exit(1)
   }
+}
+if (process.argv.includes('--check')) {
   console.log(`원격 에셋 매니페스트 일치 (${Object.keys(files).length}개), remote-content 글꼴 ${content.catalog.fonts.length} · 스티커 팩 ${content.catalog.stickerPacks.length} · 속지 ${content.catalog.templates.length}`)
 } else {
-  writeFileSync(MANIFEST, text)
+  if (!readOnly) writeFileSync(MANIFEST, text)
   rmSync(DIST, { recursive: true, force: true })
   for (const [path, entry] of Object.entries(files)) {
     mkdirSync(dirname(join(DIST, entry.key)), { recursive: true })
@@ -90,6 +96,6 @@ if (process.argv.includes('--check')) {
   writeFileSync(join(DIST, 'catalog.json'), JSON.stringify(content.catalog, null, 2))
   const total = Object.values(files).reduce((sum, entry) => sum + entry.size, 0)
   console.log(`원격 에셋 ${Object.keys(files).length}개 (${(total / 1024 / 1024).toFixed(1)} MiB) → ${toPosix(relative(ROOT, DIST))}/`)
-  console.log(`매니페스트 → ${toPosix(relative(ROOT, MANIFEST))}`)
+  if (!readOnly) console.log(`매니페스트 → ${toPosix(relative(ROOT, MANIFEST))}`)
   console.log(`catalog.json: 글꼴 ${content.catalog.fonts.length} · 스티커 팩 ${content.catalog.stickerPacks.length} · 속지 ${content.catalog.templates.length} (remote-content/)`)
 }

@@ -221,3 +221,11 @@ test('원격 속지로 회원 다이어리를 만들면 서버 요청에 remoteT
   assert.equal(page.backgroundAssetId, 'remote-spring-note-landscape')
   assert.equal(decodeServerPage({ page: (await transport({ body: calls[0].body })).page, elements: [] }, diaryId).backgroundAssetId, 'remote-spring-note-landscape')
 })
+
+test('업로드 안전장치: 이미 공개한 글꼴 · 스티커 팩 · 속지가 새 목록에서 빠지면 알린다(숨김은 통과)', async () => {
+  const { compareCatalogs } = await import('../scripts/compare-remote-catalog.mjs')
+  const before = { schemaVersion: 1, fonts: [{ id: 'hahmlet' }], stickerPacks: [{ id: 'spring' }], templates: [{ id: 'spring-note' }] }
+  assert.deepEqual(compareCatalogs(before, { ...before, fonts: [{ id: 'hahmlet', hidden: true }], templates: [{ id: 'spring-note' }, { id: 'summer' }] }),
+    { removed: [], added: ['속지 summer'] })
+  assert.deepEqual(compareCatalogs(before, { schemaVersion: 1, fonts: [], stickerPacks: [{ id: 'spring' }] }).removed, ['글꼴 hahmlet', '속지 spring-note'])
+})

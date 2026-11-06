@@ -59,14 +59,30 @@
    - 버킷 정책은 그 배포에 `static-assets/*`에 대한 `s3:GetObject`만 허용한다.
    - 캐시 정책은 오리진의 `Cache-Control`을 따른다.
 3. **CORS**: 웹은 다른 출처에서 글꼴(@font-face)과 SVG(fetch)를 읽는다. CloudFront 응답 헤더 정책에서 허용 Origin(웹 배포 주소)과 `GET`·`HEAD`를 열고, 오리진 요청 정책이 `Origin` 헤더를 넘기게 한다. 네이티브 앱은 CORS가 필요 없다.
-4. **업로드**: `sh frontend/scripts/upload-remote-assets.sh <버킷> [static-assets]`
-   - 확장자별로 `Content-Type`(`font/ttf`, `image/svg+xml`)과 `Cache-Control: public, max-age=31536000, immutable`을 붙여 `aws s3 sync`한다.
-   - `--delete`는 쓰지 않는다.
-   - 업로드 권한은 `static-assets/*`에 대한 `s3:PutObject`만 준다. 백엔드 IAM에는 추가하지 않는다.
-   - `catalog.json`은 맨 마지막에 `Cache-Control: public, max-age=60`으로 올린다. 앱이 새 목록을 받았을 때 그 안의 파일이 이미 올라가 있어야 하기 때문이다.
+4. **업로드(GitLab CI)**: `.gitlab-ci.yml`의 원격 에셋 잡이 올린다.
+   - `remote-assets-check`(MR·develop·master): `build-remote-assets.mjs --check`로 매니페스트 일치와 `remote-content/` 형식을 검사한다. 키·네트워크는 쓰지 않는다.
+   - `publish-remote-assets-dev`(develop, 자동)와 `publish-remote-assets-prod`(master, 수동)는 네 단계로 올린다.
+     1. 업로드 폴더를 만든다(`--dist-only`). 커밋된 매니페스트와 다르면 멈춘다.
+     2. 지금 올라간 `catalog.json`을 받는다.
+     3. 이미 공개한 항목이 빠졌는지 비교한다(`compare-remote-catalog.mjs`). 빠졌으면 멈추고, CI 변수 `ALLOW_CATALOG_REMOVAL=1`로만 허용한다.
+     4. 파일을 먼저, `catalog.json`을 마지막에 올린다.
+   - 잡은 `remote-content/`, `assets/fonts`, `assets/templates`, 원격 에셋 스크립트가 바뀐 파이프라인에서만 돈다.
+   - 버킷과 키는 러너 서버의 env 파일에 둔다. 다른 배포 잡과 같은 방식이다. **이 파일 두 개는 서버에 직접 만들어야 한다.**
+     ```
+     /home/gitlab-runner/dio-env/assets-dev.env
+     /home/gitlab-runner/dio-env/assets-prod.env
+       ASSET_S3_BUCKET=<버킷>
+       ASSET_S3_PREFIX=static-assets
+       AWS_ACCESS_KEY_ID=…
+       AWS_SECRET_ACCESS_KEY=…
+       AWS_DEFAULT_REGION=ap-northeast-2
+     ```
+   - 키 권한: `static-assets/*`에 `s3:GetObject`·`s3:PutObject`, 버킷에 접두사를 제한한 `s3:ListBucket`. 백엔드 IAM과 따로 둔다.
+   - 확장자별로 `Content-Type`(`font/ttf`, `image/svg+xml`, `application/json`)과 `Cache-Control: public, max-age=31536000, immutable`을 붙인다. `catalog.json`만 `max-age=60`이다. `--delete`는 쓰지 않는다.
+   - 급할 때는 키가 있는 PC에서 `sh frontend/scripts/upload-remote-assets.sh <버킷> [static-assets]`로 직접 올릴 수 있다. 같은 비교를 거친다(node 필요).
 5. **배포 순서**:
-   - 번들에서 뺀 에셋: 에셋을 먼저 올리고, 그다음 매니페스트가 바뀐 앱을 배포한다.
-   - `remote-content/`에 추가한 글꼴·스티커: 올리기만 하면 된다. 앱은 다음 실행 때 반영한다.
+   - 번들에서 뺀 에셋: 에셋이 먼저 올라간 뒤(develop 병합 → CI) 매니페스트가 바뀐 앱을 배포한다.
+   - `remote-content/`에 추가한 글꼴·스티커·속지: 병합(운영은 master 잡 실행)만 하면 된다. 앱은 다음 실행 때 반영한다.
 
 ## 라이선스
 
