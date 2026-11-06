@@ -85,7 +85,7 @@ public class MemberDiaryListQuery {
         var rows=jdbc.query(sql,(rs,n)->{
             var diary=new MemberDiaryResponses.Diary(rs.getString("diary_id"),rs.getString("title"),rs.getString("cover_color"),rs.getString("cover_style"),rs.getString("visibility"),rs.getTimestamp("created_at").toInstant(),rs.getTimestamp("updated_at").toInstant(),"OWNER".equals(rs.getString("role")),Long.toString(rs.getLong("version")),rs.getString("role"),new MemberDiaryResponses.Membership(rs.getBoolean("is_favorite")),new MemberDiaryResponses.Permissions("OWNER".equals(rs.getString("role")),true,"OWNER".equals(rs.getString("role")),false,false));
             String value=switch(sort){case "title"->rs.getString("title_key");case "pages"->Long.toString(rs.getLong("page_count"));default->rs.getTimestamp(column).toInstant().toString();};
-            return new Row(new Item(diary,rs.getLong("page_count"),rs.getLong("member_count")>1),value);
+            return new Row(new Item(diary.withCover(DiaryCoverDesign.read(rs.getString("cover_json"))),rs.getLong("page_count"),rs.getLong("member_count")>1),value);
         },args.toArray());
         boolean more=rows.size()>limit;var selected=rows.subList(0,Math.min(limit,rows.size()));String next=null;
         if(more) {var last=selected.get(selected.size()-1);next=Base64.getUrlEncoder().withoutPadding().encodeToString(json.writeValueAsString(new Cursor(4,user,q,sort,last.value(),last.item().diary().diaryId(),filter,favorite)).getBytes(StandardCharsets.UTF_8));}

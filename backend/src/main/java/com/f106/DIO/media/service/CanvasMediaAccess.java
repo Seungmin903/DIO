@@ -6,6 +6,7 @@ import org.springframework.stereotype.Service;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 import com.f106.DIO.media.support.MediaFileNotFoundException;
+import com.f106.DIO.diary.http.DiaryCoverDesign;
 
 /** Access to images referenced by the existing canvas APIs, including photo-strip cells. */
 @Service
@@ -52,7 +53,10 @@ public class CanvasMediaAccess {
             (rs,n)->visibleReferences(rs.getObject(1,UUID.class),rs.getString(2)==null?null:JSON.readTree(rs.getString(2))).contains(media),parameters.toArray()).stream().anyMatch(Boolean.TRUE::equals);
     }
     public boolean readable(UUID media,long actor){
-        return referenced(media,"(d.owner_user_id=? or exists(select 1 from diary_members m where m.diary_id=d.diary_id and m.user_id=? and m.left_at is null and m.role in ('OWNER','EDITOR')))",actor,actor);
+        if(referenced(media,"(d.owner_user_id=? or exists(select 1 from diary_members m where m.diary_id=d.diary_id and m.user_id=? and m.left_at is null and m.role in ('OWNER','EDITOR')))",actor,actor))return true;
+        boolean cover=jdbc.query("select d.cover_json from diaries d where d.deleted_at is null and d.cover_json like ? and (d.owner_user_id=? or exists(select 1 from diary_members m where m.diary_id=d.diary_id and m.user_id=? and m.left_at is null and m.role in ('OWNER','EDITOR')))",
+            (rs,n)->DiaryCoverDesign.references(DiaryCoverDesign.read(rs.getString(1))).contains(media),DiaryCoverDesign.referencePattern(media),actor,actor).stream().anyMatch(Boolean.TRUE::equals);
+        return cover;
     }
     public void requireAttach(UUID page,UUID primary,JsonNode properties,long actor){
         for(var reference:attachmentReferences(primary,properties).entrySet()){
@@ -121,6 +125,7 @@ public class CanvasMediaAccess {
     }
     /** Include soft-deleted elements, which can still be restored or undone. */
     public boolean retained(UUID media){
+        if(Boolean.TRUE.equals(jdbc.queryForObject("select exists(select 1 from diaries d where d.cover_json like ?)",Boolean.class,DiaryCoverDesign.referencePattern(media))))return true;
         return Boolean.TRUE.equals(jdbc.queryForObject("select exists(select 1 from canvas_elements e where e.media_file_id=? or "+sql.matches("e.properties_json")+") or exists(select 1 from canvas_history_operations h where "+sql.matches("h.before_state_json")+" or "+sql.matches("h.after_state_json")+")",Boolean.class,media,sql.parameter(media),sql.parameter(media),sql.parameter(media)));
     }
 }

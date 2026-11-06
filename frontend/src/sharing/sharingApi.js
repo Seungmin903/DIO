@@ -174,13 +174,15 @@ export function createSharingApi({ user, auth, fetchImpl = globalThis.fetch, bui
     const revision = generation;
     ensureServerId(id);
     const [members, links, detail] = await Promise.all([
-      request(`${path(id)}/members`), request(`${path(id)}/invites?page=0&size=20`), request(path(id)),
+      request(`${path(id)}/members`), request(`${path(id)}/invites?page=0&size=20`), request(`/member/diaries/${id}`),
     ]);
     if (!active || revision !== generation) fail('DISPOSED', '화면을 다시 열어 주세요.');
     const sent = sentPage(links?.emailInvites);
     const mappedMembers = await mapMembers(members.members);
     if (!active || revision !== generation) fail('DISPOSED', '화면을 다시 열어 주세요.');
     const diary = { id, title: detail.diary.diaryTitle, color: detail.diary.coverColor,
+      ...(detail.diary.cover?{cover:detail.diary.cover}:{}),
+      pattern:detail.diary.coverStyle==='PLAIN'?null:detail.diary.coverStyle?.toLowerCase(),
       link: links.available ? uri(links.inviteUrl) : null, favorite: detail.diary.myMembership?.isFavorite === true,
       members: mappedMembers, linkExpiresAt: links.expiresAt || null, emailInvites: sent.items, emailNextPage: sent.nextPage };
     diaries.set(id, diary); publish(); return diary;

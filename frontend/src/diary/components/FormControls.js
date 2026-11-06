@@ -150,14 +150,17 @@ export function ColorRow({ value, onChange, swatches, label, active = true, cust
   </View>
 }
 
-/** 견본 줄 맨 앞의 '맞춤' 칸: color 로 칠하고 글자를 얹는다. */
+/**
+ * 견본 줄 맨 앞의 '맞춤' 칸: color 로 칠하고 글자를 얹는다.
+ * 글자는 기기의 글자 크기 설정을 따르지 않는다. 칸(26)이 고정이라 글자가 커지면 두 줄로 꺾여 "맞"만 남는다(안드로이드 글자 크기 1.3배에서 재현).
+ */
 export function AutoSwatch({ color, on, onPress, label }) {
   const size = useContext(CellSize)
   const inner = size - 10
   return <Pressable accessibilityRole="radio" accessibilityLabel={label} accessibilityState={{ selected: on, checked: on }} onPress={onPress} hitSlop={6}
     style={[styles.ring, { width: size, height: size, borderRadius: size / 2 }, on && styles.ringOn]}>
     <View style={[styles.swatch, { width: inner, height: inner, borderRadius: inner / 2, backgroundColor: color }]}>
-      <Text style={[styles.autoText, { color: dark(color) ? '#FFFFFF' : colors.text }]}>맞춤</Text>
+      <Text allowFontScaling={false} numberOfLines={1} style={[styles.autoText, { color: dark(color) ? '#FFFFFF' : colors.text }]}>맞춤</Text>
     </View>
   </Pressable>
 }
@@ -211,7 +214,7 @@ const styles = StyleSheet.create({
   swatch: { overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(28,28,28,.14)', alignItems: 'center', justifyContent: 'center' },
   custom: { borderStyle: 'dashed', borderColor: colors.textMuted, backgroundColor: colors.surface },
   checkWrap: { ...StyleSheet.absoluteFill, alignItems: 'center', justifyContent: 'center' },
-  autoText: { fontSize: 11, fontWeight: '800' },
+  autoText: { fontSize: 11, fontWeight: '800', includeFontPadding: false },
   picker: { padding: 12, borderRadius: 12, backgroundColor: colors.surfaceSoft },
   element: { borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, overflow: 'hidden' },
   elementOpen: { borderColor: colors.primary },

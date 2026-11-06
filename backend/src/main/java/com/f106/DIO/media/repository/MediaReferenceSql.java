@@ -7,6 +7,7 @@ public final class MediaReferenceSql {
         return "cast(lower(cast(jsonb_path_query_array("+column+", '$.**.mediaFileId') as text)) as jsonb)";
     }
     public static final String UNREFERENCED = """
+          and not exists (select 1 from diaries cover where cover.cover_json like concat('%"mediaFileId":"',cast(media_files.media_file_id as text),'"%'))
           and not exists (select 1 from canvas_elements element where element.media_file_id = media_files.media_file_id)
           and not exists (select 1 from canvas_elements element where cast(lower(cast(jsonb_path_query_array(element.properties_json, '$.**.mediaFileId') as text)) as jsonb) @> jsonb_build_array(cast(media_files.media_file_id as text)))
           and not exists (select 1 from canvas_history_operations history where cast(lower(cast(jsonb_path_query_array(history.before_state_json, '$.**.mediaFileId') as text)) as jsonb) @> jsonb_build_array(cast(media_files.media_file_id as text)) or cast(lower(cast(jsonb_path_query_array(history.after_state_json, '$.**.mediaFileId') as text)) as jsonb) @> jsonb_build_array(cast(media_files.media_file_id as text)))
@@ -18,6 +19,7 @@ public final class MediaReferenceSql {
         """;
     // Only the existing H2 test profile lacks PostgreSQL JSONPath and GIN.
     public static final String H2_UNREFERENCED = """
+          and not exists (select 1 from diaries cover where cover.cover_json like concat('%"mediaFileId":"',cast(media_files.media_file_id as varchar),'"%'))
           and not exists (select 1 from canvas_elements element where element.media_file_id = media_files.media_file_id or lower(cast(element.properties_json as varchar)) like concat('%',cast(media_files.media_file_id as varchar),'%'))
           and not exists (select 1 from canvas_history_operations history where lower(cast(history.before_state_json as varchar)) like concat('%',cast(media_files.media_file_id as varchar),'%') or lower(cast(history.after_state_json as varchar)) like concat('%',cast(media_files.media_file_id as varchar),'%'))
           and not exists (select 1 from diary_handwriting_fonts font where font.font_media_file_id = media_files.media_file_id)

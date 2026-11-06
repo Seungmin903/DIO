@@ -40,6 +40,9 @@ public class Diary {
 	@Column(nullable = false, length = 30)
 	private String coverStyle;
 
+	@Column(columnDefinition = "text")
+	private String coverJson;
+
 	@Column(nullable = false, length = 30)
 	private String visibility;
 

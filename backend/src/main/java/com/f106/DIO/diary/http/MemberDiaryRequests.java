@@ -39,6 +39,9 @@ public final class MemberDiaryRequests {
     }
 
     public static class Update {
+        private tools.jackson.databind.JsonNode cover;
+        public tools.jackson.databind.JsonNode getCover() { return cover; }
+        @JsonSetter(nulls=Nulls.FAIL) public void setCover(tools.jackson.databind.JsonNode value) { cover=value; }
         @NotNull @Pattern(regexp="[1-9][0-9]{0,18}") private String expectedVersion;
         @Size(min=1,max=100) private String diaryTitle;
         @Pattern(regexp="#[0-9a-fA-F]{6}") private String coverColor;
@@ -53,7 +56,7 @@ public final class MemberDiaryRequests {
         @JsonSetter(nulls=Nulls.FAIL) public void setCoverColor(String value) { coverColor=value; }
         @JsonSetter(nulls=Nulls.FAIL) public void setCoverStyle(String value) { coverStyle=value; }
         @JsonAnySetter public void unsupported(String name,Object value) { throw new IllegalArgumentException("Unsupported update field"); }
-        @AssertTrue @Schema(hidden=true) public boolean isMetadataPresent() { return diaryTitle!=null || coverColor!=null || coverStyle!=null; }
+        @AssertTrue @Schema(hidden=true) public boolean isMetadataPresent() { return diaryTitle!=null || coverColor!=null || coverStyle!=null || cover!=null; }
         public DiaryUpdateRequest patch() {
             var patch=new DiaryUpdateRequest();
             if(diaryTitle!=null) patch.setDiaryTitle(diaryTitle);

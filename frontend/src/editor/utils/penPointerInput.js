@@ -14,7 +14,7 @@ export function createPenPointerInput(getHandlers, onActive = () => {}) {
     const x = Number.isFinite(raw.clientX) ? (raw.clientX - active.originX) * active.scaleX : raw.offsetX ?? raw.locationX
     const y = Number.isFinite(raw.clientY) ? (raw.clientY - active.originY) * active.scaleY : raw.offsetY ?? raw.locationY
     // 안드로이드는 포인터 이벤트의 필압 · 기울기가 고정값이라 S펜 센서 값으로 바꾼다(stylusSensor)
-    return withStylusSensor({ locationX: x, locationY: y, coordinateBasis: active.coordinateBasis, inputChannel: active.inputChannel, pointerType: 'pen', pressure: raw.pressure,
+    return withStylusSensor({ locationX: x, locationY: y, coordinateBasis: active.coordinateBasis, inputChannel: active.inputChannel, pointerType: 'pen', pointerId: active.id, pressure: raw.pressure,
       timeStamp: raw.timeStamp ?? e.timeStamp, tiltX: raw.tiltX, tiltY: raw.tiltY, isRelease: release })
   }
   const move = (event, release = false) => {

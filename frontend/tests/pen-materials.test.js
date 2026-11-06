@@ -78,6 +78,10 @@ test('iOS 포인터 플러그인은 Swift/ObjC 시작 시 활성화하고 재실
   for (const profile of ['preview', 'production', undefined]) assert.equal(allowed(profile), false)
   assert.equal(allowed(undefined, '1'), true)
   assert.equal(allowed('development', '0'), false)
+  const eas = JSON.parse(fs.readFileSync(new URL('../eas.json', import.meta.url), 'utf8'))
+  for (const profile of ['development', 'preview', 'production']) {
+    assert.equal(allowed(profile, eas.build[profile].env.DIO_IOS_POINTER_EVENTS), true, `${profile} must enable Pencil pointer events`)
+  }
   for (const [language, app, call] of [
     ['swift', 'import Expo\nclass AppDelegate { override func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {\nreturn true\n} }', 'RCTSetDispatchW3CPointerEvents(true)'],
     ['objc', '- (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)options {\nreturn YES;\n}', 'RCTSetDispatchW3CPointerEvents(YES);'],

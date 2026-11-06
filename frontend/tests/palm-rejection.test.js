@@ -44,7 +44,7 @@ function setup(os, input) {
     const list = [...touches.values()]
     return { nativeEvent: { ...list[0], touches: list } }
   }
-  const pointer = (id, pointerType) => stylus.notePointerDown({ nativeEvent: { pointerId: id, pointerType } })
+  const pointer = (id, pointerType, x) => stylus.notePointerDown({ nativeEvent: { pointerId: id, pointerType, ...(x === undefined ? {} : { clientX: x, clientY: 0 }) } })
   return {
     stylus, log, pointer, responder,
     down(id, x, extra = {}) {
@@ -107,6 +107,20 @@ test('Pencil pointerId별로 해제하고 손바닥 pointerdown은 활성 펜을
   module.resetStylusPointers()
   assert.equal(module.stylus.activePen, false)
   assert.equal(module.stylus.seen, true, '백그라운드 복귀 후 펜 선호 정책은 유지한다')
+})
+
+test('iOS 종료된 접촉의 pointerup 유실은 일반 모드 fallback을 막지 않으며 활성 접촉은 차단을 유지한다', () => {
+  const { stylus: s } = load('ios')
+  s.notePointerDown({ nativeEvent: { pointerId: 9, pointerType: 'pen', clientX: 10, clientY: 0 } })
+  assert.equal(s.touchKind({ identifier: 1, pageX: 10, pageY: 0 }, { requirePointer: true }), 'pen')
+  s.forgetStylusTouch(1)
+  const next = { identifier: 2, pageX: 30, pageY: 0, force: 0.5 }
+  assert.equal(s.touchKind(next), 'pen')
+  assert.equal(s.touchKind(next, { requirePointer: true }), 'unknown')
+  s.notePointerDown({ nativeEvent: { pointerId: 10, pointerType: 'touch', clientX: 50, clientY: 0 } })
+  assert.equal(s.touchKind(next), 'unknown')
+  s.notePointerUp({ nativeEvent: { pointerId: 10 } }) // pointercancel에도 같은 정리 함수를 사용
+  assert.equal(s.touchKind(next), 'pen')
 })
 
 test('Android 펜 모드: 손바닥이 먼저 닿아 있어도 펜 획만 그리고, 입력에는 터치 하나만 넘긴다', () => {
@@ -195,6 +209,81 @@ test('그리기 입력 펜만: 포인터 이벤트보다 먼저 온 첫 터치�
   t.pointer(3, 'touch')
   t.move(3, 80)
   assert.deepEqual(t.log, [])
+})
+
+test('iPad 펜만: 압력 0의 Pencil 포인터를 허용하고 손가락 포인터는 압력이 있어도 차단한다', () => {
+  const t = setup('ios', 'pen')
+  t.pointer(91, 'pen', 10); t.down(1, 10, { force: 0 }); t.move(1, 30, { force: 0 }); t.up(1); t.stylus.notePointerUp({ nativeEvent: { pointerId: 91 } })
+  assert.deepEqual(t.log, [['start', 1, 10], ['move', 20, 1], ['end', false]])
+  t.pointer(92, 'touch', 40); t.down(2, 40, { force: 0.7 }); t.move(2, 60, { force: 0.7 }); t.up(2)
+  assert.deepEqual(t.log, [['start', 1, 10], ['move', 20, 1], ['end', false]])
+})
+
+test('iPad 펜만: 터치가 먼저 오면 포인터가 확인될 때만 Pencil을 시작한다', () => {
+  const t = setup('ios', 'pen')
+  t.down(3, 40, { force: 0 }); assert.deepEqual(t.log, [])
+  t.pointer(93, 'pen', 40); t.move(3, 55, { force: 0 }); t.up(3); t.stylus.notePointerUp({ nativeEvent: { pointerId: 93 } })
+  assert.deepEqual(t.log, [['start', 1, 40], ['move', 15, 1], ['end', false]])
+  t.down(4, 70, { force: 0 }); t.pointer(94, 'touch', 70); t.move(4, 90, { force: 0 }); t.up(4)
+  assert.deepEqual(t.log, [['start', 1, 40], ['move', 15, 1], ['end', false]])
+})
+
+test('iPad 펜만: 손바닥과 Pencil의 서로 다른 ID를 위치로 구분하고 이전 접촉의 ID 재사용을 막는다', () => {
+  const t = setup('ios', 'pen')
+  t.pointer(2, 'touch', 200); t.down(0, 200, { force: 0 })
+  t.pointer(1, 'pen', 50); t.down(1, 50, { force: 0 }); t.move(1, 70, { force: 0 })
+  assert.deepEqual(t.log, [['start', 1, 50], ['move', 20, 1]])
+  t.up(1); t.up(0)
+  t.down(0, 50, { force: 0 }); t.move(0, 70, { force: 0 }); t.up(0)
+  assert.deepEqual(t.log, [['start', 1, 50], ['move', 20, 1], ['end', false]])
+})
+
+test('iPad 펜만: 같은 위치에 여러 종류의 포인터가 겹치면 손가락을 Pencil로 추측하지 않는다', () => {
+  const t = setup('ios', 'pen')
+  t.pointer(1, 'pen', 50); t.pointer(2, 'touch', 50)
+  assert.equal(t.stylus.isSameIOSPenContact({ identifier: 0, pageX: 50, pageY: 0 }, 1), false)
+  t.down(0, 50, { force: 0 }); t.move(0, 60, { force: 0 }); t.up(0)
+  assert.deepEqual(t.log, [])
+})
+
+test('iPad 접촉 인계는 유일한 Pencil 포인터에만 허용한다', () => {
+  const t = setup('ios', 'pen')
+  const touch = { identifier: 0, pageX: 50, pageY: 0 }
+  t.pointer(9, 'pen', 50)
+  assert.equal(t.stylus.isSameIOSPenContact(touch, 9), true)
+  assert.equal(t.stylus.isSameIOSPenContact(touch, 10), false)
+})
+
+test('iPad 펜만: 손가락에 압력이 있고 터치가 먼저 와도 펜으로 그리지 않는다', () => {
+  const t = setup('ios', 'pen')
+  t.down(0, 20, { force: 0.7 }); t.move(0, 30, { force: 0.7 })
+  assert.deepEqual(t.log, [])
+  t.pointer(2, 'touch', 20); t.move(0, 40, { force: 0.7 }); t.up(0)
+  assert.deepEqual(t.log, [])
+})
+
+test('iOS 펜만: 포인터가 끝내 오지 않아도 압력이 있는 미확인 터치를 펜으로 추측하지 않는다', () => {
+  const t = setup('ios', 'pen')
+  t.down(0, 20, { force: 0.7 })
+  t.move(0, 40, { force: 0.7 })
+  t.up(0)
+  assert.deepEqual(t.log, [])
+})
+
+test('iOS 펜·손가락: 포인터 이벤트가 없어도 손가락 획을 즉시 시작하고 확정한다', () => {
+  const t = setup('ios', 'any')
+  t.down(0, 20, { force: 0 })
+  assert.deepEqual(t.log, [['start', 1, 20]])
+  t.move(0, 40, { force: 0 }); t.up(0)
+  assert.deepEqual(t.log, [['start', 1, 20], ['move', 20, 1], ['end', false]])
+})
+
+test('iOS 펜·손가락: 터치 뒤 손가락 포인터가 도착해도 획을 중복 시작하지 않는다', () => {
+  const t = setup('ios', 'any')
+  t.down(0, 20, { force: 0 })
+  t.pointer(2, 'touch', 20)
+  t.move(0, 40, { force: 0 }); t.up(0)
+  assert.deepEqual(t.log, [['start', 1, 20], ['move', 20, 1], ['end', false]])
 })
 
 test('그리기 입력 펜 · 손가락: 펜을 본 뒤에도 손가락으로 그린다', () => {

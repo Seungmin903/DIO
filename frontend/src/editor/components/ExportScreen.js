@@ -1,5 +1,6 @@
 import EditorModal from './controls/EditorModal'
 import { Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native'
+import { SafeAreaView } from 'react-native-safe-area-context'
 import { colors, DISABLED_OPACITY } from '../../shared/theme'
 import Icon from './controls/Icon'
 import { toolPanelStyles } from './ToolPanel'
@@ -33,7 +34,7 @@ export default function ExportScreen({ title, onClose, closeLabel, closeDisabled
   const { width } = useWindowDimensions()
   const wide = width >= 720
   return <EditorModal visible={visible} animationType="none" onRequestClose={onClose}>
-    <View style={styles.root}>
+    <SafeAreaView edges={['top']} style={styles.root}>
       <View style={styles.header}>
         <Pressable onPress={onClose} disabled={closeDisabled} hitSlop={8} accessibilityRole="button" accessibilityLabel={closeLabel ?? `${title} 닫기`} accessibilityState={{ disabled: closeDisabled }}
           style={({ pressed }) => [styles.close, pressed && styles.closePressed, closeDisabled && styles.disabled]}>
@@ -47,7 +48,7 @@ export default function ExportScreen({ title, onClose, closeLabel, closeDisabled
           <ScrollView contentContainerStyle={[toolPanelStyles.content, styles.sideContent]}>{children}</ScrollView>
         </View>
       </View>
-    </View>
+    </SafeAreaView>
   </EditorModal>
 }
 

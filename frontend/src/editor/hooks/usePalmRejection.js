@@ -1,5 +1,5 @@
 import { createContext, useLayoutEffect, useRef } from 'react'
-import { touchKind } from '../utils/stylus'
+import { touchKind, forgetStylusTouch } from '../utils/stylus'
 import { getDrawingInput } from '../../shared/drawingInput'
 
 /**
@@ -56,8 +56,8 @@ export function usePalmRejectingPan(handlers) {
   // 새로 닿은 터치를 어떻게 다룰지 정한다.
   const consider = (s, t) => {
     if (s.track?.id === t.identifier || s.ignored.has(t.identifier)) return
-    const kind = touchKind(t)
-    // 그리기 입력 설정(shared/drawingInput): 펜만이면 펜만 그린다. 펜 · 손가락이면 아래 판정으로 넘어간다
+    // 기기 기본값은 펜 감지에 따라 바뀔 수 있으므로 판정 후 다시 읽는다.
+    const kind = touchKind(t, { requirePointer: getDrawingInput() === 'pen' })
     const input = getDrawingInput()
     if (input === 'pen') {
       if (kind === 'pen') {
@@ -109,7 +109,7 @@ export function usePalmRejectingPan(handlers) {
   // 종류를 몰라 미뤄 둔 터치: 지금은 알면 펜일 때 닿았던 자리부터 획을 시작한다.
   const resolvePending = (s) => {
     for (const [id, t] of s.pending) {
-      const kind = touchKind(t)
+      const kind = touchKind(t, { requirePointer: getDrawingInput() === 'pen' })
       if (kind === 'unknown') continue
       s.pending.delete(id)
       if (kind === 'pen' && !s.track) begin(s, t, kind)
@@ -167,7 +167,7 @@ export function usePalmRejectingPan(handlers) {
       const s = state.current
       if (!s || s.releasable) return true
       const fresh = touchesOf(event).filter((t) => !s.seen.has(t.identifier))
-      const freshPen = fresh.some((t) => touchKind(t) === 'pen')
+      const freshPen = fresh.some((t) => touchKind(t, { requirePointer: getDrawingInput() === 'pen' }) === 'pen')
       if (!s.track) {
         // 그리던 획이 없으면: 새 터치가 펜이면 지키고, 손가락이면 넘긴다.
         if (freshPen) return false
@@ -215,6 +215,7 @@ export function usePalmRejectingPan(handlers) {
       const alive = new Set((event.nativeEvent.touches ?? []).map((t) => t.identifier))
       for (const id of [...s.seen]) {
         if (alive.has(id)) continue
+        forgetStylusTouch(id)
         s.seen.delete(id)
         s.ignored.delete(id)
         s.pending.delete(id)
@@ -223,10 +224,12 @@ export function usePalmRejectingPan(handlers) {
     },
     onResponderRelease: (event) => {
       if (state.current) finishAt(state.current, event)
+      if (state.current) for (const id of state.current.seen) forgetStylusTouch(id)
       state.current = null
     },
     onResponderTerminate: () => {
       if (state.current) finish(state.current, true)
+      if (state.current) for (const id of state.current.seen) forgetStylusTouch(id)
       state.current = null
     },
   }).current

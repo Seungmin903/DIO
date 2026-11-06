@@ -4,7 +4,7 @@ import MemberTrashNotice from './src/diary/components/MemberTrashNotice';
 import MemberLibraryNotice from './src/diary/components/MemberLibraryNotice';
 import { memberLibraryQuery } from './src/diary/services/memberLibraryQuery';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AppState, BackHandler, Platform, StatusBar, StyleSheet, View, useWindowDimensions } from 'react-native';
+import { AppState, BackHandler, Platform, StatusBar, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import PinScreen from './src/diary/components/PinScreen';
 import { appLockGraceOver, appLockScope, checkAppLockStatus, readAppLockState } from './src/shared/appLock';
 import { appLockRecoveryAction } from './src/diary/components/appLockRecovery';
@@ -39,7 +39,7 @@ import SideRail, { RAIL_WIDTH } from './src/diary/components/SideRail';
 import BottomTabs from './src/diary/components/BottomTabs';
 import { backTarget, createRouteMemory } from './src/diary/utils/routeMemory';
 import { PhoneBellProvider } from './src/diary/components/PhoneBell';
-import { createProfileSettingsNavigation } from './src/diary/components/profileNavigationModel';
+import { normalizePageForFormFactor } from './src/diary/components/profileNavigationModel';
 import SharingEntry from './src/sharing/SharingEntry';
 import LibraryScreen from './src/diary/screens/LibraryScreen';
 import ConnectedDiaryLibrary from './src/diary/screens/ConnectedDiaryLibrary';
@@ -69,7 +69,7 @@ import { createId, setUuidGenerator } from './src/editor/utils/common';
 import HandwritingStudio from './src/handwriting/HandwritingStudio';
 import { useFonts } from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
-import BootSplash from './src/shared/BootSplash';
+import BootSplash, { SPLASH } from './src/shared/BootSplash';
 import { PRETENDARD_FILES } from './src/shared/pretendardFiles';
 import { preloadTextFonts } from './src/editor/services/textFonts';
 import ActionToast, { ACTION_TOAST_MS } from './src/shared/ActionToast';
@@ -86,8 +86,8 @@ const PREFETCH_DELAY_MS = 400;
 // 편집기 진입 전 준비를 기다리는 최대 시간. 보통은 이보다 훨씬 빨리 끝난다.
 const EDITOR_PREPARE_LIMIT_MS = 500;
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-// 시작 화면(로고)은 보관함이 다 그려질 때까지 둔다. 첫 렌더에 바로 내려가면 글꼴 · 게스트 · 보관함을 읽는 동안 빈 화면이 보인다.
-// 로고는 JS 시작 화면(BootSplash, PNG)이 그린다. 네이티브 시작 화면은 BootSplash 가 처음 그려지면 바로 내린다
+// 시작 애니메이션이 끝나면 앱 화면으로 전환한다. 세션 준비가 남으면 아래 준비 안내를 표시한다.
+// JS 시작 화면의 이미지가 준비되면 네이티브 시작 화면을 내린다
 // (안드로이드는 네이티브 시작 화면에 로고 없이 바탕색만 둔다: plugins/withSplashWindowBackground.js).
 // 무엇이 실패해도 로고에 갇히지 않도록 SPLASH_LIMIT_MS 뒤에는 내린다.
 const SPLASH_LIMIT_MS = 8000;
@@ -164,7 +164,6 @@ export default function App() {
     } catch (error) {
       if (!current()) return;
       setRestoreState({ status: 'error', error });
-      finishBoot();
       if (__DEV__ && error?.code === 'DEVELOPMENT_ACCESS_REQUIRED') setLoginRequest({ restoreSession: true });
       else if (error?.status === 401 && error.code === 'INVALID_TOKEN') setLoginRequest({ sessionExpired: true });
     } finally { if (current()) control.busy = false; }
@@ -234,7 +233,10 @@ export default function App() {
   useEffect(() => { if (apiConfigurationError && (fontsLoaded || fontError)) finishBoot(); }, [apiConfigurationError, fontsLoaded, fontError, finishBoot]);
   const SessionDiaryApp = authenticatedSession ? MemberDiaryApp : LocalDiaryApp;
   const restoreFailed = !previewSession && !mockSource && Boolean(restoreState.error);
-  if (!fontsLoaded && !fontError) return <SafeAreaProvider style={s.provider}><BootSplash onReady={hideSplash} /></SafeAreaProvider>;
+  // 글꼴 로딩이 멈춰도 8초 제한 뒤에는 기본 글꼴로 앱을 표시한다.
+  if (!fontsLoaded && !fontError && booting) {
+    return Platform.OS === 'web' ? <View style={[s.provider, { backgroundColor: SPLASH.backgroundColor }]} /> : null;
+  }
   if (apiConfigurationError) return <SafeAreaProvider style={s.provider}><ApiConfigurationErrorScreen /></SafeAreaProvider>;
   if (__DEV__ && process.env.EXPO_PUBLIC_DIARY_SOURCE === 'mock-safety') {
     const SafetyPreview = require('./src/safety/SafetyPreview').default;
@@ -254,16 +256,17 @@ export default function App() {
         previewSession ? <LoginGateProvider authenticated={!!authenticatedSession && !loginRequest?.sessionExpired} onLogin={openLogin}><SessionDiaryApp key={authenticatedSession ? `authenticated:${memberSessionKey || authenticatedSession.userId}` : 'preview'} previewUser={previewSession} loginOverlayOpen={Boolean(loginRequest)}
           onUpdatePreview={updated => setPreviewSession(current => current?.mode === updated.mode &&
             (current?.mode === 'authenticated' ? String(current.userId) === String(updated.userId) : current?.accountId === updated.accountId) ? updated : current)}
-          onEndPreview={endSession} onClearSession={clearSession} onReady={finishBoot} /></LoginGateProvider> : null
+          onEndPreview={endSession} onClearSession={clearSession} /></LoginGateProvider> : null
       )}
-      {restoreFailed && <SessionRestoreScreen error={restoreState.error} busy={restoreState.status !== 'error'} onRetry={restoreLogin}
+      {!booting && !previewSession && !mockSource && !restoreFailed && <View style={[s.empty, { backgroundColor: SPLASH.backgroundColor }]}><Text style={s.emptyCopy} accessibilityLiveRegion="polite">앱을 준비하고 있어요…</Text></View>}
+      {!booting && restoreFailed && <SessionRestoreScreen error={restoreState.error} busy={restoreState.status !== 'error'} onRetry={restoreLogin}
         onLogin={() => setLoginRequest({ sessionExpired: restoreState.error?.sessionExpired === true,
           restoreSession: __DEV__ && restoreState.error?.code === 'DEVELOPMENT_ACCESS_REQUIRED' })} onGuest={continueAsGuest} />}
-      {loginRequest && <EditorModal visible transparent animationType="none" onRequestClose={closeLogin}><View style={[StyleSheet.absoluteFill, { zIndex: 10 }]}><AuthScreen key={loginRequest.sessionExpired ? 'expired' : 'login'} sessionExpired={loginRequest.sessionExpired === true} initialEmail={authenticatedSession?.email || ''} resumeSession={loginRequest.restoreSession === true} onContinue={continueFromLogin} onClose={closeLogin} /></View></EditorModal>}
+      {!booting && loginRequest && <EditorModal visible transparent animationType="none" onRequestClose={closeLogin}><View style={[StyleSheet.absoluteFill, { zIndex: 10 }]}><AuthScreen key={loginRequest.sessionExpired ? 'expired' : 'login'} sessionExpired={loginRequest.sessionExpired === true} initialEmail={authenticatedSession?.email || ''} resumeSession={loginRequest.restoreSession === true} onContinue={continueFromLogin} onClose={closeLogin} /></View></EditorModal>}
       <HandwritingStudio />
       {/* 프로필 사진 자르기(동그라미 틀). 로그인 화면 · 프로필 수정 모두 쓰므로 앱 맨 위에 하나 둔다 */}
       <ProfileCropHost />
-      {!restoreFailed && (booting || (!previewSession && !mockSource)) && <BootSplash onReady={hideSplash} />}
+      {booting && <BootSplash onReady={hideSplash} onComplete={finishBoot} />}
     </SafeAreaProvider>
   );
 }
@@ -384,7 +387,9 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
   // 로그인 · 로그아웃으로 세션이 바뀌면 본문(SessionDiaryApp)이 새로 그려진다. 기능 가드에서 로그인한 뒤 보관함으로 튕기지 않도록
   // 마지막 화면 · 범위를 모듈 변수에 두고 다음 본문이 그 자리에서 시작한다(편집기는 열린 다이어리가 없어 제외)
   const routeOwner = member ? (previewUser?.userId || previewUser?.accountId || 'member') : null;
-  const [page, setPage] = useState(() => routeMemory.read(routeOwner).page);
+  const [rawPage, setPage] = useState(() => routeMemory.read(routeOwner).page);
+  // 폰에는 별도 설정 화면이 없다(마이페이지 안에 설정이 펼쳐진다). 저장된 마지막 화면 · 분할 화면 전환으로 settings 가 남아도 마이페이지로 읽는다
+  const page = normalizePageForFormFactor(rawPage, isPhone);
   const [railCollapsed, setRailCollapsed] = useState(true);  // 메뉴가 다 열리거나 닫혔을 때의 폭. 캐러셀은 '줄 폭 + 이 값'(메뉴와 상관없이 같은 값)으로 목록 폭을 정해,
   // 메뉴에 밀려 함께 움직이는 동안과 멈춘 뒤에도 목록 폭이 바뀌지 않게 한다. 다시 그리지 않도록 ref로 넘긴다.
   const railWidthRef = useRef(RAIL_WIDTH.collapsed);
@@ -573,7 +578,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
         setRailCollapsed(true);
         return true;
       }
-      const target = backTarget({ isPhone, page, filter }, HOME_ROUTE);
+      const target = backTarget({ page, filter }, HOME_ROUTE);
       if (!target) return false;
       navigate(target.page, target.filter);
       return true;
@@ -953,8 +958,10 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
     />
   ), [member, diaryState.lifecycle, diaryState.bulkTrash, diaryState.trashLoading, diaryState.trashError, diaryState.store, isPhone, tabletPortrait, trashedDiaries, trashNow, trashError, cleanupTrash, restoreFromTrash, deletePermanently]);
 
-  // 저장된 목록을 읽기 전에는 빈 보관함 안내가 깜빡이지 않게 비워 둔다.
-  let content = loaded ? libraryScreen : null;
+  // 시작 애니메이션보다 저장 목록 로딩이 길면 준비 안내를 표시한다.
+  let content = loaded ? libraryScreen : (
+    <View style={s.empty}><Text style={s.emptyCopy} accessibilityLiveRegion="polite">다이어리를 불러오고 있어요.</Text></View>
+  );
   if (page === 'editor') {
     content = (
       <EditorScreen
@@ -993,7 +1000,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
       accountService={previewUser?.mode === 'authenticated' ? authService : undefined}
       getProfilePhotoSource={previewUser?.mode === 'authenticated' ? authService.getProfilePhotoSource : undefined} />;
   } else if (page === 'settings') {
-    content = <ProfileScreen onOpenBlockedUsers={safety.openBlocks} key="settings" section="settings" compact={isPhone} onBack={isPhone ? () => navigate('profile') : undefined} previewUser={previewUser} onEndPreview={onEndPreview} onClearSession={onClearSession} onUpdatePreview={onUpdatePreview}
+    content = <ProfileScreen onOpenBlockedUsers={safety.openBlocks} key="settings" section="settings" compact={isPhone} previewUser={previewUser} onEndPreview={onEndPreview} onClearSession={onClearSession} onUpdatePreview={onUpdatePreview}
       accountService={previewUser?.mode === 'authenticated' ? authService : undefined}
       getProfilePhotoSource={previewUser?.mode === 'authenticated' ? authService.getProfilePhotoSource : undefined} />;
   }
@@ -1030,6 +1037,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
       key={editingDiaryId ?? 'new'}
       blankOnly={member && !editingDiaryId}
       sheet={isPhone}
+      topInset={isPhone ? insets.top : 0}
       bottomInset={insets.bottom}
       diary={editingDiaryId ? diaries.find(item => item.id === editingDiaryId) : null}
       saving={saving}

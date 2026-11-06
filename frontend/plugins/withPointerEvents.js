@@ -1,8 +1,9 @@
 const { withMainApplication, withAppDelegate } = require('expo/config-plugins')
 
 /**
- * iOS는 development 프로필/명시적 opt-in에만 포인터 이벤트를 켠다.
- * Android의 기존 설정은 유지한다. 운영 iOS 입력 회귀는 별도 기기 QA 대상이다.
+ * iOS는 development 프로필 또는 명시적 opt-in에 포인터 이벤트를 켠다.
+ * EAS preview·production도 명시적으로 opt-in한다. 배포 빌드 기기 QA가 필요하다.
+ * Android의 기존 설정은 유지한다.
  * 터치 이벤트에는 펜·손가락 구분이 없어서, pointerType('pen' | 'touch')으로 펜만 그리게 하려고 쓴다. (src/editor/utils/stylus.js)
  * 네이티브 설정이라 개발 빌드를 다시 만들어야 적용된다. Expo Go 에서는 꺼진 채로 동작한다.
  */

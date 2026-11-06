@@ -44,9 +44,10 @@ export function rasterizeStrokeBatch(source, canvas, batch, zoom, pixelRatio, { 
     if (restoreInk(object) && ['fountain', 'brush'].includes(object.penKind) && [2, 3].includes(object.renderVersion)) {
       const restoreStarted = performance.now()
       metrics.restoredInkObjects = (metrics.restoredInkObjects ?? 0) + 1
-      const restoreKind = String(object.id).includes('-fragment-') ? 'restoredFragmentObjects' : 'restoredOriginalObjects'
+      const isFragment = object.eraserFragment === true || String(object.id).includes('-fragment-')
+      const restoreKind = isFragment ? 'restoredFragmentObjects' : 'restoredOriginalObjects'
       metrics[restoreKind] = (metrics[restoreKind] ?? 0) + 1
-      const geometry = exactInkCache.get(object, () => strokeInkLayers([{ points: object.points, startDistance: object.inkStartDistance ?? 0, continuing: false }], object.strokeWidth, object.penKind, object.renderVersion), String(object.id).includes('-fragment-') ? 1 : 0)
+      const geometry = exactInkCache.get(object, () => strokeInkLayers([{ points: object.points, startDistance: object.inkStartDistance ?? 0, continuing: false }], object.strokeWidth, object.penKind, object.renderVersion), isFragment ? 1 : 0)
       const paths = geometry.paths
       metrics.restoreInkCacheHits = (metrics.restoreInkCacheHits ?? 0) + Number(geometry.hit)
       metrics.restoreInkCacheMisses = (metrics.restoreInkCacheMisses ?? 0) + Number(!geometry.hit)
