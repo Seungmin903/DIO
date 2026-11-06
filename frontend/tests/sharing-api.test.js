@@ -163,9 +163,12 @@ test('계정 프로필 사진 캐시는 유효 시간 뒤 같은 URL도 다시 �
     } });
   await f.runtime.getMembers(diaryId); await f.runtime.getMembers(diaryId);
   assert.equal(f.calls.filter(call => call.url === photoUrl).length, 1);
-  clock = 60_001;
+  f.runtime.invalidateMemberPhotos();
   await f.runtime.getMembers(diaryId);
   assert.equal(f.calls.filter(call => call.url === photoUrl).length, 2);
+  clock = 60_001;
+  await f.runtime.getMembers(diaryId);
+  assert.equal(f.calls.filter(call => call.url === photoUrl).length, 3);
 });
 
 test('앱이 다시 활성화되면 멈춘 참여자 갱신을 즉시 재개한다', async () => {
