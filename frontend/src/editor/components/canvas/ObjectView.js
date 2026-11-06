@@ -224,7 +224,17 @@ const DIRECTIONS = [
  * - 그림자: 그림자 색 실루엣을 방향·거리만큼 옮기고, 흐림만큼 둥글게 퍼뜨려 옅게 겹친다.
  *   테두리가 있으면 테두리 바깥 끝을 기준으로 그린다. (사진은 테두리가 상자 안쪽에 그려져 boxShadow 가 원래 테두리 끝 기준)
  */
-function StickerContent({ object, width, height, zoom, still, onAssetLoad, onAssetError }) {
+function PdfStickerContent({ object, width, height, zoom, ...props }) {
+  const raster = usePdfPageRaster(object.pdfSource)
+  return <View style={{ width, height }}>
+    {!raster.pending && <>
+      <StickerContent {...props} object={object} width={width} height={height} zoom={zoom} pdfUri={raster.uri} />
+      <PdfDetail object={object} zoom={zoom} />
+    </>}
+  </View>
+}
+
+function StickerContent({ object, width, height, zoom, still, pdfUri, onAssetLoad, onAssetError }) {
   useStickerPacks() // 원격 스티커 팩이 늦게 들어오면 다시 그린다
   const outline = outlineOf(object)
   const shadow = shadowOf(object)
@@ -338,7 +348,8 @@ function StickerContent({ object, width, height, zoom, still, onAssetLoad, onAss
         // View 로 감싼다: 웹의 <svg> 는 위치 지정 요소가 아니라서 그대로 두면 테두리 · 그림자 층 아래로 깔린다
         <View style={box}><BuiltinStickerArt sticker={builtin} width={width} height={height} /></View>
       ) : source ? (
-        <MediaImage animated={animated} onLoad={onAssetLoad} onError={() => { if (!synchronized && !remoteImage) reportMediaDisplayError(object); onAssetError?.() }} source={source} style={box} resizeMode="contain" />
+        <MediaImage animated={animated} onLoad={onAssetLoad} onError={() => { if (!synchronized && !remoteImage) reportMediaDisplayError(object); onAssetError?.() }}
+          source={source} style={box} resizeMode={isBackdrop(object) ? 'stretch' : 'contain'} />
       ) : (
         <Text style={[styles.emoji, emojiText(height)]}>{object.emoji}</Text>
       )}

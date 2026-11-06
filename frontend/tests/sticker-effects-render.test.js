@@ -22,6 +22,7 @@ function render({ platform = 'ios', still = false, outline = true, shadow = true
     '../../hooks/useMediaUri': { useMediaUri: () => undefined },
     '../../hooks/useStickerPacks': { useStickerPacks: () => 0 },
     '../../../shared/remoteAssets/useRemoteAssetUri': { useRemoteAssetUri: () => null },
+    '../../utils/backdrop.js': { isBackdrop: () => false },
     '../../hooks/useStickerPlayback': { useStickerPlayback: (source) => { request = source; return { source: frame, error } } },
     './StickerFrame': { __esModule: true, default: 'StickerFrame' },
     './MediaImage': { __esModule: true, default: 'MediaImage' },
