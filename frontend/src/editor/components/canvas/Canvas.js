@@ -686,13 +686,15 @@ function HitOutline({ object, zoom }) {
 function GroupFrame({ objects, zoom, inside, enabled, dispatch, onInteracting, pageWidth = Infinity, pageHeight = Infinity }) {
   const bounds = groupResizeBounds(objects)
   const canResize = enabled && objects.every(object => !object.locked) && Boolean(groupResizeStart(objects, 1, 1))
-  const small = canResize && ((bounds.right-bounds.left)*zoom < 44 || (bounds.bottom-bounds.top)*zoom < 44)
+  const [activeLayout, setActiveLayout] = useState(null)
+  const computedSmall = canResize && ((bounds.right-bounds.left)*zoom < 44 || (bounds.bottom-bounds.top)*zoom < 44)
+  const small = activeLayout?.small ?? computedSmall
   // Keep the whole 44pt target inside its parent; Android cannot hit outside it.
   const pad = canResize ? (small ? 52 : 22) : 8
   const inset = pad - 8
   // Place the small selection's single target outside the objects, toward the page interior.
-  const smallX = (pageWidth - bounds.right) * zoom < 48 ? -1 : 1
-  const smallY = (pageHeight - bounds.bottom) * zoom < 48 ? -1 : 1
+  const smallX = activeLayout?.smallX ?? ((pageWidth - bounds.right) * zoom < 48 ? -1 : 1)
+  const smallY = activeLayout?.smallY ?? ((pageHeight - bounds.bottom) * zoom < 48 ? -1 : 1)
   return (
     <View
       pointerEvents={canResize ? 'box-none' : 'none'}
@@ -711,23 +713,24 @@ function GroupFrame({ objects, zoom, inside, enabled, dispatch, onInteracting, p
       </View>
       {canResize && (small ? [[smallX,smallY]] : [[-1,-1],[1,-1],[-1,1],[1,1]]).map(([sx,sy]) =>
         <GroupResizeHandle key={`${sx},${sy}`} objects={objects} zoom={zoom} sx={sx} sy={sy} dispatch={dispatch} onInteracting={onInteracting}
+          onModeChange={active => setActiveLayout(active ? {small,smallX,smallY} : null)}
           targetPosition={small ? {left:smallX > 0 ? pad+(bounds.right-bounds.left)*zoom+4 : pad-48,top:smallY > 0 ? pad+(bounds.bottom-bounds.top)*zoom+4 : pad-48} : null} />)}
     </View>
   )
 }
 
-function GroupResizeHandle({ objects, zoom, sx, sy, dispatch, onInteracting, targetPosition }) {
+function GroupResizeHandle({ objects, zoom, sx, sy, dispatch, onInteracting, onModeChange, targetPosition }) {
   const gesture = useRef(null)
-  const callbacks = useRef({ dispatch, onInteracting })
-  callbacks.current = { dispatch, onInteracting }
+  const callbacks = useRef({ dispatch, onInteracting, onModeChange })
+  callbacks.current = { dispatch, onInteracting, onModeChange }
   useEffect(() => () => {
     const g = gesture.current
     gesture.current = null
     if (g?.checkpointed) callbacks.current.dispatch({ type:'revertToCheckpoint', checkpointOwner:g.owner })
-    if (g) callbacks.current.onInteracting(false)
+    if (g) { callbacks.current.onModeChange?.(false); callbacks.current.onInteracting(false) }
   }, [])
   const pan = usePan({
-    onStart: () => { gesture.current = { start: groupResizeStart(objects, sx, sy), zoom, owner:createId(), checkpointed: false }; onInteracting(true) },
+    onStart: () => { gesture.current = { start: groupResizeStart(objects, sx, sy), zoom, owner:createId(), checkpointed: false }; onModeChange?.(true); onInteracting(true) },
     onMove: (dx, dy) => {
       const g = gesture.current
       if (!g?.start) return
@@ -744,7 +747,7 @@ function GroupResizeHandle({ objects, zoom, sx, sy, dispatch, onInteracting, tar
       gesture.current = null
       if (cancelled && g?.checkpointed) dispatch({ type: 'revertToCheckpoint', checkpointOwner:g.owner })
       else if (g?.checkpointed) dispatch({ type: 'commitCheckpoint' })
-      onInteracting(false)
+      onModeChange?.(false); onInteracting(false)
     },
   })
   return <View {...pan} accessibilityLabel="선택한 요소 크기 조절"

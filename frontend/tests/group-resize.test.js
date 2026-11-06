@@ -122,11 +122,11 @@ test('실제 손잡이 이벤트는 배율을 반영하고 취소하면 원상�
   const {code}=expo('@babel/core').transformSync(source+'\nexport { GroupFrame, GroupResizeHandle }',{
     configFile:false,babelrc:false,plugins:[[expo.resolve('@babel/plugin-transform-react-jsx'),{runtime:'automatic'}],expo.resolve('@babel/plugin-transform-modules-commonjs')],
   })
-  let handlers, cleanup, s=createInitialState({pages:[{id:'page',objects}]})
+  let handlers, cleanup, modeState=null, s=createInitialState({pages:[{id:'page',objects}]})
   const actions=[], dispatch=action=>{actions.push(action.type);s=editorReducer(s,action)}
   const mod={exports:{}}
   const load=id=>{
-    if(id==='react')return {forwardRef:f=>f,memo:f=>f,useRef:v=>({current:v}),useState:v=>[v,()=>{}],useEffect:(f,deps)=>{assert.deepEqual(deps,[]);cleanup=f()},useLayoutEffect(){},useMemo:f=>f(),useImperativeHandle(){}}
+    if(id==='react')return {forwardRef:f=>f,memo:f=>f,useRef:v=>({current:v}),useState:()=>[modeState,v=>{modeState=v}],useEffect:(f,deps)=>{assert.deepEqual(deps,[]);cleanup=f()},useLayoutEffect(){},useMemo:f=>f(),useImperativeHandle(){}}
     if(id==='react-native')return {View:'view',Text:'text',Platform:{OS:'ios',select:options=>options.ios??options.default},StyleSheet:{create:v=>v}}
     if(id.endsWith('/usePan'))return {usePan:h=>{handlers=h;return {}}}
     if(id.endsWith('/groupResize.js'))return {groupResizeBounds,groupResizeStart,groupResizePatches}
@@ -144,6 +144,16 @@ test('실제 손잡이 이벤트는 배율을 반영하고 취소하면 원상�
   const target=small.props.children[1][0].props
   assert.equal(target.sx,-1); assert.equal(target.sy,-1)
   assert.ok(target.targetPosition.left>=0 && target.targetPosition.top>=0)
+  frame.props.children[1][0].props.onModeChange(true)
+  const shrinking=mod.exports.GroupFrame({objects,zoom:0.1,enabled:true,pageWidth:200,pageHeight:200,dispatch,onInteracting(){}})
+  assert.equal(shrinking.props.children[1].length,4)
+  assert.equal(shrinking.props.children[1][0].key,frame.props.children[1][0].key)
+  shrinking.props.children[1][0].props.onModeChange(false)
+  target.onModeChange(true)
+  const growing=mod.exports.GroupFrame({objects,zoom:2,enabled:true,pageWidth:200,pageHeight:200,dispatch,onInteracting(){}})
+  assert.equal(growing.props.children[1].length,1)
+  assert.equal(growing.props.children[1][0].key,small.props.children[1][0].key)
+  growing.props.children[1][0].props.onModeChange(false)
   assert.equal(mod.exports.GroupFrame({objects:[objects[0],{...objects[1],locked:true}],zoom:2,enabled:true}).props.pointerEvents,'none')
   const handle=mod.exports.GroupResizeHandle({objects,zoom:2,sx:1,sy:1,dispatch,onInteracting(){}})
   assert.equal(handle.props.style[0].width,44); assert.equal(handle.props.style[0].height,44)
