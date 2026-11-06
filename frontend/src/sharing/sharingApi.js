@@ -6,7 +6,7 @@ export const isSharingDiaryId = id => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9
 // 로그인 세션에 묶인 공유 API. 로컬 다이어리를 서버 다이어리로 가장하지 않는다.
 export function createSharingApi({ user, auth, fetchImpl = globalThis.fetch, buildPhotoBody,
   setIntervalImpl = setInterval, clearIntervalImpl = clearInterval, memberRefreshIntervalMs = 5000,
-  memberRealtimeReconcileMs = 60_000, photoCacheTtlMs = 60_000, maxPhotoCacheEntries = 32, now = Date.now }) {
+  memberRealtimeReconcileMs = 60_000, photoCacheTtlMs = 60_000, accountPhotoCacheTtlMs = 10_000, maxPhotoCacheEntries = 32, now = Date.now }) {
   const { baseUrl, accessTokenHeader = 'Authorization', getAuthHeaders } = auth.getConnectionOptions();
   const sessionKey = auth.getSessionKey();
   const self = { id: String(user.userId), nickname: user.nickname, photoUri: user.photoUri || null };
@@ -54,7 +54,7 @@ export function createSharingApi({ user, auth, fetchImpl = globalThis.fetch, bui
   }
   const path = id => { ensureServerId(id); return `/diaries/${encodeURIComponent(id)}`; };
   const uri = value => value ? new URL(value, baseUrl).href : null;
-  const cachedPhoto = (key, load) => {
+  const cachedPhoto = (key, load, ttlMs = photoCacheTtlMs) => {
     const cached = photoCache.get(key);
     if (cached && cached.expiresAt > now()) {
       // Map insertion order is our small LRU policy.
@@ -63,7 +63,7 @@ export function createSharingApi({ user, auth, fetchImpl = globalThis.fetch, bui
     }
     photoCache.delete(key);
     const pending = Promise.resolve().then(load);
-    const entry = { value: pending, expiresAt: now() + photoCacheTtlMs };
+    const entry = { value: pending, expiresAt: now() + ttlMs };
     photoCache.set(key, entry);
     while (photoCache.size > maxPhotoCacheEntries) photoCache.delete(photoCache.keys().next().value);
     pending.then(value => { if (!value && photoCache.get(key) === entry) photoCache.delete(key); }, () => { if (photoCache.get(key) === entry) photoCache.delete(key); });
@@ -85,7 +85,7 @@ export function createSharingApi({ user, auth, fetchImpl = globalThis.fetch, bui
     let target;
     try { target = new URL(source.uri); } catch { return null; }
     if (target.origin !== new URL(baseUrl).origin || target.username || target.password) return null;
-    return cachedPhoto(`account:${target.href}`, () => readPhoto(target, () => source.headers));
+    return cachedPhoto(`account:${target.href}`, () => readPhoto(target, () => source.headers), accountPhotoCacheTtlMs);
   }
   async function readPhoto(url, getHeaders) {
     const revision = generation;

@@ -156,7 +156,7 @@ test('겹친 참여자 갱신은 늦은 응답 대신 한 번 더 읽은 최신 
 test('계정 프로필 사진 캐시는 유효 시간 뒤 같은 URL도 다시 읽는다', async () => {
   let clock = 0;
   const photoUrl = 'https://api.dio.test/api/v1/auth/profile-photos/account-photo';
-  const f = fixture({ runtimeOptions: { now: () => clock, photoCacheTtlMs: 60_000 },
+  const f = fixture({ runtimeOptions: { now: () => clock, accountPhotoCacheTtlMs: 60_000 },
     photoSource: () => ({ uri: photoUrl, headers: { Authorization: 'Basic photo' } }), fetch: url => {
       if (url.endsWith('/members')) return reply({ members: [{ userId: '10', nickname: '나', role: 'OWNER', usingAccountPhoto: true, profilePhotoUrl: photoUrl }] });
       if (url === photoUrl) return { ok: true, headers: new Headers({ 'content-type': 'image/png' }), arrayBuffer: async () => new Uint8Array([137, 80, 78, 71]).buffer };
