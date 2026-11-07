@@ -33,3 +33,30 @@ test('공방 내 표지 · 내 속지는 폰 · 태블릿 모두 격자: 긴 변
   assert.match(shelf, /const slot = item\.orientation === 'landscape' \? \{ width, height: short \} : \{ width: short, height: width \};/)
   assert.match(shelf, /grid: \{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-end', gap: GAP,/)
 })
+
+test('팔레트 칸 색 창: 처음 색과 다르면 X 왼쪽에 원래대로, 누르면 처음 색(테이프는 기본 id 그대로)으로 되돌린다', () => {
+  const editor = read('../src/diary/components/PresetColorEditor.js')
+  assert.match(editor, /defaultValue = null, onDone/)
+  assert.match(editor, /const changed = Boolean\(defaults\) && !same\(list, defaults\)/)
+  assert.match(editor, /\{changed && <Pressable accessibilityRole="button" accessibilityLabel=\{`\$\{title\} 원래 색으로 되돌리기`\}[^>]*onPress=\{restore\}[^>]*><Text style=\{s\.restoreText\}>원래대로<\/Text><\/Pressable>\}\n\s*<Pressable accessibilityRole="button" accessibilityLabel=\{`\$\{title\} 창 닫기`\}/)
+  assert.match(editor, /onDone\(defaults && same\(latest\.current, defaults\) \? defaultValue : fromList\(latest\.current\)\)/)
+  assert.match(read('../src/editor/components/controls/EditablePalette.js'), /defaultValue: palette\.defaults\?\.\[index\] \?\? null/)
+})
+
+test('팔레트 편집: 고치는 칸은 촘촘한 점선 고리(SVG 6조각), 색 창에서 고치는 동안 그 칸이 바로 바뀐다', () => {
+  const palette = read('../src/editor/components/controls/EditablePalette.js')
+  assert.match(palette, /const RING_R = 12\.5, RING_STEP = \(2 \* Math\.PI \* RING_R\) \/ 6/)
+  assert.match(palette, /strokeDasharray=\{`\$\{RING_STEP \* 0\.6\} \$\{RING_STEP \* 0\.4\}`\}/)
+  assert.match(palette, /editFocus:\{borderWidth:0\}/)
+  assert.match(palette, /onChange: color => setPreview\(\{ index, color \}\), onClose: \(\) => setPreview\(null\),/)
+  assert.match(palette, /const shown = preview\?\.index === index \? preview\.color : entry/)
+  // 편집기 펜 색 창도 닫힐 때 미리보기를 거둔다
+  const editor = read('../src/editor/screens/EditorScreen.js')
+  assert.equal((editor.match(/colorPicker\.onClose\?\.\(\); setColorPicker\(null\)/g) || []).length, 2)
+})
+
+test('도트 스티커 디오&모아 윤곽선은 코코아 #5b3a29', () => {
+  const stickers = read('../src/editor/builtinStickers.js')
+  assert.equal((stickers.match(/\["#5b3a29"/g) || []).length, 20)
+  assert.doesNotMatch(stickers, /#1c1c1c/i)
+})

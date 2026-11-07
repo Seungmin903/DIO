@@ -10,7 +10,8 @@ import { bubble, colors } from '../../shared/theme'
 import PopoverMenu from './PopoverMenu'
 
 // All color entry points share this UI. Normal close commits; rotation dismisses.
-export default function PresetColorEditor({ title, tape = false, slots = null, anchor = null, value, original = value, onDone, onClose, onChange, onEyedropper }) {
+// defaultValue: 팔레트 칸의 처음 색. 지금 색이 그와 다르면 제목 줄 닫기(X) 왼쪽에 '원래대로'를 두고, 누르면 처음 색으로 되돌린다(닫을 때 저장)
+export default function PresetColorEditor({ title, tape = false, slots = null, anchor = null, value, original = value, defaultValue = null, onDone, onClose, onChange, onEyedropper }) {
   const window = useWindowDimensions()
   const [keyboardTop,setKeyboardTop] = useState(null)
   useEffect(() => {
@@ -24,6 +25,10 @@ export default function PresetColorEditor({ title, tape = false, slots = null, a
   const [list, setList] = useState(() => toList(value)), latest = useRef(list)
   const [slot, setSlot] = useState(0), [dropping, setDropping] = useState(false)
   const [saving, setSaving] = useState(false), closing = useRef(false), [error, setError] = useState(null)
+  const same = (a, b) => a.length === b.length && a.every((color, i) => String(color).toUpperCase() === String(b[i]).toUpperCase())
+  const defaults = defaultValue == null ? null : toList(defaultValue)
+  const changed = Boolean(defaults) && !same(list, defaults)
+  const restore = () => { latest.current = defaults; setList(defaults); onChange?.(defaultValue) }
   const pick = hex => {
     const next = latest.current.map((color, i) => i === slot ? hex : color)
     latest.current = next; setList(next); onChange?.(fromList(next))
@@ -31,9 +36,10 @@ export default function PresetColorEditor({ title, tape = false, slots = null, a
   const close = async () => {
     if (closing.current) return
     const base = toList(original ?? value)
-    if (original != null && latest.current.every((color,i) => color === base[i])) { onClose(); return }
+    if (original != null && same(latest.current, base)) { onClose(); return }
     closing.current = true; setSaving(true); setError(null)
-    try { await onDone(fromList(latest.current)) }
+    // 처음 색으로 되돌렸으면 처음 값 그대로 저장한다(테이프 기본 색은 id 라 'custom:…' 로 바꾸지 않는다)
+    try { await onDone(defaults && same(latest.current, defaults) ? defaultValue : fromList(latest.current)) }
     catch { setError('색상을 저장하지 못했어요. 다시 시도해 주세요.') }
     finally { closing.current = false; setSaving(false) }
   }
@@ -61,6 +67,7 @@ export default function PresetColorEditor({ title, tape = false, slots = null, a
   return <PopoverMenu open keyboardAware availableHeight={keyboardTop} anchor={anchor ? { ...anchor, width } : null} width={width} height={height} label={title} style={s.bubble} onClose={close} onDismiss={onClose}>
     <View style={s.head}>
       <Text accessibilityRole="header" style={s.title} numberOfLines={1}>{title}</Text>
+      {changed && <Pressable accessibilityRole="button" accessibilityLabel={`${title} 원래 색으로 되돌리기`} disabled={saving} onPress={restore} style={s.restore}><Text style={s.restoreText}>원래대로</Text></Pressable>}
       <Pressable accessibilityRole="button" accessibilityLabel={`${title} 창 닫기`} disabled={saving} onPress={close} style={s.close}><Icon name="close" size={18} color={colors.primaryText} /></Pressable>
     </View>
     <ScrollView pointerEvents={saving ? 'none' : 'auto'} keyboardShouldPersistTaps="handled" style={{maxHeight:height-50}} contentContainerStyle={s.body}>
@@ -75,7 +82,7 @@ export default function PresetColorEditor({ title, tape = false, slots = null, a
   </PopoverMenu>
 }
 const s = StyleSheet.create({
- bubble:{...bubble,padding:0,overflow:'hidden'},head:{minHeight:50,flexDirection:'row',alignItems:'center',paddingLeft:20,paddingRight:4,borderBottomWidth:1,borderBottomColor:colors.border},title:{flex:1,fontSize:17,fontWeight:'700',color:colors.text},close:{width:48,height:48,alignItems:'center',justifyContent:'center'},body:{padding:20,gap:14},dropper:{width:38,height:38,alignItems:'center',justifyContent:'center',borderRadius:9,backgroundColor:colors.surfaceMuted},slots:{flexDirection:'row',gap:4,padding:4,borderRadius:12,backgroundColor:colors.surfaceMuted},slot:{flex:1,minHeight:48,flexDirection:'row',alignItems:'center',justifyContent:'center',gap:6,borderRadius:9},slotOn:{backgroundColor:colors.surface},slotDot:{width:16,height:16,borderRadius:8,borderWidth:1,borderColor:colors.border},slotText:{fontSize:13,fontWeight:'700',color:colors.primaryText},notice:{fontSize:12,color:colors.textMuted},error:{fontSize:12,color:colors.dangerStrong}
+ bubble:{...bubble,padding:0,overflow:'hidden'},head:{minHeight:50,flexDirection:'row',alignItems:'center',paddingLeft:20,paddingRight:4,borderBottomWidth:1,borderBottomColor:colors.border},title:{flex:1,fontSize:17,fontWeight:'700',color:colors.text},restore:{minHeight:48,paddingHorizontal:10,justifyContent:'center'},restoreText:{fontSize:14,fontWeight:'700',color:colors.primaryText},close:{width:48,height:48,alignItems:'center',justifyContent:'center'},body:{padding:20,gap:14},dropper:{width:38,height:38,alignItems:'center',justifyContent:'center',borderRadius:9,backgroundColor:colors.surfaceMuted},slots:{flexDirection:'row',gap:4,padding:4,borderRadius:12,backgroundColor:colors.surfaceMuted},slot:{flex:1,minHeight:48,flexDirection:'row',alignItems:'center',justifyContent:'center',gap:6,borderRadius:9},slotOn:{backgroundColor:colors.surface},slotDot:{width:16,height:16,borderRadius:8,borderWidth:1,borderColor:colors.border},slotText:{fontSize:13,fontWeight:'700',color:colors.primaryText},notice:{fontSize:12,color:colors.textMuted},error:{fontSize:12,color:colors.dangerStrong}
 })
 
 /** 색 창 제목: '{대상} 색' 하나로(코덱스 2026-11-02). '테두리 색상' → '테두리 색', '채우기' → '채우기 색' */
