@@ -152,6 +152,10 @@ export function createMemberAppStore({ accountId, api, storage, makeRequestId, s
         }
         const { diary, doc } = createDocument(result, pending.input)
         if (pending.input.importedPages?.length) { await api.setPageSizes(doc.pages.map(page => ({ pageId: page.id, canvasWidth: page.canvasWidth, canvasHeight: page.canvasHeight }))); active() }
+        // 날짜 속지: 만든 뒤 페이지 설정에 날짜 ID 를 넣는다(실패하면 요청을 남겨 두고 다시 시도한다 — 같은 생성 키라 같은 다이어리에 다시 넣는다)
+        const dated = pending.input.initialPages.map((selected, index) => ({ pageId: result.pageIds[index], templateConfig: selected.templateConfig }))
+          .filter(page => typeof page.templateConfig?.datedTemplate === 'string')
+        if (dated.length) { await api.setDatedPages(dated); active() }
         const saved = await readStoredDocument(storage, keys.doc(result.id))
         active()
         if (saved && (saved.id !== result.id || saved.memberAccountId !== accountId || !saved.pages?.length)) throw failure('INVALID_MEMBER_DOCUMENT', '기존 회원 문서를 확인하지 못했어요. 덮어쓰지 않았어요.')

@@ -112,6 +112,20 @@ export function createMemberDiaryApi(transport, { media, hydrateCovers = true } 
       const current=await this.get(id)
       return current.cover?current:this.update(id,{cover,expectedVersion:current.version})
     },
+    // 날짜 속지: 만든 페이지 설정에 날짜 ID(datedTemplate)를 넣는다. 생성 요청은 설정 키를 제한해 실을 수 없다(serverCatalog).
+    // 설정은 통째로 바뀌므로 만들 때 보낸 설정 + datedTemplate 을 보낸다. 같은 값을 다시 보내도 같은 결과다.
+    async setDatedPages(pages, options = {}) {
+      let next = 0
+      const worker = async () => {
+        while (next < pages.length) {
+          const { pageId, templateConfig } = pages[next++]
+          if (!uuid(pageId) || typeof templateConfig?.datedTemplate !== 'string') throw invalid()
+          const body = await transport({ ...options, method: 'PATCH', path: `/pages/${encodeURIComponent(pageId)}`, body: { templateConfig } })
+          if (body?.page?.pageId !== pageId || body.page.templateConfig?.datedTemplate !== templateConfig.datedTemplate) throw invalid()
+        }
+      }
+      await Promise.all(Array.from({ length: Math.min(3, pages.length) }, worker))
+    },
     // PDF 쪽: 만들어 둔 빈 페이지의 크기를 쪽 비율에 맞춘다(초기 페이지는 속지 목록의 크기로만 만들 수 있다). 같은 값을 다시 보내도 같은 결과다.
     async setPageSizes(sizes, options = {}) {
       let next = 0
