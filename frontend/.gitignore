@@ -34,6 +34,7 @@ expo-env.d.ts
 /ios
 /android
 /modules/dio-handwriting/android/src/main/assets/dio_handwriting/*.onnx
+# Bundle the verified DM-Font encoder and decoder in Android and iOS apps.
 !/modules/dio-handwriting/android/src/main/assets/dio_handwriting/encoder.fp32.onnx
 !/modules/dio-handwriting/android/src/main/assets/dio_handwriting/decoder.fp32.onnx
 /modules/dio-handwriting/android/build/
