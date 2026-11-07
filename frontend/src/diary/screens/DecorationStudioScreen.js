@@ -6,6 +6,7 @@ import useDefaultPaperStyle from '../hooks/useDefaultPaperStyle';
 import StudioPresets, { GroupHead } from '../components/StudioPresets';
 import StudioSection from '../components/StudioSection';
 import StudioShelf from '../components/StudioShelf';
+import CoverEditModal from '../components/CoverEditModal';
 import { PdfPageThumb } from '../components/PdfImport';
 import StudioTabs from '../components/StudioTabs';
 import StudioTool from '../components/StudioTool';
@@ -87,6 +88,8 @@ export default function DecorationStudioScreen({ compact = false, registerBackHa
   const [tapeNameEdit, setTapeNameEdit] = useState(null);
   // 사진으로 표지 만들기의 자르기 창: { photo, ratio, resolve }
   const [coverCrop, setCoverCrop] = useState(null);
+  // 내 표지 편집(지라 603): 견본을 누르면 새 다이어리 표지 탭과 같은 편집 화면을 열고, 꾸밈까지 저장한다
+  const [coverEdit, setCoverEdit] = useState(null);
   // 화면 폭에 맞춰 격자 칸을 배치한다.
   const folderGrid = useFillGrid({ cell: 164, gap: 14, minColumns: 2 });
   const stickerGrid = useFillGrid({ cell: 88, gap: 12, minColumns: 3 });
@@ -412,7 +415,7 @@ export default function DecorationStudioScreen({ compact = false, registerBackHa
     {makeAlert('cover')}
     {!library.ready ? <Text style={s.empty}>표지를 불러오고 있어요.</Text>
       : !library.covers.length ? <EmptyState compact={compact} art="dio" raised title="아직 저장한 표지가 없어요" />
-      : <StudioShelf kind="cover" items={library.covers} onRemove={cover => setQuestion({ cover })} onRename={(cover, name) => renameItem('cover', cover, name)} />}
+      : <StudioShelf kind="cover" items={library.covers} onOpen={setCoverEdit} onRemove={cover => setQuestion({ cover })} onRename={(cover, name) => renameItem('cover', cover, name)} />}
     {shelfError === 'cover' && <Text accessibilityRole="alert" style={s.error}>표지를 지우지 못했어요. 다시 시도해 주세요.</Text>}
     {shelfError === 'cover-rename' && <Text accessibilityRole="alert" style={s.error}>표지 이름을 바꾸지 못했어요. 다시 시도해 주세요.</Text>}
   </StudioSection>;
@@ -477,6 +480,7 @@ export default function DecorationStudioScreen({ compact = false, registerBackHa
         onPress: () => { closeAddMenu(); loginGate('사진 속 대상 오리기', () => setTool('cutout')); } }] : []),
       { id: 'folder', label: '새 폴더', text: '새 폴더', icon: 'folder', onPress: () => { closeAddMenu(); newStickerFolder(); } },
     ]} />}
+    {coverEdit && <CoverEditModal key={coverEdit.id} item={coverEdit} compact={compact} onSave={cover => library.updateCover(coverEdit.id, cover)} onClose={() => setCoverEdit(null)} />}
     {coverCrop && <PhotoCropper photo={coverCropPhoto(coverCrop.photo, coverCrop.ratio)} fixedAspect={coverCrop.ratio} title="표지 사진 자르기"
       onCancel={() => { coverCrop.resolve(null); setCoverCrop(null); }} onApply={({ crop }) => { coverCrop.resolve(crop); setCoverCrop(null); }} />}
     {pendingTape && <TapeCropper image={pendingTape.image} onCancel={() => { discardGeneratedMedia([pendingTape.image]).catch(() => {}); setPendingTape(null); }} onConfirm={({ crop, size, ratio }) => {

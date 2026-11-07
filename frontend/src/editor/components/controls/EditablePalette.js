@@ -9,12 +9,16 @@ import PresetColorEditor from '../../../diary/components/PresetColorEditor'
 export default function EditablePalette({ scope, label, value, onPick, onOpenEditor, initiallyEditing = false, allowDirect = false }) {
   const palette = usePalette(scope)
   const [editing, setEditing] = useState(initiallyEditing), [request, setRequest] = useState(null), [error, setError] = useState(false)
+  // 편집 중 굵은 점선(포커스)은 지금 고치고 있는 칸으로 옮긴다(지라 605). 아직 연 칸이 없으면 지금 고른 색의 칸
+  const [editIndex, setEditIndex] = useState(null)
+  const toggleEditing = () => { setEditing(!editing); setEditIndex(null) }
   const refs = useRef({}), anchors = useRef({})
   const openDirect = () => {
     const spec = {title:`${label} 색`,value, onDone:color => onPick?.(color),anchor:anchors.current.direct ?? null}
     ;(onOpenEditor ?? setRequest)(spec)
   }
   const open = (index) => {
+    setEditIndex(index)
     const entry = palette.colors[index]
     const spec = { title: `${label} 색`, tape: scope === 'tape', value: entry,
       onDone: async color => { await palette.replace(index, color); onPick?.(color) } }
@@ -23,7 +27,7 @@ export default function EditablePalette({ scope, label, value, onPick, onOpenEdi
   return <View style={s.box}>
     <View style={s.heading}>
       <Text style={s.label}>{label} 색상</Text>
-      <Pressable accessibilityRole="button" accessibilityLabel={`${label} 팔레트 편집`} accessibilityState={{ selected: editing }} hitSlop={6} onPress={() => setEditing(!editing)} style={s.edit}>
+      <Pressable accessibilityRole="button" accessibilityLabel={`${label} 팔레트 편집`} accessibilityState={{ selected: editing }} hitSlop={6} onPress={toggleEditing} style={s.edit}>
         <Text style={s.editText}>{editing ? '편집 끝내기' : '팔레트 편집'}</Text>
       </Pressable>
     </View>
@@ -37,7 +41,8 @@ export default function EditablePalette({ scope, label, value, onPick, onOpenEdi
           accessibilityRole="button" accessibilityLabel={editing ? `${label} 팔레트 ${index + 1}번 색 편집` : `${label} 색상 ${entry}`}
           accessibilityState={{ selected: value === entry, disabled: editing && !palette.loaded }} disabled={editing && !palette.loaded}
           hitSlop={1} onPress={() => editing ? open(index) : onPick?.(entry)} style={paletteSwatchStyles.cell}>
-          <View style={[paletteSwatchStyles.dot, {backgroundColor:bg}, editing ? s.editing : [s.solid, value === entry && paletteSwatchStyles.chosen]]}>{fg && <View style={[s.inner,{backgroundColor:fg}]} />}</View>
+          {/* key: 안드로이드는 점선 → 실선으로 borderStyle 을 되돌리면 다시 그리지 않아, 편집을 끝내도 점선이 남았다(지라 604). 상태가 바뀌면 새로 그린다 */}
+          <View key={editing ? 'edit' : 'pick'} style={[paletteSwatchStyles.dot, {backgroundColor:bg}, editing ? [s.editing, (editIndex ?? palette.colors.indexOf(value)) === index && s.editFocus] : [s.solid, value === entry && paletteSwatchStyles.chosen]]}>{fg && <View style={[s.inner,{backgroundColor:fg}]} />}</View>
         </Pressable>
       })}
       {allowDirect && <Pressable accessibilityRole="button" accessibilityLabel={`${label} 색 직접 지정`} hitSlop={1} onPress={openDirect} style={paletteSwatchStyles.cell}>
@@ -56,5 +61,5 @@ export const paletteSwatchStyles=StyleSheet.create({
 const s=StyleSheet.create({
  box:{gap:8},heading:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:8},
  label:{fontSize:13,fontWeight:'700',color:colors.text},edit:{minHeight:36,justifyContent:'center',paddingHorizontal:6},editText:{fontSize:12,fontWeight:'700',color:colors.primaryText},
- direct:{borderStyle:'dashed',alignItems:'center',justifyContent:'center'},editing:{borderStyle:'dashed',borderColor:colors.textMuted},solid:{borderStyle:'solid'},inner:{position:'absolute',right:3,bottom:3,width:9,height:9,borderRadius:5},notice:{fontSize:12,color:colors.textMuted}
+ direct:{borderStyle:'dashed',alignItems:'center',justifyContent:'center'},editing:{borderStyle:'dashed',borderColor:colors.textMuted},editFocus:{borderWidth:3,borderColor:colors.primaryText},solid:{borderStyle:'solid'},inner:{position:'absolute',right:3,bottom:3,width:9,height:9,borderRadius:5},notice:{fontSize:12,color:colors.textMuted}
 })

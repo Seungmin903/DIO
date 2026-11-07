@@ -15,7 +15,7 @@ const PAPER_SLOT = { portrait: { width: 148, height: 208 }, landscape: { width: 
  * 내 표지 · 내 속지 진열: 가로로 미는 선반 한 줄. 칸 사이 14, 화면 끝에서 다음 칸이 잘려 보여 더 있다는 것을 알린다.
  * 이름 아래 줄 오른쪽에 지우기 버튼(48)을 둔다(견본 위에는 아무것도 띄우지 않는다).
  * 이름을 누르면 그 자리에서 고친다(저장은 확인 · 포커스를 옮길 때, 비우면 원래 이름).
- * onOpen(item): 있으면 견본을 눌러 그 안을 펼친다(속지: 전체 쪽 목록).
+ * onOpen(item): 있으면 견본을 누른다. 속지는 전체 쪽 목록을 펼치고, 표지는 표지 편집을 연다(지라 603).
  * kind: 'cover' | 'paper', items: useMyLibrary 의 covers / papers, onRemove(item): 지우기 확인을 여는 쪽이 정한다, onRename(item, name): 이름 저장.
  */
 export default function StudioShelf({ kind, items, onRemove, onRename, onOpen }) {
@@ -42,7 +42,7 @@ export default function StudioShelf({ kind, items, onRemove, onRename, onOpen })
                 ? <PdfPageThumb page={item.pages[0]} width={slot.width - 2} ratio={slot.width / slot.height} maxHeight={slot.height - 2} />
                 : <CoverArt cover={item.cover} name={item.name} width={slot.width} height={slot.height} />;
               return onOpen
-                ? <Pressable accessibilityRole="button" accessibilityLabel={`${label} ${paper ? '속지' : '표지'} 펼치기`} onPress={() => onOpen(item)} style={[local.art, slot]}>{art}</Pressable>
+                ? <Pressable accessibilityRole="button" accessibilityLabel={paper ? `${label} 속지 펼치기` : `${label} 표지 편집`} onPress={() => onOpen(item)} style={[local.art, slot]}>{art}</Pressable>
                 : <View accessible accessibilityRole="image" accessibilityLabel={paper ? `${label} 속지` : `${label} 표지`} style={[local.art, slot]}>{art}</View>;
             })()}
             <View style={local.meta}>

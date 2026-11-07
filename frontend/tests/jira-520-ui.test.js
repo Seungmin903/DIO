@@ -5,9 +5,10 @@ import test from 'node:test';
 
 const read = path => readFileSync(new URL(path, import.meta.url), 'utf8');
 
-test('팔레트: 선택은 실선 하나, 편집 중에는 모두 같은 점선(선택 굵기를 겹치지 않고 실선으로 되돌린다)', () => {
+test('팔레트: 선택은 실선 하나, 편집 중에는 점선이고 고치는 칸만 굵게(605), 편집을 끝내면 실선으로 다시 그린다(604)', () => {
   const source = read('../src/editor/components/controls/EditablePalette.js');
-  assert.match(source, /editing \? s\.editing : \[s\.solid, value === entry && paletteSwatchStyles\.chosen\]/);
+  assert.match(source, /editing \? \[s\.editing, \(editIndex \?\? palette\.colors\.indexOf\(value\)\) === index && s\.editFocus\] : \[s\.solid, value === entry && paletteSwatchStyles\.chosen\]/);
+  assert.match(source, /key=\{editing \? 'edit' : 'pick'\}/);
   assert.match(source, /solid:\{borderStyle:'solid'\}/);
 });
 
