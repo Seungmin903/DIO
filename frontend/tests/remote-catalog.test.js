@@ -152,7 +152,8 @@ test('원격 속지: 목록 해석 · 속지 고르기 탭 · 앱 속지 ID · �
     { id: 'nogroup', name: '분류 없음', group: 'misc', landscape: file('a.svg'), portrait: file('b.svg') },
     { id: 'half', name: '한 방향만', group: 'note', landscape: file('a.svg') },
   ] })
-  assert.deepEqual(parsed.templates.map(item => item.id), ['spring-note', 'old'])
+  // 모르는 탭(misc)의 속지는 버리지 않고 숨긴다(그 속지를 쓴 페이지는 계속 그린다). 한 방향만 있는 속지는 받지 않는다
+  assert.deepEqual(parsed.templates.map(item => [item.id, item.hidden]), [['spring-note', false], ['old', true], ['nogroup', true]])
 
   const waiting = waitForRemoteTemplateFile('remote-spring-note-portrait', 1000) // 목록이 들어오면 풀린다
   registerRemoteTemplates(parsed.templates)
@@ -234,6 +235,13 @@ test('업로드 안전장치: 이미 공개한 글꼴 · 스티커 팩 · 속지
   assert.deepEqual(compareCatalogs(before, { schemaVersion: 1, fonts: [], stickerPacks: [{ id: 'spring' }] }).removed, ['글꼴 hahmlet', '속지 spring-note'])
 })
 
+test('업로드 안전장치: 속지 탭을 지워도 알린다(숨김은 통과)', async () => {
+  const { compareCatalogs } = await import('../scripts/compare-remote-catalog.mjs')
+  const before = { schemaVersion: 1, templateGroups: [{ id: 'travel' }, { id: 'season' }] }
+  assert.deepEqual(compareCatalogs(before, { schemaVersion: 1, templateGroups: [{ id: 'travel' }] }).removed, ['속지 탭 season'])
+  assert.deepEqual(compareCatalogs(before, { schemaVersion: 1, templateGroups: [{ id: 'travel' }, { id: 'season', hidden: true }] }).removed, [])
+})
+
 test('업로드 안전장치: 팩 안의 스티커가 빠져도 알리고, 지금 목록이 깨졌으면 비교를 건너뛰지 않는다', async () => {
   const { compareCatalogs, readPreviousCatalog } = await import('../scripts/compare-remote-catalog.mjs')
   const before = { schemaVersion: 1, stickerPacks: [{ id: 'spring', stickers: ['tulip', 'cherry'] }] }
@@ -283,9 +291,15 @@ test('속지 탭도 목록으로 더한다: 새 탭은 앱 탭 뒤에 붙고, �
       { id: 'lost', name: '탭 없음', group: 'nowhere', landscape: file('e.svg'), portrait: file('f.svg') },
     ] })
   assert.deepEqual(parsed.templateGroups.map(group => group.id), ['travel', 'old'])
-  assert.deepEqual(parsed.templates.map(item => item.id), ['trip-log', 'old-map'])
+  assert.deepEqual(parsed.templates.map(item => item.id), ['trip-log', 'old-map', 'lost'])
+  assert.equal(parsed.templates.find(item => item.id === 'lost').hidden, true) // 탭이 없는 속지는 숨김
 
   registerRemoteTemplates(parsed.templates, parsed.templateGroups)
+  assert.equal(paperGroups().flatMap(group => papersIn(group.id)).some(paper => paper.id === 'remote:lost'), false) // 고르기에 없다
+  const { getTemplate } = await import('../src/editor/templates/catalog.js')
+  const { waitForRemoteTemplateFile } = await import('../src/editor/templates/remoteTemplates.js')
+  assert.equal(getTemplate('remote-lost-portrait').name, '탭 없음') // 이미 쓴 페이지는 그 속지를 찾는다
+  assert.equal((await waitForRemoteTemplateFile('remote-lost-portrait', 10)).key, 'f.svg')
   assert.deepEqual(paperGroups().map(group => group.id), ['note', 'planner', 'diary', 'travel'])
   assert.deepEqual(papersIn('travel').map(paper => paper.id), ['remote:trip-log'])
   assert.deepEqual(papersIn('old'), []) // 숨긴 탭의 속지는 고르기에 없다

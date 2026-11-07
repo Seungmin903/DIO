@@ -1,13 +1,13 @@
 // 지금 올라가 있는 catalog.json 과 새로 올릴 catalog.json 을 비교한다(업로드 안전장치).
 //   node scripts/compare-remote-catalog.mjs <지금 목록> <새 목록>
-// 이미 공개한 글꼴 · 스티커 팩 · 팩 안의 스티커 · 속지가 새 목록에서 빠지면 실패한다. 그 항목을 쓴 문서가 기본 모양(스티커는 빈 자리)으로 바뀌기 때문이다.
+// 이미 공개한 글꼴 · 스티커 팩 · 팩 안의 스티커 · 속지 · 속지 탭이 새 목록에서 빠지면 실패한다. 그 항목을 쓴 문서가 기본 모양(스티커는 빈 자리)으로 바뀌기 때문이다.
 // 목록에서만 내리려면 지우지 말고 "hidden": true 를 쓴다(스티커는 pack.json 의 스티커마다). 정말 지워야 하면 ALLOW_CATALOG_REMOVAL=1 로 실행한다.
 // 지금 목록 파일이 비어 있으면(fetch-remote-catalog.sh 가 '처음 올림'으로 만든 빈 파일) 비교를 건너뛴다.
 // 내용이 있는데 읽지 못하면(손상 · 받다 끊김) 안전장치를 끄지 않고 실패한다.
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 
-const KINDS = [['fonts', '글꼴'], ['stickerPacks', '스티커 팩'], ['templates', '속지']]
+const KINDS = [['fonts', '글꼴'], ['stickerPacks', '스티커 팩'], ['templates', '속지'], ['templateGroups', '속지 탭']]
 const list = (catalog, kind) => (Array.isArray(catalog?.[kind]) ? catalog[kind] : [])
 const ids = (catalog, kind) => new Set(list(catalog, kind).map(item => item?.id).filter(Boolean))
 

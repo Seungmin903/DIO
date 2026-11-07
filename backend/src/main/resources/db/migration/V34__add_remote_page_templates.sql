@@ -1,6 +1,6 @@
 -- 원격 속지(앱 배포 없이 에셋 저장소에 올린 속지)용 범용 템플릿 행. 방향마다 하나씩 둔다.
 -- 페이지 template_config 의 remoteTemplate(속지 id)으로 앱이 catalog.json 에서 그림을 찾는다.
--- develop 의 V32(공유 다이어리 표지) · V33(갱신 토큰 인덱스) 다음 번호다.
+-- 번호는 병합 시점의 develop · release 최신 마이그레이션 다음으로 맞춘다. 한 환경이라도 배포한 뒤에는 번호를 바꾸지 않는다.
 DO $remote_templates$
 DECLARE
     seed RECORD;

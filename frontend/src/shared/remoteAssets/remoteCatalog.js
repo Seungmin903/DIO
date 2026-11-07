@@ -53,8 +53,10 @@ export function parseCatalog(value) {
   const groupIds = new Set([...TEMPLATE_GROUPS, ...templateGroups.map(group => group.id)])
   const templates = (Array.isArray(value.templates) ? value.templates : []).map(template => {
     const landscape = file(template?.landscape), portrait = file(template?.portrait)
-    if (!ID.test(template?.id ?? '') || !label(template.name) || !groupIds.has(template.group) || !landscape || !portrait) return null
-    return { id: template.id, name: label(template.name), group: template.group, hidden: template.hidden === true, files: { landscape, portrait } }
+    if (!ID.test(template?.id ?? '') || !label(template.name) || typeof template.group !== 'string' || !landscape || !portrait) return null
+    // 탭이 목록에 없으면(이 앱이 모르는 탭 · 지워진 탭) 속지를 버리지 않고 고르기에서만 숨긴다. 이미 그 속지를 쓴 페이지는 계속 그린다
+    const known = groupIds.has(template.group)
+    return { id: template.id, name: label(template.name), group: known ? template.group : 'note', hidden: template.hidden === true || !known, files: { landscape, portrait } }
   }).filter(Boolean)
   return { fonts: unique(fonts), stickerPacks: unique(stickerPacks), templates: unique(templates), templateGroups }
 }

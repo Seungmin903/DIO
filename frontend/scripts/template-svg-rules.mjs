@@ -32,11 +32,17 @@ export function checkTemplateSvg(xml, orientation) {
   if (/<!DOCTYPE|<!\[CDATA\[/i.test(source)) add('DOCTYPE · CDATA 는 쓸 수 없어요')
   const stack = [] // 열린 요소마다 { name, fill }
   let root = null, firstShape = null
-  const tags = source.replace(/<(title|metadata|desc)\b[^>]*>[\s\S]*?<\/\1>/gi, '<$1/>').match(/<\/?[a-zA-Z][^>]*>/g) ?? []
+  // 태그는 따옴표 안을 건너뛰며 자른다(속성값 안의 '>' 로 뒤의 속성이 검사를 빠져나가지 않게)
+  const TAG = /<\/?[a-zA-Z](?:[^>"']|"[^"]*"|'[^']*')*>/g
+  const body = source.replace(/<(title|metadata|desc)\b(?:[^>"']|"[^"]*"|'[^']*')*>[\s\S]*?<\/\1>/gi, '<$1/>')
+  const tags = body.match(TAG) ?? []
+  // 태그로 읽히지 않고 남은 '<' 가 있으면(닫히지 않은 따옴표 · 깨진 태그) 검사할 수 없으므로 받지 않는다
+  if (body.replace(TAG, '').includes('<')) add('읽을 수 없는 태그가 있어요(닫히지 않은 따옴표나 깨진 태그)')
   for (const tag of tags) {
     if (tag.startsWith('</')) { stack.pop(); continue }
     const name = /^<([a-zA-Z][\w:.-]*)/.exec(tag)[1]
     const props = attributes(tag)
+    if (Object.values(props).some(value => /[<>]/.test(value))) add('속성값에 < > 를 쓸 수 없어요')
     const selfClosing = tag.endsWith('/>')
     if (!ALLOWED.has(name)) add(`<${name}> 는 쓸 수 없어요(도형 · g 만, 글자는 윤곽선으로)`)
     for (const key of Object.keys(props)) if (BANNED_ATTRIBUTES.test(key)) add(`${key} 속성은 쓸 수 없어요(색은 fill · stroke 속성으로)`)

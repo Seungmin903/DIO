@@ -589,10 +589,12 @@ remote-assets-check:
   after_script:
     - rm -rf "$CI_PROJECT_DIR/.ci-remote-assets"
 
-# develop 에 병합되면 개발 에셋 버킷에 자동으로 올린다
+# develop 에 병합되면 개발 백엔드 배포(V34 원격 속지 행)가 끝난 뒤 개발 에셋 버킷에 자동으로 올린다
 publish-remote-assets-dev:
   <<: *remote-assets-publish
   stage: deploy
+  needs:
+    - deploy-development
   rules:
     - if: '$CI_COMMIT_BRANCH == "develop"'
       changes: *remote-assets-changes
@@ -603,14 +605,18 @@ publish-remote-assets-dev:
     AWS_CLI_IMAGE: amazon/aws-cli:2.17.0
     ASSET_ENV_FILE: /home/gitlab-runner/dio-env/assets-dev.env
 
-# 운영 에셋 버킷은 master 에서 사람이 눌러 올린다(사용자 앱에 바로 보이므로)
+# 운영 에셋 버킷은 master 에서 사람이 눌러 올린다(사용자 앱에 바로 보이므로).
+# 운영 백엔드 배포(deploy-production, V34 원격 속지 행)가 성공한 뒤에만 누를 수 있다. 행이 없으면 원격 속지로 페이지를 만들 수 없다.
+# 에셋이 바뀌지 않은 파이프라인에서도 눌러 다시 올릴 수 있게 changes 조건을 두지 않는다(같은 내용이면 바뀌는 것이 없다).
 publish-remote-assets-prod:
   <<: *remote-assets-publish
   stage: deploy
+  needs:
+    - deploy-production
   rules:
     - if: '$CI_COMMIT_BRANCH == "master"'
-      changes: *remote-assets-changes
       when: manual
+      allow_failure: true
   resource_group: production-assets
   environment:
     name: production-assets

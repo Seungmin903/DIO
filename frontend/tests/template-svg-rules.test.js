@@ -32,6 +32,13 @@ test('형식에 맞는 원격 속지는 통과하고, 색 · 요소 · 크기 ·
     [svg('<g fill="#123456"><path d="M0 0" /></g>'), /fill="#123456"/],
     [svg('', { w: 768, h: 1024 }), /가로 속지는 width="1024"/],
     ['<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="768" viewBox="0 0 1024 768"><path d="M0 0" fill="#292929" /></svg>', /처음 그리는 요소는 종이 사각형/],
+    // 속성값 안의 '>' 로 태그를 일찍 끝내 뒤의 속성을 숨기는 우회
+    [svg('<path d="M0 0" fill="#292929" x=">" onload="alert(1)" />'), /onload 속성은 쓸 수 없어요/],
+    [svg('<path d="M0 0" fill="#292929" x=">" style="fill:red" />'), /style 속성은 쓸 수 없어요/],
+    [svg('<path d="M0 0" fill="#292929" x=\'>\' stroke="#ff0000" />'), /stroke="#ff0000"/],
+    [svg('<path d="M0 0" fill="#292929" x=">" />'), /속성값에 < > 를 쓸 수 없어요/],
+    // 닫히지 않은 따옴표 · 깨진 태그는 검사할 수 없으므로 거부
+    [svg('<path d="M0 0 fill="#292929" />'), /읽을 수 없는 태그/],
   ]
   for (const [xml, pattern] of cases) assert.match(checkTemplateSvg(xml, 'landscape').join('\n'), pattern, xml)
 })
