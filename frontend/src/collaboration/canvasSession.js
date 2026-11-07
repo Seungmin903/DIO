@@ -1,4 +1,4 @@
-import { timePenPerformance } from '../editor/utils/penPerformance.js'
+import { timePenPerformance, reportPenMark } from '../editor/utils/penPerformance.js'
 import {decodeElement,sharedObject} from './canvasElements.js'
 import { canvasContent, canvasDelta, stable, sameElements } from './canvasApi.js'
 import { assertCanvasBatchLimits } from './canvasBatchLimits.js'
@@ -94,6 +94,11 @@ export function createCanvasSession({api,storage,key,legacyKey,pageId,diaryId,cr
     async acceptImport(objects){active();journal.uiLocal=copy(objects);journal.uiLocalAt=Date.now();await persist()},
     synchronize(){
       if(running)return running
+      // 개발 측정: 대기열이 왜 비워지지 않는지 보기 위한 요약(요소 내용은 보내지 않는다)
+      const first=journal.queue[0],counts=first?.request?.changes
+      reportPenMark('collabQueueSummary',{queueLength:journal.queue.length,deferredMedia:(journal.deferredMedia??[]).length,hasControl:Boolean(journal.control),baseLength:(journal.base??[]).length,
+        firstHasRequest:Boolean(first?.request),firstCreates:counts?.creates?.length??null,firstUpdates:counts?.updates?.length??null,firstDeletes:counts?.deleteElementIds?.length??null,
+        firstBefore:first?.before?.length??null,firstAfter:first?.after?.length??null,firstMediaApi:first?.mediaApiVersion??null,recent:journal.recent.length,rejectedControls:(journal.rejectedControls??[]).length})
       running=(async()=>{
         await writes;active();const remote=await api.load(pageId,diaryId);active()
         if(journal.base===null&&!journal.queue.length&&!journal.control){
@@ -124,6 +129,7 @@ export function createCanvasSession({api,storage,key,legacyKey,pageId,diaryId,cr
             const result=await api.apply(pageId,entry.request);active();setBase(result.items)
           }
           }catch(error){
+              reportPenMark('collabQueueError',{status:error?.status??null,code:error?.code??null,message:String(error?.message??'').slice(0,160),queueLength:journal.queue.length})
               if(error.code==='CANVAS_BATCH_LIMIT') {
                 await persist()
                 throw Object.assign(Error('이전 대량 편집이 100개 제한을 넘어 저장 대기열이 막혔어요. 이 작업과 이후 편집은 서버에 저장되지 않고 기기에만 보관 중이에요. 재시도만으로 해결되지 않으며 별도 복구가 필요해요.'), {code:'CANVAS_BATCH_LIMIT'})

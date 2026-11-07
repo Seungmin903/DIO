@@ -1,4 +1,4 @@
-import { markPenPerformance } from '../utils/penPerformance.js'
+import { markPenPerformance, reportPenMark } from '../utils/penPerformance.js'
 import { useEffect, useRef, useState } from 'react'
 import { AppState, Platform } from 'react-native'
 import AsyncStorage from '@react-native-async-storage/async-storage'
@@ -218,7 +218,7 @@ export function useMemberCanvasCollaboration({diary,page,state,loaded,readOnly,d
           if(r.again.delete(pageId)&&active())r.sync(pageId)
         }).catch(()=>{})
       }
-      if(!direction)job.catch(error=>{if(active()&&latest.current.page.id===pageId)setView(v=>({...v,status:error.status===409?'conflict':'error',errorMessage:failureMessage(error),pageId}))})
+      if(!direction)job.catch(error=>{reportPenMark('collabSyncError',{status:error?.status??null,code:error?.code??null,message:String(error?.message??'').slice(0,160)});if(active()&&latest.current.page.id===pageId)setView(v=>({...v,status:error.status===409?'conflict':'error',errorMessage:failureMessage(error),pageId}))})
       return job
     }
     const refresh=()=>{if(active()){r.sync(latest.current.page.id);refreshPagesQuietly()}}

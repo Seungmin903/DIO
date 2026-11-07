@@ -31,6 +31,11 @@ export function timePenPerformance(name, work, extra = null) {
     else if (ms >= 10) post({ type: 'mark', version: 1, name, ms, ...(extra ? extra() : {}) })
   }
 }
+/** 측정이 켜져 있을 때 상태 요약(협업 저널 대기열 등)을 'mark' 보고로 보낸다. 좌표·문서 내용은 담지 않는다. */
+export function reportPenMark(name, fields = {}) {
+  if (!PEN_PERFORMANCE_ENABLED) return
+  try { post({ type: 'mark', version: 1, name, ms: 0, ...fields }) } catch { /* 보고 실패는 무시 */ }
+}
 // 개발 측정 중 JS 오류(앱 종료 원인 후보)를 수집기에 보낸다. 좌표·문서 내용은 담지 않는다.
 if (PEN_PERFORMANCE_ENABLED && typeof globalThis.ErrorUtils?.getGlobalHandler === 'function') {
   const previous = globalThis.ErrorUtils.getGlobalHandler()
