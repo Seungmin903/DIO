@@ -305,7 +305,10 @@ export default function DecorationStudioScreen({ compact = false, registerBackHa
   // 표지는 PDF 첫 쪽(또는 사진)을 바탕으로 한 꾸밈 없는 표지, 속지는 PDF 쪽 전부. 이름은 PDF 파일 이름이고 선반에서 바꿀 수 있다.
   const saveFailed = kind => `${kind === 'paper' ? '속지' : '표지'}를 저장하지 못했어요. 다시 시도해 주세요.`;
   // 내 표지가 가득 차면(30개) 새 표지를 만들지 않는다: 저장하면 가장 오래된 표지가 조용히 빠졌다
-  const coversFull = () => library.covers.length >= MY_LIBRARY_LIMIT;
+  // PDF · 사진을 고르는 동안(await) 표지 수가 바뀌어도 저장 직전 기준으로 판단하게 최신 개수를 ref 로 읽는다
+  const coverCount = useRef(0);
+  coverCount.current = library.covers.length;
+  const coversFull = () => coverCount.current >= MY_LIBRARY_LIMIT;
   const coversFullText = `내 표지는 ${MY_LIBRARY_LIMIT}개까지 담을 수 있어요. 지운 뒤 다시 만들어 주세요.`;
   const makeFromPdf = async kind => {
     if (making) return;
@@ -323,21 +326,30 @@ export default function DecorationStudioScreen({ compact = false, registerBackHa
       }
       // 표지: 두 쪽 이상이면 쓸 쪽을 고르고(처음엔 첫 쪽), 고른 쪽마다 내 표지를 하나씩 만든다(지라 601).
       // 보관함 상한을 넘겨 예전 표지가 밀려나지 않게, 남은 칸 수까지만 고른다
-      const room = MY_LIBRARY_LIMIT - library.covers.length;
-      const chosen = result.pages.length > 1
+      if (coversFull()) { if (alive.current) setMakeError({ kind, text: coversFullText }); return; }
+      const room = MY_LIBRARY_LIMIT - coverCount.current;
+      const picked = result.pages.length > 1
         ? await new Promise(resolve => setCoverPages({ name: result.name, pages: result.pages, limit: Math.min(room, result.pages.length), resolve }))
         : [0];
-      if (!chosen?.length) return;
+      if (!picked?.length) return;
+      // 쪽을 고르는 사이 칸이 줄었으면 남은 칸만큼만 만든다
+      const chosen = picked.slice(0, Math.max(0, MY_LIBRARY_LIMIT - coverCount.current));
+      if (!chosen.length) { if (alive.current) setMakeError({ kind, text: coversFullText }); return; }
       // 보관함은 새 표지를 맨 앞에 넣으므로, 뒤 쪽부터 넣어 선반에 쪽 순서대로 놓이게 한다
+      // 저장 중 오류가 나도 이미 저장한 표지의 쪽 그림은 지우지 않는다(아래에서 저장 안 된 쪽만 지운다)
       const savedIndexes = new Set();
+      let failure = null;
       for (const index of [...chosen].reverse()) {
         const page = result.pages[index];
-        const saved = await library.addCover({ name: chosen.length > 1 ? `${result.name} ${index + 1}쪽` : result.name,
-          orientation: pdfOrientation(page.aspect), cover: coverWithPdfPage(newDiaryCover(), page) });
+        let saved = false;
+        try {
+          saved = await library.addCover({ name: chosen.length > 1 ? `${result.name} ${index + 1}쪽` : result.name,
+            orientation: pdfOrientation(page.aspect), cover: coverWithPdfPage(newDiaryCover(), page) });
+        } catch (error) { failure = error; }
         if (!saved) break;
         savedIndexes.add(index);
       }
-      if (!savedIndexes.size) { if (alive.current) setMakeError({ kind, text: saveFailed(kind) }); return; }
+      if (!savedIndexes.size) { if (failure) throw failure; if (alive.current) setMakeError({ kind, text: saveFailed(kind) }); return; }
       // 일부만 저장되면 몇 개가 만들어졌는지 알린다(뒤 쪽부터 넣으므로 남는 것은 뒤 쪽 표지다)
       if (savedIndexes.size < chosen.length && alive.current) setMakeError({ kind, text: `표지 ${chosen.length}개 중 ${savedIndexes.size}개만 만들었어요. 나머지 쪽은 PDF를 다시 골라 만들어 주세요.` });
       // 표지는 고른 쪽 그림만 쓰므로 나머지 쪽 그림과 원본 PDF 는 바로 지운다
@@ -366,6 +378,8 @@ export default function DecorationStudioScreen({ compact = false, registerBackHa
       const picked = await new Promise(resolve => setCoverCrop({ photo, orientation: pdfOrientation(photo.aspect), resolve }));
       if (!picked) { discardGeneratedMedia([item]).catch(() => {}); return; }
       const { crop, orientation } = picked;
+      // 자르는 사이 칸이 찼으면 만들지 않는다(예전 표지가 밀려나지 않게)
+      if (coversFull()) { discardGeneratedMedia([item]).catch(() => {}); if (alive.current) setMakeError({ kind: 'cover', text: coversFullText }); return; }
       // 이름은 편집기 사진과 같은 규칙: 파일 이름, 없으면(뜻 없는 이름 포함) 내 표지 안에서 '사진 n'
       const last = library.covers.reduce((max, cover) => Math.max(max, Number(cover.name.match(/^사진 (\d+)$/)?.[1] ?? 0)), 0);
       const base = coverWithPdfPage(newDiaryCover(), photo);

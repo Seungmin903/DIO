@@ -19,7 +19,12 @@ test('602: 표지 사진 자르기에 세로 · 가로를 두고, 바꾸면 그 
 })
 
 test('601: PDF 표지는 두 쪽 이상이면 쪽을 고르고, 고른 쪽마다 표지를 하나씩 · 남은 칸 수까지만 · 쪽 순서대로 만든다', () => {
-  assert.match(studio, /const room = MY_LIBRARY_LIMIT - library\.covers\.length;/)
+  assert.match(studio, /const room = MY_LIBRARY_LIMIT - coverCount\.current;/)
+  // 고르는 사이 바뀐 표지 수는 저장 직전 기준(ref)으로 다시 자르고, 저장 중 오류가 나도 이미 저장한 쪽 그림은 남긴다
+  assert.match(studio, /coverCount\.current = library\.covers\.length;/)
+  assert.match(studio, /const chosen = picked\.slice\(0, Math\.max\(0, MY_LIBRARY_LIMIT - coverCount\.current\)\);/)
+  assert.match(studio, /\} catch \(error\) \{ failure = error; \}\n\s*if \(!saved\) break;/)
+  assert.match(studio, /if \(!savedIndexes\.size\) \{ if \(failure\) throw failure;/)
   // 가득 차면 만들지 않고 알린다(예전 표지가 조용히 빠지지 않게)
   assert.match(studio, /if \(kind === 'cover' && coversFull\(\)\) \{ setMakeError/)
   assert.match(studio, /if \(coversFull\(\)\) \{ setMakeError\(\{ kind: 'cover', text: coversFullText \}\); return; \}/)
