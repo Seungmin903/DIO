@@ -1,4 +1,4 @@
-import { Image, Pressable, Text, View } from 'react-native';
+import { ActivityIndicator, Image, Pressable, Text, View } from 'react-native';
 import { C } from '../constants';
 import AppIcon from '../../shared/AppIcon';
 import { styles as s } from '../styles';
@@ -12,6 +12,19 @@ const ART = {
   moa: { source: require('../../../assets/characters/new_moa.png'), sourceWidth: 1254, sourceHeight: 975, left: 319, top: 183, width: 630, height: 760, heightScale: 1 },
   dio: { source: require('../../../assets/characters/new_dio.png'), sourceWidth: 1254, sourceHeight: 975, left: 313, top: 175, width: 824, height: 797, heightScale: DIO_KEY / MOA_KEY },
 };
+
+/**
+ * 처음 불러오는 동안: 빈 화면(EmptyState)이 놓일 자리 · 높이에 스피너만 둔다(글자 줄 없음, 알림 창과 같다 — 지라 590).
+ * 예전엔 목록 위 왼쪽에 스피너 + '다이어리를 불러오고 있어요' 작은 글자 줄이 떴다. 화면 읽기 프로그램에는 label 을 읽어 준다.
+ */
+export function LoadingSpot({ label, compact = false, art = 'moa' }) {
+  return (
+    <View accessible accessibilityRole="progressbar" accessibilityLabel={label} accessibilityState={{ busy: true }} accessibilityLiveRegion="polite"
+      style={[s.empty, compact && s.emptyCompact, compact ? s.emptyRaisedCompact : art === 'dio' ? s.emptyRaisedTrash : s.emptyRaised]}>
+      <ActivityIndicator accessible={false} color={C.blue} />
+    </View>
+  );
+}
 
 export default function EmptyState({ title, onCreate, action = null, search = false, compact = false, art = 'moa', raised = false }) {
   const picture = search ? null : ART[art] || ART.moa;

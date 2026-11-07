@@ -17,11 +17,8 @@ const trash = load('MemberTrashNotice'), request = load('MemberRequestNotice')
 const buttons = node => walk(node).filter(n => n.type === 'Pressable')
 const words = node => walk(node).filter(n => n.type === 'Text').map(n => n.props.children)
 
-test('휴지통은 처음 받을 때만 문구를 보이고, 옮기기 · 복원 뒤 다시 받는 동안은 칸을 그리지 않는다(목록이 밀리지 않게)', () => {
-  const first = trash({ state: { trashLoading: true } })
-  assert.equal(buttons(first).length, 0)
-  assert.ok(words(first).some(s => s.includes('있어요')))
-  for (const state of [{ lifecycle: { busy: true } }, { trashLoading: true, trashLoaded: true, trash: [{ id: 'a' }] }, {}]) assert.equal(trash({ state }), null)
+test('휴지통 알림 칸은 불러오는 동안 줄을 그리지 않는다(처음 불러올 때는 휴지통 자리 가운데 스피너 — TrashScreen loading, 지라 590)', () => {
+  for (const state of [{ trashLoading: true }, { lifecycle: { busy: true } }, { trashLoading: true, trashLoaded: true, trash: [{ id: 'a' }] }, {}]) assert.equal(trash({ state }), null)
 })
 
 test('휴지통 오류·재시도·메타데이터 경고 시 기존 복구 동작을 유지한다', () => {

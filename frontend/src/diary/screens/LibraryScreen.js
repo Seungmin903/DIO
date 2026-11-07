@@ -7,7 +7,7 @@ import AppIcon from '../../shared/AppIcon';
 import FavoriteStar from '../../shared/FavoriteStar';
 import { styles as s } from '../styles';
 import DiaryCard from '../components/DiaryCard';
-import EmptyState from '../components/EmptyState';
+import EmptyState, { LoadingSpot } from '../components/EmptyState';
 import { toggleSelection, visibleSelection } from '../utils/diarySelection';
 import IconButton from '../components/IconButton';
 import PhoneBell from '../components/PhoneBell';
@@ -82,6 +82,7 @@ function LibraryScreen({
   requestNotice = null,
   hasMore = false,
   suppressEmpty = false,
+  loading = false, // 회원 목록을 처음 불러오는 중(빈 화면 자리 가운데 스피너, 지라 590)
   historyKey,
 }) {
   // 책상은 태블릿(compact 아님)에서만 보인다. 어두운 시각에는 상판 위 제목을 흰색으로 쓴다.
@@ -368,7 +369,7 @@ function LibraryScreen({
       {requestNotice}
   </>);
   const body = (<>
-      {!carouselItems.length && suppressEmpty ? null : !carouselItems.length ? (
+      {!carouselItems.length && suppressEmpty ? (loading ? <LoadingSpot compact={compact} label="다이어리를 불러오고 있어요." /> : null) : !carouselItems.length ? (
         <EmptyState compact={compact} raised title={emptyTitle} action={emptyAction} />
       ) : displayView === 'open' ? (
         <OpenBookShelf diaries={carouselItems} index={activeIndex} onIndexChange={onCarouselChange} onOpen={onOpen} onFavorite={onFavorite} onEdit={onEdit} onDelete={onDelete} onShare={onShare} compact={compact} />

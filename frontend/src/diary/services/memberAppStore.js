@@ -82,7 +82,23 @@ export function createMemberAppStore({ accountId, api, storage, makeRequestId, s
       active(); emit({ diaries, error: null }); return diary
     })
   }
-  const refreshDiary = async (id, allowUnlisted = false) => {
+  // 예전 릴리스는 꾸민 표지를 만든 기기에만 두었고, 그 다이어리를 이 기기에서 다시 열어야만(refreshDiary) 서버로 올렸다.
+  // 그래서 다시 열지 않은 다이어리는 다른 기기(로그인한 아이폰 등)에서 사진 표지가 안 보였다(지라 623).
+  // 목록을 받을 때 내 다이어리 중 서버에 표지가 없고 이 기기에만 있는 것을 하나씩 뒤에서 올린다(세션마다 다이어리당 한 번).
+  // 올리지 못하면 표시를 지워 다음 목록 갱신 때 다시 해 본다(다이어리당 세션에서 3번까지). 뒤에서 하는 일이라 실패 안내는 띄우지 않는다.
+  // 409(다른 기기가 먼저 고침)는 최신본을 받고 멈춘다: 다음에 주인이 그 다이어리를 열 때 다시 올린다.
+  const coverSyncTried = new Set(), coverSyncFails = new Map()
+  let coverSync = Promise.resolve()
+  const syncLocalCovers = (serverItems, merged) => {
+    const local = new Map(merged.map(row => [row.id, row]))
+    for (const item of serverItems) {
+      if (item.cover || item.myRole !== 'OWNER' || !local.get(item.id)?.cover || coverSyncTried.has(item.id) || (coverSyncFails.get(item.id) ?? 0) >= 3) continue
+      coverSyncTried.add(item.id)
+      coverSync = coverSync.then(() => (disposed ? null : refreshDiary(item.id, false, { quiet: true })))
+        .catch(() => { coverSyncFails.set(item.id, (coverSyncFails.get(item.id) ?? 0) + 1); coverSyncTried.delete(item.id) })
+    }
+  }
+  const refreshDiary = async (id, allowUnlisted = false, { quiet = false } = {}) => {
     active()
     const detailRequest = { version: version(id), sequence: (detailRequests.get(id) ?? 0) + 1 }
     detailRequests.set(id, detailRequest.sequence)
@@ -95,6 +111,7 @@ export function createMemberAppStore({ accountId, api, storage, makeRequestId, s
       catch(error) {
         active()
         if(error.status===409) { result=await api.get(id);active() }
+        else if(quiet) throw error
         else emit({metadataError:failure('COVER_SYNC_FAILED','이 기기의 표지를 공유하지 못했어요. 표지를 다시 저장해 주세요.')})
       }
     }
@@ -319,6 +336,7 @@ export function createMemberAppStore({ accountId, api, storage, makeRequestId, s
             libraryRetryMore = false
             emit({ diaries, error: null, library: { criteria, items: [...items.values()], ready: true, loading: false, error: null, hasNext: page.hasNext, nextCursor: page.nextCursor } })
             fillOrientations()
+            syncLocalCovers(page.items, rows)
             return [...items.values()]
           })
         } catch (error) {

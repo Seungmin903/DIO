@@ -263,8 +263,8 @@ headerCreateText: { color: C.white, fontSize: 13, fontWeight: '700' },
   sortOptionRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   sortOptionCheck: { width: 14, height: 14, alignItems: 'center', justifyContent: 'center' }, // 화살표가 없는 항목도 자리를 비워 둬 글자가 맞는다
   cardCheckMark: { color: C.white, fontSize: 16, fontWeight: '800', lineHeight: 18 },
-  cardFavorite: { position: 'absolute', top: 12, left: 12, zIndex: 3, width: 24, height: 24, alignItems: 'center', justifyContent: 'center' }, // 배경 없는 별: 오른쪽 ⋯ 버튼과 같은 여백으로 왼쪽 위 모서리에 붙인다
-  cardFavoriteCompact: { top: 6, left: 'auto', right: 6 }, // 폰: 표지 오른쪽 위 모서리(제목표와 겹치지 않게, 2026-11-03 사용자 결정)
+  cardFavorite: { position: 'absolute', top: 12, right: 12, zIndex: 3, width: 24, height: 24, alignItems: 'center', justifyContent: 'center' }, // 배경 없는 별: 표지 오른쪽 위 모서리(폰 · 태블릿 같음, 지라 620)
+  cardFavoriteCompact: { top: 6, right: 6 }, // 폰: 표지 오른쪽 위 모서리(제목표와 겹치지 않게, 2026-11-03 사용자 결정). 태블릿도 2026-11-08부터 오른쪽(지라 620: 왼쪽도 제목표를 가렸다)
   // 정보 줄 오른쪽 위 더보기 버튼(동작 말풍선을 연다). 배경 없는 28×28 + hitSlop 10 = 터치 48(원 페이저 06). 자리(slot)는 버튼이 숨는 스와이프 옆 카드에도 남겨 제목 줄 높이가 같게 한다
   cardMoreSlot: { width: 28, height: 28, flexShrink: 0, marginTop: -4, marginRight: -3 },
   cardMore: { width: 28, height: 28, alignItems: 'center', justifyContent: 'center' },
