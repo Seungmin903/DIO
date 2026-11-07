@@ -130,3 +130,19 @@ test('기존 이미지 다시 조회 연결은 세션 종료 시 해제된다',a
  assert.equal(await retryRemoteMedia(remoteId),true);assert.equal(calls,2)
  instance.dispose();assert.equal(await retryRemoteMedia(remoteId),false);await assert.rejects(instance.retry(remoteId),/세션/)
 })
+
+const MiB=1024*1024
+const gifRequest=(size,{header=true}={})=>createMediaRequest({auth:{getSessionKey:()=>'one',getAccessToken:async()=>'token',getConnectionOptions:()=>({getAuthHeaders:()=>({})})},accountId:'1',sessionKey:'one',baseUrl:'https://dio.test/api/v1',fetchImpl:async()=>({status:200,ok:true,headers:{get:()=>header?String(size):null},arrayBuffer:async()=>new ArrayBuffer(size)})})
+test('GIF 다운로드: 5MiB 를 넘고 15MiB 이하인 파일은 받는다',async()=>{
+ assert.equal((await gifRequest(6*MiB)(`/media/${remoteId}/file`,{binary:true})).length,6*MiB)
+ assert.equal((await gifRequest(15*MiB)(`/media/${remoteId}/file`,{binary:true})).length,15*MiB)
+})
+test('GIF 다운로드: 15MiB 를 넘으면 content-length 가 있든 없든 거절한다',async()=>{
+ for(const header of [true,false])await assert.rejects(gifRequest(15*MiB+1,{header})(`/media/${remoteId}/file`,{binary:true}),error=>error.code==='INVALID_SERVER_MEDIA')
+})
+test('다운로드와 업로드는 시간 제한을 120초로 요청한다',async()=>{
+ const calls=[]
+ const media=createCanvasMedia({storage:{getItem:async()=>null,setItem:async()=>{}},key:'timeout',files:{upload:async id=>({id}),cached:async()=>false,save:async()=>{}},request:async(path,options)=>{calls.push(options);return options.binary?new Uint8Array([1]):{mediaFileId:remoteId}}})
+ await media.prepare({changes:{creates:[{elementType:'PHOTO',mediaFileId:localId}]}});await media.hydrate([{mediaFileId:'90000000-0000-4000-8000-000000000009'}])
+ assert.equal(calls.length,2);assert.ok(calls.every(options=>options.timeoutMs===120000))
+})
