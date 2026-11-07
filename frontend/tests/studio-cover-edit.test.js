@@ -34,10 +34,20 @@ test('608: 사진 테이프 만들기에는 두께 버튼이 없고 늘 기본 �
   assert.match(cropper, /const sizeId = TAPE_SIZES\[1\]\.id/)
 })
 
-test('603: 제목이 빈 내 표지는 다이어리 이름 쓰기를 켠 채 열고, 구역 카드 한 칸은 두지 않는다', () => {
+test('603: 라벨을 처음 켤 때 제목이 비어 있으면 그때만 다이어리 이름 쓰기를 켜고, 구역 카드 한 칸은 두지 않는다', () => {
   const modal = read('../src/diary/components/CoverEditModal.js')
-  assert.match(modal, /cover\?\.title && !cover\.title\.text && !cover\.title\.useName \? \{ \.\.\.cover, title: \{ \.\.\.cover\.title, useName: true \} \}/)
-  assert.match(modal, /const changed = cover !== initial;/)
+  assert.match(modal, /prev\.plate === 'none' && next\.plate !== 'none' && next\.title && !next\.title\.text && !next\.title\.useName/)
+  assert.match(modal, /const next = withLabelTitle\(cover, proposed\);/)
+  assert.match(modal, /const changed = cover !== item\.cover;/)
   assert.match(modal, /sections=\{\[\]\}/)
   assert.match(read('../src/diary/components/Workbench.js'), /\{!cards\.length \? null : sheet \?/)
+  assert.match(read('../src/diary/components/StudioShelf.js'), /<CoverArt cover=\{item\.cover\} name="새 다이어리"/)
+})
+
+test('603: 편집 중 새로 고른 사진을 모두 모아 닫을 때 지우고, 저장하면 저장한 사진만 남긴다 · 저장 실패(예외 포함)는 안내한다', () => {
+  const modal = read('../src/diary/components/CoverEditModal.js')
+  assert.match(modal, /fresh\.current\.set\(id, next\.photo\)/)
+  assert.match(modal, /const close = \(\) => \{ discardFresh\(\); onClose\(\); \};/)
+  assert.match(modal, /discardFresh\(photoIdOf\(cover\)\);/)
+  assert.match(modal, /try \{ done = await onSave\(cover\); \} catch \{ done = false; \}/)
 })
