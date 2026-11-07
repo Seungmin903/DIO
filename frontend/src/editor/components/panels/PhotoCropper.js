@@ -450,7 +450,8 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     backgroundColor: colors.surface,
   },
-  chipActive: { borderWidth: 2, borderColor: colors.primary, backgroundColor: colors.primarySoft },
+  // 테두리 2 = 좌우 여백 1 줄임(고를 때 칩 폭 · 옆 칩 자리가 움직이지 않게)
+  chipActive: { borderWidth: 2, paddingHorizontal: 13, borderColor: colors.primary, backgroundColor: colors.primarySoft },
   pressed: {}, // 눌림 효과 없음(사용자 지시)
   chipText: { fontSize: 12.5, fontWeight: '700', color: colors.text },
   chipTextActive: { fontWeight: '800' },
