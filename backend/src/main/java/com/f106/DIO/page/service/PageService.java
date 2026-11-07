@@ -67,6 +67,9 @@ public class PageService {
 			if(t==null&&next!=null&&next.path("templateCode").isString()
 				&&RemoteTemplates.isRemoteCode(code)!=RemoteTemplates.isRemoteCode(next.get("templateCode").asString()))
 				throw new IllegalArgumentException("설정으로 원격 속지와 일반 속지를 바꿀 수 없습니다.");
+			// 원격 속지 페이지는 설정만으로 방향 행(dio-remote-landscape ↔ portrait)도 바꿀 수 없다. 캔버스 크기와 어긋나 구성원 앱마다 다르게 그린다
+			if(t==null&&RemoteTemplates.isRemoteCode(code)&&next!=null&&next.path("templateCode").isString()&&!code.equals(next.get("templateCode").asString()))
+				throw new IllegalArgumentException("설정으로 원격 속지의 방향을 바꿀 수 없습니다. 속지 변경은 templateId 로 합니다.");
 			// 원격 속지 규칙은 실제로 저장될 설정으로 검사한다
 			RemoteTemplates.requireValidConfig(next,code);
 			templateConfig=preserveCreationRequestId(page.getTemplateConfig(),templateConfig);

@@ -302,6 +302,10 @@ class PageApiTests {
 		mvc.perform(patch("/api/v1/pages/"+pageId).with(authenticated()).contentType(MediaType.APPLICATION_JSON)
 				.content("{\"templateConfig\":{\"templateCode\":\"2026-cover-portrait\",\"remoteTemplate\":\"winter\"}}"))
 			.andExpect(status().isBadRequest());
+		// 원격 속지끼리라도 설정만으로 방향 행을 바꾸면 거부한다(캔버스 크기와 어긋난다)
+		mvc.perform(patch("/api/v1/pages/"+pageId).with(authenticated()).contentType(MediaType.APPLICATION_JSON)
+				.content("{\"templateConfig\":{\"templateCode\":\"dio-remote-landscape\",\"templateVersion\":\"1.0.0\",\"remoteTemplate\":\"winter\"}}"))
+			.andExpect(status().isBadRequest());
 		// 일반 페이지를 설정만으로 원격 속지로 바꾸는 것도 거부한다
 		String plainId=createPage(diaryId,"{\"templateConfig\":{\"templateCode\":\"2026-cover-portrait\",\"templateVersion\":\"1.0.0\"}}");
 		mvc.perform(patch("/api/v1/pages/"+plainId).with(authenticated()).contentType(MediaType.APPLICATION_JSON)
