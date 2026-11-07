@@ -65,7 +65,13 @@ test('609: 알림 화면 머리줄 · 목록 좌우 24, 오른쪽 끝 버튼은 
 test('폴더 이름은 12자: 공방 입력칸과 저장 함수가 같은 한도를 쓴다', () => {
   const decor = read('../src/editor/hooks/useCustomDecor.js')
   assert.match(decor, /export const FOLDER_NAME_LIMIT = 12/)
-  assert.equal((decor.match(/name: folderName\(name\)/g) || []).length, 4)
+  assert.equal((decor.match(/name: folderName\(name\)/g) || []).length, 3)
+  // 이름 바꾸기는 그대로 끝내면 예전 긴 이름을 자르지 않는다
+  assert.equal((decor.match(/f\.id === id \? renamed\(f, name\) : f/g) || []).length, 2)
+  const renamed = new Function(`const FOLDER_NAME_LIMIT = 12; ${decor.match(/const folderName = .+/)[0]}; ${decor.match(/const renamed = .+/)[0]}; return renamed`)()
+  const long = { id: 'a', name: '예전에 저장한 아주 긴 폴더 이름입니다' }
+  assert.equal(renamed(long, ` ${long.name} `), long)
+  assert.equal(renamed(long, '새 이름이 열두 자를 넘어가면 잘린다').name, '새 이름이 열두 자를')
   assert.match(decor, /const cleanName = folderName\(name\)/)
   assert.match(decor, /Array\.from\(String\(name \?\? ''\)\.trim\(\)\)\.slice\(0, FOLDER_NAME_LIMIT\)\.join\(''\)/)
   assert.equal((studio.match(/maxLength=\{FOLDER_NAME_LIMIT\}/g) || []).length, 2)

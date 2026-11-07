@@ -16,7 +16,9 @@ export const RECENT_LIMIT = 12
 // 스티커 · 테이프 폴더 이름 글자 수(닉네임과 같은 12자, 사용자 결정 2026-11-07). 편집기 보관함 · 공방 입력칸이 함께 쓴다. 이미 저장된 더 긴 이름은 고칠 때까지 그대로 둔다
 export const FOLDER_NAME_LIMIT = 12
 // 글자(코드 포인트) 단위로 자른다: 12번째에 이모지가 걸려도 반쪽 문자가 남지 않게
-const folderName = (name) => Array.from(String(name ?? '').trim()).slice(0, FOLDER_NAME_LIMIT).join('')
+const folderName = (name) => Array.from(String(name ?? '').trim()).slice(0, FOLDER_NAME_LIMIT).join('').trim()
+// 이름 바꾸기를 그대로 끝내면(포커스만 잃어도 확정된다) 예전 한도로 저장된 긴 이름을 자르지 않고 둔다
+const renamed = (folder, name) => (String(name ?? '').trim() === folder.name ? folder : { ...folder, name: folderName(name) })
 
 // 한 번 읽은 목록은 메모리에 두고 보관함을 다시 열 때 바로 쓴다 (열 때마다 빈 목록 → 저장소 읽기로 화면이 바뀌지 않게)
 let cached = null
@@ -159,7 +161,7 @@ export function useCustomDecor() {
     return id
   }, [])
   const renameFolder = useCallback((id, name) => {
-    setItems((prev) => ({ ...prev, folders: prev.folders.map((f) => (f.id === id ? { ...f, name: folderName(name) } : f)) }))
+    setItems((prev) => ({ ...prev, folders: prev.folders.map((f) => (f.id === id ? renamed(f, name) : f)) }))
   }, [])
   const removeFolder = useCallback((id) => {
     setItems((prev) => ({ ...prev, folders: prev.folders.filter((f) => f.id !== id) }))
@@ -211,7 +213,7 @@ export function useCustomDecor() {
     return id
   }, [])
   const renameTapeFolder = useCallback((id, name) => {
-    setItems((prev) => ({ ...prev, tapeFolders: prev.tapeFolders.map((f) => (f.id === id ? { ...f, name: folderName(name) } : f)) }))
+    setItems((prev) => ({ ...prev, tapeFolders: prev.tapeFolders.map((f) => (f.id === id ? renamed(f, name) : f)) }))
   }, [])
   const removeTapeFolder = useCallback((id) => {
     setItems((prev) => ({ ...prev, tapeFolders: prev.tapeFolders.filter((f) => f.id !== id) }))
