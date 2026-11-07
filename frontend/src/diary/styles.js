@@ -215,9 +215,10 @@ headerCreateText: { color: C.white, fontSize: 13, fontWeight: '700' },
   noticeAction: { alignSelf: 'flex-start' },
 
   carouselShell: { minHeight: 510, flex: 1, paddingTop: 47, paddingBottom: 3, overflow: 'hidden' },
-  carouselShellCompact: { minHeight: 0, paddingTop: 12, paddingBottom: 0, marginHorizontal: -14 },
+  // 폰: 태블릿 세로처럼 남는 높이의 가운데보다 살짝 위(아래 여백 60 → 30만큼 올라감)에 카드를 둔다(지라 612, 위에 붙어 너무 높아 보였다)
+  carouselShellCompact: { minHeight: 0, paddingTop: 12, paddingBottom: 60, marginHorizontal: -14 },
   carouselRow: { height: 412, position: 'relative', flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
-  carouselRowCompact: { flex: 1, height: 'auto', minHeight: 0, alignItems: 'flex-start' }, // 폰: 필터 줄 아래에서 바로 시작(가운데 정렬로 190px 비던 것을 없앤다)
+  carouselRowCompact: { flex: 1, height: 'auto', minHeight: 0, alignItems: 'center' },
   carouselCardTop: { zIndex: 2 },
   carouselViewport: { flex: 1, minWidth: 0, overflow: 'visible' },
   // 잰 폭으로 고정한 목록. 늘거나 줄지 않게 막는다(ScrollView 기본 flexGrow: 1). flex: 1과 겹쳐 쓰면 웹에서 flex-basis가 폭을 덮어써서 따로 둔다.
@@ -229,6 +230,7 @@ headerCreateText: { color: C.white, fontSize: 13, fontWeight: '700' },
   carouselCardsCompact: { paddingVertical: 28 },
   carouselShellPortrait: { minHeight: 0, paddingTop: 0, paddingBottom: 120, justifyContent: 'center' }, // 태블릿 세로: 남는 높이의 가운데보다 살짝 위(아래 여백 120 → 60만큼 올라감)에 카드를 둔다. 펼쳐서 보기의 가운데 축과 같은 높이
   carouselRowPortrait: { flex: 0, height: 680 },
+  carouselArrowCompact: { marginTop: -62 }, // 폰: 카드 아래 이름 · 페이지 수 줄만큼 올려 표지 가운데에 맞춘다
   carouselArrowPortrait: { marginTop: -64 }, // 칸 가운데에 놓인 표지의 가운데에 맞춘다 (웹 834x1194 에서 재서 맞춤)
   carouselArrow: { position: 'absolute', zIndex: 4, width: 48, height: 48, alignItems: 'center', justifyContent: 'center' },
   carouselArrowLeft: { left: 4 },

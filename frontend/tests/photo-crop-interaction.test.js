@@ -59,8 +59,9 @@ test('확대한 자유 자르기에서 변 손잡이를 누를 때 작은 정사
   freeCrop.props.onChange(square); tree = ui.render()
   const element = nodes(tree).find(n => n.type?.name === 'FreeCrop')
   const cropTree = element.type(element.props)
-  const edge = nodes(cropTree).find(n => n.props?.handle?.key === 'e')
-  const handle = edge.type(edge.props)
+  // 작은 틀에서는 변 막대를 그리지 않는다(지라 607, 손잡이 겹침). 같은 손잡이 부품으로 변 'e' 를 만들어 크기 계산만 본다
+  const corner = nodes(cropTree).find(n => n.props?.handle?.key === 'se')
+  const handle = corner.type({ ...corner.props, handle: { key: 'e', sx: 1, sy: 0 } })
   handle.props.onStart(); handle.props.onMove(0, 0)
   const after = nodes(ui.render()).find(n => n.type?.name === 'FreeCrop').props.rect
   for (const key of ['u0', 'v0', 'u1', 'v1']) close(after[key], square[key])
@@ -87,8 +88,8 @@ test('작은 자유 영역의 위아래를 얇게 줄여도 확대 막대가 현
   const square = { u0: 0.4, v0: 0.4, u1: 0.505, v1: 0.54 }
   nodes(ui.render()).find(n => n.type?.name === 'FreeCrop').props.onChange(square)
   const element = nodes(ui.render()).find(n => n.type?.name === 'FreeCrop')
-  const edge = nodes(element.type(element.props)).find(n => n.props?.handle?.key === 's')
-  const handle = edge.type(edge.props); handle.props.onStart(); handle.props.onMove(0, -100)
+  const corner = nodes(element.type(element.props)).find(n => n.props?.handle?.key === 'se')
+  const handle = corner.type({ ...corner.props, handle: { key: 's', sx: 0, sy: 1 } }); handle.props.onStart(); handle.props.onMove(0, -100)
   tree = ui.render()
   const rect = nodes(tree).find(n => n.type?.name === 'FreeCrop').props.rect
   assert.ok(rect.v1 - rect.v0 < 0.002)
@@ -162,4 +163,22 @@ test('실제 Slider와 usePan은 드래그 시작, 종료와 취소를 전달한
   assert.equal(ends[0].cancelled, undefined)
   assert.equal(ends[1].cancelled, true)
   assert.ok(changes.length >= 2)
+})
+
+test('607: 작은 틀은 손잡이가 겹치지 않게 덜 쓰는 쪽을 숨긴다(꼭짓점은 늘 하나 이상)', async () => {
+  const { readFileSync } = await import('node:fs')
+  const src = readFileSync(new URL('../src/editor/components/panels/PhotoCropper.js', import.meta.url), 'utf8')
+  const body = src.slice(src.indexOf('export function visibleFreeHandles'), src.indexOf('/** 사진 전체 위에 자르는 틀.'))
+  const handles = src.slice(src.indexOf('const FREE_HANDLES = ['), src.indexOf(']', src.indexOf('const FREE_HANDLES = [')) + 1)
+  const visible = new Function(`const HANDLE = 18, BAR_LONG = 24, GAP_MIN = 6; ${handles}; ${body.replace('export ', '')}; return visibleFreeHandles`)()
+  const keys = (w, h, lock) => visible(w, h, lock).map(handle => handle.key).sort().join(',')
+  assert.equal(keys(300, 200), 'e,n,ne,nw,s,se,sw,w')
+  // 얇은 테이프 틀(높이 30): 꼭짓점 넷 + 위아래 막대, 옆 막대는 꼭짓점과 겹쳐 뺀다
+  assert.equal(keys(300, 30), 'n,ne,nw,s,se,sw')
+  // 더 얇으면(20) 아래 꼭짓점만
+  assert.equal(keys(300, 20), 'n,s,se,sw')
+  // 아주 작으면 오른쪽 아래 꼭짓점 하나
+  assert.equal(keys(20, 20), 'se')
+  // 비율 잠금은 꼭짓점만
+  assert.equal(keys(300, 30, true), 'ne,nw,se,sw')
 })

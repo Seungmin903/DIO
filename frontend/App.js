@@ -1091,7 +1091,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
   const createModal = createOpen && (
     <DiaryCreateModal
       key={editingDiaryId ?? 'new'}
-      blankOnly={member && !editingDiaryId}
+      serverPapers={member && !editingDiaryId}
       sheet={isPhone}
       topInset={isPhone ? insets.top : 0}
       bottomInset={insets.bottom}
