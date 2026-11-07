@@ -59,7 +59,12 @@ Google의 고정 JWKS에서 RS256 서명, issuer, audience, azp, 만료, subject
 - 이메일: Apple이 확인한 이메일(이메일 가리기 선택 시 `@privaterelay.appleid.com` 주소)을 쓴다. 이메일은 첫 로그인 때만 앱 credential에 오므로 앱은 토큰의 email을 화면 표시용으로 읽는다. 기존 회원 재로그인은 이메일이 없어도 된다.
 - 설정: `AUTH_APPLE_CLIENT_IDS`는 기본값이 `com.f106.DIO`라 서버 env에 따로 넣지 않아도 된다. 번들 ID가 바뀌거나 웹 로그인(Services ID)을 추가할 때만 쉼표로 넣는다.
 - Apple Developer: App ID `com.f106.DIO`에 Sign in with Apple 기능이 켜져 있어야 한다. EAS 빌드가 `usesAppleSignIn`을 보고 자동으로 맞춘다.
-- 후속: 탈퇴 시 Apple 토큰 해지(revoke) API 호출. Apple은 계정 삭제를 지원하는 앱에 이를 요구한다. Apple Developer의 Sign in with Apple 키(.p8)가 필요해 별도 작업으로 한다. 재전송 방지용 nonce도 후속으로 검토한다.
+- 탈퇴 시 Apple 토큰 철회(App Store 심사 지침 5.1.1(v)):
+  - 흐름: 앱 `DELETE /api/v1/me` → 애플 회원이면 400 `APPLE_REAUTH_REQUIRED` → 앱이 애플 로그인을 한 번 더 받아 `{"appleAuthorizationCode": "..."}`로 다시 요청 → 서버가 Apple `/auth/token`으로 교환하고, 받은 `id_token`의 `sub`가 탈퇴 회원과 같은지 확인한 뒤 `/auth/revoke` 호출 → 성공하면 DB 탈퇴.
+  - Apple 토큰은 DB에 저장하지 않는다. authorizationCode는 5분 안에 한 번만 쓸 수 있다.
+  - 철회가 실패하면 탈퇴하지 않는다: `INVALID_APPLE_AUTHORIZATION`(400, code 만료·재사용), `APPLE_ACCOUNT_MISMATCH`(403, 다른 애플 ID), `APPLE_REVOKE_UNAVAILABLE`(503), `APPLE_REVOKE_NOT_CONFIGURED`(503, 키 미설정).
+  - 설정: `AUTH_APPLE_TEAM_ID`(기본 `5574VUMQN5`), `AUTH_APPLE_KEY_ID`(Apple Developer > Keys의 Sign in with Apple 키 ID), `AUTH_APPLE_PRIVATE_KEY`(.p8에서 BEGIN/END 줄을 뺀 본문 한 줄. 비밀값). client_secret은 ES256 JWT(iss=Team ID, sub=번들 ID, aud=`https://appleid.apple.com`, 유효 5분)로 요청마다 만든다.
+- 후속: 재전송 방지용 nonce 검토.
 
 ## 설정·배포·실기기 테스트
 
