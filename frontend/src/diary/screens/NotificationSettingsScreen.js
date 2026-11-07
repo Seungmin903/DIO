@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, AppState, BackHandler, Linking, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import AppIcon from '../../shared/AppIcon';
 import { colors, radius, DISABLED_OPACITY } from '../../shared/theme';
+import BackButton from '../components/BackButton';
 import Header from '../components/Header';
 import TermsConsentSection from '../components/TermsConsentSection';
 import { SERVICE_SECTION_ENABLED } from '../../shared/featureFlags';
@@ -42,12 +43,8 @@ export default function NotificationSettingsScreen({ compact = false, onClose, u
 
   return (
     <ScrollView contentContainerStyle={[styles.scroll, compact && styles.phoneScroll]} showsVerticalScrollIndicator={false}>
-      <Header title="알림 설정" compact={compact} left={(
-        <Pressable accessibilityRole="button" accessibilityLabel="마이페이지로 돌아가기" accessibilityState={{ disabled: saving || termsSaving }} disabled={saving || termsSaving} onPress={onClose} style={[styles.headerBack, compact && styles.headerBackCompact]}>
-          <AppIcon name="chevron-left" size={22} color={colors.text} />
-        </Pressable>
-      )} />
-      <View style={[styles.card, compact && styles.phoneCard]}>
+      <Header title="알림 설정" compact={compact} left={<BackButton label="설정으로 돌아가기" disabled={saving || termsSaving} onPress={onClose} />} />
+      <View style={styles.list}>
         {blocked && <>
           <View style={styles.blockedRow}>
             <Text style={styles.rowLabel}>알림이 꺼져 있어요</Text>
@@ -86,10 +83,7 @@ export default function NotificationSettingsScreen({ compact = false, onClose, u
 const styles = StyleSheet.create({
   scroll: { flexGrow: 1, width: '100%', paddingHorizontal: 30, paddingTop: 38, paddingBottom: 44 },
   phoneScroll: { paddingHorizontal: 18, paddingTop: 16, paddingBottom: 48 },
-  headerBack: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center', borderRadius: 14, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface },
-  headerBackCompact: { borderRadius: 10, borderWidth: 0, backgroundColor: 'transparent' },
-  card: { width: '100%', maxWidth: 760, alignSelf: 'center', padding: 28, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.xl },
-  phoneCard: { padding: 20, borderRadius: radius.lg },
+  list: { width: '100%', maxWidth: 760, alignSelf: 'center' },
   section: { color: colors.text, fontSize: 15, fontWeight: '700', marginBottom: 4 },
   row: { minHeight: 88, flexDirection: 'row', alignItems: 'center', gap: 16, paddingVertical: 16 },
   blockedRow: { minHeight: 48, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 12 },

@@ -92,7 +92,7 @@ test('쪽이 작게 놓여 있으면 그 위의 영역만 그린다', () => {
   assert.ok(plan.rect.x >= 0 && plan.rect.y >= 0 && plan.rect.x + plan.rect.width <= 1 + 1e-9 && plan.rect.y + plan.rect.height <= 1 + 1e-9)
 })
 
-test('PDF 쪽 문서 요소와 나의 속지는 원본 위치(pdfSource)를 이어 간다', () => {
+test('PDF 쪽 문서 요소와 내 속지는 원본 위치(pdfSource)를 이어 간다', () => {
   const page = { src: 'media:m1', mediaFileId: 'm1', aspect: 0.75, name: '문서 3쪽', pdfSource: source }
   const [image] = pdfDocPage(page, 'portrait', {}).objects
   assert.deepEqual(image.pdfSource, source)

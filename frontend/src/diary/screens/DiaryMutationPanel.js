@@ -94,7 +94,7 @@ export default function DiaryMutationPanel({ api, mock, diaries, onChanged }) {
         {kind === 'permanentlyDelete' && <Text style={s.text}>영구 삭제하면 복원할 수 없어요. 확인 후 처리해요.</Text>}
         {!batch && <TextInput accessibilityLabel="다이어리 제목" value={title} onChangeText={setTitle} editable={!locked} style={s.input} placeholder="제목" />}
         {!!validation && <Text style={s.text}>{validation}</Text>}
-        {batch && kind !== 'permanentlyDelete' && <><Text style={s.text}>{ids.length}개 선택됨</Text><Button label={confirmed ? '처리 확인됨' : '선택 항목 처리 확인'} disabled={locked || !ids.length} onPress={() => setConfirmed(true)} /></>}
+        {batch && kind !== 'permanentlyDelete' && <><Text style={s.text}>{ids.length}권 선택됨</Text><Button label={confirmed ? '처리 확인됨' : '선택 항목 처리 확인'} disabled={locked || !ids.length} onPress={() => setConfirmed(true)} /></>}
         <Button label={kind === 'permanentlyDelete' ? '선택 항목 영구 삭제' : '요청 저장'} onPress={submit} disabled={locked || (kind === 'update' && !editing) || (batch && ((!confirmed && kind !== 'permanentlyDelete') || !ids.length || (kind === 'restore' && ids.some(id => !source.find(row => row.id === id)?.canRestore))))} />
         {saving && <View style={s.row}><ActivityIndicator color={C.blue} /><Text style={s.text}>저장 중이에요.</Text></View>}
         {mutation.status === 'error' && <Text accessibilityLiveRegion="polite" style={s.text}>{mutation.error.message}</Text>}

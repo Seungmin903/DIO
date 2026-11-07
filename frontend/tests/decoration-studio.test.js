@@ -261,7 +261,7 @@ test('공방은 내 폰트 · 스티커 · 테이프 · 표지 · 속지 · 도�
   assert.deepEqual(titles, ['폰트', '스티커', '테이프', '표지', '속지', '도구'])
   ui.unmount()
 })
-test('나의 표지 · 속지는 확인을 거친 뒤에만 지우고 저장에 실패하면 알린다', async () => {
+test('내 표지 · 속지는 확인을 거친 뒤에만 지우고 저장에 실패하면 알린다', async () => {
   const ui = fixture(); ui.render(); await tick(); ui.tab('covers')
   const shelf = kind => nodes(ui.render()).find(n => n.type === '../components/StudioShelf' && n.props.kind === kind)
   assert.equal(shelf('cover').props.items[0].id, 'c1')
@@ -284,7 +284,7 @@ test('나의 표지 · 속지는 확인을 거친 뒤에만 지우고 저장에 
   assert.ok(nodes(failed.render()).some(n => n.props?.accessibilityRole === 'alert' && n.props.children === '표지를 지우지 못했어요. 다시 시도해 주세요.'))
   failed.unmount()
 })
-test('나의 표지 · 속지를 읽는 중에는 목록 대신 불러오는 중이라고 말한다', async () => {
+test('내 표지 · 속지를 읽는 중에는 목록 대신 불러오는 중이라고 말한다', async () => {
   const ui = fixture({ libraryReady: false }); ui.render(); await tick()
   ui.tab('covers')
   let tree = ui.render()

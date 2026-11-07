@@ -15,7 +15,7 @@ test('글자 잘림: 슬라이더 이름 · 값과 레이어 종류가 한 줄�
   const slider = read('../src/editor/components/controls/Slider.js');
   assert.match(slider, /name: \{ width: 56,/);
   assert.match(slider, /inputCompact: \{ width: 52,/);
-  assert.match(read('../src/editor/components/panels/LayerPanel.js'), /styles\.rowType\} numberOfLines=\{1\}>\{OBJECT_TYPE_LABELS/);
+  assert.match(read('../src/editor/components/panels/LayerPanel.js'), /styles\.rowType\} numberOfLines=\{1\}>\{objectTypeLabel\(object\)/);
 });
 
 test('표지 맞춤 칸은 시스템 글자 확대 없이 한 줄로 표시한다', () => {

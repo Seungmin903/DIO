@@ -83,6 +83,12 @@ export default function ProfileScreen({ guestImport = null, section = 'profile',
     if (!notificationsOpen || !registerLeaveGuard) return undefined;
     return registerLeaveGuard(move => move(), () => setRoute('home'));
   }, [notificationsOpen, registerLeaveGuard]);
+  // 비밀번호 변경 화면: 뒤로 키는 회원정보 수정으로 돌아온다(수정 화면 가드는 이 화면이 열리는 동안 풀려 있다)
+  const passwordOpen = route === 'password';
+  useEffect(() => {
+    if (!passwordOpen || !registerLeaveGuard) return undefined;
+    return registerLeaveGuard(move => move(), () => setRoute('edit'));
+  }, [passwordOpen, registerLeaveGuard]);
   // 회원 설정은 서버 인증이 끝난 세션이나 게스트만 연다(이전 체험 세션 값은 그리지 않는다)
   if (!authenticatedUser && !guest) return null;
   // 비밀번호 화면은 앱 전체(왼쪽 메뉴 · 아래 탭까지)를 덮는 전체 화면이다. 내 공간 본문 안에 두면 잘리고 메뉴가 남는다.
@@ -108,7 +114,7 @@ export default function ProfileScreen({ guestImport = null, section = 'profile',
   const editService = authenticatedUser && accountService ? accountService : null;
   // 비밀번호 변경 · 탈퇴는 서버가 모든 세션을 폐기하므로 로그아웃 요청을 또 보내지 않고 이 기기의 세션만 정리한다(onClearSession)
   if (editing) return <ProfileEditScreen {...(editService ? { service: editService } : {})} compact={compact} user={previewUser} onClose={() => setEditing(false)} onUpdate={onUpdatePreview} onEndSession={onClearSession} onPasswordReset={authenticatedUser && accountService ? () => setRoute('password') : undefined} getProfilePhotoSource={getProfilePhotoSource} registerLeaveGuard={registerLeaveGuard} />
-  if (route === 'password' && authenticatedUser && accountService) return <PasswordResetScreen compact={compact} email={previewUser?.email || ''} service={accountService} backLabel="프로필 수정으로 돌아가기" onClose={() => setRoute('edit')} onComplete={onClearSession} />;
+  if (route === 'password' && authenticatedUser && accountService) return <PasswordResetScreen change compact={compact} email={previewUser?.email || ''} service={accountService} backLabel="프로필 수정으로 돌아가기" onClose={() => setRoute('edit')} onComplete={onClearSession} />;
   if (route === 'notifications' && authenticatedUser) return <NotificationSettingsScreen compact={compact} userId={userId} accountService={accountService} onClose={() => setRoute('home')} />;
 
   // 판 오른쪽 끝은 계정 상태의 대표 행동: 게스트는 `로그인 · 회원가입`, 회원은 `프로필 수정` 윤곽 버튼.

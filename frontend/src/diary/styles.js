@@ -210,6 +210,9 @@ headerCreateText: { color: C.white, fontSize: 13, fontWeight: '700' },
   emptyCopy: { maxWidth: 390, color: C.muted, fontSize: 13, lineHeight: 21, textAlign: 'center', marginTop: 9 },
   secondary: { minHeight: 48, paddingHorizontal: 17, flexDirection: 'row', alignItems: 'center', gap: 16, borderRadius: 12, marginTop: 22, borderWidth: 1, borderColor: C.ink, backgroundColor: C.white },
   secondaryText: { color: C.ink, fontSize: 13, fontWeight: '700' },
+  // 회원 목록 · 휴지통 · 생성 요청 알림 칸의 안내 글(예전엔 이 이름이 비어 있어 기본 글꼴로 보였다)
+  cardMeta: { color: C.muted, fontSize: 13, lineHeight: 19, fontWeight: '600' },
+  noticeAction: { alignSelf: 'flex-start' },
 
   carouselShell: { minHeight: 510, flex: 1, paddingTop: 47, paddingBottom: 3, overflow: 'hidden' },
   carouselShellCompact: { minHeight: 0, paddingTop: 12, paddingBottom: 0, marginHorizontal: -14 },

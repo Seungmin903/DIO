@@ -39,7 +39,7 @@ test('보관함·만들기·휴지통의 401 오류 화면에 동작 가능한 �
   ]) {
     const module = { exports: {} };
     const mocks = { 'react-native': { View: 'View', Text: 'Text', Pressable: 'Pressable', ActivityIndicator: 'ActivityIndicator' },
-      '../styles': { styles: {} }, '../constants': { C: {} }, '../../auth/sessionExpiry.js': { authenticationErrorMessage: () => '인증 오류' },
+      '../styles': { styles: {} }, '../constants': { C: {} }, '../../shared/DioButton': { __esModule: true, default: 'Pressable' }, '../../auth/sessionExpiry.js': { authenticationErrorMessage: () => '인증 오류' },
       '../../auth/AuthenticationRecovery': { __esModule: true, ...mod.exports } };
     new Function('require', 'module', 'exports', compile(`../src/diary/components/${file}.js`))(id => mocks[id] || require(id), module, module.exports);
     const action = nodes(module.exports.default(props)).find(node => node.type === Recovery && node.props.error?.status === 401);
@@ -53,7 +53,7 @@ test('보관함·만들기·휴지통의 401 오류 화면에 동작 가능한 �
 
 test('휴지통 손상 메타 안내는 원인을 표시하고 불필요한 재시도 없이 두 경고를 함께 보여준다',()=>{
  const module={exports:{}};
- const mocks={'react-native':{View:'View',Text:'Text',Pressable:'Pressable'},'../styles':{styles:{}},'../../auth/sessionExpiry.js':{},'../../auth/AuthenticationRecovery':{__esModule:true,default:()=>null}};
+ const mocks={'react-native':{View:'View',Text:'Text',Pressable:'Pressable'},'../styles':{styles:{}},'../../shared/DioButton':{__esModule:true,default:'Pressable'},'../../auth/sessionExpiry.js':{},'../../auth/AuthenticationRecovery':{__esModule:true,default:()=>null}};
  new Function('require','module','exports',compile('../src/diary/components/MemberTrashNotice.js'))(id=>mocks[id]||require(id),module,module.exports);
  const walk=node=>!node||typeof node!=='object'?[]:[node,...[node.props?.children].flat(Infinity).flatMap(walk)];
  const nodes=walk(module.exports.default({state:{lifecycle:{canRetry:true,error:{code:'INVALID_LOCAL_CACHE',message:'표지 자료 손상으로 이동하지 않았어요.'}},metadataError:{code:'read',message:'조회 경고'},metadataCleanupError:{code:'cleanup',message:'정리 경고'}}}));

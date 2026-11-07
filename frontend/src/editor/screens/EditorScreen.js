@@ -1460,7 +1460,7 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
           {!readOnly && objectLinkTarget && <TextLinkDialog badge={{ value: linkBadges, onChange: setLinkBadges }} initialValue={objectLinkTarget.href ?? ''} onCancel={() => setObjectLinkTarget(null)} onSave={(href) => {
             dispatch({ type: 'updateObject', id: objectLinkTarget.id, record: true, patch: { href: href || null } })
             setObjectLinkTarget(null)
-            showToast(href ? '링크를 걸었어요. 읽기 모드에서 누르면 열려요.' : '링크를 지웠어요.')
+            showToast(href ? '링크를 걸었어요.' : '링크를 지웠어요.')
           }} />}
           {!readOnly && guidesOpen && !drawerTab && (
             renderPanel((sheet) => <GuideSettings guides={guides} onChange={setGuides} onClose={() => setGuidesOpen(false)} sheet={Boolean(sheet)} dragHandlers={sheet?.dragHandlers} />, [styles.penSettingsWrap, toolPopoverStyle()], { onClose: () => setGuidesOpen(false) })

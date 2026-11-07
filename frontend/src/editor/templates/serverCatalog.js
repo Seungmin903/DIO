@@ -33,7 +33,7 @@ export const SERVER_TEMPLATE_CATALOG = Object.freeze([
 ])
 const byCode = new Map(SERVER_TEMPLATE_CATALOG.map(row => [`${row.templateCode}\0${row.templateVersion}`, row]))
 if (byCode.size !== SERVER_TEMPLATE_CATALOG.length) throw new Error('중복된 서버 속지 코드가 있어요.')
-const failure = () => new Error('서버에 연결할 내지와 버전을 확인해 주세요.')
+const failure = () => new Error('서버에 연결할 속지와 버전을 확인해 주세요.')
 export const serverTemplateSelectable = row => Boolean(row) && (PLANNER_TEMPLATE_SELECTION_ENABLED || !plannerCode(row.templateCode))
 
 export function serverTemplateReference(assetId, version, orientation) {

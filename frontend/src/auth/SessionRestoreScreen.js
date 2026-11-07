@@ -20,7 +20,6 @@ export default function SessionRestoreScreen({ error, busy, onRetry, onLogin, on
         <DioButton block variant="filled" label={busy ? '확인 중…' : '연결 재시도'} disabled={busy} onPress={onRetry} />
         <DioButton block variant="ghost" outline label="다시 로그인" disabled={busy} onPress={onLogin} />
         <DioButton block variant="ghost" label="게스트로 계속" disabled={busy} onPress={onGuest} />
-        <Text style={styles.hint}>게스트로 계속하면 이 기기의 게스트 보관함을 열어요. 회원 다이어리는 로그인 후 볼 수 있어요.</Text>
       </View>
     </ScrollView>
   </SafeAreaView>;
@@ -32,5 +31,4 @@ const styles = StyleSheet.create({
   card: { width: '100%', maxWidth: 480, gap: 16, padding: 24, borderRadius: 16, backgroundColor: colors.surface },
   title: { fontSize: 22, fontWeight: '700', color: colors.text },
   copy: { fontSize: 15, lineHeight: 23, color: colors.text },
-  hint: { fontSize: 13, lineHeight: 20, color: colors.textMuted },
 });

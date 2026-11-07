@@ -1,7 +1,7 @@
 import { memo, useEffect, useMemo, useRef, useState } from 'react'
 import { Image, Keyboard, Pressable, FlatList, StyleSheet, Text, TextInput, View } from 'react-native'
 import { colors } from '../../../shared/theme'
-import { OBJECT_TYPE_LABELS } from '../../constants'
+import { objectTypeLabel } from '../../constants'
 import { stickerSource } from '../../stickerAssets'
 import { useMediaUri } from '../../hooks/useMediaUri'
 import { usePan } from '../../hooks/usePan'
@@ -518,7 +518,7 @@ function LayerRow({ object, nested, selected, renamable, dispatch, multi, onTogg
           object.hidden && styles.rowHidden,
         ]}
         accessibilityRole="button"
-        accessibilityLabel={`${object.name ?? OBJECT_TYPE_LABELS[object.type]}, ${OBJECT_TYPE_LABELS[object.type]} 레이어`}
+        accessibilityLabel={`${object.name ?? objectTypeLabel(object)}, ${objectTypeLabel(object)} 레이어`}
         accessibilityState={{ selected }}
       >
         {selected && <View style={styles.selectedBar} pointerEvents="none" />}
@@ -537,7 +537,7 @@ function LayerRow({ object, nested, selected, renamable, dispatch, multi, onTogg
               })
             }
           />
-          <Text style={styles.rowType} numberOfLines={1}>{OBJECT_TYPE_LABELS[object.type]}</Text>
+          <Text style={styles.rowType} numberOfLines={1}>{objectTypeLabel(object)}</Text>
         </View>
         <ToggleButtons
           show={selected}

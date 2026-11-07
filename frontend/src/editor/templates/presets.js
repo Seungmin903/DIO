@@ -13,7 +13,7 @@ export const DIARY_PRESETS = [
 
 // 기존 기본 장수(매월 각 1장)와 연간 생성기를 그대로 사용한다.
 export function presetTemplateConfig(id, orientation = 'landscape', dateMode = 'dated') {
-  if (!DIARY_PRESETS.some(preset => preset.id === id)) throw new Error('추천 내지 구성을 다시 골라 주세요.')
+  if (!DIARY_PRESETS.some(preset => preset.id === id)) throw new Error('추천 속지 구성을 다시 골라 주세요.')
   const config = defaultTemplateConfig(orientation, dateMode)
   return { ...config, monthly: id !== 'free', weekly: id === 'schedule', daily: id === 'journal',
     dailyTemplates: config.dailyTemplates.map(item => ({ ...item, enabled: id === 'journal' ? getTemplate(item.assetId).type === 'diary' : item.enabled })),

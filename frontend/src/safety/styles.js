@@ -3,7 +3,7 @@ import { colors as c, radius } from '../shared/theme';
 export const safetyStyles = StyleSheet.create({
   backdrop: { flex: 1, backgroundColor: c.scrim, alignItems: 'center', justifyContent: 'center', padding: 24 },
   phoneBackdrop: { padding: 0, backgroundColor: c.surfaceSoft },
-  panel: { width: '100%', maxWidth: 680, maxHeight: '92%', backgroundColor: c.surfaceSoft, borderRadius: radius.xl, overflow: 'hidden', flexShrink: 1 },
+  panel: { width: '100%', maxWidth: 580, maxHeight: '92%', backgroundColor: c.surfaceSoft, borderRadius: radius.xl, overflow: 'hidden', flexShrink: 1 },
   phonePanel: { flex: 1, maxWidth: '100%', maxHeight: '100%', borderRadius: 0 },
   keyboard: { flexShrink: 1 }, phoneKeyboard: { flex: 1 },
   header: { minHeight: 64, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', gap: 12, borderBottomWidth: 1, borderColor: c.cardBorder, backgroundColor: c.surface },

@@ -115,7 +115,7 @@ for (const orientation of ['landscape', 'portrait']) for (const preset of DIARY_
   })
 }
 
-test('월별 미리보기는 구분 페이지가 없어도 월 배치를 유지하고 맨 뒤 구형 추가 내지를 제외한다', () => {
+test('월별 미리보기는 구분 페이지가 없어도 월 배치를 유지하고 맨 뒤 구형 추가 속지를 제외한다', () => {
   const base = presetTemplateConfig('journal')
   const config = { ...base, dividers: false, legacyEndPages: [{ assetId: '2026-reusable-note-dots-landscape', enabled: true, count: 2 }] }
   const preview = Array.from({ length: 12 }, (_, index) => configuredMonthPageIds(config, index + 1)).flat()
@@ -159,7 +159,7 @@ test('예전에 저장한 설정의 하루 계획 속지 ID 는 데일리 플래
   assert.deepEqual(configuredPageIds(sections), ['day-planner-portrait', 'day-planner-portrait'])
 })
 
-test('내지 표시명 변경은 기존 ID·버전과 이전 문서 편집을 유지한다', () => {
+test('속지 표시명 변경은 기존 ID·버전과 이전 문서 편집을 유지한다', () => {
   const menu = reusableTemplates()
   assert.equal(getTemplate('2026-reusable-daily-landscape').name, '하루 계획')
   assert.equal(menu.find(item => item.type === 'scrap').name, '사진·스크랩')

@@ -205,7 +205,7 @@ function ElementOptions({ element, cover, name, ratio, onChange, onNotice, pickN
       <TextInput accessibilityLabel="표지 제목" placeholder="표지 제목" placeholderTextColor={colors.textMuted} maxLength={24} value={coverTitle(cover, name)}
         onChangeText={text => set({ title: { ...cover.title, useName: text === coverTitle({ title: { useName: true } }, name), text } })} style={styles.input} />
     </OptionRow>
-    <OptionRow label="글씨체"><TextFontDropdown label="제목 글씨체" value={cover.title.font} onChange={font => set({ title: { ...cover.title, font } })} style={styles.fontField} /></OptionRow>
+    <OptionRow label="글꼴"><TextFontDropdown label="제목 글꼴" value={cover.title.font} onChange={font => set({ title: { ...cover.title, font } })} style={styles.fontField} /></OptionRow>
     <OptionRow label="크기"><NumberField label="제목 크기" unit="pt" min={TITLE_SIZE.min} max={TITLE_SIZE.max} value={cover.title.size} onChange={size => set({ title: { ...cover.title, size } })} /></OptionRow>
     <OptionRow label="색"><ColorRow label="제목 색" value={cover.title.color} swatches={INK_COLORS} onChange={color => set({ title: { ...cover.title, color } })} /></OptionRow>
     <View style={styles.subHead}>

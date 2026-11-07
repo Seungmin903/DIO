@@ -12,10 +12,9 @@ import SelectionBar from '../components/SelectionBar';
 import SelectionButton from '../components/SelectionButton';
 import SelectionMark from '../components/SelectionMark';
 import { useDiaryGrid } from '../utils/useDiaryGrid';
-import { isTrashExpired, trashDeadline, trashStatus } from '../utils/trashRetention';
+import { isTrashExpired, trashDaysLeft, trashDeadline, trashStatus } from '../utils/trashRetention';
 import { isAllSelected, isTrashUrgent, pruneSelection, selectableIds, splitSelection, toggleSelection } from '../utils/trashSelection';
 
-const DAY = 24 * 60 * 60 * 1000;
 const TRASH_ROW_GAP = 14; // 카드 아래에 남은 기간 줄이 붙어 홈 한눈에 보기(32)보다 좁게 둔다
 
 // 보관함 카드(DiaryCard)처럼 memo 로 감싸 메뉴를 여닫을 때 값이 같은 카드(표지 · 패턴)는 다시 그리지 않는다.
@@ -123,7 +122,7 @@ export default function TrashScreen({ diaries, onRestore, onDeletePermanently, o
     const deadline = server ? (diary.expiresAt ? Date.parse(diary.expiresAt) : null) : trashDeadline(diary);
     return {
       status: server
-        ? (diary.retentionStatus === 'EXPIRED' ? '보관 기한 만료 · 복원할 수 없어요' : diary.expiresAt ? `${Math.max(0, Math.ceil((deadline - at) / DAY))}일 후 영구 삭제` : '보관 기한 확인 필요')
+        ? (diary.retentionStatus === 'EXPIRED' ? '보관 기한 만료 · 복원할 수 없어요' : diary.expiresAt ? `${trashDaysLeft(deadline, at)}일 후 영구 삭제` : '보관 기한 확인 필요')
         : trashStatus(diary, at),
       urgent: isTrashUrgent(deadline, at),
       canRestore: Boolean(restore || latest.current.onRestoreMany) && (server ? Boolean(diary.canRestore) : !isTrashExpired(diary, at)),
@@ -158,7 +157,7 @@ export default function TrashScreen({ diaries, onRestore, onDeletePermanently, o
   );
 
   const selectionBar = selecting && (
-    <SelectionBar count={selectedRows.length} compact={compact} done={<SelectionButton compact={compact} ghost label="선택 완료" text="완료" disabled={busy} onPress={finishSelecting} />}>
+    <SelectionBar count={selectedRows.length} unit="권" compact={compact} done={<SelectionButton compact={compact} ghost label="선택 완료" text="완료" disabled={busy} onPress={finishSelecting} />}>
       <SelectionButton compact={compact}
         label={allSelected ? '전체 해제' : '전체 선택'}
         disabled={busy || !selectableCount}

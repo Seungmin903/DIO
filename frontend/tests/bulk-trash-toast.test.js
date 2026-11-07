@@ -44,7 +44,9 @@ test('App 은 결과를 알약 토스트로 띄우고 성공 2초 · 실패 6초
   assert.match(app, /bulkTrashToastMessage\(bulkTrash\)/)
   assert.match(app, /권을 휴지통으로 옮길까요\?/)
   assert.match(app, /dismissBulkTrash\(\), bulkTrashFailed \? ACTION_TOAST_MS : BULK_TRASH_DONE_MS/)
-  assert.match(app, /\{trashToast\}/)
+  assert.match(app, /\{trashToast \|\| libraryToast\}/)
+  assert.match(app, /busy=\{bulkTrashRetrying\} onAction=\{retryBulkTrash\}/)
+  assert.match(app, /if \(bulkTrashRetryingRef\.current\) return;/)
 })
 
 test('토스트 문구: 진행 · 성공 · 일부 실패 · 목록 갱신 실패 · 다시 로그인', async () => {

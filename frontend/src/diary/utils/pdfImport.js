@@ -55,7 +55,7 @@ export function coverWithPdfPage(cover, page, { keepDecor = false } = {}) {
   return keepDecor ? next : withoutCoverDecor(next)
 }
 
-/** 나의 표지에 담을 표지: PDF 쪽 그림만 남기고 고무줄 · 라벨 · 제목 · 소제목 · 스티커는 모두 뺀다. */
+/** 내 표지에 담을 표지: PDF 쪽 그림만 남기고 고무줄 · 라벨 · 제목 · 소제목 · 스티커는 모두 뺀다. */
 export function coverForLibrary(cover) {
   return withoutCoverDecor(cover)
 }
