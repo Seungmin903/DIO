@@ -45,6 +45,8 @@ test('App 은 결과를 알약 토스트로 띄우고 성공 2초 · 실패 6초
   assert.match(app, /권을 휴지통으로 옮길까요\?/)
   assert.match(app, /dismissBulkTrash\(\), bulkTrashFailed \? ACTION_TOAST_MS : BULK_TRASH_DONE_MS/)
   assert.match(app, /\{trashToast \|\| libraryToast\}/)
+  // 휴지통 알약에 가려진 동안 보조 저장 알약의 시간은 멈춘다
+  assert.match(app, /libraryNotice\.busy \|\| libraryToastHidden\) return undefined;/)
   assert.match(app, /busy=\{bulkTrashRetrying\} onAction=\{retryBulkTrash\}/)
   assert.match(app, /if \(bulkTrashRetryingRef\.current\) return;/)
 })

@@ -8,7 +8,7 @@ import TermsConsentSection from '../components/TermsConsentSection';
 import { SERVICE_SECTION_ENABLED } from '../../shared/featureFlags';
 import { notificationsBlocked } from '../../notifications/notificationPermission';
 
-export default function NotificationSettingsScreen({ compact = false, onClose, userId, accountService }) {
+export default function NotificationSettingsScreen({ compact = false, onClose, userId, accountService, backLabel = '마이페이지로 돌아가기'}) {
   const [termsReady, setTermsReady] = useState(false);
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState('');
@@ -43,7 +43,7 @@ export default function NotificationSettingsScreen({ compact = false, onClose, u
 
   return (
     <ScrollView contentContainerStyle={[styles.scroll, compact && styles.phoneScroll]} showsVerticalScrollIndicator={false}>
-      <Header title="알림 설정" compact={compact} left={<BackButton label="설정으로 돌아가기" disabled={saving || termsSaving} onPress={onClose} />} />
+      <Header title="알림 설정" compact={compact} left={<BackButton label={backLabel} disabled={saving || termsSaving} onPress={onClose} />} />
       <View style={styles.list}>
         {blocked && <>
           <View style={styles.blockedRow}>

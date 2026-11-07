@@ -1034,11 +1034,6 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
       ? { key: createId(), kinds: left, retry: notice.retry, busy: false }
       : { key: createId(), done: libraryTarget(notice.kinds) });
   };
-  useEffect(() => {
-    if (!libraryNotice || libraryNotice.busy) return undefined;
-    const timer = setTimeout(() => setLibraryNotice(null), libraryNotice.done ? 2000 : ACTION_TOAST_MS);
-    return () => clearTimeout(timer);
-  }, [libraryNotice]);
   const libraryToast = libraryNotice && (
     <ActionToast key={libraryNotice.key} compact={isPhone}
       bottom={(page === 'editor' ? 112 : isPhone ? 76 : 96) + insets.bottom}
@@ -1078,6 +1073,13 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
     return () => clearTimeout(timer);
   }, [guestTrashDone]);
   const trashToastMessage = bulkTrashMessage ?? (!member && guestTrashDone ? `${guestTrashDone.count}권을 휴지통으로 옮겼어요.` : null);
+  // 보조 저장 알약의 시간은 휴지통 알약에 가려져 있는 동안 멈춘다(가려진 채 만료돼 '다시 시도'를 놓치지 않게). 휴지통 알약이 사라지면 처음부터 다시 센다
+  const libraryToastHidden = Boolean(trashToastMessage);
+  useEffect(() => {
+    if (!libraryNotice || libraryNotice.busy || libraryToastHidden) return undefined;
+    const timer = setTimeout(() => setLibraryNotice(null), libraryNotice.done ? 2000 : ACTION_TOAST_MS);
+    return () => clearTimeout(timer);
+  }, [libraryNotice, libraryToastHidden]);
   const trashToast = trashToastMessage && (
     <ActionToast compact={isPhone} bottom={(page === 'editor' ? 112 : isPhone ? 76 : 96) + insets.bottom} message={trashToastMessage}
       actionLabel={bulkTrashSettled && bulkTrash.canRetry ? '다시 시도' : undefined} busy={bulkTrashRetrying} onAction={retryBulkTrash} />
