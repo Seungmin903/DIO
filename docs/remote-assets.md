@@ -15,7 +15,7 @@
    - 원격 속지는 한 장짜리 속지로, 속지 고르기의 노트·플래너·일기 탭 끝에 붙는다. 앱 안에서는 `remote-<id>-<방향>`이다.
      - 속지 탭도 목록(`templateGroups`, 원본 `remote-content/template-groups.json`)으로 더한다. 새 탭은 앱 탭 3개 뒤에 붙고, 속지가 없거나 숨긴 탭은 보이지 않는다. 탭이 4개를 넘으면 가로로 넘긴다(`PaperTabs`).
      - 서버(V34)에는 방향마다 범용 속지 행 `dio-remote-landscape`·`dio-remote-portrait`가 하나씩 있다. 페이지 설정 `remoteTemplate: <id>`가 어떤 그림인지 정한다. 서버는 id 형식만 검사하고, 그림은 앱이 catalog.json에서 찾는다.
-     - 다이어리 생성(`JdbcDiaryInitialPages`)은 `remoteTemplate`을 원격 행에서만 받고, 원격 행에는 꼭 요구한다. 페이지 추가·수정 API(`PageService`)도 같은 규칙(`page.domain.RemoteTemplates`)으로 검사한다. 속지 코드는 템플릿 행 또는 설정의 `templateCode`로 판단하며, 어긋나면 400 `INVALID_PAGE_REQUEST`다. 공유 다이어리의 다른 구성원 앱이 이 값으로 속지를 찾으므로 잘못된 값이 저장되지 않게 한다. 속지를 바꾸지 않고 설정만 통째로 바꾸는 PATCH(속지 글꼴 변경 등)는 빠진 속지 정체 키(`templateCode`·`templateVersion`·`remoteTemplate`)를 저장된 설정에서 이어받고, 저장 기준 속지 코드는 템플릿 행이 없으면 저장된 설정의 `templateCode`로 정한다. 설정만으로 원격 ↔ 일반 속지를 바꾸는 요청은 거부한다.
+     - 다이어리 생성(`JdbcDiaryInitialPages`)은 `remoteTemplate`을 원격 행에서만 받고, 원격 행에는 꼭 요구한다. 페이지 추가·수정 API(`PageService`)도 같은 규칙(`page.domain.RemoteTemplates`)으로 검사한다. 속지 코드는 템플릿 행 또는 설정의 `templateCode`로 판단하며, 어긋나면 400 `INVALID_PAGE_REQUEST`다. 공유 다이어리의 다른 구성원 앱이 이 값으로 속지를 찾으므로 잘못된 값이 저장되지 않게 한다. 원격 속지 페이지에서 속지를 바꾸지 않고 설정만 통째로 바꾸는 PATCH(속지 글꼴 변경 등)는 빠진 속지 정체 키(`templateCode`·`templateVersion`·`remoteTemplate`)를 저장된 설정에서 이어받고, 저장 기준 속지 코드는 템플릿 행이 없으면 저장된 설정의 `templateCode`로 정한다. 설정만으로 원격 ↔ 일반 속지를 바꾸는 요청은 거부한다.
      - 앱 쪽 연결: `editor/templates/remoteTemplates.js`(ID·목록), `serverCatalog.js`(서버 코드↔앱 ID), `collaboration/serverPages.js`(페이지 추가·읽기), `diary/utils/paperChoice.js`(고르기 탭).
      - 목록을 아직 못 받은 기기는 페이지 크기·방향은 ID로 알고, 그림은 목록이 올 때까지 최대 10초 기다린 뒤 "내지를 불러오지 못했어요"를 보인다.
     - 마이그레이션 번호(V34)는 병합 직전 develop · release 의 최신 번호 다음인지 다시 확인한다. 한 환경이라도 배포한 뒤에는 번호를 바꾸지 않는다.
@@ -64,7 +64,7 @@
 3. **CORS**: 웹은 다른 출처에서 글꼴(@font-face)과 SVG(fetch)를 읽는다. CloudFront 응답 헤더 정책에서 허용 Origin(웹 배포 주소)과 `GET`·`HEAD`를 열고, 오리진 요청 정책이 `Origin` 헤더를 넘기게 한다. 네이티브 앱은 CORS가 필요 없다.
 4. **업로드(GitLab CI)**: `.gitlab-ci.yml`의 원격 에셋 잡이 올린다.
    - `remote-assets-check`(MR·develop·master): `build-remote-assets.mjs --check`로 매니페스트 일치와 `remote-content/` 형식을 검사한다. 키·네트워크는 쓰지 않는다.
-   - `publish-remote-assets-dev`(develop, 자동, `deploy-development` 성공 뒤)와 `publish-remote-assets-prod`(master, 수동, `deploy-production` 성공 뒤에만 실행 가능, 에셋 변경이 없어도 다시 올릴 수 있음)는 네 단계로 올린다. 원격 속지는 서버의 V34 행이 있어야 페이지를 만들 수 있으므로 백엔드 배포 뒤에 올린다.
+   - `publish-remote-assets-dev`(develop, 자동, `deploy-development` 성공 뒤)와 `publish-remote-assets-prod`(master, 수동, `deploy-production` 성공 뒤에만 실행 가능, 에셋 변경이 없어도 다시 올릴 수 있음, 실패하면 파이프라인도 실패)는 네 단계로 올린다. 원격 속지는 서버의 V34 행이 있어야 페이지를 만들 수 있으므로 백엔드 배포 뒤에 올린다.
      1. 업로드 폴더를 만든다(`--dist-only`). 커밋된 매니페스트와 다르면 멈춘다.
      2. 지금 올라간 `catalog.json`을 받는다.
      3. 이미 공개한 글꼴·스티커 팩·팩 안의 스티커(`stickerPacks[].stickers`)·속지·속지 탭이 빠졌는지 비교한다(`compare-remote-catalog.mjs`). 빠졌으면 멈추고, CI 변수 `ALLOW_CATALOG_REMOVAL=1`로만 허용한다. 지금 목록은 키를 정확히 나열해 있을 때만 받고(`fetch-remote-catalog.sh`), 있는데 못 받거나 깨졌으면 비교 없이 올리지 않는다. 정말 없을 때(처음 올림)만 비교를 건너뛴다.

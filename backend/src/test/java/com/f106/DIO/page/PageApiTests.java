@@ -307,6 +307,13 @@ class PageApiTests {
 		mvc.perform(patch("/api/v1/pages/"+plainId).with(authenticated()).contentType(MediaType.APPLICATION_JSON)
 				.content("{\"templateConfig\":{\"templateCode\":\"dio-remote-portrait\",\"remoteTemplate\":\"winter\"}}"))
 			.andExpect(status().isBadRequest());
+		// 일반 속지 페이지는 이어받지 않는다. 설정을 통째로 바꾸며 templateCode 를 빼면(빈 종이로 바꾸기) 그대로 저장된다
+		mvc.perform(patch("/api/v1/pages/"+plainId).with(authenticated()).contentType(MediaType.APPLICATION_JSON)
+				.content("{\"templateConfig\":{\"blank\":true}}"))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.page.templateConfig.blank").value(true))
+			.andExpect(jsonPath("$.page.templateConfig.templateCode").doesNotExist())
+			.andExpect(jsonPath("$.page.templateConfig.templateVersion").doesNotExist());
 		// 마지막으로 저장된 값은 그대로다
 		mvc.perform(get("/api/v1/pages/"+pageId).with(authenticated()))
 			.andExpect(status().isOk()).andExpect(jsonPath("$.page.templateConfig.remoteTemplate").value("winter"));

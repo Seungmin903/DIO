@@ -56,10 +56,11 @@ public class PageService {
 		boolean replaceTemplateConfig=r.getTemplateConfig()!=null||t!=null;
 		String templateConfig=r.getTemplateConfig()==null?defaultConfig(t):copy(r.getTemplateConfig());
 		if(replaceTemplateConfig){
-			// 속지를 바꾸지 않고 설정만 통째로 바꾸면(속지 글꼴 변경 등) 페이지의 속지 정체(templateCode · templateVersion · remoteTemplate)를
-			// 저장된 설정에서 이어받는다. 앱은 templateId 없이 설정의 templateCode 로 속지를 알리므로, 빠지면 모든 구성원에게 빈 페이지가 된다
+			// 원격 속지 페이지에서 속지를 바꾸지 않고 설정만 통째로 바꾸면(속지 글꼴 변경 등) 속지 정체(templateCode · templateVersion · remoteTemplate)를
+			// 저장된 설정에서 이어받는다. 앱은 templateId 없이 설정의 templateCode 로 속지를 알리므로, 빠지면 모든 구성원에게 빈 페이지가 된다.
+			// 일반 속지 페이지는 예전처럼 보낸 설정을 그대로 저장한다(templateCode 를 빼서 빈 종이로 바꾸는 요청을 막지 않는다)
 			String code=t!=null?t.getCode():currentTemplateCode(page);
-			if(t==null)templateConfig=preserveTemplateIdentity(page.getTemplateConfig(),templateConfig);
+			if(t==null&&RemoteTemplates.isRemoteCode(code))templateConfig=preserveTemplateIdentity(page.getTemplateConfig(),templateConfig);
 			JsonNode next=templateConfig==null?null:JSON.readTree(templateConfig);
 			// 설정만 바꾸면서 원격 ↔ 일반 속지 코드를 바꾸면 속지가 바뀌는 것이라 받지 않는다(속지 변경은 templateId 로)
 			if(t==null&&code!=null&&next!=null&&next.path("templateCode").isString()
