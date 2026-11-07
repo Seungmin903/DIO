@@ -142,9 +142,11 @@ export function PaperGrid({ papers, selected, onSelect, orientation, appearance,
 /** 속지 고르기: 가로 분류 탭 + 그 분류의 속지 타일. 고른 속지가 있으면 그 분류에서 연다. */
 function PaperPicker({ groups, selected, onSelect, orientation, appearance, period }) {
   const [group, setGroup] = useState(() => groups.find(item => item.papers.some(paper => paper.id === selected))?.id ?? groups[0].id)
+  // 새 목록이 와서 고른 탭이 사라지면 첫 탭을 고른 것으로 본다(탭 밑줄과 목록이 같은 값)
+  const current = groups.find(item => item.id === group) ?? groups[0]
   return <View style={styles.picker}>
-    <PaperTabs groups={groups} value={group} onChange={setGroup} />
-    <PaperGrid papers={(groups.find(item => item.id === group) ?? groups[0]).papers} selected={selected} onSelect={onSelect} orientation={orientation} appearance={appearance} period={period} />
+    <PaperTabs groups={groups} value={current.id} onChange={setGroup} />
+    <PaperGrid papers={current.papers} selected={selected} onSelect={onSelect} orientation={orientation} appearance={appearance} period={period} />
   </View>
 }
 

@@ -40,6 +40,9 @@ export default function PageAddPicker({ compact = false, orientation, appearance
   const current = currentAssetId ? GROUPS.flatMap(item => item.papers.map(paper => ({ paper, group: item.id })))
     .find(item => countAssetId(item.paper.id, orientation) === currentAssetId) ?? null : null
   const [group, setGroup] = useState(current?.group ?? GROUPS[0].id)
+  const tabs = myPapers.length && onSelectMine ? [...GROUPS, MINE] : GROUPS
+  // 열린 채로 새 목록이 와서 고른 탭이 사라지면(숨김 · 속지 없음) 첫 탭을 고른 것으로 본다. 탭 밑줄과 목록이 같은 값을 쓴다
+  const shown = tabs.some(item => item.id === group) ? group : GROUPS[0].id
   const window = useWindowDimensions()
   const place = compact ? { left: 8, right: 8, bottom: anchor.bottom } : { left: anchor.left, bottom: anchor.bottom, width: Math.min(CARD_WIDTH, window.width - anchor.left - 16) }
   return <View style={[StyleSheet.absoluteFill, styles.layer]} pointerEvents="box-none">
@@ -56,9 +59,9 @@ export default function PageAddPicker({ compact = false, orientation, appearance
           </View>
           <Icon name="plus" size={16} color={colors.primaryStrong} />
         </Pressable>}
-        <PaperTabs groups={myPapers.length && onSelectMine ? [...GROUPS, MINE] : GROUPS} value={group} onChange={setGroup} />
-        {group === MINE.id ? <MyPaperGrid items={myPapers} onSelect={onSelectMine} />
-          : <PaperGrid papers={(GROUPS.find(item => item.id === group) ?? GROUPS[0]).papers} selected={null} orientation={orientation} appearance={appearance} minSlots={SLOTS}
+        <PaperTabs groups={tabs} value={shown} onChange={setGroup} />
+        {shown === MINE.id ? <MyPaperGrid items={myPapers} onSelect={onSelectMine} />
+          : <PaperGrid papers={GROUPS.find(item => item.id === shown).papers} selected={null} orientation={orientation} appearance={appearance} minSlots={SLOTS}
             onSelect={id => onSelect(countAssetId(id, orientation))} />}
       </ScrollView>
     </View>
