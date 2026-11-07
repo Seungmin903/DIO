@@ -90,4 +90,15 @@ test('원격 글꼴을 받지 못하면 기본 글꼴로 두고, 잠시 뒤 다�
   await module.exports.ensureTextFonts(['gowun-dodum'])
   assert.equal(downloads.length, 2)
   assert.doesNotMatch(text.textFontSnapshot('gowun-dodum'), /GowunDodum:error/)
+
+  // 내보내기: 원격 글꼴을 못 받으면 한 번 바로 다시 받고, 그래도 못 받으면 기본 글꼴로 조용히 내보내지 않고 알린다
+  online = false
+  const before = downloads.length
+  const snapshot = { objects: [{ type: 'text', text: '가', font: 'maruburi', bold: false }], template: null }
+  await assert.rejects(module.exports.ensureExportFonts(snapshot), /글꼴을 받지 못했어요/)
+  assert.equal(downloads.length - before, 2) // 첫 시도 + 바로 다시 받기
+  online = true
+  await module.exports.ensureExportFonts(snapshot) // 연결되면 대기 시간 없이 바로 성공한다
+  assert.equal(downloads.length - before, 3)
+  await module.exports.ensureExportFonts({ objects: [], template: null }) // 번들 글꼴만 쓰면 통과
 })

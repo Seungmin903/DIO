@@ -30,16 +30,21 @@ export const REMOTE_RETRY_MS = 30000
 const loads = new Map()
 // 앱 글꼴은 FONT_FILES, 원격 목록(catalog.json)의 글꼴은 목록 항목의 files 에 face 별 파일이 있다
 const fileOf = (font, family) => FONT_FILES[family] ?? font?.files?.[family]
+// 결과는 { family, remote, ok }. 실패해도 거절하지 않는다(화면은 기본 글꼴로 그린다). 내보내기는 ok 를 보고 알린다(ensureExportFonts)
+const OK = Object.freeze({ ok: true })
 function loadFamily(family, font) {
   const file = fileOf(font, family)
-  if (!file) return Promise.resolve() // 내 폰트 등 파일이 따로 관리되는 글꼴
+  if (!file) return Promise.resolve(OK) // 내 폰트 등 파일이 따로 관리되는 글꼴
   if (!loads.has(family)) {
     const remote = isRemoteAsset(file)
     const job = remote ? fetchRemoteAsset(file).then(uri => loadAsync({ [family]: uri })) : loadAsync({ [family]: file })
-    loads.set(family, job.then(() => markTextFontLoaded(family)).catch(() => {
+    const entry = job.then(() => { markTextFontLoaded(family); return { family, remote, ok: true } }).catch(() => {
       markTextFontFailed(family)
-      if (remote) setTimeout(() => loads.delete(family), REMOTE_RETRY_MS)
-    }))
+      // 그 사이 내보내기가 다시 받기 시작했으면 그 항목은 지우지 않는다
+      if (remote) setTimeout(() => { if (loads.get(family) === entry) loads.delete(family) }, REMOTE_RETRY_MS)
+      return { family, remote, ok: false }
+    })
+    loads.set(family, entry)
   }
   return loads.get(family)
 }
@@ -84,7 +89,18 @@ export function ensureTextFontsFor(objects, extraIds = []) {
  * 내보내기 직전에 기다릴 글꼴: 글자 요소가 쓰는 글꼴(굵게면 Bold까지)과, 속지가 앱 글꼴로 그리는 글(데일리 플래너가 비추는 글의 마루부리).
  * snapshot 은 createExportSnapshot 의 결과다(template = { backgroundAssetId, templateVersion } | null).
  */
-export const ensureExportFonts = snapshot => ensureTextFontsFor(snapshot.objects, snapshot.template ? paperDeviceFontIds(snapshot.template.backgroundAssetId) : [])
+export const ensureExportFonts = async snapshot => {
+  const load = () => ensureTextFontsFor(snapshot.objects, snapshot.template ? paperDeviceFontIds(snapshot.template.backgroundAssetId) : [])
+  const failedRemote = results => results.flat(Infinity).filter(result => result?.remote && !result.ok).map(result => result.family)
+  // 원격 글꼴을 받지 못했으면(오프라인 · 저장소 장애) 다시 기다리지 않고 한 번 바로 다시 받는다
+  let failed = failedRemote(await load())
+  if (failed.length) {
+    for (const family of failed) loads.delete(family)
+    failed = failedRemote(await load())
+  }
+  // 그래도 못 받으면 기본 글꼴로 바뀐 결과물을 조용히 내보내지 않고 알린다(PageImageSurface 가 EXPORT_FONT_FAILED 로 바꾼다)
+  if (failed.length) throw new Error('글꼴을 받지 못했어요. 인터넷 연결을 확인하고 다시 시도해 주세요.')
+}
 
 const PRELOAD_DELAY_MS = 600
 let loading = null
