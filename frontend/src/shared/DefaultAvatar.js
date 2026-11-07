@@ -5,7 +5,7 @@ import { memberAvatarTone } from './avatarColor';
 
 // 기본 프로필(사진이 없을 때): 색 동그라미에 모아의 표정(눈 둘 · 웃는 입).
 // 디스코드 기본 프로필처럼 사람마다 배경색이 다르다. 색은 계정 id(seed)로 고르므로 같은 사람은 같은 색이다.
-// 단 공유 다이어리 참여자 목록은 아래 참여자 색을 쓰므로, 내 화면(마이페이지)의 내 색과 다를 수 있다.
+// 공유 다이어리 참여자 목록에서도 '나'(user.self)는 참여자 색 대신 이 내 색을 써서, 마이페이지 · 편집기 · 공유 창의 내 얼굴이 같다(2026-11-07).
 // seed 가 없으면(게스트 · 가입 전) 예전 기본색(primaryStrong) 파랑이다.
 // 공유 다이어리 참여자는 서버가 정한 참여자 색(memberColor)을 color 로 받아, 밝은 12 · 어두운 12, 24색 중 하나로 맞춰 쓴다(shared/avatarColor).
 // 예전 avatar-default.png(512px 래스터)는 확대하면 눈 · 입 가장자리가 계단처럼 거칠어, 같은 위치 · 비율로 벡터로 다시 그렸다.
@@ -35,7 +35,7 @@ export function avatarTone(seed) {
 
 // user: 계정({ userId } · { accountId } · 공유 참여자 { id, color }). seed 를 직접 줄 수도 있다.
 export default function DefaultAvatar({ user, seed = avatarSeed(user), style, accessibilityLabel, accessible = Boolean(accessibilityLabel) }) {
-  const member = memberAvatarTone(user?.color);
+  const member = user?.self ? null : memberAvatarTone(user?.color);
   const tone = member ? { fill: member.fill, face: member.light ? colors.text : '#FFFFFF', ring: null } : avatarTone(seed);
   return (
     <View accessible={accessible} accessibilityLabel={accessibilityLabel} accessibilityRole={accessible ? 'image' : undefined}

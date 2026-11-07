@@ -9,7 +9,7 @@ import { collectPdfSourceIds } from '../utils/pdfSource.js'
 import { removePdfSource } from '../utils/pdfSourceStore'
 
 /**
- * 나의 표지 · 나의 속지. 기기에 저장하고 새 다이어리 화면에서 꺼내 쓴다.
+ * 내 표지 · 내 속지. 기기에 저장하고 새 다이어리 화면에서 꺼내 쓴다.
  * 저장은 읽은 값 위에 차례로 얹어(queue) 빠르게 두 번 눌러도 서로 덮어쓰지 않는다.
  */
 export default function useMyLibrary() {

@@ -15,7 +15,7 @@ const GROUPS = PAPER_GROUPS.map(group => ({ ...group, papers: papersIn(group.id)
 const CARD_WIDTH = 340
 const SLOTS = 6 // 분류마다 두 줄(3열)로 맞춘다
 const MINE_GAP = 12
-const MINE = { id: 'mine', name: '나의 속지' } // 공방 · 새 다이어리에서 PDF 로 만든 속지 묶음. 있을 때만 탭을 보인다
+const MINE = { id: 'mine', name: '내 속지' } // 공방 · 새 다이어리에서 PDF 로 만든 속지 묶음. 있을 때만 탭을 보인다
 
 /** 팝업을 열기 전에 속지를 미리 불러 둬 열자마자 그려지게 한다 */
 export function prefetchPageAddPapers(orientation) {
@@ -29,7 +29,7 @@ export function prefetchPageAddPapers(orientation) {
  * 속지를 누르면 지금 페이지 뒤에 한 장을 넣고 닫는다. 바깥을 누르면 닫힌다.
  * 폰은 화면 아래에 가로로 꽉 차게 띄운다. 폭은 창 크기로 정해 처음 그린 뒤 다시 재지 않는다.
  * anchor: 태블릿 버블 자리 { left, bottom } (화면 기준)
- * myPapers: 나의 속지 묶음. 묶음을 누르면 그 안의 쪽을 펼쳐 한 장을 고르거나 전체를 넣는다(onSelectMine(묶음, 넣을 쪽들))
+ * myPapers: 내 속지 묶음. 묶음을 누르면 그 안의 쪽을 펼쳐 한 장을 고르거나 전체를 넣는다(onSelectMine(묶음, 넣을 쪽들))
  */
 export default function PageAddPicker({ compact = false, orientation, appearance, currentAssetId = null, anchor = { left: 16, bottom: 16 }, myPapers = [], onSelect, onSelectMine, onClose }) {
   // 지금 페이지의 속지와 같은 속지가 있으면 그 분류에서 열고, 맨 위에 바로 넣는 줄을 둔다
@@ -62,7 +62,7 @@ export default function PageAddPicker({ compact = false, orientation, appearance
 }
 
 /**
- * 나의 속지 묶음 타일: 두 열에 쪽의 비율을 유지하며 보여 준다.
+ * 내 속지 묶음 타일: 두 열에 쪽의 비율을 유지하며 보여 준다.
  * 묶음은 한 장이 아니라서 속지 타일과 달리 카드 틀을 둔다.
  * 묶음을 누르면 그 안의 쪽을 같은 타일로 펼친다(굿노트 내 템플릿처럼 한 장씩 고른다). 쪽을 누르면 그 한 장, `전체 넣기` 는 묶음 전부. 한 장짜리 묶음은 바로 넣는다.
  */
@@ -85,11 +85,11 @@ function MyPaperGrid({ items, onSelect }) {
   }
   return <View style={styles.mine} onLayout={event => setWidth(event.nativeEvent.layout.width)}>
     {open && <View style={styles.mineHead}>
-      <Pressable accessibilityRole="button" accessibilityLabel="나의 속지 목록으로" hitSlop={8} onPress={() => setOpenId(null)} style={styles.mineBack}>
+      <Pressable accessibilityRole="button" accessibilityLabel="내 속지 목록으로" hitSlop={8} onPress={() => setOpenId(null)} style={styles.mineBack}>
         <Icon name="chevronLeft" size={18} forText={13} color={colors.primaryText} />
         <Text numberOfLines={1} style={styles.mineTitle}>{open.name}</Text>
       </Pressable>
-      <Pressable accessibilityRole="button" accessibilityLabel={`나의 속지 ${open.name} ${open.pages.length}장 모두 넣기`} hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }} onPress={() => onSelect(open, open.pages)}>
+      <Pressable accessibilityRole="button" accessibilityLabel={`내 속지 ${open.name} ${open.pages.length}장 모두 넣기`} hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }} onPress={() => onSelect(open, open.pages)}>
         <Text style={styles.mineAll}>전체 넣기</Text>
       </Pressable>
     </View>}
@@ -97,7 +97,7 @@ function MyPaperGrid({ items, onSelect }) {
       {preview > 0 && (open
         ? open.pages.map((page, index) => card({ key: index, page, name: `${index + 1}쪽`, label: `${open.name} ${index + 1}쪽 넣기`, onPress: () => onSelect(open, [page]) }))
         : items.map(item => card({ key: item.id, page: item.pages[0], name: item.name, count: `${item.pages.length}장`,
-          label: item.pages.length > 1 ? `나의 속지 ${item.name} ${item.pages.length}장 펼치기` : `나의 속지 ${item.name} 넣기`,
+          label: item.pages.length > 1 ? `내 속지 ${item.name} ${item.pages.length}장 펼치기` : `내 속지 ${item.name} 넣기`,
           onPress: () => item.pages.length > 1 ? setOpenId(item.id) : onSelect(item, item.pages) })))}
     </View>
   </View>

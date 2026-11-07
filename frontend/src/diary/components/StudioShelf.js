@@ -48,17 +48,17 @@ export default function StudioShelf({ kind, items, onRemove, onRename, onOpen })
             <View style={local.meta}>
               <View style={local.names}>
                 {editing?.id === item.id
-                  ? <TextInput autoFocus selectTextOnFocus maxLength={40} value={editing.draft} accessibilityLabel={paper ? '나의 속지 이름' : '나의 표지 이름'}
+                  ? <TextInput autoFocus selectTextOnFocus maxLength={40} value={editing.draft} accessibilityLabel={paper ? '내 속지 이름' : '내 표지 이름'}
                     onChangeText={draft => setEditing({ id: item.id, draft })} onSubmitEditing={() => finish(item)} onBlur={() => finish(item)}
                     returnKeyType="done" style={[local.name, local.nameInput]} />
-                  : <Pressable accessibilityRole="button" accessibilityLabel={paper ? `나의 속지 ${item.name} 이름 고치기` : `나의 표지 ${item.name} 이름 고치기`}
+                  : <Pressable accessibilityRole="button" accessibilityLabel={paper ? `내 속지 ${item.name} 이름 고치기` : `내 표지 ${item.name} 이름 고치기`}
                     onPress={() => setEditing({ id: item.id, draft: item.name })} style={local.nameRow}>
                     <Text numberOfLines={1} style={[local.name, local.nameText]}>{item.name}</Text>
                     <AppIcon name="edit" size={12} forText={14} color={colors.textMuted} />
                   </Pressable>}
                 {paper ? <Text style={local.sub}>{`${item.pages.length}장`}</Text> : null}
               </View>
-              <Pressable accessibilityRole="button" accessibilityLabel={paper ? `나의 속지 ${item.name} 지우기` : `나의 표지 ${item.name} 지우기`}
+              <Pressable accessibilityRole="button" accessibilityLabel={paper ? `내 속지 ${item.name} 지우기` : `내 표지 ${item.name} 지우기`}
                 onPress={() => onRemove(item)} style={local.remove}>
                 <AppIcon name="trash" size={18} color={colors.primaryText} />
               </Pressable>

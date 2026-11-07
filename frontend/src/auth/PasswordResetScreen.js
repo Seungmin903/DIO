@@ -2,16 +2,19 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from 'react-native';
+import AppIcon from '../shared/AppIcon';
 import DioButton from '../shared/DioButton';
 import { MakerBar, MakerHeader } from '../shared/MakerKit';
 import { colors, radius } from '../shared/theme';
 import { authService } from './authService';
+import { profileStyles as ps } from './profileStyles';
 import { accountEmailError, normalizeEmail, passwordError } from './validation';
 
 const FALLBACK_EXPIRES_IN = 10 * 60;
@@ -29,6 +32,7 @@ const timeLabel = (value) => {
 export default function PasswordResetScreen({
   email = '',
   compact = false,
+  change = false, // 로그인한 회원이 회원정보 수정에서 여는 비밀번호 변경(제목 · 머리글이 회원정보 수정과 같다)
   backLabel = '마이페이지로 돌아가기',
   onClose,
   onComplete,
@@ -60,11 +64,11 @@ export default function PasswordResetScreen({
   const confirmationIssue = confirmation && password !== confirmation ? '비밀번호가 일치하지 않아요.' : '';
   const canSetPassword = !passwordIssue && !confirmationIssue && !!confirmation;
   const heading = useMemo(() => ({
-    email: '비밀번호 재설정',
+    email: change ? '비밀번호 변경' : '비밀번호 재설정',
     code: '인증번호 확인',
     password: '새 비밀번호 설정',
-    success: '비밀번호 재설정 완료',
-  })[step], [step]);
+    success: change ? '비밀번호 변경 완료' : '비밀번호 재설정 완료',
+  })[step], [step, change]);
 
   const run = async (task) => {
     if (busy) return { ok: false };
@@ -134,20 +138,33 @@ export default function PasswordResetScreen({
   const primary = {
     email: <DioButton variant="filled" label="인증번호 보내기" disabled={busy || !!addressError} onPress={() => requestCode()} />,
     code: <DioButton variant="filled" label="인증번호 확인" disabled={busy || code.length !== 6 || !expiresIn} onPress={verifyCode} />,
-    password: <DioButton variant="filled" label="비밀번호 재설정" disabled={busy || !canSetPassword} onPress={resetPassword} />,
-    success: <DioButton variant="filled" label="로그인으로 돌아가기" onPress={onComplete} />,
+    password: <DioButton variant="filled" label={change ? '비밀번호 변경' : '비밀번호 재설정'} disabled={busy || !canSetPassword} onPress={resetPassword} />,
+    // 변경 흐름은 바꾼 뒤 세션을 끝내고(onClearSession) 로그인 화면으로 보낸다. 로그인 화면에서 온 찾기 흐름만 '돌아가기'
+    success: <DioButton variant="filled" label={change ? '다시 로그인' : '로그인으로 돌아가기'} onPress={onComplete} />,
   }[step];
   return (
     <KeyboardAvoidingView
       style={styles.root}
       behavior={Platform.OS === 'ios' ? 'padding' : Platform.OS === 'android' ? 'height' : undefined}
     >
-      <MakerHeader title={heading} onBack={step !== 'success' ? leave : null} backLabel={backLabel} busy={busy} compact={compact} />
+      {!change && <MakerHeader title={heading} onBack={step !== 'success' ? leave : null} backLabel={backLabel} busy={busy} compact={compact} />}
       <ScrollView
-        contentContainerStyle={[styles.scroll, compact && styles.phoneScroll]}
+        contentContainerStyle={change ? [ps.scroll, compact && ps.phoneScroll] : [styles.scroll, compact && styles.phoneScroll]}
         keyboardShouldPersistTaps="handled"
       >
-        <View style={styles.form}>
+        {change && (
+          <View style={ps.rail}>
+            <View style={ps.heading}>
+              {step !== 'success' && (
+                <Pressable accessibilityRole="button" accessibilityLabel={backLabel} disabled={busy} onPress={leave} style={ps.back}>
+                  <AppIcon name="chevron-left" size={24} />
+                </Pressable>
+              )}
+              <Text accessibilityRole="header" style={[ps.title, compact && ps.titleCompact]}>{heading}</Text>
+            </View>
+          </View>
+        )}
+        <View style={[styles.form, change && ps.rail]}>
           {step === 'email' && (
             <Field
               label="이메일"
@@ -194,7 +211,7 @@ export default function PasswordResetScreen({
           )}
           {step === 'success' && (
             <>
-              <View style={styles.successIcon}><Text style={styles.successMark}>✓</Text></View>
+              <View style={styles.successIcon}><AppIcon name="check" size={30} color={colors.surface} strokeWidth={2.6} /></View>
               <Text style={styles.successTitle}>새 비밀번호를 설정했어요.</Text>
               <Text style={styles.copy}>새 비밀번호로 다시 로그인해 주세요.</Text>
             </>
@@ -226,7 +243,7 @@ function Hint({ text }) {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.surface },
+  root: { flex: 1, backgroundColor: colors.surfaceSoft },
   scroll: { flexGrow: 1, paddingHorizontal: 32, paddingTop: 24, paddingBottom: 32 },
   phoneScroll: { paddingHorizontal: 16, paddingTop: 16 },
   // 본문 최대 폭 760, 가운데. 카드 · 테두리 없이 열린 폼
@@ -243,7 +260,6 @@ const styles = StyleSheet.create({
   inlineError: { color: colors.dangerStrong, fontSize: 13, lineHeight: 20, marginTop: 8 },
   notice: { color: colors.primaryStrong, fontSize: 14, lineHeight: 21, marginTop: 16 },
   successIcon: { width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primaryStrong, marginBottom: 20 },
-  successMark: { color: colors.surface, fontSize: 30, fontWeight: '800' },
   successTitle: { color: colors.text, fontSize: 20, fontWeight: '800', marginBottom: 10 },
   dangerText: { color: colors.dangerStrong },
 });

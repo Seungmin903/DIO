@@ -123,7 +123,7 @@ export function configuredPageIds(input) {
   return collectConfiguredPages(normalizeTemplateConfig(input))
 }
 
-// 연간 생성과 같은 배치 규칙으로 한 달만 읽는다. 첫 장 표지와 맨 뒤 구형 추가 내지는 제외한다.
+// 연간 생성과 같은 배치 규칙으로 한 달만 읽는다. 첫 장 표지와 맨 뒤 구형 추가 속지는 제외한다.
 export function configuredMonthPageIds(input, month = 1) {
   if (!Number.isInteger(month) || month < 1 || month > 12) throw new Error('미리 볼 월을 1~12월 중에서 골라 주세요.')
   return collectConfiguredPages(normalizeTemplateConfig(input), month)

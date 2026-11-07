@@ -27,7 +27,7 @@ const flat = style => Object.assign({}, ...[style].flat(Infinity).filter(Boolean
 
 test('실패 알약은 다시 시도를 붙이고, 누르는 중에는 막는다', () => {
   let pressed = 0;
-  const tree = ActionToast({ message: '표지를 나의 표지에 추가하지 못했어요.', actionLabel: '다시 시도', onAction: () => { pressed += 1; }, bottom: 112 });
+  const tree = ActionToast({ message: '표지를 내 표지에 추가하지 못했어요.', actionLabel: '다시 시도', onAction: () => { pressed += 1; }, bottom: 112 });
   assert.equal(ACTION_TOAST_MS, 6000);
   assert.equal(flat(tree.props.style).bottom, 112);
   const button = nodes(tree).find(node => node.type === 'Pressable');
@@ -44,7 +44,7 @@ test('실패 알약은 다시 시도를 붙이고, 누르는 중에는 막는다
 });
 
 test('완료 알림은 동작 없이 글만 보이고, 폰은 더 좁다', () => {
-  const tree = ActionToast({ message: '표지를 나의 표지에 추가했어요.', bottom: 76, compact: true });
+  const tree = ActionToast({ message: '표지를 내 표지에 추가했어요.', bottom: 76, compact: true });
   assert.equal(nodes(tree).some(node => node.type === 'Pressable'), false);
   const pill = nodes(tree).find(node => flat(node.props?.style).borderRadius === 999);
   assert.equal(flat(pill.props.style).maxWidth, 284);

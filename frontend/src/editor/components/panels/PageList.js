@@ -313,7 +313,7 @@ export default function PageList({ phone = false, pages, currentId, cropId, onSe
       {menuPage && origin && (
         <EditorModal transparent animationType="none" statusBarTranslucent onRequestClose={() => { setConfirmDelete(false); setMenuId(null) }}>
           {confirmDelete ? <ConfirmDialogContent title="페이지를 삭제할까요?"
-            message={canUndoDelete ? '페이지의 내용이 함께 삭제돼요. 되돌리기로 복구할 수 있어요.' : '페이지의 내용이 함께 삭제되고 공유 멤버에게도 반영돼요. 여기서 되돌릴 수 없어요.'}
+            message={canUndoDelete ? '페이지의 내용이 함께 삭제돼요. 되돌리기로 복구할 수 있어요.' : '페이지의 내용이 함께 삭제되고 참여자에게도 반영돼요. 여기서 되돌릴 수 없어요.'}
             onCancel={() => { setConfirmDelete(false); setMenuId(null) }}
             onConfirm={() => {
               if (deleteConfirmed.current) return

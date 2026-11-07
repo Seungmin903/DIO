@@ -43,6 +43,7 @@ function fixture() {
     if (id.endsWith('/loadTemplate')) return { peekTemplateAst: () => ast }
     if (id.endsWith('/appearance.js')) return { colorTemplateAst, normalizePaperAppearance: a => ({ backgroundColor: a?.backgroundColor ?? '#FFFFFF', layoutColor: '#292929' }) }
     if (id.endsWith('/pageGeometry.js')) return { pageSize: () => ({ width: 1024, height: 768 }) }
+    if (id.endsWith('/shared/theme')) return { colors: {} }
     if (id.endsWith('/fontScope')) return { KeepFont: 'keep-font' } // 속지는 정해진 글꼴 구역 안에서 그린다
     if (id.endsWith('/paperFont.js')) return { swapPaperFont: xml => xml } // 속지 글꼴 바꾸기는 paper-font.test.js 가 본다
     if (id.endsWith('/useTextFont')) return { useTextFont: () => '' } // 글꼴 불러오기 자체는 text-font-styles.test.js 가 본다(여기서는 상태를 문자열로 흉내 낸다)

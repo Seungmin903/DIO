@@ -76,8 +76,8 @@ export default function PenSettings({ settings, onChange, onClose, straightAssis
       </View>
       </>}
       <View style={styles.assist}>
-        <Text style={styles.assistText}>끝점을 길게 눌러 직선 만들기</Text>
-        <SettingSwitch label="끝점에서 길게 눌러 직선 만들기" on={straightAssist} onToggle={onStraightAssistChange} />
+        <Text style={styles.assistText}>직선 만들기</Text>
+        <SettingSwitch label="직선 만들기" on={straightAssist} onToggle={onStraightAssistChange} />
       </View>
     </FadeScroll>
   </View>

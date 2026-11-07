@@ -1,11 +1,11 @@
 import { Platform, StyleSheet } from 'react-native';
 import { colors as c, radius, DISABLED_OPACITY } from '../shared/theme';
 export const profileStyles = StyleSheet.create({
-  // 내 공간과 같은 흰 면 한 장(카드 없음). 본문은 가운데 최대 640, 아래에 저장 바가 고정된다(코덱스 3차)
-  root: { flex: 1, backgroundColor: c.surface },
+  // 큰 페이지 바탕(surfaceSoft, 바탕은 하나) 위에 카드 없는 열린 폼. 본문은 가운데 최대 640, 아래에 저장 바가 고정된다(코덱스 3차)
+  root: { flex: 1, backgroundColor: c.surfaceSoft },
   flex: { flex: 1 },
   scroll: { flexGrow: 1, paddingHorizontal: 32, paddingTop: 40, paddingBottom: 48 },
-  // 폰은 좌측 바(폭 60)를 뺀 폭이 좁아 보관함 · 내 공간과 같은 좌우 14, 제목 24(코덱스 2026-11-01)
+  // 폰은 좁은 폭이라 보관함 · 내 공간과 같은 좌우 14, 제목 24(코덱스 2026-11-01)
   phoneScroll: { paddingHorizontal: 14, paddingTop: 16, paddingBottom: 40 },
   rail: { width: '100%', maxWidth: 640, alignSelf: 'center' },
   heading: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 28 },

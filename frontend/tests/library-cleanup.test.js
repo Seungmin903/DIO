@@ -34,13 +34,13 @@ test('다른 곳이 쓰는 쪽 그림 · 원본은 남기고 아무도 안 쓰�
   assert.deepEqual(all.mediaIds.sort(), ['m1', 'm2']); assert.deepEqual(all.sourceIds, ['srcA'])
 })
 
-test('나의 속지를 지우면 쪽 그림 · 원본을 지우되, 같은 PDF 를 쓰는 다이어리가 있으면 그것은 남긴다', async () => {
+test('내 속지를 지우면 쪽 그림 · 원본을 지우되, 같은 PDF 를 쓰는 다이어리가 있으면 그것은 남긴다', async () => {
   const lone = await run({ 'doc:d1': JSON.stringify({ pages: [{ objects: [] }] }), papers: '[]', covers: '[]' })
   assert.deepEqual(lone.removed.media.sort(), ['m1', 'm2']); assert.deepEqual(lone.removed.source, ['srcA'])
   // 첫 쪽만 쓰는 다이어리가 있다: 첫 쪽 그림과 원본은 남고 둘째 쪽만 지운다
   const shared = await run({ 'doc:d1': docWith(page(1, 'srcA')), papers: '[]' })
   assert.deepEqual(shared.removed.media, ['m2']); assert.deepEqual(shared.removed.source, [])
-  // 기본 문서 · 내 꾸미기 소재 · 다른 나의 속지가 써도 남긴다
+  // 기본 문서 · 내 꾸미기 소재 · 다른 내 속지가 써도 남긴다
   const kept = await run({ doc: docWith(page(1, 'srcA'), page(2, 'srcA')) })
   assert.deepEqual(kept.removed, { media: [], source: [] })
   const other = await run({ papers: JSON.stringify([{ id: 'p2', pages: [page(2, 'srcA')] }]), decor: '[]' })
@@ -60,7 +60,7 @@ test('저장값을 읽다 실패하면 아무것도 지우지 않는다', async 
   assert.deepEqual((await cleanupRemovedEntry({ entry: null, storage: fakeStorage({}), keys, collectMediaIds, collectSourceIds: collectPdfSourceIds, removeMedia() {}, removeSource() {} })), { mediaIds: [], sourceIds: [] })
 })
 
-test('휴지통 영구 삭제도 다른 문서 · 나의 속지가 안 쓰는 원본 PDF 만 지운다', async () => {
+test('휴지통 영구 삭제도 다른 문서 · 내 속지가 안 쓰는 원본 PDF 만 지운다', async () => {
   const { purgeTrashedDiary } = await import('../src/diary/utils/trashRetention.js')
   const run = async others => {
     const store = { diaries: JSON.stringify([{ id: 'd1', trashedAt: '2026-01-01T00:00:00.000Z' }]), 'doc:d1': docWith(page(1, 'srcA'), page(2, 'srcB')), ...others }
@@ -73,7 +73,7 @@ test('휴지통 영구 삭제도 다른 문서 · 나의 속지가 안 쓰는 �
   }
   const alone = await run({})
   assert.equal(alone.ok, true); assert.deepEqual(alone.removed.media.sort(), ['m1', 'm2']); assert.deepEqual(alone.removed.source.sort(), ['srcA', 'srcB'])
-  // 나의 속지가 srcA 의 한 쪽을 쓰고 있으면 그 쪽 그림과 srcA 는 남는다
+  // 내 속지가 srcA 의 한 쪽을 쓰고 있으면 그 쪽 그림과 srcA 는 남는다
   const shared = await run({ papers: JSON.stringify([{ id: 'p', pages: [page(1, 'srcA')] }]) })
   assert.deepEqual(shared.removed.media, ['m2']); assert.deepEqual(shared.removed.source, ['srcB'])
 })

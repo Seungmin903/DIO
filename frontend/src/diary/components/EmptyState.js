@@ -21,7 +21,8 @@ export default function EmptyState({ title, onCreate, action = null, search = fa
       {picture ? (
         // 그림은 꾸밈이라 화면 읽기 프로그램에서는 건너뛰고 제목만 읽힌다
         <View style={{ width: picture.width * scale, height: picture.height * scale, marginBottom: 14, overflow: 'hidden' }}>
-          <Image source={picture.source} accessible={false} accessibilityIgnoresInvertColors resizeMode="contain" style={{
+          {/* fadeDuration 0: 안드로이드 Image 기본 0.3초 페이드 때문에 그림이 글자보다 늦게 나타나 보였다 */}
+          <Image source={picture.source} accessible={false} accessibilityIgnoresInvertColors fadeDuration={0} resizeMode="contain" style={{
             position: 'absolute', left: -picture.left * scale, top: -picture.top * scale,
             width: picture.sourceWidth * scale, height: picture.sourceHeight * scale,
           }} />

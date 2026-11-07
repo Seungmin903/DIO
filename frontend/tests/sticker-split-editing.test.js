@@ -318,7 +318,7 @@ test('묶음 썸네일은 측정 이후 구성 이미지들을 같은 상대 배
 })
 test('실제 모달은 미리보기 준비를 기다리고 저장 실패 후 같은 묶음을 재시도한다', async () => {
   let selected = [], ready = true, failed = true, closes = 0, published = 0, discarded = 0, merges = 0
-  const cleaned = [], alerts = []
+  const cleaned = []
   let pickError = false, pickCancelled = true, picks = 0, analyses = 0
   const tolerances = []
   let splitDone = false, splitCalls = 0, brushHitIds = []
@@ -329,8 +329,9 @@ test('실제 모달은 미리보기 준비를 기다리고 저장 실패 후 같
     splitSelected(ids) { if (!ids.length) return; assert.deepEqual(ids, ['a']); splitDone = true; splitCalls++ }, canUndo: true, undo() { splitDone = false },
   }
   const h = harness('components/panels/StickerSplitModal.js', {
-    'react-native': { View: 'View', Text: 'Text', Image: 'Image', Pressable: 'Pressable', FlatList: 'FlatList', ActivityIndicator: 'ActivityIndicator', useWindowDimensions: () => ({ width: 360, height: 800 }), Alert: { alert: (...values) => alerts.push(values) }, StyleSheet: { create: x => x } },
+    'react-native': { View: 'View', Text: 'Text', Image: 'Image', Pressable: 'Pressable', FlatList: 'FlatList', ActivityIndicator: 'ActivityIndicator', useWindowDimensions: () => ({ width: 360, height: 800 }), StyleSheet: { create: x => x } },
     'react-native-safe-area-context': { useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }) },
+    '../controls/ConfirmDialog': { __esModule: true, default: 'ConfirmDialog' }, '../controls/Icon': { __esModule: true, default: 'Icon' },
     '../controls/EditorModal': { __esModule: true, default: 'EditorModal' }, '../../../shared/MakerKit': { MakerHeader: 'MakerHeader', MakerBar: 'MakerBar' }, './StickerSplitPreview': { __esModule: true, default: 'Preview' },
     './StickerSplitSlider': { __esModule: true, default: 'Slider' }, '../controls/PenSafeTextInput': { __esModule: true, default: 'Input' },
     './StickerSplitTools': { __esModule: true, default: 'Tools', SplitAction: 'Action', SplitIconAction: 'IconAction' },
@@ -413,8 +414,8 @@ test('실제 모달은 미리보기 준비를 기다리고 저장 실패 후 같
   assert.equal(find(render(), node => node.props?.label === '축소'), null)
   find(render(), node => node.type === 'Preview').props.onCrop({ x: 0.1, y: 0.1, width: 0.8, height: 0.8 })
   assert.equal(analyses, 1); assert.equal(action('다시 분리하기').disabled, false)
-  action('다시 분리하기').onPress(); assert.equal(alerts.length, 1)
-  await alerts[0][2][1].onPress(); assert.equal(analyses, 2)
+  action('다시 분리하기').onPress(); assert.equal(find(render(), n => n.type === 'ConfirmDialog').props.open, true)
+  find(render(), n => n.type === 'ConfirmDialog').props.onConfirm(); await settle(); assert.equal(analyses, 2)
   action('영역 조정').onPress()
   assert.deepEqual(find(render(), node => node.type === 'Preview').props.crop, { x: 0.1, y: 0.1, width: 0.8, height: 0.8 })
   assert.equal(find(render(), node => node.type === 'Preview').props.cropDefined, true)
@@ -423,7 +424,7 @@ test('실제 모달은 미리보기 준비를 기다리고 저장 실패 후 같
   find(render(), node => node.type === 'Tools').props.onChange('background')
   find(render(), node => node.props?.label === '배경 허용 범위').props.onCommit(0)
   assert.equal(find(render(), node => node.props?.label === '배경 허용 범위').props.value, 0)
-  action('다시 분리하기').onPress(); await alerts.at(-1)[2][1].onPress()
+  action('다시 분리하기').onPress(); find(render(), n => n.type === 'ConfirmDialog').props.onConfirm(); await settle()
   assert.equal(tolerances.at(-1), 0)
   find(render(), node => node.type === 'Tools').props.onChange(null)
   pickError = true; await action('이미지 바꾸기').onPress()
@@ -462,8 +463,9 @@ test('모달은 첫 분석의 초기 묶기를 기다리고 취소·재분리·�
       setDistance(value) { distance = value },
     }
     const h = harness('components/panels/StickerSplitModal.js', {
-      'react-native': { View: 'View', Text: 'Text', Image: 'Image', Pressable: 'Pressable', FlatList: 'FlatList', ActivityIndicator: 'ActivityIndicator', useWindowDimensions: () => ({ width: 360, height: 800 }), Alert: { alert: (_title, _text, buttons) => buttons[1].onPress() }, StyleSheet: { create: x => x } },
+      'react-native': { View: 'View', Text: 'Text', Image: 'Image', Pressable: 'Pressable', FlatList: 'FlatList', ActivityIndicator: 'ActivityIndicator', useWindowDimensions: () => ({ width: 360, height: 800 }), StyleSheet: { create: x => x } },
       'react-native-safe-area-context': { useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }) },
+      '../controls/ConfirmDialog': { __esModule: true, default: 'ConfirmDialog' }, '../controls/Icon': { __esModule: true, default: 'Icon' },
       '../controls/EditorModal': { __esModule: true, default: 'EditorModal' }, '../../../shared/MakerKit': { MakerHeader: 'MakerHeader', MakerBar: 'MakerBar' }, './StickerSplitPreview': { __esModule: true, default: 'Preview' },
       './StickerSplitSlider': { __esModule: true, default: 'Slider' }, '../controls/PenSafeTextInput': { __esModule: true, default: 'Input' },
       './StickerSplitTools': { __esModule: true, default: 'Tools', SplitAction: 'Action', SplitIconAction: 'IconAction' },
@@ -497,7 +499,7 @@ test('모달은 첫 분석의 초기 묶기를 기다리고 취소·재분리·�
       editing.setDistance(3)
       find(render(), n => n.type === 'Tools').props.onChange('region')
       find(render(), n => n.type === 'Preview').props.onCrop({ x: 0, y: 0, width: 0.8, height: 0.8 })
-      action('다시 분리하기').onPress(); await settle()
+      action('다시 분리하기').onPress(); find(render(), n => n.type === 'ConfirmDialog').props.onConfirm(); await settle()
       assert.equal(analyses, 2); assert.equal(queries, before); assert.equal(distance, 3)
     }
   }
@@ -585,7 +587,7 @@ test('브러시가 이미지 밖으로 나간 실제 좌표를 경계에 붙이�
 })
 test('거리 슬라이더는 움직임 동안 미리보기만 하고 한 번 확정하거나 취소한다', () => {
   const preview = [], commits = [], interactions = [], cancels = []
-  const h = harness('components/panels/StickerSplitSlider.js')
+  const h = harness('components/panels/StickerSplitSlider.js', { '../controls/Icon': { __esModule: true, default: 'Icon' } })
   const props = { label: '거리', value: 0, min: 0, max: 5, step: 0.1, onPreview: value => preview.push(value), onCommit: value => commits.push(value), onCancel: () => cancels.push(1), onInteraction: value => interactions.push(value) }
   const track = () => h.render(props).props.children[1].props
   track().onLayout({ nativeEvent: { layout: { width: 126 } } })

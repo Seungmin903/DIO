@@ -44,7 +44,7 @@ function ToggleRow({ label, value, onChange, disabled }) {
 }
 
 /**
- * 이름 · 방향 아래의 PDF 불러오기: 버튼 + 불러온 파일 요약 + 옵션 셋(첫 장을 표지로 · 나의 표지에 추가 · 나의 속지에 추가).
+ * 이름 · 방향 아래의 PDF 불러오기: 버튼 + 불러온 파일 요약 + 옵션 셋(첫 장을 표지로 · 내 표지에 추가 · 내 속지에 추가).
  * 옵션은 PDF 를 불러온 뒤에만 보이고, 그때부터 켜고 끌 수 있다. papers = false 이면(서버 다이어리) 속지 옵션을 감춘다.
  */
 export default function PdfImport({ pdf, busy, progress, disabled, onPick, onClear, firstAsCover, onFirstAsCover,
@@ -67,8 +67,8 @@ export default function PdfImport({ pdf, busy, progress, disabled, onPick, onCle
     {pdf ? <>
       <ToggleRow label="첫 장을 표지로" value={firstAsCover} onChange={onFirstAsCover} disabled={!ready || !papers} />
       {papers && firstAsCover ? <ToggleRow label="표지로 쓴 장도 속지에 넣기" value={coverAlsoPaper} onChange={onCoverAlsoPaper} disabled={!ready} /> : null}
-      <ToggleRow label="표지를 나의 표지에 추가" value={addToMyCovers} onChange={onAddToMyCovers} disabled={!ready} />
-      {papers ? <ToggleRow label="속지를 나의 속지에 추가" value={addToMyPapers} onChange={onAddToMyPapers} disabled={!ready || (firstAsCover && !coverAlsoPaper && total < 2)} /> : null}
+      <ToggleRow label="표지를 내 표지에 추가" value={addToMyCovers} onChange={onAddToMyCovers} disabled={!ready} />
+      {papers ? <ToggleRow label="속지를 내 속지에 추가" value={addToMyPapers} onChange={onAddToMyPapers} disabled={!ready || (firstAsCover && !coverAlsoPaper && total < 2)} /> : null}
     </> : null}
   </>
 }
@@ -82,38 +82,38 @@ function Remove({ label, onPress }) {
 const COVER_TILE = { width: 54, height: 72 }
 const WIDE_COVER_TILE = { width: 66, height: 50 } // 가로 다이어리에서 담은 표지: 테두리 · 안쪽 여백(10)을 더해도 칸 폭 76 안에 든다
 
-/** 나의 표지: 저장해 둔 표지를 누르면 지금 표지를 그걸로 바꾼다. */
+/** 내 표지: 저장해 둔 표지를 누르면 지금 표지를 그걸로 바꾼다. */
 export function MyCoverList({ items, name, selectedId, onPick, onRemove, disabled }) {
   if (!items.length) return null
-  return <OptionRow label="나의 표지">
+  return <OptionRow label="내 표지">
     <View style={styles.tiles}>
       {items.map(item => {
         const tile = item.orientation === 'landscape' ? WIDE_COVER_TILE : COVER_TILE
         return <View key={item.id} style={[styles.tileBox, disabled && styles.dim]}>
-          <Pressable accessibilityRole="button" accessibilityLabel={`나의 표지 ${item.name} 쓰기`} accessibilityState={{ selected: selectedId === item.id }} disabled={disabled} onPress={() => onPick(item)}
+          <Pressable accessibilityRole="button" accessibilityLabel={`내 표지 ${item.name} 쓰기`} accessibilityState={{ selected: selectedId === item.id }} disabled={disabled} onPress={() => onPick(item)}
             style={({ pressed }) => [styles.coverTile, selectedId === item.id && styles.tileOn, pressed && styles.pressed]}>
             <View style={tile}><CoverArt cover={item.cover} name={name} width={tile.width} height={tile.height} /></View>
           </Pressable>
           <Text numberOfLines={1} style={styles.tileName}>{item.name}</Text>
-          {!disabled && <Remove label={`나의 표지 ${item.name} 지우기`} onPress={() => onRemove(item)} />}
+          {!disabled && <Remove label={`내 표지 ${item.name} 지우기`} onPress={() => onRemove(item)} />}
         </View>
       })}
     </View>
   </OptionRow>
 }
 
-/** 나의 속지: 저장해 둔 PDF 속지 묶음. 누르면 지금 속지를 그걸로 바꾼다. */
+/** 내 속지: 저장해 둔 PDF 속지 묶음. 누르면 지금 속지를 그걸로 바꾼다. */
 export function MyPaperList({ items, selectedId, onPick, onRemove, disabled }) {
   if (!items.length) return null
-  return <OptionRow label="나의 속지">
+  return <OptionRow label="내 속지">
     <View style={styles.tiles}>
       {items.map(item => <View key={item.id} style={[styles.tileBox, styles.paperTileBox, disabled && styles.dim]}>
-        <Pressable accessibilityRole="button" accessibilityLabel={`나의 속지 ${item.name} ${item.pages.length}장 쓰기`} accessibilityState={{ selected: selectedId === item.id }} disabled={disabled} onPress={() => onPick(item)}
+        <Pressable accessibilityRole="button" accessibilityLabel={`내 속지 ${item.name} ${item.pages.length}장 쓰기`} accessibilityState={{ selected: selectedId === item.id }} disabled={disabled} onPress={() => onPick(item)}
           style={({ pressed }) => [styles.paperTile, selectedId === item.id && styles.tileOn, pressed && styles.pressed]}>
           <PdfPageThumb page={item.pages[0]} width={104} ratio={1} />
         </Pressable>
         <Text numberOfLines={1} style={[styles.tileName, styles.paperTileName]}>{`${item.name} · ${item.pages.length}장`}</Text>
-        {!disabled && <Remove label={`나의 속지 ${item.name} 지우기`} onPress={() => onRemove(item)} />}
+        {!disabled && <Remove label={`내 속지 ${item.name} 지우기`} onPress={() => onRemove(item)} />}
       </View>)}
     </View>
   </OptionRow>

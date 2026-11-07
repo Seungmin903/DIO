@@ -9,7 +9,7 @@ function load(name) {
   const source = readFileSync(new URL(`../src/diary/components/${name}.js`, import.meta.url), 'utf8')
   const code = expo('@babel/core').transformSync(source, { configFile: false, babelrc: false, plugins: [[expo.resolve('@babel/plugin-transform-react-jsx'), { runtime: 'automatic' }], expo.resolve('@babel/plugin-transform-modules-commonjs')] }).code
   const mod = { exports: {} }
-  const mocks = { 'react-native': { Pressable: 'Pressable', Text: 'Text', View: 'View' }, '../styles': { styles: {} }, '../../auth/sessionExpiry.js': { authenticationErrorMessage: () => '인증 오류' }, '../../auth/AuthenticationRecovery': { __esModule: true, default: 'AuthenticationRecovery' } }
+  const mocks = { 'react-native': { Pressable: 'Pressable', Text: 'Text', View: 'View' }, '../styles': { styles: {} }, '../../shared/DioButton': { __esModule: true, default: 'Pressable' }, '../../auth/sessionExpiry.js': { authenticationErrorMessage: () => '인증 오류' }, '../../auth/AuthenticationRecovery': { __esModule: true, default: 'AuthenticationRecovery' } }
   new Function('require', 'module', 'exports', code)(id => mocks[id] || require(id), mod, mod.exports)
   return mod.exports.default
 }
@@ -17,13 +17,11 @@ const trash = load('MemberTrashNotice'), request = load('MemberRequestNotice')
 const buttons = node => walk(node).filter(n => n.type === 'Pressable')
 const words = node => walk(node).filter(n => n.type === 'Text').map(n => n.props.children)
 
-test('휴지통 변경·목록 조회 중 정상 상태에는 문구만 표시한다', () => {
-  for (const state of [{ lifecycle: { busy: true } }, { trashLoading: true }]) {
-    const view = trash({ state })
-    assert.equal(buttons(view).length, 0)
-    assert.ok(words(view).some(s => s.includes('있어요')))
-  }
-  assert.equal(trash({ state: {} }), null)
+test('휴지통은 처음 받을 때만 문구를 보이고, 옮기기 · 복원 뒤 다시 받는 동안은 칸을 그리지 않는다(목록이 밀리지 않게)', () => {
+  const first = trash({ state: { trashLoading: true } })
+  assert.equal(buttons(first).length, 0)
+  assert.ok(words(first).some(s => s.includes('있어요')))
+  for (const state of [{ lifecycle: { busy: true } }, { trashLoading: true, trashLoaded: true, trash: [{ id: 'a' }] }, {}]) assert.equal(trash({ state }), null)
 })
 
 test('휴지통 오류·재시도·메타데이터 경고 시 기존 복구 동작을 유지한다', () => {
@@ -38,10 +36,8 @@ test('휴지통 오류·재시도·메타데이터 경고 시 기존 복구 동�
   assert.ok(buttons(busyView).filter(b => b.props.onPress === reload || b.props.onPress === retry).every(b => b.props.disabled))
 })
 
-test('회원 목록 갱신만 진행할 때 확인 중 버튼을 보이지 않는다', () => {
-  const view = request({ refreshing: true })
-  assert.equal(buttons(view).length, 0)
-  assert.ok(words(view).includes('회원 다이어리를 불러오고 있어요.'))
+test('회원 목록을 다시 받기만 할 때는 칸을 그리지 않는다(목록이 밀리지 않게)', () => {
+  assert.equal(request({ refreshing: true }), null)
   assert.equal(request({}), null)
 })
 

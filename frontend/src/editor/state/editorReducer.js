@@ -464,7 +464,7 @@ export function editorReducer(state, action) {
       // assetIds: 여러 속지를 섞어 넣을 때 순서대로. 없으면 backgroundAssetId 를 count 장
       const count = Math.max(1, Math.min(50, Math.floor(action.count ?? 1)))
       const ids = Array.isArray(action.assetIds) && action.assetIds.length ? action.assetIds.slice(0, 200) : Array.from({ length: count }, () => action.backgroundAssetId ?? null)
-      // pages: 미리 만든 페이지(나의 속지 PDF 쪽처럼 바탕 그림 · 크기가 정해진 것)는 그대로 넣는다
+      // pages: 미리 만든 페이지(내 속지 PDF 쪽처럼 바탕 그림 · 크기가 정해진 것)는 그대로 넣는다
       const added = Array.isArray(action.pages) && action.pages.length ? action.pages.slice(0, 200) : ids.map((id) => {
         const created = id ? createTemplatePage(id, appearance) : createBlankPage(state.doc.orientation)
         return appearance ? { ...created, paperAppearance: appearance } : created

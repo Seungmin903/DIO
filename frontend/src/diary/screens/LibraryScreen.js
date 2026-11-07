@@ -271,12 +271,14 @@ function LibraryScreen({
       </View>
     </PopoverMenu>
   </>;
-  const allLabel = hasMore ? (allSelected ? '불러온 항목 모두 해제' : '불러온 항목 모두 선택') : (allSelected ? '전체 해제' : '전체 선택');
-  const selectionBar = selecting && <SelectionBar count={selected.length} compact={compact} done={<SelectionButton compact={compact} ghost label="선택 완료" text="완료" disabled={trashing} onPress={() => onSelectionChange?.(null)} />}>
+  // 남은 페이지는 App 이 뒤에서 이어 받으므로 휴지통과 같은 이름을 쓴다(접근성 힌트에는 불러온 범위를 남긴다)
+  const allLabel = allSelected ? '전체 해제' : '전체 선택';
+  const selectionBar = selecting && <SelectionBar count={selected.length} unit="권" compact={compact} done={<SelectionButton compact={compact} ghost label="선택 완료" text="완료" disabled={trashing} onPress={() => onSelectionChange?.(null)} />}>
     <SelectionButton compact={compact}
       label={allLabel}
-      hint={`${hasMore ? '현재 불러온' : '현재 검색·필터 결과'} ${manageable.length}개에 적용해요`}
-      disabled={trashing || !manageable.length}
+      hint={`${hasMore ? '현재 불러온' : '현재 검색·필터 결과'} ${manageable.length}권에 적용해요`}
+      // 남은 페이지를 이어 받는 중(또는 오류로 멈춤)에는 막는다: 누르면 불러온 것만 골라져 '전체'와 달라진다
+      disabled={trashing || !manageable.length || hasMore}
       onPress={toggleAll}
     />
     <SelectionButton compact={compact}

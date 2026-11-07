@@ -153,10 +153,10 @@ export default function DecorationStudioScreen({ compact = false, registerBackHa
   useEffect(() => { alive.current = true; return () => { alive.current = false; request.current++; clearPickerTimer(); pickerAfterMenu.current = null; pickerEpoch.current++; }; }, []);
   useEffect(() => { if (!studio) refreshFonts(); }, [studio]);
 
-  // 지우기 확인 창: 스티커 · 스티커 폴더 · 나의 표지 · 나의 속지가 하나의 창을 쓴다.
+  // 지우기 확인 창: 스티커 · 스티커 폴더 · 내 표지 · 내 속지가 하나의 창을 쓴다.
   const asking = question?.draft ? { title: '이 폰트를 지울까요?', message: '작성 중인 손글씨가 모두 사라져요.' }
-    : question?.cover ? { title: '이 표지를 지울까요?', message: '나의 표지에서만 사라져요. 이미 만든 다이어리는 그대로예요.' }
-    : question?.paper ? { title: '이 속지를 지울까요?', message: '나의 속지에서만 사라져요. 이미 만든 다이어리는 그대로예요.' }
+    : question?.cover ? { title: '이 표지를 지울까요?', message: '내 표지에서만 사라져요. 이미 만든 다이어리는 그대로예요.' }
+    : question?.paper ? { title: '이 속지를 지울까요?', message: '내 속지에서만 사라져요. 이미 만든 다이어리는 그대로예요.' }
     : question?.tapeFolder ? { title: question.tape ? '이 테이프를 지울까요?' : '테이프 폴더를 지울까요?', message: TAPE_REMOVE_MESSAGE }
     : { title: question?.item ? '이 스티커를 지울까요?' : '스티커 폴더를 지울까요?', message: STICKER_REMOVE_MESSAGE };
   async function confirmRemoval() {
@@ -320,11 +320,11 @@ export default function DecorationStudioScreen({ compact = false, registerBackHa
       let photo;
       try { photo = coverPhotoWithAspect(item); }
       catch (error) { await discardGeneratedMedia([item]).catch(() => {}); throw error; }
-      // 사진 넣기 흐름: 고르기 → 사진 방향의 표지 비율로 자르기 → 나의 표지에 보인다. 자르기를 닫으면 만들지 않는다
+      // 사진 넣기 흐름: 고르기 → 사진 방향의 표지 비율로 자르기 → 내 표지에 보인다. 자르기를 닫으면 만들지 않는다
       const orientation = pdfOrientation(photo.aspect);
       const crop = await new Promise(resolve => setCoverCrop({ photo, ratio: COVER_PHOTO_RATIO[orientation], resolve }));
       if (!crop) { discardGeneratedMedia([item]).catch(() => {}); return; }
-      // 이름은 편집기 사진과 같은 규칙: 파일 이름, 없으면(뜻 없는 이름 포함) 나의 표지 안에서 '사진 n'
+      // 이름은 편집기 사진과 같은 규칙: 파일 이름, 없으면(뜻 없는 이름 포함) 내 표지 안에서 '사진 n'
       const last = library.covers.reduce((max, cover) => Math.max(max, Number(cover.name.match(/^사진 (\d+)$/)?.[1] ?? 0)), 0);
       const base = coverWithPdfPage(newDiaryCover(), photo);
       const saved = await library.addCover({ name: item.name || `사진 ${last + 1}`, orientation, cover: { ...base, photo: { ...base.photo, crop } } });
@@ -531,7 +531,7 @@ const s = StyleSheet.create({
   tapeStack: { height: 64, justifyContent: 'center', gap: 8 },
   tapes: { flexDirection: 'row', flexWrap: 'wrap', gap: 14 },
   tapeCard: { minHeight: 72, alignItems: 'center', justifyContent: 'center', gap: 10, padding: 16, borderRadius: 12, borderWidth: 1, borderColor: colors.cardBorder, backgroundColor: colors.surface },
-  // 테이프 이름: 나의 표지 · 속지 선반 이름과 같은 14/700 + 연필(터치 32)
+  // 테이프 이름: 내 표지 · 속지 선반 이름과 같은 14/700 + 연필(터치 32)
   tapeName: { fontSize: 14, fontWeight: '700', color: colors.text },
   tapeNameRow: { minHeight: 32, maxWidth: '100%', flexDirection: 'row', alignItems: 'center', gap: 4 },
   tapeNameText: { flexShrink: 1 },

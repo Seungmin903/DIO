@@ -70,7 +70,7 @@ export default function DiaryCreateModal({ diary, onSubmit, onCancel, saving = f
   const [error, setError] = useState('');
   const [leaving, setLeaving] = useState(false);
   const [notice, setNotice] = useState('');
-  // PDF 불러오기: 쪽마다 그림으로 바꾼 pdf, 첫 장을 표지로 쓸지, 나의 표지 · 나의 속지에 남길지
+  // PDF 불러오기: 쪽마다 그림으로 바꾼 pdf, 첫 장을 표지로 쓸지, 내 표지 · 내 속지에 남길지
   const [pdf, setPdf] = useState(null);
   const [pdfBusy, setPdfBusy] = useState(false);
   const [pdfProgress, setPdfProgress] = useState(null);
@@ -99,7 +99,7 @@ export default function DiaryCreateModal({ diary, onSubmit, onCancel, saving = f
   if (!editing) {
     try { allIds = configuredPageIds(sectionsTemplateConfig(chosenSections, orientation)); } catch (failure) { configError = failure.message; }
   }
-  // PDF 속지: 나의 속지를 골랐으면 그 쪽들, 아니면 불러온 PDF 에서 표지로 쓴 첫 쪽을 뺀 나머지. 서버 다이어리도 PDF 쪽은 속지로 쓴다(쪽마다 서버 페이지를 만들고 원본 PDF 를 올린다).
+  // PDF 속지: 내 속지를 골랐으면 그 쪽들, 아니면 불러온 PDF 에서 표지로 쓴 첫 쪽을 뺀 나머지. 서버 다이어리도 PDF 쪽은 속지로 쓴다(쪽마다 서버 페이지를 만들고 원본 PDF 를 올린다).
   const pdfSplit = splitPdfPages(pdf?.pages, firstAsCover, coverAlsoPaper);
   const pdfPapers = editing ? [] : myPaper ? myPaper.pages : pdf && !skipPdfPapers ? pdfSplit.papers : [];
   const usingPdf = pdfPapers.length > 0;
@@ -140,8 +140,8 @@ export default function DiaryCreateModal({ diary, onSubmit, onCancel, saving = f
   const changeCover = next => { setCover(next); setError(''); };
   usePhotoTone(cover, setCover);
 
-  // ---------- PDF 불러오기 · 나의 표지 · 나의 속지 ----------
-  // 불러온 쪽은 이 화면이 저장 없이 닫히면 미디어 보관함에서 지운다 (나의 속지에서 가져온 쪽은 지우지 않는다)
+  // ---------- PDF 불러오기 · 내 표지 · 내 속지 ----------
+  // 불러온 쪽은 이 화면이 저장 없이 닫히면 미디어 보관함에서 지운다 (내 속지에서 가져온 쪽은 지우지 않는다)
   const submitted = useRef(false);
   const unsaved = useRef(null);
   unsaved.current = pdf ?? null;
