@@ -271,9 +271,10 @@ class PageApiTests {
 		PageTemplate remote=activeTemplate("dio-remote-landscape",new BigDecimal("1024.00"),new BigDecimal("768.00"),"{\"blank\":false}");
 		mvc.perform(post("/api/v1/diaries/"+diaryId+"/pages").with(authenticated()).contentType(MediaType.APPLICATION_JSON).content("{\"templateId\":"+remote.getTemplateId()+"}"))
 			.andExpect(status().isBadRequest());
-		mvc.perform(post("/api/v1/diaries/"+diaryId+"/pages").with(authenticated()).contentType(MediaType.APPLICATION_JSON)
-				.content("{\"templateId\":"+remote.getTemplateId()+",\"templateConfig\":{\"remoteTemplate\":\"summer\"}}"))
-			.andExpect(status().isCreated()).andExpect(jsonPath("$.page.templateConfig.remoteTemplate").value("summer"));
+		String rowPageId=createPage(diaryId,"{\"templateId\":"+remote.getTemplateId()+",\"templateConfig\":{\"remoteTemplate\":\"summer\"}}");
+		// 같은 원격 행을 templateId 만으로 다시 지정하면 저장된 remoteTemplate 을 이어받는다
+		mvc.perform(patch("/api/v1/pages/"+rowPageId).with(authenticated()).contentType(MediaType.APPLICATION_JSON).content("{\"templateId\":"+remote.getTemplateId()+"}"))
+			.andExpect(status().isOk()).andExpect(jsonPath("$.page.templateConfig.remoteTemplate").value("summer"));
 		// 수정도 같은 규칙: 원격 페이지의 remoteTemplate 을 깨뜨리는 설정은 거부하고, 맞는 값은 받는다
 		mvc.perform(patch("/api/v1/pages/"+pageId).with(authenticated()).contentType(MediaType.APPLICATION_JSON)
 				.content("{\"templateConfig\":{\"templateCode\":\"dio-remote-portrait\",\"remoteTemplate\":\"Bad Id\"}}"))
@@ -321,6 +322,13 @@ class PageApiTests {
 		// 마지막으로 저장된 값은 그대로다
 		mvc.perform(get("/api/v1/pages/"+pageId).with(authenticated()))
 			.andExpect(status().isOk()).andExpect(jsonPath("$.page.templateConfig.remoteTemplate").value("winter"));
+		// 원격 페이지의 방향은 templateId 로 바꾼다. 설정을 생략하면 remoteTemplate 을 이어받고 캔버스도 그 행 크기가 된다
+		mvc.perform(patch("/api/v1/pages/"+pageId).with(authenticated()).contentType(MediaType.APPLICATION_JSON).content("{\"templateId\":"+remote.getTemplateId()+"}"))
+			.andExpect(status().isOk()).andExpect(jsonPath("$.page.templateConfig.remoteTemplate").value("winter"))
+			.andExpect(jsonPath("$.page.canvasWidth").value(1024.00));
+		// 일반 페이지를 원격 행으로 바꿀 때는 어떤 속지인지 알 수 없으므로 remoteTemplate 이 꼭 있어야 한다
+		mvc.perform(patch("/api/v1/pages/"+plainId).with(authenticated()).contentType(MediaType.APPLICATION_JSON).content("{\"templateId\":"+remote.getTemplateId()+"}"))
+			.andExpect(status().isBadRequest());
 		// 일반 페이지 설정은 그대로 받는다
 		String blankId=createPage(diaryId,"{\"templateConfig\":{\"paperColor\":\"#FFFFFF\"}}");
 		// 속지 코드가 없는 페이지(빈 종이)도 설정만으로 원격 속지로 바꿀 수 없다(일반 속지 페이지와 같은 규칙)
