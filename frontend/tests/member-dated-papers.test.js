@@ -2,6 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { datedMonthId, datedBaseId } from '../src/editor/templates/dated.js'
+import { createMemberDiaryApi } from '../src/diary/services/memberDiaryApi.js'
 import { getTemplate } from '../src/editor/templates/catalog.js'
 import { serverTemplateReference, serverTemplateConfigFor, localTemplateReference, toServerInitialPageSelections, DATED_CONFIG_KEY } from '../src/editor/templates/serverCatalog.js'
 
@@ -52,4 +53,18 @@ test('기간 시작(해 · 달) 두 칸은 날짜 있음 · 날짜 없이와 같
   const options = read('../src/diary/components/PaperOptions.js')
   assert.match(options, /period: \{ flexDirection: 'row', gap: 6 \}/)
   assert.match(options, /stepper: \{ flex: 1, minWidth: 0,[^}]*borderColor: colors\.cardBorder \}/)
+})
+
+test('setDatedPages 는 페이지마다 설정(+datedTemplate)을 PATCH 하고, 응답이 다르면 거절하며 설정 없는 쪽은 보내지 않는다', async () => {
+  const pageIds = ['aaaaaaaa-bbbb-cccc-dddd-000000000001', 'aaaaaaaa-bbbb-cccc-dddd-000000000002']
+  const calls = []
+  const echo = async request => { calls.push(request); return { page: { pageId: request.path.split('/').pop(), templateConfig: request.body.templateConfig } } }
+  const config = { width: 768, height: 1024, datedTemplate: id }
+  await createMemberDiaryApi(echo).setDatedPages(pageIds.map(pageId => ({ pageId, templateConfig: config })))
+  assert.deepEqual(calls.map(call => [call.method, call.path, call.body]), pageIds.map(pageId => ['PATCH', `/pages/${pageId}`, { templateConfig: config }]))
+  const stale = createMemberDiaryApi(async request => ({ page: { pageId: request.path.split('/').pop(), templateConfig: { width: 768 } } }))
+  await assert.rejects(stale.setDatedPages([{ pageId: pageIds[0], templateConfig: config }]), { code: 'INVALID_RESPONSE' })
+  const before = calls.length
+  await assert.rejects(createMemberDiaryApi(echo).setDatedPages([{ pageId: pageIds[0], templateConfig: { width: 1 } }]), { code: 'INVALID_RESPONSE' })
+  assert.equal(calls.length, before)
 })
