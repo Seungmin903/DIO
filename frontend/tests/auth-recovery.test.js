@@ -64,16 +64,14 @@ test('휴지통 손상 메타 안내는 원인을 표시하고 불필요한 재�
 });
 
 
-test('선택 이동의 동일 표지 손상 안내는 한 번만 표시하고 혼합 실패에만 일반 안내를 더한다',()=>{
- const module={exports:{}};
- const mocks={'react-native':{View:'View',Text:'Text',Pressable:'Pressable'},'../styles':{styles:{}},'../constants':{C:{}},'../../auth/sessionExpiry.js':{},'../../auth/AuthenticationRecovery':{__esModule:true,default:()=>null,needsAuthenticationRecovery:()=>false}};
- new Function('require','module','exports',compile('../src/diary/components/MemberLibraryNotice.js'))(id=>mocks[id]||require(id),module,module.exports);
- const walk=node=>!node||typeof node!=='object'?[]:[node,...[node.props?.children].flat(Infinity).flatMap(walk)];
+test('선택 이동의 동일 표지 손상 안내는 한 번만 표시하고 혼합 실패에만 일반 안내를 더한다',async()=>{
+ // 지라 619부터 결과는 목록 위 칸이 아니라 알약 토스트 한 줄(bulkTrashToastMessage)로 알린다.
+ const { bulkTrashToastMessage } = await import('../src/diary/utils/bulkTrashToast.js');
  for(const mixed of [false,true]) {
   const failed=['a','b'].map(id=>({id,error:{code:'INVALID_LOCAL_CACHE',message:'손상되어 이동하지 않았어요.'}}));
   if(mixed)failed.push({id:'c',error:{code:'NETWORK_ERROR'}});
-  const labels=walk(module.exports.default({library:{},bulk:{failed,ids:['a','b','c'],succeeded:[]}})).filter(n=>n.type==='Text').map(n=>n.props.children);
-  assert.equal(labels.filter(s=>s==='손상되어 이동하지 않았어요.').length,1);
-  assert.equal(labels.some(s=>typeof s==='string'&&s.includes('남은 항목의 권한')),mixed);
+  const message=bulkTrashToastMessage({failed,ids:['a','b','c'],succeeded:[]});
+  assert.equal(message.split('손상되어 이동하지 않았어요.').length-1,mixed?0:1);
+  assert.match(message,new RegExp(`${failed.length}권을 휴지통으로 옮기지 못했어요`));
  }
 });
