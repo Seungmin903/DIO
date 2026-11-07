@@ -29,6 +29,50 @@ test('로그인은 실제 서버 사용자·사진을 표시하고 view에는 �
   assert.deepEqual(JSON.parse(calls[0].body), { email: user.email, password: 'Password123!' });
 });
 
+test('미리 설정한 개발 접속 정보는 첫 요청부터 Basic으로 붙이고 로그아웃 뒤에도 다시 넣는다', async () => {
+  const headers = [];
+  const basic = `Basic ${Buffer.from('qa-id:qa-pw').toString('base64')}`;
+  const api = createAuthApi({ baseUrl: 'https://server.example:8443', allowDevelopmentAccess: true,
+    presetDevelopmentAccess: { username: 'qa-id', password: 'qa-pw' },
+    fetchImpl: async (_url, init) => { headers.push(init.headers); return response(tokens()); } });
+  await api.login({ email: user.email, password: 'Password123!' });
+  assert.equal(headers[0].Authorization, basic);
+  await api.logout();
+  assert.equal(headers[1].Authorization, basic);
+  assert.equal(headers[1]['X-DIO-Access-Token'], tokens().accessToken);
+  await api.login({ email: user.email, password: 'Password123!' });
+  assert.equal(headers[2].Authorization, basic);
+  const plain = createAuthApi({ baseUrl: 'http://localhost:8080', allowDevelopmentAccess: true,
+    presetDevelopmentAccess: { username: 'qa-id', password: 'qa-pw' },
+    fetchImpl: async (_url, init) => { headers.push(init.headers); return response(tokens()); } });
+  await plain.login({ email: user.email, password: 'Password123!' });
+  assert.equal(headers[3].Authorization, undefined);
+  const release = createAuthApi({ baseUrl: 'https://server.example', allowDevelopmentAccess: false,
+    presetDevelopmentAccess: { username: 'qa-id', password: 'qa-pw' },
+    fetchImpl: async (_url, init) => { headers.push(init.headers); return response(tokens()); } });
+  await release.login({ email: user.email, password: 'Password123!' });
+  assert.equal(headers[4].Authorization, undefined);
+});
+
+test('서버가 거절한 개발 접속 프리셋은 다시 넣지 않고 수동 입력 흐름으로 넘어간다', async () => {
+  const headers = [];
+  const basicChallenge = { status: 401, ok: false, json: async () => null, headers: { get: name => name === 'WWW-Authenticate' ? 'Basic realm="DIO Development"' : null } };
+  const manual = `Basic ${Buffer.from('tester:secret').toString('base64')}`;
+  const api = createAuthApi({ baseUrl: 'https://server.example:8443', allowDevelopmentAccess: true,
+    presetDevelopmentAccess: { username: 'stale-id', password: 'stale-pw' },
+    fetchImpl: async (_url, init) => { headers.push(init.headers); return init.headers.Authorization === manual ? response(tokens()) : basicChallenge; } });
+  await assert.rejects(api.login({ email: user.email, password: 'Password123!' }), error => error.code === 'DEVELOPMENT_ACCESS_REQUIRED');
+  assert.equal(headers[0].Authorization, `Basic ${Buffer.from('stale-id:stale-pw').toString('base64')}`);
+  await assert.rejects(api.login({ email: user.email, password: 'Password123!' }), error => error.code === 'DEVELOPMENT_ACCESS_REQUIRED');
+  assert.equal(headers[1].Authorization, undefined);
+  api.verificationService.setDevelopmentAccess('tester', 'secret');
+  await api.login({ email: user.email, password: 'Password123!' });
+  assert.equal(headers[2].Authorization, manual);
+  await api.logout();
+  await assert.rejects(api.login({ email: user.email, password: 'Password123!' }), error => error.code === 'DEVELOPMENT_ACCESS_REQUIRED');
+  assert.equal(headers[4].Authorization, undefined);
+});
+
 test('프로필 사진은 같은 서버의 사진 경로에만 개발 접속 인증을 보내고 회원 토큰은 보내지 않는다', async () => {
   const uri = 'https://server.example/api/v1/auth/profile-photos/12345678-1234-1234-1234-123456789abc';
   const api = createAuthApi({ baseUrl: 'https://server.example', allowDevelopmentAccess: true,

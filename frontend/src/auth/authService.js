@@ -29,5 +29,7 @@ export const authService = createAuthApi({
   allowDevelopmentAccess: __DEV__,
   // Release builds never read or write the saved dev-server credential.
   developmentAccessStore: __DEV__ ? createDevelopmentAccessStore({ platform: Platform.OS, legacyKeychain: legacyAccessKeychain }) : null,
+  // 개발 실행 전용. frontend/.env의 EXPO_PUBLIC_QA_ACCESS_ID·PASSWORD로 개발 서버 Basic 인증을 미리 붙인다.
+  presetDevelopmentAccess: __DEV__ ? { username: process.env.EXPO_PUBLIC_QA_ACCESS_ID, password: process.env.EXPO_PUBLIC_QA_ACCESS_PASSWORD } : null,
   accessTokenHeader,
 });
