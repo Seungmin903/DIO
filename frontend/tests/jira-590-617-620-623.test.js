@@ -54,3 +54,33 @@ test('623: 목록을 받을 때 서버에 표지가 없고 이 기기에만 있�
   await new Promise(r => setTimeout(r, 20))
   assert.equal(updates.length, 1)
 })
+
+test('623: 표지를 올리지 못하면 다음 목록 갱신 때 다시 올린다', async () => {
+  const { createMemberAppStore } = await import('../src/diary/services/memberAppStore.js')
+  const { memberKeys } = await import('../src/diary/services/memberStorage.js')
+  const id = '11111111-2222-3333-4444-666666666666', stamp = '2026-10-27T00:00:00.123456Z'
+  const row = { id, title: '표지', color: '#123456', coverStyle: 'PLAIN', pattern: null, canEdit: true, visibility: 'PRIVATE', createdAt: stamp, updatedAt: stamp, version: '1', myRole: 'OWNER', permissions: { canTrash: true } }
+  const cover = { kind: 'photo', photo: { src: 'media://abc', mediaFileId: 'abc' } }
+  const values = new Map([[memberKeys('101').index, JSON.stringify([{ ...row, cover, source: 'member-api', memberAccountId: '101' }])]])
+  const storage = { async getItem(k) { return values.get(k) ?? null }, async setItem(k, v) { values.set(k, v) }, async removeItem(k) { values.delete(k) } }
+  let gets = 0, updates = 0
+  const api = {
+    async list() { return { items: [{ ...row, pageCount: 1, isShared: false }], hasNext: false, nextCursor: null } },
+    async get() { gets++; if (gets === 1) throw Object.assign(new Error('network'), { status: 0 }); return { ...row } },
+    async update(target, input) {
+      updates++
+      if (updates === 1) throw Object.assign(new Error('server'), { status: 500 })
+      return { ...row, cover: input.cover, version: '2' }
+    },
+  }
+  const store = createMemberAppStore({ accountId: '101', api, storage, serverLibrary: true, makeRequestId: () => 'k-123456789' })
+  const settle = () => new Promise(r => setTimeout(r, 30))
+  await store.load(); await settle() // 서버 목록 모드의 load 는 목록도 받는다: 첫 get 이 실패한다
+  assert.equal(gets, 1); assert.equal(updates, 0)
+  await store.queryLibrary(store.getSnapshot().library.criteria, { force: true }); await settle()
+  assert.equal(updates, 1)
+  await store.queryLibrary(store.getSnapshot().library.criteria, { force: true }); await settle()
+  assert.equal(updates, 2)
+  await store.queryLibrary(store.getSnapshot().library.criteria, { force: true }); await settle()
+  assert.equal(updates, 2)
+})
