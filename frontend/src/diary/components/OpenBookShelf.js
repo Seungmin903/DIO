@@ -5,7 +5,6 @@ import FavoriteStar from '../../shared/FavoriteStar';
 import { C } from '../constants';
 import { styles as s } from '../styles';
 import CoverArt, { CoverSurface } from './CoverArt';
-import { PAGE_COUNT_ROW } from './DiaryCard';
 import DiaryActionBubble from './DiaryActionBubble';
 import StaticPage from '../../editor/components/canvas/StaticPage';
 import { pageSize } from '../../editor/utils/pageGeometry.js';
@@ -230,7 +229,7 @@ function OpenBook({ diary, size, left: placed, top, shown, compact, peek = null,
           {actions.length > 0 && <Pressable ref={moreRef} accessibilityRole="button" accessibilityLabel={`${diary.title} 더보기`} accessibilityState={{ expanded: menu !== null }} hitSlop={13}
             onPress={() => {
               const node = moreRef.current;
-              if (node?.measureInWindow) node.measureInWindow((mx, my, w, h) => setMenu({ anchor: { x: mx, y: my, width: w, height: h + PAGE_COUNT_ROW } })); // 말풍선이 이름 밑 쪽수 줄을 가리지 않게 그만큼 아래에 연다(DiaryCard 와 같은 값)
+              if (node?.measureInWindow) node.measureInWindow((mx, my, w, h) => setMenu({ anchor: { x: mx, y: my, width: w, height: h } })); // 말풍선이 이름 밑 쪽수 줄을 가리지 않게 그만큼 아래에 연다(DiaryCard 와 같은 값)
               else setMenu({ anchor: null });
             }}>
             <AppIcon name="more" size={22} color={captionInk} />

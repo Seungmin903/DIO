@@ -261,27 +261,34 @@ test('사진을 바꾼 뒤 비밀번호 변경을 누르면 저장 성공 후에
   ui.unmount();
 });
 
-test('탈퇴합니다 정확히 입력해야 탈퇴 가능하고 취소는 수정값을 보존하며 연타는 한 번만 실행한다', async () => {
+test('탈퇴합니다 정확히 입력해야 탈퇴 가능하고 닫기는 창만 닫으며 연타는 한 번만 실행한다(마이페이지에서 탈퇴 창만 연다, 지라 597)', async () => {
+  // 회원정보 수정 화면에는 더 이상 탈퇴 입구가 없다
+  const edit = setup({ withdraw: async () => {} });
+  assert.equal(nodes(edit.render()).some(n => n.props?.accessibilityLabel === '회원 탈퇴'), false);
+  edit.unmount();
   let resolve,
     calls = 0;
-  const ui = setup({
+  const service = {
     withdraw: () => {
       calls++;
       return new Promise((r) => {
         resolve = r;
       });
     },
-  });
-  find(ui, '닉네임').props.onChangeText('임시이름');
-  press(ui, '회원 탈퇴');
-  assert.equal(find(ui, '탈퇴하기').props.disabled, true);
+  };
+  const closing = setup(service, undefined, { withdrawOnly: true });
+  // 창만 열 때는 회원정보 폼(닉네임)을 그리지 않는다
+  assert.equal(nodes(closing.render()).some(n => n.props?.accessibilityLabel === '닉네임'), false);
+  assert.equal(find(closing, '탈퇴하기').props.disabled, true);
   for (const text of ['탈퇴', '탈퇴합니다 ', ' 탈퇴합니다']) {
-    find(ui, '탈퇴 확인 문구').props.onChangeText(text);
-    assert.equal(find(ui, '탈퇴하기').props.disabled, true);
+    find(closing, '탈퇴 확인 문구').props.onChangeText(text);
+    assert.equal(find(closing, '탈퇴하기').props.disabled, true);
   }
-  press(ui, '확인 창 닫기');
-  assert.equal(find(ui, '닉네임').props.value, '임시이름');
-  press(ui, '회원 탈퇴');
+  press(closing, '확인 창 닫기');
+  assert.equal(closing.closed(), 1);
+  assert.equal(calls, 0);
+  closing.unmount();
+  const ui = setup(service, undefined, { withdrawOnly: true });
   assert.equal(find(ui, '탈퇴 확인 문구').props.value, '');
   find(ui, '탈퇴 확인 문구').props.onChangeText('탈퇴합니다');
   const button = find(ui, '탈퇴하기');
@@ -332,13 +339,12 @@ test('상위 앱의 Android 뒤로가기도 편집 화면에 위임하고 내 �
   ui.parentBack(); press(ui, '저장하지 않고 나가기'); assert.equal(ui.closed(), 2); ui.unmount();
 });
 
-test('탈퇴 요청 실패 후 문구·프로필을 유지하고 다시 시도할 수 있다', async () => {
+test('탈퇴 요청 실패 후 문구를 유지하고 다시 시도할 수 있다', async () => {
   let calls = 0;
-  const ui = setup({ withdraw: async () => { if (++calls === 1) throw new Error('일시 오류'); } });
-  find(ui, '닉네임').props.onChangeText('수정이름'); press(ui, '회원 탈퇴');
+  const ui = setup({ withdraw: async () => { if (++calls === 1) throw new Error('일시 오류'); } }, undefined, { withdrawOnly: true });
   find(ui, '탈퇴 확인 문구').props.onChangeText('탈퇴합니다'); press(ui, '탈퇴하기'); await tick();
   assert.equal(ui.ended(), 0); assert.equal(find(ui, '탈퇴 확인 문구').props.value, '탈퇴합니다');
-  assert.equal(find(ui, '닉네임').props.value, '수정이름'); assert.equal(find(ui, '탈퇴하기').props.disabled, false);
+  assert.equal(find(ui, '탈퇴하기').props.disabled, false); assert.equal(ui.closed(), 0);
   press(ui, '탈퇴하기'); await tick(); assert.equal(ui.ended(), 1); ui.unmount();
 });
 

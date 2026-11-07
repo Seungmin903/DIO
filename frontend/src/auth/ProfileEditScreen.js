@@ -30,6 +30,7 @@ export default function ProfileEditScreen({
   user,
   compact = false,
   passwordOnly = false, // 비밀번호 창만 연다(회원정보 폼 없이). 닫으면 onClose
+  withdrawOnly = false, // 탈퇴 확인 창만 연다(마이페이지 계정 구역의 '회원 탈퇴' 줄, 지라 597). 닫으면 onClose
   onClose,
   onUpdate,
   onEndSession,
@@ -43,7 +44,8 @@ export default function ProfileEditScreen({
   const [nickname, setNickname] = useState(user.nickname);
   const [photoUri, setPhotoUri] = useState(user.photoUri || null);
   const [bio, setBio] = useState(user.bio || '');
-  const [dialog, setDialog] = useState(passwordOnly ? 'password' : null);
+  const dialogOnly = passwordOnly || withdrawOnly;
+  const [dialog, setDialog] = useState(passwordOnly ? 'password' : withdrawOnly ? 'withdraw' : null);
   const [withdrawText, setWithdrawText] = useState('');
   const [passwords, setPasswords] = useState(emptyPasswords);
   const [busy, setBusy] = useState(false);
@@ -109,7 +111,7 @@ export default function ProfileEditScreen({
       pendingLeave.current = () => {
         setDialog(null);
         setPasswords(emptyPasswords());
-        if (passwordOnly) onClose?.();
+        if (dialogOnly) onClose?.();
       };
       setDialog('discard-password');
     } else {
@@ -117,7 +119,7 @@ export default function ProfileEditScreen({
       setPasswords(emptyPasswords());
       setWithdrawText('');
       pendingLeave.current = null;
-      if (passwordOnly) onClose?.();
+      if (dialogOnly) onClose?.();
     }
   };
   const leave = (action) => {
@@ -295,12 +297,13 @@ export default function ProfileEditScreen({
 
   return (
     <KeyboardAvoidingView
-      style={s.root}
+      // 창만 열 때(마이페이지 위에 띄운다)는 화면 바탕을 그리지 않는다
+      style={dialogOnly ? undefined : s.root}
       behavior={
         Platform.OS === 'ios' ? 'padding' : Platform.OS === 'android' ? 'height' : undefined
       }
     >
-      {!passwordOnly && <ScrollView
+      {!dialogOnly && <ScrollView
         ref={form.scroll}
         style={s.flex}
         contentContainerStyle={[s.scroll, compact && s.phoneScroll]}
@@ -408,17 +411,7 @@ export default function ProfileEditScreen({
                   {PROVIDER_NAMES[saved.provider] || '소셜'} 계정으로 로그인하고 있어요.
                 </Text>
               )}
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="회원 탈퇴"
-                accessibilityHint={!canWithdraw ? '회원 탈퇴 기능은 준비 중이에요.' : undefined}
-                accessibilityState={{ disabled: busy || !canWithdraw }}
-                disabled={busy || !canWithdraw}
-                onPress={() => showDialog('withdraw')}
-                style={[s.withdraw, !canWithdraw && s.disabled]}
-              >
-                <Text style={s.withdrawText}>회원 탈퇴</Text>
-              </Pressable>
+              {/* 회원 탈퇴는 마이페이지 계정 구역(로그아웃 아래)으로 옮겼다(지라 597) */}
             </>
           )}
           {!!error && !dialog && (
@@ -429,7 +422,7 @@ export default function ProfileEditScreen({
         </View>
       </ScrollView>}
       {/* 하단 고정 바: 저장 행동이 항상 보인다 */}
-      {!passwordOnly && <View style={[s.bar, compact && s.phoneBar]}>
+      {!dialogOnly && <View style={[s.bar, compact && s.phoneBar]}>
         <View style={[s.barInner, compact && s.phoneBarInner]}>
           <Button
             label="취소"

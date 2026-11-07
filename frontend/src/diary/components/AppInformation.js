@@ -68,15 +68,15 @@ export default function AppInformation() {
   );
 }
 
-// 카드로 감싸지 않는다: 구역(SettingSection) 안의 구분선으로 나눈 조용한 목록(행 64, 이메일 행 72).
+// 카드로 감싸지 않는다: 구역(SettingSection) 안의 구분선으로 나눈 조용한 목록. 행은 다른 설정 줄(SettingRow)과 같은 48 · 위아래 8 · 이름 16/600 · cardBorder 구분선(2026-11-08 사용자 결정, 이메일 두 줄은 내용만큼).
 const styles = StyleSheet.create({
-  version: { minHeight: 56, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 16, borderBottomWidth: 1, borderBottomColor: colors.border },
+  version: { minHeight: 48, paddingVertical: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 16, borderBottomWidth: 1, borderBottomColor: colors.cardBorder },
   versionValue: { color: colors.primaryStrong, fontSize: 15, fontWeight: '600' },
-  policy: { minHeight: 64, flexDirection: 'row', alignItems: 'center', gap: 16, borderBottomWidth: 1, borderBottomColor: colors.border },
-  licenses: { minHeight: 64, flexDirection: 'row', alignItems: 'center', gap: 16, borderTopWidth: 1, borderTopColor: colors.border },
-  contact: { minHeight: 72, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 16, paddingVertical: 10 },
+  policy: { minHeight: 48, paddingVertical: 8, flexDirection: 'row', alignItems: 'center', gap: 16, borderBottomWidth: 1, borderBottomColor: colors.cardBorder },
+  licenses: { minHeight: 48, paddingVertical: 8, flexDirection: 'row', alignItems: 'center', gap: 16, borderTopWidth: 1, borderTopColor: colors.cardBorder },
+  contact: { minHeight: 48, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 16, paddingVertical: 8 },
   copy: { flex: 1, minWidth: 180, gap: 2 },
-  label: { color: C.ink, fontSize: 15, fontWeight: '700' },
+  label: { color: C.ink, fontSize: 16, lineHeight: 22, fontWeight: '600' },
   hint: { color: C.muted, fontSize: 13 },
   email: { color: colors.primaryText, fontSize: 15, lineHeight: 21, fontWeight: '700' },
   status: { marginTop: 10, color: C.inkSoft, fontSize: 13, lineHeight: 20 },

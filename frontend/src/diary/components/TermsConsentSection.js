@@ -90,7 +90,8 @@ export default function TermsConsentSection({ auth, userId, saveRef, onReadyChan
     try { await Linking.openURL(signupDocuments[item.id]); }
     catch { setDocumentError('동의 내용을 열지 못했어요. 인터넷 연결을 확인해 주세요.'); }
   };
-  return <View>
+  // 맨 아래 줄 밑 구분선은 감춘다(설정 구역 SettingSection 과 같다)
+  return <View style={styles.list}><View style={styles.rows}>
     {optionalTerms.map(item => {
       const row = rows[item.termsType];
       return <View key={item.termsType} style={styles.row}>
@@ -113,7 +114,7 @@ export default function TermsConsentSection({ auth, userId, saveRef, onReadyChan
             onToggle={value => change(item.termsType, value)} />
         </View>
       </View>;
-    })}
+    })}</View>
     {loading && <Text accessibilityLiveRegion="polite" style={styles.note}>동의 상태를 불러오고 있어요…</Text>}
     {!!problem && <Text accessibilityRole="button" onPress={() => setAttempt(value => value + 1)} style={styles.viewLink}>다시 시도</Text>}
     {!!problem && <Text accessibilityLiveRegion="polite" style={styles.error}>{problem}</Text>}
@@ -122,11 +123,14 @@ export default function TermsConsentSection({ auth, userId, saveRef, onReadyChan
 }
 
 const styles = StyleSheet.create({
-  row: { minHeight: 64, flexDirection: 'row', alignItems: 'center', gap: 16, paddingVertical: 8 },
+  // 마이페이지 설정 행과 같은 이름 16/600 + 아래 구분선(구역 제목 SettingTitle 14/700 과 구분된다)
+  list: { overflow: 'hidden' },
+  rows: { marginBottom: -2 },
+  row: { minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: 16, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: colors.cardBorder },
   control: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   state: { color: colors.textMuted, fontSize: 13, lineHeight: 20, minWidth: 36, textAlign: 'right' },
   copy: { flex: 1, minWidth: 0, gap: 6 },
-  label: { color: colors.text, fontSize: 15, lineHeight: 22, fontWeight: '700' },
+  label: { color: colors.text, fontSize: 16, lineHeight: 22, fontWeight: '600' },
   note: { color: colors.textMuted, fontSize: 13, lineHeight: 20 },
   viewLink: { color: colors.primaryText, fontSize: 13, fontWeight: '600', textDecorationLine: 'underline' },
   viewPress: { alignSelf: 'flex-start' },

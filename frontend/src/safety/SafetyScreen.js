@@ -156,7 +156,7 @@ export default function SafetyScreen({ request, user, store, state, onClose, onW
   return <EditorModal visible transparent animationType="none" onRequestClose={back}>
     <SafeAreaView style={[s.backdrop, isPhone && s.phoneBackdrop]}>
       <View style={[s.panel, isPhone && s.phonePanel]}>
-        <View style={s.header}>
+        <View style={[s.header, isPhone && s.phoneHeader]}>
           <BackButton label="이전 화면" onPress={back} disabled={busy} />
           <Text accessibilityRole="header" style={s.title}>{title}</Text>
         </View>
