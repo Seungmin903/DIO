@@ -7,6 +7,8 @@ import StudioPresets, { GroupHead } from '../components/StudioPresets';
 import StudioSection from '../components/StudioSection';
 import StudioShelf from '../components/StudioShelf';
 import CoverEditModal from '../components/CoverEditModal';
+import PdfCoverPagePicker from '../components/PdfCoverPagePicker';
+import { MY_LIBRARY_LIMIT } from '../utils/myLibrary';
 import { PdfPageThumb } from '../components/PdfImport';
 import StudioTabs from '../components/StudioTabs';
 import StudioTool from '../components/StudioTool';
@@ -25,7 +27,7 @@ import { listStatus } from '../../handwriting/workflow';
 import { AI_FONT_LABEL, isAiHandwritingFont } from '../../handwriting/aiDisclosure';
 import { CUTOUT_ENTRANCE } from '../../shared/featureFlags';
 import { loadedFontFamily } from '../../editor/utils/text';
-import { useCustomDecor } from '../../editor/hooks/useCustomDecor';
+import { FOLDER_NAME_LIMIT, useCustomDecor } from '../../editor/hooks/useCustomDecor';
 import { stickerSplit } from '../../editor/services/stickerSplit';
 import StickerSplitModal from '../../editor/components/panels/StickerSplitModal';
 import StickerCutoutModal from '../../editor/components/panels/StickerCutoutModal';
@@ -34,6 +36,7 @@ import TapeView, { tapePreviewBox } from '../../editor/components/canvas/TapeVie
 import TapeCropper from '../../editor/components/panels/TapeCropper';
 import PhotoCropper from '../../editor/components/panels/PhotoCropper';
 import { COVER_PHOTO_RATIO, coverCropPhoto, coverPhotoWithAspect } from '../utils/coverPhotoCrop';
+import { Segmented } from '../components/FormControls';
 import { TAPE_SIZES } from '../../editor/constants';
 import ConfirmDialog from '../../editor/components/controls/ConfirmDialog';
 import DecorSaveNotice from '../../editor/components/panels/DecorSaveNotice';
@@ -90,8 +93,16 @@ export default function DecorationStudioScreen({ compact = false, registerBackHa
   const [coverCrop, setCoverCrop] = useState(null);
   // 내 표지 편집(지라 603): 견본을 누르면 새 다이어리 표지 탭과 같은 편집 화면을 열고, 꾸밈까지 저장한다
   const [coverEdit, setCoverEdit] = useState(null);
+  // PDF 로 표지 만들기에서 쪽 고르기(지라 601): { name, pages, limit, resolve }
+  const [coverPages, setCoverPages] = useState(null);
   // 화면 폭에 맞춰 격자 칸을 배치한다.
   const folderGrid = useFillGrid({ cell: 164, gap: 14, minColumns: 2 });
+  // 스티커 폴더 미리보기: 칸이 화면 폭에 맞춰 늘어나도 좌우 안쪽 여백(14)이 같게, 64 이상으로 들어가는 만큼(2~4칸) 같은 크기로 채운다.
+  // 예전엔 64 두 칸 고정이라 늘어난 만큼 오른쪽만 비었다(사용자 지적 2026-11-07). 스티커가 칸보다 적으면 빈 칸을 옅은 면으로 둔다
+  const previewInner = folderGrid.cellWidth - FOLDER_PAD * 2 - 2;
+  const previewCount = Math.max(1, Math.floor((previewInner + PREVIEW_GAP) / (PREVIEW_MIN + PREVIEW_GAP)));
+  const previewSize = Math.max(16, Math.floor((previewInner - PREVIEW_GAP * (previewCount - 1)) / previewCount));
+  const previewBox = { width: previewSize, height: previewSize, flexBasis: previewSize, maxWidth: previewSize };
   const stickerGrid = useFillGrid({ cell: 88, gap: 12, minColumns: 3 });
   const tapeGrid = useFillGrid({ cell: 200, gap: 14, minColumns: 1 });
   const pageGrid = useFillGrid({ cell: compact ? 140 : 190, gap: 14, maxColumns: compact ? 2 : 4 });
@@ -263,7 +274,7 @@ export default function DecorationStudioScreen({ compact = false, registerBackHa
     {custom.saveError ? <DecorSaveNotice error={custom.saveError} pending={custom.savePending} onRetry={custom.retrySave} /> : null}
     {shelfError === 'sticker' && <Text accessibilityRole="alert" style={s.error}>사진을 불러오지 못했어요. 다시 시도해 주세요.</Text>}
     {folder && stickerRename != null && <View style={s.renameRow}>
-      <TextInput autoFocus selectTextOnFocus maxLength={30} value={stickerRename} onChangeText={setStickerRename} onSubmitEditing={commitStickerRename}
+      <TextInput autoFocus selectTextOnFocus maxLength={FOLDER_NAME_LIMIT} value={stickerRename} onChangeText={setStickerRename} onSubmitEditing={commitStickerRename}
         returnKeyType="done" accessibilityLabel="스티커 폴더 이름" style={s.renameInput} />
       <DioButton variant="ghost" label="스티커 폴더 이름 바꾸기 취소" text="취소" onPress={() => setStickerRename(null)} />
       <DioButton variant="filled" label="스티커 폴더 이름 저장" text="저장" disabled={!stickerRename.trim()} onPress={commitStickerRename} />
@@ -281,7 +292,9 @@ export default function DecorationStudioScreen({ compact = false, registerBackHa
       : <View style={s.folders} onLayout={folderGrid.onLayout}>
           {custom.items.folders.map(item => <Pressable key={item.id} accessibilityRole="button" accessibilityLabel={`${item.name} 스티커 폴더`}
             onPress={() => { setFolderId(item.id); setStickerRename(null); }} style={[s.folderTile, { width: folderGrid.cellWidth }]}>
-            <View style={s.folderPreviews}>{item.items.length ? item.items.slice(0, 2).map((sticker, index) => <View key={index} style={s.folderPreview}><StickerThumbImage item={sticker} style={s.folderThumb} /></View>)
+            <View style={s.folderPreviews}>{item.items.length ? Array.from({ length: previewCount }, (_, index) => item.items[index]
+                ? <View key={index} style={[s.folderPreview, previewBox]}><StickerThumbImage item={item.items[index]} style={{ width: previewSize - 8, height: previewSize - 8 }} /></View>
+                : <View key={index} style={[s.folderPreview, previewBox]} />)
               : <View style={s.folderPreview}><AppIcon name="folder" size={26} color={colors.primary} /></View>}</View>
             <View style={s.folderText}><Text numberOfLines={1} style={s.itemTitle}>{item.name}</Text><Text style={s.folderCount}>{item.items.length}개 스티커</Text></View>
           </Pressable>)}
@@ -291,20 +304,56 @@ export default function DecorationStudioScreen({ compact = false, registerBackHa
   // 표지 · 속지 만들기는 새 다이어리의 PDF 불러오기 · 표지 사진 고르기와 같은 길을 쓴다.
   // 표지는 PDF 첫 쪽(또는 사진)을 바탕으로 한 꾸밈 없는 표지, 속지는 PDF 쪽 전부. 이름은 PDF 파일 이름이고 선반에서 바꿀 수 있다.
   const saveFailed = kind => `${kind === 'paper' ? '속지' : '표지'}를 저장하지 못했어요. 다시 시도해 주세요.`;
+  // 내 표지가 가득 차면(30개) 새 표지를 만들지 않는다: 저장하면 가장 오래된 표지가 조용히 빠졌다
+  // PDF · 사진을 고르는 동안(await) 표지 수가 바뀌어도 저장 직전 기준으로 판단하게 최신 개수를 ref 로 읽는다
+  const coverCount = useRef(0);
+  coverCount.current = library.covers.length;
+  const coversFull = () => coverCount.current >= MY_LIBRARY_LIMIT;
+  const coversFullText = `내 표지는 ${MY_LIBRARY_LIMIT}개까지 담을 수 있어요. 지운 뒤 다시 만들어 주세요.`;
   const makeFromPdf = async kind => {
     if (making) return;
+    if (kind === 'cover' && coversFull()) { setMakeError({ kind: 'cover', text: coversFullText }); return; }
     setMaking(kind === 'paper' ? 'paper' : 'cover-pdf'); setMakeProgress(null); setMakeError(null);
     let result = null;
     try {
       result = await pickPdfPages({ onProgress: (done, total) => { if (alive.current) setMakeProgress({ done, total }); } });
       if (!result?.pages.length) return;
-      const first = result.pages[0], orientation = pdfOrientation(first.aspect);
-      const saved = kind === 'paper'
-        ? await library.addPaper({ name: result.name, orientation, pages: result.pages })
-        : await library.addCover({ name: result.name, orientation, cover: coverWithPdfPage(newDiaryCover(), first) });
-      if (!saved) { if (alive.current) setMakeError({ kind, text: saveFailed(kind) }); return; }
-      // 표지는 첫 쪽 그림만 쓰므로 나머지 쪽 그림과 원본 PDF 는 바로 지운다
-      if (kind === 'cover') discardPdfImport({ pages: result.pages.slice(1), sourceId: result.sourceId }).catch(() => {});
+      if (kind === 'paper') {
+        const saved = await library.addPaper({ name: result.name, orientation: pdfOrientation(result.pages[0].aspect), pages: result.pages });
+        if (!saved) { if (alive.current) setMakeError({ kind, text: saveFailed(kind) }); return; }
+        result = null;
+        return;
+      }
+      // 표지: 두 쪽 이상이면 쓸 쪽을 고르고(처음엔 첫 쪽), 고른 쪽마다 내 표지를 하나씩 만든다(지라 601).
+      // 보관함 상한을 넘겨 예전 표지가 밀려나지 않게, 남은 칸 수까지만 고른다
+      if (coversFull()) { if (alive.current) setMakeError({ kind, text: coversFullText }); return; }
+      const room = MY_LIBRARY_LIMIT - coverCount.current;
+      const picked = result.pages.length > 1
+        ? await new Promise(resolve => setCoverPages({ name: result.name, pages: result.pages, limit: Math.min(room, result.pages.length), resolve }))
+        : [0];
+      if (!picked?.length) return;
+      // 쪽을 고르는 사이 칸이 줄었으면 남은 칸만큼만 만든다
+      const chosen = picked.slice(0, Math.max(0, MY_LIBRARY_LIMIT - coverCount.current));
+      if (!chosen.length) { if (alive.current) setMakeError({ kind, text: coversFullText }); return; }
+      // 보관함은 새 표지를 맨 앞에 넣으므로, 뒤 쪽부터 넣어 선반에 쪽 순서대로 놓이게 한다
+      // 저장 중 오류가 나도 이미 저장한 표지의 쪽 그림은 지우지 않는다(아래에서 저장 안 된 쪽만 지운다)
+      const savedIndexes = new Set();
+      let failure = null;
+      for (const index of [...chosen].reverse()) {
+        const page = result.pages[index];
+        let saved = false;
+        try {
+          saved = await library.addCover({ name: chosen.length > 1 ? `${result.name} ${index + 1}쪽` : result.name,
+            orientation: pdfOrientation(page.aspect), cover: coverWithPdfPage(newDiaryCover(), page) });
+        } catch (error) { failure = error; }
+        if (!saved) break;
+        savedIndexes.add(index);
+      }
+      if (!savedIndexes.size) { if (failure) throw failure; if (alive.current) setMakeError({ kind, text: saveFailed(kind) }); return; }
+      // 일부만 저장되면 몇 개가 만들어졌는지 알린다(뒤 쪽부터 넣으므로 남는 것은 뒤 쪽 표지다)
+      if (savedIndexes.size < chosen.length && alive.current) setMakeError({ kind, text: `표지 ${chosen.length}개 중 ${savedIndexes.size}개만 만들었어요. 나머지 쪽은 PDF를 다시 골라 만들어 주세요.` });
+      // 표지는 고른 쪽 그림만 쓰므로 나머지 쪽 그림과 원본 PDF 는 바로 지운다
+      discardPdfImport({ pages: result.pages.filter((_, index) => !savedIndexes.has(index)), sourceId: result.sourceId }).catch(() => {});
       result = null;
     } catch (failure) {
       if (alive.current) setMakeError({ kind, text: failure instanceof PdfImportError ? failure.message : mediaFailureMessage(failure) });
@@ -315,6 +364,7 @@ export default function DecorationStudioScreen({ compact = false, registerBackHa
   };
   const makeCoverFromPhoto = async () => {
     if (making) return;
+    if (coversFull()) { setMakeError({ kind: 'cover', text: coversFullText }); return; }
     setMaking('cover-photo'); setMakeError(null);
     try {
       const [item] = await pickImages({ multiple: false, usage: 'photo' });
@@ -324,9 +374,12 @@ export default function DecorationStudioScreen({ compact = false, registerBackHa
       try { photo = coverPhotoWithAspect(item); }
       catch (error) { await discardGeneratedMedia([item]).catch(() => {}); throw error; }
       // 사진 넣기 흐름: 고르기 → 사진 방향의 표지 비율로 자르기 → 내 표지에 보인다. 자르기를 닫으면 만들지 않는다
-      const orientation = pdfOrientation(photo.aspect);
-      const crop = await new Promise(resolve => setCoverCrop({ photo, ratio: COVER_PHOTO_RATIO[orientation], resolve }));
-      if (!crop) { discardGeneratedMedia([item]).catch(() => {}); return; }
+      // 처음 방향은 사진 모양을 따르고, 자르기 창의 `세로 · 가로`로 같은 사진을 어느 방향으로든 자를 수 있다(지라 602)
+      const picked = await new Promise(resolve => setCoverCrop({ photo, orientation: pdfOrientation(photo.aspect), resolve }));
+      if (!picked) { discardGeneratedMedia([item]).catch(() => {}); return; }
+      const { crop, orientation } = picked;
+      // 자르는 사이 칸이 찼으면 만들지 않는다(예전 표지가 밀려나지 않게)
+      if (coversFull()) { discardGeneratedMedia([item]).catch(() => {}); if (alive.current) setMakeError({ kind: 'cover', text: coversFullText }); return; }
       // 이름은 편집기 사진과 같은 규칙: 파일 이름, 없으면(뜻 없는 이름 포함) 내 표지 안에서 '사진 n'
       const last = library.covers.reduce((max, cover) => Math.max(max, Number(cover.name.match(/^사진 (\d+)$/)?.[1] ?? 0)), 0);
       const base = coverWithPdfPage(newDiaryCover(), photo);
@@ -376,7 +429,7 @@ export default function DecorationStudioScreen({ compact = false, registerBackHa
     {custom.saveError ? <DecorSaveNotice error={custom.saveError} pending={custom.savePending} onRetry={custom.retrySave} /> : null}
     {shelfError === 'tape' && <Text accessibilityRole="alert" style={s.error}>사진을 불러오지 못했어요. 다시 시도해 주세요.</Text>}
     {tapeFolder && tapeRename != null && <View style={s.renameRow}>
-      <TextInput autoFocus selectTextOnFocus maxLength={30} value={tapeRename} onChangeText={setTapeRename} onSubmitEditing={commitTapeRename}
+      <TextInput autoFocus selectTextOnFocus maxLength={FOLDER_NAME_LIMIT} value={tapeRename} onChangeText={setTapeRename} onSubmitEditing={commitTapeRename}
         returnKeyType="done" accessibilityLabel="테이프 폴더 이름" style={s.renameInput} />
       <DioButton variant="ghost" label="폴더 이름 바꾸기 취소" text="취소" onPress={() => setTapeRename(null)} />
       <DioButton variant="filled" label="폴더 이름 저장" text="저장" disabled={!tapeRename.trim()} onPress={commitTapeRename} />
@@ -480,9 +533,20 @@ export default function DecorationStudioScreen({ compact = false, registerBackHa
         onPress: () => { closeAddMenu(); loginGate('사진 속 대상 오리기', () => setTool('cutout')); } }] : []),
       { id: 'folder', label: '새 폴더', text: '새 폴더', icon: 'folder', onPress: () => { closeAddMenu(); newStickerFolder(); } },
     ]} />}
+    {coverPages && <PdfCoverPagePicker name={coverPages.name} pages={coverPages.pages} limit={coverPages.limit} compact={compact}
+      onCancel={() => { coverPages.resolve(null); setCoverPages(null); }} onDone={indexes => { coverPages.resolve(indexes); setCoverPages(null); }} />}
     {coverEdit && <CoverEditModal key={coverEdit.id} item={coverEdit} compact={compact} onSave={cover => library.updateCover(coverEdit.id, cover)} onClose={() => setCoverEdit(null)} />}
-    {coverCrop && <PhotoCropper photo={coverCropPhoto(coverCrop.photo, coverCrop.ratio)} fixedAspect={coverCrop.ratio} title="표지 사진 자르기"
-      onCancel={() => { coverCrop.resolve(null); setCoverCrop(null); }} onApply={({ crop }) => { coverCrop.resolve(crop); setCoverCrop(null); }} />}
+    {/* bodyKey: 방향을 바꾸면 자르기 틀을 그 비율로 처음부터 다시 잡는다(창은 닫았다 열지 않는다) */}
+    {coverCrop && <PhotoCropper bodyKey={coverCrop.orientation} photo={coverCropPhoto(coverCrop.photo, COVER_PHOTO_RATIO[coverCrop.orientation])}
+      fixedAspect={COVER_PHOTO_RATIO[coverCrop.orientation]} title="표지 사진 자르기"
+      extra={<View style={s.cropRow}>
+        <Text style={s.cropLabel}>방향</Text>
+        <View style={s.cropControl}>
+          <Segmented items={[{ id: 'portrait', label: '세로' }, { id: 'landscape', label: '가로' }]} selected={id => id === coverCrop.orientation}
+            onPress={orientation => setCoverCrop(current => current && { ...current, orientation })} />
+        </View>
+      </View>}
+      onCancel={() => { coverCrop.resolve(null); setCoverCrop(null); }} onApply={({ crop }) => { coverCrop.resolve({ crop, orientation: coverCrop.orientation }); setCoverCrop(null); }} />}
     {pendingTape && <TapeCropper image={pendingTape.image} onCancel={() => { discardGeneratedMedia([pendingTape.image]).catch(() => {}); setPendingTape(null); }} onConfirm={({ crop, size, ratio }) => {
       const { src, mediaFileId, poster, name, width, height } = pendingTape.image;
       // 사진으로 만든 테이프는 고른 폴더(없으면 첫 폴더 · '내 테이프')에 담고 그 폴더를 연다
@@ -494,7 +558,13 @@ export default function DecorationStudioScreen({ compact = false, registerBackHa
   </View>;
 }
 
+// 스티커 폴더 칸 안쪽 여백 · 미리보기 사이 · 미리보기 최소 크기(folderTile · folderPreviews 와 같은 값)
+const FOLDER_PAD = 14, PREVIEW_GAP = 8, PREVIEW_MIN = 64;
 const s = StyleSheet.create({
+  // 표지 사진 자르기의 `방향` 줄: 새 다이어리 '방향'과 같은 세로 · 가로 선택(예전 테이프 두께 줄과 같은 자리 · 크기)
+  cropRow: { flexDirection: 'row', alignItems: 'center', gap: 14, marginTop: 14 },
+  cropLabel: { width: 64, fontSize: 12.5, fontWeight: '700', color: colors.textMuted },
+  cropControl: { flex: 1 },
   // 카드를 쌓지 않는 대신 화면 전체를 앱 바탕(surfaceSoft) 한 장으로 둔다. 옅은 면(surfaceMuted)의 탭 · 도구함이 그 위에서 보인다
   root: { flex: 1, backgroundColor: colors.surfaceSoft }, content: { flexGrow: 1, paddingBottom: 36 },
   // 폰은 하단 내비게이션 위에서 끝나게 104(코덱스 11번)

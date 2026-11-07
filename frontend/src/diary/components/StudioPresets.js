@@ -47,7 +47,7 @@ function Group({ group, compact, width }) {
     catch { setFailed(true) }
   }
   return <View style={[local.card,{width},compact&&local.cardCompact]}>
-    <GroupHead icon={TOOL_ICON[group.scope]} title={group.label} right={edited ? <DioButton variant="ghost" outline label={`${group.label} 기본 색으로`} text="기본 색으로" onPress={resetPalette} style={local.reset} /> : null} />
+    <GroupHead icon={TOOL_ICON[group.scope]} title={group.label} full={compact} right={edited ? <DioButton variant="ghost" outline label={`${group.label} 기본 색으로`} text="기본 색으로" onPress={resetPalette} style={local.reset} /> : null} />
     <EditablePalette scope={group.scope} label={group.label} />
     {failed && <Text accessibilityRole="alert" style={local.error}>팔레트를 저장하지 못했어요.</Text>}
   </View>
@@ -77,9 +77,10 @@ export function GroupGrid({ compact = false, children }) {
 
 /** 묶음 머리: 아이콘 22(28 칸) + 이름 17/800 (+ 오른쪽 동작), 그 아래 옅은 선 */
 // icon: 없으면 제목만(공방 '내 속지'). section: 한 단계 위 제목(18/800, 속지 탭의 '기본 속지 설정'과 같은 급). wide: 줄 전체 폭(오른쪽 동작을 줄 끝에 붙인다). count: 제목 옆 개수(공방 구역 제목의 개수와 같은 14/700 흐린 글자)
-export function GroupHead({ icon, title, right = null, line = true, wide = false, count = null, section = false }) {
+// full(폰): 머리줄 · 구분선을 칸 전체 폭으로 둔다. 폰은 한 줄에 한 묶음이라 318 고정이면 오른쪽에 빈 칸이 남았다(지라 594)
+export function GroupHead({ icon, title, right = null, line = true, wide = false, count = null, section = false, full = false }) {
   return <>
-    <View style={[local.head, wide && local.headWide]}>
+    <View style={[local.head, (wide || full) && local.headWide]}>
       {icon ? <View style={local.preview}><Icon name={icon} size={22} color={colors.text} /></View> : null}
       <Text accessibilityRole={section ? 'header' : undefined} style={[local.groupTitle, section && local.sectionTitle, count && local.groupTitleFit]}>{title}</Text>
       {count ? <Text style={local.groupCount}>{count}</Text> : null}
@@ -87,7 +88,7 @@ export function GroupHead({ icon, title, right = null, line = true, wide = false
       {/* 오른쪽 버튼은 줄 폭을 넘지 않는다(폰 좁은 폭에서 `PDF 불러오는 중 n/m` 같은 긴 글자가 제목을 밀지 않게) */}
       {right ? <View style={local.headRight}>{right}</View> : null}
     </View>
-    {line && <View style={local.line} />}
+    {line && <View style={[local.line, full && local.lineFull]} />}
   </>;
 }
 
@@ -102,7 +103,7 @@ const local = StyleSheet.create({
   grid: { flexDirection: 'row', flexWrap: 'wrap', rowGap: 24 }, // 묶음 사이는 선 없이 여백 24
   gridCompact: { flexDirection: 'column', rowGap: 24 },
   card: { gap: 8 },
-  cardCompact: { width: 'auto' },
+  cardCompact: { width: '100%' }, // 폰은 한 줄에 한 묶음: 칸을 전체 폭으로 잡아 머리줄 · 선 · 팔레트 편집이 오른쪽 끝까지 온다(지라 594)
   // 제목 줄은 아래 구분선(318)과 같은 폭: 오른쪽 '기본 색으로' 버튼 끝이 선 끝에 맞는다(칸이 넓어도 선 밖으로 나가지 않게)
   head: { width: 318, maxWidth: '100%', minHeight: 32, flexDirection: 'row', alignItems: 'center', gap: 10 },
   preview: { width: 28, height: 28, alignItems: 'center', justifyContent: 'center' },
@@ -118,6 +119,7 @@ const local = StyleSheet.create({
   // 이름과 색 사이의 옅은 선(사용자 지시로 다시 넣음). 길이는 색 7개의 첫 원 왼쪽 끝부터 마지막 원 오른쪽 끝까지:
   // 칸 7×36 + 사이 6×12 − 칸 안 여백 3×2 = 318. 좁은 화면에서는 칸 폭을 넘지 않는다
   line: { width: 318, maxWidth: '100%', height: 1, backgroundColor: colors.cardBorder },
+  lineFull: { width: '100%' },
   // 칸(36)이 원(30)보다 3씩 넓어, 첫 원의 왼쪽 끝이 제목 왼쪽 끝과 맞도록 줄을 3 당긴다
   row: { width: 324, maxWidth: '100%', flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', columnGap: 12, rowGap: 12, marginLeft: -3 },
   cell: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },

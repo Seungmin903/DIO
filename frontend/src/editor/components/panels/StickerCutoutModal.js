@@ -6,6 +6,7 @@ import EditorModal from '../controls/EditorModal'
 import ConfirmDialog from '../controls/ConfirmDialog'
 import StickerSplitSlider from './StickerSplitSlider'
 import PenSafeTextInput from '../controls/PenSafeTextInput'
+import { FOLDER_NAME_LIMIT } from '../../hooks/useCustomDecor'
 import DioButton from '../../../shared/DioButton'
 import { MakerBar, MakerEmpty, MakerHeader, MakerNav, MakerSegment, MakerSegmentItem, MakerStage, MakerSteps } from '../../../shared/MakerKit'
 import { colors, radius } from '../../../shared/theme'
@@ -198,7 +199,7 @@ export default function StickerCutoutModal({ folder, onClose, photoPicker = pick
   </> : <View style={s.toolSection}>
     <Text accessibilityRole="header" style={s.heading}>폴더 이름</Text>
     {folder ? <Text numberOfLines={1} style={s.folder}>{folder.name}</Text>
-      : <PenSafeTextInput value={name} editable={!busy && !saved} onChangeText={setName} maxLength={12} placeholder="폴더 이름" placeholderTextColor={colors.textMuted} accessibilityLabel="스티커 폴더 이름" style={s.input} />}
+      : <PenSafeTextInput value={name} editable={!busy && !saved} onChangeText={setName} maxLength={FOLDER_NAME_LIMIT} placeholder="폴더 이름" placeholderTextColor={colors.textMuted} accessibilityLabel="스티커 폴더 이름" style={s.input} />}
   </View>
   const status = (busy || !!error) ? <>
     {busy && <ActivityIndicator accessibilityLabel="스티커 미리보기 처리 중" color={colors.primaryStrong} />}

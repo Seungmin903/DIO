@@ -1,4 +1,5 @@
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useEffect } from 'react';
+import { AccessibilityInfo, ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { colors as C, radius, DISABLED_OPACITY } from '../shared/theme';
 import { notificationCountLabel } from './notificationCount.js';
 import { canOpenInvitation } from './invitationAccess.js';
@@ -12,9 +13,10 @@ import Cover from '../diary/components/Cover';
 import { FALLBACK_COVER_COLOR } from '../diary/constants';
 import { sharingStyles as shared } from '../sharing/styles';
 
-export function NotificationButton({ label, text = label, icon, iconLeading = false, quiet = false, onPress, disabled = false, selected }) {
+// trailing: 줄 오른쪽 끝 버튼. 터치 영역은 그대로 두고 보이는 글자 · 아이콘 끝을 본문 오른쪽 여백(24)에 맞춘다(지라 609: 오른쪽 여백이 왼쪽의 2배로 보였다)
+export function NotificationButton({ label, text = label, icon, iconLeading = false, quiet = false, trailing = false, onPress, disabled = false, selected, style }) {
   return <Pressable accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ disabled, ...(selected === undefined ? {} : { selected }) }}
-    disabled={disabled} onPress={onPress} style={({ pressed }) => [s.button, quiet && s.quiet, iconLeading && s.leadingButton, selected && s.selected, (disabled || pressed) && { opacity: disabled ? DISABLED_OPACITY : 0.6 }]}>
+    disabled={disabled} onPress={onPress} style={({ pressed }) => [s.button, quiet && s.quiet, iconLeading && s.leadingButton, trailing && (text === null ? s.trailingIcon : s.trailingText), style, selected && s.selected, (disabled || pressed) && { opacity: disabled ? DISABLED_OPACITY : 0.6 }]}>
     {iconLeading && icon && <View accessible={false} aria-hidden importantForAccessibility="no-hide-descendants"><AppIcon name={icon} size={18} /></View>}
     {text !== null && <Text style={s.buttonText}>{text}</Text>}
     {!iconLeading && icon && <View accessible={false} aria-hidden importantForAccessibility="no-hide-descendants"><AppIcon name={icon} size={18} /></View>}
@@ -32,9 +34,11 @@ export function NotificationEntry({ count, onPress, label = '알림' }) {
     {count.status === 'error' && <Text style={s.text}>알림 수 확인 필요</Text>}
   </View>;
 }
-function QueryNotice({ state, retry, label, refreshList }) {
+// quietLoading: 불러오는 중 줄을 띄우지 않는다(알림 수 · 목록). 줄이 생겼다 사라지며 아래 목록이 튀었다(사용자 지적 2026-11-07). 오류는 그대로 보인다
+function QueryNotice({ state, retry, label, refreshList, quietLoading = false }) {
   const notice = notificationErrorNotice(state.error, label === '초대 상세' ? '초대' : '알림');
   if (state.status === 'success') return null;
+  if (quietLoading && state.status !== 'error') return null;
   return <View>
     {(state.status === 'idle' || state.status === 'loading') && <View accessible accessibilityRole="progressbar" accessibilityLabel={`${label} 불러오는 중이에요.`} aria-label={`${label} 불러오는 중이에요.`} accessibilityState={{ busy: true }} aria-busy={true} accessibilityLiveRegion="polite" aria-live="polite" style={s.row}>
       <View aria-hidden={true} accessibilityElementsHidden importantForAccessibility="no-hide-descendants"><ActivityIndicator accessible={false} color={C.primary} /></View><Text style={s.text}>{label} 불러오는 중이에요.</Text>
@@ -51,11 +55,19 @@ function QueryNotice({ state, retry, label, refreshList }) {
 export const invitationStatusLabel = status => ({ PENDING: '응답 대기', EXPIRED: '만료된 초대', REVOKED: '취소된 초대', ACCEPTED: '이미 수락한 초대', DECLINED: '거절한 초대', EXHAUSTED: '사용 횟수가 끝난 초대', UNAVAILABLE: '사용할 수 없는 초대' }[status] || '사용할 수 없는 초대');
 
 // 서버·목이 같은 목록과 접근성 동작을 사용한다. 상태/동작은 hook에서 전달한다.
+// 화면에는 아무것도 그리지 않고 문장이 바뀔 때 화면 읽기 프로그램에만 읽어 준다
+function Announce({ text }) {
+  useEffect(() => { if (text) AccessibilityInfo.announceForAccessibility?.(text); }, [text]);
+  return null;
+}
+
 export default function NotificationPanel({ model, onInvitationReady }) {
   const { store, list, count, items, mutation, invitation, more, nextCursor } = model;
   const accessBlocked = [list, count].some(query => query.status === 'error' && [401, 403].includes(query.error?.status));
   const checkingInvitation = invitation.status === 'loading';
   const locked = mutation.status === 'saving' || mutation.canRetry || accessBlocked || checkingInvitation;
+  // 처리 중 · 초대 확인 중은 화면에 줄을 끼우지 않고(튀지 않게) 화면 읽기 프로그램에만 읽어 준다(아래 Announce)
+  const working = mutation.status === 'saving' ? '알림을 처리하고 있어요.' : checkingInvitation ? '초대를 확인하고 있어요.' : null;
   const mutationNotice = notificationErrorNotice(mutation.error);
   const detail = invitation.data;
   // 참여 가능한 초대는 기존 공유 화면으로 이동하고, 나머지 상세는 목록을 대체한다.
@@ -84,25 +96,28 @@ export default function NotificationPanel({ model, onInvitationReady }) {
       {!canOpenInvitation(detail) && <View style={s.detailNotice}><Text style={s.text}>이 초대로는 참여할 수 없어요.</Text><NotificationButton label="초대 상태 다시 확인" text="다시 확인" onPress={store.retryInvitation} /></View>}
     </>}
   </ScrollView>;
-  return <ScrollView testID="notification-panel" style={s.scroller} contentContainerStyle={s.content} accessibilityState={{ busy: list.status === 'loading' }} aria-busy={list.status === 'loading'}>
+  return <ScrollView testID="notification-panel" style={s.scroller} contentContainerStyle={s.content} accessibilityState={{ busy: list.status === 'loading' || mutation.status === 'saving' || checkingInvitation }} aria-busy={list.status === 'loading' || mutation.status === 'saving' || checkingInvitation}>
     <View style={s.toolbar}>
       <Text style={s.muted}>{notificationCountLabel(count.data).value === null ? '받은 알림' : `${notificationCountLabel(count.data).label} ${notificationCountLabel(count.data).value}개`}</Text>
-      <View style={s.row}>
-        <NotificationButton label="알림 새로고침" text={null} icon="reset" quiet onPress={store.refresh} disabled={mutation.status === 'saving'} />
-        {model.canReadAll && <NotificationButton label="모두 읽음" quiet onPress={store.readAll} disabled={locked || list.status !== 'success' || !items.length} />}
+      {/* 새로고침 · 모두 읽음은 오른쪽 한 묶음: 겹치는 터치 영역 없이 보이는 사이만 좁힌다(아이콘 칸 여백 13만 남는다) */}
+      <View style={s.toolActions}>
+        <NotificationButton label="알림 새로고침" text={null} icon="reset" quiet trailing={!model.canReadAll} onPress={store.refresh} disabled={mutation.status === 'saving'} />
+        {model.canReadAll && <NotificationButton label="모두 읽음" quiet trailing style={s.snug} onPress={store.readAll} disabled={locked || list.status !== 'success' || !items.length} />}
       </View>
     </View>
     {!(count.status === 'error' && list.status === 'error' && count.error?.status === 401 && list.error?.status === 401) &&
-      <QueryNotice state={count} retry={store.refreshCount} label="알림 수" refreshList={store.refreshNotifications} />}
-    <QueryNotice state={list} retry={store.refreshList} label="알림 목록" refreshList={store.refreshNotifications} />
-    {checkingInvitation && <Text accessibilityLiveRegion="polite" style={s.muted}>초대를 확인하고 있어요.</Text>}
-    {mutation.status === 'saving' && <Text accessibilityLiveRegion="polite" aria-live="polite" style={s.text}>알림을 처리하고 있어요.</Text>}
+      <QueryNotice state={count} retry={store.refreshCount} label="알림 수" refreshList={store.refreshNotifications} quietLoading />}
+    <QueryNotice state={list} retry={store.refreshList} label="알림 목록" refreshList={store.refreshNotifications} quietLoading />
+    {/* 처리 중 · 초대 확인 중에는 줄을 끼워 넣지 않는다(버튼이 잠겨 알 수 있다). 화면 읽기 프로그램에는 working 을 읽어 준다 */}
+    <Announce text={working} />
     {mutation.status === 'error' && <View style={s.card}>
       <Text accessibilityRole="alert" accessibilityLiveRegion="polite" aria-live="polite" style={s.text}>{mutationNotice.message}</Text>
       <AuthenticationRecovery error={mutation.error} />
       {mutation.canRetry ? <NotificationButton label="알림 처리 다시 시도" onPress={store.retryMutation} /> : <NotificationButton label="처리 안내 닫기" onPress={store.dismissMutation} />}
       {mutationNotice.refreshList && <NotificationButton label="처리 오류 후 목록 새로고침" onPress={store.refreshNotifications} />}
     </View>}
+    {/* 처음 불러오는 동안은 빈 화면과 같은 자리 가운데에 스피너만 둔다(다시 받을 때는 지금 목록을 그대로 둔다) */}
+    {(list.status === 'idle' || list.status === 'loading') && items.length === 0 && <View style={s.empty} accessible accessibilityRole="progressbar" accessibilityLabel="알림 목록 불러오는 중이에요." accessibilityState={{ busy: true }}><ActivityIndicator accessible={false} color={C.primary} /></View>}
     {list.status === 'success' && items.length === 0 && <View style={s.empty}><AppIcon name="bell" size={32} color={C.primary} /><Text testID="notification-empty" accessible accessibilityLiveRegion="polite" aria-live="polite" style={s.muted}>받은 알림이 없어요</Text></View>}
     {items.map(row => { const presentation = notificationPresentation(row);
       const pending = row.status === 'PENDING', joined = row.status === 'ACCEPTED';
@@ -124,7 +139,7 @@ export default function NotificationPanel({ model, onInvitationReady }) {
           <View style={s.actions}>
             {presentation.canInspectInvitation ? <NotificationButton label={`초대 확인 ${row.id}`} text="초대 확인" icon="chevron-right" quiet disabled={locked} onPress={() => inspect(row)} />
               : !row.readAt && <NotificationButton label={`알림 읽음 ${row.id}`} text="읽음으로 표시" quiet disabled={locked} onPress={() => store.open(row)} />}
-            <NotificationButton label={`알림 삭제 ${row.id}`} text={null} icon="close" quiet disabled={locked} onPress={() => store.remove(row.id)} />
+            <NotificationButton label={`알림 삭제 ${row.id}`} text={null} icon="close" quiet trailing disabled={locked} onPress={() => store.remove(row.id)} />
           </View>
         </View>
       </View>; })}
@@ -152,6 +167,10 @@ const s = StyleSheet.create({
   button: { minHeight: 48, minWidth: 44, maxWidth: '100%', flexShrink: 1, flexDirection: 'row', alignItems: 'center', gap: 6, justifyContent: 'center', paddingHorizontal: 12, borderRadius: radius.md, backgroundColor: C.surfaceMuted },
   quiet: { backgroundColor: 'transparent' },
   leadingButton: { alignSelf: 'flex-start', paddingLeft: 0 },
+  toolActions: { flexDirection: 'row', alignItems: 'center', marginLeft: 'auto' },
+  snug: { paddingLeft: 0 }, // 왼쪽 여백만 뺀다: 새로고침 칸(44)과 겹치지 않고, 이 버튼도 글자 + 오른쪽 12로 터치 폭 44 이상
+  trailingText: { marginRight: -12 }, // 안쪽 여백 12만큼
+  trailingIcon: { marginRight: -13 }, // 칸 44 안의 아이콘 18: (44 − 18) / 2
   buttonText: { color: C.text, fontSize: 13, fontWeight: '700' },
   selected: { borderWidth: 2, borderColor: C.primary },
   text: { color: C.text, fontSize: 12.5, lineHeight: 19, fontWeight: '600' }, title: { color: C.text, fontSize: 16, fontWeight: '700' },

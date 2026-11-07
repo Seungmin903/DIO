@@ -26,9 +26,10 @@ function usePageUri(page) {
 }
 
 /** PDF 한 쪽(미디어 보관함 그림) 미리보기. 비율은 지키고 남는 곳은 흰 종이. */
-export function PdfPageThumb({ page, width, ratio = pdfPageAspect(page), maxHeight = Infinity, style }) {
+// raster: false 면 불러올 때 저장한 쪽 그림만 쓴다(여러 쪽을 한꺼번에 보이는 목록에서 쪽마다 고해상도로 다시 그리지 않게)
+export function PdfPageThumb({ page, width, ratio = pdfPageAspect(page), maxHeight = Infinity, style, raster: sharp = true }) {
   const stored = usePageUri(page)
-  const raster = usePdfPageRaster(page?.pdfSource)
+  const raster = usePdfPageRaster(sharp ? page?.pdfSource : null)
   const uri = raster.pending ? null : raster.uri ?? stored
   const height = Math.min(width / ratio, maxHeight)
   return <View pointerEvents="none" style={[styles.thumb, { width, height }, style]}>
