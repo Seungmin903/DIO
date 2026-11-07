@@ -37,6 +37,7 @@ function harness(path, dependencies = {}) {
     if (id.endsWith('/stickerSplitGroups.js')) return groups
     if (id.endsWith('/stickerInitialGrouping.js')) return { initialStickerGrouping }
     if (id.endsWith('/stickerSplitCrop.js')) return cropUtils
+    if (id.endsWith('/hooks/useCustomDecor')) return { FOLDER_NAME_LIMIT: 12 } // 폴더 이름 입력칸 한도만 쓴다
     throw new Error(`unexpected dependency ${id}`)
   }, m, m.exports, fn => { timers.set(++timerId, fn); return timerId }, id => timers.delete(id), true)
   return {

@@ -338,7 +338,8 @@ export default function DecorationStudioScreen({ compact = false, registerBackHa
         savedIndexes.add(index);
       }
       if (!savedIndexes.size) { if (alive.current) setMakeError({ kind, text: saveFailed(kind) }); return; }
-      if (savedIndexes.size < chosen.length && alive.current) setMakeError({ kind, text: saveFailed(kind) });
+      // 일부만 저장되면 몇 개가 만들어졌는지 알린다(뒤 쪽부터 넣으므로 남는 것은 뒤 쪽 표지다)
+      if (savedIndexes.size < chosen.length && alive.current) setMakeError({ kind, text: `표지 ${chosen.length}개 중 ${savedIndexes.size}개만 만들었어요. 나머지 쪽은 PDF를 다시 골라 만들어 주세요.` });
       // 표지는 고른 쪽 그림만 쓰므로 나머지 쪽 그림과 원본 PDF 는 바로 지운다
       discardPdfImport({ pages: result.pages.filter((_, index) => !savedIndexes.has(index)), sourceId: result.sourceId }).catch(() => {});
       result = null;

@@ -3,7 +3,7 @@ import { createContext, useContext, useRef, useState } from 'react'
 import { Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
 import { colors, radius, shadow, DISABLED_OPACITY } from '../../../shared/theme'
 import { PHOTO_FRAME_ASSETS, PHOTO_FRAME_GROUPS, TAPE_DEFAULT, TAPE_PATTERN_NAMES, TAPE_SIZES } from '../../constants'
-import { RECENT_LIMIT, stickerKey, tapeKey, useCustomDecor, widgetKey } from '../../hooks/useCustomDecor'
+import { FOLDER_NAME_LIMIT, RECENT_LIMIT, stickerKey, tapeKey, useCustomDecor, widgetKey } from '../../hooks/useCustomDecor'
 import { useTapePreferences } from '../../hooks/useTapePreferences'
 import { stickerLibrary } from '../../stickerLibrary'
 import { tapeLibrary } from '../../tapeLibrary'
@@ -327,7 +327,7 @@ export default function DecorDrawer({ tab, onAdd, onTapeInserted, onToast, onClo
                 value={folderDraft.name}
                 onChangeText={(name) => setFolderDraft({ ...folderDraft, name })}
                 autoFocus
-                maxLength={12}
+                maxLength={FOLDER_NAME_LIMIT}
                 placeholder="폴더 이름"
                 placeholderTextColor={colors.textMuted}
                 onSubmitEditing={() => canCommitFolder && commitFolder()}
@@ -828,7 +828,7 @@ function FolderView({
             value={renaming ?? folder.name}
             onChangeText={onRenameChange}
             selectTextOnFocus
-            maxLength={12}
+            maxLength={FOLDER_NAME_LIMIT}
             onSubmitEditing={onRenameCommit}
             onBlur={onRenameCommit}
             style={styles.renameInput}

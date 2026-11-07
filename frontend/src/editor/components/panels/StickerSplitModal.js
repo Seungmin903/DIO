@@ -11,6 +11,7 @@ import StickerGroupThumbnail from './StickerGroupThumbnail'
 import useStickerSplitEditing from '../../hooks/useStickerSplitEditing'
 import { brushSelection, materializeGroups, excludeStickerGroup, splitBrushTargets } from '../../utils/stickerSplitGroups.js'
 import PenSafeTextInput from '../controls/PenSafeTextInput'
+import { FOLDER_NAME_LIMIT } from '../../hooks/useCustomDecor'
 import { MakerBar, MakerHeader } from '../../../shared/MakerKit'
 import { colors, radius, DISABLED_OPACITY } from '../../../shared/theme'
 import { stickerSplit } from '../../services/stickerSplit'
@@ -277,7 +278,7 @@ export default function StickerSplitModal({ folder, initialName = '', onSave, on
     </View>}
     {!!parts.length && !mustAnalyze && !manualMerge && (folder
       ? <Text style={s.body}>{folder.name}</Text>
-      : <PenSafeTextInput value={name} editable={!working} onChangeText={setName} maxLength={12} placeholder="폴더 이름" placeholderTextColor={colors.text} accessibilityLabel="스티커 폴더 이름" style={s.input} />)}
+      : <PenSafeTextInput value={name} editable={!working} onChangeText={setName} maxLength={FOLDER_NAME_LIMIT} placeholder="폴더 이름" placeholderTextColor={colors.text} accessibilityLabel="스티커 폴더 이름" style={s.input} />)}
     {dirty && !!parts.length && <Text accessibilityLiveRegion="polite" style={s.body}>영역·배경 변경됨 · 다시 분리 필요</Text>}
     </View>}
     {/* 하단 줄(MakerBar): 왼쪽 상태, 오른쪽 끝 주 버튼 하나 */}

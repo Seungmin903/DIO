@@ -12,6 +12,10 @@ test('602: 표지 사진 자르기에 세로 · 가로를 두고, 바꾸면 그 
   assert.match(studio, /items=\{\[\{ id: 'portrait', label: '세로' \}, \{ id: 'landscape', label: '가로' \}\]\}/)
   assert.match(studio, /coverCrop\.resolve\(\{ crop, orientation: coverCrop\.orientation \}\)/)
   assert.match(studio, /const \{ crop, orientation \} = picked;/)
+  // PhotoCropper 는 bodyKey 가 바뀌면 자르기 상태를 새로 시작하고(재마운트), extra 를 아래 조절 줄에 그린다
+  const cropper = read('../src/editor/components/panels/PhotoCropper.js')
+  assert.match(cropper, /<PhotoCropperBody key=\{bodyKey\} \{\.\.\.props\} \/>/)
+  assert.match(cropper, /\{extra\}/)
 })
 
 test('601: PDF 표지는 두 쪽 이상이면 쪽을 고르고, 고른 쪽마다 표지를 하나씩 · 남은 칸 수까지만 · 쪽 순서대로 만든다', () => {
@@ -22,6 +26,7 @@ test('601: PDF 표지는 두 쪽 이상이면 쪽을 고르고, 고른 쪽마다
   assert.match(studio, /result\.pages\.length > 1\s*\? await new Promise\(resolve => setCoverPages\(/)
   assert.match(studio, /for \(const index of \[\.\.\.chosen\]\.reverse\(\)\)/)
   assert.match(studio, /pages: result\.pages\.filter\(\(_, index\) => !savedIndexes\.has\(index\)\)/)
+  assert.match(studio, /표지 \$\{chosen\.length\}개 중 \$\{savedIndexes\.size\}개만 만들었어요\./)
   const picker = read('../src/diary/components/PdfCoverPagePicker.js')
   assert.match(picker, /useState\(\(\) => new Set\(\[0\]\)\)/)
   assert.match(picker, /else if \(next\.size < limit\) next\.add\(index\)/)
@@ -64,6 +69,12 @@ test('폴더 이름은 12자: 공방 입력칸과 저장 함수가 같은 한도
   assert.match(decor, /const cleanName = folderName\(name\)/)
   assert.match(decor, /Array\.from\(String\(name \?\? ''\)\.trim\(\)\)\.slice\(0, FOLDER_NAME_LIMIT\)\.join\(''\)/)
   assert.equal((studio.match(/maxLength=\{FOLDER_NAME_LIMIT\}/g) || []).length, 2)
+  // 편집기 보관함 · 시트 분리 · 오리기 입력칸도 같은 한도
+  for (const [path, count] of [['DecorDrawer', 2], ['StickerSplitModal', 1], ['StickerCutoutModal', 1]]) {
+    const source = read(`../src/editor/components/panels/${path}.js`)
+    assert.equal((source.match(/maxLength=\{FOLDER_NAME_LIMIT\}/g) || []).length, count, path)
+    assert.doesNotMatch(source, /maxLength=\{12\}/, path)
+  }
 })
 
 test('스티커 폴더 미리보기는 늘어난 칸을 같은 크기 칸으로 채워 좌우 안쪽 여백을 같게 둔다', () => {
