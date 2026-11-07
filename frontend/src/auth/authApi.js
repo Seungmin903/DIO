@@ -12,12 +12,19 @@ export function authBaseUrl(value) {
 // Access tokens and development-server Basic credentials stay in memory.
 // Only the injected native secure store persists refresh credentials.
 // Never save passwords or tokens in AsyncStorage.
-export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhotoBody, googleSignIn, appleSignIn, now = Date.now, accessTokenHeader = 'Authorization', allowDevelopmentAccess = false, developmentAccessStore = null, sessionStore = null }) {
+export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhotoBody, googleSignIn, appleSignIn, now = Date.now, accessTokenHeader = 'Authorization', allowDevelopmentAccess = false, developmentAccessStore = null, presetDevelopmentAccess = null, sessionStore = null }) {
   if (!['Authorization', 'X-DIO-Access-Token'].includes(accessTokenHeader)) throw new Error('인증 헤더 설정을 확인해 주세요.');
   const base = authBaseUrl(baseUrl);
   const accessOrigin = new URL(base).origin;
   const accessStore = allowDevelopmentAccess && new URL(base).protocol === 'https:' ? developmentAccessStore : null;
-  let developmentAccess = null;
+  // 개발 실행에서 .env로 받은 개발 서버 접속 정보. iOS 개발 빌드는 Basic 401 응답이 앱까지 오지 않고
+  // 요청이 멈춰 입력 화면이 뜰 수 없으므로, 처음부터 붙이고 로그아웃으로 지워져도 다음 요청 전에 다시 넣는다.
+  let presetAccess = null;
+  if (allowDevelopmentAccess && presetDevelopmentAccess?.username && presetDevelopmentAccess?.password) {
+    try { presetAccess = developmentAuthorization(base, presetDevelopmentAccess.username, presetDevelopmentAccess.password); }
+    catch (error) { console.warn('[auth] DEVELOPMENT_ACCESS_PRESET_IGNORED', error.message); }
+  }
+  let developmentAccess = presetAccess;
   let restoringAccess = accessStore ? Promise.resolve().then(() => accessStore.load(accessOrigin))
     .then(value => { if (!developmentAccess && value) developmentAccess = value; })
     .catch(() => {}).finally(() => { restoringAccess = null; }) : null;
@@ -139,6 +146,7 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
     const timer = setTimeout(() => controller.abort(), timeoutMs);
     try {
       if (restoringAccess) await restoringAccess;
+      if (!developmentAccess && presetAccess) developmentAccess = presetAccess;
       const sentAccess = developmentAccess;
       const response = await fetchImpl(`${base}/${memberPath ? path : `auth/${path}`}`, {
         method, signal: controller.signal,
