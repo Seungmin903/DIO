@@ -87,21 +87,18 @@ export function createMemberAppStore({ accountId, api, storage, makeRequestId, s
   // 목록을 받을 때 내 다이어리 중 서버에 표지가 없고 이 기기에만 있는 것을 하나씩 뒤에서 올린다(세션마다 다이어리당 한 번).
   // 올리지 못하면 표시를 지워 다음 목록 갱신 때 다시 해 본다(다이어리당 세션에서 3번까지). 뒤에서 하는 일이라 실패 안내는 띄우지 않는다.
   // 409(다른 기기가 먼저 고침)는 최신본을 받고 멈춘다: 다음에 주인이 그 다이어리를 열 때 다시 올린다.
-  // merged 는 serverItems 를 같은 순서로 map 한 것이라 인덱스가 같은 다이어리다.
-  const coverSyncTried = new Set(), coverSyncFails = new Map(), coverSyncQuiet = new Set()
+  const coverSyncTried = new Set(), coverSyncFails = new Map()
   let coverSync = Promise.resolve()
   const syncLocalCovers = (serverItems, merged) => {
-    serverItems.forEach((item, index) => {
-      if (item.cover || item.myRole !== 'OWNER' || !merged[index]?.cover || coverSyncTried.has(item.id) || (coverSyncFails.get(item.id) ?? 0) >= 3) return
+    const local = new Map(merged.map(row => [row.id, row]))
+    for (const item of serverItems) {
+      if (item.cover || item.myRole !== 'OWNER' || !local.get(item.id)?.cover || coverSyncTried.has(item.id) || (coverSyncFails.get(item.id) ?? 0) >= 3) continue
       coverSyncTried.add(item.id)
-      coverSync = coverSync.then(async () => {
-        if (disposed) return
-        coverSyncQuiet.add(item.id)
-        try { await refreshDiary(item.id) } finally { coverSyncQuiet.delete(item.id) }
-      }).catch(() => { coverSyncFails.set(item.id, (coverSyncFails.get(item.id) ?? 0) + 1); coverSyncTried.delete(item.id) })
-    })
+      coverSync = coverSync.then(() => (disposed ? null : refreshDiary(item.id, false, { quiet: true })))
+        .catch(() => { coverSyncFails.set(item.id, (coverSyncFails.get(item.id) ?? 0) + 1); coverSyncTried.delete(item.id) })
+    }
   }
-  const refreshDiary = async (id, allowUnlisted = false) => {
+  const refreshDiary = async (id, allowUnlisted = false, { quiet = false } = {}) => {
     active()
     const detailRequest = { version: version(id), sequence: (detailRequests.get(id) ?? 0) + 1 }
     detailRequests.set(id, detailRequest.sequence)
@@ -114,7 +111,7 @@ export function createMemberAppStore({ accountId, api, storage, makeRequestId, s
       catch(error) {
         active()
         if(error.status===409) { result=await api.get(id);active() }
-        else if(coverSyncQuiet.has(id)) throw error
+        else if(quiet) throw error
         else emit({metadataError:failure('COVER_SYNC_FAILED','이 기기의 표지를 공유하지 못했어요. 표지를 다시 저장해 주세요.')})
       }
     }
@@ -352,6 +349,8 @@ export function createMemberAppStore({ accountId, api, storage, makeRequestId, s
       })()
       libraryRequest = { key, sequence, revision: startRevision, promise }; return promise
     },
+    // 테스트용: 뒤에서 올리는 표지 동기화가 끝날 때까지 기다린다
+    settleCoverSync() { return coverSync },
     loadMoreLibrary() { return this.queryLibrary(state.library.criteria, { more: true }) },
     retryLibrary() { return this.queryLibrary(state.library.criteria, { force: true, more: libraryRetryMore }) },
     bulkTrash(ids) {
