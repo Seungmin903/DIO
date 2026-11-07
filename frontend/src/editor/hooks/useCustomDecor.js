@@ -13,6 +13,9 @@ const EMPTY = { recentPhotos: [], widgetFavorites: [], recentWidgets: [], sticke
 export const DEFAULT_TAPE_FOLDER = '내 테이프'
 // 최근은 스티커 · 위젯 · 테이프 모두 12개까지(보관함 기본 폭 4칸 × 3줄). 새로 쓴 것이 맨 앞, 13번째로 밀리면 사라진다
 export const RECENT_LIMIT = 12
+// 스티커 · 테이프 폴더 이름 글자 수(닉네임과 같은 12자, 사용자 결정 2026-11-07). 편집기 보관함 · 공방 입력칸이 함께 쓴다. 이미 저장된 더 긴 이름은 고칠 때까지 그대로 둔다
+export const FOLDER_NAME_LIMIT = 12
+const folderName = (name) => String(name ?? '').trim().slice(0, FOLDER_NAME_LIMIT)
 
 // 한 번 읽은 목록은 메모리에 두고 보관함을 다시 열 때 바로 쓴다 (열 때마다 빈 목록 → 저장소 읽기로 화면이 바뀌지 않게)
 let cached = null
@@ -151,11 +154,11 @@ export function useCustomDecor() {
   // 스티커 폴더
   const addFolder = useCallback((name) => {
     const id = createId()
-    setItems((prev) => ({ ...prev, folders: [...prev.folders, { id, name, items: [] }] }))
+    setItems((prev) => ({ ...prev, folders: [...prev.folders, { id, name: folderName(name), items: [] }] }))
     return id
   }, [])
   const renameFolder = useCallback((id, name) => {
-    setItems((prev) => ({ ...prev, folders: prev.folders.map((f) => (f.id === id ? { ...f, name } : f)) }))
+    setItems((prev) => ({ ...prev, folders: prev.folders.map((f) => (f.id === id ? { ...f, name: folderName(name) } : f)) }))
   }, [])
   const removeFolder = useCallback((id) => {
     setItems((prev) => ({ ...prev, folders: prev.folders.filter((f) => f.id !== id) }))
@@ -177,7 +180,7 @@ export function useCustomDecor() {
   const saveGenerated = useCallback(async (folderId, name, stickers) => {
     if (!loaded) throw new Error('보관함을 읽은 뒤 다시 시도해 주세요.')
     const current = cached ?? items
-    const cleanName = name.trim()
+    const cleanName = folderName(name)
     if (!cleanName) throw new Error('폴더 이름을 입력해 주세요.')
     const id = folderId ?? createId()
     if (folderId && !current.folders.some(f => f.id === folderId)) throw new Error('폴더가 없어졌어요. 새 폴더로 다시 저장해 주세요.')
@@ -203,11 +206,11 @@ export function useCustomDecor() {
   // 테이프 폴더. 폴더 id 는 미리 만들어 돌려준다(만든 폴더를 바로 열 수 있게).
   const addTapeFolder = useCallback((name) => {
     const id = createId()
-    setItems((prev) => ({ ...prev, tapeFolders: [...prev.tapeFolders, { id, name, items: [] }] }))
+    setItems((prev) => ({ ...prev, tapeFolders: [...prev.tapeFolders, { id, name: folderName(name), items: [] }] }))
     return id
   }, [])
   const renameTapeFolder = useCallback((id, name) => {
-    setItems((prev) => ({ ...prev, tapeFolders: prev.tapeFolders.map((f) => (f.id === id ? { ...f, name } : f)) }))
+    setItems((prev) => ({ ...prev, tapeFolders: prev.tapeFolders.map((f) => (f.id === id ? { ...f, name: folderName(name) } : f)) }))
   }, [])
   const removeTapeFolder = useCallback((id) => {
     setItems((prev) => ({ ...prev, tapeFolders: prev.tapeFolders.filter((f) => f.id !== id) }))

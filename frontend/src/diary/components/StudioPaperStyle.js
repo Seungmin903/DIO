@@ -25,7 +25,7 @@ export default function StudioPaperStyle({ style, save, compact = false }) {
         <ColorGroup key="line" width={width} compact={compact} icon="penLine" title="선 · 글자" scope="paperLine" label="선과 글씨"
           value={style.layoutColor} onChange={layoutColor => change({ ...style, layoutColor })} />,
         <View key="font" style={groupStyle(width, compact)}>
-          <GroupHead icon="text" title="글꼴" />
+          <GroupHead icon="text" title="글꼴" full={compact} />
           <PaperFontDropdown value={style.font ?? DEFAULT_PAPER_FONT} onChange={font => change({ ...style, font: font === DEFAULT_PAPER_FONT ? undefined : font })} />
         </View>,
       ]}</GroupGrid>
@@ -37,7 +37,7 @@ export default function StudioPaperStyle({ style, save, compact = false }) {
 function ColorGroup({ width, compact, icon, title, scope, label, value, onChange }) {
   return (
     <View style={groupStyle(width, compact)}>
-      <GroupHead icon={icon} title={title} />
+      <GroupHead icon={icon} title={title} full={compact} />
       <EditablePalette scope={scope} label={label} value={value} onPick={onChange} />
     </View>
   )

@@ -9,8 +9,9 @@ import { colors } from '../../shared/theme';
 export default function StudioSection({ title, count = null, right = null, stacked = false, fill = false, children }) {
   return (
     <View style={[local.section, fill && local.fill]}>
-      <View style={local.head}>
-        <Text accessibilityRole="header" style={local.title}>{title}</Text>
+      {/* 제목이 길어도 오른쪽 버튼 자리가 바뀌지 않게 한 줄로 줄인다(지라 616). 아래로 내리는 stacked 만 줄바꿈 */}
+      <View style={[local.head, stacked && local.headStacked]}>
+        <Text accessibilityRole="header" numberOfLines={stacked ? undefined : 1} style={local.title}>{title}</Text>
         {count ? <Text style={local.count}>{count}</Text> : null}
         {right ? <View style={stacked ? local.stacked : local.right}>{right}</View> : null}
       </View>
@@ -22,9 +23,10 @@ export default function StudioSection({ title, count = null, right = null, stack
 const local = StyleSheet.create({
   section: { gap: 16 },
   fill: { flex: 1 },
-  head: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 10, minHeight: 48 },
+  head: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 48 },
+  headStacked: { flexWrap: 'wrap' },
   title: { flexShrink: 1, fontSize: 22, fontWeight: '800', letterSpacing: -0.4, color: colors.text },
   count: { fontSize: 14, fontWeight: '700', color: colors.textMuted },
-  right: { marginLeft: 'auto', flexDirection: 'row', alignItems: 'center', gap: 8 },
+  right: { marginLeft: 'auto', flexShrink: 0, flexDirection: 'row', alignItems: 'center', gap: 8 },
   stacked: { width: '100%', gap: 8 },
 });

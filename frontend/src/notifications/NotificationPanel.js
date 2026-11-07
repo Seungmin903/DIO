@@ -12,9 +12,10 @@ import Cover from '../diary/components/Cover';
 import { FALLBACK_COVER_COLOR } from '../diary/constants';
 import { sharingStyles as shared } from '../sharing/styles';
 
-export function NotificationButton({ label, text = label, icon, iconLeading = false, quiet = false, onPress, disabled = false, selected }) {
+// trailing: 줄 오른쪽 끝 버튼. 터치 영역은 그대로 두고 보이는 글자 · 아이콘 끝을 본문 오른쪽 여백(24)에 맞춘다(지라 609: 오른쪽 여백이 왼쪽의 2배로 보였다)
+export function NotificationButton({ label, text = label, icon, iconLeading = false, quiet = false, trailing = false, onPress, disabled = false, selected, style }) {
   return <Pressable accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ disabled, ...(selected === undefined ? {} : { selected }) }}
-    disabled={disabled} onPress={onPress} style={({ pressed }) => [s.button, quiet && s.quiet, iconLeading && s.leadingButton, selected && s.selected, (disabled || pressed) && { opacity: disabled ? DISABLED_OPACITY : 0.6 }]}>
+    disabled={disabled} onPress={onPress} style={({ pressed }) => [s.button, quiet && s.quiet, iconLeading && s.leadingButton, trailing && (text === null ? s.trailingIcon : s.trailingText), style, selected && s.selected, (disabled || pressed) && { opacity: disabled ? DISABLED_OPACITY : 0.6 }]}>
     {iconLeading && icon && <View accessible={false} aria-hidden importantForAccessibility="no-hide-descendants"><AppIcon name={icon} size={18} /></View>}
     {text !== null && <Text style={s.buttonText}>{text}</Text>}
     {!iconLeading && icon && <View accessible={false} aria-hidden importantForAccessibility="no-hide-descendants"><AppIcon name={icon} size={18} /></View>}
@@ -87,9 +88,10 @@ export default function NotificationPanel({ model, onInvitationReady }) {
   return <ScrollView testID="notification-panel" style={s.scroller} contentContainerStyle={s.content} accessibilityState={{ busy: list.status === 'loading' }} aria-busy={list.status === 'loading'}>
     <View style={s.toolbar}>
       <Text style={s.muted}>{notificationCountLabel(count.data).value === null ? '받은 알림' : `${notificationCountLabel(count.data).label} ${notificationCountLabel(count.data).value}개`}</Text>
-      <View style={s.row}>
-        <NotificationButton label="알림 새로고침" text={null} icon="reset" quiet onPress={store.refresh} disabled={mutation.status === 'saving'} />
-        {model.canReadAll && <NotificationButton label="모두 읽음" quiet onPress={store.readAll} disabled={locked || list.status !== 'success' || !items.length} />}
+      {/* 새로고침 · 모두 읽음은 오른쪽 한 묶음: 겹치는 터치 영역 없이 보이는 사이만 좁힌다(아이콘 칸 여백 13만 남는다) */}
+      <View style={s.toolActions}>
+        <NotificationButton label="알림 새로고침" text={null} icon="reset" quiet trailing={!model.canReadAll} onPress={store.refresh} disabled={mutation.status === 'saving'} />
+        {model.canReadAll && <NotificationButton label="모두 읽음" quiet trailing style={s.snug} onPress={store.readAll} disabled={locked || list.status !== 'success' || !items.length} />}
       </View>
     </View>
     {!(count.status === 'error' && list.status === 'error' && count.error?.status === 401 && list.error?.status === 401) &&
@@ -124,7 +126,7 @@ export default function NotificationPanel({ model, onInvitationReady }) {
           <View style={s.actions}>
             {presentation.canInspectInvitation ? <NotificationButton label={`초대 확인 ${row.id}`} text="초대 확인" icon="chevron-right" quiet disabled={locked} onPress={() => inspect(row)} />
               : !row.readAt && <NotificationButton label={`알림 읽음 ${row.id}`} text="읽음으로 표시" quiet disabled={locked} onPress={() => store.open(row)} />}
-            <NotificationButton label={`알림 삭제 ${row.id}`} text={null} icon="close" quiet disabled={locked} onPress={() => store.remove(row.id)} />
+            <NotificationButton label={`알림 삭제 ${row.id}`} text={null} icon="close" quiet trailing disabled={locked} onPress={() => store.remove(row.id)} />
           </View>
         </View>
       </View>; })}
@@ -152,6 +154,10 @@ const s = StyleSheet.create({
   button: { minHeight: 48, minWidth: 44, maxWidth: '100%', flexShrink: 1, flexDirection: 'row', alignItems: 'center', gap: 6, justifyContent: 'center', paddingHorizontal: 12, borderRadius: radius.md, backgroundColor: C.surfaceMuted },
   quiet: { backgroundColor: 'transparent' },
   leadingButton: { alignSelf: 'flex-start', paddingLeft: 0 },
+  toolActions: { flexDirection: 'row', alignItems: 'center', marginLeft: 'auto' },
+  snug: { paddingLeft: 0 }, // 왼쪽 여백만 뺀다: 새로고침 칸(44)과 겹치지 않고, 이 버튼도 글자 + 오른쪽 12로 터치 폭 44 이상
+  trailingText: { marginRight: -12 }, // 안쪽 여백 12만큼
+  trailingIcon: { marginRight: -13 }, // 칸 44 안의 아이콘 18: (44 − 18) / 2
   buttonText: { color: C.text, fontSize: 13, fontWeight: '700' },
   selected: { borderWidth: 2, borderColor: C.primary },
   text: { color: C.text, fontSize: 12.5, lineHeight: 19, fontWeight: '600' }, title: { color: C.text, fontSize: 16, fontWeight: '700' },
