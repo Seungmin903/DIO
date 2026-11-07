@@ -7,7 +7,7 @@ import AuthenticationRecovery, { needsAuthenticationRecovery } from '../../auth/
 
 // 회원 '내 다이어리' 목록 위 알림 칸. 목록이 이미 보이면 다시 불러오는 동안(휴지통 이동 · 즐겨찾기 · 다음 페이지 등) 줄을 띄우지 않는다:
 // 줄이 생겼다 사라지며 목록을 밀어 깜빡여 보였다. 남은 페이지는 App 이 뒤에서 이어 받으므로 '다음 다이어리 불러오기' 버튼도 두지 않는다.
-export default function MemberLibraryNotice({ library, pending, bulk, hasItems = false, onRetry }) {
+export default function MemberLibraryNotice({ library, pending, bulk, onRetry }) {
   const loading = pending || library.loading
   const bulkAuthError = bulk?.busy ? null : (bulk?.failed || []).find(item => item.error?.status === 401)?.error ?? null
   // 처음 불러오는 동안은 목록 자리 가운데 스피너(LibraryScreen loading)로 보이고, 여기서는 줄을 띄우지 않는다(지라 590)

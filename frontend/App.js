@@ -900,8 +900,8 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
       historyKey={member ? diaryState.store.keys.searchHistory : undefined}
       hasMore={member && memberLibraryMatches && diaryState.library.hasNext}
       requestNotice={member ? <><MemberLibraryNotice library={diaryState.library} pending={!memberLibraryMatches} bulk={diaryState.bulkTrash}
-        hasItems={libraryDiaries.length>0} onRetry={()=>diaryState.store.retryLibrary().catch(()=>{})}
-/><MemberTrashNotice quiet state={diaryState} onReload={()=>diaryState.store.loadTrash().catch(()=>{})} onRetry={()=>diaryState.store.retryLifecycle().catch(()=>{})}/><MemberRequestNotice pending={diaryState.pending} error={diaryState.error} busy={saving} refreshing={diaryState.refreshing}
+        onRetry={()=>diaryState.store.retryLibrary().catch(()=>{})}
+/><MemberTrashNotice state={diaryState} onReload={()=>diaryState.store.loadTrash().catch(()=>{})} onRetry={()=>diaryState.store.retryLifecycle().catch(()=>{})}/><MemberRequestNotice pending={diaryState.pending} error={diaryState.error} busy={saving} refreshing={diaryState.refreshing}
         onReload={() => diaryState.store.load().catch(() => {})}
         onArchiveExpired={() => confirmAction({title:'이전 생성 요청을 정리할까요?',message:'서버 목록을 다시 확인한 뒤 새 생성을 허용해요. 이미 생성된 다이어리는 삭제하지 않고 이전 요청은 이 계정의 기록에 보관해요.',confirmLabel:'요청 정리',onConfirm:async()=>{
           if(savingRef.current) return; savingRef.current=true;setSaving(true);

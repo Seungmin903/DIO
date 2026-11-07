@@ -3,8 +3,7 @@ import {styles as s} from '../styles';
 import DioButton from '../../shared/DioButton';
 import {authenticationErrorMessage} from '../../auth/sessionExpiry.js';
 import AuthenticationRecovery from '../../auth/AuthenticationRecovery';
-// quiet: 보관함(홈)에 함께 붙일 때. 휴지통을 다시 받는 중이라는 문구는 휴지통 화면에서만 보인다.
-export default function MemberTrashNotice({state,onReload,onRetry,quiet=false}) {
+export default function MemberTrashNotice({state,onReload,onRetry}) {
  const warnings=[state.metadataCleanupError,state.metadataError].filter(Boolean);
  const op=state.lifecycle,busy=Boolean(op?.busy||state.trashLoading),error=op?.error||state.trashError;
  // 처음 받는 동안은 휴지통 자리 가운데 스피너(TrashScreen loading)로 보이고 여기서는 줄을 띄우지 않는다(지라 590). 다시 받는 동안도 띄우지 않는다.

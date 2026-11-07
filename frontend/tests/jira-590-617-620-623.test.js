@@ -83,4 +83,27 @@ test('623: 표지를 올리지 못하면 다음 목록 갱신 때 다시 올린�
   assert.equal(updates, 2)
   await store.queryLibrary(store.getSnapshot().library.criteria, { force: true }); await settle()
   assert.equal(updates, 2)
+  assert.equal(store.getSnapshot().metadataError ?? null, null) // 뒤에서 올리다 실패해도 안내를 띄우지 않는다
+})
+
+test('623: 계속 실패하면 세션에서 다이어리당 3번까지만 다시 해 본다', async () => {
+  const { createMemberAppStore } = await import('../src/diary/services/memberAppStore.js')
+  const { memberKeys } = await import('../src/diary/services/memberStorage.js')
+  const id = '11111111-2222-3333-4444-777777777777', stamp = '2026-10-27T00:00:00.123456Z'
+  const row = { id, title: '표지', color: '#123456', coverStyle: 'PLAIN', pattern: null, canEdit: true, visibility: 'PRIVATE', createdAt: stamp, updatedAt: stamp, version: '1', myRole: 'OWNER', permissions: { canTrash: true } }
+  const cover = { kind: 'photo', photo: { src: 'media://abc', mediaFileId: 'abc' } }
+  const values = new Map([[memberKeys('101').index, JSON.stringify([{ ...row, cover, source: 'member-api', memberAccountId: '101' }])]])
+  const storage = { async getItem(k) { return values.get(k) ?? null }, async setItem(k, v) { values.set(k, v) }, async removeItem(k) { values.delete(k) } }
+  let updates = 0
+  const api = {
+    async list() { return { items: [{ ...row, pageCount: 1, isShared: false }], hasNext: false, nextCursor: null } },
+    async get() { return { ...row } },
+    async update() { updates++; throw Object.assign(new Error('server'), { status: 500 }) },
+  }
+  const store = createMemberAppStore({ accountId: '101', api, storage, serverLibrary: true, makeRequestId: () => 'k-123456789' })
+  const settle = () => new Promise(r => setTimeout(r, 30))
+  await store.load(); await settle()
+  for (let i = 0; i < 5; i++) { await store.queryLibrary(store.getSnapshot().library.criteria, { force: true }); await settle() }
+  assert.equal(updates, 3)
+  assert.equal(store.getSnapshot().metadataError ?? null, null)
 })
