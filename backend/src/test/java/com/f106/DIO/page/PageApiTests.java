@@ -318,7 +318,13 @@ class PageApiTests {
 		mvc.perform(get("/api/v1/pages/"+pageId).with(authenticated()))
 			.andExpect(status().isOk()).andExpect(jsonPath("$.page.templateConfig.remoteTemplate").value("winter"));
 		// 일반 페이지 설정은 그대로 받는다
-		createPage(diaryId,"{\"templateConfig\":{\"paperColor\":\"#FFFFFF\"}}");
+		String blankId=createPage(diaryId,"{\"templateConfig\":{\"paperColor\":\"#FFFFFF\"}}");
+		// 속지 코드가 없는 페이지(빈 종이)도 설정만으로 원격 속지로 바꿀 수 없다(일반 속지 페이지와 같은 규칙)
+		mvc.perform(patch("/api/v1/pages/"+blankId).with(authenticated()).contentType(MediaType.APPLICATION_JSON)
+				.content("{\"templateConfig\":{\"templateCode\":\"dio-remote-portrait\",\"templateVersion\":\"1.0.0\",\"remoteTemplate\":\"winter\"}}"))
+			.andExpect(status().isBadRequest());
+		mvc.perform(get("/api/v1/pages/"+blankId).with(authenticated()))
+			.andExpect(status().isOk()).andExpect(jsonPath("$.page.templateConfig.templateCode").doesNotExist());
 	}
 
 	@Test

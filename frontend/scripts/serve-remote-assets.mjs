@@ -13,7 +13,9 @@ createServer((request, response) => {
   response.setHeader('Access-Control-Allow-Origin', '*')
   if (request.method === 'OPTIONS') { response.writeHead(204, { 'Access-Control-Allow-Methods': 'GET, HEAD' }); return response.end() }
   if (!['GET', 'HEAD'].includes(request.method)) { response.writeHead(405); return response.end() }
-  const path = normalize(join(ROOT, decodeURIComponent(new URL(request.url, 'http://localhost').pathname)))
+  let pathname
+  try { pathname = decodeURIComponent(new URL(request.url, 'http://localhost').pathname) } catch { response.writeHead(400); return response.end() } // 잘못된 % 인코딩
+  const path = normalize(join(ROOT, pathname))
   if (!path.startsWith(ROOT + sep)) { response.writeHead(403); return response.end() }
   let stat
   try { stat = statSync(path) } catch { stat = null }

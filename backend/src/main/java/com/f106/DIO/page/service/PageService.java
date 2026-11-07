@@ -62,8 +62,9 @@ public class PageService {
 			String code=t!=null?t.getCode():currentTemplateCode(page);
 			if(t==null&&RemoteTemplates.isRemoteCode(code))templateConfig=preserveTemplateIdentity(page.getTemplateConfig(),templateConfig);
 			JsonNode next=templateConfig==null?null:JSON.readTree(templateConfig);
-			// 설정만 바꾸면서 원격 ↔ 일반 속지 코드를 바꾸면 속지가 바뀌는 것이라 받지 않는다(속지 변경은 templateId 로)
-			if(t==null&&code!=null&&next!=null&&next.path("templateCode").isString()
+			// 설정만 바꾸면서 원격 ↔ 일반 속지 코드를 바꾸면 속지가 바뀌는 것이라 받지 않는다(속지 변경은 templateId 로).
+			// 속지 코드가 없는 페이지(빈 종이)는 일반 속지로 본다. 설정만으로 원격 속지가 되지 않는다
+			if(t==null&&next!=null&&next.path("templateCode").isString()
 				&&RemoteTemplates.isRemoteCode(code)!=RemoteTemplates.isRemoteCode(next.get("templateCode").asString()))
 				throw new IllegalArgumentException("설정으로 원격 속지와 일반 속지를 바꿀 수 없습니다.");
 			// 원격 속지 규칙은 실제로 저장될 설정으로 검사한다
