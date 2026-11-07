@@ -16,7 +16,7 @@ function setup(flags,blockedValue=false){
   '../../notifications/notificationPermission':{notificationsBlocked:async()=>blockedValue},
   'react-native':{AppState:{addEventListener:()=>({remove(){}})},Linking:{openSettings(){opened++}},ActivityIndicator:'ActivityIndicator',Pressable:'Pressable',ScrollView:'ScrollView',Text:'Text',View:'View',Platform:{OS:'android'},BackHandler:{addEventListener:(_,fn)=>{back=fn;return {remove(){back=null}}}},StyleSheet:{create:v=>v}},
   '../../shared/AppIcon':{__esModule:true,default:'Icon'},'../../shared/theme':{colors:{},radius:{},DISABLED_OPACITY:0.4},
-  '../components/Header':{__esModule:true,default:'Header'},'../components/TermsConsentSection':{__esModule:true,default:'Terms'},
+  '../components/Header':{__esModule:true,default:'Header'},'../components/TermsConsentSection':{__esModule:true,default:'Terms'},'../components/SettingRow':{SettingTitle:'SettingTitle'},
   '../../shared/featureFlags':{SERVICE_SECTION_ENABLED:false,...flags},
  };
  const mod={exports:{}};new Function('require','module','exports',code)(id=>id==='react/jsx-runtime'?require(id):mocks[id],mod,mod.exports);

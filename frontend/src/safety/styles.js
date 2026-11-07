@@ -7,6 +7,8 @@ export const safetyStyles = StyleSheet.create({
   phonePanel: { flex: 1, maxWidth: '100%', maxHeight: '100%', borderRadius: 0 },
   keyboard: { flexShrink: 1 }, phoneKeyboard: { flex: 1 },
   header: { minHeight: 64, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', gap: 12, borderBottomWidth: 1, borderColor: c.cardBorder, backgroundColor: c.surface },
+  // 폰은 화면 전체를 덮어 상단 안전 영역이 바탕색(surfaceSoft)이다. 머리줄도 같은 색이어야 위쪽이 두 색으로 갈리지 않는다(지라 598)
+  phoneHeader: { backgroundColor: c.surfaceSoft },
   title: { fontSize: 19, fontWeight: '700', color: c.text, flex: 1 },
   body: { padding: 20, gap: 16, flexGrow: 1 },
   heading: { fontSize: 15, fontWeight: '700', color: c.text },

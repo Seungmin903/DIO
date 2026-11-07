@@ -5,7 +5,6 @@ import FavoriteStar from '../../shared/FavoriteStar';
 import { C } from '../constants';
 import { styles as s } from '../styles';
 import CoverArt, { CoverSurface } from './CoverArt';
-import { PAGE_COUNT_ROW } from './DiaryCard';
 import DiaryActionBubble from './DiaryActionBubble';
 import StaticPage from '../../editor/components/canvas/StaticPage';
 import { pageSize } from '../../editor/utils/pageGeometry.js';
@@ -33,6 +32,7 @@ const GAP = 42; // 책과 책 사이
 const PEEK = 56; // 옆 다이어리가 적어도 이만큼은 보이게 남기는 폭(가로 다이어리를 펼쳤을 때)
 const BLEED = 30; // 태블릿 화면 좌우 여백(libraryGridScroll). 책상은 이 여백까지 넘어 화면 끝까지 쓴다
 const SPINE = 20; // 세로 태블릿에서 화면 끝에 걸쳐 보이는 옆 다이어리 폭
+const PHONE_SIDE_GAP = 14; // 폰: 펼친 다이어리와 화면 끝에 걸친 옆 다이어리 책등 사이
 const PAGE_EDGE = 24; // 세로 태블릿에서 가운데 한 면과 화면 끝 사이 최소 폭(마주 보는 쪽 · 옆 책등이 보일 자리)
 // 세로 태블릿 스와이프 보기에서 가운데 카드 중심이 이 영역 가운데보다 올라간 거리(실기기에서 두 보기를 겹쳐 맞춘 값)
 // (carouselShellPortrait 아래 여백을 바꾸면 그 절반만큼 같이 바꾼다: 여백 120 → 79)
@@ -230,7 +230,7 @@ function OpenBook({ diary, size, left: placed, top, shown, compact, peek = null,
           {actions.length > 0 && <Pressable ref={moreRef} accessibilityRole="button" accessibilityLabel={`${diary.title} 더보기`} accessibilityState={{ expanded: menu !== null }} hitSlop={13}
             onPress={() => {
               const node = moreRef.current;
-              if (node?.measureInWindow) node.measureInWindow((mx, my, w, h) => setMenu({ anchor: { x: mx, y: my, width: w, height: h + PAGE_COUNT_ROW } })); // 말풍선이 이름 밑 쪽수 줄을 가리지 않게 그만큼 아래에 연다(DiaryCard 와 같은 값)
+              if (node?.measureInWindow) node.measureInWindow((mx, my, w, h) => setMenu({ anchor: { x: mx, y: my, width: w, height: h } })); // 말풍선이 이름 밑 쪽수 줄을 가리지 않게 그만큼 아래에 연다(DiaryCard 와 같은 값)
               else setMenu({ anchor: null });
             }}>
             <AppIcon name="more" size={22} color={captionInk} />
@@ -270,7 +270,8 @@ function OpenBookShelf({ diaries, index, onIndexChange, onOpen, onFavorite, onEd
   // 가로 펼침은 폭(옆 다이어리가 PEEK 만큼 보일 자리를 남기고), 세로 펼침은 높이(캡션 자리를 남기고)에 맞춘다. 폰은 한 면만.
   const layout = useMemo(() => {
     if (!area) return null;
-    const room = { width: area.width - (compact ? 32 : 2 * (BLEED + GAP + PEEK)), height: area.height - CAPTION - (compact ? 16 : 24) };
+    // 폰은 양옆 다이어리 책등(SPINE)이 화면 끝에 걸쳐 보이므로, 가장 넓은 가로 다이어리도 책등과 14 띄운다(지라 610: 가로일 때 옆 다이어리와 붙어 보였다)
+    const room = { width: area.width - (compact ? 2 * (SPINE + PHONE_SIDE_GAP) : 2 * (BLEED + GAP + PEEK)), height: area.height - CAPTION - (compact ? 16 : 24) };
     const tall = !compact && area.height > area.width;
     const pairs = compact || tall ? 1 : 2;
     const byWidth = Math.min(...[RATIO.portrait, RATIO.landscape].map(r => (room.width / pairs / 1.03) ** 2 / r));

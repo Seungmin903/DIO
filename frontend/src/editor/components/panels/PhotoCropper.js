@@ -22,6 +22,7 @@ const FREE_SELECTION_MIN = 1 / 32
 const HANDLE = 18
 const BAR_LONG = 24
 const BAR_SHORT = 8
+const GAP_MIN = 6 // 손잡이끼리 이만큼은 띄운다
 
 /**
  * 사진 자르기 창: 화면 가운데에 사진을 크게 띄운다. 옵션 패널과 같은 모양의 구역·막대·칩을 쓴다.
@@ -261,6 +262,21 @@ const FREE_HANDLES = [
   { key: 'w', sx: -1, sy: 0 },
 ]
 
+/**
+ * 틀이 작아 손잡이끼리 겹치면 덜 쓰는 쪽을 숨긴다(지라 607: 얇은 테이프 틀에서 위 · 아래 손잡이가 포개졌다).
+ * 낮은 틀은 아래 꼭짓점만, 좁은 틀은 오른쪽 꼭짓점만, 변 막대는 두 꼭짓점 사이에 들어갈 때만. 꼭짓점은 늘 하나 이상 남는다.
+ */
+export function visibleFreeHandles(width, height, lock = false) {
+  // 꼭짓점 원(18)끼리는 6 이상, 변 막대(24)는 양끝 꼭짓점과 6 이상 떨어질 때만 둔다
+  const shortH = height < HANDLE + GAP_MIN, shortW = width < HANDLE + GAP_MIN
+  const barFits = length => length >= HANDLE + BAR_LONG + GAP_MIN * 2
+  return FREE_HANDLES.filter(handle => {
+    if (handle.sx && handle.sy) return !(shortH && handle.sy < 0) && !(shortW && handle.sx < 0)
+    if (lock) return false
+    return handle.sy ? barFits(width) : barFits(height)
+  })
+}
+
 /** 사진 전체 위에 자르는 틀. 틀 안을 끌면 옮기고, 손잡이를 끌면 크기를 바꾼다. 모두 사진 안에서만. */
 // lock: 잠근 비율(사진 안 좌표의 가로:세로), range: 자유 비율의 [최소, 최대](같은 좌표), round: 동그라미 틀
 function FreeCrop({ uri, full, rect, onChange, lock = null, range = null, round = false }) {
@@ -277,7 +293,7 @@ function FreeCrop({ uri, full, rect, onChange, lock = null, range = null, round 
       </View>
       <MoveArea rect={rect} full={full} onChange={onChange} style={{ left: x0, top: y0, width: w, height: h }} />
       <View style={[styles.freeLine, { left: x0, top: y0, width: w, height: h }, round && { borderRadius: Math.min(w, h) / 2 }]} pointerEvents="none" />
-      {FREE_HANDLES.filter((handle) => !lock || (handle.sx && handle.sy)).map((handle) => (
+      {visibleFreeHandles(w, h, Boolean(lock)).map((handle) => (
         <FreeHandle
           key={handle.key}
           handle={handle}

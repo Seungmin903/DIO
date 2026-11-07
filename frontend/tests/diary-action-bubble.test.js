@@ -51,7 +51,7 @@ const heightOf = rows => PAD * 2 + rows * ROW;
 test('버튼 아래에 자리가 있으면 버튼 아래, 오른쪽 끝을 버튼에 맞춰 연다', () => {
   const anchor = { x: 900, y: 200, width: 30, height: 40 };
   const result = place(anchor, 2, WINDOW);
-  assert.deepEqual(result, { left: anchor.x + anchor.width - WIDTH, top: anchor.y + anchor.height + GAP, height: heightOf(2) });
+  assert.deepEqual(result, { left: anchor.x + anchor.width - WIDTH, top: anchor.y + anchor.height + GAP, height: heightOf(2), width: WIDTH });
   assert.equal('outside' in result, false);
 });
 
@@ -75,6 +75,26 @@ test('버튼이 화면 오른쪽 끝에 붙어도 말풍선이 화면 밖으로 
   assert.equal(result.left, WINDOW.width - EDGE - WIDTH);
   const farLeft = place({ x: 0, y: 100, width: 20, height: 40 }, 2, WINDOW);
   assert.equal(farLeft.left, EDGE);
+});
+
+test('폰 2열: 카드 칸(bounds)이 있으면 폭을 칸 폭까지 줄여(최소 160) 오른쪽 끝을 ⋯ 에 맞춘 채 칸 안에 가둔다', () => {
+  const phone = { width: 411, height: 914 };
+  // 왼쪽 카드: 칸 16~196, ⋯ 오른쪽 끝 190
+  const left = place({ x: 166, y: 360, width: 24, height: 40, bounds: { x: 16, width: 180 } }, 3, phone);
+  assert.equal(left.width, 180);
+  assert.equal(left.left, 16); // 칸 왼쪽 끝에 붙는다
+  assert.ok(left.left + left.width <= 196);
+  // 오른쪽 카드: 칸 214~394
+  const right = place({ x: 364, y: 360, width: 24, height: 40, bounds: { x: 214, width: 180 } }, 3, phone);
+  // 칸 폭(180)이 말풍선 폭(224)보다 좁으면 칸을 꼭 채운다
+  assert.equal(right.left, 214);
+  assert.equal(right.left + right.width, 394);
+  // 칸이 넓으면(태블릿 격자) 폭 224 그대로 ⋯ 오른쪽 끝에 맞춘다
+  const wide = place({ x: 500, y: 360, width: 24, height: 40, bounds: { x: 300, width: 240 } }, 3, WINDOW);
+  assert.equal(wide.width, 224);
+  assert.equal(wide.left + wide.width, 524);
+  // 아주 좁은 칸은 최소 160
+  assert.equal(place({ x: 100, y: 100, width: 24, height: 40, bounds: { x: 20, width: 120 } }, 3, phone).width, 160);
 });
 
 test('버튼 자리를 재지 못했으면 화면 가운데에 연다', () => {

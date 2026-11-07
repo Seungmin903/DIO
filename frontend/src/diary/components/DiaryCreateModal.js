@@ -43,7 +43,7 @@ function CoverFrame({ cover, name, width, height, edit }) {
  * sheet: 폰에서는 아래에서 올라오는 시트로 띄운다.
  */
 export default function DiaryCreateModal({ diary, onSubmit, onCancel, saving = false, sheet = false, topInset = 0, bottomInset = 0,
-  visible = true, blankOnly = false, locked = false, submitLabel, submitDisabled = false, footerNotice = null, messageResetKey, onLibrarySaveFailed }) {
+  visible = true, blankOnly = false, serverPapers = false, locked = false, submitLabel, submitDisabled = false, footerNotice = null, messageResetKey, onLibrarySaveFailed }) {
   const editing = Boolean(diary);
   // 세로 화면은 폰이 아니어도 구역 카드를 위에, 옵션을 아래에 쌓는다
   const window = useWindowDimensions();
@@ -57,8 +57,10 @@ export default function DiaryCreateModal({ diary, onSubmit, onCancel, saving = f
   const [cover, setCover] = useState(() => editing ? normalizeCover(diary) : newDiaryCover());
   const [openElement, setOpenElement] = useState('base');
   // 속지 묶음: 위에서부터 순서대로 쌓는다 (화면은 한 줄 목록 + 이어서 · 섞어서)
-  const [paperSections, setPaperSections] = useState(defaultSections);
-  // blankOnly: 서버 다이어리는 서버 속지 목록에 있는 속지만 만들 수 있어 빈 페이지 한 장으로 시작한다 (속지 구역 없음)
+  const [storedSections, setPaperSections] = useState(defaultSections);
+  // serverPapers(회원 새 다이어리): 서버 속지 목록에 있는 날짜 없는 속지만 만들 수 있다(지라 591). 날짜 속지는 서버에 날짜 칸이 없어
+  // 묶음을 늘 '날짜 없이'로 둔다(날짜를 글자로 얹는 작업은 따로). blankOnly: 속지 구역 없이 빈 페이지 한 장(지금은 쓰는 곳 없음)
+  const paperSections = serverPapers ? storedSections.map(item => (item.dated ? { ...item, dated: false } : item)) : storedSections;
   const chosenSections = blankOnly ? [] : paperSections;
   const [paperAppearance, setPaperAppearance] = useState(() => normalizePaperAppearance(diary?.paperAppearance ?? DEFAULT_PAPER_APPEARANCE));
   const [scope, setScope] = useState('all');
@@ -333,9 +335,9 @@ export default function DiaryCreateModal({ diary, onSubmit, onCancel, saving = f
       <Text style={styles.infoTitle}>{`${pdfSource} · ${pdfPapers.length}장`}</Text>
       <Pressable accessibilityRole="button" accessibilityLabel="PDF 속지 빼기" disabled={editLocked} onPress={() => { if (myPaper) setMyPaper(null); else setSkipPdfPapers(true); }}
         style={({ pressed }) => [styles.drop]}><Text style={styles.dropText}>속지에서 빼기</Text></Pressable>
-    </View> : <PaperOptions sections={paperSections} onChange={next => { setPaperSections(next); setError(''); }} orientation={orientation} appearance={paperAppearance} />}
+    </View> : <PaperOptions sections={paperSections} undatedOnly={serverPapers} onChange={next => { setPaperSections(next); setError(''); }} orientation={orientation} appearance={paperAppearance} />}
   </View>;
-  else panel = <PaperStyleOptions appearance={paperAppearance} onChange={changeAppearance} plainOnly={!editing && (blankOnly || usingPdf || paperSections.every(item => item.rows.every(row => row.paper === 'plain')))}
+  else panel = <PaperStyleOptions appearance={paperAppearance} onChange={changeAppearance} plainOnly={!editing && (blankOnly || serverPapers || usingPdf || paperSections.every(item => item.rows.every(row => row.paper === 'plain')))}
     scope={scope} onScope={editing ? setScope : null} />;
 
   const message = error || configError || notice;

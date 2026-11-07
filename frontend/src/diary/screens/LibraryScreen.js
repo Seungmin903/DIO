@@ -153,9 +153,10 @@ function LibraryScreen({
   const itemCount = carouselItems.length;
   const grid = useDiaryGrid(compact, undefined, { count: shown.length, padTop: 16 }); // 태블릿 한눈에 보기 칸 크기 · 간격 (폰은 null). 16 은 s.grid 의 위 여백
   const carouselItemWidth = portrait ? PORTRAIT_ITEM_WIDTH : compact ? 268 : CAROUSEL_ITEM_WIDTH;
+  const carouselSidePadding = Math.max(0, (carouselViewportWidth - carouselItemWidth) / 2);
   // 세로는 간격을 카드 폭만큼 줘서 옆 카드가 화면 밖에 있게 한다.
-  // 폰은 옆 카드가 28px 만 보이도록 간격을 좁힌다(가운데 카드 1.06배 · 옆 카드 0.84배 기준)
-  const carouselGap = portrait ? PORTRAIT_ITEM_WIDTH : compact ? 11 : CAROUSEL_GAP;
+  // 폰도 옆 카드를 살짝 보이던 것 대신 화면 밖에 두고 좌우 화살표로 넘긴다(지라 611): 간격 = 양옆 여백 + 8
+  const carouselGap = portrait ? PORTRAIT_ITEM_WIDTH : compact ? Math.max(11, Math.round(carouselSidePadding) + 8) : CAROUSEL_GAP;
   const carouselStep = portrait || compact ? carouselItemWidth + carouselGap : CAROUSEL_STEP;
   // 카드 수가 바뀔 때만 애니메이션 노드를 새로 만든다. 매 렌더마다 만들면 스와이프마다 모든 카드가 다시 연결된다.
   const motions = useMemo(
@@ -167,7 +168,6 @@ function LibraryScreen({
   useEffect(() => { preloadOpenBooks(carouselItems, activeIndex); }, [carouselItems, activeIndex]);
   // 가장 왼쪽 · 오른쪽 다이어리에서는 갈 곳이 없는 쪽 화살표를 숨긴다
   const hasPrevious = activeIndex > 0, hasNext = activeIndex < itemCount - 1;
-  const carouselSidePadding = Math.max(0, (carouselViewportWidth - carouselItemWidth) / 2);
   const fixedPhoneCarousel = (compact || portrait) && displayView === 'carousel' && carouselItems.length > 0;
   // 웹의 콘텐츠 크기 이벤트를 기다리지 않고 고정 카드·간격·양쪽 여백으로 이동 공간을 확보한다.
   const contentWidth = carouselSidePadding * 2 + itemCount * carouselItemWidth + Math.max(0, itemCount - 1) * carouselGap;
@@ -376,12 +376,12 @@ function LibraryScreen({
         <View style={[s.carouselShell, compact && s.carouselShellCompact, portrait && s.carouselShellPortrait]}>
           {/* 목록은 잰 폭으로 고정하고 줄 가운데에 둔다. 줄 폭이 바뀌어도 가운데 카드는 늘 줄 가운데에 머문다. */}
           <View style={[s.carouselRow, compact && s.carouselRowCompact, portrait && s.carouselRowPortrait, !landed && { opacity: 0 }]} onLayout={measureCarousel}>
-            {/* 폰은 화면이 좁아 화살표 대신 밀어서 넘긴다. */}
-            {!compact && hasPrevious && <Pressable
+            {/* 폰 · 태블릿 모두 화살표(폰은 카드 양옆 여백에, 지라 611). 밀어서 넘기기도 그대로 */}
+            {hasPrevious && <Pressable
               accessibilityRole="button"
               accessibilityLabel="이전 다이어리"
               onPress={() => moveCarousel((moveTarget.current ?? activeIndex) - 1)}
-              style={({ pressed }) => [s.carouselArrow, s.carouselArrowLeft, portrait && s.carouselArrowPortrait, pressed && s.pressed]}
+              style={({ pressed }) => [s.carouselArrow, s.carouselArrowLeft, portrait && s.carouselArrowPortrait, compact && s.carouselArrowCompact, pressed && s.pressed]}
             >
               <AppIcon name="chevron-left" size={24} color={C.ink} strokeWidth={2.1} />
             </Pressable>}
@@ -434,11 +434,11 @@ function LibraryScreen({
                   />
               )}
             />
-            {!compact && hasNext && <Pressable
+            {hasNext && <Pressable
               accessibilityRole="button"
               accessibilityLabel="다음 다이어리"
               onPress={() => moveCarousel((moveTarget.current ?? activeIndex) + 1)}
-              style={({ pressed }) => [s.carouselArrow, s.carouselArrowRight, portrait && s.carouselArrowPortrait, pressed && s.pressed]}
+              style={({ pressed }) => [s.carouselArrow, s.carouselArrowRight, portrait && s.carouselArrowPortrait, compact && s.carouselArrowCompact, pressed && s.pressed]}
             >
               <AppIcon name="chevron-right" size={24} color={C.ink} strokeWidth={2.1} />
             </Pressable>}

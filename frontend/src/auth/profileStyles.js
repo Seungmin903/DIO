@@ -85,8 +85,6 @@ export const profileStyles = StyleSheet.create({
   phoneCancel: { width: 96, minWidth: 64, flexShrink: 1 },
   phoneSave: { flexGrow: 1, flexShrink: 0 },
   // 회원 탈퇴: 계정 정보 아래 조용한 글자 행
-  withdraw: { minHeight: 48, marginTop: 16, justifyContent: 'center', alignItems: 'flex-start' },
-  withdrawText: { fontSize: 13, fontWeight: '600', color: c.dangerStrong },
   toastPosition: { position: 'absolute', bottom: 88, left: 16, right: 16, alignItems: 'center' },
   toast: {
     backgroundColor: c.text,
