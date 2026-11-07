@@ -177,7 +177,7 @@ function PeriodStart({ year, month, onChange }) {
 }
 
 /** 기간 묶음 옵션: 날짜 · 시작 · 기간. 접어 두면 한 줄 요약, 누르면 펼친다. */
-function PeriodOptions({ section, onChange, undatedOnly = false }) {
+function PeriodOptions({ section, onChange }) {
   const [open, setOpen] = useState(false)
   return <View style={styles.context}>
     <Pressable accessibilityRole="button" accessibilityLabel={`기간 ${periodLabel(section)}`} accessibilityState={{ expanded: open }} onPress={() => setOpen(!open)} style={({ pressed }) => [styles.periodHead, pressed && styles.pressed]}>
@@ -186,8 +186,7 @@ function PeriodOptions({ section, onChange, undatedOnly = false }) {
       <View style={open && styles.flip}><Icon name="chevronDown" size={15} forText={13.5} color={colors.textMuted} /></View>
     </Pressable>
     {open && <>
-      {/* 회원 다이어리는 날짜 없는 속지만(서버에 날짜 칸이 없다, 지라 591) */}
-      {!undatedOnly && <OptionRow label="날짜"><Segmented items={[{ id: 'dated', label: '날짜 있음' }, { id: 'undated', label: '날짜 없이' }]} selected={id => (id === 'dated') === section.dated} onPress={id => onChange({ ...section, dated: id === 'dated' })} /></OptionRow>}
+      <OptionRow label="날짜"><Segmented items={[{ id: 'dated', label: '날짜 있음' }, { id: 'undated', label: '날짜 없이' }]} selected={id => (id === 'dated') === section.dated} onPress={id => onChange({ ...section, dated: id === 'dated' })} /></OptionRow>
       {section.dated && <OptionRow label="시작"><PeriodStart year={section.year} month={section.startMonth} onChange={(year, startMonth) => onChange({ ...section, year, startMonth })} /></OptionRow>}
       <OptionRow label="개월 수">
         <NumberField label="기간" unit="개월" min={1} max={MONTH_LIMIT} value={section.months} onChange={months => onChange({ ...section, months })} />
@@ -263,7 +262,7 @@ function PaperRow({ section, row, number, orientation, appearance, open, onToggl
  * 장수 속지끼리는 번갈아 반복(반복 횟수), 날짜 속지가 있으면 달마다 차례로 넣는다(기간).
  * 속지 이름을 누르면 그 자리에서 바꾸고, 맨 아래 '속지 추가' 는 고르기를 먼저 펼친다.
  */
-export default function PaperOptions({ sections, onChange, orientation, appearance, undatedOnly = false }) {
+export default function PaperOptions({ sections, onChange, orientation, appearance }) {
   const remoteRevision = useRemoteTemplates()
   const groups = useMemo(allGroups, [remoteRevision])
   const [picking, setPicking] = useState(null) // null | 'new' | 줄 key
@@ -330,7 +329,7 @@ export default function PaperOptions({ sections, onChange, orientation, appearan
                 picker={picking === row.key && picker(row.paper, id => set(s, changeRowPaper(section, row.key, id)), period ? section : null)} />
             </Fragment>
           })}
-          {period && <PeriodOptions section={section} undatedOnly={undatedOnly} onChange={next => set(s, next)} />}
+          {period && <PeriodOptions section={section} onChange={next => set(s, next)} />}
           {!period && section.rows.length > 1 && <View style={styles.context}>
             <OptionRow label="반복">
               <NumberField label="반복" unit="번" min={1} max={REPEAT_LIMIT} value={section.repeat} onChange={repeat => set(s, { ...section, repeat })} />
@@ -391,8 +390,9 @@ const styles = StyleSheet.create({
   tileName: { color: colors.textMuted, fontSize: 11.5, fontWeight: '700' },
   tileNameOn: { color: colors.text, fontWeight: '800' },
   context: { padding: 12, borderRadius: 12, backgroundColor: colors.surfaceSoft },
-  period: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  stepper: { flexDirection: 'row', alignItems: 'center', gap: 2, height: 40, paddingHorizontal: 2, borderRadius: 10, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
+  // 시작(해 · 달) 두 칸은 위 '날짜 있음 · 날짜 없이'(Segmented)와 같은 반반 폭 · 사이 6 · 높이 40 · cardBorder 테두리(2026-11-08)
+  period: { flexDirection: 'row', gap: 6 },
+  stepper: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 2, height: 40, paddingHorizontal: 2, borderRadius: 10, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.cardBorder },
   step: { width: 28, height: 32, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
   stepText: { minWidth: 48, textAlign: 'center', color: colors.text, fontSize: 13.5, fontWeight: '800' },
   picker: { gap: 4, paddingTop: 4 },

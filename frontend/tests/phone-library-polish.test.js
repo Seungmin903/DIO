@@ -4,15 +4,10 @@ import { readFileSync } from 'node:fs'
 
 const read = path => readFileSync(new URL(path, import.meta.url), 'utf8')
 
-test('591: 회원 새 다이어리도 속지 구역을 쓰되 날짜 없는 속지만(서버에 날짜 칸이 없다)', () => {
+test('591: 회원 새 다이어리도 속지 구역을 쓴다(날짜 속지는 member-dated-papers.test.js)', () => {
   assert.match(read('../App.js'), /serverPapers=\{member && !editingDiaryId\}/)
   assert.doesNotMatch(read('../App.js'), /blankOnly=\{member/)
-  const modal = read('../src/diary/components/DiaryCreateModal.js')
-  assert.match(modal, /const paperSections = serverPapers \? storedSections\.map\(item => \(item\.dated \? \{ \.\.\.item, dated: false \} : item\)\) : storedSections;/)
-  assert.match(modal, /<PaperOptions sections=\{paperSections\} undatedOnly=\{serverPapers\}/)
-  assert.match(modal, /plainOnly=\{!editing && \(blankOnly \|\| serverPapers \|\|/)
-  const options = read('../src/diary/components/PaperOptions.js')
-  assert.match(options, /\{!undatedOnly && <OptionRow label="날짜">/)
+  assert.match(read('../src/diary/components/DiaryCreateModal.js'), /plainOnly=\{!editing && \(blankOnly \|\| serverPapers \|\|/)
 })
 
 test('611 · 612: 폰 스와이프는 좌우 화살표, 옆 카드는 화면 밖, 카드 줄은 가운데보다 살짝 위', () => {
