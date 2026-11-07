@@ -1,7 +1,9 @@
 package com.f106.DIO.auth.controller;
 
 import com.f106.DIO.auth.dto.LoginUserResponse;
+import com.f106.DIO.auth.dto.WithdrawalRequest;
 import com.f106.DIO.auth.exception.LoginException;
+import com.f106.DIO.auth.service.AppleWithdrawalRevocation;
 import com.f106.DIO.auth.service.MyProfileService;
 import com.f106.DIO.user.dto.ProfileUpdateRequest;
 import io.swagger.v3.oas.annotations.Operation;
@@ -26,9 +28,11 @@ import org.springframework.web.multipart.MultipartFile;
 @SecurityRequirement(name = "bearerAuth")
 public class MyProfileController {
     private final MyProfileService profiles;
+    private final AppleWithdrawalRevocation apple;
 
-    public MyProfileController(MyProfileService profiles) {
+    public MyProfileController(MyProfileService profiles, AppleWithdrawalRevocation apple) {
         this.profiles = profiles;
+        this.apple = apple;
     }
 
     @GetMapping
@@ -54,11 +58,19 @@ public class MyProfileController {
     }
 
     @DeleteMapping
-    @Operation(summary = "회원 탈퇴", description = "로그인한 계정을 탈퇴 처리하고 모든 로그인 세션을 폐기합니다. 요청 본문은 없습니다.")
+    @Operation(summary = "회원 탈퇴", description = "로그인한 계정을 탈퇴 처리하고 모든 로그인 세션을 폐기합니다. "
+        + "애플 회원은 앱에서 애플 로그인을 다시 받아 {\"appleAuthorizationCode\": \"...\"}를 보내야 하며, 서버가 Apple 토큰을 철회한 뒤 탈퇴합니다. "
+        + "다른 회원은 본문 없이 보냅니다.")
     @ApiResponse(responseCode = "204", description = "회원 탈퇴 완료")
+    @ApiResponse(responseCode = "400", description = "APPLE_REAUTH_REQUIRED(애플 재확인 필요) 또는 INVALID_APPLE_AUTHORIZATION(만료·재사용된 code)")
+    @ApiResponse(responseCode = "403", description = "APPLE_ACCOUNT_MISMATCH: 다른 애플 ID로 확인함")
     @ApiResponse(responseCode = "409", description = "다른 멤버가 있는 소유 다이어리의 소유권 양도 필요")
-    public ResponseEntity<Void> withdraw(@AuthenticationPrincipal Jwt jwt) {
-        profiles.withdraw(userId(jwt));
+    @ApiResponse(responseCode = "503", description = "APPLE_REVOKE_UNAVAILABLE·APPLE_REVOKE_NOT_CONFIGURED: Apple 연결 해제 실패, 탈퇴하지 않음")
+    public ResponseEntity<Void> withdraw(@AuthenticationPrincipal Jwt jwt,
+            @Valid @RequestBody(required = false) WithdrawalRequest request) {
+        long userId = userId(jwt);
+        apple.revokeIfLinked(userId, request == null ? null : request.appleAuthorizationCode());
+        profiles.withdraw(userId);
         return ResponseEntity.noContent().header("Cache-Control", "no-store").build();
     }
 

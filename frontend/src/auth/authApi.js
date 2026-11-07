@@ -487,14 +487,27 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
       if (!session || String(user?.userId) !== String(session.user.userId)) throw unauthorized();
       let current = session;
       let withdrawn = false;
-      try {
-        try { await request('me', undefined, current.accessToken, false, 'DELETE', true); }
+      let body;
+      const remove = async () => {
+        try { await request('me', body, current.accessToken, false, 'DELETE', true); }
         catch (error) {
           if (error.status !== 401 || error.code === 'DEVELOPMENT_ACCESS_REQUIRED') throw error;
           if (session !== current) throw new Error('로그인 상태가 변경되었어요.');
           await api.refresh();
           current = session;
-          await request('me', undefined, current.accessToken, false, 'DELETE', true);
+          await request('me', body, current.accessToken, false, 'DELETE', true);
+        }
+      };
+      try {
+        try { await remove(); }
+        catch (error) {
+          // 애플 회원은 Apple 토큰 철회를 위해 애플 로그인을 한 번 더 받아 authorizationCode를 보낸다.
+          if (error.code !== 'APPLE_REAUTH_REQUIRED' || typeof socialSignIns.apple !== 'function') throw error;
+          const credential = await socialSignIns.apple();
+          if (!credential?.authorizationCode) throw new Error('애플 확인 정보를 받지 못했어요. 다시 시도해 주세요.');
+          if (session !== current) throw new Error('로그인 상태가 변경되었어요.');
+          body = { appleAuthorizationCode: credential.authorizationCode };
+          await remove();
         }
         withdrawn = true;
       } finally {

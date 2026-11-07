@@ -63,6 +63,18 @@ class UserWithdrawalTests extends SharingTestSupport {
         }
     }
     @Test void authenticationIsRequired()throws Exception{mvc.perform(delete("/api/v1/me")).andExpect(status().isUnauthorized());}
+    @Test void appleMemberKeepsAccountUntilAppleRevokeSucceeds()throws Exception{
+        var actor=actor();
+        accounts.saveAndFlush(com.f106.DIO.auth.domain.EmailAuthProvider.social(actor.id(),com.f106.DIO.auth.domain.SocialProvider.APPLE,"apple-"+actor.id(),Instant.now()));
+        mvc.perform(delete("/api/v1/me").header("Authorization","Bearer "+actor.token()))
+            .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("APPLE_REAUTH_REQUIRED"));
+        // 테스트 환경에는 Apple 키가 없으므로 철회를 시도하지 못하고 탈퇴도 하지 않는다.
+        mvc.perform(delete("/api/v1/me").header("Authorization","Bearer "+actor.token())
+                .contentType(org.springframework.http.MediaType.APPLICATION_JSON).content("{\"appleAuthorizationCode\":\"code\"}"))
+            .andExpect(status().isServiceUnavailable()).andExpect(jsonPath("$.code").value("APPLE_REVOKE_NOT_CONFIGURED"));
+        assertThat(users.findById(actor.id()).orElseThrow().isActive()).isTrue();
+        assertThat(accounts.findByUserIdAndProvider(actor.id(),"APPLE")).isPresent();
+    }
     @Test void withdrawalAnonymizesAccountAndRevokesSessionsButKeepsOtherAccounts()throws Exception{
         var actor=actor();var other=actor();String email=users.findById(actor.id()).orElseThrow().getEmail();
         var photo=photos.saveAndFlush(new ProfilePhoto(actor.id(),new byte[]{1,2},Instant.now()));

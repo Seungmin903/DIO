@@ -426,6 +426,32 @@ test('회원 탈퇴는 DELETE me로 요청하고 성공한 세션만 지운다',
  assert.equal(api.getSessionKey(),null);
 });
 
+test('애플 회원 탈퇴는 애플 재확인 후 authorizationCode를 보내고, 실패하면 세션을 유지한다', async () => {
+ for (const outcome of ['success','cancel','revokeFailed']) {
+  const calls=[]; let appleCalls=0;
+  const api=createAuthApi({baseUrl:'http://localhost:8080/api',
+   appleSignIn:async()=>{appleCalls++;if(outcome==='cancel')throw new Error('애플 로그인을 취소했어요.');return {idToken:'id',authorizationCode:'apple-code'};},
+   fetchImpl:async(url,init)=>{
+    calls.push({url,...init});
+    if(url.endsWith('/login'))return response(tokens(),200);
+    if(!init.body)return response({code:'APPLE_REAUTH_REQUIRED',detail:'탈퇴하려면 애플 계정으로 한 번 더 확인해 주세요.'},400);
+    return outcome==='revokeFailed'?response({code:'APPLE_REVOKE_UNAVAILABLE',detail:'애플 계정 연결을 해제하지 못했어요.'},503):response(null,204);
+   }});
+  const loggedIn=await api.login({email:user.email,password:'Password123!'}), key=api.getSessionKey();
+  if(outcome==='success'){
+   await api.withdraw(loggedIn);
+   assert.equal(calls.length,3);assert.equal(calls[2].method,'DELETE');
+   assert.equal(calls[2].headers['Content-Type'],'application/json');
+   assert.deepEqual(JSON.parse(calls[2].body),{appleAuthorizationCode:'apple-code'});
+   assert.equal(api.getSessionKey(),null);
+  }else{
+   await assert.rejects(api.withdraw(loggedIn),outcome==='cancel'?/취소/:{code:'APPLE_REVOKE_UNAVAILABLE'});
+   assert.equal(api.getSessionKey(),key);
+  }
+  assert.equal(appleCalls,1);
+ }
+});
+
 test('회원 탈퇴 실패 시 로그인 세션을 유지해 다시 시도할 수 있다', async () => {
  const api=createAuthApi({baseUrl:'http://localhost:8080/api',fetchImpl:async(url)=>
   response(url.endsWith('/login') ? tokens() : {code:'WITHDRAWAL_FAILED',detail:'탈퇴 처리에 실패했어요.'}, url.endsWith('/login') ? 200 : 500)});
