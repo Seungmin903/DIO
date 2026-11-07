@@ -7,6 +7,7 @@ import { CROP_RATIOS, CROP_ZOOM_MAX, PHOTO_SHAPES, POLAROID_RATIOS } from '../..
 import { useMediaUri } from '../../hooks/useMediaUri'
 import { usePan } from '../../hooks/usePan'
 import { clamp } from '../../utils/common'
+import { changeCropRatio, cropFromRect, fitAspect, freeTransform, freeZoom, resizeFreeCrop, visibleRect } from '../../utils/photoCropGeometry.js'
 import { framedHeight, isBorderFrame, photoInnerBox, ratioValueOf, resizeAroundCenter } from '../../utils/objects'
 import Icon from '../controls/Icon'
 import Slider from '../controls/Slider'
@@ -14,7 +15,9 @@ import Slider from '../controls/Slider'
 const ORIGINAL = { fx: 0.5, fy: 0.5, zoom: 1 }
 const FREE = { id: 'free', name: '자유' }
 const FREE_PAD = 18 // 자유 자르기: 사진 둘레 여유 (손잡이가 잘리지 않게)
-const FREE_MIN = 1 / CROP_ZOOM_MAX // 자유 자르기 틀의 최소 크기 (사진 대비) = 확대 900% 한도
+const FREE_MIN = 1 / CROP_ZOOM_MAX // 확대 막대의 기본 한도
+// 자유 비율의 변은 선처럼 얇게 자를 수 있게 하되 양쪽 변이 모두 0에 가까워지지 않게 한다.
+const FREE_SELECTION_MIN = 1 / 32
 // 꼭짓점 원은 편집 화면 회전 손잡이와 같은 크기, 변 손잡이는 선을 따라 놓이는 가는 바
 const HANDLE = 18
 const BAR_LONG = 24
@@ -66,7 +69,7 @@ function PhotoCropperBody({ photo, onApply, onCancel, fixedAspect, aspectRange, 
   const pickRatio = (id) => {
     setRatio(id)
     const lock = lockAspectOf(id)
-    if (lock) setRect((prev) => fitAspect(prev, lock / imageAspect))
+    if (lock) setRect((prev) => changeCropRatio(prev, lock / imageAspect))
   }
   // 자르는 틀의 가로:세로
   const aspect = fixedAspect
@@ -92,6 +95,7 @@ function PhotoCropperBody({ photo, onApply, onCancel, fixedAspect, aspectRange, 
   const full = { left: (stageWidth - fullW) / 2, top: (stageHeight - fullH) / 2, width: fullW, height: fullH }
   // 자유 자르기 화면의 사진 자리. 확대하면 틀은 화면에서 그대로 두고 사진이 커진다. (null: 사진 전체가 보이게 맞춤)
   const [freeView, setFreeView] = useState(null)
+  const [sliderMax, setSliderMax] = useState(null)
   const view = freeView ?? full
   function zoomFree(zoom) {
     const next = freeTransform(rect, view, zoom, 0, 0)
@@ -119,7 +123,8 @@ function PhotoCropperBody({ photo, onApply, onCancel, fixedAspect, aspectRange, 
         freeGesture.current = { rect, view, ...now }
         return
       }
-      const zoom = clamp(freeZoom(g.rect) * (g.dist > 0 ? now.dist / g.dist : 1), 1, 1 / FREE_MIN)
+      // 손잡이로 900%보다 작은 영역을 골랐다면 핀치 시작 시 갑자기 이전 한도로 돌아가지 않게 한다.
+      const zoom = clamp(freeZoom(g.rect) * (g.dist > 0 ? now.dist / g.dist : 1), 1, Math.max(1 / FREE_MIN, freeZoom(g.rect)))
       const next = freeTransform(g.rect, g.view, zoom, now.c.x - g.c.x, now.c.y - g.c.y)
       setRect(next.rect)
       setFreeView(next.view)
@@ -140,13 +145,7 @@ function PhotoCropperBody({ photo, onApply, onCancel, fixedAspect, aspectRange, 
   // 적용: 보이는 영역 + (비율을 바꿨으면) 사진 크기를 그 비율로
   function apply() {
     // 틀 = 보이는 영역이 되도록 crop 을 거꾸로 구한다 (coverLayout 과 같은 계산)
-    const rw = rect.u1 - rect.u0
-    const rh = rect.v1 - rect.v0
-    const crop = {
-      zoom: Math.round((1 / Math.max(rw, rh)) * 1000) / 1000,
-      fx: rw < 0.999 ? clamp(rect.u0 / (1 - rw), 0, 1) : 0.5,
-      fy: rh < 0.999 ? clamp(rect.v0 / (1 - rh), 0, 1) : 0.5,
-    }
+    const crop = cropFromRect(rect)
     const extras = { aspect, rect }
     if (free) {
       const long = Math.max(photo.w, photo.h)
@@ -211,7 +210,9 @@ function PhotoCropperBody({ photo, onApply, onCancel, fixedAspect, aspectRange, 
             <Slider
               value={freeZoom(rect)}
               min={1}
-              max={1 / FREE_MIN}
+              max={sliderMax ?? Math.max(1 / FREE_MIN, freeZoom(rect))}
+              onStart={() => setSliderMax(Math.max(1 / FREE_MIN, freeZoom(rect)))}
+              onEnd={() => setSliderMax(null)}
               step={0.1}
               minusLabel="사진 축소"
               plusLabel="사진 확대"
@@ -246,74 +247,6 @@ function PhotoCropperBody({ photo, onApply, onCancel, fixedAspect, aspectRange, 
         </CropViewport>
       </View>
   )
-}
-
-/** 지금 crop 으로 보이는 영역을 사진 안의 비율 좌표로 (boxAspect: 사진 상자 가로:세로) */
-function visibleRect(crop, boxAspect, imageAspect) {
-  const vw = Math.min(1, Math.min(1, boxAspect / imageAspect) / crop.zoom)
-  const vh = Math.min(1, Math.min(1, imageAspect / boxAspect) / crop.zoom)
-  const u0 = crop.fx * (1 - vw)
-  const v0 = crop.fy * (1 - vh)
-  return { u0, v0, u1: u0 + vw, v1: v0 + vh }
-}
-
-/** 자유 자르기 확대: 틀이 사진 안에서 가장 클 때(긴 쪽이 사진에 꽉 참)가 100% */
-/** 틀(rect)을 비율 ratio(사진 안 좌표의 가로:세로)로 맞춘다. 가운데는 지키고 지금 틀 안에서 가장 크게, 사진 밖으로는 못 나간다 */
-function fitAspect(rect, ratio) {
-  const rw = rect.u1 - rect.u0
-  const rh = rect.v1 - rect.v0
-  let w = rw / rh > ratio ? rh * ratio : rw
-  let h = w / ratio
-  if (w > 1) { w = 1; h = w / ratio }
-  if (h > 1) { h = 1; w = h * ratio }
-  const cx = clamp((rect.u0 + rect.u1) / 2, w / 2, 1 - w / 2)
-  const cy = clamp((rect.v0 + rect.v1) / 2, h / 2, 1 - h / 2)
-  return { u0: cx - w / 2, v0: cy - h / 2, u1: cx + w / 2, v1: cy + h / 2 }
-}
-function freeZoom(rect) {
-  return 1 / Math.max(rect.u1 - rect.u0, rect.v1 - rect.v0)
-}
-
-/** 틀 모양(가로:세로)은 그대로 두고 가운데 기준으로 키우거나 줄인다. 사진 밖으로는 나가지 않게 */
-function zoomRect(rect, zoom) {
-  const rw = rect.u1 - rect.u0
-  const rh = rect.v1 - rect.v0
-  const k = 1 / zoom / Math.max(rw, rh)
-  const w = Math.min(1, rw * k)
-  const h = Math.min(1, rh * k)
-  const cx = clamp((rect.u0 + rect.u1) / 2, w / 2, 1 - w / 2)
-  const cy = clamp((rect.v0 + rect.v1) / 2, h / 2, 1 - h / 2)
-  return { u0: cx - w / 2, v0: cy - h / 2, u1: cx + w / 2, v1: cy + h / 2 }
-}
-
-/**
- * 자유 자르기 화면 변환: 틀 가운데를 화면 제자리에 두고 zoom 만큼 확대한 뒤, 사진을 (dx, dy)px 만큼 옮긴다.
- * 틀(사진 안의 비율 좌표)은 사진 밖으로 나가지 않는다. 돌려주는 값: { rect, view }
- */
-function freeTransform(rect, view, zoom, dx, dy) {
-  const k = zoom / freeZoom(rect)
-  const center = {
-    x: view.left + ((rect.u0 + rect.u1) / 2) * view.width,
-    y: view.top + ((rect.v0 + rect.v1) / 2) * view.height,
-  }
-  const width = view.width * k
-  const height = view.height * k
-  let next = zoomRect(rect, zoom)
-  // 사진이 손가락을 따라 움직이면 틀이 보는 사진 영역은 반대로 옮겨진다
-  const rw = next.u1 - next.u0
-  const rh = next.v1 - next.v0
-  const u0 = clamp(next.u0 - dx / width, 0, 1 - rw)
-  const v0 = clamp(next.v0 - dy / height, 0, 1 - rh)
-  next = { u0, v0, u1: u0 + rw, v1: v0 + rh }
-  return {
-    rect: next,
-    view: {
-      left: center.x - ((next.u0 + next.u1) / 2) * width,
-      top: center.y - ((next.v0 + next.v1) / 2) * height,
-      width,
-      height,
-    },
-  }
 }
 
 // 자유 자르기 손잡이: 모서리 4 + 변 4. sx·sy 는 움직이는 쪽 (-1 왼쪽/위, 1 오른쪽/아래, 0 그대로)
@@ -396,18 +329,17 @@ function FreeHandle({ handle, rect, full, lock, range, onChange, center }) {
         const wx = ((handle.sx > 0 ? r.u1 : r.u0) + du - ax) * handle.sx
         const wy = ((handle.sy > 0 ? r.v1 : r.v0) + dv - ay) * handle.sy * lock
         const maxW = Math.min(handle.sx > 0 ? 1 - ax : ax, (handle.sy > 0 ? 1 - ay : ay) * lock)
-        const width = clamp((wx + wy) / 2, Math.min(maxW, FREE_MIN * Math.max(1, lock)), maxW)
+        // 자유 영역에서 작게 자른 뒤 고정 비율로 바꿔도 시작 크기가 강제로 커지지 않게 한다.
+        const minWidth = Math.min(maxW, FREE_SELECTION_MIN * Math.min(1, lock), r.u1 - r.u0)
+        const width = clamp((wx + wy) / 2, minWidth, maxW)
         const height = width / lock
         const u0 = handle.sx > 0 ? ax : ax - width
         const v0 = handle.sy > 0 ? ay : ay - height
         onChange({ u0, v0, u1: u0 + width, v1: v0 + height })
         return
       }
-      // 움직이는 변만 옮기고, 사진 밖(0~1)과 최소 크기를 넘지 않게 막는다.
-      if (handle.sx < 0) r.u0 = clamp(r.u0 + du, 0, r.u1 - FREE_MIN)
-      if (handle.sx > 0) r.u1 = clamp(r.u1 + du, r.u0 + FREE_MIN, 1)
-      if (handle.sy < 0) r.v0 = clamp(r.v0 + dv, 0, r.v1 - FREE_MIN)
-      if (handle.sy > 0) r.v1 = clamp(r.v1 + dv, r.v0 + FREE_MIN, 1)
+      // 자유 비율은 짧은 변을 강제로 늘리지 않는다. 긴 변으로 확대 한도를 지킨다.
+      Object.assign(r, resizeFreeCrop(r, handle, du, dv, FREE_SELECTION_MIN))
       if (range) {
         // 비율 범위(테이프 조각 1~12배): 넘으면 지금 움직인 쪽 변을 범위 끝까지만
         const ratio = (r.u1 - r.u0) / (r.v1 - r.v0)

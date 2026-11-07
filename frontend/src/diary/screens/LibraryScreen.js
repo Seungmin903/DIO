@@ -14,7 +14,7 @@ import PhoneBell from '../components/PhoneBell';
 import SelectionBar from '../components/SelectionBar';
 import SelectionButton from '../components/SelectionButton';
 import LibrarySearchScreen from '../components/LibrarySearchScreen';
-import { filterFavorite, filterScope, nextSort, parseSort, queryDiaries, SORT_OPTIONS, withFavorite } from '../utils/libraryQuery';
+import { emptyGuestImportAction, filterFavorite, filterScope, nextSort, parseSort, queryDiaries, SORT_OPTIONS, withFavorite } from '../utils/libraryQuery';
 import OpenBookShelf, { preloadOpenBooks } from '../components/OpenBookShelf';
 import { useDiaryGrid } from '../utils/useDiaryGrid';
 import { CAROUSEL_LIFT, CAROUSEL_SCALE } from '../utils/carouselFollow';
@@ -72,6 +72,7 @@ function LibraryScreen({
   onDelete,
   onShare, // 다이어리 ⋯ 말풍선의 `공유`. 없으면 그 줄을 두지 않는다
   onCreate,
+  guestImport = null,
   railWidthRef = null, // 태블릿: 메뉴가 다 열리거나 닫혔을 때의 폭 (ref라 바뀌어도 다시 그리지 않는다)
   selection = null, // 관리 모드에서 고른 다이어리 id 목록. null이면 관리 모드가 아니다.
   onSelectionChange,
@@ -125,6 +126,8 @@ function LibraryScreen({
   const scope = LIBRARY_SCOPES.find(item => item.id === filterScope(filter)) ?? null;
   const favoriteOnly = filterFavorite(filter);
   const emptyTitle = favoriteOnly ? FILTERS[1].empty : scope?.empty ?? '다이어리가 없어요';
+  // 회원의 내 다이어리가 비어 있고 이 기기에 옮길 다이어리가 있을 때만 빈 화면에 옮기기 입구를 둔다(평소 입구는 마이페이지)
+  const emptyAction = emptyGuestImportAction(guestImport, scope?.id, favoriteOnly);
   // 보이는 다이어리만 선택으로 센다. 필터를 바꾸면 숨은 다이어리는 선택에서 빠진다.
   const manageable = useMemo(() => shown.filter(diary => diary.canManage !== false && diary.canDelete !== false), [shown]);
   const selected = useMemo(() => (selecting ? visibleSelection(selection, manageable) : []), [selecting, selection, manageable]);
@@ -268,12 +271,14 @@ function LibraryScreen({
       </View>
     </PopoverMenu>
   </>;
-  const allLabel = hasMore ? (allSelected ? '불러온 항목 모두 해제' : '불러온 항목 모두 선택') : (allSelected ? '전체 해제' : '전체 선택');
-  const selectionBar = selecting && <SelectionBar count={selected.length} compact={compact} done={<SelectionButton compact={compact} ghost label="선택 완료" text="완료" disabled={trashing} onPress={() => onSelectionChange?.(null)} />}>
+  // 남은 페이지는 App 이 뒤에서 이어 받으므로 휴지통과 같은 이름을 쓴다(접근성 힌트에는 불러온 범위를 남긴다)
+  const allLabel = allSelected ? '전체 해제' : '전체 선택';
+  const selectionBar = selecting && <SelectionBar count={selected.length} unit="권" compact={compact} done={<SelectionButton compact={compact} ghost label="선택 완료" text="완료" disabled={trashing} onPress={() => onSelectionChange?.(null)} />}>
     <SelectionButton compact={compact}
       label={allLabel}
-      hint={`${hasMore ? '현재 불러온' : '현재 검색·필터 결과'} ${manageable.length}개에 적용해요`}
-      disabled={trashing || !manageable.length}
+      hint={`${hasMore ? '현재 불러온' : '현재 검색·필터 결과'} ${manageable.length}권에 적용해요`}
+      // 남은 페이지를 이어 받는 중(또는 오류로 멈춤)에는 막는다: 누르면 불러온 것만 골라져 '전체'와 달라진다
+      disabled={trashing || !manageable.length || hasMore}
       onPress={toggleAll}
     />
     <SelectionButton compact={compact}
@@ -364,7 +369,7 @@ function LibraryScreen({
   </>);
   const body = (<>
       {!carouselItems.length && suppressEmpty ? null : !carouselItems.length ? (
-        <EmptyState compact={compact} raised title={emptyTitle} />
+        <EmptyState compact={compact} raised title={emptyTitle} action={emptyAction} />
       ) : displayView === 'open' ? (
         <OpenBookShelf diaries={carouselItems} index={activeIndex} onIndexChange={onCarouselChange} onOpen={onOpen} onFavorite={onFavorite} onEdit={onEdit} onDelete={onDelete} onShare={onShare} compact={compact} />
       ) : displayView === 'carousel' ? (

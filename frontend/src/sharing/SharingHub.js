@@ -665,7 +665,7 @@ export default function SharingHub({
                           {member.id !== runtime.self.id && onOpenParticipants && (
                             <Pressable accessibilityRole="button" accessibilityLabel={`${member.nickname} 메뉴`} style={s.iconButton}
                               disabled={busy} onPress={() => onOpenParticipants(diary, member)}>
-                              <Text style={s.bold}>⋯</Text>
+                              <Icon name="more" size={22} color={colors.text} />
                             </Pressable>
                           )}
                         </View>
@@ -1226,7 +1226,7 @@ export default function SharingHub({
               : question?.kind === 'remove'
               ? '이 참여자는 다이어리를 열거나 편집할 수 없어요. 작성한 내용은 남고 기존 초대 링크는 무효화돼요.'
               : question?.kind === 'cancel-email'
-              ? '이 초대로는 다이어리에 참여할 수 없어요. 이미 참여한 멤버는 그대로 남아요.'
+              ? '이 초대로는 다이어리에 참여할 수 없어요. 이미 참여한 사람은 그대로 남아요.'
               : question?.kind === 'decline'
               ? '삭제하면 이 초대로는 다이어리에 참여할 수 없어요.'
               : '참여가 해제되면 이 다이어리를 함께 편집할 수 없어요.'

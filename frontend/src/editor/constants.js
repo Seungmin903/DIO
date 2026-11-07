@@ -15,9 +15,12 @@ export const OBJECT_TYPE_LABELS = {
   shape: '도형',
   stroke: '필기',
   sticker: '스티커',
-  tape: '마스킹테이프',
+  tape: '테이프',
   photo: '사진',
 }
+
+// 레이어 줄 종류 이름. 메모 · 디데이처럼 그림이 있는 도형은 도구 이름과 같이 '위젯'이라 부른다(MorePanel 제목과 같은 규칙)
+export const objectTypeLabel = object => object?.art || object?.widget ? '위젯' : OBJECT_TYPE_LABELS[object?.type]
 
 // 마스킹테이프 폭 규격. 다꾸에서 흔히 부르는 이름을 따른다.
 // 슬림(5mm, 선처럼 가는 테이프) · 기본(15mm, 가장 흔한 폭) · 와이드(30mm)

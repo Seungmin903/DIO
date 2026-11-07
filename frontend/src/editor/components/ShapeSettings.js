@@ -6,6 +6,7 @@ import { DEFAULT_SHAPE_STYLE, EDITOR_SHAPES, SHAPE_CATEGORIES, SHAPE_BORDER_STYL
 import { Segmented, ToolPanelHeader, toolPanelStyles as p } from './ToolPanel'
 import { PaletteInteractionContext } from './controls/ColorPicker'
 import { useColorWindow } from '../../diary/components/PresetColorEditor'
+import Icon from './controls/Icon'
 import Slider from './controls/Slider'
 import FadeScroll from './controls/FadeScroll'
 import { MEMO_ARTS } from '../widgets/memoArt'
@@ -44,7 +45,7 @@ export default function ShapeSettings({ settings, onChange, onCheckpoint, onComm
     <View style={styles.palette}>
       {key === 'fill' && !value.art && <Pressable accessibilityRole="button" accessibilityLabel="채우기 없음" accessibilityState={{selected:value.fill==='none'}} onPress={()=>onChange({fill:'none'})} style={[styles.swatch,styles.noFill,value.fill==='none'&&styles.chosen]}><Svg width={22} height={22} viewBox="0 0 24 24"><Path d="M5 19L19 5" stroke={colors.textMuted} strokeWidth={1.5} /></Svg></Pressable>}
       {(key === 'borderColor' && value.art ? MEMO_LINE_SWATCHES : SWATCHES).map(color => <Pressable key={color} accessibilityRole="button" accessibilityLabel={`${label} ${color}`} disabled={disabled} accessibilityState={{ selected: value[key] === color, disabled }} onPress={() => onChange({ [key]: color })} style={[styles.swatch, { backgroundColor: color }, value[key] === color && styles.chosen]} />)}
-      <Pressable ref={node => { customRefs.current[key] = node }} collapsable={false} accessibilityRole="button" accessibilityLabel={`${label} 직접 선택`} disabled={disabled} accessibilityState={{ disabled }} onPress={() => openCustom(key, label)} style={styles.customColor}><Text style={styles.plus}>+</Text></Pressable>
+      <Pressable ref={node => { customRefs.current[key] = node }} collapsable={false} accessibilityRole="button" accessibilityLabel={`${label} 직접 선택`} disabled={disabled} accessibilityState={{ disabled }} onPress={() => openCustom(key, label)} style={styles.customColor}><Icon name="plus" size={17} color={colors.primaryText} /></Pressable>
     </View>
   </View>
   return <View style={embedded ? {marginTop:14} : p.card}>

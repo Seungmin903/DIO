@@ -3,7 +3,7 @@ import test from 'node:test';
 import { BOTTOM_TABS, isBottomTabSelected, navigateBottomTab } from '../src/diary/components/bottomTabModel.js';
 
 test('하단 바는 다섯 개 목적지다(설정은 마이페이지 안)', () => {
-  assert.deepEqual(BOTTOM_TABS.map(tab => tab.label), ['내 기록', '공유', '공방', '휴지통', '마이페이지']);
+  assert.deepEqual(BOTTOM_TABS.map(tab => tab.label), ['내 다이어리', '공유', '공방', '휴지통', '마이페이지']);
   assert.ok(!BOTTOM_TABS.some(tab => tab.id === 'settings'));
 });
 

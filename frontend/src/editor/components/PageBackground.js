@@ -8,6 +8,7 @@ import { pageSize } from '../utils/pageGeometry.js'
 import { plannerFor, paperDeviceFontIds } from '../templates/planners.js'
 import { swapPaperFont } from '../templates/paperFont.js'
 import { useTextFont } from '../hooks/useTextFont'
+import { colors } from '../../shared/theme'
 import { KeepFont } from '../../shared/fontScope'
 
 // 속지 · 특수 속지 · 캔버스 요소는 정해진 글꼴을 그대로 쓴다(앱 UI 글꼴 Pretendard 를 넣지 않는다). 가짜 모듈인 테스트에서는 Fragment 로 그린다
@@ -92,8 +93,8 @@ function BackgroundAttempt({ page, zoom, preparedXml, onReady, onError, onRetry,
     </View>}
     {/* 속지는 기기에 있는 파일이라 곧바로 준비된다. 준비 전에는 빈 종이로 두고 로딩 문구를 띄우지 않는다. */}
     {error && <View style={styles.error} accessibilityRole="alert">
-      <Text style={styles.notice}>{compact ? '내지 로딩 실패' : error.message}</Text>
-      {onRetry && <Pressable accessibilityRole="button" accessibilityLabel="내지 다시 불러오기" onPress={onRetry} style={styles.retry}><Text>다시 시도</Text></Pressable>}
+      <Text style={styles.notice}>{compact ? '속지 로딩 실패' : error.message}</Text>
+      {onRetry && <Pressable accessibilityRole="button" accessibilityLabel="속지 다시 불러오기" onPress={onRetry} style={styles.retry}><Text style={styles.retryText}>다시 시도</Text></Pressable>}
     </View>}
   </View>
 }
@@ -117,7 +118,9 @@ function PageBackground(props) {
 export default memo(PageBackground)
 
 const styles = StyleSheet.create({
-  notice: { color: '#625BA7', fontSize: 12, padding: 8 },
-  error: { alignSelf: 'center', margin: 12, backgroundColor: '#FFF2F0', borderRadius: 8, padding: 6, alignItems: 'center' },
-  retry: { padding: 8, backgroundColor: '#FFFFFF', borderRadius: 6 },
+  // 실패 칸도 앱 색(옅은 면 + 보라 글자)으로: 예전 분홍(#FFF2F0) 상자 · 시스템 글자는 색 규칙 밖이었다
+  notice: { color: colors.primaryText, fontSize: 12, fontWeight: '600', padding: 8 },
+  error: { alignSelf: 'center', margin: 12, backgroundColor: colors.surfaceMuted, borderRadius: 10, padding: 6, alignItems: 'center' },
+  retry: { minHeight: 32, paddingHorizontal: 12, justifyContent: 'center', backgroundColor: colors.surface, borderRadius: 10, borderWidth: 1, borderColor: colors.border },
+  retryText: { color: colors.primaryText, fontSize: 13, fontWeight: '700' },
 })

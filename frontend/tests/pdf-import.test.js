@@ -56,7 +56,7 @@ test('표지 바탕을 PDF 쪽으로 바꾸면 표지 꾸밈을 모두 빼고, �
   assert.equal(restoreCoverBase(covered, { kind: 'photo', enabled: true, photo: null }).kind, 'plain');
 });
 
-test('나의 표지에 담을 때는 PDF 그림만 남기고 고무줄 · 라벨 · 제목 · 소제목 · 스티커를 뺀다', () => {
+test('내 표지에 담을 때는 PDF 그림만 남기고 고무줄 · 라벨 · 제목 · 소제목 · 스티커를 뺀다', () => {
   const covered = coverWithPdfPage(defaultCover(), pages[0], { keepDecor: true });
   assert.equal(covered.band.on, true); assert.notEqual(covered.plate, 'none');
   const saved = coverForLibrary(covered);
@@ -90,7 +90,7 @@ test('문서의 페이지를 PDF 쪽으로 바꾸고, 쪽이 없으면 그대로
   assert.equal(next.pages[0].canvasWidth, 768);
 });
 
-test('나의 표지 · 나의 속지는 저장 값을 맞추고 잘못된 항목을 버린다', () => {
+test('내 표지 · 내 속지는 저장 값을 맞추고 잘못된 항목을 버린다', () => {
   const covers = normalizeMyCovers([{ id: 'a', name: '  봄  ', cover: defaultCover() }, { id: 'a', cover: defaultCover() }, { id: 'b' }, null, 'x']);
   assert.deepEqual(covers.map(item => [item.id, item.name]), [['a', '봄']]);
   assert.equal(normalizeMyCovers('bad').length, 0);
@@ -104,11 +104,11 @@ test('나의 보관함은 새 항목을 맨 앞에 두고 한도를 넘으면 �
   for (let i = 0; i < MY_LIBRARY_LIMIT + 3; i += 1) list = addMyCover(list, { name: `표지 ${i}`, cover: defaultCover() });
   assert.equal(list.length, MY_LIBRARY_LIMIT); assert.equal(list[0].name, `표지 ${MY_LIBRARY_LIMIT + 2}`);
   const papers = addMyPaper([], { name: '', orientation: 'portrait', pages });
-  assert.equal(papers[0].name, '나의 속지'); assert.equal(papers[0].pages.length, 3);
+  assert.equal(papers[0].name, '내 속지'); assert.equal(papers[0].pages.length, 3);
   assert.deepEqual(removeEntry(list, list[0].id).length, MY_LIBRARY_LIMIT - 1);
 });
 
-test('나의 표지는 방향을 저장하고, 방향 없이 담긴 옛 표지는 사진 비율로 짐작한다', () => {
+test('내 표지는 방향을 저장하고, 방향 없이 담긴 옛 표지는 사진 비율로 짐작한다', () => {
   const cover = { ...defaultCover(), kind: 'photo', photo: { src: 'media:m1', mediaFileId: 'm1', aspect: 1.29 } };
   assert.equal(addMyCover([], { name: '가로', orientation: 'landscape', cover })[0].orientation, 'landscape');
   const [old] = normalizeMyCovers([{ id: 'a', name: '옛 표지', cover }]);
@@ -173,7 +173,7 @@ test('기기에서 PDF 를 그리다 실패하면 보관한 원본도 지운다'
   assert.deepEqual(store.removed, ['source-1']);
 });
 
-test('나의 표지 · 속지 이름은 고칠 수 있고, 비우면 원래 이름을 둔다', () => {
+test('내 표지 · 속지 이름은 고칠 수 있고, 비우면 원래 이름을 둔다', () => {
   const list = addMyCover(addMyCover([], { name: 'a', orientation: 'portrait', cover: defaultCover() }), { name: 'b', orientation: 'portrait', cover: defaultCover() });
   const [first, second] = list;
   const renamed = renameEntry(list, second.id, '  여행 일기  ');

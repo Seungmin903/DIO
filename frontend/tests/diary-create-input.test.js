@@ -28,7 +28,7 @@ test('실제 생성 입력의 날짜형·만년형·가로·세로·속지 순�
   }
 });
 
-test('빈 제목·잘못된 구성을 거절하며 내지를 모두 끄면 빈 페이지 하나를 요청한다', () => {
+test('빈 제목·잘못된 구성을 거절하며 속지를 모두 끄면 빈 페이지 하나를 요청한다', () => {
   assert.throws(()=>diaryCreateInput({...form(),title:' '}),/이름/);
   assert.throws(()=>diaryCreateInput({...form(),templateConfig:{...form().templateConfig,dateMode:'invalid'}}),/날짜형/);
   const config={...form().templateConfig,cover:false,dividers:false,monthly:false,weekly:false,daily:false,reusable:[],legacyEndPages:[]};

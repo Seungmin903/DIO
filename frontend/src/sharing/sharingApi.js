@@ -177,7 +177,8 @@ export function createSharingApi({ user, auth, fetchImpl = globalThis.fetch, bui
       diaries.set(id, diary); publish(); return diary;
     }
   }
-  const mapMembers = members => Promise.all(members.map(async m => ({ id: String(m.userId), nickname: m.nickname, role: m.role, color: m.memberColor || null,
+  // self: 내 자리는 참여자 색 대신 마이페이지와 같은 내 기본 프로필 색으로 그린다(DefaultAvatar)
+  const mapMembers = members => Promise.all(members.map(async m => ({ id: String(m.userId), self: String(m.userId) === self.id, nickname: m.nickname, role: m.role, color: m.memberColor || null,
     activeAccount: m.activeAccount, blockedByMe: m.blockedByMe,
     photoUri: m.usingAccountPhoto ? await accountPhoto(m.profilePhotoUrl) : await privatePhoto(m.profilePhotoUrl),
     presence: m.role === 'OWNER' ? '소유자' : '편집자' })));

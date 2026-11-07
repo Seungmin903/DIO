@@ -108,7 +108,7 @@ export function useMemberCanvasCollaboration({diary,page,state,loaded,readOnly,d
       if(active()){r.pageIds?.add(page.id);dispatch({type:'importServerPages',pages:[page],selectId:page.id})}
       return page
     })
-    // 나의 속지(PDF 쪽): 빈 페이지를 만들어 쪽 크기로 맞춘 뒤 바탕 그림을 얹는다(새 PDF 다이어리와 같은 길). 그림과 원본 PDF 는 동기화가 올린다.
+    // 내 속지(PDF 쪽): 빈 페이지를 만들어 쪽 크기로 맞춘 뒤 바탕 그림을 얹는다(새 PDF 다이어리와 같은 길). 그림과 원본 PDF 는 동기화가 올린다.
     r.addPdfPages=docPages=>mutatePages(async()=>{
       dispatch({type:'commitCheckpoint'})
       const added=[]

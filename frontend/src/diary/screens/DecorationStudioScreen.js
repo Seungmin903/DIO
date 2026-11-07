@@ -6,6 +6,7 @@ import useDefaultPaperStyle from '../hooks/useDefaultPaperStyle';
 import StudioPresets, { GroupHead } from '../components/StudioPresets';
 import StudioSection from '../components/StudioSection';
 import StudioShelf from '../components/StudioShelf';
+import CoverEditModal from '../components/CoverEditModal';
 import { PdfPageThumb } from '../components/PdfImport';
 import StudioTabs from '../components/StudioTabs';
 import StudioTool from '../components/StudioTool';
@@ -77,7 +78,7 @@ export default function DecorationStudioScreen({ compact = false, registerBackHa
   const loginGate = useLoginGate();
   const [fonts, setFonts] = useState([]), [fontState, setFontState] = useState('loading');
   const made = useSyncExternalStore(fontWorkflow.subscribe, fontWorkflow.getSnapshot, fontWorkflow.getSnapshot);
-  const [tool, setTool] = useState(null), [folderId, setFolderId] = useState(null);
+  const [tool, setTool] = useState(null), [folderId, setFolderId] = useState(null), [stickerRename, setStickerRename] = useState(null);
   const [question, setQuestion] = useState(null), [shelfError, setShelfError] = useState(null);
   const [tab, setTabState] = useState(lastTab);
   const [paperId, setPaperId] = useState(null);
@@ -87,6 +88,8 @@ export default function DecorationStudioScreen({ compact = false, registerBackHa
   const [tapeNameEdit, setTapeNameEdit] = useState(null);
   // 사진으로 표지 만들기의 자르기 창: { photo, ratio, resolve }
   const [coverCrop, setCoverCrop] = useState(null);
+  // 내 표지 편집(지라 603): 견본을 누르면 새 다이어리 표지 탭과 같은 편집 화면을 열고, 꾸밈까지 저장한다
+  const [coverEdit, setCoverEdit] = useState(null);
   // 화면 폭에 맞춰 격자 칸을 배치한다.
   const folderGrid = useFillGrid({ cell: 164, gap: 14, minColumns: 2 });
   const stickerGrid = useFillGrid({ cell: 88, gap: 12, minColumns: 3 });
@@ -153,10 +156,10 @@ export default function DecorationStudioScreen({ compact = false, registerBackHa
   useEffect(() => { alive.current = true; return () => { alive.current = false; request.current++; clearPickerTimer(); pickerAfterMenu.current = null; pickerEpoch.current++; }; }, []);
   useEffect(() => { if (!studio) refreshFonts(); }, [studio]);
 
-  // 지우기 확인 창: 스티커 · 스티커 폴더 · 나의 표지 · 나의 속지가 하나의 창을 쓴다.
+  // 지우기 확인 창: 스티커 · 스티커 폴더 · 내 표지 · 내 속지가 하나의 창을 쓴다.
   const asking = question?.draft ? { title: '이 폰트를 지울까요?', message: '작성 중인 손글씨가 모두 사라져요.' }
-    : question?.cover ? { title: '이 표지를 지울까요?', message: '나의 표지에서만 사라져요. 이미 만든 다이어리는 그대로예요.' }
-    : question?.paper ? { title: '이 속지를 지울까요?', message: '나의 속지에서만 사라져요. 이미 만든 다이어리는 그대로예요.' }
+    : question?.cover ? { title: '이 표지를 지울까요?', message: '내 표지에서만 사라져요. 이미 만든 다이어리는 그대로예요.' }
+    : question?.paper ? { title: '이 속지를 지울까요?', message: '내 속지에서만 사라져요. 이미 만든 다이어리는 그대로예요.' }
     : question?.tapeFolder ? { title: question.tape ? '이 테이프를 지울까요?' : '테이프 폴더를 지울까요?', message: TAPE_REMOVE_MESSAGE }
     : { title: question?.item ? '이 스티커를 지울까요?' : '스티커 폴더를 지울까요?', message: STICKER_REMOVE_MESSAGE };
   async function confirmRemoval() {
@@ -235,12 +238,36 @@ export default function DecorationStudioScreen({ compact = false, registerBackHa
       </View>}
   </StudioSection>;
 
+  // 스티커 새 폴더는 테이프와 같은 길: 만들고 바로 들어가 이름을 고친다. 폴더 안에서는 이미지 추가 · 이름 바꾸기 · 폴더 삭제
+  const newStickerFolder = () => { const id = custom.addFolder('새 폴더'); setFolderId(id); setStickerRename('새 폴더'); };
+  const commitStickerRename = () => {
+    const name = (stickerRename ?? '').trim();
+    if (name && folder && name !== folder.name) custom.renameFolder(folder.id, name);
+    setStickerRename(null);
+  };
+  const addStickerImages = async targetId => {
+    setShelfError(null);
+    try {
+      const images = await pickImages({ usage: 'sticker' });
+      if (images.length) custom.addToFolder(targetId, images.map(image => ({ src: image.src, mediaFileId: image.mediaFileId, poster: image.poster, name: image.name, aspect: image.width / image.height })));
+    } catch { if (alive.current) setShelfError('sticker'); }
+  };
+
   const stickerSection = <StudioSection fill={custom.loaded && (folder ? !folder.items.length : !custom.items.folders.length)} title={folder ? folder.name : '스티커'} count={custom.loaded ? (folder ? count(folder.items) : count(custom.items.folders)) : null}
     right={folder ? <>
-      <DioButton variant="ghost" icon="chevron-left" label="스티커 폴더 목록" text="폴더 목록" onPress={() => setFolderId(null)} />
+      <DioButton variant="ghost" icon="chevron-left" label="스티커 폴더 목록" text="폴더 목록" onPress={() => { setFolderId(null); setStickerRename(null); }} />
+      <DioButton variant="icon" icon="add" label="이 폴더에 스티커 추가" onPress={() => addStickerImages(folder.id)} />
+      <DioButton variant="icon" icon="edit" label="스티커 폴더 이름 바꾸기" onPress={() => setStickerRename(folder.name)} />
       <DioButton variant="icon" icon="trash" label="스티커 폴더 삭제" onPress={() => setQuestion({ folder })} />
-    </> : addTool({ kind: 'sticker', icon: 'sticker', title: '스티커 추가', description: CUTOUT_ENTRANCE ? '스티커 시트 분리 · 사진 속 대상 오리기' : '스티커 시트 분리', disabled: !custom.loaded, menu: true })}>
+    </> : addTool({ kind: 'sticker', icon: 'sticker', title: '스티커 추가', description: CUTOUT_ENTRANCE ? '스티커 시트 분리 · 사진 속 대상 오리기 · 새 폴더' : '스티커 시트 분리 · 새 폴더', disabled: !custom.loaded, menu: true })}>
     {custom.saveError ? <DecorSaveNotice error={custom.saveError} pending={custom.savePending} onRetry={custom.retrySave} /> : null}
+    {shelfError === 'sticker' && <Text accessibilityRole="alert" style={s.error}>사진을 불러오지 못했어요. 다시 시도해 주세요.</Text>}
+    {folder && stickerRename != null && <View style={s.renameRow}>
+      <TextInput autoFocus selectTextOnFocus maxLength={30} value={stickerRename} onChangeText={setStickerRename} onSubmitEditing={commitStickerRename}
+        returnKeyType="done" accessibilityLabel="스티커 폴더 이름" style={s.renameInput} />
+      <DioButton variant="ghost" label="스티커 폴더 이름 바꾸기 취소" text="취소" onPress={() => setStickerRename(null)} />
+      <DioButton variant="filled" label="스티커 폴더 이름 저장" text="저장" disabled={!stickerRename.trim()} onPress={commitStickerRename} />
+    </View>}
     {!custom.loaded ? <Text style={s.empty}>스티커를 불러오고 있어요.</Text>
       : folder ? (!folder.items.length ? <EmptyState compact={compact} art="dio" raised title="아직 스티커가 없어요" />
         : <View style={s.stickers} onLayout={stickerGrid.onLayout}>{folder.items.map((item, index) => <View key={item.id || `${item.mediaFileId || item.src}-${index}`} style={[s.sticker, { width: stickerGrid.cellWidth, height: stickerGrid.cellWidth }]}>
@@ -253,7 +280,7 @@ export default function DecorationStudioScreen({ compact = false, registerBackHa
       : !custom.items.folders.length ? <EmptyState compact={compact} art="dio" raised title="아직 스티커 폴더가 없어요" />
       : <View style={s.folders} onLayout={folderGrid.onLayout}>
           {custom.items.folders.map(item => <Pressable key={item.id} accessibilityRole="button" accessibilityLabel={`${item.name} 스티커 폴더`}
-            onPress={() => setFolderId(item.id)} style={[s.folderTile, { width: folderGrid.cellWidth }]}>
+            onPress={() => { setFolderId(item.id); setStickerRename(null); }} style={[s.folderTile, { width: folderGrid.cellWidth }]}>
             <View style={s.folderPreviews}>{item.items.length ? item.items.slice(0, 2).map((sticker, index) => <View key={index} style={s.folderPreview}><StickerThumbImage item={sticker} style={s.folderThumb} /></View>)
               : <View style={s.folderPreview}><AppIcon name="folder" size={26} color={colors.primary} /></View>}</View>
             <View style={s.folderText}><Text numberOfLines={1} style={s.itemTitle}>{item.name}</Text><Text style={s.folderCount}>{item.items.length}개 스티커</Text></View>
@@ -296,11 +323,11 @@ export default function DecorationStudioScreen({ compact = false, registerBackHa
       let photo;
       try { photo = coverPhotoWithAspect(item); }
       catch (error) { await discardGeneratedMedia([item]).catch(() => {}); throw error; }
-      // 사진 넣기 흐름: 고르기 → 사진 방향의 표지 비율로 자르기 → 나의 표지에 보인다. 자르기를 닫으면 만들지 않는다
+      // 사진 넣기 흐름: 고르기 → 사진 방향의 표지 비율로 자르기 → 내 표지에 보인다. 자르기를 닫으면 만들지 않는다
       const orientation = pdfOrientation(photo.aspect);
       const crop = await new Promise(resolve => setCoverCrop({ photo, ratio: COVER_PHOTO_RATIO[orientation], resolve }));
       if (!crop) { discardGeneratedMedia([item]).catch(() => {}); return; }
-      // 이름은 편집기 사진과 같은 규칙: 파일 이름, 없으면(뜻 없는 이름 포함) 나의 표지 안에서 '사진 n'
+      // 이름은 편집기 사진과 같은 규칙: 파일 이름, 없으면(뜻 없는 이름 포함) 내 표지 안에서 '사진 n'
       const last = library.covers.reduce((max, cover) => Math.max(max, Number(cover.name.match(/^사진 (\d+)$/)?.[1] ?? 0)), 0);
       const base = coverWithPdfPage(newDiaryCover(), photo);
       const saved = await library.addCover({ name: item.name || `사진 ${last + 1}`, orientation, cover: { ...base, photo: { ...base.photo, crop } } });
@@ -388,7 +415,7 @@ export default function DecorationStudioScreen({ compact = false, registerBackHa
     {makeAlert('cover')}
     {!library.ready ? <Text style={s.empty}>표지를 불러오고 있어요.</Text>
       : !library.covers.length ? <EmptyState compact={compact} art="dio" raised title="아직 저장한 표지가 없어요" />
-      : <StudioShelf kind="cover" items={library.covers} onRemove={cover => setQuestion({ cover })} onRename={(cover, name) => renameItem('cover', cover, name)} />}
+      : <StudioShelf kind="cover" items={library.covers} onOpen={setCoverEdit} onRemove={cover => setQuestion({ cover })} onRename={(cover, name) => renameItem('cover', cover, name)} />}
     {shelfError === 'cover' && <Text accessibilityRole="alert" style={s.error}>표지를 지우지 못했어요. 다시 시도해 주세요.</Text>}
     {shelfError === 'cover-rename' && <Text accessibilityRole="alert" style={s.error}>표지 이름을 바꾸지 못했어요. 다시 시도해 주세요.</Text>}
   </StudioSection>;
@@ -451,7 +478,9 @@ export default function DecorationStudioScreen({ compact = false, registerBackHa
       // 사진 속 대상 오리기: 저장이 아직 미리보기 단계라(StickerCutoutModal 확인창) 모든 빌드에서 입구를 감춘다
       ...(CUTOUT_ENTRANCE ? [{ id: 'cutout', label: '사진 속 대상 오리기', text: '사진 속 대상 오리기', icon: 'scissors',
         onPress: () => { closeAddMenu(); loginGate('사진 속 대상 오리기', () => setTool('cutout')); } }] : []),
+      { id: 'folder', label: '새 폴더', text: '새 폴더', icon: 'folder', onPress: () => { closeAddMenu(); newStickerFolder(); } },
     ]} />}
+    {coverEdit && <CoverEditModal key={coverEdit.id} item={coverEdit} compact={compact} onSave={cover => library.updateCover(coverEdit.id, cover)} onClose={() => setCoverEdit(null)} />}
     {coverCrop && <PhotoCropper photo={coverCropPhoto(coverCrop.photo, coverCrop.ratio)} fixedAspect={coverCrop.ratio} title="표지 사진 자르기"
       onCancel={() => { coverCrop.resolve(null); setCoverCrop(null); }} onApply={({ crop }) => { coverCrop.resolve(crop); setCoverCrop(null); }} />}
     {pendingTape && <TapeCropper image={pendingTape.image} onCancel={() => { discardGeneratedMedia([pendingTape.image]).catch(() => {}); setPendingTape(null); }} onConfirm={({ crop, size, ratio }) => {
@@ -506,7 +535,7 @@ const s = StyleSheet.create({
   tapeStack: { height: 64, justifyContent: 'center', gap: 8 },
   tapes: { flexDirection: 'row', flexWrap: 'wrap', gap: 14 },
   tapeCard: { minHeight: 72, alignItems: 'center', justifyContent: 'center', gap: 10, padding: 16, borderRadius: 12, borderWidth: 1, borderColor: colors.cardBorder, backgroundColor: colors.surface },
-  // 테이프 이름: 나의 표지 · 속지 선반 이름과 같은 14/700 + 연필(터치 32)
+  // 테이프 이름: 내 표지 · 속지 선반 이름과 같은 14/700 + 연필(터치 32)
   tapeName: { fontSize: 14, fontWeight: '700', color: colors.text },
   tapeNameRow: { minHeight: 32, maxWidth: '100%', flexDirection: 'row', alignItems: 'center', gap: 4 },
   tapeNameText: { flexShrink: 1 },

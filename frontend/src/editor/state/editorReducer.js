@@ -257,6 +257,7 @@ function normalizeSelection(state) {
 }
 
 export function editorReducer(state, action) {
+  if (action.type === 'revertToCheckpoint' && action.checkpointOwner && state.pendingCheckpoint?.owner !== action.checkpointOwner) return state
   const objects = getCurrentPage(state).objects
   if (state.pagesLoading && (NEEDS_ALL_PAGES.has(action.type) || (NEEDS_CURRENT_PAGE.has(action.type) && getCurrentPage(state).unloaded))) return state
 
@@ -301,14 +302,16 @@ export function editorReducer(state, action) {
       return {
         ...withHistory(state),
         // 취소한 드래그는 새 편집이 아니므로 이전 Redo와 이력 상한 이전의 Past도 복원한다.
-        pendingCheckpoint: { doc: state.doc, past: state.past, future: state.future },
+        pendingCheckpoint: { doc: state.doc, past: state.past, future: state.future, ...(action.checkpointOwner ? { owner: action.checkpointOwner } : {}) },
       }
 
     // 자르기 취소처럼 checkpoint 이후의 변경을 버리고 그 시점으로 돌아간다.
     case 'revertToCheckpoint': {
       if (state.pendingCheckpoint) return normalizeSelection({
         ...state,
-        ...state.pendingCheckpoint,
+        doc: state.pendingCheckpoint.doc,
+        past: state.pendingCheckpoint.past,
+        future: state.pendingCheckpoint.future,
         pendingCheckpoint: null,
       })
       if (!state.past.length) return state
@@ -461,7 +464,7 @@ export function editorReducer(state, action) {
       // assetIds: 여러 속지를 섞어 넣을 때 순서대로. 없으면 backgroundAssetId 를 count 장
       const count = Math.max(1, Math.min(50, Math.floor(action.count ?? 1)))
       const ids = Array.isArray(action.assetIds) && action.assetIds.length ? action.assetIds.slice(0, 200) : Array.from({ length: count }, () => action.backgroundAssetId ?? null)
-      // pages: 미리 만든 페이지(나의 속지 PDF 쪽처럼 바탕 그림 · 크기가 정해진 것)는 그대로 넣는다
+      // pages: 미리 만든 페이지(내 속지 PDF 쪽처럼 바탕 그림 · 크기가 정해진 것)는 그대로 넣는다
       const added = Array.isArray(action.pages) && action.pages.length ? action.pages.slice(0, 200) : ids.map((id) => {
         const created = id ? createTemplatePage(id, appearance) : createBlankPage(state.doc.orientation)
         return appearance ? { ...created, paperAppearance: appearance } : created

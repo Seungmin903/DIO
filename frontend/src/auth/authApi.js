@@ -12,12 +12,19 @@ export function authBaseUrl(value) {
 // Access tokens and development-server Basic credentials stay in memory.
 // Only the injected native secure store persists refresh credentials.
 // Never save passwords or tokens in AsyncStorage.
-export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhotoBody, googleSignIn, appleSignIn, now = Date.now, accessTokenHeader = 'Authorization', allowDevelopmentAccess = false, developmentAccessStore = null, sessionStore = null }) {
+export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhotoBody, googleSignIn, appleSignIn, now = Date.now, accessTokenHeader = 'Authorization', allowDevelopmentAccess = false, developmentAccessStore = null, presetDevelopmentAccess = null, sessionStore = null }) {
   if (!['Authorization', 'X-DIO-Access-Token'].includes(accessTokenHeader)) throw new Error('인증 헤더 설정을 확인해 주세요.');
   const base = authBaseUrl(baseUrl);
   const accessOrigin = new URL(base).origin;
   const accessStore = allowDevelopmentAccess && new URL(base).protocol === 'https:' ? developmentAccessStore : null;
-  let developmentAccess = null;
+  // 개발 실행에서 .env로 받은 개발 서버 접속 정보. iOS 개발 빌드는 Basic 401 응답이 앱까지 오지 않고
+  // 요청이 멈춰 입력 화면이 뜰 수 없으므로, 처음부터 붙이고 로그아웃으로 지워져도 다음 요청 전에 다시 넣는다.
+  let presetAccess = null;
+  if (allowDevelopmentAccess && presetDevelopmentAccess?.username && presetDevelopmentAccess?.password) {
+    try { presetAccess = developmentAuthorization(base, presetDevelopmentAccess.username, presetDevelopmentAccess.password); }
+    catch (error) { console.warn('[auth] DEVELOPMENT_ACCESS_PRESET_IGNORED', error.message); }
+  }
+  let developmentAccess = presetAccess;
   let restoringAccess = accessStore ? Promise.resolve().then(() => accessStore.load(accessOrigin))
     .then(value => { if (!developmentAccess && value) developmentAccess = value; })
     .catch(() => {}).finally(() => { restoringAccess = null; }) : null;
@@ -139,6 +146,7 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
     const timer = setTimeout(() => controller.abort(), timeoutMs);
     try {
       if (restoringAccess) await restoringAccess;
+      if (!developmentAccess && presetAccess) developmentAccess = presetAccess;
       const sentAccess = developmentAccess;
       const response = await fetchImpl(`${base}/${memberPath ? path : `auth/${path}`}`, {
         method, signal: controller.signal,
@@ -152,6 +160,8 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
         if (response.status === 401 && /^Basic(?:\s|$)/i.test(challenge ?? '')) {
           // A saved or entered credential the server rejected is dropped so the app asks again.
           forgetAccess(sentAccess);
+          // A rejected .env preset must not be re-injected before every request, or the manual entry flow never recovers.
+          if (sentAccess && sentAccess === presetAccess) presetAccess = null;
           throw Object.assign(new Error('개발 서버 접근 인증이 필요해요. 서버 담당자에게 앱의 API 접근 방법을 확인해 주세요.'),
             { status: 401, code: 'DEVELOPMENT_ACCESS_REQUIRED' });
         }
@@ -477,14 +487,27 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
       if (!session || String(user?.userId) !== String(session.user.userId)) throw unauthorized();
       let current = session;
       let withdrawn = false;
-      try {
-        try { await request('me', undefined, current.accessToken, false, 'DELETE', true); }
+      let body;
+      const remove = async () => {
+        try { await request('me', body, current.accessToken, false, 'DELETE', true); }
         catch (error) {
           if (error.status !== 401 || error.code === 'DEVELOPMENT_ACCESS_REQUIRED') throw error;
           if (session !== current) throw new Error('로그인 상태가 변경되었어요.');
           await api.refresh();
           current = session;
-          await request('me', undefined, current.accessToken, false, 'DELETE', true);
+          await request('me', body, current.accessToken, false, 'DELETE', true);
+        }
+      };
+      try {
+        try { await remove(); }
+        catch (error) {
+          // 애플 회원은 Apple 토큰 철회를 위해 애플 로그인을 한 번 더 받아 authorizationCode를 보낸다.
+          if (error.code !== 'APPLE_REAUTH_REQUIRED' || typeof socialSignIns.apple !== 'function') throw error;
+          const credential = await socialSignIns.apple();
+          if (!credential?.authorizationCode) throw new Error('애플 확인 정보를 받지 못했어요. 다시 시도해 주세요.');
+          if (session !== current) throw new Error('로그인 상태가 변경되었어요.');
+          body = { appleAuthorizationCode: credential.authorizationCode };
+          await remove();
         }
         withdrawn = true;
       } finally {

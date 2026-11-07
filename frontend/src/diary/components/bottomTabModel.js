@@ -1,8 +1,8 @@
 import { LIBRARY_SCOPES } from '../constants.js';
 import { filterScope } from '../utils/libraryQuery.js';
 
-// 좁은 폰에서도 한 줄에 들어가도록, 화면 이름과 하단 바 표기를 분리한다.
-const scopeLabel = scope => scope.id === 'personal' ? '내 기록' : '공유';
+// 하단 바 표기는 화면 제목과 같은 이름을 쓴다(내 다이어리, 사용자 결정 2026-11-07). '공유된 다이어리'만 좁은 칸에 맞게 줄인다.
+const scopeLabel = scope => scope.id === 'personal' ? '내 다이어리' : '공유';
 
 // 폰 하단 탭 5칸(사용자 결정 2026-11-05). 자주 쓰는 순서로 두고 계정 칸은 맨 오른쪽(시중 앱 습관). 설정은 마이페이지 안에 펼쳐진다.
 export const BOTTOM_TABS = [

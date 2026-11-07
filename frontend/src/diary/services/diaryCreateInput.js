@@ -24,7 +24,7 @@ export function diaryCreateInput(form) {
       templateConfig: { ...templateCanvasSize(templateConfig.orientation), paperAppearance: { ...paperAppearance, backgroundColor: '#FFFFFF' }, blank: true } };
     initialPages.splice(0, initialPages.length, ...importedPages.map(() => ({ ...blank, templateConfig: { ...blank.templateConfig } })));
   }
-  // 기존 로컬 생성과 같이 모든 내지가 꺼져 있으면 빈 페이지 1장을 유지한다.
+  // 기존 로컬 생성과 같이 모든 속지가 꺼져 있으면 빈 페이지 1장을 유지한다.
   if (!initialPages.length) initialPages.push({ templateId: null, ...serverTemplateReference(null, TEMPLATE_VERSION, templateConfig.orientation),
     templateConfig: { ...templateCanvasSize(templateConfig.orientation), paperAppearance: { ...paperAppearance }, blank: true } });
   return { title, color: form.color, pattern: form.pattern ?? null, pageSize: templateConfig.orientation,

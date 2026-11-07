@@ -28,6 +28,8 @@ function fixture({ supported = false, failFonts = false, family = null, failRemo
   }
   const custom = { loaded: true, items: { folders: [{ id: 'f1', name: '공용 폴더', items: [{ emoji: '🌼' }] }] },
     saveGenerated: async (...args) => { saves.push(args); return 'new-folder' },
+    addFolder: name => { custom.items.folders.push({ id: 'f-new', name, items: [] }); return 'f-new' },
+    renameFolder: (id, name) => { custom.items.folders.find(f => f.id === id).name = name },
     removeFolder: id => removals.push(['folder', id]), removeFromFolder: (...args) => removals.push(['sticker', ...args]), retrySave() {},
   }
   const library = { ready: libraryReady, covers: [{ id: 'c1', name: '봄 표지', cover: {} }], papers: [{ id: 'p1', name: '월간 속지', orientation: 'portrait', pages: [{}, {}] }],
@@ -217,6 +219,19 @@ test('작성 중인 폰트만 지울 수 있고 확인을 거친 뒤에 지운�
   assert.deepEqual(ui.draftRemovals,['e1']);
   ui.unmount();
 });
+test('스티커 새 폴더: 시트 분리 없이 만들고 바로 들어가 이름을 고친다', async () => {
+  const ui=fixture({supported:true}); ui.render(); await tick(); ui.tab('stickers')
+  stickerAction(ui,'새 폴더').onPress()
+  const opened=ui.render()
+  assert.equal(find(opened,'스티커 폴더 이름').props.value,'새 폴더')
+  assert.ok(find(opened,'이 폴더에 스티커 추가'))
+  find(opened,'스티커 폴더 이름').props.onChangeText('여름')
+  find(ui.render(),'스티커 폴더 이름 저장').props.onPress()
+  assert.equal(nodes(ui.render()).some(n=>n.props?.accessibilityLabel==='스티커 폴더 이름'),false)
+  find(ui.render(),'스티커 폴더 목록').props.onPress()
+  assert.ok(find(ui.render(),'여름 스티커 폴더'))
+  ui.unmount()
+})
 test('폴더 안의 뒤로가기는 목록을 먼저 복원하고 이후 상위 화면에 넘긴다', async () => {
   const ui=fixture(); ui.render(); await tick(); ui.tab('stickers');
   assert.equal(ui.back(),false);
@@ -246,7 +261,7 @@ test('공방은 내 폰트 · 스티커 · 테이프 · 표지 · 속지 · 도�
   assert.deepEqual(titles, ['폰트', '스티커', '테이프', '표지', '속지', '도구'])
   ui.unmount()
 })
-test('나의 표지 · 속지는 확인을 거친 뒤에만 지우고 저장에 실패하면 알린다', async () => {
+test('내 표지 · 속지는 확인을 거친 뒤에만 지우고 저장에 실패하면 알린다', async () => {
   const ui = fixture(); ui.render(); await tick(); ui.tab('covers')
   const shelf = kind => nodes(ui.render()).find(n => n.type === '../components/StudioShelf' && n.props.kind === kind)
   assert.equal(shelf('cover').props.items[0].id, 'c1')
@@ -269,7 +284,7 @@ test('나의 표지 · 속지는 확인을 거친 뒤에만 지우고 저장에 
   assert.ok(nodes(failed.render()).some(n => n.props?.accessibilityRole === 'alert' && n.props.children === '표지를 지우지 못했어요. 다시 시도해 주세요.'))
   failed.unmount()
 })
-test('나의 표지 · 속지를 읽는 중에는 목록 대신 불러오는 중이라고 말한다', async () => {
+test('내 표지 · 속지를 읽는 중에는 목록 대신 불러오는 중이라고 말한다', async () => {
   const ui = fixture({ libraryReady: false }); ui.render(); await tick()
   ui.tab('covers')
   let tree = ui.render()
