@@ -9,7 +9,7 @@ const flush = async () => { for (let i = 0; i < 30; i++) await new Promise(r => 
 test('590: 처음 불러오는 동안은 빈 화면 자리 가운데 스피너만(목록 위 글자 줄 없음)', () => {
   const empty = read('../src/diary/components/EmptyState.js')
   assert.match(empty, /export function LoadingSpot\(\{ label, compact = false, art = 'moa' \}\)/)
-  assert.match(empty, /accessibilityRole="progressbar" accessibilityLabel=\{label\}/)
+  assert.match(empty, /accessibilityRole="progressbar" accessibilityLabel=\{label\} accessibilityState=\{\{ busy: true \}\} accessibilityLiveRegion="polite"/)
   assert.match(read('../src/diary/screens/LibraryScreen.js'), /suppressEmpty \? \(loading \? <LoadingSpot compact=\{compact\} label="다이어리를 불러오고 있어요\." \/> : null\)/)
   assert.match(read('../src/diary/screens/TrashScreen.js'), /suppressEmpty \? \(loading \? <LoadingSpot compact=\{compact\} art="dio" label="휴지통을 불러오고 있어요\." \/> : null\)/)
   assert.doesNotMatch(read('../src/diary/components/MemberLibraryNotice.js'), /다이어리를 불러오고 있어요|ActivityIndicator/)
@@ -108,4 +108,25 @@ test('623: 계속 실패하면 세션에서 다이어리당 3번까지만 다시
   for (let i = 0; i < 5; i++) { await store.queryLibrary(store.getSnapshot().library.criteria, { force: true }); await settle() }
   assert.equal(updates, 3)
   assert.equal(store.getSnapshot().metadataError ?? null, null)
+})
+
+test('623: 서버 목록에 이미 표지가 있으면 올리지 않는다', async () => {
+  const { createMemberAppStore } = await import('../src/diary/services/memberAppStore.js')
+  const { memberKeys } = await import('../src/diary/services/memberStorage.js')
+  const id = '11111111-2222-3333-4444-888888888888', stamp = '2026-10-27T00:00:00.123456Z'
+  const row = { id, title: '표지', color: '#123456', coverStyle: 'PLAIN', pattern: null, canEdit: true, visibility: 'PRIVATE', createdAt: stamp, updatedAt: stamp, version: '1', myRole: 'OWNER', permissions: { canTrash: true } }
+  const cover = { kind: 'photo', photo: { src: 'media://abc', mediaFileId: 'abc' } }
+  const values = new Map([[memberKeys('101').index, JSON.stringify([{ ...row, cover, source: 'member-api', memberAccountId: '101' }])]])
+  const storage = { async getItem(k) { return values.get(k) ?? null }, async setItem(k, v) { values.set(k, v) }, async removeItem(k) { values.delete(k) } }
+  let gets = 0, updates = 0
+  const api = {
+    async list() { return { items: [{ ...row, cover, pageCount: 1, isShared: false }], hasNext: false, nextCursor: null } },
+    async get() { gets++; return { ...row, cover } },
+    async update() { updates++; return { ...row, cover, version: '2' } },
+  }
+  const store = createMemberAppStore({ accountId: '101', api, storage, serverLibrary: true, makeRequestId: () => 'k-123456789' })
+  await store.load(); await flush()
+  await store.queryLibrary(store.getSnapshot().library.criteria, { force: true }); await flush()
+  assert.equal(gets, 0)
+  assert.equal(updates, 0)
 })

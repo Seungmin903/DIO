@@ -19,7 +19,7 @@ const ART = {
  */
 export function LoadingSpot({ label, compact = false, art = 'moa' }) {
   return (
-    <View accessible accessibilityRole="progressbar" accessibilityLabel={label} accessibilityState={{ busy: true }}
+    <View accessible accessibilityRole="progressbar" accessibilityLabel={label} accessibilityState={{ busy: true }} accessibilityLiveRegion="polite"
       style={[s.empty, compact && s.emptyCompact, compact ? s.emptyRaisedCompact : art === 'dio' ? s.emptyRaisedTrash : s.emptyRaised]}>
       <ActivityIndicator accessible={false} color={C.blue} />
     </View>
