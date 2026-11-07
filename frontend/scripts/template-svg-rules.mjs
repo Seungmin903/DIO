@@ -43,6 +43,9 @@ export function checkTemplateSvg(xml, orientation) {
     const name = /^<([a-zA-Z][\w:.-]*)/.exec(tag)[1]
     const props = attributes(tag)
     if (Object.values(props).some(value => /[<>]/.test(value))) add('속성값에 < > 를 쓸 수 없어요')
+    // 속성은 모두 이름="값" · 이름='값' 이어야 한다. 따옴표 없는 값(fill=#000 onload=...)이나 값 없는 속성은 검사를 빠져나가므로 받지 않는다
+    const rest = tag.replace(/^<[a-zA-Z][\w:.-]*/, '').replace(/\/?>$/, '').replace(/\s+[\w:.-]+\s*=\s*("[^"]*"|'[^']*')/g, '')
+    if (rest.trim()) add(`<${name}> 에 읽을 수 없는 속성이 있어요(값은 따옴표로 감싸 주세요)`)
     const selfClosing = tag.endsWith('/>')
     if (!ALLOWED.has(name)) add(`<${name}> 는 쓸 수 없어요(도형 · g 만, 글자는 윤곽선으로)`)
     for (const key of Object.keys(props)) if (BANNED_ATTRIBUTES.test(key)) add(`${key} 속성은 쓸 수 없어요(색은 fill · stroke 속성으로)`)
