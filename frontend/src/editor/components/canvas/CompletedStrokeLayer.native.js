@@ -5,6 +5,11 @@ import { Text } from 'react-native'
 import { nowMs, PENCIL_PROFILE, previewPicture, recordProfile, strokesPicture } from '../../skia/strokeSkia.js'
 import { liveStroke } from '../../skia/liveStroke.js'
 import { reachOf, reachTouches, removedBetween, sameObjects } from '../../skia/bakeDelta.js'
+import { PEN_PERFORMANCE_ENABLED, markPenPerformance } from '../../utils/penPerformance.js'
+
+// 개발 측정: PENCIL_PROFILE(화면 라벨) 또는 펜 측정(보고서)이 켜져 있을 때만 시간을 잰다.
+const PROFILING = PENCIL_PROFILE.on || PEN_PERFORMANCE_ENABLED
+const profile = (label, name, ms) => { if (PENCIL_PROFILE.on) recordProfile(label, ms); markPenPerformance(name, ms) }
 
 const DRAG_OPACITY = 0.5
 
@@ -40,8 +45,8 @@ function bakeSurface(width, height) {
 }
 function bake(previous, objects, width, height, scale) {
   if (previous && previous.objects.length === objects.length) return previous
-  const t0 = PENCIL_PROFILE.on ? nowMs() : 0
-  try { return bakeInto(previous, objects, width, height, scale) } finally { if (t0) recordProfile('FULL', nowMs() - t0) }
+  const t0 = PROFILING ? nowMs() : 0
+  try { return bakeInto(previous, objects, width, height, scale) } finally { if (t0) profile('FULL', 'bakeFullMs', nowMs() - t0) }
 }
 function bakeInto(previous, objects, width, height, scale) {
   const pixelWidth = Math.ceil(width * scale), pixelHeight = Math.ceil(height * scale)
@@ -53,13 +58,18 @@ function bakeInto(previous, objects, width, height, scale) {
     canvas.clear(Float32Array.of(0, 0, 0, 0))
     if (previous) canvas.drawImage(previous.image, 0, 0)
   }
+  const t1 = PROFILING ? nowMs() : 0
   canvas.save()
   canvas.scale(scale, scale)
   canvas.drawPicture(strokesPicture(previous ? objects.slice(previous.objects.length) : objects, undefined, scale))
   canvas.restore()
   target.surface.flush()
+  const t2 = PROFILING ? nowMs() : 0
+  if (t1) markPenPerformance('bakeDrawMs', t2 - t1)
+  // GPU 표면을 CPU 이미지로 읽어 오는 비용(화면 크기 텍스처 읽기)을 따로 본다
   const snapshot = target.surface.makeImageSnapshot(Skia.XYWHRect(0, 0, pixelWidth, pixelHeight)), image = snapshot.makeNonTextureImage()
   snapshot.dispose?.()
+  if (t2) markPenPerformance('bakeSnapshotMs', nowMs() - t2)
   const next = image && { objects, scale, image }
   target.content = next
   return next
@@ -71,8 +81,8 @@ function bakeInto(previous, objects, width, height, scale) {
 const clearPaint = Skia.Paint()
 clearPaint.setBlendMode(BlendMode.Clear)
 function bakeWithout(previous, removed, objects, width, height, scale) {
-  const t0 = PENCIL_PROFILE.on ? nowMs() : 0
-  try { return cutOut(previous, removed, objects, width, height, scale) } finally { if (t0) recordProfile('CUT', nowMs() - t0) }
+  const t0 = PROFILING ? nowMs() : 0
+  try { return cutOut(previous, removed, objects, width, height, scale) } finally { if (t0) profile('CUT', 'bakeCutMs', nowMs() - t0) }
 }
 function cutOut(previous, removed, objects, width, height, scale) {
   const pixelWidth = Math.ceil(width * scale), pixelHeight = Math.ceil(height * scale)
@@ -149,8 +159,8 @@ const TailRun = memo(function TailRun({ objects, width, height, zoom, fade }) {
   const settledSeen = useRef(0)
   const plan = useMemo(() => {
     const isSettle = settled !== settledSeen.current
-    const t0 = PENCIL_PROFILE.on ? nowMs() : 0
-    try { return planOf() } finally { if (t0) recordProfile('PLAN', nowMs() - t0) }
+    const t0 = PROFILING ? nowMs() : 0
+    try { return planOf() } finally { if (t0) profile('PLAN', 'bakePlanMs', nowMs() - t0) }
     function planOf() {
     if (fade && objects.length) {
       const moving = objects.filter(object => fade.includes(object.id)), still = objects.filter(object => !fade.includes(object.id))
@@ -165,6 +175,12 @@ const TailRun = memo(function TailRun({ objects, width, height, zoom, fade }) {
     if (fade || !objects.length) return { image: null, rest: objects }
     let previous = baked.current?.scale === scale ? baked.current : null
     const kept = previous ? keptLength(previous.objects, objects) : 0
+    if (PROFILING) {
+      // 왜 굽는지: 앞 획이 그대로면 append, 구운 게 없거나 배율이 바뀌면 restart, 앞 획의 참조가 바뀌었으면 identity(서버 동기화 · 되돌리기 등)
+      if (!previous) markPenPerformance(baked.current ? 'bakeRestartScale' : 'bakeRestartNone', 1)
+      else if (kept < previous.objects.length) markPenPerformance(previous.objects.length === objects.length ? 'bakeIdentityLoss' : 'bakeShrink', previous.objects.length - kept)
+      else markPenPerformance('bakeAppend', objects.length - previous.objects.length)
+    }
     if (previous && kept < previous.objects.length) {
       unsettled.current = true
       const removed = removedBetween(previous.objects, objects)
@@ -194,9 +210,9 @@ const TailRun = memo(function TailRun({ objects, width, height, zoom, fade }) {
   const patch = useMemo(() => plan.cut ? patchPicture(plan.cut, objects, scale) : null, [plan, scale])
   const strokes = useMemo(() => {
     if (!plan.rest.length) return null
-    const t0 = PENCIL_PROFILE.on ? nowMs() : 0
+    const t0 = PROFILING ? nowMs() : 0
     const picture = strokesPicture(plan.rest, object => fade?.includes(object.id) ? DRAG_OPACITY : 1, scale)
-    if (t0) recordProfile('REST', nowMs() - t0)
+    if (t0) profile('REST', 'restPictureMs', nowMs() - t0)
     return picture
   }, [plan, fade, scale])
   const image = plan.image?.image, ratio = PixelRatio.get()

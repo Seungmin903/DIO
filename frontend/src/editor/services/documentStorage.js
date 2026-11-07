@@ -1,3 +1,4 @@
+import { timePenPerformance } from '../utils/penPerformance.js'
 // AsyncStorage 와 같은 모양의 저장소. 다이어리 문서 키만 페이지별 파일로 보내고 나머지는 그대로 넘긴다.
 // 삭제 · 사진 참조 검사 · 고아 복구처럼 "저장된 값 전체"를 훑는 코드가 파일로 옮긴 문서도 똑같이 보게 한다.
 import AsyncStorage from '@react-native-async-storage/async-storage'
@@ -70,7 +71,7 @@ export function createDocumentStorage({ storage, files }) {
         for (const key of keys) if (visit(key, await storage.getItem(key)) === false) return
       },
       loadDocument: (key) => readStoredDocument(storage, key),
-      saveDocument: (key, doc) => storage.setItem(key, JSON.stringify(doc)),
+      saveDocument: (key, doc) => storage.setItem(key, timePenPerformance('documentSerializeMs', () => JSON.stringify(doc))),
       loadSummary: async () => null,
       loadPagesAt: async () => null,
       loadOutline: async () => null,

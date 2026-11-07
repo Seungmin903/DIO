@@ -1,3 +1,4 @@
+import PenPerfProfiler from '../components/PenPerfProfiler'
 import { usePhotoPanel, discardUnusedPhotoImports } from '../hooks/usePhotoPanel'
 import PhotoSourcePicker from '../components/panels/PhotoSourcePicker'
 import { useCustomDecor } from '../hooks/useCustomDecor'
@@ -1125,6 +1126,7 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
     </View>
   )
   return (
+    <PenPerfProfiler id="editor">
     <View
       style={[
         styles.root,
@@ -1615,6 +1617,7 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
         onClose={() => setColorPicker(null)} />}
 
     </View>
+    </PenPerfProfiler>
   )
 }
 

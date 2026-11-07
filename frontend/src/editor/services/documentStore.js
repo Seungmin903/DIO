@@ -1,3 +1,4 @@
+import { timePenPerformance } from '../utils/penPerformance.js'
 // 다이어리 문서를 페이지별 파일로 보관한다. 파일 입출력은 files 로 주입한다.
 //
 // 목차(manifest): 문서 정보 + 페이지별 정보(책갈피 · 속지 등 objects 를 뺀 전부)와 내용 파일 이름
@@ -136,7 +137,7 @@ export function createDocumentStore({ files }) {
         if (!file) {
           file = `p${nextFile}.json`
           nextFile += 1
-          const text = JSON.stringify(encodePage({ objects: page.objects }))
+          const text = timePenPerformance('pageSerializeMs', () => JSON.stringify(encodePage({ objects: page.objects })))
           await files.write(dir, file, text)
           fileBytes.set(file, text.length)
           fileOfObjects.set(page.objects, { key, file, life: lifeOf(key) })

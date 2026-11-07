@@ -236,10 +236,11 @@ export default function PenInput({ zoom, dispatch, pageWidth = PAGE_WIDTH, pageH
             g.measurement?.handoffEnd?.(reason, performance.now() - handedOff)
           })
         }
-        dispatch({ type: 'addObjects', objects: [completed] })
-        onStrokeCommitted?.(completed)
+        const timed = (name, work) => { const t0 = g.measurement?.clock(); work(); if (g.measurement) g.measurement.record(name, g.measurement.clock() - t0) }
+        timed('dispatchAddMs', () => dispatch({ type: 'addObjects', objects: [completed] }))
+        timed('strokeCommittedMs', () => onStrokeCommitted?.(completed))
         // 새 획은 올가미로 지정하기 전까지 직접 조작하지 않는다.
-        dispatch({ type: 'selectExact', ids: [] })
+        timed('dispatchSelectMs', () => dispatch({ type: 'selectExact', ids: [] }))
         if (g.measurement) g.measurement.record('finalizeJsMs', g.measurement.clock() - started)
       }
       g?.measurement?.end({ cancelled: Boolean(cancelled), endReason: reason, points: g.rawPoints.length, straight: Boolean(g.straight) })

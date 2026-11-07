@@ -1,3 +1,4 @@
+import { markPenPerformance } from '../utils/penPerformance.js'
 import { useEffect, useRef, useState } from 'react'
 import { AppState, Platform } from 'react-native'
 import AsyncStorage from '@react-native-async-storage/async-storage'
@@ -28,7 +29,9 @@ export function useMemberCanvasCollaboration({diary,page,state,loaded,readOnly,d
   const membersChanged=useRef(onMembersChanged);membersChanged.current=onMembersChanged
   const collaborationStateChange=useRef(onCollaborationStateChange);collaborationStateChange.current=onCollaborationStateChange
   const runtime=useRef(null)
-  const [view,setView]=useState({status:null,history:null,busy:false,pageId:null})
+  const [view,setViewState]=useState({status:null,history:null,busy:false,pageId:null})
+  // 개발 측정: 협업 훅이 편집 화면을 다시 그리게 하는 횟수
+  const setView=next=>{markPenPerformance('memberViewUpdate',1);setViewState(next)}
   const sessionKey=authService.getSessionKey()
   const failureMessage=error=>{
     if(error.code==='CANVAS_BATCH_LIMIT')return error.message

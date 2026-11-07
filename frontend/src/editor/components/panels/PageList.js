@@ -1,3 +1,4 @@
+import PenPerfProfiler from '../PenPerfProfiler'
 import PageBulkDelete from '../controls/PageBulkDelete'
 import { memo, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { FlatList, Platform, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native'
@@ -206,6 +207,7 @@ export default function PageList({ phone = false, pages, currentId, cropId, onSe
   const menuTop = Math.max(8, Math.min(rawMenuTop, Math.max(8, panelHeight - menuHeight - 8)))
 
   return (
+    <PenPerfProfiler id="pageList">
     <View ref={panelRef} collapsable={false} style={[styles.panel, edge && styles.panelEdge, phone && styles.panelPhone, fillHeight && { flex: 1 }]} onLayout={(event) => { openingMeasurement?.emit('panel-native-layout'); setPanelHeight(event.nativeEvent.layout.height) }}>
       <View style={[styles.header, phone && styles.headerPhone]}>
         {/* 여러 개 고르기 중에는 탭 줄이 'N개 선택 · 해제' 로 바뀐다 (같은 높이라 목록이 밀리지 않는다) */}
@@ -348,6 +350,7 @@ export default function PageList({ phone = false, pages, currentId, cropId, onSe
         </Pressable>
       )}
     </View>
+    </PenPerfProfiler>
   )
 }
 

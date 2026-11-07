@@ -1,12 +1,13 @@
+import { timePenPerformance } from '../editor/utils/penPerformance.js'
 import {decodeElement,sharedObject} from './canvasElements.js'
 import { canvasContent, canvasDelta, stable, sameElements } from './canvasApi.js'
 import { assertCanvasBatchLimits } from './canvasBatchLimits.js'
-const copy=v=>JSON.parse(JSON.stringify(v))
+const copy=v=>timePenPerformance('collabCopyMs',()=>JSON.parse(JSON.stringify(v)))
 const permanentRejection=error=>[400,403,404,405,410,413,415,422].includes(error.status)
 export function createCanvasSession({api,storage,key,legacyKey,pageId,diaryId,createId,isActive=()=>true}){
   let journal={format:2,pageId,diaryId,base:null,uiLocal:null,queue:[],control:null,recent:[]},writes=Promise.resolve(),running=null,restored=false
   const active=()=>{if(!isActive())throw new Error('편집 세션이 종료됐어요.')}
-  const persist=()=>{const raw=JSON.stringify(journal);const task=writes.catch(()=>{}).then(()=>storage.setItem(key,raw));writes=task;return task}
+  const persist=()=>{let raw;timePenPerformance('collabPersistMs',()=>{raw=JSON.stringify(journal)},()=>({collabJournalBytes:raw?.length??0,collabQueueLength:journal.queue.length}));const task=writes.catch(()=>{}).then(()=>storage.setItem(key,raw));writes=task;return task}
   const setBase=items=>{journal.orderKeys=copy(items.sortKeys??items.map(e=>Number(e.sortKey)).filter(Number.isFinite));journal.base=copy(items)}
   const accept=async response=>{active();setBase(response.items);await persist()}
   const preview=()=>{

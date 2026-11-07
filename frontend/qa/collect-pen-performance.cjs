@@ -13,7 +13,7 @@ http.createServer((request, response) => {
   request.on('end', () => {
     try {
       const report = JSON.parse(body)
-      if (!['ready', 'stroke'].includes(report.type)) throw new Error('Invalid report')
+      if (!['ready', 'stroke', 'mark', 'error'].includes(report.type)) throw new Error('Invalid report')
       const line = JSON.stringify({ receivedAt: new Date().toISOString(), ...report })
       fs.appendFileSync(output, line + '\n')
       console.log(line)

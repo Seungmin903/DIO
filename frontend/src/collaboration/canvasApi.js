@@ -1,3 +1,4 @@
+import { timePenPerformance } from '../editor/utils/penPerformance.js'
 import {encodeElement,decodeElement,sharedObject,sharedElement} from './canvasElements.js'
 import {assertCanvasBatchLimits} from './canvasBatchLimits.js'
 export {sharedObject} from './canvasElements.js'
@@ -26,9 +27,10 @@ export function createCanvasApi(transport,media){
 }
 export const canvasContent=objects=>objects.filter(sharedObject).map(encodeElement)
 export const stable=value=>JSON.stringify(value,(_,v)=>v&&typeof v==='object'&&!Array.isArray(v)?Object.fromEntries(Object.keys(v).sort().map(k=>[k,v[k]])):v)
-export const sameElements=(a,b)=>stable(canvasContent(a))===stable(canvasContent(b))
+export const sameElements=(a,b)=>timePenPerformance('collabSameElementsMs',()=>stable(canvasContent(a))===stable(canvasContent(b)),()=>({collabCompareElements:a.length+b.length}))
 export const canvasConflict=()=>Object.assign(new Error('다른 변경과 겹쳐 자동으로 덮어쓰지 않았어요. 기기 내용은 유지돼요.'),{status:409,code:'CANVAS_HISTORY_CONFLICT'})
-export function canvasDelta(before,after){
+export const canvasDelta=(before,after)=>timePenPerformance('collabDeltaMs',()=>canvasDeltaNow(before,after))
+function canvasDeltaNow(before,after){
   const old=new Map(canvasContent(before).map(o=>[o.elementId,o])),next=new Map(canvasContent(after).map(o=>[o.elementId,o]))
   const commonOld=[...old.keys()].filter(id=>next.has(id)),commonNext=[...next.keys()].filter(id=>old.has(id))
   const reordered=stable(commonOld)!==stable(commonNext)
@@ -36,7 +38,8 @@ export function canvasDelta(before,after){
 }
 
 // Apply remote results without discarding edits made while the request was in flight.
-export function reconcileCanvasObjects(expected,current,incoming){
+export const reconcileCanvasObjects=(expected,current,incoming)=>timePenPerformance('collabReconcileMs',()=>reconcileCanvasObjectsNow(expected,current,incoming))
+function reconcileCanvasObjectsNow(expected,current,incoming){
  const before=new Map(expected.filter(sharedObject).map(o=>[o.id,o]))
  const local=new Map(current.filter(sharedObject).map(o=>[o.id,o]))
  const remote=new Map(incoming.filter(sharedObject).map(o=>[o.id,o]))

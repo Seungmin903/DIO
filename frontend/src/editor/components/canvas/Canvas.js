@@ -1,3 +1,4 @@
+import PenPerfProfiler from '../PenPerfProfiler'
 import { Fragment, forwardRef, memo, useEffect, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Keyboard, Platform, Pressable, StyleSheet, Text, View } from 'react-native'
 import Icon from '../controls/Icon'
@@ -381,6 +382,7 @@ export default function Canvas({
   const SelectionBarLayer = contextBarFrame ? StageOverlay : Fragment
 
   return (
+    <PenPerfProfiler id="canvas">
     <View
       ref={drawingSurface}
       pointerEvents={pageReady ? 'auto' : 'none'}
@@ -620,6 +622,7 @@ export default function Canvas({
         </SelectionBarLayer>
       )}
     </View>
+    </PenPerfProfiler>
   )
 }
 
