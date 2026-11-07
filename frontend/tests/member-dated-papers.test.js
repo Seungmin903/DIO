@@ -68,3 +68,73 @@ test('setDatedPages 는 페이지마다 설정(+datedTemplate)을 PATCH 하고, 
   await assert.rejects(createMemberDiaryApi(echo).setDatedPages([{ pageId: pageIds[0], templateConfig: { width: 1 } }]), { code: 'INVALID_RESPONSE' })
   assert.equal(calls.length, before)
 })
+
+test('동작: 회원 생성은 날짜 페이지에 datedTemplate 을 PATCH 하고, PATCH 가 실패하면 요청을 남겨 같은 키로 다시 시도해 복구한다', async () => {
+  const { createMemberAppStore } = await import('../src/diary/services/memberAppStore.js')
+  const { memberKeys } = await import('../src/diary/services/memberStorage.js')
+  const { sectionsTemplateConfig, newSection, newRow } = await import('../src/diary/utils/paperChoice.js')
+  const diaryId = '11111111-2222-3333-4444-555555555555'
+  const pageIds = ['aaaaaaaa-bbbb-cccc-dddd-000000000001', 'aaaaaaaa-bbbb-cccc-dddd-000000000002']
+  const stamp = '2026-10-27T00:00:00.123456Z'
+  const row = { id: diaryId, title: '날짜', color: '#123456', coverStyle: 'PLAIN', pattern: null, canEdit: true, visibility: 'PRIVATE', createdAt: stamp, updatedAt: stamp, version: '1' }
+  const values = new Map(), keys = new Set(), patched = []
+  let created = 0, failPatch = true
+  const storage = { async getItem(k) { return values.get(k) ?? null }, async setItem(k, v) { values.set(k, v) }, async removeItem(k) { values.delete(k) } }
+  const api = {
+    async create(input, options) {
+      keys.add(options.requestId); created++
+      // 저장소가 넘기는 앱 입력에는 날짜 ID 가 있다(서버로 갈 때는 memberDiaryApi.create 가 뺀다 — 아래 테스트)
+      assert.ok(input.initialPages.every(p => typeof p.templateConfig.datedTemplate === 'string'))
+      return { ...row, firstPageId: pageIds[0], pageIds: [...pageIds] }
+    },
+    async setDatedPages(pages) {
+      if (failPatch) { failPatch = false; throw Object.assign(new Error('patch failed'), { code: 'NETWORK_ERROR' }) }
+      patched.push(...pages)
+    },
+    async get() { return { ...row } },
+    async list() { return { items: created ? [{ ...row, pageCount: 2, isShared: false }] : [], hasNext: false, nextCursor: null } },
+  }
+  const section = { ...newSection(), rows: [newRow('monthly', 1, 'month')], year: 2027, startMonth: 3, months: 2 }
+  const form = { title: '날짜', color: '#123456', pattern: null, pageSize: 'portrait', templateConfig: sectionsTemplateConfig([section], 'portrait') }
+  const store = createMemberAppStore({ accountId: '101', api, storage, makeRequestId: () => 'dated-key' })
+  await store.load()
+  await assert.rejects(store.create(form), /patch failed/)
+  assert.ok(store.getSnapshot().pending, '날짜를 못 넣으면 생성 요청을 남긴다')
+  const diary = await store.retryCreation()
+  assert.equal(diary.id, diaryId)
+  assert.deepEqual([...keys], ['dated-key'])
+  assert.deepEqual(patched.map(p => [p.pageId, p.templateConfig.datedTemplate]), [[pageIds[0], 'dated-monthly-2027-03-portrait'], [pageIds[1], 'dated-monthly-2027-04-portrait']])
+  // 이 기기 문서도 날짜 ID 로 그린다
+  const doc = JSON.parse(values.get(memberKeys('101').doc(diaryId)))
+  assert.deepEqual(doc.pages.map(p => p.backgroundAssetId), ['dated-monthly-2027-03-portrait', 'dated-monthly-2027-04-portrait'])
+})
+
+test('동작: 편집기 페이지 추가(createServerPage)는 날짜 속지를 만년형 행 + datedTemplate 으로 만든다', async () => {
+  const { createServerPage } = await import('../src/collaboration/serverPages.js')
+  const diaryId = '11111111-2222-3333-4444-555555555555', pageId = 'aaaaaaaa-bbbb-cccc-dddd-000000000009'
+  const values = new Map(), storage = { async getItem(k) { return values.get(k) ?? null }, async setItem(k, v) { values.set(k, v) }, async removeItem(k) { values.delete(k) } }
+  let sent = null
+  const transport = async ({ method, path, body }) => {
+    assert.equal(method, 'POST'); assert.equal(path, `/diaries/${diaryId}/pages`); sent = body
+    return { page: { pageId, diaryId, templateId: 7, templateCode: serverTemplateReference(base, '1.0.0', 'portrait').templateCode, templateVersion: '1.0.0',
+      templateConfig: body.templateConfig, title: null, canvasWidth: body.canvasWidth, canvasHeight: body.canvasHeight, gridVisible: false, gridColor: null } }
+  }
+  const page = await createServerPage({ transport, diaryId, backgroundAssetId: id, orientation: 'portrait', storage, key: 'k', createId: () => '33333333-4444-5555-6666-777777777777' })
+  assert.equal(sent.templateConfig.datedTemplate, id)
+  assert.equal(sent.templateConfig.templateCode, serverTemplateReference(base, '1.0.0', 'portrait').templateCode)
+  assert.equal(page.backgroundAssetId, id)
+})
+
+test('동작: memberDiaryApi.create 가 서버로 보내는 생성 요청에는 datedTemplate 이 없다', async () => {
+  const { createMemberDiaryApi } = await import('../src/diary/services/memberDiaryApi.js')
+  const { diaryCreateInput } = await import('../src/diary/services/diaryCreateInput.js')
+  const { sectionsTemplateConfig, newSection, newRow } = await import('../src/diary/utils/paperChoice.js')
+  const section = { ...newSection(), rows: [newRow('monthly', 1, 'month')], year: 2027, startMonth: 3, months: 2 }
+  const input = diaryCreateInput({ title: '날짜', color: '#123456', pageSize: 'portrait', templateConfig: sectionsTemplateConfig([section], 'portrait') })
+  let body = null
+  const api = createMemberDiaryApi(async request => { body = request.body; throw Object.assign(new Error('stop'), { code: 'STOP' }) })
+  await assert.rejects(api.create(input, { requestId: '33333333-4444-5555-6666-777777777777' }), /stop/)
+  assert.equal(body.initialPages.length, 2)
+  assert.equal(JSON.stringify(body).includes('datedTemplate'), false)
+  assert.deepEqual(Object.keys(body.initialPages[0]).sort(), ['templateCode', 'templateConfig', 'templateVersion'])
+})
