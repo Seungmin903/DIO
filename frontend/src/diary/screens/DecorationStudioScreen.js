@@ -101,7 +101,7 @@ export default function DecorationStudioScreen({ compact = false, registerBackHa
   // 예전엔 64 두 칸 고정이라 늘어난 만큼 오른쪽만 비었다(사용자 지적 2026-11-07). 스티커가 칸보다 적으면 빈 칸을 옅은 면으로 둔다
   const previewInner = folderGrid.cellWidth - FOLDER_PAD * 2 - 2;
   const previewCount = Math.max(1, Math.floor((previewInner + PREVIEW_GAP) / (PREVIEW_MIN + PREVIEW_GAP)));
-  const previewSize = Math.floor((previewInner - PREVIEW_GAP * (previewCount - 1)) / previewCount);
+  const previewSize = Math.max(16, Math.floor((previewInner - PREVIEW_GAP * (previewCount - 1)) / previewCount));
   const previewBox = { width: previewSize, height: previewSize, flexBasis: previewSize, maxWidth: previewSize };
   const stickerGrid = useFillGrid({ cell: 88, gap: 12, minColumns: 3 });
   const tapeGrid = useFillGrid({ cell: 200, gap: 14, minColumns: 1 });
@@ -304,8 +304,12 @@ export default function DecorationStudioScreen({ compact = false, registerBackHa
   // 표지 · 속지 만들기는 새 다이어리의 PDF 불러오기 · 표지 사진 고르기와 같은 길을 쓴다.
   // 표지는 PDF 첫 쪽(또는 사진)을 바탕으로 한 꾸밈 없는 표지, 속지는 PDF 쪽 전부. 이름은 PDF 파일 이름이고 선반에서 바꿀 수 있다.
   const saveFailed = kind => `${kind === 'paper' ? '속지' : '표지'}를 저장하지 못했어요. 다시 시도해 주세요.`;
+  // 내 표지가 가득 차면(30개) 새 표지를 만들지 않는다: 저장하면 가장 오래된 표지가 조용히 빠졌다
+  const coversFull = () => library.covers.length >= MY_LIBRARY_LIMIT;
+  const coversFullText = `내 표지는 ${MY_LIBRARY_LIMIT}개까지 담을 수 있어요. 지운 뒤 다시 만들어 주세요.`;
   const makeFromPdf = async kind => {
     if (making) return;
+    if (kind === 'cover' && coversFull()) { setMakeError({ kind: 'cover', text: coversFullText }); return; }
     setMaking(kind === 'paper' ? 'paper' : 'cover-pdf'); setMakeProgress(null); setMakeError(null);
     let result = null;
     try {
@@ -319,7 +323,7 @@ export default function DecorationStudioScreen({ compact = false, registerBackHa
       }
       // 표지: 두 쪽 이상이면 쓸 쪽을 고르고(처음엔 첫 쪽), 고른 쪽마다 내 표지를 하나씩 만든다(지라 601).
       // 보관함 상한을 넘겨 예전 표지가 밀려나지 않게, 남은 칸 수까지만 고른다
-      const room = Math.max(1, MY_LIBRARY_LIMIT - library.covers.length);
+      const room = MY_LIBRARY_LIMIT - library.covers.length;
       const chosen = result.pages.length > 1
         ? await new Promise(resolve => setCoverPages({ name: result.name, pages: result.pages, limit: Math.min(room, result.pages.length), resolve }))
         : [0];
@@ -347,6 +351,7 @@ export default function DecorationStudioScreen({ compact = false, registerBackHa
   };
   const makeCoverFromPhoto = async () => {
     if (making) return;
+    if (coversFull()) { setMakeError({ kind: 'cover', text: coversFullText }); return; }
     setMaking('cover-photo'); setMakeError(null);
     try {
       const [item] = await pickImages({ multiple: false, usage: 'photo' });
