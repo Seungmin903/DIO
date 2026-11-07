@@ -54,6 +54,25 @@ test('미리 설정한 개발 접속 정보는 첫 요청부터 Basic으로 붙�
   assert.equal(headers[4].Authorization, undefined);
 });
 
+test('서버가 거절한 개발 접속 프리셋은 다시 넣지 않고 수동 입력 흐름으로 넘어간다', async () => {
+  const headers = [];
+  const basicChallenge = { status: 401, ok: false, json: async () => null, headers: { get: name => name === 'WWW-Authenticate' ? 'Basic realm="DIO Development"' : null } };
+  const manual = `Basic ${Buffer.from('tester:secret').toString('base64')}`;
+  const api = createAuthApi({ baseUrl: 'https://server.example:8443', allowDevelopmentAccess: true,
+    presetDevelopmentAccess: { username: 'stale-id', password: 'stale-pw' },
+    fetchImpl: async (_url, init) => { headers.push(init.headers); return init.headers.Authorization === manual ? response(tokens()) : basicChallenge; } });
+  await assert.rejects(api.login({ email: user.email, password: 'Password123!' }), error => error.code === 'DEVELOPMENT_ACCESS_REQUIRED');
+  assert.equal(headers[0].Authorization, `Basic ${Buffer.from('stale-id:stale-pw').toString('base64')}`);
+  await assert.rejects(api.login({ email: user.email, password: 'Password123!' }), error => error.code === 'DEVELOPMENT_ACCESS_REQUIRED');
+  assert.equal(headers[1].Authorization, undefined);
+  api.verificationService.setDevelopmentAccess('tester', 'secret');
+  await api.login({ email: user.email, password: 'Password123!' });
+  assert.equal(headers[2].Authorization, manual);
+  await api.logout();
+  await assert.rejects(api.login({ email: user.email, password: 'Password123!' }), error => error.code === 'DEVELOPMENT_ACCESS_REQUIRED');
+  assert.equal(headers[4].Authorization, undefined);
+});
+
 test('프로필 사진은 같은 서버의 사진 경로에만 개발 접속 인증을 보내고 회원 토큰은 보내지 않는다', async () => {
   const uri = 'https://server.example/api/v1/auth/profile-photos/12345678-1234-1234-1234-123456789abc';
   const api = createAuthApi({ baseUrl: 'https://server.example', allowDevelopmentAccess: true,

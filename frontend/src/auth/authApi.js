@@ -160,6 +160,8 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
         if (response.status === 401 && /^Basic(?:\s|$)/i.test(challenge ?? '')) {
           // A saved or entered credential the server rejected is dropped so the app asks again.
           forgetAccess(sentAccess);
+          // A rejected .env preset must not be re-injected before every request, or the manual entry flow never recovers.
+          if (sentAccess && sentAccess === presetAccess) presetAccess = null;
           throw Object.assign(new Error('개발 서버 접근 인증이 필요해요. 서버 담당자에게 앱의 API 접근 방법을 확인해 주세요.'),
             { status: 401, code: 'DEVELOPMENT_ACCESS_REQUIRED' });
         }
