@@ -68,9 +68,10 @@ function serverTemplateFor(page, orientation) {
   const asset = page.backgroundAssetId ?? null
   const blank = () => ({ assetId: null, ...serverTemplateReference(null, TEMPLATE_VERSION, orientation) })
   if (asset === null) return { template: blank(), skipped: [] }
-  // 날짜 속지는 서버 카탈로그에 없다. 같은 양식의 만년형 속지로 옮기고 날짜 글자만 빠진다.
+  // 날짜 속지: 회원 새 다이어리와 같이 같은 양식의 만년형 서버 행에 만들고 날짜 ID 는 페이지 설정 datedTemplate 으로 잇는다(지라 581).
+  // 생성 요청은 datedTemplate 을 받지 않아 만든 뒤 PATCH 로 넣는다(아래 dated). 만년형으로 못 바꾸면 빈 속지로.
   if (datedTemplate(asset)) {
-    try { const base = datedBaseId(asset); return { template: { assetId: base, ...serverTemplateReference(base, page.templateVersion ?? TEMPLATE_VERSION, orientation) }, skipped: [{ kind: 'datedText' }] } }
+    try { datedBaseId(asset); return { template: { assetId: asset, ...serverTemplateReference(asset, page.templateVersion ?? TEMPLATE_VERSION, orientation) }, skipped: [] } }
     catch { return { template: blank(), skipped: [{ kind: 'template' }] } }
   }
   try { return { template: { assetId: asset, ...serverTemplateReference(asset, page.templateVersion, orientation) }, skipped: [] } }
@@ -173,8 +174,9 @@ export function planGuestDiary(diary, doc, { createId }) {
     if (page.gridVisible === true) settings.gridVisible = true
     if (typeof page.gridColor === 'string' && /^#[0-9a-f]{6}$/i.test(page.gridColor)) settings.gridColor = page.gridColor
     const font = typeof appearance?.font === 'string' ? appearance.font : null
+    const dated = datedTemplate(template.assetId) ? template.assetId : null
     const { elements, skipped: elementSkipped } = planElements(page.objects, createId)
-    return { initialPage, settings, font, batches: batchElements(elements).map(creates => ({ clientOperationId: createId(), creates })), skipped: [...templateSkipped, ...elementSkipped] }
+    return { initialPage, settings, font, ...(dated ? { dated } : {}), batches: batchElements(elements).map(creates => ({ clientOperationId: createId(), creates })), skipped: [...templateSkipped, ...elementSkipped] }
   })
   return {
     guestDiaryId: diary.id,
@@ -376,11 +378,12 @@ export function createGuestDiaryImporter({ accountId, storage, api, transport, c
       const pageId = entry.pageIds[index]
       if (!entry.settingsDone.includes(index)) {
         const body = { ...page.settings }
-        if (page.font) {
-          // 생성 요청은 속지 글꼴을 받지 않는다. 서버에 저장된 속지 설정에 글꼴만 더해 통째로 다시 넣는다.
+        if (page.font || page.dated) {
+          // 생성 요청은 속지 글꼴 · 날짜 ID 를 받지 않는다. 서버에 저장된 속지 설정에 더해 통째로 다시 넣는다.
           const detail = await transport({ path: `/pages/${pageId}` })
           const config = detail?.page?.templateConfig ?? {}
-          body.templateConfig = { ...config, paperAppearance: { ...(config.paperAppearance ?? {}), font: page.font } }
+          body.templateConfig = { ...config, ...(page.dated ? { datedTemplate: page.dated } : {}),
+            ...(page.font ? { paperAppearance: { ...(config.paperAppearance ?? {}), font: page.font } } : {}) }
         }
         if (Object.keys(body).length) await transport({ method: 'PATCH', path: `/pages/${pageId}`, body: pageSettingsBody(body) })
         entry.settingsDone.push(index); await persist()
