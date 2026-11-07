@@ -82,6 +82,18 @@ export function createMemberAppStore({ accountId, api, storage, makeRequestId, s
       active(); emit({ diaries, error: null }); return diary
     })
   }
+  // 예전 릴리스는 꾸민 표지를 만든 기기에만 두었고, 그 다이어리를 이 기기에서 다시 열어야만(refreshDiary) 서버로 올렸다.
+  // 그래서 다시 열지 않은 다이어리는 다른 기기(로그인한 아이폰 등)에서 사진 표지가 안 보였다(지라 623).
+  // 목록을 받을 때 내 다이어리 중 서버에 표지가 없고 이 기기에만 있는 것을 하나씩 뒤에서 올린다(세션마다 다이어리당 한 번).
+  const coverSyncTried = new Set()
+  let coverSync = Promise.resolve()
+  const syncLocalCovers = (serverItems, merged) => {
+    serverItems.forEach((item, index) => {
+      if (item.cover || item.myRole !== 'OWNER' || !merged[index]?.cover || coverSyncTried.has(item.id)) return
+      coverSyncTried.add(item.id)
+      coverSync = coverSync.then(() => (disposed ? null : refreshDiary(item.id))).catch(() => {})
+    })
+  }
   const refreshDiary = async (id, allowUnlisted = false) => {
     active()
     const detailRequest = { version: version(id), sequence: (detailRequests.get(id) ?? 0) + 1 }
@@ -315,6 +327,7 @@ export function createMemberAppStore({ accountId, api, storage, makeRequestId, s
             libraryRetryMore = false
             emit({ diaries, error: null, library: { criteria, items: [...items.values()], ready: true, loading: false, error: null, hasNext: page.hasNext, nextCursor: page.nextCursor } })
             fillOrientations()
+            syncLocalCovers(page.items, rows)
             return [...items.values()]
           })
         } catch (error) {

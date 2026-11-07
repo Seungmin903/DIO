@@ -915,6 +915,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
           finally { savingRef.current = false; setSaving(false); }
         }} /></> : null}
       suppressEmpty={member && Boolean(fullLoadPending || !memberLibraryMatches || diaryState.library.loading || diaryState.library.error || diaryState.error || diaryState.refreshing)}
+      loading={member && libraryDiaries.length === 0 && Boolean(fullLoadPending || !memberLibraryMatches || diaryState.library.loading) && !diaryState.library.error}
     />
   ), [guestImport, carousel, navigate, changeCarousel, changeFilter, changeView, changeLibrarySort, create, edit, favorite, filter, isPhone, tabletPortrait,libraryMetadata, librarySort, moveDiaryToTrash, moveSelectedToTrash, open, selection, trashing, view, libraryDiaries, member, memberLibraryMatches, remoteQuery, diaryState.library, diaryState.bulkTrash, diaryState.pending, diaryState.error, diaryState.refreshing, diaryState.lifecycle, diaryState.trashLoading, diaryState.trashError, diaryState.store, saving, enterEditor]);
 
@@ -924,6 +925,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
       serverMode={member}
       busy={member && Boolean(diaryState.lifecycle?.busy || diaryState.bulkTrash?.busy)}
       suppressEmpty={member && Boolean(diaryState.trashLoading || diaryState.trashError)}
+      loading={member && Boolean(diaryState.trashLoading && !diaryState.trashLoaded && !diaryState.trash?.length)}
       requestNotice={member?<MemberTrashNotice state={diaryState} onReload={()=>diaryState.store.loadTrash().catch(()=>{})} onRetry={()=>diaryState.store.retryLifecycle().catch(()=>{})}/>:null}
       compact={isPhone}
       portrait={tabletPortrait}

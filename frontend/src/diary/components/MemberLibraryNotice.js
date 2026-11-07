@@ -1,4 +1,4 @@
-import { ActivityIndicator, Text, View } from 'react-native'
+import { Text, View } from 'react-native'
 import { styles as s } from '../styles'
 import { C } from '../constants'
 import DioButton from '../../shared/DioButton'
@@ -10,11 +10,10 @@ import AuthenticationRecovery, { needsAuthenticationRecovery } from '../../auth/
 export default function MemberLibraryNotice({ library, pending, bulk, hasItems = false, onRetry }) {
   const loading = pending || library.loading
   const bulkAuthError = bulk?.busy ? null : (bulk?.failed || []).find(item => item.error?.status === 401)?.error ?? null
-  const showLoading = loading && !hasItems
+  // 처음 불러오는 동안은 목록 자리 가운데 스피너(LibraryScreen loading)로 보이고, 여기서는 줄을 띄우지 않는다(지라 590)
   const showError = !pending && library.error
-  if (!showLoading && !showError && !bulkAuthError) return null
+  if (!showError && !bulkAuthError) return null
   return <View style={{ padding: 12, gap: 8 }} accessibilityLiveRegion="polite">
-    {showLoading && <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}><ActivityIndicator color={C.blue} /><Text style={s.cardMeta}>다이어리를 불러오고 있어요.</Text></View>}
     {showError && <>
       <Text accessibilityRole="alert" style={s.cardMeta}>{library.error.status === 401 ? authenticationErrorMessage(library.error) : library.error.message}</Text>
       <AuthenticationRecovery error={library.error} />

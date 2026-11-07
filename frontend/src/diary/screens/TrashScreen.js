@@ -5,7 +5,7 @@ import { DISABLED_OPACITY } from '../../shared/theme';
 import { styles as s } from '../styles';
 import AppIcon from '../../shared/AppIcon';
 import EditorModal from '../../editor/components/controls/EditorModal';
-import EmptyState from '../components/EmptyState';
+import EmptyState, { LoadingSpot } from '../components/EmptyState';
 import Header from '../components/Header';
 import Cover from '../components/Cover';
 import SelectionBar from '../components/SelectionBar';
@@ -100,7 +100,7 @@ function TrashSheet({ diary, status, busy, canRestore, canDelete, onRestore, onD
 // 폰과 태블릿 모두 같은 카드 · 동작 시트 · 선택 모드를 사용한다.
 // onRestoreMany(ids) · onDeleteMany(diaries)는 선택 모드의 묶음 작업이다. 없으면 그 버튼을 보이지 않는다.
 export default function TrashScreen({ diaries, onRestore, onDeletePermanently, onRestoreMany, onDeleteMany, compact = false, now = Date.now(), cleanupError, onRetryCleanup,
-  serverMode = false, busy = false, requestNotice = null, suppressEmpty = false }) {
+  serverMode = false, busy = false, requestNotice = null, suppressEmpty = false, loading = false }) {
   // 부모가 매번 새 함수를 넘겨도 카드(memo)가 다시 그려지지 않도록 최신 값을 ref 로 들고 고정된 함수만 카드에 준다.
   const latest = useRef({ onRestore, onDeletePermanently, onRestoreMany, onDeleteMany, now, serverMode, busy });
   latest.current = { onRestore, onDeletePermanently, onRestoreMany, onDeleteMany, now, serverMode, busy };
@@ -202,7 +202,7 @@ export default function TrashScreen({ diaries, onRestore, onDeletePermanently, o
           <Text style={s.trashRestoreText}>다시 시도</Text>
         </Pressable>
       </View>}
-      {!rows.length ? (suppressEmpty ? null :
+      {!rows.length ? (suppressEmpty ? (loading ? <LoadingSpot compact={compact} art="dio" label="휴지통을 불러오고 있어요." /> : null) :
         <EmptyState compact={compact} art="dio" raised title="휴지통이 비어 있어요" />
       ) : (
         <View onLayout={grid?.onLayout}><View style={[s.trashGrid, compact && s.trashGridCompact, selecting && (compact ? s.trashGridSelectingCompact : s.trashGridSelecting), grid?.style]}>

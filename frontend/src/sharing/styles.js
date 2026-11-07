@@ -278,10 +278,11 @@ export const sharingStyles = StyleSheet.create({
   // 안 읽음 점: 글자 '공유' 오른쪽 위 모서리 바로 옆(글자가 없으면 아이콘 오른쪽 위)
   barDot: { position: 'absolute', top: 11, right: 6, width: 7, height: 7, borderRadius: 4, backgroundColor: c.notifyPink },
   memberCircles: { minHeight: 48, flexDirection: 'row', alignItems: 'center', paddingLeft: 8 },
+  // 참여자 동그라미: 반지름은 늘 폭의 절반(12 로 두어 둥근 네모가 돼 안쪽 동그란 얼굴과 모서리가 어긋났다, 지라 617)
   memberCircle: {
     width: 30,
     height: 30,
-    borderRadius: 12,
+    borderRadius: 15,
     marginLeft: -8,
     borderWidth: 2,
     borderColor: c.surface,
