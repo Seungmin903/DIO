@@ -349,8 +349,6 @@ export function createMemberAppStore({ accountId, api, storage, makeRequestId, s
       })()
       libraryRequest = { key, sequence, revision: startRevision, promise }; return promise
     },
-    // 테스트용: 뒤에서 올리는 표지 동기화가 끝날 때까지 기다린다
-    settleCoverSync() { return coverSync },
     loadMoreLibrary() { return this.queryLibrary(state.library.criteria, { more: true }) },
     retryLibrary() { return this.queryLibrary(state.library.criteria, { force: true, more: libraryRetryMore }) },
     bulkTrash(ids) {
