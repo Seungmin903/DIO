@@ -10,7 +10,10 @@ public class ReportMailDelivery {
  public void deliver(long id){
   var report=transactions.execute(status->{
    var row=reports.lock(id).orElse(null);
-   if(row==null||"SENT".equals(row.getNotificationStatus())||row.getNotificationNextAttemptAt().isAfter(Instant.now()))return null;
+   // A newly persisted PENDING timestamp can be rounded a few microseconds into
+   // the future by the database. It must still make its first delivery attempt;
+   // only an in-flight lease or a failed-delivery backoff should defer sending.
+   if(row==null||"SENT".equals(row.getNotificationStatus())||(!"PENDING".equals(row.getNotificationStatus())&&row.getNotificationNextAttemptAt().isAfter(Instant.now())))return null;
    row.notificationReserved(Instant.now().plus(LEASE));return row;
   });
   if(report==null)return;
