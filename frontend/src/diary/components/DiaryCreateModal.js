@@ -57,10 +57,9 @@ export default function DiaryCreateModal({ diary, onSubmit, onCancel, saving = f
   const [cover, setCover] = useState(() => editing ? normalizeCover(diary) : newDiaryCover());
   const [openElement, setOpenElement] = useState('base');
   // 속지 묶음: 위에서부터 순서대로 쌓는다 (화면은 한 줄 목록 + 이어서 · 섞어서)
-  const [storedSections, setPaperSections] = useState(defaultSections);
-  // serverPapers(회원 새 다이어리): 서버 속지 목록에 있는 날짜 없는 속지만 만들 수 있다(지라 591). 날짜 속지는 서버에 날짜 칸이 없어
-  // 묶음을 늘 '날짜 없이'로 둔다(날짜를 글자로 얹는 작업은 따로). blankOnly: 속지 구역 없이 빈 페이지 한 장(지금은 쓰는 곳 없음)
-  const paperSections = serverPapers ? storedSections.map(item => (item.dated ? { ...item, dated: false } : item)) : storedSections;
+  const [paperSections, setPaperSections] = useState(defaultSections);
+  // serverPapers(회원 새 다이어리): 날짜 속지도 게스트와 같이 고른다(날짜 ID 를 서버 페이지 설정에 둔다, serverCatalog). 속지 글꼴만 서버에 칸이 없어 고르지 않는다.
+  // blankOnly: 속지 구역 없이 빈 페이지 한 장(지금은 쓰는 곳 없음)
   const chosenSections = blankOnly ? [] : paperSections;
   const [paperAppearance, setPaperAppearance] = useState(() => normalizePaperAppearance(diary?.paperAppearance ?? DEFAULT_PAPER_APPEARANCE));
   const [scope, setScope] = useState('all');
@@ -335,7 +334,7 @@ export default function DiaryCreateModal({ diary, onSubmit, onCancel, saving = f
       <Text style={styles.infoTitle}>{`${pdfSource} · ${pdfPapers.length}장`}</Text>
       <Pressable accessibilityRole="button" accessibilityLabel="PDF 속지 빼기" disabled={editLocked} onPress={() => { if (myPaper) setMyPaper(null); else setSkipPdfPapers(true); }}
         style={({ pressed }) => [styles.drop]}><Text style={styles.dropText}>속지에서 빼기</Text></Pressable>
-    </View> : <PaperOptions sections={paperSections} undatedOnly={serverPapers} onChange={next => { setPaperSections(next); setError(''); }} orientation={orientation} appearance={paperAppearance} />}
+    </View> : <PaperOptions sections={paperSections} onChange={next => { setPaperSections(next); setError(''); }} orientation={orientation} appearance={paperAppearance} />}
   </View>;
   else panel = <PaperStyleOptions appearance={paperAppearance} onChange={changeAppearance} plainOnly={!editing && (blankOnly || serverPapers || usingPdf || paperSections.every(item => item.rows.every(row => row.paper === 'plain')))}
     scope={scope} onScope={editing ? setScope : null} />;

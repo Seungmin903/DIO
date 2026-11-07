@@ -1,5 +1,6 @@
 import {localTemplateReference,SERVER_TEMPLATE_CATALOG,serverTemplateConfigFor,serverTemplateSelectable} from '../editor/templates/serverCatalog.js'
 import {parseRemoteTemplateAssetId} from '../editor/templates/remoteTemplates.js'
+import {datedBaseId,isDatedId} from '../editor/templates/dated.js'
 import {decodeElement,sharedElement} from './canvasElements.js'
 import {pageSettingsBody} from './pageSettings.js'
 const uuid=value=>typeof value==='string'&&/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)
@@ -96,8 +97,10 @@ export async function createServerPage({transport,diaryId,backgroundAssetId=null
  check();if(!uuid(diaryId))throw invalid()
  // 원격 속지(remote-<id>-<방향>)는 방향별 범용 행(dio-remote-<방향>)에 만들고 설정에 remoteTemplate 을 싣는다
  const remote=parseRemoteTemplateAssetId(backgroundAssetId)
+ // 날짜 속지는 같은 양식의 만년형 속지 행에 만들고 설정에 datedTemplate 을 싣는다(페이지 생성은 설정 키를 막지 않는다)
+ let base=backgroundAssetId;try{if(isDatedId(backgroundAssetId))base=datedBaseId(backgroundAssetId)}catch{throw invalid()}
  const template=remote?SERVER_TEMPLATE_CATALOG.find(t=>t.remote&&t.orientation===remote.orientation.toUpperCase())
-  :SERVER_TEMPLATE_CATALOG.find(t=>!t.remote&&t.backgroundAssetId===backgroundAssetId&&(backgroundAssetId!==null||t.orientation===orientation.toUpperCase()))
+  :SERVER_TEMPLATE_CATALOG.find(t=>!t.remote&&t.backgroundAssetId===base&&(base!==null||t.orientation===orientation.toUpperCase()))
  if(!serverTemplateSelectable(template))throw invalid()
  let pending=JSON.parse(await storage.getItem(key)??'null');check()
  if(pending){
