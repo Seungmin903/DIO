@@ -5,6 +5,7 @@ import { colors, radius, shadow, DISABLED_OPACITY } from '../../../shared/theme'
 import { PHOTO_FRAME_ASSETS, PHOTO_FRAME_GROUPS, TAPE_DEFAULT, TAPE_PATTERN_NAMES, TAPE_SIZES } from '../../constants'
 import { FOLDER_NAME_LIMIT, RECENT_LIMIT, stickerKey, tapeKey, useCustomDecor, widgetKey } from '../../hooks/useCustomDecor'
 import { useTapePreferences } from '../../hooks/useTapePreferences'
+import { useStickerPacks } from '../../hooks/useStickerPacks'
 import { stickerLibrary } from '../../stickerLibrary'
 import { tapeLibrary } from '../../tapeLibrary'
 import EditablePalette from '../controls/EditablePalette'
@@ -221,7 +222,8 @@ export default function DecorDrawer({ tab, onAdd, onTapeInserted, onToast, onClo
     custom.markRecent(item)
     onAdd({ kind: 'sticker', ...item })
   }
-  // 분류 칩: 즐겨찾기·최근(있을 때) + 기본 분류와 내 폴더(사용자가 정한 순서, 숨긴 기본 분류는 빼고)
+  // 분류 칩: 즐겨찾기·최근(있을 때) + 기본 분류(디오&모아 · 원격 팩)와 내 폴더(사용자가 정한 순서, 숨긴 기본 분류는 빼고)
+  useStickerPacks() // 원격 스티커 팩이 들어오면 칩과 목록을 다시 그린다
   const { favorites, recents, favoriteKeys, orderable, sorted, hidden, chips, active, folder, pack, packMatches, folderMatches } = stickerLibrary(custom.items, category, keyword)
   // 다른 분류로 옮기거나 검색하면 편집은 저절로 끝난 것으로 본다
   // 테이프 폴더 편집(여러 개 골라 지우기)

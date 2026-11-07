@@ -66,9 +66,9 @@ class MemberMigrationUpgradePostgresTests {
             for(var table:tables) {
                 var after=fingerprint(jdbc,table,originalColumns.get(table));
                 if("page_templates".equals(table)) {
-                    // V27 deliberately appends four planners; all legacy template rows must remain byte-for-byte intact.
+                    // V27 deliberately appends four planners and V34 two remote templates; all legacy template rows must remain byte-for-byte intact.
                     assertThat(after).as(table+" legacy rows").containsAll(snapshots.get(table));
-                    assertThat(after).as(table+" appended planners").hasSize(snapshots.get(table).size()+4);
+                    assertThat(after).as(table+" appended planners and remote templates").hasSize(snapshots.get(table).size()+4+2);
                 } else assertThat(after).as(table).isEqualTo(snapshots.get(table));
             }
             assertThat(jdbc.queryForList("select version from flyway_schema_history where success order by version::integer",String.class)).containsExactlyElementsOf(expectedVersions);

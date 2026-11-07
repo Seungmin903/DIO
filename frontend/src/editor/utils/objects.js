@@ -28,6 +28,12 @@ export function createSticker(item, center) {
   }
   // 기본 도트 스티커: 칸 수에 같은 칸 크기를 곱해 그림 비율 · 그림끼리의 크기 비율을 그대로 둔다
   const builtin = builtinStickerOf(item.builtin)
+  // 원격 그림 스티커(팩의 PNG): 내 스티커처럼 긴 변 110 에 그림 비율을 맞춘다. 페이지에는 builtin id 만 저장된다(그림 주소는 팩에서 찾는다)
+  if (builtin?.image) {
+    const aspect = builtin.iw / builtin.ih
+    const w = aspect >= 1 ? 110 : 110 * aspect
+    return base('sticker', center, w, w / aspect, { builtin: builtin.builtin, name: item.name ?? builtin.name })
+  }
   if (builtin) {
     return base('sticker', center, builtin.w * BUILTIN_CELL, builtin.h * BUILTIN_CELL, { builtin: builtin.builtin, name: item.name ?? builtin.name })
   }

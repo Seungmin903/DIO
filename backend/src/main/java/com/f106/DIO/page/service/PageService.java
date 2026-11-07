@@ -24,6 +24,8 @@ public class PageService {
 	@Transactional(readOnly=true) public PageListResponse list(UUID diaryId,Long userId){diaryAccessService.requireRead(diaryId,userId);return listWithoutDiaryCheck(diaryId);}
 	@Transactional public PageResponse create(UUID diaryId,PageCreateRequest r,Long userId){
 		diaryAccessService.requireWrite(diaryId,userId); PageTemplate t=findTemplate(r.getTemplateId());
+        // 원격 속지(V34)는 형식에 맞는 remoteTemplate 이 있어야 하고 다른 속지에는 둘 수 없다(공유 구성원 앱이 이 값으로 속지를 찾는다)
+        RemoteTemplates.requireValidConfig(r.getTemplateConfig(),t==null?null:t.getCode());
         String requestId=r.getTemplateConfig()==null?null:r.getTemplateConfig().path("clientPageRequestId").asText(null);
         if(requestId!=null){
             UUID.fromString(requestId);
@@ -53,7 +55,29 @@ public class PageService {
 		if(t!=null&&w==null){w=t.getCanvasWidth();h=t.getCanvasHeight();}
 		boolean replaceTemplateConfig=r.getTemplateConfig()!=null||t!=null;
 		String templateConfig=r.getTemplateConfig()==null?defaultConfig(t):copy(r.getTemplateConfig());
-		if(replaceTemplateConfig)templateConfig=preserveCreationRequestId(page.getTemplateConfig(),templateConfig);
+		if(replaceTemplateConfig){
+			// 원격 속지 페이지에서 속지를 바꾸지 않고 설정만 통째로 바꾸면(속지 글꼴 변경 등) 속지 정체(templateCode · templateVersion · remoteTemplate)를
+			// 저장된 설정에서 이어받는다. 앱은 templateId 없이 설정의 templateCode 로 속지를 알리므로, 빠지면 모든 구성원에게 빈 페이지가 된다.
+			// 일반 속지 페이지는 예전처럼 보낸 설정을 그대로 저장한다(templateCode 를 빼서 빈 종이로 바꾸는 요청을 막지 않는다)
+			String code=t!=null?t.getCode():currentTemplateCode(page);
+			if(t==null&&RemoteTemplates.isRemoteCode(code))templateConfig=preserveTemplateIdentity(page.getTemplateConfig(),templateConfig);
+			// 원격 속지 페이지에 원격 행 templateId 만 보내면(같은 행 다시 지정 · 방향 바꾸기) 행 기본 설정에는 remoteTemplate 이 없으므로 저장된 값을 이어받는다.
+			// 일반 페이지를 원격 행으로 바꿀 때는 어떤 속지인지 모르므로 templateConfig.remoteTemplate 이 꼭 있어야 한다(없으면 400)
+			if(t!=null&&r.getTemplateConfig()==null&&RemoteTemplates.isRemoteCode(code)&&RemoteTemplates.isRemoteCode(currentTemplateCode(page)))
+				templateConfig=inheritRemoteTemplate(page.getTemplateConfig(),templateConfig);
+			JsonNode next=templateConfig==null?null:JSON.readTree(templateConfig);
+			// 설정만 바꾸면서 원격 ↔ 일반 속지 코드를 바꾸면 속지가 바뀌는 것이라 받지 않는다(속지 변경은 templateId 로).
+			// 속지 코드가 없는 페이지(빈 종이)는 일반 속지로 본다. 설정만으로 원격 속지가 되지 않는다
+			if(t==null&&next!=null&&next.path("templateCode").isString()
+				&&RemoteTemplates.isRemoteCode(code)!=RemoteTemplates.isRemoteCode(next.get("templateCode").asString()))
+				throw new IllegalArgumentException("설정으로 원격 속지와 일반 속지를 바꿀 수 없습니다.");
+			// 원격 속지 페이지는 설정만으로 방향 행(dio-remote-landscape ↔ portrait)도 바꿀 수 없다. 캔버스 크기와 어긋나 구성원 앱마다 다르게 그린다
+			if(t==null&&RemoteTemplates.isRemoteCode(code)&&next!=null&&next.path("templateCode").isString()&&!code.equals(next.get("templateCode").asString()))
+				throw new IllegalArgumentException("설정으로 원격 속지의 방향을 바꿀 수 없습니다. 속지 변경은 templateId 로 합니다.");
+			// 원격 속지 규칙은 실제로 저장될 설정으로 검사한다
+			RemoteTemplates.requireValidConfig(next,code);
+			templateConfig=preserveCreationRequestId(page.getTemplateConfig(),templateConfig);
+		}
 		page.updateSettings(r.getTemplateId(),templateConfig,replaceTemplateConfig,r.getTitle(),w,h,r.getGridVisible(),r.getGridColor()); pageRepository.flush(); events.publishEvent(new PageCatalogChanged(page.getDiaryId())); return new PageResponse(pageData(page));
 	}
 	@Transactional public PageResponse copy(UUID pageId,Long userId){
@@ -72,6 +96,25 @@ public class PageService {
 	@Transactional(readOnly=true) public DiaryPage requirePage(UUID pageId){return pageRepository.findByPageIdAndDeletedAtIsNull(pageId).orElseThrow(PageNotFoundException::new);}
 	@Transactional(readOnly=true) public DiaryPage requireReadablePage(UUID pageId,Long userId){DiaryPage page=requirePage(pageId);diaryAccessService.requireRead(page.getDiaryId(),userId);return page;}
 	@Transactional(readOnly=true) public DiaryPage requireWritablePage(UUID pageId,Long userId){DiaryPage page=requirePage(pageId);diaryAccessService.requireWrite(page.getDiaryId(),userId);return page;}
+    private static final List<String> TEMPLATE_IDENTITY_KEYS=List.of("templateCode","templateVersion",RemoteTemplates.CONFIG_KEY);
+    /** 새 설정에 없는 속지 정체 키를 이전 설정에서 이어받는다. 새 설정이 직접 적은 값은 그대로 둔다 */
+    private static String preserveTemplateIdentity(String previous,String replacement){
+        var old=previous==null?null:JSON.readTree(previous);
+        if(old==null||!old.isObject()||TEMPLATE_IDENTITY_KEYS.stream().noneMatch(old::has))return replacement;
+        var next=replacement==null?JSON.createObjectNode():JSON.readTree(replacement);
+        if(!(next instanceof tools.jackson.databind.node.ObjectNode object))return replacement;
+        for(String key:TEMPLATE_IDENTITY_KEYS)if(old.has(key)&&!object.has(key))object.set(key,old.get(key));
+        return object.toString();
+    }
+    /** 저장된 설정의 remoteTemplate 을 새 설정에 옮긴다(새 설정에 이미 있으면 그대로) */
+    private static String inheritRemoteTemplate(String previous,String replacement){
+        var old=previous==null?null:JSON.readTree(previous);
+        if(old==null||!old.has(RemoteTemplates.CONFIG_KEY))return replacement;
+        var next=replacement==null?JSON.createObjectNode():JSON.readTree(replacement);
+        if(!(next instanceof tools.jackson.databind.node.ObjectNode object))return replacement;
+        if(!object.has(RemoteTemplates.CONFIG_KEY))object.set(RemoteTemplates.CONFIG_KEY,old.get(RemoteTemplates.CONFIG_KEY));
+        return object.toString();
+    }
     private static String preserveCreationRequestId(String previous,String replacement){
         var old=previous==null?null:JSON.readTree(previous);
         var requestId=old==null?null:old.get("clientPageRequestId");
@@ -101,6 +144,13 @@ public class PageService {
         if(tree instanceof tools.jackson.databind.node.ObjectNode object)object.remove("clientPageRequestId");
         return tree.toString();
     }
+	/** 지금 페이지의 속지 코드: 연결된 템플릿 행, 없으면 저장된 설정의 templateCode. 모르면 null */
+	private String currentTemplateCode(DiaryPage page){
+		if(page.getTemplateId()!=null)return templateRepository.findById(page.getTemplateId()).map(PageTemplate::getCode).orElse(null);
+		if(page.getTemplateConfig()==null)return null;
+		JsonNode code=JSON.readTree(page.getTemplateConfig()).path("templateCode");
+		return code.isString()?code.asString():null;
+	}
 	private PageTemplate findTemplate(Long id){return id==null?null:templateRepository.findByTemplateIdAndIsActiveTrue(id).orElseThrow(PageTemplateNotFoundException::new);}
 	private BigDecimal nextSortKey(UUID diaryId){BigDecimal max=pageRepository.findMaxSortKeyByDiaryId(diaryId);return max==null?SORT_STEP:max.add(SORT_STEP);}
 	private PageData pageData(DiaryPage page){return PageMapper.toPageData(page,page.getTemplateId()==null?null:templateRepository.findById(page.getTemplateId()).orElse(null));}

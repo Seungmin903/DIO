@@ -218,6 +218,37 @@ abstract class MemberDiaryCreationContract {
 		}
 	}
 
+	/** 원격 속지 가로 행. PostgreSQL 은 마이그레이션(V34)이 이미 넣었으므로 그 행을 쓰고, H2 처럼 없을 때만 넣는다(같은 코드가 둘이면 모호해서 거부된다) */
+	long remoteLandscapeTemplate() {
+		var existing=jdbc.queryForList("select template_id from page_templates where code='dio-remote-landscape' and template_version='1.0.0'",Long.class);
+		if (!existing.isEmpty()) return existing.get(0);
+		jdbc.update("insert into page_templates(template_id,code,template_version,name,category,orientation,canvas_width,canvas_height) values (-30,'dio-remote-landscape','1.0.0','추가 속지 · 가로','REMOTE','LANDSCAPE',1024,768)");
+		return -30L;
+	}
+
+	@Test void remoteTemplatePagesKeepTheirRemoteTemplateId() {
+		long templateId=remoteLandscapeTemplate();
+		var selected=new DiaryInitialPages.Selection("dio-remote-landscape","1.0.0","{\"width\":1024,\"height\":768,\"remoteTemplate\":\"spring-note\",\"paperAppearance\":{\"backgroundColor\":\"#fffdf7\"}}");
+		tx.execute(s -> service.create(metadata(),List.of(selected)));
+		var json=new tools.jackson.databind.ObjectMapper().readTree(jdbc.queryForObject("select template_config from pages",String.class));
+		assertThat(json.get("remoteTemplate").asString()).isEqualTo("spring-note");
+		assertThat(json.get("paperAppearance").get("backgroundColor").asString()).isEqualTo("#FFFDF7");
+		assertThat(jdbc.queryForObject("select template_id from pages",Long.class)).isEqualTo(templateId);
+	}
+
+	@Test void remoteTemplateIdsAreOnlyAcceptedOnRemoteTemplatesAndMustBeWellFormed() {
+		remoteLandscapeTemplate();
+		// 일반 속지에는 remoteTemplate 을 받지 않는다
+		error(400,() -> tx.execute(s -> service.create(metadata(),List.of(new DiaryInitialPages.Selection("BLANK","1","{\"remoteTemplate\":\"spring-note\"}")))));
+		noCreatedRows();
+		// 원격 속지는 형식이 맞는 remoteTemplate 이 꼭 있어야 한다
+		for (var config:List.of("{}","{\"remoteTemplate\":null}","{\"remoteTemplate\":123}","{\"remoteTemplate\":\"Spring Note\"}",
+			"{\"remoteTemplate\":\"../x\"}","{\"remoteTemplate\":\""+"a".repeat(41)+"\"}")) {
+			error(400,() -> tx.execute(s -> service.create(metadata(),List.of(new DiaryInitialPages.Selection("dio-remote-landscape","1.0.0",config)))));
+			noCreatedRows();
+		}
+	}
+
 	@Test void invalidCatalogDataFailsClosedAndAmbiguousCodesAreRejected() {
 		jdbc.update("update page_templates set canvas_width=0 where template_id=-10");
 		error(500,() -> tx.execute(s -> service.create(metadata(),selections(1)))); noCreatedRows();

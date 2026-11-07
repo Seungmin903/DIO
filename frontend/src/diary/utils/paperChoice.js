@@ -2,6 +2,7 @@ import { configuredPageIds, defaultTemplateConfig, normalizeTemplateConfig, temp
 import { normalizeOrientation, reusableTemplates } from '../../editor/templates/catalog.js'
 import { datedCalendar, datedCoverId, datedMonthId, datedWeekId } from '../../editor/templates/dated.js'
 import { undatedTemplateId } from '../../editor/templates/undated.js'
+import { remoteTemplateAssetId, remoteTemplateGroups, remoteTemplateList, remoteTemplateOf } from '../../editor/templates/remoteTemplates.js'
 
 // 새 다이어리의 속지: 가로 분류 탭(노트 · 플래너 · 일기) 안에서 속지를 한 장 종류씩 고른다.
 // 미리 섞인 세트(예: 표지 + 구분지 + 월간 + 주간)는 두지 않고, 한 묶음에 속지를 여러 줄로 넣어 직접 섞는다.
@@ -41,14 +42,34 @@ const THIS_YEAR = new Date().getFullYear()
 export const PAPER_YEARS = Array.from({ length: 7 }, (_, i) => THIS_YEAR - 1 + i)
 export const MONTH_LIMIT = 12
 
-export const paperById = id => PAPERS.find(paper => paper.id === (REPLACED_PAPERS[id] ?? id)) ?? (LEGACY_NAMES[id] ? { id, name: LEGACY_NAMES[id], kind: 'period' } : PAPERS[0])
-export const papersIn = group => PAPERS.filter(paper => paper.group === group)
+// 원격 속지(앱 배포 없이 catalog.json 으로 추가, editor/templates/remoteTemplates.js): 장수를 고르는 한 장짜리 속지로, 목록에 적힌 탭 끝에 붙는다.
+// 고른 속지 id 는 'remote:<id>'. 목록을 아직 못 받았거나 숨긴 속지도 이미 고른 줄에서는 그대로 쓴다(이름만 '추가 속지').
+// 목록은 새 탭(templateGroups)도 더할 수 있다. 숨긴 탭의 속지는 고르기에 보이지 않는다.
+const REMOTE_PAPER = /^remote:([a-z0-9][a-z0-9-]{0,39})$/
+const remotePaper = (id, item) => ({ id: `remote:${id}`, group: item?.group ?? 'note', name: item?.name ?? '추가 속지', kind: 'count', remoteTemplate: id })
+const hiddenGroups = () => new Set(remoteTemplateGroups().filter(group => group.hidden).map(group => group.id))
+const remotePapers = () => {
+  const hidden = hiddenGroups()
+  return remoteTemplateList().filter(item => !item.hidden && !hidden.has(item.group)).map(item => remotePaper(item.id, item))
+}
+
+/** 속지 고르기 탭: 앱 탭(노트 · 플래너 · 일기) + 목록이 더한 탭(숨긴 것 빼고). 원격 목록이 바뀌면 다시 불러야 한다(useRemoteTemplates) */
+export const paperGroups = () => [...PAPER_GROUPS, ...remoteTemplateGroups().filter(group => !group.hidden).map(({ id, name }) => ({ id, name, remote: true }))]
+
+export const paperById = id => {
+  const remote = typeof id === 'string' ? REMOTE_PAPER.exec(id) : null
+  if (remote) return remotePaper(remote[1], remoteTemplateOf(remote[1]))
+  return PAPERS.find(paper => paper.id === (REPLACED_PAPERS[id] ?? id)) ?? (LEGACY_NAMES[id] ? { id, name: LEGACY_NAMES[id], kind: 'period' } : PAPERS[0])
+}
+/** 탭의 속지들: 앱 속지 + 원격 속지(숨긴 것 빼고). 원격 목록이 바뀌면 다시 불러야 한다(useRemoteTemplates) */
+export const papersIn = group => [...PAPERS, ...remotePapers()].filter(paper => paper.group === group)
 
 /** 장수형 속지(표지 포함) → 그 방향의 속지 ID. 날짜 없는 표지를 쓴다. */
 export function countAssetId(paperId, orientation) {
   const paper = paperById(paperId)
   const direction = normalizeOrientation(orientation)
   if (paper.kind === 'cover') return undatedTemplateId('cover', direction)
+  if (paper.remoteTemplate) return remoteTemplateAssetId(paper.remoteTemplate, direction)
   return reusableTemplates(direction).find(item => item.type === paper.type && (paper.type !== 'note' || item.background === paper.background)).assetId
 }
 

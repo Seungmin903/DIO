@@ -6,6 +6,7 @@ import StickerThumbImage from '../../editor/components/controls/StickerThumbImag
 import TextFontDropdown from '../../editor/components/controls/TextFontDropdown'
 import { stickerLibrary } from '../../editor/stickerLibrary'
 import { stickerKey, useCustomDecor } from '../../editor/hooks/useCustomDecor'
+import { useStickerPacks } from '../../editor/hooks/useStickerPacks'
 import { useMediaUri } from '../../editor/hooks/useMediaUri'
 import { pickImages } from '../../editor/services/image'
 import { discardGeneratedMedia } from '../../editor/services/mediaStore'
@@ -163,6 +164,7 @@ function StickerPicker({ cover, onChange, onNotice }) {
   const grid = useFillGrid({ cell: 52, gap: 6, minColumns: 4 })
   const [query, setQuery] = useState('')
   const keyword = query.trim()
+  useStickerPacks() // 원격 스티커 팩이 들어오면 칩과 목록을 다시 그린다
   const { favorites, recents, favoriteKeys, chips, active, folder, pack, packMatches, folderMatches } = stickerLibrary(custom.items, custom.lastStickerCategory, keyword)
   const list = keyword ? [...packMatches, ...folderMatches]
     : active === 'favorites' ? favorites : active === 'recent' ? recents : folder ? folder.items : pack ? pack.items : []

@@ -516,3 +516,115 @@ backend-postgres-push-test:
     paths:
       - backend/build/reports/tests/pushPostgresTest/
     expire_in: 7 days
+
+# ---------- 원격 에셋(S3 + CloudFront) ----------
+# frontend/remote-content(앱 배포 없이 추가하는 글꼴 · 스티커 · 속지)와 번들에서 뺀 assets 를 에셋 버킷에 올린다. docs/remote-assets.md
+# 버킷 · 키는 러너 서버의 env 파일에 둔다(다른 배포 잡과 같다). Git · CI 변수에는 넣지 않는다.
+#   /home/gitlab-runner/dio-env/assets-dev.env · assets-prod.env
+#   ASSET_S3_BUCKET, ASSET_S3_PREFIX(기본 static-assets), AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_DEFAULT_REGION
+#   키 권한: <접두사>/* 에 s3:GetObject · s3:PutObject, 버킷에 s3:ListBucket(접두사 제한)
+.remote-assets-changes: &remote-assets-changes
+  - frontend/remote-content/**/*
+  - frontend/assets/fonts/**/*
+  - frontend/assets/templates/**/*
+  - frontend/src/shared/remoteAssets/**/*
+  - frontend/scripts/build-remote-assets.mjs
+  - frontend/scripts/remote-content.mjs
+  - frontend/scripts/compare-remote-catalog.mjs
+  - frontend/scripts/fetch-remote-catalog.sh
+  - frontend/scripts/upload-remote-assets.sh
+  - frontend/scripts/template-svg-rules.mjs
+  - .gitlab-ci.yml
+
+# 형식 검사만 한다(키 · 네트워크 없음). 틀린 글꼴 · 스티커 · 속지는 MR 에서 막는다.
+remote-assets-check:
+  stage: quality
+  tags:
+    - ec2-deploy
+  interruptible: true
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" || $CI_COMMIT_BRANCH == "develop" || $CI_COMMIT_BRANCH == "master"'
+      changes: *remote-assets-changes
+  script:
+    - >
+      docker run --rm
+      --user "$(id -u):$(id -g)"
+      -v "$CI_PROJECT_DIR/frontend:/workspace/frontend:ro"
+      -w /workspace/frontend
+      node:24-alpine
+      node scripts/build-remote-assets.mjs --check
+
+.remote-assets-publish: &remote-assets-publish
+  tags:
+    - ec2-deploy
+  variables:
+    AWS_CLI_IMAGE: amazon/aws-cli:2.17.0
+  script:
+    # 스크립트 줄에 '콜론+공백'을 쓰면 YAML 이 키로 읽으므로 블록(>)으로 쓴다
+    - >
+      test -f "$ASSET_ENV_FILE" || { echo "에셋 버킷 설정 파일이 없습니다 - $ASSET_ENV_FILE" >&2; exit 1; }
+    - export WORK="$CI_PROJECT_DIR/.ci-remote-assets"
+    - rm -rf "$WORK" && mkdir -p "$WORK"
+    # 1) 올릴 파일과 catalog.json 을 만든다(저장소는 읽기 전용, 커밋된 매니페스트와 다르면 실패)
+    - >
+      docker run --rm --user "$(id -u):$(id -g)"
+      -v "$CI_PROJECT_DIR/frontend:/workspace/frontend:ro" -v "$WORK:/out"
+      -w /workspace/frontend node:24-alpine
+      node scripts/build-remote-assets.mjs --dist-only --out /out/dist
+    # 2) 지금 올라간 목록을 받아 3) 이미 공개한 항목이 빠지지 않았는지 비교한다(빠지면 멈춤, ALLOW_CATALOG_REMOVAL=1 CI 변수로 허용)
+    - >
+      docker run --rm --user "$(id -u):$(id -g)" -e HOME=/tmp --env-file "$ASSET_ENV_FILE"
+      -v "$CI_PROJECT_DIR/frontend/scripts:/scripts:ro" -v "$WORK:/out"
+      --entrypoint sh "$AWS_CLI_IMAGE" /scripts/fetch-remote-catalog.sh /out/previous-catalog.json
+    - >
+      docker run --rm --user "$(id -u):$(id -g)" -e ALLOW_CATALOG_REMOVAL
+      -v "$CI_PROJECT_DIR/frontend/scripts:/scripts:ro" -v "$WORK:/out:ro"
+      node:24-alpine node /scripts/compare-remote-catalog.mjs /out/previous-catalog.json /out/dist/catalog.json
+    # 4) 파일을 먼저, catalog.json 을 마지막에 올린다
+    - >
+      docker run --rm --user "$(id -u):$(id -g)" -e HOME=/tmp --env-file "$ASSET_ENV_FILE"
+      -e REMOTE_ASSETS_DIST=/out/dist -e REMOTE_CATALOG_COMPARED=1
+      -v "$CI_PROJECT_DIR/frontend/scripts:/scripts:ro" -v "$WORK:/out:ro"
+      --entrypoint sh "$AWS_CLI_IMAGE" /scripts/upload-remote-assets.sh
+  after_script:
+    - rm -rf "$CI_PROJECT_DIR/.ci-remote-assets"
+
+# develop 에 병합되면 개발 백엔드 배포(V34 원격 속지 행)가 끝난 뒤 개발 에셋 버킷에 자동으로 올린다
+publish-remote-assets-dev:
+  <<: *remote-assets-publish
+  stage: deploy
+  # deploy-development 는 develop 의 모든 파이프라인에 생기므로(rules 에 changes 없음) optional 을 두지 않는다.
+  # 백엔드 배포가 실패하면 에셋도 올리지 않는다
+  needs:
+    - deploy-development
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "develop"'
+      changes: *remote-assets-changes
+  resource_group: development-assets
+  environment:
+    name: development-assets
+  variables:
+    AWS_CLI_IMAGE: amazon/aws-cli:2.17.0
+    ASSET_ENV_FILE: /home/gitlab-runner/dio-env/assets-dev.env
+
+# 운영 에셋 버킷은 master 에서 사람이 눌러 올린다(사용자 앱에 바로 보이므로).
+# 운영 백엔드 배포(deploy-production, V34 원격 속지 행)가 성공한 뒤에만 누를 수 있다. 행이 없으면 원격 속지로 페이지를 만들 수 없다.
+# 에셋이 바뀌지 않은 파이프라인에서도 눌러 다시 올릴 수 있게 changes 조건을 두지 않는다(같은 내용이면 바뀌는 것이 없다).
+# deploy-production 도 master 의 모든 파이프라인에 생기므로 needs 에 optional 을 두지 않는다.
+# 실패(목록 비교에서 공개 항목 삭제 감지 · 업로드 실패 · 설정 파일 없음)가 파이프라인 실패로 드러나도록 allow_failure: false 를 명시한다.
+# rules 의 when: manual 은 기본값도 false 지만, 잡 수준 when: manual(기본 true)과 헷갈리지 않게 적어 둔다. 누르기 전까지 파이프라인은 deploy-production 처럼 blocked 다.
+publish-remote-assets-prod:
+  <<: *remote-assets-publish
+  stage: deploy
+  needs:
+    - deploy-production
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "master"'
+      when: manual
+      allow_failure: false
+  resource_group: production-assets
+  environment:
+    name: production-assets
+  variables:
+    AWS_CLI_IMAGE: amazon/aws-cli:2.17.0
+    ASSET_ENV_FILE: /home/gitlab-runner/dio-env/assets-prod.env

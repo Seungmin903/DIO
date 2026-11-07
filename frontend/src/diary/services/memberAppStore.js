@@ -107,7 +107,7 @@ export function createMemberAppStore({ accountId, api, storage, makeRequestId, s
     const doc = createDefaultDoc(diary)
     doc.memberAccountId = accountId
     doc.pages = input.initialPages.map((selected, index) => {
-      const ref = localTemplateReference(selected.templateCode, selected.templateVersion)
+      const ref = localTemplateReference(selected.templateCode, selected.templateVersion, selected.templateConfig)
       const base = { id: result.pageIds[index], ...ref, ...(selected.templateConfig.paperAppearance ? { paperAppearance: selected.templateConfig.paperAppearance } : {}), objects: [] }
       const imported = input.importedPages?.[index]
       // PDF 쪽: 서버가 만든 페이지 id 에 쪽 크기와 쪽 그림(잠근 바탕)을 얹는다. 그림과 원본 PDF 는 편집기에서 서버로 올라간다.
