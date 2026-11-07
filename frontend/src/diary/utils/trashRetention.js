@@ -4,6 +4,7 @@ export const TRASH_RETENTION_DAYS = 30;
 export const TRASH_RETENTION_MS = TRASH_RETENTION_DAYS * 24 * 60 * 60 * 1000;
 
 // 남은 날짜(올림). 기기 시계가 서버보다 조금이라도 늦으면 막 옮긴 다이어리가 '31일'로 보이므로 보관 기간(30일)을 넘지 않게 한다.
+// 서버 보관 기간도 30일 고정이다(backend DiaryTrashService.RETENTION = 30일, purgeAt = deletedAt + 30일). 서버 기간이 바뀌면 이 상한도 같이 바꾼다.
 export const trashDaysLeft = (deadline, now) => Math.min(TRASH_RETENTION_DAYS, Math.max(0, Math.ceil((deadline - now) / (24 * 60 * 60 * 1000))));
 
 export function trashDeadline(diary) {

@@ -139,7 +139,8 @@ export default function PasswordResetScreen({
     email: <DioButton variant="filled" label="인증번호 보내기" disabled={busy || !!addressError} onPress={() => requestCode()} />,
     code: <DioButton variant="filled" label="인증번호 확인" disabled={busy || code.length !== 6 || !expiresIn} onPress={verifyCode} />,
     password: <DioButton variant="filled" label={change ? '비밀번호 변경' : '비밀번호 재설정'} disabled={busy || !canSetPassword} onPress={resetPassword} />,
-    success: <DioButton variant="filled" label="로그인으로 돌아가기" onPress={onComplete} />,
+    // 변경 흐름은 바꾼 뒤 세션을 끝내고(onClearSession) 로그인 화면으로 보낸다. 로그인 화면에서 온 찾기 흐름만 '돌아가기'
+    success: <DioButton variant="filled" label={change ? '다시 로그인' : '로그인으로 돌아가기'} onPress={onComplete} />,
   }[step];
   return (
     <KeyboardAvoidingView
