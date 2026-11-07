@@ -33,9 +33,11 @@ export function NotificationEntry({ count, onPress, label = '알림' }) {
     {count.status === 'error' && <Text style={s.text}>알림 수 확인 필요</Text>}
   </View>;
 }
-function QueryNotice({ state, retry, label, refreshList }) {
+// quietLoading: 불러오는 중 줄을 띄우지 않는다(알림 수 · 목록). 줄이 생겼다 사라지며 아래 목록이 튀었다(사용자 지적 2026-11-07). 오류는 그대로 보인다
+function QueryNotice({ state, retry, label, refreshList, quietLoading = false }) {
   const notice = notificationErrorNotice(state.error, label === '초대 상세' ? '초대' : '알림');
   if (state.status === 'success') return null;
+  if (quietLoading && state.status !== 'error') return null;
   return <View>
     {(state.status === 'idle' || state.status === 'loading') && <View accessible accessibilityRole="progressbar" accessibilityLabel={`${label} 불러오는 중이에요.`} aria-label={`${label} 불러오는 중이에요.`} accessibilityState={{ busy: true }} aria-busy={true} accessibilityLiveRegion="polite" aria-live="polite" style={s.row}>
       <View aria-hidden={true} accessibilityElementsHidden importantForAccessibility="no-hide-descendants"><ActivityIndicator accessible={false} color={C.primary} /></View><Text style={s.text}>{label} 불러오는 중이에요.</Text>
@@ -85,7 +87,7 @@ export default function NotificationPanel({ model, onInvitationReady }) {
       {!canOpenInvitation(detail) && <View style={s.detailNotice}><Text style={s.text}>이 초대로는 참여할 수 없어요.</Text><NotificationButton label="초대 상태 다시 확인" text="다시 확인" onPress={store.retryInvitation} /></View>}
     </>}
   </ScrollView>;
-  return <ScrollView testID="notification-panel" style={s.scroller} contentContainerStyle={s.content} accessibilityState={{ busy: list.status === 'loading' }} aria-busy={list.status === 'loading'}>
+  return <ScrollView testID="notification-panel" style={s.scroller} contentContainerStyle={s.content} accessibilityState={{ busy: list.status === 'loading' || mutation.status === 'saving' || checkingInvitation }} aria-busy={list.status === 'loading' || mutation.status === 'saving' || checkingInvitation}>
     <View style={s.toolbar}>
       <Text style={s.muted}>{notificationCountLabel(count.data).value === null ? '받은 알림' : `${notificationCountLabel(count.data).label} ${notificationCountLabel(count.data).value}개`}</Text>
       {/* 새로고침 · 모두 읽음은 오른쪽 한 묶음: 겹치는 터치 영역 없이 보이는 사이만 좁힌다(아이콘 칸 여백 13만 남는다) */}
@@ -95,16 +97,17 @@ export default function NotificationPanel({ model, onInvitationReady }) {
       </View>
     </View>
     {!(count.status === 'error' && list.status === 'error' && count.error?.status === 401 && list.error?.status === 401) &&
-      <QueryNotice state={count} retry={store.refreshCount} label="알림 수" refreshList={store.refreshNotifications} />}
-    <QueryNotice state={list} retry={store.refreshList} label="알림 목록" refreshList={store.refreshNotifications} />
-    {checkingInvitation && <Text accessibilityLiveRegion="polite" style={s.muted}>초대를 확인하고 있어요.</Text>}
-    {mutation.status === 'saving' && <Text accessibilityLiveRegion="polite" aria-live="polite" style={s.text}>알림을 처리하고 있어요.</Text>}
+      <QueryNotice state={count} retry={store.refreshCount} label="알림 수" refreshList={store.refreshNotifications} quietLoading />}
+    <QueryNotice state={list} retry={store.refreshList} label="알림 목록" refreshList={store.refreshNotifications} quietLoading />
+    {/* 처리 중 · 초대 확인 중에는 줄을 끼워 넣지 않는다(버튼이 잠겨 알 수 있다). 화면 읽기 프로그램에는 목록의 busy 로 알린다 */}
     {mutation.status === 'error' && <View style={s.card}>
       <Text accessibilityRole="alert" accessibilityLiveRegion="polite" aria-live="polite" style={s.text}>{mutationNotice.message}</Text>
       <AuthenticationRecovery error={mutation.error} />
       {mutation.canRetry ? <NotificationButton label="알림 처리 다시 시도" onPress={store.retryMutation} /> : <NotificationButton label="처리 안내 닫기" onPress={store.dismissMutation} />}
       {mutationNotice.refreshList && <NotificationButton label="처리 오류 후 목록 새로고침" onPress={store.refreshNotifications} />}
     </View>}
+    {/* 처음 불러오는 동안은 빈 화면과 같은 자리 가운데에 스피너만 둔다(다시 받을 때는 지금 목록을 그대로 둔다) */}
+    {(list.status === 'idle' || list.status === 'loading') && items.length === 0 && <View style={s.empty} accessible accessibilityRole="progressbar" accessibilityLabel="알림 목록 불러오는 중이에요." accessibilityState={{ busy: true }}><ActivityIndicator accessible={false} color={C.primary} /></View>}
     {list.status === 'success' && items.length === 0 && <View style={s.empty}><AppIcon name="bell" size={32} color={C.primary} /><Text testID="notification-empty" accessible accessibilityLiveRegion="polite" aria-live="polite" style={s.muted}>받은 알림이 없어요</Text></View>}
     {items.map(row => { const presentation = notificationPresentation(row);
       const pending = row.status === 'PENDING', joined = row.status === 'ACCEPTED';

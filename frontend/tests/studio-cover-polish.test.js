@@ -62,3 +62,11 @@ test('스티커 폴더 미리보기는 늘어난 칸을 같은 크기 칸으로 
   assert.match(studio, /const previewCount = Math\.max\(1, Math\.floor\(\(previewInner \+ PREVIEW_GAP\) \/ \(PREVIEW_MIN \+ PREVIEW_GAP\)\)\);/)
   assert.match(studio, /Array\.from\(\{ length: previewCount \}/)
 })
+
+test('알림 창은 불러오는 동안 목록 위에 줄을 끼워 넣지 않고, 처음엔 빈 화면 자리에 스피너만 둔다', () => {
+  const panel = read('../src/notifications/NotificationPanel.js')
+  assert.match(panel, /if \(quietLoading && state\.status !== 'error'\) return null;/)
+  assert.equal((panel.match(/quietLoading \/>/g) || []).length, 2)
+  assert.doesNotMatch(panel, /알림을 처리하고 있어요\.|초대를 확인하고 있어요\./)
+  assert.match(panel, /\(list\.status === 'idle' \|\| list\.status === 'loading'\) && items\.length === 0 && <View style=\{s\.empty\}/)
+})
