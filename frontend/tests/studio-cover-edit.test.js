@@ -36,7 +36,7 @@ test('608: 사진 테이프 만들기에는 두께 버튼이 없고 늘 기본 �
 
 test('603: 제목이 빈 내 표지는 다이어리 이름 쓰기를 켠 채 열고, 구역 카드 한 칸은 두지 않는다', () => {
   const modal = read('../src/diary/components/CoverEditModal.js')
-  assert.match(modal, /cover\.title && !cover\.title\.text && !cover\.title\.useName \? \{ \.\.\.cover, title: \{ \.\.\.cover\.title, useName: true \} \}/)
+  assert.match(modal, /cover\?\.title && !cover\.title\.text && !cover\.title\.useName \? \{ \.\.\.cover, title: \{ \.\.\.cover\.title, useName: true \} \}/)
   assert.match(modal, /const changed = cover !== initial;/)
   assert.match(modal, /sections=\{\[\]\}/)
   assert.match(read('../src/diary/components/Workbench.js'), /\{!cards\.length \? null : sheet \?/)
