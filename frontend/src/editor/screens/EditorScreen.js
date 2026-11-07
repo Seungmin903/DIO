@@ -1092,7 +1092,7 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
   }, [readOnly, saveStatus, bubbleOpen, cropId, exportOpen, exportSnapshot, focusMode, frameTextEdit, importFailure, layersOpen, objectLinkTarget, overviewFilter, pagesOpen, photoCropId, regionOpen, state.selectedIds.length, tapeCropId, templatePickerOpen, textEditing, textLinkTarget, colorPicker, backDisabled])
 
   useEffect(() => {
-    if (colorPicker && (readOnly || page.id !== colorPicker.pageId || activeTool !== colorPicker.tool || colorScreen.width !== colorPicker.screen.width)) setColorPicker(null)
+    if (colorPicker && (readOnly || page.id !== colorPicker.pageId || activeTool !== colorPicker.tool || colorScreen.width !== colorPicker.screen.width)) { colorPicker.onClose?.(); setColorPicker(null) }
   }, [colorPicker, readOnly, page.id, activeTool, colorScreen.width, colorScreen.height])
 
 
@@ -1612,7 +1612,7 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
       {landscape && phoneToolbar}
       {colorPicker && <PresetColorEditor {...colorPicker}
         onDone={async color => { await colorPicker.onDone(color); setColorPicker(null) }}
-        onClose={() => setColorPicker(null)} />}
+        onClose={() => { colorPicker.onClose?.(); setColorPicker(null) }} />}
 
     </View>
   )

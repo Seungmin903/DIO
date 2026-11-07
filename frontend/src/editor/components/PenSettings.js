@@ -90,8 +90,9 @@ const styles = StyleSheet.create({
   fill: { flex: 1 },
   inlineLabel: { width: 52, color: colors.textMuted, fontSize: 12, fontWeight: '700' },
   types: { flex: 1, flexDirection: 'row', gap: 4 },
-  type: { flex: 1, minHeight: 48, justifyContent: 'center', borderRadius: 10, borderWidth: 1, borderColor: colors.cardBorder, backgroundColor: colors.surface, paddingVertical: 6 },
-  typeSelected: { borderWidth: 2, borderColor: colors.primaryStrong }, // 페이지 목록 탭과 같은 선택 표시(테두리 2)
+  type: { flex: 1, minHeight: 48, justifyContent: 'center', borderRadius: 10, borderWidth: 1, borderColor: colors.cardBorder, backgroundColor: colors.surface, paddingVertical: 6, paddingHorizontal: 1 },
+  // 테두리 2 = 여백 1 줄임(칸 폭 · 글자 자리가 고를 때마다 움직이지 않게)
+  typeSelected: { borderWidth: 2, paddingVertical: 5, paddingHorizontal: 0, borderColor: colors.primaryStrong }, // 페이지 목록 탭과 같은 선택 표시(테두리 2)
   typeText: { textAlign: 'center', color: colors.textMuted, fontSize: 11.5, fontWeight: '600' },
   typeTextSelected: { color: colors.text, fontWeight: '800' },
   assist: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, minHeight: 40 },

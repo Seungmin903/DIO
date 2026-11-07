@@ -76,11 +76,12 @@ export const toolPanelStyles = StyleSheet.create({
   label: { color: colors.textMuted, fontSize: 12, fontWeight: '700' },
   // B안 테두리 칩: 칸마다 흰 면 + cardBorder 테두리, 고른 칸은 primaryStrong 테두리(그림자 · 회색 판 없음). 칸 사이 6
   segment: { flexDirection: 'row', gap: 6 },
-  segmentItem: { flex: 1, minHeight: 40, alignItems: 'center', justifyContent: 'center', borderRadius: 10, borderWidth: 1, borderColor: colors.cardBorder, backgroundColor: colors.surface },
-  segmentActive: { borderColor: colors.primaryStrong, borderWidth: 2 },
+  // 고른 칸은 테두리가 2로 두꺼워지는 만큼 안쪽 여백을 1 줄여, 테두리+여백 합을 같게 둔다(칸 폭 · 글자 자리가 고를 때마다 움직이지 않게)
+  segmentItem: { flex: 1, minHeight: 40, alignItems: 'center', justifyContent: 'center', borderRadius: 10, borderWidth: 1, padding: 1, borderColor: colors.cardBorder, backgroundColor: colors.surface },
+  segmentActive: { borderColor: colors.primaryStrong, borderWidth: 2, padding: 0 },
   chips: { flexDirection: 'row', gap: 8 },
   chip: {},
-  chipActive: { borderColor: colors.primaryStrong, borderWidth: 2 },
+  chipActive: { borderColor: colors.primaryStrong, borderWidth: 2, padding: 0 },
   segmentText: { fontSize: 12.5, fontWeight: '600', color: colors.textMuted },
   segmentTextActive: { color: colors.text, fontWeight: '800' },
   dim: { opacity: DISABLED_OPACITY },

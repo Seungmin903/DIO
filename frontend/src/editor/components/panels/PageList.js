@@ -564,8 +564,9 @@ const styles = StyleSheet.create({
   pickedRing: { position: 'absolute', top: -THUMB_BORDER, left: -THUMB_BORDER, right: -THUMB_BORDER, bottom: -THUMB_BORDER, borderRadius: 8, borderWidth: 1, borderColor: colors.primary },
   header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: RAIL_INSET, paddingTop: 16 },
   tabs: { flex: 1, flexDirection: 'row', gap: 4 },
-  tab: { flex: 1, height: 28, alignItems: 'center', justifyContent: 'center', borderRadius: 8, borderWidth: 1, borderColor: colors.cardBorder, backgroundColor: colors.surface },
-  tabActive: { borderWidth: 2, borderColor: colors.primaryStrong },
+  // 고른 탭은 테두리 2 = 여백 1 줄임(칸 폭이 고를 때마다 움직이지 않게)
+  tab: { flex: 1, height: 28, alignItems: 'center', justifyContent: 'center', borderRadius: 8, borderWidth: 1, padding: 1, borderColor: colors.cardBorder, backgroundColor: colors.surface },
+  tabActive: { borderWidth: 2, padding: 0, borderColor: colors.primaryStrong },
   tabText: { fontSize: 12, fontWeight: '700', color: colors.textMuted },
   tabTextActive: { color: colors.text, fontWeight: '800' },
   thumbDragging: {

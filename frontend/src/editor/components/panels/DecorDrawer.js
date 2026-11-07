@@ -1148,8 +1148,8 @@ const styles = StyleSheet.create({
     borderColor: colors.cardBorder,
     backgroundColor: colors.surface,
   },
-  // 선택: 흰 바탕 + primaryStrong 2px 테두리
-  pillActive: { backgroundColor: colors.surface, borderColor: colors.primaryStrong, borderWidth: 2 },
+  // 선택: 흰 바탕 + primaryStrong 2px 테두리. 테두리가 1 두꺼워지는 만큼 좌우 여백을 1 줄여 칩 폭이 그대로다
+  pillActive: { backgroundColor: colors.surface, borderColor: colors.primaryStrong, borderWidth: 2, paddingHorizontal: 12 },
   pillWithIcon: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   pillDashed: { borderStyle: 'dashed', borderWidth: 1, borderColor: colors.border, backgroundColor: 'transparent' },
   folderInputRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
