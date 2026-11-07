@@ -3,7 +3,7 @@ import documentStorage from '../../editor/services/documentStorage'
 import { STORAGE_KEYS, loadJSON, saveJSON } from '../../editor/services/storage'
 import { collectMediaIds } from '../../editor/utils/mediaReferences'
 import * as mediaRepository from '../../editor/utils/mediaRepository'
-import { addMyCover, addMyPaper, normalizeMyCovers, normalizeMyPapers, removeEntry, renameEntry } from '../utils/myLibrary.js'
+import { addMyCover, addMyPaper, normalizeMyCovers, normalizeMyPapers, removeEntry, renameEntry, replaceCoverDesign } from '../utils/myLibrary.js'
 import { cleanupRemovedEntry } from '../utils/libraryCleanup.js'
 import { collectPdfSourceIds } from '../utils/pdfSource.js'
 import { removePdfSource } from '../utils/pdfSourceStore'
@@ -62,5 +62,15 @@ export default function useMyLibrary() {
     removePaper: useCallback(id => remove('papers', id), [remove]),
     renameCover: useCallback((id, name) => commit('covers', list => renameEntry(list, id, name)), [commit]),
     renamePaper: useCallback((id, name) => commit('papers', list => renameEntry(list, id, name)), [commit]),
+    // 표지 편집 저장. 바꾸면서 더 이상 아무도 쓰지 않게 된 그림(예전 사진 등)은 지우기와 같은 정리로 참조를 세어 지운다
+    updateCover: useCallback(async (id, cover) => {
+      let before = null
+      const done = await commit('covers', list => { before = list.find(item => item.id === id) ?? null; return replaceCoverDesign(list, id, cover) })
+      if (done && before) {
+        cleanupRemovedEntry({ entry: before, storage: documentStorage, keys: STORAGE_KEYS, collectMediaIds, collectSourceIds: collectPdfSourceIds,
+          removeMedia: mediaRepository.remove, removeSource: removePdfSource }).catch(() => {})
+      }
+      return done
+    }, [commit]),
   }
 }

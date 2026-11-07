@@ -57,3 +57,6 @@ export const removeEntry = (list, id) => list.filter(item => item.id !== id)
 
 /** 이름을 고친다. 비어 있으면 원래 이름을 둔다. */
 export const renameEntry = (list, id, name) => list.map(item => item.id === id ? { ...item, name: text(name, item.name) } : item)
+
+/** 내 표지의 디자인을 바꾼다(공방 표지 편집, 꾸밈까지 저장). 이름 · 방향 · 만든 날짜는 그대로 */
+export const replaceCoverDesign = (list, id, cover) => list.map(item => item.id === id ? { ...item, cover: normalizeCover({ cover }) } : item)
