@@ -1,4 +1,5 @@
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useEffect } from 'react';
+import { AccessibilityInfo, ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { colors as C, radius, DISABLED_OPACITY } from '../shared/theme';
 import { notificationCountLabel } from './notificationCount.js';
 import { canOpenInvitation } from './invitationAccess.js';
@@ -54,11 +55,19 @@ function QueryNotice({ state, retry, label, refreshList, quietLoading = false })
 export const invitationStatusLabel = status => ({ PENDING: '응답 대기', EXPIRED: '만료된 초대', REVOKED: '취소된 초대', ACCEPTED: '이미 수락한 초대', DECLINED: '거절한 초대', EXHAUSTED: '사용 횟수가 끝난 초대', UNAVAILABLE: '사용할 수 없는 초대' }[status] || '사용할 수 없는 초대');
 
 // 서버·목이 같은 목록과 접근성 동작을 사용한다. 상태/동작은 hook에서 전달한다.
+// 화면에는 아무것도 그리지 않고 문장이 바뀔 때 화면 읽기 프로그램에만 읽어 준다
+function Announce({ text }) {
+  useEffect(() => { if (text) AccessibilityInfo.announceForAccessibility?.(text); }, [text]);
+  return null;
+}
+
 export default function NotificationPanel({ model, onInvitationReady }) {
   const { store, list, count, items, mutation, invitation, more, nextCursor } = model;
   const accessBlocked = [list, count].some(query => query.status === 'error' && [401, 403].includes(query.error?.status));
   const checkingInvitation = invitation.status === 'loading';
   const locked = mutation.status === 'saving' || mutation.canRetry || accessBlocked || checkingInvitation;
+  // 처리 중 · 초대 확인 중은 화면에 줄을 끼우지 않고(튀지 않게) 화면 읽기 프로그램에만 읽어 준다(아래 Announce)
+  const working = mutation.status === 'saving' ? '알림을 처리하고 있어요.' : checkingInvitation ? '초대를 확인하고 있어요.' : null;
   const mutationNotice = notificationErrorNotice(mutation.error);
   const detail = invitation.data;
   // 참여 가능한 초대는 기존 공유 화면으로 이동하고, 나머지 상세는 목록을 대체한다.
@@ -99,7 +108,8 @@ export default function NotificationPanel({ model, onInvitationReady }) {
     {!(count.status === 'error' && list.status === 'error' && count.error?.status === 401 && list.error?.status === 401) &&
       <QueryNotice state={count} retry={store.refreshCount} label="알림 수" refreshList={store.refreshNotifications} quietLoading />}
     <QueryNotice state={list} retry={store.refreshList} label="알림 목록" refreshList={store.refreshNotifications} quietLoading />
-    {/* 처리 중 · 초대 확인 중에는 줄을 끼워 넣지 않는다(버튼이 잠겨 알 수 있다). 화면 읽기 프로그램에는 목록의 busy 로 알린다 */}
+    {/* 처리 중 · 초대 확인 중에는 줄을 끼워 넣지 않는다(버튼이 잠겨 알 수 있다). 화면 읽기 프로그램에는 working 을 읽어 준다 */}
+    <Announce text={working} />
     {mutation.status === 'error' && <View style={s.card}>
       <Text accessibilityRole="alert" accessibilityLiveRegion="polite" aria-live="polite" style={s.text}>{mutationNotice.message}</Text>
       <AuthenticationRecovery error={mutation.error} />

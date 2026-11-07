@@ -26,6 +26,10 @@ test('601: PDF 표지는 두 쪽 이상이면 쪽을 고르고, 고른 쪽마다
   assert.match(picker, /useState\(\(\) => new Set\(\[0\]\)\)/)
   assert.match(picker, /else if \(next\.size < limit\) next\.add\(index\)/)
   assert.match(picker, /label=\{`표지 \$\{picked\.size\}개 만들기`\} disabled=\{!picked\.size\}/)
+  // 쪽이 많아도 보이는 줄만 그리고, 쪽마다 고해상도로 다시 그리지 않는다
+  assert.match(picker, /<FlatList key=\{columns\} data=\{pages\} numColumns=\{columns\} extraData=\{picked\}/)
+  assert.match(picker, /raster=\{false\}/)
+  assert.match(read('../src/diary/components/PdfImport.js'), /usePdfPageRaster\(sharp \? page\?\.pdfSource : null\)/)
 })
 
 test('616: 공방 구역 제목이 길어도 오른쪽 버튼 자리가 바뀌지 않는다', () => {
@@ -58,6 +62,7 @@ test('폴더 이름은 12자: 공방 입력칸과 저장 함수가 같은 한도
   assert.match(decor, /export const FOLDER_NAME_LIMIT = 12/)
   assert.equal((decor.match(/name: folderName\(name\)/g) || []).length, 4)
   assert.match(decor, /const cleanName = folderName\(name\)/)
+  assert.match(decor, /Array\.from\(String\(name \?\? ''\)\.trim\(\)\)\.slice\(0, FOLDER_NAME_LIMIT\)\.join\(''\)/)
   assert.equal((studio.match(/maxLength=\{FOLDER_NAME_LIMIT\}/g) || []).length, 2)
 })
 
@@ -70,6 +75,9 @@ test('알림 창은 불러오는 동안 목록 위에 줄을 끼워 넣지 않�
   const panel = read('../src/notifications/NotificationPanel.js')
   assert.match(panel, /if \(quietLoading && state\.status !== 'error'\) return null;/)
   assert.equal((panel.match(/quietLoading \/>/g) || []).length, 2)
-  assert.doesNotMatch(panel, /알림을 처리하고 있어요\.|초대를 확인하고 있어요\./)
+  // 처리 중 · 초대 확인 중은 줄 대신 화면 읽기 프로그램에만 알린다
+  assert.doesNotMatch(panel, /<Text[^>]*>(알림을 처리하고 있어요\.|초대를 확인하고 있어요\.)/)
+  assert.match(panel, /useEffect\(\(\) => \{ if \(text\) AccessibilityInfo\.announceForAccessibility\?\.\(text\); \}, \[text\]\);/)
+  assert.match(panel, /<Announce text=\{working\} \/>/)
   assert.match(panel, /\(list\.status === 'idle' \|\| list\.status === 'loading'\) && items\.length === 0 && <View style=\{s\.empty\}/)
 })
