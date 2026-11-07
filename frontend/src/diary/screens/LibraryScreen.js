@@ -277,7 +277,8 @@ function LibraryScreen({
     <SelectionButton compact={compact}
       label={allLabel}
       hint={`${hasMore ? '현재 불러온' : '현재 검색·필터 결과'} ${manageable.length}권에 적용해요`}
-      disabled={trashing || !manageable.length}
+      // 남은 페이지를 이어 받는 중(또는 오류로 멈춤)에는 막는다: 누르면 불러온 것만 골라져 '전체'와 달라진다
+      disabled={trashing || !manageable.length || hasMore}
       onPress={toggleAll}
     />
     <SelectionButton compact={compact}

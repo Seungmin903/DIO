@@ -63,3 +63,9 @@ test('토스트 문구: 진행 · 성공 · 일부 실패 · 목록 갱신 실�
   assert.equal(bulkTrashNeedsLogin(login), true)
   assert.equal(bulkTrashToastMessage(login), null)
 })
+
+test('남은 페이지가 있는 동안(이어 받는 중 · 오류로 멈춤) 전체 선택을 막는다', () => {
+  const library = readFileSync(new URL('../src/diary/screens/LibraryScreen.js', import.meta.url), 'utf8')
+  assert.match(library, /const allLabel = allSelected \? '전체 해제' : '전체 선택'/)
+  assert.match(library, /disabled=\{trashing \|\| !manageable\.length \|\| hasMore\}/)
+})
