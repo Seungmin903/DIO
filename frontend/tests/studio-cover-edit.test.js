@@ -51,3 +51,30 @@ test('603: 편집 중 새로 고른 사진을 모두 모아 닫을 때 지우고
   assert.match(modal, /discardFresh\(photoIdOf\(cover\)\);/)
   assert.match(modal, /try \{ done = await onSave\(cover\); \} catch \{ done = false; \}/)
 })
+
+test('603 동작: 표지를 편집해 저장한 뒤 이전 항목으로 정리해도, 새 표지가 계속 쓰는 그림은 지우지 않고 바뀐 그림만 지운다', async () => {
+  const { cleanupRemovedEntry } = await import('../src/diary/utils/libraryCleanup.js')
+  const { collectMediaIds } = await import('../src/editor/utils/mediaReferences.js')
+  const { collectPdfSourceIds } = await import('../src/diary/utils/pdfSource.js')
+  const keys = { doc: 'doc', diaries: 'diaries', customDecor: 'decor', myCovers: 'covers', myPapers: 'papers', pdfImports: 'imports' }
+  const base = newDiaryCover()
+  const photo = id => ({ src: `media:${id}`, mediaFileId: id, aspect: 0.75, pdfSource: { sourceId: 'srcA', pageIndex: 0, edge: 3000 } })
+  // 막 만든 표지(다시 읽기 전)는 사진에 원본 PDF 연결(pdfSource)이 남아 있을 수 있다. 표지는 원본을 쓰지 않아 normalizeCover 가 이 연결을 버린다
+  const fresh = { id: 'c1', name: '봄', orientation: 'portrait', cover: { ...base, kind: 'photo', photo: photo('m1') } }
+  const [loaded] = normalizeMyCovers([fresh])
+  const run = async (before, after, others = {}) => {
+    const [saved] = replaceCoverDesign([before], 'c1', after)
+    const records = { covers: JSON.stringify([saved]), ...others } // updateCover 는 저장이 끝난 뒤 정리한다: 저장소에는 이미 새 목록이 있다
+    const removed = []
+    await cleanupRemovedEntry({ entry: before, storage: { getAllKeys: async () => Object.keys(records), multiGet: async list => list.map(key => [key, records[key] ?? null]) },
+      keys, collectMediaIds, collectSourceIds: collectPdfSourceIds, removeMedia: async id => { removed.push(id) }, removeSource: async id => { removed.push(id) } })
+    return removed
+  }
+  // 꾸밈만 바꾼 저장: 계속 쓰는 사진은 지우지 않는다
+  assert.deepEqual(await run(loaded, { ...loaded.cover, band: { ...loaded.cover.band, on: true } }), [])
+  // 사진을 바꾼 저장: 예전 사진(m1)만 지운다
+  assert.deepEqual(await run(loaded, { ...loaded.cover, photo: { src: 'media:m2', mediaFileId: 'm2', aspect: 0.75 } }), ['m1'])
+  // 막 만든 표지를 꾸밈만 바꿔 저장: 사진은 남고, 아무도 쓰지 않게 된 원본 PDF 연결만 정리 대상. 같은 PDF 로 만든 다이어리 속지가 있으면 원본도 남긴다
+  assert.deepEqual(await run(fresh, { ...fresh.cover, band: { ...fresh.cover.band, on: true } }), ['srcA'])
+  assert.deepEqual(await run(fresh, { ...fresh.cover, band: { ...fresh.cover.band, on: true } }, { doc: JSON.stringify({ pdfSource: { sourceId: 'srcA', pageIndex: 1 } }) }), [])
+})
