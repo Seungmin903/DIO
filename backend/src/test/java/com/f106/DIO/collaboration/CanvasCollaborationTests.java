@@ -284,18 +284,21 @@ class CanvasCollaborationTests {
     }
     @Test void joinedMemberReadsActualPageAndTemplateIdentifiers()throws Exception{
         var owner=actor();var friend=actor();UUID diary=diary(owner);join(diary,friend);
-        var ids=jdbc.queryForList("select template_id from page_templates where code='dio-blank-landscape'",Long.class);
-        if(ids.isEmpty()){
-            jdbc.update("insert into page_templates(code,template_version,canvas_width,canvas_height,is_active) values('dio-blank-landscape','1.0.0',1024,768,true)");
-            ids=jdbc.queryForList("select template_id from page_templates where code='dio-blank-landscape'",Long.class);
-        }
-        var page=pages.saveAndFlush(new DiaryPage(diary,ids.get(0),"{\"blank\":true}","공유 페이지",BigDecimal.ONE,new BigDecimal("1024"),new BigDecimal("768"),false,"#FFFFFF")).getPageId();
+        var page=pages.saveAndFlush(new DiaryPage(diary,blankLandscapeTemplateId(),"{\"blank\":true}","공유 페이지",BigDecimal.ONE,new BigDecimal("1024"),new BigDecimal("768"),false,"#FFFFFF")).getPageId();
         mvc.perform(get("/api/v1/diaries/"+diary+"/pages").header("Authorization","Bearer "+friend.token())).andExpect(status().isOk())
             .andExpect(jsonPath("$.items[0].pageId").value(page.toString())).andExpect(jsonPath("$.items[0].templateCode").value("dio-blank-landscape"));
         mvc.perform(get("/api/v1/pages/"+page).header("Authorization","Bearer "+friend.token())).andExpect(status().isOk())
             .andExpect(jsonPath("$.page.templateVersion").value("1.0.0"));
     }
+    /** dio-blank-landscape · 1.0.0 행(없으면 만든다). 서버는 페이지 추가 때 설정의 속지 코드로 이 행을 찾는다 */
+    private Long blankLandscapeTemplateId(){
+        var ids=jdbc.queryForList("select template_id from page_templates where code='dio-blank-landscape' and template_version='1.0.0'",Long.class);
+        if(!ids.isEmpty())return ids.get(0);
+        jdbc.update("insert into page_templates(code,template_version,canvas_width,canvas_height,is_active) values('dio-blank-landscape','1.0.0',1024,768,true)");
+        return jdbc.queryForObject("select template_id from page_templates where code='dio-blank-landscape' and template_version='1.0.0'",Long.class);
+    }
     @Test void pageLifecycleUsesExistingApisAndNotifiesBothMembersAfterCommit()throws Exception{
+        blankLandscapeTemplateId();
         var owner=actor();var friend=actor();UUID diary=diary(owner);join(diary,friend);page(diary);
         try(var own=connect(diary,owner.token());var peer=connect(diary,friend.token())){
             frame(own);frame(peer);

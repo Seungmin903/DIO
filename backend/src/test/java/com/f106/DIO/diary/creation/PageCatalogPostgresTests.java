@@ -146,6 +146,47 @@ class PageCatalogPostgresTests {
         assertThat(jdbc.queryForObject("select default_config->>'blank' from page_templates where code='dio-remote-landscape'",String.class)).isEqualTo("false");
     }
 
+    @Test void V35LinksPagesThatOnlyNamedTheirTemplateByCode() {
+        flyway("34").migrate();
+        jdbc.update("insert into users(user_id,nickname,nickname_key) values(1,'owner','owner')");
+        UUID diary=UUID.randomUUID();
+        jdbc.update("insert into diaries(diary_id,owner_user_id,title,cover_color,cover_style,visibility) values(?,1,'added','#123456','PLAIN','PRIVATE')",diary);
+        UUID byCode=UUID.randomUUID(), remote=UUID.randomUUID(), typo=UUID.randomUUID(), noVersion=UUID.randomUUID(), blank=UUID.randomUUID(), linked=UUID.randomUUID();
+        // 편집기 "페이지 추가"로 만든 페이지: template_id 없이 설정의 코드 · 버전만 있다
+        insertUnlinkedPage(diary,byCode,"{\"templateCode\":\"2026-cover-portrait\",\"templateVersion\":\"1.0.0\",\"keep\":true}",5,1);
+        insertUnlinkedPage(diary,remote,"{\"templateCode\":\"dio-remote-portrait\",\"templateVersion\":\"1.0.0\",\"remoteTemplate\":\"spring-note\"}",2,2);
+        // 맞는 행이 없거나 코드 · 버전이 다 없으면 건드리지 않는다
+        insertUnlinkedPage(diary,typo,"{\"templateCode\":\"2026-cvoer-portrait\",\"templateVersion\":\"1.0.0\"}",3,3);
+        insertUnlinkedPage(diary,noVersion,"{\"templateCode\":\"2026-cover-portrait\"}",4,4);
+        insertUnlinkedPage(diary,blank,"{\"blank\":true}",6,5);
+        // 이미 행에 연결된 페이지(다이어리 만들 때 생긴 페이지)도 그대로다
+        insertPage(diary,linked,"2026-cover-landscape","{\"blank\":false}",9,6);
+        jdbc.update("update pages set updated_at=timestamp '2000-01-01 00:00:00+00' where diary_id=?",diary);
+
+        flyway("latest").migrate();
+
+        assertThat(jdbc.queryForObject("select t.code||'/'||t.template_version from pages p join page_templates t on t.template_id=p.template_id where p.page_id=?",String.class,byCode)).isEqualTo("2026-cover-portrait/1.0.0");
+        assertThat(jdbc.queryForObject("select t.code from pages p join page_templates t on t.template_id=p.template_id where p.page_id=?",String.class,remote)).isEqualTo("dio-remote-portrait");
+        // 설정은 옛 앱을 위해 그대로 두고, 구성원 앱이 다시 받도록 version · updated_at 만 올린다
+        assertThat(jdbc.queryForObject("select template_config::text from pages where page_id=?",String.class,byCode)).isEqualTo("{\"keep\": true, \"templateCode\": \"2026-cover-portrait\", \"templateVersion\": \"1.0.0\"}");
+        assertThat(jdbc.queryForObject("select template_config->>'remoteTemplate' from pages where page_id=?",String.class,remote)).isEqualTo("spring-note");
+        assertThat(jdbc.queryForObject("select version from pages where page_id=?",Long.class,byCode)).isEqualTo(6L);
+        assertThat(jdbc.queryForObject("select updated_at > timestamp '2000-01-01 00:00:00+00' from pages where page_id=?",Boolean.class,byCode)).isTrue();
+        for(UUID untouched:List.of(typo,noVersion,blank)) {
+            assertThat(jdbc.queryForObject("select template_id is null from pages where page_id=?",Boolean.class,untouched)).isTrue();
+            assertThat(jdbc.queryForObject("select updated_at = timestamp '2000-01-01 00:00:00+00' from pages where page_id=?",Boolean.class,untouched)).isTrue();
+        }
+        assertThat(jdbc.queryForObject("select version from pages where page_id=?",Long.class,linked)).isEqualTo(9L);
+        // 되돌리기용 기록: 연결한 두 페이지만, 이전 version · updated_at 과 함께
+        assertThat(jdbc.queryForList("select previous_version from page_template_v35_links order by previous_version",Long.class)).containsExactly(2L,5L);
+        assertThat(jdbc.queryForObject("select count(*) from page_template_v35_links where previous_updated_at = timestamp '2000-01-01 00:00:00+00'",Long.class)).isEqualTo(2L);
+    }
+
+    private void insertUnlinkedPage(UUID diary,UUID page,String config,long version,int sortKey) {
+        jdbc.update("insert into pages(page_id,diary_id,template_id,template_config,sort_key,canvas_width,canvas_height,version) values(?,?,null,cast(? as jsonb),?,768,1024,?)",
+            page,diary,config,sortKey,version);
+    }
+
     @Test void V27RejectsPageTemplateGeometryThatDoesNotMatchTheReplacement() throws Exception {
         flyway("26").migrate();
         jdbc.update("insert into users(user_id,nickname,nickname_key) values(1,'owner','owner')");
