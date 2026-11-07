@@ -26,7 +26,12 @@ export function createCanvasApi(transport,media){
 }
 export const canvasContent=objects=>objects.filter(sharedObject).map(encodeElement)
 export const stable=value=>JSON.stringify(value,(_,v)=>v&&typeof v==='object'&&!Array.isArray(v)?Object.fromEntries(Object.keys(v).sort().map(k=>[k,v[k]])):v)
-export const sameElements=(a,b)=>stable(canvasContent(a))===stable(canvasContent(b))
+// 두 목록의 공유 요소가 같은 객체를 같은 순서로 가리키면 인코딩 없이 같다고 본다(5초 주기 대조가 요소 수백 개를 매번 직렬화하지 않게). 다르면 내용으로 비교한다.
+export const sameElements=(a,b)=>{
+  const left=a.filter(sharedObject),right=b.filter(sharedObject)
+  if(left.length===right.length&&left.every((object,index)=>object===right[index]))return true
+  return stable(canvasContent(left))===stable(canvasContent(right))
+}
 export const canvasConflict=()=>Object.assign(new Error('다른 변경과 겹쳐 자동으로 덮어쓰지 않았어요. 기기 내용은 유지돼요.'),{status:409,code:'CANVAS_HISTORY_CONFLICT'})
 export function canvasDelta(before,after){
   const old=new Map(canvasContent(before).map(o=>[o.elementId,o])),next=new Map(canvasContent(after).map(o=>[o.elementId,o]))
