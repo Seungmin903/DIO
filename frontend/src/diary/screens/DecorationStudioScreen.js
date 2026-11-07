@@ -77,7 +77,7 @@ export default function DecorationStudioScreen({ compact = false, registerBackHa
   const loginGate = useLoginGate();
   const [fonts, setFonts] = useState([]), [fontState, setFontState] = useState('loading');
   const made = useSyncExternalStore(fontWorkflow.subscribe, fontWorkflow.getSnapshot, fontWorkflow.getSnapshot);
-  const [tool, setTool] = useState(null), [folderId, setFolderId] = useState(null);
+  const [tool, setTool] = useState(null), [folderId, setFolderId] = useState(null), [stickerRename, setStickerRename] = useState(null);
   const [question, setQuestion] = useState(null), [shelfError, setShelfError] = useState(null);
   const [tab, setTabState] = useState(lastTab);
   const [paperId, setPaperId] = useState(null);
@@ -235,12 +235,36 @@ export default function DecorationStudioScreen({ compact = false, registerBackHa
       </View>}
   </StudioSection>;
 
+  // 스티커 새 폴더는 테이프와 같은 길: 만들고 바로 들어가 이름을 고친다. 폴더 안에서는 이미지 추가 · 이름 바꾸기 · 폴더 삭제
+  const newStickerFolder = () => { const id = custom.addFolder('새 폴더'); setFolderId(id); setStickerRename('새 폴더'); };
+  const commitStickerRename = () => {
+    const name = (stickerRename ?? '').trim();
+    if (name && folder && name !== folder.name) custom.renameFolder(folder.id, name);
+    setStickerRename(null);
+  };
+  const addStickerImages = async targetId => {
+    setShelfError(null);
+    try {
+      const images = await pickImages({ usage: 'sticker' });
+      if (images.length) custom.addToFolder(targetId, images.map(image => ({ src: image.src, mediaFileId: image.mediaFileId, poster: image.poster, name: image.name, aspect: image.width / image.height })));
+    } catch { if (alive.current) setShelfError('sticker'); }
+  };
+
   const stickerSection = <StudioSection fill={custom.loaded && (folder ? !folder.items.length : !custom.items.folders.length)} title={folder ? folder.name : '스티커'} count={custom.loaded ? (folder ? count(folder.items) : count(custom.items.folders)) : null}
     right={folder ? <>
-      <DioButton variant="ghost" icon="chevron-left" label="스티커 폴더 목록" text="폴더 목록" onPress={() => setFolderId(null)} />
+      <DioButton variant="ghost" icon="chevron-left" label="스티커 폴더 목록" text="폴더 목록" onPress={() => { setFolderId(null); setStickerRename(null); }} />
+      <DioButton variant="icon" icon="add" label="이 폴더에 스티커 추가" onPress={() => addStickerImages(folder.id)} />
+      <DioButton variant="icon" icon="edit" label="스티커 폴더 이름 바꾸기" onPress={() => setStickerRename(folder.name)} />
       <DioButton variant="icon" icon="trash" label="스티커 폴더 삭제" onPress={() => setQuestion({ folder })} />
-    </> : addTool({ kind: 'sticker', icon: 'sticker', title: '스티커 추가', description: CUTOUT_ENTRANCE ? '스티커 시트 분리 · 사진 속 대상 오리기' : '스티커 시트 분리', disabled: !custom.loaded, menu: true })}>
+    </> : addTool({ kind: 'sticker', icon: 'sticker', title: '스티커 추가', description: CUTOUT_ENTRANCE ? '스티커 시트 분리 · 사진 속 대상 오리기 · 새 폴더' : '스티커 시트 분리 · 새 폴더', disabled: !custom.loaded, menu: true })}>
     {custom.saveError ? <DecorSaveNotice error={custom.saveError} pending={custom.savePending} onRetry={custom.retrySave} /> : null}
+    {shelfError === 'sticker' && <Text accessibilityRole="alert" style={s.error}>사진을 불러오지 못했어요. 다시 시도해 주세요.</Text>}
+    {folder && stickerRename != null && <View style={s.renameRow}>
+      <TextInput autoFocus selectTextOnFocus maxLength={30} value={stickerRename} onChangeText={setStickerRename} onSubmitEditing={commitStickerRename}
+        returnKeyType="done" accessibilityLabel="스티커 폴더 이름" style={s.renameInput} />
+      <DioButton variant="ghost" label="스티커 폴더 이름 바꾸기 취소" text="취소" onPress={() => setStickerRename(null)} />
+      <DioButton variant="filled" label="스티커 폴더 이름 저장" text="저장" disabled={!stickerRename.trim()} onPress={commitStickerRename} />
+    </View>}
     {!custom.loaded ? <Text style={s.empty}>스티커를 불러오고 있어요.</Text>
       : folder ? (!folder.items.length ? <EmptyState compact={compact} art="dio" raised title="아직 스티커가 없어요" />
         : <View style={s.stickers} onLayout={stickerGrid.onLayout}>{folder.items.map((item, index) => <View key={item.id || `${item.mediaFileId || item.src}-${index}`} style={[s.sticker, { width: stickerGrid.cellWidth, height: stickerGrid.cellWidth }]}>
@@ -253,7 +277,7 @@ export default function DecorationStudioScreen({ compact = false, registerBackHa
       : !custom.items.folders.length ? <EmptyState compact={compact} art="dio" raised title="아직 스티커 폴더가 없어요" />
       : <View style={s.folders} onLayout={folderGrid.onLayout}>
           {custom.items.folders.map(item => <Pressable key={item.id} accessibilityRole="button" accessibilityLabel={`${item.name} 스티커 폴더`}
-            onPress={() => setFolderId(item.id)} style={[s.folderTile, { width: folderGrid.cellWidth }]}>
+            onPress={() => { setFolderId(item.id); setStickerRename(null); }} style={[s.folderTile, { width: folderGrid.cellWidth }]}>
             <View style={s.folderPreviews}>{item.items.length ? item.items.slice(0, 2).map((sticker, index) => <View key={index} style={s.folderPreview}><StickerThumbImage item={sticker} style={s.folderThumb} /></View>)
               : <View style={s.folderPreview}><AppIcon name="folder" size={26} color={colors.primary} /></View>}</View>
             <View style={s.folderText}><Text numberOfLines={1} style={s.itemTitle}>{item.name}</Text><Text style={s.folderCount}>{item.items.length}개 스티커</Text></View>
@@ -451,6 +475,7 @@ export default function DecorationStudioScreen({ compact = false, registerBackHa
       // 사진 속 대상 오리기: 저장이 아직 미리보기 단계라(StickerCutoutModal 확인창) 모든 빌드에서 입구를 감춘다
       ...(CUTOUT_ENTRANCE ? [{ id: 'cutout', label: '사진 속 대상 오리기', text: '사진 속 대상 오리기', icon: 'scissors',
         onPress: () => { closeAddMenu(); loginGate('사진 속 대상 오리기', () => setTool('cutout')); } }] : []),
+      { id: 'folder', label: '새 폴더', text: '새 폴더', icon: 'folder', onPress: () => { closeAddMenu(); newStickerFolder(); } },
     ]} />}
     {coverCrop && <PhotoCropper photo={coverCropPhoto(coverCrop.photo, coverCrop.ratio)} fixedAspect={coverCrop.ratio} title="표지 사진 자르기"
       onCancel={() => { coverCrop.resolve(null); setCoverCrop(null); }} onApply={({ crop }) => { coverCrop.resolve(crop); setCoverCrop(null); }} />}

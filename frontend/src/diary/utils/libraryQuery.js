@@ -51,3 +51,9 @@ export function queryDiaries(diaries, { filter = 'all', query = '', sort = 'upda
       return result || a.index - b.index;
     }).map(({ diary }) => diary);
 }
+
+// 빈 내 다이어리의 옮기기 입구: 회원에게 옮길 다이어리가 있을 때(guestImport)만, 즐겨찾기 · 공유 빈 화면에는 두지 않는다
+export function emptyGuestImportAction(guestImport, scopeId, favoriteOnly) {
+  if (!guestImport || scopeId !== 'personal' || favoriteOnly) return null;
+  return { label: `이 기기의 다이어리 ${guestImport.count}권 옮기기`, onPress: guestImport.open };
+}

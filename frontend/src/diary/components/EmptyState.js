@@ -13,7 +13,7 @@ const ART = {
   dio: { source: require('../../../assets/characters/new_dio.png'), sourceWidth: 1254, sourceHeight: 975, left: 313, top: 175, width: 824, height: 797, heightScale: DIO_KEY / MOA_KEY },
 };
 
-export default function EmptyState({ title, onCreate, search = false, compact = false, art = 'moa', raised = false }) {
+export default function EmptyState({ title, onCreate, action = null, search = false, compact = false, art = 'moa', raised = false }) {
   const picture = search ? null : ART[art] || ART.moa;
   const scale = picture ? (compact ? COMPACT_MASCOT_HEIGHT : MASCOT_HEIGHT) * picture.heightScale / picture.height : 0;
   return (
@@ -32,6 +32,12 @@ export default function EmptyState({ title, onCreate, search = false, compact = 
         </View>
       )}
       <Text accessibilityRole="header" style={s.emptyTitle}>{title}</Text>
+      {action && (
+        <Pressable accessibilityRole="button" onPress={action.onPress} style={({ pressed }) => [s.secondary, pressed && s.pressed]}>
+          <Text style={s.secondaryText}>{action.label}</Text>
+          <AppIcon name="chevron-right" size={20} forText={13} color={C.ink} />
+        </Pressable>
+      )}
       {onCreate && (
         <Pressable accessibilityRole="button" onPress={onCreate} style={({ pressed }) => [s.secondary, pressed && s.pressed]}>
           <Text style={s.secondaryText}>새 다이어리 만들기</Text>
