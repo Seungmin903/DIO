@@ -1,4 +1,3 @@
-import { markPenPerformance, reportPenMark } from '../utils/penPerformance.js'
 import { useEffect, useRef, useState } from 'react'
 import { AppState, Platform } from 'react-native'
 import AsyncStorage from '@react-native-async-storage/async-storage'
@@ -31,7 +30,7 @@ export function useMemberCanvasCollaboration({diary,page,state,loaded,readOnly,d
   const runtime=useRef(null)
   const [view,setViewState]=useState({status:null,history:null,busy:false,pageId:null})
   // 개발 측정: 협업 훅이 편집 화면을 다시 그리게 하는 횟수
-  const setView=next=>{markPenPerformance('memberViewUpdate',1);setViewState(next)}
+  const setView=next=>{globalThis.__DIO_PEN_MARK__?.('memberViewUpdate',1);setViewState(next)}
   const sessionKey=authService.getSessionKey()
   const failureMessage=error=>{
     if(error.code==='CANVAS_BATCH_LIMIT')return error.message
@@ -218,7 +217,7 @@ export function useMemberCanvasCollaboration({diary,page,state,loaded,readOnly,d
           if(r.again.delete(pageId)&&active())r.sync(pageId)
         }).catch(()=>{})
       }
-      if(!direction)job.catch(error=>{reportPenMark('collabSyncError',{status:error?.status??null,code:error?.code??null,message:String(error?.message??'').slice(0,160)});if(active()&&latest.current.page.id===pageId)setView(v=>({...v,status:error.status===409?'conflict':'error',errorMessage:failureMessage(error),pageId}))})
+      if(!direction)job.catch(error=>{globalThis.__DIO_PEN_REPORT__?.('collabSyncError',{status:error?.status??null,code:error?.code??null,message:String(error?.message??'').slice(0,160)});if(active()&&latest.current.page.id===pageId)setView(v=>({...v,status:error.status===409?'conflict':'error',errorMessage:failureMessage(error),pageId}))})
       return job
     }
     const refresh=()=>{if(active()){r.sync(latest.current.page.id);refreshPagesQuietly()}}
