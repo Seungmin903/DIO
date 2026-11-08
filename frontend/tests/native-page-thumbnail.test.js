@@ -83,6 +83,11 @@ test('다 채워진 썸네일에 획이 더해지면 모았다가 한 번에 보
   flush()
   assert.deepEqual(render(two).objects.map(o => o.id), [0, 1, 2, 3, 4, 5], '모았던 요소를 한 번에 보탠다')
   assert.equal(timers.size, 0)
+  // 내용이 통째로 바뀌어 안 보인 요소가 많으면 모으지 않고 처음처럼 나눠 그린다
+  const replaced = { id: 'p', objects: Array.from({ length: 30 }, (_, i) => ({ id: `r${i}` })) }
+  assert.deepEqual(render(replaced).objects, [])
+  assert.equal(timers.size, 1); assert.notEqual(delays.at(-1), module.exports.UPDATE_DELAY_MS)
+  flush(); assert.equal(render(replaced).objects.length, 3)
 })
 
  test('썸네일 대기열은 페이지 작업을 순서대로 실행하고 닫으면 예약 작업을 중단한다', async () => {

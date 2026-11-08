@@ -213,7 +213,7 @@ export function useMemberCanvasCollaboration({diary,page,state,loaded,readOnly,d
         })
         if(imported)await engine.acceptImport(result.objects)
         return result
-        } finally { finishTiming() }
+        } finally { r.flushAcks();finishTiming() } // 조기 반환·실패 경로에서도 전송 확인을 남기지 않는다
       }
       const job=r.tail.catch(()=>{}).then(work);r.tail=job
       if(!direction){
@@ -234,7 +234,7 @@ export function useMemberCanvasCollaboration({diary,page,state,loaded,readOnly,d
       onReady:()=>{diagnostics.event('ws-ready');api.invalidateMembership?.();collaborationStateChange.current(diary.sharedDiaryId||diary.id,true);refresh()},onUnavailable:()=>{diagnostics.event('ws-unavailable');collaborationStateChange.current(diary.sharedDiaryId||diary.id,false)},onPagesChanged:refreshPagesQuietly,onMembersChanged:()=>{api.invalidateMembership?.();membersChanged.current()},onChange:frame=>{
         diagnostics.event('ws-change')
         // 내 저장의 에코면 다시 조회하지 않는다(1인 다이어리는 ID 대신 내 계정이 낸 이벤트 수로 판단)
-        const mine=String(frame.actorUserId??'')===String(diary.memberAccountId??'')
+        const actor=frame.actorUserId,mine=actor!=null&&actor!==''&&diary.memberAccountId!=null&&String(actor)===String(diary.memberAccountId)
         if([...r.loaded.values()].some(engine=>engine.claimsChange?engine.claimsChange(frame.clientOperationId,mine):engine.ownsCommand(frame.clientOperationId)))return
         if(frame.pageId===latest.current.page.id)refresh()
         else if(latest.current.state.doc.pages.some(p=>p.id===frame.pageId))r.sync(frame.pageId)

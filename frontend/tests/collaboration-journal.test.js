@@ -150,3 +150,10 @@ test('1인 다이어리의 서버 에코는 ID 가 달라도 내 계정이 낸 �
   await s.enqueue({id:uuid(501),pageId,before:[a],after:[a,text(3,'C')]});await s.synchronize()
   assert.equal(s.claimsChange(uuid(501),true),true,'ID 가 맞는 에코도 기다리던 하나를 쓴다');assert.equal(s.claimsChange('40000000-0000-4000-8000-000000000003',true),false)
 })
+
+test('명령 ID 가 없거나 비어 있는 이벤트는 내 명령으로 보지 않는다',async()=>{
+  const f=fixture();const [a]=objects(1);f.setRows([row(a)])
+  const s=f.session();await s.restore([a]);await s.synchronize()
+  for(const id of [undefined,null,'',0])assert.equal(s.ownsCommand(id),false,String(id))
+  for(const id of [undefined,null,''])assert.equal(s.claimsChange(id,false),false)
+})
