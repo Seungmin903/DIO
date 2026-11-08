@@ -3,7 +3,8 @@ import { fetch as expoFetch } from 'expo/fetch'
 import { apiBaseUrl, authService } from '../../auth/authService'
 import { canvasMediaFiles } from './canvasMediaFiles'
 
-const baseUrl = `${apiBaseUrl.replace(/\/$/, '')}/v1/sticker-cutouts`
+// apiBaseUrl은 authBaseUrl을 거쳐 이미 /api/v1까지 포함한다.
+const baseUrl = `${apiBaseUrl.replace(/\/$/, '')}/sticker-cutouts`
 const mediaBaseUrl = apiBaseUrl.replace(/\/$/, '')
 const debug = (event, detail) => { if (globalThis.__DEV__) console.info('[DIO_STICKER_CUTOUT]', event, detail) }
 const requestPath = url => { try { return new URL(url).pathname } catch { return 'unknown' } }
@@ -78,7 +79,7 @@ export const stickerCutoutApi = {
   },
   async cache(mediaFileId) {
     if (!isId(mediaFileId)) throw new Error('저장한 스티커 정보를 확인하지 못했어요.')
-    const bytes = await request(`${mediaBaseUrl}/v1/media/${mediaFileId}/file`, { binary: true })
+    const bytes = await request(`${mediaBaseUrl}/media/${mediaFileId}/file`, { binary: true })
     if (!bytes.length) throw new Error('저장한 스티커 파일을 확인하지 못했어요.')
     await canvasMediaFiles.save(mediaFileId, bytes)
   },

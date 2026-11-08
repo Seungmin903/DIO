@@ -25,7 +25,7 @@ function fixture(responses) {
   new Function('require', 'module', 'exports', code)(name => ({
     'expo-file-system': { File: class {} },
     'expo/fetch': { fetch: async (url, options) => { calls.push({ url, options }); return responses.shift() } },
-    '../../auth/authService': { apiBaseUrl: 'https://api.example/api', authService: auth },
+    '../../auth/authService': { apiBaseUrl: 'https://api.example/api/v1', authService: auth },
     './canvasMediaFiles': { canvasMediaFiles: { save: async (...args) => cached.push(args) } },
   })[name], mod, mod.exports)
   globalThis.__DEV__ = previousDev
@@ -37,6 +37,7 @@ test('분할 요청은 401이면 토큰을 새로고침해 한 번만 재시도�
   const result = await ui.api.segment(id, [{ mode: 'include', size: .1, points: [{ x: .5, y: .5 }] }])
   assert.equal(result.preview, 'data:image/png;base64,test')
   assert.equal(ui.calls.length, 2)
+  assert.equal(ui.calls[0].url, `https://api.example/api/v1/sticker-cutouts/${id}/segment`)
   assert.equal(ui.tokens[1].forceRefresh, true)
   assert.equal(ui.calls[1].options.headers['Content-Type'], 'application/json')
 })
