@@ -17,7 +17,7 @@ import LibrarySearchScreen from '../components/LibrarySearchScreen';
 import { emptyGuestImportAction, filterFavorite, filterScope, nextSort, parseSort, queryDiaries, SORT_OPTIONS, withFavorite } from '../utils/libraryQuery';
 import OpenBookShelf, { preloadOpenBooks } from '../components/OpenBookShelf';
 import { useDiaryGrid } from '../utils/useDiaryGrid';
-import { CAROUSEL_LIFT, CAROUSEL_SCALE } from '../utils/carouselFollow';
+import { carouselMotion } from '../utils/carouselFollow';
 
 const AnimatedFlatList = Animated.createAnimatedComponent(FlatList);
 // 보관함 세 보기
@@ -26,31 +26,7 @@ const LIBRARY_VIEWS = [{ id: 'open', label: '펼쳐서', icon: 'book-open' }, { 
 const CAROUSEL_RESIZE_SETTLE_MS = 120;
 // 버튼으로 한 칸 넘기는 부드러운 스크롤이 끝나기를 기다리는 시간(스크롤 끝 이벤트가 없을 때의 보험)
 const CAROUSEL_MOVE_MS = 450;
-// 가운데가 아닌 옆 카드의 불투명도 (1이면 가운데 카드와 같다)
 const PORTRAIT_ITEM_WIDTH = 440; // styles.cardCarouselLarge 와 같은 값
-const SIDE_CARD_OPACITY = 1; // 옆 카드도 실제 표지다(반투명 유령 · 어두운 막 없음). 멀어 보이는 건 크기 · 높이 차이만 맡는다
-
-// 카드 위치(index)마다 스크롤 위치에 따라 크기·높이가 바뀌는 애니메이션 스타일.
-// 3D 기울기(rotateY)는 쓰지 않는다. 위를 기준으로 줄이면 기울기 축도 위로 가서 옆 카드 아랫변이 비뚤게 보인다.
-// 옆 카드는 카드 자체를 반투명하게 한다(흰 막을 덮으면 표지 위에 흰 층이 티가 난다). 안드로이드가 자식마다 따로 투명하게 하지 않도록 DiaryCard 가 카드를 한 장으로 합쳐 그린다.
-// 가운데와 양옆 한 권씩만 보이고, 두 칸 떨어진 다이어리는 숨는다(넘기는 동안 서서히 나타난다).
-function carouselMotion(scrollX, index, step) {
-  const inputRange = [(index - 1) * step, index * step, (index + 1) * step];
-  const along = (outputRange) => scrollX.interpolate({ inputRange, outputRange, extrapolate: 'clamp' });
-  return {
-    card: {
-      zIndex: 1,
-      opacity: scrollX.interpolate({ inputRange: [(index - 2) * step, (index - 1) * step, index * step, (index + 1) * step, (index + 2) * step], outputRange: [0, SIDE_CARD_OPACITY, 1, SIDE_CARD_OPACITY, 0], extrapolate: 'clamp' }),
-      // 카드 높이가 달라도(맨 끝 '새 다이어리' 카드는 정보 줄이 없어 짧다) 윗변이 한 줄에 오도록 위를 기준으로 줄이고 키운다.
-      transformOrigin: 'center top',
-      transform: [
-        { scale: along(CAROUSEL_SCALE) },
-        { translateY: along(CAROUSEL_LIFT) },
-      ],
-    },
-    info: { opacity: along([0.75, 1, 0.75]) }, // 옆 카드 정보 글자만 조금 흐리게
-  };
-}
 
 function LibraryScreen({
   compact = false,
@@ -244,7 +220,8 @@ function LibraryScreen({
   ), [scrollX]);
 
   const { key: sortKey, direction } = parseSort(sort);
-  const chooseView = (id) => { setSearchOpen(false); setQuery(''); onViewChange(id); if (id === 'carousel') showCurrentAtCenter(); };
+  // 검색이 열려 있을 때만 닫는다. 회원 보관함은 검색을 닫거나 검색어를 비우면 첫 다이어리로 돌아가므로(App 의 서버 검색), 그냥 보기만 바꿀 때 보던 다이어리를 잃었다(2026-11-08)
+  const chooseView = (id) => { if (searchOpen || query) { setSearchOpen(false); setQuery(''); } onViewChange(id); if (id === 'carousel') showCurrentAtCenter(); };
   const optionsMenu = !selecting && <>
     <Pressable accessibilityRole="button" accessibilityLabel="보관함 옵션" accessibilityValue={{ text: SORT_OPTIONS.find(item => item.id === sortKey)?.label }} accessibilityState={{ expanded: optionsOpen }} ref={optionsButton} onPress={openOptions} hitSlop={4} style={({ pressed }) => [s.iconButton, s.iconButtonBare, pressed && s.pressed]}>
       <View style={s.librarySortIcon}><AppIcon name="more" size={21} color={C.ink} /></View>
