@@ -256,6 +256,7 @@ function normalizeSelection(state) {
   }
 }
 
+const sameIds = (a, b) => a.length === b.length && a.every((id, index) => id === b[index])
 export function editorReducer(state, action) {
   if (action.type === 'revertToCheckpoint' && action.checkpointOwner && state.pendingCheckpoint?.owner !== action.checkpointOwner) return state
   const objects = getCurrentPage(state).objects
@@ -336,7 +337,7 @@ export function editorReducer(state, action) {
 
     // 그룹을 펼치지 않고 그대로 선택 (그룹 안 요소 하나만 고칠 때)
     case 'selectExact':
-      return { ...state, selectedIds: action.ids }
+      return sameIds(state.selectedIds, action.ids) ? state : { ...state, selectedIds: action.ids }
 
     case 'toggleSelect': {
       const target = action.exact ? [action.id] : expandGroups(objects, [action.id])
@@ -359,7 +360,8 @@ export function editorReducer(state, action) {
     case 'addObjects': {
       // 파일 이름이 없는(뜻 없는) 사진은 그 페이지 안에서 '사진 1', '사진 2'… 로 이름 짓는다(이름을 저장하므로 다른 사진을 지워도 바뀌지 않는다)
       const next = updateObjects(withHistory(state), (list) => [...list, ...namePhotos(list, action.objects)])
-      return { ...next, selectedIds: action.objects.map((o) => o.id) }
+      // select:false — 새 요소를 선택하지 않고 기존 선택만 푼다(펜 획)
+      return { ...next, selectedIds: action.select === false ? (state.selectedIds.length ? [] : state.selectedIds) : action.objects.map((o) => o.id) }
     }
 
     case 'updateObject':

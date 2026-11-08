@@ -128,3 +128,39 @@ test('공유 외 요소의 sortKey 만 바뀐 조회 응답도 orderKeys 를 새
   await s.synchronize();assert.deepEqual(s.snapshot().orderKeys,[1,7])
   const writes=f.writes();await s.synchronize();assert.equal(f.writes(),writes,'같은 응답은 다시 저장하지 않는다')
 })
+
+test('내 명령인지 판단할 때 clientOperationId 의 대소문자를 무시한다(iOS 대문자 UUID ↔ 서버 소문자 이벤트)',async()=>{
+  const f=fixture();const [a]=objects(1);f.setRows([row(a)])
+  const upper='30000000-0000-4000-8000-00000000ABCD'
+  const s=createCanvasSession({api:f.api,storage:{getItem:async()=>null,setItem:async()=>{}},key:'j',pageId,diaryId,createId:()=>upper})
+  await s.restore([a]);await s.enqueue({id:upper,pageId,before:[a],after:[a,text(2,'B')]})
+  assert.equal(s.ownsCommand(upper.toLowerCase()),true,'대기열의 명령')
+  await s.synchronize()
+  assert.equal(s.ownsCommand(upper.toLowerCase()),true,'보낸 명령');assert.equal(s.ownsCommand('30000000-0000-4000-8000-000000000000'),false)
+})
+
+test('1인 다이어리의 서버 에코는 ID 가 달라도 내 계정이 낸 것이면 보낸 횟수만큼 내 것으로 보고, 공유 경로의 저장은 세지 않는다',async()=>{
+  const f=fixture();const [a]=objects(1);f.setRows([row(a)])
+  let mode='personal'
+  const api={...f.api,prepare:async request=>({...request,canvasWriteMode:mode}),apply:(page,{canvasWriteMode:_m,...body})=>f.api.apply(page,body)}
+  const s=createCanvasSession({api,storage:{getItem:async()=>null,setItem:async()=>{}},key:'echo',pageId,diaryId,createId:()=>uuid(900+Math.floor(Math.random()*1000))})
+  await s.restore([a]);await s.synchronize()
+  assert.equal(s.claimsChange('40000000-0000-4000-8000-000000000001',true),false,'보낸 것이 없으면 남의 변경')
+  await s.enqueue({id:uuid(500),pageId,before:[a],after:[a,text(2,'B')]});await s.synchronize()
+  assert.equal(s.claimsChange('40000000-0000-4000-8000-000000000001',false),false,'다른 계정의 변경은 그대로')
+  assert.equal(s.claimsChange('40000000-0000-4000-8000-000000000001',true),true,'내 계정의 에코 하나는 내 것')
+  assert.equal(s.claimsChange('40000000-0000-4000-8000-000000000002',true),false,'한 번 보냈으면 에코도 하나만')
+  await s.enqueue({id:uuid(501),pageId,before:[a],after:[a,text(3,'C')]});await s.synchronize()
+  assert.equal(s.claimsChange(uuid(501),true),true,'ID 가 맞는 에코는 내 것');assert.equal(s.claimsChange('40000000-0000-4000-8000-000000000003',true),true,'ID 일치는 개인 경로 에코 슬롯을 쓰지 않는다');assert.equal(s.claimsChange('40000000-0000-4000-8000-000000000004',true),false)
+  mode='shared'
+  await s.enqueue({id:uuid(502),pageId,before:[a],after:[a,text(4,'D')]});await s.synchronize()
+  assert.equal(s.claimsChange('40000000-0000-4000-8000-000000000004',true),false,'공유 경로 저장은 에코를 세지 않아 같은 계정 다른 기기의 변경을 삼키지 않는다')
+  assert.equal(s.claimsChange(uuid(502),true),true,'공유 경로는 ID 로 알아본다')
+})
+
+test('명령 ID 가 없거나 비어 있는 이벤트는 내 명령으로 보지 않는다',async()=>{
+  const f=fixture();const [a]=objects(1);f.setRows([row(a)])
+  const s=f.session();await s.restore([a]);await s.synchronize()
+  for(const id of [undefined,null,'',0])assert.equal(s.ownsCommand(id),false,String(id))
+  for(const id of [undefined,null,''])assert.equal(s.claimsChange(id,false),false)
+})

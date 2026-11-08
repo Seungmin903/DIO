@@ -1,5 +1,5 @@
 import PageBulkDelete from '../controls/PageBulkDelete'
-import { memo, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { FlatList, Platform, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native'
 import { bubble, colors, radius } from '../../../shared/theme'
 import { pageSize } from '../../utils/pageGeometry.js'
@@ -197,6 +197,25 @@ export default function PageList({ phone = false, pages, currentId, cropId, onSe
     windowSize.current = `${window.width}x${window.height}`
   }, [window.width, window.height])
   function openMenu(id) { setConfirmDelete(false); setMenuId((current) => (current === id ? null : id)) }
+  // 항목 콜백은 참조를 고정한다. 렌더마다 새 클로저를 주면 memo(PageItem) 이 모든 페이지를 다시 그려(획마다 썸네일 전부), 최신 처리기는 ref 로 읽는다.
+  const itemHandlers = useRef(null)
+  itemHandlers.current = { onSelect, onToggleIndex, togglePick, startDrag, moveDrag, endDrag, openMenu }
+  const itemCallbacks = useRef(null)
+  if (!itemCallbacks.current) itemCallbacks.current = {
+    onLayout: (id, layout) => (layouts.current[id] = layout),
+    onSelect: (id) => {
+      setMenuId(null)
+      if (pickModeRef.current) return itemHandlers.current.togglePick(id)
+      setPicked([id])
+      itemHandlers.current.onSelect(id)
+    },
+    onMenu: (id) => itemHandlers.current.openMenu(id),
+    onToggleIndex: (id) => itemHandlers.current.onToggleIndex(id),
+    onDragStart: (id, index) => itemHandlers.current.startDrag(id, index),
+    onDragMove: (dy) => itemHandlers.current.moveDrag(dy),
+    onDragEnd: (dy, cancelled, moved) => itemHandlers.current.endDrag(dy, cancelled, moved),
+  }
+  const listExtra = useMemo(() => [filter, picked], [filter, picked])
   // 목록이 패널 안에서 시작하는 y(탭 줄 + 편집 줄 아래). 메뉴를 누른 페이지 높이에 맞추는 기준
   const [listTop, setListTop] = useState(0)
   // 메뉴는 그 페이지 높이에 맞춘다. 항목 위치는 앞 항목들 높이를 더해 구한다 (FlatList 항목의 onLayout y 는 늘 0)
@@ -260,7 +279,7 @@ export default function PageList({ phone = false, pages, currentId, cropId, onSe
         windowSize={5}
         // 끄는 동안에는 원래 칸이 스크롤로 화면 밖에 나가도 끄는 썸네일이 잘려 사라지지 않게 끈다
         removeClippedSubviews={!drag}
-        extraData={[filter, picked]}
+        extraData={listExtra}
         renderItem={({ item: page, index }) => {
           const active = page.id === currentId
           const dragging = drag?.id === page.id
@@ -289,18 +308,13 @@ export default function PageList({ phone = false, pages, currentId, cropId, onSe
             menuOpen={!readOnly && menuId === page.id}
             canOpenMenu={!readOnly && !drag && !pickMode}
             canToggleIndex={!readOnly && !drag && !pickMode}
-            onLayout={(layout) => (layouts.current[page.id] = layout)}
-            onSelect={() => {
-              setMenuId(null)
-              if (pickMode) return togglePick(page.id)
-              setPicked([page.id])
-              onSelect(page.id)
-            }}
-            onMenu={() => openMenu(page.id)}
-            onToggleIndex={() => onToggleIndex(page.id)}
-            onDragStart={() => startDrag(page.id, index)}
-            onDragMove={moveDrag}
-            onDragEnd={endDrag}
+            onLayout={itemCallbacks.current.onLayout}
+            onSelect={itemCallbacks.current.onSelect}
+            onMenu={itemCallbacks.current.onMenu}
+            onToggleIndex={itemCallbacks.current.onToggleIndex}
+            onDragStart={itemCallbacks.current.onDragStart}
+            onDragMove={itemCallbacks.current.onDragMove}
+            onDragEnd={itemCallbacks.current.onDragEnd}
           />
         }}
         ListFooterComponent={onEmptyTap ? <TapCatcher onTap={onEmptyTap} style={styles.emptyArea} /> : null}
@@ -403,7 +417,7 @@ const PageItem = memo(function PageItem({ page, index, number, canDrag = true, a
         state.timer = setTimeout(() => {
           if (state.moved) return
           state.holding = true
-          onDragStart()
+          onDragStart(page.id, index)
         }, HOLD_MS)
       press.current = state
     },
@@ -423,14 +437,14 @@ const PageItem = memo(function PageItem({ page, index, number, canDrag = true, a
       if (!state) return
       clearTimeout(state.timer)
       if (state.holding) onDragEnd(state.dy, cancelled, state.dragged)
-      else if (!state.moved && !cancelled) onSelect()
+      else if (!state.moved && !cancelled) onSelect(page.id)
     },
   })
 
   return (
     <View
       style={[styles.item, dragging && styles.dragSource, carried && styles.carried]}
-      onLayout={(event) => onLayout(event.nativeEvent.layout)}
+      onLayout={(event) => onLayout(page.id, event.nativeEvent.layout)}
     >
       {dropLine && <View style={[styles.dropLine, dropLine === 'before' ? styles.dropBefore : styles.dropAfter]} />}
       {dragCount > 1 && <View style={styles.countBadge} pointerEvents="none"><Text style={styles.countText}>{dragCount}</Text></View>}
@@ -453,7 +467,7 @@ const PageItem = memo(function PageItem({ page, index, number, canDrag = true, a
       </View>
       {canToggleIndex && (
         <Pressable
-          onPress={onToggleIndex}
+          onPress={() => onToggleIndex(page.id)}
           hitSlop={11}
           accessibilityRole="checkbox"
           accessibilityLabel={`${number}페이지 북마크`}
@@ -471,7 +485,7 @@ const PageItem = memo(function PageItem({ page, index, number, canDrag = true, a
       )}
       <Text style={[styles.number, active && styles.numberActive]}>{number}</Text>
       {canOpenMenu && (
-        <Pressable onPress={onMenu} style={[styles.more, menuOpen && styles.moreActive]} hitSlop={8} accessibilityRole="button" accessibilityLabel={`${number}페이지 작업 메뉴`} accessibilityState={{ expanded: menuOpen }}>
+        <Pressable onPress={() => onMenu(page.id)} style={[styles.more, menuOpen && styles.moreActive]} hitSlop={8} accessibilityRole="button" accessibilityLabel={`${number}페이지 작업 메뉴`} accessibilityState={{ expanded: menuOpen }}>
           <Icon name="more" size={20} color={colors.primaryText} />
         </Pressable>
       )}
