@@ -26,6 +26,11 @@ public class PageService {
 		diaryAccessService.requireWrite(diaryId,userId);
         // 앱은 templateId 없이 설정의 templateCode · templateVersion 으로 속지를 알린다. 그 글자로 속지 행을 찾아 template_id 를 채워 저장한다(V35 와 같은 기준)
         PageTemplate t=resolveTemplate(r.getTemplateId(),r.getTemplateConfig()); Long templateId=t==null?null:t.getTemplateId();
+        // 코드로 속지를 알린 페이지는 만들 때 크기가 그 속지 행과 같아야 한다(V35 와 같은 기준). 다르면 template_id 와 페이지 크기가 어긋난다.
+        // 만든 뒤 크기를 바꾸는 수정(PDF 쪽 크기 맞추기 등)은 그대로 허용한다
+        if(t!=null&&r.getTemplateConfig()!=null&&r.getTemplateConfig().has("templateCode")
+            &&((r.getCanvasWidth()!=null&&r.getCanvasWidth().compareTo(t.getCanvasWidth())!=0)||(r.getCanvasHeight()!=null&&r.getCanvasHeight().compareTo(t.getCanvasHeight())!=0)))
+            throw new IllegalArgumentException("속지 크기와 페이지 크기가 다릅니다.");
         // 원격 속지(V34)는 형식에 맞는 remoteTemplate 이 있어야 하고 다른 속지에는 둘 수 없다(공유 구성원 앱이 이 값으로 속지를 찾는다)
         RemoteTemplates.requireValidConfig(r.getTemplateConfig(),t==null?null:t.getCode());
         String requestId=r.getTemplateConfig()==null?null:r.getTemplateConfig().path("clientPageRequestId").asText(null);
@@ -159,7 +164,8 @@ public class PageService {
 		if(config==null||!config.isObject()||!config.has("templateCode"))return t;
 		if(!config.path("templateCode").isString()||!config.path("templateVersion").isString())throw new IllegalArgumentException("templateCode 와 templateVersion 은 함께 문자열로 보내야 합니다.");
 		var rows=templateRepository.findAllByCodeAndTemplateVersionAndIsActiveTrue(config.get("templateCode").asString(),config.get("templateVersion").asString());
-		if(rows.size()!=1)throw new IllegalArgumentException("없는 속지 코드 · 버전입니다.");
+		if(rows.isEmpty())throw new IllegalArgumentException("없는 속지 코드 · 버전입니다.");
+		if(rows.size()>1)throw new PageTemplateCatalogException(config.get("templateCode").asString(),config.get("templateVersion").asString(),rows.size());
 		PageTemplate byCode=rows.get(0);
 		if(t!=null&&!t.getTemplateId().equals(byCode.getTemplateId()))throw new IllegalArgumentException("templateId 와 설정의 templateCode 가 다릅니다.");
 		return byCode;

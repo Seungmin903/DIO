@@ -284,6 +284,21 @@ class PageApiTests {
 			mvc.perform(post("/api/v1/diaries/"+diaryId+"/pages").with(authenticated()).contentType(MediaType.APPLICATION_JSON).content(bad))
 				.andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("INVALID_PAGE_REQUEST"));
 		}
+		// 코드로 고른 속지와 페이지 크기가 다르면 저장하지 않는다(세로 속지 코드에 가로 크기)
+		mvc.perform(post("/api/v1/diaries/"+diaryId+"/pages").with(authenticated()).contentType(MediaType.APPLICATION_JSON)
+				.content("{\"canvasWidth\":1024,\"canvasHeight\":768,\"templateConfig\":{\"templateCode\":\"link-cover-portrait\",\"templateVersion\":\"1.0.0\"}}"))
+			.andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("INVALID_PAGE_REQUEST"));
+		// 같은 코드 · 버전의 활성 행이 여럿이면 사용자 오류가 아니라 서버 속지 목록 문제로 알린다
+		versionedTemplate("link-dup-portrait",new BigDecimal("768.00"),new BigDecimal("1024.00"),"{}",true);
+		PageTemplate duplicate=activeTemplate("link-dup-portrait",new BigDecimal("768.00"),new BigDecimal("1024.00"),"{}");
+		setField(duplicate,"templateVersion","1.0.0"); pageTemplateRepository.saveAndFlush(duplicate);
+		mvc.perform(post("/api/v1/diaries/"+diaryId+"/pages").with(authenticated()).contentType(MediaType.APPLICATION_JSON)
+				.content("{\"templateConfig\":{\"templateCode\":\"link-dup-portrait\",\"templateVersion\":\"1.0.0\"}}"))
+			.andExpect(status().isInternalServerError()).andExpect(jsonPath("$.code").value("PAGE_TEMPLATE_CATALOG_INVALID"));
+		// 만든 뒤 크기를 바꾸는 수정은 그대로 된다(PDF 쪽 크기 맞추기)
+		String sized=createPage(diaryId,"{\"templateConfig\":{\"templateCode\":\"link-cover-portrait\",\"templateVersion\":\"1.0.0\"}}");
+		mvc.perform(patch("/api/v1/pages/"+sized).with(authenticated()).contentType(MediaType.APPLICATION_JSON).content("{\"canvasWidth\":600,\"canvasHeight\":800}"))
+			.andExpect(status().isOk());
 		// templateId 와 같은 코드를 함께 보내도 된다
 		createPage(diaryId,"{\"templateId\":"+cover.getTemplateId()+",\"templateConfig\":{\"templateCode\":\"link-cover-portrait\",\"templateVersion\":\"1.0.0\"}}");
 		// 설정만으로 다른 속지 코드로 바꾸면 template_id 와 어긋나므로 거부한다(속지 변경은 templateId 로)
