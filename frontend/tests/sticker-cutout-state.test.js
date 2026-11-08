@@ -162,6 +162,31 @@ test('서버 저장 뒤 캐시 저장이 실패해도 재시도는 같은 미디
   ui.unmount()
 })
 
+test('저장 실패 뒤 선택을 고치면 이전 서버 결과 대신 새 선택으로 다시 저장한다', async () => {
+  let saved = 0, cached = 0
+  const ui = fixture(async () => ({ uri: 'photo', width: 100, height: 100 }), null, {
+    save: async () => ({ mediaFileId: `123e4567-e89b-12d3-a456-42661417400${++saved}`, originalFilename: 'cutout.png' }),
+    cache: async () => { if (++cached === 1) throw new Error('캐시 저장 실패') },
+  })
+  const confirmSave = async () => {
+    find(ui.render(), '저장 흐름 확인').props.onPress()
+    nodes(ui.render()).find(n => n.props.confirmLabel === '저장').props.onConfirm()
+    await tick(); await tick()
+  }
+  await load(ui); draw(ui)
+  find(ui.render(), '다음 · 스티커 확인').props.onPress(); await tick()
+  await confirmSave()
+  prevButton(ui.render()).props.onPrev()
+  find(ui.render(), '되돌리기').props.onPress()
+  nodes(ui.render()).find(n => n.props.label === '브러시 크기').props.onCommit(50)
+  draw(ui)
+  find(ui.render(), '다음 · 스티커 확인').props.onPress(); await tick()
+  await confirmSave()
+  assert.equal(saved, 2)
+  assert.equal(find(ui.render(), '저장 흐름 확인').props.disabled, true)
+  ui.unmount()
+})
+
 test('결과 확인에서 헤더 이전·기기 뒤로가기로 돌아오면 같은 사진과 붓질을 유지한다', async () => {
   const ui = fixture(async () => ({ uri: 'photo', width: 100, height: 100 }))
   await load(ui); draw(ui)

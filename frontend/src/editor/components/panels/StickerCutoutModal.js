@@ -27,7 +27,7 @@ export default function StickerCutoutModal({ folder, onClose, onSave, photoPicke
   const [area, setArea] = useState({ width: 0, height: 0 })
   const [phase, setPhase] = useState('select'), [busy, setBusy] = useState(false), locked = useRef(false)
   const [cutoutId, setCutoutId] = useState(null), cutoutRef = useRef(null)
-  // 서버 저장은 한 번만 한다. 이후 캐시·보관함 저장이 실패해도 같은 mediaFileId로 이어서 처리한다.
+  // 서버 저장은 같은 선택에 한 번만 한다. 이후 캐시·보관함 저장이 실패해도 같은 mediaFileId로 이어서 처리한다.
   const savedMediaRef = useRef(null)
   const [resultPreview, setResultPreview] = useState(null)
   const [error, setError] = useState(''), [question, setQuestion] = useState(null), [saved, setSaved] = useState(false)
@@ -104,8 +104,14 @@ export default function StickerCutoutModal({ folder, onClose, onSave, photoPicke
     locked.current = true; setBusy(true); setError('')
     const token = ++revision.current
     try {
-      const savedMedia = savedMediaRef.current ?? await api.save(cutoutId, cutoutStrokes(history))
-      savedMediaRef.current = savedMedia
+      const strokes = cutoutStrokes(history)
+      // ①로 돌아가 붓질을 바꾸면 새 선택이므로, 실패했던 이전 결과를 재사용하면 안 된다.
+      const selectionKey = JSON.stringify(strokes)
+      let savedMedia = savedMediaRef.current?.selectionKey === selectionKey ? savedMediaRef.current.media : null
+      if (!savedMedia) {
+        savedMedia = await api.save(cutoutId, strokes)
+        savedMediaRef.current = { selectionKey, media: savedMedia }
+      }
       await api.cache(savedMedia.mediaFileId)
       if (!alive.current || token !== revision.current) return
       const item = { src: `media:${savedMedia.mediaFileId}`, mediaFileId: savedMedia.mediaFileId,
