@@ -3,6 +3,7 @@ import test from 'node:test';
 import { createRequire } from 'node:module';
 import { readFileSync } from 'node:fs';
 import { emptyGuestImportAction } from '../src/diary/utils/libraryQuery.js';
+import * as characterScale from '../src/shared/characterScale.js';
 
 const entry = { count: 4, open() {} };
 
@@ -25,7 +26,7 @@ test('EmptyState: action 을 주면 버튼을 그리고 누르면 onPress 를 �
     if (id === 'react-native') return { Image: 'Image', Pressable: 'Pressable', Text: 'Text', View: 'View' };
     if (id.endsWith('/constants')) return { C: {} };
     if (id.endsWith('/styles')) return { styles: {} };
-    if (id.endsWith('/characterScale')) return { CHARACTER_SCALE: { moa: 1, dio: 1 } };
+    if (id.endsWith('/characterScale')) return characterScale;
     return { default: 'AppIcon' };
   };
   new Function('require', 'module', 'exports', 'h', code)(stub, m, m.exports, h);

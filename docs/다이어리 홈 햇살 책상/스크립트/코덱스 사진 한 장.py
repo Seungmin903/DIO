@@ -12,7 +12,7 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent.parent
 IMG = HERE / "이미지"
-CHAR = HERE.parent / "캐릭터 디자인" / "최종시안.png"
+CHAR = HERE.parent / "캐릭터 디자인" / "지난 버전" / "2026-11-04 최종시안" / "최종시안.png"
 
 SCREENS = {
     '태블릿 스와이프': ('밑그림 U3.jpg', '1536x1024 landscape, full bleed (no added margins or bands)',

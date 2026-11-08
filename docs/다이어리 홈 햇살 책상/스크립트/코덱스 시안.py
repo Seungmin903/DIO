@@ -12,7 +12,7 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent.parent
 IMG = HERE / "이미지"
-CHAR = HERE.parent / "캐릭터 디자인" / "최종시안.png"
+CHAR = HERE.parent / "캐릭터 디자인" / "지난 버전" / "2026-11-04 최종시안" / "최종시안.png"
 
 KEEP_T = ('KEEP EVERY UI ELEMENT EXACTLY AS IT IS: the left menu bar and its icons, the title "모든 다이어리", the three filter chips ("모든 다이어리", "즐겨찾기", "공유 다이어리"), '
           'the view switch ("스와이프", "한눈에"), the search and more buttons, the two round arrow buttons, the three diary covers with their printed labels ("여름 방학", "새 다이어리", "테스트용 다이어리", "DIARY · 2026"), '

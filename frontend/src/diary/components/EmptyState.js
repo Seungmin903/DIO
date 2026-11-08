@@ -1,16 +1,21 @@
-import { ActivityIndicator, Image, Pressable, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import { C } from '../constants';
 import AppIcon from '../../shared/AppIcon';
 import { styles as s } from '../styles';
-import { DIO_KEY, MOA_KEY } from '../../shared/characterScale';
+import { CHARACTER_ART, DIO_KEY, MOA_KEY } from '../../shared/characterScale';
+import CharacterArt from '../../shared/CharacterArt';
 
-// 빈 화면의 캐릭터(최종 시안 그림). 캐릭터는 버터 노랑 + 라벤더라 색 규칙에 그대로 맞는다. 선 · 상자 없이 캐릭터와 제목만 둔다.
-// 원본의 투명 여백을 제외한 경계로 배치한다.
+// 빈 화면의 캐릭터(최종 그림 2026-11-08, docs/캐릭터 디자인/최종). 캐릭터는 버터 노랑 + 라벤더라 색 규칙에 그대로 맞는다. 선 · 상자 없이 캐릭터와 제목만 둔다.
+// 벡터로 그린다(shared/CharacterArt). 그림 둘레의 투명 여백을 뺀 먹선 경계로 배치한다(shared/characterScale CHARACTER_ART).
 const MASCOT_HEIGHT = 112;
 const COMPACT_MASCOT_HEIGHT = 96;
+const art = (character, heightScale) => {
+  const { width, height, ink } = CHARACTER_ART[character];
+  return { character, sourceWidth: width, sourceHeight: height, ...ink, heightScale };
+};
 const ART = {
-  moa: { source: require('../../../assets/characters/new_moa.png'), sourceWidth: 1254, sourceHeight: 975, left: 319, top: 183, width: 630, height: 760, heightScale: 1 },
-  dio: { source: require('../../../assets/characters/new_dio.png'), sourceWidth: 1254, sourceHeight: 975, left: 313, top: 175, width: 824, height: 797, heightScale: DIO_KEY / MOA_KEY },
+  moa: art('moa', 1),
+  dio: art('dio', DIO_KEY / MOA_KEY),
 };
 
 /**
@@ -34,8 +39,7 @@ export default function EmptyState({ title, onCreate, action = null, search = fa
       {picture ? (
         // 그림은 꾸밈이라 화면 읽기 프로그램에서는 건너뛰고 제목만 읽힌다
         <View style={{ width: picture.width * scale, height: picture.height * scale, marginBottom: 14, overflow: 'hidden' }}>
-          {/* fadeDuration 0: 안드로이드 Image 기본 0.3초 페이드 때문에 그림이 글자보다 늦게 나타나 보였다 */}
-          <Image source={picture.source} accessible={false} accessibilityIgnoresInvertColors fadeDuration={0} resizeMode="contain" style={{
+          <CharacterArt character={picture.character} style={{
             position: 'absolute', left: -picture.left * scale, top: -picture.top * scale,
             width: picture.sourceWidth * scale, height: picture.sourceHeight * scale,
           }} />
