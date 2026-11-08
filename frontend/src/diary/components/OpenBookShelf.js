@@ -4,7 +4,9 @@ import AppIcon from '../../shared/AppIcon';
 import FavoriteStar from '../../shared/FavoriteStar';
 import { C } from '../constants';
 import { styles as s } from '../styles';
+import { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 import CoverArt, { CoverSurface } from './CoverArt';
+import FillSvg from './FillSvg';
 import DiaryActionBubble from './DiaryActionBubble';
 import StaticPage from '../../editor/components/canvas/StaticPage';
 import { pageSize } from '../../editor/utils/pageGeometry.js';
@@ -22,7 +24,7 @@ import { spreadAt, spreadOf } from '../utils/bookSpread';
 // - 펼친 면은 실제 양면이다(좌철이라 오른쪽이 홀수 쪽). 1쪽이면 왼쪽은 표지 안쪽 면지(무지). 페이지는 면을 가장자리까지 채운다.
 // - 하드커버 디테일: 표지 판은 종이 밖으로 조금만(표지 무늬 그대로), 가운데 제본선 골, 책등 띠와 접히는 홈 둘(위 · 아래 가장자리에서만 보임),
 //   종이 묶음 책등 끝의 머리띠(headband)가 종이 위 · 아래로 조금 비어져 나온다. 닫힌 책은 사용자가 꾸민 표지(고무줄 포함) 그대로.
-// - 폰과 세로로 세운 태블릿은 양면이 다 들어오면 너무 작아 가장 최근 쪽 한 면 크기로 맞춘다. 세로 태블릿은 마주 보는 쪽이 화면 끝에 잘려 살짝 보이고 옆 다이어리가 화면 끝에 조금 걸친다. 폰은 한 면만, 옆 책 없이.
+// - 폰과 세로로 세운 태블릿은 양면이 다 들어오면 너무 작아 가장 최근 쪽 한 면 크기로 맞춘다. 세로 태블릿은 마주 보는 쪽이 화면 끝에 걸쳐 보이되(왼쪽으로 걸친 면은 바탕색으로 흐려지며 사라진다) 옆 다이어리가 화면 끝에 조금 걸친다. 폰은 한 면만, 옆 책 없이.
 // 창빛은 책상에만 비추므로 책 위에는 아무 빛도 얹지 않는다.
 
 const PAPER = '#FAF6EC'; // 속지 종이(아주 살짝 따뜻하게)
@@ -182,7 +184,8 @@ function OpenBook({ diary, size, left: placed, top, shown, compact, peek = null,
   const left = peek == null ? placed : Math.round(peek - (spread && spread.latest % 2 === 0 ? half / 2 : half * 1.5));
   // 이름 줄은 책 전체 폭에 맞춘다. 세로 태블릿은 책이 화면 밖으로 나가므로 화면 가운데에 놓인 한 면의 폭에 맞춘다.
   const railWidth = peek == null ? width : leaf.width;
-  const captionLeft = peek == null ? 0 : peek - left - leaf.width / 2;
+  // 가운데 면의 실제 왼쪽 끝(판 안쪽 여백 board.side 뒤, 오른쪽 면이면 왼쪽 면 폭만큼 더). 판 폭 half 는 여백을 포함해 가운데 면이 화면 가운데에서 board.side / 2 어긋나므로, 캡션은 면 끝에 맞춘다
+  const captionLeft = peek == null ? 0 : board.side + (spread && spread.latest % 2 === 0 ? 0 : leaf.width);
   const act = fn => () => { setMenu(null); fn?.(); };
   const manage = diary.canManage !== false;
   const actions = [
@@ -266,6 +269,26 @@ const ClosedBook = memo(function ClosedBook({ diary, size, top, left, side, shad
     </View>
   );
 });
+
+/** 세로 태블릿에서 화면 왼쪽 밖으로 걸친 면의 보이는 폭(화면 왼쪽 끝 ~ 가운데 면의 왼쪽 끝) */
+export const hangFadeWidth = (areaWidth, size) => Math.max(0, Math.round(areaWidth / 2 - size.leaf.width / 2 - size.board.side / 2));
+
+/** 왼쪽 끝은 바탕색, 오른쪽(가운데 면 쪽)은 투명으로 이어지는 가로 그라데이션 덮개. 걸친 면이 잘려 보이지 않고 흐려지며 사라진다 */
+function HangFade({ width }) {
+  if (width <= 0) return null;
+  return <View pointerEvents="none" style={[styles.hangFade, { width }]}>
+    <FillSvg initialWidth={width}>{(w, h) => <>
+      <Defs>
+        <LinearGradient id="hangFade" x1="0" y1="0" x2="1" y2="0">
+          <Stop offset="0" stopColor={C.canvas} stopOpacity="1" />
+          <Stop offset="0.45" stopColor={C.canvas} stopOpacity="0.75" />
+          <Stop offset="1" stopColor={C.canvas} stopOpacity="0" />
+        </LinearGradient>
+      </Defs>
+      <Rect x="0" y="0" width={w} height={h} fill="url(#hangFade)" />
+    </>}</FillSvg>
+  </View>;
+}
 
 function OpenBookShelf({ diaries, index, onIndexChange, onOpen, onFavorite, onEdit, onDelete, onShare, compact = false }) {
   // 지난번에 잰 크기로 바로 그린다(다른 보기에서 넘어올 때 크기를 재는 한 프레임 동안 비어 있지 않게). 다르면 onLayout 이 고친다.
@@ -386,6 +409,7 @@ function OpenBookShelf({ diaries, index, onIndexChange, onOpen, onFavorite, onEd
       });
     }}>
       <View pointerEvents="box-none" style={[StyleSheet.absoluteFill, { top: lift, bottom: -lift }]}>{view}</View>
+      {upright && !compact && layout && sizes[index] && !(current?.spread && current.spread.latest % 2 === 0) && <HangFade width={hangFadeWidth(layout.width, sizes[index])} />}
       {!compact && arrows}
     </View>
   );
@@ -399,6 +423,7 @@ const styles = StyleSheet.create({
   phoneFrame: { flex: 1, minHeight: 420, marginHorizontal: -PHONE_EDGE }, // 폰: 화면 끝까지 넓힌 바깥 틀(화살표 자리)
   phoneArea: { marginHorizontal: PHONE_EDGE }, // 그 안의 펼쳐서 영역은 예전처럼 화면 여백 안쪽
   bleed: { marginHorizontal: -BLEED },
+  hangFade: { position: 'absolute', left: 0, top: 0, bottom: 0 }, // 화살표(zIndex 4)보다 아래
   arrowHalo: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   book: { position: 'absolute', left: 0 },
   board: { flexDirection: 'row', boxShadow: SHADOW },
