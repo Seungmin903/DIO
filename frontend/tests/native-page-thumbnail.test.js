@@ -48,6 +48,42 @@ test('네이티브 썸네일은 요소 순서를 유지해 나눠 그리고 변�
   render({ objects: next }); effects.forEach(effect => effect?.cleanup?.()); assert.equal(timers.size, 0)
 })
 
+test('다 채워진 썸네일에 획이 더해지면 모았다가 한 번에 보태고, 그동안 미리보기 객체는 그대로 둔다', () => {
+  let state, nextId = 0, refIndex = 0, effectIndex = 0
+  const refs = [], effects = [], pendingEffects = [], timers = new Map(), delays = []
+  const mockReact = {
+    useState: initial => { if (!state) state = initial(); return [state, value => { state = value }] },
+    useRef: initial => refs[refIndex++] ??= { current: initial },
+    useMemo: fn => fn(),
+    useEffect: (effect, deps) => {
+      const index = effectIndex++, old = effects[index]
+      if (!old || deps.some((value, i) => value !== old.deps[i])) pendingEffects.push(() => { old?.cleanup?.(); effects[index] = { deps, cleanup: effect() } })
+    },
+  }
+  const module = { exports: {} }
+  const load = id => id === 'react' ? mockReact : id === '../canvas/StaticPage' ? { __esModule: true, default: 'page' } : id === '../../utils/thumbnailProgress.js' ? thumbnailProgress : require(id)
+  const schedule = (fn, delay) => { const id = ++nextId; timers.set(id, fn); delays.push(delay); return id }
+  const cancel = id => timers.delete(id)
+  new Function('require', 'module', 'exports', 'setTimeout', 'clearTimeout', code)(load, module, module.exports, schedule, cancel)
+  const render = page => { refIndex = 0; effectIndex = 0; const result = module.exports.default({ page, zoom: 0.2 }).props.page; pendingEffects.splice(0).forEach(run => run()); return result }
+  const flush = () => { const [id, fn] = timers.entries().next().value; timers.delete(id); fn() }
+  const objects = Array.from({ length: 4 }, (_, id) => ({ id }))
+  const page = { id: 'p', objects }
+  render(page); flush(); render(page); flush()
+  const filled = render(page)
+  assert.deepEqual(filled.objects.map(o => o.id), [0, 1, 2, 3]); assert.equal(filled, page, '다 보이면 페이지 객체 그대로')
+  assert.equal(timers.size, 0)
+  const one = { id: 'p', objects: [...objects, { id: 4 }] }
+  const held = render(one)
+  assert.equal(held, page, '새 획이 빠진 미리보기는 직전 미리보기 객체를 다시 쓴다(StaticPage memo 유지)')
+  assert.equal(timers.size, 1); assert.equal(delays.at(-1), module.exports.UPDATE_DELAY_MS)
+  const two = { id: 'p', objects: [...one.objects, { id: 5 }] }
+  assert.equal(render(two), page); assert.equal(timers.size, 1, '연속 입력은 타이머를 다시 잡아 하나만 둔다')
+  flush()
+  assert.deepEqual(render(two).objects.map(o => o.id), [0, 1, 2, 3, 4, 5], '모았던 요소를 한 번에 보탠다')
+  assert.equal(timers.size, 0)
+})
+
  test('썸네일 대기열은 페이지 작업을 순서대로 실행하고 닫으면 예약 작업을 중단한다', async () => {
   const { createThumbnailWorkQueue } = await import('../src/editor/utils/thumbnailWorkQueue.js')
   let nextId = 0
