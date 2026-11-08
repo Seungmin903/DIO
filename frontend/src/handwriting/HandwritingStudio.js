@@ -39,6 +39,10 @@ const FONT_STEPS = [{ id: 'input', label: '손글씨 입력' }, { id: 'preview',
 // 펜 굵기는 편집창 펜과 같은 막대(− · + · 숫자). 범위는 얇게 6 ~ 두껍게 24(1024 좌표 기준, 기존 저장 획의 굵기는 유지한다)
 // 네이티브에서 받은 지원 불가 사유가 없을 때만 공통 안내를 사용한다.
 const UNSUPPORTED = '이 기기에서는 폰트를 만들 수 없어요.'
+// 36자 초안 저장은 개발 확인용이라 개발 빌드에서만 보인다. 가져오기는 .ttf 폰트 복원('폰트 파일 저장'의 짝)이라 일반 빌드에도 두고 이름만 '폰트 가져오기'로(초안 json 은 개발 확인용).
+// 네이티브가 주는 개발자 문구('개발 빌드에 …', modules/dio-handwriting DioHandwritingModule.kt capabilities.reason)도 일반 빌드에선 일반 문구로 바꾼다 — 그 문구를 바꾸면 이 판별도 같이 바꾼다
+const IS_DEV_BUILD = typeof __DEV__ !== 'undefined' && __DEV__
+export const supportReason = reason => (!IS_DEV_BUILD && /개발 빌드/.test(reason || '') ? UNSUPPORTED : reason)
 const PEN_WIDTH = { min: 6, max: 24, step: 1 }
 const stages = { queued: '준비 중', encoding: '손글씨 분석 중', generating: '글자 생성 중', packing: '폰트 파일 만드는 중', ready: '생성 완료', interrupted: '저장 지점에서 이어 만드는 중' }
 
@@ -136,8 +140,8 @@ export function StudioContent({ options = {}, controller = defaultWorkflow }) {
       {(error || state.error) ? <Text accessibilityRole="alert" style={s.error}>{error || state.error}</Text> : null}
       {busy ? <Text accessibilityLiveRegion="polite" style={s.notice}>{busy}</Text> : null}
       {more && <View style={s.panel}><Text accessibilityRole="header" style={s.heading}>파일 및 폰트 관리</Text><View style={s.row}>
-        <Button onPress={importFile} disabled={Boolean(busy)}>초안·폰트 가져오기</Button>
-        {value?.draft && <Button disabled={Boolean(busy)} onPress={() => run('초안을 저장하고 있어요.', async () => { await inputSave.current?.(); await exportDraft(workflow.getSnapshot().entries.find(e => e.id === value.id).draft) })}>36자 초안 파일 저장</Button>}
+        <Button onPress={importFile} disabled={Boolean(busy)}>{IS_DEV_BUILD ? '초안·폰트 가져오기' : '폰트 가져오기'}</Button>
+        {IS_DEV_BUILD && value?.draft && <Button disabled={Boolean(busy)} onPress={() => run('초안을 저장하고 있어요.', async () => { await inputSave.current?.(); await exportDraft(workflow.getSnapshot().entries.find(e => e.id === value.id).draft) })}>36자 초안 파일 저장</Button>}
         {font && <Button disabled={Boolean(busy) || font.missing} onPress={() => run('폰트를 저장하고 있어요.', () => exportFont(font))}>폰트 파일 저장</Button>}
         {font && <Button disabled={Boolean(busy) || font.missing || font.spacingVersion === FONT_SPACING_VERSION || font.spacingSupported === false} onPress={() => run('글자 간격을 보정하고 있어요.', async () => { await correctRegisteredFont(font); await refreshPersonalFonts(); await workflow.refresh(); setFonts(await loadFontLibrary()) })}>글자 간격 보정</Button>}
       </View>{isAiHandwritingFont(font) && <Text style={s.muted}>{AI_FONT_EXPORT_NOTICE}</Text>}</View>}
@@ -156,7 +160,7 @@ export function StudioContent({ options = {}, controller = defaultWorkflow }) {
         <Text style={s.heading}>샘플 문장</Text><Sample entry={value} font={font} />
         {value.status !== 'ready' && <View style={s.notice}><Text accessibilityLiveRegion="polite" style={s.heading}>{value.status === 'queued' ? `대기 ${queuePosition(state.entries, value.id)}번째` : statusText[value.status]}</Text><Text style={s.muted}>{stages[value.job?.stage] || '진행 상태를 저장해요.'}</Text><Text style={s.progressText}>{completedCount(value).toLocaleString()} / 11,172</Text><View style={s.track}><View style={[s.fill, { width: `${completedCount(value) / SYLLABLE_COUNT * 100}%` }]} /></View></View>}
         {value.error && <Text style={s.error}>{value.error}</Text>}
-        {!state.support.available && ['paused', 'failed'].includes(value.status) ? <Text style={s.muted}>{state.support.reason || UNSUPPORTED}</Text> : null}
+        {!state.support.available && ['paused', 'failed'].includes(value.status) ? <Text style={s.muted}>{supportReason(state.support.reason) || UNSUPPORTED}</Text> : null}
         <View style={s.row}>{['processing', 'queued'].includes(value.status) && <Button disabled={Boolean(busy)} onPress={() => run('생성을 멈추고 있어요.', () => workflow.control(value.id, 'pause'))}>일시 정지</Button>}{['paused', 'failed'].includes(value.status) && <Button disabled={Boolean(busy) || !state.support.available || value.incompatible} onPress={() => run('생성을 이어가고 있어요.', () => workflow.control(value.id, 'resume'))}>{value.status === 'failed' ? '다시 시도' : '이어서 만들기'}</Button>}{['processing', 'queued', 'paused', 'failed', 'registering'].includes(value.status) && <Button disabled={Boolean(busy)} onPress={() => run('생성을 취소하고 있어요.', () => workflow.control(value.id, 'cancel'))}>생성 취소</Button>}</View>
         <Text style={s.heading}>생성에 사용한 36자</Text>
         {value.draft ? <InputSamples draft={value.draft} /> : <Text style={s.muted}>이 폰트의 원래 입력 기록이 없어 입력을 표시하거나 수정할 수 없어요.</Text>}
@@ -166,7 +170,7 @@ export function StudioContent({ options = {}, controller = defaultWorkflow }) {
     </ScrollView>
     {/* 단계 주 버튼은 다른 제작 화면처럼 화면 아래 고정 바에 둔다 */}
     {state.loaded && value && route.screen === 'input' && inputBar ? <MakerBar stacked={narrow} note={<Text testID="handwriting-ai-input-notice" style={s.muted}>{AI_FONT_INPUT_NOTICE}</Text>} left={
-      <Text accessibilityLiveRegion="polite" style={s.muted}>{state.support.available ? `${inputBar.count} / 36 · ${inputBar.status}` : state.support.reason || UNSUPPORTED}</Text>}><MakerNav><Button primary disabled={Boolean(busy) || inputBar.disabled || !state.support.available} onPress={showSample}>샘플 확인</Button></MakerNav></MakerBar> : null}
+      <Text accessibilityLiveRegion="polite" style={s.muted}>{state.support.available ? `${inputBar.count} / 36 · ${inputBar.status}` : supportReason(state.support.reason) || UNSUPPORTED}</Text>}><MakerNav><Button primary disabled={Boolean(busy) || inputBar.disabled || !state.support.available} onPress={showSample}>샘플 확인</Button></MakerNav></MakerBar> : null}
     <ConfirmDialog open={Boolean(removing)} title="이 폰트를 지울까요?" message="작성 중인 손글씨가 모두 사라져요." confirmLabel="삭제" danger
       onCancel={() => setRemoving(null)} onConfirm={() => { const item = removing; setRemoving(null); run('폰트를 지우고 있어요.', () => workflow.removeDraft(item.id)) }} />
     {state.loaded && value && route.screen === 'preview' ? <MakerBar stacked={narrow}>

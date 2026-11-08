@@ -182,7 +182,6 @@ export default function SafetyScreen({ request, user, store, state, onClose, onW
                 </View>
               </>}
               {screen === 'blocks' && <>
-                <Text style={s.muted}>차단한 사용자와는 이메일 초대를 주고받거나 수락할 수 없어요. 기존 공동 작업과 링크 참여는 유지돼요.</Text>
                 {state.status === 'loading' && <ActivityIndicator accessibilityLabel="차단 목록 불러오는 중" color={colors.primaryStrong} />}
                 {state.status === 'error' && <><Text style={s.error}>{state.error}</Text><SafetyButton secondary onPress={() => store.refresh()}>목록 다시 불러오기</SafetyButton></>}
                 {state.status === 'ready' && <Text style={s.heading}>전체 {state.blocks.length}명</Text>}
