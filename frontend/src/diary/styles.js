@@ -265,6 +265,10 @@ headerCreateText: { color: C.white, fontSize: 13, fontWeight: '700' },
   cardCheckMark: { color: C.white, fontSize: 16, fontWeight: '800', lineHeight: 18 },
   cardFavorite: { position: 'absolute', top: 12, right: 12, zIndex: 3, width: 24, height: 24, alignItems: 'center', justifyContent: 'center' }, // 배경 없는 별: 표지 오른쪽 위 모서리(폰 · 태블릿 같음, 지라 620)
   cardFavoriteCompact: { top: 6, right: 6 }, // 폰: 표지 오른쪽 위 모서리(제목표와 겹치지 않게, 2026-11-03 사용자 결정). 태블릿도 2026-11-08부터 오른쪽(지라 620: 왼쪽도 제목표를 가렸다)
+  // 태블릿 스와이프 표지는 한눈에 칸(약 250)보다 커서(318, 가운데 1.06배 · 세로 440) 같은 12 면 별이 모서리에 붙어 보였다. 표지 크기에 비례해 안쪽으로(2026-11-08 지라 683, 폰도 같다)
+  cardFavoriteCarousel: { top: 18, right: 18 },
+  cardFavoriteCarouselLarge: { top: 24, right: 24 },
+  cardFavoriteCarouselCompact: { top: 14, right: 14 }, // 폰 스와이프 표지(268)도 한눈에 칸(약 160 · 6)보다 커서 같은 비율로 안쪽에
   // 정보 줄 오른쪽 위 더보기 버튼(동작 말풍선을 연다). 배경 없는 28×28 + hitSlop 10 = 터치 48(원 페이저 06). 자리(slot)는 버튼이 숨는 스와이프 옆 카드에도 남겨 제목 줄 높이가 같게 한다
   cardMoreSlot: { width: 28, height: 28, flexShrink: 0, marginTop: -4, marginRight: -3 },
   cardMore: { width: 28, height: 28, alignItems: 'center', justifyContent: 'center' },

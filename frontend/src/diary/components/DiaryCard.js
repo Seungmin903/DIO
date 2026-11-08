@@ -97,7 +97,7 @@ function DiaryCard({ diary, pageCount, layout = 'grid', compact = false, large =
           accessibilityState={{ disabled: !onFavorite }}
           hitSlop={12}
           onPress={(event) => { event.stopPropagation(); onFavorite?.(diary.id); }}
-          style={[s.cardFavorite, compact && s.cardFavoriteCompact, !onFavorite && { opacity: DISABLED_OPACITY }]}
+          style={[s.cardFavorite, compact && s.cardFavoriteCompact, layout === 'carousel' && (compact ? s.cardFavoriteCarouselCompact : large ? s.cardFavoriteCarouselLarge : s.cardFavoriteCarousel), !onFavorite && { opacity: DISABLED_OPACITY }]}
         >
           {/* 안 칠한 별의 흰 윤곽은 80%로 한 단계 낮춘다(원 페이저 06). 밝은 표지 위 남색 윤곽 · 칠한 별은 그대로 */}
           <FavoriteStar filled={!!diary.favorite} outline={!diary.favorite && starOutlineFor(diary) === '#FFFFFF' ? 'rgba(255,255,255,0.8)' : starOutlineFor(diary)} />
