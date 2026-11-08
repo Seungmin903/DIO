@@ -132,9 +132,12 @@ export default function ContextBar({
         onToast(grouped ? '그룹을 풀었어요.' : '그룹으로 묶었어요. 레이어에서 폴더로 보여요.')
       } },
     ].filter(Boolean)
+    // 순서 메뉴와 옵션 패널은 한 번에 하나만 열린다(옵션을 열면 순서를 닫고, 순서를 열면 열린 옵션을 닫는다)
+    const toggleOrder = (next = !orderOpen) => { if (next && moreOpen) onToggleMore?.(); setOrderOpen(next) }
+    const toggleMore = () => { setOrderOpen(false); onToggleMore?.() }
     const actions = [
-      { icon: 'layers', label: '순서', active: orderOpen, onPress: () => setOrderOpen(!orderOpen) },
-      { icon: 'more', label: '옵션', active: moreOpen, onPress: () => onToggleMore?.() },
+      { icon: 'layers', label: '순서', active: orderOpen, onPress: () => toggleOrder() },
+      { icon: 'more', label: '옵션', active: moreOpen, onPress: () => toggleMore() },
       { icon: allLocked ? 'unlock' : 'lock', label: allLocked ? '잠금 해제' : '잠금', onPress: () => dispatch({ type: 'updateMany', record: true, patches: Object.fromEntries(ids.map((id) => [id, { locked: !allLocked }])) }) },
       { icon: 'copy', label: '복사', onPress: () => onCopy?.(objects) },
       { icon: 'clipboard', label: '붙여넣기', disabled: !canPaste, onPress: () => onPaste?.() },
@@ -152,7 +155,7 @@ export default function ContextBar({
     const inlineCount = fitInline(shownLeading, rest, barMax)
     const overflow = rest.slice(inlineCount).map((action) => ({ ...action, onPress: () => {
       onCompactMenu?.(null)
-      if (action.label === '순서') return setOrderOpen(true)
+      if (action.label === '순서') return toggleOrder(true)
       action.onPress()
     } }))
     // 메뉴는 페이지(캔버스) 밖, stage 위에 그린다. Android 는 부모 경계 밖에 그려진 자식에 터치를 주지 않아서 페이지 안에 두면 아래로 삐져나간 항목을 누를 수 없다.

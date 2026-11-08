@@ -408,3 +408,20 @@ test('일반 회원정보 화면의 직접 비밀번호 변경도 인증 세션�
 test('서버 비밀번호 창 취소는 회원정보 수정 화면으로 넘어가지 않는다',()=>{
  const ui=setup({},undefined,{passwordOnly:true});press(ui,'취소');assert.equal(ui.closed(),1);ui.unmount();
 });
+
+test('사진 변경 메뉴는 앨범에서 선택 · 기본 이미지로 변경 두 줄(취소 줄 없음)이고 이미 기본 이미지면 기본 이미지 줄을 누를 수 없다', () => {
+  const ui = setup({});
+  press(ui, '프로필 사진 변경');
+  const text = label => nodes(find(ui, label)).filter(n => n.type === 'Text').map(n => n.props.children)
+  assert.deepEqual(text('프로필 사진 선택'), ['앨범에서 선택']);
+  assert.deepEqual(text('프로필 사진 삭제'), ['기본 이미지로 변경']);
+  assert.equal(find(ui, '프로필 사진 변경 취소'), undefined);
+  const reset = find(ui, '프로필 사진 삭제');
+  assert.equal(reset.props.disabled, false);
+  reset.props.onPress();
+  press(ui, '프로필 사진 변경');
+  const already = find(ui, '프로필 사진 삭제');
+  assert.equal(already.props.disabled, true);
+  assert.equal(already.props.accessibilityState.disabled, true);
+  ui.unmount();
+});

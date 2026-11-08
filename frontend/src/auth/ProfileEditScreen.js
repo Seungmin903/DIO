@@ -569,7 +569,7 @@ export default function ProfileEditScreen({
           </ScrollView>
         </KeyboardAvoidingView>
       </Modal>
-      {/* 사진 변경 메뉴: 태블릿은 `사진 변경` 아래 말풍선, 폰은 아래 시트. 사진 선택 · 기본 이미지로 되돌리기(사진이 있을 때만) · 취소. 뜰 때 효과(페이드 등)는 넣지 않는다 */}
+      {/* 사진 변경 메뉴: 태블릿은 `사진 변경` 아래 말풍선, 폰은 아래 시트. 앨범에서 선택 · 기본 이미지로 변경 두 줄(취소 줄 없음 — 바깥을 누르거나 뒤로가기로 닫는다, 2026-11-08). 뜰 때 효과(페이드 등)는 넣지 않는다 */}
       <Modal visible={!!photoMenu} transparent animationType="none" onRequestClose={() => setPhotoMenu(null)}>
         <Pressable accessible={false} style={compact ? s.photoBackdrop : s.photoBackdropPopover} onPress={() => setPhotoMenu(null)}>
           <Pressable
@@ -577,6 +577,7 @@ export default function ProfileEditScreen({
             onPress={(event) => event.stopPropagation()}
             style={compact ? s.photoSheet : [s.photoPopover, { left: photoMenu?.x ?? 0, top: (photoMenu?.y ?? 0) + (photoMenu?.h ?? 0) + 8 }]}
           >
+            {/* 두 줄 모두 같은 동작 줄(앞 아이콘 + 글자). 제목처럼 보이는 줄이 없다. 기본 이미지로 변경은 항상 보이고, 이미 기본 이미지면 흐리게 눌리지 않는다 */}
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="프로필 사진 선택"
@@ -586,31 +587,24 @@ export default function ProfileEditScreen({
               }}
               style={[s.photoRow, compact && s.photoRowSheet]}
             >
-              <Text style={[s.photoRowText, compact && s.photoRowTextSheet]}>사진 선택</Text>
+              <AppIcon name="image" size={18} forText={compact ? 16 : 14} color={colors.text} />
+              <Text style={[s.photoRowText, compact && s.photoRowTextSheet]}>앨범에서 선택</Text>
             </Pressable>
-            {!!photoUri && (
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="프로필 사진 삭제"
-                onPress={() => {
-                  setPhotoMenu(null);
-                  setPhotoUri(null);
-                  setError('');
-                  setNotice('');
-                }}
-                style={[s.photoRow, compact && s.photoRowSheet]}
-              >
-                <Text style={[s.photoRowText, compact && s.photoRowTextSheet, s.photoRowDanger]}>기본 이미지로 되돌리기</Text>
-              </Pressable>
-            )}
-            <View style={s.photoDivider} />
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="프로필 사진 변경 취소"
-              onPress={() => setPhotoMenu(null)}
+              accessibilityLabel="프로필 사진 삭제"
+              accessibilityState={{ disabled: !photoUri }}
+              disabled={!photoUri}
+              onPress={() => {
+                setPhotoMenu(null);
+                setPhotoUri(null);
+                setError('');
+                setNotice('');
+              }}
               style={[s.photoRow, compact && s.photoRowSheet]}
             >
-              <Text style={[s.photoRowText, compact && s.photoRowTextSheet, s.photoRowCancel]}>취소</Text>
+              <AppIcon name="person" size={18} forText={compact ? 16 : 14} color={photoUri ? colors.text : colors.textMuted} />
+              <Text style={[s.photoRowText, compact && s.photoRowTextSheet, !photoUri && s.photoRowDisabled]}>기본 이미지로 변경</Text>
             </Pressable>
           </Pressable>
         </Pressable>

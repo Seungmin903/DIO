@@ -813,6 +813,14 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
   useEffect(() => {
     if (page === 'library' && libraryHasMore && libraryReady && !libraryBusy && !libraryFailed) diaryState.store.loadMoreLibrary().catch(() => {});
   }, [page, libraryHasMore, libraryReady, libraryBusy, libraryFailed, libraryCursor, diaryState.store]);
+  // 편집기에서 페이지를 지우거나 더한 뒤 보관함으로 돌아오면 서버 목록(카드 페이지 수)을 다시 받는다.
+  // 게스트는 위의 useLibraryMetadata 가 기기에 저장된 문서에서 다시 읽는다.
+  const previousPage = useRef(page);
+  useEffect(() => {
+    const left = previousPage.current === 'editor' && page === 'library';
+    previousPage.current = page;
+    if (left && member) Promise.resolve().then(() => diaryState.store.reload()).catch(() => {});
+  }, [page, member, diaryState.store]);
   useEffect(() => {
     if (page !== 'library' || !returnDiaryId.current) return;
     if (member && (!memberLibraryMatches || !diaryState.library.ready || diaryState.library.loading)) return;

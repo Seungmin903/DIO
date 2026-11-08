@@ -21,7 +21,8 @@ function setup({ failLoad = false, response, writeGate, failOnceType } = {}) {
     './SettingRow': { SettingSwitch: 'Switch' },
     'react-native': { View: 'View', Text: 'Text', Switch: 'Switch', Linking: { openURL: async () => {} }, StyleSheet: { create: v => v } },
     'expo/fetch': { fetch() {} }, '../../auth/authService': { apiBaseUrl: 'https://test/api/v1', accessTokenHeader: 'Authorization' },
-    '../../auth/termsConsent': terms, '../../shared/legalDocuments': { signupDocuments: {} }, '../../shared/theme': { colors: {} },
+    '../../auth/termsConsent': terms, '../../shared/legalDocuments': { signupDocuments: {} },
+    '../../shared/legalContent': { getSignupDocument: id => id === 'adEmail' ? { id } : null }, '../../auth/LegalDocumentScreen': 'LegalDocumentScreen', '../../shared/theme': { colors: {} },
     '../services/memberTransport': { createAuthenticatedMemberTransport: () => async input => {
       calls.push(input); if (fail || (input.method === 'GET' && failLoad)) throw Error('network failed');
       if (input.method === 'GET') return response || { agreements: terms.optionalTerms.map(item => ({termsType:item.termsType,termsVersion:'v3',agreed:true,agreedAt:'2026-11-03T12:00:00Z',recordStatus:'CURRENT_VERSION'})) };
@@ -87,4 +88,16 @@ test('자동 저장 실패 후 재시도는 실패한 항목만 보내고 오류
  assert.equal(writes.filter(c=>c.path.includes('AD_EMAIL')).length,1);
  assert.equal(writes.filter(c=>c.path.includes('AD_PUSH')).length,2);
  assert.ok(!nodes(ui.render()).some(n=>n.props.children==='저장하지 못했어요. 다시 시도해 주세요.'));ui.close();
+});
+
+test('보기 링크는 배포 주소가 없어도 눌러지고 내장 약관을 앱 안에서 연다', async () => {
+  const t = setup();
+  let tree = t.render(); await settle(); tree = t.render();
+  const links = nodes(tree).filter(n => n.props?.accessibilityRole === 'link');
+  const adEmail = links.find(n => n.props.accessibilityLabel.includes('이메일'));
+  assert.ok(adEmail && !adEmail.props.disabled);
+  await adEmail.props.onPress();
+  tree = t.render();
+  assert.ok(nodes(tree).some(n => n.type === 'LegalDocumentScreen' && n.props.document.id === 'adEmail'));
+  t.close();
 });

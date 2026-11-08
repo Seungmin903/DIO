@@ -255,8 +255,8 @@ function LibraryScreen({
       {compact && <>
         <Text accessibilityRole="header" style={s.librarySortHeader}>보기</Text>
         <View accessibilityRole="radiogroup" accessibilityLabel="보기">
-          {LIBRARY_VIEWS.map(item => <Pressable key={item.id} accessibilityRole="radio" accessibilityState={{ checked: displayView === item.id }} accessibilityLabel={`${item.label} 보기`} onPress={() => { chooseView(item.id); setOptionsOpen(false); }} style={({ pressed }) => [s.librarySortOption, pressed && s.pressed]}>
-            <View style={s.sortOptionCheck}>{displayView === item.id && <AppIcon name="check" size={14} forText={12} color={C.blueStrong} />}</View>
+          {LIBRARY_VIEWS.map(item => <Pressable key={item.id} accessibilityRole="radio" accessibilityState={{ checked: view === item.id }} accessibilityLabel={`${item.label} 보기`} onPress={() => { chooseView(item.id); setOptionsOpen(false); }} style={({ pressed }) => [s.librarySortOption, pressed && s.pressed]}>
+            <View style={s.sortOptionCheck}>{view === item.id && <AppIcon name="check" size={14} forText={12} color={C.blueStrong} />}</View>
             <Text style={s.librarySortText}>{item.label}</Text>
           </Pressable>)}
         </View>

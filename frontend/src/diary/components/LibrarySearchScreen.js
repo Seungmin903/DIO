@@ -53,8 +53,8 @@ export default function LibrarySearchScreen({ compact, query, onQueryChange, onB
     <View style={s.librarySearchHeading}>
       <BackButton label={selecting ? '선택 닫기' : '검색 닫기'} onPress={onBack} />
       <Text style={[s.libraryTitle, compact && s.libraryTitleCompact, { flex: 1 }]}>다이어리 검색</Text>
-      {optionsMenu}
-      {compact && <PhoneBell />}
+      {/* 폰: 보관함 머리줄과 같은 간격(⋮ 와 알림 사이 4)으로 묶어 ⋮ 위치가 같게 한다 */}
+      {compact ? <View style={s.libraryHeadToolsCompact}><View style={s.libraryActionsCompact}>{optionsMenu}</View><PhoneBell /></View> : optionsMenu}
     </View>
     <View style={[s.librarySearchBar, s.librarySearchPageInput]}>
       <AppIcon name="search" size={20} color={C.muted} />
