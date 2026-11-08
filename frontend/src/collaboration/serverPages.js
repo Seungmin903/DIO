@@ -1,4 +1,6 @@
-import {localTemplateReference,SERVER_TEMPLATE_CATALOG,serverTemplateSelectable} from '../editor/templates/serverCatalog.js'
+import {localTemplateReference,SERVER_TEMPLATE_CATALOG,serverTemplateConfigFor,serverTemplateSelectable} from '../editor/templates/serverCatalog.js'
+import {parseRemoteTemplateAssetId} from '../editor/templates/remoteTemplates.js'
+import {datedBaseId,isDatedId} from '../editor/templates/dated.js'
 import {decodeElement,sharedElement} from './canvasElements.js'
 import {pageSettingsBody} from './pageSettings.js'
 const uuid=value=>typeof value==='string'&&/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)
@@ -8,7 +10,7 @@ export function decodeServerPage(detail,diaryId){
  if(!p||!uuid(p.pageId)||p.diaryId!==diaryId||!Array.isArray(detail.elements)||![p.canvasWidth,p.canvasHeight].every(n=>Number.isFinite(n)&&n>0))throw invalid()
  const code=p.templateCode??p.templateConfig?.templateCode,version=p.templateVersion??p.templateConfig?.templateVersion
  let reference
- if(code&&version){try{reference=localTemplateReference(code,version)}catch{throw invalid()}}
+ if(code&&version){try{reference=localTemplateReference(code,version,p.templateConfig)}catch{throw invalid()}}
  else if(p.templateId==null||p.templateConfig?.blank===true)reference={backgroundAssetId:null}
  else throw invalid()
  const elements=detail.elements.filter(sharedElement)
@@ -31,7 +33,7 @@ function pageListSettings(p){
  if(settings.canvasWidth===undefined)return settings
  const code=p.templateCode??p.templateConfig?.templateCode,version=p.templateVersion??p.templateConfig?.templateVersion
  let reference
- if(code&&version){try{reference=localTemplateReference(code,version)}catch{return settings}}
+ if(code&&version){try{reference=localTemplateReference(code,version,p.templateConfig)}catch{return settings}}
  else if(p.templateId==null||p.templateConfig?.blank===true)reference={backgroundAssetId:null}
  else return settings
  // 속지의 기본 크기가 서버에 저장된 페이지 크기(PDF 쪽 크기 등)를 덮지 않게 한다.
@@ -93,7 +95,12 @@ export async function deleteServerPage(transport,pageId){
 export async function createServerPage({transport,diaryId,backgroundAssetId=null,orientation='landscape',paperAppearance,storage,key,createId,isActive=()=>true}){
  const check=()=>{if(!isActive())throw Object.assign(Error('계정이 바뀌어 페이지 생성을 중단했어요.'),{code:'STALE_ACCOUNT'})}
  check();if(!uuid(diaryId))throw invalid()
- const template=SERVER_TEMPLATE_CATALOG.find(t=>t.backgroundAssetId===backgroundAssetId&&(backgroundAssetId!==null||t.orientation===orientation.toUpperCase()))
+ // 원격 속지(remote-<id>-<방향>)는 방향별 범용 행(dio-remote-<방향>)에 만들고 설정에 remoteTemplate 을 싣는다
+ const remote=parseRemoteTemplateAssetId(backgroundAssetId)
+ // 날짜 속지는 같은 양식의 만년형 속지 행에 만들고 설정에 datedTemplate 을 싣는다(페이지 생성은 설정 키를 막지 않는다)
+ let base=backgroundAssetId;try{if(isDatedId(backgroundAssetId))base=datedBaseId(backgroundAssetId)}catch{throw invalid()}
+ const template=remote?SERVER_TEMPLATE_CATALOG.find(t=>t.remote&&t.orientation===remote.orientation.toUpperCase())
+  :SERVER_TEMPLATE_CATALOG.find(t=>!t.remote&&t.backgroundAssetId===base&&(base!==null||t.orientation===orientation.toUpperCase()))
  if(!serverTemplateSelectable(template))throw invalid()
  let pending=JSON.parse(await storage.getItem(key)??'null');check()
  if(pending){
@@ -105,7 +112,7 @@ export async function createServerPage({transport,diaryId,backgroundAssetId=null
  pending??={requestId:createId()}
  if(!uuid(pending.requestId))throw invalid()
  const body=pending.body??{canvasWidth:template.canvasWidth,canvasHeight:template.canvasHeight,templateConfig:{...template.defaultConfig,
-  templateCode:template.templateCode,templateVersion:template.templateVersion,clientPageRequestId:pending.requestId,...(paperAppearance?{paperAppearance}:{})}}
+  templateCode:template.templateCode,templateVersion:template.templateVersion,clientPageRequestId:pending.requestId,...serverTemplateConfigFor(backgroundAssetId),...(paperAppearance?{paperAppearance}:{})}}
  pending.body=body;await storage.setItem(key,JSON.stringify(pending));check()
  let response
  try{response=await transport({method:'POST',path:`/diaries/${diaryId}/pages`,body})}

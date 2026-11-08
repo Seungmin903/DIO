@@ -26,13 +26,22 @@ export function createCanvasApi(transport,media){
 }
 export const canvasContent=objects=>objects.filter(sharedObject).map(encodeElement)
 export const stable=value=>JSON.stringify(value,(_,v)=>v&&typeof v==='object'&&!Array.isArray(v)?Object.fromEntries(Object.keys(v).sort().map(k=>[k,v[k]])):v)
-export const sameElements=(a,b)=>stable(canvasContent(a))===stable(canvasContent(b))
+// 요소 하나의 내용 서명. 같은 객체는 한 번만 인코딩한다(획 확정·주기 대조가 요소 수백 개를 매번 직렬화하지 않게).
+const signatures=new WeakMap()
+export const elementSignature=object=>{let value=signatures.get(object);if(value===undefined){value=stable(encodeElement(object));signatures.set(object,value)}return value}
+const sameElement=(a,b)=>a===b||elementSignature(a)===elementSignature(b)
+// 두 목록의 공유 요소가 같은 순서로 같은 내용인지. 길이가 다르면 바로 다르고, 같은 객체는 인코딩 없이 같다고 보며, 처음 다른 요소에서 멈춘다.
+export const sameElements=(a,b)=>{
+  const left=a.filter(sharedObject),right=b.filter(sharedObject)
+  return left.length===right.length&&left.every((object,index)=>sameElement(object,right[index]))
+}
 export const canvasConflict=()=>Object.assign(new Error('다른 변경과 겹쳐 자동으로 덮어쓰지 않았어요. 기기 내용은 유지돼요.'),{status:409,code:'CANVAS_HISTORY_CONFLICT'})
+// 편집 전후의 바뀐 요소 id. old·next 는 id → 기기 객체이며, 같은 객체를 가리키는 요소는 인코딩하지 않는다.
 export function canvasDelta(before,after){
-  const old=new Map(canvasContent(before).map(o=>[o.elementId,o])),next=new Map(canvasContent(after).map(o=>[o.elementId,o]))
+  const old=new Map(before.filter(sharedObject).map(o=>[o.id,o])),next=new Map(after.filter(sharedObject).map(o=>[o.id,o]))
   const commonOld=[...old.keys()].filter(id=>next.has(id)),commonNext=[...next.keys()].filter(id=>old.has(id))
-  const reordered=stable(commonOld)!==stable(commonNext)
-  return {old,next,reordered,touched:[...new Set([...old.keys(),...next.keys()])].filter(id=>!old.has(id)||!next.has(id)||stable(old.get(id))!==stable(next.get(id))||reordered)}
+  const reordered=commonOld.length!==commonNext.length||commonOld.some((id,index)=>id!==commonNext[index])
+  return {old,next,reordered,touched:[...new Set([...old.keys(),...next.keys()])].filter(id=>!old.has(id)||!next.has(id)||reordered||!sameElement(old.get(id),next.get(id)))}
 }
 
 // Apply remote results without discarding edits made while the request was in flight.

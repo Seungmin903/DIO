@@ -6,6 +6,7 @@ import * as text from '../src/editor/utils/text.js'
 import { waitForExportFonts } from '../src/editor/utils/exportFonts.js'
 import { createExportSnapshot } from '../src/editor/utils/pageExport.js'
 import * as planners from '../src/editor/templates/planners.js'
+import * as remoteAssets from '../src/shared/remoteAssets/remoteAssets.js'
 
 const require = createRequire(import.meta.url), expo = createRequire(require.resolve('expo/package.json'))
 
@@ -21,11 +22,16 @@ function loadFontModule({ autoResolve = false } = {}) {
     if (id === '../utils/text') return text
     if (id === '../templates/planners.js') return planners
     if (id === '../../handwriting/library.js') return { refreshPersonalFonts: async () => [] }
+    if (id === '../../shared/remoteAssets/remoteAssets.js') return remoteAssets
+    // 원격 글꼴은 내려받은 위치(여기서는 원본 경로를 붙인 가짜 주소)로 등록한다
+    if (id === '../../shared/remoteAssets/remoteAssetFile') return { fetchRemoteAsset: async asset => 'file:///remote/' + asset.path }
     if (/\.(ttf|otf)$/.test(id)) return id
     return require(id)
   }, module, module.exports)
   return { module, calls, pending }
 }
+
+const flush = () => new Promise(resolve => setImmediate(resolve))
 
 test('글꼴 로더는 쓰이는 글꼴만 한 번씩 등록하고 실패한 face를 사용할 수 없는 상태로 알린다', async t => {
   const { module, calls, pending } = loadFontModule()
@@ -40,6 +46,7 @@ test('글꼴 로더는 쓰이는 글꼴만 한 번씩 등록하고 실패한 fac
   assert.deepEqual(calls.flatMap(Object.keys), ['NanumGothic'])
   // 글꼴을 찾는 순간 그 글꼴(굵게면 굵은 서체까지)만 한 번 불러온다
   text.textStyle({ font: 'maruburi', bold: true }, 1, 'ios'); text.textStyle({ font: 'maruburi', bold: true }, 1, 'ios')
+  await flush() // 마루부리는 원격 글꼴이라 내려받은 뒤 등록한다
   assert.deepEqual(calls.flatMap(Object.keys), ['NanumGothic', 'MaruBuri', 'MaruBuriBold'])
   for (let i = 0; i < 200; i++) text.textStyle({ font: 'maruburi', bold: true }, 1, 'ios') // 렌더마다 불려도 다시 등록하지 않는다
   assert.equal(calls.length, 3)
@@ -51,6 +58,7 @@ test('글꼴 로더는 쓰이는 글꼴만 한 번씩 등록하고 실패한 fac
   assert.match(files.MaruBuriBold, /MaruBuri-Bold.ttf$/)
   // 목록에 있는 글꼴을 직접 기다려 불러올 수도 있다 (내보내기 전). 이미 요청한 face는 다시 부르지 않는다
   const ensured = module.exports.ensureTextFonts(['nanum-myeongjo', 'gowun-dodum', 'maruburi', 'sans'], { bold: true })
+  await flush()
   assert.deepEqual(calls.flatMap(Object.keys).slice(4).sort(), ['GowunDodum', 'NanumMyeongjo', 'NanumMyeongjoBold'])
   assert.equal(calls.length, 7)
   for (const [family, task] of pending) family === 'NanumMyeongjoBold' ? task.reject(Error('font unavailable')) : task.resolve()
@@ -63,11 +71,13 @@ test('글꼴 로더는 쓰이는 글꼴만 한 번씩 등록하고 실패한 fac
   // 내보내기 전에는 요소가 쓰는 글꼴만 (굵게 쓴 것은 굵은 서체까지) 기다린다
   const before = calls.length
   const forExport = module.exports.ensureTextFontsFor([{ type: 'text', text: '가', font: 'gowun-batang', bold: true }, { type: 'image' }])
+  await flush()
   assert.deepEqual(calls.slice(before).flatMap(Object.keys), ['GowunBatang', 'GowunBatangBold'])
   for (const task of pending.values()) task.resolve()
   await forExport
   // 11개 글꼴 파일 매핑 전체를 한 번에 확인한다. 글꼴은 쓰일 때 처음 불러오므로 매핑이 틀리면 고르는 순간에야 드러난다
   const everything = module.exports.ensureTextFonts(text.TEXT_FONTS.map(font => font.id), { bold: true })
+  await flush()
   for (const task of pending.values()) task.resolve()
   await everything
   const expectedFiles = {

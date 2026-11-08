@@ -2,6 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { createRequire } from 'node:module'
 import { readFileSync } from 'node:fs'
+import { coverPhotoWithAspect } from '../src/diary/utils/coverPhotoCrop.js'
 const require = createRequire(import.meta.url), expo = createRequire(require.resolve('expo/package.json'))
 const transform = file => expo('@babel/core').transformSync(readFileSync(new URL(file, import.meta.url), 'utf8'), {
   configFile: false, babelrc: false, plugins: [[expo.resolve('@babel/plugin-transform-react-jsx'), { runtime: 'automatic' }], expo.resolve('@babel/plugin-transform-modules-commonjs')],
@@ -14,7 +15,7 @@ const stickerAction = (ui, text) => {
   find(ui.render(), '스티커 추가').props.onPress()
   return nodes(ui.render()).find(n => n.type === '../components/DiaryActionBubble').props.actions.find(action => action.text === text)
 }
-function fixture({ supported = false, failFonts = false, family = null, failRemove = false, libraryReady = true, entries = [], cutout = false } = {}) {
+function fixture({ supported = false, failFonts = false, family = null, failRemove = false, libraryReady = true, entries = [], cutout = false, platform = 'web', pickerCalls = [], pickedImage = null, discarded = [] } = {}) {
   const states = [], refs = [], deps = [], cleanups = [], saves = [], removals = []
   let si, ri, ei, studio = null, fontLoads = 0, backHandler = null
   const opened = [], draftRemovals = []
@@ -27,6 +28,8 @@ function fixture({ supported = false, failFonts = false, family = null, failRemo
   }
   const custom = { loaded: true, items: { folders: [{ id: 'f1', name: '공용 폴더', items: [{ emoji: '🌼' }] }] },
     saveGenerated: async (...args) => { saves.push(args); return 'new-folder' },
+    addFolder: name => { custom.items.folders.push({ id: 'f-new', name, items: [] }); return 'f-new' },
+    renameFolder: (id, name) => { custom.items.folders.find(f => f.id === id).name = name },
     removeFolder: id => removals.push(['folder', id]), removeFromFolder: (...args) => removals.push(['sticker', ...args]), retrySave() {},
   }
   const library = { ready: libraryReady, covers: [{ id: 'c1', name: '봄 표지', cover: {} }], papers: [{ id: 'p1', name: '월간 속지', orientation: 'portrait', pages: [{}, {}] }],
@@ -39,7 +42,12 @@ function fixture({ supported = false, failFonts = false, family = null, failRemo
     if (id.endsWith('/useMyLibrary')) return { __esModule: true, default: () => library }
     if (id.endsWith('/useDefaultPaperStyle')) return { __esModule: true, default: () => ({ style: {}, ready: true, save: async () => true }) }
     if (id === 'react/jsx-runtime') return require(id)
-    if (id === 'react-native') return { StyleSheet: {create:v=>v}, View:'View', Text:'Text', Pressable:'Pressable', ScrollView:'ScrollView' }
+    if (id === 'react-native') return { Platform: { OS: platform }, StyleSheet: {create:v=>v}, View:'View', Text:'Text', Pressable:'Pressable', ScrollView:'ScrollView' }
+    if (id.endsWith('/services/image')) return { pickImages: async opts => { pickerCalls.push(['photo', opts.usage]); return pickedImage ? [pickedImage] : [] } }
+    if (id.endsWith('/services/mediaStore')) return { discardGeneratedMedia: async items => { discarded.push(...items) } }
+    if (id.endsWith('/utils/mediaRecovery.js')) return { mediaFailureMessage: error => error.message }
+    if (id.endsWith('/utils/coverPhotoCrop')) return { coverPhotoWithAspect, coverCropPhoto() {}, COVER_PHOTO_RATIO: { portrait: 0.75, landscape: 4 / 3 } }
+    if (id.endsWith('/utils/pdfPages')) return { pickPdfPages: async () => { pickerCalls.push(['pdf']); return null } }
     if (id.endsWith('/theme')) return {colors:{},radius:{},DISABLED_OPACITY:.4}
     if (id.endsWith('/useFillGrid')) return { __esModule: true, default: ({ cell, gap }) => ({ onLayout() {}, columns: 1, cellWidth: cell, spreadGap: gap }) } // 격자 폭 재기(훅 순서를 바꾸지 않게 상태 없이)
     if (id.endsWith('/styles')) return {styles:{}}
@@ -61,6 +69,71 @@ function fixture({ supported = false, failFonts = false, family = null, failRemo
   const tab = id => { nodes(render()).find(n => n.type === '../components/StudioTabs').props.onChange(id) }
   return {render, tab, back:()=>backHandler?.(), custom, saves, removals, opened, draftRemovals, closeFont(){studio=null}, get studio(){return studio}, get fontLoads(){return fontLoads}, unmount(){cleanups.forEach(fn=>fn?.())}}
 }
+test('iOS 공방의 사진·PDF 선택은 메뉴가 닫힌 뒤 한 번만 연다', async () => {
+  const previous = globalThis.requestAnimationFrame
+  globalThis.requestAnimationFrame = callback => callback()
+  try {
+    for (const [tab, label, action, expected] of [
+      ['tapes', '테이프 추가', '사진으로 만들기', ['photo', 'tape']],
+      ['covers', '표지 추가', '사진으로 만들기', ['photo', 'photo']],
+      ['covers', '표지 추가', 'PDF로 만들기', ['pdf']],
+    ]) {
+      const calls = [], ui = fixture({ platform: 'ios', pickerCalls: calls })
+      ui.render(); await tick(); ui.tab(tab)
+      find(ui.render(), label).props.onPress()
+      let bubble = nodes(ui.render()).find(n => n.type === '../components/DiaryActionBubble')
+      const choose = bubble.props.actions.find(item => item.text === action).onPress
+      choose(); choose()
+      bubble = nodes(ui.render()).find(n => n.type === '../components/DiaryActionBubble')
+      assert.equal(bubble.props.visible, false)
+      assert.deepEqual(calls, [])
+      bubble.props.onDismiss(); bubble.props.onDismiss()
+      await tick()
+      assert.deepEqual(calls, [expected])
+      ui.unmount()
+    }
+  } finally { globalThis.requestAnimationFrame = previous }
+})
+test('사진 크기가 잘못되면 가져온 미디어를 정리하고 오류를 표시한다', async () => {
+  const item = { mediaFileId: 'bad', width: 100, height: 0 }, discarded = []
+  const ui = fixture({ pickedImage: item, discarded }); ui.render(); await tick(); ui.tab('covers')
+  find(ui.render(), '표지 추가').props.onPress()
+  const bubble = nodes(ui.render()).find(n => n.type === '../components/DiaryActionBubble')
+  bubble.props.actions.find(action => action.text === '사진으로 만들기').onPress()
+  await tick(); await tick()
+  assert.deepEqual(discarded, [item])
+  assert.ok(nodes(ui.render()).some(n => n.props.children === '사진 크기를 확인하지 못했어요.'))
+  ui.unmount()
+})
+test('iOS 메뉴 닫힘 취소·이벤트 유실 후 다시 선택할 수 있고 이전 닫힘은 새 요청을 열지 않는다', async () => {
+  const oldTimeout = globalThis.setTimeout, oldClear = globalThis.clearTimeout, oldFrame = globalThis.requestAnimationFrame
+  const timers = new Map(); let seq = 0
+  globalThis.setTimeout = fn => { const id = ++seq; timers.set(id, fn); return id }
+  globalThis.clearTimeout = id => timers.delete(id)
+  globalThis.requestAnimationFrame = fn => fn()
+  try {
+    const calls = [], ui = fixture({ platform: 'ios', pickerCalls: calls })
+    ui.render(); await tick(); ui.tab('tapes')
+    const open = () => {
+      find(ui.render(), '테이프 추가').props.onPress()
+      const menu = nodes(ui.render()).find(n => n.type === '../components/DiaryActionBubble')
+      menu.props.actions.find(item => item.text === '사진으로 만들기').onPress()
+      return nodes(ui.render()).find(n => n.type === '../components/DiaryActionBubble')
+    }
+    const first = open(); first.props.onClose()
+    const second = open(); first.props.onDismiss()
+    assert.deepEqual(calls, [])
+    second.props.onDismiss(); await tick()
+    assert.deepEqual(calls, [['photo', 'tape']])
+    const third = open(); [...timers.values()][0]() // 닫힘 이벤트가 오지 않는 경우
+    assert.equal(nodes(ui.render()).some(n => n.type === '../components/DiaryActionBubble'), false)
+    assert.ok(nodes(ui.render()).some(n => n.props.children === '사진을 불러오지 못했어요. 다시 시도해 주세요.'))
+    const fourth = open(); third.props.onDismiss(); fourth.props.onDismiss(); await tick()
+    assert.deepEqual(calls, [['photo', 'tape'], ['photo', 'tape']])
+    open(); ui.tab('covers'); assert.equal(timers.size, 0)
+    ui.unmount()
+  } finally { globalThis.setTimeout = oldTimeout; globalThis.clearTimeout = oldClear; globalThis.requestAnimationFrame = oldFrame }
+})
 test('폰트 제작 재사용·닫기 후 목록 새로고침과 파일 오류 안내를 제공한다', async () => {
   const ui = fixture(); ui.render(); await tick()
   assert.equal(find(ui.render(),'폰트 관리'),undefined)
@@ -146,6 +219,19 @@ test('작성 중인 폰트만 지울 수 있고 확인을 거친 뒤에 지운�
   assert.deepEqual(ui.draftRemovals,['e1']);
   ui.unmount();
 });
+test('스티커 새 폴더: 시트 분리 없이 만들고 바로 들어가 이름을 고친다', async () => {
+  const ui=fixture({supported:true}); ui.render(); await tick(); ui.tab('stickers')
+  stickerAction(ui,'새 폴더').onPress()
+  const opened=ui.render()
+  assert.equal(find(opened,'스티커 폴더 이름').props.value,'새 폴더')
+  assert.ok(find(opened,'스티커 추가')) // 폴더 안 머리줄 아래 추가 버튼
+  find(opened,'스티커 폴더 이름').props.onChangeText('여름')
+  find(ui.render(),'스티커 폴더 이름 저장').props.onPress()
+  assert.equal(nodes(ui.render()).some(n=>n.props?.accessibilityLabel==='스티커 폴더 이름'),false)
+  find(ui.render(),'스티커 폴더 목록').props.onPress()
+  assert.ok(find(ui.render(),'여름 스티커 폴더'))
+  ui.unmount()
+})
 test('폴더 안의 뒤로가기는 목록을 먼저 복원하고 이후 상위 화면에 넘긴다', async () => {
   const ui=fixture(); ui.render(); await tick(); ui.tab('stickers');
   assert.equal(ui.back(),false);
@@ -175,7 +261,7 @@ test('공방은 내 폰트 · 스티커 · 테이프 · 표지 · 속지 · 도�
   assert.deepEqual(titles, ['폰트', '스티커', '테이프', '표지', '속지', '도구'])
   ui.unmount()
 })
-test('나의 표지 · 속지는 확인을 거친 뒤에만 지우고 저장에 실패하면 알린다', async () => {
+test('내 표지 · 속지는 확인을 거친 뒤에만 지우고 저장에 실패하면 알린다', async () => {
   const ui = fixture(); ui.render(); await tick(); ui.tab('covers')
   const shelf = kind => nodes(ui.render()).find(n => n.type === '../components/StudioShelf' && n.props.kind === kind)
   assert.equal(shelf('cover').props.items[0].id, 'c1')
@@ -198,7 +284,7 @@ test('나의 표지 · 속지는 확인을 거친 뒤에만 지우고 저장에 
   assert.ok(nodes(failed.render()).some(n => n.props?.accessibilityRole === 'alert' && n.props.children === '표지를 지우지 못했어요. 다시 시도해 주세요.'))
   failed.unmount()
 })
-test('나의 표지 · 속지를 읽는 중에는 목록 대신 불러오는 중이라고 말한다', async () => {
+test('내 표지 · 속지를 읽는 중에는 목록 대신 불러오는 중이라고 말한다', async () => {
   const ui = fixture({ libraryReady: false }); ui.render(); await tick()
   ui.tab('covers')
   let tree = ui.render()

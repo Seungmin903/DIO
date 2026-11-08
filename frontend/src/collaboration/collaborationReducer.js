@@ -38,6 +38,7 @@ const geometryChanges = (state,action) => {
   return {ids,updates}
 }
 export function collaborationReducer(reduce,state,action) {
+  if(action.type==='revertToCheckpoint'&&action.checkpointOwner&&state.pendingCheckpoint?.owner!==action.checkpointOwner)return state
   if (action.type === 'canvasLimitNoticeShown') return state.collaborationLimitError?.id === action.id
     ? {...state,collaborationLimitError:null} : state
   const geometry=geometryChanges(state,action)
@@ -82,7 +83,8 @@ export function collaborationReducer(reduce,state,action) {
 function reduceCollaboration(reduce,state,action) {
   const meta=state.collaborationPast ?? state.past.map(()=>({pageId:state.pageId,hasCanvas:false}))
   const future=state.collaborationFuture ?? state.future.map(()=>({pageId:state.pageId,hasCanvas:false}))
-  let current={...state,collaborationPast:meta,collaborationFuture:future,collaborationEdits:state.collaborationEdits??[]}
+  // 협업 필드가 이미 있으면 같은 상태 객체를 쓴다. 바뀐 것이 없는 동기화 반영이 새 객체를 돌려주면 전체 화면을 다시 그린다.
+  let current=state.collaborationPast&&state.collaborationFuture&&state.collaborationEdits?state:{...state,collaborationPast:meta,collaborationFuture:future,collaborationEdits:state.collaborationEdits??[]}
   const intent=(before,after,id,pageId)=>same(before,after)?[]:[{id,pageId,before,after}]
   const finish=() => {
     const gesture=current.collaborationGesture

@@ -82,7 +82,23 @@ export function createMemberAppStore({ accountId, api, storage, makeRequestId, s
       active(); emit({ diaries, error: null }); return diary
     })
   }
-  const refreshDiary = async (id, allowUnlisted = false) => {
+  // 예전 릴리스는 꾸민 표지를 만든 기기에만 두었고, 그 다이어리를 이 기기에서 다시 열어야만(refreshDiary) 서버로 올렸다.
+  // 그래서 다시 열지 않은 다이어리는 다른 기기(로그인한 아이폰 등)에서 사진 표지가 안 보였다(지라 623).
+  // 목록을 받을 때 내 다이어리 중 서버에 표지가 없고 이 기기에만 있는 것을 하나씩 뒤에서 올린다(세션마다 다이어리당 한 번).
+  // 올리지 못하면 표시를 지워 다음 목록 갱신 때 다시 해 본다(다이어리당 세션에서 3번까지). 뒤에서 하는 일이라 실패 안내는 띄우지 않는다.
+  // 409(다른 기기가 먼저 고침)는 최신본을 받고 멈춘다: 다음에 주인이 그 다이어리를 열 때 다시 올린다.
+  const coverSyncTried = new Set(), coverSyncFails = new Map()
+  let coverSync = Promise.resolve()
+  const syncLocalCovers = (serverItems, merged) => {
+    const local = new Map(merged.map(row => [row.id, row]))
+    for (const item of serverItems) {
+      if (item.cover || item.myRole !== 'OWNER' || !local.get(item.id)?.cover || coverSyncTried.has(item.id) || (coverSyncFails.get(item.id) ?? 0) >= 3) continue
+      coverSyncTried.add(item.id)
+      coverSync = coverSync.then(() => (disposed ? null : refreshDiary(item.id, false, { quiet: true })))
+        .catch(() => { coverSyncFails.set(item.id, (coverSyncFails.get(item.id) ?? 0) + 1); coverSyncTried.delete(item.id) })
+    }
+  }
+  const refreshDiary = async (id, allowUnlisted = false, { quiet = false } = {}) => {
     active()
     const detailRequest = { version: version(id), sequence: (detailRequests.get(id) ?? 0) + 1 }
     detailRequests.set(id, detailRequest.sequence)
@@ -95,6 +111,7 @@ export function createMemberAppStore({ accountId, api, storage, makeRequestId, s
       catch(error) {
         active()
         if(error.status===409) { result=await api.get(id);active() }
+        else if(quiet) throw error
         else emit({metadataError:failure('COVER_SYNC_FAILED','이 기기의 표지를 공유하지 못했어요. 표지를 다시 저장해 주세요.')})
       }
     }
@@ -107,7 +124,7 @@ export function createMemberAppStore({ accountId, api, storage, makeRequestId, s
     const doc = createDefaultDoc(diary)
     doc.memberAccountId = accountId
     doc.pages = input.initialPages.map((selected, index) => {
-      const ref = localTemplateReference(selected.templateCode, selected.templateVersion)
+      const ref = localTemplateReference(selected.templateCode, selected.templateVersion, selected.templateConfig)
       const base = { id: result.pageIds[index], ...ref, ...(selected.templateConfig.paperAppearance ? { paperAppearance: selected.templateConfig.paperAppearance } : {}), objects: [] }
       const imported = input.importedPages?.[index]
       // PDF 쪽: 서버가 만든 페이지 id 에 쪽 크기와 쪽 그림(잠근 바탕)을 얹는다. 그림과 원본 PDF 는 편집기에서 서버로 올라간다.
@@ -132,6 +149,10 @@ export function createMemberAppStore({ accountId, api, storage, makeRequestId, s
         }
         const { diary, doc } = createDocument(result, pending.input)
         if (pending.input.importedPages?.length) { await api.setPageSizes(doc.pages.map(page => ({ pageId: page.id, canvasWidth: page.canvasWidth, canvasHeight: page.canvasHeight }))); active() }
+        // 날짜 속지: 만든 뒤 페이지 설정에 날짜 ID 를 넣는다(실패하면 요청을 남겨 두고 다시 시도한다 — 같은 생성 키라 같은 다이어리에 다시 넣는다)
+        const dated = pending.input.initialPages.map((selected, index) => ({ pageId: result.pageIds[index], templateConfig: selected.templateConfig }))
+          .filter(page => typeof page.templateConfig?.datedTemplate === 'string')
+        if (dated.length) { await api.setDatedPages(dated); active() }
         const saved = await readStoredDocument(storage, keys.doc(result.id))
         active()
         if (saved && (saved.id !== result.id || saved.memberAccountId !== accountId || !saved.pages?.length)) throw failure('INVALID_MEMBER_DOCUMENT', '기존 회원 문서를 확인하지 못했어요. 덮어쓰지 않았어요.')
@@ -315,6 +336,7 @@ export function createMemberAppStore({ accountId, api, storage, makeRequestId, s
             libraryRetryMore = false
             emit({ diaries, error: null, library: { criteria, items: [...items.values()], ready: true, loading: false, error: null, hasNext: page.hasNext, nextCursor: page.nextCursor } })
             fillOrientations()
+            syncLocalCovers(page.items, rows)
             return [...items.values()]
           })
         } catch (error) {

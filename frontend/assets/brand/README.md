@@ -1,5 +1,18 @@
 # DIO final mascot
 
+## 2026-11-08 새 모아 그림으로 교체
+
+로고 · 설치 아이콘 · 시작 화면의 모아를 빈 화면에 쓰는 새 모아(전소연 new_moa, 2026-11-06)를 곡선 벡터로 다시 그린 그림으로 바꿨다. 얼굴은 사용자 수정본(눈 지름 45 · 입 선 굵기 13.3, 두 눈 정가운데)이다.
+
+- 구도는 예전 로고와 같다. 예전 로고 모아 실루엣에 새 모아를 겹침 최대로 맞춘 값(12.97° 회전, 1.773배, 이동 -322.19, -329.9 · 겹침 98%)을 SVG `transform`에 그대로 적는다. 틀은 1254 정사각 rx 212 둥근 사각형이고 모아도 이 틀로 잘린다.
+- mascot-final-*.svg: 둥근 사각형 바깥 투명. launcher/app-icon-square-*.svg: 정사각 연보라 바탕 전체. 채색 · 윤곽 분리본도 같은 구도다.
+- launcher/app-icon-square-foreground.png: 바탕 없는 모아(투명). Android adaptive 전경은 이 PNG로 만든다(예전 정수 사각 경로 SVG 해석 대신).
+- mascot-splash.png: 시작 화면 애니메이션 그림(바탕 없음, 같은 구도).
+- display/*, images/*는 `pnpm brand:icons`로 다시 만들었다. brand-logo 테스트의 얼굴 · 책갈피 좌표를 새 그림 기준으로 바꿨다.
+- 설치 아이콘 · Android 마스크 · iOS 시작 화면은 새 네이티브 빌드에서 확인이 필요하다.
+
+아래는 2026-11-04 원본 교체 때의 기록이다.
+
 ## 설치 아이콘 모서리 보완
 
 설치용 원본은 사용자 제공 app-icon-square.zip의 6개 파일을 launcher/에 보관한다. 일반 아이콘은 app-icon-square-combined.png를 1024px로 축소한다. Android 전경은 해당 SVG의 background 레이어를 제외한 정수 사각 경로를 렌더링해 중앙 683px 표시 영역에 배치한다. 얼굴과 책갈피 중심은 66/108 안전 영역 안에 두며 표지 외곽은 시스템 마스크로 잘린다. 배경은 app.json의 #F0ECFD가 전체를 채운다. 실제 원형·둥근 사각형 외곽은 런처가 결정한다. 설치 아이콘은 새 네이티브 빌드에서 확인한다.
@@ -18,7 +31,7 @@ Android 마스크와 iOS 시작 화면 전환·설치 아이콘은 새 빌드 �
 ## 리뷰 확인
 
 - 재생성은 직접 devDependency jimp-compact와 `pnpm brand:icons`를 사용한다. Expo 내부 의존 경로를 사용하지 않는다.
-- BrandLogo 사용처는 AuthScreen, TopBar, ReadingChrome, BootSplash이며 color/accent 인자는 사용하지 않는다. 정사각 비율은 새 원본에 맞춘 의도된 변경이다.
+- BrandLogo 사용처는 AuthScreen, BootSplash이며(편집기 상단 바 TopBar · 읽기 화면 ReadingChrome 의 돌아가기는 2026-11-08 집 모양 홈 아이콘으로 바꿨다) color/accent 인자는 사용하지 않는다. 정사각 비율은 새 원본에 맞춘 의도된 변경이다.
 - BootSplash 이미지 onLoadEnd 후 네이티브 시작 화면을 내리며 기존 앱 준비 완료/8초 제한에 의한 해제 경로도 유지한다. 네트워크가 느린 개발 빌드의 실제 시작 전환 확인은 남아 있다.
 - android/는 체크아웃에 없고 빌드 시 생성된다. withSplashWindowBackground 플러그인은 Theme.App.SplashScreen의 windowSplashScreenAnimatedIcon을 투명 XML로 덮어쓰므로 생성된 splashscreen_logo.png가 있어도 이 속성으로 표시하지 않는다. iOS는 expo-splash-screen 설정의 새 splash-icon.png를 사용한다. 새 네이티브 빌드에서 확인해야 한다.
 - SVG 3개는 원본 6개와 함께 커밋에 포함된다.

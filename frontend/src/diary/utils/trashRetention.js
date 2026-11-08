@@ -1,6 +1,11 @@
 import { scanStored } from './storedScan.js';
 
-export const TRASH_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
+export const TRASH_RETENTION_DAYS = 30;
+export const TRASH_RETENTION_MS = TRASH_RETENTION_DAYS * 24 * 60 * 60 * 1000;
+
+// 남은 날짜(올림). 기기 시계가 서버보다 조금이라도 늦으면 막 옮긴 다이어리가 '31일'로 보이므로 보관 기간(30일)을 넘지 않게 한다.
+// 서버 보관 기간도 30일 고정이다(backend DiaryTrashService.RETENTION = 30일, purgeAt = deletedAt + 30일). 서버 기간이 바뀌면 이 상한도 같이 바꾼다.
+export const trashDaysLeft = (deadline, now) => Math.min(TRASH_RETENTION_DAYS, Math.max(0, Math.ceil((deadline - now) / (24 * 60 * 60 * 1000))));
 
 export function trashDeadline(diary) {
   if (!diary?.trashedAt) return null;
@@ -26,8 +31,7 @@ export function trashStatus(diary, now = Date.now()) {
   const deadline = trashDeadline(diary);
   if (diary.purgePending || (deadline !== null && now >= deadline)) return '보관 기한 만료 · 영구 삭제 대기';
   if (deadline === null) return '삭제 날짜 확인 필요 · 자동 삭제 보류';
-  const days = Math.ceil((deadline - now) / (24 * 60 * 60 * 1000));
-  return `${days}일 후 영구 삭제`;
+  return `${trashDaysLeft(deadline, now)}일 후 영구 삭제`;
 }
 
 /** 호출자는 목록 저장과 삭제를 같은 큐에서 실행한다. 삭제 표식은 문서보다 먼저 저장한다. */
@@ -65,7 +69,7 @@ export async function purgeTrashedDiary({ id, storage, keys, getDiaries, updateD
     const otherDiaries = getDiaries().filter(item => item.id !== id);
     collectMediaIds(otherDiaries).forEach(item => retained.add(item));
     collectSourceIds(otherDiaries).forEach(item => retainedSources.add(item));
-    // 불러온 PDF 원본도 같은 방식으로: 다른 문서 · 나의 속지가 쓰지 않을 때만 지운다.
+    // 불러온 PDF 원본도 같은 방식으로: 다른 문서 · 내 속지가 쓰지 않을 때만 지운다.
     const unshared = unreadable ? [] : [...targetMedia].filter(mediaId => !retained.has(mediaId));
     const unsharedSources = unreadable ? [] : [...targetSources].filter(sourceId => !retainedSources.has(sourceId));
     // 열람 기록 삭제가 실패하면 문서를 보존하여 재시도에도 미디어 참조를 읽을 수 있게 한다.

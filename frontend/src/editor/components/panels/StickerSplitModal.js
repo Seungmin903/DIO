@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
-import { ActivityIndicator, Alert, FlatList, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native'
+import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import EditorModal from '../controls/EditorModal'
+import ConfirmDialog from '../controls/ConfirmDialog'
+import Icon from '../controls/Icon'
 import StickerSplitPreview from './StickerSplitPreview'
 import StickerSplitSlider from './StickerSplitSlider'
 import StickerSplitTools, { SplitAction as Action, SplitIconAction as IconAction, SplitChoiceGroup as ChoiceGroup, SplitSettingTitle as SettingTitle } from './StickerSplitTools'
@@ -9,6 +11,7 @@ import StickerGroupThumbnail from './StickerGroupThumbnail'
 import useStickerSplitEditing from '../../hooks/useStickerSplitEditing'
 import { brushSelection, materializeGroups, excludeStickerGroup, splitBrushTargets } from '../../utils/stickerSplitGroups.js'
 import PenSafeTextInput from '../controls/PenSafeTextInput'
+import { FOLDER_NAME_LIMIT } from '../../hooks/useCustomDecor'
 import { MakerBar, MakerHeader } from '../../../shared/MakerKit'
 import { colors, radius, DISABLED_OPACITY } from '../../../shared/theme'
 import { stickerSplit } from '../../services/stickerSplit'
@@ -165,10 +168,9 @@ export default function StickerSplitModal({ folder, initialName = '', onSave, on
     } catch (failure) { if (alive.current && !closing.current) setError(splitError(failure)) }
     finally { operation.current = null; busy.current = false; if (alive.current) setPhase('idle') }
   }
+  const [rerunAsk, setRerunAsk] = useState(false)
   function requestRun() {
-    if (parts.length && editing.enabled) Alert.alert('분리 결과를 새로 만들까요?', '다시 분리하면 선택·묶음과 실행 취소 기록이 초기화돼요.', [
-      { text: '취소', style: 'cancel' }, { text: '다시 분리하기', onPress: () => run() },
-    ])
+    if (parts.length && editing.enabled) setRerunAsk(true)
     else return run()
   }
   const saveCount = groups.length
@@ -276,7 +278,7 @@ export default function StickerSplitModal({ folder, initialName = '', onSave, on
     </View>}
     {!!parts.length && !mustAnalyze && !manualMerge && (folder
       ? <Text style={s.body}>{folder.name}</Text>
-      : <PenSafeTextInput value={name} editable={!working} onChangeText={setName} maxLength={12} placeholder="폴더 이름" placeholderTextColor={colors.text} accessibilityLabel="스티커 폴더 이름" style={s.input} />)}
+      : <PenSafeTextInput value={name} editable={!working} onChangeText={setName} maxLength={FOLDER_NAME_LIMIT} placeholder="폴더 이름" placeholderTextColor={colors.text} accessibilityLabel="스티커 폴더 이름" style={s.input} />)}
     {dirty && !!parts.length && <Text accessibilityLiveRegion="polite" style={s.body}>영역·배경 변경됨 · 다시 분리 필요</Text>}
     </View>}
     {/* 하단 줄(MakerBar): 왼쪽 상태, 오른쪽 끝 주 버튼 하나 */}
@@ -390,7 +392,7 @@ export default function StickerSplitModal({ folder, initialName = '', onSave, on
                   accessibilityState={{ checked: target, disabled }} aria-checked={target}
                   onPress={() => manualMerge ? chooseGroup(item) : setSelected(previous => excludeStickerGroup(previous, item))}
                   style={s.checkTouch}>
-                  <View style={[s.check, target && s.checked]}><Text style={[s.badgeText, target && s.checkedText]}>{target ? '✓' : ''}</Text></View>
+                  <View style={[s.check, target && s.checked]}>{target && <Icon name="check" size={16} color={colors.surface} />}</View>
                 </Pressable>
               </View>
             }} />
@@ -402,6 +404,8 @@ export default function StickerSplitModal({ folder, initialName = '', onSave, on
         <StickerGroupThumbnail group={zoomed} style={{ width: '100%', height: Math.max(120, Math.min(520, height - insets.top - insets.bottom - 140)) }} />
       </View></View>}
     </View>
+    <ConfirmDialog open={rerunAsk} danger={false} title="분리 결과를 새로 만들까요?" message="다시 분리하면 선택·묶음과 실행 취소 기록이 초기화돼요."
+      confirmLabel="다시 분리하기" onCancel={() => setRerunAsk(false)} onConfirm={() => { setRerunAsk(false); run() }} />
   </EditorModal>
 }
 

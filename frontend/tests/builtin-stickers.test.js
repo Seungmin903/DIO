@@ -27,10 +27,10 @@ const library = (items, category, keyword) => load('../src/editor/stickerLibrary
 }).stickerLibrary(items, category, keyword)
 const decor = { folders: [], favorites: [], recentStickers: [], categoryOrder: [], hiddenCategories: [] }
 
-test('기본 스티커는 모아 4 · 디오 4 · 소품 12, 모두 20종이고 그림 크기에 꼭 맞게 잘려 있다', () => {
-  assert.equal(BUILTIN_STICKERS.length, 20)
-  assert.equal(new Set(BUILTIN_STICKERS.map((s) => s.builtin)).size, 20)
-  assert.equal(new Set(BUILTIN_STICKERS.map((s) => s.name)).size, 20)
+test('기본 스티커는 모아 4 · 디오 4 · 소품 16, 모두 24종이고 그림 크기에 꼭 맞게 잘려 있다', () => {
+  assert.equal(BUILTIN_STICKERS.length, 24)
+  assert.equal(new Set(BUILTIN_STICKERS.map((s) => s.builtin)).size, 24)
+  assert.equal(new Set(BUILTIN_STICKERS.map((s) => s.name)).size, 24)
   assert.equal(BUILTIN_STICKERS.filter((s) => s.builtin.startsWith('moa_')).length, 4)
   assert.equal(BUILTIN_STICKERS.filter((s) => s.builtin.startsWith('dio_')).length, 4)
   for (const sticker of BUILTIN_STICKERS) {
@@ -41,6 +41,23 @@ test('기본 스티커는 모아 4 · 디오 4 · 소품 12, 모두 20종이고 
     assert.equal(Math.max(...runs.map(([, y]) => y + 1)), sticker.h, sticker.builtin)
     assert.ok(Math.max(sticker.w, sticker.h) <= BUILTIN_CANVAS, sticker.builtin)
   }
+})
+
+test('원격 그림(PNG) 스티커는 긴 변 110 에 그림 비율로 붙고, 페이지에는 builtin id 만 남는다', () => {
+  const image = { remote: true, key: 'catalog/stickers/spring/cherry.0123456789abcdef.png', size: 10, sha256: 'a'.repeat(64) }
+  builtinStickers.registerRemoteStickerPack({ id: 'remote:spring', name: '봄', items: [
+    { builtin: 'remote:spring:wide', name: '가로', image, iw: 300, ih: 150 },
+    { builtin: 'remote:spring:tall', name: '세로', image, iw: 100, ih: 200 },
+  ] })
+  try {
+    const { createSticker } = objects()
+    const wide = createSticker({ builtin: 'remote:spring:wide' }, { x: 500, y: 400 })
+    assert.deepEqual([wide.w, wide.h, wide.builtin, wide.name, wide.src], [110, 55, 'remote:spring:wide', '가로', undefined])
+    const tall = createSticker({ builtin: 'remote:spring:tall' }, { x: 500, y: 400 })
+    assert.deepEqual([tall.w, tall.h], [55, 110])
+    // 서버 저장 · 공동편집 대상이다(그림 주소를 요소에 넣지 않아 media 규칙에 걸리지 않는다)
+    assert.equal(sharedObject({ ...wide, id: '00000000-0000-4000-8000-000000000009' }), true)
+  } finally { builtinStickers.retainRemoteStickerPacks([]) }
 })
 
 test('페이지에 붙으면 칸 크기가 같아 그림 비율과 그림끼리의 크기 비율이 시트와 같다', () => {
@@ -62,7 +79,7 @@ test('보관함에는 지우지 못하는 디오&모아 분류가 있고, 처음
   const first = library(decor, null, '')
   assert.equal(first.active, BUILTIN_PACK.id)
   assert.equal(first.pack.name, '디오&모아')
-  assert.equal(first.pack.items.length, 20)
+  assert.equal(first.pack.items.length, 24)
   assert.equal(first.folder, null)
   assert.equal(first.orderable[0].base, true)
   assert.deepEqual(library(decor, null, '모아').packMatches.map((s) => s.builtin), ['moa_basic', 'moa_blush', 'moa_tired', 'moa_tongue'])
@@ -121,6 +138,8 @@ function renderBuiltin(options) {
     '../../builtinStickers': builtinStickers,
     '../../hooks/useMediaUri': { useMediaUri: () => undefined },
     '../../hooks/useStickerPlayback': { useStickerPlayback: () => ({ source: null, error: null }) },
+    '../../hooks/useStickerPacks': { useStickerPacks: () => 0 },
+    '../../../shared/remoteAssets/useRemoteAssetUri': { useRemoteAssetUri: () => null },
     './BuiltinStickerArt': { __esModule: true, default: 'BuiltinStickerArt' },
     '../../../shared/theme': { colors: {} },
   }

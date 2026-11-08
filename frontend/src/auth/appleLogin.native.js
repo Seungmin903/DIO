@@ -27,7 +27,9 @@ export async function signInWithApple() {
   });
   if (!credential?.identityToken) throw new Error('애플 인증 정보를 받지 못했어요. 다시 시도해 주세요.');
   // 이메일은 첫 로그인에만 credential에 오므로 토큰에서 읽는다.
-  return { idToken: credential.identityToken, email: credential.email || tokenEmail(credential.identityToken) };
+  // authorizationCode는 탈퇴 시 서버가 Apple 토큰을 철회할 때만 쓴다(5분 안에 한 번).
+  return { idToken: credential.identityToken, authorizationCode: credential.authorizationCode || null,
+   email: credential.email || tokenEmail(credential.identityToken) };
  } catch (error) {
   if (error?.code === 'ERR_REQUEST_CANCELED') throw new Error('애플 로그인을 취소했어요.');
   if (error?.code) throw new Error('애플 로그인을 완료하지 못했어요. 네트워크를 확인해 주세요.');

@@ -10,6 +10,8 @@ import com.f106.DIO.diary.domain.DiaryMember;
 import com.f106.DIO.diary.domain.DiaryMemberId;
 
 public interface DiaryMemberRepository extends JpaRepository<DiaryMember, DiaryMemberId> {
+    @org.springframework.data.jpa.repository.Query("select m.diaryId from DiaryMember m where m.userId=:userId and m.leftAt is null")
+    java.util.List<java.util.UUID> activeDiaryIdsByUserId(@org.springframework.data.repository.query.Param("userId") long userId);
 	Optional<DiaryMember> findByDiaryIdAndUserIdAndLeftAtIsNull(UUID diaryId, Long userId);
 	List<DiaryMember> findAllByUserIdAndLeftAtIsNull(Long userId);
     List<DiaryMember> findByDiaryIdAndLeftAtIsNullOrderByJoinedAtAscUserIdAsc(UUID diaryId);

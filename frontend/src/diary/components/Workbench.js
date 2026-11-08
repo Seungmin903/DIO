@@ -48,7 +48,8 @@ export default function Workbench({ title, actionLabel, onCancel, onSubmit, subm
       </Pressable>
     </View>
     <View style={[styles.main, sheet && styles.mainSheet]}>
-      {sheet ? <View style={styles.cardsSheet}>{cards}</View>
+      {/* 구역이 하나뿐인 화면(공방 표지 편집)은 sections 를 비워 카드 줄을 두지 않는다 */}
+      {!cards.length ? null : sheet ? <View style={styles.cardsSheet}>{cards}</View>
         : <ScrollView style={styles.cards} contentContainerStyle={styles.cardsBody}>{cards}</ScrollView>}
       <View style={[styles.stage, !sheet && styles.stageWide, sheet && styles.stageSheet, sheet && (roomy ? styles.stageRoomy : styles.stagePhone)]} onLayout={event => { const { width, height } = event.nativeEvent.layout; onStageLayout({ width, height }) }}>
         {stage}

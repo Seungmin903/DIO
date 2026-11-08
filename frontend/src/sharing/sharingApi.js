@@ -1,13 +1,17 @@
 import { normalizeSharingNickname, sharingNicknameError, normalizeInviteEmail, inviteEmailError, SharingError } from './sharingContracts.js';
 import { AUTHENTICATION_FAILED_MESSAGE } from '../auth/sessionExpiry.js';
 
+export const isSharingDiaryId = id => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id || '');
+
 // 로그인 세션에 묶인 공유 API. 로컬 다이어리를 서버 다이어리로 가장하지 않는다.
-export function createSharingApi({ user, auth, fetchImpl = globalThis.fetch, buildPhotoBody }) {
+export function createSharingApi({ user, auth, fetchImpl = globalThis.fetch, buildPhotoBody,
+  setIntervalImpl = setInterval, clearIntervalImpl = clearInterval, memberRefreshIntervalMs = 5000,
+  memberRealtimeReconcileMs = 60_000, photoCacheTtlMs = 60_000, accountPhotoCacheTtlMs = 10_000, maxPhotoCacheEntries = 32, now = Date.now }) {
   const { baseUrl, accessTokenHeader = 'Authorization', getAuthHeaders } = auth.getConnectionOptions();
   const sessionKey = auth.getSessionKey();
   const self = { id: String(user.userId), nickname: user.nickname, photoUri: user.photoUri || null };
-  const diaries = new Map(), invitations = new Map(), listeners = new Set();
-  let active = true, generation = 0, snapshot = { diaries: [], joined: [], library: [] };
+  const diaries = new Map(), invitations = new Map(), listeners = new Set(), watchedDiaries = new Map(), memberRefreshes = new Map(), realtimeDiaries = new Set(), photoCache = new Map();
+  let active = true, watchingActive = true, generation = 0, snapshot = { diaries: [], joined: [], library: [] };
   const fail = (code, message) => { throw new SharingError(code, message); };
   const publish = () => {
     snapshot = { diaries: [...diaries.values()], joined: [...diaries.values()].filter(d => d.members.some(m => m.id === self.id && m.role === 'EDITOR')), library: [] };
@@ -50,12 +54,27 @@ export function createSharingApi({ user, auth, fetchImpl = globalThis.fetch, bui
   }
   const path = id => { ensureServerId(id); return `/diaries/${encodeURIComponent(id)}`; };
   const uri = value => value ? new URL(value, baseUrl).href : null;
+  const cachedPhoto = (key, load, ttlMs = photoCacheTtlMs) => {
+    const cached = photoCache.get(key);
+    if (cached && cached.expiresAt > now()) {
+      // Map insertion order is our small LRU policy.
+      photoCache.delete(key); photoCache.set(key, cached);
+      return cached.value;
+    }
+    photoCache.delete(key);
+    const pending = Promise.resolve().then(load);
+    const entry = { value: pending, expiresAt: now() + ttlMs };
+    photoCache.set(key, entry);
+    while (photoCache.size > maxPhotoCacheEntries) photoCache.delete(photoCache.keys().next().value);
+    pending.then(value => { if (!value && photoCache.get(key) === entry) photoCache.delete(key); }, () => { if (photoCache.get(key) === entry) photoCache.delete(key); });
+    return pending;
+  };
   async function privatePhoto(value) {
     if (!value) return null;
     const url = new URL(value, baseUrl);
     if (url.origin !== new URL(baseUrl).origin || !url.pathname.startsWith(`${new URL(baseUrl).pathname}/diaries/`))
       fail('INVALID_RESPONSE', '프로필 사진 주소를 확인하지 못했어요.');
-    return readPhoto(url, () => headers(url.href));
+    return cachedPhoto(`private:${url.href}`, () => readPhoto(url, () => headers(url.href)));
   }
   async function accountPhoto(value) {
     const photoUri = uri(value);
@@ -66,7 +85,7 @@ export function createSharingApi({ user, auth, fetchImpl = globalThis.fetch, bui
     let target;
     try { target = new URL(source.uri); } catch { return null; }
     if (target.origin !== new URL(baseUrl).origin || target.username || target.password) return null;
-    return readPhoto(target, () => source.headers);
+    return cachedPhoto(`account:${target.href}`, () => readPhoto(target, () => source.headers), accountPhotoCacheTtlMs);
   }
   async function readPhoto(url, getHeaders) {
     const revision = generation;
@@ -91,7 +110,7 @@ export function createSharingApi({ user, auth, fetchImpl = globalThis.fetch, bui
     finally { clearTimeout(timer); }
   }
   const ensureServerId = id => {
-    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id || ''))
+    if (!isSharingDiaryId(id))
       fail('LOCAL_DIARY', '서버에서 만든 다이어리만 공유할 수 있어요.');
   };
   const inviteView = row => ({ ...row, inviteId: String(row.inviteId), canOpen: row.status === 'PENDING',
@@ -158,10 +177,14 @@ export function createSharingApi({ user, auth, fetchImpl = globalThis.fetch, bui
       diaries.set(id, diary); publish(); return diary;
     }
   }
-  const mapMembers = members => Promise.all(members.map(async m => ({ id: String(m.userId), nickname: m.nickname, role: m.role, color: m.memberColor || null,
+  // self: 내 자리는 참여자 색 대신 마이페이지와 같은 내 기본 프로필 색으로 그린다(DefaultAvatar)
+  const mapMembers = members => Promise.all(members.map(async m => ({ id: String(m.userId), self: String(m.userId) === self.id, nickname: m.nickname, role: m.role, color: m.memberColor || null,
     activeAccount: m.activeAccount, blockedByMe: m.blockedByMe,
     photoUri: m.usingAccountPhoto ? await accountPhoto(m.profilePhotoUrl) : await privatePhoto(m.profilePhotoUrl),
     presence: m.role === 'OWNER' ? '소유자' : '편집자' })));
+  const withMemberRoles = (diary, members) => ({ ...diary, members,
+    ownerId: members.find(member => member.role === 'OWNER')?.id || null,
+    myRole: members.find(member => member.id === self.id)?.role || null });
   async function getMembers(id) {
     const revision = generation;
     const value = await request(`${path(id)}/members`);
@@ -169,6 +192,89 @@ export function createSharingApi({ user, auth, fetchImpl = globalThis.fetch, bui
     const rows = await mapMembers(value.members);
     if (!active || revision !== generation) fail('DISPOSED', '화면을 다시 열어 주세요.');
     return rows;
+  }
+  // Canvas WebSocket notifications intentionally contain only canvas operations. Keep the
+  // small membership view fresh separately while somebody is looking at this diary.
+  async function refreshMembersNow(id) {
+    const revision = generation;
+    const members = await getMembers(id);
+    if (!active || revision !== generation) fail('DISPOSED', '화면을 다시 열어 주세요.');
+    const previous = diaries.get(id);
+    if (!previous) return getSharing(id);
+    const { refreshWarning, ...current } = previous;
+    const next = withMemberRoles(current, members);
+    if (JSON.stringify({ members: previous.members, ownerId: previous.ownerId, myRole: previous.myRole }) === JSON.stringify({ members: next.members, ownerId: next.ownerId, myRole: next.myRole }) && !refreshWarning)
+      return previous;
+    diaries.set(id, next);
+    publish();
+    return diaries.get(id);
+  }
+  function refreshMembers(id) {
+    let entry = memberRefreshes.get(id);
+    if (entry) { entry.repeat = true; return entry.promise; }
+    entry = { repeat: false, promise: null };
+    entry.promise = (async () => {
+      let value;
+      do { entry.repeat = false; value = await refreshMembersNow(id); } while (entry.repeat);
+      return value;
+    })().finally(() => { if (memberRefreshes.get(id) === entry) memberRefreshes.delete(id); });
+    memberRefreshes.set(id, entry);
+    return entry.promise;
+  }
+  function watchDiary(id, { onUnavailable } = {}) {
+    ensureServerId(id);
+    let watch = watchedDiaries.get(id);
+    if (!watch) {
+      watch = { count: 0, timer: null, refreshing: null, failures: 0, skipTicks: 0, realtimeTicks: 0, stopped: false, unavailable: new Set() };
+      watchedDiaries.set(id, watch);
+    }
+    watch.count++;
+    if (typeof onUnavailable === 'function') watch.unavailable.add(onUnavailable);
+    const stop = message => {
+      watch.stopped = true;
+      if (watch.timer !== null) clearIntervalImpl(watch.timer);
+      watch.timer = null;
+      if (watchedDiaries.get(id) === watch) watchedDiaries.delete(id);
+      if (message) watch.unavailable.forEach(listener => { try { listener(message); } catch {} });
+    };
+    const refresh = (force = false) => {
+      if (!force && realtimeDiaries.has(id)) return null;
+      if (!active || !watchingActive || watch.stopped || watch.refreshing) return watch.refreshing;
+      watch.refreshing = (diaries.has(id) ? refreshMembers(id) : getSharing(id))
+        .then(value => { watch.failures = 0; watch.skipTicks = 0; return value; })
+        .catch(error => {
+          if (error?.code === 'DISPOSED') stop();
+          else if ([401, 403, 404].includes(error?.status)) {
+            const previous = diaries.get(id);
+            const message = error.status === 401 ? '로그인 상태가 바뀌었어요. 다시 로그인해 주세요.' : '공유 권한 또는 다이어리 상태가 바뀌었어요. 목록을 다시 확인해 주세요.';
+            if (previous) { diaries.set(id, { ...previous, refreshWarning: message }); publish(); }
+            stop(message);
+          } else { watch.failures = Math.min(watch.failures + 1, 3); watch.skipTicks = 2 ** watch.failures - 1; }
+          return null;
+        })
+        .finally(() => { if (watchedDiaries.get(id) === watch) watch.refreshing = null; });
+      return watch.refreshing;
+    };
+    watch.refresh = refresh;
+    refresh(true);
+    if (!watch.timer) watch.timer = setIntervalImpl(() => {
+      if (watch.skipTicks > 0) { watch.skipTicks--; return; }
+      if (realtimeDiaries.has(id)) {
+        watch.realtimeTicks++;
+        if (watch.realtimeTicks * memberRefreshIntervalMs < memberRealtimeReconcileMs) return;
+        watch.realtimeTicks = 0;
+        refresh(true); return;
+      }
+      refresh();
+    }, memberRefreshIntervalMs);
+    let released = false;
+    return () => {
+      if (released) return;
+      released = true;
+      watch.count--;
+      if (typeof onUnavailable === 'function') watch.unavailable.delete(onUnavailable);
+      if (watch.count <= 0) stop();
+    };
   }
   async function getSharing(id) {
     const revision = generation;
@@ -180,11 +286,11 @@ export function createSharingApi({ user, auth, fetchImpl = globalThis.fetch, bui
     const sent = sentPage(links?.emailInvites);
     const mappedMembers = await mapMembers(members.members);
     if (!active || revision !== generation) fail('DISPOSED', '화면을 다시 열어 주세요.');
-    const diary = { id, title: detail.diary.diaryTitle, color: detail.diary.coverColor,
+    const diary = withMemberRoles({ id, title: detail.diary.diaryTitle, color: detail.diary.coverColor,
       ...(detail.diary.cover?{cover:detail.diary.cover}:{}),
       pattern:detail.diary.coverStyle==='PLAIN'?null:detail.diary.coverStyle?.toLowerCase(),
       link: links.available ? uri(links.inviteUrl) : null, favorite: detail.diary.myMembership?.isFavorite === true,
-      members: mappedMembers, linkExpiresAt: links.expiresAt || null, emailInvites: sent.items, emailNextPage: sent.nextPage };
+      linkExpiresAt: links.expiresAt || null, emailInvites: sent.items, emailNextPage: sent.nextPage }, mappedMembers);
     diaries.set(id, diary); publish(); return diary;
   }
   const checkNickname = async (_id, nickname) => {
@@ -214,10 +320,13 @@ export function createSharingApi({ user, auth, fetchImpl = globalThis.fetch, bui
     } },
     invitationGateway: { get: invitation }, getMembers, getSnapshot: () => snapshot,
     subscribe(fn) { listeners.add(fn); return () => listeners.delete(fn); },
-    activate() { active = true; }, dispose() { active = false; generation++; diaries.clear(); invitations.clear(); publish(); },
-    setAccountProfile(value) { self.nickname = value.nickname; self.photoUri = value.photoUri || null; },
+    activate() { active = true; }, dispose() { active = false; generation++; watchedDiaries.forEach(watch => { watch.stopped = true; clearIntervalImpl(watch.timer); }); watchedDiaries.clear(); memberRefreshes.clear(); realtimeDiaries.clear(); photoCache.clear(); diaries.clear(); invitations.clear(); publish(); },
+    setWatchingActive(value) { watchingActive = value === true; if (watchingActive) watchedDiaries.forEach(watch => { watch.skipTicks = 0; watch.refresh?.(true); }); },
+    setWatchingRealtime(id, connected) { if (!isSharingDiaryId(id)) return; const watch = watchedDiaries.get(id); if (connected) { realtimeDiaries.add(id); if (watch) { watch.realtimeTicks = 0; watch.refresh?.(true); } } else { realtimeDiaries.delete(id); if (watch) { watch.realtimeTicks = 0; watch.refresh?.(true); } } },
+    invalidateMemberPhotos() { for (const key of photoCache.keys()) if (key.startsWith('account:')) photoCache.delete(key); },
+    setAccountProfile(value) { self.nickname = value.nickname; self.photoUri = value.photoUri || null; for (const key of photoCache.keys()) if (key.startsWith('account:')) photoCache.delete(key); },
     registerDiary(source) { ensureServerId(source.sharedDiaryId || source.id); return diaries.get(source.sharedDiaryId || source.id) || { ...source, members: [] }; },
-    getSharing, loadMoreEmailInvites, checkProfileNickname: checkNickname, checkNickname, updateProfile,
+    getSharing, refreshMembers, watchDiary, loadMoreEmailInvites, checkProfileNickname: checkNickname, checkNickname, updateProfile,
     hasMembership(id) { return diaries.get(invitations.get(id)?.diary.diaryId)?.members.some(m => m.id === self.id) === true; },
     async sendEmailInvite(id, email) {
       ensureServerId(id);
@@ -238,8 +347,8 @@ export function createSharingApi({ user, auth, fetchImpl = globalThis.fetch, bui
       await request(`${path(id)}/transfer-owner`, { method: 'POST', body: { newOwnerUserId: String(memberId) } });
       const previous = diaries.get(id);
       if (previous) {
-        diaries.set(id, { ...previous, members: previous.members.map(member => ({ ...member,
-          role: member.id === String(memberId) ? 'OWNER' : 'EDITOR', presence: member.id === String(memberId) ? '소유자' : '편집자' })) });
+        diaries.set(id, withMemberRoles(previous, previous.members.map(member => ({ ...member,
+          role: member.id === String(memberId) ? 'OWNER' : 'EDITOR', presence: member.id === String(memberId) ? '소유자' : '편집자' }))));
         publish();
       }
       return refreshChanged(id);

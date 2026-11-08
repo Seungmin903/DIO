@@ -36,9 +36,11 @@ test('친구가 다른 요소를 추가해도 내 작업만 전송하고 양쪽 
 })
 test('실행 취소 응답 유실 재시도는 같은 명령만 복구하며 다음 작업까지 취소하지 않는다',async()=>{
  const f=fixture();f.setRows([row(text())]);let applied=false,lose=true;const controls=[]
- f.api.history=async()=>({items:[],nextUndo:applied?null:{operationId:'1',revision:0},nextRedo:applied?{operationId:'1',revision:1}:null})
+ let historyCalls=0;f.api.history=async()=>historyCalls++===0?{items:[],nextUndo:null,nextRedo:null}:({items:[],nextUndo:applied?null:{operationId:'1',revision:0},nextRedo:applied?{operationId:'1',revision:1}:null})
  f.api.control=async(_page,direction,request)=>{controls.push({direction,request});applied=true;f.setRows([]);if(lose){lose=false;throw Error('lost')};return {items:[],operationId:'1',clientOperationId:'initial',revision:1}}
- const s=f.session();await s.restore([text()]);await s.synchronize();await assert.rejects(s.control('undo'))
+ const s=f.session();await s.restore([text()]);await s.synchronize()
+ await s.enqueue({id:'mine',pageId,before:[text()],after:[text('B')]});await s.synchronize() // 이번 세션 작업(operationId '1')만 되돌리기 대상
+ await assert.rejects(s.control('undo'))
  const restored=f.session();await restored.restore([text()]);const result=await restored.control('undo')
  assert.equal(controls.length,2);assert.deepEqual(controls[0],controls[1]);assert.equal(result.direction,'undo');assert.equal(result.objects.length,0)
 })
@@ -81,10 +83,11 @@ test('409로 거절된 요청은 최신 버전과 새 ID로 복구한다',async(
 })
 test('실행 취소 충돌 후에도 일반 편집을 계속한다',async()=>{
  const f=fixture();f.setRows([row(text())]);const s=f.session();await s.restore([text()]);await s.synchronize()
+ await s.enqueue({id:'mine',pageId,before:[text()],after:[text('B')]});await s.synchronize() // 이번 세션 작업(operationId '1')
  f.api.history=async()=>({items:[],nextUndo:{operationId:'1',revision:0},nextRedo:null})
  let attempts=0;f.api.control=async()=>{attempts++;throw Object.assign(Error('conflict'),{status:409})}
  await assert.rejects(s.control('undo'),e=>e.status===409);assert.equal(s.snapshot().control,null)
- await s.enqueue({id:'next',pageId,before:[text()],after:[text('next')]});const result=await s.synchronize()
+ await s.enqueue({id:'next',pageId,before:[text('B')],after:[text('next')]});const result=await s.synchronize()
  assert.equal(attempts,1);assert.equal(result.objects[0].text,'next')
 })
 test('오래된 첫 스냅샷은 보관하고 최신 서버로 합류한다',async()=>{
@@ -156,4 +159,42 @@ for(const duplicate of [false,true])test(`순서 변경은 재조회·세션 재
  assert.equal(new Set(rows.map(e=>e.sortKey)).size,4)
  await first.acceptImport(result.objects);const restored=session();await restored.restore(result.objects)
  assert.deepEqual((await restored.synchronize()).objects.map(o=>o.id),[c.id,a.id,b.id])
+})
+test('이전에 연 동안 · 다른 기기의 실행 기록은 되돌리기 · 다시하기 후보에서 빼고 이번에 만든 것만 남긴다',async()=>{
+ const f=fixture();f.setRows([row(text())])
+ let state='old'
+ f.api.history=async()=>state==='old'
+  ?{items:[{operationId:'7'}],nextUndo:{operationId:'7',revision:1},nextRedo:{operationId:'5',revision:1}}
+  :{items:[{operationId:'1'},{operationId:'7'}],nextUndo:{operationId:'1',revision:2},nextRedo:null}
+ const s=f.session();await s.restore([text()])
+ const first=await s.synchronize()
+ assert.equal(first.history.nextUndo,null);assert.equal(first.history.nextRedo,null)
+ await assert.rejects(s.control('undo'),e=>e.code==='NO_CANVAS_HISTORY')
+ await assert.rejects(s.control('redo'),e=>e.code==='NO_CANVAS_HISTORY')
+ await s.enqueue({id:'a',pageId,before:[text()],after:[text('B')]}) // 이번 세션 작업 → 서버가 operationId '1' 로 반영
+ state='new'
+ const next=await s.synchronize()
+ assert.equal(next.history.nextUndo.operationId,'1')
+})
+test('서버 기록 조회가 처음에 실패했다가 나중에 성공해도 이번 세션에 한 작업은 되돌리기 후보로 남고, 편집 전송은 막히지 않는다',async()=>{
+ const f=fixture();let fail=true
+ f.api.history=async()=>{if(fail)throw Error('history down');return {items:[{operationId:'1'}],nextUndo:{operationId:'1',revision:0},nextRedo:null}}
+ const s=f.session();await s.restore([])
+ await s.enqueue({id:'a',pageId,before:[],after:[text('A')]})
+ await s.synchronize().catch(()=>{})
+ assert.equal(f.calls.length,1);assert.equal(f.calls[0].clientOperationId,'a');assert.equal(s.snapshot().queue.length,0)
+ fail=false
+ const next=await s.synchronize();assert.equal(next.history.nextUndo.operationId,'1')
+})
+test('개인 경로(1인 다이어리)는 저장 응답에 작업 번호가 없어도 첫 저장 전에 잡은 기준선보다 새 작업은 되돌릴 수 있다(649)',async()=>{
+ const f=fixture();f.setRows([row(text())])
+ const plain=f.api.apply;f.api.apply=async(page,request)=>{const {operationId,...rest}=await plain(page,request);return rest} // 요소 API 처럼 번호 없음
+ let state='old'
+ f.api.history=async()=>state==='old'
+  ?{items:[{operationId:'5'}],nextUndo:{operationId:'5',revision:1},nextRedo:null}
+  :{items:[{operationId:'6'},{operationId:'5'}],nextUndo:{operationId:'6',revision:2},nextRedo:null}
+ const s=f.session();await s.restore([text()])
+ const first=await s.synchronize();assert.equal(first.history.nextUndo,null) // 이전 기록(5)은 제외
+ await s.enqueue({id:'mine',pageId,before:[text()],after:[text('B')]});state='new'
+ const next=await s.synchronize();assert.equal(next.history.nextUndo.operationId,'6')
 })

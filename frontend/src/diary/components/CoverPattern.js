@@ -1,25 +1,22 @@
-import { memo, useRef, useState } from 'react';
-import { Image, StyleSheet, View } from 'react-native';
+import { memo, useMemo, useRef, useState } from 'react';
+import { StyleSheet, View } from 'react-native';
 import { Circle, Defs, G, Line, Pattern, Rect } from 'react-native-svg';
 import FillSvg from './FillSvg';
-import { CHARACTER_SCALE } from '../../shared/characterScale';
+import { CHARACTER_ART, CHARACTER_SCALE } from '../../shared/characterScale';
 import { snapToPixel } from '../../shared/pixelSnap';
+import CharacterArt from '../../shared/CharacterArt';
 
 // 캐릭터 무늬(모아 · 디오): 먹선만 남긴 그림 한 장을 표지 오른쪽 아래 가장자리에 크게 걸쳐 표지 색 계열(line)로 칠한다.
 // 크기 · 잘림은 캐릭터 형압 다이어리 표지를 따랐다: 모아 높이 = 짧은 변의 70%, 아래로 높이의 17%가 잘린다.
-// 오른쪽은 캐릭터 폭의 20%가 잘리고, 모아는 책 귀퉁이 탭이 남게 8%만 잘린다(cutRight).
-// 그림은 4배(1440px 폭)로 둬서 태블릿 표지에서 늘려도 선이 깨지지 않는다.
+// 오른쪽은 캐릭터 폭의 20%가 잘리고, 모아는 책 귀퉁이 탭이 남고 오른쪽 눈이 고무줄(표지 폭 15% 안쪽)에 가리지 않게 둔다(2026-11-08 새 얼굴에 맞춰 조정):
+// 세로 표지는 3%만 잘리고(cutRight, 예전 8%), 가로 표지는 고무줄이 더 안쪽이라 잘리지 않고 폭의 6% 만큼 안으로 들인다(cutRightWide -0.06).
+// 그림은 최종 윤곽 SVG(docs/캐릭터 디자인/최종)를 벡터로 그린다(shared/CharacterArt). 예전에는 1440px PNG 를 줄여 그려
+// 안드로이드에서 먹선이 들쭉날쭉했다(큰 그림을 건너뛰며 디코딩). 벡터라 견본(38px)부터 태블릿 표지까지 같은 선이다.
 // 디오는 모아 : 디오 키 비율에 맞게 scale 만큼 더 크다(shared/characterScale).
 const CHARACTERS = {
-  // small: 견본용으로 미리 고르게 줄인 그림(240px). 1440px 원본을 40px 견본에 줄이면 안드로이드에서 선이 깨졌다
-  moa: { small: require('../../../assets/characters/moa-line-small.png'), source: require('../../../assets/characters/moa-line.png'), ratio: 360 / 410, scale: CHARACTER_SCALE.moa, cutRight: 0.08 },
-  dio: { small: require('../../../assets/characters/dio-line-small.png'), source: require('../../../assets/characters/dio-line.png'), ratio: 360 / 393, scale: CHARACTER_SCALE.dio },
+  moa: { character: 'moa', ratio: CHARACTER_ART.moa.width / CHARACTER_ART.moa.height, scale: CHARACTER_SCALE.moa, cutRight: 0.03, cutRightWide: -0.06 },
+  dio: { character: 'dio', ratio: CHARACTER_ART.dio.width / CHARACTER_ART.dio.height, scale: CHARACTER_SCALE.dio },
 };
-// 개발 빌드는 그림을 Metro 에서 받아 와서 새 다이어리 창을 처음 열 때 모아 · 디오가 늦게 뜬다. 앱을 켤 때 미리 받아 둔다(묶음 빌드의 내장 그림은 건너뜀).
-for (const source of Object.values(CHARACTERS).flatMap(({ source, small }) => [source, small])) {
-  const uri = Image.resolveAssetSource?.(source)?.uri;
-  if (typeof uri === 'string' && /^https?:/.test(uri)) Image.prefetch?.(uri)?.catch?.(() => {});
-}
 // 발(그림 아래 13% 쯤)이 표지 밖으로 빠지게 오른쪽 아래 구석으로 민다
 const MOTIF = { height: 0.7, cutRight: 0.2, cutBottom: 0.17 };
 
@@ -28,18 +25,21 @@ const SWATCH_MOTIF = 0.62;
 
 function CharacterMotif({ character, line, initialWidth, initialHeight, swatch = false }) {
   const [size, setSize] = useState(initialWidth > 0 && initialHeight > 0 ? { width: initialWidth, height: initialHeight } : null);
-  const box = size && (() => {
+  const box = useMemo(() => size && (() => {
     if (swatch) {
       const height = Math.min(size.width, size.height) * SWATCH_MOTIF, width = height * character.ratio;
       return { width, height, left: (size.width - width) / 2, top: (size.height - height) / 2 };
     }
     const height = Math.min(size.width, size.height) * MOTIF.height * character.scale, width = height * character.ratio;
-    return { width, height, right: -width * (character.cutRight ?? MOTIF.cutRight), bottom: -height * MOTIF.cutBottom };
-  })();
+    const cut = (size.width > size.height ? character.cutRightWide : undefined) ?? character.cutRight ?? MOTIF.cutRight;
+    return { width, height, right: -width * cut, bottom: -height * MOTIF.cutBottom };
+  })(), [size, swatch, character]);
+  // 상자 크기가 같으면 같은 style 객체를 넘겨 memo(CharacterArt)가 경로를 다시 그리지 않게 한다
+  const motifStyle = useMemo(() => box && [styles.motif, box], [box]);
   return (
     <View pointerEvents="none" style={[StyleSheet.absoluteFill, styles.clip]}
       onLayout={({ nativeEvent: { layout: { width, height } } }) => setSize(prev => (prev && prev.width === width && prev.height === height ? prev : { width, height }))}>
-      {box ? <Image source={swatch ? character.small ?? character.source : character.source} resizeMode="contain" style={[styles.motif, box, { tintColor: line }]} /> : null}
+      {box ? <CharacterArt character={character.character} variant="line" color={line} style={motifStyle} /> : null}
     </View>
   );
 }

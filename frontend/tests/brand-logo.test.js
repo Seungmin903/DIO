@@ -125,7 +125,7 @@ test('Android 아이콘은 표시 영역을 채우고 얼굴과 책갈피 중심
  const radius=1024*66/108/2;
  const size=Math.round(1024*72/108),offset=Math.floor((1024-size)/2);
  // Original SVG coordinates for both eyes, the smile, and the bookmark center.
- for(const [x,y] of [[319,743],[660,805],[470,863],[1160,600]]){
+ for(const [x,y] of [[290,694],[649,776],[445,834],[1102,593]]){
   const px=Math.round(offset+x*size/1254),py=Math.round(offset+y*size/1254);
   assert.ok(Math.hypot(px-512,py-512)<radius);
   assert.equal(Jimp.intToRGBA(image.getPixelColor(px,py)).a,255);

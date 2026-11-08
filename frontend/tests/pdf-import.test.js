@@ -56,7 +56,7 @@ test('표지 바탕을 PDF 쪽으로 바꾸면 표지 꾸밈을 모두 빼고, �
   assert.equal(restoreCoverBase(covered, { kind: 'photo', enabled: true, photo: null }).kind, 'plain');
 });
 
-test('나의 표지에 담을 때는 PDF 그림만 남기고 고무줄 · 라벨 · 제목 · 소제목 · 스티커를 뺀다', () => {
+test('내 표지에 담을 때는 PDF 그림만 남기고 고무줄 · 라벨 · 제목 · 소제목 · 스티커를 뺀다', () => {
   const covered = coverWithPdfPage(defaultCover(), pages[0], { keepDecor: true });
   assert.equal(covered.band.on, true); assert.notEqual(covered.plate, 'none');
   const saved = coverForLibrary(covered);
@@ -90,7 +90,7 @@ test('문서의 페이지를 PDF 쪽으로 바꾸고, 쪽이 없으면 그대로
   assert.equal(next.pages[0].canvasWidth, 768);
 });
 
-test('나의 표지 · 나의 속지는 저장 값을 맞추고 잘못된 항목을 버린다', () => {
+test('내 표지 · 내 속지는 저장 값을 맞추고 잘못된 항목을 버린다', () => {
   const covers = normalizeMyCovers([{ id: 'a', name: '  봄  ', cover: defaultCover() }, { id: 'a', cover: defaultCover() }, { id: 'b' }, null, 'x']);
   assert.deepEqual(covers.map(item => [item.id, item.name]), [['a', '봄']]);
   assert.equal(normalizeMyCovers('bad').length, 0);
@@ -104,11 +104,11 @@ test('나의 보관함은 새 항목을 맨 앞에 두고 한도를 넘으면 �
   for (let i = 0; i < MY_LIBRARY_LIMIT + 3; i += 1) list = addMyCover(list, { name: `표지 ${i}`, cover: defaultCover() });
   assert.equal(list.length, MY_LIBRARY_LIMIT); assert.equal(list[0].name, `표지 ${MY_LIBRARY_LIMIT + 2}`);
   const papers = addMyPaper([], { name: '', orientation: 'portrait', pages });
-  assert.equal(papers[0].name, '나의 속지'); assert.equal(papers[0].pages.length, 3);
+  assert.equal(papers[0].name, '내 속지'); assert.equal(papers[0].pages.length, 3);
   assert.deepEqual(removeEntry(list, list[0].id).length, MY_LIBRARY_LIMIT - 1);
 });
 
-test('나의 표지는 방향을 저장하고, 방향 없이 담긴 옛 표지는 사진 비율로 짐작한다', () => {
+test('내 표지는 방향을 저장하고, 방향 없이 담긴 옛 표지는 사진 비율로 짐작한다', () => {
   const cover = { ...defaultCover(), kind: 'photo', photo: { src: 'media:m1', mediaFileId: 'm1', aspect: 1.29 } };
   assert.equal(addMyCover([], { name: '가로', orientation: 'landscape', cover })[0].orientation, 'landscape');
   const [old] = normalizeMyCovers([{ id: 'a', name: '옛 표지', cover }]);
@@ -125,6 +125,8 @@ const loadNativePages = (native, store = { saved: [], removed: [] }) => {
   const mocks = {
     'expo-document-picker': { getDocumentAsync: async () => ({ canceled: false, assets: [{ uri: 'file:///a.pdf', name: '문서.pdf' }] }) },
     'expo-modules-core': { requireOptionalNativeModule: () => native },
+    'expo-file-system': { File: class { delete() {} } },
+    './pdfPageRaster.native.js': { renderPdfPageBitmap: async (...args) => ({ ...await native.renderPage(...args), fitted: true }) },
     '../../editor/services/mediaStore': { importMedia: async ([asset]) => [{ src: `media:${asset.fileName}`, mediaFileId: asset.fileName }], discardGeneratedMedia: async () => {} },
     '../../editor/utils/mediaPolicy.js': { MediaError: class extends Error {} },
     './pdfImport.js': { PDF_PAGE_LIMIT: 60, PDF_RENDER_EDGE: 3000, PdfImportError },
@@ -156,7 +158,10 @@ test('기기에서 PDF 쪽마다 그림으로 바꾸고, 메모리가 모자라�
   // 원본 PDF 를 보관하고, 쪽마다 원본 위치와 기본 그림의 긴 변(메모리 부족으로 줄인 쪽은 1500)을 남긴다
   assert.deepEqual(store.saved, [['source-1', 'file:///a.pdf']]);
   assert.equal(result.sourceId, 'source-1');
-  assert.deepEqual(result.pages.map(page => page.pdfSource), [{ sourceId: 'source-1', pageIndex: 0, edge: 3000 }, { sourceId: 'source-1', pageIndex: 1, edge: 1500 }]);
+  assert.deepEqual(result.pages.map(page => page.pdfSource), [
+    { sourceId: 'source-1', pageIndex: 0, edge: 3000, renderVersion: 2 },
+    { sourceId: 'source-1', pageIndex: 1, edge: 1500, renderVersion: 2 },
+  ]);
   assert.deepEqual(store.removed, []);
   assert.deepEqual(store.registered, { sourceId: 'source-1', mediaFileIds: ['문서-1.png', '문서-2.png'] });
 });
@@ -168,7 +173,7 @@ test('기기에서 PDF 를 그리다 실패하면 보관한 원본도 지운다'
   assert.deepEqual(store.removed, ['source-1']);
 });
 
-test('나의 표지 · 속지 이름은 고칠 수 있고, 비우면 원래 이름을 둔다', () => {
+test('내 표지 · 속지 이름은 고칠 수 있고, 비우면 원래 이름을 둔다', () => {
   const list = addMyCover(addMyCover([], { name: 'a', orientation: 'portrait', cover: defaultCover() }), { name: 'b', orientation: 'portrait', cover: defaultCover() });
   const [first, second] = list;
   const renamed = renameEntry(list, second.id, '  여행 일기  ');
@@ -176,4 +181,32 @@ test('나의 표지 · 속지 이름은 고칠 수 있고, 비우면 원래 이�
   assert.equal(renamed.find(item => item.id === first.id).name, first.name);
   assert.equal(renameEntry(list, second.id, '   ').find(item => item.id === second.id).name, second.name);
   assert.equal(second.name, 'a', '원본 목록은 바뀌지 않는다');
+});
+
+test('iOS 구형 PDF 렌더러에는 실제 쪽 크기 이하를 요청하고 새 렌더러에는 원래 해상도를 요청한다', async () => {
+  const require = createRequire(import.meta.url), expo = createRequire(require.resolve('expo/package.json')), babel = expo('@babel/core');
+  const code = babel.transformSync(readFileSync(new URL('../src/diary/utils/pdfPageRaster.native.js', import.meta.url), 'utf8'), {
+    configFile: false, babelrc: false, plugins: [expo.resolve('@babel/plugin-transform-modules-commonjs')],
+  }).code;
+  for (const supportsScaling of [false, true]) {
+    const requests = [], native = {
+      ...(supportsScaling ? { supportsScaledRendering: () => true } : {}),
+      renderPage: async (_uri, _index, edge) => { requests.push(edge); return { width: 595, height: edge }; },
+      renderRegion() {},
+    };
+    const mocks = {
+      'react-native': { Platform: { OS: 'ios' } },
+      'expo-file-system': { File: class { async bytes() { return new Uint8Array(); } } },
+      'expo-modules-core': { requireOptionalNativeModule: () => native },
+      'pdf-lib/dist/pdf-lib.js': { PDFDocument: { load: async () => ({ getPage: () => ({ getCropBox: () => ({ width: 595.32, height: 841.92 }) }) }) } },
+      './pdfSourceStore.native.js': {},
+      './pdfSource.js': {},
+    };
+    const mod = { exports: {} };
+    new Function('require', 'module', 'exports', code)(id => mocks[id], mod, mod.exports);
+    const result = await mod.exports.renderPdfPageBitmap('file:///a.pdf', 0, 3000);
+    assert.deepEqual(requests, [supportsScaling ? 3000 : 840]);
+    assert.equal(result.fitted, true);
+    assert.equal(mod.exports.canRenderPdfDetail(), supportsScaling);
+  }
 });

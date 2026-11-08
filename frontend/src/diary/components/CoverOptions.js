@@ -6,6 +6,7 @@ import StickerThumbImage from '../../editor/components/controls/StickerThumbImag
 import TextFontDropdown from '../../editor/components/controls/TextFontDropdown'
 import { stickerLibrary } from '../../editor/stickerLibrary'
 import { stickerKey, useCustomDecor } from '../../editor/hooks/useCustomDecor'
+import { useStickerPacks } from '../../editor/hooks/useStickerPacks'
 import { useMediaUri } from '../../editor/hooks/useMediaUri'
 import { pickImages } from '../../editor/services/image'
 import { discardGeneratedMedia } from '../../editor/services/mediaStore'
@@ -163,6 +164,7 @@ function StickerPicker({ cover, onChange, onNotice }) {
   const grid = useFillGrid({ cell: 52, gap: 6, minColumns: 4 })
   const [query, setQuery] = useState('')
   const keyword = query.trim()
+  useStickerPacks() // 원격 스티커 팩이 들어오면 칩과 목록을 다시 그린다
   const { favorites, recents, favoriteKeys, chips, active, folder, pack, packMatches, folderMatches } = stickerLibrary(custom.items, custom.lastStickerCategory, keyword)
   const list = keyword ? [...packMatches, ...folderMatches]
     : active === 'favorites' ? favorites : active === 'recent' ? recents : folder ? folder.items : pack ? pack.items : []
@@ -205,7 +207,7 @@ function ElementOptions({ element, cover, name, ratio, onChange, onNotice, pickN
       <TextInput accessibilityLabel="표지 제목" placeholder="표지 제목" placeholderTextColor={colors.textMuted} maxLength={24} value={coverTitle(cover, name)}
         onChangeText={text => set({ title: { ...cover.title, useName: text === coverTitle({ title: { useName: true } }, name), text } })} style={styles.input} />
     </OptionRow>
-    <OptionRow label="글씨체"><TextFontDropdown label="제목 글씨체" value={cover.title.font} onChange={font => set({ title: { ...cover.title, font } })} style={styles.fontField} /></OptionRow>
+    <OptionRow label="글꼴"><TextFontDropdown label="제목 글꼴" value={cover.title.font} onChange={font => set({ title: { ...cover.title, font } })} style={styles.fontField} /></OptionRow>
     <OptionRow label="크기"><NumberField label="제목 크기" unit="pt" min={TITLE_SIZE.min} max={TITLE_SIZE.max} value={cover.title.size} onChange={size => set({ title: { ...cover.title, size } })} /></OptionRow>
     <OptionRow label="색"><ColorRow label="제목 색" value={cover.title.color} swatches={INK_COLORS} onChange={color => set({ title: { ...cover.title, color } })} /></OptionRow>
     <View style={styles.subHead}>

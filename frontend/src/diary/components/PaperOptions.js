@@ -1,9 +1,10 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
-import { Platform, Pressable, StyleSheet, Text, View } from 'react-native'
+import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { SvgAst, parse } from 'react-native-svg'
 import PageBackground from '../../editor/components/PageBackground'
 import Icon from '../../editor/components/controls/Icon'
 import { usePan } from '../../editor/hooks/usePan'
+import { useRemoteTemplates } from '../../editor/hooks/useRemoteTemplates'
 import { TEMPLATE_VERSION, getTemplate, templateCanvasSize } from '../../editor/templates/catalog.js'
 import { colorTemplateXml, withPaperBackground } from '../../editor/templates/appearance.js'
 import { loadTemplate, peekTemplate } from '../../editor/templates/loadTemplate'
@@ -14,7 +15,7 @@ import EditablePalette from '../../editor/components/controls/EditablePalette'
 import PaperSketch, { paperSketchKey } from './PaperSketch'
 import { DEFAULT_PAPER_FONT } from '../../editor/templates/paperFont.js'
 import {
-  COUNT_LIMIT, COUNT_STEPS, INSERT_LIMIT, MONTH_LIMIT, MONTH_STEPS, PAPER_EVERY, PAPER_GROUPS, PAPER_YEARS, REPEAT_LIMIT, ROW_LIMIT,
+  COUNT_LIMIT, COUNT_STEPS, INSERT_LIMIT, MONTH_LIMIT, MONTH_STEPS, PAPER_EVERY, PAPER_YEARS, REPEAT_LIMIT, ROW_LIMIT, paperGroups,
   appendPaper, changeRow, changeRowPaper, isPeriodSection, mergeSections, mixOrder, moveDown, movePaper, moveUp, paperById, paperPreviewId, papersIn, periodLabel,
   removePaper, rowAmount, splitSection,
 } from '../utils/paperChoice'
@@ -97,18 +98,22 @@ export function BlankPreview({ orientation, width: previewWidth, appearance, sty
   return <View pointerEvents="none" style={[styles.preview, { width: previewWidth, height: previewWidth * height / width, backgroundColor: appearance?.backgroundColor ?? '#FFFFFF' }, style]} />
 }
 
-/** 위쪽 가로 분류 탭 (노트 · 플래너 · 일기). 고른 탭은 밑줄. */
+// 탭이 이보다 많으면(목록이 탭을 더했을 때) 같은 폭으로 나누지 않고 가로로 넘긴다
+const TAB_FIT = 4
+
+/** 위쪽 가로 분류 탭 (노트 · 플래너 · 일기 + 목록이 더한 탭). 고른 탭은 밑줄. 탭이 많으면 가로로 넘긴다. */
 export function PaperTabs({ groups, value, onChange }) {
-  return <View accessibilityRole="tablist" style={styles.tabs}>
-    {groups.map(group => {
-      const on = group.id === value
-      return <Pressable key={group.id} accessibilityRole="tab" accessibilityLabel={group.name} accessibilityState={{ selected: on }} onPress={() => onChange(group.id)}
-        style={({ pressed }) => [styles.tab, pressed && styles.pressed]}>
-        <Text style={[styles.tabText, on && styles.tabTextOn]}>{group.name}</Text>
-        <View style={[styles.tabLine, on && styles.tabLineOn]} />
-      </Pressable>
-    })}
-  </View>
+  const scroll = groups.length > TAB_FIT
+  const tabs = groups.map(group => {
+    const on = group.id === value
+    return <Pressable key={group.id} accessibilityRole="tab" accessibilityLabel={group.name} accessibilityState={{ selected: on }} onPress={() => onChange(group.id)}
+      style={({ pressed }) => [styles.tab, scroll && styles.tabScroll, pressed && styles.pressed]}>
+      <Text numberOfLines={1} style={[styles.tabText, on && styles.tabTextOn]}>{group.name}</Text>
+      <View style={[styles.tabLine, on && styles.tabLineOn]} />
+    </Pressable>
+  })
+  if (!scroll) return <View accessibilityRole="tablist" style={styles.tabs}>{tabs}</View>
+  return <ScrollView horizontal showsHorizontalScrollIndicator={false} accessibilityRole="tablist" style={[styles.tabs, styles.tabsScrollBox]} contentContainerStyle={styles.tabsScroll}>{tabs}</ScrollView>
 }
 
 /**
@@ -137,13 +142,17 @@ export function PaperGrid({ papers, selected, onSelect, orientation, appearance,
 /** 속지 고르기: 가로 분류 탭 + 그 분류의 속지 타일. 고른 속지가 있으면 그 분류에서 연다. */
 function PaperPicker({ groups, selected, onSelect, orientation, appearance, period }) {
   const [group, setGroup] = useState(() => groups.find(item => item.papers.some(paper => paper.id === selected))?.id ?? groups[0].id)
+  // 새 목록이 와서 고른 탭이 사라지면 첫 탭을 고른 것으로 본다(탭 밑줄과 목록이 같은 값)
+  const current = groups.find(item => item.id === group) ?? groups[0]
   return <View style={styles.picker}>
-    <PaperTabs groups={groups} value={group} onChange={setGroup} />
-    <PaperGrid papers={groups.find(item => item.id === group).papers} selected={selected} onSelect={onSelect} orientation={orientation} appearance={appearance} period={period} />
+    <PaperTabs groups={groups} value={current.id} onChange={setGroup} />
+    <PaperGrid papers={current.papers} selected={selected} onSelect={onSelect} orientation={orientation} appearance={appearance} period={period} />
   </View>
 }
 
-const ALL_GROUPS = PAPER_GROUPS.map(group => ({ ...group, papers: papersIn(group.id) }))
+// 탭별 속지. 원격 속지(catalog.json)가 바뀌면 다시 만든다(PaperOptions 의 useRemoteTemplates)
+// 목록이 더한 탭은 속지가 하나도 없으면(모두 숨김 등) 보이지 않는다
+const allGroups = () => paperGroups().map(group => ({ ...group, papers: papersIn(group.id) })).filter(group => !group.remote || group.papers.length)
 
 function Stepper({ label, text, onPrev, onNext, prevDisabled, nextDisabled }) {
   return <View style={styles.stepper}>
@@ -254,6 +263,8 @@ function PaperRow({ section, row, number, orientation, appearance, open, onToggl
  * 속지 이름을 누르면 그 자리에서 바꾸고, 맨 아래 '속지 추가' 는 고르기를 먼저 펼친다.
  */
 export default function PaperOptions({ sections, onChange, orientation, appearance }) {
+  const remoteRevision = useRemoteTemplates()
+  const groups = useMemo(allGroups, [remoteRevision])
   const [picking, setPicking] = useState(null) // null | 'new' | 줄 key
   // 끌기: 시작할 때 줄마다 화면 위 가운데 높이를 재 두고, 끄는 줄의 가운데가 지나간 줄 수로 놓을 자리(뺀 뒤 목록 기준)를 정한다
   const [drag, setDrag] = useState(null) // { key, dy }
@@ -289,7 +300,7 @@ export default function PaperOptions({ sections, onChange, orientation, appearan
     if (others[target] === key) return 'before'
     return target === others.length && others[others.length - 1] === key ? 'after' : null
   }
-  const picker = (selected, onSelect, period) => <PaperPicker groups={ALL_GROUPS} selected={selected} orientation={orientation} appearance={appearance} period={period}
+  const picker = (selected, onSelect, period) => <PaperPicker groups={groups} selected={selected} orientation={orientation} appearance={appearance} period={period}
     onSelect={id => { onSelect(id); setPicking(null) }} />
   const set = (index, next) => onChange(sections.map((section, s) => s === index ? next : section))
   let number = 0
@@ -365,6 +376,9 @@ const styles = StyleSheet.create({
   preview: { overflow: 'hidden', borderRadius: 5, borderWidth: 1, borderColor: colors.border },
   tabs: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: colors.border },
   tab: { flex: 1, minHeight: 48, alignItems: 'center', justifyContent: 'flex-end' },
+  tabScroll: { flex: 0, minWidth: 76, paddingHorizontal: 12 },
+  tabsScroll: { flexGrow: 1 },
+  tabsScrollBox: { flexGrow: 0 },
   tabText: { paddingBottom: 9, color: colors.textMuted, fontSize: 13.5, fontWeight: '700' },
   tabTextOn: { color: colors.text, fontWeight: '800' },
   tabLine: { alignSelf: 'stretch', height: 2.5, marginBottom: -1, borderRadius: 2, backgroundColor: 'transparent' },
@@ -376,8 +390,9 @@ const styles = StyleSheet.create({
   tileName: { color: colors.textMuted, fontSize: 11.5, fontWeight: '700' },
   tileNameOn: { color: colors.text, fontWeight: '800' },
   context: { padding: 12, borderRadius: 12, backgroundColor: colors.surfaceSoft },
-  period: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  stepper: { flexDirection: 'row', alignItems: 'center', gap: 2, height: 40, paddingHorizontal: 2, borderRadius: 10, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
+  // 시작(해 · 달) 두 칸은 위 '날짜 있음 · 날짜 없이'(Segmented)와 같은 반반 폭 · 사이 6 · 높이 40 · cardBorder 테두리(2026-11-08)
+  period: { flexDirection: 'row', gap: 6 },
+  stepper: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 2, height: 40, paddingHorizontal: 2, borderRadius: 10, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.cardBorder },
   step: { width: 28, height: 32, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
   stepText: { minWidth: 48, textAlign: 'center', color: colors.text, fontSize: 13.5, fontWeight: '800' },
   picker: { gap: 4, paddingTop: 4 },

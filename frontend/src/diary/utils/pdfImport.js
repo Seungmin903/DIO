@@ -16,6 +16,10 @@ export class PdfImportError extends Error {
 /** 첫 쪽 비율(가로 / 세로)로 방향을 정한다. */
 export const pdfOrientation = aspect => normalizeOrientation(aspect >= 1 ? 'landscape' : 'portrait')
 
+export function pdfPageAspect(page, fallback = 0.75) {
+  return Number.isFinite(page?.aspect) && page.aspect > 0 ? page.aspect : fallback
+}
+
 /**
  * 불러온 쪽을 표지와 속지로 나눈다. firstAsCover 이면 첫 쪽은 표지, 나머지가 속지.
  * 한 쪽짜리 PDF 를 표지로 쓰면 속지는 비는 것으로 본다.
@@ -51,7 +55,7 @@ export function coverWithPdfPage(cover, page, { keepDecor = false } = {}) {
   return keepDecor ? next : withoutCoverDecor(next)
 }
 
-/** 나의 표지에 담을 표지: PDF 쪽 그림만 남기고 고무줄 · 라벨 · 제목 · 소제목 · 스티커는 모두 뺀다. */
+/** 내 표지에 담을 표지: PDF 쪽 그림만 남기고 고무줄 · 라벨 · 제목 · 소제목 · 스티커는 모두 뺀다. */
 export function coverForLibrary(cover) {
   return withoutCoverDecor(cover)
 }

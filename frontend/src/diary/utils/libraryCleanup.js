@@ -1,5 +1,5 @@
-// 나의 표지 · 나의 속지를 지우거나 다이어리를 영구 삭제할 때, 더 이상 아무도 쓰지 않는 쪽 그림(미디어 보관함)과 원본 PDF 를 함께 지운다.
-// 같은 PDF 에서 만든 다이어리 · 나의 속지 · 나의 표지가 쪽 그림과 원본을 같이 쓰므로 참조를 세어 남은 곳이 없을 때만 지운다.
+// 내 표지 · 내 속지를 지우거나 다이어리를 영구 삭제할 때, 더 이상 아무도 쓰지 않는 쪽 그림(미디어 보관함)과 원본 PDF 를 함께 지운다.
+// 같은 PDF 에서 만든 다이어리 · 내 속지 · 내 표지가 쪽 그림과 원본을 같이 쓰므로 참조를 세어 남은 곳이 없을 때만 지운다.
 import { findUnusedIds } from './storedScan.js'
 
 /**
@@ -18,7 +18,7 @@ export function findUnshared({ target, raws, collectMediaIds, collectSourceIds }
 export const isReferenceKey = (key, keys) => key !== keys.pdfImports
 
 /**
- * 보관함 항목(나의 표지 · 나의 속지 한 개)을 지운 뒤 호출한다. 항목은 이미 보관함 저장에서 빠져 있어야 한다.
+ * 보관함 항목(내 표지 · 내 속지 한 개)을 지운 뒤 호출한다. 항목은 이미 보관함 저장에서 빠져 있어야 한다.
  * 저장값을 읽다 실패하면 아무것도 지우지 않는다(참조를 "없음"으로 읽어 쓰는 파일을 지우지 않게).
  */
 export async function cleanupRemovedEntry({ entry, storage, keys, collectMediaIds, collectSourceIds, removeMedia, removeSource }) {

@@ -2,7 +2,10 @@ import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Image, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import EditorModal from '../editor/components/controls/EditorModal';
+import EditorIcon from '../editor/components/controls/Icon';
 import ConfirmDialog from '../editor/components/controls/ConfirmDialog';
+import AppIcon from '../shared/AppIcon';
+import BackButton from '../diary/components/BackButton';
 import MemberAvatar from '../sharing/MemberAvatar';
 import { useFormFactor } from '../shared/useFormFactor';
 import { colors } from '../shared/theme';
@@ -143,7 +146,7 @@ export default function SafetyScreen({ request, user, store, state, onClose, onW
         {blocked(member.id) && <Text style={s.badge}>차단됨</Text>}
       </Person></View>
       {!own && <Pressable style={s.icon} accessibilityRole="button" accessibilityLabel={`${member.nickname} 메뉴`} accessibilityState={{ expanded: menu === member.id }} disabled={busy}
-        onPress={() => setMenu(menu === member.id ? null : member.id)}><Text style={s.title}>⋯</Text></Pressable>}</View>
+        onPress={() => setMenu(menu === member.id ? null : member.id)}><AppIcon name="more" size={22} color={colors.text} /></Pressable>}</View>
       {!own && menu === member.id && <View style={s.menu}>
         <SafetyButton secondary onPress={() => startReport(member)} disabled={busy}>신고하기</SafetyButton>
         {member.activeAccount !== false && <SafetyButton secondary onPress={() => askBlock(member)} disabled={busy || !hasBlockData}>{blocked(member.id) ? '차단 해제' : '차단하기'}</SafetyButton>}
@@ -153,8 +156,8 @@ export default function SafetyScreen({ request, user, store, state, onClose, onW
   return <EditorModal visible transparent animationType="none" onRequestClose={back}>
     <SafeAreaView style={[s.backdrop, isPhone && s.phoneBackdrop]}>
       <View style={[s.panel, isPhone && s.phonePanel]}>
-        <View style={s.header}>
-          <Pressable style={s.icon} accessibilityRole="button" accessibilityLabel="이전 화면" onPress={back} disabled={busy}><Text style={s.heading}>‹</Text></Pressable>
+        <View style={[s.header, isPhone && s.phoneHeader]}>
+          <BackButton label="이전 화면" onPress={back} disabled={busy} />
           <Text accessibilityRole="header" style={s.title}>{title}</Text>
         </View>
         <KeyboardAvoidingView style={[s.keyboard, isPhone && s.phoneKeyboard]} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
@@ -179,7 +182,6 @@ export default function SafetyScreen({ request, user, store, state, onClose, onW
                 </View>
               </>}
               {screen === 'blocks' && <>
-                <Text style={s.muted}>차단한 사용자와는 이메일 초대를 주고받거나 수락할 수 없어요. 기존 공동 작업과 링크 참여는 유지돼요.</Text>
                 {state.status === 'loading' && <ActivityIndicator accessibilityLabel="차단 목록 불러오는 중" color={colors.primaryStrong} />}
                 {state.status === 'error' && <><Text style={s.error}>{state.error}</Text><SafetyButton secondary onPress={() => store.refresh()}>목록 다시 불러오기</SafetyButton></>}
                 {state.status === 'ready' && <Text style={s.heading}>전체 {state.blocks.length}명</Text>}
@@ -196,7 +198,7 @@ export default function SafetyScreen({ request, user, store, state, onClose, onW
                 <View style={s.card}><Text style={s.muted}>관련 다이어리</Text><Text style={s.text}>{request.diary.title}</Text><Text style={s.muted}>내 계정으로 접수돼요 · {user.nickname || '나'}</Text></View>
                 <View style={s.section}><Text style={s.heading}>신고 사유 · 필수</Text>
                   {REPORT_REASONS.map(([id, label]) => <Pressable key={id} accessibilityRole="radio" accessibilityLabel={label} accessibilityState={{ checked: reason === id, disabled: busy }} disabled={busy}
-                    style={[s.reason, reason === id && s.selected]} onPress={() => setReason(id)}><Text style={s.text}>{reason === id ? '◉' : '○'}</Text><Text style={[s.text, s.grow]}>{label}</Text></Pressable>)}
+                    style={[s.reason, reason === id && s.selected]} onPress={() => setReason(id)}><EditorIcon name={reason === id ? 'radioOn' : 'radioOff'} size={20} color={reason === id ? colors.primaryStrong : colors.textMuted} /><Text style={[s.text, s.grow]}>{label}</Text></Pressable>)}
                 </View>
                 <View style={s.section}><Text style={s.heading}>상세 설명 · {reason === 'OTHER' ? '필수' : '선택'}</Text>
                   <TextInput accessibilityLabel="상세 설명" placeholder="어떤 일이 있었는지 구체적으로 적어 주세요." placeholderTextColor={colors.textMuted}
@@ -218,7 +220,7 @@ export default function SafetyScreen({ request, user, store, state, onClose, onW
                 <Text style={s.heading}>차단한 사용자가 함께하고 있어요</Text>
                 <Text style={s.text}>이 다이어리에는 내가 차단한 사용자 {request.rows.length}명이 참여 중이에요.{"\n"}해당 사용자도 이 다이어리를 보고 편집할 수 있어요.</Text>
                 <Pressable accessibilityRole="checkbox" accessibilityLabel="이 다이어리에서 다시 보지 않기" accessibilityState={{ checked: dismiss, disabled: busy }} disabled={busy} style={s.reason} onPress={() => setDismiss(value => !value)}>
-                  <Text style={s.text}>{dismiss ? '☑' : '☐'} 이 다이어리에서 다시 보지 않기</Text>
+                  <EditorIcon name={dismiss ? 'checkboxOn' : 'checkboxOff'} size={20} color={dismiss ? colors.primaryStrong : colors.textMuted} /><Text style={s.text}>이 다이어리에서 다시 보지 않기</Text>
                 </Pressable>
               </>}
             </>}

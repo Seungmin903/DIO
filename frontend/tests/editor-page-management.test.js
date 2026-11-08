@@ -123,7 +123,7 @@ test('한 장짜리 문서도 초기화할 수 있고 직렬화 후 빈 페이�
  assert.equal(restored.pageId,next.pageId);
 });
 
-test('나의 속지처럼 미리 만든 페이지는 그대로 지금 페이지 뒤에 넣고 첫 장으로 이동한다', () => {
+test('내 속지처럼 미리 만든 페이지는 그대로 지금 페이지 뒤에 넣고 첫 장으로 이동한다', () => {
   const pages = [
     { id: 'pdf-1', canvasWidth: 1200, canvasHeight: 1600, objects: [{ id: 'bg-1', type: 'sticker', locked: true, backdrop: true, mediaFileId: 'm-1' }] },
     { id: 'pdf-2', canvasWidth: 1200, canvasHeight: 1600, objects: [{ id: 'bg-2', type: 'sticker', locked: true, backdrop: true, mediaFileId: 'm-2' }] },

@@ -51,7 +51,8 @@ const local = StyleSheet.create({
   wrap: { marginBottom: 24 },
   row: { alignItems: 'flex-end', gap: GAP, paddingRight: 8 },
   rowCompact: { flexDirection: 'row', gap: GAP_COMPACT, paddingRight: 0 },
-  rowScrollCompact: { gap: GAP_COMPACT, paddingRight: 24 },
+  // 폰 스크롤 탭: 끝까지 밀면 마지막 탭(도구)이 아래 선 끝에서 끝난다. 오른쪽 여백을 두지 않는다(지라 593 · 594)
+  rowScrollCompact: { gap: GAP_COMPACT, paddingRight: 0 },
   tabCompact: { flex: 1, minWidth: 0 },
   tab: { alignItems: 'center', justifyContent: 'center', borderTopLeftRadius: CORNER, borderTopRightRadius: CORNER },
   tabIdle: { backgroundColor: colors.surface, marginBottom: DROP },

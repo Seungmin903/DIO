@@ -17,8 +17,6 @@ import { cardTapAction } from '../utils/libraryView';
 // 그만큼의 여백을 두고 같은 크기의 음수 마진으로 자리는 그대로 둔다(styles.carouselEffectSpace 와 같은 값).
 export const CAROUSEL_EFFECT_PAD = { x: 48, top: 28, bottom: 36 };
 
-// 페이지 수 줄 높이(줄 18 + 위 간격 3, styles.cardPageCount)
-export const PAGE_COUNT_ROW = 21;
 
 // 즐겨찾기 별의 윤곽선: 표지 위에서는 흰색, 표지 바탕이 밝은 흰 노트이면 남색으로 쓴다(흰색 대비가 1.5:1 아래인 거의 흰 바탕일 때).
 function starOutlineFor(diary) {
@@ -39,7 +37,7 @@ function starOutlineFor(diary) {
 function DiaryCard({ diary, pageCount, layout = 'grid', compact = false, large = false, cell = null, onOpen, onCenter, onFavorite, onEdit, onDelete, onShare, carouselActive = false, animatedStyle, infoStyle, selecting = false, selected = false, onToggleSelect, onEnterEdit }) {
   // 동작 말풍선: null 이면 닫힘, 열리면 ⋯ 버튼의 창 안 자리(anchor)를 들고 있다(재지 못하면 anchor 는 null)
   const [menu, setMenu] = useState(null);
-  const moreRef = useRef(null);
+  const moreRef = useRef(null), cardRef = useRef(null);
   // 세로 표지는 칸보다 좁아 가운데에 놓인다. 이름 · 페이지 수를 그 표지의 왼쪽 끝에 맞추려고 Cover 가 알려 주는 값(가로 표지는 0)
   const [coverInset, setCoverInset] = useState(0);
   // 로컬 요약이 있으면 그것을 사용한다. null은 조회 실패, undefined는 아직 확인 전이다.
@@ -62,6 +60,7 @@ function DiaryCard({ diary, pageCount, layout = 'grid', compact = false, large =
   ].filter(Boolean);
   const card = (
     <Pressable
+      ref={cardRef}
       disabled={selecting && (diary.canManage === false || diary.canDelete === false)}
       accessibilityRole={selecting ? 'checkbox' : 'button'}
       accessibilityLabel={selecting ? `${diary.title} 선택` : sideCard ? `${diary.title} 가운데로` : `${diary.title} 열기`}
@@ -86,8 +85,8 @@ function DiaryCard({ diary, pageCount, layout = 'grid', compact = false, large =
       ]}
     >
       <View style={s.cardCoverWrap}>
-        {/* 더보기 버튼과 선택 표시(왼쪽 위 별 포함)는 칸이 아니라 실제 표지(가로 다이어리는 낮은 표지) 모서리에 얹는다 */}
-        <Cover diary={diary} small={layout === 'list'} carousel={layout === 'carousel'} grid={layout === 'grid'} fill={layout === 'grid'} compact={compact} large={large} centered={large}
+        {/* 더보기 버튼과 선택 표시(오른쪽 위 별 포함)는 칸이 아니라 실제 표지(가로 다이어리는 낮은 표지) 모서리에 얹는다 */}
+        <Cover diary={diary} small={layout === 'list'} carousel={layout === 'carousel'} grid={layout === 'grid'} fill={layout === 'grid'} compact={compact} large={large} centered={large || layout === 'carousel'}
           frame={layout === 'carousel' ? (carouselActive ? 'active' : 'idle') : null} onInset={layout === 'list' ? null : setCoverInset}>
         {/* 스와이프의 표지 프레임(가운데 표지는 흰 3px + 그림자, 옆 표지는 얇은 라벤더 2px)은 표지 크기에서 모서리를 계산하는 Cover 가 그린다 */}
         {selecting && diary.canManage !== false && diary.canDelete !== false && <SelectionMark selected={selected} compact={compact} />}
@@ -98,7 +97,7 @@ function DiaryCard({ diary, pageCount, layout = 'grid', compact = false, large =
           accessibilityState={{ disabled: !onFavorite }}
           hitSlop={12}
           onPress={(event) => { event.stopPropagation(); onFavorite?.(diary.id); }}
-          style={[s.cardFavorite, compact && s.cardFavoriteCompact, !onFavorite && { opacity: DISABLED_OPACITY }]}
+          style={[s.cardFavorite, compact && s.cardFavoriteCompact, layout === 'carousel' && (compact ? s.cardFavoriteCarouselCompact : large ? s.cardFavoriteCarouselLarge : s.cardFavoriteCarousel), !onFavorite && { opacity: DISABLED_OPACITY }]}
         >
           {/* 안 칠한 별의 흰 윤곽은 80%로 한 단계 낮춘다(원 페이저 06). 밝은 표지 위 남색 윤곽 · 칠한 별은 그대로 */}
           <FavoriteStar filled={!!diary.favorite} outline={!diary.favorite && starOutlineFor(diary) === '#FFFFFF' ? 'rgba(255,255,255,0.8)' : starOutlineFor(diary)} />
@@ -124,7 +123,13 @@ function DiaryCard({ diary, pageCount, layout = 'grid', compact = false, large =
               onPress={(event) => {
                 event.stopPropagation();
                 const node = moreRef.current;
-                if (node?.measureInWindow) node.measureInWindow((x, y, width, height) => setMenu({ anchor: { x, y, width, height: height + PAGE_COUNT_ROW } })); // 말풍선이 제목 밑 페이지 수 줄을 가리지 않게 그만큼 아래에 연다
+                // 말풍선은 ⋯ 바로 아래(간격 8)에 연다. 페이지 수 줄만큼 더 내렸더니 버튼과 너무 떨어져 보였다(2026-11-08, 열린 동안은 그 줄을 가린다).
+                // 한눈에 보기(격자)는 카드 칸(bounds)도 재서 말풍선을 칸 안에 가둔다
+                if (node?.measureInWindow) node.measureInWindow((x, y, width, height) => {
+                  const anchor = { x, y, width, height };
+                  if (layout === 'grid' && cardRef.current?.measureInWindow) cardRef.current.measureInWindow((cx, cy, cw) => setMenu({ anchor: cw > 0 ? { ...anchor, bounds: { x: cx, width: cw } } : anchor }));
+                  else setMenu({ anchor });
+                });
                 else setMenu({ anchor: null });
               }}
               style={s.cardMore}

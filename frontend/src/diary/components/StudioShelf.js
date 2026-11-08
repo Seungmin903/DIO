@@ -2,19 +2,21 @@ import { useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import AppIcon from '../../shared/AppIcon';
 import { colors } from '../../shared/theme';
-import FadeScroll, { CANVAS_FADE_RGB } from '../../editor/components/controls/FadeScroll';
+import useFillGrid from '../../shared/useFillGrid';
 import CoverArt from './CoverArt';
 import { PdfPageThumb } from './PdfImport';
 
-// 견본 칸(모서리 14): 세로 116×154, 가로 154×116. 표지 · 속지 모두 저장한 방향대로 칸을 세우거나 눕힌다.
-const SLOT = { width: 116, height: 154 };
-const WIDE_SLOT = { width: 154, height: 116 };
+// 칸 최소 폭(견본의 긴 변): 표지 154, PDF 속지는 본문을 더 쉽게 읽도록 208. 짧은 변은 비율로 정한다
+const CELL = { cover: 154, paper: 208 };
+const SHORT = { cover: 116 / 154, paper: 148 / 208 };
+const GAP = 14;
 
 /**
- * 내 표지 · 내 속지 진열: 가로로 미는 선반 한 줄. 칸 사이 14, 화면 끝에서 다음 칸이 잘려 보여 더 있다는 것을 알린다.
+ * 내 표지 · 내 속지 진열: 격자(useFillGrid, 칸 사이 14, 폰 · 태블릿 같음). 보관함 한눈에 보기와 같이 견본의 긴 변이 칸 폭이고
+ * (가로는 칸을 꽉 채우고 세로는 같은 높이로 좁게 가운데), 한 줄의 견본은 아랫변을 맞춘다. 이름 줄은 견본 폭에 맞춘다.
  * 이름 아래 줄 오른쪽에 지우기 버튼(48)을 둔다(견본 위에는 아무것도 띄우지 않는다).
  * 이름을 누르면 그 자리에서 고친다(저장은 확인 · 포커스를 옮길 때, 비우면 원래 이름).
- * onOpen(item): 있으면 견본을 눌러 그 안을 펼친다(속지: 전체 쪽 목록).
+ * onOpen(item): 있으면 견본을 누른다. 속지는 전체 쪽 목록을 펼치고, 표지는 표지 편집을 연다(지라 603).
  * kind: 'cover' | 'paper', items: useMyLibrary 의 covers / papers, onRemove(item): 지우기 확인을 여는 쪽이 정한다, onRename(item, name): 이름 저장.
  */
 export default function StudioShelf({ kind, items, onRemove, onRename, onOpen }) {
@@ -28,49 +30,54 @@ export default function StudioShelf({ kind, items, onRemove, onRename, onOpen })
     setEditing(null);
     if (name && name !== item.name) onRename?.(item, name);
   };
+  const paper = kind === 'paper';
+  const grid = useFillGrid({ cell: CELL[kind], gap: GAP, minColumns: 2 });
+  const width = grid.cellWidth;
   return (
-    <FadeScroll horizontal fadeRgb={CANVAS_FADE_RGB} contentContainerStyle={local.row}>
+    <View style={local.grid} onLayout={grid.onLayout}>
       {items.map(item => {
-        const paper = kind === 'paper';
-        const slot = item.orientation === 'landscape' ? WIDE_SLOT : SLOT;
+        const short = Math.round(width * SHORT[kind]);
+        const slot = item.orientation === 'landscape' ? { width, height: short } : { width: short, height: width };
         const label = paper ? `${item.name} · ${item.pages.length}장` : item.name;
         return (
-          <View key={item.id} style={{ width: slot.width }}>
+          <View key={item.id} style={[local.cell, { width }]}><View style={{ width: slot.width }}>
             {(() => {
               const art = paper
-                ? <PdfPageThumb page={item.pages[0]} width={slot.width - 16} ratio={slot.width / slot.height} />
-                : <CoverArt cover={item.cover} name={item.name} width={slot.width} height={slot.height} />;
+                ? <PdfPageThumb page={item.pages[0]} width={slot.width - 2} ratio={slot.width / slot.height} maxHeight={slot.height - 2} />
+                // 견본의 '다이어리 이름' 자리는 표지 편집 미리보기와 같은 '새 다이어리'(파일 이름이 표지 제목처럼 보이지 않게)
+                : <CoverArt cover={item.cover} name="새 다이어리" width={slot.width} height={slot.height} />;
               return onOpen
-                ? <Pressable accessibilityRole="button" accessibilityLabel={`${label} ${paper ? '속지' : '표지'} 펼치기`} onPress={() => onOpen(item)} style={[local.art, slot]}>{art}</Pressable>
+                ? <Pressable accessibilityRole="button" accessibilityLabel={paper ? `${label} 속지 펼치기` : `${label} 표지 편집`} onPress={() => onOpen(item)} style={[local.art, slot]}>{art}</Pressable>
                 : <View accessible accessibilityRole="image" accessibilityLabel={paper ? `${label} 속지` : `${label} 표지`} style={[local.art, slot]}>{art}</View>;
             })()}
             <View style={local.meta}>
               <View style={local.names}>
                 {editing?.id === item.id
-                  ? <TextInput autoFocus selectTextOnFocus maxLength={40} value={editing.draft} accessibilityLabel={paper ? '나의 속지 이름' : '나의 표지 이름'}
+                  ? <TextInput autoFocus selectTextOnFocus maxLength={40} value={editing.draft} accessibilityLabel={paper ? '내 속지 이름' : '내 표지 이름'}
                     onChangeText={draft => setEditing({ id: item.id, draft })} onSubmitEditing={() => finish(item)} onBlur={() => finish(item)}
                     returnKeyType="done" style={[local.name, local.nameInput]} />
-                  : <Pressable accessibilityRole="button" accessibilityLabel={paper ? `나의 속지 ${item.name} 이름 고치기` : `나의 표지 ${item.name} 이름 고치기`}
+                  : <Pressable accessibilityRole="button" accessibilityLabel={paper ? `내 속지 ${item.name} 이름 고치기` : `내 표지 ${item.name} 이름 고치기`}
                     onPress={() => setEditing({ id: item.id, draft: item.name })} style={local.nameRow}>
                     <Text numberOfLines={1} style={[local.name, local.nameText]}>{item.name}</Text>
                     <AppIcon name="edit" size={12} forText={14} color={colors.textMuted} />
                   </Pressable>}
                 {paper ? <Text style={local.sub}>{`${item.pages.length}장`}</Text> : null}
               </View>
-              <Pressable accessibilityRole="button" accessibilityLabel={paper ? `나의 속지 ${item.name} 지우기` : `나의 표지 ${item.name} 지우기`}
+              <Pressable accessibilityRole="button" accessibilityLabel={paper ? `내 속지 ${item.name} 지우기` : `내 표지 ${item.name} 지우기`}
                 onPress={() => onRemove(item)} style={local.remove}>
                 <AppIcon name="trash" size={18} color={colors.primaryText} />
               </Pressable>
             </View>
-          </View>
+          </View></View>
         );
       })}
-    </FadeScroll>
+    </View>
   );
 }
 
 const local = StyleSheet.create({
-  row: { gap: 14, paddingRight: 36, paddingVertical: 4 },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-end', gap: GAP, paddingVertical: 4 },
+  cell: { alignItems: 'center' },
   art: { overflow: 'hidden', borderRadius: 12, borderWidth: 1, borderColor: colors.cardBorder, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surface },
   meta: { flexDirection: 'row', alignItems: 'center', marginTop: 6 },
   names: { flex: 1, minWidth: 0, paddingLeft: 2 },

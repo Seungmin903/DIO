@@ -119,7 +119,7 @@ function importer(server, storage, { createId = ids(), isActive = () => true, re
 }
 const guestStorage = () => memoryStorage({ [STORAGE_KEYS.diaries]: JSON.stringify([guestDiary, { id: 'diary-2', title: '버린 것', trashedAt: '2026-10-01T00:00:00Z' }]), [`${STORAGE_KEYS.doc}:diary-1`]: JSON.stringify(guestDoc()) })
 
-test('계획: 속지는 서버 카탈로그로, 날짜 속지는 만년형으로, 글꼴 · 크기 · 이름 · 격자는 만든 뒤 PATCH 로 보낸다', () => {
+test('계획: 속지는 서버 카탈로그로, 날짜 속지는 만년형 행 + 날짜 ID, 글꼴 · 날짜 · 크기 · 이름 · 격자는 만든 뒤 PATCH 로 보낸다', () => {
   const plan = planGuestDiary(guestDiary, guestDoc(), { createId: ids() })
   assert.deepEqual(plan.create.initialPages.map(p => p.templateCode), ['2026-reusable-note-plain-landscape', 'undated-monthly-landscape', 'dio-blank-landscape'])
   assert.deepEqual(plan.create.initialPages[0].templateConfig.paperAppearance, { backgroundColor: '#FFF8E7', layoutColor: '#33476B' })
@@ -127,8 +127,13 @@ test('계획: 속지는 서버 카탈로그로, 날짜 속지는 만년형으로
   assert.deepEqual(plan.pages[0].settings, { title: '첫날' })
   assert.deepEqual(plan.pages[2].settings, { canvasWidth: 900, canvasHeight: 700, gridVisible: true, gridColor: '#DCE5F1' })
   assert.equal(plan.create.initialPages[2].templateConfig.blank, true)
+  // 날짜 속지(지라 581): 만년형 행으로 만들고 날짜 ID 는 만든 뒤 PATCH 로 넣는다(날짜가 빠지지 않는다)
+  assert.match(plan.create.initialPages[1].templateId, /^dated-monthly-/)
+  assert.equal(plan.pages[1].dated, plan.create.initialPages[1].templateId)
+  assert.equal(plan.create.initialPages[1].templateConfig.datedTemplate, plan.pages[1].dated)
   const kinds = skippedSummary(plan.skipped).map(row => row.kind)
-  for (const kind of ['datedText', 'element', 'personalFont']) assert.ok(kinds.includes(kind), kind)
+  for (const kind of ['element', 'personalFont']) assert.ok(kinds.includes(kind), kind)
+  assert.equal(kinds.includes('datedText'), false)
   // 표지 · 만든 날짜는 빠지는 항목이 아니다(기기 값으로 잇는다)
   for (const kind of ['createdAt', 'cover']) assert.equal(kinds.includes(kind), false, kind)
   // 요소 id 는 모두 새 UUID
@@ -174,7 +179,10 @@ test('가져오기: 생성 → 페이지 설정 → 업로드 후 id 교체 → 
   assert.ok(server.media.has(first.elements[1].mediaFileId))
   assert.ok(second.elements.length > 1 && second.elements.every(e => e.elementType === 'STROKE'))
   const kinds = skipped.map(s => s.kind)
-  for (const kind of ['media', 'element', 'datedText', 'personalFont']) assert.ok(kinds.includes(kind), kind)
+  for (const kind of ['media', 'element', 'personalFont']) assert.ok(kinds.includes(kind), kind)
+  // 날짜 속지는 서버 페이지 설정에 날짜 ID 가 남는다(지라 581)
+  assert.match(second.templateConfig.datedTemplate, /^dated-monthly-/)
+  assert.equal(kinds.includes('datedText'), false)
   assert.equal(kinds.includes('cover'), false)
   assert.equal(skipped.find(s => s.kind === 'media').count, 2)
   assert.equal(result.imported[0].removeOriginal, false)

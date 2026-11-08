@@ -22,9 +22,11 @@ import { setPdfSourceFetcher } from '../services/pdfSourceRemote.js'
 // PDF 쪽 바탕(원본 PDF 를 올리기 전)이 아직 서버에 없는 쪽인지
 const needsPdfSeed=page=>(page.objects??[]).some(o=>o.backdrop&&o.pdfSource&&!o.pdfSource.mediaFileId)
 
-export function useMemberCanvasCollaboration({diary,page,state,loaded,readOnly,dispatch}){
+export function useMemberCanvasCollaboration({diary,page,state,loaded,readOnly,dispatch,onMembersChanged=()=>{},onCollaborationStateChange=()=>{}}){
   const enabled=diary?.source==='member-api'&&!readOnly
   const latest=useRef({page,state});latest.current={page,state}
+  const membersChanged=useRef(onMembersChanged);membersChanged.current=onMembersChanged
+  const collaborationStateChange=useRef(onCollaborationStateChange);collaborationStateChange.current=onCollaborationStateChange
   const runtime=useRef(null)
   const [view,setView]=useState({status:null,history:null,busy:false,pageId:null})
   const sessionKey=authService.getSessionKey()
@@ -40,7 +42,9 @@ export function useMemberCanvasCollaboration({diary,page,state,loaded,readOnly,d
       setView(v=>({...v,status:'error',pageId:page.id,errorMessage:'서버 다이어리 ID를 확인하지 못했어요. 홈에서 다이어리를 다시 열어 주세요. 기기 작업은 유지돼요.'}))
       return
     }
-    const r={alive:true,engines:new Map(),loaded:new Map(),tail:Promise.resolve(),claimed:new Set(),pending:new Map(),again:new Set(),busy:false}
+    const r={alive:true,engines:new Map(),loaded:new Map(),tail:Promise.resolve(),claimed:new Set(),pending:new Map(),again:new Set(),busy:false,acks:[]}
+    // 저널에 넣은 편집의 전송 확인을 모아 한 번에 보낸다(동기화 결과 반영과 같은 커밋)
+    r.flushAcks=()=>{if(!r.acks.length)return;const ids=r.acks.splice(0);for(const id of ids)r.claimed.delete(id);if(r.alive)dispatch({type:'collaborationAck',ids})}
     runtime.current=r
     const active=()=>r.alive&&authService.getSessionKey()===sessionKey
     const headersFor=url=>authService.getCollaborationHeaders?.({url,userId:diary.memberAccountId,sessionKey})??{}
@@ -106,7 +110,7 @@ export function useMemberCanvasCollaboration({diary,page,state,loaded,readOnly,d
       if(active()){r.pageIds?.add(page.id);dispatch({type:'importServerPages',pages:[page],selectId:page.id})}
       return page
     })
-    // 나의 속지(PDF 쪽): 빈 페이지를 만들어 쪽 크기로 맞춘 뒤 바탕 그림을 얹는다(새 PDF 다이어리와 같은 길). 그림과 원본 PDF 는 동기화가 올린다.
+    // 내 속지(PDF 쪽): 빈 페이지를 만들어 쪽 크기로 맞춘 뒤 바탕 그림을 얹는다(새 PDF 다이어리와 같은 길). 그림과 원본 PDF 는 동기화가 올린다.
     r.addPdfPages=docPages=>mutatePages(async()=>{
       dispatch({type:'commitCheckpoint'})
       const added=[]
@@ -184,7 +188,8 @@ export function useMemberCanvasCollaboration({diary,page,state,loaded,readOnly,d
         if(!r.pageIds?.has(pageId)){await r.refreshPages();return}
         const seed=latest.current.state.doc.pages.find(p=>p.id===pageId)?.objects??[]
         const engine=await r.engineFor(pageId,seed);if(!active()||!engine)return
-        if(latest.current.page.id===pageId)setView(v=>({...v,status:'saving',pageId}))
+        // 보낼 것이 있을 때만 '저장 중'으로 바꾼다(5초 주기 대조가 저장됨↔저장 중을 깜빡이지 않게)
+        if(latest.current.page.id===pageId&&(direction||engine.pending()))setView(v=>({...v,status:'saving',pageId}))
         let result
         try{result=direction?await engine.control(direction):await engine.synchronize()}
         catch(error){
@@ -196,14 +201,19 @@ export function useMemberCanvasCollaboration({diary,page,state,loaded,readOnly,d
         }
         if(!active()||!r.pageIds?.has(pageId))return
         const current=latest.current.page,target=latest.current.state.doc.pages.find(p=>p.id===pageId)
-        if(target&&(!result.direction||sameElements(target.objects,result.expectedLocal))){
-          dispatch({type:result.direction?'collaborationHistoryApplied':'importCollaborationElements',direction:result.direction,
+        const imported=Boolean(target)&&!result.unchanged&&(!result.direction||sameElements(target.objects,result.expectedLocal))
+        // 전송 확인·화면 반영·저장 상태를 같은 틱에 갱신해 React 가 한 번에 커밋하게 한다(await 뒤로 미루면 커밋이 나뉜다)
+        r.flushAcks()
+        if(imported)dispatch({type:result.direction?'collaborationHistoryApplied':'importCollaborationElements',direction:result.direction,
             historyClientOperationId:result.historyClientOperationId,pageId,expectedElements:result.expectedLocal,objects:result.objects})
-          await engine.acceptImport(result.objects)
-        }
-        if(current.id===pageId&&active())setView(v=>({...v,status:result.rejectedCount?'error':'saved',errorMessage:result.rejectedCount?'서버가 거절한 편집은 기기에 보관했어요. 나머지 편집은 동기화했어요.':null,history:result.history,pageId}))
+        if(current.id===pageId&&active())setView(v=>{
+          const next={...v,status:result.rejectedCount?'error':'saved',errorMessage:result.rejectedCount?'서버가 거절한 편집은 기기에 보관했어요. 나머지 편집은 동기화했어요.':null,history:result.history,pageId}
+          // 바뀐 것이 없으면 같은 상태를 돌려줘 편집 화면을 다시 그리지 않는다
+          return v.status===next.status&&v.errorMessage===next.errorMessage&&v.pageId===pageId&&JSON.stringify(v.history)===JSON.stringify(next.history)?v:next
+        })
+        if(imported)await engine.acceptImport(result.objects)
         return result
-        } finally { finishTiming() }
+        } finally { r.flushAcks();finishTiming() } // 조기 반환·실패 경로에서도 전송 확인을 남기지 않는다
       }
       const job=r.tail.catch(()=>{}).then(work);r.tail=job
       if(!direction){
@@ -213,7 +223,7 @@ export function useMemberCanvasCollaboration({diary,page,state,loaded,readOnly,d
           if(r.again.delete(pageId)&&active())r.sync(pageId)
         }).catch(()=>{})
       }
-      if(!direction)job.catch(error=>{if(active()&&latest.current.page.id===pageId)setView(v=>({...v,status:error.status===409?'conflict':'error',errorMessage:failureMessage(error),pageId}))})
+      if(!direction)job.catch(error=>{r.flushAcks();if(active()&&latest.current.page.id===pageId)setView(v=>({...v,status:error.status===409?'conflict':'error',errorMessage:failureMessage(error),pageId}))})
       return job
     }
     const refresh=()=>{if(active()){r.sync(latest.current.page.id);refreshPagesQuietly()}}
@@ -221,9 +231,14 @@ export function useMemberCanvasCollaboration({diary,page,state,loaded,readOnly,d
       onDiagnostic:diagnostics.socket,
       makeSocket:url=>Platform?.OS==='web'?new globalThis.WebSocket(url):new globalThis.WebSocket(url,[],{headers:headersFor(url)}),
       getAccessToken:({forceRefresh=false}={})=>authService.getAccessToken({userId:diary.memberAccountId,sessionKey,forceRefresh}),
-      onReady:()=>{diagnostics.event('ws-ready');refresh()},onUnavailable:()=>diagnostics.event('ws-unavailable'),onPagesChanged:refreshPagesQuietly,onChange:frame=>{
+      onReady:()=>{diagnostics.event('ws-ready');api.invalidateMembership?.();collaborationStateChange.current(diary.sharedDiaryId||diary.id,true);refresh()},onUnavailable:()=>{diagnostics.event('ws-unavailable');collaborationStateChange.current(diary.sharedDiaryId||diary.id,false)},onPagesChanged:refreshPagesQuietly,onMembersChanged:()=>{api.invalidateMembership?.();membersChanged.current()},onChange:frame=>{
         diagnostics.event('ws-change')
-        if([...r.loaded.values()].some(engine=>engine.ownsCommand(frame.clientOperationId)))return
+        // 내 저장의 에코면 다시 조회하지 않는다(1인 다이어리는 ID 대신 내 계정이 낸 이벤트 수로 판단)
+        const actor=frame.actorUserId,mine=actor!=null&&actor!==''&&diary.memberAccountId!=null&&String(actor)===String(diary.memberAccountId)
+        // 그 페이지의 엔진이 먼저 판단한다(ID 일치 또는 1인 다이어리의 내 에코 소비). 명령은 페이지 엔진이 내므로 보통 여기서 끝나고,
+        // 엔진이 없거나 못 알아보면 다른 엔진의 ID 일치만 본다(에코 소비는 다른 페이지 엔진이 하지 않는다).
+        const owner=r.loaded.get(frame.pageId)
+        if(owner?.claimsChange?.(frame.clientOperationId,mine)||[...r.loaded.values()].some(engine=>engine!==owner&&engine.ownsCommand(frame.clientOperationId)))return
         if(frame.pageId===latest.current.page.id)refresh()
         else if(latest.current.state.doc.pages.some(p=>p.id===frame.pageId))r.sync(frame.pageId)
         else refreshPagesQuietly()
@@ -231,7 +246,7 @@ export function useMemberCanvasCollaboration({diary,page,state,loaded,readOnly,d
     // Periodic reconciliation also covers an event lost after commit or a proxy without WebSocket support.
     const timer=setInterval(()=>{diagnostics.event('poll');refresh()},5000)
     const appState=AppState.addEventListener('change',next=>{if(next==='active')refresh();else dispatch({type:'commitCheckpoint'})})
-    return ()=>{r.alive=false;setPdfSourceFetcher(null);media.dispose();socket.close();clearInterval(timer);appState.remove();if(runtime.current===r)runtime.current=null}
+    return ()=>{r.alive=false;collaborationStateChange.current(diary.sharedDiaryId||diary.id,false);setPdfSourceFetcher(null);media.dispose();socket.close();clearInterval(timer);appState.remove();if(runtime.current===r)runtime.current=null}
   },[enabled,loaded,diary?.id,diary?.memberAccountId,sessionKey])
   useEffect(()=>{
     const r=runtime.current;if(!r||!enabled||!loaded)return
@@ -258,7 +273,8 @@ export function useMemberCanvasCollaboration({diary,page,state,loaded,readOnly,d
         if(!engine)return
         await engine.enqueue(entry)
         if(!r.alive||authService.getSessionKey()!==sessionKey)return
-        dispatch({type:'collaborationAck',ids:[entry.id]});r.claimed.delete(entry.id);r.sync(entry.pageId)
+        // 전송 확인은 동기화 결과와 같은 커밋으로 모아 보낸다(획마다 전체 화면을 한 번 더 그리지 않게). claimed 는 확인을 보낼 때 푼다.
+        r.acks.push(entry.id);r.sync(entry.pageId)
       }).catch(()=>{r.claimed.delete(entry.id);if(r.alive)setView(v=>({...v,status:'local-error'}))})
     }
   },[state.collaborationEdits,enabled,sessionKey])

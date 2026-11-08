@@ -103,7 +103,8 @@ test('좌표 변경 중에는 관계없는 요소 본문을 직렬화하지 않�
   state=reduce(state,{type:'updateObject',id:all[0].id,patch:{x:77}})
   assert.equal(reads,0)
   state=reduce(state,{type:'updateObject',id:all[0].id,patch:{text:'changed'}})
-  assert.ok(reads>0);assert.equal(state.collaborationGesture.limitGeometryIds,null)
+  // 전체 검사로 돌아가되, 참조가 그대로인 요소는 인코딩하지 않는다
+  assert.equal(reads,0);assert.equal(state.collaborationGesture.limitGeometryIds,null)
   const before=state.doc
   const blocked=reduce(state,{type:'updateMany',patches:Object.fromEntries(all.map(o=>[o.id,{x:88}]))})
   assert.equal(blocked.doc,before);assert.ok(blocked.collaborationLimitError)
@@ -115,30 +116,36 @@ test('같은 사용자 행동의 생성100·수정100·삭제100은 총합300이
   assert.notEqual(result.doc,initial.doc);assert.equal(result.collaborationLimitError,undefined)
   assert.equal(result.collaborationEdits.length,1)
 })
-test('기존에 준비된 restore101 요청도 큐와 명령 ID를 유지하며 차단한다',async()=>{
-  const saved={format:2,pageId,diaryId,base:[],uiLocal:[],control:null,recent:[],queue:[{id:'old-command',pageId,before:[],after:[],mediaApiVersion:1,request:{clientOperationId:'old-command',changes:{restoreElementIds:objects(101).map(o=>o.id)},expectedVersions:{}}}]}
-  let stored=JSON.stringify(saved),writes=0
-  const session=createCanvasSession({api:{load:async()=>[],apply:async()=>{writes++}},storage:{getItem:async()=>stored,setItem:async(k,v)=>{stored=v}},key:'legacy',pageId,diaryId,createId:()=> 'unused'})
+test('기존에 준비된 restore101 요청은 100개씩 나눠 보내고 명령 ID 를 부분마다 새로 받는다',async()=>{
+  const ids=objects(101).map(o=>o.id)
+  const saved={format:2,pageId,diaryId,base:[],uiLocal:[],control:null,recent:[],queue:[{id:'old-command',pageId,before:[],after:[],mediaApiVersion:1,request:{clientOperationId:'old-command',changes:{restoreElementIds:ids},expectedVersions:{}}}]}
+  let stored=JSON.stringify(saved),sequence=0;const calls=[]
+  const session=createCanvasSession({api:{load:async()=>[],apply:async(_p,r)=>{calls.push(r);return {items:[]}},history:async()=>({items:[]})},storage:{getItem:async()=>stored,setItem:async(k,v)=>{stored=v}},key:'legacy',pageId,diaryId,createId:()=>`70000000-0000-4000-8000-${String(++sequence).padStart(12,'0')}`})
   await session.restore([])
-  await assert.rejects(session.synchronize(),{code:'CANVAS_BATCH_LIMIT'})
-  assert.equal(writes,0);assert.deepEqual(session.snapshot().queue,saved.queue)
+  await session.synchronize()
+  assert.deepEqual(calls.map(r=>r.changes.restoreElementIds.length),[100,1])
+  assert.deepEqual(calls.map(r=>r.clientOperationId),['70000000-0000-4000-8000-000000000001','70000000-0000-4000-8000-000000000002'])
+  assert.equal(session.snapshot().queue.length,0);assert.ok(session.ownsCommand('70000000-0000-4000-8000-000000000002'))
 })
-test('기존 초과 큐는 미디어 준비·쓰기 없이 보존하고 재시작·재시도에도 삭제하지 않는다',async()=>{
-  const disk=new Map(),all=objects(101);let prepares=0,writes=0
-  const api={load:async()=>[],prepare:async r=>{prepares++;return r},apply:async()=>{writes++;throw Error('unexpected write')},history:async()=>({items:[]})}
+test('기존 초과 큐는 종류별 100개씩 나눠 보내고 모두 성공한 뒤에야 비우며, 중간 실패 후 재시작해도 같은 부분부터 같은 ID 로 잇는다',async()=>{
+  const disk=new Map(),all=objects(101);let sequence=0,fail=false;const calls=[]
+  const api={load:async()=>[],prepare:async r=>r,apply:async(_p,r)=>{if(fail){fail=false;throw Error('response lost')}calls.push(r);return {items:[]}},history:async()=>({items:[]})}
   const storage={getItem:async k=>disk.get(k)??null,setItem:async(k,v)=>disk.set(k,v)}
-  const make=()=>createCanvasSession({api,storage,key:'limit',pageId,diaryId,createId:()=> 'seed'})
+  const make=()=>createCanvasSession({api,storage,key:'limit',pageId,diaryId,createId:()=>`70000000-0000-4000-8000-${String(++sequence).padStart(12,'0')}`})
   let session=make();await session.restore([])
   await session.enqueue({id:'big',pageId,before:[],after:all})
   await session.enqueue({id:'next',pageId,before:all,after:[...all,{...objects(1)[0],id:'40000000-0000-4000-8000-000000000001'}]})
-  for(let i=0;i<2;i++){
-    await assert.rejects(session.synchronize(),error=>error.code==='CANVAS_BATCH_LIMIT'&&/이후 편집은 서버에 저장되지 않고 기기에만/.test(error.message)&&/재시도만으로 해결되지/.test(error.message))
-    const snapshot=session.snapshot()
-    assert.deepEqual(snapshot.queue.map(e=>e.id),['big','next']);assert.equal(snapshot.uiLocal.length,102)
-    assert.equal(snapshot.rejectedEdits,undefined);assert.equal(snapshot.recent.length,0)
-    session=make();await session.restore([])
-  }
-  assert.equal(prepares,0);assert.equal(writes,0)
+  fail=true
+  await assert.rejects(session.synchronize(),/response lost/)
+  let snapshot=session.snapshot()
+  assert.deepEqual(snapshot.queue.map(e=>e.id),['big','next']);assert.equal(snapshot.queue[0].parts.length,2);assert.equal(snapshot.queue[0].partIndex,0)
+  const partIds=snapshot.queue[0].parts.map(p=>p.clientOperationId)
+  session=make();await session.restore([])
+  await session.synchronize()
+  assert.deepEqual(calls.map(r=>r.clientOperationId),[...partIds,'next'])
+  assert.deepEqual(calls.map(r=>(r.changes.creates??[]).length),[100,1,1])
+  snapshot=session.snapshot()
+  assert.equal(snapshot.queue.length,0);assert.ok(snapshot.recent.includes('big'));assert.ok(snapshot.recent.includes(partIds[1]))
 })
 test('100개 정상 세션 작업은 한 번의 서버 이력 단위로 전송한다',async()=>{
   const all=objects(100),calls=[],disk=new Map()

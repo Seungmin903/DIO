@@ -20,6 +20,7 @@ import ApiConfigurationErrorScreen from './src/shared/ApiConfigurationErrorScree
 import { guestProfile } from './src/auth/guestProfileDevice';
 import { LoginGateProvider, useLoginGate } from './src/auth/loginGate';
 import { useSharing } from './src/sharing/useSharing';
+import { isSharingDiaryId } from './src/sharing/sharingApi';
 import SharingHub from './src/sharing/SharingHub';
 import EditorModal from './src/editor/components/controls/EditorModal';
 import SafetyProvider, { useSafety } from './src/safety/SafetyProvider';
@@ -72,10 +73,14 @@ import * as SplashScreen from 'expo-splash-screen';
 import BootSplash, { SPLASH } from './src/shared/BootSplash';
 import { PRETENDARD_FILES } from './src/shared/pretendardFiles';
 import { preloadTextFonts } from './src/editor/services/textFonts';
+import { loadRemoteCatalog } from './src/shared/remoteAssets/remoteCatalogService';
 import ActionToast, { ACTION_TOAST_MS } from './src/shared/ActionToast';
+import { BULK_TRASH_DONE_MS, bulkTrashNeedsLogin, bulkTrashToastMessage } from './src/diary/utils/bulkTrashToast';
 
 // 텍스트 글꼴은 쓰일 때 불러온다(textFonts.js). 앱이 켜진 뒤 잠잠해지면 기본 글꼴과 내 폰트 목록만 먼저 준비한다.
 preloadTextFonts();
+// 앱 배포 없이 추가한 글꼴 · 스티커 목록(에셋 저장소의 catalog.json). 저장본을 먼저 쓰고 새 목록을 받는다. 실패해도 앱에는 영향이 없다.
+loadRemoteCatalog();
 
 // 네이티브에는 전역 crypto가 없어 다이어리·페이지·요소 UUID를 expo-crypto로 만든다.
 if (Platform.OS !== 'web') setUuidGenerator(randomUUID);
@@ -387,7 +392,8 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
   // 로그인 · 로그아웃으로 세션이 바뀌면 본문(SessionDiaryApp)이 새로 그려진다. 기능 가드에서 로그인한 뒤 보관함으로 튕기지 않도록
   // 마지막 화면 · 범위를 모듈 변수에 두고 다음 본문이 그 자리에서 시작한다(편집기는 열린 다이어리가 없어 제외)
   const routeOwner = member ? (previewUser?.userId || previewUser?.accountId || 'member') : null;
-  const [rawPage, setPage] = useState(() => routeMemory.read(routeOwner).page);
+  const [routePage, setPage] = useState(() => routeMemory.read(routeOwner).page);
+  const rawPage = !signedIn && routePage === 'studio' ? HOME_ROUTE.page : routePage;
   // 폰에는 별도 설정 화면이 없다(마이페이지 안에 설정이 펼쳐진다). 저장된 마지막 화면 · 분할 화면 전환으로 settings 가 남아도 마이페이지로 읽는다
   const page = normalizePageForFormFactor(rawPage, isPhone);
   const [railCollapsed, setRailCollapsed] = useState(true);  // 메뉴가 다 열리거나 닫혔을 때의 폭. 캐러셀은 '줄 폭 + 이 값'(메뉴와 상관없이 같은 값)으로 목록 폭을 정해,
@@ -452,6 +458,12 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
   const sharedLibraryRef = useRef(sharing.library);
   sharedLibraryRef.current = sharing.library;
   const sharingMembers = (signedIn && sharing.diaries.find(value => value.id === (active?.sharedDiaryId || active?.id))?.members) || [];
+  // Keep the editor's participant chips current even when the sharing sheet is closed.
+  useEffect(() => {
+    const diaryId = active?.sharedDiaryId || active?.id;
+    if (!member || !isSharingDiaryId(diaryId) || !sharing.runtime.server || typeof sharing.runtime.watchDiary !== 'function') return undefined;
+    return sharing.runtime.watchDiary(diaryId, { onUnavailable: message => notify('공유 상태 변경', message) });
+  }, [member, active?.id, active?.sharedDiaryId, sharing.runtime]);
   // 상단 바에 열어 둔 다이어리 탭 (id 순서대로). 다이어리를 열면 탭이 생기고, 탭을 눌러 오가며, 닫으면 옆 탭으로 간다.
   const [tabIds, setTabIds] = useState([]);
   const [createOpen, setCreateOpen] = useState(false);
@@ -551,8 +563,13 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
       }
       setPage(next);
     };
-    if (next !== 'profile' && profileLeaveGuard.current) profileLeaveGuard.current(move); else move();
-  }, [member,diaryState.store]);
+    const leaveThenMove = () => {
+      if (next !== 'profile' && profileLeaveGuard.current) profileLeaveGuard.current(move);
+      else move();
+    };
+    if (next === 'studio') loginGate('꾸미기 공방', leaveThenMove);
+    else leaveThenMove();
+  }, [member, diaryState.store, loginGate]);
 
   // 모든 화면 규격의 Android 시스템 뒤로가기: 시트 → 보조 화면 → 기본 보관함 순서로 한 단계씩 돌아간다.
   // 편집기는 열린 도구·패널을 먼저 닫아야 하므로 EditorScreen에서 별도로 처리한다.
@@ -619,7 +636,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
 
     confirmAction({
       title: '휴지통으로 옮길까요?',
-      message: `“${diary.title}”는 휴지통에서 30일 동안 복원할 수 있으며 이후 영구 삭제돼요. 앱이 꺼져 있으면 다음 실행 시 정리해요.`,
+      message: `“${diary.title}”는 휴지통에서 30일 동안 복원할 수 있으며 이후 영구 삭제돼요.`,
       confirmLabel: '휴지통으로',
       danger: false, // 30일 안에 되돌릴 수 있어 위험색을 쓰지 않는다
       onConfirm: () => {
@@ -637,8 +654,8 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
     const ids = requestedIds.filter(id => diaries.some(diary => diary.id === id));
     if (savingRef.current || trashingRef.current || !ids.length) return;
     confirmAction({
-      title: `${ids.length}개를 휴지통으로 옮길까요?`,
-      message: member ? '선택한 다이어리를 각각 휴지통으로 옮겨요. 삭제 시각부터 30일 동안 복원할 수 있어요. 일부 항목을 처리하지 못하면 남은 결과를 따로 안내해요.' : '고른 다이어리는 휴지통에서 30일 동안 복원할 수 있으며 이후 영구 삭제돼요. 앱이 꺼져 있으면 다음 실행 시 정리해요.',
+      title: `${ids.length}권을 휴지통으로 옮길까요?`,
+      message: member ? '선택한 다이어리를 각각 휴지통으로 옮겨요. 삭제 시각부터 30일 동안 복원할 수 있어요.' : '고른 다이어리는 휴지통에서 30일 동안 복원할 수 있으며 이후 영구 삭제돼요.',
       confirmLabel: '휴지통으로',
       danger: false,
       onConfirm: async () => {
@@ -651,6 +668,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
             notify('휴지통으로 옮기지 못했어요', '저장 공간과 권한을 확인한 뒤 다시 시도해 주세요. 다이어리는 그대로 남아 있어요.');
             return;
           }
+          if (!member) setGuestTrashDone({ key: createId(), count: ids.length });
           const moved = new Set(member ? result.succeeded : ids);
           setActive((current) => (current && moved.has(current.id) ? null : current));
           setTabIds((current) => current.filter((id) => !moved.has(id)));
@@ -790,10 +808,19 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
     return fullLoadPending ? [] : [...items].reverse();
   }, [member, memberLibraryMatches, diaryState.library?.items, librarySort, sortReversed, fullLoadPending, visibleDiaries]);
   const libraryReady = diaryState.library?.ready, libraryBusy = diaryState.library?.loading, libraryFailed = diaryState.library?.error, libraryCursor = diaryState.library?.nextCursor;
+  // 남은 페이지는 버튼 없이 한 페이지씩 뒤에서 이어 받는다('다음 다이어리 불러오기' 버튼을 없앴다, 2026-11-07). 오류가 나면 멈추고, 알림 칸의 다시 불러오기가 재개한다.
+  const libraryHasMore = Boolean(member && memberLibraryMatches && diaryState.library?.hasNext);
   useEffect(() => {
-    // 한 페이지씩 이어서 불러온다. 오류가 나면 멈추고, 화면의 다시 시도 버튼이 재개한다.
-    if (page === 'library' && fullLoadPending && libraryReady && !libraryBusy && !libraryFailed) diaryState.store.loadMoreLibrary().catch(() => {});
-  }, [page, fullLoadPending, libraryReady, libraryBusy, libraryFailed, libraryCursor, diaryState.store]);
+    if (page === 'library' && libraryHasMore && libraryReady && !libraryBusy && !libraryFailed) diaryState.store.loadMoreLibrary().catch(() => {});
+  }, [page, libraryHasMore, libraryReady, libraryBusy, libraryFailed, libraryCursor, diaryState.store]);
+  // 편집기에서 페이지를 지우거나 더한 뒤 보관함으로 돌아오면 서버 목록(카드 페이지 수)을 다시 받는다.
+  // 게스트는 위의 useLibraryMetadata 가 기기에 저장된 문서에서 다시 읽는다.
+  const previousPage = useRef(page);
+  useEffect(() => {
+    const left = previousPage.current === 'editor' && page === 'library';
+    previousPage.current = page;
+    if (left && member) Promise.resolve().then(() => diaryState.store.reload()).catch(() => {});
+  }, [page, member, diaryState.store]);
   useEffect(() => {
     if (page !== 'library' || !returnDiaryId.current) return;
     if (member && (!memberLibraryMatches || !diaryState.library.ready || diaryState.library.loading)) return;
@@ -854,6 +881,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
   const libraryScreen = useMemo(() => (
     <LibraryScreen
       compact={isPhone}
+      guestImport={guestImport}
       portrait={tabletPortrait}
       diaries={libraryDiaries}
       metadata={libraryMetadata}
@@ -880,13 +908,8 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
       historyKey={member ? diaryState.store.keys.searchHistory : undefined}
       hasMore={member && memberLibraryMatches && diaryState.library.hasNext}
       requestNotice={member ? <><MemberLibraryNotice library={diaryState.library} pending={!memberLibraryMatches} bulk={diaryState.bulkTrash}
-        onRetry={()=>diaryState.store.retryLibrary().catch(()=>{})} onMore={()=>diaryState.store.loadMoreLibrary().catch(()=>{})}
-        onDismissBulk={()=>diaryState.store.dismissBulkTrash()} onRetryBulk={async()=>{
-          try { const result=await diaryState.store.retryBulkTrash(); const moved=new Set(result.succeeded);
-            setActive(current=>current&&moved.has(current.id)?null:current);setTabIds(current=>current.filter(id=>!moved.has(id)));
-            setSelection(result.failed.length?result.failed.map(item=>item.id):null);
-          } catch(error) {notify('선택 작업을 확인하지 못했어요',error.message);}
-        }}/><MemberTrashNotice state={diaryState} onReload={()=>diaryState.store.loadTrash().catch(()=>{})} onRetry={()=>diaryState.store.retryLifecycle().catch(()=>{})}/><MemberRequestNotice pending={diaryState.pending} error={diaryState.error} busy={saving} refreshing={diaryState.refreshing}
+        onRetry={()=>diaryState.store.retryLibrary().catch(()=>{})}
+/><MemberTrashNotice state={diaryState} onReload={()=>diaryState.store.loadTrash().catch(()=>{})} onRetry={()=>diaryState.store.retryLifecycle().catch(()=>{})}/><MemberRequestNotice pending={diaryState.pending} error={diaryState.error} busy={saving} refreshing={diaryState.refreshing}
         onReload={() => diaryState.store.load().catch(() => {})}
         onArchiveExpired={() => confirmAction({title:'이전 생성 요청을 정리할까요?',message:'서버 목록을 다시 확인한 뒤 새 생성을 허용해요. 이미 생성된 다이어리는 삭제하지 않고 이전 요청은 이 계정의 기록에 보관해요.',confirmLabel:'요청 정리',onConfirm:async()=>{
           if(savingRef.current) return; savingRef.current=true;setSaving(true);
@@ -900,6 +923,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
           finally { savingRef.current = false; setSaving(false); }
         }} /></> : null}
       suppressEmpty={member && Boolean(fullLoadPending || !memberLibraryMatches || diaryState.library.loading || diaryState.library.error || diaryState.error || diaryState.refreshing)}
+      loading={member && libraryDiaries.length === 0 && Boolean(fullLoadPending || !memberLibraryMatches || diaryState.library.loading) && !diaryState.library.error}
     />
   ), [guestImport, carousel, navigate, changeCarousel, changeFilter, changeView, changeLibrarySort, create, edit, favorite, filter, isPhone, tabletPortrait,libraryMetadata, librarySort, moveDiaryToTrash, moveSelectedToTrash, open, selection, trashing, view, libraryDiaries, member, memberLibraryMatches, remoteQuery, diaryState.library, diaryState.bulkTrash, diaryState.pending, diaryState.error, diaryState.refreshing, diaryState.lifecycle, diaryState.trashLoading, diaryState.trashError, diaryState.store, saving, enterEditor]);
 
@@ -909,6 +933,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
       serverMode={member}
       busy={member && Boolean(diaryState.lifecycle?.busy || diaryState.bulkTrash?.busy)}
       suppressEmpty={member && Boolean(diaryState.trashLoading || diaryState.trashError)}
+      loading={member && Boolean(diaryState.trashLoading && !diaryState.trashLoaded && !diaryState.trash?.length)}
       requestNotice={member?<MemberTrashNotice state={diaryState} onReload={()=>diaryState.store.loadTrash().catch(()=>{})} onRetry={()=>diaryState.store.retryLifecycle().catch(()=>{})}/>:null}
       compact={isPhone}
       portrait={tabletPortrait}
@@ -927,7 +952,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
           // 로컬은 false 가 실패, 서버(회원)는 거부(reject)가 실패다. 서버가 돌려주는 값은 성공 여부가 아니다.
           try { const result = await restoreFromTrash(id); if (!member && !result) failed += 1; } catch { failed += 1; }
         }
-        if (failed) notify('복원하지 못한 다이어리가 있어요', `${failed}개를 복원하지 못했어요. 보관 기한이 지났거나 영구 삭제 중일 수 있어요.`);
+        if (failed) notify('복원하지 못한 다이어리가 있어요', `${failed}권을 복원하지 못했어요. 보관 기한이 지났거나 영구 삭제 중일 수 있어요.`);
       }}
       // 확인창에서 취소하면 고른 것을 그대로 두고, 지우기로 하면 선택을 끝낸다
       onDeleteMany={(items, onConfirmed) => {
@@ -941,7 +966,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
             for (const item of items) {
               try { if (!await deletePermanently(item.id)) failed += 1; } catch { failed += 1; }
             }
-            if (failed) notify('삭제하지 못한 다이어리가 있어요', `${failed}개를 삭제하지 못했어요. 저장소를 확인한 뒤 다시 시도해 주세요.`);
+            if (failed) notify('삭제하지 못한 다이어리가 있어요', `${failed}권을 삭제하지 못했어요. 저장소를 확인한 뒤 다시 시도해 주세요.`);
           },
         });
       }}
@@ -978,6 +1003,8 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
         readOnly={member && active?.permissions?.canEditCanvas !== true}
         invitationCount={unreadInvites}
         sharingMembers={sharingMembers}
+        onMembersChanged={() => { const diaryId = active?.sharedDiaryId || active?.id; if (isSharingDiaryId(diaryId)) { sharing.runtime.invalidateMemberPhotos?.(); sharing.runtime.refreshMembers?.(diaryId)?.catch(() => sharing.runtime.setWatchingRealtime?.(diaryId, false)); } }}
+        onCollaborationStateChange={(diaryId, connected) => sharing.runtime.setWatchingRealtime?.(diaryId, connected)}
         onRenameDiary={async title => {
           if (!active?.id) return false;
           try {
@@ -1000,15 +1027,15 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
       accountService={previewUser?.mode === 'authenticated' ? authService : undefined}
       getProfilePhotoSource={previewUser?.mode === 'authenticated' ? authService.getProfilePhotoSource : undefined} />;
   } else if (page === 'settings') {
-    content = <ProfileScreen onOpenBlockedUsers={safety.openBlocks} key="settings" section="settings" compact={isPhone} previewUser={previewUser} onEndPreview={onEndPreview} onClearSession={onClearSession} onUpdatePreview={onUpdatePreview}
+    content = <ProfileScreen onOpenBlockedUsers={safety.openBlocks} key="settings" section="settings" registerLeaveGuard={registerProfileLeaveGuard} compact={isPhone} previewUser={previewUser} onEndPreview={onEndPreview} onClearSession={onClearSession} onUpdatePreview={onUpdatePreview}
       accountService={previewUser?.mode === 'authenticated' ? authService : undefined}
       getProfilePhotoSource={previewUser?.mode === 'authenticated' ? authService.getProfilePhotoSource : undefined} />;
   }
 
-  // 새 다이어리를 만든 뒤 나의 표지 · 속지 저장만 실패하면, 작업대가 닫힌 뒤(편집기로 들어간 뒤) 알약으로 알리고 다시 시도하게 한다.
+  // 새 다이어리를 만든 뒤 내 표지 · 속지 저장만 실패하면, 작업대가 닫힌 뒤(편집기로 들어간 뒤) 알약으로 알리고 다시 시도하게 한다.
   // 다시 시도해 성공하면 완료 알약을 2초 띄운다.
   const [libraryNotice, setLibraryNotice] = useState(null);
-  const libraryTarget = kinds => kinds.length > 1 ? '표지와 속지를 나의 표지 · 속지에' : kinds[0] === 'cover' ? '표지를 나의 표지에' : '속지를 나의 속지에';
+  const libraryTarget = kinds => kinds.length > 1 ? '표지와 속지를 내 표지 · 속지에' : kinds[0] === 'cover' ? '표지를 내 표지에' : '속지를 내 속지에';
   const showLibraryFailure = ({ kinds, retry }) => setLibraryNotice({ key: createId(), kinds, retry, busy: false });
   const retryLibrarySave = async () => {
     const notice = libraryNotice;
@@ -1020,11 +1047,6 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
       ? { key: createId(), kinds: left, retry: notice.retry, busy: false }
       : { key: createId(), done: libraryTarget(notice.kinds) });
   };
-  useEffect(() => {
-    if (!libraryNotice || libraryNotice.busy) return undefined;
-    const timer = setTimeout(() => setLibraryNotice(null), libraryNotice.done ? 2000 : ACTION_TOAST_MS);
-    return () => clearTimeout(timer);
-  }, [libraryNotice]);
   const libraryToast = libraryNotice && (
     <ActionToast key={libraryNotice.key} compact={isPhone}
       bottom={(page === 'editor' ? 112 : isPhone ? 76 : 96) + insets.bottom}
@@ -1032,10 +1054,54 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
       actionLabel={libraryNotice.done ? undefined : '다시 시도'} busy={libraryNotice.busy} onAction={retryLibrarySave} />
   );
 
+  // 여러 권을 휴지통으로 옮긴 결과는 목록 위 칸이 아니라 알약 토스트로 알린다(지라 619). 목록이 밀리지 않고 닫기 버튼이 없어도 된다.
+  // 성공은 2초, 실패는 '다시 시도'를 달아 6초 보인 뒤 사라진다. 다시 로그인해야 하는 실패만 목록 위(MemberLibraryNotice)에 남긴다.
+  const bulkTrash = member ? diaryState.bulkTrash : null;
+  const bulkTrashAuth = bulkTrashNeedsLogin(bulkTrash);
+  // 다시 시도를 누른 순간부터 store 가 busy 로 바뀌기 전까지도 버튼을 막는다(연속으로 눌러도 한 번만 보낸다)
+  const [bulkTrashRetrying, setBulkTrashRetrying] = useState(false);
+  const bulkTrashRetryingRef = useRef(false);
+  const retryBulkTrash = async () => {
+    if (bulkTrashRetryingRef.current) return;
+    bulkTrashRetryingRef.current = true; setBulkTrashRetrying(true);
+    try {
+      const result = await diaryState.store.retryBulkTrash(); const moved = new Set(result.succeeded);
+      setActive(current => current && moved.has(current.id) ? null : current); setTabIds(current => current.filter(id => !moved.has(id)));
+      setSelection(result.failed.length ? result.failed.map(item => item.id) : null);
+    } catch (error) { notify('휴지통으로 옮기지 못했어요', error.message); }
+    finally { bulkTrashRetryingRef.current = false; setBulkTrashRetrying(false); }
+  };
+  const bulkTrashMessage = bulkTrashToastMessage(bulkTrash);
+  const bulkTrashSettled = Boolean(bulkTrash && !bulkTrash.busy && !bulkTrashAuth);
+  const bulkTrashFailed = Boolean(bulkTrash?.failed?.length || bulkTrash?.refreshError);
+  useEffect(() => {
+    if (!bulkTrashSettled) return undefined;
+    const timer = setTimeout(() => diaryState.store.dismissBulkTrash(), bulkTrashFailed ? ACTION_TOAST_MS : BULK_TRASH_DONE_MS);
+    return () => clearTimeout(timer);
+  }, [bulkTrash, bulkTrashSettled, bulkTrashFailed, diaryState.store]);
+  const [guestTrashDone, setGuestTrashDone] = useState(null);
+  useEffect(() => {
+    if (!guestTrashDone) return undefined;
+    const timer = setTimeout(() => setGuestTrashDone(null), BULK_TRASH_DONE_MS);
+    return () => clearTimeout(timer);
+  }, [guestTrashDone]);
+  const trashToastMessage = bulkTrashMessage ?? (!member && guestTrashDone ? `${guestTrashDone.count}권을 휴지통으로 옮겼어요.` : null);
+  // 보조 저장 알약의 시간은 휴지통 알약에 가려져 있는 동안 멈춘다(가려진 채 만료돼 '다시 시도'를 놓치지 않게). 휴지통 알약이 사라지면 처음부터 다시 센다
+  const libraryToastHidden = Boolean(trashToastMessage);
+  useEffect(() => {
+    if (!libraryNotice || libraryNotice.busy || libraryToastHidden) return undefined;
+    const timer = setTimeout(() => setLibraryNotice(null), libraryNotice.done ? 2000 : ACTION_TOAST_MS);
+    return () => clearTimeout(timer);
+  }, [libraryNotice, libraryToastHidden]);
+  const trashToast = trashToastMessage && (
+    <ActionToast compact={isPhone} bottom={(page === 'editor' ? 112 : isPhone ? 76 : 96) + insets.bottom} message={trashToastMessage}
+      actionLabel={bulkTrashSettled && bulkTrash.canRetry ? '다시 시도' : undefined} busy={bulkTrashRetrying} onAction={retryBulkTrash} />
+  );
+
   const createModal = createOpen && (
     <DiaryCreateModal
       key={editingDiaryId ?? 'new'}
-      blankOnly={member && !editingDiaryId}
+      serverPapers={member && !editingDiaryId}
       sheet={isPhone}
       topInset={isPhone ? insets.top : 0}
       bottomInset={insets.bottom}
@@ -1122,8 +1188,10 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
           {insets.right > 0 && <View style={{ width: insets.right, backgroundColor: safeAreaColors.right }} />}
         </View>
       </View>
-      {libraryToast}
-      {appLocked === null && <View style={[StyleSheet.absoluteFill, { zIndex: 100, backgroundColor: C.white }]} />}
+      {/* 알약은 같은 자리에 하나만: 방금 한 휴지통 결과를 먼저 보이고, 그동안 보조 저장 실패 알약은 가린다(타이머는 그대로 돈다) */}
+      {trashToast || libraryToast}
+      {/* 잠금 여부를 읽는 1~3프레임 덮개: 흰색이면 번쩍여 보여 앱 바탕(surfaceSoft)과 같은 색으로 둔다 */}
+      {appLocked === null && <View style={[StyleSheet.absoluteFill, { zIndex: 100, backgroundColor: C.canvas }]} />}
       {appLocked && <PinScreen mode="unlock" user={previewUser} getProfilePhotoSource={previewUser.mode === 'authenticated' ? authService.getProfilePhotoSource : undefined}
         check={value => checkAppLockStatus(lockScope, value)} onDone={() => setAppLocked(false)} onForgot={forgotAppLock} />}
       {member && signedIn && <GuestImportHost key={`${previewUser.userId}:${authService.getSessionKey()}`} accountId={String(previewUser.userId)} enabled={appLocked === false} onImported={() => diaryState.store.reload().catch(() => {})} onEntry={setGuestImport} />}

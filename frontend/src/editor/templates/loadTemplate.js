@@ -8,6 +8,18 @@ import { isPaperFontId, swapPaperFont } from './paperFont.js'
 import { readSvg } from './readSvg'
 import { plannerFor } from './planners.js'
 import { datedBaseId, datedSvg, isDatedId } from './dated.js'
+import { isRemoteAsset } from '../../shared/remoteAssets/remoteAssets.js'
+import { fetchRemoteAsset } from '../../shared/remoteAssets/remoteAssetFile'
+import { parseRemoteTemplateAssetId, waitForRemoteTemplateFile } from './remoteTemplates.js'
+
+// 번들 속지는 expo-asset 으로, 원격 속지(2026 날짜 속지 등)는 에셋 저장소에서 받아 읽는다.
+// 받지 못하면 TemplateError 로 바뀌고, 캐시는 실패를 남기지 않아 다음에 다시 받는다.
+async function templateUri(module) {
+  if (isRemoteAsset(module)) return fetchRemoteAsset(module)
+  const asset = Asset.fromModule(module)
+  await asset.downloadAsync()
+  return asset.localUri ?? asset.uri
+}
 
 // 캐시 키: 속지 ID, 속지 글꼴을 골랐으면 'ID|글꼴'(원본 글자 윤곽을 그 글꼴로 바꾼 XML · AST 를 따로 둔다)
 const keyOf = (id, font) => isPaperFontId(font) ? `${id}|${font}` : id
@@ -19,16 +31,15 @@ const load = createTemplateCache(async key => {
   if (planner) { const xml = planner.baseSvg(); return { xml, ast: parse(xml) } }
   // 날짜 속지는 같은 양식의 만년형 속지를 불러와 날짜를 얹는다
   const fileId = isDatedId(id) ? datedBaseId(id) : id
-  const module = UNDATED_ASSETS[fileId] ?? TEMPLATE_ASSETS[fileId]
+  // 원격 속지(앱 배포 없이 추가한 속지)는 목록(catalog.json)의 파일을 받는다. 목록을 못 받았으면 잠시 기다린다
+  const module = UNDATED_ASSETS[fileId] ?? TEMPLATE_ASSETS[fileId] ?? (parseRemoteTemplateAssetId(fileId) ? await waitForRemoteTemplateFile(fileId) : null)
   if (!module) throw new TemplateError()
-  const asset = Asset.fromModule(module)
-  await asset.downloadAsync()
-  const file = await readSvg(asset.localUri ?? asset.uri)
+  const file = await readSvg(await templateUri(module))
   const xml = isDatedId(id) ? datedSvg(id, file) : file
   // HTML 오류 응답이나 빈 파일이 정상 배경으로 처리되지 않도록 검사한다.
   const ast = parse(xml)
   const { width, height } = templateCanvasSize(getTemplate(id).orientation)
-  if (ast?.tag !== 'svg' || ast.props.viewBox !== `0 0 ${width} ${height}`) throw new TemplateError('내지 파일의 형식이나 크기가 올바르지 않아요.')
+  if (ast?.tag !== 'svg' || ast.props.viewBox !== `0 0 ${width} ${height}`) throw new TemplateError('속지 파일의 형식이나 크기가 올바르지 않아요.')
   // 속지 SVG는 80KB 안팎이라 해석 비용이 크다. 검증하며 만든 AST를 화면 표시에 그대로 쓴다.
   return { xml, ast }
 }, 32) // 속지 글꼴 변형이 원본과 함께 머물 수 있게 넉넉히 둔다

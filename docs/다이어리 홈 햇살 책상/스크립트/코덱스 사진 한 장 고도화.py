@@ -13,7 +13,7 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent.parent
 IMG = HERE / "이미지"
-CHAR = HERE.parent / "캐릭터 디자인" / "최종시안.png"
+CHAR = HERE.parent / "캐릭터 디자인" / "지난 버전" / "2026-11-04 최종시안" / "최종시안.png"
 _spec = importlib.util.spec_from_file_location("base", Path(__file__).with_name("코덱스 사진 한 장.py"))
 base = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(base)

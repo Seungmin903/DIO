@@ -80,6 +80,7 @@ function setup(runtime = {}, photoPicker, initialRequest = { mode: 'invitations'
     '../shared/useFormFactor': { useFormFactor: () => ({ isPhone: false }) },
     '../shared/theme': { colors: {} },
     './sharingContracts': validation,
+    './sharingApi': { isSharingDiaryId: id => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id || '') },
     './styles': { sharingStyles: new Proxy({}, { get: (_, k) => k }) },
     '../notifications/NotificationPanel': { invitationStatusLabel: (v) => v },
     '../notifications/notificationPresentation': { notificationSender },

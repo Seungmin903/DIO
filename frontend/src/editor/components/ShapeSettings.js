@@ -6,6 +6,7 @@ import { DEFAULT_SHAPE_STYLE, EDITOR_SHAPES, SHAPE_CATEGORIES, SHAPE_BORDER_STYL
 import { Segmented, ToolPanelHeader, toolPanelStyles as p } from './ToolPanel'
 import { PaletteInteractionContext } from './controls/ColorPicker'
 import { useColorWindow } from '../../diary/components/PresetColorEditor'
+import Icon from './controls/Icon'
 import Slider from './controls/Slider'
 import FadeScroll from './controls/FadeScroll'
 import { MEMO_ARTS } from '../widgets/memoArt'
@@ -44,7 +45,7 @@ export default function ShapeSettings({ settings, onChange, onCheckpoint, onComm
     <View style={styles.palette}>
       {key === 'fill' && !value.art && <Pressable accessibilityRole="button" accessibilityLabel="채우기 없음" accessibilityState={{selected:value.fill==='none'}} onPress={()=>onChange({fill:'none'})} style={[styles.swatch,styles.noFill,value.fill==='none'&&styles.chosen]}><Svg width={22} height={22} viewBox="0 0 24 24"><Path d="M5 19L19 5" stroke={colors.textMuted} strokeWidth={1.5} /></Svg></Pressable>}
       {(key === 'borderColor' && value.art ? MEMO_LINE_SWATCHES : SWATCHES).map(color => <Pressable key={color} accessibilityRole="button" accessibilityLabel={`${label} ${color}`} disabled={disabled} accessibilityState={{ selected: value[key] === color, disabled }} onPress={() => onChange({ [key]: color })} style={[styles.swatch, { backgroundColor: color }, value[key] === color && styles.chosen]} />)}
-      <Pressable ref={node => { customRefs.current[key] = node }} collapsable={false} accessibilityRole="button" accessibilityLabel={`${label} 직접 선택`} disabled={disabled} accessibilityState={{ disabled }} onPress={() => openCustom(key, label)} style={styles.customColor}><Text style={styles.plus}>+</Text></Pressable>
+      <Pressable ref={node => { customRefs.current[key] = node }} collapsable={false} accessibilityRole="button" accessibilityLabel={`${label} 직접 선택`} disabled={disabled} accessibilityState={{ disabled }} onPress={() => openCustom(key, label)} style={styles.customColor}><Icon name="plus" size={17} color={colors.primaryText} /></Pressable>
     </View>
   </View>
   return <View style={embedded ? {marginTop:14} : p.card}>
@@ -53,7 +54,7 @@ export default function ShapeSettings({ settings, onChange, onCheckpoint, onComm
       {showShapePicker && <>
       <Text style={p.label}>모양</Text>
       {moreShapes && <FadeScroll horizontal contentContainerStyle={p.segment}>
-        {SHAPE_CATEGORIES.map(item => <Pressable key={item.id} accessibilityRole="tab" accessibilityLabel={item.label} accessibilityState={{selected:category===item.id}} onPress={()=>setCategory(item.id)} style={[p.segmentItem,styles.categoryTab,category===item.id&&p.segmentActive]}><Text numberOfLines={1} style={[p.segmentText,category===item.id&&p.segmentTextActive]}>{item.label}</Text></Pressable>)}
+        {SHAPE_CATEGORIES.map(item => <Pressable key={item.id} accessibilityRole="tab" accessibilityLabel={item.label} accessibilityState={{selected:category===item.id}} onPress={()=>setCategory(item.id)} style={[p.segmentItem,styles.categoryTab,category===item.id&&[p.segmentActive,styles.categoryTabActive]]}><Text numberOfLines={1} style={[p.segmentText,category===item.id&&p.segmentTextActive]}>{item.label}</Text></Pressable>)}
       </FadeScroll>}
       {(() => {
         const list = moreShapes ? EDITOR_SHAPES.filter(item => !item.art && (category === 'all' || item.category === category)) : EDITOR_SHAPES.slice(0, COMMON_SHAPE_COUNT)
@@ -77,7 +78,7 @@ export default function ShapeSettings({ settings, onChange, onCheckpoint, onComm
       {palette('borderColor', '테두리 색상', !value.borderWidth)}
       <Text style={p.label}>테두리 모양</Text>
       <FadeScroll horizontal contentContainerStyle={[p.segment,!value.borderWidth&&p.dim]}>
-        {SHAPE_BORDER_STYLES.map(item=><Pressable key={item.id} accessibilityRole="radio" accessibilityLabel={`테두리 ${item.label}`} accessibilityState={{checked:value.borderStyle===item.id,disabled:!value.borderWidth}} disabled={!value.borderWidth} onPress={()=>onChange({borderStyle:item.id})} style={[p.segmentItem,styles.borderPreview,value.borderStyle===item.id&&p.segmentActive]}>
+        {SHAPE_BORDER_STYLES.map(item=><Pressable key={item.id} accessibilityRole="radio" accessibilityLabel={`테두리 ${item.label}`} accessibilityState={{checked:value.borderStyle===item.id,disabled:!value.borderWidth}} disabled={!value.borderWidth} onPress={()=>onChange({borderStyle:item.id})} style={[p.segmentItem,styles.borderPreview,value.borderStyle===item.id&&[p.segmentActive,styles.borderPreviewActive]]}>
           <Svg width={52} height={22}><Path d="M2 11H50" stroke={value.borderStyle===item.id?colors.text:colors.textMuted} strokeWidth={2} strokeDasharray={shapeBorderDash(item.id,2)} /></Svg>
           <Text style={[styles.borderPreviewLabel,value.borderStyle===item.id&&p.segmentTextActive]}>{item.label}</Text>
         </Pressable>)}
@@ -92,10 +93,11 @@ export default function ShapeSettings({ settings, onChange, onCheckpoint, onComm
 }
 const styles = StyleSheet.create({
   addText: { color: colors.surface },
-  borderPreview:{flex:0,minWidth:76,minHeight:56,paddingHorizontal:8,paddingVertical:4},borderPreviewLabel:{color:colors.textMuted,fontSize:11,fontWeight:'600'},
+  // 고른 칸은 테두리 2 = 여백 1 줄임(칸 폭이 고를 때마다 움직이지 않게)
+  borderPreview:{flex:0,minWidth:76,minHeight:56,paddingHorizontal:8,paddingVertical:4},borderPreviewActive:{paddingHorizontal:7,paddingVertical:3},borderPreviewLabel:{color:colors.textMuted,fontSize:11,fontWeight:'600'},
   footer:{paddingHorizontal:16,paddingBottom:16,paddingTop:8},shapeList:{maxHeight:176,flexShrink:0},
   moreButton:{minHeight:40,borderRadius:10,borderWidth:1,borderColor:colors.cardBorder,backgroundColor:colors.surface,alignItems:'center',justifyContent:'center'},moreText:{color:colors.text,fontSize:13,fontWeight:'700'},
-  categoryTab:{flex:0,flexGrow:0,flexShrink:0,flexBasis:'auto',minWidth:64,minHeight:48,paddingHorizontal:12},
+  categoryTab:{flex:0,flexGrow:0,flexShrink:0,flexBasis:'auto',minWidth:64,minHeight:48,paddingHorizontal:12},categoryTabActive:{paddingHorizontal:11},
   noFill:{alignItems:'center',justifyContent:'center',backgroundColor:colors.surface},
   palette:{flexDirection:'row',justifyContent:'space-between',alignItems:'center'},chosen:{borderWidth:3,borderColor:colors.primaryStrong},customColor:{width:28,height:28,borderRadius:14,borderWidth:1,borderStyle:'dashed',borderColor:colors.cardBorder,alignItems:'center',justifyContent:'center'},
   category:{minHeight:48,paddingHorizontal:12,borderRadius:11,borderWidth:1.5,borderColor:'transparent',backgroundColor:colors.surfaceMuted,justifyContent:'center'},

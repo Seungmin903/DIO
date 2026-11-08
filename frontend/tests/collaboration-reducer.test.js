@@ -111,3 +111,14 @@ test('에셋 ID 사진 드래그는 공유 작업으로 기록하고 원격 텍�
  assert.deepEqual(canvasDelta(s.collaborationEdits[0].before,s.collaborationEdits[0].after).touched,[photoId])
  assert.equal(s.doc.pages[0].objects[0].text,'remote')
 })
+
+test('펜 획의 addObjects(select:false) 는 기존 선택만 풀고, 같은 선택의 selectExact 는 상태 객체를 유지한다',()=>{
+ const stroke={id:'20000000-0000-4000-8000-000000000003',type:'stroke',points:[{x:1,y:1}],color:'#000000',width:2}
+ let s=initial();s=reduce(s,{type:'select',ids:[id]});assert.deepEqual(s.selectedIds,[id])
+ s=reduce(s,{type:'addObjects',objects:[stroke],select:false})
+ assert.deepEqual(s.selectedIds,[]);assert.equal(s.doc.pages[0].objects.at(-1).id,stroke.id);assert.equal(s.collaborationEdits.length,1,'협업 리듀서는 select 필드를 보존해 획을 기록한다')
+ const none=reduce(s,{type:'addObjects',objects:[{...stroke,id:'20000000-0000-4000-8000-000000000004'}],select:false})
+ assert.equal(none.selectedIds,s.selectedIds,'선택이 없으면 같은 배열을 유지한다')
+ assert.equal(reduce(none,{type:'selectExact',ids:[]}),none,'같은 선택이면 상태 객체 그대로')
+ assert.deepEqual(reduce(none,{type:'addObjects',objects:[{...stroke,id:'20000000-0000-4000-8000-000000000005'}]}).selectedIds,['20000000-0000-4000-8000-000000000005'],'select 를 주지 않으면 새 요소를 선택한다')
+})

@@ -210,11 +210,15 @@ headerCreateText: { color: C.white, fontSize: 13, fontWeight: '700' },
   emptyCopy: { maxWidth: 390, color: C.muted, fontSize: 13, lineHeight: 21, textAlign: 'center', marginTop: 9 },
   secondary: { minHeight: 48, paddingHorizontal: 17, flexDirection: 'row', alignItems: 'center', gap: 16, borderRadius: 12, marginTop: 22, borderWidth: 1, borderColor: C.ink, backgroundColor: C.white },
   secondaryText: { color: C.ink, fontSize: 13, fontWeight: '700' },
+  // 회원 목록 · 휴지통 · 생성 요청 알림 칸의 안내 글(예전엔 이 이름이 비어 있어 기본 글꼴로 보였다)
+  cardMeta: { color: C.muted, fontSize: 13, lineHeight: 19, fontWeight: '600' },
+  noticeAction: { alignSelf: 'flex-start' },
 
   carouselShell: { minHeight: 510, flex: 1, paddingTop: 47, paddingBottom: 3, overflow: 'hidden' },
-  carouselShellCompact: { minHeight: 0, paddingTop: 12, paddingBottom: 0, marginHorizontal: -14 },
+  // 폰: 태블릿 세로처럼 남는 높이의 가운데보다 살짝 위(아래 여백 60 → 30만큼 올라감)에 카드를 둔다(지라 612, 위에 붙어 너무 높아 보였다)
+  carouselShellCompact: { minHeight: 0, paddingTop: 12, paddingBottom: 60, marginHorizontal: -14 },
   carouselRow: { height: 412, position: 'relative', flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
-  carouselRowCompact: { flex: 1, height: 'auto', minHeight: 0, alignItems: 'flex-start' }, // 폰: 필터 줄 아래에서 바로 시작(가운데 정렬로 190px 비던 것을 없앤다)
+  carouselRowCompact: { flex: 1, height: 'auto', minHeight: 0, alignItems: 'center' },
   carouselCardTop: { zIndex: 2 },
   carouselViewport: { flex: 1, minWidth: 0, overflow: 'visible' },
   // 잰 폭으로 고정한 목록. 늘거나 줄지 않게 막는다(ScrollView 기본 flexGrow: 1). flex: 1과 겹쳐 쓰면 웹에서 flex-basis가 폭을 덮어써서 따로 둔다.
@@ -226,6 +230,7 @@ headerCreateText: { color: C.white, fontSize: 13, fontWeight: '700' },
   carouselCardsCompact: { paddingVertical: 28 },
   carouselShellPortrait: { minHeight: 0, paddingTop: 0, paddingBottom: 120, justifyContent: 'center' }, // 태블릿 세로: 남는 높이의 가운데보다 살짝 위(아래 여백 120 → 60만큼 올라감)에 카드를 둔다. 펼쳐서 보기의 가운데 축과 같은 높이
   carouselRowPortrait: { flex: 0, height: 680 },
+  carouselArrowCompact: { marginTop: -62 }, // 폰: 카드 아래 이름 · 페이지 수 줄만큼 올려 표지 가운데에 맞춘다
   carouselArrowPortrait: { marginTop: -64 }, // 칸 가운데에 놓인 표지의 가운데에 맞춘다 (웹 834x1194 에서 재서 맞춤)
   carouselArrow: { position: 'absolute', zIndex: 4, width: 48, height: 48, alignItems: 'center', justifyContent: 'center' },
   carouselArrowLeft: { left: 4 },
@@ -258,8 +263,12 @@ headerCreateText: { color: C.white, fontSize: 13, fontWeight: '700' },
   sortOptionRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   sortOptionCheck: { width: 14, height: 14, alignItems: 'center', justifyContent: 'center' }, // 화살표가 없는 항목도 자리를 비워 둬 글자가 맞는다
   cardCheckMark: { color: C.white, fontSize: 16, fontWeight: '800', lineHeight: 18 },
-  cardFavorite: { position: 'absolute', top: 12, left: 12, zIndex: 3, width: 24, height: 24, alignItems: 'center', justifyContent: 'center' }, // 배경 없는 별: 오른쪽 ⋯ 버튼과 같은 여백으로 왼쪽 위 모서리에 붙인다
-  cardFavoriteCompact: { top: 6, left: 'auto', right: 6 }, // 폰: 표지 오른쪽 위 모서리(제목표와 겹치지 않게, 2026-11-03 사용자 결정)
+  cardFavorite: { position: 'absolute', top: 12, right: 12, zIndex: 3, width: 24, height: 24, alignItems: 'center', justifyContent: 'center' }, // 배경 없는 별: 표지 오른쪽 위 모서리(폰 · 태블릿 같음, 지라 620)
+  cardFavoriteCompact: { top: 6, right: 6 }, // 폰: 표지 오른쪽 위 모서리(제목표와 겹치지 않게, 2026-11-03 사용자 결정). 태블릿도 2026-11-08부터 오른쪽(지라 620: 왼쪽도 제목표를 가렸다)
+  // 태블릿 스와이프 표지는 한눈에 칸(약 250)보다 커서(318, 가운데 1.06배 · 세로 440) 같은 12 면 별이 모서리에 붙어 보였다. 표지 크기에 비례해 안쪽으로(2026-11-08 지라 683, 폰도 같다)
+  cardFavoriteCarousel: { top: 18, right: 18 },
+  cardFavoriteCarouselLarge: { top: 24, right: 24 },
+  cardFavoriteCarouselCompact: { top: 14, right: 14 }, // 폰 스와이프 표지(268)도 한눈에 칸(약 160 · 6)보다 커서 같은 비율로 안쪽에
   // 정보 줄 오른쪽 위 더보기 버튼(동작 말풍선을 연다). 배경 없는 28×28 + hitSlop 10 = 터치 48(원 페이저 06). 자리(slot)는 버튼이 숨는 스와이프 옆 카드에도 남겨 제목 줄 높이가 같게 한다
   cardMoreSlot: { width: 28, height: 28, flexShrink: 0, marginTop: -4, marginRight: -3 },
   cardMore: { width: 28, height: 28, alignItems: 'center', justifyContent: 'center' },

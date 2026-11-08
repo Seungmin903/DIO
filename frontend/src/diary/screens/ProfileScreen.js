@@ -28,6 +28,7 @@ import { placesLoginBelow, showsInlineSettings } from '../components/profileNavi
 export default function ProfileScreen({ guestImport = null, section = 'profile', compact = false, onBack = null, previewUser, onEndPreview, onClearSession = onEndPreview, onUpdatePreview, registerLeaveGuard, getProfilePhotoSource, accountService, onOpenBlockedUsers }) {
   // home · edit(회원정보 수정) · password(비밀번호 재설정 4단계) · notifications(서버 알림 설정, 회원)
   const [route, setRoute] = useState('home');
+  const [withdrawing, setWithdrawing] = useState(false); // 회원 탈퇴 확인 창(계정 구역 '회원 탈퇴' 줄)
   const settingsPage = section === 'settings';
   // 폰은 마이페이지 안에 설정을 펼친다. 태블릿은 설정 화면(settingsPage)이 따로 있다.
   const settingsBody = settingsPage || showsInlineSettings({ compact, section });
@@ -83,6 +84,12 @@ export default function ProfileScreen({ guestImport = null, section = 'profile',
     if (!notificationsOpen || !registerLeaveGuard) return undefined;
     return registerLeaveGuard(move => move(), () => setRoute('home'));
   }, [notificationsOpen, registerLeaveGuard]);
+  // 비밀번호 변경 화면: 뒤로 키는 회원정보 수정으로 돌아온다(수정 화면 가드는 이 화면이 열리는 동안 풀려 있다)
+  const passwordOpen = route === 'password';
+  useEffect(() => {
+    if (!passwordOpen || !registerLeaveGuard) return undefined;
+    return registerLeaveGuard(move => move(), () => setRoute('edit'));
+  }, [passwordOpen, registerLeaveGuard]);
   // 회원 설정은 서버 인증이 끝난 세션이나 게스트만 연다(이전 체험 세션 값은 그리지 않는다)
   if (!authenticatedUser && !guest) return null;
   // 비밀번호 화면은 앱 전체(왼쪽 메뉴 · 아래 탭까지)를 덮는 전체 화면이다. 내 공간 본문 안에 두면 잘리고 메뉴가 남는다.
@@ -108,8 +115,8 @@ export default function ProfileScreen({ guestImport = null, section = 'profile',
   const editService = authenticatedUser && accountService ? accountService : null;
   // 비밀번호 변경 · 탈퇴는 서버가 모든 세션을 폐기하므로 로그아웃 요청을 또 보내지 않고 이 기기의 세션만 정리한다(onClearSession)
   if (editing) return <ProfileEditScreen {...(editService ? { service: editService } : {})} compact={compact} user={previewUser} onClose={() => setEditing(false)} onUpdate={onUpdatePreview} onEndSession={onClearSession} onPasswordReset={authenticatedUser && accountService ? () => setRoute('password') : undefined} getProfilePhotoSource={getProfilePhotoSource} registerLeaveGuard={registerLeaveGuard} />
-  if (route === 'password' && authenticatedUser && accountService) return <PasswordResetScreen compact={compact} email={previewUser?.email || ''} service={accountService} backLabel="프로필 수정으로 돌아가기" onClose={() => setRoute('edit')} onComplete={onClearSession} />;
-  if (route === 'notifications' && authenticatedUser) return <NotificationSettingsScreen compact={compact} userId={userId} accountService={accountService} onClose={() => setRoute('home')} />;
+  if (route === 'password' && authenticatedUser && accountService) return <PasswordResetScreen change compact={compact} email={previewUser?.email || ''} service={accountService} backLabel="프로필 수정으로 돌아가기" onClose={() => setRoute('edit')} onComplete={onClearSession} />;
+  if (route === 'notifications' && authenticatedUser) return <NotificationSettingsScreen compact={compact} userId={userId} accountService={accountService} backLabel={settingsPage ? '설정으로 돌아가기' : '마이페이지로 돌아가기'} onClose={() => setRoute('home')} />;
 
   // 판 오른쪽 끝은 계정 상태의 대표 행동: 게스트는 `로그인 · 회원가입`, 회원은 `프로필 수정` 윤곽 버튼.
   // 로그인 화면은 지금 화면 위에 덮어 뜨고, 회원가입은 로그인 화면에서 이어 간다
@@ -124,8 +131,18 @@ export default function ProfileScreen({ guestImport = null, section = 'profile',
     <DioButton variant="ghost" outline label="회원정보 수정" text="프로필 수정" icon="edit" onPress={() => setEditing(true)} style={local.editButton} />
   );
 
-  // 로그아웃은 로그인한 사용자만 있다.
-  const logout = onEndPreview && !guest ? <DioButton variant="ghost" outline label="로그아웃" onPress={() => confirmAction({ title: '로그아웃', message: '로그아웃하시겠어요?', confirmLabel: '로그아웃', danger: false, onConfirm: onEndPreview })} block /> : null;
+  // 계정 구역(로그인한 사용자만): 로그아웃 · 회원 탈퇴를 다른 설정과 같은 목록 줄로 둔다(지라 597, 탈퇴는 회원정보 수정에서 옮겨 왔다)
+  const canWithdraw = !guest && typeof editService?.withdraw === 'function';
+  const logout = onEndPreview && !guest ? (
+    <Pressable accessibilityRole="button" accessibilityLabel="로그아웃" onPress={() => confirmAction({ title: '로그아웃', message: '로그아웃하시겠어요?', confirmLabel: '로그아웃', danger: false, onConfirm: onEndPreview })} style={local.linkRow}>
+      <Text style={local.linkLabel}>로그아웃</Text>
+    </Pressable>
+  ) : null;
+  const withdrawRow = canWithdraw ? (
+    <Pressable accessibilityRole="button" accessibilityLabel="회원 탈퇴" onPress={() => setWithdrawing(true)} style={local.linkRow}>
+      <Text style={[local.linkLabel, local.dangerLabel]}>회원 탈퇴</Text>
+    </Pressable>
+  ) : null;
   // 회원만: 서버 알림 설정(초대 · 댓글 등 받을 알림)으로 가는 줄. 앱 정보 행과 같은 높이 · 구분선 · 오른쪽 화살표
   const serverNotifications = authenticatedUser ? (
     <Pressable accessibilityRole="button" accessibilityLabel="알림 설정" onPress={() => setRoute('notifications')} style={local.linkRow}>
@@ -194,12 +211,14 @@ export default function ProfileScreen({ guestImport = null, section = 'profile',
           </SettingSection>
         </SettingCard>}
         {!settingsPage && logout && <SettingCard compact={compact}>
-          <SettingSection title="계정"><View style={local.accountBody}>{logout}</View></SettingSection>
+          <SettingSection title="계정">{logout}{withdrawRow}</SettingSection>
         </SettingCard>}
       </View>
       </View>
     </ScrollView>
     {pinScreen}
+    {/* 탈퇴는 서버가 모든 세션을 폐기하므로 이 기기의 세션만 정리한다(onClearSession) */}
+    {withdrawing && editService && <ProfileEditScreen withdrawOnly service={editService} compact={compact} user={previewUser} onClose={() => setWithdrawing(false)} onEndSession={onClearSession} />}
     </>
   );
 }
@@ -226,15 +245,16 @@ const local = StyleSheet.create({
   name: { color: colors.text, fontSize: 20, lineHeight: 26, fontWeight: '800', letterSpacing: -0.4 },
   nameCompact: { fontSize: 20, lineHeight: 26 },
   space: { color: colors.primaryStrong, fontSize: 14, fontWeight: '600' },
-  accountBody: { paddingVertical: 12 },
   // 게스트: 로그인 · 회원가입 채움 48
   nameRow: { flexDirection: 'row', alignItems: 'center' },
   nameShrink: { flexShrink: 1 },
   login: { minHeight: 48, minWidth: 160, marginLeft: 8 }, // 정체성 묶음과 최소 24(줄 간격 16 + 8)
   loginInline: { minHeight: 48, flexShrink: 0 },
   loginCompact: { minHeight: 48, marginTop: -4 }, // 판 안 간격 16 에서 4 당겨 첫 줄과 12
-  linkRow: { minHeight: 64, flexDirection: 'row', alignItems: 'center', gap: 16, borderBottomWidth: 1, borderBottomColor: colors.border },
-  linkLabel: { flex: 1, color: colors.text, fontSize: 15, fontWeight: '700' },
+  // 설정 줄(SettingRow)과 같은 48 · 위아래 8 · 이름 16/600 · cardBorder 구분선(구역마다 줄 높이가 달라 보이지 않게, 2026-11-08)
+  linkRow: { minHeight: 48, paddingVertical: 8, flexDirection: 'row', alignItems: 'center', gap: 16, borderBottomWidth: 1, borderBottomColor: colors.cardBorder },
+  linkLabel: { flex: 1, color: colors.text, fontSize: 16, lineHeight: 22, fontWeight: '600' },
+  dangerLabel: { color: colors.dangerStrong },
   cards: { marginTop: 8 },
   column: { width: '100%', maxWidth: 1040, alignSelf: 'center' },
 });

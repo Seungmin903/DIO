@@ -17,7 +17,7 @@ import Workbench, { StagePill, fit } from './Workbench';
 import ConfirmDialog from '../../editor/components/controls/ConfirmDialog';
 import { coverSummary, newDiaryCover, normalizeCover } from '../utils/coverDesign';
 import { defaultSections, savedPaperSummary, sectionTitle, sectionsTemplateConfig } from '../utils/paperChoice';
-import { PdfImportError, coverBackupOf, coverForLibrary, coverWithPdfPage, pdfOrientation, pdfPapersSummary, restoreCoverBase, splitPdfPages } from '../utils/pdfImport';
+import { PdfImportError, coverBackupOf, coverForLibrary, coverWithPdfPage, pdfOrientation, pdfPageAspect, pdfPapersSummary, restoreCoverBase, splitPdfPages } from '../utils/pdfImport';
 import { pickPdfPages } from '../utils/pdfPages';
 import { discardPdfImport } from '../utils/pdfCleanup';
 import useMyLibrary from '../hooks/useMyLibrary';
@@ -43,7 +43,7 @@ function CoverFrame({ cover, name, width, height, edit }) {
  * sheet: 폰에서는 아래에서 올라오는 시트로 띄운다.
  */
 export default function DiaryCreateModal({ diary, onSubmit, onCancel, saving = false, sheet = false, topInset = 0, bottomInset = 0,
-  visible = true, blankOnly = false, locked = false, submitLabel, submitDisabled = false, footerNotice = null, messageResetKey, onLibrarySaveFailed }) {
+  visible = true, blankOnly = false, serverPapers = false, locked = false, submitLabel, submitDisabled = false, footerNotice = null, messageResetKey, onLibrarySaveFailed }) {
   const editing = Boolean(diary);
   // 세로 화면은 폰이 아니어도 구역 카드를 위에, 옵션을 아래에 쌓는다
   const window = useWindowDimensions();
@@ -58,7 +58,8 @@ export default function DiaryCreateModal({ diary, onSubmit, onCancel, saving = f
   const [openElement, setOpenElement] = useState('base');
   // 속지 묶음: 위에서부터 순서대로 쌓는다 (화면은 한 줄 목록 + 이어서 · 섞어서)
   const [paperSections, setPaperSections] = useState(defaultSections);
-  // blankOnly: 서버 다이어리는 서버 속지 목록에 있는 속지만 만들 수 있어 빈 페이지 한 장으로 시작한다 (속지 구역 없음)
+  // serverPapers(회원 새 다이어리): 날짜 속지도 게스트와 같이 고른다(날짜 ID 를 서버 페이지 설정에 둔다, serverCatalog). 속지 글꼴만 서버에 칸이 없어 고르지 않는다.
+  // blankOnly: 속지 구역 없이 빈 페이지 한 장(지금은 쓰는 곳 없음)
   const chosenSections = blankOnly ? [] : paperSections;
   const [paperAppearance, setPaperAppearance] = useState(() => normalizePaperAppearance(diary?.paperAppearance ?? DEFAULT_PAPER_APPEARANCE));
   const [scope, setScope] = useState('all');
@@ -70,7 +71,7 @@ export default function DiaryCreateModal({ diary, onSubmit, onCancel, saving = f
   const [error, setError] = useState('');
   const [leaving, setLeaving] = useState(false);
   const [notice, setNotice] = useState('');
-  // PDF 불러오기: 쪽마다 그림으로 바꾼 pdf, 첫 장을 표지로 쓸지, 나의 표지 · 나의 속지에 남길지
+  // PDF 불러오기: 쪽마다 그림으로 바꾼 pdf, 첫 장을 표지로 쓸지, 내 표지 · 내 속지에 남길지
   const [pdf, setPdf] = useState(null);
   const [pdfBusy, setPdfBusy] = useState(false);
   const [pdfProgress, setPdfProgress] = useState(null);
@@ -99,7 +100,7 @@ export default function DiaryCreateModal({ diary, onSubmit, onCancel, saving = f
   if (!editing) {
     try { allIds = configuredPageIds(sectionsTemplateConfig(chosenSections, orientation)); } catch (failure) { configError = failure.message; }
   }
-  // PDF 속지: 나의 속지를 골랐으면 그 쪽들, 아니면 불러온 PDF 에서 표지로 쓴 첫 쪽을 뺀 나머지. 서버 다이어리도 PDF 쪽은 속지로 쓴다(쪽마다 서버 페이지를 만들고 원본 PDF 를 올린다).
+  // PDF 속지: 내 속지를 골랐으면 그 쪽들, 아니면 불러온 PDF 에서 표지로 쓴 첫 쪽을 뺀 나머지. 서버 다이어리도 PDF 쪽은 속지로 쓴다(쪽마다 서버 페이지를 만들고 원본 PDF 를 올린다).
   const pdfSplit = splitPdfPages(pdf?.pages, firstAsCover, coverAlsoPaper);
   const pdfPapers = editing ? [] : myPaper ? myPaper.pages : pdf && !skipPdfPapers ? pdfSplit.papers : [];
   const usingPdf = pdfPapers.length > 0;
@@ -140,8 +141,8 @@ export default function DiaryCreateModal({ diary, onSubmit, onCancel, saving = f
   const changeCover = next => { setCover(next); setError(''); };
   usePhotoTone(cover, setCover);
 
-  // ---------- PDF 불러오기 · 나의 표지 · 나의 속지 ----------
-  // 불러온 쪽은 이 화면이 저장 없이 닫히면 미디어 보관함에서 지운다 (나의 속지에서 가져온 쪽은 지우지 않는다)
+  // ---------- PDF 불러오기 · 내 표지 · 내 속지 ----------
+  // 불러온 쪽은 이 화면이 저장 없이 닫히면 미디어 보관함에서 지운다 (내 속지에서 가져온 쪽은 지우지 않는다)
   const submitted = useRef(false);
   const unsaved = useRef(null);
   unsaved.current = pdf ?? null;
@@ -233,6 +234,7 @@ export default function DiaryCreateModal({ diary, onSubmit, onCancel, saving = f
   // ---------- 가운데 미리보기: 지금 고치는 것만 ----------
   const paperRatio = (() => { const { width, height } = templateCanvasSize(orientation); return width / height; })();
   const coverRatio = orientation === 'landscape' ? 1 / COVER_RATIO : COVER_RATIO;
+  const pdfRatio = pdfPageAspect(pdfPapers[0], paperRatio);
   let preview = null;
   if (stage.width > 0) {
     const maxHeight = stage.height - (stacked ? 44 : 80);
@@ -241,11 +243,11 @@ export default function DiaryCreateModal({ diary, onSubmit, onCancel, saving = f
       const gap = stacked ? 16 : 32; // 표지 · 속지 높이는 최대 352(264×352 · 200×352), 둘은 같은 기준선(코덱스 8번)
       const half = (stage.width - (stacked ? 32 : 80) - gap) / 2;
       const coverSize = fit(coverRatio, half, Math.min(maxHeight, 352));
-      const paperSize = fit(paperRatio, half, Math.min(maxHeight, 352));
+      const paperSize = fit(usingPdf ? pdfRatio : paperRatio, half, Math.min(maxHeight, 352));
       preview = <>
         <View style={[styles.pair, { gap }]}>
           <CoverFrame cover={cover} name={title} width={coverSize.width} height={coverSize.height} />
-          {usingPdf ? <PdfPageThumb page={pdfPapers[0]} width={paperSize.width} ratio={paperRatio} style={styles.paperShadow} />
+          {usingPdf ? <PdfPageThumb page={pdfPapers[0]} width={paperSize.width} ratio={pdfRatio} style={styles.paperShadow} />
             : firstPageId ? <TemplatePreview assetId={firstPageId} width={paperSize.width} appearance={paperAppearance} style={styles.paperShadow} />
             : <BlankPreview orientation={orientation} width={paperSize.width} appearance={paperAppearance} style={styles.paperShadow} />}
         </View>
@@ -259,11 +261,12 @@ export default function DiaryCreateModal({ diary, onSubmit, onCancel, saving = f
     } else if (section === 'paper' && usingPdf) {
       const stripCount = Math.min(pdfPapers.length, stacked ? 6 : 8);
       const stripWidth = Math.min(stacked ? 34 : 46, (wide - (stripCount - 1) * 6) / Math.max(1, stripCount));
-      const size = fit(paperRatio, wide, maxHeight - stripWidth / paperRatio - (stacked ? 12 : 20));
+      const stripHeight = stacked ? 48 : 64;
+      const size = fit(pdfRatio, wide, maxHeight - (stripCount > 1 ? stripHeight + (stacked ? 12 : 20) : 0));
       preview = <>
-        <PdfPageThumb page={pdfPapers[0]} width={size.width} ratio={paperRatio} style={styles.paperShadow} />
+        <PdfPageThumb page={pdfPapers[0]} width={size.width} ratio={pdfRatio} style={styles.paperShadow} />
         {stripCount > 1 && <View style={styles.strip}>
-          {pdfPapers.slice(0, stripCount).map((page, index) => <PdfPageThumb key={`${page.mediaFileId}-${index}`} page={page} width={stripWidth} ratio={paperRatio} />)}
+          {pdfPapers.slice(0, stripCount).map((page, index) => <PdfPageThumb key={`${page.mediaFileId}-${index}`} page={page} width={stripWidth} maxHeight={stripHeight} />)}
           {pdfPapers.length > stripCount && <Text style={styles.stripMore}>…</Text>}
         </View>}
         <StagePill>전체 {pdfPapers.length}페이지</StagePill>
@@ -333,7 +336,7 @@ export default function DiaryCreateModal({ diary, onSubmit, onCancel, saving = f
         style={({ pressed }) => [styles.drop]}><Text style={styles.dropText}>속지에서 빼기</Text></Pressable>
     </View> : <PaperOptions sections={paperSections} onChange={next => { setPaperSections(next); setError(''); }} orientation={orientation} appearance={paperAppearance} />}
   </View>;
-  else panel = <PaperStyleOptions appearance={paperAppearance} onChange={changeAppearance} plainOnly={!editing && (blankOnly || usingPdf || paperSections.every(item => item.rows.every(row => row.paper === 'plain')))}
+  else panel = <PaperStyleOptions appearance={paperAppearance} onChange={changeAppearance} plainOnly={!editing && (blankOnly || serverPapers || usingPdf || paperSections.every(item => item.rows.every(row => row.paper === 'plain')))}
     scope={scope} onScope={editing ? setScope : null} />;
 
   const message = error || configError || notice;

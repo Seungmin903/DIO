@@ -10,6 +10,8 @@ import { mediaService } from '../../editor/services/mediaStore'
 import { mediaId } from '../../editor/utils/mediaReferences.js'
 import { usePan } from '../../editor/hooks/usePan'
 import { builtinStickerOf } from '../../editor/builtinStickers'
+import { useStickerPacks } from '../../editor/hooks/useStickerPacks'
+import { useRemoteAssetUri } from '../../shared/remoteAssets/useRemoteAssetUri'
 import BuiltinStickerArt from '../../editor/components/canvas/BuiltinStickerArt'
 import { stickerSource } from '../../editor/stickerAssets'
 import { clamp, normalizeAngle, rotateVector } from '../../editor/utils/common'
@@ -125,10 +127,13 @@ function PhotoImage({ photo }) {
 }
 
 function StickerImage({ item }) {
+  useStickerPacks() // 원격 스티커 팩이 늦게 들어오면 다시 그린다
   const uri = useMediaUri(item.asset || item.builtin ? null : item, { still: true })
-  const source = stickerSource(item, true, uri)
   const builtin = builtinStickerOf(item.builtin)
-  if (builtin) return <BuiltinStickerArt sticker={builtin} canvas width="100%" height="100%" />
+  // 원격 그림 스티커(팩의 PNG)는 받은 주소로 그린다
+  const remoteUri = useRemoteAssetUri(builtin?.image ?? null)
+  const source = builtin?.image ? (remoteUri ? { uri: remoteUri } : null) : stickerSource(item, true, uri)
+  if (builtin && !builtin.image) return <BuiltinStickerArt sticker={builtin} canvas width="100%" height="100%" />
   return source ? <Image source={source} style={styles.stickerImage} resizeMode="contain" /> : null
 }
 

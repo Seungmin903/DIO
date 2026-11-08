@@ -20,6 +20,12 @@ dist-android/
 web-build/
 .tmp-context-menu-export/
 
+# Remote assets (fonts · stickers · templates) are served from S3/CloudFront, not bundled.
+# Metro only bundles required files, but EAS uploads the project folder, so keep their sources and
+# the local upload folder out of the build upload (remote-assets-dist is ~54 MB).
+remote-content/
+remote-assets-dist/
+
 # Logs and editor metadata.
 logs/
 *.log
@@ -38,6 +44,7 @@ modules/dio-handwriting/android/.gradle/
 modules/dio-handwriting/android/src/androidTest/assets/
 modules/dio-handwriting/android/src/main/assets/dio_handwriting/*.onnx
 
-# Include the two prepared Android inference graphs in EAS uploads.
+# The Android asset directory is also the iOS pod's model resource source.
+# Include the two prepared inference graphs in EAS uploads.
 !modules/dio-handwriting/android/src/main/assets/dio_handwriting/encoder.fp32.onnx
 !modules/dio-handwriting/android/src/main/assets/dio_handwriting/decoder.fp32.onnx

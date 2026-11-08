@@ -11,6 +11,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 
+import com.f106.DIO.page.domain.RemoteTemplates;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import tools.jackson.core.JacksonException;
@@ -25,7 +26,7 @@ import tools.jackson.databind.node.ObjectNode;
 /** 231 초기 페이지 전용. 호출자의 트랜잭션·DB를 사용하고 카탈로그를 임의로 생성하지 않는다. */
 public class JdbcDiaryInitialPages implements DiaryInitialPages {
     private static final int MAX_CONFIG_LENGTH = 16384;
-    private static final List<String> CONFIG_KEYS = List.of("width", "height", "paperAppearance", "blank");
+    private static final List<String> CONFIG_KEYS = List.of("width", "height", "paperAppearance", "blank", "remoteTemplate");
     private static final List<String> COLOR_KEYS = List.of("backgroundColor", "layoutColor");
     private final JdbcTemplate jdbc;
     private final String catalogLock;
@@ -83,7 +84,7 @@ public class JdbcDiaryInitialPages implements DiaryInitialPages {
             var rows = jdbc.query("select template_id,canvas_width,canvas_height,orientation,default_config,is_active from page_templates"
                 + " where code=? and template_version=? order by template_id"+catalogLock,
                 (rs,row) -> new Template(rs.getLong("template_id"),rs.getBigDecimal("canvas_width"),rs.getBigDecimal("canvas_height"),
-                    rs.getString("orientation"),rs.getString("default_config"),rs.getBoolean("is_active")),key.code,key.version);
+                    rs.getString("orientation"),rs.getString("default_config"),rs.getBoolean("is_active"),RemoteTemplates.isRemoteCode(key.code)),key.code,key.version);
             // 코드·버전은 공개 식별자다. 비활성 중복도 숨기지 않고 모호한 매핑은 거부한다.
             if (rows.size()!=1 || !rows.get(0).active) throw new InvalidSelection("Unknown, inactive or ambiguous template");
             var template = rows.get(0);
@@ -103,6 +104,7 @@ public class JdbcDiaryInitialPages implements DiaryInitialPages {
             var appearance = json.createObjectNode();
             for (var source : List.of(defaults,requested)) {
                 if (source.has("blank")) merged.set("blank",source.get("blank"));
+                if (source.has("remoteTemplate")) merged.put("remoteTemplate",source.get("remoteTemplate").asString());
                 if (source.has("paperAppearance")) {
                     for (var color : COLOR_KEYS) {
                         if (source.get("paperAppearance").has(color)) appearance.put(color,source.get("paperAppearance").get(color).asString().toUpperCase(Locale.ROOT));
@@ -110,6 +112,8 @@ public class JdbcDiaryInitialPages implements DiaryInitialPages {
                 }
             }
             if (!appearance.isEmpty()) merged.set("paperAppearance",appearance);
+            // 원격 속지 페이지는 어떤 그림인지(remoteTemplate)가 있어야 한다
+            if (template.remote && !merged.has("remoteTemplate")) throw new InvalidSelection("Remote template id is required");
             plans.add(new Plan(template,json.writeValueAsString(merged)));
         }
         return plans;
@@ -129,6 +133,10 @@ public class JdbcDiaryInitialPages implements DiaryInitialPages {
             }
         }
         if (value.has("blank") && !value.get("blank").isBoolean()) throw new InvalidSelection("Invalid blank flag");
+        // 원격 속지(V34) 규칙은 페이지 추가 · 수정과 같다(page.domain.RemoteTemplates)
+        if (value.has(RemoteTemplates.CONFIG_KEY) && (!template.remote || !RemoteTemplates.isValidId(value.get(RemoteTemplates.CONFIG_KEY)))) {
+            throw new InvalidSelection("Invalid remote template");
+        }
         if (value.has("paperAppearance")) {
             var appearance = value.get("paperAppearance");
             if (!appearance.isObject() || COLOR_KEYS.stream().filter(appearance::has).count()!=appearance.size()) throw new InvalidSelection("Invalid appearance");
@@ -141,6 +149,6 @@ public class JdbcDiaryInitialPages implements DiaryInitialPages {
         return value;
     }
     private record Key(String code,String version) {}
-    private record Template(long id,BigDecimal width,BigDecimal height,String orientation,String defaults,boolean active) {}
+    private record Template(long id,BigDecimal width,BigDecimal height,String orientation,String defaults,boolean active,boolean remote) {}
     private record Plan(Template template,String config) {}
 }

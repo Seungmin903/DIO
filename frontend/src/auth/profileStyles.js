@@ -1,11 +1,11 @@
 import { Platform, StyleSheet } from 'react-native';
 import { colors as c, radius, DISABLED_OPACITY } from '../shared/theme';
 export const profileStyles = StyleSheet.create({
-  // 내 공간과 같은 흰 면 한 장(카드 없음). 본문은 가운데 최대 640, 아래에 저장 바가 고정된다(코덱스 3차)
-  root: { flex: 1, backgroundColor: c.surface },
+  // 큰 페이지 바탕(surfaceSoft, 바탕은 하나) 위에 카드 없는 열린 폼. 본문은 가운데 최대 640, 아래에 저장 바가 고정된다(코덱스 3차)
+  root: { flex: 1, backgroundColor: c.surfaceSoft },
   flex: { flex: 1 },
   scroll: { flexGrow: 1, paddingHorizontal: 32, paddingTop: 40, paddingBottom: 48 },
-  // 폰은 좌측 바(폭 60)를 뺀 폭이 좁아 보관함 · 내 공간과 같은 좌우 14, 제목 24(코덱스 2026-11-01)
+  // 폰은 좁은 폭이라 보관함 · 내 공간과 같은 좌우 14, 제목 24(코덱스 2026-11-01)
   phoneScroll: { paddingHorizontal: 14, paddingTop: 16, paddingBottom: 40 },
   rail: { width: '100%', maxWidth: 640, alignSelf: 'center' },
   heading: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 28 },
@@ -85,8 +85,6 @@ export const profileStyles = StyleSheet.create({
   phoneCancel: { width: 96, minWidth: 64, flexShrink: 1 },
   phoneSave: { flexGrow: 1, flexShrink: 0 },
   // 회원 탈퇴: 계정 정보 아래 조용한 글자 행
-  withdraw: { minHeight: 48, marginTop: 16, justifyContent: 'center', alignItems: 'flex-start' },
-  withdrawText: { fontSize: 13, fontWeight: '600', color: c.dangerStrong },
   toastPosition: { position: 'absolute', bottom: 88, left: 16, right: 16, alignItems: 'center' },
   toast: {
     backgroundColor: c.text,
@@ -124,13 +122,11 @@ export const profileStyles = StyleSheet.create({
   photoBackdropPopover: { flex: 1, backgroundColor: 'transparent' },
   photoPopover: { position: 'absolute', width: 236, padding: 8, borderRadius: radius.lg, backgroundColor: c.surface, borderWidth: 1, borderColor: c.cardBorder },
   photoSheet: { position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: 20, paddingTop: 16, paddingBottom: 24, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, backgroundColor: c.surface },
-  photoRow: { minHeight: 48, justifyContent: 'center', paddingHorizontal: 12, borderRadius: radius.md },
+  photoRow: { minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 12, borderRadius: radius.md },
   photoRowSheet: { minHeight: 52, paddingHorizontal: 0 },
   photoRowText: { color: c.text, fontSize: 14, fontWeight: '700' },
   photoRowTextSheet: { fontSize: 16 },
-  photoRowDanger: { color: c.dangerStrong },
-  photoRowCancel: { color: c.primaryText },
-  photoDivider: { height: 1, backgroundColor: c.cardBorder, marginVertical: 4 },
+  photoRowDisabled: { color: c.textMuted },
   close: {
     width: 44,
     height: 44,

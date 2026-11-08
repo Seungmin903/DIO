@@ -257,6 +257,89 @@ class PageApiTests {
 
 
 	@Test
+	void remoteTemplatePagesNeedAWellFormedRemoteTemplateOnCreateAndUpdate() throws Exception {
+		String diaryId=createDiary("원격 속지 페이지");
+		// 앱이 페이지를 더하는 방식: templateId 없이 설정의 templateCode 로 속지를 알린다
+		String pageId=createPage(diaryId,"{\"templateConfig\":{\"templateCode\":\"dio-remote-portrait\",\"templateVersion\":\"1.0.0\",\"remoteTemplate\":\"spring-note\"}}");
+		for (String bad:new String[]{"{\"templateCode\":\"dio-remote-portrait\"}","{\"templateCode\":\"dio-remote-portrait\",\"remoteTemplate\":123}",
+				"{\"templateCode\":\"dio-remote-portrait\",\"remoteTemplate\":\"../Spring Note\"}","{\"templateCode\":\"dio-remote-portrait\",\"remoteTemplate\":\""+"a".repeat(41)+"\"}",
+				"{\"templateCode\":\"2026-cover-portrait\",\"remoteTemplate\":\"spring-note\"}","{\"remoteTemplate\":\"spring-note\"}"}) {
+			mvc.perform(post("/api/v1/diaries/"+diaryId+"/pages").with(authenticated()).contentType(MediaType.APPLICATION_JSON).content("{\"templateConfig\":"+bad+"}"))
+				.andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("INVALID_PAGE_REQUEST"));
+		}
+		// templateId 로 원격 행을 고르면 그 행의 코드로 검사한다
+		PageTemplate remote=activeTemplate("dio-remote-landscape",new BigDecimal("1024.00"),new BigDecimal("768.00"),"{\"blank\":false}");
+		mvc.perform(post("/api/v1/diaries/"+diaryId+"/pages").with(authenticated()).contentType(MediaType.APPLICATION_JSON).content("{\"templateId\":"+remote.getTemplateId()+"}"))
+			.andExpect(status().isBadRequest());
+		String rowPageId=createPage(diaryId,"{\"templateId\":"+remote.getTemplateId()+",\"templateConfig\":{\"remoteTemplate\":\"summer\"}}");
+		// 같은 원격 행을 templateId 만으로 다시 지정하면 저장된 remoteTemplate 을 이어받는다
+		mvc.perform(patch("/api/v1/pages/"+rowPageId).with(authenticated()).contentType(MediaType.APPLICATION_JSON).content("{\"templateId\":"+remote.getTemplateId()+"}"))
+			.andExpect(status().isOk()).andExpect(jsonPath("$.page.templateConfig.remoteTemplate").value("summer"));
+		// 수정도 같은 규칙: 원격 페이지의 remoteTemplate 을 깨뜨리는 설정은 거부하고, 맞는 값은 받는다
+		mvc.perform(patch("/api/v1/pages/"+pageId).with(authenticated()).contentType(MediaType.APPLICATION_JSON)
+				.content("{\"templateConfig\":{\"templateCode\":\"dio-remote-portrait\",\"remoteTemplate\":\"Bad Id\"}}"))
+			.andExpect(status().isBadRequest());
+		mvc.perform(patch("/api/v1/pages/"+pageId).with(authenticated()).contentType(MediaType.APPLICATION_JSON)
+				.content("{\"templateConfig\":{\"templateCode\":\"dio-remote-portrait\",\"templateVersion\":\"1.0.0\",\"remoteTemplate\":\"autumn\"}}"))
+			.andExpect(status().isOk()).andExpect(jsonPath("$.page.templateConfig.remoteTemplate").value("autumn"));
+		// templateId 없는 원격 페이지(앱이 만든 방식)는 저장된 설정의 templateCode 로 원격임을 안다.
+		// 설정을 통째로 바꾸는 PATCH(속지 글꼴 변경 등)가 templateCode 를 빼도 이어받고, remoteTemplate 만 바꾸면 그 값을 쓴다
+		mvc.perform(patch("/api/v1/pages/"+pageId).with(authenticated()).contentType(MediaType.APPLICATION_JSON)
+				.content("{\"templateConfig\":{\"remoteTemplate\":\"winter\",\"paperAppearance\":{\"font\":\"maruburi\"}}}"))
+			.andExpect(status().isOk()).andExpect(jsonPath("$.page.templateConfig.remoteTemplate").value("winter"))
+			.andExpect(jsonPath("$.page.templateConfig.templateCode").value("dio-remote-portrait"))
+			.andExpect(jsonPath("$.page.templateConfig.templateVersion").value("1.0.0"));
+		// templateCode 와 remoteTemplate 을 둘 다 빼도 속지 정체는 이어받아 지워지지 않는다(공유 구성원 앱이 계속 속지를 찾는다)
+		mvc.perform(patch("/api/v1/pages/"+pageId).with(authenticated()).contentType(MediaType.APPLICATION_JSON)
+				.content("{\"templateConfig\":{\"paperAppearance\":{\"font\":\"gowun-batang\"}}}"))
+			.andExpect(status().isOk()).andExpect(jsonPath("$.page.templateConfig.remoteTemplate").value("winter"))
+			.andExpect(jsonPath("$.page.templateConfig.templateCode").value("dio-remote-portrait"))
+			.andExpect(jsonPath("$.page.templateConfig.paperAppearance.font").value("gowun-batang"));
+		// 적은 값이 틀렸으면(이어받기와 상관없이) 거부한다
+		mvc.perform(patch("/api/v1/pages/"+pageId).with(authenticated()).contentType(MediaType.APPLICATION_JSON)
+				.content("{\"templateConfig\":{\"remoteTemplate\":null}}"))
+			.andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("INVALID_PAGE_REQUEST"));
+		// 설정만 바꾸면서 일반 속지 코드로 바꾸는 것도 거부한다(속지 변경은 templateId 로)
+		mvc.perform(patch("/api/v1/pages/"+pageId).with(authenticated()).contentType(MediaType.APPLICATION_JSON)
+				.content("{\"templateConfig\":{\"templateCode\":\"2026-cover-portrait\",\"remoteTemplate\":\"winter\"}}"))
+			.andExpect(status().isBadRequest());
+		// 원격 속지끼리라도 설정만으로 방향 행을 바꾸면 거부한다(캔버스 크기와 어긋난다)
+		mvc.perform(patch("/api/v1/pages/"+pageId).with(authenticated()).contentType(MediaType.APPLICATION_JSON)
+				.content("{\"templateConfig\":{\"templateCode\":\"dio-remote-landscape\",\"templateVersion\":\"1.0.0\",\"remoteTemplate\":\"winter\"}}"))
+			.andExpect(status().isBadRequest());
+		// 일반 페이지를 설정만으로 원격 속지로 바꾸는 것도 거부한다
+		String plainId=createPage(diaryId,"{\"templateConfig\":{\"templateCode\":\"2026-cover-portrait\",\"templateVersion\":\"1.0.0\"}}");
+		mvc.perform(patch("/api/v1/pages/"+plainId).with(authenticated()).contentType(MediaType.APPLICATION_JSON)
+				.content("{\"templateConfig\":{\"templateCode\":\"dio-remote-portrait\",\"remoteTemplate\":\"winter\"}}"))
+			.andExpect(status().isBadRequest());
+		// 일반 속지 페이지는 이어받지 않는다. 설정을 통째로 바꾸며 templateCode 를 빼면(빈 종이로 바꾸기) 그대로 저장된다
+		mvc.perform(patch("/api/v1/pages/"+plainId).with(authenticated()).contentType(MediaType.APPLICATION_JSON)
+				.content("{\"templateConfig\":{\"blank\":true}}"))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.page.templateConfig.blank").value(true))
+			.andExpect(jsonPath("$.page.templateConfig.templateCode").doesNotExist())
+			.andExpect(jsonPath("$.page.templateConfig.templateVersion").doesNotExist());
+		// 마지막으로 저장된 값은 그대로다
+		mvc.perform(get("/api/v1/pages/"+pageId).with(authenticated()))
+			.andExpect(status().isOk()).andExpect(jsonPath("$.page.templateConfig.remoteTemplate").value("winter"));
+		// 원격 페이지의 방향은 templateId 로 바꾼다. 설정을 생략하면 remoteTemplate 을 이어받고 캔버스도 그 행 크기가 된다
+		mvc.perform(patch("/api/v1/pages/"+pageId).with(authenticated()).contentType(MediaType.APPLICATION_JSON).content("{\"templateId\":"+remote.getTemplateId()+"}"))
+			.andExpect(status().isOk()).andExpect(jsonPath("$.page.templateConfig.remoteTemplate").value("winter"))
+			.andExpect(jsonPath("$.page.canvasWidth").value(1024.00));
+		// 일반 페이지를 원격 행으로 바꿀 때는 어떤 속지인지 알 수 없으므로 remoteTemplate 이 꼭 있어야 한다
+		mvc.perform(patch("/api/v1/pages/"+plainId).with(authenticated()).contentType(MediaType.APPLICATION_JSON).content("{\"templateId\":"+remote.getTemplateId()+"}"))
+			.andExpect(status().isBadRequest());
+		// 일반 페이지 설정은 그대로 받는다
+		String blankId=createPage(diaryId,"{\"templateConfig\":{\"paperColor\":\"#FFFFFF\"}}");
+		// 속지 코드가 없는 페이지(빈 종이)도 설정만으로 원격 속지로 바꿀 수 없다(일반 속지 페이지와 같은 규칙)
+		mvc.perform(patch("/api/v1/pages/"+blankId).with(authenticated()).contentType(MediaType.APPLICATION_JSON)
+				.content("{\"templateConfig\":{\"templateCode\":\"dio-remote-portrait\",\"templateVersion\":\"1.0.0\",\"remoteTemplate\":\"winter\"}}"))
+			.andExpect(status().isBadRequest());
+		mvc.perform(get("/api/v1/pages/"+blankId).with(authenticated()))
+			.andExpect(status().isOk()).andExpect(jsonPath("$.page.templateConfig.templateCode").doesNotExist());
+	}
+
+	@Test
 	void staleElementVersionIsRejectedInsteadOfOverwriting() throws Exception {
 		String pageId=createPage(createDiary("버전 검증"),"{}");
 		String elementId=createElement(pageId,"");

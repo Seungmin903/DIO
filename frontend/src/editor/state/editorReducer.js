@@ -256,7 +256,9 @@ function normalizeSelection(state) {
   }
 }
 
+const sameIds = (a, b) => a.length === b.length && a.every((id, index) => id === b[index])
 export function editorReducer(state, action) {
+  if (action.type === 'revertToCheckpoint' && action.checkpointOwner && state.pendingCheckpoint?.owner !== action.checkpointOwner) return state
   const objects = getCurrentPage(state).objects
   if (state.pagesLoading && (NEEDS_ALL_PAGES.has(action.type) || (NEEDS_CURRENT_PAGE.has(action.type) && getCurrentPage(state).unloaded))) return state
 
@@ -301,14 +303,16 @@ export function editorReducer(state, action) {
       return {
         ...withHistory(state),
         // 취소한 드래그는 새 편집이 아니므로 이전 Redo와 이력 상한 이전의 Past도 복원한다.
-        pendingCheckpoint: { doc: state.doc, past: state.past, future: state.future },
+        pendingCheckpoint: { doc: state.doc, past: state.past, future: state.future, ...(action.checkpointOwner ? { owner: action.checkpointOwner } : {}) },
       }
 
     // 자르기 취소처럼 checkpoint 이후의 변경을 버리고 그 시점으로 돌아간다.
     case 'revertToCheckpoint': {
       if (state.pendingCheckpoint) return normalizeSelection({
         ...state,
-        ...state.pendingCheckpoint,
+        doc: state.pendingCheckpoint.doc,
+        past: state.pendingCheckpoint.past,
+        future: state.pendingCheckpoint.future,
         pendingCheckpoint: null,
       })
       if (!state.past.length) return state
@@ -333,7 +337,7 @@ export function editorReducer(state, action) {
 
     // 그룹을 펼치지 않고 그대로 선택 (그룹 안 요소 하나만 고칠 때)
     case 'selectExact':
-      return { ...state, selectedIds: action.ids }
+      return sameIds(state.selectedIds, action.ids) ? state : { ...state, selectedIds: action.ids }
 
     case 'toggleSelect': {
       const target = action.exact ? [action.id] : expandGroups(objects, [action.id])
@@ -356,7 +360,8 @@ export function editorReducer(state, action) {
     case 'addObjects': {
       // 파일 이름이 없는(뜻 없는) 사진은 그 페이지 안에서 '사진 1', '사진 2'… 로 이름 짓는다(이름을 저장하므로 다른 사진을 지워도 바뀌지 않는다)
       const next = updateObjects(withHistory(state), (list) => [...list, ...namePhotos(list, action.objects)])
-      return { ...next, selectedIds: action.objects.map((o) => o.id) }
+      // select:false — 새 요소를 선택하지 않고 기존 선택만 푼다(펜 획)
+      return { ...next, selectedIds: action.select === false ? (state.selectedIds.length ? [] : state.selectedIds) : action.objects.map((o) => o.id) }
     }
 
     case 'updateObject':
@@ -461,7 +466,7 @@ export function editorReducer(state, action) {
       // assetIds: 여러 속지를 섞어 넣을 때 순서대로. 없으면 backgroundAssetId 를 count 장
       const count = Math.max(1, Math.min(50, Math.floor(action.count ?? 1)))
       const ids = Array.isArray(action.assetIds) && action.assetIds.length ? action.assetIds.slice(0, 200) : Array.from({ length: count }, () => action.backgroundAssetId ?? null)
-      // pages: 미리 만든 페이지(나의 속지 PDF 쪽처럼 바탕 그림 · 크기가 정해진 것)는 그대로 넣는다
+      // pages: 미리 만든 페이지(내 속지 PDF 쪽처럼 바탕 그림 · 크기가 정해진 것)는 그대로 넣는다
       const added = Array.isArray(action.pages) && action.pages.length ? action.pages.slice(0, 200) : ids.map((id) => {
         const created = id ? createTemplatePage(id, appearance) : createBlankPage(state.doc.orientation)
         return appearance ? { ...created, paperAppearance: appearance } : created

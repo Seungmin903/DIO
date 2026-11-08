@@ -35,7 +35,8 @@ export function SettingSection({ title, on, onToggle, children }) {
   return (
     <View style={local.section}>
       <SettingTitle on={on} onToggle={onToggle}>{title}</SettingTitle>
-      <View style={local.sectionBody}>{children}</View>
+      {/* 맨 아래 줄 밑에는 구분선을 두지 않는다: 줄마다 아래 구분선(1)이 있어, 몸통을 2 끌어올리고 넘친 부분을 잘라 마지막 선만 감춘다 */}
+      <View style={local.sectionBody}><View style={local.sectionRows}>{children}</View></View>
     </View>
   );
 }
@@ -97,7 +98,8 @@ const local = StyleSheet.create({
   cardCompact: {},
   cardInner: {},
   section: { paddingTop: 8 },
-  sectionBody: {},
+  sectionBody: { overflow: 'hidden' },
+  sectionRows: { marginBottom: -2 }, // 선(1)이 기기 배율에서 픽셀 사이에 걸리면 1만 자를 때 옅게 남아, 줄 여백(8) 안에서 2를 자른다
   title: { fontSize: 14, fontWeight: '700', color: colors.text, marginTop: 16, marginBottom: 4 },
   titleRow: { minHeight: 48, marginTop: 8, flexDirection: 'row', alignItems: 'center', gap: 14 },
   titleFlex: { flex: 1, marginTop: 0, marginBottom: 0 },

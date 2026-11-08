@@ -162,18 +162,18 @@ test('후보·입력·출력·작업 공간 한도 초과는 오류로 안내한
 async function decorHarness(storage, failWrite = false) {
   const require = createRequire(import.meta.url), expo = createRequire(require.resolve('expo/package.json'))
   const { code } = expo('@babel/core').transformSync(readFileSync(new URL('../src/editor/hooks/useCustomDecor.js', import.meta.url), 'utf8'), { configFile: false, babelrc: false, plugins: [expo.resolve('@babel/plugin-transform-modules-commonjs')] })
-  let cursor = 0, effects = [], deps = [], states = [], cleanups = [], uuid = 0
+  let react, uuid = 0
   const m = { exports: {} }
   new Function('require', 'module', 'exports', code)(id => {
     if (id === 'react') return {
       useCallback: fn => fn,
-      useState(initial) { const index = cursor++; if (!(index in states)) states[index] = typeof initial === 'function' ? initial() : initial; return [states[index], next => { states[index] = typeof next === 'function' ? next(states[index]) : next }] },
-      useEffect(fn, next) { const index = cursor++; if (!deps[index] || next.some((value, n) => value !== deps[index][n])) { effects.push({ index, fn }); deps[index] = next } },
+      useState: initial => react.useState(initial),
+      useEffect: (fn, next) => react.useEffect(fn, next),
     }
     if (id.endsWith('/common')) return { createId: () => `id-${++uuid}` }
     if (id.endsWith('/mediaStore')) return { hydrateMedia: async () => {} }
     if (id.endsWith('/mediaReferences.js')) return { mediaId: item => item?.mediaFileId }
-    if (id.endsWith('/storage')) return { STORAGE_KEYS: { customDecor: 'decor', stickerCategory: 'category' }, loadJSON: async (key, fallback) => (key === 'category' ? storage.category : storage.value) ?? fallback,
+    if (id.endsWith('/storage')) return { STORAGE_KEYS: { customDecor: 'decor', stickerCategory: 'category' }, loadJSON: async (key, fallback) => key === 'decor' && storage.read ? storage.read() : (key === 'category' ? storage.category : storage.value) ?? fallback,
       saveJSON: async (key, value) => {
         if (key === 'category') {
           ;(storage.categoryWrites ??= []).push(structuredClone(value))
@@ -188,12 +188,44 @@ async function decorHarness(storage, failWrite = false) {
       } }
     throw new Error(`unexpected import ${id}`)
   }, m, m.exports)
-  const render = () => { cursor = 0; const api = m.exports.useCustomDecor(); const tasks = effects; effects = []; tasks.forEach(({ index, fn }) => { cleanups[index]?.(); cleanups[index] = fn() }); return api }
-  const unmount = () => { cleanups.forEach(fn => fn?.()); effects = []; deps = []; states = []; cleanups = [] }
+  function mount() {
+    let cursor = 0, effects = [], deps = [], states = [], cleanups = []
+    const hooks = {
+      useState(initial) { const index = cursor++; if (!(index in states)) states[index] = typeof initial === 'function' ? initial() : initial; return [states[index], next => { states[index] = typeof next === 'function' ? next(states[index]) : next }] },
+      useEffect(fn, next) { const index = cursor++; if (!deps[index] || next.some((value, n) => value !== deps[index][n])) { effects.push({ index, fn }); deps[index] = next } },
+    }
+    const render = () => { react = hooks; cursor = 0; const api = m.exports.useCustomDecor(); const tasks = effects; effects = []; tasks.forEach(({ index, fn }) => { cleanups[index]?.(); cleanups[index] = fn() }); return api }
+    const unmount = () => { cleanups.forEach(fn => fn?.()); effects = []; deps = []; states = []; cleanups = [] }
+    return { render, unmount }
+  }
+  const { render, unmount } = mount()
   render(); await new Promise(resolve => setImmediate(resolve)); const api = render()
   await new Promise(resolve => setImmediate(resolve))
-  return { api: render(), render, unmount }
+  return { api: render(), render, unmount, mount }
 }
+
+test('보관함 두 인스턴스가 저장된 목록을 공유하고 늦게 끝난 로드가 최신 변경을 덮지 않는다', async () => {
+  const pendingReads = []
+  const storage = { read: () => new Promise(resolve => pendingReads.push(resolve)) }
+  const first = await decorHarness(storage)
+  const second = first.mount()
+  second.render()
+  assert.equal(pendingReads.length, 2)
+
+  first.api.markRecent({ builtin: 'pre-load' })
+  pendingReads[0]({ folders: [], recentStickers: [{ builtin: 'saved' }] })
+  await settleDecor()
+  assert.equal(first.render().items.recentStickers[0].builtin, 'saved')
+  first.render().markRecent({ builtin: 'latest' })
+
+  pendingReads[1]({ folders: [], recentStickers: [{ builtin: 'stale' }] })
+  await settleDecor()
+  assert.equal(second.render().loaded, true)
+  assert.deepEqual(second.render().items.recentStickers.map(item => item.builtin), ['latest', 'saved'])
+  assert.deepEqual(storage.value.recentStickers.map(item => item.builtin), ['latest', 'saved'])
+  first.unmount()
+  second.unmount()
+})
 test('생성 폴더 저장 후 새 보관함 세션에서 기존 폴더와 함께 복원한다', async () => {
   const storage = { value: { folders: [{ id: 'old', name: '기존', items: [{ src: 'media:old', mediaFileId: 'old' }] }] } }
   const first = await decorHarness(storage)

@@ -4,6 +4,7 @@ import { STUDY_PLANNER_MENU_ITEM, STUDY_PLANNER_TEMPLATES } from './studyPlanner
 import { DAY_PLANNER_MENU_ITEM, DAY_PLANNER_TEMPLATES } from './dayPlanner.js'
 import { datedTemplate } from './dated.js'
 import { PLANNER_TEMPLATE_SELECTION_ENABLED } from './serverCatalog.js'
+import { remoteTemplateAsset } from './remoteTemplates.js'
 
 export const TEMPLATE_VERSION = catalog.templateVersion
 export const ANNUAL_PAGE_IDS = annualBook.pages
@@ -31,23 +32,23 @@ const assets = new Map(catalog.assets.map(asset => [asset.id, { ...asset, name: 
 for (const asset of [...UNDATED_TEMPLATES, ...STUDY_PLANNER_TEMPLATES, ...DAY_PLANNER_TEMPLATES]) assets.set(asset.id, asset)
 
 export class TemplateError extends Error {
-  constructor(message = '내지를 불러오지 못했어요. 다시 시도해 주세요.', cause) {
+  constructor(message = '속지를 불러오지 못했어요. 다시 시도해 주세요.', cause) {
     super(message); this.name = 'TemplateError'; this.code = 'TEMPLATE_UNAVAILABLE'; this.cause = cause
   }
 }
 
 export function getTemplate(id, version = TEMPLATE_VERSION) {
-  // 날짜 속지(dated-…)는 파일 없이 ID 에서 항목을 만든다
-  const asset = assets.get(id) ?? datedTemplate(id)
+  // 날짜 속지(dated-…)는 파일 없이 ID 에서 항목을 만든다. 원격 속지(remote-…)는 목록(catalog.json)에서 찾는다
+  const asset = assets.get(id) ?? datedTemplate(id) ?? remoteTemplateAsset(id)
   if (!asset || !['landscape', 'portrait'].includes(asset.orientation) || version !== asset.templateVersion) {
-    throw new TemplateError('이 페이지의 내지 또는 버전을 찾을 수 없어요.')
+    throw new TemplateError('이 페이지의 속지 또는 버전을 찾을 수 없어요.')
   }
   return asset
 }
 
 export function templateReference(page) {
   if (page.backgroundAssetId == null) return null
-  if (!page.templateVersion) throw new TemplateError('내지 버전 정보가 없어요.')
+  if (!page.templateVersion) throw new TemplateError('속지 버전 정보가 없어요.')
   const asset = getTemplate(page.backgroundAssetId, page.templateVersion)
   return { backgroundAssetId: asset.id, templateVersion: asset.templateVersion }
 }

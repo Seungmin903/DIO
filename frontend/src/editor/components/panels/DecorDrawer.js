@@ -3,8 +3,9 @@ import { createContext, useContext, useRef, useState } from 'react'
 import { Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
 import { colors, radius, shadow, DISABLED_OPACITY } from '../../../shared/theme'
 import { PHOTO_FRAME_ASSETS, PHOTO_FRAME_GROUPS, TAPE_DEFAULT, TAPE_PATTERN_NAMES, TAPE_SIZES } from '../../constants'
-import { RECENT_LIMIT, stickerKey, tapeKey, useCustomDecor, widgetKey } from '../../hooks/useCustomDecor'
+import { FOLDER_NAME_LIMIT, RECENT_LIMIT, stickerKey, tapeKey, useCustomDecor, widgetKey } from '../../hooks/useCustomDecor'
 import { useTapePreferences } from '../../hooks/useTapePreferences'
+import { useStickerPacks } from '../../hooks/useStickerPacks'
 import { stickerLibrary } from '../../stickerLibrary'
 import { tapeLibrary } from '../../tapeLibrary'
 import EditablePalette from '../controls/EditablePalette'
@@ -221,7 +222,8 @@ export default function DecorDrawer({ tab, onAdd, onTapeInserted, onToast, onClo
     custom.markRecent(item)
     onAdd({ kind: 'sticker', ...item })
   }
-  // 분류 칩: 즐겨찾기·최근(있을 때) + 기본 분류와 내 폴더(사용자가 정한 순서, 숨긴 기본 분류는 빼고)
+  // 분류 칩: 즐겨찾기·최근(있을 때) + 기본 분류(디오&모아 · 원격 팩)와 내 폴더(사용자가 정한 순서, 숨긴 기본 분류는 빼고)
+  useStickerPacks() // 원격 스티커 팩이 들어오면 칩과 목록을 다시 그린다
   const { favorites, recents, favoriteKeys, orderable, sorted, hidden, chips, active, folder, pack, packMatches, folderMatches } = stickerLibrary(custom.items, category, keyword)
   // 다른 분류로 옮기거나 검색하면 편집은 저절로 끝난 것으로 본다
   // 테이프 폴더 편집(여러 개 골라 지우기)
@@ -327,7 +329,7 @@ export default function DecorDrawer({ tab, onAdd, onTapeInserted, onToast, onClo
                 value={folderDraft.name}
                 onChangeText={(name) => setFolderDraft({ ...folderDraft, name })}
                 autoFocus
-                maxLength={12}
+                maxLength={FOLDER_NAME_LIMIT}
                 placeholder="폴더 이름"
                 placeholderTextColor={colors.textMuted}
                 onSubmitEditing={() => canCommitFolder && commitFolder()}
@@ -828,7 +830,7 @@ function FolderView({
             value={renaming ?? folder.name}
             onChangeText={onRenameChange}
             selectTextOnFocus
-            maxLength={12}
+            maxLength={FOLDER_NAME_LIMIT}
             onSubmitEditing={onRenameCommit}
             onBlur={onRenameCommit}
             style={styles.renameInput}
@@ -1146,8 +1148,8 @@ const styles = StyleSheet.create({
     borderColor: colors.cardBorder,
     backgroundColor: colors.surface,
   },
-  // 선택: 흰 바탕 + primaryStrong 2px 테두리
-  pillActive: { backgroundColor: colors.surface, borderColor: colors.primaryStrong, borderWidth: 2 },
+  // 선택: 흰 바탕 + primaryStrong 2px 테두리. 테두리가 1 두꺼워지는 만큼 좌우 여백을 1 줄여 칩 폭이 그대로다
+  pillActive: { backgroundColor: colors.surface, borderColor: colors.primaryStrong, borderWidth: 2, paddingHorizontal: 12 },
   pillWithIcon: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   pillDashed: { borderStyle: 'dashed', borderWidth: 1, borderColor: colors.border, backgroundColor: 'transparent' },
   folderInputRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },

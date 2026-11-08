@@ -89,7 +89,7 @@ export async function pickPdfPages({ onProgress } = {}) {
         const [media] = await importMedia([{ file: new File([blob], `${baseName}-${number}.png`, { type: 'image/png' }), fileName: `${baseName}-${number}.png`, fileSize: blob.size, opaque: true }], { usage: 'photo' })
         saved.push(media)
         pages.push({ src: media.src, mediaFileId: media.mediaFileId, aspect: width / height, name: `${baseName} ${number}쪽`,
-          pdfSource: { sourceId, pageIndex: number - 1, edge: Math.max(width, height) } })
+          pdfSource: { sourceId, pageIndex: number - 1, edge: Math.max(width, height), renderVersion: 2 } })
       } finally { page.cleanup() }
     }
     onProgress?.(total, total)

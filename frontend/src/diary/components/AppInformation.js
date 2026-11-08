@@ -6,12 +6,15 @@ import DioButton from '../../shared/DioButton';
 import { notify } from '../../shared/dialogs';
 import { C } from '../constants';
 import { signupDocuments } from '../../shared/legalDocuments';
+import { getSignupDocument } from '../../shared/legalContent';
+import LegalDocumentScreen from '../../auth/LegalDocumentScreen';
 import { colors } from '../../shared/theme';
 import ContentLicenses from './ContentLicenses';
 import { SettingSection } from './SettingRow';
 
-// Use the same final policy as the bundled signup reader unless deployment supplies its public URL.
-const PRIVACY_POLICY_URL = signupDocuments.policy || 'https://docs.google.com/document/d/1_eH0yCPmTWtclIvkExkjYwyxCmf5FhPtAN02LIax7uI/edit?usp=drivesdk';
+// 배포 공개 주소가 있으면 브라우저로 열고, 없으면 가입 화면과 같은 내장 처리방침을 앱 안에서 연다
+// (예전 대체 주소는 로그인이 필요한 구글 문서라 구글 계정 선택 창이 떴다).
+const PRIVACY_POLICY_URL = signupDocuments.policy;
 const SUPPORT_EMAIL = 'dioapp.official@gmail.com';
 const APP_VERSION = '1.0.0'; // app.json 의 version 과 같다
 
@@ -19,7 +22,10 @@ export default function AppInformation() {
   const [copyMessage, setCopyMessage] = useState('');
   const [licensesOpen, setLicensesOpen] = useState(false);
 
+  const [policyOpen, setPolicyOpen] = useState(false);
+
   const openPrivacyPolicy = async () => {
+    if (!PRIVACY_POLICY_URL) { setPolicyOpen(true); return; }
     try {
       await Linking.openURL(PRIVACY_POLICY_URL);
     } catch {
@@ -43,7 +49,7 @@ export default function AppInformation() {
         <Text style={styles.label}>앱 버전</Text>
         <Text style={styles.versionValue}>{APP_VERSION}</Text>
       </View>
-      <Pressable accessibilityRole="link" accessibilityLabel="개인정보 처리방침, 브라우저로 열기" onPress={openPrivacyPolicy}
+      <Pressable accessibilityRole="link" accessibilityLabel="개인정보 처리방침 보기" onPress={openPrivacyPolicy}
         style={styles.policy}>
         <View style={styles.copy}>
           <Text style={styles.label}>개인정보 처리방침</Text>
@@ -62,21 +68,22 @@ export default function AppInformation() {
         <Text style={[styles.label, { flex: 1 }]}>오픈소스 및 콘텐츠 라이선스</Text>
         <AppIcon name="chevron-right" size={18} forText={15} color={C.muted} />
       </Pressable>
+      {policyOpen && <LegalDocumentScreen document={getSignupDocument('policy')} onClose={() => setPolicyOpen(false)} />}
       <ContentLicenses visible={licensesOpen} onClose={() => setLicensesOpen(false)} />
       {!!copyMessage && <Text accessibilityLiveRegion="polite" role="status" style={styles.status}>{copyMessage}</Text>}
     </SettingSection>
   );
 }
 
-// 카드로 감싸지 않는다: 구역(SettingSection) 안의 구분선으로 나눈 조용한 목록(행 64, 이메일 행 72).
+// 카드로 감싸지 않는다: 구역(SettingSection) 안의 구분선으로 나눈 조용한 목록. 행은 다른 설정 줄(SettingRow)과 같은 48 · 위아래 8 · 이름 16/600 · cardBorder 구분선(2026-11-08 사용자 결정, 이메일 두 줄은 내용만큼).
 const styles = StyleSheet.create({
-  version: { minHeight: 56, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 16, borderBottomWidth: 1, borderBottomColor: colors.border },
+  version: { minHeight: 48, paddingVertical: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 16, borderBottomWidth: 1, borderBottomColor: colors.cardBorder },
   versionValue: { color: colors.primaryStrong, fontSize: 15, fontWeight: '600' },
-  policy: { minHeight: 64, flexDirection: 'row', alignItems: 'center', gap: 16, borderBottomWidth: 1, borderBottomColor: colors.border },
-  licenses: { minHeight: 64, flexDirection: 'row', alignItems: 'center', gap: 16, borderTopWidth: 1, borderTopColor: colors.border },
-  contact: { minHeight: 72, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 16, paddingVertical: 10 },
+  policy: { minHeight: 48, paddingVertical: 8, flexDirection: 'row', alignItems: 'center', gap: 16, borderBottomWidth: 1, borderBottomColor: colors.cardBorder },
+  licenses: { minHeight: 48, paddingVertical: 8, flexDirection: 'row', alignItems: 'center', gap: 16, borderTopWidth: 1, borderTopColor: colors.cardBorder },
+  contact: { minHeight: 48, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 16, paddingVertical: 8 },
   copy: { flex: 1, minWidth: 180, gap: 2 },
-  label: { color: C.ink, fontSize: 15, fontWeight: '700' },
+  label: { color: C.ink, fontSize: 16, lineHeight: 22, fontWeight: '600' },
   hint: { color: C.muted, fontSize: 13 },
   email: { color: colors.primaryText, fontSize: 15, lineHeight: 21, fontWeight: '700' },
   status: { marginTop: 10, color: C.inkSoft, fontSize: 13, lineHeight: 20 },

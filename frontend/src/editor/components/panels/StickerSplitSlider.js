@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
+import Icon from '../controls/Icon'
 import { colors, DISABLED_OPACITY } from '../../../shared/theme'
 
 // Session-only control: commit one undo entry per drag, and release parent scrolling on every exit.
@@ -16,7 +17,7 @@ export default function StickerSplitSlider({ label, value, max, min = 0, step = 
   }
   const nudge = delta => onCommit(Number(Math.max(min, Math.min(max, value + delta)).toFixed(4)))
   return <View style={[s.row, disabled && { opacity: DISABLED_OPACITY }]}>
-    <Pressable disabled={disabled || value <= min} onPress={() => nudge(-step)} accessibilityLabel={`${label} 줄이기`} style={s.button}><Text style={s.text}>−</Text></Pressable>
+    <Pressable disabled={disabled || value <= min} onPress={() => nudge(-step)} accessibilityLabel={`${label} 줄이기`} style={s.button}><Icon name="minus" size={16} /></Pressable>
     <View collapsable={false} style={s.track} onLayout={e => { width.current = e.nativeEvent.layout.width; setTrackWidth(width.current) }} accessibilityRole="adjustable" accessibilityLabel={label}
       accessibilityValue={{ min, max, now: value }} accessibilityState={{ disabled }} accessibilityActions={[{ name: 'increment' }, { name: 'decrement' }]}
       aria-valuemin={min} aria-valuemax={max} aria-valuenow={value} aria-disabled={Boolean(disabled)}
@@ -28,7 +29,7 @@ export default function StickerSplitSlider({ label, value, max, min = 0, step = 
       <View pointerEvents="none" style={s.line} />
       <View pointerEvents="none" style={[s.thumb, { left: Math.max(0, (value - min) / (max - min)) * Math.max(0, trackWidth - 26) }]} />
     </View>
-    <Pressable disabled={disabled || value >= max} onPress={() => nudge(step)} accessibilityLabel={`${label} 늘리기`} style={s.button}><Text style={s.text}>+</Text></Pressable>
+    <Pressable disabled={disabled || value >= max} onPress={() => nudge(step)} accessibilityLabel={`${label} 늘리기`} style={s.button}><Icon name="plus" size={16} /></Pressable>
   </View>
 }
 const s = StyleSheet.create({ row: { flexDirection: 'row', alignItems: 'center', gap: 8 }, button: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surfaceMuted, borderRadius: 9 }, text: { color: colors.text, fontSize: 20 }, track: { flex: 1, height: 44, justifyContent: 'center' }, line: { height: 4, backgroundColor: colors.surfaceSoft, borderRadius: 2 }, thumb: { position: 'absolute', width: 26, height: 26, borderRadius: 13, backgroundColor: colors.surface, borderWidth: 2, borderColor: colors.primary } })

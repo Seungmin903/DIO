@@ -14,7 +14,7 @@ function setup(file, storage = {}, native = {}) {
  const hooks={memo: fn=>fn,useState:initial=>{const i=cursor++;if(!(i in state))state[i]=typeof initial==='function'?initial():initial;return [state[i],v=>{state[i]=typeof v==='function'?v(state[i]):v}]},useRef:initial=>{const i=refCursor++;return refs[i]??=( {current:initial} )},useMemo:fn=>fn(),useCallback:fn=>fn,useEffect:(fn,deps)=>{const i=effectCursor++;if(!effects[i]||deps.some((v,j)=>v!==effects[i][j])){cleanups[i]?.();effects[i]=deps;cleanups[i]=fn();}}};
  class Value { constructor(v){this.v=v} interpolate(){return 1} setValue(v){this.v=v} }
  const styles=new Proxy({},{get:(_,name)=>name});
- const mocks={'../components/OpenBookShelf':{__esModule:true,default:'OpenBookShelf',preloadOpenBooks:()=>{}},'../utils/useDiaryGrid':{useDiaryGrid:()=>null},'../utils/railMotion':{markRailMoving:()=>{},useRailMoving:()=>false},'../../editor/services/storage':storage,'../../auth/loginGate':{useLoginEntry:()=>()=>{}},react:hooks,'react-native':{Platform:{OS:'web'},...native,View:'view',Text:'text',Pressable:'press',TextInput:'input',ScrollView:'scroll',FlatList:'list',Animated:{timing:()=>({start(){},stop(){}}),Value,View:'view',Text:'text',createAnimatedComponent:()=> 'list',event:()=>()=>{}},Easing:{cubic:()=>{},out:x=>x}},'../constants':{C:{},FILTERS:[{id:'personal',label:'모든 다이어리'},{id:'favorite',label:'즐겨찾기'}],LIBRARY_SCOPES:[{id:'personal',label:'내 다이어리',tabLabel:'내 다이어리',icon:'book',empty:'내 다이어리가 없어요'},{id:'shared',label:'공유된 다이어리',tabLabel:'공유된 다이어리',icon:'people',empty:'공유된 다이어리가 없어요'}],CAROUSEL_STEP:250,CAROUSEL_ITEM_WIDTH:220,CAROUSEL_GAP:30},'../styles':{styles},'../utils/diarySelection':selectionUtils,'../utils/libraryQuery':query,'../hooks/useLibraryMetadata':{useLibraryMetadata:()=>({a:{pageCount:2},b:{pageCount:5}})}};
+ const mocks={'../components/OpenBookShelf':{__esModule:true,default:'OpenBookShelf',preloadOpenBooks:()=>{}},'../utils/useDiaryGrid':{useDiaryGrid:()=>null},'../utils/carouselFollow':{carouselMotion:()=>({card:{},info:{}})},'../utils/railMotion':{markRailMoving:()=>{},useRailMoving:()=>false},'../../editor/services/storage':storage,'../../auth/loginGate':{useLoginEntry:()=>()=>{}},react:hooks,'react-native':{Platform:{OS:'web'},...native,View:'view',Text:'text',Pressable:'press',TextInput:'input',ScrollView:'scroll',FlatList:'list',Animated:{timing:()=>({start(){},stop(){}}),Value,View:'view',Text:'text',createAnimatedComponent:()=> 'list',event:()=>()=>{}},Easing:{cubic:()=>{},out:x=>x}},'../constants':{C:{},FILTERS:[{id:'personal',label:'모든 다이어리'},{id:'favorite',label:'즐겨찾기'}],LIBRARY_SCOPES:[{id:'personal',label:'내 다이어리',tabLabel:'내 다이어리',icon:'book',empty:'내 다이어리가 없어요'},{id:'shared',label:'공유된 다이어리',tabLabel:'공유된 다이어리',icon:'people',empty:'공유된 다이어리가 없어요'}],CAROUSEL_STEP:250,CAROUSEL_ITEM_WIDTH:220,CAROUSEL_GAP:30},'../styles':{styles},'../utils/diarySelection':selectionUtils,'../utils/libraryQuery':query,'../hooks/useLibraryMetadata':{useLibraryMetadata:()=>({a:{pageCount:2},b:{pageCount:5}})}};
  const module={exports:{}};
  new Function('require','module','exports',compile(file))(id=>mocks[id]??(id==='react/jsx-runtime'?require(id):{__esModule:true,default:id}),module,module.exports);
  const render=props=>{cursor=0;refCursor=0;effectCursor=0;return module.exports.default(props)};
@@ -289,4 +289,23 @@ test('보기만 바꿀 때는 보던 다이어리를 이어 가고, 목록이 �
  assert.deepEqual(moved,[],'보기를 바꿔도 다이어리 위치는 건드리지 않는다');
  findControl(tree,'다이어리 검색').props.onPress();
  assert.deepEqual(moved,[0],'검색을 열면 처음으로 돌아간다');
+});
+test('회원(서버 검색) 보관함도 보기만 바꿀 때는 검색을 건드리지 않아 보던 다이어리를 이어 간다', () => {
+ const searchCalls=[], views=[];
+ const remoteQuery={query:'',searchOpen:false,onQueryChange:v=>searchCalls.push(['query',v]),onSearchOpenChange:v=>searchCalls.push(['open',v])};
+ const props={compact:false,diaries:[{id:'a',title:'가'},{id:'b',title:'나'},{id:'c',title:'다'}],filter:'personal',sort:'title',view:'carousel',carousel:2,onCarouselChange:()=>{},onViewChange:view=>views.push(view),remoteQuery};
+ const render=setup('../src/diary/screens/LibraryScreen.js');
+ const tree=render(props);
+ findControl(tree,'펼쳐서 보기').props.onPress();
+ assert.deepEqual(views,['open']);
+ assert.deepEqual(searchCalls,[],'검색이 닫혀 있으면 검색 닫기 · 검색어 비우기(= 첫 다이어리로)를 부르지 않는다');
+});
+test('폰 검색 화면 ⋮ 메뉴는 검색 중이어도 보관함의 실제 보기에 체크한다', () => {
+ const render=setup('../src/diary/screens/LibraryScreen.js');
+ const props={compact:true,diaries:[{id:'a',title:'여행'}],sort:'updated',onSortChange:()=>{},filter:'personal',view:'carousel',carousel:0,onCarouselChange:()=>{},onViewChange:()=>{}};
+ let tree=render(props);
+ nodes(tree).find(n=>(n.props?.accessibilityLabel??n.props?.label)==='다이어리 검색').props.onPress();tree=render(props);
+ assert.equal(tree.type,'../components/LibrarySearchScreen');
+ const radios=nodes(tree.props.optionsMenu).filter(n=>n.props?.accessibilityRole==='radio'&&/ 보기$/.test(n.props.accessibilityLabel));
+ assert.deepEqual(radios.filter(n=>n.props.accessibilityState.checked).map(n=>n.props.accessibilityLabel),['스와이프 보기']);
 });

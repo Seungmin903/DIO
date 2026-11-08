@@ -26,6 +26,7 @@ import { colors } from '../shared/theme';
 import { useFormFactor } from '../shared/useFormFactor';
 import { normalizeSharingNickname, sharingNicknameError, inviteEmailError, MAX_SHARING_MEMBERS, COPY_TITLE_LIMIT, copyTitleError, defaultCopyTitle } from './sharingContracts';
 import { sharingStyles as s } from './styles';
+import { isSharingDiaryId } from './sharingApi';
 
 // 미리보기 초대는 full 을 채우고, 서버 초대는 참여 인원(memberCount)만 준다
 function isInviteFull(invite) {
@@ -230,6 +231,19 @@ export default function SharingHub({
     } else setScreen('invitations');
     store.refresh();
   }, [request, runtime, store]);
+  // A different member can join, leave, or receive ownership while this sheet is open.
+  // Subscribe to the runtime store so the visible role and member count follow its refresh.
+  useEffect(() => {
+    if (!diary?.id || typeof runtime.subscribe !== 'function') return undefined;
+    return runtime.subscribe(() => {
+      const current = runtime.getSnapshot?.().diaries?.find(value => value.id === diary.id);
+      if (current) setDiary(previous => previous?.id === current.id ? { ...previous, members: current.members, ownerId: current.ownerId, myRole: current.myRole } : current);
+    });
+  }, [diary?.id, runtime]);
+  useEffect(() => {
+    if (!isSharingDiaryId(diary?.id) || !runtime.server || typeof runtime.watchDiary !== 'function') return undefined;
+    return runtime.watchDiary(diary.id, { onUnavailable: setError });
+  }, [diary?.id, runtime]);
   useEffect(() => {
     if (!toast) return;
     const timer = setTimeout(() => setToast(''), 2500);
@@ -506,7 +520,10 @@ export default function SharingHub({
   const emailAvailable = typeof runtime.sendEmailInvite === 'function' && (isOwner || (runtime.server && mine?.role === 'EDITOR'));
   const nicknameReady = !sharingNicknameError(nickname);
   const editingProfile = screen === 'profile';
-  const profileDiary = editingProfile ? diary : invite?.diary;
+  // 공유 정보(서버)에는 방향 · 속지 설정이 없어, 이 기기 보관함의 다이어리가 있으면 그 표지 설정을 이어 받아 보관함 카드와 같은 표지로 그린다
+  const profileDiary = editingProfile
+    ? (diary && request?.diary ? { ...diary, cover: diary.cover ?? request.diary.cover, pageSize: request.diary.pageSize, templateConfig: request.diary.templateConfig } : diary)
+    : invite?.diary;
   const profileChanged =
     !editingProfile ||
     normalizeSharingNickname(nickname) !== mine?.nickname ||
@@ -651,7 +668,7 @@ export default function SharingHub({
                           {member.id !== runtime.self.id && onOpenParticipants && (
                             <Pressable accessibilityRole="button" accessibilityLabel={`${member.nickname} 메뉴`} style={s.iconButton}
                               disabled={busy} onPress={() => onOpenParticipants(diary, member)}>
-                              <Text style={s.bold}>⋯</Text>
+                              <Icon name="more" size={22} color={colors.text} />
                             </Pressable>
                           )}
                         </View>
@@ -1212,7 +1229,7 @@ export default function SharingHub({
               : question?.kind === 'remove'
               ? '이 참여자는 다이어리를 열거나 편집할 수 없어요. 작성한 내용은 남고 기존 초대 링크는 무효화돼요.'
               : question?.kind === 'cancel-email'
-              ? '이 초대로는 다이어리에 참여할 수 없어요. 이미 참여한 멤버는 그대로 남아요.'
+              ? '이 초대로는 다이어리에 참여할 수 없어요. 이미 참여한 사람은 그대로 남아요.'
               : question?.kind === 'decline'
               ? '삭제하면 이 초대로는 다이어리에 참여할 수 없어요.'
               : '참여가 해제되면 이 다이어리를 함께 편집할 수 없어요.'

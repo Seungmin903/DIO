@@ -3,10 +3,12 @@ import { colors as c, radius } from '../shared/theme';
 export const safetyStyles = StyleSheet.create({
   backdrop: { flex: 1, backgroundColor: c.scrim, alignItems: 'center', justifyContent: 'center', padding: 24 },
   phoneBackdrop: { padding: 0, backgroundColor: c.surfaceSoft },
-  panel: { width: '100%', maxWidth: 680, maxHeight: '92%', backgroundColor: c.surfaceSoft, borderRadius: radius.xl, overflow: 'hidden', flexShrink: 1 },
+  panel: { width: '100%', maxWidth: 580, maxHeight: '92%', backgroundColor: c.surfaceSoft, borderRadius: radius.xl, overflow: 'hidden', flexShrink: 1 },
   phonePanel: { flex: 1, maxWidth: '100%', maxHeight: '100%', borderRadius: 0 },
   keyboard: { flexShrink: 1 }, phoneKeyboard: { flex: 1 },
   header: { minHeight: 64, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', gap: 12, borderBottomWidth: 1, borderColor: c.cardBorder, backgroundColor: c.surface },
+  // 폰은 화면 전체를 덮어 상단 안전 영역이 바탕색(surfaceSoft)이다. 머리줄도 같은 색이어야 위쪽이 두 색으로 갈리지 않는다(지라 598)
+  phoneHeader: { backgroundColor: c.surfaceSoft },
   title: { fontSize: 19, fontWeight: '700', color: c.text, flex: 1 },
   body: { padding: 20, gap: 16, flexGrow: 1 },
   heading: { fontSize: 15, fontWeight: '700', color: c.text },

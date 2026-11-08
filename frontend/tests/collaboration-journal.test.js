@@ -1,0 +1,166 @@
+import test from 'node:test'
+import assert from 'node:assert/strict'
+import {createCanvasSession,compactEdit,splitRequest,JOURNAL_FORMAT} from '../src/collaboration/canvasSession.js'
+import {encodeText} from '../src/diary/services/textPageSync.js'
+import {MAX_CANVAS_BATCH_ITEMS} from '../src/collaboration/canvasBatchLimits.js'
+
+const pageId='10000000-0000-4000-8000-000000000001',diaryId='20000000-0000-4000-8000-000000000001'
+const uuid=n=>`30000000-0000-4000-8000-${String(n).padStart(12,'0')}`
+const text=(n,value='A')=>({id:uuid(n),type:'text',text:value,x:1,y:2,w:40,h:20})
+const objects=count=>Array.from({length:count},(_,i)=>text(i+1))
+const row=(object,version=1,sortKey=1)=>({...encodeText(object),pageId,version,sortKey})
+
+function fixture(){
+  const disk=new Map(),calls=[];let rows=[],version=0,sequence=0,writes=0
+  const api={load:async()=>structuredClone(rows),history:async()=>({items:[],nextUndo:null,nextRedo:null}),
+    apply:async(_page,request)=>{calls.push(structuredClone(request));const byId=new Map(rows.map(e=>[e.elementId,e]))
+      for(const e of request.changes.creates??[])byId.set(e.elementId,{...e,pageId,version:++version})
+      for(const e of request.changes.updates??[]){const {version:_v,...patch}=e;byId.set(e.elementId,{...byId.get(e.elementId),...patch,version:++version})}
+      for(const id of request.changes.deleteElementIds??[])byId.delete(id)
+      // 실제 서버처럼 sortKey 순으로 돌려준다
+      rows=[...byId.values()].sort((a,b)=>(a.sortKey??0)-(b.sortKey??0));return {operationId:'1',revision:1,items:structuredClone(rows)}}}
+  const storage={getItem:async k=>disk.get(k)??null,setItem:async(k,v)=>{writes++;disk.set(k,v)}}
+  const session=()=>createCanvasSession({api,storage,key:'journal',pageId,diaryId,createId:()=>uuid(900+(++sequence))})
+  return {api,disk,calls,session,setRows:value=>{rows=value},rows:()=>rows,writes:()=>writes}
+}
+
+test('획 하나를 더한 편집은 바뀐 요소만 담고, 참조가 같은 요소는 인코딩하지 않는다',()=>{
+  const all=objects(300);let reads=0
+  // 바뀌지 않은 요소의 본문을 읽으면(인코딩하면) reads 가 오른다
+  for(const object of all)Object.defineProperty(object,'text',{enumerable:true,get(){reads++;return 'untouched'}})
+  const added=text(301,'new')
+  const entry=compactEdit({id:'e',pageId,before:all,after:[...all,added]})
+  assert.equal(reads,0)
+  assert.equal(entry.compact,true);assert.deepEqual(entry.before,[]);assert.deepEqual(entry.after.map(o=>o.id),[added.id]);assert.equal(entry.reordered,false);assert.equal(entry.order,undefined)
+})
+
+test('내용이 바뀐 요소와 지운 요소만 남기고, 순서가 바뀌면 전체 id 순서를 함께 둔다',()=>{
+  const [a,b,c]=objects(3)
+  const changed={...b,text:'B2'}
+  const entry=compactEdit({id:'e',pageId,before:[a,b,c],after:[changed,a]})
+  assert.deepEqual(entry.before.map(o=>o.id),[b.id,c.id]);assert.deepEqual(entry.after.map(o=>o.id),[b.id])
+  assert.equal(entry.reordered,true);assert.deepEqual(entry.order,[b.id,a.id])
+  assert.deepEqual(compactEdit(entry),entry,'이미 줄인 항목은 그대로 둔다')
+})
+
+test('줄인 항목으로도 전송 요청과 미리보기가 같다: 생성·수정·삭제·순서 변경',async()=>{
+  const f=fixture();const [a,b,c]=objects(3);f.setRows([row(a,1,1),row(b,1,2),row(c,1,3)])
+  const s=f.session();await s.restore([a,b,c]);await s.synchronize()
+  const changed={...b,text:'B2'},added=text(4,'D')
+  await s.enqueue({id:uuid(500),pageId,before:[a,b,c],after:[c,changed,added]})
+  const snapshot=s.snapshot()
+  assert.equal(snapshot.queue[0].compact,true);assert.deepEqual(snapshot.queue[0].before.map(o=>o.id),[a.id,b.id]);assert.deepEqual(snapshot.queue[0].after.map(o=>o.id),[b.id,added.id])
+  const result=await s.synchronize()
+  const request=f.calls[0]
+  assert.deepEqual(request.changes.deleteElementIds,[a.id]);assert.deepEqual(request.changes.creates.map(e=>e.elementId),[added.id])
+  // 순서가 바뀌었으므로 내용이 그대로인 c 도 sortKey 수정으로 들어간다
+  assert.deepEqual(request.changes.updates.map(e=>e.elementId).sort(),[b.id,c.id].sort())
+  assert.ok(request.changes.updates.every(e=>Number.isFinite(e.sortKey)))
+  assert.equal(request.changes.updates.find(e=>e.elementId===b.id).propertiesJson.text,'B2')
+  assert.deepEqual(result.objects.map(o=>o.id),[c.id,b.id,added.id]);assert.equal(result.objects[1].text,'B2')
+})
+
+test('예전 형식(전후 전체 사본) 저널은 한 항목씩 양보하며 줄이고 준비된 요청과 명령 ID 를 유지한다',async()=>{
+  const f=fixture();const all=objects(5)
+  const legacy={format:2,pageId,diaryId,base:[],uiLocal:all,control:null,recent:['done'],queue:[
+    {id:'q1',pageId,before:[],after:all.slice(0,2)},
+    {id:'q2',pageId,before:all.slice(0,2),after:all,request:{clientOperationId:'q2',changes:{creates:[]},expectedVersions:{}},mediaApiVersion:1},
+  ],rejectedEdits:[{id:'r1',pageId,before:[all[0]],after:[],status:400,code:null,rejectedAt:1}]}
+  f.disk.set('journal',JSON.stringify(legacy))
+  const s=f.session();let yields=0;const originalTimeout=globalThis.setTimeout
+  globalThis.setTimeout=(fn,ms,...rest)=>{if(ms===0)yields++;return originalTimeout(fn,ms,...rest)}
+  try{await s.restore(all)}finally{globalThis.setTimeout=originalTimeout}
+  assert.ok(yields>=2,'항목마다 한 번씩 양보한다')
+  const snapshot=s.snapshot()
+  assert.equal(snapshot.format,JOURNAL_FORMAT);assert.deepEqual(snapshot.recent,['done'])
+  assert.deepEqual(snapshot.queue.map(e=>e.id),['q1','q2']);assert.ok(snapshot.queue.every(e=>e.compact))
+  assert.deepEqual(snapshot.queue[0].after.map(o=>o.id),all.slice(0,2).map(o=>o.id))
+  assert.deepEqual(snapshot.queue[1].request,legacy.queue[1].request);assert.equal(snapshot.queue[1].mediaApiVersion,1)
+  assert.equal(snapshot.rejectedEdits[0].compact,true);assert.equal(snapshot.rejectedEdits[0].status,400)
+  assert.equal(JSON.parse(f.disk.get('journal')).format,JOURNAL_FORMAT,'변환한 저널은 새 형식으로 저장한다')
+})
+
+test('서버 상태가 그대로인 주기 동기화는 저널을 다시 저장하지 않는다',async()=>{
+  const f=fixture();const [a]=objects(1);f.setRows([row(a)])
+  const s=f.session();await s.restore([a]);await s.synchronize()
+  const before=f.writes()
+  await s.synchronize();await s.synchronize()
+  assert.equal(f.writes(),before)
+  f.setRows([row({...a,text:'friend'},2)])
+  await s.synchronize()
+  assert.equal(f.writes(),before+1,'서버 요소의 version 이 오르면 다시 저장한다')
+})
+
+test('요청 분할은 종류별 100개씩 나누고 기대 버전은 해당 부분만 담는다',()=>{
+  const ids=objects(250).map(o=>o.id)
+  const request={clientOperationId:'big',changes:{updates:ids.slice(0,150).map(id=>({elementId:id,version:1})),creates:ids.slice(150,220).map(id=>({elementId:id})),deleteElementIds:ids.slice(220,250)},expectedVersions:Object.fromEntries(ids.slice(220,250).map(id=>[id,3]))}
+  let n=0;const parts=splitRequest(request,()=>`id-${++n}`)
+  assert.deepEqual(parts.map(p=>[(p.changes.updates??[]).length,(p.changes.creates??[]).length,(p.changes.deleteElementIds??[]).length]),[[100,0,0],[50,0,0],[0,70,0],[0,0,30]])
+  assert.ok(parts.every(p=>Object.keys(p.expectedVersions).length<=MAX_CANVAS_BATCH_ITEMS))
+  assert.deepEqual(Object.keys(parts[3].expectedVersions).length,30);assert.deepEqual(parts.map(p=>p.clientOperationId),['id-1','id-2','id-3','id-4'])
+})
+
+test('서버도 대기열도 그대로인 동기화는 unchanged 를 돌려주고 objects 를 읽기 전에는 미리보기를 만들지 않는다',async()=>{
+  const f=fixture();const [a]=objects(1);f.setRows([row(a)])
+  const s=f.session();await s.restore([a])
+  const first=await s.synchronize();assert.equal(first.unchanged,false);assert.equal(first.objects[0].id,a.id)
+  const idle=await s.synchronize();assert.equal(idle.unchanged,true);assert.equal(s.pending(),false)
+  assert.equal(idle.objects[0].id,a.id,'읽으면 그때 만든다')
+  await s.enqueue({id:uuid(500),pageId,before:[a],after:[a,text(2,'B')]});assert.equal(s.pending(),true)
+  const sent=await s.synchronize();assert.equal(sent.unchanged,false);assert.equal(sent.objects.length,2);assert.equal(s.pending(),false)
+  f.setRows([row({...a,text:'friend'},2)]);assert.equal((await s.synchronize()).unchanged,false)
+})
+
+test('형식 1 저널(텍스트만 동기화)을 복원하면 기기에만 있던 텍스트 외 요소를 보강 편집으로 큐에 넣는다',async()=>{
+  const f=fixture();const t=text(1),sticker={id:uuid(2),type:'sticker',x:1,y:2,w:10,h:10}
+  f.disk.set('journal',JSON.stringify({format:1,pageId,diaryId,base:[],uiLocal:[t],queue:[],recent:[]}))
+  const s=f.session();const restored=await s.restore([t,sticker])
+  const snapshot=s.snapshot()
+  assert.equal(snapshot.format,JOURNAL_FORMAT);assert.equal(snapshot.queue.length,1);assert.deepEqual(snapshot.queue[0].after.map(o=>o.id),[sticker.id])
+  assert.deepEqual(restored.map(o=>o.id),[t.id,sticker.id]);assert.equal(JSON.parse(f.disk.get('journal')).queue.length,1)
+})
+
+test('공유 외 요소의 sortKey 만 바뀐 조회 응답도 orderKeys 를 새로 받는다',async()=>{
+  const f=fixture();const [a]=objects(1);f.setRows([row(a,1,1)])
+  const s=f.session();await s.restore([a]);await s.synchronize()
+  assert.deepEqual(s.snapshot().orderKeys,[1])
+  const rows=f.api.load;f.api.load=async()=>{const items=await rows();Object.defineProperty(items,'sortKeys',{value:[1,7]});return items}
+  await s.synchronize();assert.deepEqual(s.snapshot().orderKeys,[1,7])
+  const writes=f.writes();await s.synchronize();assert.equal(f.writes(),writes,'같은 응답은 다시 저장하지 않는다')
+})
+
+test('내 명령인지 판단할 때 clientOperationId 의 대소문자를 무시한다(iOS 대문자 UUID ↔ 서버 소문자 이벤트)',async()=>{
+  const f=fixture();const [a]=objects(1);f.setRows([row(a)])
+  const upper='30000000-0000-4000-8000-00000000ABCD'
+  const s=createCanvasSession({api:f.api,storage:{getItem:async()=>null,setItem:async()=>{}},key:'j',pageId,diaryId,createId:()=>upper})
+  await s.restore([a]);await s.enqueue({id:upper,pageId,before:[a],after:[a,text(2,'B')]})
+  assert.equal(s.ownsCommand(upper.toLowerCase()),true,'대기열의 명령')
+  await s.synchronize()
+  assert.equal(s.ownsCommand(upper.toLowerCase()),true,'보낸 명령');assert.equal(s.ownsCommand('30000000-0000-4000-8000-000000000000'),false)
+})
+
+test('1인 다이어리의 서버 에코는 ID 가 달라도 내 계정이 낸 것이면 보낸 횟수만큼 내 것으로 보고, 공유 경로의 저장은 세지 않는다',async()=>{
+  const f=fixture();const [a]=objects(1);f.setRows([row(a)])
+  let mode='personal'
+  const api={...f.api,prepare:async request=>({...request,canvasWriteMode:mode}),apply:(page,{canvasWriteMode:_m,...body})=>f.api.apply(page,body)}
+  const s=createCanvasSession({api,storage:{getItem:async()=>null,setItem:async()=>{}},key:'echo',pageId,diaryId,createId:()=>uuid(900+Math.floor(Math.random()*1000))})
+  await s.restore([a]);await s.synchronize()
+  assert.equal(s.claimsChange('40000000-0000-4000-8000-000000000001',true),false,'보낸 것이 없으면 남의 변경')
+  await s.enqueue({id:uuid(500),pageId,before:[a],after:[a,text(2,'B')]});await s.synchronize()
+  assert.equal(s.claimsChange('40000000-0000-4000-8000-000000000001',false),false,'다른 계정의 변경은 그대로')
+  assert.equal(s.claimsChange('40000000-0000-4000-8000-000000000001',true),true,'내 계정의 에코 하나는 내 것')
+  assert.equal(s.claimsChange('40000000-0000-4000-8000-000000000002',true),false,'한 번 보냈으면 에코도 하나만')
+  await s.enqueue({id:uuid(501),pageId,before:[a],after:[a,text(3,'C')]});await s.synchronize()
+  assert.equal(s.claimsChange(uuid(501),true),true,'ID 가 맞는 에코는 내 것');assert.equal(s.claimsChange('40000000-0000-4000-8000-000000000003',true),true,'ID 일치는 개인 경로 에코 슬롯을 쓰지 않는다');assert.equal(s.claimsChange('40000000-0000-4000-8000-000000000004',true),false)
+  mode='shared'
+  await s.enqueue({id:uuid(502),pageId,before:[a],after:[a,text(4,'D')]});await s.synchronize()
+  assert.equal(s.claimsChange('40000000-0000-4000-8000-000000000004',true),false,'공유 경로 저장은 에코를 세지 않아 같은 계정 다른 기기의 변경을 삼키지 않는다')
+  assert.equal(s.claimsChange(uuid(502),true),true,'공유 경로는 ID 로 알아본다')
+})
+
+test('명령 ID 가 없거나 비어 있는 이벤트는 내 명령으로 보지 않는다',async()=>{
+  const f=fixture();const [a]=objects(1);f.setRows([row(a)])
+  const s=f.session();await s.restore([a]);await s.synchronize()
+  for(const id of [undefined,null,'',0])assert.equal(s.ownsCommand(id),false,String(id))
+  for(const id of [undefined,null,''])assert.equal(s.claimsChange(id,false),false)
+})

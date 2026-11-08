@@ -3,15 +3,19 @@ import { Platform, StyleSheet, Text, View } from 'react-native'
 import Svg, { ClipPath, Defs, Image as SvgImage, Path } from 'react-native-svg'
 import { TAPE_DEFAULT_OPACITY } from '../../constants'
 import { builtinStickerOf } from '../../builtinStickers'
+import { useStickerPacks } from '../../hooks/useStickerPacks'
+import { useRemoteAssetUri } from '../../../shared/remoteAssets/useRemoteAssetUri'
 import { isAnimatedMedia, isRetiredSticker, stickerSource } from '../../stickerAssets'
 import BuiltinStickerArt from './BuiltinStickerArt'
 import MediaImage from './MediaImage'
 import PdfDetail from './PdfDetail'
+import { usePdfPageRaster } from '../../../diary/hooks/usePdfPageRaster'
 import StickerFrame from './StickerFrame'
 import { boxShadowStyle, insetShadowStyle, outlineOf, shadowOf, shadowOffset } from '../../utils/effects'
 import { reportMediaDisplayError } from '../../services/mediaStore'
 import { colors } from '../../../shared/theme'
 import { mediaId } from '../../utils/mediaReferences.js'
+import { isBackdrop } from '../../utils/backdrop.js'
 import { useMediaEntry, useMediaUri } from '../../hooks/useMediaUri'
 import { coverLayout, hasPhotoMedia, photoInnerBox, tapePieceRatio, tapeUnitH } from '../../utils/objects'
 import { shapePath } from '../../utils/shapes'
@@ -40,7 +44,7 @@ export const TextMeasureReady = createContext(false)
  * 오브젝트 하나의 생김새. 위치·회전·불투명도는 바깥에서 잡고, 여기서는 zoom 배율로 내용만 그린다.
  * 편집 화면, 페이지 썸네일에서 함께 쓴다.
  */
-function ObjectContent({ object, zoom, areaPreview = false, still: stillRequested = false, onAssetLoad, onAssetError }) {
+function ObjectContent({ object, zoom, areaPreview = false, still: stillRequested = false, onAssetLoad, onAssetError, showFallbackWhileLoading = false }) {
   const fontStatus = useTextFont(object.type === 'text' ? object.font : null, Boolean(object.bold))
 
   const width = object.w * zoom
@@ -73,13 +77,10 @@ function ObjectContent({ object, zoom, areaPreview = false, still: stillRequeste
     case 'shape':
       return <ShapeContent object={object} zoom={zoom} />
     case 'stroke':
-      return <StrokeContent areaPreview={areaPreview} object={object} zoom={zoom} transform={flipTransform(object)} onAssetLoad={onAssetLoad} onAssetError={onAssetError} />
+      return <StrokeContent areaPreview={areaPreview} object={object} zoom={zoom} transform={flipTransform(object)} onAssetLoad={onAssetLoad} onAssetError={onAssetError} showFallbackWhileLoading={showFallbackWhileLoading} />
     case 'sticker':
       if (object.widget) return <View style={{ transform: flipTransform(object) }}><DdayWidget widget={object.widget} width={width} height={height} /></View>
-      if (object.pdfSource) return <View style={{ width, height }}>
-        <StickerContent object={object} width={width} height={height} zoom={zoom} still={still} onAssetLoad={onAssetLoad} onAssetError={onAssetError} />
-        <PdfDetail object={object} zoom={zoom} />
-      </View>
+      if (object.pdfSource) return <PdfStickerContent object={object} width={width} height={height} zoom={zoom} still={still} onAssetLoad={onAssetLoad} onAssetError={onAssetError} />
       return <StickerContent object={object} width={width} height={height} zoom={zoom} still={still} onAssetLoad={onAssetLoad} onAssetError={onAssetError} />
     case 'tape':
       return (
@@ -223,7 +224,18 @@ const DIRECTIONS = [
  * - 그림자: 그림자 색 실루엣을 방향·거리만큼 옮기고, 흐림만큼 둥글게 퍼뜨려 옅게 겹친다.
  *   테두리가 있으면 테두리 바깥 끝을 기준으로 그린다. (사진은 테두리가 상자 안쪽에 그려져 boxShadow 가 원래 테두리 끝 기준)
  */
-function StickerContent({ object, width, height, zoom, still, onAssetLoad, onAssetError }) {
+function PdfStickerContent({ object, width, height, zoom, ...props }) {
+  const raster = usePdfPageRaster(object.pdfSource)
+  return <View style={{ width, height }}>
+    {!raster.pending && <>
+      <StickerContent {...props} object={object} width={width} height={height} zoom={zoom} pdfUri={raster.uri} />
+      <PdfDetail object={object} zoom={zoom} />
+    </>}
+  </View>
+}
+
+function StickerContent({ object, width, height, zoom, still, pdfUri, onAssetLoad, onAssetError }) {
+  useStickerPacks() // 원격 스티커 팩이 늦게 들어오면 다시 그린다
   const outline = outlineOf(object)
   const shadow = shadowOf(object)
   const stroke = outline.on ? Math.max(0.75, outline.width * zoom) : 0
@@ -231,7 +243,7 @@ function StickerContent({ object, width, height, zoom, still, onAssetLoad, onAss
   const blurSpread = shadow.blur * zoom * 0.45
   const box = { width, height }
   const uri = useMediaUri(object, { still })
-  const originalSource = stickerSource(object, still, uri)
+  const originalSource = pdfUri ? { uri: pdfUri } : stickerSource(object, still, uri)
   const originalAnimated = !still && isAnimatedMedia(object)
   const synchronized = (Platform.OS === 'ios' || Platform.OS === 'android') && originalAnimated && (outline.on || shadow.on)
   const playback = useStickerPlayback(synchronized ? originalSource : null)
@@ -239,9 +251,13 @@ function StickerContent({ object, width, height, zoom, still, onAssetLoad, onAss
   // 준비 중에도 원본과 효과를 같은 첫 장면으로 표시한다. 출력(still)은 기존 경로를 쓴다.
   // Bundled GIFs have a PNG poster; do not fall back to an animated imported GIF.
   const fallback = object.asset || object.poster ? stickerSource(object, true, posterUri) : null
-  const source = synchronized ? playback.source ?? fallback : originalSource
+  // 원격 그림 스티커(팩의 PNG, builtin: 'remote:<팩>:<스티커>')는 그림 스티커와 같은 경로(MediaImage · 테두리 · 그림자 실루엣)로 그린다
+  const packSticker = builtinStickerOf(object.builtin)
+  const remoteImage = packSticker?.image ?? null
+  const remoteUri = useRemoteAssetUri(remoteImage, onAssetError)
+  const source = remoteImage ? (remoteUri ? { uri: remoteUri } : null) : synchronized ? playback.source ?? fallback : originalSource
   const animated = originalAnimated && !synchronized
-  const builtin = builtinStickerOf(object.builtin)
+  const builtin = remoteImage ? null : packSticker
 
   const silhouette = synchronized
     ? (key, color, dx, dy, opacity = 1) => ({ key, color, dx, dy, opacity })
@@ -332,7 +348,8 @@ function StickerContent({ object, width, height, zoom, still, onAssetLoad, onAss
         // View 로 감싼다: 웹의 <svg> 는 위치 지정 요소가 아니라서 그대로 두면 테두리 · 그림자 층 아래로 깔린다
         <View style={box}><BuiltinStickerArt sticker={builtin} width={width} height={height} /></View>
       ) : source ? (
-        <MediaImage animated={animated} onLoad={onAssetLoad} onError={() => { if (!synchronized) reportMediaDisplayError(object); onAssetError?.() }} source={source} style={box} resizeMode="contain" />
+        <MediaImage animated={animated} onLoad={onAssetLoad} onError={() => { if (!synchronized && !remoteImage) reportMediaDisplayError(object); onAssetError?.() }}
+          source={source} style={box} resizeMode={isBackdrop(object) ? 'stretch' : 'contain'} />
       ) : (
         <Text style={[styles.emoji, emojiText(height)]}>{object.emoji}</Text>
       )}

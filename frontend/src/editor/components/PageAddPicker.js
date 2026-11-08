@@ -1,24 +1,27 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native'
 import { colors, shadow } from '../../shared/theme'
 import { PaperGrid, PaperTabs, TemplatePreview } from '../../diary/components/PaperOptions'
 import { PdfPageThumb } from '../../diary/components/PdfImport'
+import { pdfPageAspect } from '../../diary/utils/pdfImport.js'
 import { TEMPLATE_VERSION } from '../templates/catalog.js'
 import { loadTemplate } from '../templates/loadTemplate'
 import Icon from './controls/Icon'
-import { PAPER_GROUPS, countAssetId, papersIn } from '../../diary/utils/paperChoice'
+import { countAssetId, paperGroups, papersIn } from '../../diary/utils/paperChoice'
 import { PANEL_RADIUS, ToolPanelHeader } from './ToolPanel'
+import { useRemoteTemplates } from '../hooks/useRemoteTemplates'
 
 // 페이지로 더할 수 있는 속지: 장수로 넣는 속지만 (날짜 속지는 다이어리를 만들 때 기간으로 넣는다)
-const GROUPS = PAPER_GROUPS.map(group => ({ ...group, papers: papersIn(group.id).filter(paper => paper.kind === 'count') })).filter(group => group.papers.length)
+// 탭별 장수 속지. 원격 속지(catalog.json)가 바뀌면 다시 만든다(PageAddPicker 의 useRemoteTemplates)
+const countGroups = () => paperGroups().map(group => ({ ...group, papers: papersIn(group.id).filter(paper => paper.kind === 'count') })).filter(group => group.papers.length)
 const CARD_WIDTH = 340
 const SLOTS = 6 // 분류마다 두 줄(3열)로 맞춘다
 const MINE_GAP = 12
-const MINE = { id: 'mine', name: '나의 속지' } // 공방 · 새 다이어리에서 PDF 로 만든 속지 묶음. 있을 때만 탭을 보인다
+const MINE = { id: 'mine', name: '내 속지' } // 공방 · 새 다이어리에서 PDF 로 만든 속지 묶음. 있을 때만 탭을 보인다
 
 /** 팝업을 열기 전에 속지를 미리 불러 둬 열자마자 그려지게 한다 */
 export function prefetchPageAddPapers(orientation) {
-  for (const group of GROUPS) for (const paper of group.papers) {
+  for (const group of countGroups()) for (const paper of group.papers) {
     try { loadTemplate({ backgroundAssetId: countAssetId(paper.id, orientation), templateVersion: TEMPLATE_VERSION }).catch(() => {}) } catch { /* 없는 속지는 건너뜀 */ }
   }
 }
@@ -28,13 +31,18 @@ export function prefetchPageAddPapers(orientation) {
  * 속지를 누르면 지금 페이지 뒤에 한 장을 넣고 닫는다. 바깥을 누르면 닫힌다.
  * 폰은 화면 아래에 가로로 꽉 차게 띄운다. 폭은 창 크기로 정해 처음 그린 뒤 다시 재지 않는다.
  * anchor: 태블릿 버블 자리 { left, bottom } (화면 기준)
- * myPapers: 나의 속지 묶음. 묶음을 누르면 그 안의 쪽을 펼쳐 한 장을 고르거나 전체를 넣는다(onSelectMine(묶음, 넣을 쪽들))
+ * myPapers: 내 속지 묶음. 묶음을 누르면 그 안의 쪽을 펼쳐 한 장을 고르거나 전체를 넣는다(onSelectMine(묶음, 넣을 쪽들))
  */
 export default function PageAddPicker({ compact = false, orientation, appearance, currentAssetId = null, anchor = { left: 16, bottom: 16 }, myPapers = [], onSelect, onSelectMine, onClose }) {
+  const remoteRevision = useRemoteTemplates()
+  const GROUPS = useMemo(countGroups, [remoteRevision])
   // 지금 페이지의 속지와 같은 속지가 있으면 그 분류에서 열고, 맨 위에 바로 넣는 줄을 둔다
   const current = currentAssetId ? GROUPS.flatMap(item => item.papers.map(paper => ({ paper, group: item.id })))
     .find(item => countAssetId(item.paper.id, orientation) === currentAssetId) ?? null : null
   const [group, setGroup] = useState(current?.group ?? GROUPS[0].id)
+  const tabs = myPapers.length && onSelectMine ? [...GROUPS, MINE] : GROUPS
+  // 열린 채로 새 목록이 와서 고른 탭이 사라지면(숨김 · 속지 없음) 첫 탭을 고른 것으로 본다. 탭 밑줄과 목록이 같은 값을 쓴다
+  const shown = tabs.some(item => item.id === group) ? group : GROUPS[0].id
   const window = useWindowDimensions()
   const place = compact ? { left: 8, right: 8, bottom: anchor.bottom } : { left: anchor.left, bottom: anchor.bottom, width: Math.min(CARD_WIDTH, window.width - anchor.left - 16) }
   return <View style={[StyleSheet.absoluteFill, styles.layer]} pointerEvents="box-none">
@@ -51,9 +59,9 @@ export default function PageAddPicker({ compact = false, orientation, appearance
           </View>
           <Icon name="plus" size={16} color={colors.primaryStrong} />
         </Pressable>}
-        <PaperTabs groups={myPapers.length && onSelectMine ? [...GROUPS, MINE] : GROUPS} value={group} onChange={setGroup} />
-        {group === MINE.id ? <MyPaperGrid items={myPapers} onSelect={onSelectMine} />
-          : <PaperGrid papers={GROUPS.find(item => item.id === group).papers} selected={null} orientation={orientation} appearance={appearance} minSlots={SLOTS}
+        <PaperTabs groups={tabs} value={shown} onChange={setGroup} />
+        {shown === MINE.id ? <MyPaperGrid items={myPapers} onSelect={onSelectMine} />
+          : <PaperGrid papers={GROUPS.find(item => item.id === shown).papers} selected={null} orientation={orientation} appearance={appearance} minSlots={SLOTS}
             onSelect={id => onSelect(countAssetId(id, orientation))} />}
       </ScrollView>
     </View>
@@ -61,7 +69,7 @@ export default function PageAddPicker({ compact = false, orientation, appearance
 }
 
 /**
- * 나의 속지 묶음 타일(코덱스 안 2026-11-02): 흰 카드 안 16:10 미리보기(첫 쪽을 비율 그대로) + 이름 + 쪽 수, 3열 · 간격 12.
+ * 내 속지 묶음 타일: 두 열에 쪽의 비율을 유지하며 보여 준다.
  * 묶음은 한 장이 아니라서 속지 타일과 달리 카드 틀을 둔다.
  * 묶음을 누르면 그 안의 쪽을 같은 타일로 펼친다(굿노트 내 템플릿처럼 한 장씩 고른다). 쪽을 누르면 그 한 장, `전체 넣기` 는 묶음 전부. 한 장짜리 묶음은 바로 넣는다.
  */
@@ -69,12 +77,12 @@ function MyPaperGrid({ items, onSelect }) {
   const [width, setWidth] = useState(0)
   const [openId, setOpenId] = useState(null)
   const open = items.find(item => item.id === openId) ?? null
-  const tile = width ? Math.floor((width - MINE_GAP * 2) / 3) : 0
+  const tile = width ? Math.floor((width - MINE_GAP) / 2) : 0
   const preview = tile - 18 // 안쪽 8 · 테두리 1 씩
   const card = ({ key, page, name, count, label, onPress }) => {
-    const aspect = page.aspect > 0 ? page.aspect : 0.75
-    const box = preview * 10 / 16
-    const thumb = aspect >= preview / box ? preview : box * aspect
+    const aspect = pdfPageAspect(page)
+    const box = preview / Math.min(1.6, Math.max(0.75, aspect))
+    const thumb = Math.min(preview, box * aspect)
     return <Pressable key={key} accessibilityRole="button" accessibilityLabel={label} onPress={onPress}
       style={({ pressed }) => [styles.mineTile, { width: tile }, pressed && styles.pressed]}>
       <View style={[styles.minePreview, { height: box }]}><PdfPageThumb page={page} width={thumb} ratio={aspect} /></View>
@@ -84,11 +92,11 @@ function MyPaperGrid({ items, onSelect }) {
   }
   return <View style={styles.mine} onLayout={event => setWidth(event.nativeEvent.layout.width)}>
     {open && <View style={styles.mineHead}>
-      <Pressable accessibilityRole="button" accessibilityLabel="나의 속지 목록으로" hitSlop={8} onPress={() => setOpenId(null)} style={styles.mineBack}>
+      <Pressable accessibilityRole="button" accessibilityLabel="내 속지 목록으로" hitSlop={8} onPress={() => setOpenId(null)} style={styles.mineBack}>
         <Icon name="chevronLeft" size={18} forText={13} color={colors.primaryText} />
         <Text numberOfLines={1} style={styles.mineTitle}>{open.name}</Text>
       </Pressable>
-      <Pressable accessibilityRole="button" accessibilityLabel={`나의 속지 ${open.name} ${open.pages.length}장 모두 넣기`} hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }} onPress={() => onSelect(open, open.pages)}>
+      <Pressable accessibilityRole="button" accessibilityLabel={`내 속지 ${open.name} ${open.pages.length}장 모두 넣기`} hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }} onPress={() => onSelect(open, open.pages)}>
         <Text style={styles.mineAll}>전체 넣기</Text>
       </Pressable>
     </View>}
@@ -96,7 +104,7 @@ function MyPaperGrid({ items, onSelect }) {
       {preview > 0 && (open
         ? open.pages.map((page, index) => card({ key: index, page, name: `${index + 1}쪽`, label: `${open.name} ${index + 1}쪽 넣기`, onPress: () => onSelect(open, [page]) }))
         : items.map(item => card({ key: item.id, page: item.pages[0], name: item.name, count: `${item.pages.length}장`,
-          label: item.pages.length > 1 ? `나의 속지 ${item.name} ${item.pages.length}장 펼치기` : `나의 속지 ${item.name} 넣기`,
+          label: item.pages.length > 1 ? `내 속지 ${item.name} ${item.pages.length}장 펼치기` : `내 속지 ${item.name} 넣기`,
           onPress: () => item.pages.length > 1 ? setOpenId(item.id) : onSelect(item, item.pages) })))}
     </View>
   </View>

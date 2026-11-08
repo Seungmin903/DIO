@@ -7,12 +7,13 @@ import { styles as s } from '../styles';
 // compact(폰): 둥근 상자 대신 본문 좌우 끝까지 꽉 찬 옅은 띠(코덱스 2026-11-03 시안 B).
 // 띠는 두 줄: 위 `N개 선택됨` · 오른쪽 끝 `완료`(done), 아래 동작 버튼들이 폭을 똑같이 나눠 채운다(코덱스 C안, 버튼 수가 달라도 같은 구조).
 // done: 폰 띠에서 첫 줄 오른쪽에 두는 완료 버튼. 폰이 아니면 동작 버튼 뒤(맨 오른쪽)에 이어 붙는다
-export default function SelectionBar({ count, style, compact = false, done = null, children }) {
+// unit: 세는 말. 다이어리를 고르는 보관함 · 휴지통은 '권', 스티커 폴더 편집 등은 기본 '개'
+export default function SelectionBar({ count, unit = '개', style, compact = false, done = null, children }) {
   if (compact) {
     return (
       <View style={[s.selectBar, s.selectBarBand, style]} accessibilityRole="toolbar">
         <View style={s.selectBandHead}>
-          <Text accessibilityLiveRegion="polite" style={[s.selectCount, s.selectCountBand]}>{`${count}개 선택됨`}</Text>
+          <Text accessibilityLiveRegion="polite" style={[s.selectCount, s.selectCountBand]}>{`${count}${unit} 선택됨`}</Text>
           {done}
         </View>
         <View style={s.selectBandActions}>
@@ -23,7 +24,7 @@ export default function SelectionBar({ count, style, compact = false, done = nul
   }
   return (
     <View style={[s.selectBar, style]} accessibilityRole="toolbar">
-      <Text accessibilityLiveRegion="polite" style={s.selectCount}>{`${count}개 선택됨`}</Text>
+      <Text accessibilityLiveRegion="polite" style={s.selectCount}>{`${count}${unit} 선택됨`}</Text>
       <View style={s.selectActions}>{children}{done}</View>
     </View>
   );

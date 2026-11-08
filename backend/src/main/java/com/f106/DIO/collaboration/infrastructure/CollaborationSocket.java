@@ -131,6 +131,16 @@ public class CollaborationSocket extends TextWebSocketHandler {
             }
         });}catch(RuntimeException error){LOG.warn("Page notification dropped: total={}, errorType={}",droppedEvents.incrementAndGet(),error.getClass().getSimpleName());}
     }
+    @TransactionalEventListener(phase=TransactionPhase.AFTER_COMMIT)
+    public void membersChanged(com.f106.DIO.sharing.domain.DiaryMembershipChanged event){
+        try{executor.execute(()->{
+            var permissions=new HashMap<String,Boolean>();
+            for(var connection:connections.values())if(connection.actor>=0&&connection.diary.equals(event.diaryId())){
+                try{validate(connection,permissions);send(connection,Map.of("type","MEMBERS_CHANGED","diaryId",event.diaryId().toString()));}
+                catch(RuntimeException error){validationFailure(connection,error);}
+            }
+        });}catch(RuntimeException error){LOG.warn("Membership notification dropped: total={}, errorType={}",droppedEvents.incrementAndGet(),error.getClass().getSimpleName());}
+    }
     private void broadcast(CanvasCommitted event){
         var permissions=new HashMap<String,Boolean>();
         for(var connection:connections.values())if(connection.actor>=0&&connection.diary.equals(event.diaryId())){

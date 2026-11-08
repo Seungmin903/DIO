@@ -29,7 +29,8 @@ function fixture(overrides = {}) {
     return reply(null, 204);
   };
   const runtime = createSharingApi({ user: { userId: 10, nickname: '기본이름', photoUri: 'https://api.dio.test/account.png' }, auth, fetchImpl,
-    buildPhotoBody: async (body, photo, part) => { uploaded.push({ body, photo, part }); return { body: 'multipart', dispose() { uploaded.push('disposed'); } }; } });
+    buildPhotoBody: async (body, photo, part) => { uploaded.push({ body, photo, part }); return { body: 'multipart', dispose() { uploaded.push('disposed'); } }; },
+    ...overrides.runtimeOptions });
   return { runtime, calls, uploaded, logout() { available = false; } };
 }
 
@@ -66,6 +67,162 @@ test('서버 공유 조회는 실제 사용자 ID와 권한을 사용하며 로�
   assert.deepEqual(f.runtime.getSnapshot().library, []); // 서버 문서를 로컬 빈 사본으로 열지 않는다.
   assert.equal(f.runtime.supportsExportSettings, false);
   assert.equal(f.runtime.canOpenDiary, true);
+});
+
+test('보고 있는 공유 다이어리는 타이머로 참여자·역할을 갱신하고 마지막 구독 해제 때 정리한다', async () => {
+  let owner = '10';
+  const timers = new Map(), cleared = [];
+  const f = fixture({ runtimeOptions: {
+    setIntervalImpl: callback => { const id = `timer-${timers.size + 1}`; timers.set(id, callback); return id; },
+    clearIntervalImpl: id => { cleared.push(id); timers.delete(id); },
+  }, fetch: async url => url.endsWith('/members') ? reply({ members: [
+    { userId: '10', nickname: '나', role: owner === '10' ? 'OWNER' : 'EDITOR', usingAccountPhoto: true },
+    { userId: '20', nickname: '친구', role: owner === '20' ? 'OWNER' : 'EDITOR', usingAccountPhoto: true },
+  ] }) : null });
+  await f.runtime.getSharing(diaryId);
+  let notified = 0;
+  const stop = f.runtime.subscribe(() => { notified++; });
+  const release = f.runtime.watchDiary(diaryId), secondRelease = f.runtime.watchDiary(diaryId);
+  await new Promise(resolve => setTimeout(resolve, 0));
+  assert.equal(timers.size, 1);
+  owner = '20';
+  [...timers.values()][0]();
+  await new Promise(resolve => setTimeout(resolve, 0));
+  assert.deepEqual(f.runtime.getSnapshot().diaries[0].members.map(member => member.role), ['EDITOR', 'OWNER']);
+  assert.ok(notified > 0);
+  release(); assert.deepEqual(cleared, []);
+  secondRelease(); assert.deepEqual(cleared, ['timer-1']);
+  f.runtime.watchDiary(diaryId); f.runtime.dispose();
+  assert.deepEqual(cleared, ['timer-1', 'timer-1']);
+  stop();
+});
+
+test('폴링은 권한·인증 오류 후 멈추고 일시 오류는 백오프한다', async () => {
+  const timers = new Map(), cleared = [];
+  let status = 503;
+  let unavailable = null;
+  const f = fixture({ runtimeOptions: {
+    setIntervalImpl: callback => { const id = `timer-${timers.size + 1}`; timers.set(id, callback); return id; },
+    clearIntervalImpl: id => { cleared.push(id); timers.delete(id); },
+  }, fetch: async url => url.endsWith('/members') ? reply({ detail: '실패' }, status) : null });
+  const release = f.runtime.watchDiary(diaryId, { onUnavailable: message => { unavailable = message; } });
+  await new Promise(resolve => setTimeout(resolve, 0));
+  const timer = [...timers.values()][0], callsAfterFailure = f.calls.length;
+  timer();
+  await new Promise(resolve => setTimeout(resolve, 0));
+  assert.equal(f.calls.length, callsAfterFailure); // 첫 실패 뒤 한 틱은 건너뛴다.
+  status = 401;
+  timer(); timer(); timer(); timer();
+  await new Promise(resolve => setTimeout(resolve, 0));
+  assert.deepEqual(cleared, ['timer-1']);
+  assert.match(unavailable, /로그인 상태/);
+  release();
+});
+
+test('참여자 사진은 URL이 바뀌기 전까지 한 번만 내려받는다', async () => {
+  const photoUrl = `/api/v1/diaries/${diaryId}/members/10/profile-photo?v=1`;
+  const f = fixture({ fetch: url => {
+    if (url.endsWith('/members')) return reply({ members: [{ userId: '10', nickname: '나', role: 'OWNER', usingAccountPhoto: false, profilePhotoUrl: photoUrl }] });
+    if (url.endsWith('/profile-photo?v=1')) return { ok: true, headers: new Headers({ 'content-type': 'image/png' }), arrayBuffer: async () => new Uint8Array([137, 80, 78, 71]).buffer };
+  } });
+  await f.runtime.getSharing(diaryId);
+  await f.runtime.refreshMembers(diaryId);
+  assert.equal(f.calls.filter(call => call.url.endsWith('/profile-photo?v=1')).length, 1);
+});
+
+test('변경 없는 참여자 재조회는 공유 스냅샷을 다시 발행하지 않는다', async () => {
+  const f = fixture();
+  await f.runtime.getSharing(diaryId);
+  let notified = 0;
+  const stop = f.runtime.subscribe(() => { notified++; });
+  await f.runtime.refreshMembers(diaryId);
+  assert.equal(notified, 0);
+  stop();
+});
+
+test('겹친 참여자 갱신은 늦은 응답 대신 한 번 더 읽은 최신 역할을 반영한다', async () => {
+  const pending = [];
+  const f = fixture({ fetch: url => url.endsWith('/members') && pending.length ? pending.shift().promise : null });
+  await f.runtime.getSharing(diaryId);
+  const deferred = () => { let resolve; return { promise: new Promise(done => { resolve = done; }), resolve }; };
+  const old = deferred(), fresh = deferred(); pending.push(old, fresh);
+  const first = f.runtime.refreshMembers(diaryId), second = f.runtime.refreshMembers(diaryId);
+  old.resolve(reply({ members: [{ userId: '10', nickname: '나', role: 'EDITOR', usingAccountPhoto: true }, { userId: '20', nickname: '친구', role: 'OWNER', usingAccountPhoto: true }] }));
+  await new Promise(resolve => setTimeout(resolve, 0));
+  fresh.resolve(reply({ members: [{ userId: '10', nickname: '나', role: 'OWNER', usingAccountPhoto: true }, { userId: '20', nickname: '친구', role: 'EDITOR', usingAccountPhoto: true }] }));
+  await Promise.all([first, second]);
+  assert.equal(f.runtime.getSnapshot().diaries[0].ownerId, '10');
+});
+test('계정 프로필 사진 캐시는 유효 시간 뒤 같은 URL도 다시 읽는다', async () => {
+  let clock = 0;
+  const photoUrl = 'https://api.dio.test/api/v1/auth/profile-photos/account-photo';
+  const f = fixture({ runtimeOptions: { now: () => clock, accountPhotoCacheTtlMs: 60_000 },
+    photoSource: () => ({ uri: photoUrl, headers: { Authorization: 'Basic photo' } }), fetch: url => {
+      if (url.endsWith('/members')) return reply({ members: [{ userId: '10', nickname: '나', role: 'OWNER', usingAccountPhoto: true, profilePhotoUrl: photoUrl }] });
+      if (url === photoUrl) return { ok: true, headers: new Headers({ 'content-type': 'image/png' }), arrayBuffer: async () => new Uint8Array([137, 80, 78, 71]).buffer };
+    } });
+  await f.runtime.getMembers(diaryId); await f.runtime.getMembers(diaryId);
+  assert.equal(f.calls.filter(call => call.url === photoUrl).length, 1);
+  f.runtime.invalidateMemberPhotos();
+  await f.runtime.getMembers(diaryId);
+  assert.equal(f.calls.filter(call => call.url === photoUrl).length, 2);
+  clock = 60_001;
+  await f.runtime.getMembers(diaryId);
+  assert.equal(f.calls.filter(call => call.url === photoUrl).length, 3);
+});
+
+test('앱이 다시 활성화되면 멈춘 참여자 갱신을 즉시 재개한다', async () => {
+  let owner = '10';
+  const timers = new Map();
+  const f = fixture({ runtimeOptions: {
+    setIntervalImpl: callback => { const id = `timer-${timers.size + 1}`; timers.set(id, callback); return id; },
+    clearIntervalImpl: id => timers.delete(id),
+  }, fetch: async url => url.endsWith('/members') ? reply({ members: [
+    { userId: '10', nickname: '나', role: owner === '10' ? 'OWNER' : 'EDITOR', usingAccountPhoto: true },
+    { userId: '20', nickname: '친구', role: owner === '20' ? 'OWNER' : 'EDITOR', usingAccountPhoto: true },
+  ] }) : null });
+  await f.runtime.getSharing(diaryId);
+  const release = f.runtime.watchDiary(diaryId);
+  await new Promise(resolve => setTimeout(resolve, 0));
+  const timer = [...timers.values()][0];
+  f.runtime.setWatchingRealtime(diaryId, true);
+  await new Promise(resolve => setTimeout(resolve, 0));
+  const before = f.calls.length;
+  f.runtime.setWatchingActive(false); owner = '20'; timer();
+  await new Promise(resolve => setTimeout(resolve, 0));
+  assert.equal(f.calls.length, before);
+  f.runtime.setWatchingActive(true);
+  await new Promise(resolve => setTimeout(resolve, 0));
+  assert.deepEqual(f.runtime.getSnapshot().diaries[0].members.map(member => member.role), ['EDITOR', 'OWNER']);
+  release();
+});
+
+test('편집기 WebSocket이 준비된 동안 참여자 폴링을 멈추고 끊기면 즉시 재개한다', async () => {
+  const timers = new Map();
+  const f = fixture({ runtimeOptions: {
+    memberRefreshIntervalMs: 5, memberRealtimeReconcileMs: 10,
+    setIntervalImpl: callback => { const id = `timer-${timers.size + 1}`; timers.set(id, callback); return id; },
+    clearIntervalImpl: id => timers.delete(id),
+  } });
+  await f.runtime.getSharing(diaryId);
+  const release = f.runtime.watchDiary(diaryId);
+  await new Promise(resolve => setTimeout(resolve, 0));
+  const timer = [...timers.values()][0], before = f.calls.length;
+  f.runtime.setWatchingRealtime(diaryId, true);
+  await new Promise(resolve => setTimeout(resolve, 0));
+  assert.ok(f.calls.length > before); // READY 직후 끊긴 동안 놓친 멤버 변경을 맞춘다.
+  const afterReady = f.calls.length;
+  timer();
+  await new Promise(resolve => setTimeout(resolve, 0));
+  assert.equal(f.calls.length, afterReady);
+  timer();
+  await new Promise(resolve => setTimeout(resolve, 0));
+  assert.ok(f.calls.length > afterReady); // 유실된 MEMBERS_CHANGED를 느린 보정 조회로 회복한다.
+  const afterReconcile = f.calls.length;
+  f.runtime.setWatchingRealtime(diaryId, false);
+  await new Promise(resolve => setTimeout(resolve, 0));
+  assert.ok(f.calls.length > afterReconcile);
+  release();
 });
 
 test('수락 후 공유 상세 조회 실패는 수락 완료 ID와 경고를 반환하고 재수락하지 않는다', async () => {

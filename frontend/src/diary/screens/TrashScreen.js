@@ -5,17 +5,16 @@ import { DISABLED_OPACITY } from '../../shared/theme';
 import { styles as s } from '../styles';
 import AppIcon from '../../shared/AppIcon';
 import EditorModal from '../../editor/components/controls/EditorModal';
-import EmptyState from '../components/EmptyState';
+import EmptyState, { LoadingSpot } from '../components/EmptyState';
 import Header from '../components/Header';
 import Cover from '../components/Cover';
 import SelectionBar from '../components/SelectionBar';
 import SelectionButton from '../components/SelectionButton';
 import SelectionMark from '../components/SelectionMark';
 import { useDiaryGrid } from '../utils/useDiaryGrid';
-import { isTrashExpired, trashDeadline, trashStatus } from '../utils/trashRetention';
+import { isTrashExpired, trashDaysLeft, trashDeadline, trashStatus } from '../utils/trashRetention';
 import { isAllSelected, isTrashUrgent, pruneSelection, selectableIds, splitSelection, toggleSelection } from '../utils/trashSelection';
 
-const DAY = 24 * 60 * 60 * 1000;
 const TRASH_ROW_GAP = 14; // 카드 아래에 남은 기간 줄이 붙어 홈 한눈에 보기(32)보다 좁게 둔다
 
 // 보관함 카드(DiaryCard)처럼 memo 로 감싸 메뉴를 여닫을 때 값이 같은 카드(표지 · 패턴)는 다시 그리지 않는다.
@@ -101,7 +100,7 @@ function TrashSheet({ diary, status, busy, canRestore, canDelete, onRestore, onD
 // 폰과 태블릿 모두 같은 카드 · 동작 시트 · 선택 모드를 사용한다.
 // onRestoreMany(ids) · onDeleteMany(diaries)는 선택 모드의 묶음 작업이다. 없으면 그 버튼을 보이지 않는다.
 export default function TrashScreen({ diaries, onRestore, onDeletePermanently, onRestoreMany, onDeleteMany, compact = false, now = Date.now(), cleanupError, onRetryCleanup,
-  serverMode = false, busy = false, requestNotice = null, suppressEmpty = false }) {
+  serverMode = false, busy = false, requestNotice = null, suppressEmpty = false, loading = false }) {
   // 부모가 매번 새 함수를 넘겨도 카드(memo)가 다시 그려지지 않도록 최신 값을 ref 로 들고 고정된 함수만 카드에 준다.
   const latest = useRef({ onRestore, onDeletePermanently, onRestoreMany, onDeleteMany, now, serverMode, busy });
   latest.current = { onRestore, onDeletePermanently, onRestoreMany, onDeleteMany, now, serverMode, busy };
@@ -123,7 +122,7 @@ export default function TrashScreen({ diaries, onRestore, onDeletePermanently, o
     const deadline = server ? (diary.expiresAt ? Date.parse(diary.expiresAt) : null) : trashDeadline(diary);
     return {
       status: server
-        ? (diary.retentionStatus === 'EXPIRED' ? '보관 기한 만료 · 복원할 수 없어요' : diary.expiresAt ? `${Math.max(0, Math.ceil((deadline - at) / DAY))}일 후 영구 삭제` : '보관 기한 확인 필요')
+        ? (diary.retentionStatus === 'EXPIRED' ? '보관 기한 만료 · 복원할 수 없어요' : diary.expiresAt ? `${trashDaysLeft(deadline, at)}일 후 영구 삭제` : '보관 기한 확인 필요')
         : trashStatus(diary, at),
       urgent: isTrashUrgent(deadline, at),
       canRestore: Boolean(restore || latest.current.onRestoreMany) && (server ? Boolean(diary.canRestore) : !isTrashExpired(diary, at)),
@@ -158,7 +157,7 @@ export default function TrashScreen({ diaries, onRestore, onDeletePermanently, o
   );
 
   const selectionBar = selecting && (
-    <SelectionBar count={selectedRows.length} compact={compact} done={<SelectionButton compact={compact} ghost label="선택 완료" text="완료" disabled={busy} onPress={finishSelecting} />}>
+    <SelectionBar count={selectedRows.length} unit="권" compact={compact} done={<SelectionButton compact={compact} ghost label="선택 완료" text="완료" disabled={busy} onPress={finishSelecting} />}>
       <SelectionButton compact={compact}
         label={allSelected ? '전체 해제' : '전체 선택'}
         disabled={busy || !selectableCount}
@@ -203,7 +202,7 @@ export default function TrashScreen({ diaries, onRestore, onDeletePermanently, o
           <Text style={s.trashRestoreText}>다시 시도</Text>
         </Pressable>
       </View>}
-      {!rows.length ? (suppressEmpty ? null :
+      {!rows.length ? (suppressEmpty ? (loading ? <LoadingSpot compact={compact} art="dio" label="휴지통을 불러오고 있어요." /> : null) :
         <EmptyState compact={compact} art="dio" raised title="휴지통이 비어 있어요" />
       ) : (
         <View onLayout={grid?.onLayout}><View style={[s.trashGrid, compact && s.trashGridCompact, selecting && (compact ? s.trashGridSelectingCompact : s.trashGridSelecting), grid?.style]}>
