@@ -83,10 +83,12 @@ test('다 채워진 썸네일에 획이 더해지면 모았다가 한 번에 보
   flush()
   assert.deepEqual(render(two).objects.map(o => o.id), [0, 1, 2, 3, 4, 5], '모았던 요소를 한 번에 보탠다')
   assert.equal(timers.size, 0)
-  // 내용이 통째로 바뀌어 안 보인 요소가 많으면 모으지 않고 처음처럼 나눠 그린다
+  // 내용이 통째로 바뀌어 안 보인 요소가 많으면 모으지 않고 처음처럼 나눠 그린다. 걸려 있던 모으기 타이머는 취소한다
+  const three = { id: 'p', objects: [...two.objects, { id: 6 }] }
+  render(three); assert.equal(timers.size, 1); assert.equal(delays.at(-1), module.exports.UPDATE_DELAY_MS)
   const replaced = { id: 'p', objects: Array.from({ length: 30 }, (_, i) => ({ id: `r${i}` })) }
   assert.deepEqual(render(replaced).objects, [])
-  assert.equal(timers.size, 1); assert.notEqual(delays.at(-1), module.exports.UPDATE_DELAY_MS)
+  assert.equal(timers.size, 1, '모으기 타이머를 취소하고 나눠 그리기 하나만 둔다'); assert.notEqual(delays.at(-1), module.exports.UPDATE_DELAY_MS)
   flush(); assert.equal(render(replaced).objects.length, 3)
 })
 

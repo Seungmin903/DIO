@@ -74,3 +74,13 @@ test('참여 멤버 조회는 잠시 기억하고 멤버 변경 이벤트에 비
  f.share(true);f.api.invalidateMembership();await f.api.load(pageId,diaryId)
  assert.equal(f.calls.filter(r=>r.path.endsWith('/members')).length,2);assert.equal(f.calls.at(-1).path,`/pages/${pageId}`)
 })
+
+test('멤버 조회 도중 비워지면 그 응답은 기억하지 않고, 동시 조회는 하나로 합친다',async()=>{
+ let release,calls=0;const gate=new Promise(r=>{release=r})
+ const api=createCanvasWriteApi(async r=>{if(r.path.endsWith('/members')){calls++;await gate;return {members:[{userId:'1',role:'OWNER'}]}}return {items:[]}},undefined,diaryId)
+ const first=api.prepare(request),second=api.prepare(request)
+ api.invalidateMembership();release();await first;await second
+ assert.equal(calls,1,'진행 중인 조회는 하나로 합친다')
+ await api.prepare(request);assert.equal(calls,2,'조회 중 비워졌으면 다시 조회한다')
+ await api.prepare(request);assert.equal(calls,2,'그 뒤에는 기억한다')
+})

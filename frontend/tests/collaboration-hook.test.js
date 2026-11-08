@@ -97,6 +97,7 @@ function fixture(failure=null,shared=false,sourceDiaryId=diaryId){
    remoteAdd(object){rows.push({...apiModule.canvasContent([object])[0],pageId,version:++version});onChange({pageId,clientOperationId:'other'})},
    remote(text){rows[0]={...rows[0],version:++version,propertiesJson:{text}};onChange({pageId,clientOperationId:'other'})},
    setShared(value){shared=value;onReady()},
+   echo(frame){onChange({pageId,operationId:'9',...frame})},
    close(){closed=true;cleanups.forEach(fn=>fn?.())}}
 }
 for(const shared of [false,true])test(`${shared?'공유':'개인'} 편집기는 101개 행동을 전송하지 않고 제한을 안내한 뒤 소량 편집을 계속한다`,async()=>{
@@ -318,4 +319,25 @@ test('원격 사용자 사진은 별도 사용자 액션 없이 기존 편집기
   assert.equal(photo.src,`media:${media}`)
   assert.equal(app.requests.some(r=>r.method==='POST'&&r.path.endsWith('/canvas-operations')),false)
  }finally{app.close()}
+})
+
+test('내 계정이 낸 서버 에코는 재조회하지 않고, 다른 계정의 변경과 실패한 동기화의 전송 확인은 그대로 처리한다',async()=>{
+ const app=fixture()
+ try{
+  await app.settle();app.edit({type:'addObjects',objects:[{id,type:'text',text:'A',x:1,y:2,w:40,h:20}]});await app.settle()
+  assert.equal(app.state().collaborationEdits.length,0,'동기화 결과와 함께 전송 확인이 나간다')
+  const before=app.requests.length
+  app.echo({clientOperationId:'40000000-0000-4000-8000-000000000001',actorUserId:'1'});await app.settle()
+  assert.equal(app.requests.length,before,'내 계정 에코(1인 다이어리의 임의 ID)는 재조회하지 않는다')
+  app.echo({clientOperationId:'40000000-0000-4000-8000-000000000002',actorUserId:'1'});await app.settle()
+  assert.ok(app.requests.length>before,'보낸 횟수를 넘는 에코는 남의 변경으로 재조회한다')
+  const again=app.requests.length
+  app.echo({clientOperationId:'40000000-0000-4000-8000-000000000003',actorUserId:'2'});await app.settle()
+  assert.ok(app.requests.length>again,'다른 계정의 변경은 재조회한다')
+ }finally{app.close()}
+ const failing=fixture({status:0,code:'NETWORK_ERROR'})
+ try{
+  await failing.settle();failing.edit({type:'addObjects',objects:[{id,type:'text',text:'A',x:1,y:2,w:40,h:20}]});await failing.settle()
+  assert.equal(failing.state().collaborationEdits.length,0,'동기화가 실패해도 저널에 넣은 편집의 전송 확인은 나간다');assert.equal(failing.status(),'error')
+ }finally{failing.close()}
 })

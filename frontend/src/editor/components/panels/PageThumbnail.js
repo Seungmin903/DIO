@@ -42,7 +42,7 @@ export default function PageThumbnail({ page, workQueue, ...props }) {
       if (cancelled) return
       if (!hasUnseenThumbnailObjects(latest.current.objects, latest.current.shown)) { latest.current.filled = true; return }
       // 페이지 내용이 통째로 바뀌어 안 보인 요소가 많으면(동기화로 교체 등) 다시 나눠 그린다
-      if (latest.current.filled && unseenCount(latest.current.objects, latest.current.shown) > REFILL_THRESHOLD) latest.current.filled = false
+      if (latest.current.filled && unseenCount(latest.current.objects, latest.current.shown) > REFILL_THRESHOLD) { latest.current.filled = false; if (settle) { clearTimeout(settle); settle = null } }
       if (latest.current.filled) {
         // 채워진 썸네일의 변경: 빠른 연속 입력을 모아 한 번에 전부 보탠다
         if (settle) clearTimeout(settle)
