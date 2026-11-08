@@ -27,5 +27,6 @@ test('과거 이미지 포함 전송 대기는 보관하고 제거한 경로·�
   storage:{getItem:async()=>saved,setItem:async(_k,v)=>{saved=v}},key:'journal',pageId:page,diaryId:diary,createId:()=>id})
  await session.restore([]);await session.synchronize()
  assert.equal(applied,0);assert.equal(session.snapshot().queue.length,0)
- assert.deepEqual(session.snapshot().deferredMedia,[pending])
+ const held=session.snapshot().deferredMedia
+ assert.equal(held.length,1);assert.equal(held[0].id,pending.id);assert.deepEqual(held[0].request,pending.request);assert.equal(held[0].compact,true)
 })

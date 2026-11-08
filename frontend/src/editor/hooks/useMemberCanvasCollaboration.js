@@ -186,7 +186,8 @@ export function useMemberCanvasCollaboration({diary,page,state,loaded,readOnly,d
         if(!r.pageIds?.has(pageId)){await r.refreshPages();return}
         const seed=latest.current.state.doc.pages.find(p=>p.id===pageId)?.objects??[]
         const engine=await r.engineFor(pageId,seed);if(!active()||!engine)return
-        if(latest.current.page.id===pageId)setView(v=>({...v,status:'saving',pageId}))
+        // 보낼 것이 있을 때만 '저장 중'으로 바꾼다(5초 주기 대조가 저장됨↔저장 중을 깜빡이지 않게)
+        if(latest.current.page.id===pageId&&(direction||engine.pending()))setView(v=>({...v,status:'saving',pageId}))
         let result
         try{result=direction?await engine.control(direction):await engine.synchronize()}
         catch(error){
@@ -198,12 +199,16 @@ export function useMemberCanvasCollaboration({diary,page,state,loaded,readOnly,d
         }
         if(!active()||!r.pageIds?.has(pageId))return
         const current=latest.current.page,target=latest.current.state.doc.pages.find(p=>p.id===pageId)
-        if(target&&(!result.direction||sameElements(target.objects,result.expectedLocal))){
+        if(target&&!result.unchanged&&(!result.direction||sameElements(target.objects,result.expectedLocal))){
           dispatch({type:result.direction?'collaborationHistoryApplied':'importCollaborationElements',direction:result.direction,
             historyClientOperationId:result.historyClientOperationId,pageId,expectedElements:result.expectedLocal,objects:result.objects})
           await engine.acceptImport(result.objects)
         }
-        if(current.id===pageId&&active())setView(v=>({...v,status:result.rejectedCount?'error':'saved',errorMessage:result.rejectedCount?'서버가 거절한 편집은 기기에 보관했어요. 나머지 편집은 동기화했어요.':null,history:result.history,pageId}))
+        if(current.id===pageId&&active())setView(v=>{
+          const next={...v,status:result.rejectedCount?'error':'saved',errorMessage:result.rejectedCount?'서버가 거절한 편집은 기기에 보관했어요. 나머지 편집은 동기화했어요.':null,history:result.history,pageId}
+          // 바뀐 것이 없으면 같은 상태를 돌려줘 편집 화면을 다시 그리지 않는다
+          return v.status===next.status&&v.errorMessage===next.errorMessage&&v.pageId===pageId&&JSON.stringify(v.history)===JSON.stringify(next.history)?v:next
+        })
         return result
         } finally { finishTiming() }
       }
