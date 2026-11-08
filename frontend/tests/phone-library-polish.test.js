@@ -26,3 +26,23 @@ test('610: 폰 펼쳐서는 옆 다이어리 책등과 펼친 다이어리 사�
   assert.match(shelf, /const PHONE_SIDE_GAP = 14/)
   assert.match(shelf, /width: area\.width - \(compact \? 2 \* \(SPINE \+ PHONE_SIDE_GAP\) :/)
 })
+
+test('681: 펼쳐서 책 · 화살표 높이를 스와이프와 맞춘다(가로 태블릿은 스와이프 화살표 줄, 폰은 폰 값) · 폰도 화살표를 화면 끝 4 자리에', () => {
+  const shelf = read('../src/diary/components/OpenBookShelf.js')
+  assert.match(shelf, /const SWIPE_ROW_CENTER = s\.carouselShell\.paddingTop \+ s\.carouselRow\.height \/ 2/)
+  assert.match(shelf, /upright \? area\.height \/ 2 - \(compact \? PHONE_SWIPE_CENTER_UP : SWIPE_CENTER_UP\)/)
+  assert.match(shelf, /: compact \? null : SWIPE_ROW_CENTER/)
+  assert.match(shelf, /const PHONE_EDGE = s\.libraryScreenCompact\.paddingHorizontal/)
+  assert.match(shelf, /const PHONE_ARROW_SIDE = 4;/)
+  assert.match(shelf, /phoneFrame: \{ flex: 1, minHeight: 420, marginHorizontal: -PHONE_EDGE \}/)
+  assert.match(shelf, /compact \? styles\.phoneArea : styles\.bleed/)
+  assert.match(shelf, /\[side\]: compact \? PHONE_ARROW_SIDE : BLEED \+ 4/)
+  assert.match(shelf, /return compact \? <View style=\{styles\.phoneFrame\} pointerEvents="box-none">\{shelf\}\{arrows\}<\/View> : shelf/)
+})
+
+test('681: 펼쳐서 맞춤에 쓰는 스와이프 스타일 값이 숫자다(NaN 이면 가로 태블릿 배치가 깨진다)', () => {
+  const styles = read('../src/diary/styles.js')
+  assert.match(styles, /carouselShell: \{ minHeight: 510, flex: 1, paddingTop: (\d+),/)
+  assert.match(styles, /carouselRow: \{ height: (\d+),/)
+  assert.match(styles, /libraryScreenCompact: \{ paddingHorizontal: (\d+),/)
+})
