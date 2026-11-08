@@ -33,10 +33,20 @@ const PEEK = 56; // 옆 다이어리가 적어도 이만큼은 보이게 남기�
 const BLEED = 30; // 태블릿 화면 좌우 여백(libraryGridScroll). 책상은 이 여백까지 넘어 화면 끝까지 쓴다
 const SPINE = 20; // 세로 태블릿에서 화면 끝에 걸쳐 보이는 옆 다이어리 폭
 const PHONE_SIDE_GAP = 14; // 폰: 펼친 다이어리와 화면 끝에 걸친 옆 다이어리 책등 사이
+// 폰 좌우 화살표: 스와이프 보기와 같은 자리(화면 끝에서 4). 펼쳐서 영역은 화면 여백(s.libraryScreenCompact 14) 안쪽이라,
+// 바깥 틀(phoneFrame)을 그 여백만큼 화면 끝까지 넓히고 화살표를 틀 안에 둔다(안드로이드는 부모 밖으로 나간 부분의 터치를 전달하지 않는다)
+const PHONE_EDGE = s.libraryScreenCompact.paddingHorizontal;
+const PHONE_ARROW_SIDE = 4;
 const PAGE_EDGE = 24; // 세로 태블릿에서 가운데 한 면과 화면 끝 사이 최소 폭(마주 보는 쪽 · 옆 책등이 보일 자리)
 // 세로 태블릿 스와이프 보기에서 가운데 카드 중심이 이 영역 가운데보다 올라간 거리(실기기에서 두 보기를 겹쳐 맞춘 값)
 // (carouselShellPortrait 아래 여백을 바꾸면 그 절반만큼 같이 바꾼다: 여백 120 → 79)
 const SWIPE_CENTER_UP = 79;
+// 폰: 스와이프 보기의 표지 가운데가 영역 가운데보다 올라간 거리(실기기 2026-11-08 두 보기를 겹쳐 잰 값).
+// carouselShellCompact 아래 여백 60 · carouselArrowCompact -62 와 짝이다. 예전엔 세로 태블릿 값(79)을 같이 써서 펼쳐서 책이 30 높았다
+const PHONE_SWIPE_CENTER_UP = 49;
+// 가로 태블릿: 스와이프 보기의 좌우 화살표 · 카드 줄 가운데 높이(영역 위에서부터). 펼쳐서의 화살표 · 책 가운데를 여기에 맞춘다.
+// 예전엔 맞추는 값이 없어 책 판 두께가 바뀌자(2026-11-02) 펼쳐서 책 · 화살표가 15 올라가 검색 줄에 붙었다
+const SWIPE_ROW_CENTER = s.carouselShell.paddingTop + s.carouselRow.height / 2;
 const CAPTION = 64; // 기준선 아래 캡션 자리
 const REACH = 3; // 펼친 다이어리 앞뒤로 그려 두는 닫힌 권수
 const SWIPE = 36; // 이만큼 밀리면(손을 떼기 전이라도) 옆 다이어리를 펼친다
@@ -344,14 +354,30 @@ function OpenBookShelf({ diaries, index, onIndexChange, onOpen, onFavorite, onEd
   // 세로 태블릿은 가장 키 큰 펼침(세로 다이어리)의 가운데를 스와이프 보기 가운데 카드의 가운데와 같은 높이에 둔다.
   // 펼친 다이어리마다 따로 맞추면 넘길 때 기준선 · 캡션 · 옆 책이 함께 오르내려, 모든 다이어리에 같은 값을 쓴다(아랫변은 늘 한 기준선).
   const tallest = layout ? bookSize({ templateConfig: { orientation: 'portrait' } }, layout.paper).height : 0;
-  const lift = layout && upright
-    ? Math.max(0, Math.min(area.height - layout.base - CAPTION, Math.round(area.height / 2 - SWIPE_CENTER_UP - layout.base + tallest / 2)))
-    : 0;
+  // 세로(태블릿 · 폰)는 영역 가운데에서 올라간 거리로, 가로 태블릿은 스와이프 화살표 줄 높이로 맞춘다.
+  const center = !layout ? null
+    : upright ? area.height / 2 - (compact ? PHONE_SWIPE_CENTER_UP : SWIPE_CENTER_UP)
+      : compact ? null : SWIPE_ROW_CENTER;
+  const lift = center == null ? 0
+    : Math.max(0, Math.min(area.height - layout.base - CAPTION, Math.round(center - layout.base + tallest / 2)));
 
-  return (
+  // 좌우 화살표: 스와이프 보기와 같은 모양 · 자리, 높이는 가장 키 큰 펼침의 가운데(스와이프 화살표와 같은 높이).
+  // 책 · 속지 위에 겹쳐도 보이도록 같은 화살표를 상판 바탕색으로 굵게 한 번 더 깔아 윤곽을 두른다.
+  // 폰은 펼쳐서 영역(화면 여백 안쪽에서 잘림) 밖, 화면 끝 가까이에 둬야 해 영역 바깥에 겹쳐 그린다(2026-11-08 폰에도 화살표).
+  const arrows = layout ? [[-1, 'left'], [1, 'right']].filter(([step]) => diaries[index + step]).map(([step, side]) => (
+    <Pressable key={side} accessibilityRole="button" accessibilityLabel={step < 0 ? '이전 다이어리' : '다음 다이어리'} onPress={() => goRef.current(step)}
+      style={[s.carouselArrow, { top: lift + layout.base - tallest / 2 - 24, [side]: compact ? PHONE_ARROW_SIDE : BLEED + 4 }]}>
+      <View style={StyleSheet.absoluteFill} pointerEvents="none">
+        <View style={styles.arrowHalo}><AppIcon name={`chevron-${side}`} size={24} color={C.canvas} strokeWidth={6.5} /></View>
+      </View>
+      <AppIcon name={`chevron-${side}`} size={24} color={C.ink} strokeWidth={2.1} />
+    </Pressable>
+  )) : null;
+
+  const shelf = (
     // 잰 크기는 정수로 내리고 1px 넘게 달라질 때만 바꾼다. 소수점 크기를 그대로 쓰면 책 크기 → 배치 반올림 → 다시 잰 크기가 오가며 책이 떨렸다.
     // 태블릿은 화면 여백(BLEED)까지 넘어 좌우 끝까지 책상으로 쓴다(옆 다이어리가 여백 선에서 잘리지 않게)
-    <View style={[styles.area, !compact && styles.bleed]} {...pan.panHandlers} onLayout={event => {
+    <View style={[styles.area, compact ? styles.phoneArea : styles.bleed]} {...pan.panHandlers} onLayout={event => {
       const w = Math.floor(event.nativeEvent.layout.width), h = Math.floor(event.nativeEvent.layout.height);
       setArea(current => {
         const next = current && Math.abs(current.width - w) <= 1 && Math.abs(current.height - h) <= 1 ? current : { width: w, height: h };
@@ -360,25 +386,18 @@ function OpenBookShelf({ diaries, index, onIndexChange, onOpen, onFavorite, onEd
       });
     }}>
       <View pointerEvents="box-none" style={[StyleSheet.absoluteFill, { top: lift, bottom: -lift }]}>{view}</View>
-      {/* 좌우 화살표: 스와이프 보기와 같은 모양 · 자리(화면 여백 안쪽), 높이는 가장 키 큰 펼침의 가운데.
-          책 · 속지 위에 겹쳐도 보이도록 같은 화살표를 상판 바탕색으로 굵게 한 번 더 깔아 윤곽을 두른다 */}
-      {layout && !compact && [[-1, 'left'], [1, 'right']].filter(([step]) => diaries[index + step]).map(([step, side]) => (
-        <Pressable key={side} accessibilityRole="button" accessibilityLabel={step < 0 ? '이전 다이어리' : '다음 다이어리'} onPress={() => goRef.current(step)}
-          style={[s.carouselArrow, { top: lift + layout.base - tallest / 2 - 24, [side]: BLEED + 4 }]}>
-          <View style={StyleSheet.absoluteFill} pointerEvents="none">
-            <View style={styles.arrowHalo}><AppIcon name={`chevron-${side}`} size={24} color={C.canvas} strokeWidth={6.5} /></View>
-          </View>
-          <AppIcon name={`chevron-${side}`} size={24} color={C.ink} strokeWidth={2.1} />
-        </Pressable>
-      ))}
+      {!compact && arrows}
     </View>
   );
+  return compact ? <View style={styles.phoneFrame} pointerEvents="box-none">{shelf}{arrows}</View> : shelf;
 }
 
 export default memo(OpenBookShelf);
 
 const styles = StyleSheet.create({
   area: { flex: 1, minHeight: 420, overflow: 'hidden' },
+  phoneFrame: { flex: 1, minHeight: 420, marginHorizontal: -PHONE_EDGE }, // 폰: 화면 끝까지 넓힌 바깥 틀(화살표 자리)
+  phoneArea: { marginHorizontal: PHONE_EDGE }, // 그 안의 펼쳐서 영역은 예전처럼 화면 여백 안쪽
   bleed: { marginHorizontal: -BLEED },
   arrowHalo: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   book: { position: 'absolute', left: 0 },
