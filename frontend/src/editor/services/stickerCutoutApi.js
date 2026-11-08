@@ -89,4 +89,8 @@ export const stickerCutoutApi = {
   close(cutoutId) {
     return isId(cutoutId) ? request(`${baseUrl}/${cutoutId}`, { method: 'DELETE' }).catch(() => null) : Promise.resolve()
   },
+  discard(mediaFileId) {
+    // 보관함 반영 전 실패한 AI 결과만 정리한다. 실제 캔버스·보관함 참조가 있으면 서버가 삭제를 거절한다.
+    return isId(mediaFileId) ? request(`${mediaBaseUrl}/media/${mediaFileId}`, { method: 'DELETE' }).catch(() => null) : Promise.resolve()
+  },
 }

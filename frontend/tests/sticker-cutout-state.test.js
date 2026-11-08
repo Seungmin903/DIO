@@ -35,7 +35,7 @@ function fixture(photoPicker, preview, apiOverride = {}) {
       open: async () => ({ cutoutId: '123e4567-e89b-12d3-a456-426614174000', width: 100, height: 100 }),
       segment: async (_id, strokes) => { await preview?.(null, { strokes }); return { preview: 'data:image/png;base64,test' } },
       save: async () => ({ mediaFileId: '123e4567-e89b-12d3-a456-426614174001', originalFilename: 'cutout.png' }),
-      cache: async () => {}, close: () => Promise.resolve(), ...apiOverride,
+      cache: async () => {}, close: () => Promise.resolve(), discard: () => Promise.resolve(), ...apiOverride,
     } },
   }
   const mod = { exports: {} }
@@ -189,6 +189,25 @@ test('저장 실패 뒤 선택을 고치면 이전 서버 결과 대신 새 선�
   await confirmSave()
   assert.equal(saved, 2)
   assert.equal(find(ui.render(), '저장 흐름 확인').props.disabled, true)
+  assert.equal(ui.closed, 1)
+  ui.unmount()
+})
+
+test('보관함 반영 실패 상태에서 나가면 미사용 서버 결과를 정리한다', async () => {
+  let discarded = 0
+  const ui = fixture(async () => ({ uri: 'photo', width: 100, height: 100 }), null, {
+    cache: async () => { throw new Error('캐시 저장 실패') },
+    discard: async () => { discarded += 1 },
+  })
+  await load(ui); draw(ui)
+  find(ui.render(), '다음 · 스티커 확인').props.onPress(); await tick()
+  find(ui.render(), '저장 흐름 확인').props.onPress()
+  nodes(ui.render()).find(n => n.props.confirmLabel === '저장').props.onConfirm()
+  await tick(); await tick()
+  closeButton(ui.render()).props.onPress()
+  nodes(ui.render()).find(n => n.props.confirmLabel === '나가기').props.onConfirm()
+  await tick()
+  assert.equal(discarded, 1)
   assert.equal(ui.closed, 1)
   ui.unmount()
 })

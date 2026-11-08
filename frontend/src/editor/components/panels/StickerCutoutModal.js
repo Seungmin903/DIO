@@ -44,6 +44,12 @@ export default function StickerCutoutModal({ folder, onClose, onSave, photoPicke
     if (cutoutRef.current === id) cutoutRef.current = null
     api.close(id)
   }
+  const discardSaved = () => {
+    const pending = savedMediaRef.current
+    if (!pending) return Promise.resolve()
+    savedMediaRef.current = null
+    return api.discard(pending.media.mediaFileId)
+  }
   useEffect(() => { alive.current = true; return () => { alive.current = false; revision.current++; releaseCutout(); sourceRef.current?.dispose?.() } }, [])
   // 회전/크기 변경 중 끝나지 않은 획은 버린다. 확정된 정규화 좌표는 유지한다. 판 크기가 바뀌거나 사진을 바꾸면 맞춤 보기로 돌아간다
   useEffect(() => { gesture.current = null; setDraft(null); setView(FIT_VIEW) }, [width, height, area.width, area.height, source])
@@ -78,6 +84,7 @@ export default function StickerCutoutModal({ folder, onClose, onSave, photoPicke
       const opened = await api.open(next)
       if (!alive.current || token !== revision.current) { api.close(opened?.cutoutId); next?.dispose?.(); return }
       const selected = { ...next, selectionKey: token }
+      await discardSaved()
       releaseCutout()
       cutoutRef.current = opened.cutoutId
       setCutoutId(opened.cutoutId)
@@ -96,7 +103,10 @@ export default function StickerCutoutModal({ folder, onClose, onSave, photoPicke
     locked.current = true; setBusy(true); setError('')
     const token = ++revision.current
     try {
-      const result = await api.segment(cutoutId, cutoutStrokes(history))
+      const strokes = cutoutStrokes(history)
+      // 보관함 반영에 실패한 이전 선택을 수정한 경우, 고아가 된 서버 결과를 먼저 정리한다.
+      if (savedMediaRef.current?.selectionKey !== JSON.stringify(strokes)) await discardSaved()
+      const result = await api.segment(cutoutId, strokes)
       if (alive.current && token === revision.current) { setResultPreview(result.preview); setPhase('result'); setSaved(false) }
     } catch (failure) { if (alive.current && token === revision.current) setError(failure.message || '미리보기를 열지 못했어요. 다시 시도해 주세요.') }
     finally { if (alive.current && token === revision.current) { locked.current = false; setBusy(false) } }
@@ -285,6 +295,7 @@ export default function StickerCutoutModal({ folder, onClose, onSave, photoPicke
           if (kind === 'save') save()
           else if (kind === 'reset') setHistory(emptyCutout())
           else if (kind === 'image') choose()
+          else if (kind === 'saveFailedClose') { discardSaved().finally(() => { releaseCutout(); onClose() }) }
           else { releaseCutout(); onClose() }
         }} />
     </SafeAreaView>

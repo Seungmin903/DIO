@@ -71,13 +71,15 @@ test('사진 업로드는 같은 multipart 본문으로 401 재시도하고 웹 
   assert.deepEqual(web.calls[0].options.body.parts[0], ['file', file, 'web.png'])
 })
 
-test('저장 응답을 검증하고 닫기 요청은 204를 허용한다', async () => {
+test('저장 응답을 검증하고 닫기·미사용 결과 삭제 요청은 204를 허용한다', async () => {
   const strokes = [{ mode: 'include', size: .1, points: [{ x: .5, y: .5 }] }]
-  const saved = fixture([response(201, { mediaFileId: id }), response(204, null)])
+  const saved = fixture([response(201, { mediaFileId: id }), response(204, null), response(204, null)])
   assert.equal((await saved.api.save(id, strokes)).mediaFileId, id)
   await saved.api.close(id)
+  await saved.api.discard(id)
   assert.equal(saved.calls[0].url, `https://api.example/api/v1/sticker-cutouts/${id}/save`)
   assert.equal(saved.calls[1].options.method, 'DELETE')
+  assert.equal(saved.calls[2].url, `https://api.example/api/v1/media/${id}`)
   const invalid = fixture([response(201, { mediaFileId: 'bad' })])
   await assert.rejects(invalid.api.save(id, strokes), /저장 응답/)
 })

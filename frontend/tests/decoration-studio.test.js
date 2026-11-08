@@ -158,6 +158,14 @@ test('미지원 시트 분리는 차단하고 API 연결된 사진 오리기 입
   assert.equal(stickerAction(off,'사진 속 대상 오리기'),undefined)
   off.unmount()
 })
+test('사진 오리기 저장은 공방 보관함 저장 함수를 호출한다', async () => {
+  const ui = fixture(); ui.render(); await tick(); ui.tab('stickers')
+  stickerAction(ui, '사진 속 대상 오리기').onPress()
+  const modal = nodes(ui.render()).find(n => n.type?.includes?.('StickerCutoutModal'))
+  await modal.props.onSave(undefined, ' 내 스티커 ', [{ emoji: '🌼' }])
+  assert.deepEqual(ui.saves, [[undefined, ' 내 스티커 ', [{ emoji: '🌼' }]]])
+  ui.unmount()
+})
 test('시트 분리 저장은 기존 보관함 함수를 사용하고 삭제는 확인 전까지 반영하지 않는다', async () => {
   const ui=fixture({supported:true}); ui.render(); await tick(); ui.tab('stickers')
   stickerAction(ui,'스티커 시트 분리').onPress()
