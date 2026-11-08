@@ -93,7 +93,7 @@ export function MyCoverList({ items, name, selectedId, onPick, onRemove, disable
         return <View key={item.id} style={[styles.tileBox, disabled && styles.dim]}>
           <Pressable accessibilityRole="button" accessibilityLabel={`내 표지 ${item.name} 쓰기`} accessibilityState={{ selected: selectedId === item.id }} disabled={disabled} onPress={() => onPick(item)}
             style={({ pressed }) => [styles.coverTile, selectedId === item.id && styles.tileOn, pressed && styles.pressed]}>
-            <View style={tile}><CoverArt cover={item.cover} name={name} width={tile.width} height={tile.height} /></View>
+            <View style={[tile, styles.coverThumb]}><CoverArt cover={item.cover} name={name} width={tile.width} height={tile.height} /></View>
           </Pressable>
           <Text numberOfLines={1} style={styles.tileName}>{item.name}</Text>
           {!disabled && <Remove label={`내 표지 ${item.name} 지우기`} onPress={() => onRemove(item)} />}
@@ -133,6 +133,7 @@ const styles = StyleSheet.create({
   toggleLabel: { flex: 1, color: colors.text, fontSize: 13.5, fontWeight: '700' },
   tiles: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
   tileBox: { width: 76, gap: 4, alignItems: 'center' },
+  coverThumb: { overflow: 'hidden', borderRadius: 4, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border }, // 내 속지 견본(thumb)과 같은 테두리: 흰 바탕에 묻히지 않게
   coverTile: { padding: 3, borderRadius: 8, borderWidth: 2, borderColor: 'transparent' },
   paperTileBox: { width: 112 },
   paperTileName: { maxWidth: 112 },

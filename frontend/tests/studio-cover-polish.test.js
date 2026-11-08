@@ -60,7 +60,9 @@ test('593 · 594: 폰 공방 탭은 끝 여백 없이 선 끝에서 끝나고, �
 
 test('609: 알림 화면 머리줄 · 목록 좌우 24, 오른쪽 끝 버튼은 보이는 끝을 여백에 맞춘다', () => {
   const panel = read('../src/notifications/NotificationPanel.js')
-  assert.match(panel, /trailing && \(text === null \? s\.trailingIcon : s\.trailingText\)/)
+  assert.match(panel, /trailing && \(text === null \? \(icon === 'close' \? s\.trailingClose : s\.trailingIcon\) : s\.trailingText\)/)
+  // 666: 닫기 X 는 선 끝이 아이콘 칸 안쪽 4.5 라 칸 여백(13)보다 더 내밀어야 '모두 읽음' 글자 끝과 같은 기준선이 된다
+  assert.match(panel, /trailingClose: \{ marginRight: -17 \}/)
   assert.match(panel, /label="모두 읽음" quiet trailing style=\{s\.snug\}/)
   assert.match(panel, /snug: \{ paddingLeft: 0 \}/)
   assert.match(panel, /toolActions: \{ flexDirection: 'row', alignItems: 'center', marginLeft: 'auto' \}/)

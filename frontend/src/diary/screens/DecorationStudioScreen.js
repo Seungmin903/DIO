@@ -266,12 +266,13 @@ export default function DecorationStudioScreen({ compact = false, registerBackHa
 
   const stickerSection = <StudioSection fill={custom.loaded && (folder ? !folder.items.length : !custom.items.folders.length)} title={folder ? folder.name : '스티커'} count={custom.loaded ? (folder ? count(folder.items) : count(custom.items.folders)) : null}
     right={folder ? <>
-      <DioButton variant="ghost" icon="chevron-left" label="스티커 폴더 목록" text="폴더 목록" onPress={() => { setFolderId(null); setStickerRename(null); }} />
-      <DioButton variant="icon" icon="add" label="이 폴더에 스티커 추가" onPress={() => addStickerImages(folder.id)} />
+      <DioButton variant={compact ? 'icon' : 'ghost'} icon="chevron-left" label="스티커 폴더 목록" text="폴더 목록" onPress={() => { setFolderId(null); setStickerRename(null); }} />
       <DioButton variant="icon" icon="edit" label="스티커 폴더 이름 바꾸기" onPress={() => setStickerRename(folder.name)} />
       <DioButton variant="icon" icon="trash" label="스티커 폴더 삭제" onPress={() => setQuestion({ folder })} />
     </> : addTool({ kind: 'sticker', icon: 'sticker', title: '스티커 추가', description: CUTOUT_ENTRANCE ? '스티커 시트 분리 · 사진 속 대상 오리기 · 새 폴더' : '스티커 시트 분리 · 새 폴더', disabled: !custom.loaded, menu: true })}>
     {custom.saveError ? <DecorSaveNotice error={custom.saveError} pending={custom.savePending} onRetry={custom.retrySave} /> : null}
+    {/* 폴더 안 추가: 머리줄 아래 줄에 `스티커 추가`(다른 `○○ 추가` 버튼과 같은 모양). 누르면 이 폴더로 넣는 방법을 말풍선으로 고른다 */}
+    {folder && <View style={s.addRow}>{addTool({ kind: 'stickerIn', icon: 'sticker', title: '스티커 추가', description: '시트에서 분리하기 · 이미지 한 장씩 넣기', menu: true })}</View>}
     {shelfError === 'sticker' && <Text accessibilityRole="alert" style={s.error}>사진을 불러오지 못했어요. 다시 시도해 주세요.</Text>}
     {folder && stickerRename != null && <View style={s.renameRow}>
       <TextInput autoFocus selectTextOnFocus maxLength={FOLDER_NAME_LIMIT} value={stickerRename} onChangeText={setStickerRename} onSubmitEditing={commitStickerRename}
@@ -421,12 +422,13 @@ export default function DecorationStudioScreen({ compact = false, registerBackHa
   const tapeCardWidth = tapeGrid.cellWidth - 32; // 테이프 카드 안쪽(좌우 16)
   const tapeSection = <StudioSection fill={custom.loaded && (tapeFolder ? !tapeFolder.items.length : !tapeFolders.length)} title={tapeFolder ? tapeFolder.name : '테이프'} count={custom.loaded ? (tapeFolder ? count(tapeFolder.items) : count(tapeFolders)) : null}
     right={tapeFolder ? <>
-      <DioButton variant="ghost" icon="chevron-left" label="테이프 폴더 목록" text="폴더 목록" onPress={() => { setTapeFolderId(null); setTapeRename(null); }} />
-      <DioButton variant="icon" icon="add" label="이 폴더에 테이프 추가" onPress={() => addTapeFromPhoto(tapeFolder.id)} />
+      <DioButton variant={compact ? 'icon' : 'ghost'} icon="chevron-left" label="테이프 폴더 목록" text="폴더 목록" onPress={() => { setTapeFolderId(null); setTapeRename(null); }} />
       <DioButton variant="icon" icon="edit" label="테이프 폴더 이름 바꾸기" onPress={() => setTapeRename(tapeFolder.name)} />
       <DioButton variant="icon" icon="trash" label="테이프 폴더 삭제" onPress={() => setQuestion({ tapeFolder })} />
     </> : addTool({ kind: 'tape', icon: 'tape', title: '테이프 추가', description: '사진으로 만들기 · 새 폴더', disabled: !custom.loaded, menu: true })}>
     {custom.saveError ? <DecorSaveNotice error={custom.saveError} pending={custom.savePending} onRetry={custom.retrySave} /> : null}
+    {/* 폴더 안 추가: 스티커 폴더와 같은 자리 · 버튼. 방법이 하나라 말풍선 없이 바로 사진을 고른다 */}
+    {tapeFolder && <View style={s.addRow}>{addTool({ kind: 'tapeIn', icon: 'tape', title: '테이프 추가', description: '사진으로 만들기', onPress: () => addTapeFromPhoto(tapeFolder.id) })}</View>}
     {shelfError === 'tape' && <Text accessibilityRole="alert" style={s.error}>사진을 불러오지 못했어요. 다시 시도해 주세요.</Text>}
     {tapeFolder && tapeRename != null && <View style={s.renameRow}>
       <TextInput autoFocus selectTextOnFocus maxLength={FOLDER_NAME_LIMIT} value={tapeRename} onChangeText={setTapeRename} onSubmitEditing={commitTapeRename}
@@ -512,14 +514,18 @@ export default function DecorationStudioScreen({ compact = false, registerBackHa
       <StudioTabs tabs={TABS} value={tab} onChange={setTab} compact={compact} />
       {current}
     </ScrollView>
-    {tool === 'split' && <StickerSplitModal onClose={() => setTool(null)} onSave={async (id, name, stickers) => {
+    {(tool === 'split' || tool === 'splitIn') && <StickerSplitModal folder={tool === 'splitIn' ? folder : undefined} onClose={() => setTool(null)} onSave={async (id, name, stickers) => {
       const cleanName = name.trim();
       await custom.saveGenerated(id, cleanName, stickers);
-      setFolderId(null);
+      if (tool !== 'splitIn') setFolderId(null); // 폴더 안에서 분리하면 그 폴더에 머문다
     }} />}
     {tool === 'cutout' && <StickerCutoutModal folder={folder} onClose={() => setTool(null)} />}
     {/* 스티커는 편집기 스티커 보관함의 + 와 같은 이름 · 순서 · 아이콘(그곳의 '이미지 그대로 추가'는 폴더 안에서만 쓴다) */}
-    {addMenu && <DiaryActionBubble visible={!addMenu.closing} onDismiss={() => onAddMenuDismiss(addMenu.token)} anchor={addMenu.anchor} title={addMenu.kind === 'cover' ? '표지 추가' : addMenu.kind === 'tape' ? '테이프 추가' : '스티커 추가'} onClose={closeAddMenu} actions={addMenu.kind === 'tape' ? [
+    {addMenu && <DiaryActionBubble visible={!addMenu.closing} onDismiss={() => onAddMenuDismiss(addMenu.token)} anchor={addMenu.anchor} title={addMenu.kind === 'cover' ? '표지 추가' : addMenu.kind === 'tape' ? '테이프 추가' : '스티커 추가'} onClose={closeAddMenu} actions={addMenu.kind === 'stickerIn' ? [
+      { id: 'split', label: stickerSplit.available ? '시트에서 분리하기' : `시트에서 분리하기, ${stickerSplit.reason || '이 기기에서는 쓸 수 없어요'}`, text: '시트에서 분리하기', icon: 'grid',
+        disabled: !stickerSplit.available, onPress: () => { closeAddMenu(); loginGate('스티커 시트 분리', () => setTool('splitIn')); } },
+      { id: 'photos', label: '이미지 한 장씩 넣기', text: '이미지 한 장씩 넣기', icon: 'image', onPress: () => openPickerAfterMenu(() => addStickerImages(folder.id)) },
+    ] : addMenu.kind === 'tape' ? [
       { id: 'photo', label: '사진으로 만들기', text: '사진으로 만들기', icon: 'image', onPress: () => openPickerAfterMenu(() => addTapeFromPhoto(null)) },
       { id: 'folder', label: '새 폴더', text: '새 폴더', icon: 'folder', onPress: () => { closeAddMenu(); newTapeFolder(); } },
     ] : addMenu.kind === 'cover' ? [
@@ -610,6 +616,7 @@ const s = StyleSheet.create({
   tapeNameRow: { minHeight: 32, maxWidth: '100%', flexDirection: 'row', alignItems: 'center', gap: 4 },
   tapeNameText: { flexShrink: 1 },
   tapeNameInput: { minHeight: 32, alignSelf: 'stretch', paddingVertical: 0, paddingHorizontal: 6, borderRadius: 8, borderWidth: 1, borderColor: colors.primary, textAlign: 'center' },
+  addRow: { alignSelf: 'flex-start', marginBottom: 12 },
   renameRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
   renameInput: { flex: 1, minWidth: 0, height: 48, paddingHorizontal: 12, borderRadius: 12, borderWidth: 1, borderColor: colors.primary, color: colors.text, fontSize: 15, fontWeight: '700', backgroundColor: colors.surface },
   stickerRemove: { position: 'absolute', top: -6, right: -6, width: 24, height: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },

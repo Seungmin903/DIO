@@ -67,6 +67,7 @@ test('공통 패널은 서버와 목 모두 읽음과 기본 동작을 제공한
     if (name === '../shared/dialogs') return { notify: (...args) => notices.push(args) };
     if (name === '../sharing/styles') return stylesModule.exports;
     if (name === '../diary/components/Cover') return { default: () => null, __esModule: true };
+    if (name === '../diary/components/EmptyState') return { default: ({ title }) => title, __esModule: true };
     if (name === '../auth/AuthenticationRecovery') return { default: () => null, __esModule: true };
     if (name === '../shared/AppIcon') return { default: () => null, __esModule: true };
     if (name === '../auth/AuthenticationRecovery') return { default: () => null, __esModule: true }; // 실제 복구 동작은 auth-recovery.test.js에서 검증
@@ -143,6 +144,7 @@ test('초대 확인은 열 수 있는 초대면 안쪽 상세 카드 없이 곧�
     : name === '../shared/dialogs' ? { notify: (...args) => notices.push(args) }
     : name === '../sharing/styles' ? stylesModule.exports
     : name === '../diary/components/Cover' ? { default: () => null, __esModule: true }
+    : name === '../diary/components/EmptyState' ? { default: ({ title }) => title, __esModule: true }
     : name === '../auth/AuthenticationRecovery' ? { default: () => null, __esModule: true }
     : name === '../shared/AppIcon' ? { default: () => null, __esModule: true }
     : name === '../auth/AuthenticationRecovery' ? { default: () => null, __esModule: true }
