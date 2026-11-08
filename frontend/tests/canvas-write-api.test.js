@@ -84,3 +84,16 @@ test('멤버 조회 도중 비워지면 그 응답은 기억하지 않고, 동�
  await api.prepare(request);assert.equal(calls,2,'조회 중 비워졌으면 다시 조회한다')
  await api.prepare(request);assert.equal(calls,2,'그 뒤에는 기억한다')
 })
+
+test('비운 뒤의 새 조회는 진행 중이던 옛 조회에 합류하지 않고, 저장이 실패하면 멤버를 다시 조회한다',async()=>{
+ let release,calls=0,fail=false;const gates=[]
+ const api=createCanvasWriteApi(async r=>{if(r.path.endsWith('/members')){calls++;await new Promise(res=>gates.push(res));return {members:[{userId:'1',role:'OWNER'}]}}if(r.method&&fail){fail=false;throw Object.assign(Error('conflict'),{status:409})}return r.method?{element:{...r.body,pageId,version:0}}:{items:[]}},undefined,diaryId)
+ const first=api.prepare(request)
+ api.invalidateMembership()
+ const second=api.prepare(request)
+ assert.equal(calls,2,'비운 뒤의 호출은 새 조회를 시작한다')
+ gates.splice(0).forEach(res=>res());await first;await second
+ await api.prepare(request);assert.equal(calls,2,'새 조회 결과는 기억한다')
+ fail=true;await assert.rejects(api.apply(pageId,await api.prepare(request)),{status:409})
+ const retry=api.prepare(request);assert.equal(calls,3,'실패한 저장 뒤에는 다시 조회한다');gates.splice(0).forEach(res=>res());await retry
+})

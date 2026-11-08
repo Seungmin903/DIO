@@ -16,9 +16,12 @@ export function createCanvasWriteApi(transport, media, diaryId) {
     if (membership && Date.now() - membership.at < MEMBERSHIP_TTL_MS) return Promise.resolve(membership.mode)
     if (inflight) return inflight
     const started = generation
-    inflight = fetchMode().then(mode => { if (generation === started) membership = { mode, at: Date.now() }; return mode }).finally(() => { inflight = null })
-    return inflight
+    const job = fetchMode().then(mode => { if (generation === started) membership = { mode, at: Date.now() }; return mode }).finally(() => { if (inflight === job) inflight = null })
+    inflight = job
+    return job
   }
+  // 비우면 진행 중인 조회에도 새 호출이 합류하지 않는다(그 조회의 결과도 기억하지 않는다)
+  const invalidate = () => { membership = null; inflight = null; generation += 1 }
   const fetchMode = async () => {
     const body = await transport({ path: `/diaries/${diaryId}/members` })
     if (!Array.isArray(body?.members) || !body.members.length || body.members.some(m => !m || !['OWNER','EDITOR'].includes(m.role) || !/^\d+$/.test(String(m.userId))) || new Set(body.members.map(m => String(m.userId))).size !== body.members.length) {
@@ -43,14 +46,15 @@ export function createCanvasWriteApi(transport, media, diaryId) {
       const prepared = shared.prepare ? await shared.prepare(request) : request
       return { ...prepared, canvasWriteMode: mode }
     },
-    apply(pageId, request) {
+    async apply(pageId, request) {
       const { canvasWriteMode, ...body } = request
       if (canvasWriteMode !== undefined && !['personal','shared'].includes(canvasWriteMode)) throw Error('저장 경로를 확인하지 못했어요.')
       // Pre-upgrade prepared commands retain the collaboration endpoint and ID.
-      return (canvasWriteMode === 'personal' ? personal : shared).apply(pageId, body)
+      try { return await (canvasWriteMode === 'personal' ? personal : shared).apply(pageId, body) }
+      catch (error) { invalidate(); throw error } // 소켓이 끊긴 동안 멤버가 바뀌었을 수 있으니 실패한 저장의 재시도 전에 다시 조회한다
     },
     history: shared.history,
     control: shared.control,
-    invalidateMembership() { membership = null; generation += 1 },
+    invalidateMembership: invalidate,
   }
 }
