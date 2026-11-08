@@ -301,14 +301,12 @@ export default function SafetyScreen({ request, user, store, state, onClose, onW
         message={question?.kind === 'discard' ? '작성한 내용과 첨부한 사진이 사라져요.' : question?.kind === 'unblock' ? '서로 이메일 초대를 주고받거나 수락할 수 있게 돼요. 유효한 대기 초대도 다시 수락할 수 있어요.' : blockMessage}
         confirmLabel={question?.kind === 'discard' ? '작성 취소' : question?.kind === 'unblock' ? '차단 해제' : '차단하기'} onCancel={() => setQuestion(null)} onConfirm={confirm} />
     </SafeAreaView>
-    </EditorModal>
-    {menuMember && <EditorModal visible transparent animationType="none" onRequestClose={closeMenu}>
-      <Pressable accessible={false} style={s.menuOverlay} onPress={closeMenu}>
+    {menuMember && <Pressable accessible={false} style={s.menuOverlay} onPress={closeMenu}>
         <Pressable accessible={false} style={[s.menu, menuPosition]} onLayout={event => setMenuHeight(event.nativeEvent.layout.height)} onPress={event => event.stopPropagation()}>
           <SafetyButton secondary onPress={() => startReport(menuMember)} disabled={busy}>신고하기</SafetyButton>
           {menuMember.activeAccount !== false && <SafetyButton secondary onPress={() => askBlock(menuMember)} disabled={busy || !hasBlockData}>{blocked(menuMember.id) ? '차단 해제' : '차단하기'}</SafetyButton>}
         </Pressable>
-      </Pressable>
-    </EditorModal>}
+    </Pressable>}
+    </EditorModal>
   </>;
 }

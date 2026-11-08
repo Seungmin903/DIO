@@ -24,9 +24,9 @@ export const safetyStyles = StyleSheet.create({
   buttonText: { color: c.surface, fontSize: 14, fontWeight: '700' },
   secondaryText: { color: c.text }, disabled: { opacity: 0.4 },
   icon: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center' },
-  // 메뉴는 최상위 투명 Modal에서 트리거의 실제 창 좌표를 기준으로 놓인다.
+  // 메뉴는 참여자 모달 안의 최상위 오버레이에 창 좌표로 놓인다.
   // 카드·목록의 높이를 바꾸지 않아 중앙 패널이 움직이지 않고, 다른 행이나 ScrollView에 가려지지 않는다.
-  menuOverlay: { flex: 1 },
+  menuOverlay: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0 },
   menu: { position: 'absolute', minWidth: 160, maxWidth: 240, padding: 12, gap: 8, borderWidth: 1, borderColor: c.cardBorder, borderRadius: radius.md, backgroundColor: c.surface },
   input: { backgroundColor: c.surface, borderWidth: 1, borderColor: c.border, borderRadius: radius.md, minHeight: 152, padding: 12, fontSize: 14, lineHeight: 22, color: c.text, textAlignVertical: 'top' },
   reason: { minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderWidth: 1, borderColor: c.border, borderRadius: radius.md, backgroundColor: c.surface },
