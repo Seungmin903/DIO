@@ -29,6 +29,8 @@ export function useMemberCanvasCollaboration({diary,page,state,loaded,readOnly,d
   const collaborationStateChange=useRef(onCollaborationStateChange);collaborationStateChange.current=onCollaborationStateChange
   const runtime=useRef(null)
   const [view,setView]=useState({status:null,history:null,busy:false,pageId:null})
+  // 지금 이 다이어리를 연 회원 id(서버 PRESENCE). 서버가 아직 보내지 않았거나 연결이 끊기면 null(모름)
+  const [onlineUserIds,setOnlineUserIds]=useState(null)
   const sessionKey=authService.getSessionKey()
   const failureMessage=error=>{
     if(error.code==='CANVAS_BATCH_LIMIT')return error.message
@@ -231,7 +233,7 @@ export function useMemberCanvasCollaboration({diary,page,state,loaded,readOnly,d
       onDiagnostic:diagnostics.socket,
       makeSocket:url=>Platform?.OS==='web'?new globalThis.WebSocket(url):new globalThis.WebSocket(url,[],{headers:headersFor(url)}),
       getAccessToken:({forceRefresh=false}={})=>authService.getAccessToken({userId:diary.memberAccountId,sessionKey,forceRefresh}),
-      onReady:()=>{diagnostics.event('ws-ready');api.invalidateMembership?.();collaborationStateChange.current(diary.sharedDiaryId||diary.id,true);refresh()},onUnavailable:()=>{diagnostics.event('ws-unavailable');collaborationStateChange.current(diary.sharedDiaryId||diary.id,false)},onPagesChanged:refreshPagesQuietly,onMembersChanged:()=>{api.invalidateMembership?.();membersChanged.current()},onChange:frame=>{
+      onReady:()=>{diagnostics.event('ws-ready');api.invalidateMembership?.();collaborationStateChange.current(diary.sharedDiaryId||diary.id,true);refresh()},onUnavailable:()=>{diagnostics.event('ws-unavailable');collaborationStateChange.current(diary.sharedDiaryId||diary.id,false)},onPagesChanged:refreshPagesQuietly,onMembersChanged:()=>{api.invalidateMembership?.();membersChanged.current()},onPresence:ids=>{if(active())setOnlineUserIds(current=>ids&&current&&current.length===ids.length&&current.every((id,i)=>id===ids[i])?current:ids)},onChange:frame=>{
         diagnostics.event('ws-change')
         // 내 저장의 에코면 다시 조회하지 않는다(1인 다이어리는 ID 대신 내 계정이 낸 이벤트 수로 판단)
         const actor=frame.actorUserId,mine=actor!=null&&actor!==''&&diary.memberAccountId!=null&&String(actor)===String(diary.memberAccountId)
@@ -246,7 +248,7 @@ export function useMemberCanvasCollaboration({diary,page,state,loaded,readOnly,d
     // Periodic reconciliation also covers an event lost after commit or a proxy without WebSocket support.
     const timer=setInterval(()=>{diagnostics.event('poll');refresh()},5000)
     const appState=AppState.addEventListener('change',next=>{if(next==='active')refresh();else dispatch({type:'commitCheckpoint'})})
-    return ()=>{r.alive=false;collaborationStateChange.current(diary.sharedDiaryId||diary.id,false);setPdfSourceFetcher(null);media.dispose();socket.close();clearInterval(timer);appState.remove();if(runtime.current===r)runtime.current=null}
+    return ()=>{r.alive=false;setOnlineUserIds(null);collaborationStateChange.current(diary.sharedDiaryId||diary.id,false);setPdfSourceFetcher(null);media.dispose();socket.close();clearInterval(timer);appState.remove();if(runtime.current===r)runtime.current=null}
   },[enabled,loaded,diary?.id,diary?.memberAccountId,sessionKey])
   useEffect(()=>{
     const r=runtime.current;if(!r||!enabled||!loaded)return
@@ -289,7 +291,7 @@ export function useMemberCanvasCollaboration({diary,page,state,loaded,readOnly,d
     }catch(error){if(r.alive)setView(v=>({...v,status:error.status===409?'conflict':'error',errorMessage:failureMessage(error)}));throw error}
     finally{r.busy=false;if(r.alive)setView(v=>({...v,busy:false}))}
   }
-  return {enabled,loadPageSettings:id=>{if(!runtime.current)throw Error('서버 연결을 확인해 주세요.');return runtime.current.loadPageSettings(id)},updatePage:(id,body)=>{if(!runtime.current)throw Error('서버 연결을 확인해 주세요.');return runtime.current.updatePage(id,body)},movePage:(id,toIndex)=>{if(!runtime.current)throw Error('서버 연결을 확인해 주세요.');return runtime.current.movePage(id,toIndex)},movePages:(ids,anchorId,place)=>{if(!runtime.current)throw Error('서버 연결을 확인해 주세요.');return runtime.current.movePages(ids,anchorId,place)},copyPage:id=>{if(!runtime.current)throw Error('서버 연결을 확인해 주세요.');return runtime.current.copyPage(id)},removePages:ids=>{if(!runtime.current)throw Error('서버 연결을 확인해 주세요.');return runtime.current.removePages(ids)},addPage:backgroundAssetId=>{if(!runtime.current)throw Error('서버 연결을 확인한 뒤 다시 시도해 주세요.');return runtime.current.addPage(backgroundAssetId)},addPdfPages:pages=>{if(!runtime.current)throw Error('서버 연결을 확인한 뒤 다시 시도해 주세요.');return runtime.current.addPdfPages(pages)},status:enabled?view.status:null,errorMessage:view.errorMessage,busy:view.busy,
+  return {enabled,onlineUserIds:enabled?onlineUserIds:null,loadPageSettings:id=>{if(!runtime.current)throw Error('서버 연결을 확인해 주세요.');return runtime.current.loadPageSettings(id)},updatePage:(id,body)=>{if(!runtime.current)throw Error('서버 연결을 확인해 주세요.');return runtime.current.updatePage(id,body)},movePage:(id,toIndex)=>{if(!runtime.current)throw Error('서버 연결을 확인해 주세요.');return runtime.current.movePage(id,toIndex)},movePages:(ids,anchorId,place)=>{if(!runtime.current)throw Error('서버 연결을 확인해 주세요.');return runtime.current.movePages(ids,anchorId,place)},copyPage:id=>{if(!runtime.current)throw Error('서버 연결을 확인해 주세요.');return runtime.current.copyPage(id)},removePages:ids=>{if(!runtime.current)throw Error('서버 연결을 확인해 주세요.');return runtime.current.removePages(ids)},addPage:backgroundAssetId=>{if(!runtime.current)throw Error('서버 연결을 확인한 뒤 다시 시도해 주세요.');return runtime.current.addPage(backgroundAssetId)},addPdfPages:pages=>{if(!runtime.current)throw Error('서버 연결을 확인한 뒤 다시 시도해 주세요.');return runtime.current.addPdfPages(pages)},status:enabled?view.status:null,errorMessage:view.errorMessage,busy:view.busy,
     canUndo:view.pageId===page.id&&!!view.history?.nextUndo,canRedo:view.pageId===page.id&&!!view.history?.nextRedo,
     undo:()=>control('undo'),redo:()=>control('redo'),retry:()=>runtime.current?.sync(page.id)}
 }

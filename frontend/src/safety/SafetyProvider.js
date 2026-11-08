@@ -35,8 +35,9 @@ export default function SafetyProvider({ user, adapter, sharingRuntime, children
     setRequest(null);
     request?.onClosed?.();
   }, [request]);
-  const openParticipants = useCallback((diary, { target, onClosed } = {}) => {
-    setRequest({ kind: 'participants', diary, target, onClosed });
+  // action 'report': 참여자 목록을 거치지 않고 그 사람 신고 화면을 바로 연다(공유 창 ⋯ 말풍선, 2026-11-08 지라 686). 뒤로 · 접수 확인은 창을 닫는다
+  const openParticipants = useCallback((diary, { target, onClosed, action } = {}) => {
+    setRequest(action === 'report' && target ? { kind: 'report', direct: true, diary, target, onClosed } : { kind: 'participants', diary, target, onClosed });
   }, []);
   const openBlocks = useCallback(() => setRequest({ kind: 'blocks' }), []);
   const finishWarning = useCallback(async (proceed, dismiss, rows, diary) => {

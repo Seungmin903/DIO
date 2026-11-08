@@ -228,7 +228,7 @@ test('실서버와 개인 원본에는 목 사본 만들기를 노출하지 않�
   }
 });
 
-test('참여자 관리의 취소는 유지하고 양도 실패는 재시도, 성공은 편집자 화면으로 복귀한다', async () => {
+test('참여자 ⋯ 말풍선의 소유권 양도: 취소는 유지하고 실패는 재시도, 성공하면 편집자 화면(양도 · 내보내기 없음)', async () => {
   const diary = { id: 'd', title: '관리', members: [
     { id: 'self', nickname: '소연', role: 'OWNER' },
     { id: 'friend', nickname: '모아', role: 'EDITOR' },
@@ -238,32 +238,34 @@ test('참여자 관리의 취소는 유지하고 양도 실패는 재시도, 성
     if (++attempts === 1) throw new Error('다시 시도해 주세요.');
     return { ...diary, members: diary.members.map(m => ({ ...m, role: m.id === 'self' ? 'EDITOR' : 'OWNER' })) };
   } }, undefined, { diary });
-  find(ui.render(), '참여자 관리').props.onPress();
-  find(ui.render(), '모아 소유권 양도').props.onPress();
+  const action = label => { find(ui.render(), '모아 메뉴').props.onPress(); return nodes(ui.render()).find(n => Array.isArray(n.props?.actions))?.props.actions.find(a => a.label === label); };
+  assert.equal(find(ui.render(), '참여자 관리'), undefined); // 따로 관리 화면 · 버튼 없음
+  action('모아 소유권 양도').onPress();
   const confirm = () => nodes(ui.render()).find(n => n.props.confirmLabel === '양도');
   confirm().props.onCancel();
   assert.equal(attempts, 0);
-  find(ui.render(), '모아 소유권 양도').props.onPress();
+  action('모아 소유권 양도').onPress();
   confirm().props.onConfirm();
   await tick();
-  assert.ok(find(ui.render(), '모아 소유권 양도'));
-  find(ui.render(), '모아 소유권 양도').props.onPress();
+  action('모아 소유권 양도').onPress();
   confirm().props.onConfirm();
   await tick();
   assert.equal(attempts, 2);
-  assert.equal(find(ui.render(), '참여자 관리'), undefined);
   assert.ok(find(ui.render(), '다이어리 참여 해제'));
+  // 이제 편집자라 양도 · 내보내기가 없다(신고 · 차단 연결도 없는 하네스라 ⋯ 자체가 없다)
+  assert.equal(find(ui.render(), '모아 메뉴'), undefined);
 });
 
-test('실서버 참여자 관리도 연결된 양도 기능을 제공한다', () => {
+test('실서버 참여자 ⋯ 말풍선에도 연결된 양도 · 내보내기가 있다(소유자)', () => {
   const diary = { id: 'd', title: '관리', members: [
     { id: 'self', nickname: '소연', role: 'OWNER' }, { id: 'friend', nickname: '모아', role: 'EDITOR' },
   ] };
   const ui = setup({ server: true, registerDiary: () => diary, getSharing: async () => diary,
     transferOwner: () => { throw new Error('호출하면 안 됨'); } }, undefined, { diary });
-  find(ui.render(), '참여자 관리').props.onPress();
-  assert.ok(find(ui.render(), '모아 소유권 양도'));
-  assert.ok(find(ui.render(), '모아 내보내기'));
+  find(ui.render(), '모아 메뉴').props.onPress();
+  const actions = nodes(ui.render()).find(n => Array.isArray(n.props?.actions)).props.actions.map(a => a.label);
+  assert.ok(actions.includes('모아 소유권 양도'));
+  assert.ok(actions.includes('모아 내보내기'));
 });
 
 test('초대 상세는 취소·만료·정원 초과를 구분하고 사용 불가 초대에 수락을 제공하지 않는다', async () => {
@@ -301,9 +303,8 @@ test('이메일 초대는 잘못된 입력·연타를 차단하고 실패 후 �
     calls++;
     return new Promise(r => { resolve = r; });
   } }, undefined, { diary });
-  assert.equal(find(ui.render(), '초대할 이메일'), undefined);
+  // 이메일 칸은 공유 창 첫 화면 초대 구역에 바로 있다(노션처럼, 지라 686)
   assert.equal(find(ui.render(), '참여자의 내보내기 허용'), undefined);
-  find(ui.render(), '이메일로 초대').props.onPress();
   assert.equal(find(ui.render(), '이메일 초대 보내기').props.disabled, true);
   find(ui.render(), '초대할 이메일').props.onChangeText('friend@example.com');
   const send = find(ui.render(), '이메일 초대 보내기');
@@ -313,12 +314,10 @@ test('이메일 초대는 잘못된 입력·연타를 차단하고 실패 후 �
   resolve({ ...diary, emailInvites: [{ id: 'sent', email: 'friend@example.com', status: 'PENDING' }] });
   await tick();
   assert.equal(find(ui.render(), '초대할 이메일').props.value, '');
-  assert.ok(find(ui.render(), 'friend@example.com 초대 취소'));
-  find(ui.render(), '이전 공유 화면').props.onPress();
-  assert.ok(find(ui.render(), '초대 링크 만들기'));
-  assert.equal(find(ui.render(), '초대할 이메일'), undefined);
-  find(ui.render(), '이메일로 초대').props.onPress();
-  assert.ok(find(ui.render(), 'friend@example.com 초대 취소'));
+  // 보낸 초대 목록 화면은 없다(노션처럼 칸 + 초대만, 지라 686)
+  assert.equal(find(ui.render(), '보낸 초대'), undefined);
+  assert.equal(find(ui.render(), 'friend@example.com 초대 취소'), undefined);
+  assert.ok(find(ui.render(), '초대 링크 복사'));
   ui.runtime.sendEmailInvite = async () => { throw new Error('통신 실패'); };
   find(ui.render(), '초대할 이메일').props.onChangeText('retry@example.com');
   find(ui.render(), '이메일 초대 보내기').props.onPress();
@@ -333,49 +332,59 @@ test('정원 초과와 서버 미연결에서는 목 이메일 요청을 실행�
   const full = { id: 'local', members: [{ id: 'self', role: 'OWNER' }, ...['a', 'b', 'c'].map(id => ({ id, role: 'EDITOR' }))] };
   const ui = setup({ registerDiary: () => full, sendEmailInvite: async () => full }, undefined, { diary: full });
   assert.equal(find(ui.render(), '추가 인원 안내'), undefined); // 유료 안내는 출시 전까지 감춘다
-  assert.equal(find(ui.render(), '초대 링크 만들기').props.disabled, true);
-  find(ui.render(), '이메일로 초대').props.onPress();
+  // 가득 차면 이메일 칸 · 초대 · 복사가 모두 꺼지고 상태 줄이 이유를 말한다(지라 686)
+  assert.ok(nodes(ui.render()).some(n => [n.props?.children].flat().join('') === '정원이 다 차서 더 초대할 수 없어요.'));
   assert.equal(find(ui.render(), '초대할 이메일').props.editable, false);
+  assert.equal(find(ui.render(), '이메일 초대 보내기').props.disabled, true);
+  assert.equal(find(ui.render(), '초대 링크 복사').props.disabled, true);
   ui.unmount();
   const diary = { id: 'server', members: [{ id: 'self', role: 'OWNER' }] };
   const server = setup({ server: true, registerDiary: () => diary, getSharing: async () => diary }, undefined, { diary });
   await tick();
-  assert.equal(find(server.render(), '이메일로 초대'), undefined);
+  assert.equal(find(server.render(), '초대할 이메일'), undefined);
   server.unmount();
 });
 
-test('보낸 초대 취소는 확인 후에만 적용하고 만료된 링크 복사를 막는다', async () => {
+test('소유자가 연 공유 창에 쓸 수 있는 링크가 없으면 바로 하나 만들고(콜드 스타트), 쓸 수 있는 링크는 만료 시각만 적는다', async () => {
   const diary = { id: 'local', link: 'https://dio.example/invite/old', linkExpiresAt: '2000-01-01T00:00:00Z',
     members: [{ id: 'self', role: 'OWNER' }],
     emailInvites: [{ id: 'sent', email: 'friend@example.com', status: 'PENDING' }] };
-  let calls = 0;
+  let calls = 0, made = 0;
+  const fresh = { ...diary, link: 'https://dio.example/invite/new', linkExpiresAt: '2099-01-01T11:41:00' };
   const ui = setup({ registerDiary: () => diary, sendEmailInvite: async () => diary,
+    createLink: async () => { made++; return fresh; },
     cancelEmailInvite: async () => { calls++; return { ...diary, emailInvites: [{ ...diary.emailInvites[0], status: 'CANCELLED' }] }; },
   }, undefined, { diary });
   ui.render(); // 만료 상태 effect가 적용된 다음 렌더를 확인한다.
-  assert.equal(find(ui.render(), '초대 링크 복사').props.disabled, true);
-  find(ui.render(), '이메일로 초대').props.onPress();
-  find(ui.render(), 'friend@example.com 초대 취소').props.onPress();
-  const dialog = nodes(ui.render()).find(n => n.props?.confirmLabel === '초대 취소');
-  dialog.props.onCancel();
-  assert.equal(calls, 0);
-  find(ui.render(), 'friend@example.com 초대 취소').props.onPress();
-  nodes(ui.render()).find(n => n.props?.confirmLabel === '초대 취소').props.onConfirm();
-  await tick();
-  assert.equal(calls, 1);
-  assert.equal(find(ui.render(), 'friend@example.com 초대 취소'), undefined);
+  ui.render(); await tick();
+  // 콜드 스타트: 소유자가 창을 열었는데 쓸 수 있는 링크가 없으면 바로 하나 만든다(한 번만, 지라 686)
+  ui.render(); await tick();
+  assert.equal(made, 1);
+  assert.ok(nodes(ui.render()).some(n => n.props?.children === 'https://dio.example/invite/new'));
+  ui.render(); await tick();
+  assert.equal(made, 1, '같은 링크 상태로 두 번 만들지 않는다');
+  // 쓸 수 있는 링크: 칸에 주소, 상태 줄에 만료 시각만, '초대 링크로 초대' 옆 새로고침 → 확인창
+  const live = setup({ registerDiary: () => fresh, createLink: async () => { made++; return fresh; } }, undefined, { diary: fresh });
+  live.render(); live.render();
+  assert.ok(nodes(live.render()).some(n => n.props?.children === 'https://dio.example/invite/new'));
+  assert.ok(nodes(live.render()).some(n => [n.props?.children].flat().join('') === '초대 링크가 오전 11:41에 만료돼요.'));
+  find(live.render(), '초대 링크 다시 만들기').props.onPress();
+  assert.ok(nodes(live.render()).some(n => n.props?.confirmLabel === '다시 만들기'));
+  live.unmount();
   ui.unmount();
 });
-test('실제 공유는 편집자도 링크를 만들고 지원하지 않는 내보내기 설정을 숨긴다', async () => {
+test('실제 공유에서 편집자는 링크를 복사 · 다시 만들 수 없고(소유자만) 지원하지 않는 내보내기 설정을 숨긴다', async () => {
   const diary = { id: 'server-diary', title: '서버 기록', members: [{ id: 'self', nickname: '소연', role: 'EDITOR' }] };
   const ui = setup({ server: true, supportsExportSettings: false, canOpenDiary: false,
     registerDiary: () => diary, getSharing: async () => diary }, undefined, { diary });
   await tick();
   const tree = ui.render();
-  assert.ok(find(tree, '초대 링크 만들기'));
+  assert.equal(find(tree, '초대 링크 복사'), undefined);
+  assert.equal(find(tree, '초대 링크 다시 만들기'), undefined);
   assert.equal(find(tree, '참여자의 내보내기 허용'), undefined);
   assert.equal(find(tree, '다이어리 열기'), undefined);
-  assert.ok(find(tree, '완료'));
+  assert.equal(find(tree, '완료'), undefined); // 닫기는 머리줄 X(지라 686)
+  assert.ok(find(tree, '공유 창 닫기'));
   ui.unmount();
 });
 
@@ -520,7 +529,7 @@ test('공유 화면은 React Native가 지원하는 접근성 역할만 사용�
   }
 });
 
-test('프로필 원은 참여자 목록을 열고 창 밖 터치·시스템 뒤로가기로 닫힌다', () => {
+test('상단 얼굴은 나를 뺀 참여자만 보여 주고 목록 창을 열지 않는다', () => {
   const entryCode = babel.transformSync(
     readFileSync(new URL('../src/sharing/SharingEntry.js', import.meta.url), 'utf8'),
     {
@@ -579,35 +588,12 @@ test('프로필 원은 참여자 목록을 열고 창 밖 터치·시스템 뒤�
     refIndex = 0;
     return mod.exports.default({ members, onPress() {} });
   };
-  let tree = render();
-  const circles = find(tree, '참여자 3명 보기');
-  nodes(tree).find((n) => n.props.ref).props.ref.current = {
-    measureInWindow: (fn) => fn(330, 40, 52, 44),
-  };
-  circles.props.onPress();
-  tree = render();
-  assert.ok(nodes(tree).some((n) => [n.props.children].flat().join('') === '공유 중인 사람 · 3명'));
-  assert.ok(nodes(tree).some((n) => [n.props.children].flat().join('') === '나 · 편집 중'));
-  const card = nodes(tree).find((n) => n.type === 'Pressable' && Array.isArray(n.props.style));
-  assert.ok(card.props.style[1].left + card.props.style[1].width <= 382);
-  let stopped = false;
-  card.props.onPress({
-    stopPropagation() {
-      stopped = true;
-    },
-  });
-  assert.ok(stopped);
-  assert.ok(anchor);
-  nodes(tree)
-    .find((n) => n.props.testID === 'sharing-people-outside')
-    .props.onPress();
-  assert.equal(anchor, null);
-  circles.props.onPress();
-  tree = render();
-  nodes(tree)
-    .find((n) => n.props.onRequestClose)
-    .props.onRequestClose();
-  assert.equal(anchor, null);
+  const tree = render();
+  // 나(self)는 빼고 다른 두 사람 얼굴만, 누르는 목록 창은 없다(지라 680: 자세히 보기는 공유 창)
+  const faces = nodes(tree).filter((n) => ['하루', '모아', '소연'].includes(n.props.accessibilityLabel));
+  assert.deepEqual(faces.map((n) => n.props.accessibilityLabel), ['하루', '모아']);
+  assert.ok(!nodes(tree).some((n) => n.props.onRequestClose));
+  assert.ok(!nodes(tree).some((n) => n.props.accessibilityLabel === '참여자 3명 보기'));
 });
 
 test('초대 사진 선택 취소는 유지하고 기본 프로필 복구·최종 수락 사진을 분리한다', async () => {
@@ -771,12 +757,14 @@ test('공유 창에서 다른 초대 수락·탈퇴 후 뒤로가면 빈 창 대
     .find((n) => n.props.confirmLabel === '참여 해제')
     .props.onConfirm();
   await tick();
-  // 알림 화면에는 뒤로 가기 버튼이 없다. 기기 뒤로 가기(창의 onRequestClose)로 원래 다이어리 공유 화면에 돌아온다.
-  assert.equal(find(ui.render(), '이전 공유 화면'), undefined);
-  nodes(ui.render()).find((n) => n.props.onRequestClose).props.onRequestClose();
+  // 공유 창에서 들어온 알림 화면은 ‹(이전 공유 화면)로 원래 다이어리 공유 화면에 돌아온다(지라 686)
+  find(ui.render(), '이전 공유 화면').props.onPress();
   await tick();
-  const summary = nodes(ui.render()).find((n) => n.type?.name === 'DiarySummary');
-  assert.equal(summary?.props.diary.id, 'a');
+  // 원래 다이어리(내가 소유자)의 공유 화면으로 돌아왔다: 참여 해제 버튼이 없고 소유자 줄이 보인다(제목 칸은 지라 686 에서 뺐다)
+  const back = ui.render();
+  assert.ok(find(back, '공유 창 닫기'));
+  assert.equal(find(back, '다이어리 참여 해제'), undefined);
+  assert.ok(nodes(back).some((n) => [n.props?.children].flat().join('') === '소유자'));
   ui.unmount();
 });
 
@@ -803,19 +791,15 @@ test('닉네임 입력에서 취소하면 예약된 키보드 스크롤이 다�
   ui.unmount();
 });
 
-test('실서버 편집자도 이메일을 보내고 보낸 목록을 새로고침하거나 더 볼 수 있다',async()=>{
+test('실서버 편집자에게는 이메일 초대 · 초대 링크가 없다(소유자만, 지라 686)',async()=>{
   let sent=0,more=0,refresh=0;
   const diary={id:'server',members:[{id:'self',role:'EDITOR'}],emailInvites:[],emailNextPage:1};
   const ui=setup({server:true,registerDiary:()=>diary,getSharing:async()=>{refresh++;return diary},
     sendEmailInvite:async()=>{sent++;return diary},loadMoreEmailInvites:async()=>{more++;return {...diary,emailNextPage:null}}},undefined,{diary});
-  await tick();find(ui.render(),'이메일로 초대').props.onPress();
-  find(ui.render(),'초대할 이메일').props.onChangeText('friend@example.com');
-  assert.equal(find(ui.render(),'이메일 초대 보내기').props.disabled,false);
-  find(ui.render(),'이메일 초대 보내기').props.onPress();await tick();
-  assert.equal(sent,1);assert.equal(find(ui.render(),'초대할 이메일').props.value,'');
-  find(ui.render(),'보낸 초대 새로고침').props.onPress();await tick();assert.ok(refresh>=2);
-  find(ui.render(),'보낸 초대 더 보기').props.onPress();await tick();assert.equal(more,1);
-  assert.equal(find(ui.render(),'보낸 초대 더 보기'),undefined);ui.unmount();
+  await tick();
+  assert.equal(find(ui.render(),'초대할 이메일'),undefined);
+  assert.equal(find(ui.render(),'초대 링크 복사'),undefined);
+  assert.equal(sent,0);ui.unmount();
 });
 
 test('정원이 찬 서버 다이어리는 초대 API가 있어도 이메일 입력과 전송을 비활성화한다',async()=>{
@@ -823,7 +807,8 @@ test('정원이 찬 서버 다이어리는 초대 API가 있어도 이메일 입
     let sent=0;
     const diary={id:'server-full',members:[{id:'self',role},...Array.from({length:validation.MAX_SHARING_MEMBERS-1},(_,i)=>({id:`friend-${i}`,role:'EDITOR'}))]};
     const ui=setup({server:true,registerDiary:()=>diary,getSharing:async()=>diary,sendEmailInvite:async()=>{sent++;return diary}},undefined,{diary});
-    await tick();find(ui.render(),'이메일로 초대').props.onPress();
+    await tick();
+    if(role==='EDITOR'){assert.equal(find(ui.render(),'초대할 이메일'),undefined);ui.unmount();continue;}
     find(ui.render(),'초대할 이메일').props.onChangeText('friend@example.com');
     assert.equal(find(ui.render(),'초대할 이메일').props.editable,false);
     assert.equal(find(ui.render(),'이메일 초대 보내기').props.disabled,true);
@@ -840,7 +825,6 @@ test('서버 이메일 초대 화면은 기존 입력란을 활성화하고 입�
     sendEmailInvite: async (id, email) => { calls.push({ id, email }); return diary; },
   }, undefined, { diary });
   await tick();
-  find(ui.render(), '이메일로 초대').props.onPress();
   assert.equal(find(ui.render(), '초대할 이메일').props.editable, true);
   find(ui.render(), '초대할 이메일').props.onChangeText('friend@example.com');
   assert.equal(find(ui.render(), '이메일 초대 보내기').props.disabled, false);
@@ -867,7 +851,7 @@ test('홈 초대 상세 진입은 조회 대기 중에도 공유 알림 목록�
     { mode: 'invitation', inviteId: 'i', returnToNotifications: true });
   const waiting = ui.render();
   assert.equal(find(waiting, '초대 초대 수락'), undefined);
-  assert.equal(find(waiting, '초대 초대 더보기'), undefined);
+  assert.equal(find(waiting, '초대 초대 상세'), undefined);
   assert.ok(find(waiting, '이전 공유 화면'));
   finish({ inviteId: 'i', status: 'PENDING', canOpen: true, diary: { diaryId: 'd', title: '초대' } });
   await tick();
@@ -879,13 +863,13 @@ test('편집기 직접 초대 ID 진입도 로딩 중 목록을 노출하지 않
   let finish;
   const ui = setup({ invitationGateway: { get: () => new Promise(resolve => { finish = resolve; }) } }, undefined, { mode: 'invitation', inviteId: 'i' });
   const waiting = ui.render();
-  assert.equal(find(waiting, '초대 초대 더보기'), undefined);
+  assert.equal(find(waiting, '초대 초대 상세'), undefined);
   assert.ok(find(waiting, '초대 불러오는 중'));
   finish({ inviteId: 'i', status: 'PENDING', canOpen: true, diary: { diaryId: 'd', title: '초대' } });
   await tick();
   assert.ok(find(ui.render(), '참여 프로필 설정'));
   find(ui.render(), '이전 공유 화면').props.onPress();
-  assert.ok(find(ui.render(), '초대 초대 더보기'));
+  assert.ok(find(ui.render(), '초대 초대 상세'));
   ui.unmount();
 });
 
@@ -895,9 +879,9 @@ test('편집기 직접 초대 조회 실패는 상세 안의 오류로 남고 �
   const tree = ui.render();
   assert.ok(nodes(tree).some(node => node.props?.accessibilityRole === 'alert' && node.props.children === '초대 조회 실패'));
   assert.equal(find(tree, '참여 프로필 설정'), undefined);
-  assert.equal(find(tree, '초대 초대 더보기'), undefined);
+  assert.equal(find(tree, '초대 초대 상세'), undefined);
   find(tree, '이전 공유 화면').props.onPress();
-  assert.ok(find(ui.render(), '초대 초대 더보기'));
+  assert.ok(find(ui.render(), '초대 초대 상세'));
   ui.unmount();
 });
 
@@ -952,5 +936,37 @@ test('홈에서 연 초대를 거절하면 공유 내부 목록 대신 홈 알�
   nodes(ui.render()).find(node => node.props?.confirmLabel === '삭제' && node.props.onConfirm).props.onConfirm();
   await tick();
   assert.equal(declined, 1); assert.equal(returned, 1);
+  ui.unmount();
+});
+
+test('AI 리뷰: 복사가 링크를 새로 만든 뒤 클립보드에 실패해도 새 링크는 칸에 남고, 다시 만들기 확인은 createLink 를 부른다', async () => {
+  const diary = { id: 'local', members: [{ id: 'self', role: 'OWNER' }] };
+  let made = 0;
+  const fresh = n => ({ ...diary, link: `https://dio.example/invite/${n}`, linkExpiresAt: '2099-01-01T11:41:00' });
+  // 첫 번째(콜드 스타트)는 실패 → '복사'가 새로 만든다(테스트 환경의 클립보드는 없어 복사는 실패한다)
+  const ui = setup({ registerDiary: () => diary, createLink: async () => { made++; if (made === 1) throw new Error('잠시 후'); return fresh(made); } }, undefined, { diary });
+  ui.render(); ui.render(); await tick(); ui.render(); await tick();
+  assert.equal(made, 1);
+  find(ui.render(), '초대 링크 복사').props.onPress(); await tick(); await tick();
+  assert.equal(made, 2);
+  assert.ok(nodes(ui.render()).some(n => n.props?.children === 'https://dio.example/invite/2'), '복사 실패해도 새 링크가 보인다');
+  // 다시 만들기 → 확인창 → createLink
+  find(ui.render(), '초대 링크 다시 만들기').props.onPress();
+  nodes(ui.render()).find(n => n.props?.confirmLabel === '다시 만들기').props.onConfirm(); await tick(); await tick();
+  assert.equal(made, 3);
+  assert.ok(nodes(ui.render()).some(n => n.props?.children === 'https://dio.example/invite/3'));
+  ui.unmount();
+});
+
+test('AI 리뷰: 콜드 스타트로 만드는 중에 복사를 누르면 그 결과를 기다려 쓰고 링크를 두 번 만들지 않는다', async () => {
+  const diary = { id: 'local', members: [{ id: 'self', role: 'OWNER' }] };
+  let made = 0, release;
+  const ui = setup({ registerDiary: () => diary, createLink: () => { made++; return new Promise(r => { release = () => r({ ...diary, link: 'https://dio.example/invite/cold', linkExpiresAt: '2099-01-01T11:41:00' }); }); } }, undefined, { diary });
+  ui.render(); ui.render(); await tick();
+  assert.equal(made, 1);
+  find(ui.render(), '초대 링크 복사').props.onPress(); await tick();
+  release(); await tick(); await tick();
+  assert.equal(made, 1, '복사가 링크를 또 만들지 않는다');
+  assert.ok(nodes(ui.render()).some(n => n.props?.children === 'https://dio.example/invite/cold'));
   ui.unmount();
 });

@@ -25,6 +25,19 @@ export const sharingStyles = StyleSheet.create({
     borderRadius: radius.md,
   },
   body: { gap: 16 },
+  // 높이가 고정된 창의 본문은 창 높이만큼 채우고, pinBottom 묶음(초대 링크 확인)은 아래 끝에 붙는다
+  bodyFill: { flexGrow: 1 },
+  pinBottom: { marginTop: 'auto' },
+  // 높이가 고정된 알림 화면: 본문이 남는 높이를 채우고(줄어들 수 있게 minHeight 0), 그 안에서 목록 칸만 스크롤한다
+  bodyFixed: { flex: 1, minHeight: 0 },
+  invitationScroll: { flex: 1, minHeight: 0 },
+  invitationScrollContent: { flexGrow: 1, gap: 16 },
+  // 빈 알림(디오)은 머리줄과 아래 '초대 링크 확인' 사이 남는 자리를 채우고 그 가운데에 놓인다
+  emptyFill: { flexGrow: 1, minHeight: 200, justifyContent: 'center' },
+  // 오른쪽 끝 아이콘(머리줄 X · 참여자 연필 · ⋯ · 새로고침): 44 터치 칸 안 여백만큼 밖으로 내어 그림 오른쪽 끝을 '4/4명' · 버튼 오른쪽 끝에 맞춘다
+  edgeIcon: { marginRight: -12 },
+  // 머리줄 ‹ 도 같은 방식으로 그림 왼쪽 끝을 본문 왼쪽 끝에 맞춘다
+  edgeIconLeft: { marginLeft: -12 },
   label: { fontSize: 12, fontWeight: '700', color: c.textMuted },
   text: { fontSize: 12.5, fontWeight: '600', lineHeight: 19, color: c.text },
   muted: { fontSize: 12, fontWeight: '600', lineHeight: 18, color: c.textMuted },
@@ -47,36 +60,23 @@ export const sharingStyles = StyleSheet.create({
     alignItems: 'center',
     gap: 10,
   },
-  // 공유 창 맨 위 알림 진입 행: 새 초대가 있을 때만 흰 면 + 진한 테두리로 강조하고 없으면 조용한 바탕으로 낮춘다
-  banner: {
-    paddingHorizontal: 14,
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  bannerNew: { minHeight: 68, backgroundColor: c.surface, borderColor: c.primary },
-  bannerIdle: { minHeight: 52, backgroundColor: c.surfaceSoft, borderColor: c.cardBorder },
-  bannerTitleNew: { fontSize: 16, fontWeight: '700', color: c.text },
-  bannerTitle: { fontSize: 16, fontWeight: '600', color: c.text },
-  bannerState: { fontSize: 14, fontWeight: '500', color: c.primaryText },
-  bannerDot: { position: 'absolute', top: -2, right: -2, width: 7, height: 7, borderRadius: 4, backgroundColor: c.notifyPink },
   participant: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 48 },
+  // 공유 창 참여자 동그라미: 모두 40(예전엔 내 것만 44 + 연필 받침이라 크기가 달랐다, 2026-11-08 지라 686). 왕관 받침이 밖으로 나오게 틀은 자르지 않고 안쪽만 자른다
   avatar: {
-    width: 36,
-    height: 36,
-    borderRadius: 18, // 사진 · 기본 프로필이 동그라미라 틀도 동그라미(둥근 네모 틀이 비쳐 어긋났다)
+    width: 40,
+    height: 40,
+    borderRadius: 20, // 사진 · 기본 프로필이 동그라미라 틀도 동그라미(둥근 네모 틀이 비쳐 어긋났다)
     backgroundColor: c.primarySoft,
     alignItems: 'center',
     justifyContent: 'center',
   },
+  avatarClip: { width: '100%', height: '100%', borderRadius: 20, overflow: 'hidden' },
   avatarText: { color: c.text, fontSize: 13, fontWeight: '700' },
   // 도구줄 높이 36(눌림 영역은 hitSlop으로 44). 아래 간격은 '받은 초대' 글자 밑에서 첫 카드까지 12(초대 링크 확인 글자와 입력칸 사이와 같게)
   notificationToolbar: { flexDirection: 'row', alignItems: 'center', gap: 4, minHeight: 36, marginBottom: -13 },
   toolbarButton: { minWidth: 36, height: 36, paddingHorizontal: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, borderRadius: radius.md },
-  invitationsLabel: { fontSize: 14, fontWeight: '700', color: c.text },
   notificationActionText: { fontSize: 14, fontWeight: '600', color: c.primaryText },
+  invitationsLabel: { fontSize: 14, fontWeight: '700', color: c.text },
   invitationList: { gap: 12 },
   invitationCover: { width: 42, height: 56, alignItems: 'center', justifyContent: 'center' },
   invitationInfo: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 56 },
@@ -109,8 +109,6 @@ export const sharingStyles = StyleSheet.create({
   invitationPast: { backgroundColor: c.surfaceSoft },
   phoneInvitationButton: { flex: 1, minWidth: 0, paddingHorizontal: 8 },
   invitationButton: { width: 64, paddingHorizontal: 0 },
-  moreLink: { minWidth: 64, height: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 2 },
-  moreLinkText: { fontSize: 14, fontWeight: '600', color: c.primaryText },
   invitationActionsRow: { flexDirection: 'row', gap: 12, alignItems: 'center' },
   invitation: {
     padding: 14,
@@ -120,7 +118,6 @@ export const sharingStyles = StyleSheet.create({
     backgroundColor: c.surface,
     gap: 12,
   },
-  skeleton: { height: 96, borderRadius: radius.lg, backgroundColor: c.surfaceMuted },
   linkSection: { marginTop: 8, paddingTop: 20, borderTopWidth: 1, borderColor: c.cardBorder, gap: 12 },
   linkCheck: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   linkCheckButton: { width: 80, minHeight: 48 },
@@ -188,16 +185,34 @@ export const sharingStyles = StyleSheet.create({
     ...shadow.float,
   },
   inputActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  linkRow: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 48 },
-  linkActions: {
-    minWidth: 76,
-    flexShrink: 0,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'flex-end',
-    gap: 4,
-  },
-  linkActionsCreated: { width: 44, minWidth: 44 },
+  // 초대 구역(지라 686): 머리줄은 ⋯ 가 있든 없든 44 높이, 두 초대 버튼은 같은 폭 · 높이 48 · 흰 면 + primary 1px, 상태 줄은 늘 18 자리
+  // 프로필 수정: 표지 대신 '다이어리' 라벨 + 이름 한 줄(15/600)
+  profileDiaryLine: { gap: 4 },
+  profileDiaryName: { fontSize: 15, lineHeight: 22, fontWeight: '600', color: c.text },
+  // 초대 칸(지라 686, 노션 · 디스코드): 이메일 · 링크 모두 [흰 칸 48 + 안쪽 채운 버튼 40]. 칸 테두리는 경계선 색, 버튼은 primaryStrong
+  inviteFieldText: { flex: 1, minWidth: 0, fontSize: 14, fontWeight: '600', color: c.text },
+  inviteFieldPlaceholder: { color: c.textMuted },
+  inviteFieldButtonText: { fontSize: 14, fontWeight: '700', color: c.surface },
+  // 이메일 줄(노션): [이메일 칸(field)] + 옆 채운 '초대' 버튼 48
+  inviteEmailRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  // '이메일 주소로 초대' · '초대 링크로 초대' 제목 줄: 라벨(+ 새로고침 아이콘 44). 둘 다 같은 높이 44. 위아래 간격을 줄여 아래 링크 칸에 붙인다
+  inviteLinkHead: { flexDirection: 'row', alignItems: 'center', minHeight: 44, marginTop: -6, marginBottom: -8 },
+  // 새로고침 아이콘은 그림 오른쪽 끝을 아래 '복사' 버튼 오른쪽 끝에 맞춘다(44 터치 칸 안 여백 12 만큼 밖으로)
+  inviteRelink: { marginRight: -12 },
+  // 초대 구역 제목('이메일 주소로 초대' · '초대 링크로 초대'): 흐린 12 안내 · 상태 글자와 구분되게 진한 글자 14/700
+  inviteHeadText: { fontSize: 14, lineHeight: 20, fontWeight: '700', color: c.text },
+  // 구분선 바로 아래 첫 제목('이메일 주소로 초대')은 위 간격을 줄인다
+  inviteFirstHead: { marginTop: -8 },
+  // 링크 칸: 이메일 칸(field)과 같은 틀, 글자는 가운데 줄
+  inviteLinkBox: { flexDirection: 'row', alignItems: 'center', paddingVertical: 0 },
+  // 복사: 초대와 같은 크기, 흰 면 + primary 1px 테두리(보조 동작)
+  inviteCopyButton: { minWidth: 72, height: 48, paddingHorizontal: 16, borderRadius: radius.md, borderWidth: 1, borderColor: c.primary, backgroundColor: c.surface, alignItems: 'center', justifyContent: 'center' },
+  inviteCopyButtonText: { fontSize: 14, fontWeight: '700', color: c.text },
+  inviteEmailButton: { minWidth: 72, height: 48, paddingHorizontal: 16, borderRadius: radius.md, backgroundColor: c.primaryStrong, alignItems: 'center', justifyContent: 'center' },
+  // 머리줄 종 아이콘의 새 초대 점(앱 공용 알림 점과 같은 색 · 크기)
+  headerDot: { position: 'absolute', top: 10, right: 11, width: 7, height: 7, borderRadius: 4, backgroundColor: c.notifyPink },
+  inviteStatus: { minHeight: 18, marginTop: -4 },
+
   link: {
     minHeight: 48,
     paddingVertical: 2,
@@ -210,7 +225,6 @@ export const sharingStyles = StyleSheet.create({
     borderRadius: radius.md,
     backgroundColor: c.surfaceMuted,
   },
-  linkTextContainer: { flex: 1, minWidth: 0, justifyContent: 'center' },
   linkText: { fontSize: 12.5, fontWeight: '600', color: c.text },
   button: {
     minHeight: 48,
@@ -240,36 +254,18 @@ export const sharingStyles = StyleSheet.create({
     borderRadius: 4,
     backgroundColor: c.notifyPink, // 알림 점은 쿨톤 핑크(사용자 지시, 색 규칙의 유일한 예외)
   },
-  peopleBackdrop: { flex: 1 },
-  peopleCard: {
-    position: 'absolute',
-    padding: 24,
-    borderRadius: radius.xl,
-    backgroundColor: c.surface,
-    borderWidth: 1,
-    borderColor: c.border,
-    ...shadow.float,
-  },
-  peopleTitle: { fontSize: 16, fontWeight: '700', color: c.text, marginBottom: 8 },
-  peopleList: { marginTop: 12, flexShrink: 1 },
-  peopleRow: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 72 },
-  peopleAvatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: c.primarySoft,
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
-  },
-  peopleAway: { backgroundColor: c.surfaceMuted },
-  peopleAwayText: { color: c.textMuted },
   entryGroup: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   // 편집 화면 상단 바(variant 'bar'): 참여자 · 공유를 레이어와 같은 테두리 칩(높이 44 · 모서리 10 · 흰 면 + cardBorder)으로 맞춘다
   // 참여자 사진은 칩 틀(테두리 · 흰 면) 없이 사진만 둔다
   barMembers: { height: 44, minWidth: 44, paddingHorizontal: 4, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
   barCounter: { width: 20, height: 20, borderRadius: 10, marginLeft: -4, alignItems: 'center', justifyContent: 'center', backgroundColor: c.surfaceMuted },
   barCounterText: { fontSize: 11, fontWeight: '700', color: c.text },
+  // 얼굴을 누르면 잠깐 뜨는 닉네임(지라 680): 앱의 작은 알림(ActionToast)과 같은 어두운 알약, 12/700 흰 글자. 폭 160 칸 가운데에 맞춘다
+  namePeek: { position: 'absolute', top: '100%', marginTop: 2, width: 160, alignItems: 'center', zIndex: 20 },
+  namePeekPill: { maxWidth: 160, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, backgroundColor: c.text },
+  namePeekText: { fontSize: 12, lineHeight: 16, fontWeight: '700', color: c.surface },
+  // 접속 안 한 사람: 흰 바탕 위에 얼굴만 흐리게(OFFLINE_OPACITY)
+  memberCircleOffline: { backgroundColor: c.surface },
   barEntry: { height: 44, minWidth: 44, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, borderRadius: radius.md, borderWidth: 1, borderColor: c.cardBorder, backgroundColor: c.surface },
   barEntryIcon: { paddingHorizontal: 0 },
   barEntryPlain: { width: 40, minWidth: 40, height: 40, borderWidth: 0, backgroundColor: 'transparent' },

@@ -201,6 +201,8 @@ headerCreateText: { color: C.white, fontSize: 13, fontWeight: '700' },
   // 빈 화면은 폰·태블릿 모두 테두리 상자 없이 아이콘과 문구만 둔다.
   empty: { flex: 1, minHeight: 380, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 30 },
   emptyCompact: { minHeight: 280 },
+  emptySmall: { minHeight: 0 },
+  emptyTitleSmall: { fontSize: 16, letterSpacing: -0.3 },
   emptyRaised: { paddingBottom: 160 }, // 빈 보관함 · 공방: 캐릭터 · 문구를 화면 가운데보다 약간 위로(아래 여백만큼 가운데가 올라간다, 사용자가 맞춘 값)
   emptyRaisedTrash: { paddingBottom: 112 }, // 빈 휴지통: 가운데보다 56 위(코덱스 12번)
   emptyRaisedCompact: { paddingBottom: 100 },

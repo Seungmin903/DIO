@@ -350,10 +350,10 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
     onStateChange: state => { setAppLockState(state); if (state === 'off') setAppLocked(false); },
   });
   const [sharingRequest, setSharingRequest] = useState(null);
-  const openSafetyParticipants = (diary, target) => {
+  const openSafetyParticipants = (diary, target, action) => {
     const previous = sharingRequest;
     setSharingRequest(null);
-    safety.openParticipants(diary, { target, onClosed: () => setSharingRequest(previous) });
+    safety.openParticipants(diary, { target, action, onClosed: () => setSharingRequest(previous) });
   };
   // 초대 푸시도 공유 입구(sharingGate)를 거친다. 효과가 다시 걸리지 않게 최신 입구를 ref로 읽는다
   const sharingGateRef = useRef(null);

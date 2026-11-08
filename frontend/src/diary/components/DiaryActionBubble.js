@@ -57,8 +57,9 @@ export default function DiaryActionBubble({ anchor, title, actions, onClose, vis
             onPress={action.onPress}
             style={({ pressed }) => [local.row, index > 0 && local.rowDivider, action.disabled && { opacity: DISABLED_OPACITY }, pressed && local.pressed]}
           >
-            <AppIcon name={action.icon} size={20} forText={15} color={colors.text} fill={action.filled ? colors.text : 'none'} />
-            <Text style={local.rowText}>{action.text}</Text>
+            {/* danger: 되돌리기 어려운 동작(내보내기 · 차단하기)은 글자 · 아이콘을 dangerStrong 으로(2026-11-08 지라 686) */}
+            <AppIcon name={action.icon} size={20} forText={15} color={action.danger ? colors.dangerStrong : colors.text} fill={action.filled ? colors.text : 'none'} />
+            <Text style={[local.rowText, action.danger && { color: colors.dangerStrong }]}>{action.text}</Text>
           </Pressable>
         ))}
       </View>

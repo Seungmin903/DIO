@@ -154,7 +154,7 @@ const server = http.createServer((req, res) => {
       await button(`${title} 알림 삭제`).click();
       await button(`${title} 알림 삭제`).waitFor({ state: 'detached' });
     }
-    await page.getByText('받은 초대가 없어요.').waitFor();
+    await page.getByText('받은 초대가 없어요').waitFor();
     assert.deepEqual(errors, []);
     console.log(
       'PASS: 5 viewport layouts, owner permissions/removal/link, nickname duplicate/recheck/cancel, accept/leave, invalid links; no page errors',
