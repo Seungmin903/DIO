@@ -71,15 +71,42 @@ services:
       SIGNUP_SERVICE_TERMS_VERSION: "${SIGNUP_SERVICE_TERMS_VERSION:-v2}"
       SIGNUP_PRIVACY_TERMS_VERSION: "${SIGNUP_PRIVACY_TERMS_VERSION:-v2}"
       SIGNUP_MARKETING_TERMS_VERSION: "${SIGNUP_MARKETING_TERMS_VERSION:-v1}"
+      # 사진 속 대상 오리기: 같은 compose의 ai 컨테이너를 내부망으로 부른다.
+      AI_SERVER_URL: "http://ai:8000"
+      DIO_AI_API_KEY: "${DIO_AI_API_KEY:?DIO_AI_API_KEY is required}"
     volumes:
       - signup-profile-photos:/app/.local-data/profile-photos
     networks:
       development-db:
+      ai:
       proxy:
         aliases:
           - backend-dev
 
+  # SAM 2 사진 속 대상 오리기 서버(ai/). 외부 포트 없이 backend만 접근한다.
+  # 사진 임베딩을 메모리에 두므로 컨테이너는 하나만 띄운다. 메모리·CPU 상한으로 백엔드·DB를 보호한다.
+  ai:
+    image: ${AI_IMAGE:?AI_IMAGE is required}
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+        compress: "true"
+    environment:
+      DIO_AI_API_KEY: "${DIO_AI_API_KEY:?DIO_AI_API_KEY is required}"
+      # 사진 1장 임베딩 ≈ 23MB(실측). 24장이면 약 1.3GB로 2GB 상한 안에 여유를 둔다.
+      SAM2_CACHE_SIZE: "24"
+    mem_limit: 2g
+    cpus: 2
+    networks:
+      ai:
+
 networks:
+  # backend ↔ ai 전용. internal이라 외부 인터넷으로 나가지도, 밖에서 들어오지도 않는다.
+  ai:
+    internal: true
   development-db:
     external: true
     name: dio-dev_default
