@@ -24,7 +24,7 @@ test('기본 메모지 12종은 윤곽선 없는 단색 종이 + 무늬 하나 �
     assert.match(art.svg, /^<svg [^>]*viewBox="0 0 220 \d+"/)
     assert.ok(art.svg.includes('{paper}') && art.svg.endsWith('</svg>'), art.id)
     // 캐릭터 그림 · 창 메모 삼색 점만 정해진 색을 쓴다
-    const pattern = art.svg.replace(/<g class="character">.*?<\/g>/, '').replace(/<g class="dots"[^>]*>.*?<\/g>/, '')
+    const pattern = art.svg.replace(/<g class="character"[^>]*>.*?<\/g>/, '').replace(/<g class="dots"[^>]*>.*?<\/g>/, '')
     assert.equal(pattern !== art.svg, Boolean(art.character || art.dots), art.id)
     assert.doesNotMatch(pattern, /#[0-9a-f]{3,6}\b|<text|<image|<filter|<mask|Gradient/i, art.id)
     // 종이 바탕은 불투명하고 바깥 윤곽선이 없다(흰 인덱스 카드만 흰 속지에 묻혀 윤곽선을 남긴다)

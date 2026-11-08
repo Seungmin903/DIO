@@ -15,7 +15,7 @@ import numpy as np
 from PIL import Image
 
 HERE = Path(__file__).resolve().parent.parent
-CHAR = HERE.parent / '캐릭터 디자인' / '최종시안.png'
+CHAR = HERE.parent / '캐릭터 디자인' / '지난 버전' / '2026-11-04 최종시안' / '최종시안.png'
 
 MASCOTS = ('MASCOTS — copy them EXACTLY from the attached character sheet (char.png), never redesign them: '
            'MOA is a butter-yellow (#FEF0BF) rectangular book with rounded corners, a thin page block on its right side, a small lavender (#DBDCF9) bookmark tab sticking out at the upper right, '

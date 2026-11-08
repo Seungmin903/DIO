@@ -57,6 +57,6 @@ test('팔레트 편집: 고치는 칸은 촘촘한 점선 고리(SVG 6조각), �
 
 test('도트 스티커 디오&모아 윤곽선은 코코아 #5b3a29', () => {
   const stickers = read('../src/editor/builtinStickers.js')
-  assert.equal((stickers.match(/\["#5b3a29"/g) || []).length, 20)
+  assert.equal((stickers.match(/\["#5b3a29"/g) || []).length, 24)
   assert.doesNotMatch(stickers, /#1c1c1c/i)
 })
