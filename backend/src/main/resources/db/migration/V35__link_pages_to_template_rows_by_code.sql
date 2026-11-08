@@ -7,7 +7,7 @@
 --   2. 후보 중 활성 행이 정확히 하나면 그 행(서비스의 페이지 추가와 같은 기준).
 --   3. 활성 행이 없고 비활성 행만 정확히 하나면 그 행. 페이지를 만들 때는 쓰던 속지가 나중에 내려간 경우로, 페이지는 그 속지를 계속 가리킨다(페이지 응답은 비활성 행도 읽는다).
 --   4. 그 밖(활성 행 여럿, 비활성 행만 여럿)은 어느 행인지 정할 수 없어 건너뛴다.
--- 되돌리기: page_template_v35_links 에 남긴 페이지의 template_id 를 NULL 로, version · updated_at 을 previous_* 로 돌린다.
+-- 되돌리기: docs/page-template-v35-rollback.sql. V35 뒤에 다시 수정되지 않은 페이지만 template_id 를 NULL 로, version · updated_at 을 이전 값으로 돌린다.
 CREATE TABLE page_template_v35_links (
     page_id UUID PRIMARY KEY,
     linked_template_id BIGINT NOT NULL,

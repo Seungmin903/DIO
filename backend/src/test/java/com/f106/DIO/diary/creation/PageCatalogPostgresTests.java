@@ -146,7 +146,7 @@ class PageCatalogPostgresTests {
         assertThat(jdbc.queryForObject("select default_config->>'blank' from page_templates where code='dio-remote-landscape'",String.class)).isEqualTo("false");
     }
 
-    @Test void V35LinksPagesThatOnlyNamedTheirTemplateByCode() {
+    @Test void V35LinksPagesThatOnlyNamedTheirTemplateByCode() throws Exception {
         flyway("34").migrate();
         jdbc.update("insert into users(user_id,nickname,nickname_key) values(1,'owner','owner')");
         UUID diary=UUID.randomUUID();
@@ -195,12 +195,24 @@ class PageCatalogPostgresTests {
         // 되돌리기용 기록: 연결한 두 페이지만, 이전 version · updated_at 과 함께
         assertThat(jdbc.queryForList("select previous_version from page_template_v35_links order by previous_version",Long.class)).containsExactly(1L,1L,2L,5L);
         assertThat(jdbc.queryForObject("select count(*) from page_template_v35_links where previous_updated_at = timestamp '2000-01-01 00:00:00+00'",Long.class)).isEqualTo(4L);
+
+        // 되돌리기 스크립트: V35 뒤에 수정된 페이지(remote)는 건드리지 않고, 그대로인 페이지만 이전 상태로 돌린다
+        jdbc.update("update pages set version=version+1 where page_id=?",remote);
+        String rollback=Files.readString(docsFile("page-template-v35-rollback.sql")).replace("\r\n","\n");
+        var transaction=Pattern.compile("(?ms)^\\s*BEGIN;\\s*$(.*?)^\\s*COMMIT;\\s*$").matcher(rollback);
+        assertThat(transaction.find()).isTrue();
+        assertThat(jdbc.update(transaction.group(1).strip())).isEqualTo(3);
+        assertThat(jdbc.queryForObject("select template_id is null from pages where page_id=?",Boolean.class,byCode)).isTrue();
+        assertThat(jdbc.queryForObject("select version from pages where page_id=?",Long.class,byCode)).isEqualTo(5L);
+        assertThat(jdbc.queryForObject("select updated_at = timestamp '2000-01-01 00:00:00+00' from pages where page_id=?",Boolean.class,byCode)).isTrue();
+        assertThat(jdbc.queryForObject("select t.code from pages p join page_templates t on t.template_id=p.template_id where p.page_id=?",String.class,remote)).isEqualTo("dio-remote-portrait");
+        assertThat(jdbc.queryForObject("select version from pages where page_id=?",Long.class,remote)).isEqualTo(4L);
     }
 
     @Test void deployCheckQueriesReturnNothingOnAFreshDatabase() throws Exception {
         flyway("latest").migrate();
         // 운영 배포 전에 실행할 확인 SQL(docs). 앱이 보내는 코드를 빠짐없이 담고, 마이그레이션만 한 DB 에서는 두 조회 모두 0행이어야 한다
-        String sql=java.nio.file.Files.readString(java.nio.file.Path.of("..","docs","다이어리 저장","속지 코드 배포 전 확인.sql"));
+        String sql=Files.readString(docsFile("다이어리 저장","속지 코드 배포 전 확인.sql")).replace("\r\n","\n");
         for(var row:contract.get("templates")) assertThat(sql).contains("('"+row.get("templateCode").asString()+"', '"+row.get("templateVersion").asString()+"')");
         for(var code:List.of("study-planner-landscape","study-planner-portrait","day-planner-landscape","day-planner-portrait","dio-remote-landscape","dio-remote-portrait")) assertThat(sql).contains("('"+code+"', '1.0.0')");
         var queries=java.util.Arrays.stream(sql.replaceAll("(?m)^--.*$","").split(";")).map(String::trim).filter(q->!q.isEmpty()).toList();
@@ -303,11 +315,15 @@ class PageCatalogPostgresTests {
 
     /** CI mounts docs at /workspace/docs while local Gradle runs from backend/. */
     private Path v27RollbackDocument() {
-        return List.of(
-                Path.of("docs","page-template-v27-rollback.sql"),
-                Path.of("..","docs","page-template-v27-rollback.sql"))
-            .stream().filter(Files::isRegularFile).findFirst()
-            .orElseThrow(() -> new AssertionError("V27 rollback document is missing"));
+        return docsFile("page-template-v27-rollback.sql");
+    }
+
+    /** docs 아래 파일. CI 는 docs 를 /workspace/docs 에 두고, 로컬 Gradle 은 backend/ 에서 돈다. 둘 다 아니면 위로 올라가며 저장소의 docs 를 찾는다 */
+    private static Path docsFile(String... parts) {
+        var candidates=new ArrayList<Path>(List.of(Path.of("docs",parts),Path.of("..").resolve(Path.of("docs",parts))));
+        for(Path dir=Path.of("").toAbsolutePath();dir!=null;dir=dir.getParent()) candidates.add(dir.resolve(Path.of("docs",parts)));
+        return candidates.stream().filter(Files::isRegularFile).findFirst()
+            .orElseThrow(() -> new AssertionError("docs file is missing: "+String.join("/",parts)));
     }
 
     @Test void upgradePreservesExistingIdsCustomDefaultsInactiveStateOldVersionsAndHistoricalPages() throws Exception {
