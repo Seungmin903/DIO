@@ -16,7 +16,8 @@ function setup(report, store, onClose = () => {}) {
     useRef: initial => refs[ri++] ??= { current: initial },
     useEffect: (fn, next) => { const i = ei++; if (!deps[i] || next.some((v, j) => v !== deps[i][j])) { cleanups[i]?.(); deps[i] = next; cleanups[i] = fn(); } },
   };
-  const native = { Platform: { OS: 'android' }, useWindowDimensions: () => ({ width: 800, height: 600 }) };
+  const window = { width: 800, height: 600 };
+  const native = { Platform: { OS: 'android' }, useWindowDimensions: () => window };
   for (const type of ['ActivityIndicator', 'Image', 'KeyboardAvoidingView', 'Pressable', 'ScrollView', 'Text', 'TextInput', 'View']) native[type] = type;
   const mocks = { react, 'react-native': native, 'react-native-safe-area-context': { SafeAreaView: 'safe' }, './safetyModel': model,
     '../shared/useFormFactor': { useFormFactor: () => ({ isPhone: true }) }, '../shared/theme': { colors: {} },
@@ -29,11 +30,11 @@ function setup(report, store, onClose = () => {}) {
     state: { status: 'ready', blocks: [] }, onClose, evidencePicker: async () => [{ uri: 'file:///evidence.png', fileName: 'evidence.png', mimeType: 'image/png', size: 500 }] };
   if (store) props.store = store;
   const render = () => { si = ri = ei = 0; if (store) props.state = store.getSnapshot(); return mod.exports.default(props); };
-  return { render, find: text => nodes(render()).find(n => label(n) === text), unmount: () => cleanups.forEach(fn => fn?.()) };
+  return { render, find: text => nodes(render()).find(n => label(n) === text), window, unmount: () => cleanups.forEach(fn => fn?.()) };
 }
-function openMemberMenu(ui, name = '친구 메뉴') {
+function openMemberMenu(ui, name = '친구 메뉴', anchor = [700, 100, 48, 48]) {
   const button = ui.find(name);
-  button.props.ref({ measureInWindow: callback => callback(700, 100, 48, 48) });
+  button.props.ref({ measureInWindow: callback => callback(...anchor) });
   button.props.onPress();
 }
 test('신고 화면은 실패 후 설명·증빙·요청 ID를 보존하고 성공한 뒤 새 신고에만 ID를 바꾼다', async () => {
@@ -121,15 +122,25 @@ test('전체 참여자 보기 헤더는 이전 화면과 창 닫기를 모두 �
   } finally { ui.unmount(); }
 });
 
-test('참여자 메뉴는 앵커를 측정한 뒤에만 열리고 신고 선택 시 닫힌다', () => {
+test('참여자 메뉴는 앵커 측정이 불가능해도 대체 위치로 열리고 신고 선택 시 닫힌다', () => {
   const ui = setup(async () => {});
   try {
     ui.find('친구 메뉴').props.onPress();
-    assert.equal(ui.find('신고하기'), undefined);
-    openMemberMenu(ui);
     assert.ok(ui.find('신고하기'));
     ui.find('신고하기').props.onPress();
     assert.equal(ui.find('신고하기'), undefined);
     assert.equal(ui.find('신고 접수하기').props.disabled, true);
+  } finally { ui.unmount(); }
+});
+
+test('참여자 메뉴는 창 크기 변경 시 닫히고 우측 안전 여백을 지킨다', () => {
+  const ui = setup(async () => {});
+  try {
+    openMemberMenu(ui, '친구 메뉴', [790, 100, 48, 48]);
+    const menu = nodes(ui.render()).find(node => Array.isArray(node.props?.style) && node.props.style.includes('menu'));
+    assert.equal(menu.props.style[1].right, 16);
+    ui.window.width = 600;
+    ui.render();
+    assert.equal(ui.find('신고하기'), undefined);
   } finally { ui.unmount(); }
 });

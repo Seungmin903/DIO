@@ -31,7 +31,7 @@ const blockMessage = '서로 이메일 초대를 보내거나 수락할 수 없�
 
 export default function SafetyScreen({ request, user, store, state, onClose, onWarning, evidencePicker = pickEvidence }) {
   const { isPhone } = useFormFactor();
-  const { width: windowWidth } = useWindowDimensions();
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const [screen, setScreen] = useState(request.kind);
   const [rows, setRows] = useState(() => normalizeParticipants(request.diary?.members));
   const [loading, setLoading] = useState(false);
@@ -39,6 +39,7 @@ export default function SafetyScreen({ request, user, store, state, onClose, onW
   const [target, setTarget] = useState(request.target || null);
   const [menu, setMenu] = useState(null);
   const [menuAnchor, setMenuAnchor] = useState(null);
+  const [menuHeight, setMenuHeight] = useState(0);
   const [reason, setReason] = useState('');
   const [description, setDescription] = useState('');
   const [photos, setPhotos] = useState([]);
@@ -79,7 +80,7 @@ export default function SafetyScreen({ request, user, store, state, onClose, onW
     return () => clearTimeout(timer);
   }, [toast]);
   // 회전·분할 화면으로 창 폭이 바뀌면 이전 창 좌표를 쓰지 않는다.
-  useEffect(() => { setMenu(null); setMenuAnchor(null); }, [windowWidth]);
+  useEffect(() => { setMenu(null); setMenuAnchor(null); setMenuHeight(0); }, [windowWidth, windowHeight]);
   async function run(action) {
     if (locked.current) return;
     locked.current = true; setWorking(true); setError('');
@@ -143,11 +144,18 @@ export default function SafetyScreen({ request, user, store, state, onClose, onW
   }
   const title = zoom ? '증빙 사진' : ({ participants: '참여자', blocks: '차단한 사용자', report: '신고하기', complete: '신고 접수', warning: '공유 다이어리 안내' }[screen]);
   const hasBlockData = !unavailable && state.status === 'ready';
-  const closeMenu = () => { setMenu(null); setMenuAnchor(null); };
+  const closeMenu = () => { setMenu(null); setMenuAnchor(null); setMenuHeight(0); };
   const toggleMenu = member => {
     if (menu === member.id) { closeMenu(); return; }
     setMenuAnchor(null);
-    menuButtons.current.get(member.id)?.measureInWindow?.((x, y, width, height) => {
+    setMenuHeight(0);
+    const button = menuButtons.current.get(member.id);
+    if (typeof button?.measureInWindow !== 'function') {
+      setMenuAnchor({ x: windowWidth / 2, y: windowHeight / 2, width: 0, height: 0 });
+      setMenu(member.id);
+      return;
+    }
+    button.measureInWindow((x, y, width, height) => {
       setMenuAnchor({ x, y, width, height });
       setMenu(member.id);
     });
@@ -164,10 +172,14 @@ export default function SafetyScreen({ request, user, store, state, onClose, onW
     </View>;
   }
   const menuMember = screen === 'participants' && !question && menu && menuAnchor ? rows.find(member => member.id === menu) : null;
-  const menuPosition = menuAnchor && {
-    top: menuAnchor.y + menuAnchor.height + 4,
-    right: Math.max(16, windowWidth - menuAnchor.x - menuAnchor.width),
-  };
+  const menuPosition = menuAnchor && (() => {
+    const edge = 16, gap = 4, height = menuHeight || 128;
+    const below = menuAnchor.y + menuAnchor.height + gap;
+    const top = below + height <= windowHeight - edge
+      ? below
+      : Math.max(edge, Math.min(menuAnchor.y - height - gap, windowHeight - height - edge));
+    return { top, right: Math.max(edge, windowWidth - menuAnchor.x - menuAnchor.width) };
+  })();
   return <>
     <EditorModal visible transparent animationType="none" onRequestClose={back}>
     <SafeAreaView style={[s.backdrop, isPhone && s.phoneBackdrop]}>
@@ -263,7 +275,7 @@ export default function SafetyScreen({ request, user, store, state, onClose, onW
     </EditorModal>
     {menuMember && <EditorModal visible transparent animationType="none" onRequestClose={closeMenu}>
       <Pressable accessible={false} style={s.menuOverlay} onPress={closeMenu}>
-        <Pressable accessible={false} style={[s.menu, menuPosition]} onPress={event => event.stopPropagation()}>
+        <Pressable accessible={false} style={[s.menu, menuPosition]} onLayout={event => setMenuHeight(event.nativeEvent.layout.height)} onPress={event => event.stopPropagation()}>
           <SafetyButton secondary onPress={() => startReport(menuMember)} disabled={busy}>신고하기</SafetyButton>
           {menuMember.activeAccount !== false && <SafetyButton secondary onPress={() => askBlock(menuMember)} disabled={busy || !hasBlockData}>{blocked(menuMember.id) ? '차단 해제' : '차단하기'}</SafetyButton>}
         </Pressable>
