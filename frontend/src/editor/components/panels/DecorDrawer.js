@@ -741,7 +741,11 @@ export default function DecorDrawer({ tab, onAdd, onTapeInserted, onToast, onClo
           setCategory(`folder:${id}`); setFolderDraft(null)
           onToast(`${stickers.length}개 스티커를 폴더에 저장했어요.`)
         }} />}
-      {cutoutFolder && <StickerCutoutModal folder={cutoutFolder} onClose={() => setCutoutFolder(null)} />}
+      {cutoutFolder && <StickerCutoutModal folder={cutoutFolder} onClose={() => setCutoutFolder(null)} onSave={async (folderId, name, stickers) => {
+        const id = await custom.saveGenerated(folderId, name, stickers)
+        setCategory(`folder:${id}`); setFolderDraft(null)
+        onToast('스티커를 폴더에 저장했어요.')
+      }} />}
       {!sheet && <View
         {...resizeHandlers}
         style={styles.resize}

@@ -25,7 +25,7 @@ const MENU_WIDTH = 148
 // 더보기 메뉴 높이 상한: 지금 가장 긴 메뉴(8줄 이하)가 다 보이는 높이. 자리가 모자랄 때만 줄고 그때 스크롤.
 // 메뉴 줄이 8개를 넘게 늘면 이 값도 같이 늘린다(넘으면 마지막 줄이 스크롤 뒤로 간다)
 const COMPACT_MENU_MAX_ROWS = 8
-const COMPACT_MENU_HEIGHT = COMPACT_MENU_MAX_ROWS * 44 + 10
+const COMPACT_MENU_HEIGHT = COMPACT_MENU_MAX_ROWS * 48 + 10 // 메뉴 줄 높이 48
 /** 요소에 걸린 링크 (스티커·테이프·사진은 href, 텍스트는 글자 서식의 첫 링크) */
 const linkOf = (object) => object?.href ?? object?.styleRanges?.find((range) => range.href)?.href ?? null
 // 요소 전체에 하이퍼링크를 거는 요소 (텍스트는 글자 서식 링크로 따로 건다)
@@ -140,7 +140,7 @@ export default function ContextBar({
     const toggleMore = () => { setOrderOpen(false); onToggleMore?.() }
     const actions = [
       { icon: 'layers', label: '순서', active: orderOpen, onPress: () => toggleOrder() },
-      { icon: 'more', label: '옵션', active: moreOpen, onPress: () => toggleMore() },
+      { icon: 'sliders', label: '옵션', active: moreOpen, onPress: () => toggleMore() },
       { icon: allLocked ? 'unlock' : 'lock', label: allLocked ? '잠금 해제' : '잠금', onPress: () => dispatch({ type: 'updateMany', record: true, patches: Object.fromEntries(ids.map((id) => [id, { locked: !allLocked }])) }) },
       { icon: 'copy', label: '복사', onPress: () => onCopy?.(objects) },
       { icon: 'clipboard', label: '붙여넣기', disabled: !canPaste, onPress: () => onPaste?.() },
@@ -207,14 +207,14 @@ export default function ContextBar({
         <BarButton icon="trash" label="삭제" danger onPress={() => dispatch({ type: 'removeObjects', ids })} />
         <View style={styles.divider} />
         <BarButton icon="crop" label="잘라내기" onPress={() => onCut?.(objects)} />
-        <BarButton icon="more" label="정렬·보정" active={moreOpen} onPress={onToggleMore} />
+        <BarButton icon="sliders" label="정렬·보정" active={moreOpen} onPress={onToggleMore} />
       </FadeScroll>
     </View>
   </>
 }
 
-// 바 버튼 너비 어림값: 좌우 여백 20 + 아이콘 17 + 간격 5 + 글자(12.5px 굵은 한글 ≈ 13px) + 버튼 사이 2
-const barButtonWidth = (label) => 44 + label.length * 13
+// 바 버튼 너비 어림값: 좌우 여백 20 + 아이콘 17 + 간격 6 + 글자(12.5px 굵은 한글 ≈ 13px) + 버튼 사이 2
+const barButtonWidth = (label) => 45 + label.length * 13
 const BAR_DIVIDER = 11 // 구분선 1 + 좌우 4 + 버튼 사이 2
 /** 앞쪽 버튼 전부와 구분선 · 더보기 버튼이 바(좌우 안쪽 여백 10)에 들어가는지 */
 const leadingFits = (leading, barMax) => !leading.length
@@ -269,7 +269,7 @@ export function CompactMenu({ position, maxHeight, insideHandlers, actions }) {
 function MenuAction({ icon, label, danger, disabled, onPress, style }) {
   const color = danger ? colors.danger : disabled ? colors.border : colors.text
   return <Pressable onPress={onPress} disabled={disabled} hitSlop={3} accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ disabled: Boolean(disabled) }} style={({ pressed }) => [styles.menuItem, style, pressed && styles.pressed]}>
-    <Icon name={icon} size={18} forText={13} color={color} /><Text style={[styles.menuText, { color }]}>{label}</Text>
+    <Icon name={icon} size={18} forText={14} color={color} /><Text style={[styles.menuText, { color }]}>{label}</Text>
   </Pressable>
 }
 
@@ -302,7 +302,7 @@ function OrderMenu({ placement, right, objects, allObjects, onPick }) {
             accessibilityState={{ disabled }}
             style={({ pressed }) => [styles.menuItem, pressed && styles.pressed]}
           >
-            <Icon name={action.icon} size={18} forText={13} color={disabled ? colors.border : colors.text} />
+            <Icon name={action.icon} size={18} forText={14} color={disabled ? colors.border : colors.text} />
             <Text style={[styles.menuText, disabled && styles.menuTextDisabled]}>{action.label}</Text>
           </Pressable>
         )
@@ -380,10 +380,11 @@ const styles = StyleSheet.create({
   compactMenuContent: { paddingVertical: 5 },
   compactMenuItem: { paddingHorizontal: 15, borderRadius: 0 },
   compactMenuThumb: { position: 'absolute', right: 3, width: 3, borderRadius: 2, backgroundColor: 'rgba(28,28,28,0.25)' },
-  menuItem: { flexDirection: 'row', alignItems: 'center', gap: 10, height: 44, paddingHorizontal: 10, borderRadius: 10 },
-  menuText: { fontSize: 13, fontWeight: '700', color: colors.text },
+  // 메뉴 항목은 가이드 '카드 제목 · 메뉴 항목 14/700', 터치 48 (2026-11-08 메뉴 줄 정리)
+  menuItem: { flexDirection: 'row', alignItems: 'center', gap: 10, height: 48, paddingHorizontal: 10, borderRadius: 10 },
+  menuText: { fontSize: 14, fontWeight: '700', color: colors.text },
   menuTextDisabled: { color: 'rgba(28,28,28,0.3)' },
-  button: { flexDirection: 'row', alignItems: 'center', gap: 5, height: 42, paddingHorizontal: 10, borderRadius: 11 },
+  button: { flexDirection: 'row', alignItems: 'center', gap: 6, height: 44, paddingHorizontal: 10, borderRadius: 11 }, // 상단 바 버튼과 같은 간격 6 · 높이 44
   buttonText: { fontSize: 12.5, fontWeight: '700', color: colors.text },
   buttonDisabled: { opacity: DISABLED_OPACITY },
   iconButton: { width: 42, height: 42, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },

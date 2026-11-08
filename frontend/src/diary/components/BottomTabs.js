@@ -22,7 +22,7 @@ function BottomTabs({ page, filter, navigate, bottomInset = 0 }) {
               style={({ pressed }) => [s.tabItem, pressed && s.pressed]}
             >
               <View collapsable={false} style={[s.tabIconPill, selected && s.tabIconPillSelected]}>
-                <AppIcon name={tab.icon} size={22} color={C.ink} fill="none" />
+                <AppIcon name={tab.icon} size={20} color={C.ink} fill="none" />{/* 태블릿 좌측 바 메뉴 아이콘과 같은 20 (2026-11-08 사용자 결정) */}
               </View>
               <Text numberOfLines={1} style={[s.tabLabel, selected && s.tabLabelSelected]}>{tab.label}</Text>
             </Pressable>

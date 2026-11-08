@@ -116,7 +116,7 @@ export const styles = StyleSheet.create({
   libraryOptionsDivider: { height: 1, backgroundColor: C.line, marginVertical: 8 },
   // 고른 항목의 파란 테두리(1.5)와 같은 두께를 모든 항목이 갖고(안 고른 건 투명), 체크 자리를 따로 두므로 왼쪽 여백은 줄인다. 그래야 글자가 항목마다 같은 자리에 선다.
   librarySortOption: { minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 14, borderRadius: 10 },
-  librarySortText: { flex: 1, color: C.ink, fontSize: 12, fontWeight: '600' },
+  librarySortText: { flex: 1, color: C.ink, fontSize: 14, fontWeight: '600' }, // 메뉴 항목 14 (가이드 표, 2026-11-08)
   librarySortHeader: { height: 28, paddingHorizontal: 14, color: C.blueStrong, fontSize: 12, lineHeight: 28, fontWeight: '700' },
   librarySortDivider: { height: 1, marginVertical: 6, backgroundColor: colors.cardBorder }, // 정렬(이 목록을 어떻게 볼지)과 휴지통(다른 곳으로 이동)을 나눈다
   librarySearchHeading: { flexDirection: 'row', alignItems: 'center', gap: 12, zIndex: 10 },
@@ -201,6 +201,8 @@ headerCreateText: { color: C.white, fontSize: 13, fontWeight: '700' },
   // 빈 화면은 폰·태블릿 모두 테두리 상자 없이 아이콘과 문구만 둔다.
   empty: { flex: 1, minHeight: 380, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 30 },
   emptyCompact: { minHeight: 280 },
+  emptySmall: { minHeight: 0 },
+  emptyTitleSmall: { fontSize: 16, letterSpacing: -0.3 },
   emptyRaised: { paddingBottom: 160 }, // 빈 보관함 · 공방: 캐릭터 · 문구를 화면 가운데보다 약간 위로(아래 여백만큼 가운데가 올라간다, 사용자가 맞춘 값)
   emptyRaisedTrash: { paddingBottom: 112 }, // 빈 휴지통: 가운데보다 56 위(코덱스 12번)
   emptyRaisedCompact: { paddingBottom: 100 },

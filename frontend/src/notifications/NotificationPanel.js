@@ -117,9 +117,9 @@ export default function NotificationPanel({ model, onInvitationReady }) {
       {mutation.canRetry ? <NotificationButton label="알림 처리 다시 시도" onPress={store.retryMutation} /> : <NotificationButton label="처리 안내 닫기" onPress={store.dismissMutation} />}
       {mutationNotice.refreshList && <NotificationButton label="처리 오류 후 목록 새로고침" onPress={store.refreshNotifications} />}
     </View>}
-    {/* 처음 불러오는 동안은 빈 화면과 같은 자리 가운데에 스피너만 둔다(다시 받을 때는 지금 목록을 그대로 둔다) */}
-    {(list.status === 'idle' || list.status === 'loading') && items.length === 0 && <View style={s.empty} accessible accessibilityRole="progressbar" accessibilityLabel="알림 목록 불러오는 중이에요." accessibilityState={{ busy: true }}><ActivityIndicator accessible={false} color={C.primary} /></View>}
-    {list.status === 'success' && items.length === 0 && <View testID="notification-empty" style={s.emptyBox} accessibilityLiveRegion="polite" aria-live="polite"><EmptyState compact art="dio" title="받은 알림이 없어요" /></View>}
+    {/* 처음 불러오는 동안은 빈 화면과 같은 자리 가운데에 스피너만 둔다. 다시 받을 때는 지금 목록 · 빈 화면을 그대로 둔다(빈 알림에서 새로고침하면 디오 → 스피너 → 디오로 깜빡였다, 2026-11-08) */}
+    {(list.status === 'idle' || list.status === 'loading') && items.length === 0 && !list.data && <View style={s.empty} accessible accessibilityRole="progressbar" accessibilityLabel="알림 목록 불러오는 중이에요." accessibilityState={{ busy: true }}><ActivityIndicator accessible={false} color={C.primary} /></View>}
+    {items.length === 0 && list.data && list.status !== 'error' && <View testID="notification-empty" style={s.emptyBox} accessibilityLiveRegion="polite" aria-live="polite"><EmptyState compact art="dio" title="받은 알림이 없어요" /></View>}
     {items.map(row => { const presentation = notificationPresentation(row);
       const pending = row.status === 'PENDING', joined = row.status === 'ACCEPTED';
       const EntryContent = presentation.canInspectInvitation ? Pressable : View;

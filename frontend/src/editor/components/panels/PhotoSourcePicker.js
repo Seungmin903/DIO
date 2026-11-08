@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from 'react-native'
 import { ToolPanelHeader, toolPanelStyles } from '../ToolPanel'
+import { padRows } from '../../utils/gridRows.js'
 import Icon from '../controls/Icon'
 import MediaImage from '../canvas/MediaImage'
 import { useMediaUri } from '../../hooks/useMediaUri'
@@ -11,12 +12,15 @@ import AppIcon from '../../../shared/AppIcon'
 import { mediaTooLargeLabel } from '../../../shared/mediaLimits.js'
 import { colors, radius, DISABLED_OPACITY } from '../../../shared/theme'
 
+// 673: 마지막 줄이 모자라면 빈 칸으로 채워 모든 칸이 같은 폭 · 같은 x 에 놓이게 한다(칸마다 maxWidth 로 폭이 달라지던 것을 막는다)
+const FILLER_KEY=item=>`filler-${item.__filler}`
+
 function PhotoRow({row,api,busy,onSelect,columns}) {
   const supported=canSelectMediaPhoto(row)
   const src=useMediaUri({mediaFileId:row.mediaFileId})
   const [failed,setFailed]=useState(false)
   useEffect(()=>{if(!supported)return;let alive=true;api.previewCached(row).catch(()=>{if(alive)setFailed(true)});return()=>{alive=false}},[api,row,supported])
-  return <Pressable accessibilityRole="button" accessibilityLabel={`사진 선택: ${row.originalFilename}`} accessibilityState={{disabled:busy||!supported}} disabled={busy||!supported} onPress={()=>onSelect(row)} style={[s.tile,{maxWidth:`${100/columns}%`},(busy||!supported)&&s.disabled]}>
+  return <Pressable accessibilityRole="button" accessibilityLabel={`사진 선택: ${row.originalFilename}`} accessibilityState={{disabled:busy||!supported}} disabled={busy||!supported} onPress={()=>onSelect(row)} style={[s.tile,(busy||!supported)&&s.disabled]}>
     <View style={s.thumbnail}>{src&&!failed?<MediaImage source={{uri:src}} animated={row.mimeType==='image/gif'} resizeMode="contain" style={s.image} onError={()=>setFailed(true)}/>:<View style={s.placeholder}><AppIcon name="image" size={28} color={colors.textMuted}/><Text style={s.placeholderText}>{!supported?mediaTooLargeLabel(row.mimeType):failed?'미리보기 실패':'선택해 불러오기'}</Text></View>}
       {row.mimeType==='image/gif'&&<View style={s.badge}><Text style={s.badgeText}>GIF</Text></View>}
     </View>
@@ -27,7 +31,7 @@ function PhotoRow({row,api,busy,onSelect,columns}) {
 function RecentPhotoRow({photo,onSelect,columns}) {
   const src=useMediaUri(photo)
   const label=photo.name||'사진'
-  return <Pressable accessibilityRole="button" accessibilityLabel={`사진 선택: ${label}`} accessibilityState={{disabled:!src}} disabled={!src} onPress={()=>onSelect(photo)} style={[s.tile,{maxWidth:`${100/columns}%`}]}>
+  return <Pressable accessibilityRole="button" accessibilityLabel={`사진 선택: ${label}`} accessibilityState={{disabled:!src}} disabled={!src} onPress={()=>onSelect(photo)} style={s.tile}>
     <View style={s.thumbnail}>{src?<MediaImage source={{uri:src}} animated={photo.extension==='gif'||/\.gif$/i.test(label)} resizeMode="contain" style={s.image}/>:<AppIcon name="image" size={28} color={colors.textMuted}/>}</View>
   </Pressable>
 }
@@ -69,12 +73,12 @@ export default function PhotoSourcePicker({diary,onClose,onDevice,onSelect,onSel
       {member?<>
         {error&&<View accessibilityRole="alert" style={s.notice}><Text style={s.error}>{error}</Text><SourceOption label="다시 불러오기" disabled={busy} onPress={()=>load()}/></View>}
         {busy&&<ActivityIndicator style={s.loading} accessibilityLabel="사진 불러오는 중" color={colors.primaryStrong}/>}
-        <FlatList key={columns} {...gridProps} data={items.filter(row=>row.mediaType==='IMAGE')} keyExtractor={row=>row.mediaFileId}
-          renderItem={({item})=><PhotoRow row={item} api={api} busy={busy} onSelect={choose} columns={columns}/>}
+        <FlatList key={columns} {...gridProps} data={padRows(items.filter(row=>row.mediaType==='IMAGE'),columns)} keyExtractor={row=>row.__filler!==undefined?FILLER_KEY(row):row.mediaFileId}
+          renderItem={({item})=>item.__filler!==undefined?<View style={s.tile}/>:<PhotoRow row={item} api={api} busy={busy} onSelect={choose} columns={columns}/>}
           ListEmptyComponent={loaded&&!busy&&!error?<View style={s.empty}><AppIcon name="image" size={36} color={colors.textMuted}/><Text style={s.emptyText}>올린 사진이 없어요</Text></View>:null}
           ListFooterComponent={cursor?<SourceOption label="더 불러오기" disabled={busy} onPress={()=>load(true)}/>:null}/>
-      </>:recentPhotos.length>0&&<FlatList key={columns} {...gridProps} data={recentPhotos} keyExtractor={photoKey}
-        renderItem={({item})=><RecentPhotoRow photo={item} onSelect={onSelectRecent} columns={columns}/>}/>}
+      </>:recentPhotos.length>0&&<FlatList key={columns} {...gridProps} data={padRows(recentPhotos,columns)} keyExtractor={photo=>photo.__filler!==undefined?FILLER_KEY(photo):photoKey(photo)}
+        renderItem={({item})=>item.__filler!==undefined?<View style={s.tile}/>:<RecentPhotoRow photo={item} onSelect={onSelectRecent} columns={columns}/>}/>}
   </View>
 }
 
@@ -91,7 +95,7 @@ const s=StyleSheet.create({
   section:{paddingHorizontal:16,paddingTop:14,fontSize:12.5,fontWeight:'700',color:colors.text},
   sources:{paddingTop:10},source:{minHeight:48,paddingHorizontal:12,flexDirection:'row',alignItems:'center',gap:8,borderWidth:1,borderColor:colors.cardBorder,borderRadius:radius.md},
   sourceTitle:{flex:1,fontSize:12.5,fontWeight:'600',color:colors.text},
-  list:{flex:1},grid:{paddingHorizontal:16,paddingTop:10,paddingBottom:12,gap:6},gridRow:{gap:6},tile:{flex:1,minWidth:0},
+  list:{flex:1},grid:{paddingHorizontal:16,paddingTop:10,paddingBottom:12,gap:6},gridRow:{gap:6},tile:{flex:1,flexBasis:0,minWidth:0},
   thumbnail:{aspectRatio:1,width:'100%',backgroundColor:colors.surfaceSoft,borderRadius:radius.sm,overflow:'hidden',alignItems:'center',justifyContent:'center'},image:{width:'100%',height:'100%'},
   placeholder:{alignItems:'center',gap:8},placeholderText:{fontSize:12,color:colors.textMuted},
   muted:{fontSize:12,color:colors.textMuted,lineHeight:18},

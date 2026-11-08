@@ -282,6 +282,7 @@ export default function ProfileEditScreen({
         ? '비밀번호 변경'
         : '변경사항을 버릴까요?';
   const discardDialog = dialog === 'discard' || dialog === 'discard-password';
+  const withdrawDialog = dialog === 'withdraw'; // 지라 651: 공용 확인창 틀로 그린다(오른쪽 위 X 없음, 취소는 글자 버튼)
   // 저장 안 한 변경 확인: 안전한 `계속 수정하기`를 채움으로, 버리는 쪽은 글자만 위험색(폰: 위아래로 쌓고 계속 수정이 위, 태블릿: 오른쪽 정렬 나가기 → 계속 수정)
   const discardActions = discardDialog ? (
     <View style={compact ? s.discardActionsSheet : s.discardActions}>
@@ -312,7 +313,7 @@ export default function ProfileEditScreen({
         scrollEventThrottle={16}
         keyboardShouldPersistTaps="handled"
       >
-        <View style={s.rail}>
+        <View style={s.railWide}>
           <View style={s.heading}>
             <Pressable
               accessibilityRole="button"
@@ -461,12 +462,12 @@ export default function ProfileEditScreen({
             onScroll={modalForm.onScroll}
             scrollEventThrottle={16}
           >
-            <View style={[s.dialog, discardDialog && s.discardDialog, discardDialog && compact && s.sheetDialog]} accessibilityViewIsModal>
+            <View style={[s.dialog, withdrawDialog && s.confirmDialog, discardDialog && s.discardDialog, discardDialog && compact && s.sheetDialog]} accessibilityViewIsModal>
               <View style={s.dialogHeading}>
-                <Text accessibilityRole="header" style={s.dialogTitle}>
+                <Text accessibilityRole="header" style={[s.dialogTitle, withdrawDialog && s.confirmTitle]}>
                   {modalTitle}
                 </Text>
-                {!discardDialog && (
+                {!discardDialog && !withdrawDialog && (
                   <Pressable
                     accessibilityRole="button"
                     accessibilityLabel="확인 창 닫기"
@@ -543,7 +544,24 @@ export default function ProfileEditScreen({
                 )}
               </View>
               {discardActions}
-              {!discardDialog && (
+              {withdrawDialog && (
+              <View style={s.confirmActions}>
+                <Pressable accessibilityRole="button" accessibilityLabel="취소" disabled={busy} onPress={closeDialog} style={s.confirmButton}>
+                  <Text style={s.confirmCancelText}>취소</Text>
+                </Pressable>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="탈퇴하기"
+                  accessibilityState={{ disabled: busy || withdrawText !== WITHDRAW_TEXT }}
+                  disabled={busy || withdrawText !== WITHDRAW_TEXT}
+                  onPress={withdraw}
+                  style={[s.confirmButton, s.confirmDanger, (busy || withdrawText !== WITHDRAW_TEXT) && s.disabled]}
+                >
+                  {busy ? <ActivityIndicator color={colors.surface} /> : <Text style={s.confirmOkText}>탈퇴하기</Text>}
+                </Pressable>
+              </View>
+              )}
+              {!discardDialog && !withdrawDialog && (
               <View style={s.dialogActions}>
                 <Button label="취소" secondary disabled={busy} onPress={closeDialog} style={s.grow} />
                 {saveBeforePassword ? (

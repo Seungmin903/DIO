@@ -209,6 +209,9 @@ export default function App() {
     // 세션을 비우지 않고 게스트 세션으로 바로 바꾼다(그사이 빈 화면이 없다)
     startGuest();
   };
+  // 회원 탈퇴를 마치면 게스트 홈으로 돌아가며 보관함이 통째로 바뀌므로, 완료 토스트는 바뀌지 않는 앱 맨 위에서 띄운다(지라 670)
+  const [accountToast, setAccountToast] = useState(null);
+  const withdrawSession = () => { clearSession(); setAccountToast({ key: Date.now(), message: '회원 탈퇴가 완료됐어요.' }); };
   const endSession = async () => {
     try {
       if (authenticatedSession) await authService.logout();
@@ -261,19 +264,32 @@ export default function App() {
         previewSession ? <LoginGateProvider authenticated={!!authenticatedSession && !loginRequest?.sessionExpired} onLogin={openLogin}><SessionDiaryApp key={authenticatedSession ? `authenticated:${memberSessionKey || authenticatedSession.userId}` : 'preview'} previewUser={previewSession} loginOverlayOpen={Boolean(loginRequest)}
           onUpdatePreview={updated => setPreviewSession(current => current?.mode === updated.mode &&
             (current?.mode === 'authenticated' ? String(current.userId) === String(updated.userId) : current?.accountId === updated.accountId) ? updated : current)}
-          onEndPreview={endSession} onClearSession={clearSession} /></LoginGateProvider> : null
+          onEndPreview={endSession} onClearSession={clearSession} onWithdrawn={withdrawSession} /></LoginGateProvider> : null
       )}
       {!booting && !previewSession && !mockSource && !restoreFailed && <View style={[s.empty, { backgroundColor: SPLASH.backgroundColor }]}><Text style={s.emptyCopy} accessibilityLiveRegion="polite">앱을 준비하고 있어요…</Text></View>}
       {!booting && restoreFailed && <SessionRestoreScreen error={restoreState.error} busy={restoreState.status !== 'error'} onRetry={restoreLogin}
         onLogin={() => setLoginRequest({ sessionExpired: restoreState.error?.sessionExpired === true,
           restoreSession: __DEV__ && restoreState.error?.code === 'DEVELOPMENT_ACCESS_REQUIRED' })} onGuest={continueAsGuest} />}
       {!booting && loginRequest && <EditorModal visible transparent animationType="none" onRequestClose={closeLogin}><View style={[StyleSheet.absoluteFill, { zIndex: 10 }]}><AuthScreen key={loginRequest.sessionExpired ? 'expired' : 'login'} sessionExpired={loginRequest.sessionExpired === true} initialEmail={authenticatedSession?.email || ''} resumeSession={loginRequest.restoreSession === true} onContinue={continueFromLogin} onClose={closeLogin} /></View></EditorModal>}
+      {accountToast && <AccountToast key={accountToast.key} message={accountToast.message} onDone={() => setAccountToast(null)} />}
       <HandwritingStudio />
       {/* 프로필 사진 자르기(동그라미 틀). 로그인 화면 · 프로필 수정 모두 쓰므로 앱 맨 위에 하나 둔다 */}
       <ProfileCropHost />
       {booting && <BootSplash onReady={hideSplash} onComplete={finishBoot} />}
     </SafeAreaProvider>
   );
+}
+
+// 계정 작업(회원 탈퇴 등) 완료 알약. 세션이 바뀌어도 사라지지 않게 앱 맨 위에 두고 2초 뒤 스스로 닫는다
+// (ActionToast · useSafeAreaInsets · useFormFactor · useRef · useEffect 는 파일 위에서 이미 불러온다)
+function AccountToast({ message, onDone }) {
+  const insets = useSafeAreaInsets();
+  const { isPhone } = useFormFactor();
+  // onDone 은 App 이 그릴 때마다 새 함수라 의존성에 두면 타이머가 처음부터 다시 돈다(AI 리뷰) — 최신 것을 ref 로 들고 message 로만 센다
+  const done = useRef(onDone);
+  done.current = onDone;
+  useEffect(() => { const timer = setTimeout(() => done.current?.(), 2000); return () => clearTimeout(timer); }, [message]);
+  return <ActionToast compact={isPhone} bottom={(isPhone ? 76 : 96) + insets.bottom} message={message} />;
 }
 
 function LocalDiaryApp(props) {
@@ -301,7 +317,7 @@ function DiaryApp(props) {
 const HOME_ROUTE = { page: 'library', filter: DEFAULT_FILTER };
 const routeMemory = createRouteMemory(HOME_ROUTE);
 
-function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePreview, onReady, diaryState, sharing, loginOverlayOpen = false }) {
+function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onWithdrawn, onUpdatePreview, onReady, diaryState, sharing, loginOverlayOpen = false }) {
   const safety = useSafety();
   const member = diaryState.source === 'member-api';
   const [guestImport, setGuestImport] = useState(null);
@@ -350,10 +366,10 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
     onStateChange: state => { setAppLockState(state); if (state === 'off') setAppLocked(false); },
   });
   const [sharingRequest, setSharingRequest] = useState(null);
-  const openSafetyParticipants = (diary, target) => {
+  const openSafetyParticipants = (diary, target, action) => {
     const previous = sharingRequest;
     setSharingRequest(null);
-    safety.openParticipants(diary, { target, onClosed: () => setSharingRequest(previous) });
+    safety.openParticipants(diary, { target, action, onClosed: () => setSharingRequest(previous) });
   };
   // 초대 푸시도 공유 입구(sharingGate)를 거친다. 효과가 다시 걸리지 않게 최신 입구를 ref로 읽는다
   const sharingGateRef = useRef(null);
@@ -1023,11 +1039,11 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
   } else if (page === 'studio') {
     content = <DecorationStudioScreen compact={isPhone} registerBackHandler={registerStudioBackHandler} />;
   } else if (page === 'profile') {
-    content = <ProfileScreen onOpenBlockedUsers={safety.openBlocks} key="profile" guestImport={guestImport} compact={isPhone} diaries={visibleDiaries} previewUser={previewUser} onEndPreview={onEndPreview} onClearSession={onClearSession} onUpdatePreview={onUpdatePreview} registerLeaveGuard={registerProfileLeaveGuard}
+    content = <ProfileScreen onOpenBlockedUsers={safety.openBlocks} key="profile" guestImport={guestImport} compact={isPhone} diaries={visibleDiaries} previewUser={previewUser} onEndPreview={onEndPreview} onClearSession={onClearSession} onWithdrawn={onWithdrawn} onUpdatePreview={onUpdatePreview} registerLeaveGuard={registerProfileLeaveGuard}
       accountService={previewUser?.mode === 'authenticated' ? authService : undefined}
       getProfilePhotoSource={previewUser?.mode === 'authenticated' ? authService.getProfilePhotoSource : undefined} />;
   } else if (page === 'settings') {
-    content = <ProfileScreen onOpenBlockedUsers={safety.openBlocks} key="settings" section="settings" registerLeaveGuard={registerProfileLeaveGuard} compact={isPhone} previewUser={previewUser} onEndPreview={onEndPreview} onClearSession={onClearSession} onUpdatePreview={onUpdatePreview}
+    content = <ProfileScreen onOpenBlockedUsers={safety.openBlocks} key="settings" section="settings" registerLeaveGuard={registerProfileLeaveGuard} compact={isPhone} previewUser={previewUser} onEndPreview={onEndPreview} onClearSession={onClearSession} onWithdrawn={onWithdrawn} onUpdatePreview={onUpdatePreview}
       accountService={previewUser?.mode === 'authenticated' ? authService : undefined}
       getProfilePhotoSource={previewUser?.mode === 'authenticated' ? authService.getProfilePhotoSource : undefined} />;
   }

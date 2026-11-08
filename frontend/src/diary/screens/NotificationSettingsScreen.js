@@ -44,8 +44,9 @@ export default function NotificationSettingsScreen({ compact = false, onClose, u
 
   return (
     <ScrollView contentContainerStyle={[styles.scroll, compact && styles.phoneScroll]} showsVerticalScrollIndicator={false}>
-      <Header title="알림 설정" compact={compact} left={<BackButton label={backLabel} disabled={saving || termsSaving} onPress={onClose} />} />
       <View style={styles.list}>
+      <Header title="알림 설정" compact={compact} left={<BackButton label={backLabel} disabled={saving || termsSaving} onPress={onClose} />} />
+
         {blocked && <>
           <View style={styles.blockedRow}>
             <Text style={styles.rowLabel}>알림이 꺼져 있어요</Text>
@@ -85,7 +86,7 @@ export default function NotificationSettingsScreen({ compact = false, onClose, u
 const styles = StyleSheet.create({
   scroll: { flexGrow: 1, width: '100%', paddingHorizontal: 30, paddingTop: 38, paddingBottom: 44 },
   phoneScroll: { paddingHorizontal: 18, paddingTop: 16, paddingBottom: 48 },
-  list: { width: '100%', maxWidth: 760, alignSelf: 'center' },
+  list: { width: '100%', maxWidth: 1040, alignSelf: 'center' }, // 설정 · 회원정보 수정과 같은 최대 폭, 제목도 같은 칸 안에 둔다(지라 654)
   row: { minHeight: 88, flexDirection: 'row', alignItems: 'center', gap: 16, paddingVertical: 16 },
   blockedRow: { minHeight: 48, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
   openSettings: { minHeight: 44, paddingHorizontal: 14, alignItems: 'center', justifyContent: 'center', borderRadius: radius.md, backgroundColor: colors.surfaceMuted },

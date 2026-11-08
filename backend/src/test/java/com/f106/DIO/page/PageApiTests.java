@@ -257,8 +257,107 @@ class PageApiTests {
 
 
 	@Test
+	void pagesAddedByTemplateCodeAreLinkedToTheTemplateRow() throws Exception {
+		String diaryId=createDiary("속지 코드 페이지");
+		PageTemplate cover=versionedTemplate("link-cover-portrait",new BigDecimal("768.00"),new BigDecimal("1024.00"),"{}",true);
+		PageTemplate other=versionedTemplate("link-monthly-portrait",new BigDecimal("768.00"),new BigDecimal("1024.00"),"{}",true);
+		versionedTemplate("link-retired-portrait",new BigDecimal("768.00"),new BigDecimal("1024.00"),"{}",false);
+		String config="{\"templateCode\":\"link-cover-portrait\",\"templateVersion\":\"1.0.0\",\"clientPageRequestId\":\"6f1c2a4e-0d1b-4c3a-9f5e-2b7d8c9e0a11\"}";
+		// 앱처럼 templateId 없이 코드로 더하면 그 행에 연결된다(설정의 코드 · 버전은 옛 앱을 위해 그대로 둔다)
+		var created=body(mvc.perform(post("/api/v1/diaries/"+diaryId+"/pages").with(authenticated()).contentType(MediaType.APPLICATION_JSON)
+				.content("{\"canvasWidth\":768,\"canvasHeight\":1024,\"templateConfig\":"+config+"}"))
+			.andExpect(status().isCreated()).andReturn());
+		assertThat(created.at("/page/templateId").asLong()).isEqualTo(cover.getTemplateId());
+		assertThat(created.at("/page/templateCode").asText()).isEqualTo("link-cover-portrait");
+		assertThat(created.at("/page/templateConfig/templateCode").asText()).isEqualTo("link-cover-portrait");
+		// 같은 요청을 다시 보내면(네트워크 재시도) 찾은 행으로 비교해 같은 페이지를 돌려준다
+		mvc.perform(post("/api/v1/diaries/"+diaryId+"/pages").with(authenticated()).contentType(MediaType.APPLICATION_JSON)
+				.content("{\"canvasWidth\":768,\"canvasHeight\":1024,\"templateConfig\":"+config+"}"))
+			.andExpect(jsonPath("$.page.pageId").value(created.at("/page/pageId").asText()));
+		// 이 서버 배포 전에 만든 페이지(template_id 없음)를 만든 요청이 배포 뒤 재시도로 다시 와도 같은 페이지를 돌려준다
+		String legacyConfig="{\"templateCode\":\"link-cover-portrait\",\"templateVersion\":\"1.0.0\",\"clientPageRequestId\":\"7a2d3b5f-1e2c-4d4b-8a6f-3c8e9d0f1b22\"}";
+		String legacyId=body(mvc.perform(post("/api/v1/diaries/"+diaryId+"/pages").with(authenticated()).contentType(MediaType.APPLICATION_JSON)
+				.content("{\"canvasWidth\":768,\"canvasHeight\":1024,\"templateConfig\":"+legacyConfig+"}")).andReturn()).at("/page/pageId").asText();
+		boundaryJdbc.update("update pages set template_id=null where page_id=?",java.util.UUID.fromString(legacyId));
+		mvc.perform(post("/api/v1/diaries/"+diaryId+"/pages").with(authenticated()).contentType(MediaType.APPLICATION_JSON)
+				.content("{\"canvasWidth\":768,\"canvasHeight\":1024,\"templateConfig\":"+legacyConfig+"}"))
+			.andExpect(jsonPath("$.page.pageId").value(legacyId));
+		// 만든 뒤 응답을 잃은 사이 그 속지가 내려가거나(비활성) 활성 행이 겹쳐도, 같은 요청의 재시도는 이미 만든 페이지를 돌려준다
+		PageTemplate retry=versionedTemplate("link-retry-portrait",new BigDecimal("768.00"),new BigDecimal("1024.00"),"{}",true);
+		String retryConfig="{\"templateCode\":\"link-retry-portrait\",\"templateVersion\":\"1.0.0\",\"clientPageRequestId\":\"8b3e4c6a-2f3d-4e5c-9b7a-4d9f0e1a2c33\"}";
+		String retryBody="{\"canvasWidth\":768,\"canvasHeight\":1024,\"templateConfig\":"+retryConfig+"}";
+		String retryId=body(mvc.perform(post("/api/v1/diaries/"+diaryId+"/pages").with(authenticated()).contentType(MediaType.APPLICATION_JSON).content(retryBody))
+			.andExpect(status().isCreated()).andReturn()).at("/page/pageId").asText();
+		boundaryJdbc.update("update page_templates set is_active=false where template_id=?",retry.getTemplateId());
+		mvc.perform(post("/api/v1/diaries/"+diaryId+"/pages").with(authenticated()).contentType(MediaType.APPLICATION_JSON).content(retryBody))
+			.andExpect(jsonPath("$.page.pageId").value(retryId)).andExpect(jsonPath("$.page.templateCode").value("link-retry-portrait"));
+		boundaryJdbc.update("update page_templates set is_active=true where template_id=?",retry.getTemplateId());
+		PageTemplate retryCopy=activeTemplate("link-retry-portrait",new BigDecimal("768.00"),new BigDecimal("1024.00"),"{}");
+		setField(retryCopy,"templateVersion","1.0.0"); pageTemplateRepository.saveAndFlush(retryCopy);
+		mvc.perform(post("/api/v1/diaries/"+diaryId+"/pages").with(authenticated()).contentType(MediaType.APPLICATION_JSON).content(retryBody))
+			.andExpect(jsonPath("$.page.pageId").value(retryId));
+		// templateId 를 보낸 요청도 같다: 그 행이 내려간 뒤의 재시도는 이미 만든 페이지를 돌려주고, 새 요청은 내려간 속지라 404 다
+		PageTemplate byIdRow=versionedTemplate("link-retry-id-portrait",new BigDecimal("768.00"),new BigDecimal("1024.00"),"{}",true);
+		String byIdBody="{\"templateId\":"+byIdRow.getTemplateId()+",\"templateConfig\":{\"clientPageRequestId\":\"9c4f5d7b-3a4e-4f6d-8c8b-5e0a1f2b3d44\"}}";
+		String byIdPage=body(mvc.perform(post("/api/v1/diaries/"+diaryId+"/pages").with(authenticated()).contentType(MediaType.APPLICATION_JSON).content(byIdBody))
+			.andExpect(status().isCreated()).andReturn()).at("/page/pageId").asText();
+		boundaryJdbc.update("update page_templates set is_active=false where template_id=?",byIdRow.getTemplateId());
+		mvc.perform(post("/api/v1/diaries/"+diaryId+"/pages").with(authenticated()).contentType(MediaType.APPLICATION_JSON).content(byIdBody))
+			.andExpect(jsonPath("$.page.pageId").value(byIdPage));
+		mvc.perform(post("/api/v1/diaries/"+diaryId+"/pages").with(authenticated()).contentType(MediaType.APPLICATION_JSON).content("{\"templateId\":"+byIdRow.getTemplateId()+"}"))
+			.andExpect(status().isNotFound()).andExpect(jsonPath("$.code").value("PAGE_TEMPLATE_NOT_FOUND"));
+		// 서버에 없는 속지(오타 · 없는 버전 · 내린 속지)는 앱 업데이트로 풀릴 수 있어 다른 400과 코드를 나눈다
+		for (String unknown:new String[]{
+				"{\"templateConfig\":{\"templateCode\":\"link-cvoer-portrait\",\"templateVersion\":\"1.0.0\"}}",
+				"{\"templateConfig\":{\"templateCode\":\"link-cover-portrait\",\"templateVersion\":\"9.9.9\"}}",
+				"{\"templateConfig\":{\"templateCode\":\"link-retired-portrait\",\"templateVersion\":\"1.0.0\"}}"}) {
+			mvc.perform(post("/api/v1/diaries/"+diaryId+"/pages").with(authenticated()).contentType(MediaType.APPLICATION_JSON).content(unknown))
+				.andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("UNKNOWN_PAGE_TEMPLATE"));
+		}
+		// 버전 없는 코드 · templateId 와 어긋난 코드는 요청 형식 오류다
+		for (String bad:new String[]{
+				"{\"templateConfig\":{\"templateCode\":\"link-cover-portrait\"}}",
+				"{\"templateId\":"+other.getTemplateId()+",\"templateConfig\":{\"templateCode\":\"link-cover-portrait\",\"templateVersion\":\"1.0.0\"}}"}) {
+			mvc.perform(post("/api/v1/diaries/"+diaryId+"/pages").with(authenticated()).contentType(MediaType.APPLICATION_JSON).content(bad))
+				.andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("INVALID_PAGE_REQUEST"));
+		}
+		// 코드로 고른 속지와 페이지 크기가 다르면 저장하지 않는다(세로 속지 코드에 가로 크기)
+		mvc.perform(post("/api/v1/diaries/"+diaryId+"/pages").with(authenticated()).contentType(MediaType.APPLICATION_JSON)
+				.content("{\"canvasWidth\":1024,\"canvasHeight\":768,\"templateConfig\":{\"templateCode\":\"link-cover-portrait\",\"templateVersion\":\"1.0.0\"}}"))
+			.andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("INVALID_PAGE_REQUEST"));
+		// 같은 코드 · 버전의 활성 행이 여럿이면 사용자 오류가 아니라 서버 속지 목록 문제로 알린다
+		versionedTemplate("link-dup-portrait",new BigDecimal("768.00"),new BigDecimal("1024.00"),"{}",true);
+		PageTemplate duplicate=activeTemplate("link-dup-portrait",new BigDecimal("768.00"),new BigDecimal("1024.00"),"{}");
+		setField(duplicate,"templateVersion","1.0.0"); pageTemplateRepository.saveAndFlush(duplicate);
+		mvc.perform(post("/api/v1/diaries/"+diaryId+"/pages").with(authenticated()).contentType(MediaType.APPLICATION_JSON)
+				.content("{\"templateConfig\":{\"templateCode\":\"link-dup-portrait\",\"templateVersion\":\"1.0.0\"}}"))
+			.andExpect(status().isInternalServerError()).andExpect(jsonPath("$.code").value("PAGE_TEMPLATE_CATALOG_INVALID"));
+		// 만든 뒤 크기를 바꾸는 수정은 그대로 된다(PDF 쪽 크기 맞추기)
+		String sized=createPage(diaryId,"{\"templateConfig\":{\"templateCode\":\"link-cover-portrait\",\"templateVersion\":\"1.0.0\"}}");
+		mvc.perform(patch("/api/v1/pages/"+sized).with(authenticated()).contentType(MediaType.APPLICATION_JSON).content("{\"canvasWidth\":600,\"canvasHeight\":800}"))
+			.andExpect(status().isOk());
+		// templateId 와 같은 코드를 함께 보내도 된다
+		createPage(diaryId,"{\"templateId\":"+cover.getTemplateId()+",\"templateConfig\":{\"templateCode\":\"link-cover-portrait\",\"templateVersion\":\"1.0.0\"}}");
+		// 설정만으로 다른 속지 코드로 바꾸면 template_id 와 어긋나므로 거부한다(속지 변경은 templateId 로)
+		String pageId=created.at("/page/pageId").asText();
+		mvc.perform(patch("/api/v1/pages/"+pageId).with(authenticated()).contentType(MediaType.APPLICATION_JSON)
+				.content("{\"templateConfig\":{\"templateCode\":\"link-monthly-portrait\",\"templateVersion\":\"1.0.0\"}}"))
+			.andExpect(status().isBadRequest());
+		mvc.perform(patch("/api/v1/pages/"+pageId).with(authenticated()).contentType(MediaType.APPLICATION_JSON).content("{\"templateId\":"+other.getTemplateId()+"}"))
+			.andExpect(status().isOk()).andExpect(jsonPath("$.page.templateCode").value("link-monthly-portrait"));
+		// 빈 종이 페이지도 설정만으로 속지가 되지 않는다
+		String blankId=createPage(diaryId,"{\"templateConfig\":{\"blank\":true}}");
+		mvc.perform(patch("/api/v1/pages/"+blankId).with(authenticated()).contentType(MediaType.APPLICATION_JSON)
+				.content("{\"templateConfig\":{\"templateCode\":\"link-cover-portrait\",\"templateVersion\":\"1.0.0\"}}"))
+			.andExpect(status().isBadRequest());
+	}
+
+	@Test
 	void remoteTemplatePagesNeedAWellFormedRemoteTemplateOnCreateAndUpdate() throws Exception {
 		String diaryId=createDiary("원격 속지 페이지");
+		// 서버는 설정의 templateCode · templateVersion 으로 속지 행을 찾으므로 행이 있어야 한다
+		versionedTemplate("dio-remote-portrait",new BigDecimal("768.00"),new BigDecimal("1024.00"),"{\"blank\":false}",true);
+		versionedTemplate("2026-cover-portrait",new BigDecimal("768.00"),new BigDecimal("1024.00"),"{}",true);
 		// 앱이 페이지를 더하는 방식: templateId 없이 설정의 templateCode 로 속지를 알린다
 		String pageId=createPage(diaryId,"{\"templateConfig\":{\"templateCode\":\"dio-remote-portrait\",\"templateVersion\":\"1.0.0\",\"remoteTemplate\":\"spring-note\"}}");
 		for (String bad:new String[]{"{\"templateCode\":\"dio-remote-portrait\"}","{\"templateCode\":\"dio-remote-portrait\",\"remoteTemplate\":123}",
@@ -407,6 +506,15 @@ class PageApiTests {
 		PageTemplate template=constructor.newInstance();
 		setField(template,"code",code); setField(template,"canvasWidth",width); setField(template,"canvasHeight",height);
 		setField(template,"defaultConfig",defaultConfig); setField(template,"isActive",true);
+		return pageTemplateRepository.saveAndFlush(template);
+	}
+
+	/** code · 1.0.0 행(같은 H2 를 쓰는 다른 테스트가 이미 만들었으면 그 행). 서버는 같은 코드 · 버전 행이 둘이면 거부하므로 겹치게 만들지 않는다 */
+	private PageTemplate versionedTemplate(String code,BigDecimal width,BigDecimal height,String defaultConfig,boolean active) throws Exception {
+		var existing=pageTemplateRepository.findAll().stream().filter(row->code.equals(row.getCode())&&"1.0.0".equals(row.getTemplateVersion())).findFirst();
+		if(existing.isPresent())return existing.get();
+		PageTemplate template=activeTemplate(code,width,height,defaultConfig);
+		setField(template,"templateVersion","1.0.0"); setField(template,"isActive",active);
 		return pageTemplateRepository.saveAndFlush(template);
 	}
 

@@ -38,6 +38,8 @@ function screen(service) {
     'react-native': native,
     '../shared/theme': { colors: { surfaceSoft: '#f1f3f7', text: '#000', textMuted: '#555', border: '#ccc', surface: '#fff', primaryStrong: '#456', primary: '#789', danger: '#e44', dangerStrong: '#b25' }, radius: { xl: 22, lg: 16, md: 12 } },
     './validation': validation,
+    './styles': { authStyles: new Proxy({}, { get: (_t, key) => String(key) }) },
+    '../shared/BrandLogo': { __esModule: true, default: 'BrandLogo' },
     '../shared/MakerKit': { MakerHeader: 'MakerHeader', MakerBar: 'MakerBar' },
     '../shared/DioButton': { __esModule: true, default: 'DioButton' },
   };

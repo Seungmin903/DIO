@@ -4,7 +4,7 @@ export function collaborationSocketUrl(baseUrl,diaryId,allowDevelopmentHttp=fals
   if(url.protocol==='http:'&&!allowDevelopmentHttp&&!['localhost','127.0.0.1','[::1]','10.0.2.2'].includes(url.hostname))throw new Error('안전한 공동 편집 서버 주소가 필요해요.')
   url.protocol=url.protocol==='https:'?'wss:':'ws:';url.pathname=`/ws/diaries/${diaryId}`;return url.toString()
 }
-export function connectCollaboration({baseUrl,diaryId,getAccessToken,onChange,onPagesChanged=()=>{},onMembersChanged=()=>{},onReady=()=>{},onUnavailable=()=>{},onDiagnostic=()=>{},isActive=()=>true,allowDevelopmentHttp=false,makeSocket=null,WebSocketImpl=globalThis.WebSocket,schedule=setTimeout,cancel=clearTimeout}){
+export function connectCollaboration({baseUrl,diaryId,getAccessToken,onChange,onPagesChanged=()=>{},onMembersChanged=()=>{},onPresence=()=>{},onReady=()=>{},onUnavailable=()=>{},onDiagnostic=()=>{},isActive=()=>true,allowDevelopmentHttp=false,makeSocket=null,WebSocketImpl=globalThis.WebSocket,schedule=setTimeout,cancel=clearTimeout}){
   const diagnostic=(stage,code)=>{try{onDiagnostic({stage,...(Number.isInteger(code)?{code}:{})})}catch{}}
   let socket=null,stopped=false,reconnect=null,heartbeat=null,backoff=1000,connection=0,policyRetries=0,recoverAuth=false
   const active=id=>!stopped&&isActive()&&id===connection
@@ -29,6 +29,8 @@ export function connectCollaboration({baseUrl,diaryId,getAccessToken,onChange,on
       if(frame.type==='READY'&&frame.diaryId===diaryId){ready=true;policyRetries=0;backoff=1000;onReady()}
       else if(ready&&frame.type==='PAGES_CHANGED'&&frame.diaryId===diaryId)onPagesChanged()
       else if(ready&&frame.type==='MEMBERS_CHANGED'&&frame.diaryId===diaryId)onMembersChanged()
+      // 지금 이 다이어리에 연결된 회원 id 목록(서버 PRESENCE, 지라 680). 문자열 · 정수 id 만 받고 64명까지
+      else if(ready&&frame.type==='PRESENCE'&&frame.diaryId===diaryId&&Array.isArray(frame.userIds))onPresence(frame.userIds.filter(id=>(typeof id==='string'&&id.length<=40)||Number.isSafeInteger(id)).slice(0,64).map(String))
       else if(ready&&frame.type==='PAGE_CHANGED'&&/^[0-9a-f-]{36}$/i.test(frame.pageId)&&typeof frame.operationId==='string')onChange(frame)
     }
     target.onerror=unavailable
@@ -41,7 +43,7 @@ export function connectCollaboration({baseUrl,diaryId,getAccessToken,onChange,on
         const status=event.reason.match(/Expected HTTP 101 response but was ['"]?(\d{3})\b/)
         if(status)diagnostic('handshake-http',Number(status[1]))
       }
-      cancel(heartbeat);unavailable()
+      cancel(heartbeat);unavailable();onPresence(null) // 끊기면 접속 상태를 모른다(null)
       if(event.code===1008){
         // Expiry and revoked access share 1008. Retry authentication at most twice
         // without READY; a revoked member cannot reconnect forever.

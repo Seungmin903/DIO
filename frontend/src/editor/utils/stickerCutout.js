@@ -67,6 +67,9 @@ export function cutoutSegmentInput(imageId, state) {
     points: stroke.points.map(point => ({ ...point })),
   })) }
 }
+export function cutoutStrokes(state) {
+  return cutoutSegmentInput('selection', state).strokes
+}
 export async function previewCutoutSelection(source, state) {
   if (!source?.uri || !hasCutoutSelection(state)) throw new Error('남길 대상을 먼저 칠해 주세요.')
   return { kind: 'selection-preview', image: { width: source.width, height: source.height },

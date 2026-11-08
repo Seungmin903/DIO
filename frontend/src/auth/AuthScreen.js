@@ -102,6 +102,7 @@ export default function AuthScreen({
   const passwordInput = useRef(null);
   const confirmationInput = useRef(null);
   const formScroll = useRef(null);
+  const submitArea = useRef(null); // 오류 줄 + 주 버튼 묶음: 키보드 위에 버튼까지 보이게 스크롤할 때 쓴다(지라 676)
   const focusedInput = useRef(null);
   const scrollOffset = useRef(0);
   const keyboardTop = useRef(Infinity);
@@ -120,12 +121,26 @@ export default function AuthScreen({
           const top = sy + 16,
             bottom = Math.min(sy + sh, keyboardTop.current) - 16;
           if (bottom <= top) return;
-          const delta = y + h > bottom ? y + h - bottom : y < top ? y - top : 0;
-          if (delta)
-            formScroll.current?.scrollTo({
-              y: Math.max(0, scrollOffset.current + delta),
-              animated: true,
-            });
+          let delta = y + h > bottom ? y + h - bottom : y < top ? y - top : 0;
+          const finish = () => {
+            if (delta)
+              formScroll.current?.scrollTo({
+                y: Math.max(0, scrollOffset.current + delta),
+                animated: true,
+              });
+          };
+          // 로그인 · 가입 폼은 입력칸만이 아니라 아래 버튼까지 키보드 위에 보이게 한다. 단 입력칸이 위로 밀려 가려지지 않는 만큼만(지라 676)
+          const area = submitArea.current;
+          if (!area?.measureInWindow) return finish();
+          area.measureInWindow((ax, ay, aw, ah) => {
+            // 재는 동안 포커스가 다른 칸으로 옮겨 갔으면 낡은 값으로 스크롤하지 않는다(리뷰)
+            if (!alive.current || input !== focusedInput.current) return;
+            if (ah) {
+              const need = ay + ah - bottom - delta;
+              if (need > 0) delta += Math.min(need, Math.max(0, y - delta - top));
+            }
+            finish();
+          });
         });
       });
     }, 80);
@@ -298,11 +313,7 @@ export default function AuthScreen({
       }
     }
   };
-  useEffect(() => {
-    if (!message) return;
-    const timer = setTimeout(() => setMessage(''), 5000);
-    return () => clearTimeout(timer);
-  }, [message]);
+  // 오류 문구는 저절로 지우지 않는다(WCAG 2.2.1, 지라 674). 다음 입력 · 화면 이동 때 지운다.
   useEffect(() => {
     if (!signupComplete) return;
     const timer = setTimeout(() => setSignupComplete(false), 2500);
@@ -403,6 +414,7 @@ export default function AuthScreen({
           compact={isPhone}
           email={values.email}
           service={service}
+          backLabel="로그인으로 돌아가기"
           onClose={() => navigate('welcome')}
           onComplete={() => navigate('welcome')}
         />
@@ -589,16 +601,19 @@ export default function AuthScreen({
                     }
                   }, !accessId.trim() || !accessPassword || (!restoreAfterAccess.current && !socialAccessRetry.current && !credentialsValid(values, false)))}
                 </> : null}
-                <View style={s.submitArea}>
-                  {message ? (
-                    <Text
-                      accessibilityRole="alert"
-                      accessibilityLiveRegion="polite"
-                      style={[s.error, s.submitError]}
-                    >
-                      {message}
-                    </Text>
-                  ) : null}
+                <View ref={submitArea} style={s.submitArea}>
+                  {/* 오류 줄 자리를 늘 확보해 오류가 있든 없든 버튼이 같은 자리에 있게 한다(지라 674 · 692) */}
+                  <View style={s.submitErrorSlot}>
+                    {message ? (
+                      <Text
+                        accessibilityRole="alert"
+                        accessibilityLiveRegion="polite"
+                        style={[s.error, s.submitError]}
+                      >
+                        {message}
+                      </Text>
+                    ) : null}
+                  </View>
                   {(signup || !needsLoginAccess || !canSetDevelopmentAccess) && primary(
                     signup ? '다음' : '로그인',
                     credentialsSubmit,

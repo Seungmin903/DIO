@@ -107,6 +107,16 @@ test('목록 불러오기: 저장본을 먼저 쓰고, 새 목록이 바뀌었�
   assert.equal(store.get(CATALOG_STORAGE_KEY), fresh)
 })
 
+test('카탈로그 요청 오류는 로그의 마지막 인자로 그대로 전달한다', async () => {
+  const timeout = Object.assign(new Error('catalog request timed out'), { code: 'REMOTE_CATALOG_TIMEOUT' })
+  const logs = []
+  await createRemoteCatalog({
+    fetchCatalog: async () => { throw timeout }, storage: { getItem: async () => null, setItem: async () => {} },
+    readText: async () => '', applyFonts: () => {}, applyStickerPack: () => {}, retainStickerPacks: () => {}, log: (...args) => logs.push(args),
+  }).load()
+  assert.deepEqual(logs, [['fetch', timeout]])
+})
+
 test('remote-content 폴더에서 catalog.json 과 해시 이름 파일을 만들고, 형식 오류를 모두 알린다', t => {
   const dir = mkdtempSync(join(tmpdir(), 'dio-remote-content-'))
   t.after(() => rmSync(dir, { recursive: true, force: true }))

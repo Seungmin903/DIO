@@ -32,7 +32,7 @@ test('폰트 제작기 실제 EditorModal은 전체 화면·슬라이드·방향
     assert.equal(native.type,'native-modal');
     assert.equal(native.props.visible,true);
     assert.equal(native.props.presentationStyle,'fullScreen');
-    assert.equal(native.props.animationType,'slide');
+    assert.equal(native.props.animationType,'none');
     assert.deepEqual(native.props.supportedOrientations,['portrait','landscape']);
     assert.equal(native.props.onRequestClose,bus.closeFontStudio);
     await native.props.onRequestClose();

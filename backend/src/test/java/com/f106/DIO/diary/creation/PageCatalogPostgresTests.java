@@ -146,6 +146,102 @@ class PageCatalogPostgresTests {
         assertThat(jdbc.queryForObject("select default_config->>'blank' from page_templates where code='dio-remote-landscape'",String.class)).isEqualTo("false");
     }
 
+    @Test void V35LinksPagesThatOnlyNamedTheirTemplateByCode() throws Exception {
+        flyway("34").migrate();
+        jdbc.update("insert into users(user_id,nickname,nickname_key) values(1,'owner','owner')");
+        UUID diary=UUID.randomUUID();
+        jdbc.update("insert into diaries(diary_id,owner_user_id,title,cover_color,cover_style,visibility) values(?,1,'added','#123456','PLAIN','PRIVATE')",diary);
+        UUID byCode=UUID.randomUUID(), remote=UUID.randomUUID(), typo=UUID.randomUUID(), noVersion=UUID.randomUUID(), blank=UUID.randomUUID(), linked=UUID.randomUUID();
+        // 편집기 "페이지 추가"로 만든 페이지: template_id 없이 설정의 코드 · 버전만 있다
+        insertUnlinkedPage(diary,byCode,"{\"templateCode\":\"2026-cover-portrait\",\"templateVersion\":\"1.0.0\",\"keep\":true}",5,1);
+        insertUnlinkedPage(diary,remote,"{\"templateCode\":\"dio-remote-portrait\",\"templateVersion\":\"1.0.0\",\"remoteTemplate\":\"spring-note\"}",2,2);
+        // 맞는 행이 없거나 코드 · 버전이 다 없으면 건드리지 않는다
+        insertUnlinkedPage(diary,typo,"{\"templateCode\":\"2026-cvoer-portrait\",\"templateVersion\":\"1.0.0\"}",3,3);
+        insertUnlinkedPage(diary,noVersion,"{\"templateCode\":\"2026-cover-portrait\"}",4,4);
+        insertUnlinkedPage(diary,blank,"{\"blank\":true}",6,5);
+        // 캔버스 크기가 속지 행과 다르면 연결하지 않는다(세로 속지 코드인데 가로 크기)
+        UUID wrongSize=UUID.randomUUID(), retired=UUID.randomUUID(), mixed=UUID.randomUUID();
+        jdbc.update("insert into pages(page_id,diary_id,template_id,template_config,sort_key,canvas_width,canvas_height,version) values(?,?,null,cast(? as jsonb),7,1024,768,1)",
+            wrongSize,diary,"{\"templateCode\":\"2026-cover-portrait\",\"templateVersion\":\"1.0.0\"}");
+        // 내려간(비활성) 속지만 있으면 그 행에 연결한다(만들 때는 쓰던 속지)
+        jdbc.update("insert into page_templates(code,template_version,name,category,orientation,canvas_width,canvas_height,default_config,is_active,display_order)"
+            + " values('retired-portrait','1.0.0','retired','CUSTOM','PORTRAIT',768,1024,'{}'::jsonb,false,998)");
+        insertUnlinkedPage(diary,retired,"{\"templateCode\":\"retired-portrait\",\"templateVersion\":\"1.0.0\"}",1,8);
+        // 이미 행에 연결된 페이지(다이어리 만들 때 생긴 페이지)도 그대로다
+        insertPage(diary,linked,"2026-cover-landscape","{\"blank\":false}",9,6);
+        // 같은 코드 · 버전에 활성 행과 비활성 행이 섞여 있으면 활성 행에 연결한다(서비스와 같은 기준)
+        jdbc.update("insert into page_templates(code,template_version,name,category,orientation,canvas_width,canvas_height,default_config,is_active,display_order)"
+            + " values('2026-cover-landscape','1.0.0','old copy','CUSTOM','LANDSCAPE',1024,768,'{}'::jsonb,false,997)");
+        jdbc.update("insert into pages(page_id,diary_id,template_id,template_config,sort_key,canvas_width,canvas_height,version) values(?,?,null,cast(? as jsonb),9,1024,768,1)",
+            mixed,diary,"{\"templateCode\":\"2026-cover-landscape\",\"templateVersion\":\"1.0.0\"}");
+        jdbc.update("update pages set updated_at=timestamp '2000-01-01 00:00:00+00' where diary_id=?",diary);
+
+        flyway("latest").migrate();
+
+        assertThat(jdbc.queryForObject("select t.code||'/'||t.template_version from pages p join page_templates t on t.template_id=p.template_id where p.page_id=?",String.class,byCode)).isEqualTo("2026-cover-portrait/1.0.0");
+        assertThat(jdbc.queryForObject("select t.code from pages p join page_templates t on t.template_id=p.template_id where p.page_id=?",String.class,remote)).isEqualTo("dio-remote-portrait");
+        // 설정은 옛 앱을 위해 그대로 두고, 구성원 앱이 다시 받도록 version · updated_at 만 올린다
+        assertThat(jdbc.queryForObject("select template_config::text from pages where page_id=?",String.class,byCode)).isEqualTo("{\"keep\": true, \"templateCode\": \"2026-cover-portrait\", \"templateVersion\": \"1.0.0\"}");
+        assertThat(jdbc.queryForObject("select template_config->>'remoteTemplate' from pages where page_id=?",String.class,remote)).isEqualTo("spring-note");
+        assertThat(jdbc.queryForObject("select version from pages where page_id=?",Long.class,byCode)).isEqualTo(6L);
+        assertThat(jdbc.queryForObject("select updated_at > timestamp '2000-01-01 00:00:00+00' from pages where page_id=?",Boolean.class,byCode)).isTrue();
+        assertThat(jdbc.queryForObject("select t.is_active from pages p join page_templates t on t.template_id=p.template_id where p.page_id=?",Boolean.class,retired)).isFalse();
+        assertThat(jdbc.queryForObject("select t.is_active from pages p join page_templates t on t.template_id=p.template_id where p.page_id=?",Boolean.class,mixed)).isTrue();
+        for(UUID untouched:List.of(typo,noVersion,blank,wrongSize)) {
+            assertThat(jdbc.queryForObject("select template_id is null from pages where page_id=?",Boolean.class,untouched)).isTrue();
+            assertThat(jdbc.queryForObject("select updated_at = timestamp '2000-01-01 00:00:00+00' from pages where page_id=?",Boolean.class,untouched)).isTrue();
+        }
+        assertThat(jdbc.queryForObject("select version from pages where page_id=?",Long.class,linked)).isEqualTo(9L);
+        // 되돌리기용 기록: 연결한 두 페이지만, 이전 version · updated_at 과 함께
+        assertThat(jdbc.queryForList("select previous_version from page_template_v35_links order by previous_version",Long.class)).containsExactly(1L,1L,2L,5L);
+        assertThat(jdbc.queryForObject("select count(*) from page_template_v35_links where previous_updated_at = timestamp '2000-01-01 00:00:00+00'",Long.class)).isEqualTo(4L);
+
+        // 되돌리기 스크립트: V35 뒤에 수정된 페이지(remote)는 건드리지 않고, 그대로인 페이지만 이전 상태로 돌린다
+        jdbc.update("update pages set version=version+1 where page_id=?",remote);
+        String rollback=Files.readString(docsFile("page-template-v35-rollback.sql")).replace("\r\n","\n");
+        var transaction=Pattern.compile("(?ms)^\\s*BEGIN;\\s*$(.*?)^\\s*COMMIT;\\s*$").matcher(rollback);
+        assertThat(transaction.find()).isTrue();
+        assertThat(jdbc.update(transaction.group(1).strip())).isEqualTo(3);
+        assertThat(jdbc.queryForObject("select template_id is null from pages where page_id=?",Boolean.class,byCode)).isTrue();
+        assertThat(jdbc.queryForObject("select version from pages where page_id=?",Long.class,byCode)).isEqualTo(5L);
+        assertThat(jdbc.queryForObject("select updated_at = timestamp '2000-01-01 00:00:00+00' from pages where page_id=?",Boolean.class,byCode)).isTrue();
+        assertThat(jdbc.queryForObject("select t.code from pages p join page_templates t on t.template_id=p.template_id where p.page_id=?",String.class,remote)).isEqualTo("dio-remote-portrait");
+        assertThat(jdbc.queryForObject("select version from pages where page_id=?",Long.class,remote)).isEqualTo(4L);
+    }
+
+    @Test void deployCheckQueriesReturnNothingOnAFreshDatabase() throws Exception {
+        flyway("latest").migrate();
+        // 운영 배포 전에 실행할 확인 SQL(docs). 앱이 보내는 코드를 빠짐없이 담고, 마이그레이션만 한 DB 에서는 두 조회 모두 0행이어야 한다
+        String sql=Files.readString(docsFile("다이어리 저장","속지 코드 배포 전 확인.sql")).replace("\r\n","\n");
+        for(var row:contract.get("templates")) assertThat(sql).contains("('"+row.get("templateCode").asString()+"', '"+row.get("templateVersion").asString()+"')");
+        for(var code:List.of("study-planner-landscape","study-planner-portrait","day-planner-landscape","day-planner-portrait","dio-remote-landscape","dio-remote-portrait")) assertThat(sql).contains("('"+code+"', '1.0.0')");
+        var queries=java.util.Arrays.stream(sql.replaceAll("(?m)^--.*$","").split(";")).map(String::trim).filter(q->!q.isEmpty()).toList();
+        assertThat(queries).hasSize(2);
+        for(var query:queries) assertThat(jdbc.queryForList(query)).isEmpty();
+        // 빈 속지 행이 내려가 있으면 1번 조회가 잡는다(중복만 보던 예전 조회는 놓쳤다)
+        jdbc.update("update page_templates set is_active=false where code='dio-blank-portrait'");
+        assertThat(jdbc.queryForList(queries.get(0))).singleElement().satisfies(row -> assertThat(row.get("code")).isEqualTo("dio-blank-portrait"));
+    }
+
+    @Test void everyTemplateCodeTheAppSendsHasExactlyOneActiveRow() {
+        flyway("latest").migrate();
+        // 페이지 추가는 설정의 코드 · 버전으로 활성 행을 정확히 하나 찾아야 저장된다(PageService.create). 앱이 보내는 코드가 빠지거나 겹치면 페이지 추가가 400이 된다
+        var codes=new ArrayList<String>();
+        for(var row:contract.get("templates")) codes.add(row.get("templateCode").asString()+"/"+row.get("templateVersion").asString());
+        // V9 계약에는 앱이 빈 종이 페이지에 보내는 빈 속지 코드도 들어 있다(앱 목록과 계약은 프런트 server-template-catalog 테스트가 맞춘다)
+        assertThat(codes).contains("dio-blank-landscape/1.0.0","dio-blank-portrait/1.0.0");
+        for(var code:List.of("study-planner-landscape","study-planner-portrait","day-planner-landscape","day-planner-portrait","dio-remote-landscape","dio-remote-portrait")) codes.add(code+"/1.0.0");
+        var active=jdbc.queryForList("select code||'/'||template_version from page_templates where is_active",String.class);
+        for(var code:codes) assertThat(active.stream().filter(code::equals).count()).as(code).isEqualTo(1L);
+        // 활성 행끼리 같은 코드 · 버전이 겹치지 않는다
+        assertThat(jdbc.queryForObject("select count(*) from (select code,template_version from page_templates where is_active group by code,template_version having count(*)>1) duplicates",Long.class)).isZero();
+    }
+
+    private void insertUnlinkedPage(UUID diary,UUID page,String config,long version,int sortKey) {
+        jdbc.update("insert into pages(page_id,diary_id,template_id,template_config,sort_key,canvas_width,canvas_height,version) values(?,?,null,cast(? as jsonb),?,768,1024,?)",
+            page,diary,config,sortKey,version);
+    }
+
     @Test void V27RejectsPageTemplateGeometryThatDoesNotMatchTheReplacement() throws Exception {
         flyway("26").migrate();
         jdbc.update("insert into users(user_id,nickname,nickname_key) values(1,'owner','owner')");
@@ -219,11 +315,15 @@ class PageCatalogPostgresTests {
 
     /** CI mounts docs at /workspace/docs while local Gradle runs from backend/. */
     private Path v27RollbackDocument() {
-        return List.of(
-                Path.of("docs","page-template-v27-rollback.sql"),
-                Path.of("..","docs","page-template-v27-rollback.sql"))
-            .stream().filter(Files::isRegularFile).findFirst()
-            .orElseThrow(() -> new AssertionError("V27 rollback document is missing"));
+        return docsFile("page-template-v27-rollback.sql");
+    }
+
+    /** docs 아래 파일. CI 는 docs 를 /workspace/docs 에 두고, 로컬 Gradle 은 backend/ 에서 돈다. 둘 다 아니면 위로 올라가며 저장소의 docs 를 찾는다 */
+    private static Path docsFile(String... parts) {
+        var candidates=new ArrayList<Path>(List.of(Path.of("docs",parts),Path.of("..").resolve(Path.of("docs",parts))));
+        for(Path dir=Path.of("").toAbsolutePath();dir!=null;dir=dir.getParent()) candidates.add(dir.resolve(Path.of("docs",parts)));
+        return candidates.stream().filter(Files::isRegularFile).findFirst()
+            .orElseThrow(() -> new AssertionError("docs file is missing: "+String.join("/",parts)));
     }
 
     @Test void upgradePreservesExistingIdsCustomDefaultsInactiveStateOldVersionsAndHistoricalPages() throws Exception {

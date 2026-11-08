@@ -87,6 +87,14 @@ test('서버 도착 전 끊긴 페이지 생성은 동일 요청 본문으로 �
  assert.equal(page.id,strokeId);assert.deepEqual(requests[0],requests[1]);assert.equal(disk.size,0)
 })
 
+test('페이지 추가가 속지 확인에서 거절되면 원인을 알 수 있는 문구로 알린다',async()=>{
+ for(const [status,code,pattern,kept] of [[400,'UNKNOWN_PAGE_TEMPLATE',/앱을 최신 버전으로 업데이트/,false],[400,'INVALID_PAGE_REQUEST',/^이 속지로 페이지를 추가하지 못했어요/,false],[500,'PAGE_TEMPLATE_CATALOG_INVALID',/속지 목록을 확인하고 있어요/,true],[400,'OTHER',/^요청을 처리하지 못했어요/,false]]){
+  const disk=new Map(),storage={getItem:async k=>disk.get(k)??null,setItem:async(k,v)=>{disk.set(k,v)},removeItem:async k=>{disk.delete(k)}}
+  const transport=async r=>{if(!r.method)return {items:[]};throw Object.assign(Error('요청을 처리하지 못했어요. 다시 시도해 주세요.'),{status,code})}
+  await assert.rejects(createServerPage({transport,diaryId:id,storage,key:'pending',createId:()=>pageId}),error=>error.code===code&&pattern.test(error.message))
+  assert.equal(disk.has('pending'),kept) // 서버 오류(5xx)는 같은 요청으로 다시 시도할 수 있게 남긴다
+ }
+})
 test('이동은 최신 서버 페이지 목록을 사용해 다른 사람이 추가한 페이지도 보존한다',async()=>{
  const a=pageId,b=strokeId,c='40000000-0000-4000-8000-000000000001',calls=[]
  const transport=async r=>{calls.push(r);return r.method?{items:r.body.pageIds.map(pageId=>({pageId,diaryId:id}))}:{items:[a,b,c].map(pageId=>({pageId,diaryId:id}))}}

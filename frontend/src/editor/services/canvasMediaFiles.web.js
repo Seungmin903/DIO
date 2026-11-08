@@ -47,6 +47,7 @@ export const canvasMediaFiles={
    const metadata={mediaFileId:id,...format,...dimensions,fileSize:bytes.length,originalName:`shared.${format.extension}`,createdAt:new Date().toISOString(),...(display?{display:display.metadata}:{})}
    const uri=await repository.save(source,metadata,display)
    mediaRegistry.seed(id,{media:metadata,uri})
+   return metadata
   }finally{await repository.dispose?.(input);}
  },
 }

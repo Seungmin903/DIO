@@ -56,7 +56,7 @@ export default function ContentLicenses({ visible, onClose }) {
     const term = query.trim().toLowerCase();
     return [...licenses, ...software.components].filter(entry => !term || `${entry.name} ${entry.version ?? ''} ${entry.license}`.toLowerCase().includes(term));
   }, [query]);
-  return <EditorModal visible={visible} animationType="slide" supportedOrientations={['portrait', 'landscape']} statusBarTranslucent onRequestClose={onClose}>
+  return <EditorModal visible={visible} animationType="none" supportedOrientations={['portrait', 'landscape']} statusBarTranslucent onRequestClose={onClose}>
     {visible && <StatusBar hidden />}
     <SafeAreaView style={styles.safe}>
       <View style={styles.container}>

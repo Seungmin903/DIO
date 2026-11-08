@@ -50,7 +50,7 @@ export default function HandwritingStudio() {
   const options = useSyncExternalStore(subscribeStudio, studioSnapshot, studioSnapshot)
   // This host stays mounted even when the studio modal closes.
   useEffect(() => { initializeFontWorkflow() }, [])
-  return <EditorModal visible={Boolean(options)} animationType="slide" onRequestClose={closeFontStudio} presentationStyle="fullScreen" supportedOrientations={['portrait', 'landscape']}>
+  return <EditorModal visible={Boolean(options)} animationType="none" onRequestClose={closeFontStudio} presentationStyle="fullScreen" supportedOrientations={['portrait', 'landscape']}>
     {options ? <StudioContent options={options} /> : null}
   </EditorModal>
 }
