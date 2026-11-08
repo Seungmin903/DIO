@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Image, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Dimensions, Image, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import EditorModal from '../editor/components/controls/EditorModal';
 import EditorIcon from '../editor/components/controls/Icon';
@@ -37,6 +37,7 @@ export default function SafetyScreen({ request, user, store, state, onClose, onW
   const [memberError, setMemberError] = useState('');
   const [target, setTarget] = useState(request.target || null);
   const [menu, setMenu] = useState(request.target?.id || null);
+  const [menuAnchor, setMenuAnchor] = useState(null);
   const [reason, setReason] = useState('');
   const [description, setDescription] = useState('');
   const [photos, setPhotos] = useState([]);
@@ -47,6 +48,7 @@ export default function SafetyScreen({ request, user, store, state, onClose, onW
   const [dismiss, setDismiss] = useState(false);
   const [working, setWorking] = useState(false);
   const alive = useRef(true), locked = useRef(false), revision = useRef(0);
+  const menuButtons = useRef(new Map());
   const clientRequestId = useRef(null);
   const submittedDraft = useRef(null);
   const selfId = String(user?.userId || user?.accountId || user?.id || '');
@@ -138,6 +140,12 @@ export default function SafetyScreen({ request, user, store, state, onClose, onW
   }
   const title = zoom ? '증빙 사진' : ({ participants: '참여자', blocks: '차단한 사용자', report: '신고하기', complete: '신고 접수', warning: '공유 다이어리 안내' }[screen]);
   const hasBlockData = !unavailable && state.status === 'ready';
+  const closeMenu = () => { setMenu(null); setMenuAnchor(null); };
+  const toggleMenu = member => {
+    if (menu === member.id) { closeMenu(); return; }
+    setMenu(member.id);
+    menuButtons.current.get(member.id)?.measureInWindow?.((x, y, width, height) => setMenuAnchor({ x, y, width, height }));
+  };
   function participant(member) {
     const own = member.id === selfId;
     return <View key={member.id} style={s.card}>
@@ -145,15 +153,18 @@ export default function SafetyScreen({ request, user, store, state, onClose, onW
         <Text style={s.muted}>{own ? '나 · ' : ''}{member.participation === 'PAST' ? '참여 종료' : member.role === 'OWNER' ? '소유자' : '편집자'}</Text>
         {blocked(member.id) && <Text style={s.badge}>차단됨</Text>}
       </Person></View>
-      {!own && <Pressable style={s.icon} accessibilityRole="button" accessibilityLabel={`${member.nickname} 메뉴`} accessibilityState={{ expanded: menu === member.id }} disabled={busy}
-        onPress={() => setMenu(menu === member.id ? null : member.id)}><AppIcon name="more" size={22} color={colors.text} /></Pressable>}</View>
-      {!own && menu === member.id && <View style={s.menu}>
-        <SafetyButton secondary onPress={() => startReport(member)} disabled={busy}>신고하기</SafetyButton>
-        {member.activeAccount !== false && <SafetyButton secondary onPress={() => askBlock(member)} disabled={busy || !hasBlockData}>{blocked(member.id) ? '차단 해제' : '차단하기'}</SafetyButton>}
-      </View>}
+      {!own && <Pressable ref={node => { if (node) menuButtons.current.set(member.id, node); else menuButtons.current.delete(member.id); }} style={s.icon} accessibilityRole="button" accessibilityLabel={`${member.nickname} 메뉴`} accessibilityState={{ expanded: menu === member.id }} disabled={busy}
+        onPress={() => toggleMenu(member)}><AppIcon name="more" size={22} color={colors.text} /></Pressable>}</View>
     </View>;
   }
-  return <EditorModal visible transparent animationType="none" onRequestClose={back}>
+  const menuMember = menu ? rows.find(member => member.id === menu) : null;
+  const screenWidth = Dimensions?.get?.('window')?.width;
+  const menuPosition = menuAnchor && {
+    top: menuAnchor.y + menuAnchor.height + 4,
+    right: screenWidth ? Math.max(16, screenWidth - menuAnchor.x - menuAnchor.width) : 16,
+  };
+  return <>
+    <EditorModal visible transparent animationType="none" onRequestClose={back}>
     <SafeAreaView style={[s.backdrop, isPhone && s.phoneBackdrop]}>
       <View style={[s.panel, isPhone && s.phonePanel]}>
         <View style={[s.header, isPhone && s.phoneHeader]}>
@@ -244,5 +255,14 @@ export default function SafetyScreen({ request, user, store, state, onClose, onW
         message={question?.kind === 'discard' ? '작성한 내용과 첨부한 사진이 사라져요.' : question?.kind === 'unblock' ? '서로 이메일 초대를 주고받거나 수락할 수 있게 돼요. 유효한 대기 초대도 다시 수락할 수 있어요.' : blockMessage}
         confirmLabel={question?.kind === 'discard' ? '작성 취소' : question?.kind === 'unblock' ? '차단 해제' : '차단하기'} onCancel={() => setQuestion(null)} onConfirm={confirm} />
     </SafeAreaView>
-  </EditorModal>;
+    </EditorModal>
+    {menuMember && <EditorModal visible transparent animationType="none" onRequestClose={closeMenu}>
+      <Pressable accessible={false} style={s.menuOverlay} onPress={closeMenu}>
+        <Pressable accessible={false} style={[s.menu, menuPosition]} onPress={event => event.stopPropagation()}>
+          <SafetyButton secondary onPress={() => startReport(menuMember)} disabled={busy}>신고하기</SafetyButton>
+          {menuMember.activeAccount !== false && <SafetyButton secondary onPress={() => askBlock(menuMember)} disabled={busy || !hasBlockData}>{blocked(menuMember.id) ? '차단 해제' : '차단하기'}</SafetyButton>}
+        </Pressable>
+      </Pressable>
+    </EditorModal>}
+  </>;
 }
