@@ -110,3 +110,21 @@ test('서버도 대기열도 그대로인 동기화는 unchanged 를 돌려주�
   const sent=await s.synchronize();assert.equal(sent.unchanged,false);assert.equal(sent.objects.length,2);assert.equal(s.pending(),false)
   f.setRows([row({...a,text:'friend'},2)]);assert.equal((await s.synchronize()).unchanged,false)
 })
+
+test('형식 1 저널(텍스트만 동기화)을 복원하면 기기에만 있던 텍스트 외 요소를 보강 편집으로 큐에 넣는다',async()=>{
+  const f=fixture();const t=text(1),sticker={id:uuid(2),type:'sticker',x:1,y:2,w:10,h:10}
+  f.disk.set('journal',JSON.stringify({format:1,pageId,diaryId,base:[],uiLocal:[t],queue:[],recent:[]}))
+  const s=f.session();const restored=await s.restore([t,sticker])
+  const snapshot=s.snapshot()
+  assert.equal(snapshot.format,JOURNAL_FORMAT);assert.equal(snapshot.queue.length,1);assert.deepEqual(snapshot.queue[0].after.map(o=>o.id),[sticker.id])
+  assert.deepEqual(restored.map(o=>o.id),[t.id,sticker.id]);assert.equal(JSON.parse(f.disk.get('journal')).queue.length,1)
+})
+
+test('공유 외 요소의 sortKey 만 바뀐 조회 응답도 orderKeys 를 새로 받는다',async()=>{
+  const f=fixture();const [a]=objects(1);f.setRows([row(a,1,1)])
+  const s=f.session();await s.restore([a]);await s.synchronize()
+  assert.deepEqual(s.snapshot().orderKeys,[1])
+  const rows=f.api.load;f.api.load=async()=>{const items=await rows();Object.defineProperty(items,'sortKeys',{value:[1,7]});return items}
+  await s.synchronize();assert.deepEqual(s.snapshot().orderKeys,[1,7])
+  const writes=f.writes();await s.synchronize();assert.equal(f.writes(),writes,'같은 응답은 다시 저장하지 않는다')
+})

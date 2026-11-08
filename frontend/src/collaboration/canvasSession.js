@@ -53,7 +53,10 @@ export function createCanvasSession({api,storage,key,legacyKey,pageId,diaryId,cr
   const active=()=>{if(!isActive())throw new Error('편집 세션이 종료됐어요.')}
   const persist=()=>{const raw=JSON.stringify(journal);const task=writes.catch(()=>{}).then(()=>storage.setItem(key,raw));writes=task;return task}
   // 서버 요소 목록이 그대로면(같은 id·버전·순서) 다시 복사하거나 저장하지 않는다. 5초 주기 대조가 저널을 매번 다시 쓰지 않게.
+  const sameList=(a,b)=>Array.isArray(a)&&Array.isArray(b)&&a.length===b.length&&a.every((value,index)=>value===b[index])
+  // 공유 외 요소(오디오 등)의 sortKey 만 바뀌어도 orderKeys 를 새로 받아야 하므로 응답의 sortKeys 도 함께 비교한다
   const sameBase=items=>Array.isArray(journal.base)&&journal.base.length===items.length&&journal.base.every((row,index)=>row.elementId===items[index].elementId&&row.version===items[index].version&&row.sortKey===items[index].sortKey)
+    &&(!items.sortKeys||sameList(journal.orderKeys,items.sortKeys))
   // 서버가 바꾼 요소는 version 이 오르므로 조회 응답은 싸게 비교하고, 내 요청의 응답(apply·control)은 항상 반영한다.
   const setBase=(items,force=false)=>{if(!force&&sameBase(items))return false;journal.orderKeys=copy(items.sortKeys??items.map(e=>Number(e.sortKey)).filter(Number.isFinite));journal.base=copy(items);return true}
   const accept=async response=>{active();setBase(response.items,true);await persist()}
@@ -138,14 +141,14 @@ export function createCanvasSession({api,storage,key,legacyKey,pageId,diaryId,cr
   const apiSession={
     async restore(seed,savedAt=0){
       const raw=await storage.getItem(key);active()
-      if(raw){const saved=JSON.parse(raw);if(![1,2,JOURNAL_FORMAT].includes(saved.format)||saved.pageId!==pageId||saved.diaryId!==diaryId||!Array.isArray(saved.queue)||!Array.isArray(saved.recent))throw new Error('기기 편집 기록을 확인하지 못했어요.');journal=saved.format===JOURNAL_FORMAT?saved:await migrate(saved);if(saved.format!==JOURNAL_FORMAT)await persist()}
+      let savedFormat=null
+      if(raw){const saved=JSON.parse(raw);savedFormat=saved.format;if(![1,2,JOURNAL_FORMAT].includes(saved.format)||saved.pageId!==pageId||saved.diaryId!==diaryId||!Array.isArray(saved.queue)||!Array.isArray(saved.recent))throw new Error('기기 편집 기록을 확인하지 못했어요.');journal=saved.format===JOURNAL_FORMAT?saved:await migrate(saved);if(saved.format!==JOURNAL_FORMAT)await persist()}
       else if(legacyKey){const legacy=await storage.getItem(legacyKey);active();if(legacy){const saved=JSON.parse(legacy);if(saved.pageId===pageId&&saved.diaryId===diaryId&&Array.isArray(saved.local))journal.uiLocal=[...saved.local,...seed.filter(o=>sharedObject(o)&&o.type!=='text')]}}
       if(journal.uiLocal===null)journal.uiLocal=copy(seed.filter(sharedObject))
-      if(journal.format!==JOURNAL_FORMAT){
-        // format 1: 기기에만 있던 텍스트 외 요소를 한 편집으로 붙인다(변환은 migrate 가 끝냈으므로 형식만 올린다)
+      if(savedFormat===1){
+        // 형식 1(텍스트만 동기화하던 저널): 기기에만 있던 텍스트 외 요소를 한 편집으로 붙인다. migrate 가 format 을 이미 올렸으므로 저장된 형식으로 판단한다.
         const present=new Set(journal.uiLocal.map(o=>o.id)),extras=seed.filter(o=>sharedObject(o)&&o.type!=='text'&&!present.has(o.id))
-        if(extras.length){push({id:createId(),pageId,before:journal.uiLocal,after:[...journal.uiLocal,...extras]});journal.uiLocal=[...journal.uiLocal,...copy(extras)]}
-        journal.format=JOURNAL_FORMAT;await persist()
+        if(extras.length){push({id:createId(),pageId,before:journal.uiLocal,after:[...journal.uiLocal,...extras]});journal.uiLocal=[...journal.uiLocal,...copy(extras)];await persist()}
       }
       if(raw&&savedAt>(journal.uiLocalAt??0)&&!sameElements(seed,journal.uiLocal)){
         push({id:createId(),pageId,before:journal.uiLocal,after:seed.filter(sharedObject)})
