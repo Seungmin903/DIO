@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
-import { Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Keyboard, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import Header from '../components/Header';
 import StudioPaperStyle from '../components/StudioPaperStyle';
 import useDefaultPaperStyle from '../hooks/useDefaultPaperStyle';
@@ -218,8 +218,9 @@ export default function DecorationStudioScreen({ compact = false, registerBackHa
   };
   // 공방의 '○○ 추가' 버튼(폰 · 태블릿 모두 제목 줄 오른쪽). menu 이면 말풍선을 열고, 아니면 onPress 를 바로 부른다
   const addTool = ({ kind, icon, title, description, disabled = false, menu = false, onPress }) =>
+    // 이름을 고치던 입력은 다른 곳을 누르면 먼저 닫는다(blur 로 확정 · 빈 이름이면 취소). 메뉴는 그 뒤에 뜬다(지라 678)
     <View ref={node => { addButtons.current[kind] = node; }} collapsable={false}>
-      <StudioTool icon={icon} title={title} description={description} disabled={disabled} onPress={menu ? () => openAddMenu(kind) : onPress} />
+      <StudioTool icon={icon} title={title} description={description} disabled={disabled} onPress={() => { Keyboard.dismiss(); if (menu) openAddMenu(kind); else onPress?.(); }} />
     </View>;
 
   const fontSection = <StudioSection fill={fontReady && !fontTotal} title="폰트" count={fontReady ? count({ length: fontTotal }) : null}
@@ -451,7 +452,8 @@ export default function DecorationStudioScreen({ compact = false, registerBackHa
               </Pressable>}
             <Pressable accessibilityRole="button" accessibilityLabel={`${index + 1}번 테이프 삭제`} hitSlop={12}
               onPress={() => setQuestion({ tapeFolder, tape: item })} style={s.stickerRemove}>
-              <AppIcon name="close" size={12} color={colors.primaryText} />
+              {/* 삭제는 휴지통(표지 · 속지와 같은 아이콘). 칸 24 + hitSlop 12 = 터치 48 (지라 658) */}
+              <AppIcon name="trash" size={14} color={colors.primaryText} />
             </Pressable>
           </View>)}</View>)
       : !tapeFolders.length ? <EmptyState compact={compact} art="dio" raised title="아직 테이프 폴더가 없어요" />
@@ -509,10 +511,14 @@ export default function DecorationStudioScreen({ compact = false, registerBackHa
   const current = { fonts: fontSection, stickers: stickerSection, tapes: tapeSection, covers: coverSection, papers: paperSection, presets: presetSection }[tab] ?? fontSection;
 
   return <View style={s.root}>
-    <ScrollView contentContainerStyle={[shell.screen, compact && shell.screenCompact, s.content, compact && s.contentCompact]}>
-      <Header title="꾸미기 공방" icon="workshop" compact={compact} />
-      <StudioTabs tabs={TABS} value={tab} onChange={setTab} compact={compact} />
-      {current}
+    {/* 678: 이름 입력 중 다른 버튼을 누르면 그 한 번으로 입력이 닫히고(blur 로 확정) 버튼도 동작하게 'handled'.
+        빈 곳을 눌렀을 때도 입력이 닫히도록 바깥 판(Pressable, 눌림 효과 없음)이 키보드를 내린다 */}
+    <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={s.scrollFill}>
+      <Pressable accessible={false} onPress={Keyboard.dismiss} style={[Platform.OS === 'web' && { cursor: 'auto' }, shell.screen, compact && shell.screenCompact, s.content, compact && s.contentCompact]}>
+        <Header title="꾸미기 공방" icon="workshop" compact={compact} />
+        <StudioTabs tabs={TABS} value={tab} onChange={setTab} compact={compact} />
+        {current}
+      </Pressable>
     </ScrollView>
     {(tool === 'split' || tool === 'splitIn') && <StickerSplitModal folder={tool === 'splitIn' ? folder : undefined} onClose={() => setTool(null)} onSave={async (id, name, stickers) => {
       const cleanName = name.trim();
@@ -523,7 +529,7 @@ export default function DecorationStudioScreen({ compact = false, registerBackHa
     {/* 스티커는 편집기 스티커 보관함의 + 와 같은 이름 · 순서 · 아이콘(그곳의 '이미지 그대로 추가'는 폴더 안에서만 쓴다) */}
     {addMenu && <DiaryActionBubble visible={!addMenu.closing} onDismiss={() => onAddMenuDismiss(addMenu.token)} anchor={addMenu.anchor} title={addMenu.kind === 'cover' ? '표지 추가' : addMenu.kind === 'tape' ? '테이프 추가' : '스티커 추가'} onClose={closeAddMenu} actions={addMenu.kind === 'stickerIn' ? [
       { id: 'split', label: stickerSplit.available ? '시트에서 분리하기' : `시트에서 분리하기, ${stickerSplit.reason || '이 기기에서는 쓸 수 없어요'}`, text: '시트에서 분리하기', icon: 'grid',
-        disabled: !stickerSplit.available, onPress: () => { closeAddMenu(); loginGate('스티커 시트 분리', () => setTool('splitIn')); } },
+        disabled: !stickerSplit.available, onPress: () => openPickerAfterMenu(() => loginGate('스티커 시트 분리', () => setTool('splitIn'))) }, // 699: 갤러리를 바로 여니 iOS 는 말풍선이 다 닫힌 뒤
       { id: 'photos', label: '이미지 한 장씩 넣기', text: '이미지 한 장씩 넣기', icon: 'image', onPress: () => openPickerAfterMenu(() => addStickerImages(folder.id)) },
     ] : addMenu.kind === 'tape' ? [
       { id: 'photo', label: '사진으로 만들기', text: '사진으로 만들기', icon: 'image', onPress: () => openPickerAfterMenu(() => addTapeFromPhoto(null)) },
@@ -533,7 +539,7 @@ export default function DecorationStudioScreen({ compact = false, registerBackHa
       { id: 'photo', label: '사진으로 만들기', text: '사진으로 만들기', icon: 'image', onPress: () => openPickerAfterMenu(makeCoverFromPhoto) },
     ] : [
       { id: 'split', label: stickerSplit.available ? '스티커 시트 분리' : `스티커 시트 분리, ${stickerSplit.reason || '이 기기에서는 쓸 수 없어요'}`, text: '스티커 시트 분리', icon: 'grid',
-        disabled: !stickerSplit.available, onPress: () => { closeAddMenu(); loginGate('스티커 시트 분리', () => setTool('split')); } },
+        disabled: !stickerSplit.available, onPress: () => openPickerAfterMenu(() => loginGate('스티커 시트 분리', () => setTool('split'))) },
       // 사진 속 대상 오리기: 저장이 아직 미리보기 단계라(StickerCutoutModal 확인창) 모든 빌드에서 입구를 감춘다
       ...(CUTOUT_ENTRANCE ? [{ id: 'cutout', label: '사진 속 대상 오리기', text: '사진 속 대상 오리기', icon: 'scissors',
         onPress: () => { closeAddMenu(); loginGate('사진 속 대상 오리기', () => setTool('cutout')); } }] : []),
@@ -567,6 +573,7 @@ export default function DecorationStudioScreen({ compact = false, registerBackHa
 // 스티커 폴더 칸 안쪽 여백 · 미리보기 사이 · 미리보기 최소 크기(folderTile · folderPreviews 와 같은 값)
 const FOLDER_PAD = 14, PREVIEW_GAP = 8, PREVIEW_MIN = 64;
 const s = StyleSheet.create({
+  scrollFill: { flexGrow: 1 },
   // 표지 사진 자르기의 `방향` 줄: 새 다이어리 '방향'과 같은 세로 · 가로 선택(예전 테이프 두께 줄과 같은 자리 · 크기)
   cropRow: { flexDirection: 'row', alignItems: 'center', gap: 14, marginTop: 14 },
   cropLabel: { width: 64, fontSize: 12.5, fontWeight: '700', color: colors.textMuted },

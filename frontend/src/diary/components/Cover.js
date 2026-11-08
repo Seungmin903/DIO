@@ -55,7 +55,9 @@ function Cover({ thumbnailWidth, diary, small = false, preview = false, carousel
   const boxHeight = ratio < 1 ? longSide : longSide / ratio;
   const artWidth = ratio < 1 ? ART_LONG_SIDE * ratio : ART_LONG_SIDE, artHeight = ratio < 1 ? ART_LONG_SIDE : ART_LONG_SIDE / ratio
   // 칸 가운데에 놓인 표지의 왼쪽 끝(세로 표지는 칸보다 좁다)
-  const inset = Math.max(0, Math.round((cellWidth - boxWidth) / 2));
+  // 640: 한눈에 보기(격자)는 세로 · 가로 표지가 섞여도 제목 · ⋯ 시작선이 맞도록 표지를 칸 왼쪽 끝에 붙인다(inset 0). 나머지는 가운데.
+  const gridStart = grid && !centered;
+  const inset = gridStart ? 0 : Math.max(0, Math.round((cellWidth - boxWidth) / 2));
   useEffect(() => { onInset?.(inset); }, [inset, onInset]);
   // 포커스 프레임: 본체(고무줄이 튀어나올 만큼 칸보다 안쪽인 둥근 판)에 틈 없이 붙어 두께만큼 바깥을 감싼다. 칸 가장자리에 두면 본체와의 틈으로 표지 그림자가 흰 테두리 안쪽에 비쳐 보였다.
   // 고무줄 끝은 틈 두께(bandOut ≤ 프레임 두께)만큼만 튀어나와 프레임 아래로 들어간다.
@@ -87,7 +89,7 @@ function Cover({ thumbnailWidth, diary, small = false, preview = false, carousel
         if (Math.round(width) !== Math.round(measured?.width ?? -1) || Math.round(height) !== Math.round(measured?.height ?? -1)) setMeasured({ width, height });
       }}
       // fill: 폭을 재기 전의 첫 그림은 짐작한 크기라 달라 보이므로, 잰 뒤에 한 번에 보인다.
-      style={[frame, styles.cell, centered && styles.fillCenter, fill && !measured && styles.unmeasured, thumbnailWidth && { width: thumbnailWidth, height: styleHeight, minHeight: 0 }]}>
+      style={[frame, styles.cell, centered && styles.fillCenter, gridStart && styles.gridStart, fill && !measured && styles.unmeasured, thumbnailWidth && { width: thumbnailWidth, height: styleHeight, minHeight: 0 }]}>
       <View onLayout={liveFill ? onBoxLayout : undefined} style={[liveFill ? { width: ratio < 1 ? `${ratio * 100}%` : '100%', aspectRatio: ratio } : { width: boxWidth, height: boxHeight }]}>
         {cover.enabled && fill ? <View ref={art} pointerEvents="none" style={{ position: 'absolute', left: 0, top: 0, width: artWidth, height: artHeight, transform: [{ scale: boxWidth / artWidth }], transformOrigin: 'top left' }}>
           <CoverArt cover={cover} name={diary.title} width={artWidth} height={artHeight} shadow={shadow} pixelScale={boxWidth / artWidth} />
@@ -113,6 +115,7 @@ const styles = StyleSheet.create({
   fill: { width: '100%', maxWidth: GRID_CELL_MAX, height: 'auto' },
   unmeasured: { opacity: 0 },
   fillCenter: { justifyContent: 'center' },
+  gridStart: { alignItems: 'flex-start' },
   cell: { padding: 0, overflow: 'visible', justifyContent: 'flex-end', alignItems: 'center', backgroundColor: 'transparent', borderRadius: 0, shadowOpacity: 0, elevation: 0, boxShadow: 'none' },
   page: { ...StyleSheet.absoluteFill, backgroundColor: C.white, justifyContent: 'flex-end' },
   pagePreview: { position: 'absolute', top: 0, left: 0, borderWidth: 0 },

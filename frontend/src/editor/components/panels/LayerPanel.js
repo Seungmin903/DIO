@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo, useRef, useState } from 'react'
+import { createContext, memo, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { Image, Keyboard, Pressable, FlatList, StyleSheet, Text, TextInput, View } from 'react-native'
 import { colors } from '../../../shared/theme'
 import { objectTypeLabel } from '../../constants'
@@ -33,6 +33,9 @@ const AUTO_SCROLL_MAX_SPEED = 14 // 한 번(16ms)에 넘기는 최대 px
  * - 선택된 항목(그룹)의 이름을 한 번 더 누르면 이름 바꾸기
  * - 오른쪽 손잡이를 끌어 순서 변경. 그룹 사이에 놓으면 그 그룹에 들어가고, 밖으로 빼면 그룹에서 빠진다.
  */
+// 646: 폰 세로의 좁은 패널(LAYER_PANEL_COMPACT_WIDTH)에서는 행 안쪽 간격 · 썸네일 · 토글 · 손잡이를 줄여 이름 칸이 보이게 한다
+const CompactContext = createContext(false)
+
 export default function LayerPanel({ objects, selectedIds, dispatch, onClose, onEmptyTap, width = LAYER_PANEL_WIDTH }) {
   const layers = useMemo(() => objects.filter((o) => !isBackdrop(o)).reverse(), [objects])
   const [drag, setDrag] = useState(null) // { key, from, dy }
@@ -258,6 +261,7 @@ export default function LayerPanel({ objects, selectedIds, dispatch, onClose, on
 
       </View>
 
+      <CompactContext.Provider value={width < LAYER_PANEL_WIDTH}>
       <View style={styles.listWrap} {...rangeHandlers}>
       <FlatList
         ref={listRef}
@@ -321,6 +325,7 @@ export default function LayerPanel({ objects, selectedIds, dispatch, onClose, on
         }}
       />
       </View>
+      </CompactContext.Provider>
     </View>
   )
 }
@@ -391,7 +396,7 @@ function NameField({ name, renamable, onCommit }) {
         <Text style={styles.rowName} numberOfLines={1}>
           {name}
         </Text>
-        {renamable && <Icon name="edit" size={13} forText={13} color={colors.textMuted} />}
+        {renamable && <Icon name="edit" size={13} color={colors.textMuted} />}
       </View>
     </Pressable>
   )
@@ -399,13 +404,14 @@ function NameField({ name, renamable, onCommit }) {
 
 // 숨김·잠금 버튼은 선택한 행에서만, 켜져 있으면 늘 보여 준다.
 function ToggleButtons({ show, hidden, locked, onToggle }) {
+  const compact = useContext(CompactContext)
   return (
     <>
       {(show || hidden) && (
         <Pressable
-          hitSlop={9}
+          hitSlop={compact ? 12 : 9}
           onPress={() => onToggle('hidden', !hidden)}
-          style={styles.toggle}
+          style={[styles.toggle, compact && styles.toggleCompact]}
           accessibilityLabel={hidden ? '보이기' : '숨기기'}
         >
           <Icon name={hidden ? 'eyeOff' : 'eye'} size={17} color={hidden ? colors.primary : colors.textMuted} />
@@ -413,9 +419,9 @@ function ToggleButtons({ show, hidden, locked, onToggle }) {
       )}
       {(show || locked) && (
         <Pressable
-          hitSlop={9}
+          hitSlop={compact ? 12 : 9}
           onPress={() => onToggle('locked', !locked)}
-          style={styles.toggle}
+          style={[styles.toggle, compact && styles.toggleCompact]}
           accessibilityLabel={locked ? '잠금 해제' : '잠그기'}
         >
           <Icon name={locked ? 'lock' : 'unlock'} size={17} color={locked ? colors.primary : colors.textMuted} />
@@ -426,6 +432,7 @@ function ToggleButtons({ show, hidden, locked, onToggle }) {
 }
 
 function GroupRow({ row, selected, renamable, collapsed, onToggleCollapsed, dispatch, multi, onToggle, onRangeStart, onPressOut, ...drag }) {
+  const compact = useContext(CompactContext)
   const gripHandlers = useRowDrag(drag)
   const memberIds = row.members.map((o) => o.id)
   const hidden = row.members.every((o) => o.hidden)
@@ -448,7 +455,7 @@ function GroupRow({ row, selected, renamable, collapsed, onToggleCollapsed, disp
         onLongPress={onRangeStart}
         onPressOut={onPressOut}
         delayLongPress={350}
-        style={[styles.row, selected && styles.rowSelected, drag.dragging && styles.rowDragging, hidden && styles.rowHidden]}
+        style={[styles.row, compact && styles.rowCompact, selected && styles.rowSelected, drag.dragging && styles.rowDragging, hidden && styles.rowHidden]}
         accessibilityRole="button"
         accessibilityLabel={`${row.name}, 그룹 레이어 ${row.members.length}개`}
         accessibilityState={{ selected, expanded: !collapsed }}
@@ -470,7 +477,7 @@ function GroupRow({ row, selected, renamable, collapsed, onToggleCollapsed, disp
           </Text>
         </View>
         <ToggleButtons show={selected} hidden={hidden} locked={locked} onToggle={(key, value) => patchAll({ [key]: value })} />
-        <View {...gripHandlers} style={styles.grip} {...gripA11y(drag.onMove)}>
+        <View {...gripHandlers} style={[styles.grip, compact && styles.gripCompact]} {...gripA11y(drag.onMove)}>
           <Icon name="grip" size={18} color={colors.primary} />
         </View>
       </Pressable>
@@ -497,6 +504,7 @@ const MemoLayerRow = memo(function MemoLayerRow({ rowKey, actions, index, ...pro
 })
 
 function LayerRow({ object, nested, selected, renamable, dispatch, multi, onToggle, onRangeStart, onPressOut, ...drag }) {
+  const compact = useContext(CompactContext)
   const gripHandlers = useRowDrag(drag)
   return (
     <RowShell {...drag}>
@@ -512,6 +520,7 @@ function LayerRow({ object, nested, selected, renamable, dispatch, multi, onTogg
         delayLongPress={350}
         style={[
           styles.row,
+          compact && styles.rowCompact,
           nested && styles.rowNested,
           selected && styles.rowSelected,
           drag.dragging && styles.rowDragging,
@@ -552,7 +561,7 @@ function LayerRow({ object, nested, selected, renamable, dispatch, multi, onTogg
             })
           }
         />
-        <View {...gripHandlers} style={styles.grip} {...gripA11y(drag.onMove)}>
+        <View {...gripHandlers} style={[styles.grip, compact && styles.gripCompact]} {...gripA11y(drag.onMove)}>
           <Icon name="grip" size={18} color={colors.primary} />
         </View>
       </Pressable>
@@ -571,6 +580,7 @@ function gripA11y(onMove) {
 }
 
 const LayerThumb = memo(function LayerThumb({ object }) {
+  const compact = useContext(CompactContext)
   const uri = useMediaUri(object, { still: true })
   let content = null
   if (object.type === 'text') {
@@ -615,7 +625,7 @@ const LayerThumb = memo(function LayerThumb({ object }) {
       </View>
     )
   }
-  return <View style={styles.thumb}>{content}</View>
+  return <View style={[styles.thumb, compact && styles.thumbCompact]}>{content}</View>
 })
 
 // 레이어 패널 기본 폭. 태블릿은 상단바 오른쪽 묶음 폭을 받아 왼쪽 끝을 공유 버튼에 맞춘다(EditorScreen layerWidth)
@@ -689,6 +699,8 @@ const styles = StyleSheet.create({
     gap: 12,
     paddingHorizontal: 16,
   },
+  // 646: 좁은 패널 — 이름 칸(rowText flex 1)이 0 으로 눌리지 않게 간격 · 썸네일 · 토글 · 손잡이를 줄인다. ⋮ 는 패널 안쪽에 남는다
+  rowCompact: { gap: 6, paddingLeft: 12, paddingRight: 8 },
   rowNested: { paddingLeft: 40 },
   nestLine: {
     position: 'absolute',
@@ -730,13 +742,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     overflow: 'hidden',
   },
+  thumbCompact: { width: 32, height: 32, borderRadius: 8 },
   thumbEmoji: { fontSize: 22 },
   thumbImage: { width: 30, height: 30 },
-  thumbPhoto: { width: 40, height: 40 },
+  thumbPhoto: { width: '100%', height: '100%' },
   rowText: { flex: 1, minWidth: 0 },
   nameRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   rowName: { flexShrink: 1, fontSize: 13, fontWeight: '700', color: colors.text },
   rowType: { marginTop: 3, fontSize: 12, color: colors.textMuted },
   toggle: { padding: 7 },
+  toggleCompact: { padding: 3 },
   grip: { width: 48, minHeight: 48, marginRight: -10, alignItems: 'center', justifyContent: 'center' }, // 터치 48
+  gripCompact: { width: 36, minHeight: 48, marginRight: 0 },
 })

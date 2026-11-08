@@ -355,12 +355,9 @@ export function PaperStyleOptions({ appearance, onChange, scope, onScope, plainO
   const setBackground = backgroundColor => onChange(withPaperBackground(appearance, backgroundColor))
   const setLayout = layoutColor => onChange({ ...appearance, layoutColor })
   return <View style={styles.panel}>
-    <OptionRow label="종이 색">
-      <EditablePalette scope="paper" label="종이" value={appearance.backgroundColor} onPick={setBackground} />
-    </OptionRow>
-    {!plainOnly && <OptionRow label="선 · 글자">
-      <EditablePalette scope="paperLine" label="선과 글씨" value={appearance.layoutColor} onPick={setLayout} />
-    </OptionRow>}
+    {/* 같은 뜻 라벨은 하나만: 행 라벨 열을 없애고 팔레트 머리글을 그 이름으로 쓴다. 견본 줄이 머리글과 같은 x 에서 시작한다(지라 669) */}
+    <EditablePalette scope="paper" label="종이" heading="종이 색" value={appearance.backgroundColor} onPick={setBackground} />
+    {!plainOnly && <EditablePalette scope="paperLine" label="선과 글씨" heading="선 · 글자 색" value={appearance.layoutColor} onPick={setLayout} />}
     {!plainOnly && <OptionRow label="글꼴">
       <PaperFontDropdown value={appearance.font ?? DEFAULT_PAPER_FONT} onChange={font => onChange({ ...appearance, font: font === DEFAULT_PAPER_FONT ? undefined : font })} />
     </OptionRow>}

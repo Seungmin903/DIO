@@ -20,7 +20,7 @@ function render(key, callbacks = {}) {
   const mocks = {
     'react-native': { Linking: { openURL: async url => opened.push(url) }, StyleSheet: { create: value => value },
       Pressable: 'Pressable', ScrollView: 'ScrollView', Text: 'Text', View: 'View' },
-    'react-native-safe-area-context': { SafeAreaView: 'SafeAreaView' },
+    'react-native-safe-area-context': { SafeAreaView: 'SafeAreaView', useSafeAreaInsets: () => ({ top: 0 }) },
     '../shared/legalContent': legal, '../shared/theme': { colors: {} }, '../shared/dialogs': { notify() {} },
   };
   new Function('require', 'module', 'exports', code)(id => mocks[id] ?? (id === 'react/jsx-runtime' ? require(id)

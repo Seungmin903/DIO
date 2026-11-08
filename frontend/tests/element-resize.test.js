@@ -28,6 +28,7 @@ function fixture(object, zoom = 1, textMinHeight = null) {
     if (id.endsWith('/theme')) return { colors: {} }
     if (id.endsWith('/common')) return common
     if (id.endsWith('/popoverPlacement')) return placement
+    if (id.endsWith('/utils/editorShapes')) return { memoPaperBox: () => null }
     if (id.endsWith('/utils/objects')) return { tapeUnitH: (tape) => tape.unitH ?? 34 }
     if (id.endsWith('/constants')) return { TAPE_SIZES: [{ id: 'slim', w: 200, h: 11 }, { id: 'standard', w: 180, h: 34 }, { id: 'wide', w: 200, h: 68 }] }
     if (id.endsWith('/text')) return text
