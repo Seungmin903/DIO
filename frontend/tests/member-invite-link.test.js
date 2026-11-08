@@ -1,0 +1,32 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import { memberInviteId, subscribeMemberInviteLinks } from '../src/sharing/memberInviteLink.js';
+
+test('only the DIO member invitation route with a valid ID opens an invitation', () => {
+  assert.equal(memberInviteId('dio://member-invites/9223372036854775807'), '9223372036854775807');
+  for (const url of [
+    null, 'https://dio.example/member-invites/123', 'dio://invite/123',
+    'dio://member-invites/0', 'dio://member-invites/9223372036854775808',
+    'dio://member-invites/123?token=secret', 'dio://member-invites/123\n',
+  ]) assert.equal(memberInviteId(url), null);
+});
+
+test('a cold start and subsequent links both deliver the invitation ID', async () => {
+  const received = [];
+  let receive;
+  let removed = false;
+  const stop = subscribeMemberInviteLinks({
+    addEventListener(type, callback) {
+      assert.equal(type, 'url');
+      receive = callback;
+      return { remove: () => { removed = true; } };
+    },
+    getInitialURL: async () => 'dio://member-invites/123',
+  }, id => received.push(id));
+  await Promise.resolve();
+  receive({ url: 'dio://member-invites/456' });
+  stop();
+  receive({ url: 'dio://member-invites/789' });
+  assert.equal(removed, true);
+  assert.deepEqual(received, ['123', '456']);
+});

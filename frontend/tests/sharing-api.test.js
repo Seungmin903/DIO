@@ -259,6 +259,15 @@ test('받은 이메일 초대 목록·확인·수락·거절은 이메일 초대
   assert.equal((await f.runtime.notificationApi.count()).actionableUnreadCount, 1);
 });
 
+test('다른 계정의 초대 ID로는 상세 조회나 수락 요청을 보내지 않는다', async () => {
+  const f = fixture({ fetch: async url => url.includes('/me/invites?')
+    ? reply({ items: [], hasNext: false }) : null });
+  await assert.rejects(f.runtime.invitationGateway.get('123'), { code: 'INVITE_NOT_FOUND' });
+  await assert.rejects(f.runtime.accept('123', '기본이름'), { code: 'INVITE_NOT_FOUND' });
+  assert.ok(f.calls.length > 0);
+  assert.ok(f.calls.every(call => call.url.includes('/me/invites?')));
+});
+
 test('붙여넣은 링크의 외부 주소로 인증 토큰을 보내지 않고 고정 API에서 토큰만 조회한다', async () => {
   const f = fixture();
   await f.runtime.resolveLink('https://another.example/invite/link-token?extra=1');

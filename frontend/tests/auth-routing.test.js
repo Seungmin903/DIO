@@ -12,10 +12,14 @@ const code=babel.transformSync(readFileSync(new URL('../App.js',import.meta.url)
 // probe 를 주면 useEffect 를 모아 두고 네이티브 시작 화면을 내린 횟수(hidden) · 예전 예시 다이어리 정리 횟수(cleaned)를 센다
 function root(dev,mode,session=null,loginRequest=null,probe=null,apiConfigurationError=false){
  let calls=0
- const states=[session,probe?.booting??false,loginRequest,probe?.restoreState??{status:'loading',error:null}]
+ const states=[session,probe?.booting??false,loginRequest,probe?.restoreState??{status:'loading',error:null},null,probe?.mailInvitation]
  const mod={exports:{}},mocks={'./src/diary/utils/routeMemory':routeMemory,'./src/shared/dialogs':{notify:(...args)=>probe?.notices?.push(args)},'./src/editor/utils/savePdfFile':{cleanupPdfShareCache:async()=>{}},'./src/auth/authService':{apiConfigurationError,authService:{logout:async()=>{if(probe?.logoutError)throw probe.logoutError},restoreSession:async()=>{if(probe?.restoreMock)return probe.restoreMock();if(probe?.restoreError)throw probe.restoreError;return probe?.restored??null}}},react:{useState:()=>{const index=calls++;return [states[index],value=>probe?.updates?.push({index,value})]},useEffect(fn){probe?.effects.push(fn)},useCallback:f=>f,useRef:current=>({current})},'./src/auth/guestProfileDevice':{guestProfile:{start:async session=>{if(probe)probe.guestStarts=(probe.guestStarts||0)+1;return session}}},'./src/diary/services/legacyMockCleanup':{clearMockLibrary:async()=>{if(probe)probe.cleaned=(probe.cleaned||0)+1}},'expo-splash-screen':{preventAutoHideAsync:async()=>{},hideAsync:async()=>{if(probe)probe.hidden++}},'react-native':{Platform:{OS:'web'},StatusBar:'StatusBar',View:'View',Text:'Text',StyleSheet:{absoluteFill:{},create:value=>value}},'react-native-safe-area-context':{SafeAreaProvider:'SafeAreaProvider'},'expo-font':{useFonts:()=>[true,null]},'./src/shared/pretendardFiles':{PRETENDARD_FILES:{}},'./src/editor/services/textFonts':{preloadTextFonts(){}},'./src/shared/remoteAssets/remoteCatalogService':{loadRemoteCatalog(){}},'./src/diary/styles':{styles:{empty:{},emptyTitle:{},emptyCopy:{}}},'./src/shared/useHiddenNavigationBar':{useHiddenNavigationBar(){}}}
  mocks['expo-font']={useFonts:()=>[probe?.fontsLoaded??true,null]};
  mocks['react-native'].Platform.OS=probe?.platform??'web';
+ mocks['./src/sharing/memberInviteLink']={subscribeMemberInviteLinks(_linking,onInvite){
+  if(probe)probe.receiveMailInvite=onInvite;
+  return ()=>{};
+ }};
  mocks['./src/editor/utils/common']={setUuidGenerator(){}};
  mocks['./src/shared/BootSplash']={__esModule:true,default:'./src/shared/BootSplash',SPLASH:{backgroundColor:'#F0ECFD'}};
  Object.assign(mocks['./src/auth/authService'].authService, {
@@ -41,6 +45,32 @@ function root(dev,mode,session=null,loginRequest=null,probe=null,apiConfiguratio
  return mod.exports.default()
 }
 const nodes=n=>!n||typeof n!=='object'?[]:[n,...[n.props?.children].flat(Infinity).flatMap(nodes)]
+
+test('메일 초대는 게스트 로그인으로 이어지고 계정을 바꿔도 같은 초대 ID를 전달한다',async()=>{
+ const invitation={inviteId:'123'};
+ const guest={mode:'preview',provider:'guest'};
+ const probe={effects:[],updates:[],mailInvitation:invitation,restoreState:{status:'done',error:null}};
+ root(false,undefined,guest,null,probe);
+ const timer=globalThis.setTimeout;globalThis.setTimeout=()=>0;
+ let cleanups;
+ try{cleanups=probe.effects.map(effect=>effect())}finally{globalThis.setTimeout=timer}
+ assert.ok(probe.updates.some(update=>update.index===2&&update.value));
+ for(const cleanup of cleanups)if(typeof cleanup==='function')cleanup();
+
+ const first={mode:'authenticated',userId:'7'};
+ const signedIn={...probe,effects:[],updates:[],refs:[],sessionKey:'7:1'};
+ const app=nodes(root(false,undefined,first,null,signedIn)).find(node=>node.props?.onSwitchInvitationAccount);
+ assert.deepEqual(app.props.mailInvitation,invitation);
+ app.props.onConsumeMailInvitation(invitation);
+ signedIn.sessionKey=null;
+ await app.props.onSwitchInvitationAccount(invitation.inviteId);
+ assert.ok(signedIn.updates.some(update=>update.index===2&&update.value));
+ assert.deepEqual(signedIn.updates.at(-1).value,invitation);
+ const next={...signedIn,refs:[],sessionKey:'8:1',mailInvitation:signedIn.updates.at(-1).value};
+ const nextApp=nodes(root(false,undefined,{mode:'authenticated',userId:'8'},null,next))
+  .find(node=>node.props?.onSwitchInvitationAccount);
+ assert.deepEqual(nextApp.props.mailInvitation,invitation);
+});
 
 async function failStartup(error) {
  const probe={effects:[],updates:[],hidden:0,restoreError:error,booting:true};

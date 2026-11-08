@@ -3,6 +3,7 @@ package com.f106.DIO.sharing.infrastructure;
 import com.f106.DIO.auth.config.SignupProperties;
 import com.f106.DIO.sharing.service.MemberInviteMailRequested;
 import jakarta.annotation.PreDestroy;
+import jakarta.mail.MessagingException;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -10,8 +11,8 @@ import java.util.concurrent.TimeUnit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionalEventListener;
 
@@ -46,14 +47,20 @@ public class MemberInviteMailer {
                 log.warn("Invitation SMTP unavailable: inviteId={}", event.inviteId());
                 return;
             }
-            var message = new SimpleMailMessage();
-            message.setFrom(signup.mailFrom());
-            message.setTo(event.recipient());
-            message.setSubject("[DIO] 공유 다이어리 초대가 도착했어요");
-            message.setText("DIO에서 공유 다이어리 초대를 받았어요.\n"
-                + "DIO 앱에 로그인한 뒤 ‘받은 초대’에서 확인해 주세요.");
+            String link = "dio://member-invites/" + event.inviteId();
+            var message = sender.createMimeMessage();
+            var helper = new MimeMessageHelper(message, true, "UTF-8");
+            helper.setFrom(signup.mailFrom());
+            helper.setTo(event.recipient());
+            helper.setSubject("[DIO] 공유 다이어리 초대가 도착했어요");
+            helper.setText(
+                "DIO에서 공유 다이어리 초대를 받았어요.\n" + link
+                    + "\n링크가 열리지 않으면 DIO 앱에 로그인한 뒤 ‘받은 초대’에서 확인해 주세요.",
+                "<p>DIO에서 공유 다이어리 초대를 받았어요.</p>"
+                    + "<p><a href=\"" + link + "\">DIO에서 초대 확인하기</a></p>"
+                    + "<p>링크가 열리지 않으면 DIO 앱에 로그인한 뒤 ‘받은 초대’에서 확인해 주세요.</p>");
             sender.send(message);
-        } catch (RuntimeException error) {
+        } catch (MessagingException | RuntimeException error) {
             log.warn("Invitation mail delivery failed: inviteId={}, error={}",
                 event.inviteId(), error.getClass().getSimpleName());
         }

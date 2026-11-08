@@ -107,6 +107,7 @@ export default function SharingHub({
   runtime,
   model,
   onClose,
+  onSwitchInvitationAccount,
   onOpenDiary,
   onOpenCopy,
   onOpenParticipants,
@@ -252,7 +253,11 @@ export default function SharingHub({
           throw new Error('사용할 수 없는 초대예요. 최신 상태를 확인해 주세요.');
         setInvite(value); setScreen('detail');
       }).catch(error => {
-        if (alive.current && pending === job.current) showFailure(error);
+        if (!alive.current || pending !== job.current) return;
+        if (request.fromMail && error.code === 'INVITE_NOT_FOUND') {
+          setErrorText('이 계정에서 초대를 찾을 수 없어요. 초대받은 계정으로 다시 시도해 주세요.');
+          setRequestError(error);
+        } else showFailure(error);
       }).finally(() => { if (alive.current && pending === job.current) setBusy(false); });
     } else if (request.diary) {
       try {
@@ -1184,6 +1189,9 @@ export default function SharingHub({
                     </Text>
                   )}
                   {!!error && <AuthenticationRecovery error={requestError} />}
+                  {request.fromMail && requestError?.code === 'INVITE_NOT_FOUND' && onSwitchInvitationAccount && (
+                    <Button label="계정 바꾸기" onPress={() => onSwitchInvitationAccount(request.inviteId)} />
+                  )}
                 </View>
               </Pressable>
             </ScrollView>
