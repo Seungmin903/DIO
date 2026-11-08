@@ -10,13 +10,14 @@ import AppIcon from '../shared/AppIcon';
 import AuthenticationRecovery from '../auth/AuthenticationRecovery';
 import { notify } from '../shared/dialogs';
 import Cover from '../diary/components/Cover';
+import EmptyState from '../diary/components/EmptyState';
 import { FALLBACK_COVER_COLOR } from '../diary/constants';
 import { sharingStyles as shared } from '../sharing/styles';
 
 // trailing: 줄 오른쪽 끝 버튼. 터치 영역은 그대로 두고 보이는 글자 · 아이콘 끝을 본문 오른쪽 여백(24)에 맞춘다(지라 609: 오른쪽 여백이 왼쪽의 2배로 보였다)
 export function NotificationButton({ label, text = label, icon, iconLeading = false, quiet = false, trailing = false, onPress, disabled = false, selected, style }) {
   return <Pressable accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ disabled, ...(selected === undefined ? {} : { selected }) }}
-    disabled={disabled} onPress={onPress} style={({ pressed }) => [s.button, quiet && s.quiet, iconLeading && s.leadingButton, trailing && (text === null ? s.trailingIcon : s.trailingText), style, selected && s.selected, (disabled || pressed) && { opacity: disabled ? DISABLED_OPACITY : 0.6 }]}>
+    disabled={disabled} onPress={onPress} style={({ pressed }) => [s.button, quiet && s.quiet, iconLeading && s.leadingButton, trailing && (text === null ? (icon === 'close' ? s.trailingClose : s.trailingIcon) : s.trailingText), style, selected && s.selected, (disabled || pressed) && { opacity: disabled ? DISABLED_OPACITY : 0.6 }]}>
     {iconLeading && icon && <View accessible={false} aria-hidden importantForAccessibility="no-hide-descendants"><AppIcon name={icon} size={18} /></View>}
     {text !== null && <Text style={s.buttonText}>{text}</Text>}
     {!iconLeading && icon && <View accessible={false} aria-hidden importantForAccessibility="no-hide-descendants"><AppIcon name={icon} size={18} /></View>}
@@ -118,7 +119,7 @@ export default function NotificationPanel({ model, onInvitationReady }) {
     </View>}
     {/* 처음 불러오는 동안은 빈 화면과 같은 자리 가운데에 스피너만 둔다(다시 받을 때는 지금 목록을 그대로 둔다) */}
     {(list.status === 'idle' || list.status === 'loading') && items.length === 0 && <View style={s.empty} accessible accessibilityRole="progressbar" accessibilityLabel="알림 목록 불러오는 중이에요." accessibilityState={{ busy: true }}><ActivityIndicator accessible={false} color={C.primary} /></View>}
-    {list.status === 'success' && items.length === 0 && <View style={s.empty}><AppIcon name="bell" size={32} color={C.primary} /><Text testID="notification-empty" accessible accessibilityLiveRegion="polite" aria-live="polite" style={s.muted}>받은 알림이 없어요</Text></View>}
+    {list.status === 'success' && items.length === 0 && <View testID="notification-empty" style={s.emptyBox} accessibilityLiveRegion="polite" aria-live="polite"><EmptyState compact art="dio" title="받은 알림이 없어요" /></View>}
     {items.map(row => { const presentation = notificationPresentation(row);
       const pending = row.status === 'PENDING', joined = row.status === 'ACCEPTED';
       const EntryContent = presentation.canInspectInvitation ? Pressable : View;
@@ -163,6 +164,7 @@ const s = StyleSheet.create({
   entryFooter: { marginLeft: 'auto', alignSelf: 'center' },
   entryHeading: { minWidth: 0, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6 },
   muted: { color: C.textMuted, fontSize: 12.5, lineHeight: 19, fontWeight: '600' },
+  emptyBox: { flex: 1 }, // 다른 빈 화면과 같은 EmptyState(디오 — 공유 · 소식은 디오 담당, 사용자 결정 2026-11-08 · 알림 창은 좁아 compact)
   empty: { flex: 1, minHeight: 160, alignItems: 'center', justifyContent: 'center', gap: 16 },
   button: { minHeight: 48, minWidth: 44, maxWidth: '100%', flexShrink: 1, flexDirection: 'row', alignItems: 'center', gap: 6, justifyContent: 'center', paddingHorizontal: 12, borderRadius: radius.md, backgroundColor: C.surfaceMuted },
   quiet: { backgroundColor: 'transparent' },
@@ -171,6 +173,7 @@ const s = StyleSheet.create({
   snug: { paddingLeft: 0 }, // 왼쪽 여백만 뺀다: 새로고침 칸(44)과 겹치지 않고, 이 버튼도 글자 + 오른쪽 12로 터치 폭 44 이상
   trailingText: { marginRight: -12 }, // 안쪽 여백 12만큼
   trailingIcon: { marginRight: -13 }, // 칸 44 안의 아이콘 18: (44 − 18) / 2
+  trailingClose: { marginRight: -17 }, // 닫기 X 는 선이 아이콘 칸(18) 안쪽 4.5 에서 끝나 보이는 끝이 글자보다 안쪽이었다: 13 + 4 만큼 더 내민다
   buttonText: { color: C.text, fontSize: 13, fontWeight: '700' },
   selected: { borderWidth: 2, borderColor: C.primary },
   text: { color: C.text, fontSize: 12.5, lineHeight: 19, fontWeight: '600' }, title: { color: C.text, fontSize: 16, fontWeight: '700' },

@@ -224,7 +224,7 @@ test('스티커 새 폴더: 시트 분리 없이 만들고 바로 들어가 이�
   stickerAction(ui,'새 폴더').onPress()
   const opened=ui.render()
   assert.equal(find(opened,'스티커 폴더 이름').props.value,'새 폴더')
-  assert.ok(find(opened,'이 폴더에 스티커 추가'))
+  assert.ok(find(opened,'스티커 추가')) // 폴더 안 머리줄 아래 추가 버튼
   find(opened,'스티커 폴더 이름').props.onChangeText('여름')
   find(ui.render(),'스티커 폴더 이름 저장').props.onPress()
   assert.equal(nodes(ui.render()).some(n=>n.props?.accessibilityLabel==='스티커 폴더 이름'),false)

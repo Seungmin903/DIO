@@ -22,7 +22,10 @@ const BAR_HEIGHT = 52
 const CHIP_HEIGHT = 40 // 링크 카드 높이
 const EDGE = POPOVER_EDGE // 페이지 가장자리와 바 사이 여백
 const MENU_WIDTH = 148
-const COMPACT_MENU_HEIGHT = 4.5 * 44 + 10 // 더보기 메뉴: 항목 네 개 반이 보이고 나머지는 스크롤
+// 더보기 메뉴 높이 상한: 지금 가장 긴 메뉴(8줄 이하)가 다 보이는 높이. 자리가 모자랄 때만 줄고 그때 스크롤.
+// 메뉴 줄이 8개를 넘게 늘면 이 값도 같이 늘린다(넘으면 마지막 줄이 스크롤 뒤로 간다)
+const COMPACT_MENU_MAX_ROWS = 8
+const COMPACT_MENU_HEIGHT = COMPACT_MENU_MAX_ROWS * 44 + 10
 /** 요소에 걸린 링크 (스티커·테이프·사진은 href, 텍스트는 글자 서식의 첫 링크) */
 const linkOf = (object) => object?.href ?? object?.styleRanges?.find((range) => range.href)?.href ?? null
 // 요소 전체에 하이퍼링크를 거는 요소 (텍스트는 글자 서식 링크로 따로 건다)
@@ -230,8 +233,8 @@ export function fitInline(leading, actions, barMax) {
 export function placeCompactMenu({ bar, floor, ceil, left = 0, right }) {
   const spaceBelow = floor - (bar.top + bar.height + 6)
   const spaceAbove = bar.top - 6 - ceil
-  // 아래 자리가 두 항목(88)도 안 될 때만 위로 올린다.
-  const below = spaceBelow >= 88 || spaceBelow >= spaceAbove
+  // 아래에 메뉴 전체가 들어가거나 위보다 넓으면 아래로, 아니면 위로 올려 항목이 잘리지 않게 한다.
+  const below = spaceBelow >= COMPACT_MENU_HEIGHT || spaceBelow >= spaceAbove
   const maxHeight = clamp(below ? spaceBelow : spaceAbove, 88, COMPACT_MENU_HEIGHT)
   return { maxHeight, position: { left: clamp(bar.left + bar.width - 166, left + EDGE, Math.max(left + EDGE, right - 166 - EDGE)), top: below ? bar.top + bar.height + 6 : bar.top - 6 - maxHeight } }
 }
