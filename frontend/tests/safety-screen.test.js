@@ -12,6 +12,7 @@ const label = n => n.props?.label || n.props?.accessibilityLabel || [n.props?.ch
 function setup(report, store, onClose = () => {}, requestTarget = null) {
   const states = [], refs = [], deps = [], cleanups = []; let si = 0, ri = 0, ei = 0, serial = 0;
   const react = {
+    useCallback: fn => fn,
     useState: initial => { const i = si++; if (!(i in states)) states[i] = typeof initial === 'function' ? initial() : initial; return [states[i], value => { states[i] = typeof value === 'function' ? value(states[i]) : value; }]; },
     useRef: initial => refs[ri++] ??= { current: initial },
     useEffect: (fn, next) => { const i = ei++; if (!deps[i] || next.some((v, j) => v !== deps[i][j])) { cleanups[i]?.(); deps[i] = next; cleanups[i] = fn(); } },
@@ -145,10 +146,11 @@ test('참여자 메뉴는 창 크기 변경 시 닫히고 우측 안전 여백�
   } finally { ui.unmount(); }
 });
 
-test('공유 창에서 전달한 참여자 target은 해당 메뉴를 바로 연다', () => {
+test('공유 창에서 전달한 참여자 target은 다음 프레임에 해당 메뉴를 연다', async () => {
   const target = { id: '25', nickname: '친구', role: 'EDITOR', participation: 'CURRENT' };
   const ui = setup(async () => {}, undefined, undefined, target);
   try {
+    await new Promise(resolve => setTimeout(resolve, 0));
     assert.ok(ui.find('신고하기'));
   } finally { ui.unmount(); }
 });
@@ -174,5 +176,16 @@ test('창 크기가 바뀌면 대기 중인 메뉴 측정 결과를 무시한다
     ui.render();
     resolveMeasure(700, 100, 48, 48);
     assert.equal(ui.find('신고하기'), undefined);
+  } finally { ui.unmount(); }
+});
+
+test('비정상 메뉴 측정값은 화면 중앙 대체 위치를 사용한다', () => {
+  const ui = setup(async () => {});
+  try {
+    const button = ui.find('친구 메뉴');
+    button.props.ref({ measureInWindow: callback => callback(0, 0, 0, 0) });
+    button.props.onPress();
+    const menu = nodes(ui.render()).find(node => Array.isArray(node.props?.style) && node.props.style.includes('menu'));
+    assert.equal(menu.props.style[1].top, 304);
   } finally { ui.unmount(); }
 });

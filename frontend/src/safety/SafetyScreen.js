@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Image, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import EditorModal from '../editor/components/controls/EditorModal';
@@ -147,7 +147,7 @@ export default function SafetyScreen({ request, user, store, state, onClose, onW
   const title = zoom ? '증빙 사진' : ({ participants: '참여자', blocks: '차단한 사용자', report: '신고하기', complete: '신고 접수', warning: '공유 다이어리 안내' }[screen]);
   const hasBlockData = !unavailable && state.status === 'ready';
   const closeMenu = () => { menuRevision.current++; setMenu(null); setMenuAnchor(null); setMenuHeight(0); };
-  const measureMenu = memberId => {
+  const measureMenu = useCallback(memberId => {
     const token = ++menuRevision.current;
     setMenuAnchor(null);
     setMenuHeight(0);
@@ -156,13 +156,18 @@ export default function SafetyScreen({ request, user, store, state, onClose, onW
       setMenuAnchor(anchor);
       setMenu(memberId);
     };
+    const fallback = () => apply({ x: windowWidth / 2, y: windowHeight / 2, width: 0, height: 0 });
     const button = menuButtons.current.get(memberId);
     if (typeof button?.measureInWindow !== 'function') {
-      apply({ x: windowWidth / 2, y: windowHeight / 2, width: 0, height: 0 });
+      fallback();
       return;
     }
-    button.measureInWindow((x, y, width, height) => apply({ x, y, width, height }));
-  };
+    button.measureInWindow((x, y, width, height) => {
+      const values = [x, y, width, height];
+      if (!values.every(Number.isFinite) || (width === 0 && height === 0)) { fallback(); return; }
+      apply({ x, y, width, height });
+    });
+  }, [windowWidth, windowHeight]);
   const toggleMenu = member => {
     if (menu === member.id) { closeMenu(); return; }
     measureMenu(member.id);
@@ -172,9 +177,15 @@ export default function SafetyScreen({ request, user, store, state, onClose, onW
   useEffect(() => {
     if (screen === 'participants' && request.target?.id && openedTarget.current !== request.target.id) {
       openedTarget.current = request.target.id;
-      measureMenu(request.target.id);
+      const open = () => measureMenu(request.target.id);
+      if (typeof requestAnimationFrame === 'function') {
+        const frame = requestAnimationFrame(open);
+        return () => { if (typeof cancelAnimationFrame === 'function') cancelAnimationFrame(frame); };
+      }
+      const timer = setTimeout(open, 0);
+      return () => clearTimeout(timer);
     }
-  }, [request.target?.id, screen]);
+  }, [measureMenu, request.target?.id, screen]);
   function participant(member) {
     const own = member.id === selfId;
     return <View key={member.id} style={s.card}>
