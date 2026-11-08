@@ -4,7 +4,7 @@ import { PAGE_HEIGHT, PAGE_WIDTH } from '../constants'
 import { usePan } from '../hooks/usePan'
 import { useStylusTouchBridge } from '../hooks/useStylusTouchBridge'
 import { createId } from '../utils/common'
-import { createStroke } from '../utils/strokes'
+import { createStroke, PEN_MATERIAL_RENDER_VERSION } from '../utils/strokes'
 import PenPreview from './PenPreview'
 import { createPenPreviewStore } from '../utils/penPreviewStore.js'
 import { createStrokePreview } from '../utils/strokePreview.js'
@@ -127,7 +127,7 @@ export default function PenInput({ zoom, dispatch, pageWidth = PAGE_WIDTH, pageH
       const id = createId()
       gesture.current = { start, points, rawPoints: points, lastRaw: first, pressure, inputSource: event.pointerType === 'pen' ? 'pointer' : 'responder', responderTouch: { identifier: event.identifier, pageX: event.pageX, pageY: event.pageY }, motion: createPenMotion(first), preview: createStrokePreview(previewSegmentFor(settings.kind)), id,
         // 연필도 버전 3: 점마다 속도를 저장해 빠르게 쓴 곳을 옅게 그린다(pencilStroke)
-        settings: { ...settings, ...(['fountain', 'felt', 'pencil'].includes(settings.kind) && { renderVersion: 3, materialSeed: penMaterialSeed(id) }) }, time, startTime: time, tilt: dynamics.tilt }
+        settings: { ...settings, ...(['fountain', 'felt', 'pencil'].includes(settings.kind) && { renderVersion: PEN_MATERIAL_RENDER_VERSION, materialSeed: penMaterialSeed(id) }) }, time, startTime: time, tilt: dynamics.tilt }
       const g = gesture.current
       g.measurement = startPenMeasurement({ kind: settings.kind, width: settings.width, zoom, objectCount, straightAssist,
         coordinateBasis: event.coordinateBasis ?? 'responder', inputChannel: event.inputChannel ?? 'responder', inputRecovery: event.recoveredPreviousPointer ? 'pointer-recontact' : null })

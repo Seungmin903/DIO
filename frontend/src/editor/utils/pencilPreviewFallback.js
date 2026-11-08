@@ -6,6 +6,7 @@ export function pencilPreviewFrames(ready, next, failedUri = null) {
 }
 
 export const isCurrentPencilPreviewEvent = (latestUri, eventUri) => latestUri === eventUri
+export const pencilPreviewFallbackVisible = frames => !frames.some(frame => frame.visible)
 
 export const pencilPreviewPosition = (image, box) => ({
   left: image.left + (box.w - image.boxWidth) / 2,

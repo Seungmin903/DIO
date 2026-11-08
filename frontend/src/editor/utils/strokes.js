@@ -1,4 +1,5 @@
 import { brushSeed } from './pencilSeed.js'
+export const PEN_MATERIAL_RENDER_VERSION = 3
 // 페이지 논리 좌표를 요소 내부 좌표로 변환한다. w/h는 현재 크기,
 // baseWidth/baseHeight는 원래 좌표계이므로 공통 이동·회전·리사이즈를 재사용한다.
 export const DEFAULT_PEN = { color: '#0B1766', width: 3 }
@@ -7,7 +8,7 @@ const storedPoint = (point, x, y, renderVersion) => {
   const result = { x: point.x - x, y: point.y - y, ...(point.pressure != null && { pressure: point.pressure }) }
   // Only the new material version needs sensor metadata. Never serialize event
   // objects/arbitrary keys or round existing geometry and width multipliers.
-  if (renderVersion === 3) for (const [key, scale] of Object.entries(SENSOR_PRECISION)) {
+  if (renderVersion === PEN_MATERIAL_RENDER_VERSION) for (const [key, scale] of Object.entries(SENSOR_PRECISION)) {
     if (point[key] != null) result[key] = Math.round(point[key] * scale) / scale
   }
   return result
@@ -31,7 +32,7 @@ export function createStroke(points, { id, color = DEFAULT_PEN.color, width = DE
   return {
     id, type: 'stroke', name: kind === 'highlighter' ? '형광펜 획' : '펜 획', x, y, w, h, rotation: 0,
     baseWidth: w, baseHeight: h, color, strokeWidth: width, penKind: kind, renderVersion,
-    ...(renderVersion === 3 && { materialSeed: materialSeed ?? 0 }),
+    ...(renderVersion === PEN_MATERIAL_RENDER_VERSION && { materialSeed: materialSeed ?? 0 }),
     ...(kind === 'highlighter' && { lineCap }),
     ...(kind !== 'highlighter' && opacity < 1 && { opacity }),
     // 연필: 요소 좌표에서 페이지 원점 자리 + 획 시드(첫 점 페이지 좌표의 해시). 종이 이빨이 페이지에 붙고, 옮겨도 무늬가 획과 함께 움직인다. 쓰는 중과 같은 값

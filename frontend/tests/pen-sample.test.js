@@ -1,13 +1,14 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { createPenSample } from '../src/editor/utils/penSample.js'
+import { PEN_MATERIAL_RENDER_VERSION } from '../src/editor/utils/strokes.js'
 import { isSkiaPencil } from '../src/editor/skia/pencilRaster.js'
-import { isCurrentPencilPreviewEvent, pencilPreviewFrames, pencilPreviewPosition } from '../src/editor/utils/pencilPreviewFallback.js'
+import { isCurrentPencilPreviewEvent, pencilPreviewFallbackVisible, pencilPreviewFrames, pencilPreviewPosition } from '../src/editor/utils/pencilPreviewFallback.js'
 
 for (const small of [false, true]) {
   test(`연필 ${small ? '작은' : '큰'} 견본은 실제 연필 렌더러에 필요한 거리 정보를 가진다`, () => {
     const sample = createPenSample({ kind: 'pencil', width: 10, color: '#123456', opacity: 0.8 }, small)
-    assert.equal(sample.renderVersion, 3)
+    assert.equal(sample.renderVersion, PEN_MATERIAL_RENDER_VERSION)
     assert.equal(isSkiaPencil(sample), true)
     assert.equal(sample.points[0].inkDistance, 0)
     assert.ok(sample.points.every((point, index, points) => index === 0 || point.inkDistance > points[index - 1].inkDistance))
@@ -33,6 +34,8 @@ test('견본은 다음 그림 로딩 중 이전 그림을 유지하고 로딩 �
   assert.deepEqual(pencilPreviewFrames(a, b), [{ image: a, visible: true }, { image: b, visible: false }])
   assert.deepEqual(pencilPreviewFrames(b, b), [{ image: b, visible: true }])
   assert.deepEqual(pencilPreviewFrames(null, b), [{ image: b, visible: false }])
+  assert.equal(pencilPreviewFallbackVisible(pencilPreviewFrames(null, b)), true)
+  assert.equal(pencilPreviewFallbackVisible(pencilPreviewFrames(a, b)), false)
   assert.deepEqual(pencilPreviewFrames(a, null), [{ image: a, visible: true }])
 })
 

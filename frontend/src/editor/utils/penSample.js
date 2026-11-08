@@ -1,5 +1,5 @@
 import { penPressure } from './penSettings.js'
-import { createStroke } from './strokes.js'
+import { createStroke, PEN_MATERIAL_RENDER_VERSION } from './strokes.js'
 
 // 견본에도 실제 연필과 같은 누적 거리를 넣어 Skia 렌더러를 사용한다.
 export function createPenSample(settings, small = false) {
@@ -14,5 +14,5 @@ export function createPenSample(settings, small = false) {
     return { x, y, pressure: penPressure(settings.kind, 0.5 + Math.sin(t * Math.PI) * 1.1), ...(settings.kind === 'pencil' && { inkDistance: distance }) }
   })
   return createStroke(points, { ...settings, width: settings.width * k,
-    ...(settings.kind === 'pencil' && { renderVersion: 3, materialSeed: 0, opacity: 1 }) })
+    ...(settings.kind === 'pencil' && { renderVersion: PEN_MATERIAL_RENDER_VERSION, materialSeed: 0, opacity: 1 }) })
 }

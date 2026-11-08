@@ -23,7 +23,7 @@ export function PenSample({ settings, small = false }) {
   }, [settings.width, settings.kind, small])
   useEffect(() => () => { if (timer.current != null) clearTimeout(timer.current) }, [])
   const width = settings.kind === 'pencil' && !small ? sampleWidth : settings.width
-  const stroke = useMemo(() => createPenSample({ ...settings, width }, small), [settings.kind, settings.color, settings.opacity, settings.lineCap, width, small])
+  const stroke = useMemo(() => createPenSample({ ...settings, width }, small), [settings, width, small])
   // 미리보기는 옵션 창 높이를 아끼려고 48(코덱스 2026-11-02: 82 → 56 칸)
   return <View pointerEvents="none" style={{ height: small ? 26 : 48, justifyContent: 'center', alignItems: 'center', opacity: settings.kind === 'pencil' ? settings.opacity ?? 1 : stroke.opacity ?? 1 }}>
     <ObjectContent object={stroke} zoom={1} showFallbackWhileLoading />
