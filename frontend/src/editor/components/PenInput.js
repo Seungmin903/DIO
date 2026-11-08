@@ -236,10 +236,9 @@ export default function PenInput({ zoom, dispatch, pageWidth = PAGE_WIDTH, pageH
             g.measurement?.handoffEnd?.(reason, performance.now() - handedOff)
           })
         }
-        dispatch({ type: 'addObjects', objects: [completed] })
+        // 새 획은 올가미로 지정하기 전까지 직접 조작하지 않으므로 선택하지 않는다. 선택 해제를 따로 보내면 전체 화면을 한 번 더 그린다.
+        dispatch({ type: 'addObjects', objects: [completed], select: false })
         onStrokeCommitted?.(completed)
-        // 새 획은 올가미로 지정하기 전까지 직접 조작하지 않는다.
-        dispatch({ type: 'selectExact', ids: [] })
         if (g.measurement) g.measurement.record('finalizeJsMs', g.measurement.clock() - started)
       }
       g?.measurement?.end({ cancelled: Boolean(cancelled), endReason: reason, points: g.rawPoints.length, straight: Boolean(g.straight) })

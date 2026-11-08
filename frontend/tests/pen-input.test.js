@@ -115,7 +115,7 @@ test('Pencil 포인터 실측 필압은 responder와 중복 저장하지 않고 
   assert.equal(f.actions.length, 0)
   f.pointers.onPointerUp(event(80, 0, 120))
   f.handlers.onEnd({ cancelled: false })
-  assert.equal(f.actions.length, 2)
+  assert.equal(f.actions.length, 1)
   const stroke = f.actions[0].objects[0]
   assert.equal(stroke.renderVersion, 3)
   assert.equal(stroke.points[0].force, 0.1)
@@ -258,12 +258,13 @@ test('모든 펜과 형광펜은 끝점 유지 후 직선 하나로 확정하고
     h.onMove(150 * zoom, 10 * zoom, {})
     f.hold()
     h.onEnd({ cancelled: false })
-    assert.equal(f.actions.length, 2)
+    // 획 추가와 선택 해제는 한 번의 dispatch 로 보낸다(전체 화면을 두 번 그리지 않게)
+    assert.equal(f.actions.length, 1)
     const stroke = f.actions[0].objects[0]
     assert.equal(stroke.points.length, 2)
     assert.equal(stroke.penKind, kind)
     assert.equal(stroke.color, '#123456')
-    assert.deepEqual(f.actions[1], { type: 'selectExact', ids: [] })
+    assert.equal(f.actions[0].select, false)
   }
 })
 

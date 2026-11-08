@@ -42,7 +42,9 @@ export function useMemberCanvasCollaboration({diary,page,state,loaded,readOnly,d
       setView(v=>({...v,status:'error',pageId:page.id,errorMessage:'서버 다이어리 ID를 확인하지 못했어요. 홈에서 다이어리를 다시 열어 주세요. 기기 작업은 유지돼요.'}))
       return
     }
-    const r={alive:true,engines:new Map(),loaded:new Map(),tail:Promise.resolve(),claimed:new Set(),pending:new Map(),again:new Set(),busy:false}
+    const r={alive:true,engines:new Map(),loaded:new Map(),tail:Promise.resolve(),claimed:new Set(),pending:new Map(),again:new Set(),busy:false,acks:[]}
+    // 저널에 넣은 편집의 전송 확인을 모아 한 번에 보낸다(동기화 결과 반영과 같은 커밋)
+    r.flushAcks=()=>{if(!r.acks.length)return;const ids=r.acks.splice(0);for(const id of ids)r.claimed.delete(id);if(r.alive)dispatch({type:'collaborationAck',ids})}
     runtime.current=r
     const active=()=>r.alive&&authService.getSessionKey()===sessionKey
     const headersFor=url=>authService.getCollaborationHeaders?.({url,userId:diary.memberAccountId,sessionKey})??{}
@@ -199,16 +201,17 @@ export function useMemberCanvasCollaboration({diary,page,state,loaded,readOnly,d
         }
         if(!active()||!r.pageIds?.has(pageId))return
         const current=latest.current.page,target=latest.current.state.doc.pages.find(p=>p.id===pageId)
-        if(target&&!result.unchanged&&(!result.direction||sameElements(target.objects,result.expectedLocal))){
-          dispatch({type:result.direction?'collaborationHistoryApplied':'importCollaborationElements',direction:result.direction,
+        const imported=Boolean(target)&&!result.unchanged&&(!result.direction||sameElements(target.objects,result.expectedLocal))
+        // 전송 확인·화면 반영·저장 상태를 같은 틱에 갱신해 React 가 한 번에 커밋하게 한다(await 뒤로 미루면 커밋이 나뉜다)
+        r.flushAcks()
+        if(imported)dispatch({type:result.direction?'collaborationHistoryApplied':'importCollaborationElements',direction:result.direction,
             historyClientOperationId:result.historyClientOperationId,pageId,expectedElements:result.expectedLocal,objects:result.objects})
-          await engine.acceptImport(result.objects)
-        }
         if(current.id===pageId&&active())setView(v=>{
           const next={...v,status:result.rejectedCount?'error':'saved',errorMessage:result.rejectedCount?'서버가 거절한 편집은 기기에 보관했어요. 나머지 편집은 동기화했어요.':null,history:result.history,pageId}
           // 바뀐 것이 없으면 같은 상태를 돌려줘 편집 화면을 다시 그리지 않는다
           return v.status===next.status&&v.errorMessage===next.errorMessage&&v.pageId===pageId&&JSON.stringify(v.history)===JSON.stringify(next.history)?v:next
         })
+        if(imported)await engine.acceptImport(result.objects)
         return result
         } finally { finishTiming() }
       }
@@ -220,7 +223,7 @@ export function useMemberCanvasCollaboration({diary,page,state,loaded,readOnly,d
           if(r.again.delete(pageId)&&active())r.sync(pageId)
         }).catch(()=>{})
       }
-      if(!direction)job.catch(error=>{if(active()&&latest.current.page.id===pageId)setView(v=>({...v,status:error.status===409?'conflict':'error',errorMessage:failureMessage(error),pageId}))})
+      if(!direction)job.catch(error=>{r.flushAcks();if(active()&&latest.current.page.id===pageId)setView(v=>({...v,status:error.status===409?'conflict':'error',errorMessage:failureMessage(error),pageId}))})
       return job
     }
     const refresh=()=>{if(active()){r.sync(latest.current.page.id);refreshPagesQuietly()}}
@@ -265,7 +268,8 @@ export function useMemberCanvasCollaboration({diary,page,state,loaded,readOnly,d
         if(!engine)return
         await engine.enqueue(entry)
         if(!r.alive||authService.getSessionKey()!==sessionKey)return
-        dispatch({type:'collaborationAck',ids:[entry.id]});r.claimed.delete(entry.id);r.sync(entry.pageId)
+        // 전송 확인은 동기화 결과와 같은 커밋으로 모아 보낸다(획마다 전체 화면을 한 번 더 그리지 않게). claimed 는 확인을 보낼 때 푼다.
+        r.acks.push(entry.id);r.sync(entry.pageId)
       }).catch(()=>{r.claimed.delete(entry.id);if(r.alive)setView(v=>({...v,status:'local-error'}))})
     }
   },[state.collaborationEdits,enabled,sessionKey])
