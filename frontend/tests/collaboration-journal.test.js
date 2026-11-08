@@ -99,3 +99,14 @@ test('요청 분할은 종류별 100개씩 나누고 기대 버전은 해당 부
   assert.ok(parts.every(p=>Object.keys(p.expectedVersions).length<=MAX_CANVAS_BATCH_ITEMS))
   assert.deepEqual(Object.keys(parts[3].expectedVersions).length,30);assert.deepEqual(parts.map(p=>p.clientOperationId),['id-1','id-2','id-3','id-4'])
 })
+
+test('서버도 대기열도 그대로인 동기화는 unchanged 를 돌려주고 objects 를 읽기 전에는 미리보기를 만들지 않는다',async()=>{
+  const f=fixture();const [a]=objects(1);f.setRows([row(a)])
+  const s=f.session();await s.restore([a])
+  const first=await s.synchronize();assert.equal(first.unchanged,false);assert.equal(first.objects[0].id,a.id)
+  const idle=await s.synchronize();assert.equal(idle.unchanged,true);assert.equal(s.pending(),false)
+  assert.equal(idle.objects[0].id,a.id,'읽으면 그때 만든다')
+  await s.enqueue({id:uuid(500),pageId,before:[a],after:[a,text(2,'B')]});assert.equal(s.pending(),true)
+  const sent=await s.synchronize();assert.equal(sent.unchanged,false);assert.equal(sent.objects.length,2);assert.equal(s.pending(),false)
+  f.setRows([row({...a,text:'friend'},2)]);assert.equal((await s.synchronize()).unchanged,false)
+})

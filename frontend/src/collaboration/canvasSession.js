@@ -58,6 +58,8 @@ export function createCanvasSession({api,storage,key,legacyKey,pageId,diaryId,cr
   const setBase=(items,force=false)=>{if(!force&&sameBase(items))return false;journal.orderKeys=copy(items.sortKeys??items.map(e=>Number(e.sortKey)).filter(Number.isFinite));journal.base=copy(items);return true}
   const accept=async response=>{active();setBase(response.items,true);await persist()}
   const push=entry=>{journal.queue.push(compactEdit(entry))}
+  // 동기화 결과. 화면 반영용 objects·expectedLocal 은 읽을 때 만든다(unchanged 면 읽지 않아 복사·미리보기 비용이 없다).
+  const syncResult=fields=>{let objects,expectedLocal;return {status:'saved',unchanged:false,...fields,get objects(){return objects??=preview()},get expectedLocal(){return expectedLocal??=copy(journal.uiLocal)}}}
   const preview=()=>{
     let objects=(journal.base??[]).map(decodeElement)
     for(const entry of journal.queue){
@@ -181,7 +183,9 @@ export function createCanvasSession({api,storage,key,legacyKey,pageId,diaryId,cr
             if(journal.uiLocal.some(o=>!overlap.some(r=>r.id===o.id)))push({id:createId(),pageId,before:overlap,after:[...overlap,...journal.uiLocal.filter(o=>!overlap.some(r=>r.id===o.id))]})
           }
         }
-        if(setBase(remote)||journal.queue.length||journal.control)await persist()
+        // 서버 요소도 그대로고 보낼 것도 없으면 화면에 돌려줄 변화가 없다(주기 대조가 매번 미리보기를 만들고 편집 화면과 대조하지 않게)
+        let changed=setBase(remote)||journal.queue.length>0||Boolean(journal.control)
+        if(changed)await persist()
         let direction=null,historyClientOperationId=null,rejectedCount=0
         if(journal.control){const pending=journal.control;direction=pending.direction
           try{const result=await api.control(pageId,pending.direction,pending.request);active();historyClientOperationId=result.clientOperationId;journal.control=null;await accept(result)}
@@ -239,7 +243,7 @@ export function createCanvasSession({api,storage,key,legacyKey,pageId,diaryId,cr
           journal.queue.shift();journal.recent=[...journal.recent,entry.id,...(entry.parts??[]).map(part=>part.clientOperationId)].slice(-128);await persist()
         }
         const history=await api.history(pageId);active()
-        return {objects:preview(),expectedLocal:copy(journal.uiLocal),history,status:'saved',direction,historyClientOperationId,rejectedCount:(journal.rejectedEdits??[]).length}
+        return syncResult({history,direction,historyClientOperationId,rejectedCount:(journal.rejectedEdits??[]).length,unchanged:!changed})
       })().finally(()=>{running=null})
       return running
     },
@@ -250,11 +254,13 @@ export function createCanvasSession({api,storage,key,legacyKey,pageId,diaryId,cr
       const history=await api.history(pageId);active();const candidate=direction==='undo'?history.nextUndo:history.nextRedo
       if(!candidate)throw Object.assign(new Error(direction==='undo'?'취소할 내 작업이 없어요.':'다시 실행할 내 작업이 없어요.'),{code:'NO_CANVAS_HISTORY'})
       journal.control={direction,request:{operationId:candidate.operationId,expectedRevision:candidate.revision,clientOperationId:createId()}};await persist()
-      let result
-      try{result=await api.control(pageId,direction,journal.control.request);active();journal.control=null;await accept(result)}
+      let applied
+      try{applied=await api.control(pageId,direction,journal.control.request);active();journal.control=null;await accept(applied)}
       catch(error){if(error.status===409||permanentRejection(error)){journal.rejectedControls=[...(journal.rejectedControls??[]),copy(journal.control)];journal.control=null;await persist()}throw error}
-      return {objects:preview(),expectedLocal:copy(journal.uiLocal),history:await api.history(pageId),status:'saved',direction,historyClientOperationId:result.clientOperationId}
+      return syncResult({history:await api.history(pageId),direction,historyClientOperationId:applied.clientOperationId})
     },
+    // 보낼 편집이나 실행 취소 요청이 남아 있는지(저장 상태 표시용)
+    pending(){return journal.queue.length>0||Boolean(journal.control)},
     ownsCommand(id){return journal.recent.includes(id)||journal.queue.some(e=>e.id===id||(e.parts??[]).some(part=>part.clientOperationId===id))||journal.control?.request.clientOperationId===id},
     snapshot(){return copy(journal)},
   }

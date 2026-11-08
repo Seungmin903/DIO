@@ -103,7 +103,8 @@ test('좌표 변경 중에는 관계없는 요소 본문을 직렬화하지 않�
   state=reduce(state,{type:'updateObject',id:all[0].id,patch:{x:77}})
   assert.equal(reads,0)
   state=reduce(state,{type:'updateObject',id:all[0].id,patch:{text:'changed'}})
-  assert.ok(reads>0);assert.equal(state.collaborationGesture.limitGeometryIds,null)
+  // 전체 검사로 돌아가되, 참조가 그대로인 요소는 인코딩하지 않는다
+  assert.equal(reads,0);assert.equal(state.collaborationGesture.limitGeometryIds,null)
   const before=state.doc
   const blocked=reduce(state,{type:'updateMany',patches:Object.fromEntries(all.map(o=>[o.id,{x:88}]))})
   assert.equal(blocked.doc,before);assert.ok(blocked.collaborationLimitError)
