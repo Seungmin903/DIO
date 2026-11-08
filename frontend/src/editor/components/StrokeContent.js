@@ -11,7 +11,7 @@ import { ballVaries, isNibKind } from '../utils/nibStroke'
 import { useSvgId } from '../utils/svgId'
 import { HIGHLIGHTER_OPACITY } from '../utils/penSettings'
 
-export default function StrokeContent({ object, zoom, transform, areaPreview = false, onAssetLoad }) {
+export default function StrokeContent({ object, zoom, transform, areaPreview = false, onAssetLoad, showFallbackWhileLoading = false }) {
   const grainId = useSvgId('pencil-grain')
   const { points, penKind: kind, strokeWidth: width, color } = object
   const variable = kind === 'fountain' || kind === 'brush' || (kind === 'ball' && ballVaries(points))
@@ -39,5 +39,5 @@ export default function StrokeContent({ object, zoom, transform, areaPreview = f
       strokeLinecap="round" strokeLinejoin="round" />}
   </Svg>
   // 연필은 앱과 같은 Skia 그림으로(웹 · 썸네일 · 내보내기). 준비 전 · 실패는 위 SVG 그대로(래퍼가 불투명도를 안 곱하므로 SVG 가 스스로)
-  return isSkiaPencil(object) ? <PencilSkiaStroke object={object} zoom={zoom} transform={transform} fallback={svg} onAssetLoad={onAssetLoad} /> : svg
+  return isSkiaPencil(object) ? <PencilSkiaStroke object={object} zoom={zoom} transform={transform} fallback={svg} onAssetLoad={onAssetLoad} showFallbackWhileLoading={showFallbackWhileLoading} /> : svg
 }
