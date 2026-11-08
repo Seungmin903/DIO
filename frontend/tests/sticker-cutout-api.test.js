@@ -24,7 +24,7 @@ function fixture(responses) {
   globalThis.__DEV__ = false
   new Function('require', 'module', 'exports', code)(name => ({
     'expo-file-system': { File: class {} },
-    'expo/fetch': { fetch: async (url, options) => { calls.push({ url, options }); return responses.shift() } },
+    'expo/fetch': { fetch: async (url, options) => { calls.push({ url, options }); const next = responses.shift(); return typeof next === 'function' ? next(url, options) : next } },
     '../../auth/authService': { apiBaseUrl: 'https://api.example/api/v1', authService: auth },
     './canvasMediaFiles': { canvasMediaFiles: { save: async (...args) => cached.push(args) } },
   })[name], mod, mod.exports)
@@ -47,6 +47,21 @@ test('저장 완료 미디어는 별도 캐시 단계에서 내려받아 등록�
   await ui.api.cache(id)
   assert.equal(ui.calls[0].url, `https://api.example/api/v1/media/${id}/file`)
   assert.deepEqual(ui.cached, [[id, new Uint8Array([137, 80, 78, 71])]])
+})
+
+test('본문 다운로드가 멈추면 제한 시간이 지난 뒤 요청을 끝낸다', async (t) => {
+  const originalSetTimeout = globalThis.setTimeout, originalClearTimeout = globalThis.clearTimeout
+  let expire
+  globalThis.setTimeout = callback => { expire = callback; return 1 }
+  globalThis.clearTimeout = () => {}
+  t.after(() => { globalThis.setTimeout = originalSetTimeout; globalThis.clearTimeout = originalClearTimeout })
+  const ui = fixture([(_url, options) => ({ status: 200, ok: true, json: async () => ({}), arrayBuffer: () => new Promise((_, reject) => {
+    options.signal.addEventListener('abort', () => reject(new Error('body aborted')))
+  }) })])
+  const pending = ui.api.cache(id)
+  await new Promise(resolve => setImmediate(resolve))
+  expire()
+  await assert.rejects(pending, error => error.status === 408 && /응답이 늦어요/.test(error.message))
 })
 
 test('사진 업로드는 같은 multipart 본문으로 401 재시도하고 웹 File도 그대로 보낸다', async (t) => {

@@ -29,25 +29,40 @@ async function request(url, { method = 'GET', body, binary = false, timeoutMs = 
     const controller = new AbortController()
     const timer = setTimeout(() => controller.abort(), timeoutMs)
     try {
-      return await expoFetch(url, { method, body, headers, signal: controller.signal, credentials: 'omit', redirect: 'error' })
+      const response = await expoFetch(url, { method, body, headers, signal: controller.signal, credentials: 'omit', redirect: 'error' })
+      // 응답 본문을 다 읽을 때까지 타이머를 유지한다. 헤더만 받고 본문 전송이 멈춘 경우도 같은 시간 제한으로 끝낸다.
+      return { response, finish: () => clearTimeout(timer), timedOut: () => controller.signal.aborted }
     } catch (error) {
+      clearTimeout(timer)
       const timedOut = controller.signal.aborted
       debug(timedOut ? 'timeout' : 'network', { method, path: requestPath(url), message: error?.message || 'fetch failed' })
       throw requestError(timedOut ? 408 : 0, null, timedOut ? '사진 오리기 응답이 늦어요. 잠시 후 다시 시도해 주세요.' : '사진 오리기 서버에 연결하지 못했어요. 연결을 확인하고 다시 시도해 주세요.')
-    } finally { clearTimeout(timer) }
+    }
   }
-  let response = await send()
-  if (response.status === 401) response = await send(true)
-  assertActive(session)
-  if (!response.ok) {
-    let body
-    try { body = await response.json() } catch {}
-    debug('response', { method, path: requestPath(url), status: response.status, code: body?.code, detail: body?.detail })
-    throw requestError(response.status, body, '사진 오리기를 처리하지 못했어요. 다시 시도해 주세요.')
+  let attempt = await send()
+  if (attempt.response.status === 401) {
+    attempt.finish()
+    attempt = await send(true)
   }
-  if (response.status === 204) return null
-  if (binary) return new Uint8Array(await response.arrayBuffer())
-  return response.json()
+  try {
+    const { response } = attempt
+    assertActive(session)
+    if (!response.ok) {
+      let body
+      try { body = await response.json() } catch {}
+      debug('response', { method, path: requestPath(url), status: response.status, code: body?.code, detail: body?.detail })
+      throw requestError(response.status, body, '사진 오리기를 처리하지 못했어요. 다시 시도해 주세요.')
+    }
+    if (response.status === 204) return null
+    if (binary) return new Uint8Array(await response.arrayBuffer())
+    return response.json()
+  } catch (error) {
+    if (attempt.timedOut()) {
+      debug('timeout', { method, path: requestPath(url), message: error?.message || 'fetch failed' })
+      throw requestError(408, null, '사진 오리기 응답이 늦어요. 잠시 후 다시 시도해 주세요.')
+    }
+    throw error
+  } finally { attempt.finish() }
 }
 
 const isId = value => typeof value === 'string' && /^[0-9a-f-]{36}$/i.test(value)

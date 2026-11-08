@@ -50,7 +50,12 @@ export default function StickerCutoutModal({ folder, onClose, onSave, photoPicke
     savedMediaRef.current = null
     return api.discard(pending.media.mediaFileId)
   }
-  useEffect(() => { alive.current = true; return () => { alive.current = false; revision.current++; releaseCutout(); sourceRef.current?.dispose?.() } }, [])
+  useEffect(() => { alive.current = true; return () => {
+    alive.current = false; revision.current++
+    // 서버 저장은 끝났지만 보관함 반영 전이면 화면을 닫아도 미참조 PNG를 남기지 않는다.
+    discardSaved()
+    releaseCutout(); sourceRef.current?.dispose?.()
+  } }, [])
   // 회전/크기 변경 중 끝나지 않은 획은 버린다. 확정된 정규화 좌표는 유지한다. 판 크기가 바뀌거나 사진을 바꾸면 맞춤 보기로 돌아간다
   useEffect(() => { gesture.current = null; setDraft(null); setView(FIT_VIEW) }, [width, height, area.width, area.height, source])
   const close = () => {
@@ -131,6 +136,8 @@ export default function StickerCutoutModal({ folder, onClose, onSave, photoPicke
       const folderName = (folder?.name ?? name).trim() || '내 스티커'
       await onSave?.(folder?.id, folderName, [item])
       if (alive.current && token === revision.current) {
+        // 이제 보관함이 미디어를 참조하므로 언마운트 정리 대상이 아니다.
+        savedMediaRef.current = null
         setSaved(true); releaseCutout(cutoutId); setCutoutId(null)
         // 저장은 이 흐름의 종점이다. 보관함 반영까지 끝난 뒤 이전 화면으로 돌아간다.
         onClose()

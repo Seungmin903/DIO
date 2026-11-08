@@ -212,6 +212,21 @@ test('보관함 반영 실패 상태에서 나가면 미사용 서버 결과를 
   ui.unmount()
 })
 
+test('보관함 반영 전에 화면이 사라져도 미사용 서버 결과를 정리한다', async () => {
+  let discarded = 0
+  const ui = fixture(async () => ({ uri: 'photo', width: 100, height: 100 }), null, {
+    cache: async () => { throw new Error('캐시 저장 실패') },
+    discard: async () => { discarded += 1 },
+  })
+  await load(ui); draw(ui)
+  find(ui.render(), '다음 · 스티커 확인').props.onPress(); await tick()
+  find(ui.render(), '저장 흐름 확인').props.onPress()
+  nodes(ui.render()).find(n => n.props.confirmLabel === '저장').props.onConfirm()
+  await tick(); await tick()
+  ui.unmount(); await tick()
+  assert.equal(discarded, 1)
+})
+
 test('결과 확인에서 헤더 이전·기기 뒤로가기로 돌아오면 같은 사진과 붓질을 유지한다', async () => {
   const ui = fixture(async () => ({ uri: 'photo', width: 100, height: 100 }))
   await load(ui); draw(ui)
