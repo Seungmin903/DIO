@@ -70,7 +70,7 @@
      3. 이미 공개한 글꼴·스티커 팩·팩 안의 스티커(`stickerPacks[].stickers`)·속지·속지 탭이 빠졌는지 비교한다(`compare-remote-catalog.mjs`). 빠졌으면 멈추고, CI 변수 `ALLOW_CATALOG_REMOVAL=1`로만 허용한다. 지금 목록은 키를 정확히 나열해 있을 때만 받고(`fetch-remote-catalog.sh`), 있는데 못 받거나 깨졌으면 비교 없이 올리지 않는다. 정말 없을 때(처음 올림)만 비교를 건너뛴다.
      4. 파일을 먼저, `catalog.json`을 마지막에 올린다.
    - 검사 잡과 개발 업로드 잡은 `remote-content/`, `assets/fonts`, `assets/templates`, 원격 에셋 스크립트가 바뀐 파이프라인에서만 돈다. 운영 업로드 잡은 master 파이프라인마다 눌러 다시 올릴 수 있다.
-   - **업로드 잡은 develop · master 에서만 돈다. release 브랜치에 병합해도 올라가지 않는다**(아래 "진행 상황과 남은 일").
+   - **업로드 잡은 develop · master 에서만 돈다. release 브랜치에 병합해도 올라가지 않는다**(아래 "업로드 잡이 돌지 않았을 때").
    - 버킷과 키는 러너 서버의 env 파일에 둔다. 다른 배포 잡과 같은 방식이다. **이 파일 두 개는 서버에 직접 만들어야 한다.**
      ```
      /home/gitlab-runner/dio-env/assets-dev.env
@@ -103,43 +103,28 @@
 - 운영 배포 전에 [속지 코드 배포 전 확인.sql](./다이어리%20저장/속지%20코드%20배포%20전%20확인.sql)을 운영 DB에서 실행해 두 조회가 모두 0행인지 확인한다(앱이 보내는 속지 코드 294개의 활성 행 누락·중복).
 - 운영자가 올린 원격 속지는 범용 행(`dio-remote-*`)에 연결되고, 어떤 그림인지는 지금처럼 `remoteTemplate`(폴더 이름)이 정한다. 그래서 원격 속지의 폴더 이름(id)은 한 번 올리면 바꾸거나 다른 속지에 다시 쓰지 않는다.
 
-## 진행 상황과 남은 일 (2026-11-08)
+## 업로드 잡이 돌지 않았을 때(수동 업로드)
 
-| MR | 내용 | 상태 |
-| --- | --- | --- |
-| !417 `feature/fe/remote-assets` | 원격 에셋(번들에서 뺀 글꼴·2026 속지, 앱 배포 없이 추가하는 글꼴·스티커·속지·속지 탭), V34, 업로드 CI | release/v2.0.0 병합 |
-| !430 `docs/fe/remote-assets-guide` | 에셋 올리는 사람용 안내(`올리기 안내.md`) | release/v2.0.0 병합 |
-| !431 `fix/be/page-template-code` | 페이지 추가의 속지 코드를 속지 행에 연결해 저장, V35, 배포 전 확인 SQL | 리뷰 중(release/v2.0.0 대상) |
+업로드 잡은 develop(개발 자동)과 master(운영 수동)에만 있다. release 브랜치에 병합한 변경이나 잡이 실패한 경우에는 에셋이 올라가지 않는다. 번들에서 뺀 에셋이 올라가지 않은 채 앱을 빌드하면, 그 속지는 "속지를 불러오지 못했어요"가 뜨고 그 글꼴은 기본 글꼴로 보인다(그 글꼴을 쓴 페이지 내보내기는 실패한다). 이럴 때는 키가 있는 러너 서버에서 `gitlab-runner` 계정으로 CI 잡과 같은 순서로 올린다. 업로드 전 목록 비교도 그대로 거친다.
 
-!417 리뷰를 거치며 더한 안전장치(요약)
+```sh
+# <브랜치>: 앱을 빌드할 브랜치(예: release 브랜치)
+cd /tmp && rm -rf dio-assets && git clone --depth 1 -b <브랜치> https://lab.ssafy.com/s15-final/S15P31F106.git dio-assets && cd dio-assets
+mkdir -p out && docker run --rm --user "$(id -u):$(id -g)" -v "$PWD/frontend:/workspace/frontend:ro" -v "$PWD/out:/out" -w /workspace/frontend node:24-alpine node scripts/build-remote-assets.mjs --dist-only --out /out/dist
+# 개발 버킷. 운영은 ENV 를 assets-prod.env 로 바꿔 같은 줄을 한 번 더 실행한다(운영 백엔드 배포 뒤)
+ENV=/home/gitlab-runner/dio-env/assets-dev.env; docker run --rm --user "$(id -u):$(id -g)" -e HOME=/tmp --env-file "$ENV" -v "$PWD/frontend/scripts:/scripts:ro" -v "$PWD/out:/out" --entrypoint sh amazon/aws-cli:2.17.0 /scripts/fetch-remote-catalog.sh /out/previous.json && docker run --rm -v "$PWD/frontend/scripts:/scripts:ro" -v "$PWD/out:/out:ro" node:24-alpine node /scripts/compare-remote-catalog.mjs /out/previous.json /out/dist/catalog.json && docker run --rm --user "$(id -u):$(id -g)" -e HOME=/tmp --env-file "$ENV" -e REMOTE_ASSETS_DIST=/out/dist -e REMOTE_CATALOG_COMPARED=1 -v "$PWD/frontend/scripts:/scripts:ro" -v "$PWD/out:/out:ro" --entrypoint sh amazon/aws-cli:2.17.0 /scripts/upload-remote-assets.sh
+cd /tmp && rm -rf dio-assets
+```
 
-- 원격 속지 SVG 검사: 따옴표 안의 `>`로 속성을 숨기는 우회, 따옴표 없는 속성, 깨진 태그를 거부한다.
-- 업로드 안전장치: 이미 공개한 글꼴·스티커 팩·팩 안의 스티커·속지·속지 탭이 목록에서 빠지면 멈춘다. 지금 목록을 못 받거나 깨졌으면 비교 없이 올리지 않는다.
-- 탭이 없는 속지(지운 탭·앱이 모르는 탭)는 버리지 않고 고르기에서만 숨긴다. 고른 탭이 새 목록에서 사라지면 첫 탭으로 맞춘다.
-- 원격 글꼴·스티커를 받지 못하면 내보내기(PNG·PDF)가 기본 모양으로 조용히 진행하지 않고 오류로 알린다(글꼴은 한 번 바로 다시 받는다).
-- 원격 속지 페이지의 설정 PATCH는 속지 정체를 이어받고, 설정만으로 원격 ↔ 일반·방향을 바꾸지 못한다.
-- 운영 업로드는 운영 백엔드 배포 뒤에만 누를 수 있고, 실패하면 파이프라인도 실패로 보인다.
+- 올린 뒤 `<에셋 주소>/catalog.json`과 `manifest.js`에 적힌 키 하나(예: 글꼴)가 200으로 열리는지 확인한다. 그래도 403이면 CloudFront ↔ S3(OAC · 버킷 정책) 설정 문제다(OAC 에서는 없는 파일도 403 이다).
+- 같은 내용을 여러 번 올려도 된다. 키에 내용 해시가 들어 있어 덮어쓰지 않는다.
+- S3 콘솔에서 파일을 손으로 올리거나 이름을 바꾸지 않는다. 앱은 `manifest.js`에 적힌 해시 포함 이름 그대로 요청한다.
 
-### 남은 일
+## 함께 지킬 규칙
 
-1. **S3에 에셋을 한 번 올려야 한다(release 앱 빌드 전 필수).** 2026-11-08 확인 결과 dev·prod 버킷의 `static-assets/`가 비어 있고, CloudFront에서 `catalog.json`과 번들에서 뺀 글꼴이 403이다. !417이 release에 병합되어 업로드 잡이 한 번도 돌지 않았기 때문이다. 이대로 release 앱을 빌드하면 2026 속지 262장은 "속지를 불러오지 못했어요", 고운돋움·고운바탕·마루부리는 기본 글꼴로 보이고 그 글꼴을 쓴 페이지 내보내기는 실패한다.
-   - 키가 있는 러너 서버에서 `gitlab-runner` 계정으로, CI 잡과 같은 순서로 올린다. 업로드 전 목록 비교도 그대로 거친다.
-
-     ```sh
-     cd /tmp && rm -rf dio-assets && git clone --depth 1 -b release/v2.0.0 https://lab.ssafy.com/s15-final/S15P31F106.git dio-assets && cd dio-assets
-     mkdir -p out && docker run --rm --user "$(id -u):$(id -g)" -v "$PWD/frontend:/workspace/frontend:ro" -v "$PWD/out:/out" -w /workspace/frontend node:24-alpine node scripts/build-remote-assets.mjs --dist-only --out /out/dist
-     # 개발. 운영은 ENV 를 assets-prod.env 로 바꿔 같은 줄을 한 번 더 실행한다
-     ENV=/home/gitlab-runner/dio-env/assets-dev.env; docker run --rm --user "$(id -u):$(id -g)" -e HOME=/tmp --env-file "$ENV" -v "$PWD/frontend/scripts:/scripts:ro" -v "$PWD/out:/out" --entrypoint sh amazon/aws-cli:2.17.0 /scripts/fetch-remote-catalog.sh /out/previous.json && docker run --rm -v "$PWD/frontend/scripts:/scripts:ro" -v "$PWD/out:/out:ro" node:24-alpine node /scripts/compare-remote-catalog.mjs /out/previous.json /out/dist/catalog.json && docker run --rm --user "$(id -u):$(id -g)" -e HOME=/tmp --env-file "$ENV" -e REMOTE_ASSETS_DIST=/out/dist -e REMOTE_CATALOG_COMPARED=1 -v "$PWD/frontend/scripts:/scripts:ro" -v "$PWD/out:/out:ro" --entrypoint sh amazon/aws-cli:2.17.0 /scripts/upload-remote-assets.sh
-     cd /tmp && rm -rf dio-assets
-     ```
-
-   - 올릴 파일은 271개(약 56 MB)다: 2026 속지 SVG 262개, 글꼴 5개, `OFL.txt` 3개, `catalog.json`(운영자 에셋이 없어 빈 목록). 이 PC에서 같은 2단계를 돌려 업로드 폴더가 만들어지고 비교가 "처음 올림"으로 통과하는 것까지 확인했다.
-   - 올린 뒤 `https://d1ztiesifzfjld.cloudfront.net/catalog.json`(dev)과 `https://d2hvhno2v5g650.cloudfront.net/catalog.json`(prod), 글꼴 한 개(`fonts/gowundodum/GowunDodum-Regular.a6e457933227483a.ttf`)가 200인지 확인한다. 그래도 403이면 CloudFront ↔ S3(OAC·버킷 정책) 설정 문제다.
-   - S3 콘솔에서 파일을 손으로 올리거나 이름을 바꾸지 않는다. 앱은 `manifest.js`에 적힌 해시 포함 이름 그대로 요청한다.
-2. **release에서도 업로드되게 CI를 고친다.** 지금 팀은 release 브랜치에 바로 병합하므로, 업로드 잡이 develop · master에만 있으면 이번처럼 빠진다.
-3. **MR !431 배포 전**: 운영 DB에서 확인 SQL 두 조회가 0행인지 본다. 병합 직전 V35 번호가 develop · release 최신 다음인지 다시 확인한다.
-4. **release를 develop에 반영**할 때 V34 · V35가 함께 들어간다. 개발 DB는 develop과 release가 함께 쓰므로(`assert-shared-db-migrations.sh`) develop에 따로 마이그레이션을 넣지 않는다.
-5. 원격 속지 id 보호(이름 바꾸기 · 지운 id 다시 쓰기를 업로드 단계에서 막기)는 아직 없다. 지금은 안내 문서의 규칙으로만 지킨다.
+- release를 develop에 반영할 때 V34 · V35가 함께 들어간다. 개발 DB는 develop과 release가 함께 쓰므로(`assert-shared-db-migrations.sh`) develop에 따로 마이그레이션을 넣지 않는다.
+- 원격 속지 id(폴더 이름)의 이름 바꾸기 · 지운 id 다시 쓰기는 업로드 단계에서 막지 않는다. [올리기 안내](../frontend/remote-content/올리기%20안내.md)의 규칙으로 지킨다.
+- 작업 당시의 MR 상태와 확인 결과는 [원격 에셋 작업 기록 (2026-11-08)](./원격%20에셋%20작업%20기록%202026-11-08.md)에 있다.
 
 ## 라이선스
 
@@ -153,4 +138,4 @@
 - 웹 개발 서버 + `assets:serve`: 2026 월간 속지 SVG와 고운바탕 Regular·Bold를 원격에서 받아 적용하는 것을 확인했다.
 - 아직 확인하지 않은 것:
   - 네이티브(Android·iOS) 다운로드와 sha256 검사
-  - 실제 S3·CloudFront·CORS 설정(2026-11-08 기준 버킷이 비어 있어 확인하지 못함, "남은 일" 1번)
+  - 실제 S3·CloudFront·CORS 설정(작업 기록 참고)
