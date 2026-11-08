@@ -128,3 +128,13 @@ test('공유 외 요소의 sortKey 만 바뀐 조회 응답도 orderKeys 를 새
   await s.synchronize();assert.deepEqual(s.snapshot().orderKeys,[1,7])
   const writes=f.writes();await s.synchronize();assert.equal(f.writes(),writes,'같은 응답은 다시 저장하지 않는다')
 })
+
+test('내 명령인지 판단할 때 clientOperationId 의 대소문자를 무시한다(iOS 대문자 UUID ↔ 서버 소문자 이벤트)',async()=>{
+  const f=fixture();const [a]=objects(1);f.setRows([row(a)])
+  const upper='30000000-0000-4000-8000-00000000ABCD'
+  const s=createCanvasSession({api:f.api,storage:{getItem:async()=>null,setItem:async()=>{}},key:'j',pageId,diaryId,createId:()=>upper})
+  await s.restore([a]);await s.enqueue({id:upper,pageId,before:[a],after:[a,text(2,'B')]})
+  assert.equal(s.ownsCommand(upper.toLowerCase()),true,'대기열의 명령')
+  await s.synchronize()
+  assert.equal(s.ownsCommand(upper.toLowerCase()),true,'보낸 명령');assert.equal(s.ownsCommand('30000000-0000-4000-8000-000000000000'),false)
+})

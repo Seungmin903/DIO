@@ -264,7 +264,9 @@ export function createCanvasSession({api,storage,key,legacyKey,pageId,diaryId,cr
     },
     // 보낼 편집이나 실행 취소 요청이 남아 있는지(저장 상태 표시용)
     pending(){return journal.queue.length>0||Boolean(journal.control)},
-    ownsCommand(id){return journal.recent.includes(id)||journal.queue.some(e=>e.id===id||(e.parts??[]).some(part=>part.clientOperationId===id))||journal.control?.request.clientOperationId===id},
+    // 서버 이벤트의 clientOperationId 는 소문자 UUID 로 오고 기기 ID 는 대문자일 수 있어(iOS randomUUID) 대소문자를 무시하고 견준다
+    ownsCommand(id){const key=String(id??'').toLowerCase(),same=value=>String(value??'').toLowerCase()===key
+      return journal.recent.some(same)||journal.queue.some(e=>same(e.id)||(e.parts??[]).some(part=>same(part.clientOperationId)))||same(journal.control?.request.clientOperationId)},
     snapshot(){return copy(journal)},
   }
   return apiSession
