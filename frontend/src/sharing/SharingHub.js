@@ -520,7 +520,10 @@ export default function SharingHub({
   const emailAvailable = typeof runtime.sendEmailInvite === 'function' && (isOwner || (runtime.server && mine?.role === 'EDITOR'));
   const nicknameReady = !sharingNicknameError(nickname);
   const editingProfile = screen === 'profile';
-  const profileDiary = editingProfile ? diary : invite?.diary;
+  // 공유 정보(서버)에는 방향 · 속지 설정이 없어, 이 기기 보관함의 다이어리가 있으면 그 표지 설정을 이어 받아 보관함 카드와 같은 표지로 그린다
+  const profileDiary = editingProfile
+    ? (diary && request?.diary ? { ...diary, cover: diary.cover ?? request.diary.cover, pageSize: request.diary.pageSize, templateConfig: request.diary.templateConfig } : diary)
+    : invite?.diary;
   const profileChanged =
     !editingProfile ||
     normalizeSharingNickname(nickname) !== mine?.nickname ||
