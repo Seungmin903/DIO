@@ -290,3 +290,12 @@ test('보기만 바꿀 때는 보던 다이어리를 이어 가고, 목록이 �
  findControl(tree,'다이어리 검색').props.onPress();
  assert.deepEqual(moved,[0],'검색을 열면 처음으로 돌아간다');
 });
+test('폰 검색 화면 ⋮ 메뉴는 검색 중이어도 보관함의 실제 보기에 체크한다', () => {
+ const render=setup('../src/diary/screens/LibraryScreen.js');
+ const props={compact:true,diaries:[{id:'a',title:'여행'}],sort:'updated',onSortChange:()=>{},filter:'personal',view:'carousel',carousel:0,onCarouselChange:()=>{},onViewChange:()=>{}};
+ let tree=render(props);
+ nodes(tree).find(n=>(n.props?.accessibilityLabel??n.props?.label)==='다이어리 검색').props.onPress();tree=render(props);
+ assert.equal(tree.type,'../components/LibrarySearchScreen');
+ const radios=nodes(tree.props.optionsMenu).filter(n=>n.props?.accessibilityRole==='radio'&&/ 보기$/.test(n.props.accessibilityLabel));
+ assert.deepEqual(radios.filter(n=>n.props.accessibilityState.checked).map(n=>n.props.accessibilityLabel),['스와이프 보기']);
+});

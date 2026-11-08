@@ -50,6 +50,29 @@ export function splitRequest(request,createId){
 }
 export function createCanvasSession({api,storage,key,legacyKey,pageId,diaryId,createId,isActive=()=>true}){
   let journal={format:JOURNAL_FORMAT,pageId,diaryId,base:null,uiLocal:null,queue:[],control:null,recent:[]},writes=Promise.resolve(),running=null,restored=false
+  // 이번에 연 동안의 작업만 되돌리기·다시하기 대상으로 한다(다른 기기 · 이전에 열었던 때의 서버 기록은 제외, 지라 649). 두 가지로 알아본다.
+  // ① 공유 경로는 적용 응답에 operationId 가 와서 그 번호를 모아 둔다(mine). 서버 기록 조회 성공 여부 · 순서와 상관없이 정확하다.
+  // ② 개인 경로(1인 다이어리, 요소 API)는 응답에 번호가 없어, 이 세션의 첫 저장을 보내기 전에 서버 기록의 가장 큰 번호를 기준선으로 잡고 그보다 큰 것만 인정한다.
+  //    기준선은 첫 저장 전에만 잡는다(저장 뒤에 잡으면 이번 작업까지 이전 기록이 된다). 조회가 실패해 기준선이 없으면 ②는 쓰지 않는다(되돌리기만 꺼짐, 저장은 그대로).
+  const mine=new Set()
+  let baseline=null,sent=false,baselineRequest=null
+  const idOf=item=>{if(item?.operationId==null)return null;try{return BigInt(item.operationId)}catch{return null}}
+  const captureBaseline=()=>{
+    if(baseline!==null||sent)return Promise.resolve()
+    baselineRequest??=api.history(pageId).then(h=>{
+      if(sent||baseline!==null)return
+      let top=-1n
+      for(const item of [...(h.items??[]),h.nextUndo,h.nextRedo]){const id=idOf(item);if(id!==null&&id>top)top=id}
+      baseline=top
+    }).catch(()=>{}).finally(()=>{baselineRequest=null})
+    return baselineRequest
+  }
+  const own=item=>{
+    if(item?.operationId==null)return false
+    if(mine.has(String(item.operationId)))return true
+    const id=idOf(item);return baseline!==null&&id!==null&&id>baseline
+  }
+  const scoped=h=>({...h,nextUndo:own(h.nextUndo)?h.nextUndo:null,nextRedo:own(h.nextRedo)?h.nextRedo:null})
   const active=()=>{if(!isActive())throw new Error('편집 세션이 종료됐어요.')}
   const persist=()=>{const raw=JSON.stringify(journal);const task=writes.catch(()=>{}).then(()=>storage.setItem(key,raw));writes=task;return task}
   // 서버 요소 목록이 그대로면(같은 id·버전·순서) 다시 복사하거나 저장하지 않는다. 5초 주기 대조가 저널을 매번 다시 쓰지 않게.
@@ -63,7 +86,7 @@ export function createCanvasSession({api,storage,key,legacyKey,pageId,diaryId,cr
   // 내가 보낸 저장의 서버 에코(PAGE_CHANGED)를 기다리는 시각들. 1인 다이어리(개인 경로)는 구형 요소 API 로 저장해 에코의 clientOperationId 가 임의값이라
   // ID 로 못 알아보므로, 내 계정이 낸 에코를 보낸 횟수만큼 내 것으로 본다. 공유 경로의 저장은 ID 로 알아보므로 세지 않는다. 소켓이 끊겨 에코가 안 오면 10초 뒤 버린다.
   const ECHO_WAIT_MS=10000;let echoes=[]
-  const apply=async(page,request)=>{const counted=request?.canvasWriteMode==='personal';if(counted)echoes.push(Date.now());try{return await api.apply(page,request)}catch(error){if(counted)echoes.pop();throw error}}
+  const apply=async(page,request)=>{const counted=request?.canvasWriteMode==='personal';if(counted)echoes.push(Date.now());sent=true;try{const result=await api.apply(page,request);if(result?.operationId!=null)mine.add(String(result.operationId));return result}catch(error){if(counted)echoes.pop();throw error}}
   const push=entry=>{journal.queue.push(compactEdit(entry))}
   // 동기화 결과. 화면 반영용 objects·expectedLocal 은 읽을 때 만든다(unchanged 면 읽지 않아 복사·미리보기 비용이 없다).
   const syncResult=fields=>{let objects,expectedLocal;return {status:'saved',unchanged:false,...fields,get objects(){return objects??=preview()},get expectedLocal(){return expectedLocal??=copy(journal.uiLocal)}}}
@@ -163,7 +186,7 @@ export function createCanvasSession({api,storage,key,legacyKey,pageId,diaryId,cr
       const deferred=entry=>entry.mediaApiVersion!==1&&[...mediaRows(entry.request),...(entry.parts??[]).flatMap(mediaRows)].some(row=>row.elementType==='PHOTO'||row.mediaFileId||row.propertiesJson?.mediaFileId||row.propertiesJson?.src)
       const held=journal.queue.filter(deferred)
       if(held.length){journal.deferredMedia=[...(journal.deferredMedia??[]),...held];journal.queue=journal.queue.filter(entry=>!deferred(entry));await persist()}
-      canvasContent(journal.uiLocal);restored=true;return copy(journal.uiLocal)
+      canvasContent(journal.uiLocal);restored=true;captureBaseline();return copy(journal.uiLocal)
     },
     async enqueue(entry){
       active();if(!restored)throw new Error('편집 기록을 먼저 확인해 주세요.')
@@ -198,6 +221,7 @@ export function createCanvasSession({api,storage,key,legacyKey,pageId,diaryId,cr
           try{const result=await api.control(pageId,pending.direction,pending.request);active();historyClientOperationId=result.clientOperationId;journal.control=null;await accept(result)}
           catch(error){if(error.status===409||permanentRejection(error)){journal.rejectedControls=[...(journal.rejectedControls??[]),copy(pending)];journal.control=null;await persist()}throw error}
         }
+        if(journal.queue.length&&!sent){await captureBaseline();active()}
         while(journal.queue.length){
           active();const entry=journal.queue[0]
           try{
@@ -249,7 +273,7 @@ export function createCanvasSession({api,storage,key,legacyKey,pageId,diaryId,cr
           }
           journal.queue.shift();journal.recent=[...journal.recent,entry.id,...(entry.parts??[]).map(part=>part.clientOperationId)].slice(-128);await persist()
         }
-        const history=await api.history(pageId);active()
+        const history=scoped(await api.history(pageId));active()
         return syncResult({history,direction,historyClientOperationId,rejectedCount:(journal.rejectedEdits??[]).length,unchanged:!changed})
       })().finally(()=>{running=null})
       return running
@@ -258,13 +282,13 @@ export function createCanvasSession({api,storage,key,legacyKey,pageId,diaryId,cr
       const pending=journal.control?.direction
       const synchronized=await apiSession.synchronize();active()
       if(pending)return {...synchronized,direction:pending}
-      const history=await api.history(pageId);active();const candidate=direction==='undo'?history.nextUndo:history.nextRedo
+      const history=scoped(await api.history(pageId));active();const candidate=direction==='undo'?history.nextUndo:history.nextRedo
       if(!candidate)throw Object.assign(new Error(direction==='undo'?'취소할 내 작업이 없어요.':'다시 실행할 내 작업이 없어요.'),{code:'NO_CANVAS_HISTORY'})
       journal.control={direction,request:{operationId:candidate.operationId,expectedRevision:candidate.revision,clientOperationId:createId()}};await persist()
       let applied
       try{applied=await api.control(pageId,direction,journal.control.request);active();journal.control=null;await accept(applied)}
       catch(error){if(error.status===409||permanentRejection(error)){journal.rejectedControls=[...(journal.rejectedControls??[]),copy(journal.control)];journal.control=null;await persist()}throw error}
-      return syncResult({history:await api.history(pageId),direction,historyClientOperationId:applied.clientOperationId})
+      return syncResult({history:scoped(await api.history(pageId)),direction,historyClientOperationId:applied.clientOperationId})
     },
     // 서버 변경 이벤트가 내 저장의 에코인지. ID 가 맞으면 내 것이고, 내 계정(mine)이 낸 이벤트는 기다리던 에코가 있으면 하나 소비하고 내 것으로 본다.
     claimsChange(id,mine=false){
