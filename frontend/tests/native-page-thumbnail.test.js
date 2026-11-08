@@ -101,6 +101,12 @@ test('다 채워진 썸네일에 획이 더해지면 모았다가 한 번에 보
   assert.deepEqual(render(replaced).objects, [])
   assert.equal(timers.size, 1, '모으기 타이머를 취소하고 나눠 그리기 하나만 둔다'); assert.notEqual(delays.at(-1), module.exports.UPDATE_DELAY_MS)
   flush(); assert.equal(render(replaced).objects.length, 3)
+  // 요소가 적어도 보이던 것이 하나도 남지 않으면 모으지 않고 바로 나눠 그린다(빈 썸네일이 보이지 않게)
+  flush(); flush(); flush(); flush()
+  assert.equal(render(replaced).objects.length, 30); assert.equal(timers.size, 0)
+  const small = { id: 'p', objects: Array.from({ length: 5 }, (_, i) => ({ id: `s${i}` })) }
+  render(small); assert.equal(timers.size, 1); assert.notEqual(delays.at(-1), module.exports.UPDATE_DELAY_MS)
+  flush(); assert.equal(render(small).objects.length, 3)
 })
 
  test('썸네일 대기열은 페이지 작업을 순서대로 실행하고 닫으면 예약 작업을 중단한다', async () => {

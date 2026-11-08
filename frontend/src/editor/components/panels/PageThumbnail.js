@@ -43,8 +43,11 @@ export default function PageThumbnail({ page, workQueue, ...props }) {
     const kick = () => {
       if (cancelled) return
       if (!hasUnseenThumbnailObjects(latest.current.objects, latest.current.shown)) { latest.current.filled = true; return }
-      // 페이지 내용이 통째로 바뀌어 안 보인 요소가 많으면(동기화로 교체 등) 다시 나눠 그린다
-      if (latest.current.filled && unseenCount(latest.current.objects, latest.current.shown) > REFILL_THRESHOLD) { latest.current.filled = false; if (settle) { clearTimeout(settle); settle = null } }
+      // 페이지 내용이 통째로 바뀌면(안 보인 요소가 많거나, 보이던 요소가 하나도 남지 않음) 모으지 않고 다시 나눠 그린다. 모으면 그동안 빈 썸네일이 보인다
+      if (latest.current.filled) {
+        const unseen = unseenCount(latest.current.objects, latest.current.shown)
+        if (unseen > REFILL_THRESHOLD || unseen === latest.current.objects.length) { latest.current.filled = false; if (settle) { clearTimeout(settle); settle = null } }
+      }
       if (latest.current.filled) {
         // 채워진 썸네일의 변경: 빠른 연속 입력을 모아 한 번에 전부 보탠다. 최대 대기 시간을 넘기면 바로 보탠다
         if (settleSince === null) settleSince = Date.now()

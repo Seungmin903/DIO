@@ -269,7 +269,8 @@ export function createCanvasSession({api,storage,key,legacyKey,pageId,diaryId,cr
     // 서버 변경 이벤트가 내 저장의 에코인지. ID 가 맞으면 내 것이고, 내 계정(mine)이 낸 이벤트는 기다리던 에코가 있으면 하나 소비하고 내 것으로 본다.
     claimsChange(id,mine=false){
       const now=Date.now();echoes=echoes.filter(at=>now-at<ECHO_WAIT_MS)
-      if(apiSession.ownsCommand(id)){echoes.shift();return true}
+      // ID 가 맞는 이벤트는 공유 경로 저장의 것이므로 개인 경로 에코 슬롯을 쓰지 않는다
+      if(apiSession.ownsCommand(id))return true
       if(mine&&echoes.length){echoes.shift();return true}
       return false
     },

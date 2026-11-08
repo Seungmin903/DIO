@@ -151,7 +151,7 @@ test('1인 다이어리의 서버 에코는 ID 가 달라도 내 계정이 낸 �
   assert.equal(s.claimsChange('40000000-0000-4000-8000-000000000001',true),true,'내 계정의 에코 하나는 내 것')
   assert.equal(s.claimsChange('40000000-0000-4000-8000-000000000002',true),false,'한 번 보냈으면 에코도 하나만')
   await s.enqueue({id:uuid(501),pageId,before:[a],after:[a,text(3,'C')]});await s.synchronize()
-  assert.equal(s.claimsChange(uuid(501),true),true,'ID 가 맞는 에코도 기다리던 하나를 쓴다');assert.equal(s.claimsChange('40000000-0000-4000-8000-000000000003',true),false)
+  assert.equal(s.claimsChange(uuid(501),true),true,'ID 가 맞는 에코는 내 것');assert.equal(s.claimsChange('40000000-0000-4000-8000-000000000003',true),true,'ID 일치는 개인 경로 에코 슬롯을 쓰지 않는다');assert.equal(s.claimsChange('40000000-0000-4000-8000-000000000004',true),false)
   mode='shared'
   await s.enqueue({id:uuid(502),pageId,before:[a],after:[a,text(4,'D')]});await s.synchronize()
   assert.equal(s.claimsChange('40000000-0000-4000-8000-000000000004',true),false,'공유 경로 저장은 에코를 세지 않아 같은 계정 다른 기기의 변경을 삼키지 않는다')
