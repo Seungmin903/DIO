@@ -27,10 +27,10 @@ const library = (items, category, keyword) => load('../src/editor/stickerLibrary
 }).stickerLibrary(items, category, keyword)
 const decor = { folders: [], favorites: [], recentStickers: [], categoryOrder: [], hiddenCategories: [] }
 
-test('기본 스티커는 모아 4 · 디오 4 · 소품 12, 모두 20종이고 그림 크기에 꼭 맞게 잘려 있다', () => {
-  assert.equal(BUILTIN_STICKERS.length, 20)
-  assert.equal(new Set(BUILTIN_STICKERS.map((s) => s.builtin)).size, 20)
-  assert.equal(new Set(BUILTIN_STICKERS.map((s) => s.name)).size, 20)
+test('기본 스티커는 모아 4 · 디오 4 · 소품 16, 모두 24종이고 그림 크기에 꼭 맞게 잘려 있다', () => {
+  assert.equal(BUILTIN_STICKERS.length, 24)
+  assert.equal(new Set(BUILTIN_STICKERS.map((s) => s.builtin)).size, 24)
+  assert.equal(new Set(BUILTIN_STICKERS.map((s) => s.name)).size, 24)
   assert.equal(BUILTIN_STICKERS.filter((s) => s.builtin.startsWith('moa_')).length, 4)
   assert.equal(BUILTIN_STICKERS.filter((s) => s.builtin.startsWith('dio_')).length, 4)
   for (const sticker of BUILTIN_STICKERS) {
@@ -79,7 +79,7 @@ test('보관함에는 지우지 못하는 디오&모아 분류가 있고, 처음
   const first = library(decor, null, '')
   assert.equal(first.active, BUILTIN_PACK.id)
   assert.equal(first.pack.name, '디오&모아')
-  assert.equal(first.pack.items.length, 20)
+  assert.equal(first.pack.items.length, 24)
   assert.equal(first.folder, null)
   assert.equal(first.orderable[0].base, true)
   assert.deepEqual(library(decor, null, '모아').packMatches.map((s) => s.builtin), ['moa_basic', 'moa_blush', 'moa_tired', 'moa_tongue'])
