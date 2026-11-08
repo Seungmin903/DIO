@@ -103,5 +103,6 @@ test('알림 창은 불러오는 동안 목록 위에 줄을 끼워 넣지 않�
   assert.doesNotMatch(panel, /<Text[^>]*>(알림을 처리하고 있어요\.|초대를 확인하고 있어요\.)/)
   assert.match(panel, /useEffect\(\(\) => \{ if \(text\) AccessibilityInfo\.announceForAccessibility\?\.\(text\); \}, \[text\]\);/)
   assert.match(panel, /<Announce text=\{working\} \/>/)
-  assert.match(panel, /\(list\.status === 'idle' \|\| list\.status === 'loading'\) && items\.length === 0 && <View style=\{s\.empty\}/)
+  // 처음 불러올 때만(이전 결과 없음) 스피너. 새로고침 때는 지금 목록 · 빈 화면을 그대로 둔다
+  assert.match(panel, /\(list\.status === 'idle' \|\| list\.status === 'loading'\) && items\.length === 0 && !list\.data && <View style=\{s\.empty\}/)
 })

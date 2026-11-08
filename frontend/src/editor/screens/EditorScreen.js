@@ -135,6 +135,10 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
   pageNow.current = page
   useMemberPagePosition({ diary, pageId: page.id, loaded: loaded && saveStatus !== 'load-error' })
   const textSync = useMemberCanvasCollaboration({ diary, page, state, loaded: loaded && saveStatus !== 'load-error', readOnly: permissionReadOnly, dispatch, onMembersChanged, onCollaborationStateChange })
+  // 상단 참여자 얼굴에 접속 상태를 얹는다(지금 이 다이어리를 연 사람 = online, 지라 680)
+  const onlineUserIds = textSync.onlineUserIds
+  // 서버가 접속 목록을 보내기 전(모름)에는 online 을 두지 않아 얼굴이 모두 또렷하다
+  const liveMembers = useMemo(() => { if (!Array.isArray(onlineUserIds)) return sharingMembers; const online = new Set(onlineUserIds); return sharingMembers.map(member => ({ ...member, online: online.has(String(member.id)) })) }, [sharingMembers, onlineUserIds])
   const localUndo=state.past.length>0&&!state.collaborationPast?.at(-1)?.hasCanvas
   const localRedo=state.future.length>0&&!state.collaborationFuture?.[0]?.hasCanvas
   // 페이지 목록·레이어는 캔버스를 먼저 그린 뒤 따라 그린다 (지우개·이동을 끝내고 손을 뗄 때 한꺼번에 다시 그려 멈칫하던 것)
@@ -1103,7 +1107,7 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
     <PhoneToolbar
       onOpenSharing={!phoneLandscape && onOpenSharing ? openDiarySharing : undefined}
       invitationCount={invitationCount}
-      sharingMembers={sharingMembers}
+      sharingMembers={liveMembers}
       {...markInside}
       vertical={landscape}
       bottomInset={landscape ? Math.max(bottomInset, 76) : 0}
@@ -1159,7 +1163,7 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
           exportEnabled={exportEnabled}
           onOpenSharing={onOpenSharing ? openDiarySharing : undefined}
           invitationCount={invitationCount}
-          sharingMembers={sharingMembers}
+          sharingMembers={liveMembers}
           onFocus={startPhoneFocus}
         />
       )}
@@ -1178,7 +1182,7 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
         onHome={goHome}
         onOpenSharing={onOpenSharing ? openDiarySharing : undefined}
         invitationCount={invitationCount}
-        sharingMembers={sharingMembers}
+        sharingMembers={liveMembers}
         onCloseTab={onCloseTab ?? goHome}
         tabs={tabs}
         activeTabId={diary?.id}

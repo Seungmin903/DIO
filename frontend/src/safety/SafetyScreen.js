@@ -23,7 +23,8 @@ export function SafetyButton({ children, label = children, onPress, secondary, d
 
 function Person({ member, children }) {
   return <View style={s.row}>
-    <View style={{ width: 40, height: 40, borderRadius: 12, overflow: 'hidden', backgroundColor: colors.surfaceMuted, alignItems: 'center', justifyContent: 'center' }}><MemberAvatar member={member} /></View>
+    {/* 참여자 시트와 같은 동그라미(예전엔 모서리 12 네모 틀 안에 동그라미가 들어가 모양이 달랐다) */}
+    <View style={{ width: 40, height: 40, borderRadius: 20, overflow: 'hidden', backgroundColor: colors.surfaceMuted, alignItems: 'center', justifyContent: 'center' }}><MemberAvatar member={member} /></View>
     <View style={s.grow}><Text style={s.heading}>{member.nickname || '사용자'}</Text>{children}</View>
   </View>;
 }
@@ -45,6 +46,9 @@ export default function SafetyScreen({ request, user, store, state, onClose, onW
   const [toast, setToast] = useState('');
   const [question, setQuestion] = useState(null);
   const [dismiss, setDismiss] = useState(false);
+  // 신고와 함께 차단하기(기본 꺼짐, 2026-11-08 지라 686 — 구글 드라이브 신고 창의 '사용자 차단' 체크 · 코덱스)
+  const [alsoBlock, setAlsoBlock] = useState(false);
+  const [blockFailed, setBlockFailed] = useState(false);
   const [working, setWorking] = useState(false);
   const alive = useRef(true), locked = useRef(false), revision = useRef(0);
   const clientRequestId = useRef(null);
@@ -88,10 +92,12 @@ export default function SafetyScreen({ request, user, store, state, onClose, onW
     if (question) { setQuestion(null); return; }
     if (screen === 'warning') { run(() => onWarning(false, false, request.rows, request.diary)); return; }
     if (screen === 'report' && dirty) { setQuestion({ kind: 'discard' }); return; }
-    if (screen === 'report' || screen === 'complete') { clearDraft(); setScreen('participants'); return; }
+    if (screen === 'report' || screen === 'complete') { clearDraft(); if (request.direct) { onClose(); return; } setScreen('participants'); return; }
     onClose();
   }
-  function clearDraft() { clientRequestId.current = null; submittedDraft.current = null; setReason(''); setDescription(''); setPhotos([]); setError(''); }
+  // 신고와 함께 차단하기 · 차단 실패 표시도 초안과 함께 비운다 — 다음 사람 신고에 체크가 켜진 채 이월되면 뜻하지 않은 차단이 된다(AI 리뷰 2026-11-08).
+  // 신고 대상을 바꿀 때(startReport)도 이 함수를 거친다
+  function clearDraft() { clientRequestId.current = null; submittedDraft.current = null; setReason(''); setDescription(''); setPhotos([]); setError(''); setAlsoBlock(false); setBlockFailed(false); }
   function restoreSubmittedDraft() {
     const draft = submittedDraft.current;
     if (!draft || busy) return;
@@ -99,10 +105,18 @@ export default function SafetyScreen({ request, user, store, state, onClose, onW
   }
   function startReport(member) { clearDraft(); setTarget(member); setMenu(null); setScreen('report'); }
   function askBlock(member) { setTarget(member); setError(''); setQuestion({ kind: blocked(member.id) ? 'unblock' : 'block', member }); }
+  // 머리줄 X(태블릿): 창 전체를 닫는다(공유 창과 같은 ‹ · X 통일, 2026-11-08). 쓰던 신고가 있으면 버릴지 묻고, 공유 다이어리 안내는 ‹ 와 같게 '들어가지 않음'
+  function closeAll() {
+    if (locked.current || state.busy) return;
+    if (screen === 'warning') { back(); return; }
+    if (screen === 'report' && dirty) { setQuestion({ kind: 'discard', closeAll: true }); return; }
+    clearDraft(); onClose();
+  }
   function confirm() {
     const current = question;
     setQuestion(null);
-    if (current.kind === 'discard') { clearDraft(); setScreen('participants'); return; }
+    if (current.kind === 'submit') return submit();
+    if (current.kind === 'discard') { clearDraft(); if (request.direct || current.closeAll) { onClose(); return; } setScreen('participants'); return; }
     run(async () => {
       if (current.kind === 'block') await store.block(current.member, request.diary.sharedDiaryId || request.diary.id); else await store.unblock(current.member);
       if (alive.current) {
@@ -122,7 +136,12 @@ export default function SafetyScreen({ request, user, store, state, onClose, onW
       if (!submittedDraft.current) submittedDraft.current = { ...input, photos: photos.map(photo => ({ ...photo })) };
       const receipt = await store.report(input);
       if (!receipt?.reportId) throw new Error('접수 결과를 확인하지 못했어요. 다시 확인해 주세요.');
-      if (alive.current) { clearDraft(); setScreen('complete'); }
+      // 함께 차단: 신고가 접수된 뒤에 차단한다. 차단만 실패하면 접수 화면에 알리고 '이 사용자 차단하기'로 다시 시도한다
+      let blockError = false;
+      if (alsoBlock && !blocked(target.id)) {
+        try { await store.block(target, request.diary.sharedDiaryId || request.diary.id); } catch { blockError = true; }
+      }
+      if (alive.current) { clearDraft(); setBlockFailed(blockError); setScreen('complete'); }
     });
   }
   async function addPhotos() {
@@ -159,6 +178,10 @@ export default function SafetyScreen({ request, user, store, state, onClose, onW
         <View style={[s.header, isPhone && s.phoneHeader]}>
           <BackButton label="이전 화면" onPress={back} disabled={busy} />
           <Text accessibilityRole="header" style={s.title}>{title}</Text>
+          {/* X 는 태블릿(가운데 창)만 — 폰은 전체 화면이라 ‹ 와 같은 일을 하는 X 가 겹친다(다른 폰 전체 화면도 ‹ 만) */}
+          {!isPhone && <Pressable accessibilityRole="button" accessibilityLabel="창 닫기" disabled={busy} onPress={closeAll} style={s.closeButton}>
+            <EditorIcon name="close" size={20} color={colors.text} />
+          </Pressable>}
         </View>
         <KeyboardAvoidingView style={[s.keyboard, isPhone && s.phoneKeyboard]} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
           <ScrollView contentContainerStyle={s.body} keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets>
@@ -212,10 +235,15 @@ export default function SafetyScreen({ request, user, store, state, onClose, onW
                   </View>)}</View>
                   <SafetyButton secondary disabled={busy || photos.length >= MAX_PHOTOS} onPress={addPhotos}>사진 첨부 ({photos.length}/3)</SafetyButton>
                 </View>
-                <Text style={s.muted}>신고는 운영자가 검토한 뒤 처리해요. 신고만으로 상대방이 자동 차단되지는 않아요.</Text>
+                {target.activeAccount !== false && !blocked(target.id) && hasBlockData && <Pressable accessibilityRole="checkbox" accessibilityLabel="신고와 함께 차단하기"
+                  accessibilityState={{ checked: alsoBlock, disabled: busy }} disabled={busy} style={s.reason} onPress={() => setAlsoBlock(value => !value)}>
+                  <EditorIcon name={alsoBlock ? 'checkboxOn' : 'checkboxOff'} size={20} color={alsoBlock ? colors.primaryStrong : colors.textMuted} /><Text style={[s.text, s.grow]}>신고와 함께 차단하기</Text>
+                </Pressable>}
+                <Text style={s.muted}>신고는 운영자가 검토한 뒤 처리해요.</Text>
               </>}
               {screen === 'complete' && <View style={s.card}><Text style={s.title}>{preview ? '신고 화면 확인을 마쳤어요' : '신고가 접수되었어요'}</Text>
-                <Text style={s.text}>{preview ? '실제로 접수되지 않은 미리보기 결과예요.' : '보내주신 내용을 확인한 뒤 필요한 조치를 진행할게요.'}</Text></View>}
+                <Text style={s.text}>{preview ? '실제로 접수되지 않은 미리보기 결과예요.' : '보내주신 내용을 확인한 뒤 필요한 조치를 진행할게요.'}</Text>
+                {blockFailed && <Text accessibilityRole="alert" style={s.error}>신고는 접수됐지만 차단하지 못했어요.</Text>}</View>}
               {screen === 'warning' && <>
                 <Text style={s.heading}>차단한 사용자가 함께하고 있어요</Text>
                 <Text style={s.text}>이 다이어리에는 내가 차단한 사용자 {request.rows.length}명이 참여 중이에요.{"\n"}해당 사용자도 이 다이어리를 보고 편집할 수 있어요.</Text>
@@ -225,7 +253,7 @@ export default function SafetyScreen({ request, user, store, state, onClose, onW
               </>}
             </>}
           </ScrollView>
-          {!zoom && screen === 'report' && <View style={s.footer}><SafetyButton disabled={busy || unavailable || Boolean(validateReport({ reason, description, photos }))} onPress={submit}>
+          {!zoom && screen === 'report' && <View style={s.footer}><SafetyButton disabled={busy || unavailable || Boolean(validateReport({ reason, description, photos }))} onPress={() => setQuestion({ kind: 'submit' })}>
             {busy ? '처리 중…' : preview ? '신고 화면 확인하기' : '신고 접수하기'}</SafetyButton></View>}
           {!zoom && screen === 'complete' && <View style={s.footer}><SafetyButton disabled={busy} onPress={back}>확인</SafetyButton>
             {target.activeAccount !== false && !blocked(target.id) && <SafetyButton secondary disabled={busy || !hasBlockData} onPress={() => askBlock(target)}>이 사용자 차단하기</SafetyButton>}</View>}
@@ -233,9 +261,9 @@ export default function SafetyScreen({ request, user, store, state, onClose, onW
         </KeyboardAvoidingView>
       </View>
       <ConfirmDialog open={Boolean(question)} danger={false}
-        title={question?.kind === 'discard' ? '작성 중인 신고를 닫을까요?' : question?.kind === 'unblock' ? `${question.member.nickname}님의 차단을 해제할까요?` : `${question?.member?.nickname}님을 차단할까요?`}
-        message={question?.kind === 'discard' ? '작성한 내용과 첨부한 사진이 사라져요.' : question?.kind === 'unblock' ? '서로 이메일 초대를 주고받거나 수락할 수 있게 돼요. 유효한 대기 초대도 다시 수락할 수 있어요.' : blockMessage}
-        confirmLabel={question?.kind === 'discard' ? '작성 취소' : question?.kind === 'unblock' ? '차단 해제' : '차단하기'} onCancel={() => setQuestion(null)} onConfirm={confirm} />
+        title={question?.kind === 'submit' ? '신고를 접수할까요?' : question?.kind === 'discard' ? '작성 중인 신고를 닫을까요?' : question?.kind === 'unblock' ? `${question.member.nickname}님의 차단을 해제할까요?` : `${question?.member?.nickname}님을 차단할까요?`}
+        message={question?.kind === 'submit' ? `선택한 사유와 작성한 내용을 운영자가 검토해요.${alsoBlock && !blocked(target?.id) ? '\n이 사용자도 함께 차단해요.' : ''}` : question?.kind === 'discard' ? '작성한 내용과 첨부한 사진이 사라져요.' : question?.kind === 'unblock' ? '서로 이메일 초대를 주고받거나 수락할 수 있게 돼요. 유효한 대기 초대도 다시 수락할 수 있어요.' : blockMessage}
+        confirmLabel={question?.kind === 'submit' ? '접수하기' : question?.kind === 'discard' ? '작성 취소' : question?.kind === 'unblock' ? '차단 해제' : '차단하기'} onCancel={() => setQuestion(null)} onConfirm={confirm} />
     </SafeAreaView>
   </EditorModal>;
 }
