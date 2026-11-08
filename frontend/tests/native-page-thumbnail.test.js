@@ -29,17 +29,18 @@ test('네이티브 썸네일은 요소 순서를 유지해 나눠 그리고 변�
   new Function('require', 'module', 'exports', 'setTimeout', 'clearTimeout', code)(load, module, module.exports, schedule, cancel)
   const render = page => { refIndex = 0; effectIndex = 0; const result = module.exports.default({ page, zoom: 0.2 }).props.page.objects.map(item => item.id); pendingEffects.splice(0).forEach(run => run()); return result }
   const flush = () => { const [id, fn] = timers.entries().next().value; timers.delete(id); fn() }
-  const objects = Array.from({ length: 14 }, (_, id) => ({ id }))
+  const objects = Array.from({ length: 30 }, (_, id) => ({ id }))
   assert.deepEqual(render({ objects }), [])
   flush(); assert.deepEqual(render({ objects }), [0, 1, 2])
+  // 처음 채울 때는 3 → 6 → 12 → 24 처럼 두 배씩 보탠다
   flush(); assert.equal(render({ objects }).length, 6)
-  const appended = [...objects, { id: 14 }]
+  const appended = [...objects, { id: 30 }]
   assert.equal(render({ objects: appended }).length, 6)
   const scheduledBefore = [...timers.keys()][0]
-  const appendedAgain = [...appended, { id: 15 }]
+  const appendedAgain = [...appended, { id: 31 }]
   assert.equal(render({ objects: appendedAgain }).length, 6)
   assert.equal([...timers.keys()][0], scheduledBefore)
-  flush(); assert.equal(render({ objects: appendedAgain }).length, 9)
+  flush(); assert.equal(render({ objects: appendedAgain }).length, 12)
   const replacement = [{ id: 'new' }]
   assert.deepEqual(render({ objects: replacement }), [])
   assert.equal(timers.size, 1)

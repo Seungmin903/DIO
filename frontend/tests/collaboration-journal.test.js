@@ -138,3 +138,15 @@ test('내 명령인지 판단할 때 clientOperationId 의 대소문자를 무�
   await s.synchronize()
   assert.equal(s.ownsCommand(upper.toLowerCase()),true,'보낸 명령');assert.equal(s.ownsCommand('30000000-0000-4000-8000-000000000000'),false)
 })
+
+test('1인 다이어리의 서버 에코는 ID 가 달라도 내 계정이 낸 것이면 보낸 횟수만큼 내 것으로 본다',async()=>{
+  const f=fixture();const [a]=objects(1);f.setRows([row(a)])
+  const s=f.session();await s.restore([a]);await s.synchronize()
+  assert.equal(s.claimsChange('40000000-0000-4000-8000-000000000001',true),false,'보낸 것이 없으면 남의 변경')
+  await s.enqueue({id:uuid(500),pageId,before:[a],after:[a,text(2,'B')]});await s.synchronize()
+  assert.equal(s.claimsChange('40000000-0000-4000-8000-000000000001',false),false,'다른 계정의 변경은 그대로')
+  assert.equal(s.claimsChange('40000000-0000-4000-8000-000000000001',true),true,'내 계정의 에코 하나는 내 것')
+  assert.equal(s.claimsChange('40000000-0000-4000-8000-000000000002',true),false,'한 번 보냈으면 에코도 하나만')
+  await s.enqueue({id:uuid(501),pageId,before:[a],after:[a,text(3,'C')]});await s.synchronize()
+  assert.equal(s.claimsChange(uuid(501),true),true,'ID 가 맞는 에코도 기다리던 하나를 쓴다');assert.equal(s.claimsChange('40000000-0000-4000-8000-000000000003',true),false)
+})

@@ -3,7 +3,9 @@ import StaticPage from '../canvas/StaticPage'
 import { hasUnseenThumbnailObjects, revealThumbnailObjects, visibleThumbnailObjects } from '../../utils/thumbnailProgress.js'
 
 // 네이티브에서는 복잡한 페이지를 한 프레임에 전부 만들지 않아 패널 버튼을 계속 누를 수 있게 한다.
+// 처음 채울 때는 3개로 시작해 매번 두 배씩 보탠다. 매번 3개씩이면 요소 480개 페이지가 160번(각 20~30ms, 합 4초 넘게) 다시 그려졌다.
 const OBJECTS_PER_BATCH = 3
+const nextBatch = shown => Math.max(OBJECTS_PER_BATCH, shown.size)
 const BATCH_DELAY_MS = 20
 // 이미 채워진 썸네일에 요소가 더해질 때(필기 중)는 이 시간 동안 모았다가 한 번에 보탠다. 획마다 요소 수백 개를 다시 그리지 않게.
 export const UPDATE_DELAY_MS = 300
@@ -43,8 +45,8 @@ export default function PageThumbnail({ page, workQueue, ...props }) {
       }
       if (scheduled) return
       scheduled = true
-      if (workQueue) cancelPending = workQueue.enqueue(() => advance(OBJECTS_PER_BATCH))
-      else { const timer = setTimeout(() => advance(OBJECTS_PER_BATCH), BATCH_DELAY_MS); cancelPending = () => clearTimeout(timer) }
+      if (workQueue) cancelPending = workQueue.enqueue(() => advance(nextBatch(latest.current.shown)))
+      else { const timer = setTimeout(() => advance(nextBatch(latest.current.shown)), BATCH_DELAY_MS); cancelPending = () => clearTimeout(timer) }
     }
     const advance = (count) => {
       scheduled = false

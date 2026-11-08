@@ -67,3 +67,10 @@ test('멤버 조회 실패·잘못된 응답은 개인 모드로 추정하지 �
  const failure=Object.assign(Error('forbidden'),{status:403})
  await assert.rejects(createCanvasWriteApi(async()=>{throw failure},undefined,diaryId).prepare(request),failure)
 })
+
+test('참여 멤버 조회는 잠시 기억하고 멤버 변경 이벤트에 비운다',async()=>{
+ const f=fixture();await f.api.load(pageId,diaryId);await f.api.load(pageId,diaryId);const prepared=await f.api.prepare(request);await f.api.apply(pageId,prepared)
+ assert.equal(f.calls.filter(r=>r.path.endsWith('/members')).length,1)
+ f.share(true);f.api.invalidateMembership();await f.api.load(pageId,diaryId)
+ assert.equal(f.calls.filter(r=>r.path.endsWith('/members')).length,2);assert.equal(f.calls.at(-1).path,`/pages/${pageId}`)
+})

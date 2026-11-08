@@ -8,12 +8,18 @@ export function createCanvasWriteApi(transport, media, diaryId) {
   if (!isUuid(diaryId)) throw Error('다이어리 ID를 확인해 주세요.')
   const personal = createCanvasElementApi(transport, media), shared = createCanvasApi(transport, media)
   const checkedPages = new Set()
+  // 참여 멤버 조회 결과는 잠시 기억한다. 저장·조회마다 다시 물으면 획 하나에 멤버 조회가 두 번 더 붙었다. 멤버 변경 이벤트가 오면 비운다.
+  const MEMBERSHIP_TTL_MS = 5000
+  let membership = null
   const select = async () => {
+    if (membership && Date.now() - membership.at < MEMBERSHIP_TTL_MS) return membership.mode
     const body = await transport({ path: `/diaries/${diaryId}/members` })
     if (!Array.isArray(body?.members) || !body.members.length || body.members.some(m => !m || !['OWNER','EDITOR'].includes(m.role) || !/^\d+$/.test(String(m.userId))) || new Set(body.members.map(m => String(m.userId))).size !== body.members.length) {
       throw Object.assign(Error('다이어리 참여 상태를 확인하지 못했어요.'), { code: 'INVALID_CANVAS_MEMBERSHIP' })
     }
-    return body.members.length > 1 ? 'shared' : 'personal'
+    const mode = body.members.length > 1 ? 'shared' : 'personal'
+    membership = { mode, at: Date.now() }
+    return mode
   }
   return {
     async load(pageId, expectedDiaryId) {
@@ -40,5 +46,6 @@ export function createCanvasWriteApi(transport, media, diaryId) {
     },
     history: shared.history,
     control: shared.control,
+    invalidateMembership() { membership = null },
   }
 }

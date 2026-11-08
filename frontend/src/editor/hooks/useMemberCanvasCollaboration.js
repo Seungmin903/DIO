@@ -231,9 +231,11 @@ export function useMemberCanvasCollaboration({diary,page,state,loaded,readOnly,d
       onDiagnostic:diagnostics.socket,
       makeSocket:url=>Platform?.OS==='web'?new globalThis.WebSocket(url):new globalThis.WebSocket(url,[],{headers:headersFor(url)}),
       getAccessToken:({forceRefresh=false}={})=>authService.getAccessToken({userId:diary.memberAccountId,sessionKey,forceRefresh}),
-      onReady:()=>{diagnostics.event('ws-ready');collaborationStateChange.current(diary.sharedDiaryId||diary.id,true);refresh()},onUnavailable:()=>{diagnostics.event('ws-unavailable');collaborationStateChange.current(diary.sharedDiaryId||diary.id,false)},onPagesChanged:refreshPagesQuietly,onMembersChanged:()=>membersChanged.current(),onChange:frame=>{
+      onReady:()=>{diagnostics.event('ws-ready');api.invalidateMembership?.();collaborationStateChange.current(diary.sharedDiaryId||diary.id,true);refresh()},onUnavailable:()=>{diagnostics.event('ws-unavailable');collaborationStateChange.current(diary.sharedDiaryId||diary.id,false)},onPagesChanged:refreshPagesQuietly,onMembersChanged:()=>{api.invalidateMembership?.();membersChanged.current()},onChange:frame=>{
         diagnostics.event('ws-change')
-        if([...r.loaded.values()].some(engine=>engine.ownsCommand(frame.clientOperationId)))return
+        // 내 저장의 에코면 다시 조회하지 않는다(1인 다이어리는 ID 대신 내 계정이 낸 이벤트 수로 판단)
+        const mine=String(frame.actorUserId??'')===String(diary.memberAccountId??'')
+        if([...r.loaded.values()].some(engine=>engine.claimsChange?engine.claimsChange(frame.clientOperationId,mine):engine.ownsCommand(frame.clientOperationId)))return
         if(frame.pageId===latest.current.page.id)refresh()
         else if(latest.current.state.doc.pages.some(p=>p.id===frame.pageId))r.sync(frame.pageId)
         else refreshPagesQuietly()
