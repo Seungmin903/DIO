@@ -51,6 +51,7 @@ export default function SafetyScreen({ request, user, store, state, onClose, onW
   const [working, setWorking] = useState(false);
   const alive = useRef(true), locked = useRef(false), revision = useRef(0);
   const menuButtons = useRef(new Map());
+  const menuRevision = useRef(0);
   const clientRequestId = useRef(null);
   const submittedDraft = useRef(null);
   const selfId = String(user?.userId || user?.accountId || user?.id || '');
@@ -79,8 +80,8 @@ export default function SafetyScreen({ request, user, store, state, onClose, onW
     const timer = setTimeout(() => setToast(''), 3500);
     return () => clearTimeout(timer);
   }, [toast]);
-  // 회전·분할 화면으로 창 폭이 바뀌면 이전 창 좌표를 쓰지 않는다.
-  useEffect(() => { setMenu(null); setMenuAnchor(null); setMenuHeight(0); }, [windowWidth, windowHeight]);
+  // 회전·분할 화면으로 창 크기가 바뀌면 이전 좌표의 측정 콜백까지 무효화한다.
+  useEffect(() => { menuRevision.current++; setMenu(null); setMenuAnchor(null); setMenuHeight(0); }, [windowWidth, windowHeight]);
   async function run(action) {
     if (locked.current) return;
     locked.current = true; setWorking(true); setError('');
@@ -144,22 +145,32 @@ export default function SafetyScreen({ request, user, store, state, onClose, onW
   }
   const title = zoom ? '증빙 사진' : ({ participants: '참여자', blocks: '차단한 사용자', report: '신고하기', complete: '신고 접수', warning: '공유 다이어리 안내' }[screen]);
   const hasBlockData = !unavailable && state.status === 'ready';
-  const closeMenu = () => { setMenu(null); setMenuAnchor(null); setMenuHeight(0); };
-  const toggleMenu = member => {
-    if (menu === member.id) { closeMenu(); return; }
+  const closeMenu = () => { menuRevision.current++; setMenu(null); setMenuAnchor(null); setMenuHeight(0); };
+  const measureMenu = memberId => {
+    const token = ++menuRevision.current;
     setMenuAnchor(null);
     setMenuHeight(0);
-    const button = menuButtons.current.get(member.id);
+    const apply = anchor => {
+      if (!alive.current || token !== menuRevision.current) return;
+      setMenuAnchor(anchor);
+      setMenu(memberId);
+    };
+    const button = menuButtons.current.get(memberId);
     if (typeof button?.measureInWindow !== 'function') {
-      setMenuAnchor({ x: windowWidth / 2, y: windowHeight / 2, width: 0, height: 0 });
-      setMenu(member.id);
+      apply({ x: windowWidth / 2, y: windowHeight / 2, width: 0, height: 0 });
       return;
     }
-    button.measureInWindow((x, y, width, height) => {
-      setMenuAnchor({ x, y, width, height });
-      setMenu(member.id);
-    });
+    button.measureInWindow((x, y, width, height) => apply({ x, y, width, height }));
   };
+  const toggleMenu = member => {
+    if (menu === member.id) { closeMenu(); return; }
+    measureMenu(member.id);
+  };
+  // 공유 창의 특정 참여자 ⋯에서 들어온 target은 그 참여자의 메뉴를 바로 연다.
+  // 일반 '전체 참여자 보기'에는 target이 없어 메뉴를 열지 않는다.
+  useEffect(() => {
+    if (screen === 'participants' && request.target?.id) measureMenu(request.target.id);
+  }, [request.target?.id, screen]);
   function participant(member) {
     const own = member.id === selfId;
     return <View key={member.id} style={s.card}>

@@ -9,7 +9,7 @@ const code = babel.transformSync(readFileSync(new URL('../src/safety/SafetyScree
 }).code;
 const nodes = n => !n || typeof n !== 'object' ? [] : [n, ...[n.props?.children].flat(Infinity).flatMap(nodes)];
 const label = n => n.props?.label || n.props?.accessibilityLabel || [n.props?.children].flat(Infinity).filter(x => typeof x === 'string' || typeof x === 'number').join('');
-function setup(report, store, onClose = () => {}) {
+function setup(report, store, onClose = () => {}, requestTarget = null) {
   const states = [], refs = [], deps = [], cleanups = []; let si = 0, ri = 0, ei = 0, serial = 0;
   const react = {
     useState: initial => { const i = si++; if (!(i in states)) states[i] = typeof initial === 'function' ? initial() : initial; return [states[i], value => { states[i] = typeof value === 'function' ? value(states[i]) : value; }]; },
@@ -25,7 +25,7 @@ function setup(report, store, onClose = () => {}) {
   const mod = { exports: {} };
   new Function('require', 'module', 'exports', code)(id => mocks[id] ?? (id === 'react/jsx-runtime' ? require(id) : { __esModule: true, default: id }), mod, mod.exports);
   const target = { id: '25', nickname: '친구', role: 'EDITOR', participation: 'CURRENT' };
-  const props = { request: { kind: 'participants', target, diary: { id: '11111111-1111-4111-8111-111111111111', title: '기록', members: [target] } },
+  const props = { request: { kind: 'participants', target: requestTarget, diary: { id: '11111111-1111-4111-8111-111111111111', title: '기록', members: [target] } },
     user: { userId: '10', nickname: '나' }, store: { mode: 'server', participants: async () => [target], refresh() {}, report },
     state: { status: 'ready', blocks: [] }, onClose, evidencePicker: async () => [{ uri: 'file:///evidence.png', fileName: 'evidence.png', mimeType: 'image/png', size: 500 }] };
   if (store) props.store = store;
@@ -141,6 +141,28 @@ test('참여자 메뉴는 창 크기 변경 시 닫히고 우측 안전 여백�
     assert.equal(menu.props.style[1].right, 16);
     ui.window.width = 600;
     ui.render();
+    assert.equal(ui.find('신고하기'), undefined);
+  } finally { ui.unmount(); }
+});
+
+test('공유 창에서 전달한 참여자 target은 해당 메뉴를 바로 연다', () => {
+  const target = { id: '25', nickname: '친구', role: 'EDITOR', participation: 'CURRENT' };
+  const ui = setup(async () => {}, undefined, undefined, target);
+  try {
+    assert.ok(ui.find('신고하기'));
+  } finally { ui.unmount(); }
+});
+
+test('창 크기가 바뀌면 대기 중인 메뉴 측정 결과를 무시한다', () => {
+  const ui = setup(async () => {});
+  try {
+    let resolveMeasure;
+    const button = ui.find('친구 메뉴');
+    button.props.ref({ measureInWindow: callback => { resolveMeasure = callback; } });
+    button.props.onPress();
+    ui.window.height = 500;
+    ui.render();
+    resolveMeasure(700, 100, 48, 48);
     assert.equal(ui.find('신고하기'), undefined);
   } finally { ui.unmount(); }
 });
