@@ -5,6 +5,8 @@ import { canvasMediaFiles } from './canvasMediaFiles'
 
 const baseUrl = `${apiBaseUrl.replace(/\/$/, '')}/v1/sticker-cutouts`
 const mediaBaseUrl = apiBaseUrl.replace(/\/$/, '')
+const debug = (event, detail) => { if (globalThis.__DEV__) console.info('[DIO_STICKER_CUTOUT]', event, detail) }
+const requestPath = url => { try { return new URL(url).pathname } catch { return 'unknown' } }
 const activeSession = () => ({ userId: authService.getCurrentUserId(), sessionKey: authService.getSessionKey() })
 const assertActive = ({ userId, sessionKey }) => {
   if (!userId || authService.getCurrentUserId() !== userId || authService.getSessionKey() !== sessionKey) {
@@ -25,7 +27,8 @@ async function request(url, { method = 'GET', body, binary = false, session = ac
     if (typeof body === 'string') headers['Content-Type'] = 'application/json'
     try {
       return await expoFetch(url, { method, body, headers, credentials: 'omit', redirect: 'error' })
-    } catch {
+    } catch (error) {
+      debug('network', { method, path: requestPath(url), message: error?.message || 'fetch failed' })
       throw requestError(0, null, '사진 오리기 서버에 연결하지 못했어요. 연결을 확인하고 다시 시도해 주세요.')
     }
   }
@@ -35,6 +38,7 @@ async function request(url, { method = 'GET', body, binary = false, session = ac
   if (!response.ok) {
     let body
     try { body = await response.json() } catch {}
+    debug('response', { method, path: requestPath(url), status: response.status, code: body?.code, detail: body?.detail })
     throw requestError(response.status, body, '사진 오리기를 처리하지 못했어요. 다시 시도해 주세요.')
   }
   if (response.status === 204) return null
