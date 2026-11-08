@@ -31,7 +31,7 @@ Android 마스크와 iOS 시작 화면 전환·설치 아이콘은 새 빌드 �
 ## 리뷰 확인
 
 - 재생성은 직접 devDependency jimp-compact와 `pnpm brand:icons`를 사용한다. Expo 내부 의존 경로를 사용하지 않는다.
-- BrandLogo 사용처는 AuthScreen, TopBar, ReadingChrome, BootSplash이며 color/accent 인자는 사용하지 않는다. 정사각 비율은 새 원본에 맞춘 의도된 변경이다.
+- BrandLogo 사용처는 AuthScreen, BootSplash이며(편집기 상단 바 TopBar · 읽기 화면 ReadingChrome 의 돌아가기는 2026-11-08 집 모양 홈 아이콘으로 바꿨다) color/accent 인자는 사용하지 않는다. 정사각 비율은 새 원본에 맞춘 의도된 변경이다.
 - BootSplash 이미지 onLoadEnd 후 네이티브 시작 화면을 내리며 기존 앱 준비 완료/8초 제한에 의한 해제 경로도 유지한다. 네트워크가 느린 개발 빌드의 실제 시작 전환 확인은 남아 있다.
 - android/는 체크아웃에 없고 빌드 시 생성된다. withSplashWindowBackground 플러그인은 Theme.App.SplashScreen의 windowSplashScreenAnimatedIcon을 투명 XML로 덮어쓰므로 생성된 splashscreen_logo.png가 있어도 이 속성으로 표시하지 않는다. iOS는 expo-splash-screen 설정의 새 splash-icon.png를 사용한다. 새 네이티브 빌드에서 확인해야 한다.
 - SVG 3개는 원본 6개와 함께 커밋에 포함된다.

@@ -3,7 +3,6 @@ import { Pressable, StyleSheet, Text, TextInput, View, useWindowDimensions } fro
 import { colors } from '../../../shared/theme'
 import Icon from '../controls/Icon'
 import ChipScroller from '../controls/ChipScroller'
-import BrandLogo from '../../../shared/BrandLogo'
 import SharingEntry from '../../../sharing/SharingEntry'
 
 
@@ -62,8 +61,8 @@ export default function TopBar({
   return (
     <View style={styles.bar}>
       {/*
-        아래 페이지 목록과 양 끝을 맞춘다: ‹ + 로고(보관함으로 돌아가기)는 목록 왼쪽 끝, 페이지 버튼은 목록 오른쪽 끝.
-        ‹ 는 아이패드 문서 앱(노트·Pages·굿노트)처럼 왼쪽 위에서 돌아가기를 알려 준다.
+        아래 페이지 목록과 양 끝을 맞춘다: ‹ + 집(보관함으로 돌아가기)은 목록 왼쪽 끝, 페이지 버튼은 목록 오른쪽 끝.
+        ‹ 는 아이패드 문서 앱(노트·Pages·굿노트)처럼 왼쪽 위에서 돌아가기를 알려 준다. 로고 자리는 집 모양 홈 아이콘으로 바꿨다(2026-11-08 지라 682).
       */}
       <View style={[styles.lead, pagesWidth && { width: LIST_LEFT + pagesWidth - (!mid && labeledPageWidth != null ? labeledPageWidth - 44 : 0), gap: 0, paddingLeft: LIST_LEFT - CHEVRON_INSET + HOME_SHIFT }]}>
         {/* 글자가 있는 버튼의 실제 폭과 아이콘 버튼 폭 차이만큼 묶음을 줄인다. */}
@@ -73,7 +72,7 @@ export default function TopBar({
         </View>
         <Pressable onPress={onHome} accessibilityRole="button" accessibilityLabel="다이어리 홈" hitSlop={6} style={({ pressed }) => [styles.home, pressed && styles.homePressed]}>
           <Icon name="chevronLeft" size={CHEVRON_SIZE} />
-          <BrandLogo size={LOGO_SIZE} />
+          <Icon name="house" size={HOME_ICON} />
         </Pressable>
         <View style={{ flex: 1 }} />
         <IconToggle chip icon="panel" label="페이지 목록" text={mid ? '페이지' : undefined} active={pagesOpen} onPress={onTogglePages} />
@@ -188,9 +187,10 @@ function IconToggle({ icon, label, text, active, onPress, compact, chip }) {
   )
 }
 
-const LOGO_SIZE = 30, LIST_LEFT = 16 // 페이지 목록의 왼쪽 여백
+const LIST_LEFT = 16 // 페이지 목록의 왼쪽 여백
 // ‹ 아이콘(24칸 중 9부터 그려짐)의 왼쪽 빈 곳. 이만큼 당겨서 ‹ 의 선이 목록 왼쪽 끝에 오게 한다
 const CHEVRON_SIZE = 20, CHEVRON_INSET = Math.round(CHEVRON_SIZE * 8 / 24)
+const HOME_ICON = 24 // 집 아이콘(예전 로고 30 자리, 선 아이콘이라 24 로 다른 상단 아이콘과 무게를 맞춘다)
 // 목록 왼쪽 끝보다 살짝 안쪽에서 시작하게 (끝에 딱 붙으면 답답해 보였다)
 const HOME_SHIFT = 4
 const styles = StyleSheet.create({
@@ -209,7 +209,7 @@ const styles = StyleSheet.create({
   // 모바일은 상태 표시줄의 Safe Area와 같은 단색을 사용해 경계가 생기지 않게 한다.
   barCompact: { height: 60, gap: 4, paddingLeft: 14, paddingRight: 8, backgroundColor: colors.surface }, // 왼쪽은 본문 여백 14에 맞춰 ‹ 가 화면 가장자리에 붙지 않게 한다(코덱스 2026-11-03)
   homeCompact: { minWidth: 36, minHeight: 48, flexDirection: 'row', alignItems: 'center' },
-  home: { flexDirection: 'row', alignItems: 'center', gap: 8, height: 40 },
+  home: { flexDirection: 'row', alignItems: 'center', gap: 4, height: 40 },
   homePressed: {}, // 눌림 효과 없음(사용자 지시)
   lead: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingLeft: 16 },
   // 탭 줄: 왼쪽 버튼들과 오른쪽 버튼들 사이를 채우고, 넘치면 ‹ › 로 넘긴다

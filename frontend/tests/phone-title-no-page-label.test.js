@@ -16,3 +16,14 @@ test('폰 편집기 뒤로 버튼: 로고 없이 화살표만 두고 누를 자�
   assert.doesNotMatch(phoneHome, /BrandLogo/);
   assert.match(source, /homeCompact: \{ minWidth: 36, minHeight: 48/);
 });
+
+test('682: 태블릿 편집기 · 읽기 화면의 돌아가기는 ‹ + 집 모양 홈 아이콘(로고 대신, 폰은 ‹ 그대로)', () => {
+  const top = read('../src/editor/components/chrome/TopBar.js');
+  const tabletHome = top.slice(top.indexOf('accessibilityLabel="다이어리 홈" hitSlop={6} style={({ pressed })'), top.indexOf('<View style={{ flex: 1 }} />'));
+  assert.match(tabletHome, /<Icon name="chevronLeft" size=\{CHEVRON_SIZE\} \/>\s*<Icon name="house" size=\{HOME_ICON\} \/>/);
+  assert.doesNotMatch(top, /BrandLogo/);
+  const reading = read('../src/editor/components/chrome/ReadingChrome.js');
+  assert.match(reading, /<Icon name="chevronLeft" size=\{20\} \/><Icon name="house" size=\{22\} \/>/);
+  assert.doesNotMatch(reading, /BrandLogo/);
+  assert.match(read('../src/editor/components/controls/Icon.js'), /house: 'M15 21v-8/);
+});

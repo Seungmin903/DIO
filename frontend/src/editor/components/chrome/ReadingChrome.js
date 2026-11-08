@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { AppState, Pressable, StyleSheet, Text, View } from 'react-native'
 import { colors, shadow, DISABLED_OPACITY } from '../../../shared/theme'
-import BrandLogo from '../../../shared/BrandLogo'
 import Icon from '../controls/Icon'
 import { pageFromProgress } from '../../utils/readingGestures.js'
 import { createPageRepeat, isGesturePagePress } from '../../utils/pageRepeat.js'
@@ -59,7 +58,7 @@ export function ReadingModeControls({ reading, canEdit, fitted = false, onFit, o
 export function ReadingHeader({ title, onHome }) {
   return <View style={styles.header}>
     <Pressable onPress={onHome} accessibilityRole="button" accessibilityLabel="다이어리 홈" style={({ pressed }) => [styles.home, pressed && styles.pressed]}>
-      <Icon name="chevronLeft" size={20} /><BrandLogo size={24} />
+      <Icon name="chevronLeft" size={20} /><Icon name="house" size={22} />
     </Pressable>
     <Text numberOfLines={1} style={styles.title}>{title}</Text>
     <View style={styles.home} />
