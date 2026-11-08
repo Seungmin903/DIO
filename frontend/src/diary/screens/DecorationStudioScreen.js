@@ -525,7 +525,10 @@ export default function DecorationStudioScreen({ compact = false, registerBackHa
       await custom.saveGenerated(id, cleanName, stickers);
       if (tool !== 'splitIn') setFolderId(null); // 폴더 안에서 분리하면 그 폴더에 머문다
     }} />}
-    {tool === 'cutout' && <StickerCutoutModal folder={folder} onClose={() => setTool(null)} />}
+    {tool === 'cutout' && <StickerCutoutModal folder={folder} onClose={() => setTool(null)} onSave={async (targetFolderId, name, stickers) => {
+      const savedFolderId = await custom.saveGenerated(targetFolderId, name, stickers);
+      setFolderId(savedFolderId ?? targetFolderId ?? null);
+    }} />}
     {/* 스티커는 편집기 스티커 보관함의 + 와 같은 이름 · 순서 · 아이콘(그곳의 '이미지 그대로 추가'는 폴더 안에서만 쓴다) */}
     {addMenu && <DiaryActionBubble visible={!addMenu.closing} onDismiss={() => onAddMenuDismiss(addMenu.token)} anchor={addMenu.anchor} title={addMenu.kind === 'cover' ? '표지 추가' : addMenu.kind === 'tape' ? '테이프 추가' : '스티커 추가'} onClose={closeAddMenu} actions={addMenu.kind === 'stickerIn' ? [
       { id: 'split', label: stickerSplit.available ? '시트에서 분리하기' : `시트에서 분리하기, ${stickerSplit.reason || '이 기기에서는 쓸 수 없어요'}`, text: '시트에서 분리하기', icon: 'grid',

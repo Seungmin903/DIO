@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
-import Svg, { Defs, Image as SvgImage, Mask, Path, Pattern, Rect } from 'react-native-svg'
+import Svg, { Path } from 'react-native-svg'
 import EditorModal from '../controls/EditorModal'
 import ConfirmDialog from '../controls/ConfirmDialog'
 import StickerSplitSlider from './StickerSplitSlider'
@@ -10,12 +10,12 @@ import { FOLDER_NAME_LIMIT } from '../../hooks/useCustomDecor'
 import DioButton from '../../../shared/DioButton'
 import { MakerBar, MakerEmpty, MakerHeader, MakerNav, MakerSegment, MakerSegmentItem, MakerStage, MakerSteps } from '../../../shared/MakerKit'
 import { colors, radius } from '../../../shared/theme'
-import { useSvgId } from '../../utils/svgId'
 import { pickCutoutPhoto } from '../../services/stickerCutout'
+import { stickerCutoutApi } from '../../services/stickerCutoutApi'
 import { CUTOUT_FIT_VIEW as FIT_VIEW, CUTOUT_MAX_POINTS, CUTOUT_MAX_STROKES, CUTOUT_ZOOM_MAX, clampCutoutView, containCutout, cutoutHistory, cutoutPath,
-  cutoutPoint, emptyCutout, hasCutoutSelection, previewCutoutSelection, zoomCutout } from '../../utils/stickerCutout'
+  cutoutPoint, cutoutStrokes, emptyCutout, hasCutoutSelection, zoomCutout } from '../../utils/stickerCutout'
 
-export default function StickerCutoutModal({ folder, onClose, photoPicker = pickCutoutPhoto, preview = previewCutoutSelection }) {
+export default function StickerCutoutModal({ folder, onClose, onSave, photoPicker = pickCutoutPhoto, api = stickerCutoutApi }) {
   const { width, height } = useWindowDimensions()
   const wide = width >= 900
   const [source, setSource] = useState(null), sourceRef = useRef(null)
@@ -26,24 +26,45 @@ export default function StickerCutoutModal({ folder, onClose, photoPicker = pick
   const [draft, setDraft] = useState(null), gesture = useRef(null), origin = useRef({ x: 0, y: 0 })
   const [area, setArea] = useState({ width: 0, height: 0 })
   const [phase, setPhase] = useState('select'), [busy, setBusy] = useState(false), locked = useRef(false)
+  const [cutoutId, setCutoutId] = useState(null), cutoutRef = useRef(null)
+  // 서버 저장은 같은 선택에 한 번만 한다. 이후 캐시·보관함 저장이 실패해도 같은 mediaFileId로 이어서 처리한다.
+  const savedMediaRef = useRef(null)
+  const savingToLibrary = useRef(false)
+  const [resultPreview, setResultPreview] = useState(null)
   const [error, setError] = useState(''), [question, setQuestion] = useState(null), [saved, setSaved] = useState(false)
   const [ready, setReady] = useState(false)
   // 폴더 이름은 마지막(스티커 확인)에서 정한다. 이미 연 폴더에 넣을 때는 이름만 보인다
   const [name, setName] = useState(folder?.name ?? '내 스티커')
   const alive = useRef(true), revision = useRef(0)
-  const maskId = useSvgId('cutout-selection')
-  const checkerId = useSvgId('cutout-checker')
   // 두 손가락 확대: zoom 1(판에 맞춤) ~ CUTOUT_ZOOM_MAX, x · y 는 사진 가운데가 판 가운데에서 벗어난 거리(px)
   const [view, setView] = useState(FIT_VIEW)
   const rect = zoomCutout(containCutout(source, area), area, view)
-  const canPreview = ready && hasCutoutSelection(history)
-  useEffect(() => { alive.current = true; return () => { alive.current = false; revision.current++; sourceRef.current?.dispose?.() } }, [])
+  const canPreview = ready && cutoutId && hasCutoutSelection(history)
+  const releaseCutout = (id = cutoutRef.current) => {
+    if (!id) return
+    if (cutoutRef.current === id) cutoutRef.current = null
+    api.close(id)
+  }
+  const discardSaved = () => {
+    const pending = savedMediaRef.current
+    if (!pending) return Promise.resolve()
+    savedMediaRef.current = null
+    return api.discard(pending.media.mediaFileId)
+  }
+  useEffect(() => { alive.current = true; return () => {
+    alive.current = false; revision.current++
+    // 보관함 저장이 진행 중이면 완료 결과가 서버 미디어를 참조하게 된다. 실패 때만 그 비동기 흐름이 정리한다.
+    if (!savingToLibrary.current) discardSaved()
+    releaseCutout(); sourceRef.current?.dispose?.()
+  } }, [])
   // 회전/크기 변경 중 끝나지 않은 획은 버린다. 확정된 정규화 좌표는 유지한다. 판 크기가 바뀌거나 사진을 바꾸면 맞춤 보기로 돌아간다
   useEffect(() => { gesture.current = null; setDraft(null); setView(FIT_VIEW) }, [width, height, area.width, area.height, source])
   const close = () => {
     if (locked.current) return
-    if (history.strokes.length && !saved) setQuestion('close')
-    else onClose()
+    // 서버 PNG는 만들어졌지만 기기 보관함 반영이 실패한 경우, 닫기 전에 재시도 필요성을 분명히 알린다.
+    if (savedMediaRef.current && !saved) setQuestion('saveFailedClose')
+    else if (history.strokes.length && !saved) setQuestion('close')
+    else { releaseCutout(); onClose() }
   }
   // 이전 단계(② → ①): 하단 `이전` · 단계 표시의 지난 단계 · 기기 뒤로가기. ① 의 기기 뒤로가기는 나가기와 같다. 헤더 왼쪽 < 는 늘 나가기
   const back = () => {
@@ -61,14 +82,26 @@ export default function StickerCutoutModal({ folder, onClose, photoPicker = pick
     if (locked.current) return
     locked.current = true; setBusy(true); setError('')
     const token = ++revision.current
+    let next = null
     try {
-      const next = await photoPicker()
+      next = await photoPicker()
       if (!alive.current || token !== revision.current) { next?.dispose?.(); return }
       if (!next) return
+      const opened = await api.open(next)
+      if (!alive.current || token !== revision.current) { api.close(opened?.cutoutId); next?.dispose?.(); return }
       const selected = { ...next, selectionKey: token }
+      await discardSaved()
+      releaseCutout()
+      cutoutRef.current = opened.cutoutId
+      setCutoutId(opened.cutoutId)
       sourceRef.current?.dispose?.(); sourceRef.current = selected
-      setSource(selected); setReady(false); setHistory(emptyCutout()); setSaved(false); setPhase('select')
-    } catch (failure) { if (alive.current && token === revision.current) setError(failure.message || '사진을 열지 못했어요. 다시 선택해 주세요.') }
+      savedMediaRef.current = null
+      setSource(selected); setReady(false); setHistory(emptyCutout()); setSaved(false); setResultPreview(null); setPhase('select')
+    } catch (failure) {
+      // 서버 분석이 실패한 새 선택은 아직 sourceRef가 소유하지 않으므로 여기서 정리한다.
+      next?.dispose?.()
+      if (alive.current && token === revision.current) setError(failure.message || '사진을 열지 못했어요. 다시 선택해 주세요.')
+    }
     finally { if (alive.current && token === revision.current) { locked.current = false; setBusy(false) } }
   }
   const analyze = async () => {
@@ -76,9 +109,49 @@ export default function StickerCutoutModal({ folder, onClose, photoPicker = pick
     locked.current = true; setBusy(true); setError('')
     const token = ++revision.current
     try {
-      await preview(source, history)
-      if (alive.current && token === revision.current) { setPhase('result'); setSaved(false) }
+      const strokes = cutoutStrokes(history)
+      // 보관함 반영에 실패한 이전 선택을 수정한 경우, 고아가 된 서버 결과를 먼저 정리한다.
+      if (savedMediaRef.current?.selectionKey !== JSON.stringify(strokes)) await discardSaved()
+      const result = await api.segment(cutoutId, strokes)
+      if (alive.current && token === revision.current) { setResultPreview(result.preview); setPhase('result'); setSaved(false) }
     } catch (failure) { if (alive.current && token === revision.current) setError(failure.message || '미리보기를 열지 못했어요. 다시 시도해 주세요.') }
+    finally { if (alive.current && token === revision.current) { locked.current = false; setBusy(false) } }
+  }
+  const save = async () => {
+    if (locked.current || !cutoutId) return
+    locked.current = true; setBusy(true); setError('')
+    const token = ++revision.current
+    try {
+      const strokes = cutoutStrokes(history)
+      // ①로 돌아가 붓질을 바꾸면 새 선택이므로, 실패했던 이전 결과를 재사용하면 안 된다.
+      const selectionKey = JSON.stringify(strokes)
+      let savedMedia = savedMediaRef.current?.selectionKey === selectionKey ? savedMediaRef.current.media : null
+      if (!savedMedia) {
+        savedMedia = await api.save(cutoutId, strokes)
+        savedMediaRef.current = { selectionKey, media: savedMedia }
+        // 화면이 먼저 닫혔다면 캐시·보관함 반영을 시작하지 않고 방금 저장된 서버 파일을 바로 지운다.
+        if (!alive.current || token !== revision.current) { await discardSaved(); return }
+      }
+      const cached = await api.cache(savedMedia.mediaFileId)
+      if (!alive.current || token !== revision.current) { await discardSaved(); return }
+      const item = { src: `media:${savedMedia.mediaFileId}`, mediaFileId: savedMedia.mediaFileId,
+        name: savedMedia.originalFilename || '사진 속 대상', aspect: cached?.width && cached?.height ? cached.width / cached.height : 1 }
+      const folderName = (folder?.name ?? name).trim() || '내 스티커'
+      let savedToLibrary = false
+      savingToLibrary.current = true
+      try { await onSave?.(folder?.id, folderName, [item]); savedToLibrary = true }
+      finally {
+        savingToLibrary.current = false
+        // 화면이 먼저 사라졌더라도 보관함 반영이 끝났다면 서버 파일은 보존한다.
+        if (savedToLibrary) savedMediaRef.current = null
+        else if (!alive.current) await discardSaved()
+      }
+      if (alive.current && token === revision.current && savedToLibrary) {
+        setSaved(true); releaseCutout(cutoutId); setCutoutId(null)
+        // 저장은 이 흐름의 종점이다. 보관함 반영까지 끝난 뒤 이전 화면으로 돌아간다.
+        onClose()
+      }
+    } catch (failure) { if (alive.current && token === revision.current) setError(failure.message || '스티커를 저장하지 못했어요. 다시 시도해 주세요.') }
     finally { if (alive.current && token === revision.current) { locked.current = false; setBusy(false) } }
   }
   const endStroke = cancelled => {
@@ -154,21 +227,11 @@ export default function StickerCutoutModal({ folder, onClose, photoPicker = pick
           stroke={stroke.mode === 'add' ? colors.primaryStrong : colors.danger} opacity={.55}
           strokeWidth={stroke.width * source.width} strokeLinecap="round" strokeLinejoin="round" />)}
       </Svg>
-    </> : <Svg pointerEvents="none" width="100%" height="100%" viewBox={`0 0 ${source.width} ${source.height}`}>
-      <Defs>
-        <Pattern id={checkerId} width="24" height="24" patternUnits="userSpaceOnUse">
-          <Rect width="24" height="24" fill={colors.surface} />
-          <Rect width="12" height="12" fill={colors.border} />
-          <Rect x="12" y="12" width="12" height="12" fill={colors.border} />
-        </Pattern>
-        <Mask id={maskId} x="0" y="0" width={source.width} height={source.height} maskUnits="userSpaceOnUse" maskType="luminance">
-        <Rect width={source.width} height={source.height} fill="black" />
-        {history.strokes.map((stroke, index) => <Path key={index} d={cutoutPath(stroke, source)} fill="none"
-          stroke={stroke.mode === 'add' ? 'white' : 'black'} strokeWidth={stroke.width * source.width} strokeLinecap="round" strokeLinejoin="round" />)}
-      </Mask></Defs>
-      <Rect width={source.width} height={source.height} fill={`url(#${checkerId})`} />
-      <SvgImage href={{ uri: source.uri }} width={source.width} height={source.height} mask={`url(#${maskId})`} />
-    </Svg>}
+    </> : <>
+      {/* segment API는 잘라낸 PNG가 아니라 원본 위에 덧그릴 선택 영역 PNG를 반환한다. */}
+      <Image pointerEvents="none" source={{ uri: source.uri }} style={StyleSheet.absoluteFill} resizeMode="contain" />
+      {!!resultPreview && <Image pointerEvents="none" source={{ uri: resultPreview }} style={StyleSheet.absoluteFill} resizeMode="contain" />}
+    </>}
   </View>
   const stepView = <MakerSteps steps={steps} current={phase} onStep={back} disabled={busy} label={phase === 'select' ? '1단계 대상 고르기' : '2단계 스티커 확인'} />
   // ① 대상 고르기 도구 · ② 폴더 이름. ② 에는 ① 의 도구를 다시 띄우지 않는다(돌아갈 땐 헤더 뒤로)
@@ -240,15 +303,16 @@ export default function StickerCutoutModal({ folder, onClose, photoPicker = pick
             <MakerBar stacked={width < 600} note={status}>{action}</MakerBar>
           </>}
       </View>
-      <ConfirmDialog open={Boolean(question)} title={question === 'save' ? '이 스티커를 저장할까요?' : question === 'reset' ? '선택을 모두 지울까요?' : question === 'image' ? '이미지를 바꿀까요?' : '작업을 그만둘까요?'}
-        message={question === 'save' ? '미리보기 단계라 실제로는 저장되지 않아요.' : question === 'reset' ? '칠한 영역을 처음부터 다시 선택해요.' : question === 'image' ? '지금까지 고른 영역이 사라져요.' : '저장하지 않은 내용은 사라져요.'}
-        confirmLabel={question === 'save' ? '확인' : question === 'reset' ? '초기화' : question === 'image' ? '이미지 바꾸기' : '나가기'} cancelLabel={question === 'close' ? '계속 작업하기' : '취소'} danger={question !== 'save'}
+      <ConfirmDialog open={Boolean(question)} title={question === 'save' ? '이 스티커를 저장할까요?' : question === 'reset' ? '선택을 모두 지울까요?' : question === 'image' ? '이미지를 바꿀까요?' : question === 'saveFailedClose' ? '보관함 저장을 그만둘까요?' : '작업을 그만둘까요?'}
+        message={question === 'save' ? '선택한 대상을 PNG 스티커로 만들어 보관함에 저장해요.' : question === 'reset' ? '칠한 영역을 처음부터 다시 선택해요.' : question === 'image' ? '지금까지 고른 영역이 사라져요.' : question === 'saveFailedClose' ? '스티커 파일은 서버에 저장됐지만 이 기기 보관함에는 아직 추가되지 않았어요. 계속 작업하기에서 다시 저장할 수 있어요.' : '저장하지 않은 내용은 사라져요.'}
+        confirmLabel={question === 'save' ? '저장' : question === 'reset' ? '초기화' : question === 'image' ? '이미지 바꾸기' : '나가기'} cancelLabel={question === 'close' || question === 'saveFailedClose' ? '계속 작업하기' : '취소'} danger={question !== 'save'}
         onCancel={() => setQuestion(null)} onConfirm={() => {
           const kind = question; setQuestion(null)
-          if (kind === 'save') setSaved(true)
+          if (kind === 'save') save()
           else if (kind === 'reset') setHistory(emptyCutout())
           else if (kind === 'image') choose()
-          else onClose()
+          else if (kind === 'saveFailedClose') { discardSaved().finally(() => { releaseCutout(); onClose() }) }
+          else { releaseCutout(); onClose() }
         }} />
     </SafeAreaView>
   </EditorModal>
