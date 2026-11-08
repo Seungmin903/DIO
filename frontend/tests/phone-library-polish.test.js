@@ -21,11 +21,11 @@ test('611 · 612: 폰 스와이프는 좌우 화살표, 옆 카드는 화면 밖
   assert.match(styles, /carouselArrowCompact: \{ marginTop: -62 \}/)
 })
 
-test('610 · 683: 폰 펼쳐서는 가장 넓은 가로 다이어리도 좌우 화살표 안쪽에 들어오게 맞춘다', () => {
+test('610 · 683: 폰 펼쳐서 가장 넓은 가로 다이어리는 스와이프 표지만큼, 세로 태블릿은 좌우 화살표 안쪽', () => {
   const shelf = read('../src/diary/components/OpenBookShelf.js')
-  assert.match(shelf, /const PHONE_ARROW_EDGE = PHONE_ARROW_SIDE \+ ARROW - PHONE_EDGE \+ ARROW_GAP;/)
-  assert.match(shelf, /width: area\.width - \(compact \? 2 \* PHONE_ARROW_EDGE :/)
-  // 세로 태블릿도 화살표 안쪽
+  assert.match(shelf, /const PHONE_SWIPE_LONG = s\.cardCarouselCompact\.width \* CAROUSEL_SCALE\[1\];/)
+  assert.match(shelf, /width: compact \? Math\.min\(PHONE_SWIPE_LONG, area\.width - 2 \* PHONE_ARROW_INSET\) : area\.width - 2 \* \(BLEED \+ GAP \+ PEEK\)/)
+  assert.match(shelf, /const PHONE_ARROW_INSET = PHONE_ARROW_SIDE \+ ARROW - PHONE_EDGE;/)
   assert.match(shelf, /const TABLET_ARROW_EDGE = BLEED \+ 4 \+ ARROW \+ ARROW_GAP;/)
   assert.match(shelf, /area\.width - 2 \* TABLET_ARROW_EDGE/)
 })

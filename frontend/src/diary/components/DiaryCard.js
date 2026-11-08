@@ -86,7 +86,7 @@ function DiaryCard({ diary, pageCount, layout = 'grid', compact = false, large =
     >
       <View style={s.cardCoverWrap}>
         {/* 더보기 버튼과 선택 표시(오른쪽 위 별 포함)는 칸이 아니라 실제 표지(가로 다이어리는 낮은 표지) 모서리에 얹는다 */}
-        <Cover diary={diary} small={layout === 'list'} carousel={layout === 'carousel'} grid={layout === 'grid'} fill={layout === 'grid'} compact={compact} large={large} centered={large}
+        <Cover diary={diary} small={layout === 'list'} carousel={layout === 'carousel'} grid={layout === 'grid'} fill={layout === 'grid'} compact={compact} large={large} centered={large || layout === 'carousel'}
           frame={layout === 'carousel' ? (carouselActive ? 'active' : 'idle') : null} onInset={layout === 'list' ? null : setCoverInset}>
         {/* 스와이프의 표지 프레임(가운데 표지는 흰 3px + 그림자, 옆 표지는 얇은 라벤더 2px)은 표지 크기에서 모서리를 계산하는 Cover 가 그린다 */}
         {selecting && diary.canManage !== false && diary.canDelete !== false && <SelectionMark selected={selected} compact={compact} />}

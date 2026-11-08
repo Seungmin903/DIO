@@ -14,7 +14,7 @@ import { normalizeOrientation } from '../../editor/templates/catalog.js';
 import { bandAutoColor, coverTone, mix, normalizeCover, relativeLuminance } from '../utils/coverDesign';
 import { spreadAt, spreadOf } from '../utils/bookSpread';
 import { nearestBook, rowOf } from '../utils/bookRow.js';
-import { OPEN_BOOK_LIFT, OPEN_BOOK_SCALE, carouselMotion } from '../utils/carouselFollow';
+import { CAROUSEL_SCALE, OPEN_BOOK_LIFT, OPEN_BOOK_SCALE, carouselMotion } from '../utils/carouselFollow';
 
 // '펼쳐서' 보기: 모든 다이어리를 실제 하드커버처럼 펼친 채 한 줄로 놓고, 스와이프 보기처럼 손가락을 따라 흐르듯 넘긴다(2026-11-08 지라 683).
 // - 놓으면 가장 가까운 다이어리가 가운데에 오도록 붙는다(한 번에 한 권). 좌우 화살표 · 옆 책을 누르면 그 다이어리까지 부드럽게 흘러간다.
@@ -44,7 +44,11 @@ const PHONE_ARROW_SIDE = 4;
 const ARROW = 48;
 const ARROW_GAP = 8;
 const TABLET_ARROW_EDGE = BLEED + 4 + ARROW + ARROW_GAP; // 영역(BLEED 만큼 넓힘) 끝 → 화살표 안쪽 끝 + 틈
-const PHONE_ARROW_EDGE = PHONE_ARROW_SIDE + ARROW - PHONE_EDGE + ARROW_GAP; // 폰 영역은 화면 여백 안쪽, 화살표는 화면 끝 기준
+// 폰: 가장 넓은 가로 다이어리의 판 폭을 스와이프 가운데 표지의 긴 변(카드 268 × 가운데 1.06)과 같게 한다(2026-11-08 사용자 결정 '스와이프만큼 커져도').
+// 스와이프 표지도 좌우 화살표 칸 바로 안쪽까지 온다. 세로 다이어리는 같은 종이 넓이라 함께 맞춰진다
+const PHONE_SWIPE_LONG = s.cardCarouselCompact.width * CAROUSEL_SCALE[1];
+// 좁은 폰(분할 화면 · 큰 글꼴)에서는 화살표 칸(화면 끝 4 + 48) 안쪽까지만. 영역은 화면 여백(PHONE_EDGE) 안쪽이라 그만큼 뺀다
+const PHONE_ARROW_INSET = PHONE_ARROW_SIDE + ARROW - PHONE_EDGE;
 // 세로 태블릿 스와이프 보기에서 가운데 카드 중심이 이 영역 가운데보다 올라간 거리(실기기에서 두 보기를 겹쳐 맞춘 값)
 // (carouselShellPortrait 아래 여백을 바꾸면 그 절반만큼 같이 바꾼다: 여백 120 → 79)
 const SWIPE_CENTER_UP = 79;
@@ -262,8 +266,8 @@ function OpenBookShelf({ diaries, index, onIndexChange, onOpen, onFavorite, onEd
   // 가로 펼침은 폭(옆 다이어리가 PEEK 만큼 보일 자리를 남기고), 세로 펼침은 높이(캡션 자리를 남기고)에 맞춘다. 한 면 보기는 옆 다이어리가 걸칠 자리를 남긴다.
   const layout = useMemo(() => {
     if (!area) return null;
-    // 폰은 가장 넓은 가로 다이어리도 좌우 화살표 안쪽에 들어오게(PHONE_ARROW_EDGE) 맞춘다. 세로 다이어리는 같은 종이 넓이라 함께 작아진다
-    const room = { width: area.width - (compact ? 2 * PHONE_ARROW_EDGE : 2 * (BLEED + GAP + PEEK)), height: area.height - CAPTION - (compact ? 16 : 24) };
+    // 폰은 가장 넓은 가로 다이어리 판 폭 = 스와이프 표지 긴 변(PHONE_SWIPE_LONG, 판은 종이보다 약 3% 넓다)
+    const room = { width: compact ? Math.min(PHONE_SWIPE_LONG, area.width - 2 * PHONE_ARROW_INSET) : area.width - 2 * (BLEED + GAP + PEEK), height: area.height - CAPTION - (compact ? 16 : 24) };
     const tall = !compact && area.height > area.width;
     const pairs = compact || tall ? 1 : 2;
     const byWidth = Math.min(...[RATIO.portrait, RATIO.landscape].map(r => (room.width / pairs / 1.03) ** 2 / r));
