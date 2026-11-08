@@ -113,9 +113,21 @@ export async function createServerPage({transport,diaryId,backgroundAssetId=null
  pending.body=body;await storage.setItem(key,JSON.stringify(pending));check()
  let response
  try{response=await transport({method:'POST',path:`/diaries/${diaryId}/pages`,body})}
- catch(error){if(error.status>=400&&error.status<500&&error.status!==408)await storage.removeItem(key);throw error}
+ catch(error){if(error.status>=400&&error.status<500&&error.status!==408)await storage.removeItem(key);throw pageCreateError(error)}
  check();const page=decodeServerPage({...response,elements:[]},diaryId)
  await storage.removeItem(key);check();return page
+}
+
+// 서버가 속지 코드를 확인한다(없는 코드 · 크기 불일치는 400 INVALID_PAGE_REQUEST, 서버 속지 목록 중복은 500 PAGE_TEMPLATE_CATALOG_INVALID).
+// HTTP 층은 상태 코드마다 같은 문구를 쓰므로 페이지 추가에서는 원인을 알 수 있는 문구로 바꿔 알림에 보인다
+const PAGE_CREATE_MESSAGES={
+ INVALID_PAGE_REQUEST:'이 속지를 서버에서 확인하지 못했어요. 앱을 최신 버전으로 업데이트한 뒤 다시 시도해 주세요.',
+ PAGE_TEMPLATE_CATALOG_INVALID:'서버의 속지 목록을 확인하고 있어요. 잠시 뒤 다시 시도해 주세요.',
+}
+function pageCreateError(error){
+ const message=PAGE_CREATE_MESSAGES[error?.code]
+ if(message)try{error.message=message}catch{}
+ return error
 }
 
 // Keep the user's relative move, rather than submitting a stale complete page list.

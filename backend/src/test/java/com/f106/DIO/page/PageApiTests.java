@@ -274,6 +274,14 @@ class PageApiTests {
 		mvc.perform(post("/api/v1/diaries/"+diaryId+"/pages").with(authenticated()).contentType(MediaType.APPLICATION_JSON)
 				.content("{\"canvasWidth\":768,\"canvasHeight\":1024,\"templateConfig\":"+config+"}"))
 			.andExpect(jsonPath("$.page.pageId").value(created.at("/page/pageId").asText()));
+		// 이 서버 배포 전에 만든 페이지(template_id 없음)를 만든 요청이 배포 뒤 재시도로 다시 와도 같은 페이지를 돌려준다
+		String legacyConfig="{\"templateCode\":\"link-cover-portrait\",\"templateVersion\":\"1.0.0\",\"clientPageRequestId\":\"7a2d3b5f-1e2c-4d4b-8a6f-3c8e9d0f1b22\"}";
+		String legacyId=body(mvc.perform(post("/api/v1/diaries/"+diaryId+"/pages").with(authenticated()).contentType(MediaType.APPLICATION_JSON)
+				.content("{\"canvasWidth\":768,\"canvasHeight\":1024,\"templateConfig\":"+legacyConfig+"}")).andReturn()).at("/page/pageId").asText();
+		boundaryJdbc.update("update pages set template_id=null where page_id=?",java.util.UUID.fromString(legacyId));
+		mvc.perform(post("/api/v1/diaries/"+diaryId+"/pages").with(authenticated()).contentType(MediaType.APPLICATION_JSON)
+				.content("{\"canvasWidth\":768,\"canvasHeight\":1024,\"templateConfig\":"+legacyConfig+"}"))
+			.andExpect(jsonPath("$.page.pageId").value(legacyId));
 		// 없는 코드 · 없는 버전 · 내린(비활성) 속지 · 버전 없는 코드 · templateId 와 어긋난 코드는 저장하지 않는다
 		for (String bad:new String[]{
 				"{\"templateConfig\":{\"templateCode\":\"link-cvoer-portrait\",\"templateVersion\":\"1.0.0\"}}",

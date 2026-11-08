@@ -26,11 +26,6 @@ public class PageService {
 		diaryAccessService.requireWrite(diaryId,userId);
         // 앱은 templateId 없이 설정의 templateCode · templateVersion 으로 속지를 알린다. 그 글자로 속지 행을 찾아 template_id 를 채워 저장한다(V35 와 같은 기준)
         PageTemplate t=resolveTemplate(r.getTemplateId(),r.getTemplateConfig()); Long templateId=t==null?null:t.getTemplateId();
-        // 코드로 속지를 알린 페이지는 만들 때 크기가 그 속지 행과 같아야 한다(V35 와 같은 기준). 다르면 template_id 와 페이지 크기가 어긋난다.
-        // 만든 뒤 크기를 바꾸는 수정(PDF 쪽 크기 맞추기 등)은 그대로 허용한다
-        if(t!=null&&r.getTemplateConfig()!=null&&r.getTemplateConfig().has("templateCode")
-            &&((r.getCanvasWidth()!=null&&r.getCanvasWidth().compareTo(t.getCanvasWidth())!=0)||(r.getCanvasHeight()!=null&&r.getCanvasHeight().compareTo(t.getCanvasHeight())!=0)))
-            throw new IllegalArgumentException("속지 크기와 페이지 크기가 다릅니다.");
         // 원격 속지(V34)는 형식에 맞는 remoteTemplate 이 있어야 하고 다른 속지에는 둘 수 없다(공유 구성원 앱이 이 값으로 속지를 찾는다)
         RemoteTemplates.requireValidConfig(r.getTemplateConfig(),t==null?null:t.getCode());
         String requestId=r.getTemplateConfig()==null?null:r.getTemplateConfig().path("clientPageRequestId").asText(null);
@@ -44,13 +39,21 @@ public class PageService {
                 if(existing.getTemplateConfig()==null)continue;
                 var config=JSON.readTree(existing.getTemplateConfig());
                 if(!requestId.equals(config.path("clientPageRequestId").asText(null)))continue;
-                if(existing.getDeletedAt()!=null||!sameConfig(config,r.getTemplateConfig())||!Objects.equals(existing.getTemplateId(),templateId)
+                // 이 서버 배포 전에 만든 페이지는 template_id 없이 저장됐다(V35 가 연결하지 못한 페이지 포함). 같은 요청의 재시도라면
+                // 설정(코드 · 버전 포함)이 같은지로 판단해 그 페이지를 돌려준다. templateId 를 직접 보낸 요청은 예전처럼 그대로 비교한다
+                boolean sameTemplate=Objects.equals(existing.getTemplateId(),templateId)||(existing.getTemplateId()==null&&r.getTemplateId()==null);
+                if(existing.getDeletedAt()!=null||!sameConfig(config,r.getTemplateConfig())||!sameTemplate
                     ||!Objects.equals(existing.getTitle(),r.getTitle())||existing.getCanvasWidth().compareTo(r.getCanvasWidth()==null?width(t):r.getCanvasWidth())!=0
                     ||existing.getCanvasHeight().compareTo(r.getCanvasHeight()==null?height(t):r.getCanvasHeight())!=0
                     ||existing.isGridVisible()!=Boolean.TRUE.equals(r.getGridVisible())||!Objects.equals(existing.getGridColor(),r.getGridColor()))throw new PageCreationConflictException();
                 return new PageResponse(pageData(existing));
             }
         }
+		// 코드로 속지를 알린 페이지는 만들 때 크기가 그 속지 행과 같아야 한다(V35 와 같은 기준). 다르면 template_id 와 페이지 크기가 어긋난다.
+		// 만든 뒤 크기를 바꾸는 수정(PDF 쪽 크기 맞추기 등)은 그대로 허용한다
+		if(t!=null&&r.getTemplateConfig()!=null&&r.getTemplateConfig().has("templateCode")
+		    &&((r.getCanvasWidth()!=null&&r.getCanvasWidth().compareTo(t.getCanvasWidth())!=0)||(r.getCanvasHeight()!=null&&r.getCanvasHeight().compareTo(t.getCanvasHeight())!=0)))
+		    throw new IllegalArgumentException("속지 크기와 페이지 크기가 다릅니다.");
 		DiaryPage page=new DiaryPage(diaryId,templateId,r.getTemplateConfig()==null?defaultConfig(t):copy(r.getTemplateConfig()),r.getTitle(),nextSortKey(diaryId),r.getCanvasWidth()==null?width(t):r.getCanvasWidth(),r.getCanvasHeight()==null?height(t):r.getCanvasHeight(),Boolean.TRUE.equals(r.getGridVisible()),r.getGridColor());
 		pageRepository.saveAndFlush(page); events.publishEvent(new PageCatalogChanged(diaryId));return new PageResponse(pageData(page));
 	}
