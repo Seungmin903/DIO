@@ -57,6 +57,8 @@ export default function PencilSkiaStroke({ object, zoom, transform, fallback, on
   useEffect(() => { if (raster !== null || status === 'failed') notify.current?.() }, [raster, status])
   const shown = raster || reusableRaster(last.current, object)
   const draw = node => { if (node && shown) node.getContext('2d').drawImage(shown.source, 0, 0) }
+  // Web rasterizes synchronously into CanvasKit; before a raster is ready or while rebaking is deferred,
+  // the SVG fallback below stays visible. Native Image onLoad double-buffering is not needed here.
   if (!shown) return fallback
   return <View pointerEvents="none" dataSet={{ skiaPencil: 'true' }} style={{ width: object.w * zoom, height: object.h * zoom, transform }}>
     <canvas ref={draw} width={shown.pxWidth} height={shown.pxHeight} aria-hidden="true"
