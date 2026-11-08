@@ -296,6 +296,16 @@ class PageApiTests {
 		setField(retryCopy,"templateVersion","1.0.0"); pageTemplateRepository.saveAndFlush(retryCopy);
 		mvc.perform(post("/api/v1/diaries/"+diaryId+"/pages").with(authenticated()).contentType(MediaType.APPLICATION_JSON).content(retryBody))
 			.andExpect(jsonPath("$.page.pageId").value(retryId));
+		// templateId 를 보낸 요청도 같다: 그 행이 내려간 뒤의 재시도는 이미 만든 페이지를 돌려주고, 새 요청은 내려간 속지라 404 다
+		PageTemplate byIdRow=versionedTemplate("link-retry-id-portrait",new BigDecimal("768.00"),new BigDecimal("1024.00"),"{}",true);
+		String byIdBody="{\"templateId\":"+byIdRow.getTemplateId()+",\"templateConfig\":{\"clientPageRequestId\":\"9c4f5d7b-3a4e-4f6d-8c8b-5e0a1f2b3d44\"}}";
+		String byIdPage=body(mvc.perform(post("/api/v1/diaries/"+diaryId+"/pages").with(authenticated()).contentType(MediaType.APPLICATION_JSON).content(byIdBody))
+			.andExpect(status().isCreated()).andReturn()).at("/page/pageId").asText();
+		boundaryJdbc.update("update page_templates set is_active=false where template_id=?",byIdRow.getTemplateId());
+		mvc.perform(post("/api/v1/diaries/"+diaryId+"/pages").with(authenticated()).contentType(MediaType.APPLICATION_JSON).content(byIdBody))
+			.andExpect(jsonPath("$.page.pageId").value(byIdPage));
+		mvc.perform(post("/api/v1/diaries/"+diaryId+"/pages").with(authenticated()).contentType(MediaType.APPLICATION_JSON).content("{\"templateId\":"+byIdRow.getTemplateId()+"}"))
+			.andExpect(status().isNotFound()).andExpect(jsonPath("$.code").value("PAGE_TEMPLATE_NOT_FOUND"));
 		// 서버에 없는 속지(오타 · 없는 버전 · 내린 속지)는 앱 업데이트로 풀릴 수 있어 다른 400과 코드를 나눈다
 		for (String unknown:new String[]{
 				"{\"templateConfig\":{\"templateCode\":\"link-cvoer-portrait\",\"templateVersion\":\"1.0.0\"}}",

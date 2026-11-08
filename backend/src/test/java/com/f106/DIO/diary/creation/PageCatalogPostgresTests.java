@@ -197,6 +197,20 @@ class PageCatalogPostgresTests {
         assertThat(jdbc.queryForObject("select count(*) from page_template_v35_links where previous_updated_at = timestamp '2000-01-01 00:00:00+00'",Long.class)).isEqualTo(4L);
     }
 
+    @Test void deployCheckQueriesReturnNothingOnAFreshDatabase() throws Exception {
+        flyway("latest").migrate();
+        // 운영 배포 전에 실행할 확인 SQL(docs). 앱이 보내는 코드를 빠짐없이 담고, 마이그레이션만 한 DB 에서는 두 조회 모두 0행이어야 한다
+        String sql=java.nio.file.Files.readString(java.nio.file.Path.of("..","docs","다이어리 저장","속지 코드 배포 전 확인.sql"));
+        for(var row:contract.get("templates")) assertThat(sql).contains("('"+row.get("templateCode").asString()+"', '"+row.get("templateVersion").asString()+"')");
+        for(var code:List.of("study-planner-landscape","study-planner-portrait","day-planner-landscape","day-planner-portrait","dio-remote-landscape","dio-remote-portrait")) assertThat(sql).contains("('"+code+"', '1.0.0')");
+        var queries=java.util.Arrays.stream(sql.replaceAll("(?m)^--.*$","").split(";")).map(String::trim).filter(q->!q.isEmpty()).toList();
+        assertThat(queries).hasSize(2);
+        for(var query:queries) assertThat(jdbc.queryForList(query)).isEmpty();
+        // 빈 속지 행이 내려가 있으면 1번 조회가 잡는다(중복만 보던 예전 조회는 놓쳤다)
+        jdbc.update("update page_templates set is_active=false where code='dio-blank-portrait'");
+        assertThat(jdbc.queryForList(queries.get(0))).singleElement().satisfies(row -> assertThat(row.get("code")).isEqualTo("dio-blank-portrait"));
+    }
+
     @Test void everyTemplateCodeTheAppSendsHasExactlyOneActiveRow() {
         flyway("latest").migrate();
         // 페이지 추가는 설정의 코드 · 버전으로 활성 행을 정확히 하나 찾아야 저장된다(PageService.create). 앱이 보내는 코드가 빠지거나 겹치면 페이지 추가가 400이 된다

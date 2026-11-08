@@ -24,7 +24,8 @@ public class PageService {
 	@Transactional(readOnly=true) public PageListResponse list(UUID diaryId,Long userId){diaryAccessService.requireRead(diaryId,userId);return listWithoutDiaryCheck(diaryId);}
 	@Transactional public PageResponse create(UUID diaryId,PageCreateRequest r,Long userId){
 		diaryAccessService.requireWrite(diaryId,userId);
-        PageTemplate byId=findTemplate(r.getTemplateId());
+        // 재시도 판별에 쓰는 행은 비활성이어도 읽는다(처음 요청 뒤 그 속지가 내려가도 이미 만든 페이지를 돌려준다). 활성 확인은 새로 만들 때 resolveTemplate 이 한다
+        PageTemplate byId=r.getTemplateId()==null?null:templateRepository.findById(r.getTemplateId()).orElseThrow(PageTemplateNotFoundException::new);
         // 원격 속지(V34)는 형식에 맞는 remoteTemplate 이 있어야 하고 다른 속지에는 둘 수 없다(공유 구성원 앱이 이 값으로 속지를 찾는다).
         // templateId 가 없으면 설정의 templateCode 로 원격 속지인지 본다
         RemoteTemplates.requireValidConfig(r.getTemplateConfig(),byId==null?null:byId.getCode());
