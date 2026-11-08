@@ -324,7 +324,7 @@ export default function ProfileEditScreen({
               <AppIcon name="chevron-left" size={24} />
             </Pressable>
             <Text accessibilityRole="header" style={[s.title, compact && s.titleCompact]}>
-              {guest ? '프로필 수정' : '회원정보 수정'}
+              프로필 수정
             </Text>
           </View>
           <Text accessibilityRole="header" style={s.sectionTitle}>

@@ -51,10 +51,8 @@ export default function PageSettingsDialog({ pageId, onLoad, onSave, onClose }) 
                 <View style={styles.column}><Text style={styles.label}>가로</Text><TextInput accessibilityLabel="캔버스 가로 크기" keyboardType="decimal-pad" value={width} onChangeText={setWidth} editable={!busy} style={styles.input} /></View>
                 <View style={styles.column}><Text style={styles.label}>세로</Text><TextInput accessibilityLabel="캔버스 세로 크기" keyboardType="decimal-pad" value={height} onChangeText={setHeight} editable={!busy} style={styles.input} /></View>
               </View>
-              <Text style={styles.hint}>크기를 바꿔도 작성한 내용의 위치와 크기는 유지돼요.</Text>
               <View style={styles.row}><Text style={[styles.label, styles.column]}>페이지 격자</Text><SettingSwitch label="페이지 격자 표시" disabled={busy} on={grid} onToggle={setGrid} /></View>
               {grid && <><Text style={styles.label}>격자 색</Text><TextInput accessibilityLabel="페이지 격자 색" value={color} onChangeText={setColor} autoCapitalize="none" autoCorrect={false} maxLength={7} editable={!busy} style={styles.input} placeholder="#DCE5F1" /></>}
-              <Text style={styles.hint}>격자는 편집 화면에만 표시돼요.</Text>
             </>}
             {!!error && <Text accessibilityRole="alert" accessibilityLiveRegion="polite" style={styles.error}>{error}</Text>}
             {!page && !!error && <Pressable accessibilityRole="button" style={styles.button} onPress={() => setAttempt(n => n + 1)}><Text style={styles.label}>다시 불러오기</Text></Pressable>}
@@ -73,7 +71,7 @@ const styles = StyleSheet.create({
   content: { flexGrow: 1, justifyContent: 'center', alignItems: 'center', padding: 16 },
   card: { width: '100%', maxWidth: 480, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.cardBorder, backgroundColor: colors.surface, padding: 20, gap: 12 },
   title: { color: colors.text, fontSize: 20, fontWeight: '700' }, label: { color: colors.text, fontSize: 14, fontWeight: '600' },
-  hint: { color: colors.textMuted, fontSize: 12 }, error: { color: colors.dangerStrong, fontSize: 13 },
+  error: { color: colors.dangerStrong, fontSize: 13 },
   input: { minHeight: 48, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, paddingHorizontal: 12, color: colors.text, fontSize: 14 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 12 }, column: { flex: 1, minWidth: 0, gap: 8 },
   button: { minHeight: 48, alignItems: 'center', justifyContent: 'center', borderRadius: radius.md, borderWidth: 1, borderColor: colors.cardBorder, paddingHorizontal: 12 },

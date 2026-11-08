@@ -246,6 +246,8 @@ export default function AuthScreen({
   };
   const back = () =>
     navigate(route === 'verification' || (route === 'profile' && profile?.provider === 'email') ? 'signup' : route === 'signup' ? 'eligibility' : 'welcome');
+  // 글자는 실제로 가는 곳과 같다: 가입 정보 → 가입 전 확인, 인증 · 이메일 프로필 → 이전 화면(가입 정보), 그 밖 → 시작 화면
+  const backLabel = route === 'signup' ? '가입 전 확인' : (route === 'verification' || (route === 'profile' && profile?.provider === 'email')) ? '이전 화면' : '시작 화면';
   useEffect(() => {
     const listener = BackHandler.addEventListener('hardwareBackPress', () => {
       if (documentRef.current) {
@@ -437,7 +439,7 @@ export default function AuthScreen({
               >
                 <AppIcon name="chevron-left" size={20} forText={12.5} />
                 <Text style={s.linkText}>
-                  {(route === 'verification' || (route === 'profile' && profile?.provider === 'email')) ? '이전 화면' : '시작 화면'}
+                  {backLabel}
                 </Text>
               </Pressable>
             )}
