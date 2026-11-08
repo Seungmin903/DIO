@@ -136,7 +136,6 @@ test('선택 미리보기 실패 후 입력 유지·재시도와 닫기 취소, 
   confirm.props.onConfirm()
   await tick()
   assert.equal(find(ui.render(), '저장 흐름 확인').props.disabled, true)
-  closeButton(ui.render()).props.onPress()
   assert.equal(ui.closed, 1)
 })
 
@@ -159,6 +158,7 @@ test('서버 저장 뒤 캐시 저장이 실패해도 재시도는 같은 미디
   assert.equal(saved, 1)
   assert.equal(cached, 2)
   assert.equal(find(ui.render(), '저장 흐름 확인').props.disabled, true)
+  assert.equal(ui.closed, 1)
   ui.unmount()
 })
 
@@ -184,6 +184,7 @@ test('저장 실패 뒤 선택을 고치면 이전 서버 결과 대신 새 선�
   await confirmSave()
   assert.equal(saved, 2)
   assert.equal(find(ui.render(), '저장 흐름 확인').props.disabled, true)
+  assert.equal(ui.closed, 1)
   ui.unmount()
 })
 

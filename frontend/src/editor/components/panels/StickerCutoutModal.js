@@ -117,7 +117,11 @@ export default function StickerCutoutModal({ folder, onClose, onSave, photoPicke
       const item = { src: `media:${savedMedia.mediaFileId}`, mediaFileId: savedMedia.mediaFileId,
         name: savedMedia.originalFilename || '사진 속 대상', aspect: source?.width && source?.height ? source.width / source.height : 1 }
       await onSave?.(folder?.id, folder?.name ?? name.trim(), [item])
-      if (alive.current && token === revision.current) { setSaved(true); releaseCutout(cutoutId); setCutoutId(null) }
+      if (alive.current && token === revision.current) {
+        setSaved(true); releaseCutout(cutoutId); setCutoutId(null)
+        // 저장은 이 흐름의 종점이다. 보관함 반영까지 끝난 뒤 이전 화면으로 돌아간다.
+        onClose()
+      }
     } catch (failure) { if (alive.current && token === revision.current) setError(failure.message || '스티커를 저장하지 못했어요. 다시 시도해 주세요.') }
     finally { if (alive.current && token === revision.current) { locked.current = false; setBusy(false) } }
   }
