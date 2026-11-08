@@ -227,6 +227,23 @@ test('보관함 반영 전에 화면이 사라져도 미사용 서버 결과를 
   assert.equal(discarded, 1)
 })
 
+test('서버 저장 응답이 화면 종료 뒤 도착해도 새 미디어를 정리한다', async () => {
+  let resolveSave, discarded = 0, cached = 0
+  const ui = fixture(async () => ({ uri: 'photo', width: 100, height: 100 }), null, {
+    save: () => new Promise(resolve => { resolveSave = resolve }),
+    cache: async () => { cached += 1 }, discard: async () => { discarded += 1 },
+  })
+  await load(ui); draw(ui)
+  find(ui.render(), '다음 · 스티커 확인').props.onPress(); await tick()
+  find(ui.render(), '저장 흐름 확인').props.onPress()
+  nodes(ui.render()).find(n => n.props.confirmLabel === '저장').props.onConfirm()
+  await tick(); ui.unmount()
+  resolveSave({ mediaFileId: '123e4567-e89b-12d3-a456-426614174001', originalFilename: 'cutout.png' })
+  await tick(); await tick()
+  assert.equal(cached, 0)
+  assert.equal(discarded, 1)
+})
+
 test('결과 확인에서 헤더 이전·기기 뒤로가기로 돌아오면 같은 사진과 붓질을 유지한다', async () => {
   const ui = fixture(async () => ({ uri: 'photo', width: 100, height: 100 }))
   await load(ui); draw(ui)

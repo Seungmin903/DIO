@@ -128,9 +128,11 @@ export default function StickerCutoutModal({ folder, onClose, onSave, photoPicke
       if (!savedMedia) {
         savedMedia = await api.save(cutoutId, strokes)
         savedMediaRef.current = { selectionKey, media: savedMedia }
+        // 화면이 먼저 닫혔다면 캐시·보관함 반영을 시작하지 않고 방금 저장된 서버 파일을 바로 지운다.
+        if (!alive.current || token !== revision.current) { await discardSaved(); return }
       }
       await api.cache(savedMedia.mediaFileId)
-      if (!alive.current || token !== revision.current) return
+      if (!alive.current || token !== revision.current) { await discardSaved(); return }
       const item = { src: `media:${savedMedia.mediaFileId}`, mediaFileId: savedMedia.mediaFileId,
         name: savedMedia.originalFilename || '사진 속 대상', aspect: source?.width && source?.height ? source.width / source.height : 1 }
       const folderName = (folder?.name ?? name).trim() || '내 스티커'
