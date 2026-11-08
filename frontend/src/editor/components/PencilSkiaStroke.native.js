@@ -4,6 +4,7 @@ import { SkiaPencilScale } from '../skia/skiaPencilScale.js'
 import { useSkiaRuntime } from '../skia/skiaRuntime'
 import { drawPencilRaster, pencilRasterKey, rememberRaster, reusableRaster } from '../skia/pencilRaster.js'
 import { quantizeScale, REBAKE_DELAY_MS, spend, withinBudget } from '../skia/rasterBudget.js'
+import { isCurrentPencilPreviewEvent, pencilPreviewFrames, pencilPreviewPosition } from '../utils/pencilPreviewFallback.js'
 
 // 앱: 연필 획을 앱 Skia 오프스크린 그림(CompletedStrokeLayer.native 의 bake 와 같은 방식)으로 그려 PNG 로 띄운다 —
 // 썸네일 · 내보내기(view-shot 캡처)가 편집 화면의 Skia 연필과 같은 그림이 된다. SVG 그림(fallback)은 그림을 못 만들었을 때만 — 연필 SVG 는 결 무늬 경로가 Java 힙에 한 획 약 2MB 씩 올라가고,
@@ -31,7 +32,24 @@ function make(runtime, object, scale) {
   } finally { spend(performance.now() - started) }
 }
 
-export default function PencilSkiaStroke({ object, zoom, transform, fallback, onAssetLoad }) {
+// 설정 견본에서는 새 이미지가 로드될 때까지 직전 이미지를 보여 준다.
+function PreviewRaster({ raster, object, zoom, transform, fallback, failed = false }) {
+  const [ready, setReady] = useState(null)
+  const [failedUri, setFailedUri] = useState(null)
+  const latest = useRef(null)
+  latest.current = raster?.uri ?? null
+  const candidate = raster ? { ...raster, boxWidth: object.w, boxHeight: object.h } : null
+  const frames = failed ? [] : pencilPreviewFrames(ready, candidate, failedUri)
+  return <View pointerEvents="none" style={{ width: object.w * zoom, height: object.h * zoom, transform }}>
+    {frames.length === 0 ? fallback : null}
+    {frames.map(({ image, visible }) => <Image key={image.uri} source={{ uri: image.uri }} fadeDuration={0}
+      onLoad={() => { if (isCurrentPencilPreviewEvent(latest.current, image.uri)) { setReady(image); setFailedUri(null) } }}
+      onError={() => { if (isCurrentPencilPreviewEvent(latest.current, image.uri)) setFailedUri(image.uri) }}
+      style={{ position: 'absolute', left: pencilPreviewPosition(image, object).left * zoom, top: pencilPreviewPosition(image, object).top * zoom, width: image.width * zoom, height: image.height * zoom, opacity: visible ? 1 : 0 }} />)}
+  </View>
+}
+
+export default function PencilSkiaStroke({ object, zoom, transform, fallback, onAssetLoad, showFallbackWhileLoading = false }) {
   const { runtime } = useSkiaRuntime()
   const exported = useContext(SkiaPencilScale)
   const scale = exported ?? quantizeScale(zoom * PixelRatio.get())
@@ -57,6 +75,7 @@ export default function PencilSkiaStroke({ object, zoom, transform, fallback, on
   if (raster) last.current = rememberRaster(object, raster)
   const shown = raster === null ? reusableRaster(last.current, object) : raster
   const showing = shown && loaded === shown.uri
+  if (showFallbackWhileLoading) return <PreviewRaster raster={shown} object={object} zoom={zoom} transform={transform} fallback={fallback} failed={raster === false} />
   return <>
     {raster === false || (shown && broken === shown.uri) ? fallback : null}
     {shown ? <View pointerEvents="none" style={{ position: showing ? 'relative' : 'absolute', width: object.w * zoom, height: object.h * zoom, transform }}>

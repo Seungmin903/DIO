@@ -1,30 +1,32 @@
 import { Segmented, ToolPanelHeader, toolPanelStyles } from './ToolPanel'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import FadeScroll from './controls/FadeScroll'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { SettingSwitch } from '../../diary/components/SettingRow'
 import { colors } from '../../shared/theme'
 import EditablePalette, { paletteSwatchStyles } from './controls/EditablePalette'
 import Slider from './controls/Slider'
-import { PEN_TYPES, penDefaultOpacity, penPressure } from '../utils/penSettings'
+import { PEN_TYPES, penDefaultOpacity } from '../utils/penSettings'
 import { useRecentPenColors } from '../hooks/useRecentPenColors'
-import { createStroke } from '../utils/strokes'
+import { createPenSample } from '../utils/penSample'
 import ObjectContent from './canvas/ObjectView'
 
 export function PenSample({ settings, small = false }) {
   // 미리보기 그래픽 규칙: 획을 크게 만든 뒤 zoom 으로 줄이지 않고 보일 크기(k)로 바로 만든다.
   // 줄이면 연필 결(무늬 칸)이 픽셀보다 작아져 뿌옇게 뭉개진다(작은 종류 견본 0.2배)
-  const k = small ? 0.2 : 0.95
-  // 종류 칸 견본(코덱스 2026-11-02): 48 × 26 칸에 x 4~44, 진폭 5 인 한 주기 — 캘리펜 굵기 변화 · 붓펜 끝이 보이게
-  const points = Array.from({ length: 41 }, (_, i) => {
-    const t = i / 40, wave = Math.sin(t * Math.PI * 2)
-    const x = small ? 4 + t * 40 : (12 + t * 240) * k
-    const y = small ? 13 + wave * 5 : (settings.kind === 'highlighter' ? 24 : 24 + wave * 12) * k
-    return { x, y, pressure: penPressure(settings.kind, 0.5 + Math.sin(t * Math.PI) * 1.1) }
-  })
-  const stroke = createStroke(points, { ...settings, width: settings.width * k })
+  const [sampleWidth, setSampleWidth] = useState(settings.width)
+  const latestWidth = useRef(settings.width), timer = useRef(null)
+  latestWidth.current = settings.width
+  useEffect(() => {
+    if (small || settings.kind !== 'pencil') { setSampleWidth(settings.width); return }
+    if (timer.current == null) timer.current = setTimeout(() => { timer.current = null; setSampleWidth(latestWidth.current) }, 100)
+  }, [settings.width, settings.kind, small])
+  useEffect(() => () => { if (timer.current != null) clearTimeout(timer.current) }, [])
+  const width = settings.kind === 'pencil' && !small ? sampleWidth : settings.width
+  const stroke = useMemo(() => createPenSample({ ...settings, width }, small), [settings.kind, settings.color, settings.opacity, settings.lineCap, width, small])
   // 미리보기는 옵션 창 높이를 아끼려고 48(코덱스 2026-11-02: 82 → 56 칸)
-  return <View pointerEvents="none" style={{ height: small ? 26 : 48, justifyContent: 'center', alignItems: 'center', opacity: stroke.opacity ?? 1 }}>
-    <ObjectContent object={stroke} zoom={1} />
+  return <View pointerEvents="none" style={{ height: small ? 26 : 48, justifyContent: 'center', alignItems: 'center', opacity: settings.kind === 'pencil' ? settings.opacity ?? 1 : stroke.opacity ?? 1 }}>
+    <ObjectContent object={stroke} zoom={1} showFallbackWhileLoading />
   </View>
 }
 
