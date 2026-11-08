@@ -19,19 +19,22 @@ function requestError(status, body, fallback) {
   return Object.assign(new Error(body?.detail || fallback), { status, code: body?.code })
 }
 
-async function request(url, { method = 'GET', body, binary = false, session = activeSession() } = {}) {
+async function request(url, { method = 'GET', body, binary = false, timeoutMs = 45000, session = activeSession() } = {}) {
   assertActive(session)
   const send = async (forceRefresh = false) => {
     const token = await authService.getAccessToken({ ...session, forceRefresh })
     assertActive(session)
     const headers = authService.getConnectionOptions().getAuthHeaders(url, token)
     if (typeof body === 'string') headers['Content-Type'] = 'application/json'
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), timeoutMs)
     try {
-      return await expoFetch(url, { method, body, headers, credentials: 'omit', redirect: 'error' })
+      return await expoFetch(url, { method, body, headers, signal: controller.signal, credentials: 'omit', redirect: 'error' })
     } catch (error) {
-      debug('network', { method, path: requestPath(url), message: error?.message || 'fetch failed' })
-      throw requestError(0, null, '사진 오리기 서버에 연결하지 못했어요. 연결을 확인하고 다시 시도해 주세요.')
-    }
+      const timedOut = controller.signal.aborted
+      debug(timedOut ? 'timeout' : 'network', { method, path: requestPath(url), message: error?.message || 'fetch failed' })
+      throw requestError(timedOut ? 408 : 0, null, timedOut ? '사진 오리기 응답이 늦어요. 잠시 후 다시 시도해 주세요.' : '사진 오리기 서버에 연결하지 못했어요. 연결을 확인하고 다시 시도해 주세요.')
+    } finally { clearTimeout(timer) }
   }
   let response = await send()
   if (response.status === 401) response = await send(true)
@@ -79,7 +82,7 @@ export const stickerCutoutApi = {
   },
   async cache(mediaFileId) {
     if (!isId(mediaFileId)) throw new Error('저장한 스티커 정보를 확인하지 못했어요.')
-    const bytes = await request(`${mediaBaseUrl}/media/${mediaFileId}/file`, { binary: true })
+    const bytes = await request(`${mediaBaseUrl}/media/${mediaFileId}/file`, { binary: true, timeoutMs: 120000 })
     if (!bytes.length) throw new Error('저장한 스티커 파일을 확인하지 못했어요.')
     await canvasMediaFiles.save(mediaFileId, bytes)
   },
