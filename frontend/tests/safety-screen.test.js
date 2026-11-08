@@ -16,7 +16,7 @@ function setup(report, store, onClose = () => {}) {
     useRef: initial => refs[ri++] ??= { current: initial },
     useEffect: (fn, next) => { const i = ei++; if (!deps[i] || next.some((v, j) => v !== deps[i][j])) { cleanups[i]?.(); deps[i] = next; cleanups[i] = fn(); } },
   };
-  const native = { Platform: { OS: 'android' } };
+  const native = { Platform: { OS: 'android' }, useWindowDimensions: () => ({ width: 800, height: 600 }) };
   for (const type of ['ActivityIndicator', 'Image', 'KeyboardAvoidingView', 'Pressable', 'ScrollView', 'Text', 'TextInput', 'View']) native[type] = type;
   const mocks = { react, 'react-native': native, 'react-native-safe-area-context': { SafeAreaView: 'safe' }, './safetyModel': model,
     '../shared/useFormFactor': { useFormFactor: () => ({ isPhone: true }) }, '../shared/theme': { colors: {} },
@@ -31,6 +31,11 @@ function setup(report, store, onClose = () => {}) {
   const render = () => { si = ri = ei = 0; if (store) props.state = store.getSnapshot(); return mod.exports.default(props); };
   return { render, find: text => nodes(render()).find(n => label(n) === text), unmount: () => cleanups.forEach(fn => fn?.()) };
 }
+function openMemberMenu(ui, name = '친구 메뉴') {
+  const button = ui.find(name);
+  button.props.ref({ measureInWindow: callback => callback(700, 100, 48, 48) });
+  button.props.onPress();
+}
 test('신고 화면은 실패 후 설명·증빙·요청 ID를 보존하고 성공한 뒤 새 신고에만 ID를 바꾼다', async () => {
   const calls = [];
   const ui = setup(async input => { calls.push(input); if (calls.length === 1) throw new Error('네트워크 실패'); return { reportId: '101' }; });
@@ -43,7 +48,7 @@ test('신고 화면은 실패 후 설명·증빙·요청 ID를 보존하고 성�
     assert.equal(ui.find('상세 설명').props.value, '구체적인 설명'); assert.ok(ui.find('증빙 사진 1 확대'));
     await ui.find('신고 접수하기').props.onPress();
     assert.equal(calls[0].clientRequestId, calls[1].clientRequestId); assert.equal(calls[1].photos.length, 1);
-    ui.find('확인').props.onPress(); ui.find('친구 메뉴').props.onPress(); ui.find('신고하기').props.onPress(); ui.find('욕설·괴롭힘').props.onPress();
+    ui.find('확인').props.onPress(); openMemberMenu(ui); ui.find('신고하기').props.onPress(); ui.find('욕설·괴롭힘').props.onPress();
     await ui.find('신고 접수하기').props.onPress();
     assert.notEqual(calls[2].clientRequestId, calls[1].clientRequestId); assert.equal(calls[2].description, '');
   } finally { ui.unmount(); }
@@ -95,11 +100,11 @@ test('참여자 화면은 기존 차단 목록을 먼저 조회하고 차단·�
     let dialog = nodes(ui.render()).find(n => n.props?.open && n.props?.confirmLabel === '차단하기');
     dialog.props.onConfirm(); await new Promise(resolve => setImmediate(resolve));
     assert.deepEqual(store.getSnapshot().blocks.map(row => row.id), ['25', '24']);
-    ui.find('친구 메뉴').props.onPress(); ui.find('차단 해제').props.onPress();
+    openMemberMenu(ui); ui.find('차단 해제').props.onPress();
     dialog = nodes(ui.render()).find(n => n.props?.open && n.props?.confirmLabel === '차단 해제');
     dialog.props.onConfirm(); await new Promise(resolve => setImmediate(resolve));
     assert.deepEqual(store.getSnapshot().blocks, [existing]);
-    ui.find('친구 메뉴').props.onPress();
+    openMemberMenu(ui);
     assert.equal(ui.find('차단하기').props.disabled, false);
   } finally { ui.unmount(); }
 });
@@ -113,5 +118,18 @@ test('전체 참여자 보기 헤더는 이전 화면과 창 닫기를 모두 �
     close.props.onPress();
     assert.equal(closed, 1);
     assert.ok(ui.find('이전 화면'));
+  } finally { ui.unmount(); }
+});
+
+test('참여자 메뉴는 앵커를 측정한 뒤에만 열리고 신고 선택 시 닫힌다', () => {
+  const ui = setup(async () => {});
+  try {
+    ui.find('친구 메뉴').props.onPress();
+    assert.equal(ui.find('신고하기'), undefined);
+    openMemberMenu(ui);
+    assert.ok(ui.find('신고하기'));
+    ui.find('신고하기').props.onPress();
+    assert.equal(ui.find('신고하기'), undefined);
+    assert.equal(ui.find('신고 접수하기').props.disabled, true);
   } finally { ui.unmount(); }
 });

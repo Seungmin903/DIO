@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Dimensions, Image, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Image, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import EditorModal from '../editor/components/controls/EditorModal';
 import EditorIcon from '../editor/components/controls/Icon';
@@ -31,12 +31,13 @@ const blockMessage = '서로 이메일 초대를 보내거나 수락할 수 없�
 
 export default function SafetyScreen({ request, user, store, state, onClose, onWarning, evidencePicker = pickEvidence }) {
   const { isPhone } = useFormFactor();
+  const { width: windowWidth } = useWindowDimensions();
   const [screen, setScreen] = useState(request.kind);
   const [rows, setRows] = useState(() => normalizeParticipants(request.diary?.members));
   const [loading, setLoading] = useState(false);
   const [memberError, setMemberError] = useState('');
   const [target, setTarget] = useState(request.target || null);
-  const [menu, setMenu] = useState(request.target?.id || null);
+  const [menu, setMenu] = useState(null);
   const [menuAnchor, setMenuAnchor] = useState(null);
   const [reason, setReason] = useState('');
   const [description, setDescription] = useState('');
@@ -77,6 +78,8 @@ export default function SafetyScreen({ request, user, store, state, onClose, onW
     const timer = setTimeout(() => setToast(''), 3500);
     return () => clearTimeout(timer);
   }, [toast]);
+  // 회전·분할 화면으로 창 폭이 바뀌면 이전 창 좌표를 쓰지 않는다.
+  useEffect(() => { setMenu(null); setMenuAnchor(null); }, [windowWidth]);
   async function run(action) {
     if (locked.current) return;
     locked.current = true; setWorking(true); setError('');
@@ -99,8 +102,8 @@ export default function SafetyScreen({ request, user, store, state, onClose, onW
     if (!draft || busy) return;
     setReason(draft.reason); setDescription(draft.description); setPhotos(draft.photos.map(photo => ({ ...photo }))); setError('');
   }
-  function startReport(member) { clearDraft(); setTarget(member); setMenu(null); setScreen('report'); }
-  function askBlock(member) { setTarget(member); setError(''); setQuestion({ kind: blocked(member.id) ? 'unblock' : 'block', member }); }
+  function startReport(member) { closeMenu(); clearDraft(); setTarget(member); setScreen('report'); }
+  function askBlock(member) { closeMenu(); setTarget(member); setError(''); setQuestion({ kind: blocked(member.id) ? 'unblock' : 'block', member }); }
   function confirm() {
     const current = question;
     setQuestion(null);
@@ -108,7 +111,7 @@ export default function SafetyScreen({ request, user, store, state, onClose, onW
     run(async () => {
       if (current.kind === 'block') await store.block(current.member, request.diary.sharedDiaryId || request.diary.id); else await store.unblock(current.member);
       if (alive.current) {
-        setMenu(null);
+        closeMenu();
         setToast(preview ? '미리보기 상태를 변경했어요. 실제 계정에는 적용되지 않아요.' : current.kind === 'block' ? '사용자를 차단했어요' : '차단을 해제했어요');
       }
     });
@@ -143,8 +146,11 @@ export default function SafetyScreen({ request, user, store, state, onClose, onW
   const closeMenu = () => { setMenu(null); setMenuAnchor(null); };
   const toggleMenu = member => {
     if (menu === member.id) { closeMenu(); return; }
-    setMenu(member.id);
-    menuButtons.current.get(member.id)?.measureInWindow?.((x, y, width, height) => setMenuAnchor({ x, y, width, height }));
+    setMenuAnchor(null);
+    menuButtons.current.get(member.id)?.measureInWindow?.((x, y, width, height) => {
+      setMenuAnchor({ x, y, width, height });
+      setMenu(member.id);
+    });
   };
   function participant(member) {
     const own = member.id === selfId;
@@ -157,11 +163,10 @@ export default function SafetyScreen({ request, user, store, state, onClose, onW
         onPress={() => toggleMenu(member)}><AppIcon name="more" size={22} color={colors.text} /></Pressable>}</View>
     </View>;
   }
-  const menuMember = menu ? rows.find(member => member.id === menu) : null;
-  const screenWidth = Dimensions?.get?.('window')?.width;
+  const menuMember = screen === 'participants' && !question && menu && menuAnchor ? rows.find(member => member.id === menu) : null;
   const menuPosition = menuAnchor && {
     top: menuAnchor.y + menuAnchor.height + 4,
-    right: screenWidth ? Math.max(16, screenWidth - menuAnchor.x - menuAnchor.width) : 16,
+    right: Math.max(16, windowWidth - menuAnchor.x - menuAnchor.width),
   };
   return <>
     <EditorModal visible transparent animationType="none" onRequestClose={back}>
