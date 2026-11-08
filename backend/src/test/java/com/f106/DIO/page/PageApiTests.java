@@ -282,11 +282,16 @@ class PageApiTests {
 		mvc.perform(post("/api/v1/diaries/"+diaryId+"/pages").with(authenticated()).contentType(MediaType.APPLICATION_JSON)
 				.content("{\"canvasWidth\":768,\"canvasHeight\":1024,\"templateConfig\":"+legacyConfig+"}"))
 			.andExpect(jsonPath("$.page.pageId").value(legacyId));
-		// 없는 코드 · 없는 버전 · 내린(비활성) 속지 · 버전 없는 코드 · templateId 와 어긋난 코드는 저장하지 않는다
-		for (String bad:new String[]{
+		// 서버에 없는 속지(오타 · 없는 버전 · 내린 속지)는 앱 업데이트로 풀릴 수 있어 다른 400과 코드를 나눈다
+		for (String unknown:new String[]{
 				"{\"templateConfig\":{\"templateCode\":\"link-cvoer-portrait\",\"templateVersion\":\"1.0.0\"}}",
 				"{\"templateConfig\":{\"templateCode\":\"link-cover-portrait\",\"templateVersion\":\"9.9.9\"}}",
-				"{\"templateConfig\":{\"templateCode\":\"link-retired-portrait\",\"templateVersion\":\"1.0.0\"}}",
+				"{\"templateConfig\":{\"templateCode\":\"link-retired-portrait\",\"templateVersion\":\"1.0.0\"}}"}) {
+			mvc.perform(post("/api/v1/diaries/"+diaryId+"/pages").with(authenticated()).contentType(MediaType.APPLICATION_JSON).content(unknown))
+				.andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("UNKNOWN_PAGE_TEMPLATE"));
+		}
+		// 버전 없는 코드 · templateId 와 어긋난 코드는 요청 형식 오류다
+		for (String bad:new String[]{
 				"{\"templateConfig\":{\"templateCode\":\"link-cover-portrait\"}}",
 				"{\"templateId\":"+other.getTemplateId()+",\"templateConfig\":{\"templateCode\":\"link-cover-portrait\",\"templateVersion\":\"1.0.0\"}}"}) {
 			mvc.perform(post("/api/v1/diaries/"+diaryId+"/pages").with(authenticated()).contentType(MediaType.APPLICATION_JSON).content(bad))

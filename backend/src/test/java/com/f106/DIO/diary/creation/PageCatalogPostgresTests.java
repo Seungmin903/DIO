@@ -202,6 +202,8 @@ class PageCatalogPostgresTests {
         // 페이지 추가는 설정의 코드 · 버전으로 활성 행을 정확히 하나 찾아야 저장된다(PageService.create). 앱이 보내는 코드가 빠지거나 겹치면 페이지 추가가 400이 된다
         var codes=new ArrayList<String>();
         for(var row:contract.get("templates")) codes.add(row.get("templateCode").asString()+"/"+row.get("templateVersion").asString());
+        // V9 계약에는 앱이 빈 종이 페이지에 보내는 빈 속지 코드도 들어 있다(앱 목록과 계약은 프런트 server-template-catalog 테스트가 맞춘다)
+        assertThat(codes).contains("dio-blank-landscape/1.0.0","dio-blank-portrait/1.0.0");
         for(var code:List.of("study-planner-landscape","study-planner-portrait","day-planner-landscape","day-planner-portrait","dio-remote-landscape","dio-remote-portrait")) codes.add(code+"/1.0.0");
         var active=jdbc.queryForList("select code||'/'||template_version from page_templates where is_active",String.class);
         for(var code:codes) assertThat(active.stream().filter(code::equals).count()).as(code).isEqualTo(1L);

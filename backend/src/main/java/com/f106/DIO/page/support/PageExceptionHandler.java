@@ -17,6 +17,8 @@ import com.f106.DIO.page.domain.DiaryPage;
 public class PageExceptionHandler extends ResponseEntityExceptionHandler {
     private static final org.slf4j.Logger log=org.slf4j.LoggerFactory.getLogger(PageExceptionHandler.class);
     // 속지 목록 데이터 문제는 사용자 오류(400)가 아니라 서버 오류로 알리고, 운영자가 찾을 수 있게 코드 · 버전을 남긴다
+    @ExceptionHandler(UnknownPageTemplateException.class)
+    public ProblemDetail unknownTemplate(UnknownPageTemplateException error){return problem(HttpStatus.BAD_REQUEST,"Unknown page template","UNKNOWN_PAGE_TEMPLATE",error.getMessage());}
     @ExceptionHandler(PageTemplateCatalogException.class)
     public ProblemDetail invalidTemplateCatalog(PageTemplateCatalogException error){
         log.error("page_templates 에 같은 코드 · 버전의 활성 행이 {}개 있어 페이지를 만들지 못했습니다: {} / {}",error.activeRows(),error.templateCode(),error.templateVersion());

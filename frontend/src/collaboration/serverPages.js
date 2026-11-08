@@ -118,10 +118,12 @@ export async function createServerPage({transport,diaryId,backgroundAssetId=null
  await storage.removeItem(key);check();return page
 }
 
-// 서버가 속지 코드를 확인한다(없는 코드 · 크기 불일치는 400 INVALID_PAGE_REQUEST, 서버 속지 목록 중복은 500 PAGE_TEMPLATE_CATALOG_INVALID).
-// HTTP 층은 상태 코드마다 같은 문구를 쓰므로 페이지 추가에서는 원인을 알 수 있는 문구로 바꿔 알림에 보인다
+// 서버가 속지 코드를 확인한다. 서버에 없는 속지는 400 UNKNOWN_PAGE_TEMPLATE(앱이 서버보다 새 속지를 알 때 등, 업데이트로 풀릴 수 있다),
+// 크기 불일치 · 원격 속지 설정 오류 등 다른 요청 오류는 400 INVALID_PAGE_REQUEST, 서버 속지 목록 중복은 500 PAGE_TEMPLATE_CATALOG_INVALID.
+// HTTP 층은 상태 코드마다 같은 문구를 쓰므로 페이지 추가에서는 원인에 맞는 문구로 바꿔 알림에 보인다
 const PAGE_CREATE_MESSAGES={
- INVALID_PAGE_REQUEST:'이 속지를 서버에서 확인하지 못했어요. 앱을 최신 버전으로 업데이트한 뒤 다시 시도해 주세요.',
+ UNKNOWN_PAGE_TEMPLATE:'이 속지를 서버에서 찾지 못했어요. 앱을 최신 버전으로 업데이트한 뒤 다시 시도해 주세요.',
+ INVALID_PAGE_REQUEST:'이 속지로 페이지를 추가하지 못했어요. 다른 속지를 고르거나 잠시 뒤 다시 시도해 주세요.',
  PAGE_TEMPLATE_CATALOG_INVALID:'서버의 속지 목록을 확인하고 있어요. 잠시 뒤 다시 시도해 주세요.',
 }
 function pageCreateError(error){

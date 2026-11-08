@@ -167,7 +167,7 @@ public class PageService {
 		if(config==null||!config.isObject()||!config.has("templateCode"))return t;
 		if(!config.path("templateCode").isString()||!config.path("templateVersion").isString())throw new IllegalArgumentException("templateCode 와 templateVersion 은 함께 문자열로 보내야 합니다.");
 		var rows=templateRepository.findAllByCodeAndTemplateVersionAndIsActiveTrue(config.get("templateCode").asString(),config.get("templateVersion").asString());
-		if(rows.isEmpty())throw new IllegalArgumentException("없는 속지 코드 · 버전입니다.");
+		if(rows.isEmpty())throw new UnknownPageTemplateException();
 		if(rows.size()>1)throw new PageTemplateCatalogException(config.get("templateCode").asString(),config.get("templateVersion").asString(),rows.size());
 		PageTemplate byCode=rows.get(0);
 		if(t!=null&&!t.getTemplateId().equals(byCode.getTemplateId()))throw new IllegalArgumentException("templateId 와 설정의 templateCode 가 다릅니다.");
