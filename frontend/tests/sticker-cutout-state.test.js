@@ -15,7 +15,7 @@ const closeButton = tree => ({ props: { onPress: header(tree).props.onBack } })
 // 단계 이동 줄(MakerNav)의 `이전`
 const prevButton = tree => nodes(tree).find(n => n.props.onPrev)
 const tick = () => new Promise(resolve => setImmediate(resolve))
-function fixture(photoPicker, preview, apiOverride = {}) {
+function fixture(photoPicker, preview, apiOverride = {}, onSave) {
   let si = 0, ri = 0, ei = 0, closed = 0
   const states = [], refs = [], deps = [], cleanups = []
   const react = {
@@ -40,7 +40,7 @@ function fixture(photoPicker, preview, apiOverride = {}) {
   }
   const mod = { exports: {} }
   new Function('require', 'module', 'exports', code)(id => id === 'react/jsx-runtime' ? require(id) : mocks[id] ?? { __esModule: true, default: id }, mod, mod.exports)
-  const render = () => { si = ri = ei = 0; return mod.exports.default({ folder: { id: 'folder', name: '내 폴더' }, onClose: () => closed++, photoPicker }) }
+  const render = () => { si = ri = ei = 0; return mod.exports.default({ folder: { id: 'folder', name: '내 폴더' }, onClose: () => closed++, onSave, photoPicker }) }
   render()
   return { render, unmount: () => cleanups.forEach(fn => fn?.()), get closed() { return closed } }
 }
@@ -242,6 +242,21 @@ test('서버 저장 응답이 화면 종료 뒤 도착해도 새 미디어를 �
   await tick(); await tick()
   assert.equal(cached, 0)
   assert.equal(discarded, 1)
+})
+
+test('보관함 반영 중 화면이 닫혀도 저장된 미디어를 지우지 않고 결과 PNG 비율을 쓴다', async () => {
+  let finishLibrary, discarded = 0, stored
+  const ui = fixture(async () => ({ uri: 'photo', width: 400, height: 100 }), null, {
+    cache: async () => ({ width: 50, height: 100 }), discard: async () => { discarded += 1 },
+  }, (_folderId, _name, items) => { stored = items[0]; return new Promise(resolve => { finishLibrary = resolve }) })
+  await load(ui); draw(ui)
+  find(ui.render(), '다음 · 스티커 확인').props.onPress(); await tick()
+  find(ui.render(), '저장 흐름 확인').props.onPress()
+  nodes(ui.render()).find(n => n.props.confirmLabel === '저장').props.onConfirm()
+  await tick(); await tick(); ui.unmount()
+  finishLibrary(); await tick(); await tick()
+  assert.equal(discarded, 0)
+  assert.equal(stored.aspect, .5)
 })
 
 test('결과 확인에서 헤더 이전·기기 뒤로가기로 돌아오면 같은 사진과 붓질을 유지한다', async () => {

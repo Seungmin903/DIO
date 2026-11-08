@@ -29,6 +29,7 @@ export default function StickerCutoutModal({ folder, onClose, onSave, photoPicke
   const [cutoutId, setCutoutId] = useState(null), cutoutRef = useRef(null)
   // 서버 저장은 같은 선택에 한 번만 한다. 이후 캐시·보관함 저장이 실패해도 같은 mediaFileId로 이어서 처리한다.
   const savedMediaRef = useRef(null)
+  const savingToLibrary = useRef(false)
   const [resultPreview, setResultPreview] = useState(null)
   const [error, setError] = useState(''), [question, setQuestion] = useState(null), [saved, setSaved] = useState(false)
   const [ready, setReady] = useState(false)
@@ -52,8 +53,8 @@ export default function StickerCutoutModal({ folder, onClose, onSave, photoPicke
   }
   useEffect(() => { alive.current = true; return () => {
     alive.current = false; revision.current++
-    // 서버 저장은 끝났지만 보관함 반영 전이면 화면을 닫아도 미참조 PNG를 남기지 않는다.
-    discardSaved()
+    // 보관함 저장이 진행 중이면 완료 결과가 서버 미디어를 참조하게 된다. 실패 때만 그 비동기 흐름이 정리한다.
+    if (!savingToLibrary.current) discardSaved()
     releaseCutout(); sourceRef.current?.dispose?.()
   } }, [])
   // 회전/크기 변경 중 끝나지 않은 획은 버린다. 확정된 정규화 좌표는 유지한다. 판 크기가 바뀌거나 사진을 바꾸면 맞춤 보기로 돌아간다
@@ -131,15 +132,21 @@ export default function StickerCutoutModal({ folder, onClose, onSave, photoPicke
         // 화면이 먼저 닫혔다면 캐시·보관함 반영을 시작하지 않고 방금 저장된 서버 파일을 바로 지운다.
         if (!alive.current || token !== revision.current) { await discardSaved(); return }
       }
-      await api.cache(savedMedia.mediaFileId)
+      const cached = await api.cache(savedMedia.mediaFileId)
       if (!alive.current || token !== revision.current) { await discardSaved(); return }
       const item = { src: `media:${savedMedia.mediaFileId}`, mediaFileId: savedMedia.mediaFileId,
-        name: savedMedia.originalFilename || '사진 속 대상', aspect: source?.width && source?.height ? source.width / source.height : 1 }
+        name: savedMedia.originalFilename || '사진 속 대상', aspect: cached?.width && cached?.height ? cached.width / cached.height : 1 }
       const folderName = (folder?.name ?? name).trim() || '내 스티커'
-      await onSave?.(folder?.id, folderName, [item])
-      if (alive.current && token === revision.current) {
-        // 이제 보관함이 미디어를 참조하므로 언마운트 정리 대상이 아니다.
-        savedMediaRef.current = null
+      let savedToLibrary = false
+      savingToLibrary.current = true
+      try { await onSave?.(folder?.id, folderName, [item]); savedToLibrary = true }
+      finally {
+        savingToLibrary.current = false
+        // 화면이 먼저 사라졌더라도 보관함 반영이 끝났다면 서버 파일은 보존한다.
+        if (savedToLibrary) savedMediaRef.current = null
+        else if (!alive.current) await discardSaved()
+      }
+      if (alive.current && token === revision.current && savedToLibrary) {
         setSaved(true); releaseCutout(cutoutId); setCutoutId(null)
         // 저장은 이 흐름의 종점이다. 보관함 반영까지 끝난 뒤 이전 화면으로 돌아간다.
         onClose()

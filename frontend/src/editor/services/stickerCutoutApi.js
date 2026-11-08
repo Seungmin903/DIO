@@ -99,7 +99,7 @@ export const stickerCutoutApi = {
     if (!isId(mediaFileId)) throw new Error('저장한 스티커 정보를 확인하지 못했어요.')
     const bytes = await request(`${mediaBaseUrl}/media/${mediaFileId}/file`, { binary: true, timeoutMs: 120000 })
     if (!bytes.length) throw new Error('저장한 스티커 파일을 확인하지 못했어요.')
-    await canvasMediaFiles.save(mediaFileId, bytes)
+    return canvasMediaFiles.save(mediaFileId, bytes)
   },
   close(cutoutId) {
     return isId(cutoutId) ? request(`${baseUrl}/${cutoutId}`, { method: 'DELETE' }).catch(() => null) : Promise.resolve()
