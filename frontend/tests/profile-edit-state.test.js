@@ -284,7 +284,7 @@ test('탈퇴합니다 정확히 입력해야 탈퇴 가능하고 닫기는 창�
     find(closing, '탈퇴 확인 문구').props.onChangeText(text);
     assert.equal(find(closing, '탈퇴하기').props.disabled, true);
   }
-  press(closing, '확인 창 닫기');
+  press(closing, '취소');
   assert.equal(closing.closed(), 1);
   assert.equal(calls, 0);
   closing.unmount();

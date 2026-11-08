@@ -211,8 +211,8 @@ function ElementOptions({ element, cover, name, ratio, onChange, onNotice, pickN
     <OptionRow label="크기"><NumberField label="제목 크기" unit="pt" min={TITLE_SIZE.min} max={TITLE_SIZE.max} value={cover.title.size} onChange={size => set({ title: { ...cover.title, size } })} /></OptionRow>
     <OptionRow label="색"><ColorRow label="제목 색" value={cover.title.color} swatches={INK_COLORS} onChange={color => set({ title: { ...cover.title, color } })} /></OptionRow>
     <View style={styles.subHead}>
-      <Toggle label={`소제목 ${cover.subtitle.on ? '끄기' : '켜기'}`} value={cover.subtitle.on} onChange={on => set({ subtitle: { ...cover.subtitle, on } })} />
       <Text style={styles.subTitle}>소제목</Text>
+      <Toggle label={`소제목 ${cover.subtitle.on ? '끄기' : '켜기'}`} value={cover.subtitle.on} onChange={on => set({ subtitle: { ...cover.subtitle, on } })} />
     </View>
     {cover.subtitle.on && <>
       <OptionRow label="내용"><TextInput accessibilityLabel="소제목" maxLength={30} value={cover.subtitle.text} onChangeText={text => set({ subtitle: { ...cover.subtitle, text } })} style={styles.input} /></OptionRow>
@@ -284,7 +284,8 @@ const styles = StyleSheet.create({
   elements: { gap: 8 },
   dim: { opacity: 0.4 },
   pressed: {}, // 눌림 효과 없음(사용자 지시)
-  subHead: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 6, paddingTop: 10, borderTopWidth: 1, borderTopColor: colors.border },
+  // 라벨 왼쪽 · 스위치 오른쪽 끝(고무줄 · 라벨 행과 같은 모양, 지라 671)
+  subHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginTop: 6, paddingTop: 10, borderTopWidth: 1, borderTopColor: colors.border },
   subTitle: { color: colors.text, fontSize: 13, fontWeight: '800' },
   off: { opacity: 0.45 },
   empty: { paddingVertical: 12, textAlign: 'center', color: colors.textMuted, fontSize: 12.5, fontWeight: '700' },

@@ -34,7 +34,7 @@ export default function PdfCoverPagePicker({ name, pages, limit, compact = false
   });
   const done = () => onDone([...picked].sort((a, b) => a - b));
   return (
-    <EditorModal visible animationType="slide" onRequestClose={onCancel}>
+    <EditorModal visible animationType="none" onRequestClose={onCancel}>
       <View style={[local.screen, { paddingTop: Math.max(8, insets.top), paddingBottom: Math.max(12, insets.bottom), paddingLeft: insets.left, paddingRight: insets.right }]}>
         <MakerHeader title="표지로 쓸 쪽 고르기" onBack={onCancel} backLabel="닫기" compact={compact} />
         {/* 쪽이 많은 PDF(최대 60쪽)도 보이는 줄만 그린다 */}

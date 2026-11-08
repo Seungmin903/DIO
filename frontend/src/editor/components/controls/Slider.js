@@ -122,9 +122,9 @@ const styles = StyleSheet.create({
   inputBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    width: 52,
+    width: 60, // 698: 세 자리 값(예 200%)과 단위가 말줄임 없이 들어가는 폭
     height: 40,
-    paddingHorizontal: 6,
+    paddingHorizontal: 4,
     borderRadius: 9,
     borderWidth: 1,
     borderColor: colors.border,

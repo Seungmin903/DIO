@@ -233,7 +233,7 @@ function LibraryScreen({
         <Text accessibilityRole="header" style={s.librarySortHeader}>보기</Text>
         <View accessibilityRole="radiogroup" accessibilityLabel="보기">
           {LIBRARY_VIEWS.map(item => <Pressable key={item.id} accessibilityRole="radio" accessibilityState={{ checked: view === item.id }} accessibilityLabel={`${item.label} 보기`} onPress={() => { chooseView(item.id); setOptionsOpen(false); }} style={({ pressed }) => [s.librarySortOption, pressed && s.pressed]}>
-            <View style={s.sortOptionCheck}>{view === item.id && <AppIcon name="check" size={14} forText={12} color={C.blueStrong} />}</View>
+            <View style={s.sortOptionCheck}>{view === item.id && <AppIcon name="check" size={14} forText={14} color={C.blueStrong} />}</View>
             <Text style={s.librarySortText}>{item.label}</Text>
           </Pressable>)}
         </View>
@@ -242,9 +242,9 @@ function LibraryScreen({
       <Text accessibilityRole="header" style={s.librarySortHeader}>정렬 기준</Text>
       <View accessibilityRole="radiogroup" accessibilityLabel="정렬 기준">
         {SORT_OPTIONS.map(item => <Pressable key={item.id} accessibilityRole="radio" accessibilityState={{ checked: sortKey === item.id }} accessibilityLabel={`${item.label}, ${sortKey === item.id ? (direction === 'asc' ? '오름차순' : '내림차순') + ', 누르면 방향 바꾸기' : '선택'}`} onPress={() => { onSortChange(nextSort(sort, item.id)); resetPosition(); }} style={({ pressed }) => [s.librarySortOption, pressed && s.pressed]}>
-          <View style={s.sortOptionCheck}>{sortKey === item.id && <AppIcon name="check" size={14} forText={12} color={C.blueStrong} />}</View>
+          <View style={s.sortOptionCheck}>{sortKey === item.id && <AppIcon name="check" size={14} forText={14} color={C.blueStrong} />}</View>
           <Text style={s.librarySortText}>{item.label}</Text>
-          {sortKey === item.id && <AppIcon name={direction === 'asc' ? 'arrow-up' : 'arrow-down'} size={14} forText={12} color={C.ink} />}
+          {sortKey === item.id && <AppIcon name={direction === 'asc' ? 'arrow-up' : 'arrow-down'} size={14} forText={14} color={C.ink} />}
         </Pressable>)}
       </View>
     </PopoverMenu>

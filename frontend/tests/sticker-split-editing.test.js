@@ -348,12 +348,18 @@ test('실제 모달은 미리보기 준비를 기다리고 저장 실패 후 같
   })
   const props = { initialName: '별', onClose: () => { closes++ }, onSave: async (_folder, _name, items) => { if (failed) throw new Error('PNG_WRITE_FAILED /private/result.png', { cause: new Error('/private/source.png') }); assert.equal(items.length, 2); published++ } }
   const render = () => h.render(props), action = label => find(render(), node => node.props?.label === label).props
-  const opening = render().props.onShow()
-  render().props.onShow(); await opening
-  assert.equal(picks, 1); assert.equal(find(render(), node => node.type === 'Preview'), null)
+  // 699: 창을 띄우기 전에 갤러리부터 연다. 갤러리를 닫으면 창을 띄우지 않고 바로 닫는다
+  assert.equal(render().props.visible, false); await settle(); render(); await settle()
+  assert.equal(picks, 1); assert.equal(closes, 1); assert.equal(render().props.visible, false); assert.equal(find(render(), node => node.type === 'Preview'), null)
+  closes = 0
   pickCancelled = false
-  await action('이미지 선택').onPress()
-  render().props.onShow(); assert.equal(picks, 2)
+  // 버튼으로 연 갤러리를 닫으면 창은 그대로(눌림 이벤트가 '처음 자동 열기'로 읽히지 않는다)
+  pickCancelled = true
+  await action('이미지 선택').onPress({ nativeEvent: {} })
+  assert.equal(closes, 0); assert.equal(picks, 2)
+  pickCancelled = false
+  await action('이미지 선택').onPress({ nativeEvent: {} })
+  render(); assert.equal(picks, 3); assert.equal(render().props.visible, true); assert.equal(render().props.animationType, 'none')
   assert.equal(find(render(), node => node.type === 'Tools').props.section, 'background')
   assert.equal(find(render(), node => node.props?.label === '배경 허용 범위').props.min, 0)
   assert.equal(find(render(), node => node.props?.label === '배경 허용 범위').props.value, 10)
@@ -481,7 +487,7 @@ test('모달은 첫 분석의 초기 묶기를 기다리고 취소·재분리·�
         }, cleanup: async ids => cleaned.push(...ids), cancel: id => cancelled.push(id), disposeSource() {} } },
     })
     const render = () => h.render({ initialName: '초기', onClose() {} }), action = label => find(render(), n => n.props?.label === label)?.props
-    await render().props.onShow()
+    render(); await settle(); await settle()
     find(render(), n => n.type === 'Preview').props.onReady('file:///sheet', true)
     const running = action('분리하기').onPress(); await settle()
     if (scenario === 'unsupported') {

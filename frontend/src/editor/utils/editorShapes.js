@@ -112,6 +112,17 @@ export function createShape(settings, center) {
 }
 export const memoArtOf = id => id ? MEMO_ARTS.find(art => art.id === id) : null
 // 메모 종이는 그림이라 비율을 지켜 커지고 작아진다. 글자도 종이와 같은 배율로 그린다(글자 크기는 기본 가로 220 기준).
+// 663: 메모 종이 그림은 요소 상자 안쪽에 여백을 두고 그려진다(윤곽 outline 이 0~100 상자 좌표). 선택 테두리 · 손잡이를 종이 본체에 맞추려고 종이가 차지하는 영역을 요소 px 로 돌려준다.
+export function memoPaperBox(object) {
+  const art = memoArtOf(object.art)
+  // 숫자를 x · y 짝으로 읽으므로 절대 좌표 M · L · Q · C · Z 만 받는다(H · V · A · 상대 좌표면 짝이 깨져 상자 전체로 둔다, AI 리뷰)
+  if (!art?.outline || /[^MLQCZ\d\s.,-]/.test(art.outline)) return null
+  const nums = art.outline.match(/-?(?:\d+(?:\.\d+)?|\.\d+)/g)?.map(Number) ?? []
+  if (nums.length < 4) return null
+  const xs = nums.filter((_, i) => i % 2 === 0), ys = nums.filter((_, i) => i % 2 === 1)
+  const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys)
+  return { x: (x0 / 100) * object.w, y: (y0 / 100) * object.h, w: ((x1 - x0) / 100) * object.w, h: ((y1 - y0) / 100) * object.h }
+}
 const memoScale = object => { const art = memoArtOf(object.art); return art ? object.w / art.w : 1 }
 export function shapeTextStyle(object, zoom = 1, platform = 'web') {
   const scale = zoom * memoScale(object)

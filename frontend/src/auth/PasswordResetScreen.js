@@ -10,11 +10,13 @@ import {
   View,
 } from 'react-native';
 import AppIcon from '../shared/AppIcon';
+import BrandLogo from '../shared/BrandLogo';
 import DioButton from '../shared/DioButton';
-import { MakerBar, MakerHeader } from '../shared/MakerKit';
+import { MakerBar } from '../shared/MakerKit';
 import { colors, radius } from '../shared/theme';
 import { authService } from './authService';
 import { profileStyles as ps } from './profileStyles';
+import { authStyles as s } from './styles';
 import { accountEmailError, normalizeEmail, passwordError } from './validation';
 
 const FALLBACK_EXPIRES_IN = 10 * 60;
@@ -69,6 +71,13 @@ export default function PasswordResetScreen({
     password: '새 비밀번호 설정',
     success: change ? '비밀번호 변경 완료' : '비밀번호 재설정 완료',
   })[step], [step, change]);
+  // 로그인 화면에서 온 찾기 흐름(change 아님)은 로그인 · 가입과 같은 틀: 흰 바탕 · 마스코트 · 가운데 큰 제목 · 전체 폭 버튼(지라 643)
+  const flowTitle = {
+    email: '비밀번호를 재설정해요',
+    code: '이메일을 인증해 주세요',
+    password: '새 비밀번호를 설정해 주세요',
+    success: '비밀번호를 재설정했어요',
+  }[step];
 
   const run = async (task) => {
     if (busy) return { ok: false };
@@ -135,21 +144,21 @@ export default function PasswordResetScreen({
   };
 
   // 내 공간 · 회원정보 수정과 같은 문법: 상단 바(높이 64, `<` 가 이 흐름에서 나가기) + 카드 없는 열린 폼 + 하단 고정 줄(주 버튼 하나)
+  const block = !change; // 찾기 흐름은 하단 고정 줄 없이 전체 폭 버튼을 폼 안에 둔다
   const primary = {
-    email: <DioButton variant="filled" label="인증번호 보내기" disabled={busy || !!addressError} onPress={() => requestCode()} />,
-    code: <DioButton variant="filled" label="인증번호 확인" disabled={busy || code.length !== 6 || !expiresIn} onPress={verifyCode} />,
-    password: <DioButton variant="filled" label={change ? '비밀번호 변경' : '비밀번호 재설정'} disabled={busy || !canSetPassword} onPress={resetPassword} />,
+    email: <DioButton variant="filled" block={block} label="인증번호 보내기" disabled={busy || !!addressError} onPress={() => requestCode()} />,
+    code: <DioButton variant="filled" block={block} label="인증번호 확인" disabled={busy || code.length !== 6 || !expiresIn} onPress={verifyCode} />,
+    password: <DioButton variant="filled" block={block} label={change ? '비밀번호 변경' : '비밀번호 재설정'} disabled={busy || !canSetPassword} onPress={resetPassword} />,
     // 변경 흐름은 바꾼 뒤 세션을 끝내고(onClearSession) 로그인 화면으로 보낸다. 로그인 화면에서 온 찾기 흐름만 '돌아가기'
-    success: <DioButton variant="filled" label={change ? '다시 로그인' : '로그인으로 돌아가기'} onPress={onComplete} />,
+    success: <DioButton variant="filled" block={block} label={change ? '다시 로그인' : '로그인으로 돌아가기'} onPress={onComplete} />,
   }[step];
-  return (
+    return (
     <KeyboardAvoidingView
-      style={styles.root}
+      style={[styles.root, !change && compact && styles.authRoot]}
       behavior={Platform.OS === 'ios' ? 'padding' : Platform.OS === 'android' ? 'height' : undefined}
     >
-      {!change && <MakerHeader title={heading} onBack={step !== 'success' ? leave : null} backLabel={backLabel} busy={busy} compact={compact} />}
       <ScrollView
-        contentContainerStyle={change ? [ps.scroll, compact && ps.phoneScroll] : [styles.scroll, compact && styles.phoneScroll]}
+        contentContainerStyle={change ? [ps.scroll, compact && ps.phoneScroll] : [s.scroll, compact && s.phoneScroll]}
         keyboardShouldPersistTaps="handled"
       >
         {change && (
@@ -164,37 +173,54 @@ export default function PasswordResetScreen({
             </View>
           </View>
         )}
-        <View style={[styles.form, change && ps.rail]}>
+        <View style={change ? [styles.form, ps.rail] : [s.card, compact && s.phoneCard]}>
+          {!change && step !== 'success' && (
+            <Pressable accessibilityRole="button" accessibilityLabel="이전 화면" disabled={busy} onPress={leave} style={s.back}>
+              <AppIcon name="chevron-left" size={20} forText={12.5} />
+              <Text style={s.linkText}>{backLabel}</Text>
+            </Pressable>
+          )}
+          {!change && (
+            <View style={[s.header, compact && s.phoneHeader]}>
+              <BrandLogo size={52} />
+              <View style={[s.headingCopy, compact && s.phoneCopy]}>
+                <Text accessibilityRole="header" style={s.title}>{flowTitle}</Text>
+              </View>
+            </View>
+          )}
+          <View style={!change && s.form}>
           {step === 'email' && (
             <Field
+              flow={!change}
               label="이메일"
               value={address}
               onChangeText={(value) => { setAddress(value); setError(''); }}
               keyboardType="email-address"
               autoComplete="email"
-              placeholder="name@example.com"
+              placeholder="이메일을 입력해 주세요"
             />
           )}
           {step === 'code' && (
             <>
               <Text style={styles.copy}><Text style={styles.strong}>{normalizedAddress}</Text>로 보낸 인증번호</Text>
               <Field
+              flow={!change}
                 label="인증번호"
                 value={code}
                 onChangeText={(value) => { setCode(value.replace(/[^0-9]/g, '')); setError(''); }}
                 keyboardType="number-pad"
                 autoComplete="one-time-code"
                 maxLength={6}
-                placeholder="인증번호 6자리"
+                placeholder="6자리 숫자"
               />
-              <View style={styles.timerRow}>
+              <View style={[styles.timerRow, !change && styles.flowFlush]}>
                 <Text accessibilityLiveRegion="polite" style={[styles.timer, !expiresIn && styles.dangerText]}>
                   {expiresIn ? `남은 시간 ${timeLabel(expiresIn)}` : '인증번호가 만료됐어요'}
                 </Text>
                 <DioButton
                   variant="ghost"
                   label="인증번호 재전송"
-                  text={resendIn ? `재전송 ${resendIn}초` : '인증번호 재전송'}
+                  text={resendIn ? `재전송 (${resendIn}초)` : '재전송'}
                   disabled={busy || resendIn > 0}
                   onPress={() => requestCode(true)}
                 />
@@ -203,9 +229,9 @@ export default function PasswordResetScreen({
           )}
           {step === 'password' && (
             <>
-              <PasswordField label="새 비밀번호" value={password} onChangeText={(value) => { setPassword(value); setError(''); }} />
+              <PasswordField flow={!change} label="새 비밀번호" value={password} onChangeText={(value) => { setPassword(value); setError(''); }} />
               <Hint text="영문·숫자를 포함해 8~32자" />
-              <PasswordField label="새 비밀번호 확인" value={confirmation} onChangeText={(value) => { setConfirmation(value); setError(''); }} />
+              <PasswordField flow={!change} label="새 비밀번호 확인" value={confirmation} onChangeText={(value) => { setConfirmation(value); setError(''); }} />
               {!!confirmationIssue && <Text accessibilityRole="alert" style={styles.inlineError}>{confirmationIssue}</Text>}
             </>
           )}
@@ -216,24 +242,34 @@ export default function PasswordResetScreen({
               <Text style={styles.copy}>새 비밀번호로 다시 로그인해 주세요.</Text>
             </>
           )}
-          {!!error && <Text accessibilityRole="alert" style={styles.error}>{error}</Text>}
-          {!!notice && <Text accessibilityLiveRegion="polite" style={styles.notice}>{notice}</Text>}
+          {!!error && <Text accessibilityRole="alert" style={[styles.error, !change && styles.flowFlush]}>{error}</Text>}
+          {!!notice && <Text accessibilityLiveRegion="polite" style={[styles.notice, !change && styles.flowFlush]}>{notice}</Text>}
+          {!change && primary}
+          </View>
         </View>
       </ScrollView>
-      <MakerBar>{primary}</MakerBar>
+      {change && <MakerBar>{primary}</MakerBar>}
     </KeyboardAvoidingView>
   );
 }
 
-function Field({ label, ...props }) {
+// flow: 로그인 화면에서 온 찾기 흐름 — 로그인 · 가입 입력칸(authStyles)과 같은 모양
+function Field({ label, flow = false, ...props }) {
   return (
-    <View style={styles.fieldWrap}>
-      <Text style={styles.fieldLabel}>{label}</Text>
-      <TextInput accessibilityLabel={label} autoCapitalize="none" autoCorrect={false} placeholderTextColor={colors.textMuted} style={styles.field} {...props} />
+    <View style={flow ? null : styles.fieldWrap}>
+      <Text style={flow ? s.label : styles.fieldLabel}>{label}</Text>
+      {flow ? (
+        <View style={s.field}>
+          <TextInput accessibilityLabel={label} autoCapitalize="none" autoCorrect={false} placeholderTextColor={colors.textMuted} style={s.input} {...props} />
+        </View>
+      ) : (
+        <TextInput accessibilityLabel={label} autoCapitalize="none" autoCorrect={false} placeholderTextColor={colors.textMuted} style={styles.field} {...props} />
+      )}
     </View>
   );
 }
 
+// flow(찾기 흐름)도 Field 로 그대로 넘어가 로그인 · 가입 입력칸 모양을 쓴다(Field 가 flow 를 꺼내 TextInput 에는 넘기지 않는다)
 function PasswordField(props) {
   return <Field {...props} secureTextEntry autoComplete="new-password" />;
 }
@@ -244,6 +280,8 @@ function Hint({ text }) {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.surfaceSoft },
+  flowFlush: { marginTop: 0 }, // 찾기 흐름은 폼의 gap 16 이 간격을 맡는다
+  authRoot: { backgroundColor: colors.surface }, // 로그인과 같게: 폰은 화면 전체 흰 바탕, 태블릿은 연보라 바탕 위 흰 카드
   scroll: { flexGrow: 1, paddingHorizontal: 32, paddingTop: 24, paddingBottom: 32 },
   phoneScroll: { paddingHorizontal: 16, paddingTop: 16 },
   // 본문 최대 폭 760, 가운데. 카드 · 테두리 없이 열린 폼

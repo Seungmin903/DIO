@@ -42,7 +42,7 @@ function fixture({ supported = false, failFonts = false, family = null, failRemo
     if (id.endsWith('/useMyLibrary')) return { __esModule: true, default: () => library }
     if (id.endsWith('/useDefaultPaperStyle')) return { __esModule: true, default: () => ({ style: {}, ready: true, save: async () => true }) }
     if (id === 'react/jsx-runtime') return require(id)
-    if (id === 'react-native') return { Platform: { OS: platform }, StyleSheet: {create:v=>v}, View:'View', Text:'Text', Pressable:'Pressable', ScrollView:'ScrollView' }
+    if (id === 'react-native') return { Platform: { OS: platform }, Keyboard: { dismiss() {} }, StyleSheet: {create:v=>v}, View:'View', Text:'Text', Pressable:'Pressable', ScrollView:'ScrollView' }
     if (id.endsWith('/services/image')) return { pickImages: async opts => { pickerCalls.push(['photo', opts.usage]); return pickedImage ? [pickedImage] : [] } }
     if (id.endsWith('/services/mediaStore')) return { discardGeneratedMedia: async items => { discarded.push(...items) } }
     if (id.endsWith('/utils/mediaRecovery.js')) return { mediaFailureMessage: error => error.message }

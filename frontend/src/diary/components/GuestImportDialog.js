@@ -1,8 +1,7 @@
 import { useEffect } from 'react'
-import { Platform, StyleSheet, Text, View } from 'react-native'
+import { Platform, Pressable, StyleSheet, Text, View } from 'react-native'
 import EditorModal from '../../editor/components/controls/EditorModal'
 import { PANEL_RADIUS } from '../../editor/components/ToolPanel'
-import DioButton from '../../shared/DioButton'
 import { colors, shadow } from '../../shared/theme'
 import { skippedSummary } from '../services/guestDiaryImport.js'
 import { useGuestDiaryImport } from '../hooks/useGuestDiaryImport'
@@ -25,8 +24,8 @@ export default function GuestImportDialog({ model }) {
             <Text style={styles.title}>이 기기의 다이어리를 내 계정으로 옮길까요?</Text>
             <Text style={styles.message}>{`다이어리 ${candidates.length}권 · 옮기면 기기에서는 지워져요`}</Text>
             <View style={styles.actions}>
-              <DioButton variant="tonal" label="나중에" onPress={model.later} />
-              <DioButton variant="filled" label={`${candidates.length}권 옮기기`} onPress={model.start} />
+              <ActionButton label="나중에" onPress={model.later} />
+              <ActionButton filled label={`${candidates.length}권 옮기기`} onPress={model.start} />
             </View>
           </>}
           {phase === 'running' && progress && <>
@@ -47,8 +46,9 @@ export default function GuestImportDialog({ model }) {
             {kept > 0 && <Text style={styles.message}>{`${kept}권의 원본은 기기에 남겨 뒀어요.`}</Text>}
             {fontNotice && <Text style={styles.message}>내 손글씨 글꼴은 다른 기기에서 기본 글꼴로 보여요.</Text>}
             <View style={styles.actions}>
-              <DioButton variant={failed.length ? 'ghost' : 'filled'} label="닫기" onPress={model.close} />
-              {failed.length > 0 && <DioButton variant="filled" label="다시 시도" onPress={model.retry} />}
+              {failed.length > 0
+                ? <><ActionButton label="닫기" onPress={model.close} /><ActionButton filled label="다시 시도" onPress={model.retry} /></>
+                : <ActionButton filled label="확인" onPress={model.close} />}
             </View>
           </>}
         </View>
@@ -57,9 +57,22 @@ export default function GuestImportDialog({ model }) {
   )
 }
 
+// 공용 ConfirmDialog 와 같은 버튼: 취소 · 닫기는 글자만, 확정은 primaryStrong 채움(지라 665). 눌림 효과 없음
+function ActionButton({ label, filled = false, onPress }) {
+  return (
+    <Pressable accessibilityRole="button" accessibilityLabel={label} onPress={onPress} style={[styles.button, filled && styles.primary]}>
+      <Text maxFontSizeMultiplier={0} style={filled ? styles.confirmText : styles.cancelText}>{label}</Text>
+    </Pressable>
+  )
+}
+
 const styles = StyleSheet.create({
+  button: { minWidth: 76, minHeight: 48, paddingVertical: 10, paddingHorizontal: 16, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  primary: { backgroundColor: colors.primaryStrong },
+  cancelText: { fontSize: 14, fontWeight: '700', color: colors.textMuted },
+  confirmText: { fontSize: 14, fontWeight: '700', color: colors.surface },
   backdrop: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24, backgroundColor: colors.scrim },
-  card: { width: 360, maxWidth: '100%', padding: 20, borderRadius: PANEL_RADIUS, backgroundColor: colors.surface, ...shadow.float },
+  card: { width: 320, maxWidth: '100%', padding: 20, borderRadius: PANEL_RADIUS, backgroundColor: colors.surface, ...shadow.float },
   title: { fontSize: 16, fontWeight: '700', color: colors.text },
   message: { marginTop: 8, fontSize: 13, lineHeight: 19, color: colors.textMuted, ...(Platform.OS === 'web' && { wordBreak: 'keep-all' }) },
   error: { color: colors.dangerStrong },
