@@ -175,9 +175,12 @@ export default function SafetyScreen({ request, user, store, state, onClose, onW
   // 공유 창의 특정 참여자 ⋯에서 들어온 target은 진입 시 한 번만 메뉴를 바로 연다.
   // 신고·차단 하위 화면에서 참여자 화면으로 돌아올 때는 다시 열지 않는다.
   useEffect(() => {
-    if (screen === 'participants' && request.target?.id && openedTarget.current !== request.target.id) {
-      openedTarget.current = request.target.id;
-      const open = () => measureMenu(request.target.id);
+    const targetId = request.target?.id;
+    if (screen === 'participants' && !loading && targetId && rows.some(member => member.id === targetId) && openedTarget.current !== targetId) {
+      const open = () => {
+        openedTarget.current = targetId;
+        measureMenu(targetId);
+      };
       if (typeof requestAnimationFrame === 'function') {
         const frame = requestAnimationFrame(open);
         return () => { if (typeof cancelAnimationFrame === 'function') cancelAnimationFrame(frame); };
@@ -185,7 +188,7 @@ export default function SafetyScreen({ request, user, store, state, onClose, onW
       const timer = setTimeout(open, 0);
       return () => clearTimeout(timer);
     }
-  }, [measureMenu, request.target?.id, screen]);
+  }, [loading, measureMenu, request.target?.id, rows, screen]);
   function participant(member) {
     const own = member.id === selfId;
     return <View key={member.id} style={s.card}>
