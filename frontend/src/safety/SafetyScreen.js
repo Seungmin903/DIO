@@ -52,6 +52,7 @@ export default function SafetyScreen({ request, user, store, state, onClose, onW
   const alive = useRef(true), locked = useRef(false), revision = useRef(0);
   const menuButtons = useRef(new Map());
   const menuRevision = useRef(0);
+  const openedTarget = useRef(null);
   const clientRequestId = useRef(null);
   const submittedDraft = useRef(null);
   const selfId = String(user?.userId || user?.accountId || user?.id || '');
@@ -166,10 +167,13 @@ export default function SafetyScreen({ request, user, store, state, onClose, onW
     if (menu === member.id) { closeMenu(); return; }
     measureMenu(member.id);
   };
-  // 공유 창의 특정 참여자 ⋯에서 들어온 target은 그 참여자의 메뉴를 바로 연다.
-  // 일반 '전체 참여자 보기'에는 target이 없어 메뉴를 열지 않는다.
+  // 공유 창의 특정 참여자 ⋯에서 들어온 target은 진입 시 한 번만 메뉴를 바로 연다.
+  // 신고·차단 하위 화면에서 참여자 화면으로 돌아올 때는 다시 열지 않는다.
   useEffect(() => {
-    if (screen === 'participants' && request.target?.id) measureMenu(request.target.id);
+    if (screen === 'participants' && request.target?.id && openedTarget.current !== request.target.id) {
+      openedTarget.current = request.target.id;
+      measureMenu(request.target.id);
+    }
   }, [request.target?.id, screen]);
   function participant(member) {
     const own = member.id === selfId;

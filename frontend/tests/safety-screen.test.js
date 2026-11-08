@@ -153,6 +153,16 @@ test('공유 창에서 전달한 참여자 target은 해당 메뉴를 바로 연
   } finally { ui.unmount(); }
 });
 
+test('target 메뉴에서 신고 화면을 거쳐 돌아와도 메뉴를 다시 열지 않는다', () => {
+  const target = { id: '25', nickname: '친구', role: 'EDITOR', participation: 'CURRENT' };
+  const ui = setup(async () => {}, undefined, undefined, target);
+  try {
+    ui.find('신고하기').props.onPress();
+    ui.find('이전 화면').props.onPress();
+    assert.equal(ui.find('신고하기'), undefined);
+  } finally { ui.unmount(); }
+});
+
 test('창 크기가 바뀌면 대기 중인 메뉴 측정 결과를 무시한다', () => {
   const ui = setup(async () => {});
   try {
