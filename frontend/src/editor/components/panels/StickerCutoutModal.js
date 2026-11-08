@@ -27,6 +27,8 @@ export default function StickerCutoutModal({ folder, onClose, onSave, photoPicke
   const [area, setArea] = useState({ width: 0, height: 0 })
   const [phase, setPhase] = useState('select'), [busy, setBusy] = useState(false), locked = useRef(false)
   const [cutoutId, setCutoutId] = useState(null), cutoutRef = useRef(null)
+  // 서버 저장은 한 번만 한다. 이후 캐시·보관함 저장이 실패해도 같은 mediaFileId로 이어서 처리한다.
+  const savedMediaRef = useRef(null)
   const [resultPreview, setResultPreview] = useState(null)
   const [error, setError] = useState(''), [question, setQuestion] = useState(null), [saved, setSaved] = useState(false)
   const [ready, setReady] = useState(false)
@@ -78,6 +80,7 @@ export default function StickerCutoutModal({ folder, onClose, onSave, photoPicke
       cutoutRef.current = opened.cutoutId
       setCutoutId(opened.cutoutId)
       sourceRef.current?.dispose?.(); sourceRef.current = selected
+      savedMediaRef.current = null
       setSource(selected); setReady(false); setHistory(emptyCutout()); setSaved(false); setResultPreview(null); setPhase('select')
     } catch (failure) {
       // 서버 분석이 실패한 새 선택은 아직 sourceRef가 소유하지 않으므로 여기서 정리한다.
@@ -101,7 +104,9 @@ export default function StickerCutoutModal({ folder, onClose, onSave, photoPicke
     locked.current = true; setBusy(true); setError('')
     const token = ++revision.current
     try {
-      const savedMedia = await api.save(cutoutId, cutoutStrokes(history))
+      const savedMedia = savedMediaRef.current ?? await api.save(cutoutId, cutoutStrokes(history))
+      savedMediaRef.current = savedMedia
+      await api.cache(savedMedia.mediaFileId)
       if (!alive.current || token !== revision.current) return
       const item = { src: `media:${savedMedia.mediaFileId}`, mediaFileId: savedMedia.mediaFileId,
         name: savedMedia.originalFilename || '사진 속 대상', aspect: source?.width && source?.height ? source.width / source.height : 1 }
@@ -184,6 +189,7 @@ export default function StickerCutoutModal({ folder, onClose, onSave, photoPicke
           strokeWidth={stroke.width * source.width} strokeLinecap="round" strokeLinejoin="round" />)}
       </Svg>
     </> : <>
+      {/* segment API는 잘라낸 PNG가 아니라 원본 위에 덧그릴 선택 영역 PNG를 반환한다. */}
       <Image pointerEvents="none" source={{ uri: source.uri }} style={StyleSheet.absoluteFill} resizeMode="contain" />
       {!!resultPreview && <Image pointerEvents="none" source={{ uri: resultPreview }} style={StyleSheet.absoluteFill} resizeMode="contain" />}
     </>}

@@ -74,10 +74,13 @@ export const stickerCutoutApi = {
     if (!isId(cutoutId)) throw new Error('사진을 먼저 분석해 주세요.')
     const result = await request(`${baseUrl}/${cutoutId}/save`, { method: 'POST', body: JSON.stringify(selection(strokes)) })
     if (!isId(result?.mediaFileId)) throw new Error('저장 응답을 확인하지 못했어요.')
-    const bytes = await request(`${mediaBaseUrl}/v1/media/${result.mediaFileId}/file`, { binary: true })
-    if (!bytes.length) throw new Error('저장한 스티커 파일을 확인하지 못했어요.')
-    await canvasMediaFiles.save(result.mediaFileId, bytes)
     return result
+  },
+  async cache(mediaFileId) {
+    if (!isId(mediaFileId)) throw new Error('저장한 스티커 정보를 확인하지 못했어요.')
+    const bytes = await request(`${mediaBaseUrl}/v1/media/${mediaFileId}/file`, { binary: true })
+    if (!bytes.length) throw new Error('저장한 스티커 파일을 확인하지 못했어요.')
+    await canvasMediaFiles.save(mediaFileId, bytes)
   },
   close(cutoutId) {
     return isId(cutoutId) ? request(`${baseUrl}/${cutoutId}`, { method: 'DELETE' }).catch(() => null) : Promise.resolve()

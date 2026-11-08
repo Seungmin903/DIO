@@ -15,7 +15,7 @@ const closeButton = tree => ({ props: { onPress: header(tree).props.onBack } })
 // 단계 이동 줄(MakerNav)의 `이전`
 const prevButton = tree => nodes(tree).find(n => n.props.onPrev)
 const tick = () => new Promise(resolve => setImmediate(resolve))
-function fixture(photoPicker, preview) {
+function fixture(photoPicker, preview, apiOverride = {}) {
   let si = 0, ri = 0, ei = 0, closed = 0
   const states = [], refs = [], deps = [], cleanups = []
   const react = {
@@ -34,7 +34,8 @@ function fixture(photoPicker, preview) {
     '../../services/stickerCutoutApi': { stickerCutoutApi: {
       open: async () => ({ cutoutId: '123e4567-e89b-12d3-a456-426614174000', width: 100, height: 100 }),
       segment: async (_id, strokes) => { await preview?.(null, { strokes }); return { preview: 'data:image/png;base64,test' } },
-      save: async () => ({ mediaFileId: '123e4567-e89b-12d3-a456-426614174001', originalFilename: 'cutout.png' }), close: () => Promise.resolve(),
+      save: async () => ({ mediaFileId: '123e4567-e89b-12d3-a456-426614174001', originalFilename: 'cutout.png' }),
+      cache: async () => {}, close: () => Promise.resolve(), ...apiOverride,
     } },
   }
   const mod = { exports: {} }
@@ -137,6 +138,28 @@ test('선택 미리보기 실패 후 입력 유지·재시도와 닫기 취소, 
   assert.equal(find(ui.render(), '저장 흐름 확인').props.disabled, true)
   closeButton(ui.render()).props.onPress()
   assert.equal(ui.closed, 1)
+})
+
+test('서버 저장 뒤 캐시 저장이 실패해도 재시도는 같은 미디어를 이어서 처리한다', async () => {
+  let saved = 0, cached = 0
+  const ui = fixture(async () => ({ uri: 'photo', width: 100, height: 100 }), null, {
+    save: async () => { saved += 1; return { mediaFileId: '123e4567-e89b-12d3-a456-426614174001', originalFilename: 'cutout.png' } },
+    cache: async () => { if (++cached === 1) throw new Error('캐시 저장 실패') },
+  })
+  await load(ui); draw(ui)
+  find(ui.render(), '다음 · 스티커 확인').props.onPress(); await tick()
+  const save = async () => {
+    find(ui.render(), '저장 흐름 확인').props.onPress()
+    nodes(ui.render()).find(n => n.props.confirmLabel === '저장').props.onConfirm()
+    await tick(); await tick()
+  }
+  await save()
+  assert.ok(nodes(ui.render()).some(n => n.props.children === '캐시 저장 실패'))
+  await save()
+  assert.equal(saved, 1)
+  assert.equal(cached, 2)
+  assert.equal(find(ui.render(), '저장 흐름 확인').props.disabled, true)
+  ui.unmount()
 })
 
 test('결과 확인에서 헤더 이전·기기 뒤로가기로 돌아오면 같은 사진과 붓질을 유지한다', async () => {
