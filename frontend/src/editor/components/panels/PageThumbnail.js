@@ -11,6 +11,8 @@ const nextBatch = (objects, shown) => Math.max(OBJECTS_PER_BATCH, objects.length
 const BATCH_DELAY_MS = 20
 // 이미 채워진 썸네일에 요소가 더해질 때(필기 중)는 이 시간 동안 모았다가 한 번에 보탠다. 획마다 요소 수백 개를 다시 그리지 않게.
 export const UPDATE_DELAY_MS = 300
+// 입력이 300ms 보다 촘촘히 이어져도 이 시간 안에는 한 번 보탠다(디바운스가 무기한 미뤄지지 않게)
+export const UPDATE_MAX_WAIT_MS = 1000
 // 채워진 뒤라도 안 보인 요소가 이보다 많으면 한 번에 그리지 않고 처음처럼 나눠 그린다
 export const REFILL_THRESHOLD = 12
 
@@ -37,15 +39,17 @@ export default function PageThumbnail({ page, workQueue, ...props }) {
   latest.current.objects = objects
 
   useEffect(() => {
-    let cancelPending = () => {}, cancelled = false, scheduled = false, settle = null
+    let cancelPending = () => {}, cancelled = false, scheduled = false, settle = null, settleSince = null
     const kick = () => {
       if (cancelled) return
       if (!hasUnseenThumbnailObjects(latest.current.objects, latest.current.shown)) { latest.current.filled = true; return }
       // 페이지 내용이 통째로 바뀌어 안 보인 요소가 많으면(동기화로 교체 등) 다시 나눠 그린다
       if (latest.current.filled && unseenCount(latest.current.objects, latest.current.shown) > REFILL_THRESHOLD) { latest.current.filled = false; if (settle) { clearTimeout(settle); settle = null } }
       if (latest.current.filled) {
-        // 채워진 썸네일의 변경: 빠른 연속 입력을 모아 한 번에 전부 보탠다
+        // 채워진 썸네일의 변경: 빠른 연속 입력을 모아 한 번에 전부 보탠다. 최대 대기 시간을 넘기면 바로 보탠다
+        if (settleSince === null) settleSince = Date.now()
         if (settle) clearTimeout(settle)
+        if (Date.now() - settleSince >= UPDATE_MAX_WAIT_MS) { settle = null; advance(Infinity); return }
         settle = setTimeout(() => { settle = null; advance(Infinity) }, UPDATE_DELAY_MS)
         return
       }
@@ -59,6 +63,7 @@ export default function PageThumbnail({ page, workQueue, ...props }) {
       if (cancelled) return
       const current = latest.current
       const next = revealThumbnailObjects(current.objects, current.shown, count)
+      settleSince = null
       latest.current = { objects: current.objects, shown: next, filled: current.filled }
       setShown(next)
       kick()

@@ -235,9 +235,10 @@ export function useMemberCanvasCollaboration({diary,page,state,loaded,readOnly,d
         diagnostics.event('ws-change')
         // 내 저장의 에코면 다시 조회하지 않는다(1인 다이어리는 ID 대신 내 계정이 낸 이벤트 수로 판단)
         const actor=frame.actorUserId,mine=actor!=null&&actor!==''&&diary.memberAccountId!=null&&String(actor)===String(diary.memberAccountId)
-        // 에코 소비는 그 페이지의 엔진만 한다(다른 페이지 엔진이 삼키지 않게). ID 일치는 어느 엔진이든 내 것이다.
+        // 그 페이지의 엔진이 먼저 판단한다(ID 일치 또는 1인 다이어리의 내 에코 소비). 명령은 페이지 엔진이 내므로 보통 여기서 끝나고,
+        // 엔진이 없거나 못 알아보면 다른 엔진의 ID 일치만 본다(에코 소비는 다른 페이지 엔진이 하지 않는다).
         const owner=r.loaded.get(frame.pageId)
-        if(owner?.claimsChange?owner.claimsChange(frame.clientOperationId,mine):[...r.loaded.values()].some(engine=>engine.ownsCommand(frame.clientOperationId)))return
+        if(owner?.claimsChange?.(frame.clientOperationId,mine)||[...r.loaded.values()].some(engine=>engine!==owner&&engine.ownsCommand(frame.clientOperationId)))return
         if(frame.pageId===latest.current.page.id)refresh()
         else if(latest.current.state.doc.pages.some(p=>p.id===frame.pageId))r.sync(frame.pageId)
         else refreshPagesQuietly()

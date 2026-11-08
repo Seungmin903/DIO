@@ -60,10 +60,10 @@ export function createCanvasSession({api,storage,key,legacyKey,pageId,diaryId,cr
   // 서버가 바꾼 요소는 version 이 오르므로 조회 응답은 싸게 비교하고, 내 요청의 응답(apply·control)은 항상 반영한다.
   const setBase=(items,force=false)=>{if(!force&&sameBase(items))return false;journal.orderKeys=copy(items.sortKeys??items.map(e=>Number(e.sortKey)).filter(Number.isFinite));journal.base=copy(items);return true}
   const accept=async response=>{active();setBase(response.items,true);await persist()}
-  // 내가 보낸 저장의 서버 에코(PAGE_CHANGED)를 기다리는 시각들. 1인 다이어리는 구형 요소 API 로 저장해 에코의 clientOperationId 가 임의값이라 ID 로 못 알아보므로,
-  // 내 계정이 낸 에코를 보낸 횟수만큼 내 것으로 본다. 소켓이 끊겨 에코가 안 오면 10초 뒤 버린다.
+  // 내가 보낸 저장의 서버 에코(PAGE_CHANGED)를 기다리는 시각들. 1인 다이어리(개인 경로)는 구형 요소 API 로 저장해 에코의 clientOperationId 가 임의값이라
+  // ID 로 못 알아보므로, 내 계정이 낸 에코를 보낸 횟수만큼 내 것으로 본다. 공유 경로의 저장은 ID 로 알아보므로 세지 않는다. 소켓이 끊겨 에코가 안 오면 10초 뒤 버린다.
   const ECHO_WAIT_MS=10000;let echoes=[]
-  const apply=async(...args)=>{echoes.push(Date.now());try{return await api.apply(...args)}catch(error){echoes.pop();throw error}}
+  const apply=async(page,request)=>{const counted=request?.canvasWriteMode==='personal';if(counted)echoes.push(Date.now());try{return await api.apply(page,request)}catch(error){if(counted)echoes.pop();throw error}}
   const push=entry=>{journal.queue.push(compactEdit(entry))}
   // 동기화 결과. 화면 반영용 objects·expectedLocal 은 읽을 때 만든다(unchanged 면 읽지 않아 복사·미리보기 비용이 없다).
   const syncResult=fields=>{let objects,expectedLocal;return {status:'saved',unchanged:false,...fields,get objects(){return objects??=preview()},get expectedLocal(){return expectedLocal??=copy(journal.uiLocal)}}}

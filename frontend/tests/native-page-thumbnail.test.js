@@ -83,8 +83,19 @@ test('다 채워진 썸네일에 획이 더해지면 모았다가 한 번에 보
   flush()
   assert.deepEqual(render(two).objects.map(o => o.id), [0, 1, 2, 3, 4, 5], '모았던 요소를 한 번에 보탠다')
   assert.equal(timers.size, 0)
+  // 입력이 300ms 보다 촘촘히 이어져도 최대 대기 시간을 넘기면 바로 보탠다
+  const realNow = Date.now; let clock = realNow()
+  Date.now = () => clock
+  try {
+    let page2 = two
+    for (let i = 7; i < 12; i++) { clock += 150; page2 = { id: 'p', objects: [...page2.objects, { id: i }] }; render(page2) }
+    assert.equal(timers.size, 1, '디바운스 중')
+    clock += 400; page2 = { id: 'p', objects: [...page2.objects, { id: 12 }] }
+    render(page2); assert.equal(timers.size, 0, '타이머 없이 바로 보탠다'); assert.equal(render(page2).objects.length, 12, '최대 대기 시간을 넘기면 전부 보탠다')
+    var twoTail = page2
+  } finally { Date.now = realNow }
   // 내용이 통째로 바뀌어 안 보인 요소가 많으면 모으지 않고 처음처럼 나눠 그린다. 걸려 있던 모으기 타이머는 취소한다
-  const three = { id: 'p', objects: [...two.objects, { id: 6 }] }
+  const three = { id: 'p', objects: [...twoTail.objects, { id: 'x' }] }
   render(three); assert.equal(timers.size, 1); assert.equal(delays.at(-1), module.exports.UPDATE_DELAY_MS)
   const replaced = { id: 'p', objects: Array.from({ length: 30 }, (_, i) => ({ id: `r${i}` })) }
   assert.deepEqual(render(replaced).objects, [])
