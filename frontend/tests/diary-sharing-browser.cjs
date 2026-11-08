@@ -14,7 +14,7 @@ const server = http.createServer((req, res) => {
     return;
   }
   http
-    .get(`http://127.0.0.1:8096${req.url}`, (up) => {
+    .get(`http://localhost:8096${req.url}`, (up) => {
       res.writeHead(up.statusCode, up.headers);
       up.pipe(res);
     })
@@ -38,6 +38,16 @@ const server = http.createServer((req, res) => {
       await page.goto(`http://127.0.0.1:${server.address().port}`);
       await button('소유자 공유 열기').waitFor({ timeout: 120000 });
     };
+    await open();
+    await button('다른 계정으로 메일 초대 열기').click();
+    await page.getByRole('alert').filter({
+      hasText: '이 계정에서 초대를 찾을 수 없어요. 초대받은 계정으로 다시 시도해 주세요.',
+    }).waitFor();
+    await button('계정 바꾸기').click();
+    assert.equal(await page.getByTestId('opened').textContent(), '123');
+    assert.deepEqual(errors, []);
+    console.log('PASS: mail invitation not found prompts an account switch with the same invitation ID');
+    if (process.argv.includes('--mail-invite-only')) return;
     for (const [width, height] of [
       [1280, 800],
       [1024, 768],
