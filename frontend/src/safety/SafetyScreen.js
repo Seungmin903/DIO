@@ -159,6 +159,13 @@ export default function SafetyScreen({ request, user, store, state, onClose, onW
         <View style={[s.header, isPhone && s.phoneHeader]}>
           <BackButton label="이전 화면" onPress={back} disabled={busy} />
           <Text accessibilityRole="header" style={s.title}>{title}</Text>
+          {screen === 'participants' && <Pressable
+            style={s.icon}
+            accessibilityRole="button"
+            accessibilityLabel="참여자 창 닫기"
+            onPress={onClose}
+            disabled={busy}
+          ><EditorIcon name="close" size={20} /></Pressable>}
         </View>
         <KeyboardAvoidingView style={[s.keyboard, isPhone && s.phoneKeyboard]} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
           <ScrollView contentContainerStyle={s.body} keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets>

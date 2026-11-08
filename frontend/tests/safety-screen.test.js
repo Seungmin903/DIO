@@ -9,7 +9,7 @@ const code = babel.transformSync(readFileSync(new URL('../src/safety/SafetyScree
 }).code;
 const nodes = n => !n || typeof n !== 'object' ? [] : [n, ...[n.props?.children].flat(Infinity).flatMap(nodes)];
 const label = n => n.props?.label || n.props?.accessibilityLabel || [n.props?.children].flat(Infinity).filter(x => typeof x === 'string' || typeof x === 'number').join('');
-function setup(report, store) {
+function setup(report, store, onClose = () => {}) {
   const states = [], refs = [], deps = [], cleanups = []; let si = 0, ri = 0, ei = 0, serial = 0;
   const react = {
     useState: initial => { const i = si++; if (!(i in states)) states[i] = typeof initial === 'function' ? initial() : initial; return [states[i], value => { states[i] = typeof value === 'function' ? value(states[i]) : value; }]; },
@@ -26,7 +26,7 @@ function setup(report, store) {
   const target = { id: '25', nickname: '친구', role: 'EDITOR', participation: 'CURRENT' };
   const props = { request: { kind: 'participants', target, diary: { id: '11111111-1111-4111-8111-111111111111', title: '기록', members: [target] } },
     user: { userId: '10', nickname: '나' }, store: { mode: 'server', participants: async () => [target], refresh() {}, report },
-    state: { status: 'ready', blocks: [] }, onClose() {}, evidencePicker: async () => [{ uri: 'file:///evidence.png', fileName: 'evidence.png', mimeType: 'image/png', size: 500 }] };
+    state: { status: 'ready', blocks: [] }, onClose, evidencePicker: async () => [{ uri: 'file:///evidence.png', fileName: 'evidence.png', mimeType: 'image/png', size: 500 }] };
   if (store) props.store = store;
   const render = () => { si = ri = ei = 0; if (store) props.state = store.getSnapshot(); return mod.exports.default(props); };
   return { render, find: text => nodes(render()).find(n => label(n) === text), unmount: () => cleanups.forEach(fn => fn?.()) };
@@ -101,5 +101,17 @@ test('참여자 화면은 기존 차단 목록을 먼저 조회하고 차단·�
     assert.deepEqual(store.getSnapshot().blocks, [existing]);
     ui.find('친구 메뉴').props.onPress();
     assert.equal(ui.find('차단하기').props.disabled, false);
+  } finally { ui.unmount(); }
+});
+
+test('전체 참여자 보기 헤더는 이전 화면과 창 닫기를 모두 제공한다', () => {
+  let closed = 0;
+  const ui = setup(async () => {}, undefined, () => { closed++; });
+  try {
+    const close = nodes(ui.render()).find(n => n.props?.accessibilityLabel === '참여자 창 닫기');
+    assert.ok(close);
+    close.props.onPress();
+    assert.equal(closed, 1);
+    assert.ok(ui.find('이전 화면'));
   } finally { ui.unmount(); }
 });
