@@ -24,10 +24,10 @@ public class PageService {
 	@Transactional(readOnly=true) public PageListResponse list(UUID diaryId,Long userId){diaryAccessService.requireRead(diaryId,userId);return listWithoutDiaryCheck(diaryId);}
 	@Transactional public PageResponse create(UUID diaryId,PageCreateRequest r,Long userId){
 		diaryAccessService.requireWrite(diaryId,userId);
-        // 앱은 templateId 없이 설정의 templateCode · templateVersion 으로 속지를 알린다. 그 글자로 속지 행을 찾아 template_id 를 채워 저장한다(V35 와 같은 기준)
-        PageTemplate t=resolveTemplate(r.getTemplateId(),r.getTemplateConfig()); Long templateId=t==null?null:t.getTemplateId();
-        // 원격 속지(V34)는 형식에 맞는 remoteTemplate 이 있어야 하고 다른 속지에는 둘 수 없다(공유 구성원 앱이 이 값으로 속지를 찾는다)
-        RemoteTemplates.requireValidConfig(r.getTemplateConfig(),t==null?null:t.getCode());
+        PageTemplate byId=findTemplate(r.getTemplateId());
+        // 원격 속지(V34)는 형식에 맞는 remoteTemplate 이 있어야 하고 다른 속지에는 둘 수 없다(공유 구성원 앱이 이 값으로 속지를 찾는다).
+        // templateId 가 없으면 설정의 templateCode 로 원격 속지인지 본다
+        RemoteTemplates.requireValidConfig(r.getTemplateConfig(),byId==null?null:byId.getCode());
         String requestId=r.getTemplateConfig()==null?null:r.getTemplateConfig().path("clientPageRequestId").asText(null);
         if(requestId!=null){
             UUID.fromString(requestId);
@@ -39,16 +39,21 @@ public class PageService {
                 if(existing.getTemplateConfig()==null)continue;
                 var config=JSON.readTree(existing.getTemplateConfig());
                 if(!requestId.equals(config.path("clientPageRequestId").asText(null)))continue;
-                // 이 서버 배포 전에 만든 페이지는 template_id 없이 저장됐다(V35 가 연결하지 못한 페이지 포함). 같은 요청의 재시도라면
-                // 설정(코드 · 버전 포함)이 같은지로 판단해 그 페이지를 돌려준다. templateId 를 직접 보낸 요청은 예전처럼 그대로 비교한다
-                boolean sameTemplate=Objects.equals(existing.getTemplateId(),templateId)||(existing.getTemplateId()==null&&r.getTemplateId()==null);
+                // 재시도 판별은 속지 해석(resolveTemplate)보다 먼저 한다. 처음 요청 뒤 그 속지가 내려가거나 행이 겹쳐도 이미 만든 페이지를 돌려줘야
+                // 앱이 대기 중인 요청을 지우고 같은 페이지를 한 장 더 만드는 일이 없다.
+                // templateId 없이 온 요청의 속지는 설정의 templateCode · templateVersion 이 정하므로 sameConfig 로 함께 비교된다
+                // (이 서버 배포 전에 template_id 없이 만든 페이지도 같다). templateId 를 직접 보낸 요청은 예전처럼 그 값을 비교한다
+                boolean sameTemplate=r.getTemplateId()==null||Objects.equals(existing.getTemplateId(),r.getTemplateId());
+                PageTemplate sized=byId!=null?byId:existing.getTemplateId()==null?null:templateRepository.findById(existing.getTemplateId()).orElse(null);
                 if(existing.getDeletedAt()!=null||!sameConfig(config,r.getTemplateConfig())||!sameTemplate
-                    ||!Objects.equals(existing.getTitle(),r.getTitle())||existing.getCanvasWidth().compareTo(r.getCanvasWidth()==null?width(t):r.getCanvasWidth())!=0
-                    ||existing.getCanvasHeight().compareTo(r.getCanvasHeight()==null?height(t):r.getCanvasHeight())!=0
+                    ||!Objects.equals(existing.getTitle(),r.getTitle())||existing.getCanvasWidth().compareTo(r.getCanvasWidth()==null?width(sized):r.getCanvasWidth())!=0
+                    ||existing.getCanvasHeight().compareTo(r.getCanvasHeight()==null?height(sized):r.getCanvasHeight())!=0
                     ||existing.isGridVisible()!=Boolean.TRUE.equals(r.getGridVisible())||!Objects.equals(existing.getGridColor(),r.getGridColor()))throw new PageCreationConflictException();
                 return new PageResponse(pageData(existing));
             }
         }
+		// 새 페이지: 앱은 templateId 없이 설정의 templateCode · templateVersion 으로 속지를 알린다. 그 글자로 속지 행을 찾아 template_id 를 채워 저장한다(V35 와 같은 기준)
+		PageTemplate t=resolveTemplate(r.getTemplateId(),r.getTemplateConfig()); Long templateId=t==null?null:t.getTemplateId();
 		// 코드로 속지를 알린 페이지는 만들 때 크기가 그 속지 행과 같아야 한다(V35 와 같은 기준). 다르면 template_id 와 페이지 크기가 어긋난다.
 		// 만든 뒤 크기를 바꾸는 수정(PDF 쪽 크기 맞추기 등)은 그대로 허용한다
 		if(t!=null&&r.getTemplateConfig()!=null&&r.getTemplateConfig().has("templateCode")

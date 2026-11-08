@@ -282,6 +282,20 @@ class PageApiTests {
 		mvc.perform(post("/api/v1/diaries/"+diaryId+"/pages").with(authenticated()).contentType(MediaType.APPLICATION_JSON)
 				.content("{\"canvasWidth\":768,\"canvasHeight\":1024,\"templateConfig\":"+legacyConfig+"}"))
 			.andExpect(jsonPath("$.page.pageId").value(legacyId));
+		// 만든 뒤 응답을 잃은 사이 그 속지가 내려가거나(비활성) 활성 행이 겹쳐도, 같은 요청의 재시도는 이미 만든 페이지를 돌려준다
+		PageTemplate retry=versionedTemplate("link-retry-portrait",new BigDecimal("768.00"),new BigDecimal("1024.00"),"{}",true);
+		String retryConfig="{\"templateCode\":\"link-retry-portrait\",\"templateVersion\":\"1.0.0\",\"clientPageRequestId\":\"8b3e4c6a-2f3d-4e5c-9b7a-4d9f0e1a2c33\"}";
+		String retryBody="{\"canvasWidth\":768,\"canvasHeight\":1024,\"templateConfig\":"+retryConfig+"}";
+		String retryId=body(mvc.perform(post("/api/v1/diaries/"+diaryId+"/pages").with(authenticated()).contentType(MediaType.APPLICATION_JSON).content(retryBody))
+			.andExpect(status().isCreated()).andReturn()).at("/page/pageId").asText();
+		boundaryJdbc.update("update page_templates set is_active=false where template_id=?",retry.getTemplateId());
+		mvc.perform(post("/api/v1/diaries/"+diaryId+"/pages").with(authenticated()).contentType(MediaType.APPLICATION_JSON).content(retryBody))
+			.andExpect(jsonPath("$.page.pageId").value(retryId)).andExpect(jsonPath("$.page.templateCode").value("link-retry-portrait"));
+		boundaryJdbc.update("update page_templates set is_active=true where template_id=?",retry.getTemplateId());
+		PageTemplate retryCopy=activeTemplate("link-retry-portrait",new BigDecimal("768.00"),new BigDecimal("1024.00"),"{}");
+		setField(retryCopy,"templateVersion","1.0.0"); pageTemplateRepository.saveAndFlush(retryCopy);
+		mvc.perform(post("/api/v1/diaries/"+diaryId+"/pages").with(authenticated()).contentType(MediaType.APPLICATION_JSON).content(retryBody))
+			.andExpect(jsonPath("$.page.pageId").value(retryId));
 		// 서버에 없는 속지(오타 · 없는 버전 · 내린 속지)는 앱 업데이트로 풀릴 수 있어 다른 400과 코드를 나눈다
 		for (String unknown:new String[]{
 				"{\"templateConfig\":{\"templateCode\":\"link-cvoer-portrait\",\"templateVersion\":\"1.0.0\"}}",
