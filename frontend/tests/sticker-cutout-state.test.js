@@ -29,12 +29,17 @@ function fixture(photoPicker, preview) {
     'react-native-safe-area-context': { SafeAreaView: 'SafeAreaView' },
     'react-native-svg': { __esModule: true, default: 'Svg', Defs: 'Defs', Image: 'SvgImage', Mask: 'Mask', Path: 'Path', Pattern: 'Pattern', Rect: 'Rect' },
     '../../../shared/theme': { colors: {}, radius: {}, DISABLED_OPACITY: .4 },
-    '../../utils/svgId': { useSvgId: () => 'cutout-test' }, '../../utils/stickerCutout': selection,
+    '../../utils/stickerCutout': selection,
     '../../services/stickerCutout': { pickCutoutPhoto: photoPicker },
+    '../../services/stickerCutoutApi': { stickerCutoutApi: {
+      open: async () => ({ cutoutId: '123e4567-e89b-12d3-a456-426614174000', width: 100, height: 100 }),
+      segment: async (_id, strokes) => { await preview?.(null, { strokes }); return { preview: 'data:image/png;base64,test' } },
+      save: async () => ({ mediaFileId: '123e4567-e89b-12d3-a456-426614174001', originalFilename: 'cutout.png' }), close: () => Promise.resolve(),
+    } },
   }
   const mod = { exports: {} }
   new Function('require', 'module', 'exports', code)(id => id === 'react/jsx-runtime' ? require(id) : mocks[id] ?? { __esModule: true, default: id }, mod, mod.exports)
-  const render = () => { si = ri = ei = 0; return mod.exports.default({ folder: { name: '내 폴더' }, onClose: () => closed++, photoPicker, ...(preview ? { preview } : {}) }) }
+  const render = () => { si = ri = ei = 0; return mod.exports.default({ folder: { id: 'folder', name: '내 폴더' }, onClose: () => closed++, photoPicker }) }
   render()
   return { render, unmount: () => cleanups.forEach(fn => fn?.()), get closed() { return closed } }
 }
@@ -87,7 +92,7 @@ test('좁은 세로 사진의 큰 붓은 사진 너비로 제한하고 손을 �
   assert.equal(find(ui.render(), '되돌리기').props.disabled, false)
   find(ui.render(), '다음 · 스티커 확인').props.onPress(); await tick()
   assert.equal(input.strokes.length, 1)
-  assert.equal(input.strokes[0].width, 1)
+  assert.equal(input.strokes[0].size, .5)
   ui.unmount()
 })
 test('사진 선택 연타와 폐기 후 응답은 상태 변경 없이 임시 사진을 해제한다', async () => {
@@ -125,9 +130,10 @@ test('선택 미리보기 실패 후 입력 유지·재시도와 닫기 취소, 
   assert.equal(ui.closed, 0)
   find(ui.render(), '다음 · 스티커 확인').props.onPress(); await tick()
   find(ui.render(), '저장 흐름 확인').props.onPress()
-  const confirm = nodes(ui.render()).find(n => n.props.confirmLabel === '확인')
-  assert.match(confirm.props.message, /저장되지 않아요/)
+  const confirm = nodes(ui.render()).find(n => n.props.confirmLabel === '저장')
+  assert.match(confirm.props.message, /PNG 스티커/)
   confirm.props.onConfirm()
+  await tick()
   assert.equal(find(ui.render(), '저장 흐름 확인').props.disabled, true)
   closeButton(ui.render()).props.onPress()
   assert.equal(ui.closed, 1)
@@ -140,7 +146,7 @@ test('결과 확인에서 헤더 이전·기기 뒤로가기로 돌아오면 같
   assert.equal(header(ui.render()).props.backLabel, '스티커 만들기 나가기')
   find(ui.render(), '다음 · 스티커 확인').props.onPress(); await tick()
   assert.ok(find(ui.render(), '2단계 스티커 확인'))
-  assert.ok(nodes(ui.render()).some(n => n.type === 'Pattern'))
+  assert.ok(nodes(ui.render()).some(n => n.props?.source?.uri === 'data:image/png;base64,test'))
   assert.equal(find(ui.render(), '선택 수정'), undefined) // 돌아가기는 헤더 뒤로 하나
   assert.equal(find(ui.render(), '브러시 크기'), undefined) // ① 도구를 ② 에 다시 띄우지 않는다
   assert.equal(find(ui.render(), '스티커 폴더 이름'), undefined) // 연 폴더에 넣을 때는 이름만 보인다
