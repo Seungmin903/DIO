@@ -4,7 +4,7 @@
 
 1. **번들에서 뺀 에셋**: 앱 코드가 이미 아는 큰 글꼴과 2026 속지. 목록(`manifest.js`)이 앱과 함께 배포된다.
 2. **앱 배포 없이 추가하는 글꼴·스티커·속지**: `frontend/remote-content/`에 넣고 올리면, 앱이 켜질 때 `catalog.json`을 받아 목록에 넣는다.
-   - 올리는 방법과 파일 형식은 [remote-content/README.md](../frontend/remote-content/README.md)에 있다.
+   - 에셋을 올리는 사람용 짧은 안내(넣을 곳 · 파일 형식 · 이름 규칙 · id · 앱에 보이는 조건)는 [remote-content/올리기 안내.md](../frontend/remote-content/올리기%20안내.md), json 형식 전체는 [remote-content/README.md](../frontend/remote-content/README.md)에 있다.
    - 앱 쪽 코드는 `src/shared/remoteAssets/remoteCatalog.js`(해석·불러오기)와 `remoteCatalogService.js`(앱 연결)다.
    - 원격 글꼴은 글꼴 목록에서 기본 글꼴 뒤에 놓인다. 문서에는 `remote-<id>`로 저장되고, 처음 쓸 때 파일을 받는다.
    - 원격 스티커 팩(운영자가 올림)은 보관함의 기본 분류 칩으로 들어간다. 스티커는 그림(PNG) 또는 '디오&모아'와 같은 도트 형식이고, 페이지에는 그림 주소 없이 `builtin: remote:<팩>:<스티커>`만 저장된다.
@@ -15,7 +15,7 @@
    - 원격 속지는 한 장짜리 속지로, 속지 고르기의 노트·플래너·일기 탭 끝에 붙는다. 앱 안에서는 `remote-<id>-<방향>`이다.
      - 속지 탭도 목록(`templateGroups`, 원본 `remote-content/template-groups.json`)으로 더한다. 새 탭은 앱 탭 3개 뒤에 붙고, 속지가 없거나 숨긴 탭은 보이지 않는다. 탭이 4개를 넘으면 가로로 넘긴다(`PaperTabs`).
      - 서버(V34)에는 방향마다 범용 속지 행 `dio-remote-landscape`·`dio-remote-portrait`가 하나씩 있다. 페이지 설정 `remoteTemplate: <id>`가 어떤 그림인지 정한다. 서버는 id 형식만 검사하고, 그림은 앱이 catalog.json에서 찾는다.
-     - 다이어리 생성(`JdbcDiaryInitialPages`)은 `remoteTemplate`을 원격 행에서만 받고, 원격 행에는 꼭 요구한다. 페이지 추가·수정 API(`PageService`)도 같은 규칙(`page.domain.RemoteTemplates`)으로 검사한다. 속지 코드는 템플릿 행 또는 설정의 `templateCode`로 판단하며, 어긋나면 400 `INVALID_PAGE_REQUEST`다. 공유 다이어리의 다른 구성원 앱이 이 값으로 속지를 찾으므로 잘못된 값이 저장되지 않게 한다. 원격 속지 페이지에서 속지를 바꾸지 않고 설정만 통째로 바꾸는 PATCH(속지 글꼴 변경 등)는 빠진 속지 정체 키(`templateCode`·`templateVersion`·`remoteTemplate`)를 저장된 설정에서 이어받고, 저장 기준 속지 코드는 템플릿 행이 없으면 저장된 설정의 `templateCode`로 정한다. 설정만으로 원격 ↔ 일반 속지를 바꾸는 요청은 거부한다(속지 코드가 없는 빈 종이 페이지도 일반 속지로 본다). 원격 속지 페이지는 설정만으로 방향 행(`dio-remote-landscape` ↔ `portrait`)도 바꿀 수 없다. 방향은 `templateId`로 바꾸고, 원격 속지 페이지에 원격 행 `templateId`만 보내면 저장된 `remoteTemplate`을 이어받는다. 일반 페이지를 원격 행으로 바꿀 때는 `templateConfig.remoteTemplate`이 꼭 있어야 한다.
+     - 다이어리 생성(`JdbcDiaryInitialPages`)은 `remoteTemplate`을 원격 행에서만 받고, 원격 행에는 꼭 요구한다. 페이지 추가·수정 API(`PageService`)도 같은 규칙(`page.domain.RemoteTemplates`)으로 검사한다. 속지 코드는 템플릿 행 또는 설정의 `templateCode`로 판단하며, 어긋나면 400 `INVALID_PAGE_REQUEST`다(서버에 없는 속지 코드는 400 `UNKNOWN_PAGE_TEMPLATE`, 아래 "속지 코드 저장"). 공유 다이어리의 다른 구성원 앱이 이 값으로 속지를 찾으므로 잘못된 값이 저장되지 않게 한다. 원격 속지 페이지에서 속지를 바꾸지 않고 설정만 통째로 바꾸는 PATCH(속지 글꼴 변경 등)는 빠진 속지 정체 키(`templateCode`·`templateVersion`·`remoteTemplate`)를 저장된 설정에서 이어받고, 저장 기준 속지 코드는 템플릿 행이 없으면 저장된 설정의 `templateCode`로 정한다. 설정만으로 원격 ↔ 일반 속지를 바꾸는 요청은 거부한다(속지 코드가 없는 빈 종이 페이지도 일반 속지로 본다). 원격 속지 페이지는 설정만으로 방향 행(`dio-remote-landscape` ↔ `portrait`)도 바꿀 수 없다. 방향은 `templateId`로 바꾸고, 원격 속지 페이지에 원격 행 `templateId`만 보내면 저장된 `remoteTemplate`을 이어받는다. 일반 페이지를 원격 행으로 바꿀 때는 `templateConfig.remoteTemplate`이 꼭 있어야 한다.
      - 앱 쪽 연결: `editor/templates/remoteTemplates.js`(ID·목록), `serverCatalog.js`(서버 코드↔앱 ID), `collaboration/serverPages.js`(페이지 추가·읽기), `diary/utils/paperChoice.js`(고르기 탭).
      - 목록을 아직 못 받은 기기는 페이지 크기·방향은 ID로 알고, 그림은 목록이 올 때까지 최대 10초 기다린 뒤 "속지를 불러오지 못했어요"를 보인다.
     - 마이그레이션 번호(V34)는 병합 직전 develop · release 의 최신 번호 다음인지 다시 확인한다. 한 환경이라도 배포한 뒤에는 번호를 바꾸지 않는다.
@@ -69,7 +69,8 @@
      2. 지금 올라간 `catalog.json`을 받는다.
      3. 이미 공개한 글꼴·스티커 팩·팩 안의 스티커(`stickerPacks[].stickers`)·속지·속지 탭이 빠졌는지 비교한다(`compare-remote-catalog.mjs`). 빠졌으면 멈추고, CI 변수 `ALLOW_CATALOG_REMOVAL=1`로만 허용한다. 지금 목록은 키를 정확히 나열해 있을 때만 받고(`fetch-remote-catalog.sh`), 있는데 못 받거나 깨졌으면 비교 없이 올리지 않는다. 정말 없을 때(처음 올림)만 비교를 건너뛴다.
      4. 파일을 먼저, `catalog.json`을 마지막에 올린다.
-   - 잡은 `remote-content/`, `assets/fonts`, `assets/templates`, 원격 에셋 스크립트가 바뀐 파이프라인에서만 돈다.
+   - 검사 잡과 개발 업로드 잡은 `remote-content/`, `assets/fonts`, `assets/templates`, 원격 에셋 스크립트가 바뀐 파이프라인에서만 돈다. 운영 업로드 잡은 master 파이프라인마다 눌러 다시 올릴 수 있다.
+   - **업로드 잡은 develop · master 에서만 돈다. release 브랜치에 병합해도 올라가지 않는다**(아래 "업로드 잡이 돌지 않았을 때").
    - 버킷과 키는 러너 서버의 env 파일에 둔다. 다른 배포 잡과 같은 방식이다. **이 파일 두 개는 서버에 직접 만들어야 한다.**
      ```
      /home/gitlab-runner/dio-env/assets-dev.env
@@ -84,8 +85,46 @@
    - 확장자별로 `Content-Type`(`font/ttf`, `image/svg+xml`, `application/json`)과 `Cache-Control: public, max-age=31536000, immutable`을 붙인다. `catalog.json`만 `max-age=60`이다. `--delete`는 쓰지 않는다.
    - 급할 때는 키가 있는 PC에서 `sh frontend/scripts/upload-remote-assets.sh <버킷> [static-assets]`로 직접 올릴 수 있다. 같은 비교를 거친다(node 필요).
 5. **배포 순서**:
-   - 번들에서 뺀 에셋: 에셋이 먼저 올라간 뒤(develop 병합 → CI) 매니페스트가 바뀐 앱을 배포한다.
+   - 번들에서 뺀 에셋: 에셋이 먼저 올라간 뒤(develop 병합 → CI, release에 병합했다면 직접 업로드) 매니페스트가 바뀐 앱을 배포한다.
    - `remote-content/`에 추가한 글꼴·스티커·속지: 병합(운영은 master 잡 실행)만 하면 된다. 앱은 다음 실행 때 반영한다. 운영에 처음 올릴 때는 운영 백엔드에 V34가 배포된 뒤(`deploy-production` 성공 뒤) 올린다. CI는 이 순서를 `needs`로 강제한다.
+
+## 속지 코드 저장 (V35)
+
+원격 에셋과 함께 정리한 것으로, 페이지가 어떤 속지를 쓰는지 서버에 저장하는 방식이다. 자세한 내용은 [속지 카탈로그 서버 매핑](./다이어리%20저장/속지%20카탈로그%20서버%20매핑.md)의 "페이지 추가의 속지 코드 저장 (V35)".
+
+- 예전에는 저장 방식이 둘이었다. 다이어리를 만들 때 생긴 페이지는 `pages.template_id`(속지 행 번호)로, 편집기 "페이지 추가"로 만든 페이지는 설정 JSON의 `templateCode`·`templateVersion` 글자로만 저장됐고, 서버는 그 글자가 실제로 있는지 확인하지 않았다.
+- 이제 페이지 추가도 서버가 코드·버전으로 활성 속지 행을 찾아 `template_id`를 채운다. 앱 요청 형식은 그대로다.
+  - 서버에 없는 코드·버전: 400 `UNKNOWN_PAGE_TEMPLATE`(앱은 "앱을 최신 버전으로 업데이트" 안내)
+  - 크기 불일치 · 버전 없는 코드 · `templateId`와 어긋난 코드: 400 `INVALID_PAGE_REQUEST`
+  - 같은 코드·버전의 활성 행이 여럿: 500 `PAGE_TEMPLATE_CATALOG_INVALID`(서버 로그에 코드·버전)
+  - 같은 요청의 재시도(`clientPageRequestId`)는 속지 확인보다 먼저 판별해 이미 만든 페이지를 돌려준다.
+  - 설정만으로 속지 코드를 바꾸는 수정은 거부한다. 속지 변경은 `templateId`로 한다.
+- V35가 코드 글자만 있던 옛 페이지를 같은 코드·버전·캔버스 크기의 행에 연결한다(활성 행 우선, 비활성 행만 하나면 그 행). 연결 기록은 `page_template_v35_links`에 남고, 되돌리기는 [page-template-v35-rollback.sql](./page-template-v35-rollback.sql)(V35 뒤 수정되지 않은 페이지만)로 한다. 설정 JSON의 코드는 옛 앱을 위해 지우지 않는다.
+- 운영 배포 전에 [속지 코드 배포 전 확인.sql](./다이어리%20저장/속지%20코드%20배포%20전%20확인.sql)을 운영 DB에서 실행해 두 조회가 모두 0행인지 확인한다(앱이 보내는 속지 코드 294개의 활성 행 누락·중복).
+- 운영자가 올린 원격 속지는 범용 행(`dio-remote-*`)에 연결되고, 어떤 그림인지는 지금처럼 `remoteTemplate`(폴더 이름)이 정한다. 그래서 원격 속지의 폴더 이름(id)은 한 번 올리면 바꾸거나 다른 속지에 다시 쓰지 않는다.
+
+## 업로드 잡이 돌지 않았을 때(수동 업로드)
+
+업로드 잡은 develop(개발 자동)과 master(운영 수동)에만 있다. release 브랜치에 병합한 변경이나 잡이 실패한 경우에는 에셋이 올라가지 않는다. 번들에서 뺀 에셋이 올라가지 않은 채 앱을 빌드하면, 그 속지는 "속지를 불러오지 못했어요"가 뜨고 그 글꼴은 기본 글꼴로 보인다(그 글꼴을 쓴 페이지 내보내기는 실패한다). 이럴 때는 키가 있는 러너 서버에서 `gitlab-runner` 계정으로 CI 잡과 같은 순서로 올린다. 업로드 전 목록 비교도 그대로 거친다.
+
+```sh
+# <브랜치>: 앱을 빌드할 브랜치(예: release 브랜치)
+cd /tmp && rm -rf dio-assets && git clone --depth 1 -b <브랜치> https://lab.ssafy.com/s15-final/S15P31F106.git dio-assets && cd dio-assets
+mkdir -p out && docker run --rm --user "$(id -u):$(id -g)" -v "$PWD/frontend:/workspace/frontend:ro" -v "$PWD/out:/out" -w /workspace/frontend node:24-alpine node scripts/build-remote-assets.mjs --dist-only --out /out/dist
+# 개발 버킷. 운영은 ENV 를 assets-prod.env 로 바꿔 같은 줄을 한 번 더 실행한다(운영 백엔드 배포 뒤)
+ENV=/home/gitlab-runner/dio-env/assets-dev.env; docker run --rm --user "$(id -u):$(id -g)" -e HOME=/tmp --env-file "$ENV" -v "$PWD/frontend/scripts:/scripts:ro" -v "$PWD/out:/out" --entrypoint sh amazon/aws-cli:2.17.0 /scripts/fetch-remote-catalog.sh /out/previous.json && docker run --rm -v "$PWD/frontend/scripts:/scripts:ro" -v "$PWD/out:/out:ro" node:24-alpine node /scripts/compare-remote-catalog.mjs /out/previous.json /out/dist/catalog.json && docker run --rm --user "$(id -u):$(id -g)" -e HOME=/tmp --env-file "$ENV" -e REMOTE_ASSETS_DIST=/out/dist -e REMOTE_CATALOG_COMPARED=1 -v "$PWD/frontend/scripts:/scripts:ro" -v "$PWD/out:/out:ro" --entrypoint sh amazon/aws-cli:2.17.0 /scripts/upload-remote-assets.sh
+cd /tmp && rm -rf dio-assets
+```
+
+- 올린 뒤 `<에셋 주소>/catalog.json`과 `manifest.js`에 적힌 키 하나(예: 글꼴)가 200으로 열리는지 확인한다. 그래도 403이면 CloudFront ↔ S3(OAC · 버킷 정책) 설정 문제다(OAC 에서는 없는 파일도 403 이다).
+- 같은 내용을 여러 번 올려도 된다. 키에 내용 해시가 들어 있어 덮어쓰지 않는다.
+- S3 콘솔에서 파일을 손으로 올리거나 이름을 바꾸지 않는다. 앱은 `manifest.js`에 적힌 해시 포함 이름 그대로 요청한다.
+
+## 함께 지킬 규칙
+
+- release를 develop에 반영할 때 V34 · V35가 함께 들어간다. 개발 DB는 develop과 release가 함께 쓰므로(`assert-shared-db-migrations.sh`) develop에 따로 마이그레이션을 넣지 않는다.
+- 원격 속지 id(폴더 이름)의 이름 바꾸기 · 지운 id 다시 쓰기는 업로드 단계에서 막지 않는다. [올리기 안내](../frontend/remote-content/올리기%20안내.md)의 규칙으로 지킨다.
+- 작업 당시의 MR 상태와 확인 결과는 [원격 에셋 작업 기록 (2026-11-08)](./원격%20에셋%20작업%20기록%202026-11-08.md)에 있다.
 
 ## 라이선스
 
@@ -99,4 +138,4 @@
 - 웹 개발 서버 + `assets:serve`: 2026 월간 속지 SVG와 고운바탕 Regular·Bold를 원격에서 받아 적용하는 것을 확인했다.
 - 아직 확인하지 않은 것:
   - 네이티브(Android·iOS) 다운로드와 sha256 검사
-  - 실제 S3·CloudFront·CORS 설정
+  - 실제 S3·CloudFront·CORS 설정(작업 기록 참고)
