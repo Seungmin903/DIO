@@ -49,7 +49,9 @@ export default function StickerCutoutModal({ folder, onClose, onSave, photoPicke
   useEffect(() => { gesture.current = null; setDraft(null); setView(FIT_VIEW) }, [width, height, area.width, area.height, source])
   const close = () => {
     if (locked.current) return
-    if (history.strokes.length && !saved) setQuestion('close')
+    // 서버 PNG는 만들어졌지만 기기 보관함 반영이 실패한 경우, 닫기 전에 재시도 필요성을 분명히 알린다.
+    if (savedMediaRef.current && !saved) setQuestion('saveFailedClose')
+    else if (history.strokes.length && !saved) setQuestion('close')
     else { releaseCutout(); onClose() }
   }
   // 이전 단계(② → ①): 하단 `이전` · 단계 표시의 지난 단계 · 기기 뒤로가기. ① 의 기기 뒤로가기는 나가기와 같다. 헤더 왼쪽 < 는 늘 나가기
@@ -116,7 +118,8 @@ export default function StickerCutoutModal({ folder, onClose, onSave, photoPicke
       if (!alive.current || token !== revision.current) return
       const item = { src: `media:${savedMedia.mediaFileId}`, mediaFileId: savedMedia.mediaFileId,
         name: savedMedia.originalFilename || '사진 속 대상', aspect: source?.width && source?.height ? source.width / source.height : 1 }
-      await onSave?.(folder?.id, folder?.name ?? name.trim(), [item])
+      const folderName = (folder?.name ?? name).trim() || '내 스티커'
+      await onSave?.(folder?.id, folderName, [item])
       if (alive.current && token === revision.current) {
         setSaved(true); releaseCutout(cutoutId); setCutoutId(null)
         // 저장은 이 흐름의 종점이다. 보관함 반영까지 끝난 뒤 이전 화면으로 돌아간다.
@@ -274,9 +277,9 @@ export default function StickerCutoutModal({ folder, onClose, onSave, photoPicke
             <MakerBar stacked={width < 600} note={status}>{action}</MakerBar>
           </>}
       </View>
-      <ConfirmDialog open={Boolean(question)} title={question === 'save' ? '이 스티커를 저장할까요?' : question === 'reset' ? '선택을 모두 지울까요?' : question === 'image' ? '이미지를 바꿀까요?' : '작업을 그만둘까요?'}
-        message={question === 'save' ? '선택한 대상을 PNG 스티커로 만들어 보관함에 저장해요.' : question === 'reset' ? '칠한 영역을 처음부터 다시 선택해요.' : question === 'image' ? '지금까지 고른 영역이 사라져요.' : '저장하지 않은 내용은 사라져요.'}
-        confirmLabel={question === 'save' ? '저장' : question === 'reset' ? '초기화' : question === 'image' ? '이미지 바꾸기' : '나가기'} cancelLabel={question === 'close' ? '계속 작업하기' : '취소'} danger={question !== 'save'}
+      <ConfirmDialog open={Boolean(question)} title={question === 'save' ? '이 스티커를 저장할까요?' : question === 'reset' ? '선택을 모두 지울까요?' : question === 'image' ? '이미지를 바꿀까요?' : question === 'saveFailedClose' ? '보관함 저장을 그만둘까요?' : '작업을 그만둘까요?'}
+        message={question === 'save' ? '선택한 대상을 PNG 스티커로 만들어 보관함에 저장해요.' : question === 'reset' ? '칠한 영역을 처음부터 다시 선택해요.' : question === 'image' ? '지금까지 고른 영역이 사라져요.' : question === 'saveFailedClose' ? '스티커 파일은 서버에 저장됐지만 이 기기 보관함에는 아직 추가되지 않았어요. 계속 작업하기에서 다시 저장할 수 있어요.' : '저장하지 않은 내용은 사라져요.'}
+        confirmLabel={question === 'save' ? '저장' : question === 'reset' ? '초기화' : question === 'image' ? '이미지 바꾸기' : '나가기'} cancelLabel={question === 'close' || question === 'saveFailedClose' ? '계속 작업하기' : '취소'} danger={question !== 'save'}
         onCancel={() => setQuestion(null)} onConfirm={() => {
           const kind = question; setQuestion(null)
           if (kind === 'save') save()

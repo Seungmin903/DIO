@@ -154,6 +154,11 @@ test('서버 저장 뒤 캐시 저장이 실패해도 재시도는 같은 미디
   }
   await save()
   assert.ok(nodes(ui.render()).some(n => n.props.children === '캐시 저장 실패'))
+  closeButton(ui.render()).props.onPress()
+  const leave = nodes(ui.render()).find(n => n.props.confirmLabel === '나가기')
+  assert.equal(leave.props.title, '보관함 저장을 그만둘까요?')
+  assert.match(leave.props.message, /아직 추가되지 않았어요/)
+  leave.props.onCancel()
   await save()
   assert.equal(saved, 1)
   assert.equal(cached, 2)

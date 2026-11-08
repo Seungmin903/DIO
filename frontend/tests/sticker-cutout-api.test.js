@@ -48,3 +48,36 @@ test('저장 완료 미디어는 별도 캐시 단계에서 내려받아 등록�
   assert.equal(ui.calls[0].url, `https://api.example/api/v1/media/${id}/file`)
   assert.deepEqual(ui.cached, [[id, new Uint8Array([137, 80, 78, 71])]])
 })
+
+test('사진 업로드는 같은 multipart 본문으로 401 재시도하고 웹 File도 그대로 보낸다', async (t) => {
+  const previousFormData = globalThis.FormData
+  class TestFormData { constructor() { this.parts = [] } append(...part) { this.parts.push(part) } }
+  globalThis.FormData = TestFormData
+  t.after(() => { globalThis.FormData = previousFormData })
+  const ui = fixture([response(401, { detail: 'expired' }), response(201, { cutoutId: id, width: 100, height: 200 })])
+  const opened = await ui.api.open({ uri: 'file:///photo.png', name: 'photo.png', mimeType: 'image/png' })
+  assert.equal(opened.cutoutId, id)
+  assert.equal(ui.calls.length, 2)
+  assert.equal(ui.calls[0].url, 'https://api.example/api/v1/sticker-cutouts')
+  assert.equal(ui.calls[0].options.body, ui.calls[1].options.body)
+  const [name, nativePart] = ui.calls[0].options.body.parts[0]
+  assert.equal(name, 'file')
+  assert.equal(nativePart.uri, 'file:///photo.png')
+  assert.equal(typeof nativePart.bytes, 'function')
+
+  const web = fixture([response(201, { cutoutId: id, width: 100, height: 200 })])
+  const file = { name: 'web.png' }
+  await web.api.open({ uri: 'blob:photo', file, name: 'web.png' })
+  assert.deepEqual(web.calls[0].options.body.parts[0], ['file', file, 'web.png'])
+})
+
+test('저장 응답을 검증하고 닫기 요청은 204를 허용한다', async () => {
+  const strokes = [{ mode: 'include', size: .1, points: [{ x: .5, y: .5 }] }]
+  const saved = fixture([response(201, { mediaFileId: id }), response(204, null)])
+  assert.equal((await saved.api.save(id, strokes)).mediaFileId, id)
+  await saved.api.close(id)
+  assert.equal(saved.calls[0].url, `https://api.example/api/v1/sticker-cutouts/${id}/save`)
+  assert.equal(saved.calls[1].options.method, 'DELETE')
+  const invalid = fixture([response(201, { mediaFileId: 'bad' })])
+  await assert.rejects(invalid.api.save(id, strokes), /저장 응답/)
+})
