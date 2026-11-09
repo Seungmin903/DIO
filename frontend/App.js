@@ -8,7 +8,7 @@ import { AppState, BackHandler, Linking, Platform, StatusBar, StyleSheet, Text, 
 import PinScreen from './src/diary/components/PinScreen';
 import { appLockGraceOver, appLockScope, checkAppLockStatus, readAppLockState } from './src/shared/appLock';
 import { appLockRecoveryAction } from './src/diary/components/appLockRecovery';
-import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaProvider, initialWindowMetrics, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { cleanupPdfShareCache } from './src/editor/utils/savePdfFile';
 import documentStorage from './src/editor/services/documentStorage';
 import EditorScreen from './src/editor/screens/EditorScreen';
@@ -72,6 +72,7 @@ import HandwritingStudio from './src/handwriting/HandwritingStudio';
 import { useFonts } from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
 import BootSplash, { SPLASH } from './src/shared/BootSplash';
+import { createAfterIntroGate } from './src/shared/bootIntro';
 import { PRETENDARD_FILES } from './src/shared/pretendardFiles';
 import { preloadTextFonts } from './src/editor/services/textFonts';
 import { loadRemoteCatalog } from './src/shared/remoteAssets/remoteCatalogService';
@@ -119,7 +120,12 @@ export default function App() {
   const authenticatedSession = previewSession?.mode === 'authenticated' ? previewSession : null;
   const memberSessionKey = authenticatedSession ? authService.getMemberSessionKey(authenticatedSession.userId) : null;
   const [booting, setBooting] = useState(true);
-  const finishBoot = useCallback(() => { setBooting(false); hideSplash(); }, []);
+  // 예전 저장소에 남은 다이어리 문서를 페이지별 파일로 옮기는 일은 첫 화면과 인트로 손글씨(JS 스레드)를 피해서 시작한다:
+  // 켜고 DOCUMENT_MIGRATION_DELAY_MS 가 지나고 + 손글씨가 끝났거나 시작 화면이 닫힌 뒤, 한 번만.
+  const migrationGate = useRef(null);
+  if (!migrationGate.current) migrationGate.current = createAfterIntroGate(() => { documentStorage.migrateLegacyDocuments().catch(() => {}) });
+  const introWritten = useCallback(() => migrationGate.current.introDone(), []);
+  const finishBoot = useCallback(() => { setBooting(false); hideSplash(); migrationGate.current.introDone(); }, []);
   // 로그인이 필요한 기능에서 연 로그인 화면 { feature, action }. 지금 화면 위에 겹쳐 띄워, 닫아도 보던 화면이 그대로 남는다.
   const [loginRequest, setLoginRequest] = useState(null);
   const [restoreState, setRestoreState] = useState({ status: 'loading', error: null });
@@ -249,9 +255,9 @@ export default function App() {
   const continueFromLogin = session => { restoration.current.job++; restoration.current.busy = false; setRestoreState({ status: 'done', error: null }); setLoginRequest(null); startSession(session).catch(() => setPreviewSession(session)); };
   // 지난 실행에서 공유하고 남은 PDF 임시 파일을 정리한다. (공유 모듈은 불러오지 않는다)
   useEffect(() => { cleanupPdfShareCache().catch(() => {}) }, []);
-  // 예전 저장소에 남은 다이어리 문서를 페이지별 파일로 옮긴다. 첫 화면과 겹치지 않게 조금 뒤에 시작한다.
+  // 예전 문서 옮기기: 시간 조건(위 migrationGate 참고)
   useEffect(() => {
-    const timer = setTimeout(() => { documentStorage.migrateLegacyDocuments().catch(() => {}) }, DOCUMENT_MIGRATION_DELAY_MS);
+    const timer = setTimeout(() => migrationGate.current.due(), DOCUMENT_MIGRATION_DELAY_MS);
     return () => clearTimeout(timer);
   }, []);
   useHiddenNavigationBar();
@@ -265,8 +271,10 @@ export default function App() {
   const SessionDiaryApp = authenticatedSession ? MemberDiaryApp : LocalDiaryApp;
   const restoreFailed = !previewSession && !mockSource && Boolean(restoreState.error);
   // 글꼴 로딩이 멈춰도 8초 제한 뒤에는 기본 글꼴로 앱을 표시한다.
+  // 글꼴을 기다리는 동안에도 시작 화면 바탕을 깐다. null 이면 네이티브 시작 화면과 인트로 사이에 창의 흰 바탕이 비친다
+  // (실기기: 갤럭시 S20 0.12초 · 탭 SM-X510 0.4초 흰 화면)
   if (!fontsLoaded && !fontError && booting) {
-    return Platform.OS === 'web' ? <View style={[s.provider, { backgroundColor: SPLASH.backgroundColor }]} /> : null;
+    return <View style={[s.provider, { backgroundColor: SPLASH.backgroundColor }]} />;
   }
   if (apiConfigurationError) return <SafeAreaProvider style={s.provider}><ApiConfigurationErrorScreen /></SafeAreaProvider>;
   if (__DEV__ && process.env.EXPO_PUBLIC_DIARY_SOURCE === 'mock-safety') {
@@ -281,7 +289,9 @@ export default function App() {
     return <SafeAreaProvider style={s.provider}><MockLibraryApp /><HandwritingStudio /></SafeAreaProvider>;
   }
   return (
-    <SafeAreaProvider style={s.provider}>
+    // initialMetrics 가 없으면 SafeAreaProvider 는 기기가 안전 영역 값을 보낼 때까지 첫 프레임을 비워 바탕(흰색)만 보인다.
+    // 시작 화면(보라) → 흰 화면 → 인트로(보라)로 깜박였다(실기기 S20 · 탭 SM-X510). 시작값을 주고, 시작 중에는 바탕도 보라로 둔다
+    <SafeAreaProvider style={[s.provider, booting && { backgroundColor: SPLASH.backgroundColor }]} initialMetrics={initialWindowMetrics}>
       <StatusBar hidden />
       {__DEV__ && process.env.EXPO_PUBLIC_DIARY_SOURCE === 'mock' ? <ConnectedDiaryLibrary /> : (
         previewSession ? <LoginGateProvider authenticated={!!authenticatedSession && !loginRequest?.sessionExpired} onLogin={openLogin}><SessionDiaryApp key={authenticatedSession ? `authenticated:${memberSessionKey || authenticatedSession.userId}` : 'preview'} previewUser={previewSession} loginOverlayOpen={Boolean(loginRequest)}
@@ -300,7 +310,7 @@ export default function App() {
       <HandwritingStudio />
       {/* 프로필 사진 자르기(동그라미 틀). 로그인 화면 · 프로필 수정 모두 쓰므로 앱 맨 위에 하나 둔다 */}
       <ProfileCropHost />
-      {booting && <BootSplash onReady={hideSplash} onComplete={finishBoot} />}
+      {booting && <BootSplash onReady={hideSplash} onWritten={introWritten} onComplete={finishBoot} />}
     </SafeAreaProvider>
   );
 }

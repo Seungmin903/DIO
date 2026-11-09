@@ -6,6 +6,7 @@ import * as apiBaseUrlPolicy from '../src/shared/apiBaseUrlPolicy.js'
 import {createAuthApi} from '../src/auth/authApi.js'
 import * as sessionExpiry from '../src/auth/sessionExpiry.js'
 import * as routeMemory from '../src/diary/utils/routeMemory.js'
+import * as bootIntro from '../src/shared/bootIntro.js'
 const require=createRequire(import.meta.url),expo=createRequire(require.resolve('expo/package.json')),babel=expo('@babel/core')
 const code=babel.transformSync(readFileSync(new URL('../App.js',import.meta.url),'utf8'),{configFile:false,babelrc:false,plugins:[[expo.resolve('@babel/plugin-transform-react-jsx'),{runtime:'automatic'}],expo.resolve('@babel/plugin-transform-modules-commonjs')]}).code
 // useState 순서: previewSession · booting · loginRequest
@@ -13,7 +14,7 @@ const code=babel.transformSync(readFileSync(new URL('../App.js',import.meta.url)
 function root(dev,mode,session=null,loginRequest=null,probe=null,apiConfigurationError=false){
  let calls=0
  const states=[session,probe?.booting??false,loginRequest,probe?.restoreState??{status:'loading',error:null},null,probe?.mailInvitation]
- const mod={exports:{}},mocks={'./src/diary/utils/routeMemory':routeMemory,'./src/shared/dialogs':{notify:(...args)=>probe?.notices?.push(args)},'./src/editor/utils/savePdfFile':{cleanupPdfShareCache:async()=>{}},'./src/auth/authService':{apiConfigurationError,authService:{logout:async()=>{if(probe?.logoutError)throw probe.logoutError},restoreSession:async()=>{if(probe?.restoreMock)return probe.restoreMock();if(probe?.restoreError)throw probe.restoreError;return probe?.restored??null}}},react:{useState:()=>{const index=calls++;return [states[index],value=>probe?.updates?.push({index,value})]},useEffect(fn){probe?.effects.push(fn)},useCallback:f=>f,useRef:current=>({current})},'./src/auth/guestProfileDevice':{guestProfile:{start:async session=>{if(probe)probe.guestStarts=(probe.guestStarts||0)+1;return session}}},'./src/diary/services/legacyMockCleanup':{clearMockLibrary:async()=>{if(probe)probe.cleaned=(probe.cleaned||0)+1}},'expo-splash-screen':{preventAutoHideAsync:async()=>{},hideAsync:async()=>{if(probe)probe.hidden++}},'react-native':{Platform:{OS:'web'},StatusBar:'StatusBar',View:'View',Text:'Text',StyleSheet:{absoluteFill:{},create:value=>value}},'react-native-safe-area-context':{SafeAreaProvider:'SafeAreaProvider'},'expo-font':{useFonts:()=>[true,null]},'./src/shared/pretendardFiles':{PRETENDARD_FILES:{}},'./src/editor/services/textFonts':{preloadTextFonts(){}},'./src/shared/remoteAssets/remoteCatalogService':{loadRemoteCatalog(){}},'./src/diary/styles':{styles:{empty:{},emptyTitle:{},emptyCopy:{}}},'./src/shared/useHiddenNavigationBar':{useHiddenNavigationBar(){}}}
+ const mod={exports:{}},mocks={'./src/diary/utils/routeMemory':routeMemory,'./src/shared/dialogs':{notify:(...args)=>probe?.notices?.push(args)},'./src/editor/utils/savePdfFile':{cleanupPdfShareCache:async()=>{}},'./src/auth/authService':{apiConfigurationError,authService:{logout:async()=>{if(probe?.logoutError)throw probe.logoutError},restoreSession:async()=>{if(probe?.restoreMock)return probe.restoreMock();if(probe?.restoreError)throw probe.restoreError;return probe?.restored??null}}},react:{useState:()=>{const index=calls++;return [states[index],value=>probe?.updates?.push({index,value})]},useEffect(fn){probe?.effects.push(fn)},useCallback:f=>f,useRef:current=>({current})},'./src/auth/guestProfileDevice':{guestProfile:{start:async session=>{if(probe)probe.guestStarts=(probe.guestStarts||0)+1;return session}}},'./src/diary/services/legacyMockCleanup':{clearMockLibrary:async()=>{if(probe)probe.cleaned=(probe.cleaned||0)+1}},'expo-splash-screen':{preventAutoHideAsync:async()=>{},hideAsync:async()=>{if(probe)probe.hidden++}},'react-native':{Platform:{OS:'web'},StatusBar:'StatusBar',View:'View',Text:'Text',StyleSheet:{absoluteFill:{},create:value=>value}},'react-native-safe-area-context':{SafeAreaProvider:'SafeAreaProvider',initialWindowMetrics:{frame:{x:0,y:0,width:390,height:844},insets:{top:24,bottom:16,left:0,right:0}}},'expo-font':{useFonts:()=>[true,null]},'./src/shared/pretendardFiles':{PRETENDARD_FILES:{}},'./src/editor/services/textFonts':{preloadTextFonts(){}},'./src/shared/remoteAssets/remoteCatalogService':{loadRemoteCatalog(){}},'./src/diary/styles':{styles:{empty:{},emptyTitle:{},emptyCopy:{}}},'./src/shared/useHiddenNavigationBar':{useHiddenNavigationBar(){}}}
  mocks['expo-font']={useFonts:()=>[probe?.fontsLoaded??true,null]};
  mocks['react-native'].Platform.OS=probe?.platform??'web';
  mocks['./src/sharing/memberInviteLink']={subscribeMemberInviteLinks(_linking,onInvite,onSharedInvite){
@@ -22,6 +23,7 @@ function root(dev,mode,session=null,loginRequest=null,probe=null,apiConfiguratio
  }};
  mocks['./src/editor/utils/common']={setUuidGenerator(){}};
  mocks['./src/shared/BootSplash']={__esModule:true,default:'./src/shared/BootSplash',SPLASH:{backgroundColor:'#F0ECFD'}};
+ mocks['./src/shared/bootIntro']=bootIntro;
  Object.assign(mocks['./src/auth/authService'].authService, {
   getSessionKey:()=>probe?.sessionKey??null,
   getMemberSessionKey:userId=>probe?.memberSessionKey??`${userId}:1`,
@@ -441,6 +443,8 @@ test('부팅 중 BootSplash 이미지 준비 완료 뒤에 네이티브 시작 �
  const first=root(false,undefined,null,null,probe)
  // 로고는 BootSplash 가 그린다(안드로이드 네이티브 시작 화면은 바탕색만). 첫 렌더에 빠지면 로고 없는 빈 화면이 보인다
  assert.ok(has(first,'./src/shared/BootSplash'))
+ // 손글씨가 끝났다는 신호를 받아 예전 문서 옮기기를 그 뒤로 미룬다
+ assert.equal(typeof nodes(first).find(n=>n.type==='./src/shared/BootSplash').props.onWritten,'function')
  assert.equal(probe.hidden,0,'렌더 중에는 내리지 않는다')
  // 다른 마운트 효과(8초 안전 타이머 등)는 실행만 하고 타이머는 걸지 않는다
  const timer=globalThis.setTimeout;globalThis.setTimeout=()=>0
@@ -511,7 +515,8 @@ test('세션 확인이 늦으면 스플래시 종료 후 준비 안내를 표시
 
 test('글꼴 로딩이 멈춰도 부팅 제한 시간이 지나면 기본 글꼴로 화면을 연다',()=>{
  const probe={fontsLoaded:false,booting:true,effects:[],updates:[],hidden:0,platform:'android'};
- assert.equal(root(false,undefined,null,null,probe),null);
+ // 안드로이드도 글꼴을 기다리는 동안 시작 화면 바탕을 깐다(null 이면 인트로 전에 흰 화면이 비친다)
+ assert.equal(root(false,undefined,null,null,probe).props.style[1].backgroundColor,'#F0ECFD');
  const originalTimer=globalThis.setTimeout,originalClear=globalThis.clearTimeout;
  const timers=[];
  globalThis.setTimeout=(callback,delay)=>{timers.push({callback,delay});return timers.length};
@@ -529,7 +534,16 @@ test('글꼴 로딩이 멈춰도 부팅 제한 시간이 지나면 기본 글꼴
  cleanups.forEach(cleanup=>{if(typeof cleanup==='function')cleanup()});
 });
 
-test('웹은 글꼴을 기다리는 동안 스플래시 배경을 표시한다',()=>{
+test('시작 화면과 인트로 사이에 흰 화면이 끼지 않는다(안전 영역 시작값 · 시작 중 보라 바탕)',()=>{
+ const booting=root(false,undefined,null,null,{booting:true,effects:[]});
+ assert.equal(booting.type,'SafeAreaProvider');
+ assert.deepEqual(booting.props.initialMetrics.insets,{top:24,bottom:16,left:0,right:0});
+ assert.equal(booting.props.style[1].backgroundColor,'#F0ECFD');
+ const ready=root(false,undefined,{mode:'preview',provider:'guest'},null,{booting:false,effects:[]});
+ assert.equal(ready.props.style[1],false,'시작이 끝나면 원래 바탕');
+});
+
+test('글꼴을 기다리는 동안 스플래시 배경을 표시한다',()=>{
  const tree=root(false,undefined,null,null,{fontsLoaded:false,booting:true,effects:[]});
  assert.equal(tree.type,'View');
  assert.equal(tree.props.style[1].backgroundColor,'#F0ECFD');
