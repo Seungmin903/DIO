@@ -3,6 +3,7 @@ package com.f106.DIO.media.service;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
+import com.f106.DIO.sharing.service.DiaryInviteService.AuthorizedCoverImage;
 import org.springframework.data.domain.PageRequest;
 import com.f106.DIO.diary.support.DiaryRetention;
 import org.springframework.stereotype.Service;
@@ -63,6 +64,15 @@ public class MediaFileTransactionService {
 			.orElseGet(() -> readableSharedMedia(mediaFileId, userId));
 		return new StorageReference(mediaFile.getMimeType(), mediaFile.getOriginalFilename(), mediaFile.getStorageKey());
 	}
+
+    @Transactional(readOnly = true)
+    StorageReference invitationCoverImageReference(AuthorizedCoverImage authorization) {
+        var image = mediaFiles.findByMediaFileIdAndDeletedAtIsNull(authorization.mediaFileId())
+            .filter(file -> file.getStatus() == com.f106.DIO.media.domain.MediaStatus.READY
+                && file.getMediaType() == com.f106.DIO.media.domain.MediaType.IMAGE)
+            .orElseThrow(MediaFileNotFoundException::new);
+        return new StorageReference(image.getMimeType(), null, image.getStorageKey());
+    }
 
 	@Transactional
 	public void delete(UUID mediaFileId, Long userId) {
