@@ -123,6 +123,42 @@ test('사진을 불러오는 동안 진행 표시는 아래 상태 줄이 아니
   assert.equal(find(ui.render(), '이미지 바꾸기').props.text, '이미지 바꾸기')
   ui.unmount()
 })
+test('이미지 바꾸기 중에도 진행 표시는 그 버튼 옆에만 두고, 취소 · 실패 뒤에는 원래대로 돌아가며 미리보기 진행 표시는 상태 줄에 둔다', async () => {
+  let calls = 0, pending
+  const ui = fixture(() => ++calls === 1 ? Promise.resolve({ uri: 'photo', width: 100, height: 100 }) : new Promise(resolve => { pending = resolve }),
+    // 넓은 배치: 상태 줄이 도구 단 아래(children)에 있어 트리에서 오류 · 미리보기 스피너까지 확인할 수 있다
+    () => new Promise(() => {}))
+  await load(ui)
+  const spinnerLabels = tree => nodes(tree).filter(n => n.type === 'ActivityIndicator').map(n => n.props.accessibilityLabel)
+  // 이미지 바꾸기 → 사진 고르는 중: 버튼 글자와 그 줄 안 스피너 하나뿐
+  find(ui.render(), '이미지 바꾸기').props.onPress()
+  let tree = ui.render()
+  const change = find(tree, '이미지 바꾸기')
+  assert.equal(change.props.text, '사진 불러오는 중')
+  assert.equal(change.props.disabled, true)
+  assert.deepEqual(spinnerLabels(tree), ['사진을 불러오고 있어요'])
+  const row = nodes(tree).find(n => [n.props.children].flat().includes(change))
+  assert.ok(nodes(row).some(n => n.type === 'ActivityIndicator'))
+  // 고르기 취소: 글자 · 스피너가 원래대로
+  pending(null); await tick()
+  tree = ui.render()
+  assert.equal(find(tree, '이미지 바꾸기').props.text, '이미지 바꾸기')
+  assert.deepEqual(spinnerLabels(tree), [])
+  // 고르기 실패: 원래대로 돌아가고 오류는 상태 줄에 보인다
+  find(tree, '이미지 바꾸기').props.onPress()
+  pending(Promise.reject(new Error('사진 오류'))); await tick(); await tick()
+  tree = ui.render()
+  assert.equal(find(tree, '이미지 바꾸기').props.text, '이미지 바꾸기')
+  assert.deepEqual(spinnerLabels(tree), [])
+  assert.ok(nodes(tree).some(n => n.props.accessibilityRole === 'alert' && n.props.children === '사진 오류'))
+  // 이후 미리보기 처리 중에는 상태 줄 스피너가 보이고 버튼 글자는 그대로다
+  draw(ui)
+  find(ui.render(), '다음 · 스티커 확인').props.onPress(); await tick()
+  tree = ui.render()
+  assert.deepEqual(spinnerLabels(tree), ['스티커 미리보기 처리 중'])
+  assert.equal(find(tree, '이미지 바꾸기').props.text, '이미지 바꾸기')
+  ui.unmount()
+})
 test('사진 재선택 취소는 기존 선택을 유지하고 새 사진으로 바꾸면 이력을 초기화·기존 사진 해제한다', async () => {
   let calls = 0, disposed = 0
   const ui = fixture(async () => ++calls === 2 ? null : ({ uri: `photo-${calls}`, width: 100, height: 100, dispose: () => disposed++ }))

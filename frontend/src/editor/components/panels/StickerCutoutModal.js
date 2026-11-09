@@ -28,9 +28,9 @@ export default function StickerCutoutModal({ folder, onClose, onSave, photoPicke
   const shownBrushSize = brushDraft ?? brushSize
   const [draft, setDraft] = useState(null), gesture = useRef(null), origin = useRef({ x: 0, y: 0 })
   const [area, setArea] = useState({ width: 0, height: 0 })
-  const [phase, setPhase] = useState('select'), [busy, setBusy] = useState(false), locked = useRef(false)
-  // 사진을 고르고 서버에 여는 동안. 진행 표시를 아래 상태 줄이 아니라 누른 버튼(사진 선택 · 이미지 바꾸기) 옆에 둔다
-  const [picking, setPicking] = useState(false)
+  const [phase, setPhase] = useState('select'), [task, setTask] = useState(null), locked = useRef(false)
+  // 진행 중인 작업 하나('pick' 사진 고르기·열기 | 'analyze' 미리보기 | 'save' 저장). 사진 고르기 중에는 진행 표시를 아래 상태 줄이 아니라 누른 버튼(사진 선택 · 이미지 바꾸기) 옆에 둔다
+  const busy = task !== null, picking = task === 'pick'
   const [cutoutId, setCutoutId] = useState(null), cutoutRef = useRef(null)
   // 서버 저장은 같은 선택에 한 번만 한다. 이후 캐시·보관함 저장이 실패해도 같은 mediaFileId로 이어서 처리한다.
   const savedMediaRef = useRef(null)
@@ -85,7 +85,7 @@ export default function StickerCutoutModal({ folder, onClose, onSave, photoPicke
   }
   const choose = async () => {
     if (locked.current) return
-    locked.current = true; setBusy(true); setPicking(true); setError('')
+    locked.current = true; setTask('pick'); setError('')
     const token = ++revision.current
     let next = null
     try {
@@ -107,11 +107,11 @@ export default function StickerCutoutModal({ folder, onClose, onSave, photoPicke
       next?.dispose?.()
       if (alive.current && token === revision.current) setError(failure.message || '사진을 열지 못했어요. 다시 선택해 주세요.')
     }
-    finally { if (alive.current && token === revision.current) { locked.current = false; setBusy(false); setPicking(false) } }
+    finally { if (alive.current && token === revision.current) { locked.current = false; setTask(null) } }
   }
   const analyze = async () => {
     if (locked.current || !canPreview) return
-    locked.current = true; setBusy(true); setError('')
+    locked.current = true; setTask('analyze'); setError('')
     const token = ++revision.current
     try {
       const strokes = cutoutStrokes(history)
@@ -120,11 +120,11 @@ export default function StickerCutoutModal({ folder, onClose, onSave, photoPicke
       const result = await api.segment(cutoutId, strokes)
       if (alive.current && token === revision.current) { setResultPreview(result.preview); setPhase('result'); setSaved(false) }
     } catch (failure) { if (alive.current && token === revision.current) setError(failure.message || '미리보기를 열지 못했어요. 다시 시도해 주세요.') }
-    finally { if (alive.current && token === revision.current) { locked.current = false; setBusy(false) } }
+    finally { if (alive.current && token === revision.current) { locked.current = false; setTask(null) } }
   }
   const save = async () => {
     if (locked.current || !cutoutId) return
-    locked.current = true; setBusy(true); setError('')
+    locked.current = true; setTask('save'); setError('')
     const token = ++revision.current
     try {
       const strokes = cutoutStrokes(history)
@@ -157,7 +157,7 @@ export default function StickerCutoutModal({ folder, onClose, onSave, photoPicke
         onClose()
       }
     } catch (failure) { if (alive.current && token === revision.current) setError(failure.message || '스티커를 저장하지 못했어요. 다시 시도해 주세요.') }
-    finally { if (alive.current && token === revision.current) { locked.current = false; setBusy(false) } }
+    finally { if (alive.current && token === revision.current) { locked.current = false; setTask(null) } }
   }
   const endStroke = cancelled => {
     const stroke = gesture.current; gesture.current = null; setDraft(null); setStageInteraction(false)
@@ -293,7 +293,7 @@ export default function StickerCutoutModal({ folder, onClose, onSave, photoPicke
   // 가로는 왼쪽 단 높이를 끝까지 채운다(아래가 비지 않게). 세로 · 폰은 도구가 아래에 쌓이므로 높이를 정한다
   const stage = <MakerStage testID="cutout-viewport" style={source && !wide ? { height: stageHeight } : s.emptyStage} onLayout={event => setArea(event.nativeEvent.layout)}>
     {!source && <MakerEmpty icon="image" title="사진을 골라 주세요">
-      <View style={s.pickRow}>
+      <View style={[s.pickRow, s.pickRowCentered]}>
         <DioButton variant="filled" icon="image" label="사진 선택" text={picking ? '사진 불러오는 중' : '사진 선택'} disabled={busy} onPress={choose} />
         {pickingSpinner(false)}
       </View>
@@ -353,6 +353,8 @@ const s = StyleSheet.create({
   sideAction: { gap: 10, paddingLeft: 12, paddingRight: 16, paddingTop: 12, paddingBottom: 12, borderTopWidth: 1, borderColor: colors.border },
   controls: { gap: 16 },
   pickRow: { justifyContent: 'center' },
+  // 빈 화면: 줄을 버튼 폭에 맞춰 가운데에 둔다(바깥 스피너의 left: 100% 가 버튼 오른쪽 끝을 가리키게)
+  pickRowCentered: { alignSelf: 'center' },
   pickSpinner: { position: 'absolute', top: 0, bottom: 0, justifyContent: 'center' },
   pickSpinnerOutside: { left: '100%', marginLeft: 10 }, pickSpinnerInside: { right: 16 },
   toolSection: { gap: 14 },
