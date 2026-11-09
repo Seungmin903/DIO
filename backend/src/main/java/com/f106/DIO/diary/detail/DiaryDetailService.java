@@ -57,7 +57,7 @@ public class DiaryDetailService {
 		long userId = authenticate(diaryId);
 		var diary = activeDiary(diaryId, true);
 		if (requireRole(userId, diary) != DiaryMembershipAccess.Role.OWNER) {
-			throw new DiaryDetailException(HttpStatus.FORBIDDEN, "DIARY_METADATA_FORBIDDEN", "다이어리 소유자만 제목과 표지를 수정할 수 있습니다.");
+			throw new DiaryDetailException(HttpStatus.FORBIDDEN, "DIARY_METADATA_FORBIDDEN", "다이어리 소유자만 제목과 표지를 수정할 수 있어요.");
 		}
 		if (patch == null || !validator.validate(patch).isEmpty() || patch.getVisibility() != null
 			|| expectedUpdatedAt == null || !expectedUpdatedAt.equals(expectedUpdatedAt.truncatedTo(ChronoUnit.MICROS))) {
@@ -98,6 +98,6 @@ public class DiaryDetailService {
 	}
 
 	private DiaryDetailException conflict() {
-		return new DiaryDetailException(HttpStatus.CONFLICT, "DIARY_METADATA_CONFLICT", "다이어리가 변경됐습니다. 최신 내용을 확인한 뒤 다시 시도해 주세요.");
+		return new DiaryDetailException(HttpStatus.CONFLICT, "DIARY_METADATA_CONFLICT", "다이어리가 변경됐어요. 최신 내용을 확인한 뒤 다시 시도해 주세요.");
 	}
 }

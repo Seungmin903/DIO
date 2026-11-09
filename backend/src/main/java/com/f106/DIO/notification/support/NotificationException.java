@@ -21,6 +21,6 @@ public class NotificationException extends RuntimeException {
 	}
 
 	public static NotificationException notFound() {
-		return new NotificationException(HttpStatus.NOT_FOUND, "NOTIFICATION_NOT_FOUND", "알림을 찾을 수 없습니다.");
+		return new NotificationException(HttpStatus.NOT_FOUND, "NOTIFICATION_NOT_FOUND", "알림을 찾을 수 없어요.");
 	}
 }
