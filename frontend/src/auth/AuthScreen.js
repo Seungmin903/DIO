@@ -512,9 +512,9 @@ export default function AuthScreen({
             ) : route === 'eligibility' ? (
               <View style={s.form}>
                 <View accessibilityRole="radiogroup" accessibilityLabel="가입 가능 연령">
-                  <AgeChoice label="만 14세 이상입니다" checked={ageConfirmed === true} disabled={busy}
+                  <AgeChoice label="만 14세 이상이에요" checked={ageConfirmed === true} disabled={busy}
                     onPress={() => setAgeConfirmed(true)} />
-                  <AgeChoice label="만 14세 미만입니다" checked={false} disabled={busy}
+                  <AgeChoice label="만 14세 미만이에요" checked={false} disabled={busy}
                     onPress={() => { enrollmentBlocked.current = true; navigate('underage'); }} />
                 </View>
                 <View style={s.consentDivider} />

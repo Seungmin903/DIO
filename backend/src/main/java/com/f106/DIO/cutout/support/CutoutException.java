@@ -28,7 +28,7 @@ public class CutoutException extends RuntimeException {
 		return new CutoutException(HttpStatus.UNPROCESSABLE_CONTENT, "CUTOUT_EMPTY_SELECTION", "남은 영역이 없어요. 대상을 다시 칠해 주세요.");
 	}
 	public static CutoutException invalidSelection() {
-		return new CutoutException(HttpStatus.BAD_REQUEST, "CUTOUT_INVALID_SELECTION", "선택 정보가 올바르지 않습니다.");
+		return new CutoutException(HttpStatus.BAD_REQUEST, "CUTOUT_INVALID_SELECTION", "선택 정보가 올바르지 않아요.");
 	}
 	public static CutoutException busy() {
 		return new CutoutException(HttpStatus.SERVICE_UNAVAILABLE, "CUTOUT_BUSY", "사진 분석 요청이 많아요. 잠시 후 다시 시도해 주세요.");

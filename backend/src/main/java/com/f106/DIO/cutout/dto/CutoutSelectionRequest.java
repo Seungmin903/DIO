@@ -19,7 +19,7 @@ public record CutoutSelectionRequest(
 		@Schema(description = "탭한 점들 (A안)") @Valid @Size(min = 1, max = 64) List<TapPoint> points,
 		@Schema(description = "붓질 (B안). 지우개 획은 결과에서도 지운다") @Valid @Size(min = 1, max = 150) List<Stroke> strokes) {
 
-	@AssertTrue(message = "points와 strokes 중 하나만 보내야 합니다.")
+	@AssertTrue(message = "points와 strokes 중 하나만 보내 주세요.")
 	@Schema(hidden = true)
 	public boolean isOneSelection() { return (points == null) != (strokes == null); }
 

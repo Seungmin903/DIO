@@ -806,7 +806,7 @@ export default function SharingHub({
                           run(() => runtime.sendEmailInvite(diary.id, inviteEmail), result => {
                             setDiary(result);
                             setInviteEmail('');
-                            setToast('가입된 이메일이라면 초대가 전달됩니다.');
+                            setToast('가입된 이메일이면 초대가 전달돼요.');
                           });
                         };
                         return (

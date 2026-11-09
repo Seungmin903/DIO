@@ -27,7 +27,7 @@ export function turnShouldComplete({ progress, dir, dx, duration, cancelled = fa
 
 /** 넘길 쪽 페이지가 없을 때 알릴 문구. 있으면 null. */
 export function readingEdgeMessage(index, count) {
-  if (index < 0) return '첫 페이지입니다'
-  if (index >= count) return '마지막 페이지입니다'
+  if (index < 0) return '첫 페이지예요'
+  if (index >= count) return '마지막 페이지예요'
   return null
 }
