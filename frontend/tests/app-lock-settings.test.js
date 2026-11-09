@@ -223,7 +223,9 @@ const tree=node=>!node||typeof node!=='object'?[]:[node,...[node.props?.children
 
 test('앱 잠금을 새로 켤 수 없는 환경(웹)에서는 기존 잠금의 끄기만 두고 켜기·바꾸기를 숨긴다', ()=>{
   const {default:AppLockSetting}=loadJsx('../src/diary/components/AppLockSetting.js',{
+    'react-native':{Text:'Text',StyleSheet:{create:styles=>styles}},
     '../../shared/DioButton':{__esModule:true,default:'DioButton'},
+    '../../shared/theme':{colors:{}},
     './SettingRow':{__esModule:true,default:'SettingRow',ON_OFF:[],SettingSection:'SettingSection'},
   });
   const calls=[];const handlers={onTurnOn:()=>calls.push('on'),onTurnOff:()=>calls.push('off'),onChange:()=>calls.push('change')};
@@ -234,8 +236,14 @@ test('앱 잠금을 새로 켤 수 없는 환경(웹)에서는 기존 잠금의 
   switchOf({...handlers,locked:true,canEnable:false}).props.onChange('off');
   // 웹·잠금 없음: 켜기를 눌러도 아무 흐름도 열지 않는다
   switchOf({...handlers,locked:false,canEnable:false}).props.onChange('on');
-  // 읽는 중(null)이면 어느 쪽도 열지 않는다
-  switchOf({...handlers,locked:null,canEnable:true}).props.onChange('on');
+  const checking = switchOf({...handlers,locked:null,canEnable:true});
+  assert.equal(checking.props.options,undefined);
+  assert.equal(tree(checking).find(node=>node.type==='Text').props.children,'확인 중');
+  const failed = switchOf({...handlers,locked:null,readFailed:true,onRetry:()=>calls.push('retry')});
+  assert.equal(failed.props.options,undefined);
+  assert.equal(tree(failed).find(node=>node.type==='Text').props.children,'확인하지 못했어요');
+  tree(failed).find(node=>node.type==='DioButton').props.onPress();
+  assert.equal(calls.pop(),'retry');
   assert.deepEqual(calls,['off']);
   // 지원 환경: 켜기와 바꾸기 줄이 있다
   switchOf({...handlers,locked:false}).props.onChange('on');
