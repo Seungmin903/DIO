@@ -38,6 +38,18 @@ test('체크 입력 우선 처리는 캐리어 속지에만 적용된다', () =>
   assert.equal(packingLayout('route-planner-portrait'), null)
 })
 
+test('v6~v8 세로·가로 체크박스 좌표가 모두 체크 입력으로 연결된다', () => {
+  for (const version of [6, 7, 8]) for (const direction of ['portrait', 'landscape']) {
+    const asset = `remote-packing-list-v${version}-${direction}`
+    const boxes = packingBoxes(asset)
+    assert.equal(boxes.length, 28)
+    boxes.forEach(({ x, y }, index) => {
+      const action = packingCheckAction(asset, { x: x + 5, y: y + 5 }, [])
+      assert.equal(action.objects[0].packingCheck, index)
+    })
+  }
+})
+
 test('펜으로 체크하면 선택한 색과 상자 밖까지 이어지는 표시를 저장한다', () => {
   const asset = 'remote-packing-list-portrait'
   const points = [{ x: 41, y: 602 }, { x: 44, y: 607 }, { x: 55, y: 592 }]
@@ -50,6 +62,8 @@ test('펜으로 체크하면 선택한 색과 상자 밖까지 이어지는 표�
   assert.equal(packingPenAction(asset, points, [mark], '#cc2222').type, 'removeObjects')
   assert.equal(packingPenAction(asset, [...points, { x: 100, y: 602 }], [], '#cc2222'), null)
   assert.equal(packingPenAction(asset, [], [], '#cc2222'), null)
+  assert.equal(packingPenAction(asset, [points[0], { x: 42, y: 603 }], [], '#cc2222'), null)
+  assert.equal(packingPenAction(asset, [points[0], { x: 42, y: 603 }, { x: 42, y: 604 }], [], '#cc2222'), null)
 })
 
 test('이전 체크도 새 비율로 표시한다', () => {

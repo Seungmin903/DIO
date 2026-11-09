@@ -13,6 +13,7 @@ import { createBlankPage, createTemplatePage } from './defaultDoc.js'
 import { assignRouteDays } from '../templates/routePaper.js'
 import { normalizePaperAppearance } from '../templates/appearance.js'
 import { applyPageSettings } from '../../collaboration/pageSettings.js'
+import { packingDropPatch } from '../templates/packingEditing.js'
 
 const HISTORY_LIMIT = 20
 const PASTE_OFFSET = 24
@@ -88,12 +89,21 @@ export function namePhotos(existing, added) {
 }
 
 function updateObjects(state, updater) {
-  const pageId = getCurrentPage(state).id
+  const currentPage = getCurrentPage(state)
+  const pageId = currentPage.id
   return {
     ...state,
     doc: {
       ...state.doc,
-      pages: state.doc.pages.map((page) => (page.id === pageId ? { ...page, objects: keepBackdropBottom(updater(page.objects)) } : page)),
+      pages: state.doc.pages.map((page) => {
+        if (page.id !== pageId) return page
+        const objects = keepBackdropBottom(updater(page.objects))
+        if (!page.backgroundAssetId?.startsWith('remote-packing-list')) return { ...page, objects }
+        return { ...page, objects: objects.map(object => {
+          const patch = packingDropPatch(page.backgroundAssetId, object)
+          return patch ? { ...object, ...patch } : object
+        }) }
+      }),
     },
   }
 }

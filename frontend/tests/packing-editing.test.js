@@ -145,3 +145,22 @@ test('같은 색을 다시 누르면 채우기를 해제하고 되돌리기·다
     assert.equal(state.doc.pages[0].objects.length, 0)
   }
 })
+
+test('리듀서는 사진의 수납 슬롯을 변형·복제·붙여넣기 뒤 재계산한다', () => {
+  const asset = 'remote-packing-list-v8-portrait'
+  const layout = packingLayout(asset)
+  const center = box => ({ x: layout.origin.x + box.x + box.width / 2, y: layout.origin.y + box.y + box.height / 2 })
+  const object = { id: 'photo-1', type: 'photo', x: 0, y: 0, w: 40, h: 40, rotation: 0, opacity: 1 }
+  let state = createInitialState({ pages: [{ id: 'page', backgroundAssetId: asset, objects: [object] }] }, 'page')
+
+  state = editorReducer(state, { type: 'updateObject', id: object.id, patch: center(layout.interiors[0]), record: true })
+  assert.equal(state.doc.pages[0].objects[0].packingSlot, 0)
+  state = editorReducer(state, { type: 'updateObject', id: object.id, patch: { x: 0, y: 0 }, record: true })
+  assert.equal(state.doc.pages[0].objects[0].packingSlot, null)
+
+  state = editorReducer(state, { type: 'updateObject', id: object.id, patch: center(layout.interiors[1]), record: true })
+  state = editorReducer(state, { type: 'duplicateObjects', ids: [object.id] })
+  assert.equal(state.doc.pages[0].objects.at(-1).packingSlot, 1)
+  state = editorReducer(state, { type: 'pasteObjects', objects: [{ ...object, id: 'pasted', ...center(layout.interiors[0]) }] })
+  assert.equal(state.doc.pages[0].objects.at(-1).packingSlot, 0)
+})

@@ -70,6 +70,9 @@ export function packingCheckAction(assetId, point, objects, color = '#292929') {
 // 짧은 터치나 체크 획만 처리한다. 길게 이어 쓰는 필기는 원래대로 남긴다.
 export function packingPenAction(assetId, points, objects, color) {
   const start = points?.[0]
-  if (!start || points.some(p => Math.hypot(p.x - start.x, p.y - start.y) > 30)) return null
+  if (!start || points.length < 3 || points.some(p => Math.hypot(p.x - start.x, p.y - start.y) > 30)) return null
+  const end = points.at(-1)
+  const pathLength = points.slice(1).reduce((sum, point, index) => sum + Math.hypot(point.x - points[index].x, point.y - points[index].y), 0)
+  if (pathLength < 8 || Math.hypot(end.x - start.x, end.y - start.y) < 4) return null
   return packingCheckAction(assetId, start, objects, color)
 }

@@ -9,7 +9,7 @@ import * as geometry from '../src/editor/utils/pageGeometry.js'
 
 const require = createRequire(import.meta.url), expo = createRequire(require.resolve('expo/package.json'))
 const contexts = { TextMeasure: { Provider: 'measure' }, TextMeasureReady: { Provider: 'measure-ready' }, objectOpacity: object => object.opacity ?? 1, objectDrawOpacity: object => object.opacity ?? 1 }
-function loadComponent(file, platform = 'ios', cacheOverride = null) {
+function loadComponent(file, platform = 'ios', cacheOverride = null, packing = null) {
   const { code } = expo('@babel/core').transformSync(readFileSync(new URL(`../src/editor/components/canvas/${file}.js`, import.meta.url), 'utf8'), {
     configFile: false, babelrc: false,
     plugins: [[expo.resolve('@babel/plugin-transform-react-jsx'), { runtime: 'automatic' }], expo.resolve('@babel/plugin-transform-modules-commonjs')],
@@ -27,7 +27,7 @@ function loadComponent(file, platform = 'ios', cacheOverride = null) {
     if (id.endsWith('/completedStrokePlan.js')) return planner
     if (id.endsWith('/pageGeometry.js')) return geometry
     if (id.endsWith('/backdrop.js')) return { fitBackdropToPage: object => object }
-    if (id.endsWith('/packingLayout.js')) return { packingLayout: () => null }
+    if (id.endsWith('/packingLayout.js')) return { packingLayout: () => packing }
     if (id === './PackingColorLayer') return { PackingColorLayer: 'packing-color', PackingFrontLayer: 'packing-front' }
     if (id === './WebStrokeCacheContext') return { WebStrokeCacheEnabled: cacheContext }
     if (id.endsWith('/fontScope')) return { KeepFont: 'keep-font' }
@@ -98,6 +98,23 @@ test('필기에서만 캐시를 사용하고 일반 표시·사진 자르기·�
   assert.equal(movingStroke.type, './CompletedStrokeLayer')
   assert.deepEqual(movingStroke.props.fadeIds, ['s0'])
   assert.equal(component.compare({ page, zoom: 1, cacheStrokes: false }, { page, zoom: 1, cacheStrokes: true }), false)
+})
+
+test('캐리어 렌더링에서 색상·수납·앞 레이어가 일반 요소보다 앞뒤에 맞게 배치된다', () => {
+  const packing = { origin: { x: 10, y: 20 }, cases: [], interiors: [{ x: 5, y: 6, width: 40, height: 50, rx: 4 }, { x: 50, y: 6, width: 40, height: 50, rx: 4 }] }
+  const component = loadComponent('StaticPage', 'ios', null, packing)
+  const packedPhoto = { id: 'photo', type: 'photo', x: 12, y: 24, w: 20, h: 20, packingSlot: 0 }
+  const ordinarySticker = { id: 'sticker', type: 'sticker', x: 200, y: 200, w: 20, h: 20 }
+  const color = { id: 'color', type: 'shape', packingColorRegion: 'case-0', fill: '#123456' }
+  const rendered = component.render({ page: { ...page, backgroundAssetId: 'remote-packing-list-v8-portrait', objects: [packedPhoto, ordinarySticker, color] }, zoom: 1 })
+  const children = rendered.props.children
+  assert.equal(children[1].type, 'packing-color')
+  const containsObject = (node, object) => Array.isArray(node) ? node.some(child => containsObject(child, object)) : node && typeof node === 'object' ? (node.props?.object === object || containsObject(node.props?.children, object)) : false
+  assert.equal(containsObject(children[2], packedPhoto), true)
+  assert.equal(children[3].type, 'packing-front')
+  const drawing = drawingOf(rendered)
+  assert.equal(drawing[0].props.object, ordinarySticker)
+  assert.equal(drawing.length, 1)
 })
 
 test('네이티브 도구 전환 · 선택 이동 중에도 필기 레이어(Skia)를 유지하고 옮기는 획만 반투명으로 넘긴다', () => {
