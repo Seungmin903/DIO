@@ -52,7 +52,7 @@ import MockLibraryApp from './src/diary/screens/MockLibraryApp';
 import { clearMockLibrary } from './src/diary/services/legacyMockCleanup';
 import { useLibraryMetadata } from './src/diary/hooks/useLibraryMetadata';
 import { parseSort, queryDiaries, sortMovedByCreated } from './src/diary/utils/libraryQuery';
-import { savedLibraryView } from './src/diary/utils/libraryView';
+import { useLibraryView } from './src/diary/hooks/useLibraryView';
 import ProfileScreen from './src/diary/screens/ProfileScreen';
 import ProfileCropHost from './src/auth/ProfileCropHost';
 import DecorationStudioScreen from './src/diary/screens/DecorationStudioScreen';
@@ -539,19 +539,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onWithdraw
   useEffect(() => { routeMemory.remember({ page, filter }, routeOwner); }, [page, filter, routeOwner]);
   // navigate 를 거치지 않고 휴지통에서 시작하면 목록도 여기서 불러온다
   useEffect(() => { if (member && page === 'trash') diaryState.store.loadTrash().catch(()=>{}); }, []); // eslint-disable-line react-hooks/exhaustive-deps
-  const [view, setView] = useState('carousel');
-  // 사용자가 마지막으로 고른 보기(펼쳐서 · 스와이프 · 한눈에)를 기기에 남겨 다음에 열 때 그 보기로 시작한다.
-  // 읽어 오는 사이에 사용자가 이미 보기를 바꿨으면 늦게 도착한 저장값으로 되돌리지 않는다.
-  const viewChosen = useRef(false);
-  useEffect(() => {
-    let alive = true;
-    loadJSON(STORAGE_KEYS.libraryView, null).then(saved => {
-      const restored = savedLibraryView(saved);
-      if (alive && restored && !viewChosen.current) setView(restored);
-    }).catch(() => {});
-    return () => { alive = false; };
-  }, []);
-  const changeView = useCallback((next) => { viewChosen.current = true; setView(next); saveJSON(STORAGE_KEYS.libraryView, next).catch(() => {}); }, []);
+  const [view, changeView] = useLibraryView(loadJSON, saveJSON, STORAGE_KEYS.libraryView);
   const [carousel, setCarousel] = useState(0);
   const [librarySort, setLibrarySort] = useState('updated');
   const [memberSearchOpen, setMemberSearchOpen] = useState(false);
@@ -1018,7 +1006,9 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onWithdraw
   const libraryLoading = !loaded || (member && (libraryBusy || (!memberListFailed
     && (fullLoadPending || !memberLibraryMatches || !libraryReady || diaryState.refreshing))));
   const localListFailed = !member && libraryReadFailed;
-  const libraryScreen = useMemo(() => (
+  const libraryScreen = useMemo(() => view === null ? (
+    <LoadingSpot compact={isPhone} label="보관함 보기를 불러오고 있어요." />
+  ) : (
     <LibraryScreen
       compact={isPhone}
       guestImport={guestImport}
@@ -1049,7 +1039,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onWithdraw
       hasMore={member && memberLibraryMatches && diaryState.library.hasNext}
       requestNotice={member ? <><MemberLibraryNotice library={diaryState.library} pending={!memberLibraryMatches} bulk={diaryState.bulkTrash}
         onRetry={()=>diaryState.store.retryLibrary().catch(()=>{})}
-/><MemberTrashNotice state={diaryState} onReload={()=>diaryState.store.loadTrash().catch(()=>{})} onRetry={()=>diaryState.store.retryLifecycle().catch(()=>{})}/><MemberRequestNotice pending={diaryState.pending} error={diaryState.error} busy={saving} refreshing={diaryState.refreshing}
+/><MemberTrashNotice state={diaryState} context="library" onReload={()=>diaryState.store.loadTrash().catch(()=>{})} onRetry={()=>diaryState.store.retryLifecycle().catch(()=>{})}/><MemberRequestNotice pending={diaryState.pending} error={diaryState.error} busy={saving} refreshing={diaryState.refreshing}
         onReload={() => diaryState.store.load().catch(() => {})}
         onArchiveExpired={() => confirmAction({title:'이전 요청을 정리할까요?',message:'보관함 목록을 다시 확인한 뒤 이전 생성 요청을 정리해요. 이미 만들어진 다이어리는 지우지 않아요.',confirmLabel:'정리',onConfirm:async()=>{
           if(savingRef.current) return; savingRef.current=true;setSaving(true);

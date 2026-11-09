@@ -17,7 +17,8 @@ public class ModerationCorsConfiguration implements WebMvcConfigurer {
     }
     @Override
     public void addCorsMappings(CorsRegistry registry) {
-        for (String path : new String[]{"/api/v1/reports", "/api/v1/me/blocks", "/api/v1/me/blocks/{userId}"}) {
+        for (String path : new String[]{"/api/v1/reports", "/api/v1/me/blocks", "/api/v1/me/blocks/{userId}",
+                "/api/v1/me/block-warning-dismissals/{diaryId}"}) {
             registry.addMapping(path).allowedOrigins(origins)
                 .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
                 .allowedHeaders("Content-Type", "Authorization", "X-DIO-Access-Token", "Cache-Control")

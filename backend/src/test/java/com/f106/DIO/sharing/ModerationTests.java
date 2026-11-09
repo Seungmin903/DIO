@@ -53,6 +53,41 @@ class ModerationTests extends SharingTestSupport {
   mvc.perform(get("/api/v1/me/blocks").header("Authorization","Bearer "+p.a.token())).andExpect(status().isOk()).andExpect(jsonPath("items[0].userId").value(p.b.id()));
   blocks.unblock(p.a.id(),p.b.id());blocks.unblock(p.a.id(),p.b.id());assertThat(blocks.between(p.a.id(),p.b.id())).isFalse();
  }
+ @Test
+ @org.springframework.test.context.jdbc.Sql("/db/migration/V38__add_block_warning_dismissals.sql")
+ void warningDismissalIsAccountScopedAndClearedWhenUnblocked() throws Exception {
+  var p = pair();
+  blocks.block(p.a.id(), p.b.id(), p.diary);
+  var path = "/api/v1/me/block-warning-dismissals/" + p.diary;
+  var owner = "Bearer " + p.a.token();
+  var editor = "Bearer " + p.b.token();
+  var unblocked = actor();
+  var formerMember = actor();
+  var link = links.create(p.diary, p.a.id()).token();
+  links.accept(link, unblocked.id());
+  links.accept(link, formerMember.id());
+  blocks.block(p.a.id(), formerMember.id(), p.diary);
+  membership.remove(p.diary, formerMember.id(), formerMember.id());
+  var ignored = """
+      {"userIds":["%s","%s"]}
+      """.formatted(unblocked.id(), formerMember.id());
+  var payload = "{\"userIds\":[\"" + p.b.id() + "\"]}";
+  mvc.perform(get(path)).andExpect(status().isUnauthorized());
+  mvc.perform(get(path).header("Authorization", "Bearer " + actor().token())).andExpect(status().isForbidden());
+  mvc.perform(put(path).header("Authorization", owner).contentType(MediaType.APPLICATION_JSON).content(ignored))
+      .andExpect(status().isNoContent()).andExpect(content().string(""));
+  mvc.perform(get(path).header("Authorization", owner)).andExpect(jsonPath("userIds").isEmpty());
+  for (int i = 0; i < 2; i++) {
+   mvc.perform(put(path).header("Authorization", owner).contentType(MediaType.APPLICATION_JSON).content(payload))
+       .andExpect(status().isNoContent());
+  }
+  mvc.perform(get(path).header("Authorization", owner)).andExpect(jsonPath("userIds[0]").value("" + p.b.id()))
+      .andExpect(jsonPath("userIds.length()").value(1));
+  mvc.perform(get(path).header("Authorization", editor)).andExpect(jsonPath("userIds").isEmpty());
+  blocks.unblock(p.a.id(), p.b.id());
+  blocks.block(p.a.id(), p.b.id(), p.diary);
+  mvc.perform(get(path).header("Authorization", owner)).andExpect(jsonPath("userIds").isEmpty());
+ }
  @Test void selfAndOutsiderBlockRejected(){var p=pair();assertThatThrownBy(()->blocks.block(p.a.id(),p.a.id(),p.diary)).isInstanceOf(ModerationException.class);var other=actor();assertThatThrownBy(()->blocks.block(p.a.id(),other.id(),p.diary)).isInstanceOf(ModerationException.class);}
  @Test void blockCanBeRemovedAfterLeavingAndAfterTargetWithdrawal(){var p=pair();blocks.block(p.a.id(),p.b.id(),p.diary);membership.remove(p.diary,p.b.id(),p.b.id());var target=users.findById(p.b.id()).orElseThrow();target.withdraw(Instant.now());users.saveAndFlush(target);assertThat(blocks.list(p.a.id(),0,20).items().get(0).nickname()).isEqualTo("탈퇴한 사용자");blocks.unblock(p.a.id(),p.b.id());}
  @Test void linkJoiningRequiresOnlyMyAcknowledgementAndNeverRejectsReverseBlock(){
