@@ -3,7 +3,10 @@ import { createStrokePreview, partPath } from '../utils/strokePreview.js'
 import { ballPreviewPaths, ballSweepPath, ballVaries, isNibKind, nibContour, nibPreviewPaths } from '../utils/nibStroke.js'
 import { PENCIL_BRUSH, pencilAccumulates, PENCIL_STRAND_SKSL, strandUniforms, brushPartSamples, depositFloor, depositGain, brushSampledPoints, brushSeed, ribbonStretch, copyDabs, previewSegmentFor, shaderCap, shaderDabAlpha, shaderUniforms, PENCIL_SHADER_SKSL, brushTipPower, partRange, partTotal, paperMatrices, paperUniforms, pencilDabs, PENCIL_PAPER_SKSL } from '../utils/pencilBrush.js'
 import { HIGHLIGHTER_OPACITY } from '../utils/penSettings.js'
-import { drawGlassStroke } from './glassStroke.js'
+import { drawGlassStroke, glassLivePaint } from './glassStroke.js'
+// 유리펜 잉크 설정(획 설정 · 저장 획 공용). 없으면 기본값(글리터 · 테 켬)
+const glassInkOf = one => ({ glitter: one?.inkGlitter !== false, sheen: one?.inkSheen !== false, film: one?.inkFilm, amount: one?.inkAmount, sheenColor: one?.inkSheenColor })
+const glassKey = one => `|${one?.inkGlitter !== false}|${one?.inkSheen !== false}|${one?.inkFilm ?? ''}|${one?.inkAmount ?? ''}|${one?.inkSheenColor ?? ''}`
 import { PENCIL_CAP, PENCIL_CAP_DIAMETER, PENCIL_COPY, PENCIL_DOME, PENCIL_DOME_DIAMETER, PENCIL_DOME_FIBER, PENCIL_DOMES, PENCIL_GRAIN_PNG, PENCIL_SMALL, PENCIL_STRAND_PNG, PENCIL_SWEEP, PENCIL_TOOTH_PNG, PENCIL_TIP_DIAMETER, PENCIL_TIPS, PENCIL_TIPS_K2 } from './pencilGrain.js'
 
 // 앱(안드로이드 · iOS)의 필기 그리기: 그리기 앱처럼 획을 Skia 캔버스에 그린다(웹은 SVG 그대로).
@@ -509,8 +512,19 @@ function drawParts(canvas, parts, style) {
   const kind = skiaKind(style.kind)
   if (!parts.length || !parts[0].points.length) return
   if (kind === 'pencil') return drawBrushParts(canvas, parts, style)
-  // 유리펜: 획 전체를 한 번에(마스크 → 고임 장 → 셰이더). 실패하면 아래 평범한 선으로 되돌아간다
-  if (kind === 'glass' && drawGlassStroke(canvas, parts.flatMap(part => part.points), style.width, style.color, style.zoom ?? 1)) return
+  // 유리펜: 손을 뗀 뒤에만 셰이더로 한 번(쓰는 중은 아래 평범한 선 — 프레임마다 오프스크린 표면을 만들면
+  // 연필이 같은 기기에서 겪은 MakeOffscreen SIGTRAP 이 그대로 난다). 셰이더가 실패해도 평범한 선으로 떨어진다
+  if (kind === 'glass' && !style.live && drawGlassStroke(canvas, parts.flatMap(part => part.points), style.width, style.color, style.zoom ?? 1, style.ink)) return
+  // 쓰는 중: 가벼운 셰이더(잉크색 + 막 + 입자)를 획 경로에 바로 칠한다 — 표면을 만들지 않는다
+  if (kind === 'glass' && style.live) {
+    const path = linePath(parts), live = path && glassLivePaint(style.color, style.ink)
+    if (path && live) {
+      live.setAntiAlias(true); live.setStyle(PaintStyle.Stroke)
+      live.setStrokeCap(StrokeCap.Round); live.setStrokeJoin(StrokeJoin.Round); live.setStrokeWidth(style.width)
+      canvas.drawPath(path, live)
+      return
+    }
+  }
   if (isNibKind(kind)) {
     const paths = nibPreviewPaths(parts, style.width, kind)
     const path = join(paths.map((d, i) => i < parts.length - 2 ? cachedParse(parts[i], 'nib', () => parse(d)) : parse(d)))
@@ -544,7 +558,8 @@ export function drawPreview(canvas, { parts, settings }, zoom = 1) {
   const kind = skiaKind(settings.kind)
   const first = parts[0]?.points[0]
   const style = { kind, width: settings.width, color: settings.color, lineCap: settings.lineCap,
-    dotWidth: settings.width * (first?.pressure ?? 1), origin: kind === 'pencil' && PENCIL_BRUSH.strand?.on ? { x: 0, y: 0, seed: brushSeed(first) } : { x: first?.x ?? 0, y: first?.y ?? 0 }, zoom, opacity: settings.opacity ?? 1 }
+    dotWidth: settings.width * (first?.pressure ?? 1), origin: kind === 'pencil' && PENCIL_BRUSH.strand?.on ? { x: 0, y: 0, seed: brushSeed(first) } : { x: first?.x ?? 0, y: first?.y ?? 0 }, zoom, opacity: settings.opacity ?? 1,
+    live: true, ink: glassInkOf(settings) }
   withAlpha(canvas, kind === 'highlighter' ? HIGHLIGHTER_OPACITY : kind === 'pencil' && pencilAccumulates() ? 1 : settings.opacity ?? 1, () => drawParts(canvas, parts, style))
 }
 
@@ -552,10 +567,10 @@ export function drawPreview(canvas, { parts, settings }, zoom = 1) {
 function drawObjectContent(canvas, object, zoom = 1) {
   const kind = skiaKind(object.penKind), { points, strokeWidth: width, color } = object
   const style = { kind, width, color, lineCap: object.lineCap,
-    dotWidth: width * (points[0]?.pressure ?? 1), origin: object.grainOrigin ?? points[0], zoom, opacity: object.opacity ?? 1 }
+    dotWidth: width * (points[0]?.pressure ?? 1), origin: object.grainOrigin ?? points[0], zoom, opacity: object.opacity ?? 1, ink: glassInkOf(object) }
   // 캘리펜 · 붓펜은 저장 점에 진행 거리가 없어 구간으로 그리면 붓펜 전체 길이가 0 이 된다(뗀 뒤 몸통이 끝 굵기로 얇아졌다) → 아래 외곽선(nibContour)이 거리를 다시 재서 쓰는 중과 같은 모양이 된다
   if (!object.sampled && !object.taperBaked && !isNibKind(kind)) return drawParts(canvas, createStrokePreview(previewSegmentFor(kind)).snapshot(points), style)
-  if (kind === 'glass' && drawGlassStroke(canvas, points, width, color, zoom)) return
+  if (kind === 'glass' && drawGlassStroke(canvas, points, width, color, zoom, glassInkOf(object))) return
   if (kind === 'pencil' && PENCIL_BRUSH.engine === 'shader') {
     releaseLive()
     if (drawShaderStroke(canvas, pencilDabs(brushSampledPoints(points, object.inkStartDistance ?? 0), width, -Infinity, Infinity, Infinity, brushSeed(style.origin)), width, color, style.origin, inkBox([points], width), zoom)) return
@@ -585,7 +600,8 @@ const contentKey = object => [object.penKind, object.strokeWidth, object.color, 
   object.grainOrigin?.x, object.grainOrigin?.y, object.inkStartDistance].join('|')
 // 연필은 확대 배율마다 결 크기 · 붓 끝 판이 달라 배율도 열쇠에 넣는다
 function contentPicture(object, zoom = 1) {
-  const key = contentKey(object) + (skiaKind(object.penKind) === 'pencil' ? `|${zoom}|${PENCIL_BRUSH.engine}|${object.opacity ?? 1}` : ''), cached = contents.get(object.points)
+  const key = contentKey(object) + (skiaKind(object.penKind) === 'pencil' ? `|${zoom}|${PENCIL_BRUSH.engine}|${object.opacity ?? 1}` : '')
+    + (skiaKind(object.penKind) === 'glass' ? `|${zoom}${glassKey(object)}` : ''), cached = contents.get(object.points)
   if (cached?.key === key) return cached.picture
   const recorder = Skia.PictureRecorder()
   drawObjectContent(recorder.beginRecording(), object, zoom)

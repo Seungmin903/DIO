@@ -1,5 +1,6 @@
 // 유리펜 잉크 모델 — 순수 계산(RN 의존 없음). PC 하네스(`유리펜 설계/하네스/glassInk.js`)에서 옮겨 왔다.
-// 하네스와 다른 점: 모든 길이가 **페이지 단위**다(하네스는 화면 px). 무늬가 확대 배율에 따라 변하지 않는다.
+// 옮기는 건 `유리펜 설계/하네스/앱으로 옮기기.py` 가 한다(손으로 고치지 말 것 — 다음 판에 덮어쓴다).
+// 하네스와 다른 점은 좌표계뿐이다: 모든 길이가 **페이지 단위**다(하네스는 화면 px).
 //   셰이더는 페이지 좌표 xy 를 받고, 자식 이미지(마스크 · 고임 장)만 q = (xy − org)·ppu 로 픽셀 좌표로 바꿔 읽는다.
 // 1판: 잉크 두께 채널 + 염료만. 커피링 · 테 · 글리터 · 잉크 잔량은 다음 판.
 //
@@ -9,7 +10,7 @@
 //   → 셰이더 한 번: 두께 → 불투명도 · 색 깊이
 
 export const GLASS_INK = {
-  version: 18,
+  version: 19,
   T_MAX: 4,            // 마스크 G 채널 1.0 = 두께 4
   spacing: 0.12,       // 표본 간격(굵기 배수)
   // 속도 → 두께: 빠르면 얇게, 느리면 두껍게 (page 단위/ms)
@@ -59,6 +60,11 @@ export const GLASS_INK = {
   sheenGate1: 1.1,     // 고임 게이트 끝(이상 테 최대) — 칠 윤곽 ~0.7(은은 ~0.5), 웅덩이 윤곽 ~1.3(최대)
   sheenInT: 1.7,       // 내부 패치 문턱(고임 장 두께) — 웅덩이 내부 2.0, 칠 내부 1.05
   sheenInAmp: 0.4,     // 내부 패치 세기(0 = 윤곽 띠만)
+  // 19판: 가는 획의 테. 넓은 면은 블러 덮임 Ab 가 1 까지 가지만 가는 선은 0.16 이 최대라 등고선이 아예 없었다.
+  //   선 하나의 블러 덮임 최대값(abLine = erf(1/(2·poolBlur·√2)), 굵기와 무관한 상수)으로 정규화한 An 에
+  //   같은 등고선을 걸면 가는 획의 **양 가장자리**에 테가 돈다(실물 20: 강한 쉰 잉크는 글씨에도 테가 돈다).
+  //   넓은 면에서는 꺼서(Ab 로 게이트) 기존 윤곽 테와 겹치지 않게 한다.
+  sheenEdge: 0.55,     // 가는 획 가장자리 테 세기(0 = 끔)
   poolBlur: 2.5,       // 고임 장 블러 시그마(굵기 배수) — 액체 평탄화 규모
   // 16판: 염료 두께 평탄화 — 액체는 주변 평균 높이로 퍼진다. 도장 격자(와플) · 지그재그 빗살 제거.
   //   평탄 두께 = 블러 두께 / 블러 덮임 = 주변 평균 두께(가는 선은 값이 거의 안 변해 영향 없음)
@@ -153,6 +159,68 @@ export function sheenAutoColor(ink, { n = 1.55, kScale = 0.25, lightness = 0.62 
   return R.map(r => Math.pow(Math.min(1, r / mx * lightness), 1 / 2.2))  // 선형 반사율 → sRGB
 }
 
+// 선 하나를 가우시안 블러했을 때의 덮임 최대값 = erf(1 / (2·poolBlur·√2)). 굵기와 무관한 상수다.
+// 가는 획의 "획 가운데 ↔ 가장자리"를 재는 기준(An = Ab / abLine)으로 쓴다.
+const erf = x => { const t = 1 / (1 + 0.3275911 * Math.abs(x)), y = 1 - ((((1.061405429 * t - 1.453152027) * t + 1.421413741) * t - 0.284496736) * t + 0.254829592) * t * Math.exp(-x * x); return x < 0 ? -y : y }
+export const abLineOf = (blur = GLASS_INK.poolBlur) => erf(1 / (2 * blur * Math.SQRT2))
+
+// 쓰는 중에 쓰는 가벼운 셰이더: 마스크 · 고임 장 없이 잉크색 + 운모 막 + 입자만.
+// 손을 뗀 뒤 그림과 완전히 같지는 않지만(테 · 커피링 없음) 쓰는 동안 밋밋하지 않게 한다.
+// 오프스크린 표면을 전혀 만들지 않는다 — 프레임마다 만들면 기기에서 죽는다(glassStroke.js 주석).
+export const GLASS_LIVE_SKSL = `
+uniform float3 ink;
+uniform float3 micaA;
+uniform float aa;
+uniform float glAmp;
+uniform float glCellPx;
+uniform float glP;
+uniform float glRMin;
+uniform float glRMax;
+uniform float glBMin;
+uniform float glBMax;
+uniform float glTail;
+uniform float glDesat;
+uniform float glCloud;
+uniform float glCloudScl;
+uniform float glVeil;
+uniform float glVeilDesat;
+uniform float glVeilLift;
+uniform float glVeilScl;
+float vhash(float2 q) { return fract(sin(dot(q, float2(127.1, 311.7))) * 43758.5453); }
+float vnoise(float2 q) {
+  float2 i = floor(q), f = fract(q);
+  float2 u = f * f * (3.0 - 2.0 * f);
+  return mix(mix(vhash(i), vhash(i + float2(1, 0)), u.x),
+             mix(vhash(i + float2(0, 1)), vhash(i + float2(1, 1)), u.x), u.y);
+}
+half4 main(float2 p) {
+  float3 col = ink;
+  if (glAmp > 0.001) {
+    float2 q0 = float2(p.x / (glVeilScl * 2.0), p.y / (glVeilScl * 0.7));
+    float2 wrp = float2(vnoise(q0 * 0.8), vnoise(q0 * 0.8 + 5.7)) - 0.5;
+    float2 q = q0 + wrp * 1.6;
+    float vn = vnoise(q) * 0.5 + vnoise(q * 2.1 + 3.3) * 0.3 + vnoise(q * 4.7 + 7.1) * 0.2;
+    float veil = glVeil * glAmp * 0.22 * (0.12 + 0.88 * smoothstep(0.28, 0.72, vn));
+    float lum0 = dot(col, float3(0.299, 0.587, 0.114));
+    col = mix(col, clamp(mix(col, float3(lum0) * micaA, glVeilDesat) + glVeilLift * micaA, 0.0, 1.0), veil);
+    float2 cell = floor(p / glCellPx);
+    float u0 = vhash(cell * 1.013 + 0.37);
+    float gdens = glP * glAmp * 0.3 * (1.0 + glCloud * (vnoise(p / glCloudScl) - 0.5) * 2.0);
+    if (u0 < gdens) {
+      float u1 = vhash(cell * 2.117 + 1.11), u2 = vhash(cell * 3.721 + 2.53);
+      float u3 = vhash(cell * 5.313 + 4.19), u4 = vhash(cell * 7.919 + 5.87);
+      float2 pos = (cell + 0.18 + 0.64 * float2(u1, u2)) * glCellPx;
+      float r = mix(glRMin, glRMax, u3);
+      float w = 1.0 - smoothstep(r - aa, r + aa, length(p - pos));
+      float boost = mix(glBMin, glBMax, pow(u4, glTail));
+      float lum = dot(col, float3(0.299, 0.587, 0.114));
+      col = mix(col, clamp(mix(col, float3(lum) * micaA, glDesat) + boost * micaA, 0.0, 1.0), w);
+    }
+  }
+  return half4(half3(col), 1.0);
+}
+`
+
 // 펜 색(sRGB 0~1) → 채널별 광학 밀도(감마 2.2 선형 기준). 셰이더 uniform 으로 전달.
 export function inkDensity(ink) {
   return ink.map(c => -Math.log(Math.max(Math.pow(c, 2.2), 1e-4)))
@@ -237,6 +305,8 @@ uniform float sheenGate0;
 uniform float sheenGate1;
 uniform float sheenInT;
 uniform float sheenInAmp;
+uniform float sheenEdge;
+uniform float abLine;   // 선 하나의 블러 덮임 최대값(정규화 기준)
 uniform float poolMix;
 uniform float floodA0;
 uniform float floodA1;
@@ -281,6 +351,9 @@ half4 main(float2 p) {
   float Tb0 = pl.g * tMax;
   float Ab = pl.a;       // 블러 장 알파(덮임) — 0.5 등고선 = 영역 외곽선
   // 16판: 덮임 평탄화 — 고인 자리에서는 액체가 틈 · 빗살을 메운다
+  // 19판: Tu = 잉크가 있는 자리의 두께(블러 장 기준). 실측 — 가는 획 0.14(빠름) · 0.17(보통) · 0.24(느림),
+  //   칠 1.05, 웅덩이 2.0. Tb0(= 두께 × 덮임)는 넓은 면에서만 커져서 가는 획 판정에는 못 쓴다.
+  float Tu = Tb0 / max(Ab, 0.02);
   float A = max(float(m.a), smoothstep(floodA0, floodA1, Ab));
   if (A < 0.002) return half4(0);
   float T = m.a > 0.002 ? (m.g / m.a) * tMax : Tb0 / max(Ab, 0.02);
@@ -305,35 +378,39 @@ half4 main(float2 p) {
   fc *= 1.0 + flowAmp * (fl - 0.5) * (1.0 - smoothstep(0.25, 0.6, x)) * dq; // 농담 얼룩도 마르면서
   fc *= 1.0 + wetDark * (1.0 - dq);                  // 젖은 동안 약간 진함(추정)
   float3 col = pow(exp(-dens * fc), float3(1.0 / 2.2)); // 흰 종이 위 목표색 (f=1 이면 정확히 ink)
+  // 19판: 테(쉰) 세기를 먼저 구해 둔다 — 테가 뜬 자리에서는 운모 막을 비킨다(표면 염료막이 판을 덮는다)
+  float wig = sheenWiggle * (vnoise(p / sheenWScl) * 0.65 + vnoise(p * 2.7 / sheenWScl) * 0.35 - 0.5);
+  float dA = (Ab + wig * 0.45 - sheenRimA) / sheenRimBand;
+  float rim = exp(-dA * dA) * smoothstep(sheenGate0, sheenGate1, Tb0 + wig)
+            * (0.55 + 0.45 * vnoise(p / (sheenWScl * 1.7) + 5.1));
+  float An = min(1.0, Ab / max(abLine, 0.02));
+  float lineRim = (0.3 + 0.7 * (1.0 - smoothstep(0.2, 0.9, An + wig * 0.5)))
+                * (1.0 - smoothstep(0.4, 0.8, Ab)) * smoothstep(0.08, 0.35, Tu) * sheenEdge;
+  float inp = smoothstep(sheenInT, sheenInT + 0.4, Tb0)
+            * smoothstep(0.35, 0.75, vnoise(p / (sheenWScl * 2.3) + 11.3));
+  float sh = min(1.0, rim + sheenInAmp * inp + lineRim) * sheenAmp * dq;
   // 15판 ①: 연속 운모 막 — 고인 면 전체를 덮는 은빛 결(참고 22 · 23). 점이 아니라 결로 읽혀야 한다.
   if (glAmp > 0.001) {
     // 결 = 도메인 워프 노이즈(흐르는 구름 결) + 길게 늘인 좌표(쓸린 자국). 고임이 평평한 안쪽에서도 결이 산다.
-    float2 q0 = float2(p.x / (glVeilScl * 2.0), p.y / (glVeilScl * 0.7)) + float2(Tb0 * 0.9, 0.0);
+    float2 q0 = float2(p.x / (glVeilScl * 1.25), p.y / (glVeilScl * 0.95)) + float2(Tb0 * 0.5, Tb0 * 0.35);
     float2 wrp = float2(vnoise(q0 * 0.8), vnoise(q0 * 0.8 + 5.7)) - 0.5;
     float2 q = q0 + wrp * 1.6;
     float vn = vnoise(q) * 0.5 + vnoise(q * 2.1 + 3.3) * 0.3 + vnoise(q * 4.7 + 7.1) * 0.2;
-    float veil = glVeil * glAmp * smoothstep(0.1, 0.9, Tb0)     // 많이 깔수록 많이 내려앉음(조사)
-               * (0.12 + 0.88 * smoothstep(0.28, 0.72, vn)) * mix(0.5, 1.0, dq);
+    float veil = glVeil * glAmp * smoothstep(0.08, 0.6, Tu) * (0.4 + 0.6 * smoothstep(0.15, 1.0, Tb0))  // 가는 획은 옅게(19판), 넓은 면은 18판과 같게
+               * (0.10 + 0.90 * smoothstep(0.38, 0.86, vn)) * mix(0.5, 1.0, dq) * (1.0 - 0.75 * sh);
     float lum0 = dot(col, float3(0.299, 0.587, 0.114));
     float3 mica = clamp(mix(col, float3(lum0) * micaA, glVeilDesat) + glVeilLift * micaA, 0.0, 1.0);
     col = mix(col, mica, veil);
   }
-  // 14판: 테(쉰) = 윤곽 띠 × 고임 게이트 + 깊은 웅덩이 내부 패치. 10판 물결 노이즈 유지.
-  float wig = sheenWiggle * (vnoise(p / sheenWScl) * 0.65 + vnoise(p * 2.7 / sheenWScl) * 0.35 - 0.5);
-  float dA = (Ab + wig * 0.45 - sheenRimA) / sheenRimBand;
-  float rim = exp(-dA * dA) * smoothstep(sheenGate0, sheenGate1, Tb0 + wig)
-            * (0.55 + 0.45 * vnoise(p / (sheenWScl * 1.7) + 5.1));  // 띠 세기도 자리마다 들쭉(실물 02 · 14)
-  float inp = smoothstep(sheenInT, sheenInT + 0.4, Tb0)
-            * smoothstep(0.35, 0.75, vnoise(p / (sheenWScl * 2.3) + 11.3));
-  float sh = min(1.0, rim + sheenInAmp * inp) * sheenAmp * dq;  // 쉰은 마른 뒤에만(건조 조사)
-  col = mix(col, sheenCol, sh);
+  col = mix(col, sheenCol, sh);   // 테(쉰) — 세기는 위에서 구해 뒀다(막보다 위에 앉는다)
   // 13판: 젖은 동안 번들거림 — 저주파 밝은 얼룩(추정)
   col += wetGloss * (1.0 - dq) * smoothstep(0.5, 0.95, vnoise(p / (glCloudScl * 1.6) + 31.7));
   // 11판: 글리터 쉬머 — 셀 해시 입자. 비용은 입자 수와 무관.
   if (glAmp > 0.001) {
     float2 cell = floor(p / glCellPx);
     float u0 = vhash(cell * 1.013 + 0.37);                    // 존재
-    float gdens = glP * glAmp * mix(1.0, 1.6, smoothstep(1.0, 2.0, Tb0)) // 고인 곳 밀집
+    float gdens = glP * glAmp * smoothstep(0.06, 0.5, Tu)          // 19판: 얇게 쓴 획은 입자가 적다
+               * mix(1.0, 1.6, smoothstep(1.0, 2.0, Tb0))      // 고인 곳 밀집
                * (1.0 + glCloud * (vnoise(p / glCloudScl) - 0.5) * 2.0); // 구름 얼룩
     if (u0 < gdens) {
       float u1 = vhash(cell * 2.117 + 1.11), u2 = vhash(cell * 3.721 + 2.53);

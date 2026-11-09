@@ -6,7 +6,8 @@ import { SettingSwitch } from '../../diary/components/SettingRow'
 import { colors } from '../../shared/theme'
 import EditablePalette, { paletteSwatchStyles } from './controls/EditablePalette'
 import Slider from './controls/Slider'
-import { PEN_TYPES, penDefaultOpacity } from '../utils/penSettings'
+import { GLASS_FILMS, GLASS_SHEENS, PEN_TYPES, penDefaultOpacity } from '../utils/penSettings'
+import { micaColor, sheenAutoColor } from '../utils/glassInk'
 import { useRecentPenColors } from '../hooks/useRecentPenColors'
 import { createPenSample } from '../utils/penSample'
 import ObjectContent from './canvas/ObjectView'
@@ -65,6 +66,47 @@ export default function PenSettings({ settings, onChange, onClose, straightAssis
       {!highlighter && <>
         <Slider name="불투명도" label="펜 불투명도" minusLabel="펜 더 투명하게" plusLabel="펜 더 진하게" min={10} max={100} step={5} value={Math.round((settings.opacity ?? 1) * 100)}
           onChange={(value) => onChange({ ...settings, opacity: Math.round(value / 5) * 5 / 100 })} />
+      </>}
+      {/* 유리펜 잉크: 글리터 · 테를 따로 켜고 끈다. 글리터 색은 운모 코팅 두께(실제 펄 안료와 같은 원리) */}
+      {settings.kind === 'glass' && <>
+        <View style={styles.assist}>
+          <Text style={styles.assistText}>글리터</Text>
+          <SettingSwitch label="글리터" on={settings.inkGlitter !== false} onToggle={(on) => onChange({ ...settings, inkGlitter: on })} />
+        </View>
+        {settings.inkGlitter !== false && <>
+          <Text style={toolPanelStyles.label}>글리터 색</Text>
+          <View accessibilityLabel="글리터 색" style={paletteSwatchStyles.row}>
+            {GLASS_FILMS.map((film) => {
+              const rgb = micaColor(film.id).map(v => Math.round(Math.min(1, Math.max(0, v)) * 255))
+              return <Pressable key={film.id} accessibilityRole="button" accessibilityLabel={`글리터 색 ${film.label}`}
+                accessibilityState={{ selected: (settings.inkFilm ?? 55) === film.id }} hitSlop={1}
+                onPress={() => onChange({ ...settings, inkFilm: film.id })} style={paletteSwatchStyles.cell}>
+                <View style={[paletteSwatchStyles.dot, { backgroundColor: `rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})` }, (settings.inkFilm ?? 55) === film.id && paletteSwatchStyles.chosen]} />
+              </Pressable>
+            })}
+          </View>
+          <Slider name="반짝임" label="글리터 반짝임" minusLabel="반짝임 약하게" plusLabel="반짝임 세게" min={0} max={100} step={10}
+            value={Math.round((settings.inkAmount ?? 1) * 100)} onChange={(value) => onChange({ ...settings, inkAmount: Math.round(value / 10) * 10 / 100 })} />
+        </>}
+        <View style={styles.assist}>
+          <Text style={styles.assistText}>테(쉰)</Text>
+          <SettingSwitch label="테(쉰)" on={settings.inkSheen !== false} onToggle={(on) => onChange({ ...settings, inkSheen: on })} />
+        </View>
+        {settings.inkSheen !== false && <>
+          <Text style={toolPanelStyles.label}>테 색 — 비우면 펜 색에서 자동</Text>
+          <View accessibilityLabel="테 색" style={paletteSwatchStyles.row}>
+            {[{ id: null, label: '자동' }, ...GLASS_SHEENS].map((one) => {
+              const auto = one.id == null
+              const rgb = auto ? sheenAutoColor([1, 3, 5].map(i => parseInt(settings.color.slice(i, i + 2), 16) / 255)).map(v => Math.round(Math.min(1, Math.max(0, v)) * 255)) : null
+              const chosen = (settings.inkSheenColor ?? null) === one.id
+              return <Pressable key={one.label} accessibilityRole="button" accessibilityLabel={`테 색 ${one.label}`}
+                accessibilityState={{ selected: chosen }} hitSlop={1}
+                onPress={() => onChange({ ...settings, inkSheenColor: one.id })} style={paletteSwatchStyles.cell}>
+                <View style={[paletteSwatchStyles.dot, { backgroundColor: auto ? `rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})` : one.id }, chosen && paletteSwatchStyles.chosen]} />
+              </Pressable>
+            })}
+          </View>
+        </>}
       </>}
       <EditablePalette allowDirect scope={highlighter ? 'highlighter' : 'pen'} label={label} value={settings.color} onPick={chooseColor} onOpenEditor={onOpenColorPicker} />
       {recentColors.length > 0 && <>

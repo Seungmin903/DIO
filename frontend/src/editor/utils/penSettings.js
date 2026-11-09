@@ -11,6 +11,18 @@ export const PEN_TYPES = [
   { id: 'glass', label: '유리펜' },
 ]
 export const DEFAULT_PEN_SETTINGS = { kind: 'ball', color: '#18224D', width: 2.5 }
+// 유리펜 잉크: 글리터 · 테를 따로 켜고 끈다. 글리터 색은 색상환이 아니라 **운모 코팅 두께(nm)** 하나로 정한다 —
+// 실제 펄 안료가 그렇다(운모판 + TiO2 코팅의 박막 간섭). 계산한 색 순서가 안료 업계 두께표와 일치한다.
+export const GLASS_FILMS = [
+  { id: 55, label: '은' }, { id: 72, label: '금' }, { id: 88, label: '구리' },
+  { id: 103, label: '분홍' }, { id: 125, label: '파랑' }, { id: 145, label: '초록' },
+]
+// 테 색: 비워 두면 펜 색에서 물리식(프레넬)으로 자동 계산한다. 고르면 그 색으로 덮어쓴다
+export const GLASS_SHEENS = [
+  { id: '#C9A227', label: '금' }, { id: '#B06A3B', label: '구리' }, { id: '#3E8E6E', label: '초록' },
+  { id: '#B5447E', label: '자주' }, { id: '#4A6FB5', label: '파랑' },
+]
+export const DEFAULT_GLASS_INK = { inkGlitter: true, inkSheen: true, inkFilm: 55, inkAmount: 1, inkSheenColor: null }
 // 종류를 고를 때 들어가는 기본 불투명도(사용자 2026-11-03: 연필은 기본을 반투명으로, 슬라이더는 100 까지 그대로 —
 // 참고 필기 앱(Notability · 애플 노트) 연필은 순검정이 없고 겹칠수록 진해진다). 없는 종류는 1.
 export const PEN_DEFAULT_OPACITY = { pencil: 0.8 }
@@ -34,7 +46,8 @@ const inRange = (value, min, max, fallback) => Number.isFinite(value) ? Math.max
 export function sanitizePenSettings(saved) {
   if (!saved || typeof saved !== 'object') return undefined
   const kind = PEN_TYPES.some(type => type.id === saved.kind) ? saved.kind : DEFAULT_PEN_SETTINGS.kind
-  return { kind, color: validColor(saved.color, DEFAULT_PEN_SETTINGS.color), width: inRange(saved.width, 1, 16, DEFAULT_PEN_SETTINGS.width), opacity: inRange(saved.opacity, 0.1, 1, penDefaultOpacity(kind)) }
+  return { kind, color: validColor(saved.color, DEFAULT_PEN_SETTINGS.color), width: inRange(saved.width, 1, 16, DEFAULT_PEN_SETTINGS.width), opacity: inRange(saved.opacity, 0.1, 1, penDefaultOpacity(kind)),
+    ...(kind === 'glass' && sanitizeGlassInk(saved)) }
 }
 export function sanitizePenKinds(saved) {
   if (!saved || typeof saved !== 'object') return undefined
@@ -109,5 +122,18 @@ export function createPenPressureSampler(kind, useForce = true, useTilt = true) 
     },
     report() { return { source: samples ? 'force' : 'speed-fallback', samples, min: samples ? min : null, max: samples ? max : null } },
     force() { return lastForce },
+  }
+}
+
+// 유리펜 잉크 설정 검사. 모르는 값은 기본값으로 — 다른 펜에도 그냥 실려 있어도 해가 없다(유리펜일 때만 읽는다)
+export function sanitizeGlassInk(saved) {
+  if (!saved || typeof saved !== 'object') return { ...DEFAULT_GLASS_INK }
+  const film = GLASS_FILMS.some(one => one.id === saved.inkFilm) ? saved.inkFilm : DEFAULT_GLASS_INK.inkFilm
+  return {
+    inkGlitter: typeof saved.inkGlitter === 'boolean' ? saved.inkGlitter : DEFAULT_GLASS_INK.inkGlitter,
+    inkSheen: typeof saved.inkSheen === 'boolean' ? saved.inkSheen : DEFAULT_GLASS_INK.inkSheen,
+    inkFilm: film,
+    inkAmount: inRange(saved.inkAmount, 0, 1, DEFAULT_GLASS_INK.inkAmount),
+    inkSheenColor: saved.inkSheenColor == null ? null : validColor(saved.inkSheenColor, null),
   }
 }
