@@ -30,6 +30,32 @@ import static org.assertj.core.api.Assertions.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 class SharingTests extends SharingTestSupport {
+    @Test void previewReturnsStoredCoverAndFirstActivePageOrientation() throws Exception {
+        var owner=actor();
+        var id=diary(owner);
+        var token=links.create(id,owner.id()).token();
+        mvc.perform(get("/api/v1/invites/"+token))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.pageSize").value("landscape"));
+
+        jdbc.update("update diaries set cover_color=?,cover_style=?,cover_json=? where diary_id=?",
+            "#ABCDEF","GRID","{\"kind\":\"plain\"}",id);
+        for (int index=0;index<3;index++) {
+            boolean portrait=index==1;
+            jdbc.update("""
+                insert into pages(page_id,diary_id,sort_key,canvas_width,canvas_height,grid_visible,version,created_at,updated_at,deleted_at)
+                values(?,?,?,?,?,false,1,current_timestamp,current_timestamp,?)
+                """,UUID.randomUUID(),id,index+1,portrait?768:1024,portrait?1024:768,
+                index==0?java.sql.Timestamp.from(Instant.now()):null);
+        }
+        mvc.perform(get("/api/v1/invites/"+token))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.pageSize").value("portrait"))
+            .andExpect(jsonPath("$.coverColor").value("#ABCDEF"))
+            .andExpect(jsonPath("$.coverStyle").value("GRID"))
+            .andExpect(jsonPath("$.cover.kind").value("plain"));
+    }
+
     @Test void protectedEndpointsRejectMissingAndInvalidToken() throws Exception {
         var id=UUID.randomUUID();
         mvc.perform(get("/api/v1/diaries/"+id+"/members")).andExpect(status().isUnauthorized());
