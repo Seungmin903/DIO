@@ -6,6 +6,7 @@ import { loadTemplateAst, peekTemplateAst } from '../templates/loadTemplate'
 import { colorTemplateAst, normalizePaperAppearance } from '../templates/appearance.js'
 import { pageSize } from '../utils/pageGeometry.js'
 import { plannerFor, paperDeviceFontIds } from '../templates/planners.js'
+import { subscribeTemplateLoaded } from '../templates/templateLoadedSignal.js'
 import { swapPaperFont } from '../templates/paperFont.js'
 import { useTextFont } from '../hooks/useTextFont'
 import { colors } from '../../shared/theme'
@@ -66,6 +67,19 @@ function BackgroundAttempt({ page, zoom, preparedXml, onReady, onError, onRetry,
     return () => { active = false }
   }, [page.backgroundAssetId, page.templateVersion, preparedXml])
 
+  // 축소 표시(compact: 페이지 목록 썸네일 · 정적 페이지)는 실패해도 문구 · 재시도 버튼을 두지 않는다 — 작은 칸에서 페이지 선택과 경쟁했다(S15P31F106-724).
+  // 빈 종이로 두고, 본문 캔버스의 '다시 시도'로 캐시가 채워지면 그 캐시로 스스로 복구한다: 캐시 채움 신호를 구독해(다시 그려지기를 기다리지 않는다) 실패 상태를 푼다.
+  // 실패 안내와 재시도는 본문 캔버스 한 곳에서만 보인다.
+  useEffect(() => {
+    if (!compact || !error || preparedXml != null) return undefined
+    return subscribeTemplateLoaded(() => {
+      const ast = cachedAst(page)
+      if (ast) { setSvg({ ast }); setError(null) }
+    })
+  }, [compact, error, preparedXml, page.backgroundAssetId, page.templateVersion]) // eslint-disable-line react-hooks/exhaustive-deps
+  const recovered = error && compact && preparedXml == null ? cachedAst(page) : null
+  const shown = recovered ? { ast: recovered } : svg
+  const failed = Boolean(error) && !recovered
   const appearance = normalizePaperAppearance(page.paperAppearance)
   // 가이드는 종이 바탕과 속지 글씨 사이에만 넣는다. 출력용 XML 경로에는 가이드를 넣지 않는다.
   const guideUnderlay = preparedXml == null ? underlay : null
@@ -79,21 +93,21 @@ function BackgroundAttempt({ page, zoom, preparedXml, onReady, onError, onRetry,
   const startHour = planner ? plannerApi.startHour(planner) : 6
   const shiftedBase = useMemo(() => startHour === 6 ? null : parse(swapPaperFont(plannerApi.baseSvg(startHour), appearance.font)), [page.backgroundAssetId, startHour, appearance.font]) // eslint-disable-line react-hooks/exhaustive-deps
   const plannerAst = useMemo(() => planner || (titleKey && titleKey !== '{}') ? parse(swapPaperFont(plannerApi.overlaySvg(planner, page.objects), appearance.font)) : null, [page.backgroundAssetId, planner, titleKey, appearance.font]) // eslint-disable-line react-hooks/exhaustive-deps
-  const baseAst = shiftedBase ?? svg?.ast
+  const baseAst = shiftedBase ?? shown?.ast
   const styledAst = useMemo(() => baseAst ? colorTemplateAst(baseAst, appearance, { transparentPaper }) : null, [baseAst, appearance.backgroundColor, appearance.layoutColor, transparentPaper])
   const styledPlanner = useMemo(() => plannerAst ? colorTemplateAst(plannerAst, appearance) : null, [plannerAst, appearance.backgroundColor, appearance.layoutColor])
   if (page.backgroundAssetId == null) return <View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: appearance.backgroundColor }]}>{guideUnderlay}</View>
   return <View style={[StyleSheet.absoluteFill, { backgroundColor: appearance.backgroundColor }]} pointerEvents="box-none">
     {guideUnderlay}
-    {svg && !error && <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-      <SvgBoundary onError={fail}><RenderedSvg xml={svg.xml} ast={styledAst} width={width * zoom} height={height * zoom} onReady={() => callbacks.current.onReady?.()} /></SvgBoundary>
+    {shown && !failed && <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+      <SvgBoundary onError={fail}><RenderedSvg xml={shown.xml} ast={styledAst} width={width * zoom} height={height * zoom} onReady={() => callbacks.current.onReady?.()} /></SvgBoundary>
     </View>}
-    {svg && !error && styledPlanner && <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+    {shown && !failed && styledPlanner && <View pointerEvents="none" style={StyleSheet.absoluteFill}>
       <SvgBoundary onError={fail}><SvgAst ast={styledPlanner} override={{ width: width * zoom, height: height * zoom }} /></SvgBoundary>
     </View>}
     {/* 속지는 기기에 있는 파일이라 곧바로 준비된다. 준비 전에는 빈 종이로 두고 로딩 문구를 띄우지 않는다. */}
-    {error && <View style={styles.error} accessibilityRole="alert">
-      <Text style={styles.notice}>{compact ? '속지 로딩 실패' : error.message}</Text>
+    {failed && !compact && <View style={styles.error} accessibilityRole="alert">
+      <Text style={styles.notice}>{error.message}</Text>
       {onRetry && <Pressable accessibilityRole="button" accessibilityLabel="속지 다시 불러오기" onPress={onRetry} style={styles.retry}><Text style={styles.retryText}>다시 시도</Text></Pressable>}
     </View>}
   </View>
