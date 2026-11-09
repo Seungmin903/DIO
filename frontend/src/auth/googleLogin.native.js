@@ -11,6 +11,8 @@ export async function signInWithGoogle(){
  try{
   if(!configured){sdk.GoogleSignin.configure({webClientId,iosClientId,offlineAccess:false});configured=true;}
   if(Platform.OS==='android')await sdk.GoogleSignin.hasPlayServices({showPlayServicesUpdateDialog:true});
+  // SDK는 마지막 계정을 기억해 선택 창 없이 그 계정으로 바로 로그인한다. 매번 계정을 고를 수 있게 먼저 지운다.
+  try{if(sdk.GoogleSignin.hasPreviousSignIn())await sdk.GoogleSignin.signOut();}catch{}
   const response=await sdk.GoogleSignin.signIn();
   if(response.type==='cancelled')throw new Error('구글 로그인을 취소했어요.');
   const user=response.data;
@@ -20,7 +22,12 @@ export async function signInWithGoogle(){
   if(error?.code===sdk.statusCodes.SIGN_IN_CANCELLED)throw new Error('구글 로그인을 취소했어요.');
   if(error?.code===sdk.statusCodes.IN_PROGRESS)throw new Error('구글 로그인 창에서 진행해 주세요.');
   if(error?.code===sdk.statusCodes.PLAY_SERVICES_NOT_AVAILABLE)throw new Error('Google Play 서비스를 확인해 주세요.');
-  if(error?.code)throw new Error('구글 로그인을 완료하지 못했어요. 앱 설정과 네트워크를 확인해 주세요.');
+  if(error?.code){
+   console.warn('[GoogleSignin] 실패',error.code,error.message);
+   const code=String(error.code);
+   if(code==='10'||code==='DEVELOPER_ERROR')throw new Error(`구글 로그인 앱 설정이 맞지 않아요. (오류 코드: ${code})`);
+   throw new Error(`구글 로그인을 완료하지 못했어요. 앱 설정과 네트워크를 확인해 주세요. (오류 코드: ${code})`);
+  }
   throw error;
  }
 }
