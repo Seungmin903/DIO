@@ -5,7 +5,7 @@ import { DEFAULT_PAPER_FONT } from '../../editor/templates/paperFont.js'
 import { colors } from '../../shared/theme'
 import EditablePalette from '../../editor/components/controls/EditablePalette'
 import PaperFontDropdown from './PaperFontDropdown'
-import { GroupGrid, GroupHead, groupStyle } from './StudioPresets'
+import { GroupGrid, GroupHead, PaletteFit, groupStyle } from './StudioPresets'
 
 /**
  * 꾸미기 공방 '내 속지' 위쪽의 기본 속지 설정: 새 다이어리를 만들 때 처음 값이 되는 종이 색 · 선 · 글씨 색 · 속지 글꼴.
@@ -38,7 +38,7 @@ function ColorGroup({ width, compact, icon, title, scope, label, value, onChange
   return (
     <View style={groupStyle(width, compact)}>
       <GroupHead icon={icon} title={title} full={compact} />
-      <EditablePalette scope={scope} label={label} value={value} onPick={onChange} />
+      <PaletteFit full={compact}><EditablePalette scope={scope} label={label} value={value} onPick={onChange} flushEdit /></PaletteFit>
     </View>
   )
 }
