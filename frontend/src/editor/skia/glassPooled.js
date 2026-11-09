@@ -16,15 +16,19 @@
 // 좌표계: 이미지 필터의 런타임 셰이더는 **캔버스 지역 좌표**(= 페이지 좌표)로 돈다.
 //   자식도 같은 좌표로 읽으므로 org = 0, ppu = 1 로 둔다(셰이더의 q = p 가 된다).
 //   덕분에 무늬가 페이지에 붙어 있어 확대해도 그대로다.
+import { PixelRatio } from 'react-native'
 import { BlendMode, PaintStyle, Skia, StrokeCap, StrokeJoin, TileMode } from '@shopify/react-native-skia'
 import { GLASS_INK, GLASS_INK_SKSL, abLineOf, glassDabs, inkDensity, micaColor, sheenAutoColor } from '../utils/glassInk.js'
 
-let builder = null, failed = false
+let builder = null, failed = false, reported = 0
 const hex3 = color => { const c = Skia.Color(color); return [c[0], c[1], c[2]] }
 
 // 두께 마스크는 도장이 겹쳐야 매끈하다. 경로용(0.38)보다 촘촘하되, 긴 획에서는 수를 제한한다.
 const MASK_SPACING = 0.22
 const MASK_MAX_DABS = 3000
+// 페이지 1단위가 화면 몇 px 인가. 눈대중으로 두면 입자 가장자리(aa)와 도장 여유(fringe)가
+// 실제 픽셀보다 커져 그대로 뭉개진다 — 기기 배율 × 확대율로 정확히 구한다.
+const pxPerUnit = zoom => Math.max(0.2, PixelRatio.get() * Math.max(0.05, zoom))
 
 function setUniforms(color, width, ink, zoom) {
   const P = GLASS_INK
@@ -37,8 +41,7 @@ function setUniforms(color, width, ink, zoom) {
   const u = (name, ...v) => builder.setUniform(name, v)
 
   u('org', 0, 0); u('ppu', 1)
-  // 입자 가장자리를 부드럽게 할 폭 ≈ 화면 0.5px. 화면 1px ≈ 페이지 1/(2·zoom) 단위.
-  u('aa', Math.max(0.12, 0.25 / Math.max(0.2, zoom)))
+  u('aa', 0.5 / pxPerUnit(zoom))   // 화면 0.5px 에 해당하는 페이지 길이
   u('ink', ...rgb); u('dens', ...inkDensity(rgb))
   u('satK', P.satK); u('tMax', P.T_MAX)
   u('rad', P.rimR * width)
@@ -78,6 +81,7 @@ export function glassPooledFailed() { return failed }
 export function drawGlassPooled(canvas, points, width, color, zoom = 1, ink = {}) {
   if (failed) return false
   const P = GLASS_INK
+  const t0 = Date.now()
   if (!builder) {
     const effect = Skia.RuntimeEffect.Make(GLASS_INK_SKSL)
     if (!effect) { failed = true; console.warn('[유리펜] 고임 셰이더 컴파일 실패'); return false }
@@ -104,7 +108,7 @@ export function drawGlassPooled(canvas, points, width, color, zoom = 1, ink = {}
 
   // 두께: 도장을 Lighten(최댓값)으로 — 겹쳐도 끝없이 두꺼워지지 않는다. 안티에일리어스는 끈다
   // (켜면 도장 경계마다 반투명 테두리가 생겨 두께에 결이 간다). 대신 반지름을 조금 키워 틈을 메운다.
-  const fringe = Math.max(0.3, 0.5 / Math.max(0.2, zoom))
+  const fringe = 0.5 / pxPerUnit(zoom)   // 화면 0.5px — 안티에일리어스를 끈 도장 사이의 틈만 메운다
   const dab = Skia.Paint()
   dab.setAntiAlias(false)
   dab.setBlendMode(BlendMode.Lighten)
@@ -136,5 +140,16 @@ export function drawGlassPooled(canvas, points, width, color, zoom = 1, ink = {}
   canvas.restore()
 
   canvas.restore()
+  // 화질을 눈대중 말고 숫자로 보기 위해 처음 몇 획만 찍는다(그 뒤로는 조용하다).
+  if (reported < 3) {
+    reported++
+    console.log('[유리펜 27판]', JSON.stringify({
+      배율: PixelRatio.get(), 확대: zoom, 페이지1단위px: +pxPerUnit(zoom).toFixed(2),
+      굵기: width, 도장: dabs.length, 간격: +spacing.toFixed(3),
+      층px: [Math.round((x1 - x0 + pad * 2) * pxPerUnit(zoom)), Math.round((y1 - y0 + pad * 2) * pxPerUnit(zoom))],
+      블러시그마px: +(P.poolSpread * pxPerUnit(zoom)).toFixed(1),
+      ms: +(Date.now() - t0).toFixed(0),
+    }))
+  }
   return true
 }
