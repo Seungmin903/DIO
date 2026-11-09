@@ -8,12 +8,13 @@ const stores = new Map()
 
 function storeFor(kind) {
   if (stores.has(kind)) return stores.get(kind)
-  let colors = [], loading = null
+  let colors = [], loading = null, loaded = false // loaded: 저장된 목록을 한 번이라도 제대로 읽었다
   const listeners = new Set()
   const publish = next => { colors = next; listeners.forEach(listener => listener()) }
   const load = () => loading ??= AsyncStorage.getItem(KEY(kind)).then(raw => {
     let saved = []
     try { saved = raw ? JSON.parse(raw) : [] } catch { saved = [] }
+    loaded = true
     publish(restorePaperColors(saved))
   }).catch(() => { loading = null })
   const store = {
@@ -25,6 +26,8 @@ function storeFor(kind) {
       const next = pushPaperColor(colors, color)
       if (next === colors) return
       publish(next)
+      // 읽기에 실패한 채(loaded 아님)로는 저장하지 않는다 — 빈 목록으로 저장돼 있던 최근 색을 지워 버릴 수 있다. 화면에만 반영하고 다음 기록 때 다시 읽는다
+      if (!loaded) return
       try { await AsyncStorage.setItem(KEY(kind), JSON.stringify(next)) } catch { /* 저장 실패는 다음 기록에서 다시 시도한다 */ }
     },
   }
