@@ -50,6 +50,24 @@ test('회원 생성·상세·수정 경로와 코드/버전·미세초 수정 �
   assert.deepEqual(calls[2].body, { expectedVersion: '1', diaryTitle: 'rename' })
 })
 
+test('회원 생성과 수정의 속지 글꼴을 서버에 보내고 이전 생성 대기 요청 형식을 유지한다', async () => {
+  const appearance = { backgroundColor: '#FFFFFF', layoutColor: '#292929', font: 'gowun-dodum' }
+  const calls = []
+  const api = createMemberDiaryApi(async request => {
+    calls.push(request)
+    return { diary: { ...row, paperAppearance: appearance }, firstPageId: page, pageIds: [page] }
+  })
+  const selected = [{ ...input.initialPages[0], templateConfig: { ...input.initialPages[0].templateConfig, paperAppearance: appearance } }]
+  const created = await api.create({ ...input, initialPages: selected, defaultPaperAppearance: appearance }, { requestId: 'member-paper-key' })
+  assert.deepEqual(calls[0].body.paperAppearance, appearance)
+  assert.deepEqual(calls[0].body.initialPages[0].templateConfig.paperAppearance, appearance)
+  assert.deepEqual(created.paperAppearance, appearance)
+  await api.create({ ...input, paperAppearance: { backgroundColor: '#FFFFFF' } }, { requestId: 'legacy-paper-key' })
+  assert.equal(Object.hasOwn(calls[1].body, 'paperAppearance'), false)
+  await api.update(id, { expectedVersion: '1', paperAppearance: appearance, paperAppearanceScope: 'new' })
+  assert.deepEqual(calls[2].body, { expectedVersion: '1', paperAppearance: appearance, paperAppearanceScope: 'new' })
+})
+
 test('키·수정 기준 누락·다른 ID·잘못된 페이지 응답을 거부한다', async () => {
   let calls = 0
   const api = createMemberDiaryApi(async () => { calls++; return { diary: row, firstPageId: page, pageIds: [page] } })

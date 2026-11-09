@@ -14,7 +14,7 @@ const WIDTH = 282, ROW = 48;
  * 속지 글꼴 드롭다운(꾸미기 공방 기본 속지 설정): 지금 글꼴 이름(그 글꼴로 씀) + ⌄ 를 누르면 아래에 목록 말풍선이 뜨고, 고르면 닫힌다.
  * 바깥을 누르거나 뒤로 가기 · 회전이면 닫힌다(PopoverMenu). value: 고른 글꼴 ID, onChange(id)
  */
-export default function PaperFontDropdown({ value, onChange }) {
+export default function PaperFontDropdown({ value, onChange, disabled = false }) {
   const button = useRef(null);
   const [anchor, setAnchor] = useState(null);
   const [open, setOpen] = useState(false);
@@ -31,7 +31,7 @@ export default function PaperFontDropdown({ value, onChange }) {
   };
   return (
     <View>
-      <Pressable ref={button} collapsable={false} accessibilityRole="button" accessibilityLabel={`속지 글꼴 ${current.label}, 바꾸기`} accessibilityState={{ expanded: open }}
+      <Pressable ref={button} collapsable={false} disabled={disabled} accessibilityRole="button" accessibilityLabel={`속지 글꼴 ${current.label}, 바꾸기`} accessibilityState={{ expanded: open, disabled }}
         onPress={show} style={local.field}>
         <Text numberOfLines={1} style={[local.value, current.textStyle, { fontSize: (current.textStyle?.fontSize ?? 12.5) * 1.2 }]}>{current.label}</Text>
         {/* 드롭다운 표시: 아래로 꺾인 화살촉(⌄). 열리면 위로 뒤집는다 */}

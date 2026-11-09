@@ -7,7 +7,6 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 
@@ -27,7 +26,6 @@ import tools.jackson.databind.node.ObjectNode;
 public class JdbcDiaryInitialPages implements DiaryInitialPages {
     private static final int MAX_CONFIG_LENGTH = 16384;
     private static final List<String> CONFIG_KEYS = List.of("width", "height", "paperAppearance", "blank", "remoteTemplate");
-    private static final List<String> COLOR_KEYS = List.of("backgroundColor", "layoutColor");
     private final JdbcTemplate jdbc;
     private final String catalogLock;
     private final String jsonParameter;
@@ -106,9 +104,7 @@ public class JdbcDiaryInitialPages implements DiaryInitialPages {
                 if (source.has("blank")) merged.set("blank",source.get("blank"));
                 if (source.has("remoteTemplate")) merged.put("remoteTemplate",source.get("remoteTemplate").asString());
                 if (source.has("paperAppearance")) {
-                    for (var color : COLOR_KEYS) {
-                        if (source.get("paperAppearance").has(color)) appearance.put(color,source.get("paperAppearance").get(color).asString().toUpperCase(Locale.ROOT));
-                    }
+                    appearance.setAll(com.f106.DIO.page.domain.PaperAppearance.normalize(source.get("paperAppearance")));
                 }
             }
             if (!appearance.isEmpty()) merged.set("paperAppearance",appearance);
@@ -138,13 +134,8 @@ public class JdbcDiaryInitialPages implements DiaryInitialPages {
             throw new InvalidSelection("Invalid remote template");
         }
         if (value.has("paperAppearance")) {
-            var appearance = value.get("paperAppearance");
-            if (!appearance.isObject() || COLOR_KEYS.stream().filter(appearance::has).count()!=appearance.size()) throw new InvalidSelection("Invalid appearance");
-            for (var color : COLOR_KEYS) {
-                if (appearance.has(color) && (!appearance.get(color).isString() || !appearance.get(color).asString().matches("#[0-9a-fA-F]{6}"))) {
-                    throw new InvalidSelection("Invalid appearance color");
-                }
-            }
+            try { com.f106.DIO.page.domain.PaperAppearance.normalize(value.get("paperAppearance")); }
+            catch (IllegalArgumentException invalid) { throw new InvalidSelection("Invalid appearance"); }
         }
         return value;
     }

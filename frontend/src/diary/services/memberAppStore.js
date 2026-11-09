@@ -2,6 +2,7 @@ import { memberKeys } from './memberStorage.js'
 import { diaryCreateInput } from './diaryCreateInput.js'
 import { serverDiaryCreateInput } from './serverPaperFont.js'
 import { localTemplateReference } from '../../editor/templates/serverCatalog.js'
+import { normalizePaperAppearance } from '../../editor/templates/appearance.js'
 import { createDefaultDoc } from '../../editor/state/defaultDoc.js'
 import { pdfDocPage } from '../utils/pdfImport.js'
 import { normalizeMemberLibraryQuery } from './memberLibraryQuery.js'
@@ -120,7 +121,7 @@ export function createMemberAppStore({ accountId, api, storage, makeRequestId, s
   }
   const createDocument = (result, input) => {
     const diary = entry({ ...result, title: result.title, templateConfig: input.templateConfig, pageSize: input.pageSize,
-      paperAppearance: input.paperAppearance, favorite: false, pageCount: result.pageIds.length, ...(result.cover || input.cover ? { cover: result.cover ?? input.cover } : {}) })
+      paperAppearance: result.paperAppearance ?? input.paperAppearance, favorite: false, pageCount: result.pageIds.length, ...(result.cover || input.cover ? { cover: result.cover ?? input.cover } : {}) })
     const doc = createDefaultDoc(diary)
     doc.memberAccountId = accountId
     doc.pages = input.initialPages.map((selected, index) => {
@@ -439,7 +440,11 @@ export function createMemberAppStore({ accountId, api, storage, makeRequestId, s
       starting = (async () => {
       active()
       if (!state.loaded || !writable) throw failure('NOT_READY', '목록 저장 자료를 먼저 확인해 주세요.')
-      const input = serverDiaryCreateInput(diaryCreateInput(form))
+      const selected = diaryCreateInput(form)
+      // Pending requests created by older apps must keep their exact wire body and idempotency key.
+      const input = state.pending && !state.pending.input.defaultPaperAppearance
+        ? serverDiaryCreateInput(selected)
+        : { ...selected, defaultPaperAppearance: selected.paperAppearance }
       if (state.pending && JSON.stringify(state.pending.input) !== JSON.stringify(input)) throw failure('PENDING_CREATION', '이전 생성 요청을 먼저 확인해 주세요. 창을 닫고 이전 생성 확인을 눌러 주세요.')
       if (!state.pending) {
         const pending = { accountId, requestId: makeRequestId(), input: clone(input), uncertain: false }
@@ -486,7 +491,11 @@ export function createMemberAppStore({ accountId, api, storage, makeRequestId, s
       const previous = state.diaries.find(d => d.id === id)
       if (!previous?.canEdit) throw failure('FORBIDDEN', '소유자만 제목과 표지를 수정할 수 있어요.')
       try {
-        const result = await api.update(id, { title: form.title, color: form.color, coverStyle: form.pattern ? form.pattern.toUpperCase() : 'PLAIN', ...(form.cover?{cover:form.cover}:{}), expectedVersion: previous.version })
+        const paperAppearance = form.paperAppearance && normalizePaperAppearance(form.paperAppearance)
+        const paperChanged = paperAppearance && JSON.stringify(paperAppearance) !== JSON.stringify(normalizePaperAppearance(previous.paperAppearance))
+        const result = await api.update(id, { title: form.title, color: form.color, coverStyle: form.pattern ? form.pattern.toUpperCase() : 'PLAIN', ...(form.cover?{cover:form.cover}:{}),
+          ...(paperChanged ? { paperAppearance, paperAppearanceScope: form.appearanceScope === 'all' ? 'all' : 'new' } : {}),
+          expectedVersion: previous.version })
         active()
         const metadata = favoriteVersion !== favoriteVersions.get(id)
           ? { ...result, favorite: state.diaries.find(row => row.id === id)?.favorite } : result
