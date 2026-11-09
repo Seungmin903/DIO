@@ -62,7 +62,7 @@ export function mergeFolders(base, extra) {
  * decor: { snapshot() → 기기 보관함 폴더[], subscribe(listener) → 해제 함수, replace(folders) }
  * storage · key: 이 기기에서 맞춘 상태(meta) · 기기 id → 서버 id 짝을 둔다
  */
-export function createStickerLibrarySync({ account, api, media, decor, storage, key, isActive = () => true, setTimer = setTimeout, clearTimer = clearTimeout, debounceMs = STICKER_SYNC_DEBOUNCE_MS, onError = () => {} }) {
+export function createStickerLibrarySync({ account, api, media, decor, storage, key, isActive = () => true, setTimer = setTimeout, clearTimer = clearTimeout, debounceMs = STICKER_SYNC_DEBOUNCE_MS, onError = () => {}, onStatus = () => {} }) {
   // meta 는 기기마다 하나(어느 계정과 맞췄는지 알아야 한다), 기기 id ↔ 서버 id 짝은 계정마다 따로 둔다(서버 id 가 계정마다 다르다)
   const metaKey = `${key}:meta`, idKey = id => `${key}:${account}:id:${String(id).toLowerCase()}`, localKey = id => `${key}:${account}:local:${String(id).toLowerCase()}`
   let meta = null, timer = null, running = null, again = false, closed = false, unsubscribe = null, applying = false
@@ -72,9 +72,10 @@ export function createStickerLibrarySync({ account, api, media, decor, storage, 
 
   // 기기 폴더를 서버 문서 모양으로. upload 가 거짓이면 아직 올리지 않은 스티커는 빠진다(바뀌었는지 비교할 때)
   // 폴더 200개 · 스티커 3000개를 넘는 것은 보내지 않는다(기기에만 남고, 받아 바꿀 때도 지우지 않는다)
+  // 결과 배열의 pending: 보낼 수 있는데 아직 서버 짝이 없는(올리지 못한) 스티커 수. 보낼 수 없는 폴더 · 칸 · 한도 초과는 세지 않는다
   async function toServer(folders, upload) {
     const out = []
-    let total = 0
+    let total = 0, pending = 0
     for (const folder of folders ?? []) {
       if (!folder || !FOLDER_ID.test(String(folder.id ?? ''))) continue
       if (out.length >= LIBRARY_LIMITS.folders) break
@@ -97,9 +98,11 @@ export function createStickerLibrarySync({ account, api, media, decor, storage, 
           }
         }
         if (uuid(serverId)) items.push(serverItem(item, serverId))
+        else pending++
       }
       out.push({ id: folder.id, name: serverFolderName(folder.name), items })
     }
+    out.pending = pending
     return out
   }
 
@@ -171,23 +174,36 @@ export function createStickerLibrarySync({ account, api, media, decor, storage, 
     const local = decor.snapshot() ?? []
     if (meta && meta.account !== account) return adopt(server, { keepLocal: false }) // 다른 계정이 쓰던 기기: 그 스티커를 이 계정에 올리지 않는다
     if (!meta && !local.length) return adopt(server) // 새 기기 · 재설치: 서버 보관함을 그대로 받는다
+    // 바뀌었는지는 보낼 수 있는 것끼리만 비교한다(보낼 수 없는 폴더 · 칸 · 한도 초과가 있다고 매번 저장하지 않는다).
+    // 아직 올리지 못한 스티커가 있으면 업로드를 다시 시도한다
     const known = await toServer(local, false); active()
-    const localChanged = !meta || stable(known) !== meta.synced || known.length !== local.length || hasUnsent(local, known)
+    const localChanged = !meta || stable(known) !== meta.synced || known.pending > 0
     const serverChanged = !meta || server.version !== meta.version
-    if (!localChanged && !serverChanged) return null
-    if (!localChanged) return adopt(server)
+    if (!localChanged && !serverChanged) return report(0)
+    if (!localChanged) { await adopt(server); return report(0) }
     const mine = await toServer(local, true); active()
+    // 다시 올려 봤지만 새로 올라간 것이 없고 서버도 그대로면 저장하지 않는다(version 만 올라 다른 기기가 매번 다시 받지 않게)
+    if (!serverChanged && meta && stable(mine) === meta.synced) return report(mine.pending)
     const saved = await push(serverChanged ? mergeFolders(mine, server.folders) : mine, server.version)
     // 저장된 결과가 기기에서 보낸 것과 다르면(서버 것과 합쳤거나, 저장 중 409 로 다른 기기의 변경을 합쳤으면) 기기에도 들인다.
     // 들이지 않으면 다음 맞추기에서 기기 목록이 '바뀜'으로 보여 다른 기기의 폴더 · 스티커를 서버에서 지운다
     if (stable(saved.folders) !== stable(mine)) await adopt(saved)
+    report(mine.pending)
     return saved
   }
-  const hasUnsent = (local, known) => local.some((folder, index) => (folder.items ?? []).filter(syncable).length !== (known[index]?.items.length ?? -1))
+  // 맞추기 결과를 알린다: 올리지 못한 스티커가 남았으면 실패, 아니면 정상
+  function report(pending) {
+    onStatus(pending > 0 ? { error: `스티커 ${pending}개를 계정에 올리지 못했어요. 다른 기기에서는 보이지 않아요.` } : { error: null })
+    return null
+  }
 
   function run() {
     if (running) { again = true; return running }
-    running = reconcile().catch(error => { if (error?.code !== 'SYNC_CLOSED') onError(error) })
+    running = reconcile().catch(error => {
+      if (error?.code === 'SYNC_CLOSED') return
+      onError(error)
+      onStatus({ error: error?.status === 409 ? '다른 기기의 변경과 계속 겹쳐 스티커 보관함을 계정에 저장하지 못했어요.' : '스티커 보관함을 계정과 맞추지 못했어요. 연결을 확인해 주세요.' })
+    })
       .finally(() => { running = null; if (again && !closed) { again = false; schedule() } })
     return running
   }

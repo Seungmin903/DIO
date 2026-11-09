@@ -9,6 +9,7 @@ import { canvasMediaFiles } from '../../editor/services/canvasMediaFiles'
 import { createStickerLibrarySync } from '../../editor/services/stickerLibrarySync.js'
 import { customDecorFolders, replaceStickerFolders, subscribeCustomDecor, useCustomDecor } from '../../editor/hooks/useCustomDecor'
 import { sharedGifMaxBytes } from '../../shared/mediaLimits.js'
+import { setStickerSyncRetry, setStickerSyncStatus } from '../../editor/services/stickerLibrarySyncStatus.js'
 
 // 로그인 직후 화면이 몇 번 다시 그려지며 이 컴포넌트가 여러 번 붙었다 떨어진다. 그때마다 새로 맞추면 보관함 조회가 수십 번 나가므로,
 // 같은 계정 · 로그인 세션이면 동기화 하나를 이어 쓰고, 모두 떨어진 채 잠시 지나야(다른 계정 · 로그아웃) 멈춘다
@@ -27,6 +28,7 @@ function acquire(accountId) {
   const sync = createSync(accountId, sessionKey)
   const appState = AppState.addEventListener('change', state => { if (state === 'active') sync.sync() })
   shared = { id, sync, appState, mounts: 1, releaseTimer: null }
+  setStickerSyncRetry(() => sync.sync())
   sync.start()
   return shared
 }
@@ -40,6 +42,8 @@ function stopShared() {
   if (!shared) return
   if (shared.releaseTimer != null) clearTimeout(shared.releaseTimer)
   shared.sync.stop(); shared.appState.remove(); shared = null
+  setStickerSyncRetry(null)
+  setStickerSyncStatus({ error: null, pending: false }) // 로그아웃 · 다른 계정: 이전 계정의 실패를 보이지 않는다
 }
 
 function createSync(accountId, sessionKey) {
@@ -68,6 +72,7 @@ function createSync(accountId, sessionKey) {
     },
     decor: { snapshot: customDecorFolders, subscribe: subscribeCustomDecor, replace: replaceStickerFolders },
     onError: error => { if (typeof __DEV__ !== 'undefined' && __DEV__) console.warn('[DIO_STICKER_SYNC]', error?.message) },
+    onStatus: next => { if (active()) setStickerSyncStatus({ error: next.error }) },
   })
 }
 

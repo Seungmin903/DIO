@@ -58,6 +58,7 @@ function fixture({ supported = false, failFonts = false, family = null, failRemo
     if (id.endsWith('/text')) return {loadedFontFamily:()=>family}
     if (id.endsWith('/stickerLibrary')) return {BASE_GROUPS:[{name:'기본 분류'}]}
     if (id.endsWith('/loginGate')) return { useLoginGate: () => (_feature, action) => action() } // 로그인한 사용자: 그대로 통과(게스트 안내는 login-gate.test.js)
+    if (id.endsWith('/stickerLibrarySyncStatus.js')) return { useStickerLibrarySyncStatus: () => ({ error: null, pending: false, retry() {} }) }
     if (id.endsWith('/useCustomDecor')) return {useCustomDecor:()=>custom}
     if (id.endsWith('/stickerSplit')) return {stickerSplit:{available:supported,reason:'개발 빌드에서 사용할 수 있어요.'}}
     return { __esModule: true, default: id }
