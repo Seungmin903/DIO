@@ -38,7 +38,7 @@
 
 `mediaFileId`는 본인이 올린 `READY` 상태의 `IMAGE`만 넣을 수 있다. 이미 보관함에 있던 이미지는 미디어에서 지웠어도 그대로 둘 수 있다.
 
-## 저장 구조(V39)
+## 저장 구조(V40)
 
 - `user_tape_libraries(user_id PK, version, document_json, updated_at)`, `user_tape_library_media(user_id, media_file_id)`.
 - 미디어 정리(`MediaReferenceSql`)는 `user_tape_library_media`를 참조로 보아 보관함 테이프 사진을 물리 삭제하지 않는다.

@@ -58,7 +58,7 @@
 - `mediaFileId`는 본인이 올린 `READY` 상태의 `IMAGE`만 넣을 수 있다(남의 파일 · 폰트 · PDF 불가).
 - 이미 보관함에 있던 이미지는 사용자가 미디어에서 지웠어도(`deleted_at`) 그대로 둘 수 있다. 새로 넣는 이미지는 지워지지 않은 것이어야 한다.
 
-## 저장 구조(V38)
+## 저장 구조(V39)
 
 - `user_sticker_libraries(user_id PK, version, document_json, updated_at)`: 폴더 구성 문서 한 벌.
 - `user_sticker_library_media(user_id, media_file_id)`: 문서에 든 미디어 id. 저장마다 문서와 같이 다시 쓴다.

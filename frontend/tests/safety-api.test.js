@@ -29,6 +29,24 @@ function setup(handler) {
   return { api, calls, uploads, auth, changeSession: () => { session = 'login-2'; }, get refreshes() { return refreshes; } };
 }
 
+test('공유 경고 닫기 기록은 서버에 저장하고 다른 클라이언트가 다시 조회할 수 있다', async () => {
+  const userId = '9223372036854775807';
+  let saved = [];
+  const handle = (url, request) => {
+    assert.ok(url.endsWith('/me/block-warning-dismissals/' + diaryId));
+    if (request.method === 'PUT') {
+      saved = JSON.parse(request.body).userIds;
+      assert.deepEqual(saved, [userId]);
+      return reply(null, 204);
+    }
+    return reply({ userIds: saved });
+  };
+  const first = setup(handle).api;
+  assert.deepEqual(await first.listWarningDismissals(diaryId), []);
+  await first.dismissWarning(diaryId, [userId]);
+  assert.deepEqual(await setup(handle).api.listWarningDismissals(diaryId), [userId]);
+});
+
 test('차단 목록은 모든 페이지를 모으고 계정 ID를 정밀도 손실 없이 유지한다', async () => {
   const f = setup(url => url.includes('page=0') ? reply(page([block], 0, true))
     : reply(page([{ userId: '9223372036854775807', nickname: '탈퇴한 사용자', blockedAt: time }], 1)));
