@@ -21,18 +21,20 @@ export const sharedFontFiles = {
 export const sharedFontLibrary = {
   mine: loadFontLibrary,
   has: fileId => Boolean(loadedFontFamily(`personal-${fileId}`)),
-  register(fonts) {
+  /** onFailed(fileId, mediaFileId): 기기가 읽지 못했을 때. 부른 쪽(diaryFonts)이 다음 조회에서 다시 받게 등록 기록을 지운다 */
+  register(fonts, onFailed) {
     for (const { fileId, uri } of fonts) sharedUris.set(fileId, uri)
     registerSharedTextFonts(fonts.map(({ fileId }) => ({ id: `personal-${fileId}`, family: familyOf(fileId) })))
-    for (const { fileId, mediaFileId, uri } of fonts) {
+    return Promise.all(fonts.map(({ fileId, mediaFileId, uri }) => {
       const family = familyOf(fileId)
-      loadAsync({ [family]: { uri } }).then(() => markTextFontLoaded(family), () => {
-        // 기기가 읽지 못한 파일은 캐시에 남기지 않는다(다음에 다시 받는다)
+      return loadAsync({ [family]: { uri } }).then(() => markTextFontLoaded(family), () => {
+        // 기기가 읽지 못한 파일은 캐시에 남기지 않는다(다음 조회에서 다시 받는다)
         markTextFontFailed(family)
-        sharedUris.delete(fileId)
-        removeSharedFontBytes(mediaFileId).catch(() => {})
+        if (sharedUris.get(fileId) === uri) sharedUris.delete(fileId)
+        onFailed?.(fileId, mediaFileId)
+        return removeSharedFontBytes(mediaFileId).catch(() => {})
       })
-    }
+    }))
   },
   // 같은 폰트 id 를 다른 파일이 주장하게 됐을 때: 그 친구 폰트로 더는 그리지 않는다
   unregister(fileIds) {

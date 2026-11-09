@@ -12,7 +12,7 @@ const body = rows => ({ clientOperationId: 'op', changes: { creates: rows }, exp
 
 const TTF = new Uint8Array([0, 1, 0, 0, 0, 10, 0, 128, 0, 3, 0, 32])
 function fixture({ mine = [{ id: `personal-${fileId}`, fileId, uri: 'file://font.ttf' }], has = () => false, serverFonts = [], shareFailure = null, fileBytes = () => TTF, consent } = {}) {
-  const disk = new Map(), calls = [], registered = [], unregistered = [], saved = new Map(), timers = []
+  const failed = {}, disk = new Map(), calls = [], registered = [], unregistered = [], saved = new Map(), timers = []
   let now = 0
   const transport = async request => {
     calls.push({ ...request })
@@ -33,12 +33,12 @@ function fixture({ mine = [{ id: `personal-${fileId}`, fileId, uri: 'file://font
   const fonts = createDiaryFonts({
     diaryId, transport, request, storage: { getItem: async k => disk.get(k) ?? null, setItem: async (k, v) => disk.set(k, v), removeItem: async k => disk.delete(k) }, key: 'uploads',
     files: { upload: async font => ({ font }), cachedUri: async id => saved.get(id) ?? null, save: async (id, bytes) => { saved.set(id, `file://shared/${id}.ttf`); return saved.get(id) } },
-    library: { mine: async () => mine, has, register: list => registered.push(...list), unregister: ids => unregistered.push(ids) },
+    library: { mine: async () => mine, has, register: (list, onFailed) => { registered.push(...list); failed.onFailed = onFailed }, unregister: ids => unregistered.push(ids) },
     now: () => now, consent,
     setTimer: (run, ms) => { const timer = { run, ms, cleared: false }; timers.push(timer); return timer },
     clearTimer: timer => { timer.cleared = true },
   })
-  return { fonts, calls, registered, unregistered, disk, saved, timers, uploads: () => uploads, tick: ms => { now += ms } }
+  return { fonts, calls, registered, unregistered, disk, saved, timers, uploads: () => uploads, tick: ms => { now += ms }, failLoad: (id, media) => failed.onFailed(id, media) }
 }
 
 test('폰트 이름에 기기 폰트 id 를 담고 글자 · 도형 요소에서 내 폰트만 모은다', () => {
@@ -49,8 +49,8 @@ test('폰트 이름에 기기 폰트 id 를 담고 글자 · 도형 요소에서
 
 test('내 폰트로 쓴 글자를 보내기 전에 폰트를 한 번만 올려 다이어리에 공유한다', async () => {
   const f = fixture()
-  await f.fonts.prepare(body([textRow(`personal-${fileId}`)]))
-  await f.fonts.prepare(body([textRow(`personal-${fileId}`)]))
+  await f.fonts.prepare(body([textRow(`personal-${fileId}`)])); await f.fonts.whenShared()
+  await f.fonts.prepare(body([textRow(`personal-${fileId}`)])); await f.fonts.whenShared()
   assert.equal(f.uploads(), 1)
   const shares = f.calls.filter(call => call.method === 'POST' && call.path === `/diaries/${diaryId}/fonts`)
   assert.deepEqual(shares.map(call => call.body), [{ mediaFileId }])
@@ -59,10 +59,10 @@ test('내 폰트로 쓴 글자를 보내기 전에 폰트를 한 번만 올려 �
 
 test('다른 다이어리에서는 이미 올린 파일을 다시 올리지 않고 공유만 한다', async () => {
   const first = fixture()
-  await first.fonts.prepare(body([textRow(`personal-${fileId}`)]))
+  await first.fonts.prepare(body([textRow(`personal-${fileId}`)])); await first.fonts.whenShared()
   const second = fixture()
   second.disk.set(`uploads:${fileId}`, mediaFileId)
-  await second.fonts.prepare(body([textRow(`personal-${fileId}`)]))
+  await second.fonts.prepare(body([textRow(`personal-${fileId}`)])); await second.fonts.whenShared()
   assert.equal(second.uploads(), 0)
   assert.equal(second.calls.filter(call => call.path === `/diaries/${diaryId}/fonts`).length, 1)
 })
@@ -70,7 +70,7 @@ test('다른 다이어리에서는 이미 올린 파일을 다시 올리지 않�
 test('서버에서 지워진 폰트 파일이면 다시 올려 공유한다', async () => {
   const f = fixture({ shareFailure: Object.assign(Error('missing'), { status: 404 }) })
   f.disk.set(`uploads:${fileId}`, 'aaaaaaaa-0000-4000-8000-000000000000')
-  await f.fonts.prepare(body([textRow(`personal-${fileId}`)]))
+  await f.fonts.prepare(body([textRow(`personal-${fileId}`)])); await f.fonts.whenShared()
   assert.equal(f.uploads(), 1)
   assert.equal(f.disk.get(`uploads:${fileId}`), mediaFileId)
 })
@@ -81,8 +81,8 @@ const shares = f => f.calls.filter(call => call.method === 'POST' && call.path =
 test('동의를 묻지 않은 계정은 글자 저장을 기다리게 하지 않고 한 번만 묻고, 공유하기면 그때 올린다', async () => {
   let state = null, asks = 0, answer
   const f = fixture({ consent: { status: async () => state, ask: () => { asks++; return new Promise(resolve => { answer = granted => { state = granted ? 'granted' : 'denied'; resolve(granted) } }) } } })
-  await f.fonts.prepare(body([textRow(`personal-${fileId}`)]))
-  await f.fonts.prepare(body([textRow(`personal-${fileId}`)]))
+  await f.fonts.prepare(body([textRow(`personal-${fileId}`)])); await f.fonts.whenShared()
+  await f.fonts.prepare(body([textRow(`personal-${fileId}`)])); await f.fonts.whenShared()
   await settle()
   assert.equal(asks, 1)
   assert.equal(f.uploads(), 0)
@@ -94,12 +94,12 @@ test('동의를 묻지 않은 계정은 글자 저장을 기다리게 하지 않
 test('공유 안 함을 고르거나 끈 계정은 올리지 않는다', async () => {
   let asks = 0
   const declined = fixture({ consent: { status: async () => null, ask: async () => { asks++; return false } } })
-  await declined.fonts.prepare(body([textRow(`personal-${fileId}`)]))
+  await declined.fonts.prepare(body([textRow(`personal-${fileId}`)])); await declined.fonts.whenShared()
   await settle(); await settle()
   assert.equal(asks, 1)
   assert.equal(declined.uploads(), 0)
   const off = fixture({ consent: { status: async () => 'denied', ask: async () => { asks++; return true } } })
-  await off.fonts.prepare(body([textRow(`personal-${fileId}`)]))
+  await off.fonts.prepare(body([textRow(`personal-${fileId}`)])); await off.fonts.whenShared()
   await settle()
   assert.equal(asks, 1)
   assert.equal(off.uploads(), 0)
@@ -109,19 +109,19 @@ test('공유 안 함을 고르거나 끈 계정은 올리지 않는다', async (
 test('친구 폰트는 동의를 묻지 않는다', async () => {
   let asks = 0
   const f = fixture({ mine: [], consent: { status: async () => null, ask: async () => { asks++; return true } } })
-  await f.fonts.prepare(body([textRow(`personal-${otherId}`)]))
+  await f.fonts.prepare(body([textRow(`personal-${otherId}`)])); await f.fonts.whenShared()
   await settle()
   assert.equal(asks, 0)
 })
 
 test('친구 폰트 · 실패한 업로드는 글자 저장을 막지 않는다', async () => {
   const friend = fixture({ mine: [] })
-  await friend.fonts.prepare(body([textRow(`personal-${otherId}`)]))
+  await friend.fonts.prepare(body([textRow(`personal-${otherId}`)])); await friend.fonts.whenShared()
   assert.equal(friend.uploads(), 0)
   const failing = fixture({ shareFailure: Object.assign(Error('offline'), { status: 0 }) })
-  await failing.fonts.prepare(body([textRow(`personal-${fileId}`)]))
+  await failing.fonts.prepare(body([textRow(`personal-${fileId}`)])); await failing.fonts.whenShared()
   // 실패한 공유는 기억하지 않고 다음 저장에서 다시 시도한다
-  await failing.fonts.prepare(body([textRow(`personal-${fileId}`)]))
+  await failing.fonts.prepare(body([textRow(`personal-${fileId}`)])); await failing.fonts.whenShared()
   assert.equal(failing.calls.filter(call => call.method === 'POST' && call.path === `/diaries/${diaryId}/fonts`).length, 2)
 })
 
@@ -161,14 +161,14 @@ test('다른 멤버가 내 폰트 id 를 먼저 주장해도 내 파일이 목�
   // 남이 내 폰트 id 로 다른 파일을 먼저 공유한 다이어리
   const f = fixture({ serverFonts: [{ mediaFileId: otherMediaId, name: sharedFontFileName(fileId), enabled: true }] })
   await f.fonts.sync()
-  await f.fonts.prepare(body([textRow(`personal-${fileId}`)]))
+  await f.fonts.prepare(body([textRow(`personal-${fileId}`)])); await f.fonts.whenShared()
   assert.equal(f.uploads(), 1)
   assert.deepEqual(f.calls.filter(call => call.method === 'POST' && call.path === `/diaries/${diaryId}/fonts`).map(call => call.body), [{ mediaFileId }])
   // 내 파일이 목록에 있으면 다시 공유하지 않는다
   const g = fixture({ serverFonts: [{ mediaFileId, name: sharedFontFileName(fileId), enabled: true }] })
   g.disk.set(`uploads:${fileId}`, mediaFileId)
   await g.fonts.sync()
-  await g.fonts.prepare(body([textRow(`personal-${fileId}`)]))
+  await g.fonts.prepare(body([textRow(`personal-${fileId}`)])); await g.fonts.whenShared()
   assert.equal(g.calls.filter(call => call.method === 'POST' && call.path === `/diaries/${diaryId}/fonts`).length, 0)
 })
 
@@ -199,9 +199,42 @@ test('받은 요소에 못 그리는 폰트가 있으면 목록을 다시 받고
   f.tick(10000)
   await f.fonts.hydrate([textRow('nanum-gothic')])
   assert.equal(lists(), 2)
+  // 계속 못 받는 폰트는 간격이 30초로 늘어난다(마지막 조회 20초 뒤라 10초 뒤로 예약)
   f.tick(10000)
   await f.fonts.hydrate(rows)
+  assert.equal(lists(), 2)
+  assert.equal(f.timers.at(-1).ms, 10000)
+  f.tick(10000)
+  f.timers.at(-1).run()
+  await new Promise(resolve => setImmediate(resolve))
   assert.equal(lists(), 3)
+  // 다음은 1분 30초 간격
+  f.tick(60000)
+  await f.fonts.hydrate(rows)
+  assert.equal(f.timers.at(-1).ms, 30000)
+  // 처음 보는 폰트가 오면 간격이 10초로 돌아간다: 마지막 조회가 61초 전이라 바로 받고, 예약해 둔 재조회는 취소한다
+  const another = [textRow(`personal-${otherId}`)]
+  f.tick(1000)
+  await f.fonts.hydrate(another)
+  assert.equal(lists(), 4)
+  assert.equal(f.timers.at(-1).cleared, true)
+})
+
+test('받은 폰트를 기기가 읽지 못하면 다음 조회에서 다시 받고, 두 번 실패한 파일은 더 받지 않는다', async () => {
+  const f = fixture({ mine: [], serverFonts: [{ mediaFileId, name: sharedFontFileName(fileId), enabled: true }] })
+  const downloads = () => f.calls.filter(call => call.path?.endsWith('/file')).length
+  await f.fonts.sync()
+  assert.equal(downloads(), 1)
+  f.failLoad(fileId, mediaFileId)
+  f.saved.clear()
+  f.tick(10000)
+  await f.fonts.sync()
+  assert.equal(downloads(), 2)
+  f.failLoad(fileId, mediaFileId)
+  f.saved.clear()
+  f.tick(10000)
+  await f.fonts.sync()
+  assert.equal(downloads(), 2)
 })
 
 test('세션을 닫으면 예약한 재조회를 멈추고 더 받지 않는다', async () => {
