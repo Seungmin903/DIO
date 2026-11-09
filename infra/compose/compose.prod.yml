@@ -85,6 +85,8 @@ services:
 
   # SAM 2 사진 속 대상 오리기 서버(ai/). 외부 포트 없이 backend만 접근한다.
   # 사진 임베딩을 메모리에 두므로 컨테이너는 하나만 띄운다. 메모리·CPU 상한으로 백엔드·DB를 보호한다.
+  # healthcheck는 이미지의 ai/Dockerfile HEALTHCHECK를 쓴다(/api/health, interval 10s, start-period 90s, retries 3).
+  # 모델 로딩은 10~30초라 start-period 안에 끝난다. 운영 배포 스크립트(wait-container-healthy.sh)가 이 healthcheck에 의존한다.
   ai:
     image: ${AI_IMAGE:?AI_IMAGE is required}
     restart: unless-stopped

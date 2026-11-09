@@ -89,15 +89,12 @@ deploy-production:
     - docker image inspect "$AI_IMAGE" >/dev/null 2>&1 || docker build --tag "$AI_IMAGE" ./ai
     # AI를 먼저 올리고 healthy(모델 로딩 완료, ai/Dockerfile HEALTHCHECK)를 확인한 뒤에만 backend를 교체한다.
     # --force-recreate를 쓰지 않아 이미지·설정이 같으면 기존 AI 컨테이너를 그대로 둔다(이미 healthy라 대기도 바로 끝난다).
-    # AI가 3분 안에 healthy가 아니거나 종료되면 로그를 남기고 직전 AI 이미지로 되돌린 뒤 실패한다.
-    # 이때 backend는 교체하지 않아 운영 backend·AI 모두 이전 버전으로 계속 돈다.
+    # 롤백 기준으로 배포 전 AI 이미지를 기록한다(처음 배포면 빈 값).
+    - export PREV_AI_IMAGE="$(docker inspect -f '{{.Config.Image}}' "$(docker compose --project-name dio-prod-backend --env-file /home/gitlab-runner/dio-env/prod.env -f infra/compose/compose.prod.yml ps -q ai)" 2>/dev/null || true)"
+    # AI가 3분 안에 healthy가 아니거나 종료되면 로그를 남기고 직전 AI 이미지로 되돌린 뒤 실패한다(backend는 교체하지 않음).
     - bash infra/scripts/up-ai-with-rollback.sh dio-prod-backend /home/gitlab-runner/dio-env/prod.env infra/compose/compose.prod.yml 180
-    - >
-      if ! docker compose --project-name dio-prod-backend --env-file /home/gitlab-runner/dio-env/prod.env -f infra/compose/compose.prod.yml up -d --force-recreate --no-deps backend ||
-         ! curl --fail --retry 12 --retry-all-errors --retry-delay 2 http://127.0.0.1:8082/actuator/health; then
-        docker compose --project-name dio-prod-backend --env-file /home/gitlab-runner/dio-env/prod.env -f infra/compose/compose.prod.yml logs --tail=200 backend || true;
-        exit 1;
-      fi
+    # backend가 정상 응답하지 않으면 backend와 AI를 배포 전 이미지로 함께 되돌린 뒤 실패한다(이전 backend가 새 AI를 부르지 않게).
+    - bash infra/scripts/up-backend-with-rollback.sh dio-prod-backend /home/gitlab-runner/dio-env/prod.env infra/compose/compose.prod.yml http://127.0.0.1:8082/actuator/health
 
 deploy-dev-proxy:
   stage: edge
