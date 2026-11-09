@@ -64,10 +64,10 @@ const uniforms = (box, ppu, color, ink, P = GLASS_INK) => {
   return [
     box.x, box.y, ppu, 0.5 / ppu,
     ...rgb, ...inkDensity(rgb), P.satK, P.T_MAX, P.rimR, P.fIn, P.fRim, P.tGamma, P.alphaK, P.satStart, P.satMax, P.flowAmp, P.flowScale,
-    ...sheenCol, ink.sheen === false ? 0 : P.sheenAmp, P.sheenRimA, P.sheenRimBand, P.sheenGate0, P.sheenGate1, P.sheenInT, P.sheenInAmp, P.sheenEdge, abLineOf(P.poolBlur), P.poolMix, P.floodA0, P.floodA1, P.sheenWiggle, P.sheenWScale,
+    ...sheenCol, ink.sheen === false ? 0 : P.sheenAmp * (ink.sheenAmount ?? 1), P.sheenRimA, P.sheenRimBand, P.sheenGate0, P.sheenGate1, P.sheenInT, P.sheenInAmp, P.sheenEdge, abLineOf(P.poolBlur), P.poolMix, P.sheenWiggle, P.sheenWScale,
     ...micaColor(film, 1), ...micaColor(film, Math.cos(tilt / 2)), ...micaColor(film, Math.cos(tilt)),
     P.glVeil, P.glVeilDesat, P.glVeilLift, P.glVeilScale,
-    amount, P.glCell, P.glP, P.glRMin, P.glRMax, P.glBMin, P.glBMax, P.glTail, P.glDesat, P.glCloud, P.glCloudScale,
+    amount, P.glCell, P.glP, P.glRThin, P.glThinP, P.glRMin, P.glRMax, P.glBMin, P.glBMax, P.glTail, P.glDesat, P.glCloud, P.glCloudScale,
     P.sparkAmp, P.glintCell, P.glintLen,
     P.dry, P.dryLag, P.wetDark, P.wetGloss,
   ]
@@ -145,7 +145,7 @@ export function glassLivePaint(color, ink = {}, P = GLASS_INK) {
     const mica = micaColor(ink.film ?? P.glFilm, 1)
     const paint = Skia.Paint()
     paint.setShader(liveEffect.makeShader([...hex3(color), ...mica, 0.3, amount,
-      P.glCell, P.glP, P.glRMin, P.glRMax, P.glBMin, P.glBMax, P.glTail, P.glDesat, P.glCloud, P.glCloudScale,
+      P.glCell, P.glP * P.glThinP, P.glRThin, P.glRThin * 1.6, P.glBMin, P.glBMax, P.glTail, P.glDesat, P.glCloud, P.glCloudScale,
       P.glVeil, P.glVeilDesat, P.glVeilLift, P.glVeilScale]))
     return paint
   } catch (error) { console.warn('[유리펜] 라이브 셰이더 실패:', error?.message ?? error); return null }

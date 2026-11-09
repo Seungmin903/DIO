@@ -10,7 +10,7 @@
 //   → 셰이더 한 번: 두께 → 불투명도 · 색 깊이
 
 export const GLASS_INK = {
-  version: 19,
+  version: 21,
   T_MAX: 4,            // 마스크 G 채널 1.0 = 두께 4
   spacing: 0.12,       // 표본 간격(굵기 배수)
   // 속도 → 두께: 빠르면 얇게, 느리면 두껍게 (page 단위/ms)
@@ -64,14 +64,14 @@ export const GLASS_INK = {
   //   선 하나의 블러 덮임 최대값(abLine = erf(1/(2·poolBlur·√2)), 굵기와 무관한 상수)으로 정규화한 An 에
   //   같은 등고선을 걸면 가는 획의 **양 가장자리**에 테가 돈다(실물 20: 강한 쉰 잉크는 글씨에도 테가 돈다).
   //   넓은 면에서는 꺼서(Ab 로 게이트) 기존 윤곽 테와 겹치지 않게 한다.
-  sheenEdge: 0.55,     // 가는 획 가장자리 테 세기(0 = 끔)
+  sheenEdge: 0.9,      // 가는 획의 테 세기(0 = 끔) 20판: 0.55 는 티가 안 났다
   poolBlur: 2.5,       // 고임 장 블러 시그마(굵기 배수) — 액체 평탄화 규모
   // 16판: 염료 두께 평탄화 — 액체는 주변 평균 높이로 퍼진다. 도장 격자(와플) · 지그재그 빗살 제거.
   //   평탄 두께 = 블러 두께 / 블러 덮임 = 주변 평균 두께(가는 선은 값이 거의 안 변해 영향 없음)
   poolMix: 0.55,       // 평탄 두께를 섞는 비율(0 = 16판 이전)
-  //   덮임 평탄화: 촘촘한 획 사이 틈 · 지그재그 꼭짓점 빗살을 액체가 메운다
-  floodA0: 0.42,       // 이 블러 덮임부터 메우기 시작(가는 선 피크 0.16 이라 영향 없음)
-  floodA1: 0.72,       // 이 값부터 완전히 메움
+  //   21판: 덮임 메움은 **뺐다**(사용자 2026-11-09: "내가 그린 획 영역 넘어가는 보정은 넣으면 안 된다").
+  //   16판에는 촘촘한 지그재그의 빗살을 메우려고 블러 덮임으로 획 밖까지 잉크를 채우는 항이 있었다.
+  //   두께 평탄화(poolMix)는 그대로 둔다 — 그건 획 안에서 두께만 고르게 할 뿐 넓이를 늘리지 않는다.
   // 10판: 테 물결 — 등고선 판정 장에 노이즈를 더해 실물 02 처럼 테가 불규칙하게 굽이치게
   sheenWiggle: 0.45,   // Tb 에 더하는 노이즈 폭(T 단위) 10판 채택
   sheenWScale: 9,      // 물결 한 굽이 크기(page px)
@@ -96,6 +96,12 @@ export const GLASS_INK = {
   //   14판까지는 반지름 0.7~1.4 에 밀도 부족 → 점이 크고 성겨 '소금 뿌린' 느낌이었다.
   glCell: 1.7,         // 입자 셀 크기(page px) — S=1.75 에서 2.98 screen px
   glP: 0.52,           // 셀당 입자 확률 → 1000·P/cell² = 58.5/1000 screen px² (실물 58.6)
+  // 20판: 가는 획과 고인 면의 입자 크기를 나눈다. 두 레퍼런스가 배율이 달라 서로 다른 값을 가리킨다 —
+  //   참고 02(유리펜 고인 면, 보통 배율): 점 지름 ≈ 선폭의 1/4 → 지금 값이 맞다.
+  //   참고 25 · 28 · 29(EF 닙 현미경, 얇은 획 조사.md): 입자가 **획 폭의 1~4%** 로 훨씬 작고 많다.
+  //   → 고인 곳은 크게, 얇게 쓴 획은 작게(Tu 로 보간). 얇은 획에서는 개별 점이 아니라 반짝임 질감이 된다.
+  glRThin: 0.08,       // 얇은 획의 입자 반지름(페이지 단위) — 하네스 화면 0.14px ÷ 1.75
+  glThinP: 3.2,        // 얇은 획의 입자 수 배수(작아진 만큼 많이 — 현미경 사진은 훨씬 조밀하다)
   glRMin: 0.29,        // 입자 반지름 최소(페이지 단위) — 하네스 화면 0.5px ÷ 1.75
   glRMax: 0.54,        //            최대          — 하네스 화면 0.95px ÷ 1.75
   glBMin: 0.22,        // 밝기 끌어올림 최소(0~1 L) 18판 스윕: 세밀 std 17.9 (실물 18.5)
@@ -308,8 +314,6 @@ uniform float sheenInAmp;
 uniform float sheenEdge;
 uniform float abLine;   // 선 하나의 블러 덮임 최대값(정규화 기준)
 uniform float poolMix;
-uniform float floodA0;
-uniform float floodA1;
 uniform float sheenWiggle;
 uniform float sheenWScl;  // 화면 px
 uniform float3 micaA;   // 정면으로 누운 판의 간섭색
@@ -322,6 +326,8 @@ uniform float glVeilScl;  // 화면 px
 uniform float glAmp;
 uniform float glCellPx;   // 화면 px
 uniform float glP;
+uniform float glRThin;
+uniform float glThinP;
 uniform float glRMin;
 uniform float glRMax;     // 화면 px
 uniform float glBMin;
@@ -350,13 +356,13 @@ half4 main(float2 p) {
   half4 pl = pool.eval(q);
   float Tb0 = pl.g * tMax;
   float Ab = pl.a;       // 블러 장 알파(덮임) — 0.5 등고선 = 영역 외곽선
-  // 16판: 덮임 평탄화 — 고인 자리에서는 액체가 틈 · 빗살을 메운다
+
   // 19판: Tu = 잉크가 있는 자리의 두께(블러 장 기준). 실측 — 가는 획 0.14(빠름) · 0.17(보통) · 0.24(느림),
   //   칠 1.05, 웅덩이 2.0. Tb0(= 두께 × 덮임)는 넓은 면에서만 커져서 가는 획 판정에는 못 쓴다.
   float Tu = Tb0 / max(Ab, 0.02);
-  float A = max(float(m.a), smoothstep(floodA0, floodA1, Ab));
+  float A = float(m.a);   // 21판: 그린 획 그대로 — 획 밖으로 번지게 하지 않는다(사용자 결정)
   if (A < 0.002) return half4(0);
-  float T = m.a > 0.002 ? (m.g / m.a) * tMax : Tb0 / max(Ab, 0.02);
+  float T = (m.g / m.a) * tMax;
   // 16판: 액체 평탄화 — 넓은 면에서만 주변 평균 두께로 끌어당긴다(도장 격자 · 와플 제거).
   //   가는 선(Ab ~0.16)은 제외: 안 그러면 속도 → 두께 차이가 평균에 지워진다.
   T = mix(T, Tb0 / max(Ab, 0.02), poolMix * smoothstep(0.35, 0.75, Ab));
@@ -384,7 +390,9 @@ half4 main(float2 p) {
   float rim = exp(-dA * dA) * smoothstep(sheenGate0, sheenGate1, Tb0 + wig)
             * (0.55 + 0.45 * vnoise(p / (sheenWScl * 1.7) + 5.1));
   float An = min(1.0, Ab / max(abLine, 0.02));
-  float lineRim = (0.3 + 0.7 * (1.0 - smoothstep(0.2, 0.9, An + wig * 0.5)))
+  // 20판: 얇은 획의 테는 가장자리 띠가 아니라 **획 전체의 색 변화**다(참고 25 · 26, 얇은 획 조사.md).
+  //   가장자리를 조금 더 진하게 두되 가운데도 뜨게 한다.
+  float lineRim = (0.72 + 0.28 * (1.0 - smoothstep(0.2, 0.9, An + wig * 0.5)))
                 * (1.0 - smoothstep(0.4, 0.8, Ab)) * smoothstep(0.08, 0.35, Tu) * sheenEdge;
   float inp = smoothstep(sheenInT, sheenInT + 0.4, Tb0)
             * smoothstep(0.35, 0.75, vnoise(p / (sheenWScl * 2.3) + 11.3));
@@ -409,14 +417,18 @@ half4 main(float2 p) {
   if (glAmp > 0.001) {
     float2 cell = floor(p / glCellPx);
     float u0 = vhash(cell * 1.013 + 0.37);                    // 존재
-    float gdens = glP * glAmp * smoothstep(0.06, 0.5, Tu)          // 19판: 얇게 쓴 획은 입자가 적다
+    float pooled = smoothstep(0.25, 1.0, Tu);                       // 0 = 얇게 쓴 획, 1 = 고인 면
+    float centre = mix(smoothstep(0.25, 0.75, An), 1.0, pooled);    // 얇은 획은 가운데로(현미경 사진)
+    float gdens = glP * glAmp * smoothstep(0.06, 0.5, Tu)
+               * mix(glThinP, 1.0, pooled)                           // 작아진 만큼 많이
+               * centre
                * mix(1.0, 1.6, smoothstep(1.0, 2.0, Tb0))      // 고인 곳 밀집
                * (1.0 + glCloud * (vnoise(p / glCloudScl) - 0.5) * 2.0); // 구름 얼룩
     if (u0 < gdens) {
       float u1 = vhash(cell * 2.117 + 1.11), u2 = vhash(cell * 3.721 + 2.53);
       float u3 = vhash(cell * 5.313 + 4.19), u4 = vhash(cell * 7.919 + 5.87);
       float2 pos = (cell + 0.18 + 0.64 * float2(u1, u2)) * glCellPx;  // 셀 안쪽 여백 → 이웃 셀 탐색 불필요
-      float r = mix(glRMin, glRMax, u3);
+      float r = mix(glRThin, mix(glRMin, glRMax, u3), pooled);
       float w = 1.0 - smoothstep(r - aa, r + aa, length(p - pos)); // 점(1px 이하 — AA 폭만)
       float boost = mix(glBMin, glBMax, pow(u4, glTail)) * mix(0.6, 1.0, dq); // 마르면 또렷(추정)
       float lum = dot(col, float3(0.299, 0.587, 0.114));

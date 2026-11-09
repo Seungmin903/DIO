@@ -93,7 +93,9 @@ export default function PenSettings({ settings, onChange, onClose, straightAssis
           <SettingSwitch label="테(쉰)" on={settings.inkSheen !== false} onToggle={(on) => onChange({ ...settings, inkSheen: on })} />
         </View>
         {settings.inkSheen !== false && <>
-          <Text style={toolPanelStyles.label}>테 색 — 비우면 펜 색에서 자동</Text>
+          <Slider name="테 세기" label="테 세기" minusLabel="테 약하게" plusLabel="테 세게" min={0} max={100} step={10}
+            value={Math.round((settings.inkSheenAmount ?? 1) * 100)} onChange={(value) => onChange({ ...settings, inkSheenAmount: Math.round(value / 10) * 10 / 100 })} />
+          <Text style={toolPanelStyles.label}>테 색 — 맨 앞은 펜 색에서 자동 계산</Text>
           <View accessibilityLabel="테 색" style={paletteSwatchStyles.row}>
             {[{ id: null, label: '자동' }, ...GLASS_SHEENS].map((one) => {
               const auto = one.id == null

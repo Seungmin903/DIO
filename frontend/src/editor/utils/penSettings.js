@@ -22,7 +22,7 @@ export const GLASS_SHEENS = [
   { id: '#C9A227', label: '금' }, { id: '#B06A3B', label: '구리' }, { id: '#3E8E6E', label: '초록' },
   { id: '#B5447E', label: '자주' }, { id: '#4A6FB5', label: '파랑' },
 ]
-export const DEFAULT_GLASS_INK = { inkGlitter: true, inkSheen: true, inkFilm: 55, inkAmount: 1, inkSheenColor: null }
+export const DEFAULT_GLASS_INK = { inkGlitter: true, inkSheen: true, inkFilm: 55, inkAmount: 1, inkSheenColor: null, inkSheenAmount: 1 }
 // 종류를 고를 때 들어가는 기본 불투명도(사용자 2026-11-03: 연필은 기본을 반투명으로, 슬라이더는 100 까지 그대로 —
 // 참고 필기 앱(Notability · 애플 노트) 연필은 순검정이 없고 겹칠수록 진해진다). 없는 종류는 1.
 export const PEN_DEFAULT_OPACITY = { pencil: 0.8 }
@@ -135,5 +135,6 @@ export function sanitizeGlassInk(saved) {
     inkFilm: film,
     inkAmount: inRange(saved.inkAmount, 0, 1, DEFAULT_GLASS_INK.inkAmount),
     inkSheenColor: saved.inkSheenColor == null ? null : validColor(saved.inkSheenColor, null),
+    inkSheenAmount: inRange(saved.inkSheenAmount, 0, 1, DEFAULT_GLASS_INK.inkSheenAmount),
   }
 }
