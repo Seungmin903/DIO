@@ -1,5 +1,5 @@
 import { createId, rotateVector } from './common.js'
-import { isDashedKind, dashedObjectContour } from './dashedStroke.js'
+import { isDashedKind, dashedObjectContour, dashedObjectSamples } from './dashedStroke.js'
 import { createStroke, penContour, strokeOutline, samplePenCurve } from './strokes.js'
 import { isNibKind, nibContour, nibCurve, withDistances, withTaper } from './nibStroke.js'
 
@@ -208,7 +208,7 @@ function createAreaEraserSession(objects, radius) {
       // 남은 조각은 이 표본을 그대로 그린다(sampled): 직선으로 다시 잇거나 곡선을 또 펴면 지울 때마다 획이 미세하게 흔들렸다.
       const inkPen = ['brush', 'fountain', 'felt'].includes(object.penKind)
       const distanced = withDistances(object.points, object.inkStartDistance ?? 0)
-      let curved = isDashedKind(object.penKind) ? (object.sampled ? distanced : samplePenCurve(distanced, object.inkStartDistance ?? 0))
+      let curved = isDashedKind(object.penKind) ? dashedObjectSamples(object)
         : inkPen ? ([2, 3].includes(object.renderVersion) ? samplePenCurve(input, object.inkStartDistance ?? 0) : input)
         : object.sampled ? distanced : nibCurve(distanced, { step: 1.5 })
       if (object.penKind === 'taperBrush' && !object.taperBaked && curved.length > 1) curved = withTaper(curved, object.strokeWidth)
