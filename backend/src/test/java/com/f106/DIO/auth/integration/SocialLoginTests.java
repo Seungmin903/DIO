@@ -76,6 +76,7 @@ class SocialLoginTests {
  }
  @Test void emailCollisionNeverLinksExistingAccount(){
   var user=users.saveAndFlush(new User(UUID.randomUUID()+"@example.com","기존회원",Instant.now()));long count=tokens.count();
+  code(()->social.authenticate(SocialProvider.KAKAO,UUID.randomUUID()+";"+user.getEmail()+";true",null,null),"SOCIAL_ACCOUNT_LINK_REQUIRED");
   code(()->social.authenticate(SocialProvider.KAKAO,UUID.randomUUID()+";"+user.getEmail()+";true",enrollment(),null),"SOCIAL_ACCOUNT_LINK_REQUIRED");
   assertThat(accounts.findByUserIdAndProvider(user.getUserId(),"KAKAO")).isEmpty();assertThat(tokens.count()).isEqualTo(count);
  }

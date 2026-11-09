@@ -539,11 +539,11 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
         return userView(result.user);
       }catch(error){
         if(attempt!==revision)throw new Error('로그인 요청이 취소되었어요.');
-        if(error?.code!=='SOCIAL_SIGNUP_REQUIRED')throw error;
+        if(error?.code!=='SOCIAL_SIGNUP_REQUIRED'&&error?.code!=='SOCIAL_ACCOUNT_LINK_REQUIRED')throw error;
         // 신규 가입은 서버가 확인된 이메일을 요구한다. 이메일을 못 받았으면 다시 로그인하게 한다.
         if(!credential.email)throw Object.assign(new Error(`${name} 계정의 이메일을 받지 못했어요. 이메일 공유를 허용하고 다시 시도해 주세요.`),{code:'SOCIAL_EMAIL_REQUIRED'});
         socialDraft={provider,idToken:credential.idToken,email:normalizeEmail(credential.email),ageConfirmed:true};
-        return {provider,email:socialDraft.email,mode:'social-signup'};
+        return {provider,email:socialDraft.email,mode:error.code==='SOCIAL_ACCOUNT_LINK_REQUIRED'?'social-link':'social-signup'};
       }
     },
     async refresh() {

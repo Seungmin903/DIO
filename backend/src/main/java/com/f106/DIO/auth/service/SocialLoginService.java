@@ -80,10 +80,14 @@ public class SocialLoginService {
                     error(HttpStatus.UNAUTHORIZED,"SOCIAL_ACCOUNT_INACTIVE","사용할 수 없는 계정이에요."));
                 return sessions.create(user,deviceName,now);
             }
+            // 기존 이메일 계정은 약관·프로필을 다시 입력시키지 않고 곧바로
+            // 비밀번호 확인을 거쳐 제공자를 연결한다. 이메일 일치만으로는 연결하지 않는다.
+            String email=UserInput.normalizeEmail(identity.email());
+            if(enrollment==null && identity.emailVerified() && email!=null && users.existsByEmail(email))
+                throw error(HttpStatus.CONFLICT,"SOCIAL_ACCOUNT_LINK_REQUIRED","기존 계정 비밀번호를 확인해 구글 로그인을 연결해 주세요.");
             if(enrollment==null)throw error(HttpStatus.CONFLICT,"SOCIAL_SIGNUP_REQUIRED","가입 정보를 입력해 주세요.");
             if(!validator.validate(enrollment).isEmpty())throw error(HttpStatus.BAD_REQUEST,"INVALID_SOCIAL_ENROLLMENT","연령 확인과 가입 정보를 확인해 주세요.");
             terms.validate(enrollment.agreements());
-            String email=UserInput.normalizeEmail(identity.email());
             if(!identity.emailVerified()||email==null||email.length()>254||!email.matches(UserInput.EMAIL_PATTERN))
                 throw error(HttpStatus.CONFLICT,"SOCIAL_VERIFIED_EMAIL_REQUIRED","확인된 이메일이 필요해요.");
             // Never merge accounts just because their email addresses match.

@@ -42,7 +42,7 @@ Google의 고정 JWKS에서 RS256 서명, issuer, audience, azp, 만료, subject
 - 400: 잘못된 DTO/제공자/연령·약관·닉네임.
 - 401 INVALID_SOCIAL_CREDENTIAL: 잘못되거나 만료된 Google ID 토큰.
 - 409 SOCIAL_SIGNUP_REQUIRED: 인증 성공했으나 신규 가입 정보 필요.
-- 409 SOCIAL_ACCOUNT_LINK_REQUIRED: 기존 이메일 계정과 중복. 이메일만으로 자동 연결하지 않는다.
+- 409 SOCIAL_ACCOUNT_LINK_REQUIRED: 기존 이메일 계정과 중복. 앱은 즉시 기존 DIO 비밀번호 확인 화면을 열고, `POST /api/v1/auth/oauth/{provider}/link`에 Google ID 토큰·기존 이메일·비밀번호를 함께 보낸다. 두 인증이 모두 성공할 때만 제공자를 연결하고 로그인한다.
 - 409 SOCIAL_VERIFIED_EMAIL_REQUIRED: Gmail/Workspace 등 현재 소유를 확인한 이메일이 없는 신규 사용자. 추가 이메일 인증 흐름은 후속 범위이며 임시 이메일을 만들지 않는다. 기존 subject가 있으면 이후 이메일 누락에도 로그인 가능하다.
 - 409 SOCIAL_SIGNUP_CONFLICT: 동시 최초 가입의 알려진 유니크 제약 충돌. 부분 가입 없이 롤백 후 재로그인한다.
 - 429: 기존 LoginThrottle로 검증 중 요청과 실패 횟수를 제한한다.

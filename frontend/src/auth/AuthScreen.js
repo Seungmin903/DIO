@@ -235,7 +235,8 @@ export default function AuthScreen({
       if(result?.mode==='authenticated'){Keyboard.dismiss();onContinue(result);return;}
       // 기존 회원은 위에서 바로 로그인한다. 가입이 필요한 계정만 약관 화면을
       // 거쳐, 이미 받은 소셜 인증 정보를 이용해 프로필을 완성한다.
-      setPhotoUri(null);setValues(emptyValues());setProfile(result);setEnrollmentProvider(provider);navigate('eligibility', provider);
+      setPhotoUri(null);setValues(emptyValues());setProfile(result);setEnrollmentProvider(provider);
+      navigate(result?.mode==='social-link'?'link':'eligibility', provider);
     },
     error => {
       if(canSetDevelopmentAccess && error?.code==='DEVELOPMENT_ACCESS_REQUIRED'){
