@@ -29,14 +29,15 @@ const nodes=n=>!n||typeof n!=='object'?[]:typeof n.type==='function'&&(n.type.na
 const find=(tree,label)=>nodes(tree).find(n=>n.props.accessibilityLabel===label||n.props.label===label)
 function enterSignup(ui) {
  find(ui.render(),'회원가입').props.onPress();
- const age=find(ui.render(),'만 14세 이상입니다');
+ const age=find(ui.render(),'만 14세 이상이에요');
  if (!age) return;
  age.props.onPress();find(ui.render(),'필수 항목 전체 동의').props.onPress();
  find(ui.render(),'동의하고 계속').props.onPress();
 }
-function enterSocial(ui) {
+async function enterSocial(ui) {
  find(ui.render(),'구글로 로그인').props.onPress();
- find(ui.render(),'만 14세 이상입니다').props.onPress();
+  await tick();
+ find(ui.render(),'만 14세 이상이에요').props.onPress();
  find(ui.render(),'필수 항목 전체 동의').props.onPress();
  find(ui.render(),'동의하고 계속').props.onPress();
 }
@@ -139,19 +140,19 @@ test('가입 전 연령·필수 동의를 받으며 전체 동의가 연령까�
  try {
   find(ui.render(),'회원가입').props.onPress();
   assert.equal(find(ui.render(),'이메일'),undefined);
-  assert.equal(find(ui.render(),'만 14세 이상입니다').props.checked,false);
+  assert.equal(find(ui.render(),'만 14세 이상이에요').props.checked,false);
   find(ui.render(),'필수 항목 전체 동의').props.onPress();
   assert.equal(find(ui.render(),'동의하고 계속').props.disabled,true);
   find(ui.render(),'동의하고 계속').props.onPress();
   assert.equal(find(ui.render(),'이메일'),undefined);
-  find(ui.render(),'만 14세 이상입니다').props.onPress();
+  find(ui.render(),'만 14세 이상이에요').props.onPress();
   assert.equal(find(ui.render(),'동의하고 계속').props.disabled,false);
   find(ui.render(),'동의하고 계속').props.onPress();
   assert.ok(find(ui.render(),'이메일'));
   assert.equal(find(ui.render(),'생년월일'),undefined);
   ui.render();ui.back();ui.render();ui.back();ui.render();
   find(ui.render(),'회원가입').props.onPress();
-  assert.equal(find(ui.render(),'만 14세 이상입니다').props.checked,false);
+  assert.equal(find(ui.render(),'만 14세 이상이에요').props.checked,false);
  } finally { ui.unmount(); }
 });
 
@@ -160,7 +161,7 @@ test('문서 URL 미게시여도 필수 동의 후 가입 화면으로 진행한
  try {
   assert.ok(find(ui.render(),'로그인'));
   find(ui.render(),'회원가입').props.onPress();
-  find(ui.render(),'만 14세 이상입니다').props.onPress();
+  find(ui.render(),'만 14세 이상이에요').props.onPress();
   find(ui.render(),'필수 항목 전체 동의').props.onPress();
   find(ui.render(),'동의하고 계속').props.onPress();
   assert.ok(find(ui.render(),'이메일'));
@@ -168,7 +169,7 @@ test('문서 URL 미게시여도 필수 동의 후 가입 화면으로 진행한
 });
 
 test('14세 미만 응답은 가입을 중단하고 오래된 계속 버튼으로도 인증을 시작하지 않는다', () => {
- for (const entry of ['회원가입','구글로 로그인']) {
+ for (const entry of ['회원가입']) {
   const calls=[];
   const service={social:provider=>{calls.push(provider)},verificationService:{send:()=>calls.push('mail')}};
   const ui=setup(service);
@@ -176,15 +177,15 @@ test('14세 미만 응답은 가입을 중단하고 오래된 계속 버튼으�
    find(ui.render(),'이메일').props.onChange('private@example.com');
    find(ui.render(),'비밀번호').props.onChange('Private123!');
    find(ui.render(),entry).props.onPress();
-   assert.equal(find(ui.render(),'만 14세 이상입니다').props.checked,false);
-   assert.equal(find(ui.render(),'만 14세 미만입니다').props.checked,false);
-   find(ui.render(),'만 14세 이상입니다').props.onPress();
+   assert.equal(find(ui.render(),'만 14세 이상이에요').props.checked,false);
+   assert.equal(find(ui.render(),'만 14세 미만이에요').props.checked,false);
+   find(ui.render(),'만 14세 이상이에요').props.onPress();
    find(ui.render(),'필수 항목 전체 동의').props.onPress();
    const previousContinue=find(ui.render(),'동의하고 계속');
-   find(ui.render(),'만 14세 미만입니다').props.onPress();
+   find(ui.render(),'만 14세 미만이에요').props.onPress();
    previousContinue.props.onPress();
    const blocked=ui.render();
-   for (const label of ['이메일','비밀번호','동의하고 계속','만 14세 이상입니다','구글로 로그인','이전 화면'])
+   for (const label of ['이메일','비밀번호','동의하고 계속','만 14세 이상이에요','구글로 로그인','이전 화면'])
     assert.equal(find(blocked,label),undefined);
    assert.ok(find(blocked,'시작 화면으로'));
    assert.deepEqual(calls,[]);
@@ -192,27 +193,42 @@ test('14세 미만 응답은 가입을 중단하고 오래된 계속 버튼으�
    assert.equal(find(ui.render(),'이메일').props.value,'');
    assert.equal(find(ui.render(),'비밀번호').props.value,'');
    find(ui.render(),entry).props.onPress();
-   assert.equal(find(ui.render(),'만 14세 이상입니다').props.checked,false);
+   assert.equal(find(ui.render(),'만 14세 이상이에요').props.checked,false);
    assert.equal(find(ui.render(),'[필수] 이용약관 동의').props.checked,false);
   } finally { ui.unmount(); }
  }
 });
 
-test('구글도 먼저 연령·약관을 확인하고 미연결 서비스 오류는 같은 화면에서 안내한다', async () => {
+test('구글 로그인 창을 먼저 열고, 인증 오류는 시작 화면에서 안내한다', async () => {
  const providers=[];
  const ui=setup({social:async provider=>{providers.push(provider);throw new Error('소셜 로그인 API는 아직 연결되지 않았어요.')}},undefined,{emailVerificationEnabled:false});
  try {
   find(ui.render(),'구글로 로그인').props.onPress();
-  assert.deepEqual(providers,[]);
-  find(ui.render(),'동의하고 계속').props.onPress();
-  assert.deepEqual(providers,[]);
-  find(ui.render(),'만 14세 이상입니다').props.onPress();
-  find(ui.render(),'필수 항목 전체 동의').props.onPress();
-  find(ui.render(),'동의하고 계속').props.onPress();await tick();
+  await tick();
   assert.deepEqual(providers,['google']);
-  assert.ok(find(ui.render(),'만 14세 이상입니다'));
+  assert.equal(find(ui.render(),'만 14세 이상이에요'),undefined);
   assert.ok(nodes(ui.render()).some(node=>node.props.children==='소셜 로그인 API는 아직 연결되지 않았어요.'));
  } finally { ui.unmount(); }
+});
+
+test('소셜 인증 대기 중 화면을 닫으면 늦은 응답을 적용하지 않는다',async()=>{
+ let resolve,cancelled=0;const ui=setup({social:()=>new Promise(r=>resolve=r),cancelPending:()=>{cancelled++;}});
+ try{
+  find(ui.render(),'구글로 로그인').props.onPress();ui.unmount();
+  resolve({mode:'authenticated',provider:'google',userId:'7',email:'user@gmail.com'});await tick();
+  assert.deepEqual(ui.sessions,[]);assert.ok(cancelled>0);
+ }finally{ui.unmount();}
+});
+
+test('소셜 신규 가입도 14세 미만 선택 뒤 가입 정보를 열지 않는다',async()=>{
+ const calls=[];const ui=setup({social:async()=>{calls.push('social');return {mode:'social-signup',provider:'google',email:'new@dio.test'};}});
+ try{
+  find(ui.render(),'구글로 로그인').props.onPress();await tick();
+  find(ui.render(),'만 14세 미만이에요').props.onPress();
+  assert.ok(find(ui.render(),'시작 화면으로'));assert.equal(find(ui.render(),'닉네임'),undefined);
+  find(ui.render(),'시작 화면으로').props.onPress();
+  assert.equal(find(ui.render(),'구글로 로그인').props.disabled,false);assert.deepEqual(calls,['social']);
+ }finally{ui.unmount();}
 });
 
 const reader = ui => nodes(ui.render()).find(node => node.type === 'LegalDocumentScreen');
@@ -232,12 +248,12 @@ for(const [key,label] of consentRows) test(`앱 내 문서에서 동의하면 �
   find(ui.render(),'회원가입').props.onPress();
   const doc=openConsent(ui,key);
   assert.equal(doc.props.document.id,key);
-  assert.equal(doc.props.document.effectiveDate,'2026-11-04');
+  assert.equal(doc.props.document.effectiveDate,'2026-11-05');
   assert.equal(find(ui.render(),label).props.checked,false);
   doc.props.onAgree();
   assert.equal(reader(ui),undefined);
   for(const [id,text] of consentRows) assert.equal(find(ui.render(),text).props.checked,id===key);
-  assert.equal(find(ui.render(),'만 14세 이상입니다').props.checked,false);
+  assert.equal(find(ui.render(),'만 14세 이상이에요').props.checked,false);
  }finally{ui.unmount()}
 });
 test('문서 닫기와 Android 뒤로가기는 동의를 변경하거나 가입 화면을 이탈하지 않는다',()=>{
@@ -248,15 +264,15 @@ test('문서 닫기와 Android 뒤로가기는 동의를 변경하거나 가입 
   openConsent(ui,'privacy').props.onClose();
   openConsent(ui,'adEmail');assert.equal(ui.back(),true);
   assert.equal(reader(ui),undefined);
-  assert.ok(find(ui.render(),'만 14세 이상입니다'));
+  assert.ok(find(ui.render(),'만 14세 이상이에요'));
   for(const [id,label] of consentRows)assert.equal(find(ui.render(),label).props.checked,id==='service');
  }finally{ui.unmount()}
 });
-test('개인정보처리방침에는 동의 콜백이 없고 닫기만 한다',()=>{
+test('개인정보 처리방침에는 동의 콜백이 없고 닫기만 한다',()=>{
  const ui=setup({});
  try {
   find(ui.render(),'회원가입').props.onPress();
-  find(ui.render(),'개인정보처리방침 보기').props.onPress();
+  find(ui.render(),'개인정보 처리방침 보기').props.onPress();
   const doc=reader(ui);assert.equal(doc.props.document.id,'policy');assert.equal(doc.props.onAgree,undefined);
   doc.props.onClose();assert.equal(reader(ui),undefined);
   for(const [,label] of consentRows)assert.equal(find(ui.render(),label).props.checked,false);
@@ -393,17 +409,39 @@ test('실제 서비스는 배포 모드에서도 인증 화면에 서버 어댑�
 });
 test('닉네임 중복 확인 없이 형식과 동의로 가입 가능하다',async()=>{
  const ui=setup({social:async()=>({provider:'kakao'}),checkNickname:()=>{throw new Error('must not call')}})
- enterSocial(ui);await tick();find(ui.render(),'닉네임').props.onChange('소연')
+ await enterSocial(ui);find(ui.render(),'닉네임').props.onChange('소연')
  assert.equal(find(ui.render(),'닉네임 중복 확인'),undefined);assert.equal(find(ui.render(),'가입 완료').props.disabled,false)
  find(ui.render(),'닉네임').props.onChange('a');assert.equal(find(ui.render(),'가입 완료').props.disabled,true);ui.unmount()
 })
 
-test('중복 제출을 막고 Android 뒤로가기 후 늦은 진입 응답을 무시한다',async()=>{
+test('구글 로그인은 처리 중 중복 실행하지 않고 신규 계정만 가입 전 확인으로 보낸다',async()=>{
  let resolveSocial,calls=0;const ui=setup({social:()=>{calls++;return new Promise(r=>resolveSocial=r)}})
- const button=find(ui.render(),'구글로 로그인');button.props.onPress();button.props.onPress();assert.equal(calls,0)
- find(ui.render(),'만 14세 이상입니다').props.onPress();find(ui.render(),'필수 항목 전체 동의').props.onPress()
- const submit=find(ui.render(),'동의하고 계속');submit.props.onPress();submit.props.onPress();assert.equal(calls,1)
- ui.render();assert.equal(ui.back(),true);ui.render();enterSignup(ui);ui.render();assert.equal(ui.back(),true);ui.render();assert.equal(ui.back(),true);ui.render();resolveSocial({provider:'kakao'});await tick();assert.ok(find(ui.render(),'로그인'));assert.equal(ui.back(),false);assert.deepEqual(ui.sessions,[]);ui.unmount()
+ const button=find(ui.render(),'구글로 로그인');button.props.onPress();button.props.onPress();assert.equal(calls,1)
+ resolveSocial({provider:'kakao',mode:'social-signup',email:'new@dio.test'});await tick();
+ assert.ok(find(ui.render(),'만 14세 이상이에요'));assert.equal(find(ui.render(),'닉네임'),undefined);ui.unmount()
+})
+
+test('기존 이메일 계정의 소셜 로그인은 비밀번호 확인 화면에서 연결한다',async()=>{
+ const calls=[];const linked={provider:'google',userId:'7',email:'existing@dio.test'};
+ const ui=setup({social:async()=>({provider:'google',mode:'social-link',email:'existing@dio.test'}),linkSocial:async(...args)=>{calls.push(args);return linked;}});
+ try{
+  find(ui.render(),'구글로 로그인').props.onPress();await tick();
+  assert.ok(find(ui.render(),'기존 비밀번호'));find(ui.render(),'기존 비밀번호').props.onChange('Password123!');
+  find(ui.render(),'구글 로그인 연결').props.onPress();await tick();
+  assert.deepEqual(calls,[['google','existing@dio.test','Password123!']]);assert.deepEqual(ui.sessions,[linked]);
+ }finally{ui.unmount();}
+})
+
+test('애플 계정 연결 화면은 부제목 · 본문 · 버튼이 모두 애플로 안내한다',async()=>{
+ const ui=setup({social:async()=>({provider:'apple',mode:'social-link',email:'existing@dio.test'})});
+ try{
+  find(ui.render(),'구글로 로그인').props.onPress();await tick();
+  const texts=nodes(ui.render()).map(n=>[n.props?.children].flat(Infinity).filter(c=>typeof c==='string').join('')).filter(Boolean);
+  assert.ok(texts.includes('비밀번호를 확인하면 애플 로그인을 연결해 드려요.'));
+  assert.ok(texts.some(t=>t.includes('비밀번호를 확인하면 애플 로그인을 연결할 수 있어요.')));
+  assert.ok(find(ui.render(),'애플 로그인 연결'));
+  assert.equal(texts.some(t=>t.includes('구글 로그인')),false);
+ }finally{ui.unmount();}
 })
 
 test('키보드가 열린 뒤 입력칸 위치를 재측정하고 가려진 만큼 스크롤한다',async()=>{
@@ -437,7 +475,7 @@ test('로그인 오류는 버튼 위에 표시하고 입력 수정 때 해제하
 test('프로필 사진 선택·취소·삭제를 처리한다',async()=>{
  const results=['file:///profile.jpg',null]
  const ui=setup({social:async()=>({provider:'kakao'})},async()=>results.shift())
- enterSocial(ui);await tick()
+ await enterSocial(ui)
  find(ui.render(),'프로필 사진 선택').props.onPress();await tick()
  assert.equal(find(ui.render(),'선택한 프로필 사진').props.source.uri,'file:///profile.jpg')
  find(ui.render(),'프로필 사진 선택').props.onPress();await tick()
@@ -456,7 +494,7 @@ test('회원가입 진입 시 입력·오류·스크롤을 초기화한다',()=>
  assert.ok(moves.length >= 1);assert.ok(moves.every(move=>move.y===0 && move.animated===false));ui.unmount()
 })
 test('유효한 닉네임으로 수정해도 재확인을 요구하지 않는다',async()=>{
- const ui=setup({social:async()=>({provider:'kakao'})});enterSocial(ui);await tick()
+ const ui=setup({social:async()=>({provider:'kakao'})});await enterSocial(ui)
  find(ui.render(),'닉네임').props.onChange('소연');find(ui.render(),'닉네임').props.onChange('다른이름')
  assert.equal(find(ui.render(),'가입 완료').props.disabled,false);ui.unmount()
 })
@@ -464,7 +502,7 @@ test('유효한 닉네임으로 수정해도 재확인을 요구하지 않는다
 test('사진 선택 도중 화면을 떠나면 늦은 결과를 적용하지 않는다',async()=>{
  let resolvePhoto
  const ui=setup({social:async()=>({provider:'kakao'})},()=>new Promise(r=>resolvePhoto=r))
- enterSocial(ui);await tick();find(ui.render(),'프로필 사진 선택').props.onPress()
+ await enterSocial(ui);find(ui.render(),'프로필 사진 선택').props.onPress()
  ui.render();ui.back();resolvePhoto('file:///late.jpg');await tick()
  assert.ok(find(ui.render(),'로그인'));assert.equal(find(ui.render(),'선택한 프로필 사진'),undefined);ui.unmount()
 })
@@ -647,14 +685,14 @@ test('인증 화면의 접근성 역할은 설치된 React Native 네이티브 �
 
 test('구글 기존 회원은 프로필 입력 없이 바로 로그인한다',async()=>{
  const ui=setup({social:async()=>({mode:'authenticated',provider:'google',userId:'7',email:'user@gmail.com'})});
- try {find(ui.render(),'구글로 로그인').props.onPress();find(ui.render(),'만 14세 이상입니다').props.onPress();find(ui.render(),'필수 항목 전체 동의').props.onPress();find(ui.render(),'동의하고 계속').props.onPress();await new Promise(r=>setImmediate(r));assert.equal(ui.sessions[0].provider,'google');assert.equal(find(ui.render(),'닉네임'),undefined);}finally{ui.unmount();}
+ try {find(ui.render(),'구글로 로그인').props.onPress();await tick();assert.equal(ui.sessions[0].provider,'google');assert.equal(find(ui.render(),'닉네임'),undefined);}finally{ui.unmount();}
 });
 
 test('구글 로그인도 기존 개발 서버 인증 화면에서 재시도한다',async()=>{
  let count=0,configured=false;const service={verificationService:{setDevelopmentAccess(){configured=true;}},social:async()=>{if(++count===1)throw Object.assign(new Error('개발 서버 접근 인증'),{code:'DEVELOPMENT_ACCESS_REQUIRED'});return {mode:'authenticated',provider:'google',userId:'7',email:'user@gmail.com'};}};
  const ui=setup(service,undefined,{developmentMode:true,emailVerificationEnabled:true});
  try{
- find(ui.render(),'구글로 로그인').props.onPress();find(ui.render(),'만 14세 이상입니다').props.onPress();find(ui.render(),'필수 항목 전체 동의').props.onPress();find(ui.render(),'동의하고 계속').props.onPress();await new Promise(r=>setImmediate(r));
+ find(ui.render(),'구글로 로그인').props.onPress();await tick();
  find(ui.render(),'개발 서버 ID').props.onChange('tester');find(ui.render(),'개발 서버 비밀번호').props.onChange('secret');
  assert.equal(find(ui.render(),'접속 인증 후 로그인').props.disabled,false);find(ui.render(),'접속 인증 후 로그인').props.onPress();await new Promise(r=>setImmediate(r));assert.equal(configured,true);assert.equal(ui.sessions[0].provider,'google');
  }finally{ui.unmount();}
@@ -679,7 +717,7 @@ for (const failure of ['local-expiry', 'server-rejection']) test(`가입 인증 
  const ui=setup(service,async()=> 'file:///selected-profile.jpg');
  try{
   find(ui.render(),'회원가입').props.onPress();
-  find(ui.render(),'만 14세 이상입니다').props.onPress();
+  find(ui.render(),'만 14세 이상이에요').props.onPress();
   find(ui.render(),'필수 항목 전체 동의').props.onPress();
   find(ui.render(),`[선택] ${marketingDocuments[0].label}`).props.onPress();
   find(ui.render(),'동의하고 계속').props.onPress();
@@ -735,7 +773,7 @@ for(const choices of [{service:false,privacy:false},{service:true,privacy:false}
  test(`연령 확인 뒤 필수 약관 미동의는 다음 단계로 진행할 수 없다: ${JSON.stringify(choices)}`,()=>{
  const ui=setup({});
  try{
-  find(ui.render(),'회원가입').props.onPress();find(ui.render(),'만 14세 이상입니다').props.onPress();
+  find(ui.render(),'회원가입').props.onPress();find(ui.render(),'만 14세 이상이에요').props.onPress();
   if(choices.service)find(ui.render(),'[필수] 이용약관 동의').props.onPress();
   if(choices.privacy)find(ui.render(),'[필수] 개인정보 수집·이용 동의').props.onPress();
   const allowed=choices.service&&choices.privacy;

@@ -15,7 +15,7 @@ const closeButton = tree => ({ props: { onPress: header(tree).props.onBack } })
 // 단계 이동 줄(MakerNav)의 `이전`
 const prevButton = tree => nodes(tree).find(n => n.props.onPrev)
 const tick = () => new Promise(resolve => setImmediate(resolve))
-function fixture(photoPicker, preview, apiOverride = {}, onSave) {
+function fixture(photoPicker, preview, apiOverride = {}, onSave, screen = { width: 1280, height: 800 }) {
   let si = 0, ri = 0, ei = 0, closed = 0
   const states = [], refs = [], deps = [], cleanups = []
   const react = {
@@ -23,7 +23,7 @@ function fixture(photoPicker, preview, apiOverride = {}, onSave) {
     useRef(initial) { const i = ri++; return refs[i] ??= { current: initial } },
     useEffect(fn, next) { const i = ei++; if (!deps[i] || next.some((v, k) => v !== deps[i][k])) { cleanups[i]?.(); deps[i] = next; cleanups[i] = fn() } },
   }
-  const native = { StyleSheet: { create: v => v }, useWindowDimensions: () => ({ width: 1280, height: 800 }) }
+  const native = { StyleSheet: { create: v => v }, useWindowDimensions: () => screen }
   for (const id of ['ActivityIndicator', 'Image', 'Pressable', 'ScrollView', 'Text', 'View']) native[id] = id
   const mocks = { react, 'react-native': native,
     'react-native-safe-area-context': { SafeAreaView: 'SafeAreaView' },
@@ -105,6 +105,59 @@ test('사진 선택 연타와 폐기 후 응답은 상태 변경 없이 임시 �
   ui.unmount()
   finish({ uri: 'photo', width: 100, height: 100, dispose: () => disposed++ }); await tick()
   assert.equal(disposed, 1)
+})
+test('사진을 불러오는 동안 사진 선택 버튼이 직접 처리 중(loading)을 보이고 상태 줄에는 스피너가 없다', async () => {
+  let finish
+  const ui = fixture(() => new Promise(resolve => { finish = resolve }), undefined, {}, undefined, { width: 390, height: 844 })
+  assert.equal(find(ui.render(), '사진 선택').props.loading, false)
+  find(ui.render(), '사진 선택').props.onPress()
+  const loading = ui.render()
+  const button = find(loading, '사진 선택')
+  assert.equal(button.props.text, '사진 불러오는 중')
+  assert.equal(button.props.loading, true)
+  assert.equal(nodes(loading).some(n => n.type === 'ActivityIndicator'), false)
+  finish({ uri: 'photo', width: 100, height: 100 }); await tick()
+  const done = find(ui.render(), '이미지 바꾸기')
+  assert.equal(done.props.text, '이미지 바꾸기')
+  assert.equal(done.props.loading, false)
+  ui.unmount()
+})
+test('이미지 바꾸기 중에도 그 버튼만 처리 중을 보이고, 취소 · 실패 뒤에는 원래대로 돌아가며 미리보기 진행 표시는 상태 줄에 둔다', async () => {
+  let calls = 0, pending
+  const ui = fixture(() => ++calls === 1 ? Promise.resolve({ uri: 'photo', width: 100, height: 100 }) : new Promise(resolve => { pending = resolve }),
+    // 넓은 배치: 상태 줄이 도구 단 아래(children)에 있어 트리에서 오류 · 미리보기 스피너까지 확인할 수 있다
+    () => new Promise(() => {}))
+  await load(ui)
+  const spinnerLabels = tree => nodes(tree).filter(n => n.type === 'ActivityIndicator').map(n => n.props.accessibilityLabel)
+  // 이미지 바꾸기 → 사진 고르는 중: 그 버튼만 loading, 상태 줄 스피너 없음, 다른 도구는 막힘
+  find(ui.render(), '이미지 바꾸기').props.onPress()
+  let tree = ui.render()
+  const change = find(tree, '이미지 바꾸기')
+  assert.equal(change.props.text, '사진 불러오는 중')
+  assert.equal(change.props.loading, true)
+  assert.deepEqual(spinnerLabels(tree), [])
+  assert.equal(find(tree, '선택 추가').props.disabled, true)
+  // 고르기 취소: 글자 · 처리 중 표시가 원래대로
+  pending(null); await tick()
+  tree = ui.render()
+  assert.equal(find(tree, '이미지 바꾸기').props.text, '이미지 바꾸기')
+  assert.equal(find(tree, '이미지 바꾸기').props.loading, false)
+  assert.deepEqual(spinnerLabels(tree), [])
+  // 고르기 실패: 원래대로 돌아가고 오류는 상태 줄에 보인다
+  find(tree, '이미지 바꾸기').props.onPress()
+  pending(Promise.reject(new Error('사진 오류'))); await tick(); await tick()
+  tree = ui.render()
+  assert.equal(find(tree, '이미지 바꾸기').props.text, '이미지 바꾸기')
+  assert.deepEqual(spinnerLabels(tree), [])
+  assert.ok(nodes(tree).some(n => n.props.accessibilityRole === 'alert' && n.props.children === '사진 오류'))
+  // 이후 미리보기 처리 중에는 상태 줄 스피너가 보이고 버튼 글자는 그대로다
+  draw(ui)
+  find(ui.render(), '다음 · 스티커 확인').props.onPress(); await tick()
+  tree = ui.render()
+  assert.deepEqual(spinnerLabels(tree), ['스티커 미리보기 처리 중'])
+  assert.equal(find(tree, '이미지 바꾸기').props.text, '이미지 바꾸기')
+  assert.equal(find(tree, '이미지 바꾸기').props.loading, false)
+  ui.unmount()
 })
 test('사진 재선택 취소는 기존 선택을 유지하고 새 사진으로 바꾸면 이력을 초기화·기존 사진 해제한다', async () => {
   let calls = 0, disposed = 0
@@ -323,5 +376,38 @@ test('확대 중 한 손가락을 떼었다 다른 자리에 다시 대도 배�
   assert.deepEqual(area().props.style, before)
   area().props.onResponderRelease()
   assert.equal(find(ui.render(), '되돌리기').props.disabled, true)
+  ui.unmount()
+})
+
+test('폰에서는 사진 위 붓질 동안 부모 스크롤을 즉시 잠갔다가 손을 떼면 다시 푼다', async () => {
+  const ui = fixture(async () => ({ uri: 'photo', width: 100, height: 100 }), null, {}, undefined, { width: 390, height: 800 })
+  await load(ui)
+  const scroll = nodes(ui.render()).find(n => n.type === 'ScrollView')
+  const changes = []
+  scroll.props.ref.current = { setNativeProps: props => changes.push(props) }
+  const area = find(ui.render(), 'cutout-canvas')
+  area.props.onResponderGrant({ nativeEvent: { locationX: 20, locationY: 20 } })
+  assert.deepEqual(changes.at(-1), { scrollEnabled: false })
+  assert.equal(nodes(ui.render()).find(n => n.type === 'ScrollView').props.scrollEnabled, false)
+  find(ui.render(), 'cutout-canvas').props.onResponderRelease()
+  assert.deepEqual(changes.at(-1), { scrollEnabled: true })
+  assert.equal(nodes(ui.render()).find(n => n.type === 'ScrollView').props.scrollEnabled, true)
+  ui.unmount()
+})
+
+test('폰에서 핀치가 취소돼도 부모 스크롤 잠금을 푼다', async () => {
+  const ui = fixture(async () => ({ uri: 'photo', width: 100, height: 100 }), null, {}, undefined, { width: 390, height: 800 })
+  await load(ui)
+  const scroll = nodes(ui.render()).find(n => n.type === 'ScrollView')
+  const changes = []
+  scroll.props.ref.current = { setNativeProps: props => changes.push(props) }
+  const touch = (x, y, identifier) => ({ pageX: x, pageY: y, identifier })
+  find(ui.render(), 'cutout-canvas').props.onResponderGrant({ nativeEvent: {
+    pageX: 150, pageY: 100, locationX: 100, locationY: 100, touches: [touch(140, 100, 0), touch(160, 100, 1)],
+  } })
+  assert.deepEqual(changes.at(-1), { scrollEnabled: false })
+  find(ui.render(), 'cutout-canvas').props.onResponderTerminate()
+  assert.deepEqual(changes.at(-1), { scrollEnabled: true })
+  assert.equal(nodes(ui.render()).find(n => n.type === 'ScrollView').props.scrollEnabled, true)
   ui.unmount()
 })

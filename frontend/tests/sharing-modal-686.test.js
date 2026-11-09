@@ -86,9 +86,9 @@ test('686: 이메일 칸은 구분선 아래 초대 구역 · 보낸 초대 화�
   assert.match(src, /\{screen !== 'sharing' && \(screen !== 'invitations' \|\| !!request\?\.diary\) && \(/)
 })
 
-test('686: 소유자는 참여자 ⋯ 말풍선에서 소유권 양도 · 내보내기, 따로 관리 버튼 · 화면 없음', () => {
+test('686: 소유자는 참여자 ⋯ 말풍선에서 소유권 양도 · 다이어리에서 제외, 따로 관리 버튼 · 화면 없음', () => {
   assert.match(src, /isOwner && typeof runtime\.transferOwner === 'function' && \{ id: 'transfer', icon: 'crown', text: '소유권 양도'/)
-  assert.match(src, /isOwner && \{ id: 'remove', icon: 'user-minus', danger: true, text: '내보내기'/)
+  assert.match(src, /isOwner && \{ id: 'remove', icon: 'user-minus', danger: true, text: '다이어리에서 제외'/)
   assert.doesNotMatch(src, /accessibilityLabel="참여자 관리"|screen === 'members'/)
 })
 
@@ -149,7 +149,14 @@ test('알림이 많으면 목록 칸만 창 안에서 스크롤하고 초대 링
   assert.match(src, /const fixedHeight = screen === 'invitations' \? \(lockedHeight \|\| /)
   assert.match(src, /fixedHeight \? \{ height: fixedHeight \}/)
   // useWindowDimensions 는 if (!request) return null 보다 위(훅 순서가 바뀌면 창을 열 때 앱이 멈췄다)
-  assert.ok(src.indexOf('useWindowDimensions().height') < src.indexOf('if (!request) return null'))
+  assert.ok(src.indexOf('useWindowDimensions().height') < src.indexOf('if (!request || !visible) return null'))
   const styles = read('../src/sharing/styles.js')
   assert.match(styles, /invitationScroll: \{ flex: 1, minHeight: 0 \}/)
+})
+
+test('655: 참여자를 빼는 동작은 파일 내보내기와 겹치지 않게 다이어리에서 제외라 부른다', () => {
+  assert.match(src, /question\?\.kind === 'remove' \? `\$\{question\.member\.nickname\}님을 제외할까요\?`/)
+  assert.match(src, /question\?\.kind === 'remove' \? '제외' :/)
+  assert.match(src, /setToast\('참여자를 제외했어요\.'\)/)
+  assert.doesNotMatch(src, /님을 내보낼까요|참여자를 내보냈어요|text: '내보내기'/)
 })

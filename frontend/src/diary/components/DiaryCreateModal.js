@@ -17,7 +17,7 @@ import Workbench, { StagePill, fit } from './Workbench';
 import ConfirmDialog from '../../editor/components/controls/ConfirmDialog';
 import { coverSummary, newDiaryCover, normalizeCover } from '../utils/coverDesign';
 import { defaultSections, savedPaperSummary, sectionTitle, sectionsTemplateConfig } from '../utils/paperChoice';
-import { PdfImportError, coverBackupOf, coverForLibrary, coverWithPdfPage, pdfOrientation, pdfPageAspect, pdfPapersSummary, restoreCoverBase, splitPdfPages } from '../utils/pdfImport';
+import { PdfImportError, coverBackupOf, coverForLibrary, coverWithPdfPage, pdfOrientation, pdfPaperRatio, pdfPapersSummary, restoreCoverBase, splitPdfPages } from '../utils/pdfImport';
 import { pickPdfPages } from '../utils/pdfPages';
 import { discardPdfImport } from '../utils/pdfCleanup';
 import useMyLibrary from '../hooks/useMyLibrary';
@@ -57,7 +57,7 @@ export default function DiaryCreateModal({ diary, onSubmit, onCancel, saving = f
   const [openElement, setOpenElement] = useState('base');
   // 속지 묶음: 위에서부터 순서대로 쌓는다 (화면은 한 줄 목록 + 이어서 · 섞어서)
   const [paperSections, setPaperSections] = useState(defaultSections);
-  // serverPapers(회원 새 다이어리): 날짜 속지도 게스트와 같이 고른다(날짜 ID 를 서버 페이지 설정에 둔다, serverCatalog). 속지 글꼴만 서버에 칸이 없어 고르지 않는다.
+  // serverPapers(회원 새 다이어리): 날짜 속지의 ID를 서버 페이지 설정에 둔다.
   // blankOnly: 속지 구역 없이 빈 페이지 한 장(지금은 쓰는 곳 없음)
   const chosenSections = blankOnly ? [] : paperSections;
   const [paperAppearance, setPaperAppearance] = useState(() => normalizePaperAppearance(diary?.paperAppearance ?? DEFAULT_PAPER_APPEARANCE));
@@ -228,7 +228,8 @@ export default function DiaryCreateModal({ diary, onSubmit, onCancel, saving = f
   // ---------- 가운데 미리보기: 지금 고치는 것만 ----------
   const paperRatio = (() => { const { width, height } = templateCanvasSize(orientation); return width / height; })();
   const coverRatio = orientation === 'landscape' ? 1 / COVER_RATIO : COVER_RATIO;
-  const pdfRatio = pdfPageAspect(pdfPapers[0], paperRatio);
+  // PDF 속지는 고른 방향의 틀에 맞춰 만들어진다(쪽 그림은 그 안에 잘리지 않게 들어간다): 미리보기도 같은 틀로 보인다
+  const pdfRatio = pdfPapers[0] ? pdfPaperRatio(pdfPapers[0], orientation) : paperRatio;
   let preview = null;
   if (stage.width > 0) {
     const maxHeight = stage.height - (stacked ? 44 : 80);
@@ -262,7 +263,7 @@ export default function DiaryCreateModal({ diary, onSubmit, onCancel, saving = f
       preview = <>
         <PdfPageThumb page={pdfPapers[0]} width={size.width} ratio={pdfRatio} style={styles.paperShadow} />
         {stripCount > 1 && <View style={styles.strip}>
-          {pdfPapers.slice(0, stripCount).map((page, index) => <PdfPageThumb key={`${page.mediaFileId}-${index}`} page={page} width={stripWidth} maxHeight={stripHeight} />)}
+          {pdfPapers.slice(0, stripCount).map((page, index) => <PdfPageThumb key={`${page.mediaFileId}-${index}`} page={page} width={stripWidth} ratio={pdfPaperRatio(page, orientation)} maxHeight={stripHeight} />)}
           {pdfPapers.length > stripCount && <Text style={styles.stripMore}>…</Text>}
         </View>}
         <StagePill>전체 {pdfPapers.length}페이지</StagePill>
@@ -332,7 +333,7 @@ export default function DiaryCreateModal({ diary, onSubmit, onCancel, saving = f
         style={({ pressed }) => [styles.drop]}><Text style={styles.dropText}>속지에서 빼기</Text></Pressable>
     </View> : <PaperOptions sections={paperSections} onChange={next => { setPaperSections(next); setError(''); }} orientation={orientation} appearance={paperAppearance} />}
   </View>;
-  else panel = <PaperStyleOptions appearance={paperAppearance} onChange={changeAppearance} plainOnly={!editing && (blankOnly || serverPapers || usingPdf || paperSections.every(item => item.rows.every(row => row.paper === 'plain')))}
+  else panel = <PaperStyleOptions appearance={paperAppearance} onChange={changeAppearance} plainOnly={!editing && (blankOnly || usingPdf || paperSections.every(item => item.rows.every(row => row.paper === 'plain')))}
     scope={scope} onScope={editing ? setScope : null} />;
 
   const message = error || configError || notice;

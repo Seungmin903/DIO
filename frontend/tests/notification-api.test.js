@@ -14,7 +14,7 @@ test('목 어댑터도 PDF 개별 읽음 경로를 body 없이 사용한다', as
 
 function setup(options = {}) {
   const mock = createMockNotificationTransport({ delay: 0, ...options });
-  const api = createNotificationApi(mock.transport), gateway = createInvitationGateway(mock.transport);
+  const api = createNotificationApi(mock.transport), gateway = createInvitationGateway(mock.getInvitation);
   return { mock, api, gateway, store: createNotificationStore(api, gateway) };
 }
 test('상세를 연 뒤 취소되면 복귀 재조회가 목록과 상세를 함께 갱신한다', async () => {

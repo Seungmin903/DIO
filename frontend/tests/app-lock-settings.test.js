@@ -170,20 +170,17 @@ const recovery=({clear=async()=>{},reads=[]}={})=>{
   return {...mod,dialogs,notices,cleared};
 };
 
-test('회원의 잊었어요는 잠금을 지운 뒤 로그아웃하고, 지우기에 실패하면 로그아웃하지 않고 알린다', async()=>{
-  const ok=recovery();let logouts=0;
-  const action=ok.appLockRecoveryAction({member:true,state:'on',scope:'user:7',onLogout:()=>{logouts+=1}});
-  assert.equal(typeof action,'function');
-  action();assert.equal(ok.dialogs.length,1);assert.equal(ok.dialogs[0].confirmLabel,'로그아웃');
-  await ok.dialogs[0].onConfirm();
-  assert.deepEqual(ok.cleared,['user:7']);assert.equal(logouts,1);assert.deepEqual(ok.notices,[]);
-
-  const failed=recovery({clear:async()=>{throw Error('keystore unavailable')}});
-  failed.appLockRecoveryAction({member:true,state:'corrupt',scope:'user:7',onLogout:()=>{logouts+=1}})();
-  await failed.dialogs[0].onConfirm();
-  assert.equal(logouts,1);
-  assert.deepEqual(failed.notices,[{title:'앱 잠금',message:'앱 잠금을 초기화하지 못했어요. 잠시 후 다시 시도해 주세요.'}]);
-  assert.equal(ok.appLockRecoveryAction({member:true,state:'on',scope:'user:7'}),undefined); // 로그아웃 수단이 없으면 칸을 비운다
+test('799: 회원의 잊었어요는 로그아웃 대신 계정으로 다시 확인하는 화면을 연다(잠금은 이 기기 · 이 계정 정보), 확인 수단이 없으면 칸을 비운다', async()=>{
+  const ok=recovery();let opened=0;
+  const onReauth=()=>{opened+=1};
+  const action=ok.appLockRecoveryAction({member:true,state:'on',scope:'user:7',onReauth});
+  assert.equal(action,onReauth);
+  action();assert.equal(opened,1);
+  // 확인 창 · 잠금 지우기 · 로그아웃을 바로 하지 않는다
+  assert.deepEqual(ok.dialogs,[]);assert.deepEqual(ok.cleared,[]);
+  assert.equal(ok.appLockRecoveryAction({member:true,state:'corrupt',scope:'user:7',onReauth}),onReauth);
+  assert.equal(ok.appLockRecoveryAction({member:true,state:'on',scope:'user:7'}),undefined);
+  assert.equal(ok.appLockRecoveryAction({member:true,state:'on',scope:'user:7',onLogout(){}}),undefined); // 예전 로그아웃 경로는 받지 않는다
 });
 
 test('게스트는 정상 잠금을 PIN 없이 풀 수 없고, 저장값이 손상됐을 때만 초기화한다', async()=>{
@@ -223,7 +220,9 @@ const tree=node=>!node||typeof node!=='object'?[]:[node,...[node.props?.children
 
 test('앱 잠금을 새로 켤 수 없는 환경(웹)에서는 기존 잠금의 끄기만 두고 켜기·바꾸기를 숨긴다', ()=>{
   const {default:AppLockSetting}=loadJsx('../src/diary/components/AppLockSetting.js',{
+    'react-native':{Text:'Text',StyleSheet:{create:styles=>styles}},
     '../../shared/DioButton':{__esModule:true,default:'DioButton'},
+    '../../shared/theme':{colors:{}},
     './SettingRow':{__esModule:true,default:'SettingRow',ON_OFF:[],SettingSection:'SettingSection'},
   });
   const calls=[];const handlers={onTurnOn:()=>calls.push('on'),onTurnOff:()=>calls.push('off'),onChange:()=>calls.push('change')};
@@ -234,8 +233,14 @@ test('앱 잠금을 새로 켤 수 없는 환경(웹)에서는 기존 잠금의 
   switchOf({...handlers,locked:true,canEnable:false}).props.onChange('off');
   // 웹·잠금 없음: 켜기를 눌러도 아무 흐름도 열지 않는다
   switchOf({...handlers,locked:false,canEnable:false}).props.onChange('on');
-  // 읽는 중(null)이면 어느 쪽도 열지 않는다
-  switchOf({...handlers,locked:null,canEnable:true}).props.onChange('on');
+  const checking = switchOf({...handlers,locked:null,canEnable:true});
+  assert.equal(checking.props.options,undefined);
+  assert.equal(tree(checking).find(node=>node.type==='Text').props.children,'확인 중');
+  const failed = switchOf({...handlers,locked:null,readFailed:true,onRetry:()=>calls.push('retry')});
+  assert.equal(failed.props.options,undefined);
+  assert.equal(tree(failed).find(node=>node.type==='Text').props.children,'확인하지 못했어요');
+  tree(failed).find(node=>node.type==='DioButton').props.onPress();
+  assert.equal(calls.pop(),'retry');
   assert.deepEqual(calls,['off']);
   // 지원 환경: 켜기와 바꾸기 줄이 있다
   switchOf({...handlers,locked:false}).props.onChange('on');

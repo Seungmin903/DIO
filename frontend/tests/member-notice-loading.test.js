@@ -33,9 +33,40 @@ test('휴지통 오류·재시도·메타데이터 경고 시 기존 복구 동�
   assert.ok(buttons(busyView).filter(b => b.props.onPress === reload || b.props.onPress === retry).every(b => b.props.disabled))
 })
 
+test('보관함은 휴지통 복원·영구 삭제 오류를 숨기고 휴지통 이동 복구는 유지한다', () => {
+  const error = { status: 503 }
+  for (const kind of ['restore', 'purge']) {
+    const state = { lifecycle: { kind, error, canRetry: true }, trashError: error, metadataCleanupError: { code: 'cleanup', message: '정리 경고' } }
+    assert.equal(trash({ state, context: 'library' }), null)
+    assert.ok(trash({ state }), '휴지통에서는 오류를 볼 수 있어야 한다')
+  }
+  const calls = []
+  const state = { lifecycle: { kind: 'trash', error, canRetry: true } }
+  const view = trash({ state, context: 'library', onReload: () => calls.push('reload'), onRetry: () => calls.push('retry') })
+  assert.ok(words(view).includes('처리 결과를 확인하지 못했어요. 다시 확인해 주세요.'))
+  buttons(view).forEach(button => button.props.onPress())
+  assert.deepEqual(calls, ['reload', 'retry'])
+  assert.equal(trash({ state: { trashError: error }, context: 'library' }), null)
+})
+
 test('회원 목록을 다시 받기만 할 때는 칸을 그리지 않는다(목록이 밀리지 않게)', () => {
   assert.equal(request({ refreshing: true }), null)
   assert.equal(request({}), null)
+})
+
+test('S15P31F106-723: 생성 안내는 사용자가 아는 말로 적고 확인 · 목록 확인 · 정리를 구분한다', () => {
+  const labels = node => buttons(node).map(b => b.props.label)
+  const pending = request({ pending: {}, onRetry() {}, onReload() {}, onArchiveExpired() {} })
+  assert.deepEqual(words(pending), ['다이어리가 만들어졌는지 확인하지 못했어요.'])
+  assert.deepEqual(labels(pending), ['생성 결과 확인'])
+  const expired = request({ pending: { expired: true }, onRetry() {}, onReload() {}, onArchiveExpired() {} })
+  assert.match(words(expired)[0], /확인할 수 있는 기간이 지나/)
+  assert.deepEqual(labels(expired), ['보관함 목록 확인', '이전 요청 정리'], '목록 확인과 요청 정리를 따로 둔다')
+  for (const view of [pending, expired]) for (const text of words(view)) assert.doesNotMatch(String(text), /요청|키|응답/, '내부 용어를 쓰지 않는다')
+  const failed = request({ pending: {}, error: { message: '서버에 연결하지 못했어요.' }, onRetry() {}, onReload() {} })
+  assert.deepEqual(words(failed), ['다이어리가 만들어졌는지 확인하지 못했어요.', '서버에 연결하지 못했어요.'], '확인 실패 이유를 둘째 줄에')
+  assert.deepEqual(labels(request({ error: { message: '오류' }, onReload() {} })), ['보관함 다시 불러오기'])
+  assert.deepEqual(labels(request({ pending: {}, busy: true, onRetry() {} })), ['확인 중…'])
 })
 
 test('회원 생성 확인·오류·만료 요청에는 기존 복구 버튼을 유지한다', () => {

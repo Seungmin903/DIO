@@ -108,6 +108,38 @@ class MemberDiaryHttpTests {
         assertThat(jdbc.queryForObject("select title from diaries",String.class)).isEqualTo("renamed");
     }
 
+    @Test void paperAppearanceSurvivesCreationReplayAndRespectsUpdateScope() throws Exception {
+        var input=(tools.jackson.databind.node.ObjectNode)json.readTree(body(2));
+        var appearance=input.putObject("paperAppearance").put("backgroundColor","#fff8e7").put("font","gowun-dodum");
+        for(var page:input.get("initialPages"))
+            ((tools.jackson.databind.node.ObjectNode)page.get("templateConfig")).set("paperAppearance",appearance);
+        String payload=input.toString();
+        var created=json.readTree(mvc.perform(memberPost().header("Authorization","Bearer "+owner).contentType(MediaType.APPLICATION_JSON).content(payload))
+            .andExpect(status().isCreated()).andExpect(jsonPath("$.diary.paperAppearance.font").value("gowun-dodum"))
+            .andReturn().getResponse().getContentAsByteArray());
+        String diaryId=id(created);
+        String pages="/api/v1/diaries/"+diaryId+"/pages";
+        mvc.perform(post(PATH).header("Authorization","Bearer "+owner).header("Idempotency-Key",lastKey)
+            .contentType(MediaType.APPLICATION_JSON).content(payload)).andExpect(status().isCreated())
+            .andExpect(header().string("Idempotency-Replayed","true")).andExpect(jsonPath("$.diary.diaryId").value(diaryId));
+        var next=Map.of("backgroundColor","#FFFFFF","layoutColor","#292929","font","nanum-pen");
+        mvc.perform(patch(PATH+"/"+diaryId).header("Authorization","Bearer "+owner).contentType(MediaType.APPLICATION_JSON)
+            .content(json.writeValueAsString(Map.of("expectedVersion","1","paperAppearance",next,"paperAppearanceScope","new"))))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.diary.paperAppearance.font").value("nanum-pen"));
+        mvc.perform(get(pages).header("Authorization","Bearer "+owner)).andExpect(status().isOk())
+            .andExpect(jsonPath("$.paperAppearance.font").value("nanum-pen"))
+            .andExpect(jsonPath("$.items[0].templateConfig.paperAppearance.font").value("gowun-dodum"));
+        mvc.perform(patch(PATH+"/"+diaryId).header("Authorization","Bearer "+owner).contentType(MediaType.APPLICATION_JSON)
+            .content(json.writeValueAsString(Map.of("expectedVersion","2","paperAppearance",next,"paperAppearanceScope","all"))))
+            .andExpect(status().isOk());
+        mvc.perform(get(pages).header("Authorization","Bearer "+owner)).andExpect(status().isOk())
+            .andExpect(jsonPath("$.items[0].templateConfig.paperAppearance.font").value("nanum-pen"))
+            .andExpect(jsonPath("$.items[1].templateConfig.paperAppearance.font").value("nanum-pen"));
+        mvc.perform(patch(PATH+"/"+diaryId).header("Authorization","Bearer "+owner).contentType(MediaType.APPLICATION_JSON)
+            .content("{\"expectedVersion\":\"3\",\"paperAppearance\":{\"font\":\"unknown\"},\"paperAppearanceScope\":\"all\"}"))
+            .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("INVALID_PAPER_APPEARANCE"));
+    }
+
     @Test void absentExpiredInvalidAndLoggedOutTokensFailBeforeJsonValidation() throws Exception {
         for(String token:List.of("", "not.a.jwt",jwt.issue(101L,ownerSession.getSessionId(),Instant.now().minusSeconds(60),Instant.now().minusSeconds(1)))) {
             var request=post(PATH).contentType(MediaType.APPLICATION_JSON).content("not-json");

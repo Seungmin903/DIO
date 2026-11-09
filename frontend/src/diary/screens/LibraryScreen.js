@@ -58,7 +58,7 @@ function LibraryScreen({
   requestNotice = null,
   hasMore = false,
   suppressEmpty = false,
-  loading = false, // 회원 목록을 처음 불러오는 중(빈 화면 자리 가운데 스피너, 지라 590)
+  loading = false, // 결과가 아직 없으면 보관함 틀 안에 스피너를 표시한다.
   historyKey,
 }) {
   // 책상은 태블릿(compact 아님)에서만 보인다. 어두운 시각에는 상판 위 제목을 흰색으로 쓴다.

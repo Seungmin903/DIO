@@ -228,7 +228,7 @@ test('실서버와 개인 원본에는 목 사본 만들기를 노출하지 않�
   }
 });
 
-test('참여자 ⋯ 말풍선의 소유권 양도: 취소는 유지하고 실패는 재시도, 성공하면 편집자 화면(양도 · 내보내기 없음)', async () => {
+test('참여자 ⋯ 말풍선의 소유권 양도: 취소는 유지하고 실패는 재시도, 성공하면 편집자 화면(양도 · 다이어리에서 제외 없음)', async () => {
   const diary = { id: 'd', title: '관리', members: [
     { id: 'self', nickname: '소연', role: 'OWNER' },
     { id: 'friend', nickname: '모아', role: 'EDITOR' },
@@ -252,11 +252,11 @@ test('참여자 ⋯ 말풍선의 소유권 양도: 취소는 유지하고 실패
   await tick();
   assert.equal(attempts, 2);
   assert.ok(find(ui.render(), '다이어리 참여 해제'));
-  // 이제 편집자라 양도 · 내보내기가 없다(신고 · 차단 연결도 없는 하네스라 ⋯ 자체가 없다)
+  // 이제 편집자라 양도 · 다이어리에서 제외가 없다(신고 · 차단 연결도 없는 하네스라 ⋯ 자체가 없다)
   assert.equal(find(ui.render(), '모아 메뉴'), undefined);
 });
 
-test('실서버 참여자 ⋯ 말풍선에도 연결된 양도 · 내보내기가 있다(소유자)', () => {
+test('실서버 참여자 ⋯ 말풍선에도 연결된 양도 · 다이어리에서 제외가 있다(소유자)', () => {
   const diary = { id: 'd', title: '관리', members: [
     { id: 'self', nickname: '소연', role: 'OWNER' }, { id: 'friend', nickname: '모아', role: 'EDITOR' },
   ] };
@@ -265,7 +265,7 @@ test('실서버 참여자 ⋯ 말풍선에도 연결된 양도 · 내보내기�
   find(ui.render(), '모아 메뉴').props.onPress();
   const actions = nodes(ui.render()).find(n => Array.isArray(n.props?.actions)).props.actions.map(a => a.label);
   assert.ok(actions.includes('모아 소유권 양도'));
-  assert.ok(actions.includes('모아 내보내기'));
+  assert.ok(actions.includes('모아 다이어리에서 제외'));
 });
 
 test('초대 상세는 취소·만료·정원 초과를 구분하고 사용 불가 초대에 수락을 제공하지 않는다', async () => {
@@ -314,6 +314,7 @@ test('이메일 초대는 잘못된 입력·연타를 차단하고 실패 후 �
   resolve({ ...diary, emailInvites: [{ id: 'sent', email: 'friend@example.com', status: 'PENDING' }] });
   await tick();
   assert.equal(find(ui.render(), '초대할 이메일').props.value, '');
+  assert.ok(nodes(ui.render()).some(n => n.props?.children === '가입된 이메일이면 초대가 전달돼요.'));
   // 보낸 초대 목록 화면은 없다(노션처럼 칸 + 초대만, 지라 686)
   assert.equal(find(ui.render(), '보낸 초대'), undefined);
   assert.equal(find(ui.render(), 'friend@example.com 초대 취소'), undefined);
@@ -968,5 +969,30 @@ test('AI 리뷰: 콜드 스타트로 만드는 중에 복사를 누르면 그 �
   release(); await tick(); await tick();
   assert.equal(made, 1, '복사가 링크를 또 만들지 않는다');
   assert.ok(nodes(ui.render()).some(n => n.props?.children === 'https://dio.example/invite/cold'));
+  ui.unmount();
+});
+
+test('외부 공유 링크는 기존 참여 화면을 열고 확인을 누른 뒤에만 수락한다', async () => {
+  const link = 'https://k15f106.p.ssafy.io/invite/7.' + 'a'.repeat(43);
+  const token = link.split('/').at(-1);
+  const lookedUp = [], accepted = [];
+  const ui = setup({
+    resolveLink: async url => {
+      lookedUp.push(url);
+      return { inviteId: token, token, status: 'PENDING', diary: { diaryId: 'd', title: '초대' } };
+    },
+    accept: async (id, name) => {
+      accepted.push(id);
+      return { id: 'd', members: [{ id: 'self', nickname: name, role: 'EDITOR' }] };
+    },
+  }, undefined, { mode: 'invitation', link });
+  ui.render();
+  await tick();
+  const screen = ui.render();
+  assert.deepEqual(lookedUp, [link]);
+  assert.deepEqual(accepted, []);
+  find(screen, '수락하고 참여하기').props.onPress();
+  await tick();
+  assert.deepEqual(accepted, [token]);
   ui.unmount();
 });

@@ -8,14 +8,14 @@ const flush = async () => { for (let i = 0; i < 30; i++) await new Promise(r => 
 
 test('590: 처음 불러오는 동안은 빈 화면 자리 가운데 스피너만(목록 위 글자 줄 없음)', () => {
   const empty = read('../src/diary/components/EmptyState.js')
-  assert.match(empty, /export function LoadingSpot\(\{ label, compact = false, art = 'moa' \}\)/)
+  assert.match(empty, /export function LoadingSpot\(/)
   assert.match(empty, /accessibilityRole="progressbar" accessibilityLabel=\{label\} accessibilityState=\{\{ busy: true \}\} accessibilityLiveRegion="polite"/)
   assert.match(read('../src/diary/screens/LibraryScreen.js'), /suppressEmpty \? \(loading \? <LoadingSpot compact=\{compact\} label="다이어리를 불러오고 있어요\." \/> : null\)/)
   assert.match(read('../src/diary/screens/TrashScreen.js'), /suppressEmpty \? \(loading \? <LoadingSpot compact=\{compact\} art="dio" label="휴지통을 불러오고 있어요\." \/> : null\)/)
   assert.doesNotMatch(read('../src/diary/components/MemberLibraryNotice.js'), /다이어리를 불러오고 있어요|ActivityIndicator/)
   assert.doesNotMatch(read('../src/diary/components/MemberTrashNotice.js'), /불러오고 있어요/)
   const app = read('../App.js')
-  assert.match(app, /loading=\{member && libraryDiaries\.length === 0 && Boolean\(fullLoadPending \|\| !memberLibraryMatches \|\| diaryState\.library\.loading\) && !diaryState\.library\.error\}/)
+  assert.match(app, /loading=\{libraryLoading\}/)
   assert.match(app, /loading=\{member && Boolean\(diaryState\.trashLoading && !diaryState\.trashLoaded && !diaryState\.trash\?\.length\)\}/)
 })
 

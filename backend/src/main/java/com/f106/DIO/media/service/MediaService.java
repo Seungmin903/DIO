@@ -20,6 +20,7 @@ import com.f106.DIO.media.dto.MediaFileResponse;
 import com.f106.DIO.media.support.MediaRequestException;
 import com.f106.DIO.media.storage.MediaFiles;
 import com.f106.DIO.media.storage.MediaStorageKeys;
+import com.f106.DIO.sharing.service.DiaryInviteService.AuthorizedCoverImage;
 import org.springframework.web.multipart.MultipartFile;
 
 @Service
@@ -88,6 +89,11 @@ public class MediaService {
 	public void delete(UUID mediaFileId, Long userId) {
 		transactions.delete(mediaFileId, userId);
 	}
+    public DownloadedMedia invitationCoverImage(AuthorizedCoverImage image) {
+        var reference = transactions.invitationCoverImageReference(image);
+        return new DownloadedMedia(reference.mimeType(), null, files.read(reference.storageKey()));
+    }
+
 	private static byte[] read(MultipartFile upload) {
 		if (upload == null || upload.isEmpty()) throw MediaRequestException.invalidFile();
 		try (var in = new PushbackInputStream(upload.getInputStream(), 1024)) {

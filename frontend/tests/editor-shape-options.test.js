@@ -29,6 +29,8 @@ function fixture(file,props) {
   if(id.endsWith('/ToolPanel'))return {ToolPanelHeader:'header',toolPanelStyles:{}}
   if(id.endsWith('/ColorPicker'))return {__esModule:true,default:'picker',PaletteInteractionContext:{Provider:'provider'}}
   if(id.endsWith('/PresetColorEditor'))return {useColorWindow:()=>({open:(ref,options)=>windows.push(options),element:null,isOpen:false})}
+  // 여행 노선 지점(스티커 하위 종류) 판별은 실제 함수가 필요하다(옵션 패널이 윤곽선 · 그림자 대상에서 지점을 뺀다)
+  if(id.endsWith('/routeNode'))return {isRouteNode:o=>o?.type==='sticker'&&o.routeNode!=null&&typeof o.routeNode==='object'}
   return {__esModule:true,default:id.split('/').at(-1)}
  },module,module.exports)
  const render=()=>{cursor=0;return module.exports.default({dispatch:a=>events.push(a),...props})}

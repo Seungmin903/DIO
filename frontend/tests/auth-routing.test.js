@@ -6,6 +6,7 @@ import * as apiBaseUrlPolicy from '../src/shared/apiBaseUrlPolicy.js'
 import {createAuthApi} from '../src/auth/authApi.js'
 import * as sessionExpiry from '../src/auth/sessionExpiry.js'
 import * as routeMemory from '../src/diary/utils/routeMemory.js'
+import * as bootIntro from '../src/shared/bootIntro.js'
 const require=createRequire(import.meta.url),expo=createRequire(require.resolve('expo/package.json')),babel=expo('@babel/core')
 const code=babel.transformSync(readFileSync(new URL('../App.js',import.meta.url),'utf8'),{configFile:false,babelrc:false,plugins:[[expo.resolve('@babel/plugin-transform-react-jsx'),{runtime:'automatic'}],expo.resolve('@babel/plugin-transform-modules-commonjs')]}).code
 // useState 순서: previewSession · booting · loginRequest
@@ -13,15 +14,17 @@ const code=babel.transformSync(readFileSync(new URL('../App.js',import.meta.url)
 function root(dev,mode,session=null,loginRequest=null,probe=null,apiConfigurationError=false){
  let calls=0
  const states=[session,probe?.booting??false,loginRequest,probe?.restoreState??{status:'loading',error:null},null,probe?.mailInvitation]
- const mod={exports:{}},mocks={'./src/diary/utils/routeMemory':routeMemory,'./src/shared/dialogs':{notify:(...args)=>probe?.notices?.push(args)},'./src/editor/utils/savePdfFile':{cleanupPdfShareCache:async()=>{}},'./src/auth/authService':{apiConfigurationError,authService:{logout:async()=>{if(probe?.logoutError)throw probe.logoutError},restoreSession:async()=>{if(probe?.restoreMock)return probe.restoreMock();if(probe?.restoreError)throw probe.restoreError;return probe?.restored??null}}},react:{useState:()=>{const index=calls++;return [states[index],value=>probe?.updates?.push({index,value})]},useEffect(fn){probe?.effects.push(fn)},useCallback:f=>f,useRef:current=>({current})},'./src/auth/guestProfileDevice':{guestProfile:{start:async session=>{if(probe)probe.guestStarts=(probe.guestStarts||0)+1;return session}}},'./src/diary/services/legacyMockCleanup':{clearMockLibrary:async()=>{if(probe)probe.cleaned=(probe.cleaned||0)+1}},'expo-splash-screen':{preventAutoHideAsync:async()=>{},hideAsync:async()=>{if(probe)probe.hidden++}},'react-native':{Platform:{OS:'web'},StatusBar:'StatusBar',View:'View',Text:'Text',StyleSheet:{absoluteFill:{},create:value=>value}},'react-native-safe-area-context':{SafeAreaProvider:'SafeAreaProvider'},'expo-font':{useFonts:()=>[true,null]},'./src/shared/pretendardFiles':{PRETENDARD_FILES:{}},'./src/editor/services/textFonts':{preloadTextFonts(){}},'./src/shared/remoteAssets/remoteCatalogService':{loadRemoteCatalog(){}},'./src/diary/styles':{styles:{empty:{},emptyTitle:{},emptyCopy:{}}},'./src/shared/useHiddenNavigationBar':{useHiddenNavigationBar(){}}}
+ const mod={exports:{}},mocks={'./src/diary/utils/routeMemory':routeMemory,'./src/shared/dialogs':{notify:(...args)=>probe?.notices?.push(args)},'./src/editor/utils/savePdfFile':{cleanupPdfShareCache:async()=>{}},'./src/auth/authService':{apiConfigurationError,authService:{logout:async()=>{if(probe?.logoutError)throw probe.logoutError},restoreSession:async()=>{if(probe?.restoreMock)return probe.restoreMock();if(probe?.restoreError)throw probe.restoreError;return probe?.restored??null}}},react:{useState:()=>{const index=calls++;return [states[index],value=>probe?.updates?.push({index,value})]},useEffect(fn){probe?.effects.push(fn)},useCallback:f=>f,useRef:current=>({current})},'./src/auth/guestProfileDevice':{guestProfile:{start:async session=>{if(probe)probe.guestStarts=(probe.guestStarts||0)+1;return session}}},'./src/diary/services/legacyMockCleanup':{clearMockLibrary:async()=>{if(probe)probe.cleaned=(probe.cleaned||0)+1}},'expo-splash-screen':{preventAutoHideAsync:async()=>{},hideAsync:async()=>{if(probe)probe.hidden++}},'react-native':{Platform:{OS:'web'},StatusBar:'StatusBar',View:'View',Text:'Text',StyleSheet:{absoluteFill:{},create:value=>value}},'react-native-safe-area-context':{SafeAreaProvider:'SafeAreaProvider',initialWindowMetrics:{frame:{x:0,y:0,width:390,height:844},insets:{top:24,bottom:16,left:0,right:0}}},'expo-font':{useFonts:()=>[true,null]},'./src/shared/pretendardFiles':{PRETENDARD_FILES:{}},'./src/editor/services/textFonts':{preloadTextFonts(){}},'./src/shared/remoteAssets/remoteCatalogService':{loadRemoteCatalog(){}},'./src/diary/styles':{styles:{empty:{},emptyTitle:{},emptyCopy:{}}},'./src/shared/useHiddenNavigationBar':{useHiddenNavigationBar(){}}}
  mocks['expo-font']={useFonts:()=>[probe?.fontsLoaded??true,null]};
  mocks['react-native'].Platform.OS=probe?.platform??'web';
- mocks['./src/sharing/memberInviteLink']={subscribeMemberInviteLinks(_linking,onInvite){
-  if(probe)probe.receiveMailInvite=onInvite;
+ mocks['./src/sharing/memberInviteLink']={subscribeMemberInviteLinks(_linking,onInvite,onSharedInvite){
+  if(probe){probe.receiveMailInvite=onInvite;probe.receiveSharedInvite=onSharedInvite;}
   return ()=>{};
  }};
  mocks['./src/editor/utils/common']={setUuidGenerator(){}};
  mocks['./src/shared/BootSplash']={__esModule:true,default:'./src/shared/BootSplash',SPLASH:{backgroundColor:'#F0ECFD'}};
+ mocks['./src/diary/components/EmptyState']={LoadingSpot:'LoadingSpot'};
+ mocks['./src/shared/bootIntro']=bootIntro;
  Object.assign(mocks['./src/auth/authService'].authService, {
   getSessionKey:()=>probe?.sessionKey??null,
   getMemberSessionKey:userId=>probe?.memberSessionKey??`${userId}:1`,
@@ -129,6 +132,39 @@ test('F-02: 실패한 재시도는 복구 화면을 유지하고 로그인 취�
   assert.equal(probe.guestStarts??0,0);
   assert.ok(nodes(root(false,undefined,null,null,probe)).some(node=>node.type==='./src/auth/SessionRestoreScreen'));
  }finally{cleanup()}
+});
+
+test('S15P31F106-718: 만료로 저장 토큰이 지워진 뒤 연결 재시도는 게스트를 시작하지 않고 만료 복구 화면을 유지한다',async()=>{
+ const expired={status:401,code:'INVALID_TOKEN',sessionExpired:true};
+ const {probe,screen,cleanup}=await failStartup(expired);
+ try{
+  assert.equal(screen.props.error,expired);
+  assert.ok(probe.updates.some(update=>update.index===2&&update.value?.sessionExpired),'부팅 만료는 재로그인 화면을 연다');
+  // 로그인 화면에서 '나중에' 뒤 복구 화면의 연결 재시도: 저장 로그인이 없다고 나와도(토큰이 지워짐) 게스트가 되지 않는다
+  probe.restoreMock=async()=>null;
+  await screen.props.onRetry();
+  assert.equal(probe.guestStarts??0,0,'게스트 자동 시작 없음');
+  const last=probe.updates.filter(update=>update.index===3).at(-1).value;
+  assert.equal(last.status,'error');assert.equal(last.error,expired,'만료 안내를 유지한다');
+  probe.restoreState=last;
+  assert.ok(nodes(root(false,undefined,null,null,probe)).some(node=>node.type==='./src/auth/SessionRestoreScreen'),'복구 화면 유지');
+  // 게스트로 계속을 고르면 그때만 게스트 보관함을 연다
+  await screen.props.onGuest();
+  assert.equal(probe.guestStarts,1);
+ }finally{cleanup()}
+});
+
+test('S15P31F106-718: 처음 실행(저장 로그인 없음)은 전처럼 바로 게스트로 시작한다',async()=>{
+ const probe={effects:[],updates:[],hidden:0,booting:true,restored:null};
+ root(false,undefined,null,null,probe);
+ const timer=globalThis.setTimeout;globalThis.setTimeout=()=>0;
+ let cleanups;
+ try{cleanups=probe.effects.map(fn=>fn())}finally{globalThis.setTimeout=timer}
+ await new Promise(resolve=>setImmediate(resolve));
+ try{
+  assert.equal(probe.guestStarts,1);
+  assert.deepEqual(probe.updates.filter(update=>update.index===3).at(-1).value,{status:'done',error:null});
+ }finally{cleanups.forEach(fn=>{if(typeof fn==='function')fn()})}
 });
 
 test('F-02: 게스트로 계속을 명시적으로 선택할 때만 게스트 보관함을 연다',async()=>{
@@ -441,6 +477,8 @@ test('부팅 중 BootSplash 이미지 준비 완료 뒤에 네이티브 시작 �
  const first=root(false,undefined,null,null,probe)
  // 로고는 BootSplash 가 그린다(안드로이드 네이티브 시작 화면은 바탕색만). 첫 렌더에 빠지면 로고 없는 빈 화면이 보인다
  assert.ok(has(first,'./src/shared/BootSplash'))
+ // 손글씨가 끝났다는 신호를 받아 예전 문서 옮기기를 그 뒤로 미룬다
+ assert.equal(typeof nodes(first).find(n=>n.type==='./src/shared/BootSplash').props.onWritten,'function')
  assert.equal(probe.hidden,0,'렌더 중에는 내리지 않는다')
  // 다른 마운트 효과(8초 안전 타이머 등)는 실행만 하고 타이머는 걸지 않는다
  const timer=globalThis.setTimeout;globalThis.setTimeout=()=>0
@@ -501,17 +539,24 @@ test('로그아웃 이중 실패 안내는 기기 로그인 정보를 지웠다�
  }
 });
 
-test('세션 확인이 늦으면 스플래시 종료 후 준비 안내를 표시한다',()=>{
+test('세션 확인이 늦으면 스플래시 종료 후 로딩을 표시하고 보관함 또는 복구 화면으로 전환한다',()=>{
  const tree=root(false,undefined,null,null,{booting:false,effects:[]});
  assert.equal(has(tree,'./src/shared/BootSplash'),false);
- assert.ok(nodes(tree).some(node=>node.props?.children==='앱을 준비하고 있어요…'));
- assert.equal(has(root(false,undefined,{mode:'authenticated',userId:'7'},null,{booting:false,effects:[]}),'./src/shared/BootSplash'),false);
- assert.equal(has(root(false,undefined,{mode:'preview',provider:'guest'},null,{booting:false,effects:[]}),'./src/shared/BootSplash'),false);
+ assert.equal(nodes(tree).find(node=>node.type==='LoadingSpot').props.label,'로그인 정보를 확인하고 있어요.');
+ for(const [session,screen] of [[{mode:'authenticated',userId:'7'},'MemberDiaryApp'],[{mode:'preview',provider:'guest'},'LocalDiaryApp']]){
+  const ready=root(false,undefined,session,null,{booting:false,effects:[]});
+  assert.ok(has(ready,screen));
+  assert.equal(has(ready,'LoadingSpot'),false);
+ }
+ const failed=root(false,undefined,null,null,{booting:false,effects:[],restoreState:{status:'error',error:new Error('offline')}});
+ assert.ok(has(failed,'./src/auth/SessionRestoreScreen'));
+ assert.equal(has(failed,'LoadingSpot'),false);
 });
 
 test('글꼴 로딩이 멈춰도 부팅 제한 시간이 지나면 기본 글꼴로 화면을 연다',()=>{
  const probe={fontsLoaded:false,booting:true,effects:[],updates:[],hidden:0,platform:'android'};
- assert.equal(root(false,undefined,null,null,probe),null);
+ // 안드로이드도 글꼴을 기다리는 동안 시작 화면 바탕을 깐다(null 이면 인트로 전에 흰 화면이 비친다)
+ assert.equal(root(false,undefined,null,null,probe).props.style[1].backgroundColor,'#F0ECFD');
  const originalTimer=globalThis.setTimeout,originalClear=globalThis.clearTimeout;
  const timers=[];
  globalThis.setTimeout=(callback,delay)=>{timers.push({callback,delay});return timers.length};
@@ -524,12 +569,21 @@ test('글꼴 로딩이 멈춰도 부팅 제한 시간이 지나면 기본 글꼴
  assert.ok(probe.updates.some(update=>update.index===1&&update.value===false));
  assert.equal(probe.hidden,1);
  probe.booting=false;
- assert.ok(nodes(root(false,undefined,null,null,probe)).some(node=>node.props?.children==='앱을 준비하고 있어요…'));
+ assert.ok(has(root(false,undefined,null,null,probe),'LoadingSpot'));
  assert.ok(nodes(root(false,undefined,{mode:'preview',provider:'guest'},null,probe)).some(node=>node.type?.name==='LocalDiaryApp'));
  cleanups.forEach(cleanup=>{if(typeof cleanup==='function')cleanup()});
 });
 
-test('웹은 글꼴을 기다리는 동안 스플래시 배경을 표시한다',()=>{
+test('시작 화면과 인트로 사이에 흰 화면이 끼지 않는다(안전 영역 시작값 · 시작 중 보라 바탕)',()=>{
+ const booting=root(false,undefined,null,null,{booting:true,effects:[]});
+ assert.equal(booting.type,'SafeAreaProvider');
+ assert.deepEqual(booting.props.initialMetrics.insets,{top:24,bottom:16,left:0,right:0});
+ assert.equal(booting.props.style[1].backgroundColor,'#F0ECFD');
+ const ready=root(false,undefined,{mode:'preview',provider:'guest'},null,{booting:false,effects:[]});
+ assert.equal(ready.props.style[1],false,'시작이 끝나면 원래 바탕');
+});
+
+test('글꼴을 기다리는 동안 스플래시 배경을 표시한다',()=>{
  const tree=root(false,undefined,null,null,{fontsLoaded:false,booting:true,effects:[]});
  assert.equal(tree.type,'View');
  assert.equal(tree.props.style[1].backgroundColor,'#F0ECFD');
@@ -549,4 +603,27 @@ test('준비 안내가 사용하는 공용 스타일은 실제 스타일 모듈�
  const {empty,emptyCopy}=mod.exports.styles;
  assert.equal(empty.flex,1);assert.equal(empty.alignItems,'center');assert.equal(empty.justifyContent,'center');
  assert.equal(emptyCopy.fontSize,13);assert.equal(emptyCopy.lineHeight,21);assert.equal(emptyCopy.color,tokens.muted);
+});
+
+test('일반 초대 링크를 게스트 로그인 뒤 회원 화면으로 전달한다',()=>{
+ const link='https://k15f106.p.ssafy.io/invite/7.'+'a'.repeat(43);
+ const guest={mode:'preview',provider:'guest'};
+ const probe={platform:'android',effects:[],updates:[],restoreState:{status:'done',error:null}};
+ const runEffects=()=> {
+  const timer=globalThis.setTimeout;globalThis.setTimeout=()=>0;
+  try{probe.effects.map(effect=>effect())}finally{globalThis.setTimeout=timer}
+ };
+ root(false,undefined,guest,null,probe);
+ runEffects();
+ probe.receiveSharedInvite(link);
+ probe.mailInvitation=probe.updates.at(-1).value;
+ assert.deepEqual(probe.mailInvitation,{link});
+ probe.effects=[];
+ root(false,undefined,guest,null,probe);
+ runEffects();
+ assert.ok(probe.updates.some(update=>update.index===2&&update.value));
+ probe.sessionKey='7:1';
+ const signedIn=nodes(root(false,undefined,{mode:'authenticated',userId:'7'},null,probe))
+  .find(node=>node.props?.onConsumeMailInvitation);
+ assert.deepEqual(signedIn.props.mailInvitation,{link});
 });

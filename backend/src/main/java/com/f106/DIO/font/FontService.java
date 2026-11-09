@@ -78,5 +78,5 @@ public class FontService {
         int changed=jdbc.update("update diary_handwriting_fonts d set is_enabled=?,disabled_at=case when ? then null else coalesce(d.disabled_at,current_timestamp) end where d.diary_id=? and d.font_media_file_id=?",enabled,enabled,diaryId,fileId);
         if(changed==0) throw missing();
     }
-    private static DiaryDetailException missing() { return new DiaryDetailException(HttpStatus.NOT_FOUND,"FONT_NOT_FOUND","폰트를 찾을 수 없습니다."); }
+    private static DiaryDetailException missing() { return new DiaryDetailException(HttpStatus.NOT_FOUND,"FONT_NOT_FOUND","폰트를 찾을 수 없어요."); }
 }

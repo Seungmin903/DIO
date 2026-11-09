@@ -21,7 +21,7 @@ export function createStroke(points, { id, color = DEFAULT_PEN.color, width = DE
   if (dashed) renderVersion = PEN_MATERIAL_RENDER_VERSION
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
   for (const p of points) {
-    if (!Number.isFinite(p.x) || !Number.isFinite(p.y)) throw new Error('잘못된 필기 좌표입니다.')
+    if (!Number.isFinite(p.x) || !Number.isFinite(p.y)) throw new Error('필기 좌표가 올바르지 않아요.')
     minX = Math.min(minX, p.x); minY = Math.min(minY, p.y)
     maxX = Math.max(maxX, p.x); maxY = Math.max(maxY, p.y)
   }

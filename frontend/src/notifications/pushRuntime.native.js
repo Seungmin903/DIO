@@ -9,7 +9,7 @@ import { createPushCoordinator } from './pushCoordinator.js';
 import { resolvePushInvitation } from './pushInvitationClick.js';
 
 /** 기본 비활성. 명시적 빌드 설정이 없으면 OS 권한도 요청하지 않는다. */
-export async function startPushRuntime({ auth, userId, invitations, onInvitation, onError = () => {} }) {
+export async function startPushRuntime({ auth, userId, invitations, onInvitation, onError = () => {}, onSynced = () => {} }) {
  if (process.env.EXPO_PUBLIC_PUSH_ENABLED !== 'true') return () => {};
  const sessionKey=auth.getSessionKey();let stopped=false, retryTimer=null, attempts=0;
  const projectId=Constants.easConfig?.projectId || Constants.expoConfig?.extra?.eas?.projectId;
@@ -19,7 +19,7 @@ export async function startPushRuntime({ auth, userId, invitations, onInvitation
  const sync=()=>{
   if(stopped || auth.getSessionKey()!==sessionKey)return;
   if(retryTimer){clearTimeout(retryTimer);retryTimer=null;}
-  coordinator.sync().then(()=>{attempts=0;}).catch(error=>{
+  coordinator.sync().then(()=>{attempts=0;if(!stopped && auth.getSessionKey()===sessionKey)onSynced();}).catch(error=>{
    if(stopped || auth.getSessionKey()!==sessionKey)return;
    onError(error);
    // 인증·보관 충돌은 무한 재시도하지 않는다. 일시적 네트워크 실패는 앱이 켜져 있는 동안 재시도한다.

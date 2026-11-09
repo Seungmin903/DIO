@@ -85,10 +85,10 @@ public class PageExceptionHandler extends ResponseEntityExceptionHandler {
 		// DiaryPage와 CanvasElement 모두 @Version을 쓰므로 충돌한 엔티티로 코드를 나눈다.
 		if (DiaryPage.class.getName().equals(exception.getPersistentClassName())) {
 			return problem(HttpStatus.CONFLICT, "Concurrent page update", "PAGE_VERSION_CONFLICT",
-				"다른 사용자가 페이지를 먼저 변경했습니다. 최신 내용을 조회한 뒤 다시 시도해 주세요.");
+				"다른 사용자가 페이지를 먼저 변경했어요. 최신 내용을 조회한 뒤 다시 시도해 주세요.");
 		}
 		return problem(HttpStatus.CONFLICT, "Concurrent canvas update", "CANVAS_ELEMENT_VERSION_CONFLICT",
-			"다른 사용자의 변경이 먼저 저장되었습니다. 최신 내용을 조회한 뒤 다시 시도해 주세요.");
+			"다른 사용자의 변경이 먼저 저장됐어요. 최신 내용을 조회한 뒤 다시 시도해 주세요.");
 	}
 
 	private static ProblemDetail problem(HttpStatus status, String title, String code, String detail) {

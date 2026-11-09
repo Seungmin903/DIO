@@ -13,6 +13,7 @@
     },
     "ios": {
       "bundleIdentifier": "com.f106.DIO",
+      "associatedDomains": ["applinks:k15f106.p.ssafy.io"],
       "usesAppleSignIn": true,
       "supportsTablet": true,
       "requireFullScreen": true,
@@ -87,6 +88,14 @@
     },
     "android": {
       "package": "com.f106.DIO",
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [{ "scheme": "https", "host": "k15f106.p.ssafy.io", "pathPrefix": "/invite/" }],
+          "category": ["BROWSABLE", "DEFAULT"]
+        }
+      ],
       "googleServicesFile": "./google-services.json",
       "permissions": [
         "android.permission.POST_NOTIFICATIONS"

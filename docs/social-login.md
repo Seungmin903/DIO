@@ -33,6 +33,12 @@
 
 사진은 같은 경로의 multipart `oauth`(application/json) 및 선택 `photo`를 사용한다. 새 이미지 API는 추가하지 않고 기존 프로필 사진 저장/조회 경로를 쓴다. 기존 계정 로그인 요청으로 사진을 변경하지 않는다.
 
+### 기존 계정 연결·해제
+
+기존 **이메일·비밀번호** 계정 연결은 `POST /api/v1/auth/oauth/{provider}/link`로 요청한다. `{ "idToken":"...", "email":"member@example.com", "password":"기존 DIO 비밀번호" }`를 보내며, 성공하면 일반 로그인과 같은 200 `LoginResponse`를 받는다. `SOCIAL_IDENTITY_ALREADY_LINKED`, `SOCIAL_PROVIDER_ALREADY_LINKED`, `SOCIAL_LINK_CONFLICT`는 409이고 `INVALID_EXISTING_CREDENTIALS`는 401이다. 비밀번호가 없는 소셜 전용 기존 계정은 `SOCIAL_EXISTING_PROVIDER_LOGIN_REQUIRED`(409)를 받고, 연결이 아니라 기존에 가입한 제공자로 로그인해야 한다. 로그인한 사용자에게 다른 제공자를 추가하는 API는 아직 제공하지 않는다. 연결 요청은 기존 비밀번호를 확인하므로 이메일 로그인과 같은 시도 제한 예산(정규화한 이메일+클라이언트 주소, 실패 5회 시 15분 429)을 함께 쓴다. 클라이언트 주소는 dev/prod에서 Tomcat RemoteIpValve가 신뢰 프록시의 `X-Forwarded-For`로 해석한 값이다. 여러 주소에 걸친 같은 계정 시도는 이메일 로그인과 마찬가지로 인프라 단에서 제한한다.
+
+연결 해제는 `DELETE /api/v1/me/auth-providers/{provider}`에 새 제공자 `idToken`을 본문으로 보내며 성공 시 204다. `SOCIAL_PROVIDER_NOT_LINKED`(404), `SOCIAL_PROVIDER_MISMATCH`(403), `LAST_LOGIN_PROVIDER`(409)를 반환한다. 마지막 **사용 가능한** 로그인 수단(소셜 제공자 또는 비밀번호 해시가 있는 EMAIL)은 해제할 수 없다. 해제는 로그인 수단만 지우며 이미 발급된 세션·리프레시 토큰은 폐기하지 않는다(세션은 제공자가 아니라 사용자 단위로 저장되어 해제한 제공자의 세션만 골라 끊을 수 없다). 계정 탈취가 의심되면 비밀번호 변경·재설정으로 모든 기기 세션을 폐기한다.
+
 선택 약관은 기존 4종을 독립 전송하며 필수 v2/선택 v1 규칙을 재사용한다. 새 회원의 닉네임·만 14세 이상 자기확인이 필요하다. 기존 회원은 인증 후 프로필 입력 없이 바로 로그인한다. 현재 기존 화면 흐름상 소셜 버튼 다음 연령·약관 확인을 먼저 거친다.
 
 ## 검증과 오류
@@ -42,7 +48,7 @@ Google의 고정 JWKS에서 RS256 서명, issuer, audience, azp, 만료, subject
 - 400: 잘못된 DTO/제공자/연령·약관·닉네임.
 - 401 INVALID_SOCIAL_CREDENTIAL: 잘못되거나 만료된 Google ID 토큰.
 - 409 SOCIAL_SIGNUP_REQUIRED: 인증 성공했으나 신규 가입 정보 필요.
-- 409 SOCIAL_ACCOUNT_LINK_REQUIRED: 기존 이메일 계정과 중복. 이메일만으로 자동 연결하지 않는다.
+- 409 SOCIAL_ACCOUNT_LINK_REQUIRED: 기존 이메일 계정과 중복. 앱은 즉시 기존 DIO 비밀번호 확인 화면을 열고, `POST /api/v1/auth/oauth/{provider}/link`에 Google ID 토큰·기존 이메일·비밀번호를 함께 보낸다. 두 인증이 모두 성공할 때만 제공자를 연결하고 로그인한다.
 - 409 SOCIAL_VERIFIED_EMAIL_REQUIRED: Gmail/Workspace 등 현재 소유를 확인한 이메일이 없는 신규 사용자. 추가 이메일 인증 흐름은 후속 범위이며 임시 이메일을 만들지 않는다. 기존 subject가 있으면 이후 이메일 누락에도 로그인 가능하다.
 - 409 SOCIAL_SIGNUP_CONFLICT: 동시 최초 가입의 알려진 유니크 제약 충돌. 부분 가입 없이 롤백 후 재로그인한다.
 - 429: 기존 LoginThrottle로 검증 중 요청과 실패 횟수를 제한한다.
@@ -84,6 +90,6 @@ Google의 고정 JWKS에서 RS256 서명, issuer, audience, azp, 만료, subject
 
 공식 안내: https://developers.google.com/identity/sign-in/android/backend-auth , https://react-native-google-signin.github.io/docs/setting-up/expo , https://docs.expo.dev/guides/google-authentication/ .
 
-카카오·애플 실제 검증, 이메일 중복 계정 연결, Google의 비-Gmail/Workspace 신규 이메일 추가 인증 및 제공자 연결 해제는 후속 작업이다.
+카카오·애플 실제 검증, 로그인한 소셜 전용 사용자의 추가 제공자 연결, Google의 비-Gmail/Workspace 신규 이메일 추가 인증은 후속 작업이다.
 
-최종 자동 검증: 백엔드 관련 48개, 프론트 인증 177개 통과. Android JS/Hermes 번들 생성 성공. APK 설치 및 실제 구글 계정 로그인은 미검증.
+최종 자동 검증: 백엔드 전체 1104개(PostgreSQL 전용 355개 건너뜀), 프론트 `test:auth` 395개 통과. Android JS/Hermes 번들 생성은 이전 검증에서 성공했고 이번 변경 뒤에는 다시 만들지 않았다. APK 설치 및 실제 구글 계정 로그인은 미검증.

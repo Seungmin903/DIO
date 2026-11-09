@@ -19,13 +19,13 @@ public class SharingSecurityConfig {
             "/api/v1/diaries/{diaryId}/members/{userId}", "/api/v1/diaries/{diaryId}/members/{userId}/profile-photo",
             "/api/v1/diaries/{diaryId}/transfer-owner", "/api/v1/diaries/{diaryId}/invites",
             "/api/v1/diaries/{diaryId}/invites/{inviteId}", "/api/v1/invites/{token}",
-            "/api/v1/invites/{token}/accept", "/api/v1/me/invites", "/api/v1/me/invites/{inviteId}/decline"
+            "/api/v1/invites/{token}/accept", "/api/v1/invites/{token}/cover-media/{mediaId}", "/api/v1/me/invites", "/api/v1/me/invites/{inviteId}/decline"
         ).map(paths::matcher).map(m->(org.springframework.security.web.util.matcher.RequestMatcher)m).toList());
         return http.securityMatcher(matcher).cors(org.springframework.security.config.Customizer.withDefaults())
             .csrf(c -> c.disable()).formLogin(c -> c.disable()).httpBasic(c -> c.disable()).logout(c -> c.disable())
             .requestCache(c -> c.disable()).sessionManagement(c -> c.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(c -> c.requestMatchers(org.springframework.http.HttpMethod.OPTIONS,"/**").permitAll()
-                .requestMatchers(org.springframework.http.HttpMethod.GET,"/api/v1/invites/{token}").permitAll().anyRequest().authenticated())
+                .requestMatchers(org.springframework.http.HttpMethod.GET,"/api/v1/invites/{token}", "/api/v1/invites/{token}/cover-media/{mediaId}").permitAll().anyRequest().authenticated())
             .oauth2ResourceServer(c -> c.bearerTokenResolver(resolver).jwt(j -> j.decoder(decoder))
                 .authenticationEntryPoint((request,response,error) -> {
                     response.setStatus(401);response.setContentType("application/problem+json;charset=UTF-8");

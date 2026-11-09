@@ -9,7 +9,7 @@
 - `index.html`: 문서 목록. 브라우저에서 먼저 확인한다.
 - `service.md` / `service.html`: 이용약관, SERVICE v2.
 - `privacy-consent.md` / `privacy-consent.html`: 필수 개인정보 수집·이용 동의, PRIVACY v2.
-- `privacy-policy.md` / `privacy-policy.html`: 갱신 개인정보처리방침. 열람 문서이며 별도 필수 동의가 아님.
+- `privacy-policy.md` / `privacy-policy.html`: 갱신 개인정보 처리방침. 열람 문서이며 별도 필수 동의가 아님.
 - `marketing-privacy-consent.md` / `.html`: 선택 마케팅 개인정보 이용, MARKETING_PRIVACY v1.
 - `ad-email-consent.md` / `.html`: 선택 광고 이메일, AD_EMAIL v1.
 - `ad-push-consent.md` / `.html`: 선택 광고 푸시, AD_PUSH v1.
@@ -19,7 +19,7 @@
 
 수정 원본은 이 폴더의 Markdown이다. 저장소 루트에서 `python docs/legal/build_final.py`를 실행하면 HTML·JSON을 같은 원본에서 다시 만든다. 기존 `v2/` 및 `app-release-20261103/`는 이 빌드가 덮어쓰지 않는다. ZIP은 생성·커밋하지 않는다. 승인 후 전달 파일의 범위는 [게시 체크리스트](../release-checklist.md)를 따른다.
 
-같은 빌드가 `frontend/src/shared/legalContent.json`도 갱신한다. 가입 화면의 기존 보기 버튼은 이 내장본을 읽는 `LegalDocumentScreen`에 연결했다. 문서의 독립된 ‘동의합니다’ 문장은 제거했고 앱의 ‘동의하고 돌아가기’만 해당 체크 상태를 true로 바꾼다. 닫기·Android 뒤로가기는 상태를 바꾸지 않는다. 개인정보처리방침에는 동의 동작을 제공하지 않는다. 실제 서버 동의 저장은 기존 가입 완료 요청의 agreements를 사용한다. 새 API·테이블은 없다.
+같은 빌드가 `frontend/src/shared/legalContent.json`도 갱신한다. 가입 화면의 기존 보기 버튼은 이 내장본을 읽는 `LegalDocumentScreen`에 연결했다. 문서의 독립된 ‘동의합니다’ 문장은 제거했고 앱의 ‘동의하고 돌아가기’만 해당 체크 상태를 true로 바꾼다. 닫기·Android 뒤로가기는 상태를 바꾸지 않는다. 개인정보 처리방침에는 동의 동작을 제공하지 않는다. 실제 서버 동의 저장은 기존 가입 완료 요청의 agreements를 사용한다. 새 API·테이블은 없다.
 
 ## 게시·연결
 
@@ -43,23 +43,25 @@
 
 ## 재생성·게시 검증
 
-`python -m unittest discover -s docs/legal/tests -v`는 원문·HTML·JSON 본문, 시행일·버전, 개인정보처리방침 1~14장, 두 생성기의 재생성 안정성 및 게시 차단을 검증한다. 현재 `publication-approval.json`은 미승인 상태이며 앱 릴리스에도 같은 게시 조건을 적용한다. 내부 문서는 복사하지 않는 허용 목록 기반 내보내기만 사용한다. [삭제 요청 운영 절차](../deletion-operations.md)의 기한·기록·부재 대응과 실제 처리 시험도 필요하다.
+`python -m unittest discover -s docs/legal/tests -v`는 원문·HTML·JSON 본문, 시행일·버전, 개인정보 처리방침 1~14장, 두 생성기의 재생성 안정성 및 게시 차단을 검증한다. 현재 `publication-approval.json`은 미승인 상태이며 앱 릴리스에도 같은 게시 조건을 적용한다. 내부 문서는 복사하지 않는 허용 목록 기반 내보내기만 사용한다. [삭제 요청 운영 절차](../deletion-operations.md)의 기한·기록·부재 대응과 실제 처리 시험도 필요하다.
 
 ## 2026년 11월 5일 문안 반영
 
-위 문안 검토 기준에 맞춘 문서 작업이다. 신고·차단, 개인정보 없는 운영자 신고 알림, Google·Apple 소셜 인증의 실제 수집 항목, 보안 저장소 로그인 유지 및 항목별 마케팅 동의 설정을 반영했다. 과거 개인정보처리방침 원본과 역사 보관 폴더는 변경하지 않았다. 운영자가 기존 문서를 공개·동의 전 초안으로 확인했으므로 SERVICE/PRIVACY v2·선택 항목 v1을 유지한다. 모든 문서의 시행일은 2026-11-05이다. 파일 수정만으로 실제 앱·서버 배포나 공개 승인이 완료된 것은 아니다.
+위 문안 검토 기준에 맞춘 문서 작업이다. 신고·차단, 개인정보 없는 운영자 신고 알림, Google·Apple 소셜 인증의 실제 수집 항목, 보안 저장소 로그인 유지 및 항목별 마케팅 동의 설정을 반영했다. 과거 개인정보 처리방침 원본과 역사 보관 폴더는 변경하지 않았다. 운영자가 기존 문서를 공개·동의 전 초안으로 확인했으므로 SERVICE/PRIVACY v2·선택 항목 v1을 유지한다. 모든 문서의 시행일은 2026-11-05이다. 파일 수정만으로 실제 앱·서버 배포나 공개 승인이 완료된 것은 아니다.
 
 신고 자료는 완료 시각부터 30일 경과 후 정리 대상으로 삼되, 현재 공개 문안은 운영자의 보관 필요성·법적 보존 확인 및 수동 정리를 기준으로 한다. 별도 기능 `feature/be/report-retention-cleanup`에는 `ae000f4a`로 법적 보존 제외·증빙 파싱 실패 시 신고 유지가 보완됐고, `85bf7c6e`로 기본값 false·설정 누락 시 비활성 처리가 반영됐다. 이 별도 구현을 문안 검토 기준 develop에 포함된 것으로 간주하지 않는다. V32·V33 적용, 기능 병합·배포와 실제 저장소 정리를 확인하기 전에는 활성화하지 않는다. [신고 정리 전달서](../report-retention-operations.md)에 따라 운영 승인 후에만 true를 명시하고 그때 공개 문구도 실제 운영과 맞춘다. 수동 정리 담당·주기·실행 결과가 준비되지 않으면 공개 승인할 수 없다. 탈퇴 계정의 차단 관계는 별도 수동 정리 대상이다.
 
 ## 같은 본문으로 갱신한 Google Docs
 
-아래 8개 문서의 제목·시행일을 2026-11-05로 맞추고 앱 내장본과 문단별 본문이 일치하는지 다시 조회해 확인했다. 기존 공유 권한·문서 ID는 변경하지 않았다. 별도 구버전 개인정보처리방침 원본은 수정하지 않았다.
+아래 8개 문서의 제목·시행일을 2026-11-05로 맞추고 앱 내장본과 문단별 본문이 일치하는지 다시 조회해 확인했다. 기존 공유 권한·문서 ID는 변경하지 않았다. 별도 구버전 개인정보 처리방침 원본은 수정하지 않았다.
+
+> **미동기화(2026-11-09, 지라 655):** 앱 내장본 · `final/*.md`는 `개인정보처리방침`을 법령(「개인정보 보호법」 제30조) 표기 `개인정보 처리방침`으로 띄어 썼다(뜻은 같고 띄어쓰기만, 다른 회사 문서 제목 링크는 그대로). 아래 Google Docs에는 아직 반영하지 않았으므로 게시 · 전달 전에 같은 띄어쓰기로 맞춰야 한다.
 
 | 문서 | Google Docs |
 | --- | --- |
 | 이용약관 | [열기](https://docs.google.com/document/d/1oO-UqfwevdYKT7BHavo9IgigobribSKQfyrkDx4TLE0) |
 | 필수 개인정보 수집·이용 동의 | [열기](https://docs.google.com/document/d/15W_gzA4pnZLHYecMNB3X7niyQInmECKDiLj9MZHUOwM) |
-| 개인정보처리방침 | [열기](https://docs.google.com/document/d/1_eH0yCPmTWtclIvkExkjYwyxCmf5FhPtAN02LIax7uI) |
+| 개인정보 처리방침 | [열기](https://docs.google.com/document/d/1_eH0yCPmTWtclIvkExkjYwyxCmf5FhPtAN02LIax7uI) |
 | 마케팅 개인정보 이용 | [열기](https://docs.google.com/document/d/1zQbDmI6zyEMTTLqenwA1bm3LMF9H2tBL11amDHew2n4) |
 | 광고 이메일 | [열기](https://docs.google.com/document/d/1tUTj8En5kW-C7UP1jrOGHJdvF7kfya1COqqz21iMaO4) |
 | 광고 앱 푸시 | [열기](https://docs.google.com/document/d/1eayAytEi19rbAq0evV4aVyFTHBGl3E1712ZSVPqpCLU) |
@@ -68,7 +70,7 @@
 
 ## 로그인 유지 기간 변경 반영
 
-개인정보처리방침의 세션 보유 설명을 최초 기본 30일·정상 갱신 시 기본 30일 연장·기기별 최초 로그인부터 최대 90일로 맞췄다. 개인정보 수집·이용 동의의 세션 정리 기준은 이 방침을 참조한다. 시행일·약관 버전·기존 동의 항목과 화면은 유지한다. 실제 동작은 로그인 갱신 개선 MR !387의 병합·서버 배포를 확인한다. 이 문서 MR에는 인증 구현을 합치지 않는다. Google Docs의 같은 문단도 갱신했다.
+개인정보 처리방침의 세션 보유 설명을 최초 기본 30일·정상 갱신 시 기본 30일 연장·기기별 최초 로그인부터 최대 90일로 맞췄다. 개인정보 수집·이용 동의의 세션 정리 기준은 이 방침을 참조한다. 시행일·약관 버전·기존 동의 항목과 화면은 유지한다. 실제 동작은 로그인 갱신 개선 MR !387의 병합·서버 배포를 확인한다. 이 문서 MR에는 인증 구현을 합치지 않는다. Google Docs의 같은 문단도 갱신했다.
 
 ## 앱 문안과 기능의 릴리스 순서
 

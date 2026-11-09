@@ -32,9 +32,9 @@ export function createNotificationApi(transport) {
   };
 }
 // 수신자용 상세는 공유 담당의 게이트웨이. 수락·거절·닉네임 변경은 여기서 수행하지 않는다.
-export function createInvitationGateway(transport) {
+export function createInvitationGateway(getInvitation) {
   return { async get(inviteId, { signal } = {}) {
-    const value = await transport({ path: `/me/invitations/${encodeURIComponent(inviteId)}`, signal });
+    const value = await getInvitation(inviteId, { signal });
     if (value?.inviteId !== inviteId || typeof value.status !== 'string' || typeof value.canOpen !== 'boolean') throw invalid();
     return value;
   } };

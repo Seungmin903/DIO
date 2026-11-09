@@ -10,8 +10,10 @@ import { clamp, createId, rotatedBounds, unionBounds } from '../utils/common.js'
 import { pageSize } from '../utils/pageGeometry.js'
 import { isBackdrop, keepBackdropBottom } from '../utils/backdrop.js'
 import { createBlankPage, createTemplatePage } from './defaultDoc.js'
+import { assignRouteDays } from '../templates/routePaper.js'
 import { normalizePaperAppearance } from '../templates/appearance.js'
 import { applyPageSettings } from '../../collaboration/pageSettings.js'
+import { packingDropPatch } from '../templates/packingEditing.js'
 
 const HISTORY_LIMIT = 20
 const PASTE_OFFSET = 24
@@ -87,12 +89,21 @@ export function namePhotos(existing, added) {
 }
 
 function updateObjects(state, updater) {
-  const pageId = getCurrentPage(state).id
+  const currentPage = getCurrentPage(state)
+  const pageId = currentPage.id
   return {
     ...state,
     doc: {
       ...state.doc,
-      pages: state.doc.pages.map((page) => (page.id === pageId ? { ...page, objects: keepBackdropBottom(updater(page.objects)) } : page)),
+      pages: state.doc.pages.map((page) => {
+        if (page.id !== pageId) return page
+        const objects = keepBackdropBottom(updater(page.objects))
+        if (!page.backgroundAssetId?.startsWith('remote-packing-list')) return { ...page, objects }
+        return { ...page, objects: objects.map(object => {
+          const patch = packingDropPatch(page.backgroundAssetId, object)
+          return patch ? { ...object, ...patch } : object
+        }) }
+      }),
     },
   }
 }
@@ -264,13 +275,14 @@ export function editorReducer(state, action) {
 
   switch (action.type) {
     case 'hydratePages': return hydratePages(state, action.items, action.done)
-    case 'applyServerPageSettings': return applyPageSettings(state, action.settings)
+    case 'applyServerPageSettings': return applyPageSettings(state, action.settings, action.paperAppearance)
     case 'reconcileServerPages': {
       const settings = (action.settings ?? []).filter(p => {
         const current = state.doc.pages.find(page => page.id === p.id)
         return current && Object.keys(p).some(key => JSON.stringify(current[key]) !== JSON.stringify(p[key]))
       })
-      if (settings.length) state = applyPageSettings(state, settings)
+      const defaultChanged = action.paperAppearance && JSON.stringify(state.doc.paperAppearance) !== JSON.stringify(action.paperAppearance)
+      if (settings.length || defaultChanged) state = applyPageSettings(state, settings, action.paperAppearance)
       const ids=new Set(action.pageIds),existing=new Map(state.doc.pages.map(p=>[p.id,p]))
       for(const p of action.pages)if(!existing.has(p.id))existing.set(p.id,p)
       const removed=state.doc.pages.filter(p=>!ids.has(p.id))
@@ -467,10 +479,11 @@ export function editorReducer(state, action) {
       const count = Math.max(1, Math.min(50, Math.floor(action.count ?? 1)))
       const ids = Array.isArray(action.assetIds) && action.assetIds.length ? action.assetIds.slice(0, 200) : Array.from({ length: count }, () => action.backgroundAssetId ?? null)
       // pages: 미리 만든 페이지(내 속지 PDF 쪽처럼 바탕 그림 · 크기가 정해진 것)는 그대로 넣는다
-      const added = Array.isArray(action.pages) && action.pages.length ? action.pages.slice(0, 200) : ids.map((id) => {
+      // 여행 노선 속지는 문서에 이미 있는 노선 페이지 다음 번호(DAY n)를 받는다
+      const added = assignRouteDays(Array.isArray(action.pages) && action.pages.length ? action.pages.slice(0, 200) : ids.map((id) => {
         const created = id ? createTemplatePage(id, appearance) : createBlankPage(state.doc.orientation)
         return appearance ? { ...created, paperAppearance: appearance } : created
-      })
+      }), state.doc.pages)
       const index = state.doc.pages.findIndex((p) => p.id === getCurrentPage(state).id)
       const at = action.position === 'end' ? state.doc.pages.length : action.position === 'before' ? index : index + 1
       const pages = [...state.doc.pages]

@@ -95,6 +95,7 @@ export default function AuthScreen({
   const socialAccessRetry = useRef(null);
   const [accessId, setAccessId] = useState('');
   const [accessPassword, setAccessPassword] = useState('');
+  const [linkPassword, setLinkPassword] = useState('');
   const job = useRef(0);
   const running = useRef(false);
   const enrollmentBlocked = useRef(false);
@@ -191,7 +192,10 @@ export default function AuthScreen({
       return;
     }
     if (next === 'signup' && !signupEligibility({ ageConfirmed, terms }, legalDocuments)) next = 'eligibility';
-    service.cancelPending?.({ keepEnrollment: next === 'profile' || next === 'verification' });
+    // 소셜 계정 확인 뒤에만 가입 전 동의를 받는다. 그 사이에는 인증 토큰을
+    // 보존해야 프로필 완성 때 Google/Apple 창을 다시 열지 않는다.
+    service.cancelPending?.({ keepEnrollment: next === 'profile' || next === 'verification' || next === 'link' ||
+      (next === 'eligibility' && provider !== 'email') });
     Keyboard.dismiss();
     focusedInput.current = null;
     clearTimeout(focusTimer.current);
@@ -207,6 +211,7 @@ export default function AuthScreen({
     setNeedsLoginAccess(false);
     setAccessId('');
     setAccessPassword('');
+    setLinkPassword('');
     setRoute(next);
     if (next === 'welcome' || next === 'underage') {
       enrollmentBlocked.current = next === 'underage';
@@ -223,23 +228,26 @@ export default function AuthScreen({
     setEnrollmentProvider(provider);
     navigate('eligibility', provider);
   };
-  const submitSocial = (provider, eligibility) => run(
-    () => service.social(provider, eligibility),
+  const submitSocial = (provider) => run(
+    () => service.social(provider),
     result => {
       socialAccessRetry.current=null;
       if(result?.mode==='authenticated'){Keyboard.dismiss();onContinue(result);return;}
-      setPhotoUri(null);setValues(emptyValues());setProfile(result);navigate('profile');
+      // 기존 회원은 위에서 바로 로그인한다. 가입이 필요한 계정만 약관 화면을
+      // 거쳐, 이미 받은 소셜 인증 정보를 이용해 프로필을 완성한다.
+      setPhotoUri(null);setValues(emptyValues());setProfile(result);setEnrollmentProvider(provider);
+      navigate(result?.mode==='social-link'?'link':'eligibility', provider);
     },
     error => {
       if(canSetDevelopmentAccess && error?.code==='DEVELOPMENT_ACCESS_REQUIRED'){
-        socialAccessRetry.current={provider,eligibility};setNeedsLoginAccess(true);setRoute('welcome');
+        socialAccessRetry.current={provider};setNeedsLoginAccess(true);setRoute('welcome');
       }
     },
   );
   const continueEnrollment = () => {
     if (enrollmentBlocked.current || !signupEligibility({ ageConfirmed, terms }, legalDocuments)) return;
     if (enrollmentProvider === 'email') { navigate('signup'); return; }
-    submitSocial(enrollmentProvider,{ageConfirmed,terms});
+    navigate('profile', enrollmentProvider);
   };
   const closeDocument = () => {
     documentRef.current = null;
@@ -263,6 +271,21 @@ export default function AuthScreen({
     navigate(route === 'verification' || (route === 'profile' && profile?.provider === 'email') ? 'signup' : route === 'signup' ? 'eligibility' : 'welcome');
   // 글자는 실제로 가는 곳과 같다: 가입 정보 → 가입 전 확인, 인증 · 이메일 프로필 → 이전 화면(가입 정보), 그 밖 → 시작 화면
   const backLabel = route === 'signup' ? '가입 전 확인' : (route === 'verification' || (route === 'profile' && profile?.provider === 'email')) ? '이전 화면' : '시작 화면';
+  const hasBack = route !== 'welcome' && route !== 'underage';
+  const stickyBack = isPhone && hasBack;
+  const backButton = (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel="이전 화면"
+      onPress={back}
+      style={[s.back, stickyBack && s.backInBar]}
+    >
+      <AppIcon name="chevron-left" size={20} forText={12.5} />
+      <Text style={s.linkText}>
+        {backLabel}
+      </Text>
+    </Pressable>
+  );
   useEffect(() => {
     const listener = BackHandler.addEventListener('hardwareBackPress', () => {
       if (documentRef.current) {
@@ -361,7 +384,7 @@ export default function AuthScreen({
   const complete = () => {
     if (profileReady)
       run(
-        () => service.completeProfile({ ...profile, nickname, photoUri, terms }),
+        () => service.completeProfile({ ...profile, nickname, photoUri, terms, ageConfirmed }),
         (result) => {
           if (result.provider === 'email') {
             navigate('welcome');
@@ -380,9 +403,19 @@ export default function AuthScreen({
             // 같은 가입 흐름에서 재인증한다. 닉네임·사진·약관은 부모 상태에 유지한다.
             setVerificationAttempt(value => value + 1);
             navigate('verification');
+          } else if (profile?.provider !== 'email' && error?.code === 'SOCIAL_ACCOUNT_LINK_REQUIRED') {
+            navigate('link', profile.provider);
           }
         },
       );
+  };
+  // 계정 연결 화면의 부제목 · 본문 · 버튼이 같은 제공자 이름을 쓰도록 한곳에서 정한다
+  const linkProviderName = profile?.provider === 'apple' ? '애플' : '구글';
+  const linkExistingAccount = () => {
+    if (!profile?.provider || !linkPassword) return;
+    run(() => service.linkSocial(profile.provider, profile.email, linkPassword), result => {
+      Keyboard.dismiss();setValues(emptyValues());onContinue(result);
+    });
   };
   const link = (label, onPress, style) => (
     <Pressable
@@ -427,6 +460,9 @@ export default function AuthScreen({
         style={s.keyboard}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
+        {/* 폰: '‹ 시작 화면'은 스크롤해도 보이게 스크롤 밖 위쪽 머리줄로 뺀다(지라 702). 태블릿은 가운데 카드 안 그대로(보통 스크롤하지 않음).
+            머리줄도 바깥 SafeAreaView(모든 가장자리) 안이라 상태 표시줄 · 카메라 구멍 아래에서 시작하고, 폰 바탕과 같은 흰 면이다 */}
+        {stickyBack && <View style={s.phoneBackBar}>{backButton}</View>}
         <ScrollView
           ref={formScroll}
           style={s.scrollViewport}
@@ -441,20 +477,8 @@ export default function AuthScreen({
           keyboardDismissMode="on-drag"
           showsVerticalScrollIndicator={false}
         >
-          <View style={[s.card, isPhone && s.phoneCard]}>
-            {route !== 'welcome' && route !== 'underage' && (
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="이전 화면"
-                onPress={back}
-                style={s.back}
-              >
-                <AppIcon name="chevron-left" size={20} forText={12.5} />
-                <Text style={s.linkText}>
-                  {backLabel}
-                </Text>
-              </Pressable>
-            )}
+          <View style={[s.card, isPhone && s.phoneCard, stickyBack && s.phoneCardBelowBack]}>
+            {hasBack && !stickyBack && backButton}
             <View style={[s.header, route === 'welcome' && s.welcomeHeader, isPhone && s.phoneHeader]}>
               <BrandLogo size={52} />
               <View style={[s.headingCopy, isPhone && s.phoneCopy]}>
@@ -466,6 +490,7 @@ export default function AuthScreen({
                     : route === 'signup'
                       ? '나만의 기록을 시작해요'
                       : route === 'verification' ? '이메일을 인증해 주세요'
+                      : route === 'link' ? '기존 계정을 확인해 주세요'
                       : '프로필을 완성해 주세요'}
                 </Text>
                 <Text style={s.subtitle}>
@@ -475,6 +500,7 @@ export default function AuthScreen({
                     : route === 'signup'
                       ? '이메일로 DIO 계정을 만들어 주세요.'
                       : route === 'verification' ? '인증번호를 입력해 이메일을 확인해 주세요.'
+                      : route === 'link' ? `비밀번호를 확인하면 ${linkProviderName} 로그인을 연결해 드려요.`
                       : '나만의 이름으로 DIO의 기록을 시작해요.'}
                 </Text>
               </View>
@@ -486,9 +512,9 @@ export default function AuthScreen({
             ) : route === 'eligibility' ? (
               <View style={s.form}>
                 <View accessibilityRole="radiogroup" accessibilityLabel="가입 가능 연령">
-                  <AgeChoice label="만 14세 이상입니다" checked={ageConfirmed === true} disabled={busy}
+                  <AgeChoice label="만 14세 이상이에요" checked={ageConfirmed === true} disabled={busy}
                     onPress={() => setAgeConfirmed(true)} />
-                  <AgeChoice label="만 14세 미만입니다" checked={false} disabled={busy}
+                  <AgeChoice label="만 14세 미만이에요" checked={false} disabled={busy}
                     onPress={() => { enrollmentBlocked.current = true; navigate('underage'); }} />
                 </View>
                 <View style={s.consentDivider} />
@@ -520,6 +546,19 @@ export default function AuthScreen({
                     });
                   } else navigate('profile');
                 }} />
+            ) : route === 'link' ? (
+              <View style={s.form}>
+                <Text style={s.muted}>이미 가입된 이메일이에요. 기존 계정 비밀번호를 확인하면 {linkProviderName} 로그인을 연결할 수 있어요.</Text>
+                <FormField label="이메일" value={profile?.email || ''} editable={false} />
+                <FormField onInputFocus={focusInput} onInputBlur={blurInput} inputRef={passwordInput}
+                  label="기존 비밀번호" placeholder="기존 비밀번호를 입력해 주세요" value={linkPassword}
+                  onChange={value => { setLinkPassword(value); setMessage(''); }} password editable={!busy}
+                  returnKeyType="done" onSubmitEditing={linkExistingAccount} />
+                <View ref={submitArea} style={s.submitArea}>
+                  <View style={s.submitErrorSlot}>{message ? <Text accessibilityRole="alert" accessibilityLiveRegion="polite" style={[s.error,s.submitError]}>{message}</Text> : null}</View>
+                  {primary(`${linkProviderName} 로그인 연결`, linkExistingAccount, !linkPassword)}
+                </View>
+              </View>
             ) : route === 'welcome' || route === 'signup' ? (
               <View style={s.form}>
                 {!(needsLoginAccess && restoreAfterAccess.current && canSetDevelopmentAccess) ? <>
@@ -595,7 +634,7 @@ export default function AuthScreen({
                           if (error?.code === 'DEVELOPMENT_ACCESS_REQUIRED') setNeedsLoginAccess(true);
                           else if ([401, 403].includes(error?.status)) { restoreAfterAccess.current = false; setNeedsLoginAccess(false); }
                         });
-                      } else if(retry)submitSocial(retry.provider,retry.eligibility);else submitLogin();
+                      } else if(retry)submitSocial(retry.provider);else submitLogin();
                     } catch (error) {
                       setMessage(error?.message || '개발 서버 접속 정보를 확인해 주세요.');
                     }
@@ -650,7 +689,7 @@ export default function AuthScreen({
                           accessibilityLabel={`${provider.name}로 로그인`}
                           accessibilityState={{ disabled: busy }}
                           disabled={busy}
-                          onPress={() => beginEnrollment(provider.id)}
+                          onPress={() => submitSocial(provider.id)}
                           style={({ pressed }) => [
                             s.social,
                             busy && s.disabled,

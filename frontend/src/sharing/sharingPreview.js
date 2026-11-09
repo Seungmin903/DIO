@@ -108,10 +108,7 @@ export function createSharingPreview({ user = {}, delay = 250, now = Date.now, s
     return diary;
   };
   const detail = async (id, options = {}) => {
-    const current = await notifications.transport({
-      path: `/me/invitations/${encodeURIComponent(id)}`,
-      ...options,
-    });
+    const current = await notifications.getInvitation(id, options);
     if (!active) fail('DISPOSED', '화면을 다시 열어 주세요.');
     const value = invites.get(id);
     if (!value) fail('NOT_FOUND', '초대를 찾을 수 없어요.');

@@ -30,14 +30,14 @@ export default function LegalDocumentScreen({ document, onClose, onAgree }) {
             const os = Platform?.OS;
             const justified = justifiedParagraph(block, os);
             const prefix = block.type === 'listItem' ? `${block.number ? `${block.number}.` : '•'} ` : '';
-            // 안드로이드는 글자 선택(selectable)을 켜면 양쪽 맞춤이 적용되지 않아(실기기 확인 2026-11-08) 안드로이드만 선택을 끈다
+            // 안드로이드는 본문에 폭 없는 결합자를 넣어(줄바꿈용) 복사하면 보이지 않는 글자가 섞이므로 글자 선택을 끈다(iOS · 웹만 선택)
             return <Text key={index} selectable={os !== 'android'} maxFontSizeMultiplier={0} accessibilityRole={block.type === 'heading' ? 'header' : undefined}
               accessibilityLabel={paragraphLabel(block, os, prefix)}
               style={[styles.paragraph, !justified && styles.leftAligned, block.type === 'heading' && (block.level === 2 ? styles.heading : styles.subheading)]}>
               {prefix || null}
               {documentTextRuns(block).map((run, runIndex) => run.url
                 ? <Text key={runIndex} accessibilityRole="link" style={styles.link} onPress={() => openLink(run.url)}>{run.text}</Text>
-                : justifyBreaks(run.text, { os, skip: block.type === 'heading' }))}
+                : justifyBreaks(run.text, { os }))}
             </Text>;
           })}
         </ScrollView>
@@ -62,7 +62,7 @@ const styles = StyleSheet.create({
   close: { minWidth: 48, minHeight: 48, alignItems: 'center', justifyContent: 'center' },
   scroll: { flex: 1 },
   body: { padding: 24, gap: 16 },
-  // 본문은 양쪽 맞춤(2026-11-08 사용자 요청), 제목은 왼쪽 맞춤 그대로
+  // 본문은 iOS · 웹 양쪽 맞춤(2026-11-08 사용자 요청), 안드로이드는 왼쪽 맞춤(justifiedParagraph, 2026-11-09 지라 655 실기기 비교). 제목은 왼쪽 맞춤
   paragraph: { color: colors.text, fontSize: 14, lineHeight: 24, flexShrink: 1, textAlign: 'justify' },
   leftAligned: { textAlign: 'left' },
   heading: { fontSize: 19, lineHeight: 29, fontWeight: '700', marginTop: 12, textAlign: 'left' },

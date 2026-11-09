@@ -29,7 +29,7 @@ test('카운트401·403·404 뒤 주기 재요청은 막고 명시적 전체 새
   for (const mode of ['unauthorized', 'forbidden', 'not-found']) {
     const mock = createMockNotificationTransport({ delay: 0 }); const api = createNotificationApi(mock.transport);
     let calls = 0; const original = api.count; api.count = options => { calls++; return original(options); };
-    const store = createNotificationStore(api, createInvitationGateway(mock.transport)); await store.refresh();
+    const store = createNotificationStore(api, createInvitationGateway(mock.getInvitation)); await store.refresh();
     mock.setScenario('count', mode); await store.refreshCount(); const previous = calls;
     assert.equal(store.getSnapshot().count.data.unreadCount, 4); await store.refreshCount(); assert.equal(calls, previous);
     mock.setScenario('count', 'success'); await store.refresh(); assert.equal(store.getSnapshot().count.status, 'success'); store.dispose();
@@ -40,7 +40,7 @@ test('쓰는 중401·403·404는 같은 명령 재시도 없음,503·네트워�
   for (const mode of ['unauthorized', 'forbidden', 'not-found', 'fail-once', 'network-error']) {
     const mock = createMockNotificationTransport({ delay: 0 }), api = createNotificationApi(mock.transport);
     const ids = []; const original = api.remove; api.remove = (id, options) => { ids.push(id); return original(id, options); };
-    const store = createNotificationStore(api, createInvitationGateway(mock.transport)); await store.refresh();
+    const store = createNotificationStore(api, createInvitationGateway(mock.getInvitation)); await store.refresh();
     mock.setScenario('write', mode); await store.remove('4');
     const retry = ['fail-once', 'network-error'].includes(mode); assert.equal(store.getSnapshot().mutation.canRetry, retry);
     assert.ok(store.getSnapshot().items.some(row => row.id === '4')); mock.setScenario('write', 'success'); await store.retryMutation();
@@ -50,7 +50,7 @@ test('쓰는 중401·403·404는 같은 명령 재시도 없음,503·네트워�
 
 test('초대403·404의 직접 재시도는 차단, 목록 확인과 새 조회 후에만 이동 가능', async () => {
   for (const mode of ['forbidden', 'not-found']) {
-    const mock = createMockNotificationTransport({ delay: 0 }); const gateway = createInvitationGateway(mock.transport); let calls = 0;
+    const mock = createMockNotificationTransport({ delay: 0 }); const gateway = createInvitationGateway(mock.getInvitation); let calls = 0;
     const store = createNotificationStore(createNotificationApi(mock.transport), { get: (...args) => { calls++; return gateway.get(...args); } });
     await store.refresh(); mock.setScenario('invitation', mode); await store.open(store.getSnapshot().items[0]); const before = calls;
     await store.retryInvitation(); let moves = 0; await store.proceedToInvitation(() => moves++); assert.equal(calls, before); assert.equal(moves, 0);

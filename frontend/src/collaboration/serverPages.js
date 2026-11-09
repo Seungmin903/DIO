@@ -30,6 +30,8 @@ function pageListSettings(p){
  }
  if(typeof p.gridVisible==='boolean')settings.gridVisible=p.gridVisible
  if(typeof p.gridColor==='string'&&/^#[0-9a-f]{6}$/i.test(p.gridColor))settings.gridColor=p.gridColor
+ if(p.templateConfig?.paperAppearance && typeof p.templateConfig.paperAppearance==='object' && !Array.isArray(p.templateConfig.paperAppearance))
+  settings.paperAppearance=p.templateConfig.paperAppearance
  if(settings.canvasWidth===undefined)return settings
  const code=p.templateCode??p.templateConfig?.templateCode,version=p.templateVersion??p.templateConfig?.templateVersion
  let reference
@@ -37,8 +39,7 @@ function pageListSettings(p){
  else if(p.templateId==null||p.templateConfig?.blank===true)reference={backgroundAssetId:null}
  else return settings
  // 속지의 기본 크기가 서버에 저장된 페이지 크기(PDF 쪽 크기 등)를 덮지 않게 한다.
- return {...reference,...settings,serverTemplateId:p.templateId??null,serverTemplateConfig:p.templateConfig??{},
-  ...(p.templateConfig?.paperAppearance?{paperAppearance:p.templateConfig.paperAppearance}:{})}
+ return {...reference,...settings,serverTemplateId:p.templateId??null,serverTemplateConfig:p.templateConfig??{}}
 }
 function readPageSettings(response,diaryId,pageId){
  const p=response?.page
@@ -58,7 +59,8 @@ export async function loadServerPageSnapshot(transport,diaryId,{knownIds=[]}={})
  }}
  await Promise.all(Array.from({length:Math.min(3,pages.length)},worker))
  const settings=result.items.map(pageListSettings)
- return {pageIds:result.items.map(p=>p.pageId),pages,settings}
+ return {pageIds:result.items.map(p=>p.pageId),pages,settings,
+  ...(result.paperAppearance&&{paperAppearance:result.paperAppearance})}
 }
 export async function updateServerPage(transport,diaryId,pageId,input){
  if(!uuid(diaryId)||!uuid(pageId))throw invalid()
@@ -67,7 +69,11 @@ export async function updateServerPage(transport,diaryId,pageId,input){
  // version. A client GET/merge/PATCH cannot protect concurrent appearance edits.
  if('templateConfig' in body||'templateId' in body)throw Object.assign(Error('기존 페이지의 속지 변경은 아직 지원하지 않아요.'),{code:'UNSUPPORTED_PAGE_TEMPLATE'})
  const result=await transport({method:'PATCH',path:`/pages/${pageId}`,body})
- return readPageSettings(result,diaryId,pageId)
+ const settings=readPageSettings(result,diaryId,pageId)
+ if(body.paperAppearance && (!settings.paperAppearance
+  || Object.keys(settings.paperAppearance).length!==Object.keys(body.paperAppearance).length
+  || Object.entries(body.paperAppearance).some(([key,value])=>settings.paperAppearance[key]!==value)))throw invalid()
+ return settings
 }
 export async function loadPageSettings(transport,diaryId,pageId){
  if(!uuid(diaryId)||!uuid(pageId))throw invalid()

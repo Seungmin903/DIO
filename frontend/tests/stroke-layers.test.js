@@ -9,7 +9,7 @@ import * as geometry from '../src/editor/utils/pageGeometry.js'
 
 const require = createRequire(import.meta.url), expo = createRequire(require.resolve('expo/package.json'))
 const contexts = { TextMeasure: { Provider: 'measure' }, TextMeasureReady: { Provider: 'measure-ready' }, objectOpacity: object => object.opacity ?? 1, objectDrawOpacity: object => object.opacity ?? 1 }
-function loadComponent(file, platform = 'ios', cacheOverride = null) {
+function loadComponent(file, platform = 'ios', cacheOverride = null, packing = null) {
   const { code } = expo('@babel/core').transformSync(readFileSync(new URL(`../src/editor/components/canvas/${file}.js`, import.meta.url), 'utf8'), {
     configFile: false, babelrc: false,
     plugins: [[expo.resolve('@babel/plugin-transform-react-jsx'), { runtime: 'automatic' }], expo.resolve('@babel/plugin-transform-modules-commonjs')],
@@ -26,16 +26,23 @@ function loadComponent(file, platform = 'ios', cacheOverride = null) {
     if (id === 'react-native') return { Platform: { OS: platform }, PixelRatio: { get: () => 2 }, View: 'view', StyleSheet: { create: value => value } }
     if (id.endsWith('/completedStrokePlan.js')) return planner
     if (id.endsWith('/pageGeometry.js')) return geometry
+    if (id.endsWith('/backdrop.js')) return { fitBackdropToPage: object => object }
+    if (id.endsWith('/packingLayout.js')) return { packingLayout: () => packing }
+    if (id === './PackingColorLayer') return { PackingColorLayer: 'packing-color', PackingFrontLayer: 'packing-front' }
     if (id === './WebStrokeCacheContext') return { WebStrokeCacheEnabled: cacheContext }
     if (id.endsWith('/fontScope')) return { KeepFont: 'keep-font' }
     if (id === './ObjectView') return contexts
     if (id === './viewportMotion') return { ViewportMotion: {} }
     if (['./PageObject', '../PageBackground', './CompletedStrokeLayer', './WebStrokeCache'].includes(id)) return { __esModule: true, default: id }
+    // 바탕 요소 판별(PDF 쪽 바탕)은 실제 모듈을 쓴다. 상대 경로는 소스 기준이라 테스트 위치에서 다시 푼다
+    if (id.endsWith('/utils/backdrop.js')) return require('../src/editor/utils/backdrop.js')
     return require(id)
   }
   new Function('require', 'module', 'exports', code)(load, module, module.exports)
   return { render(props) { cursor = 0; return module.exports.default(props) }, compare: module.exports.default.compare }
 }
+
+const drawingOf = rendered => rendered.props.children.find(child => child?.type === contexts.TextMeasure.Provider).props.children.props.children
 
 const objects = Array.from({ length: 4 }, (_, i) => createStroke([{ x: 10, y: 20 }, { x: 200, y: 50 }], { id: `s${i}`, kind: 'highlighter' }))
 const page = { id: 'p', canvasWidth: 1024, canvasHeight: 768, objects }
@@ -72,7 +79,7 @@ test('네이티브 페이지를 단계별로 표시해도 이미 완성된 획 �
 
 test('필기에서만 캐시를 사용하고 일반 표시·사진 자르기·내보내기는 원본 표시를 유지한다', () => {
   const component = loadComponent('StaticPage')
-  const drawing = options => component.render({ page, zoom: 1, ...options }).props.children[1].props.children.props.children
+  const drawing = options => drawingOf(component.render({ page, zoom: 1, ...options }))
   assert.equal(drawing({ cacheStrokes: true }).type, './CompletedStrokeLayer')
   for (const options of [{}, { cacheStrokes: false }, { cacheStrokes: true, cropId: 'photo' }]) {
     const direct = drawing(options)
@@ -82,23 +89,40 @@ test('필기에서만 캐시를 사용하고 일반 표시·사진 자르기·�
   }
   const gif = { id: 'gif', type: 'sticker', x: 0, y: 0, w: 10, h: 10 }
   const mixedPage = { ...page, objects: [...objects, gif] }
-  const selection = component.render({ page: mixedPage, zoom: 1, cacheStrokes: true, stillIds: ['gif'] }).props.children[1].props.children.props.children
+  const selection = drawingOf(component.render({ page: mixedPage, zoom: 1, cacheStrokes: true, stillIds: ['gif'] }))
   assert.equal(selection.type, './CompletedStrokeLayer')
   assert.equal(selection.props.renderObject(gif).props.still, true)
-  const movingPhoto = component.render({ page: mixedPage, zoom: 1, cacheStrokes: true, fadeIds: ['gif'] }).props.children[1].props.children.props.children
+  const movingPhoto = drawingOf(component.render({ page: mixedPage, zoom: 1, cacheStrokes: true, fadeIds: ['gif'] }))
   assert.equal(movingPhoto.type, './CompletedStrokeLayer')
   assert.equal(movingPhoto.props.renderObject(gif).props.opacity, 0.5)
-  const movingStroke = component.render({ page: mixedPage, zoom: 1, cacheStrokes: true, fadeIds: ['s0'] }).props.children[1].props.children.props.children
+  const movingStroke = drawingOf(component.render({ page: mixedPage, zoom: 1, cacheStrokes: true, fadeIds: ['s0'] }))
   // 앱(Skia)은 획을 옮기는 중에도 같은 획 층에 그리고, 옮기는 획만 반투명으로 넘긴다
   assert.equal(movingStroke.type, './CompletedStrokeLayer')
   assert.deepEqual(movingStroke.props.fadeIds, ['s0'])
   assert.equal(component.compare({ page, zoom: 1, cacheStrokes: false }, { page, zoom: 1, cacheStrokes: true }), false)
 })
 
+test('캐리어 렌더링에서 색상·수납·앞 레이어가 일반 요소보다 앞뒤에 맞게 배치된다', () => {
+  const packing = { origin: { x: 10, y: 20 }, cases: [], interiors: [{ x: 5, y: 6, width: 40, height: 50, rx: 4 }, { x: 50, y: 6, width: 40, height: 50, rx: 4 }] }
+  const component = loadComponent('StaticPage', 'ios', null, packing)
+  const packedPhoto = { id: 'photo', type: 'photo', x: 12, y: 24, w: 20, h: 20, packingSlot: 0 }
+  const ordinarySticker = { id: 'sticker', type: 'sticker', x: 200, y: 200, w: 20, h: 20 }
+  const color = { id: 'color', type: 'shape', packingColorRegion: 'case-0', fill: '#123456' }
+  const rendered = component.render({ page: { ...page, backgroundAssetId: 'remote-packing-list-v8-portrait', objects: [packedPhoto, ordinarySticker, color] }, zoom: 1 })
+  const children = rendered.props.children
+  assert.equal(children[1].type, 'packing-color')
+  const containsObject = (node, object) => Array.isArray(node) ? node.some(child => containsObject(child, object)) : node && typeof node === 'object' ? (node.props?.object === object || containsObject(node.props?.children, object)) : false
+  assert.equal(containsObject(children[2], packedPhoto), true)
+  assert.equal(children[3].type, 'packing-front')
+  const drawing = drawingOf(rendered)
+  assert.equal(drawing[0].props.object, ordinarySticker)
+  assert.equal(drawing.length, 1)
+})
+
 test('네이티브 도구 전환 · 선택 이동 중에도 필기 레이어(Skia)를 유지하고 옮기는 획만 반투명으로 넘긴다', () => {
   const component = loadComponent('StaticPage', 'ios')
-  const draw = (tool, extra = {}) => component.render({ page, zoom: 1,
-    cacheStrokes: planner.shouldCacheCompletedStrokes('ios', false, tool), ...extra }).props.children[1].props.children.props.children
+  const draw = (tool, extra = {}) => drawingOf(component.render({ page, zoom: 1,
+    cacheStrokes: planner.shouldCacheCompletedStrokes('ios', false, tool), ...extra }))
   for (const tool of ['pen', 'highlighter', 'hand', 'select', 'text', 'lasso', 'eraser']) {
     assert.equal(draw(tool).type, './CompletedStrokeLayer', tool)
   }
@@ -118,9 +142,9 @@ test('네이티브 영역 지우기 미리보기는 캐시된 원본 대신 남�
     const staticPage = loadComponent('StaticPage', platform)
     const strokeLayer = loadComponent('CompletedStrokeLayer', platform)
     const render = (items, areaErasing = false) => {
-      const layer = staticPage.render({ page: { ...page, objects: items }, zoom: 1,
+      const layer = drawingOf(staticPage.render({ page: { ...page, objects: items }, zoom: 1,
         cacheStrokes: planner.shouldCacheCompletedStrokes(platform, false, 'eraser'),
-        areaErasing, areaPreviewObjects: null, deferredAreaObjects: new WeakSet() }).props.children[1].props.children.props.children
+        areaErasing, areaPreviewObjects: null, deferredAreaObjects: new WeakSet() }))
       assert.equal(layer.type, './CompletedStrokeLayer')
       return strokeLayer.render({ ...layer.props, width: 1024, height: 768 }).flatMap(item => item.props.batch.objects)
     }
@@ -141,16 +165,16 @@ test('네이티브 영역 지우기 미리보기는 캐시된 원본 대신 남�
 
 test('정식 웹 필기층은 기본 캐시, 썸네일·출력·변형은 원본이며 QA 끄기는 유지한다', () => {
   const web = loadComponent('StaticPage', 'web')
-  const draw = options => web.render({ page, zoom: 1, ...options }).props.children[1].props.children.props.children
+  const draw = options => drawingOf(web.render({ page, zoom: 1, ...options }))
   assert.equal(draw({ cacheStrokes: true }).type, './WebStrokeCache')
   for (const options of [{}, { cacheStrokes: true, cropId: 'photo' }, { cacheStrokes: true, fadeIds: ['s0'] }, { cacheStrokes: true, stillIds: ['s0'] }]) {
     const direct = draw(options)
     assert.equal(direct.length, objects.length)
     assert.equal(direct[0].props.object, objects[0])
   }
-  const off = loadComponent('StaticPage', 'web', false).render({ page, zoom: 1, cacheStrokes: true }).props.children[1].props.children.props.children
+  const off = drawingOf(loadComponent('StaticPage', 'web', false).render({ page, zoom: 1, cacheStrokes: true }))
   assert.equal(off.type, './CompletedStrokeLayer')
-  const native = loadComponent('StaticPage', 'ios', true).render({ page, zoom: 1, cacheStrokes: true }).props.children[1].props.children.props.children
+  const native = drawingOf(loadComponent('StaticPage', 'ios', true).render({ page, zoom: 1, cacheStrokes: true }))
   assert.equal(native.type, './CompletedStrokeLayer')
 })
 
@@ -161,7 +185,7 @@ test('스티커 선택·드래그는 필기 캐시를 유지하고 실제 필기
     const many = Array.from({ length: 1000 }, (_, i) => ({ ...objects[0], id: `s-${i}` }))
     const sticker = { id: 'sticker', type: 'sticker', x: 30, y: 40, w: 100, h: 100 }
     const props = { page: { ...page, objects: [...many, sticker] }, zoom: 1, cacheStrokes: true }
-    const draw = extra => component.render({ ...props, ...extra }).props.children[1].props.children.props.children
+    const draw = extra => drawingOf(component.render({ ...props, ...extra }))
     const expected = platform === 'web' ? './WebStrokeCache' : './CompletedStrokeLayer'
     assert.equal(draw({}).type, expected)
     assert.equal(draw({ stillIds: ['sticker'] }).type, expected)

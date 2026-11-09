@@ -9,7 +9,7 @@ const code=expo('@babel/core').transformSync(readFileSync(new URL('../src/diary/
 }).code;
 let logins=[];let recoveryCalls=[];const recoveryMarker=()=>{};
 function setup(user,onUpdatePreview,onClearSession,extra={}){
- const values=[];let cursor=0;const effects=[];const mod={exports:{}};const PasswordForm=()=>null;const service={changePassword(){}};
+ const values=[];let cursor=0;const effects=[];const mod={exports:{}};const PasswordForm=()=>null;const service={changePassword(){},verifyAccount(){}}; // 실제 authService 처럼 계정 확인(verifyAccount)이 있다(지라 799)
  const load=id=>{
   if(id==='react')return {useEffect:(effect,deps)=>effects.push({effect,deps}),useState:initial=>{const i=cursor++;if(!(i in values))values[i]=initial;return [values[i],v=>values[i]=v]}};
   if(id==='react-native')return {Pressable:'Pressable',ScrollView:'ScrollView',Text:'Text',View:'View',StyleSheet:{create:v=>v},useWindowDimensions:()=>extra.windowSize||{width:411,height:914,fontScale:1}};
@@ -120,8 +120,8 @@ test('설정의 앱 잠금 PIN 화면: 잊었어요는 지금 비밀번호 확�
  pin().props.onCancel();
  lockSetting().props.onTurnOn();
  assert.equal(pin().props.mode,'setup');assert.equal(pin().props.onForgot,undefined);
- // 회원은 로그아웃 흐름, 잠금 범위는 이 계정
- const args=recoveryCalls.at(-1);assert.equal(args.member,true);assert.equal(args.scope,'scope');assert.equal(typeof args.onLogout,'function');
+ // 회원은 계정으로 다시 확인하는 흐름(지라 799), 잠금 범위는 이 계정
+ const args=recoveryCalls.at(-1);assert.equal(args.member,true);assert.equal(args.scope,'scope');assert.equal(typeof args.onReauth,'function');assert.equal(args.onLogout,undefined);
 });
 test('게스트 설정은 회원이 아닌 초기화 경로에 읽은 잠금 상태를 넘긴다',()=>{
  recoveryCalls=[];
@@ -173,12 +173,15 @@ test('폰에서는 저장된 settings 화면을 마이페이지로 읽고 태블
  assert.equal(profileNavigation.showsInlineSettings({compact:false,section:'settings'}),false);
 });
 
-test('게스트는 앱 잠금을 새로 켤 수 없다(이미 켠 게스트는 끌 수 있게 남긴다), 회원은 켤 수 있다',async()=>{
+test('799: 앱 잠금은 회원만 — 게스트에게는 줄 자체가 없다(예전에 켠 잠금은 앱을 열 때 맞는 4자리로 열면 꺼진다), 회원은 켤 수 있다',async()=>{
   const guest=setup({mode:'preview',provider:'guest',nickname:'방문자'},undefined,undefined,{compact:true});
   assert.equal(nodes(guest.render()).find(node=>node.type==='AppLockSetting'),undefined);
   const source=readFileSync(new URL('../src/diary/screens/ProfileScreen.js',import.meta.url),'utf8');
-  assert.match(source,/\(\(appLockSupported !== false && !guest\) \|\| locked\) && <AppLockSetting/);
-  assert.match(source,/canEnable=\{appLockSupported !== false && !guest\}/);
+  // 켤 수 있는 조건은 canEnableLock(지원 기기 · 회원) 하나로 두고, 줄 표시는 회원일 때 그 조건 또는 이미 켬(locked) · 읽기 실패 · 확인 중일 때다
+  assert.match(source,/const canEnableLock = appLockSupported && authenticatedUser;/);
+  assert.match(source,/const showLockSetting = authenticatedUser && \(canEnableLock \|\| locked \|\| lockReadFailed/);
+  assert.match(source,/\{showLockSetting && <AppLockSetting/);
+  assert.match(source,/canEnable=\{canEnableLock\}/);
 });
 
 test('옮기기 입구는 마이페이지에만 있고 누르면 옮기기를 연다(폰 · 태블릿), 옮길 것이 없으면 없다',()=>{

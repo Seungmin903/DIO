@@ -12,7 +12,7 @@ const params = new URLSearchParams(location.search);
 const mock = createMockNotificationTransport({ delay: params.has('loading') ? 60000 : 20, pageSize: 3, seed: !params.has('empty') });
 globalThis.__notificationInboxQa = { setInvitationStatus: mock.setInvitationStatus };
 if (params.has('error')) mock.setScenario('list', 'error');
-const api = createNotificationApi(mock.transport), invitations = createInvitationGateway(mock.transport);
+const api = createNotificationApi(mock.transport), invitations = createInvitationGateway(mock.getInvitation);
 const flowRuntime = { self: { id: 'self', nickname: '테스트 계정' }, supportsReadState: true, getSnapshot: () => ({ joined: [] }), hasMembership: () => false, invitationGateway: invitations };
 function App() {
   const model = useNotifications(api, invitations);

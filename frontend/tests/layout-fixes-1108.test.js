@@ -13,10 +13,10 @@ test('648: 폰 더보기 메뉴는 항목이 다 보이는 높이까지 펴지�
 })
 
 test('659: 색 견본 격자는 칸 사이 4 까지 줄여 7칸(견본 6 + 직접 고르기)이 한 줄에 든다', () => {
-  const controls = read('../src/diary/components/FormControls.js')
-  assert.match(controls, /const CELL = 36, CELL_GAP = 4/)
-  assert.match(controls, /maxColumns: GRID_COLUMNS/)
-  // 7칸 최소 폭 = 36 * 7 + 4 * 6 = 276
+  const layout = read('../src/diary/utils/swatchGridLayout.js')
+  assert.match(layout, /export const SWATCH_CELL = 36, SWATCH_GAP = 4/)
+  assert.match(layout, /export const GRID_COLUMNS = 7/)
+  // 7칸 최소 폭 = 36 * 7 + 4 * 6 = 276 (더 좁으면 칸을 줄인다 — swatch-paper-grid.test.js)
   assert.ok(36 * 7 + 4 * 6 <= 300)
 })
 
@@ -46,7 +46,7 @@ test('675: 폰 공방 폴더 안에서는 폴더 목록 버튼이 아이콘 버�
 
 test('659 리뷰: 색 견본 좌우 터치 여유는 칸 사이 폭의 절반까지만(이웃 견본과 겹치지 않게)', () => {
   const src = read('../src/diary/components/FormControls.js')
-  assert.match(src, /const side = Math\.max\(0, Math\.min\(6, Math\.floor\(grid\.spreadGap \/ 2\)\)\)/)
+  assert.match(src, /const side = Math\.max\(0, Math\.min\(6, Math\.floor\(gap \/ 2\)\)\)/)
   assert.match(src, /<SwatchSlop\.Provider value=\{slop\}>/)
   assert.equal((src.match(/hitSlop=\{slop\}/g) || []).length, 3)
 })

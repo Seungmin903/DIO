@@ -19,8 +19,8 @@ test('애플 재로그인은 이메일이 없어도 기존 회원이면 로그�
 test('애플 신규 가입은 같은 경로로 가입 정보를 보내고 구글 가입으로 바꿔 쓸 수 없다',async()=>{
  let n=0;const {api,calls}=setup(()=>++n===1?response({code:'SOCIAL_SIGNUP_REQUIRED'},409):response(tokens()));
  const draft=await api.social('apple',{ageConfirmed:true});assert.equal(draft.mode,'social-signup');assert.equal(draft.provider,'apple');
- await assert.rejects(api.completeProfile({...draft,provider:'google',nickname:user.nickname,terms}),/구글 인증/);
- const view=await api.completeProfile({...draft,nickname:user.nickname,terms});assert.equal(view.provider,'apple');
+ await assert.rejects(api.completeProfile({...draft,provider:'google',nickname:user.nickname,terms,ageConfirmed:true}),/구글 인증/);
+ const view=await api.completeProfile({...draft,nickname:user.nickname,terms,ageConfirmed:true});assert.equal(view.provider,'apple');
  assert.equal(calls[0].url,calls[1].url);assert.equal(JSON.parse(calls[1].body).enrollment.ageConfirmed,true);
 });
 test('애플 신규 가입인데 이메일을 받지 못하면 다시 로그인하도록 안내한다',async()=>{

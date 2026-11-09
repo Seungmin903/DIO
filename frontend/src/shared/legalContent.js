@@ -1,4 +1,5 @@
 import bundle from './legalContent.json' with { type: 'json' };
+import { keepKoreanWords } from './keepWords.js';
 
 const CONSENT_KEYS = new Set(['service', 'privacy', 'marketingPrivacy', 'adEmail', 'adPush', 'adNightPush']);
 
@@ -11,19 +12,19 @@ export function isConsentDocument(document) {
 }
 
 // Render link labels inline without interpreting raw HTML or Markdown in the app.
-// 안드로이드 양쪽 맞춤은 띄어쓰기만 늘린다. 줄이 낱말 단위로만 바뀌면 '·'로 이어진 긴 낱말이 있는 줄에 큰 틈이 생겨,
-// 한국어 책처럼 한글 글자 사이에도 줄을 바꿀 수 있게(폭 없는 빈칸 U+200B) 해 줄 끝 남는 폭을 한 글자 안으로 줄인다. 제목 · iOS · 웹은 그대로
-const BREAKABLE = /([가-힣·])(?=[가-힣·])/g;
-// 줄바꿈 자리는 제목만 빼고 넣는다(skip). 링크가 있는 문단도 넣어야 왼쪽 맞춤에서 줄 끝이 맞는다(빼면 메일 주소 · 긴 낱말에서 줄이 크게 비었다).
+// 안드로이드 줄바꿈: 낱말 가운데에서는 끊지 않고(예전 글자마다 끊기던 '신승 / 민' · '다이 / 어리'를 고침, 2026-11-09 지라 655)
+// 띄어쓰기와 가운뎃점 '·' 뒤에서만 줄을 바꾼다('·'로 이은 긴 말이 통째로 넘어가 줄 끝이 크게 비지 않게, '·'가 줄 첫머리에 오지 않게).
+// 제목도 같은 규칙으로 낱말을 지킨다. iOS · 웹은 그대로(iOS hangul-word · 웹 keep-all).
 // 링크가 없는 문단은 화면 읽기용 원문을 따로 준다(paragraphLabel) — 링크 문단은 링크를 링크로 읽게 원문 이름을 주지 않는다
-export const justifyBreaks = (text, { os, skip = false } = {}) =>
-  os === 'android' && !skip && typeof text === 'string' ? text.replace(BREAKABLE, '$1\u200B') : text;
-// 안드로이드는 양쪽 맞춤으로 빈칸을 늘리기 전 자리에 밑줄을 그려, 링크 밑줄이 늘린 만큼 왼쪽으로 밀린다(실기기 2026-11-08).
-// 링크가 있는 문단만 안드로이드에서 왼쪽 맞춤 — 글자 사이 줄바꿈이 있어 줄 끝은 거의 맞는다
-export const justifiedParagraph = (block, os) => !(os === 'android' && block.links?.length);
-/** 안드로이드에서 링크 없는 본문 문단이면 화면 읽기가 원문을 읽게 할 이름(TalkBack 이 폭 없는 빈칸에서 끊어 읽지 않게), 아니면 undefined */
+export const justifyBreaks = (text, { os } = {}) => keepKoreanWords(text, os, { breakAfterDot: true });
+// 안드로이드는 양쪽 맞춤을 띄어쓰기만 늘려서 해, 낱말 단위로 줄을 바꾸면 '개인정보처리자·운영자·개인정보 ⎵⎵ 보호책임자'처럼 빈칸이 크게 벌어진다
+// (글자 사이로 늘리는 방식은 안드로이드 15 부터이고 RN 이 쓰지 않는다). 실기기에서 '정보 줄만 왼쪽'안과 비교해 안드로이드는 본문 전체 왼쪽 맞춤(2026-11-09 지라 655).
+// 링크 밑줄이 늘린 만큼 밀리던 문제(2026-11-08)도 함께 없어진다. iOS · 웹은 양쪽 맞춤
+export const justifiedParagraph = (block, os) => os !== 'android';
+/** 안드로이드에서 링크 없는 문단 · 제목이면 화면 읽기가 원문을 읽게 할 이름(TalkBack 이 폭 없는 결합자 · 빈칸에서 끊어 읽지 않게), 아니면 undefined.
+ * 링크 문단은 링크를 링크로 읽게 이름을 주지 않는다 */
 export const paragraphLabel = (block, os, prefix = '') =>
-  os === 'android' && block.type !== 'heading' && justifiedParagraph(block, os) ? `${prefix}${block.text}` : undefined;
+  os === 'android' && !block.links?.length ? `${prefix}${block.text}` : undefined;
 
 export function documentTextRuns(block) {
   const runs = [];

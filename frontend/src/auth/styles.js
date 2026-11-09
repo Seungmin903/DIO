@@ -10,6 +10,8 @@ export const authStyles=StyleSheet.create({
   // 폰 풀스크린 수치는 코덱스 2026-11-03: 좌우 24 · 필드 56 · 제목 간격 20/8 · 첫 필드까지 40 · 소셜 중심 간격 96 (낮고 가벼운 카드: 모서리 12 · 그림자 0 6 16 6%(코덱스 13번))
 
  back:{minHeight:48,alignSelf:'flex-start',flexDirection:'row',alignItems:'center',gap:4,marginLeft:-8,marginTop:-12,marginBottom:8,paddingHorizontal:8},
+ // 폰: '‹ 시작 화면' 머리줄은 스크롤 밖에 고정(지라 702). 처음 자리는 예전과 같게 — 제목 시작 92 = 줄 72(24 + 48) + 카드 위 여백 20
+ phoneBackBar:{paddingTop:24,paddingHorizontal:24,backgroundColor:c.surface},backInBar:{marginTop:0,marginBottom:0},phoneCardBelowBack:{paddingTop:20},
  header:{alignItems:'center',gap:16,marginBottom:28},headingCopy:{alignItems:'center',gap:6},welcomeHeader:{marginBottom:24},browseText:{fontSize:12,fontWeight:'600',color:c.textMuted},title:{fontSize:22,fontWeight:'800',color:c.text,textAlign:'center'},subtitle:{fontSize:12.5,fontWeight:'600',lineHeight:19,color:c.textMuted,textAlign:'center'},
 
  accountLink:{paddingHorizontal:4},accountLinks:{flexDirection:'row',justifyContent:'center',alignItems:'center',flexWrap:'wrap',columnGap:0},accountSeparator:{fontSize:12,color:c.border},socialSection:{marginTop:28},form:{gap:16},submitArea:{gap:24,marginTop:-10},submitErrorSlot:{minHeight:18},submitError:{marginTop:0},label:{fontSize:12,fontWeight:'700',color:c.text,marginBottom:8},field:{flexDirection:'row',alignItems:'center',borderWidth:1,borderColor:c.cardBorder,borderRadius:radius.md,backgroundColor:c.surface,minHeight:50},focus:{borderColor:c.primaryStrong,borderWidth:2},invalid:{borderColor:c.danger},

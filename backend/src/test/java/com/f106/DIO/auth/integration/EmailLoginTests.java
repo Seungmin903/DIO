@@ -198,6 +198,13 @@ class EmailLoginTests {
                 .header("Access-Control-Request-Headers","Authorization,Content-Type"))
             .andExpect(status().isOk()).andExpect(header().string("Access-Control-Allow-Origin","http://localhost:8081"));
     }
+    @Test void authProviderUnlinkAllowsWebPreflightForDelete()throws Exception{
+        mvc.perform(options("/api/v1/me/auth-providers/kakao").header("Origin","http://localhost:8081").header("Access-Control-Request-Method","DELETE")
+                .header("Access-Control-Request-Headers","Authorization,Content-Type"))
+            .andExpect(status().isOk()).andExpect(header().string("Access-Control-Allow-Origin","http://localhost:8081"));
+        mvc.perform(options("/api/v1/me/auth-providers/kakao").header("Origin","https://untrusted.example").header("Access-Control-Request-Method","DELETE"))
+            .andExpect(status().isForbidden());
+    }
     @Test void myNicknameChangeRejectsMalformedNicknameAndMissingToken()throws Exception{
         register();var login=login();
         for(String body:List.of("{}","{\"nickname\":\"\"}","{\"nickname\":\"a\"}","{\"nickname\":\"열두글자를넘는아주긴닉네임\"}","{\"nickname\":\"공백 포함\"}","{\"nickname\":\"이모지😀\"}"))

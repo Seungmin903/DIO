@@ -22,10 +22,15 @@ export default function StickerCutoutModal({ folder, onClose, onSave, photoPicke
   const [history, setHistory] = useState(emptyCutout)
   const [mode, setMode] = useState('add'), [brushSize, setBrushSize] = useState(24)
   const [brushDraft, setBrushDraft] = useState(null), [sliding, setSliding] = useState(false)
+  // 세로 화면은 작업 판과 도구를 하나의 ScrollView에 쌓는다. Android ScrollView는 자식 responder가
+  // 이미 잡은 획도 스크롤로 가로챌 수 있으므로, 사진 위 제스처가 이어지는 동안만 즉시 스크롤을 잠근다.
+  const [painting, setPainting] = useState(false), contentScroll = useRef(null)
   const shownBrushSize = brushDraft ?? brushSize
   const [draft, setDraft] = useState(null), gesture = useRef(null), origin = useRef({ x: 0, y: 0 })
   const [area, setArea] = useState({ width: 0, height: 0 })
-  const [phase, setPhase] = useState('select'), [busy, setBusy] = useState(false), locked = useRef(false)
+  const [phase, setPhase] = useState('select'), [task, setTask] = useState(null), locked = useRef(false)
+  // 진행 중인 작업 하나('pick' 사진 고르기·열기 | 'analyze' 미리보기 | 'save' 저장). 사진 고르기 중에는 진행 표시를 아래 상태 줄이 아니라 누른 버튼(사진 선택 · 이미지 바꾸기) 옆에 둔다
+  const busy = task !== null, picking = task === 'pick'
   const [cutoutId, setCutoutId] = useState(null), cutoutRef = useRef(null)
   // 서버 저장은 같은 선택에 한 번만 한다. 이후 캐시·보관함 저장이 실패해도 같은 mediaFileId로 이어서 처리한다.
   const savedMediaRef = useRef(null)
@@ -80,7 +85,7 @@ export default function StickerCutoutModal({ folder, onClose, onSave, photoPicke
   }
   const choose = async () => {
     if (locked.current) return
-    locked.current = true; setBusy(true); setError('')
+    locked.current = true; setTask('pick'); setError('')
     const token = ++revision.current
     let next = null
     try {
@@ -102,11 +107,11 @@ export default function StickerCutoutModal({ folder, onClose, onSave, photoPicke
       next?.dispose?.()
       if (alive.current && token === revision.current) setError(failure.message || '사진을 열지 못했어요. 다시 선택해 주세요.')
     }
-    finally { if (alive.current && token === revision.current) { locked.current = false; setBusy(false) } }
+    finally { if (alive.current && token === revision.current) { locked.current = false; setTask(null) } }
   }
   const analyze = async () => {
     if (locked.current || !canPreview) return
-    locked.current = true; setBusy(true); setError('')
+    locked.current = true; setTask('analyze'); setError('')
     const token = ++revision.current
     try {
       const strokes = cutoutStrokes(history)
@@ -115,11 +120,11 @@ export default function StickerCutoutModal({ folder, onClose, onSave, photoPicke
       const result = await api.segment(cutoutId, strokes)
       if (alive.current && token === revision.current) { setResultPreview(result.preview); setPhase('result'); setSaved(false) }
     } catch (failure) { if (alive.current && token === revision.current) setError(failure.message || '미리보기를 열지 못했어요. 다시 시도해 주세요.') }
-    finally { if (alive.current && token === revision.current) { locked.current = false; setBusy(false) } }
+    finally { if (alive.current && token === revision.current) { locked.current = false; setTask(null) } }
   }
   const save = async () => {
     if (locked.current || !cutoutId) return
-    locked.current = true; setBusy(true); setError('')
+    locked.current = true; setTask('save'); setError('')
     const token = ++revision.current
     try {
       const strokes = cutoutStrokes(history)
@@ -152,11 +157,16 @@ export default function StickerCutoutModal({ folder, onClose, onSave, photoPicke
         onClose()
       }
     } catch (failure) { if (alive.current && token === revision.current) setError(failure.message || '스티커를 저장하지 못했어요. 다시 시도해 주세요.') }
-    finally { if (alive.current && token === revision.current) { locked.current = false; setBusy(false) } }
+    finally { if (alive.current && token === revision.current) { locked.current = false; setTask(null) } }
   }
   const endStroke = cancelled => {
-    const stroke = gesture.current; gesture.current = null; setDraft(null)
+    const stroke = gesture.current; gesture.current = null; setDraft(null); setStageInteraction(false)
     if (!cancelled && stroke?.points) setHistory(value => cutoutHistory(value, { type: 'stroke', stroke }))
+  }
+  const setStageInteraction = active => {
+    setPainting(active)
+    // 상태 반영 전에도 다음 이동 이벤트부터 native ScrollView가 가로채지 않게 한다.
+    contentScroll.current?.setNativeProps?.({ scrollEnabled: !active && !sliding })
   }
   // 두 손가락: 칠하던 획은 버리고 확대 · 이동만 한다. 두 손가락 가운데 아래의 사진 지점이 손가락을 따라간다.
   // 판 기준 좌표는 page 좌표에서 판의 page 원점(origin)을 빼서 얻는다. (사진 칸은 확대로 위치가 바뀌므로 판 원점을 쓴다)
@@ -164,6 +174,7 @@ export default function StickerCutoutModal({ folder, onClose, onSave, photoPicke
   const pinchStart = event => {
     const [a, b] = event.nativeEvent.touches || []
     if (!a || !b) return
+    setStageInteraction(true)
     gesture.current = { pinch: true, view, ids: [a.identifier, b.identifier], distance: Math.max(1, Math.hypot(a.pageX - b.pageX, a.pageY - b.pageY)),
       midX: (a.pageX + b.pageX) / 2 - origin.current.x, midY: (a.pageY + b.pageY) / 2 - origin.current.y }
     setDraft(null)
@@ -187,6 +198,7 @@ export default function StickerCutoutModal({ folder, onClose, onSave, photoPicke
     const point = cutoutPoint(locationX, locationY, rect)
     if (!point) return
     // 붓 크기는 화면 px 그대로: 확대하면 사진 위에서는 가늘어져 가장자리를 섬세하게 칠할 수 있다
+    setStageInteraction(true)
     gesture.current = { mode, width: Math.min(1, brushSize / rect.width), points: [point] }
     setDraft({ ...gesture.current })
   }
@@ -235,8 +247,9 @@ export default function StickerCutoutModal({ folder, onClose, onSave, photoPicke
   </View>
   const stepView = <MakerSteps steps={steps} current={phase} onStep={back} disabled={busy} label={phase === 'select' ? '1단계 대상 고르기' : '2단계 스티커 확인'} />
   // ① 대상 고르기 도구 · ② 폴더 이름. ② 에는 ① 의 도구를 다시 띄우지 않는다(돌아갈 땐 헤더 뒤로)
+  // 사진을 고르는 동안은 누른 버튼이 직접 처리 중을 보인다(아이콘 자리 스피너 + '사진 불러오는 중', 흐리지 않음). 다른 버튼은 busy 로 흐린다
   const tools = phase === 'select' ? <>
-    <DioButton variant="tonal" icon="image" label="이미지 바꾸기" disabled={busy} onPress={requestImage} />
+    <DioButton variant="tonal" icon="image" label="이미지 바꾸기" text={picking ? '사진 불러오는 중' : '이미지 바꾸기'} loading={picking} disabled={busy} onPress={requestImage} />
     <View style={s.toolSection}>
       <Text accessibilityRole="header" style={s.heading}>대상 고르기</Text>
       <MakerSegment label="대상 고르기">
@@ -264,8 +277,8 @@ export default function StickerCutoutModal({ folder, onClose, onSave, photoPicke
     {folder ? <Text numberOfLines={1} style={s.folder}>{folder.name}</Text>
       : <PenSafeTextInput value={name} editable={!busy && !saved} onChangeText={setName} maxLength={FOLDER_NAME_LIMIT} placeholder="폴더 이름" placeholderTextColor={colors.textMuted} accessibilityLabel="스티커 폴더 이름" style={s.input} />}
   </View>
-  const status = (busy || !!error) ? <>
-    {busy && <ActivityIndicator accessibilityLabel="스티커 미리보기 처리 중" color={colors.primaryStrong} />}
+  const status = ((busy && !picking) || !!error) ? <>
+    {busy && !picking && <ActivityIndicator accessibilityLabel="스티커 미리보기 처리 중" color={colors.primaryStrong} />}
     {!!error && <Text accessibilityRole="alert" style={s.error}>{error}</Text>}
   </> : null
   const action = phase === 'select'
@@ -274,7 +287,7 @@ export default function StickerCutoutModal({ folder, onClose, onSave, photoPicke
   // 가로는 왼쪽 단 높이를 끝까지 채운다(아래가 비지 않게). 세로 · 폰은 도구가 아래에 쌓이므로 높이를 정한다
   const stage = <MakerStage testID="cutout-viewport" style={source && !wide ? { height: stageHeight } : s.emptyStage} onLayout={event => setArea(event.nativeEvent.layout)}>
     {!source && <MakerEmpty icon="image" title="사진을 골라 주세요">
-      <DioButton variant="filled" icon="image" label="사진 선택" disabled={busy} onPress={choose} />
+      <DioButton variant="filled" icon="image" label="사진 선택" text={picking ? '사진 불러오는 중' : '사진 선택'} loading={picking} disabled={busy} onPress={choose} />
     </MakerEmpty>}
     {picture}
   </MakerStage>
@@ -296,7 +309,7 @@ export default function StickerCutoutModal({ folder, onClose, onSave, photoPicke
             </View>
           </View>
           : <>
-            <ScrollView style={s.fill} scrollEnabled={!sliding} keyboardShouldPersistTaps="handled" contentContainerStyle={s.content}>
+            <ScrollView ref={contentScroll} style={s.fill} scrollEnabled={!sliding && !painting} keyboardShouldPersistTaps="handled" contentContainerStyle={s.content}>
               {stage}
               <View style={s.controls}>{tools}</View>
             </ScrollView>
