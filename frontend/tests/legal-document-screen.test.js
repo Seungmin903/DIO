@@ -66,7 +66,7 @@ test('앱 내장본은 시행일·가입 버전과 일치하고 체크할 수 �
   assert.deepEqual(bundled.documents, handoff.documents);
   assert.equal(bundled.documents.length, 7);
   for (const document of bundled.documents) {
-    assert.equal(document.effectiveDate, '2026-11-05');
+    assert.equal(document.effectiveDate, '2026-11-09');
     if (signupTermsVersions[document.termsType]) assert.equal(document.termsVersion, signupTermsVersions[document.termsType]);
     assert.ok(document.blocks.every(block => !/동의합니다\. \((필수|선택)\)/.test(block.text)));
   }

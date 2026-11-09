@@ -14,8 +14,8 @@ from build_app_release import CSS, DOCUMENTS, blocks, inline
 
 BASE = Path(__file__).parent
 ROOT = BASE / 'final'
-EFFECTIVE_DATE = '2026-11-05'
-EFFECTIVE_LABEL = '시행일: 2026년 11월 5일'
+EFFECTIVE_DATE = '2026-11-09'
+EFFECTIVE_LABEL = '시행일: 2026년 11월 9일'
 
 
 def render(title, body, navigation=True):
