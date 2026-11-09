@@ -7,6 +7,8 @@ export const PEN_TYPES = [
   // 예전 식별자(fountain · felt · brush)는 고를 수 없을 뿐 이미 그린 획은 그대로 그린다. 새 붓펜은 식별자가 다르다.
   { id: 'ball', label: '볼펜' }, { id: 'calligraphy', label: '캘리펜' },
   { id: 'taperBrush', label: '붓펜' }, { id: 'pencil', label: '연필' },
+  // 2026-11-09: 유리펜(글라스 딥펜) — 염료 투과 · 커피링 · 테(쉰) · 운모 글리터. 설계는 `유리펜 설계/` 참고
+  { id: 'glass', label: '유리펜' },
 ]
 export const DEFAULT_PEN_SETTINGS = { kind: 'ball', color: '#18224D', width: 2.5 }
 // 종류를 고를 때 들어가는 기본 불투명도(사용자 2026-11-03: 연필은 기본을 반투명으로, 슬라이더는 100 까지 그대로 —

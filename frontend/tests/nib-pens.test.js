@@ -15,8 +15,8 @@ const bounds = path => {
   return { w: Math.max(...xs) - Math.min(...xs), h: Math.max(...ys) - Math.min(...ys) }
 }
 
-test('펜 종류는 볼펜 · 캘리펜 · 붓펜 · 연필이고 기본은 볼펜이다. 힘 정보가 없으면 볼펜 · 캘리펜 굵기는 그대로이고, 있으면 세 펜 모두 힘 · 기울기를 따른다', () => {
-  assert.deepEqual(PEN_TYPES.map(type => type.label), ['볼펜', '캘리펜', '붓펜', '연필'])
+test('펜 종류는 볼펜 · 캘리펜 · 붓펜 · 연필 · 유리펜이고 기본은 볼펜이다. 힘 정보가 없으면 볼펜 · 캘리펜 굵기는 그대로이고, 있으면 세 펜 모두 힘 · 기울기를 따른다', () => {
+  assert.deepEqual(PEN_TYPES.map(type => type.label), ['볼펜', '캘리펜', '붓펜', '연필', '유리펜'])
   assert.equal(DEFAULT_PEN_SETTINGS.kind, 'ball')
   for (const kind of ['ball', 'calligraphy']) {
     assert.equal(penPressure(kind, 0), 1)

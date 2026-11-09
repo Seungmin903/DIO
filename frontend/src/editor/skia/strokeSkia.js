@@ -3,6 +3,7 @@ import { createStrokePreview, partPath } from '../utils/strokePreview.js'
 import { ballPreviewPaths, ballSweepPath, ballVaries, isNibKind, nibContour, nibPreviewPaths } from '../utils/nibStroke.js'
 import { PENCIL_BRUSH, pencilAccumulates, PENCIL_STRAND_SKSL, strandUniforms, brushPartSamples, depositFloor, depositGain, brushSampledPoints, brushSeed, ribbonStretch, copyDabs, previewSegmentFor, shaderCap, shaderDabAlpha, shaderUniforms, PENCIL_SHADER_SKSL, brushTipPower, partRange, partTotal, paperMatrices, paperUniforms, pencilDabs, PENCIL_PAPER_SKSL } from '../utils/pencilBrush.js'
 import { HIGHLIGHTER_OPACITY } from '../utils/penSettings.js'
+import { drawGlassStroke } from './glassStroke.js'
 import { PENCIL_CAP, PENCIL_CAP_DIAMETER, PENCIL_COPY, PENCIL_DOME, PENCIL_DOME_DIAMETER, PENCIL_DOME_FIBER, PENCIL_DOMES, PENCIL_GRAIN_PNG, PENCIL_SMALL, PENCIL_STRAND_PNG, PENCIL_SWEEP, PENCIL_TOOTH_PNG, PENCIL_TIP_DIAMETER, PENCIL_TIPS, PENCIL_TIPS_K2 } from './pencilGrain.js'
 
 // 앱(안드로이드 · iOS)의 필기 그리기: 그리기 앱처럼 획을 Skia 캔버스에 그린다(웹은 SVG 그대로).
@@ -508,6 +509,8 @@ function drawParts(canvas, parts, style) {
   const kind = skiaKind(style.kind)
   if (!parts.length || !parts[0].points.length) return
   if (kind === 'pencil') return drawBrushParts(canvas, parts, style)
+  // 유리펜: 획 전체를 한 번에(마스크 → 고임 장 → 셰이더). 실패하면 아래 평범한 선으로 되돌아간다
+  if (kind === 'glass' && drawGlassStroke(canvas, parts.flatMap(part => part.points), style.width, style.color, style.zoom ?? 1)) return
   if (isNibKind(kind)) {
     const paths = nibPreviewPaths(parts, style.width, kind)
     const path = join(paths.map((d, i) => i < parts.length - 2 ? cachedParse(parts[i], 'nib', () => parse(d)) : parse(d)))
@@ -552,6 +555,7 @@ function drawObjectContent(canvas, object, zoom = 1) {
     dotWidth: width * (points[0]?.pressure ?? 1), origin: object.grainOrigin ?? points[0], zoom, opacity: object.opacity ?? 1 }
   // 캘리펜 · 붓펜은 저장 점에 진행 거리가 없어 구간으로 그리면 붓펜 전체 길이가 0 이 된다(뗀 뒤 몸통이 끝 굵기로 얇아졌다) → 아래 외곽선(nibContour)이 거리를 다시 재서 쓰는 중과 같은 모양이 된다
   if (!object.sampled && !object.taperBaked && !isNibKind(kind)) return drawParts(canvas, createStrokePreview(previewSegmentFor(kind)).snapshot(points), style)
+  if (kind === 'glass' && drawGlassStroke(canvas, points, width, color, zoom)) return
   if (kind === 'pencil' && PENCIL_BRUSH.engine === 'shader') {
     releaseLive()
     if (drawShaderStroke(canvas, pencilDabs(brushSampledPoints(points, object.inkStartDistance ?? 0), width, -Infinity, Infinity, Infinity, brushSeed(style.origin)), width, color, style.origin, inkBox([points], width), zoom)) return
