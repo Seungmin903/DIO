@@ -109,7 +109,8 @@ test('638: 기본 프로필 색은 서버 참여자 색과 상관없이 회원 i
   // 공유 참여자 { id } 와 마이페이지 계정 { userId } 가 같은 씨앗을 쓴다
   assert.match(read('../src/shared/avatarTone.js'), /export const avatarSeed = user => String\(user\?\.userId \?\? user\?\.accountId \?\? user\?\.id \?\? ''\);/)
   const screen = read('../src/safety/SafetyScreen.js')
-  assert.match(screen, /width: 40, height: 40, borderRadius: 20,/)
+  // 신고 · 차단 화면의 얼굴은 기본 40 동그라미(2026-11-09 지라 537 에서 크기를 인자로 뺌)
+  assert.match(screen, /function Face\(\{ member, size = 40 \}\) \{\n  return <View style=\{\{ width: size, height: size, borderRadius: size \/ 2,/)
 })
 
 test('680: 얼굴을 누르면 그 사람 닉네임만 얼굴 아래 알약으로 1.5초 보이고, 다른 얼굴을 누르면 바로 바뀐다', () => {
