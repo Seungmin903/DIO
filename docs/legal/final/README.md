@@ -51,20 +51,20 @@
 
 신고 자료는 완료 시각부터 30일 경과 후 정리 대상으로 삼되, 현재 공개 문안은 운영자의 보관 필요성·법적 보존 확인 및 수동 정리를 기준으로 한다. 별도 기능 `feature/be/report-retention-cleanup`에는 `ae000f4a`로 법적 보존 제외·증빙 파싱 실패 시 신고 유지가 보완됐고, `85bf7c6e`로 기본값 false·설정 누락 시 비활성 처리가 반영됐다. 이 별도 구현을 문안 검토 기준 develop에 포함된 것으로 간주하지 않는다. V32·V33 적용, 기능 병합·배포와 실제 저장소 정리를 확인하기 전에는 활성화하지 않는다. [신고 정리 전달서](../report-retention-operations.md)에 따라 운영 승인 후에만 true를 명시하고 그때 공개 문구도 실제 운영과 맞춘다. 수동 정리 담당·주기·실행 결과가 준비되지 않으면 공개 승인할 수 없다. 탈퇴 계정의 차단 관계는 별도 수동 정리 대상이다.
 
-## 같은 본문으로 갱신한 Google Docs
+## Google Docs와 앱 내장본 대조 상태
 
-아래 링크는 공개용 Google Docs 문서입니다. 개인정보 처리방침(v2, 2026-11-09 시행)은 Gmail 안내를 포함해 앱 내장본과 본문을 대조했습니다. 나머지 문서는 게시 전에 앱 내장본과 본문·시행일을 대조합니다.
+공개용 Google Docs 8개를 다시 읽어 앱 내장본과 본문, 링크, 시행일을 대조했습니다.
 
-| 문서 | Google Docs |
-| --- | --- |
-| 이용약관 | [열기](https://docs.google.com/document/d/1oO-UqfwevdYKT7BHavo9IgigobribSKQfyrkDx4TLE0) |
-| 필수 개인정보 수집·이용 동의 | [열기](https://docs.google.com/document/d/15W_gzA4pnZLHYecMNB3X7niyQInmECKDiLj9MZHUOwM) |
-| 개인정보 처리방침 | [열기](https://docs.google.com/document/d/1_eH0yCPmTWtclIvkExkjYwyxCmf5FhPtAN02LIax7uI) |
-| 마케팅 개인정보 이용 | [열기](https://docs.google.com/document/d/1zQbDmI6zyEMTTLqenwA1bm3LMF9H2tBL11amDHew2n4) |
-| 광고 이메일 | [열기](https://docs.google.com/document/d/1tUTj8En5kW-C7UP1jrOGHJdvF7kfya1COqqz21iMaO4) |
-| 광고 앱 푸시 | [열기](https://docs.google.com/document/d/1eayAytEi19rbAq0evV4aVyFTHBGl3E1712ZSVPqpCLU) |
-| 야간 광고 앱 푸시 | [열기](https://docs.google.com/document/d/1m1NlzKlZ13tPsBMmiQPOb16zQpak2KElRr2CRTr8NFI) |
-| 계정·데이터 삭제 요청 | [열기](https://docs.google.com/document/d/1V25q4R9vXjx7ofu8dRz0obcQbCyE5Cr2zTkjJhzabF8) |
+| 문서 | Google Docs | 본문·링크 | 시행일 |
+| --- | --- | --- | --- |
+| 이용약관 | [열기](https://docs.google.com/document/d/1oO-UqfwevdYKT7BHavo9IgigobribSKQfyrkDx4TLE0) | 일치 | 2026-11-09 |
+| 필수 개인정보 수집·이용 동의 | [열기](https://docs.google.com/document/d/15W_gzA4pnZLHYecMNB3X7niyQInmECKDiLj9MZHUOwM) | 일치 | 2026-11-09 |
+| 개인정보 처리방침 | [열기](https://docs.google.com/document/d/1_eH0yCPmTWtclIvkExkjYwyxCmf5FhPtAN02LIax7uI) | 일치 | 2026-11-09 |
+| 마케팅 개인정보 이용 | [열기](https://docs.google.com/document/d/1zQbDmI6zyEMTTLqenwA1bm3LMF9H2tBL11amDHew2n4) | 일치 | 2026-11-09 |
+| 광고 이메일 | [열기](https://docs.google.com/document/d/1tUTj8En5kW-C7UP1jrOGHJdvF7kfya1COqqz21iMaO4) | 일치 | 2026-11-09 |
+| 광고 푸시 | [열기](https://docs.google.com/document/d/1eayAytEi19rbAq0evV4aVyFTHBGl3E1712ZSVPqpCLU) | 일치 | 2026-11-09 |
+| 야간 광고 푸시 | [열기](https://docs.google.com/document/d/1m1NlzKlZ13tPsBMmiQPOb16zQpak2KElRr2CRTr8NFI) | 일치 | 2026-11-09 |
+| 계정·데이터 삭제 요청 | [열기](https://docs.google.com/document/d/1V25q4R9vXjx7ofu8dRz0obcQbCyE5Cr2zTkjJhzabF8) | 일치 | 2026-11-09 |
 
 ## 로그인 유지 기간 변경 반영
 
