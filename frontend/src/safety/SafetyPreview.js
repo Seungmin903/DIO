@@ -43,9 +43,10 @@ function PreviewContent({ adapter, onSwitch, onOffline }) {
       .catch(error => { if (alive) setSetupError(error.message); });
     return () => { alive = false; };
   }, [sharing.runtime]);
-  const participants = (value, target) => {
+  // 공유 창 ⋯ → 신고하기는 실제 앱(App.js)처럼 action 을 넘겨 신고 화면을 바로 연다(예전엔 참여자 화면을 거쳤다)
+  const participants = (value, target, action) => {
     const previous = request; setRequest(null);
-    safety.openParticipants(value, { target, onClosed: () => setRequest(previous) });
+    safety.openParticipants(value, { target, action, onClosed: () => setRequest(previous) });
   };
   return <View style={{ flex: 1 }}>
     {page === 'profile' ? <><SafetyButton secondary onPress={() => setPage('home')}>미리보기 홈</SafetyButton><ProfileScreen onOpenBlockedUsers={safety.openBlocks} compact={isPhone} previewUser={profile} accountService={profileService} /></> :

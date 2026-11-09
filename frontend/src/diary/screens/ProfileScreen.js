@@ -23,6 +23,7 @@ import AppIcon from '../../shared/AppIcon';
 import DefaultAvatar from '../../shared/DefaultAvatar';
 import { useLoginEntry } from '../../auth/loginGate';
 import { placesLoginBelow, showsInlineSettings } from '../components/profileNavigationModel';
+import BlockedUsersPage from '../../safety/BlockedUsersPage';
 
 // 마이페이지는 프로필·계정, 설정은 알림·보안·편집(그리기 입력)·앱 정보로 분리한다. 두 화면은 잠금·알림 세부 화면만 공통으로 쓴다.
 export default function ProfileScreen({ guestImport = null, section = 'profile', compact = false, onBack = null, previewUser, onEndPreview, onClearSession = onEndPreview, onWithdrawn = onClearSession, onUpdatePreview, registerLeaveGuard, getProfilePhotoSource, accountService, onOpenBlockedUsers, pushIssue = null }) {
@@ -88,7 +89,10 @@ export default function ProfileScreen({ guestImport = null, section = 'profile',
     // previewUser 는 갱신 결과로 바뀌므로 계정 · 화면 전환 때만 다시 불러온다.
   }, [userId, route, settingsPage]); // eslint-disable-line react-hooks/exhaustive-deps
   // 폰 마이페이지의 알림 설정 하위 화면: 안드로이드 뒤로 키는 마이페이지 본문으로 돌아온다(다른 하위 화면과 같은 규칙)
-  const notificationsOpen = route === 'notifications';
+  // 태블릿 차단한 사용자 페이지도 같은 규칙(뒤로 키 → 마이페이지 본문)
+  // 차단 목록 페이지는 태블릿 전용이다. 연 채로 창이 폰 배치로 줄면 마이페이지 처음으로 돌린다(뒤로 가기 가드도 함께 풀린다, 리뷰 !489)
+  useEffect(() => { if (compact && route === 'blocks') setRoute('home'); }, [compact, route]);
+  const notificationsOpen = route === 'notifications' || route === 'blocks';
   useEffect(() => {
     if (!notificationsOpen || !registerLeaveGuard) return undefined;
     return registerLeaveGuard(move => move(), () => setRoute('home'));
@@ -125,6 +129,8 @@ export default function ProfileScreen({ guestImport = null, section = 'profile',
   // 비밀번호 변경 · 탈퇴는 서버가 모든 세션을 폐기하므로 로그아웃 요청을 또 보내지 않고 이 기기의 세션만 정리한다(onClearSession)
   if (editing) return <ProfileEditScreen {...(editService ? { service: editService } : {})} compact={compact} user={previewUser} onClose={() => setEditing(false)} onUpdate={onUpdatePreview} onEndSession={onClearSession} onPasswordReset={authenticatedUser && accountService ? () => setRoute('password') : undefined} getProfilePhotoSource={getProfilePhotoSource} registerLeaveGuard={registerLeaveGuard} />
   if (route === 'password' && authenticatedUser && accountService) return <PasswordResetScreen change compact={compact} email={previewUser?.email || ''} service={accountService} backLabel="프로필 수정으로 돌아가기" onClose={() => setRoute('edit')} onComplete={onClearSession} />;
+  // 태블릿: 차단한 사용자도 알림 설정처럼 본문 자리 페이지로 연다(모달 아님, 2026-11-09 지라 537). 폰은 전체 화면 차단 목록 그대로
+  if (route === 'blocks' && !compact && authenticatedUser && onOpenBlockedUsers) return <BlockedUsersPage onClose={() => setRoute('home')} />;
   if (route === 'notifications' && authenticatedUser) return <NotificationSettingsScreen compact={compact} userId={userId} accountService={accountService} pushIssue={pushIssue} backLabel={settingsPage ? '설정으로 돌아가기' : '마이페이지로 돌아가기'} onClose={() => setRoute('home')} />;
 
   // 판 오른쪽 끝은 계정 상태의 대표 행동: 게스트는 `로그인 · 회원가입`, 회원은 `프로필 수정` 윤곽 버튼.
@@ -197,7 +203,7 @@ export default function ProfileScreen({ guestImport = null, section = 'profile',
       <View style={local.cards}>
         {!settingsPage && authenticatedUser && <SettingCard compact={compact}>
           <SettingSection title="사용자 관리">
-            <Pressable accessibilityRole="button" accessibilityLabel="차단한 사용자" onPress={onOpenBlockedUsers} disabled={!onOpenBlockedUsers} style={local.linkRow}>
+            <Pressable accessibilityRole="button" accessibilityLabel="차단한 사용자" onPress={compact ? onOpenBlockedUsers : () => setRoute('blocks')} disabled={!onOpenBlockedUsers} style={local.linkRow}>
               <Text style={local.linkLabel}>차단한 사용자</Text>
               <AppIcon name="chevron-right" size={18} forText={16} color={colors.textMuted} />
             </Pressable>
