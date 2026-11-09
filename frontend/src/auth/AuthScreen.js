@@ -394,6 +394,8 @@ export default function AuthScreen({
         },
       );
   };
+  // 계정 연결 화면의 부제목 · 본문 · 버튼이 같은 제공자 이름을 쓰도록 한곳에서 정한다
+  const linkProviderName = profile?.provider === 'apple' ? '애플' : '구글';
   const linkExistingAccount = () => {
     if (!profile?.provider || !linkPassword) return;
     run(() => service.linkSocial(profile.provider, profile.email, linkPassword), result => {
@@ -492,7 +494,7 @@ export default function AuthScreen({
                     : route === 'signup'
                       ? '이메일로 DIO 계정을 만들어 주세요.'
                       : route === 'verification' ? '인증번호를 입력해 이메일을 확인해 주세요.'
-                      : route === 'link' ? '비밀번호를 확인하면 구글 로그인을 연결해 드려요.'
+                      : route === 'link' ? `비밀번호를 확인하면 ${linkProviderName} 로그인을 연결해 드려요.`
                       : '나만의 이름으로 DIO의 기록을 시작해요.'}
                 </Text>
               </View>
@@ -540,7 +542,7 @@ export default function AuthScreen({
                 }} />
             ) : route === 'link' ? (
               <View style={s.form}>
-                <Text style={s.muted}>이미 가입된 이메일이에요. 기존 계정 비밀번호를 확인하면 {profile?.provider === 'apple' ? '애플' : '구글'} 로그인을 연결할 수 있어요.</Text>
+                <Text style={s.muted}>이미 가입된 이메일이에요. 기존 계정 비밀번호를 확인하면 {linkProviderName} 로그인을 연결할 수 있어요.</Text>
                 <FormField label="이메일" value={profile?.email || ''} editable={false} />
                 <FormField onInputFocus={focusInput} onInputBlur={blurInput} inputRef={passwordInput}
                   label="기존 비밀번호" placeholder="기존 비밀번호를 입력해 주세요" value={linkPassword}
@@ -548,7 +550,7 @@ export default function AuthScreen({
                   returnKeyType="done" onSubmitEditing={linkExistingAccount} />
                 <View ref={submitArea} style={s.submitArea}>
                   <View style={s.submitErrorSlot}>{message ? <Text accessibilityRole="alert" accessibilityLiveRegion="polite" style={[s.error,s.submitError]}>{message}</Text> : null}</View>
-                  {primary(`${profile?.provider === 'apple' ? '애플' : '구글'} 로그인 연결`, linkExistingAccount, !linkPassword)}
+                  {primary(`${linkProviderName} 로그인 연결`, linkExistingAccount, !linkPassword)}
                 </View>
               </View>
             ) : route === 'welcome' || route === 'signup' ? (

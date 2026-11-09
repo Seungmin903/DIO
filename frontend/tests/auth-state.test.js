@@ -432,6 +432,18 @@ test('기존 이메일 계정의 소셜 로그인은 비밀번호 확인 화면�
  }finally{ui.unmount();}
 })
 
+test('애플 계정 연결 화면은 부제목 · 본문 · 버튼이 모두 애플로 안내한다',async()=>{
+ const ui=setup({social:async()=>({provider:'apple',mode:'social-link',email:'existing@dio.test'})});
+ try{
+  find(ui.render(),'구글로 로그인').props.onPress();await tick();
+  const texts=nodes(ui.render()).map(n=>[n.props?.children].flat(Infinity).filter(c=>typeof c==='string').join('')).filter(Boolean);
+  assert.ok(texts.includes('비밀번호를 확인하면 애플 로그인을 연결해 드려요.'));
+  assert.ok(texts.some(t=>t.includes('비밀번호를 확인하면 애플 로그인을 연결할 수 있어요.')));
+  assert.ok(find(ui.render(),'애플 로그인 연결'));
+  assert.equal(texts.some(t=>t.includes('구글 로그인')),false);
+ }finally{ui.unmount();}
+})
+
 test('키보드가 열린 뒤 입력칸 위치를 재측정하고 가려진 만큼 스크롤한다',async()=>{
  const ui=setup({}),tree=ui.render(),moves=[]
  const scroll=nodes(tree).find(n=>n.type==='ScrollView')
