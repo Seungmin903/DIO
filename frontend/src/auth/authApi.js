@@ -368,13 +368,13 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
       else api.cancelPending();
     },
 
-    async completeProfile({ provider, email, nickname, photoUri, terms }) {
+    async completeProfile({ provider, email, nickname, photoUri, terms, ageConfirmed }) {
       if (SOCIAL_NAMES[provider]) {
         if(signupPending)throw new Error('회원가입을 처리하고 있어요. 잠시만 기다려 주세요.');
         const current=socialDraft, attempt=revision;
         if(!current || current.provider!==provider || current.email!==normalizeEmail(email))throw new Error(`${SOCIAL_NAMES[provider]} 인증을 다시 진행해 주세요.`);
         if(nicknameError(nickname))throw new Error(nicknameError(nickname));
-        if(!current.ageConfirmed || terms?.service!==true || terms?.privacy!==true)throw new Error('연령 확인과 필수 약관 동의가 필요해요.');
+        if(ageConfirmed!==true || terms?.service!==true || terms?.privacy!==true)throw new Error('연령 확인과 필수 약관 동의가 필요해요.');
         const body={idToken:current.idToken,enrollment:{nickname:normalizeNickname(nickname),ageConfirmed:true,agreements:signupAgreements(terms)}};
         let upload;signupPending=true;
         try{
@@ -429,6 +429,16 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
         try { await upload?.dispose?.(); } catch {}
         signupPending = false;
       }
+    },
+    async linkSocial(provider, email, password) {
+      const current=socialDraft, attempt=revision;
+      if(!SOCIAL_NAMES[provider]||!current||current.provider!==provider||current.email!==normalizeEmail(email))
+        throw new Error(`${SOCIAL_NAMES[provider] || '소셜'} 인증을 다시 진행해 주세요.`);
+      if(!password)throw new Error('기존 계정 비밀번호를 입력해 주세요.');
+      const result=await request(`oauth/${provider}/link`,{idToken:current.idToken,email:current.email,password});
+      if(attempt!==revision||socialDraft!==current)throw new Error('계정 연결 요청이 취소되었어요.');
+      await acceptSession({...result,provider});sessionSequence++;socialDraft=null;
+      return userView(result.user);
     },
     async updateProfile(user, { nickname, photoUri }) {
       if (!session || String(user?.userId) !== String(session.user.userId)) throw unauthorized();
@@ -514,10 +524,9 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
         if (withdrawn && session === current) await endLocalSession();
       }
     },
-    async social(provider, {ageConfirmed} = {}) {
+    async social(provider) {
       const name=SOCIAL_NAMES[provider], signIn=socialSignIns[provider];
       if(!name)throw new Error('아직 준비 중인 로그인 방식이에요.');
-      if(ageConfirmed!==true)throw new Error('만 14세 이상인지 확인해 주세요.');
       if(typeof signIn!=='function')throw new Error(`${name} 로그인 기능이 연결되지 않았어요.`);
       const attempt=++revision;socialDraft=null;
       const credential=await signIn();
@@ -530,11 +539,11 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
         return userView(result.user);
       }catch(error){
         if(attempt!==revision)throw new Error('로그인 요청이 취소되었어요.');
-        if(error?.code!=='SOCIAL_SIGNUP_REQUIRED')throw error;
+        if(error?.code!=='SOCIAL_SIGNUP_REQUIRED'&&error?.code!=='SOCIAL_ACCOUNT_LINK_REQUIRED')throw error;
         // 신규 가입은 서버가 확인된 이메일을 요구한다. 이메일을 못 받았으면 다시 로그인하게 한다.
         if(!credential.email)throw Object.assign(new Error(`${name} 계정의 이메일을 받지 못했어요. 이메일 공유를 허용하고 다시 시도해 주세요.`),{code:'SOCIAL_EMAIL_REQUIRED'});
-        socialDraft={provider,idToken:credential.idToken,email:normalizeEmail(credential.email),ageConfirmed:true};
-        return {provider,email:socialDraft.email,mode:'social-signup'};
+        socialDraft={provider,idToken:credential.idToken,email:normalizeEmail(credential.email)};
+        return {provider,email:socialDraft.email,mode:error.code==='SOCIAL_ACCOUNT_LINK_REQUIRED'?'social-link':'social-signup'};
       }
     },
     async refresh() {

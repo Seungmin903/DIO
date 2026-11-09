@@ -27,6 +27,8 @@ export function createGuestSharing(user = {}) {
     subscribe: () => () => {}, activate() {}, dispose() {},
     watchDiary: () => () => {}, setWatchingActive() {}, setWatchingRealtime() {},
     invalidateMemberPhotos() {},
+    // 게스트 다이어리에는 참여자가 없으니 새로 불러올 것도 없다
+    refreshMembers: async () => {},
     setAccountProfile(value = {}) { self.nickname = value.nickname || '방문자'; self.photoUri = value.photoUri || null; },
   };
 }
