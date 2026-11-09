@@ -12,7 +12,8 @@ export async function signInWithGoogle(){
   if(!configured){sdk.GoogleSignin.configure({webClientId,iosClientId,offlineAccess:false});configured=true;}
   if(Platform.OS==='android')await sdk.GoogleSignin.hasPlayServices({showPlayServicesUpdateDialog:true});
   // SDK는 마지막 계정을 기억해 선택 창 없이 그 계정으로 바로 로그인한다. 매번 계정을 고를 수 있게 먼저 지운다.
-  try{if(sdk.GoogleSignin.hasPreviousSignIn())await sdk.GoogleSignin.signOut();}catch{}
+  try{if(sdk.GoogleSignin.hasPreviousSignIn())await sdk.GoogleSignin.signOut();}
+  catch(error){console.warn('[GoogleSignin] 이전 계정 정리 실패',error?.code);}
   const response=await sdk.GoogleSignin.signIn();
   if(response.type==='cancelled')throw new Error('구글 로그인을 취소했어요.');
   const user=response.data;
