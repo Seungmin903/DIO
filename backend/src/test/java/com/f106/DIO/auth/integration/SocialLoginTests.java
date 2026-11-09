@@ -93,6 +93,41 @@ class SocialLoginTests {
   assertThat(response.user().userId()).isEqualTo(user.getUserId().toString());
   assertThat(accounts.findByUserIdAndProvider(user.getUserId(),"KAKAO")).isPresent();
  }
+ org.springframework.test.web.servlet.ResultActions postLink(String provider,String ip,String idToken,String email,String password) throws Exception {
+  var body=json.writeValueAsString(java.util.Map.of("idToken",idToken,"email",email,"password",password));
+  return mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post("/api/v1/auth/oauth/"+provider+"/link")
+   .with(request->{request.setRemoteAddr(ip);return request;}).contentType("application/json").content(body));
+ }
+ @Test void linkEndpointReturnsNoStoreAndRejectsUnknownProvider() throws Exception {
+  var user=users.saveAndFlush(new User("link-http@example.com","연결HTTP",Instant.now()));
+  accounts.saveAndFlush(new EmailAuthProvider(user.getUserId(),user.getEmail(),passwords.encode("Password123!"),Instant.now()));
+  postLink("kakao","10.20.0.1","link-http-subject;"+user.getEmail()+";true",user.getEmail(),"Password123!")
+   .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status().isOk())
+   .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header().string("Cache-Control","no-store"))
+   .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("user.userId").value(user.getUserId().toString()));
+  postLink("unknown","10.20.0.1","token",user.getEmail(),"Password123!")
+   .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status().isBadRequest())
+   .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("code").value("INVALID_SOCIAL_PROVIDER"));
+ }
+ @Test void linkEndpointLimitsRepeatedWrongPasswordsButNotOtherConflicts() throws Exception {
+  var user=users.saveAndFlush(new User("link-throttle@example.com","연결제한",Instant.now()));
+  accounts.saveAndFlush(new EmailAuthProvider(user.getUserId(),user.getEmail(),passwords.encode("Password123!"),Instant.now()));
+  String credential="link-throttle-subject;"+user.getEmail()+";true";
+  for(int i=0;i<5;i++)postLink("kakao","10.20.0.2",credential,user.getEmail(),"Wrong123!")
+   .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status().isUnauthorized())
+   .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("code").value("INVALID_EXISTING_CREDENTIALS"));
+  postLink("kakao","10.20.0.2",credential,user.getEmail(),"Password123!")
+   .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status().isTooManyRequests())
+   .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header().string("Retry-After","900"));
+  assertThat(accounts.findByUserIdAndProvider(user.getUserId(),"KAKAO")).isEmpty();
+
+  // 다른 주소에서는 연결되고, 이미 연결된 뒤의 충돌은 비밀번호 실패로 세지 않아 예약도 남지 않는다
+  postLink("kakao","10.20.0.3",credential,user.getEmail(),"Password123!")
+   .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status().isOk());
+  for(int i=0;i<6;i++)postLink("kakao","10.20.0.3","another-subject;"+user.getEmail()+";true",user.getEmail(),"Password123!")
+   .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status().isConflict())
+   .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("code").value("SOCIAL_PROVIDER_ALREADY_LINKED"));
+ }
  @Test void linkingRejectsAnIdentityOrProviderAlreadyLinkedToAnAccount(){
   var first=users.saveAndFlush(new User("first-linked@example.com","첫회원",Instant.now()));
   var second=users.saveAndFlush(new User("second-linked@example.com","둘회원",Instant.now()));
