@@ -21,6 +21,9 @@ public class UserWithdrawalDataRepository {
         // 내 표지 보관함도 같은 이유로 지운다
         jdbc.update("delete from user_cover_library_media where user_id=?",actor);
         jdbc.update("delete from user_cover_libraries where user_id=?",actor);
+        // 내 속지 보관함(속지 목록 · 기본 속지 스타일)도 같은 이유로 지운다
+        jdbc.update("delete from user_paper_library_media where user_id=?",actor);
+        jdbc.update("delete from user_paper_libraries where user_id=?",actor);
         // 그 밖의 공유 작업·미디어 참조는 유지한다. 참조가 없어진 개인 파일(위 폰트 포함)만 기존 보존·정리 경로로 보낸다.
         jdbc.update("update media_files set deleted_at=? where owner_user_id=? and deleted_at is null "
             + unreferenced,java.sql.Timestamp.from(now),actor);

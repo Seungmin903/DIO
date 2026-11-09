@@ -2,7 +2,7 @@
 
 꾸미기 공방 > 표지 탭의 내 표지 목록을 계정에 저장해 다른 기기 · 재설치 기기에서도 같은 표지가 보이게 한다.
 표지 사진 · 표지에 붙인 내 스티커 이미지는 [미디어 API](./media.md)의 `POST /api/v1/media`(사진 `PHOTO`, 스티커 `STICKER`)로 올리고, 이 API 는 표지 목록 문서와 그 안의 미디어 id 만 저장한다.
-저장 · 충돌 · 동기화 규칙은 [스티커 보관함](./sticker-library.md) · [테이프 보관함](./tape-library.md)과 같고, 여기에는 다른 점만 적는다. 내 속지는 범위 밖이며 기기에만 남는다.
+저장 · 충돌 · 동기화 규칙은 [스티커 보관함](./sticker-library.md) · [테이프 보관함](./tape-library.md)과 같고, 여기에는 다른 점만 적는다. 내 속지 · 기본 속지 스타일은 [내 속지 서버 저장](./paper-library.md)에서 같은 방식으로 저장한다.
 
 ## GET / PUT /api/v1/me/cover-library
 

@@ -52,13 +52,21 @@ export function subscribeMyLibrary(listener) {
 /** 서버에서 받은 목록으로 바꾼다. base(받기 전에 본 목록)가 지금 목록과 다르면(그 사이 사용자가 고쳤으면) 바꾸지 않고 false */
 export const replaceMyCovers = (covers, base) => commit('covers', list => (list === base ? normalizeMyCovers(covers) : null))
 
+// 계정 서버 동기화(services/paperLibrarySync.js)가 쓰는 내 속지 창구
+/** 기기 목록을 읽은 뒤 풀린다 */
+export const myPapersReady = () => load()
+/** 지금 내 속지 목록 */
+export const myPapersSnapshot = () => store.papers
+/** 서버에서 받은 목록으로 바꾼다. base 가 지금 목록과 다르면(그 사이 사용자가 고쳤으면) 바꾸지 않고 false */
+export const replaceMyPapers = (papers, base) => commit('papers', list => (list === base ? normalizeMyPapers(papers) : null))
+
 /** 테스트에서 기기 저장소를 새로 읽게 한다 */
 export function resetMyLibraryForTests() {
   store.covers = []; store.papers = []; store.loaded = null; store.queue = Promise.resolve(); store.listeners.clear()
 }
 
 /**
- * 내 표지 · 내 속지. 기기에 저장하고 새 다이어리 화면에서 꺼내 쓴다. 로그인한 동안 내 표지는 계정 서버와도 맞춘다(CoverLibrarySync).
+ * 내 표지 · 내 속지. 기기에 저장하고 새 다이어리 화면에서 꺼내 쓴다. 로그인한 동안 계정 서버와도 맞춘다(CoverLibrarySync · PaperLibrarySync).
  */
 export default function useMyLibrary() {
   const [state, setState] = useState(() => ({ covers: store.covers, papers: store.papers, ready: false }))
