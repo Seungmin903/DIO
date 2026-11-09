@@ -61,9 +61,21 @@ class ModerationTests extends SharingTestSupport {
   var path = "/api/v1/me/block-warning-dismissals/" + p.diary;
   var owner = "Bearer " + p.a.token();
   var editor = "Bearer " + p.b.token();
+  var unblocked = actor();
+  var formerMember = actor();
+  var link = links.create(p.diary, p.a.id()).token();
+  links.accept(link, unblocked.id());
+  links.accept(link, formerMember.id());
+  blocks.block(p.a.id(), formerMember.id(), p.diary);
+  membership.remove(p.diary, formerMember.id(), formerMember.id());
+  var ignored = """
+      {"userIds":["%s","%s"]}
+      """.formatted(unblocked.id(), formerMember.id());
   var payload = "{\"userIds\":[\"" + p.b.id() + "\"]}";
   mvc.perform(get(path)).andExpect(status().isUnauthorized());
   mvc.perform(get(path).header("Authorization", "Bearer " + actor().token())).andExpect(status().isForbidden());
+  mvc.perform(put(path).header("Authorization", owner).contentType(MediaType.APPLICATION_JSON).content(ignored))
+      .andExpect(status().isNoContent()).andExpect(content().string(""));
   mvc.perform(get(path).header("Authorization", owner)).andExpect(jsonPath("userIds").isEmpty());
   for (int i = 0; i < 2; i++) {
    mvc.perform(put(path).header("Authorization", owner).contentType(MediaType.APPLICATION_JSON).content(payload))
