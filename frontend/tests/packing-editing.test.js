@@ -27,7 +27,7 @@ test('좌우 수납 위치는 요소 저장·복원 후에도 유지되고 다�
     assert.equal(restored.packingSlot, slot)
     assert.equal(restored.x, patch.x)
     assert.equal(restored.y, patch.y)
-    assert.deepEqual(packingSlotPatch(asset, restored, null), { packingSlot: null })
+    assert.deepEqual(packingSlotPatch(asset, restored, null), { packingSlot: null, packingSlotDetached: true })
   }
   assert.equal(packingSlotPatch('other', original, 0), null)
 })
@@ -86,6 +86,34 @@ test('리디자인 캐리어는 방향별 독립 좌표를 사용하고 기존 �
     assert.ok(right.x > left.x + current.interiors[0].width / 2)
   }
   assert.equal(packingLayout('remote-packing-list-v4-portrait').scaleY, 1.65)
+})
+
+test('사진과 스티커를 캐리어에서 빼면 수납 재계산이 즉시 되돌리지 않는다', () => {
+  for (const direction of ['portrait', 'landscape']) {
+    const asset = `remote-packing-list-v8-${direction}`
+    const layout = packingLayout(asset)
+    for (const type of ['photo', 'sticker']) {
+      const original = { id: 'e22a8e25-fbb9-4fa0-8c66-3f92f6171394', type, x: 0, y: 0, w: 60, h: 60, rotation: 0, opacity: 1 }
+      const packedPatch = packingSlotPatch(asset, original, 0)
+      let state = createInitialState({ pages: [{ id: 'page', backgroundAssetId: asset, objects: [{ ...original, ...packedPatch }] }] }, 'page')
+
+      state = editorReducer(state, { type: 'updateObject', id: original.id, patch: packingSlotPatch(asset, state.doc.pages[0].objects[0], null), record: true })
+      let removed = state.doc.pages[0].objects[0]
+      assert.equal(removed.packingSlot, null, `${direction} ${type}: slot should be removed`)
+      assert.equal(removed.packingSlotDetached, true, `${direction} ${type}: explicit removal should remain detached`)
+
+      state = editorReducer(state, { type: 'updateObject', id: original.id, patch: { x: 0, y: 0 }, record: true })
+      removed = state.doc.pages[0].objects[0]
+      assert.equal(removed.packingSlot, null, `${direction} ${type}: dragging outside should remain unpacked`)
+      assert.equal(removed.packingSlotDetached, false, `${direction} ${type}: detachment should clear outside the case`)
+
+      const box = layout.interiors[1]
+      const x = layout.origin.x + box.x + (box.width - removed.w) / 2
+      const y = layout.origin.y + box.y + (box.height - removed.h) / 2
+      state = editorReducer(state, { type: 'updateObject', id: original.id, patch: { x, y }, record: true })
+      assert.equal(state.doc.pages[0].objects[0].packingSlot, 1, `${direction} ${type}: moving back into a pocket should pack it`)
+    }
+  }
 })
 
 

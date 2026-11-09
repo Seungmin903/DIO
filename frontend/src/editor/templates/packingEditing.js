@@ -12,7 +12,9 @@ export function packingColorAction(region, color, objects) {
 export function packingSlotPatch(assetId, object, slot) {
   const layout = packingLayout(assetId)
   if (!layout || !object || (slot !== null && slot !== 0 && slot !== 1)) return null
-  if (slot === null) return { packingSlot: null }
+  // Explicit removal must survive updateObjects' position-based slot recalculation.
+  // Keep the object detached until it is dragged outside the carrier case.
+  if (slot === null) return { packingSlot: null, packingSlotDetached: true }
   const box = layout.interiors[slot]
   return { packingSlot: slot, x: layout.origin.x + box.x * (layout.scaleX ?? 1) + (box.width * (layout.scaleX ?? 1) - object.w) / 2, y: layout.origin.y + box.y * (layout.scaleY ?? 1) + (box.height * (layout.scaleY ?? 1) - object.h) / 2 }
 }
@@ -34,6 +36,10 @@ export function packingDropPatch(assetId, object) {
   const layout = packingLayout(assetId)
   const center = localPoint(layout, { x: object.x + object.w / 2, y: object.y + object.h / 2 })
   const index = layout.interiors.findIndex(box => insideRounded(box, center))
+  if (object.packingSlotDetached) {
+    const insideCase = layout.cases.some(box => insideRounded(box, center))
+    return insideCase ? null : { packingSlot: null, packingSlotDetached: false }
+  }
   const next = index < 0 ? null : index
   return (object.packingSlot ?? null) === next ? null : { packingSlot: next }
 }
