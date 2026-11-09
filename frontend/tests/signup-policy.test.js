@@ -18,7 +18,7 @@ test('연령 자기확인과 필수 동의는 각각 필요하고 생년월일�
   assert.deepEqual(signupTermsVersions, { SERVICE: 'v2', PRIVACY: 'v2' });
 });
 
-test('개인정보처리방침과 수집·이용 동의서는 별도 URL이며 미게시·비보안 주소는 문서 보기 주소로 사용하지 않는다', () => {
+test('개인정보 처리방침과 수집·이용 동의서는 별도 URL이며 미게시·비보안 주소는 문서 보기 주소로 사용하지 않는다', () => {
   assert.notEqual(documents.privacy, documents.policy);
   assert.equal(signupDocumentsReady(documents), true);
   for (const key of ['service', 'privacy', 'policy']) {
