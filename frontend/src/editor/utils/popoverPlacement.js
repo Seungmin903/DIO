@@ -55,3 +55,22 @@ export const placeHorizontal = (centerX, width, area, edge = POPOVER_EDGE) => {
   const [areaLeft, areaRight] = span(area, 'left', 'right')
   return clamp(centerX - width / 2, areaLeft + edge, Math.max(areaLeft + edge, areaRight - width - edge))
 }
+
+/** 속지와 작업창이 겹치는 영역에 속지 설정을 배치한다. 좌표와 크기는 화면 픽셀이다. */
+export function paperPanelPlacement({ at, zoom, pageWidth, pageHeight, visible, height }) {
+  const area = visible ? {
+    left: Math.max(0, visible.x * zoom),
+    top: Math.max(0, visible.y * zoom),
+    right: Math.min(pageWidth * zoom, (visible.x + visible.width) * zoom),
+    bottom: Math.min(pageHeight * zoom, (visible.y + visible.height) * zoom),
+  } : { left: 0, top: 0, right: pageWidth * zoom, bottom: pageHeight * zoom }
+  const width = Math.max(0, Math.min(300, area.right - area.left - POPOVER_EDGE * 2))
+  const maxHeight = Math.max(0, area.bottom - area.top - POPOVER_EDGE * 2)
+  const panelHeight = Math.min(height, maxHeight)
+  const point = { top: at.y * zoom, bottom: at.y * zoom, handleY: null }
+  return {
+    position: 'absolute', zIndex: 6, width, maxHeight,
+    left: placeHorizontal(at.x * zoom, width, area),
+    top: placeVertical(point, panelHeight, area).top,
+  }
+}
