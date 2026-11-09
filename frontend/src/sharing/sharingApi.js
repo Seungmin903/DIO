@@ -116,10 +116,17 @@ export function createSharingApi({ user, auth, fetchImpl = globalThis.fetch, bui
   const inviteView = row => ({ ...row, inviteId: String(row.inviteId), canOpen: row.status === 'PENDING',
     diary: { diaryId: row.diaryId, id: row.diaryId, title: row.diaryTitle }, inviter: row.inviterNickname });
   async function received({ cursor, signal } = {}) {
-    const page = Number(cursor || 0);
-    const result = await request(`/me/invites?page=${page}&size=20`, { signal });
-    result.items.forEach(row => invitations.set(String(row.inviteId), inviteView(row)));
-    return { items: result.items.map(row => ({ id: String(row.inviteId), inviteId: String(row.inviteId),
+    // 거절한 초대는 알림함에서 지운다(거절 = 삭제, 확인창 '초대를 삭제할까요?'). 서버 목록은 거절한 초대도 돌려줘 새로고침하면 다시 보였다(2026-11-08).
+    // 한 쪽이 전부 거절한 초대면 빈 목록 + '더 보기'만 남지 않게 다음 쪽을 이어 받는다(최대 5쪽, AI 리뷰)
+    let page = Number(cursor || 0), result, rows = [];
+    for (let hop = 0; hop < 5; hop++) {
+      result = await request(`/me/invites?page=${page}&size=20`, { signal });
+      result.items.forEach(row => invitations.set(String(row.inviteId), inviteView(row)));
+      rows = result.items.filter(row => row.status !== 'DECLINED');
+      if (rows.length || !result.hasNext) break;
+      page += 1;
+    }
+    return { items: rows.map(row => ({ id: String(row.inviteId), inviteId: String(row.inviteId),
       title: row.diaryTitle, actor: row.inviterNickname, status: row.status, notificationType: 'DIARY_INVITE',
       actionable: row.status === 'PENDING', createdAt: row.createdAt, readAt: row.createdAt,
       diary: { title: row.diaryTitle } })), hasNext: result.hasNext, nextCursor: result.hasNext ? String(page + 1) : null };

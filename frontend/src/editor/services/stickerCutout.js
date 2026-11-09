@@ -25,6 +25,8 @@ export async function pickCutoutPhoto() {
       (width, height) => resolve({ width, height }), reject))
     if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0 || width * height > 40_000_000)
       throw new Error('사진 크기를 확인해 주세요. 최대 4천만 화소까지 지원해요.')
-    return { uri, width, height, dispose }
+    // 웹에서는 원본 File을 함께 보관해 FormData가 object URL이 아니라 실제 파일을 보낸다.
+    // 네이티브는 uri와 mimeType으로 expo/fetch의 파일 part를 만든다.
+    return { uri, width, height, file: asset.file, mimeType: mime || 'image/jpeg', name: name || 'cutout-image.jpg', dispose }
   } catch (error) { dispose(); throw error }
 }

@@ -15,7 +15,7 @@ function FocusRing() {
 }
 
 // One immutable slot is edited at a time. No add/delete/custom collection.
-export default function EditablePalette({ scope, label, value, onPick, onOpenEditor, initiallyEditing = false, allowDirect = false }) {
+export default function EditablePalette({ scope, label, value, onPick, onOpenEditor, initiallyEditing = false, allowDirect = false, heading }) {
   const palette = usePalette(scope)
   const [editing, setEditing] = useState(initiallyEditing), [request, setRequest] = useState(null), [error, setError] = useState(false)
   // 편집 중 굵은 점선(포커스)은 지금 고치고 있는 칸으로 옮긴다(지라 605). 아직 연 칸이 없으면 지금 고른 색의 칸
@@ -38,7 +38,7 @@ export default function EditablePalette({ scope, label, value, onPick, onOpenEdi
   }
   return <View style={s.box}>
     <View style={s.heading}>
-      <Text style={s.label}>{label} 색상</Text>
+      <Text style={s.label}>{heading ?? `${label} 색상`}</Text>
       <Pressable accessibilityRole="button" accessibilityLabel={`${label} 팔레트 편집`} accessibilityState={{ selected: editing }} hitSlop={6} onPress={toggleEditing} style={s.edit}>
         <Text style={s.editText}>{editing ? '편집 끝내기' : '팔레트 편집'}</Text>
       </Pressable>

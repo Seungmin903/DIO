@@ -5,6 +5,7 @@ import { usePan } from '../../hooks/usePan'
 import { centerOf, normalizeAngle, rotateVector } from '../../utils/common'
 import { textFormatPatch, textSettings, TEXT_FRAME_PAD } from '../../utils/text'
 import { tapeUnitH } from '../../utils/objects'
+import { memoPaperBox } from '../../utils/editorShapes'
 import { TAPE_SIZES } from '../../constants'
 import { ROTATE_HANDLE as ROTATE_HANDLE_SIZE, ROTATE_OFFSET } from '../../utils/popoverPlacement'
 import Icon from '../controls/Icon'
@@ -73,15 +74,26 @@ function cursorFor(handle, rotation) {
 export default function SelectionOverlay({ object, zoom, dispatch, onRotation, onInteracting, textMinHeight = null }) {
   // 보이는 상자: 텍스트는 편집 중 테두리와 같이 글자에서 TEXT_FRAME_PAD 만큼 띄운다. (크기 계산은 요소 상자 그대로)
   const pad = object.type === 'text' ? TEXT_FRAME_PAD : 0
-  const width = object.w * zoom + pad * 2
-  const height = object.h * zoom + pad * 2
+  // 663: 메모 종이는 요소 상자보다 작게 그려지므로 선택 상자도 종이 본체 영역으로 줄인다(회전 중심이 어긋나지 않게 중심 차이를 회전해 더한다)
+  // 크기 · 회전 손잡이 계산은 요소 상자 기준 그대로다 — 종이 여백이 요소 폭의 3~5% 라 끄는 손가락과의 차이가 그만큼이고, 첫 움직임에 튀지 않는다(상대 이동량). 실기기 확인 2026-11-08
+  const paper = object.type === 'shape' && object.art ? memoPaperBox(object) : null
+  const width = (paper ? paper.w : object.w) * zoom + pad * 2
+  const height = (paper ? paper.h : object.h) * zoom + pad * 2
+  let shiftX = 0, shiftY = 0
+  if (paper) {
+    const dx = (paper.x + paper.w / 2 - object.w / 2) * zoom, dy = (paper.y + paper.h / 2 - object.h / 2) * zoom
+    const rad = (object.rotation * Math.PI) / 180
+    shiftX = dx * Math.cos(rad) - dy * Math.sin(rad) - dx
+    shiftY = dx * Math.sin(rad) + dy * Math.cos(rad) - dy
+    shiftX += paper.x * zoom; shiftY += paper.y * zoom
+  }
   return (
     <View
       pointerEvents="box-none"
       style={{
         position: 'absolute',
-        left: object.x * zoom - pad - MARGIN,
-        top: object.y * zoom - pad - MARGIN,
+        left: object.x * zoom - pad - MARGIN + shiftX,
+        top: object.y * zoom - pad - MARGIN + shiftY,
         width: width + MARGIN * 2,
         height: height + MARGIN * 2,
         transform: [{ rotate: `${object.rotation}deg` }],

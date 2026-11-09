@@ -420,7 +420,7 @@ test('키보드가 열린 뒤 입력칸 위치를 재측정하고 가려진 만�
  ui.unmount();assert.deepEqual(ui.keyboard,{})
 })
 
-test('로그인 오류는 버튼 위에 표시하고 입력 수정 또는 5초 경과 시 해제한다',async t=>{
+test('로그인 오류는 버튼 위에 표시하고 입력 수정 때 해제하고 시간이 지나도 저절로 지우지 않는다',async t=>{
  t.mock.timers.enable({apis:['setTimeout']})
  const ui=setup({login:async()=>{throw new Error('이메일 또는 비밀번호가 맞지 않아요.')}})
  const fill=()=>{find(ui.render(),'이메일').props.onChange('wrong@example.com');find(ui.render(),'비밀번호').props.onChange('Wrong1234')}
@@ -430,7 +430,7 @@ test('로그인 오류는 버튼 위에 표시하고 입력 수정 또는 5초 �
  find(tree,'이메일').props.onChange('other@example.com');assert.ok(!nodes(ui.render()).some(n=>n.props.accessibilityRole==='alert'))
  find(ui.render(),'로그인').props.onPress();await tick();ui.render()
  t.mock.timers.tick(5000)
- assert.ok(!nodes(ui.render()).some(n=>n.props.accessibilityRole==='alert'))
+ assert.ok(nodes(ui.render()).some(n=>n.props.accessibilityRole==='alert'))
  ui.unmount()
 })
 

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useReducer, useRef, useState } from 'react';
-import { Animated, Easing, Modal, Pressable, StatusBar, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
+import { Modal, Pressable, StatusBar, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
 import { DEFAULT_PAPER_APPEARANCE, PAPER_BACKGROUNDS, normalizePaperAppearance } from '../../editor/templates/appearance.js';
 import { configuredPageIds } from '../../editor/templates/creation.js';
 import { normalizeOrientation, templateCanvasSize } from '../../editor/templates/catalog.js';
@@ -24,7 +24,6 @@ import useMyLibrary from '../hooks/useMyLibrary';
 import { loadDefaultPaperStyle } from '../hooks/useDefaultPaperStyle';
 
 const TITLE_LIMIT = 24;
-const SHEET_SLIDE = 600;
 // 표지는 세로 3:4, 가로 4:3
 const COVER_RATIO = 3 / 4;
 const SECTIONS = { basic: ['기본', 'edit'], cover: ['표지', 'book'], paper: ['속지', 'paper'], style: ['속지 색', 'roller'] };
@@ -88,11 +87,6 @@ export default function DiaryCreateModal({ diary, onSubmit, onCancel, saving = f
   const library = useMyLibrary();
   useEffect(() => { setError(''); }, [messageResetKey]);
   const submitting = useRef(false);
-  const slide = useRef(new Animated.Value(sheet ? 1 : 0)).current;
-  useEffect(() => {
-    if (!sheet) return;
-    Animated.timing(slide, { toValue: 0, duration: 260, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start();
-  }, [sheet, slide]);
 
   // 수정은 저장된 첫 속지를, 새 다이어리는 고른 속지를 미리 본다.
   // 새 다이어리는 묶음 전체의 페이지 순서를 한 번 만들어 장수 · 미리보기에 같이 쓴다
@@ -239,6 +233,8 @@ export default function DiaryCreateModal({ diary, onSubmit, onCancel, saving = f
   if (stage.width > 0) {
     const maxHeight = stage.height - (stacked ? 44 : 80);
     const wide = stage.width * (stacked ? 0.86 : 0.8);
+    // 폰 속지 탭: 큰 장 아래 작은 줄 · 알약(약 30) · 사이 간격 8×2 가 판(240)에 다 들어가야 위 여백이 속지 색 탭(위 22)과 같다(지라 652)
+    const reserve = stacked ? 38 : 0;
     if (section === 'basic') {
       const gap = stacked ? 16 : 32; // 표지 · 속지 높이는 최대 352(264×352 · 200×352), 둘은 같은 기준선(코덱스 8번)
       const half = (stage.width - (stacked ? 32 : 80) - gap) / 2;
@@ -262,7 +258,7 @@ export default function DiaryCreateModal({ diary, onSubmit, onCancel, saving = f
       const stripCount = Math.min(pdfPapers.length, stacked ? 6 : 8);
       const stripWidth = Math.min(stacked ? 34 : 46, (wide - (stripCount - 1) * 6) / Math.max(1, stripCount));
       const stripHeight = stacked ? 48 : 64;
-      const size = fit(pdfRatio, wide, maxHeight - (stripCount > 1 ? stripHeight + (stacked ? 12 : 20) : 0));
+      const size = fit(pdfRatio, wide, maxHeight - reserve - (stripCount > 1 ? stripHeight + (stacked ? 8 : 20) : 0));
       preview = <>
         <PdfPageThumb page={pdfPapers[0]} width={size.width} ratio={pdfRatio} style={styles.paperShadow} />
         {stripCount > 1 && <View style={styles.strip}>
@@ -273,7 +269,7 @@ export default function DiaryCreateModal({ diary, onSubmit, onCancel, saving = f
       </>;
     } else if (section === 'paper' && allIds && !allIds.length) {
       // 속지 묶음이 없으면 빈 페이지 한 장으로 시작한다
-      const size = fit(paperRatio, wide, maxHeight);
+      const size = fit(paperRatio, wide, maxHeight - reserve);
       preview = <>
         <BlankPreview orientation={orientation} width={size.width} appearance={paperAppearance} style={styles.paperShadow} />
         <StagePill>속지 없음 · 빈 페이지 1장</StagePill>
@@ -284,7 +280,7 @@ export default function DiaryCreateModal({ diary, onSubmit, onCancel, saving = f
       const stripCount = Math.min(ids.length, stacked ? 6 : 8);
       const stripWidth = Math.min(stacked ? 34 : 46, (wide - (stripCount - 1) * 6) / Math.max(1, stripCount));
       const stripHeight = stripWidth / paperRatio;
-      const size = fit(paperRatio, wide, maxHeight - stripHeight - (stacked ? 12 : 20));
+      const size = fit(paperRatio, wide, maxHeight - reserve - (stripCount > 1 ? stripHeight : 0) - (stacked ? 8 : 20));
       preview = <>
         <TemplatePreview assetId={ids[0]} width={size.width} appearance={paperAppearance} style={styles.paperShadow} />
         {stripCount > 1 && <View style={styles.strip}>
@@ -294,7 +290,7 @@ export default function DiaryCreateModal({ diary, onSubmit, onCancel, saving = f
         <StagePill>전체 {pageCount}페이지</StagePill>
       </>;
     } else if (firstPageId) {
-      const size = fit(paperRatio, wide, maxHeight);
+      const size = fit(paperRatio, wide, maxHeight - reserve);
       preview = <>
         <TemplatePreview assetId={firstPageId} width={size.width} appearance={paperAppearance} style={styles.paperShadow} />
         <StagePill>{editing ? savedPaperSummary(diary.templateConfig) : `전체 ${pageCount ?? '—'}페이지`}</StagePill>
@@ -353,11 +349,12 @@ export default function DiaryCreateModal({ diary, onSubmit, onCancel, saving = f
       statusBarTranslucent navigationBarTranslucent onRequestClose={cancel}>
       <StatusBar hidden />
       <View accessibilityViewIsModal style={styles.overlay}>
-        <Animated.View style={[styles.dialog, !stacked && { paddingBottom: bottomInset }, sheet && { transform: [{ translateY: slide.interpolate({ inputRange: [0, 1], outputRange: [0, SHEET_SLIDE] }) }] }]}>
+        {/* 전체 화면 창은 올라오는 애니메이션 없이 바로 뜬다(2026-11-08 사용자 결정: 풀 페이지 애니메이션 모두 제거) */}
+        <View style={[styles.dialog, !stacked && { paddingBottom: bottomInset }]}>
           <Workbench title={editing ? '다이어리 수정' : '새 다이어리'} actionLabel={actionLabel} onCancel={cancel} cancelDisabled={saving} onSubmit={onSave} submitDisabled={disabled}
             sections={sections} section={section} onSection={id => { setSection(id); setNotice(''); }} sheet={stacked} roomy={!sheet} topInset={topInset} bottomInset={bottomInset}
             onStageLayout={setStage} stage={preview} panel={panel} panelLocked={editLocked} foot={foot} />
-        </Animated.View>
+        </View>
         <ConfirmDialog open={leaving} title="저장하지 않고 닫을까요?" message="바꾼 내용은 저장되지 않아요." confirmLabel="닫기"
           onConfirm={() => { setLeaving(false); onCancel(); }} onCancel={() => setLeaving(false)} />
       </View>

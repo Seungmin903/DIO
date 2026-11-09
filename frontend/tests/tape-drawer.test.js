@@ -245,3 +245,21 @@ test('스티커 폴더의 추가 말풍선은 오리기 입구를 스위치로 �
   assert.deepEqual(folderActions(), ['image', 'split'])
   assert.deepEqual(folderActions({ CUTOUT_ENTRANCE: true }), ['image', 'split', 'cutout'])
 })
+
+test('사진 오리기 저장은 편집기 보관함에 반영하고 저장한 폴더를 연다', async () => {
+  const states = [], saves = [], categories = [], notices = []
+  let cursor = 0
+  const folder = { id: 'mine', name: '내 스티커', items: [] }
+  const hooks = { useState(initial) { const i = cursor++; if (!(i in states)) states[i] = typeof initial === 'function' ? initial() : initial; return [states[i], value => { states[i] = typeof value === 'function' ? value(states[i]) : value }] } }
+  const custom = { items: { folders: [folder], favorites: [], recentStickers: [], categoryOrder: [], hiddenCategories: [], tapes: [], lastStickerCategory: 'folder:mine' },
+    saveGenerated: async (...args) => { saves.push(args); return 'mine' }, setStickerCategory: id => categories.push(id) }
+  const render = () => { cursor = 0; return drawer(make(), { tab: 'sticker', onToast: text => notices.push(text) }, true, custom, hooks, { CUTOUT_ENTRANCE: true }) }
+  render()
+  // DecorDrawer의 cutoutFolder 상태(8번째 useState)를 연 폴더로 두고 모달의 저장 콜백을 직접 검증한다.
+  states[7] = folder
+  const modal = nodes(render()).find(node => node.type?.includes?.('StickerCutoutModal'))
+  await modal.props.onSave('mine', '내 스티커', [{ emoji: '🌼' }])
+  assert.deepEqual(saves, [['mine', '내 스티커', [{ emoji: '🌼' }]]])
+  assert.deepEqual(categories, ['folder:mine'])
+  assert.deepEqual(notices, ['스티커를 폴더에 저장했어요.'])
+})

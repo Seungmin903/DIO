@@ -37,8 +37,8 @@ export default function Workbench({ title, actionLabel, onCancel, onSubmit, subm
     </Pressable>
   })
   return <>
-    <View style={[styles.topbar, topInset > 0 && { height: TOPBAR_HEIGHT + topInset, paddingTop: topInset }]}>
-      <Pressable accessibilityRole="button" accessibilityLabel="취소" disabled={cancelDisabled} onPress={onCancel} style={({ pressed }) => [styles.cancel, pressed && styles.pressed]}>
+    <View style={[styles.topbar, sheet && styles.topbarSheet, topInset > 0 && { height: TOPBAR_HEIGHT + topInset, paddingTop: topInset }]}>
+      <Pressable accessibilityRole="button" accessibilityLabel="취소" disabled={cancelDisabled} onPress={onCancel} style={({ pressed }) => [styles.cancel, sheet && styles.cancelSheet, pressed && styles.pressed]}>
         <Text style={styles.cancelText}>취소</Text>
       </Pressable>
       <Text accessibilityRole="header" style={styles.topTitle}>{title}</Text>
@@ -85,11 +85,14 @@ const TOPBAR_HEIGHT = 60
 const styles = StyleSheet.create({
   pressed: {}, // 눌림 효과 없음(사용자 지시)
   topbar: { height: TOPBAR_HEIGHT, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, gap: 8, backgroundColor: colors.surface, borderBottomWidth: 1, borderBottomColor: colors.border },
+  topbarSheet: { paddingHorizontal: 16 },
   cancel: { minWidth: 60, height: 48, alignItems: 'center', justifyContent: 'center', borderRadius: 12 },
   cancelText: { color: colors.textMuted, fontSize: 14, fontWeight: '700' },
   topTitle: { flex: 1, textAlign: 'center', color: colors.text, fontSize: 16, fontWeight: '800' },
   submit: { minWidth: 120, height: 48, paddingHorizontal: 18, alignItems: 'center', justifyContent: 'center', borderRadius: 12, backgroundColor: colors.primaryStrong },
-  submitSheet: { minWidth: 72 },
+  // 폰: 상단 바 토글 규격 높이 40 · 모서리 12. 좌우 여백은 머리줄 padding 16 으로 같게(지라 668)
+  submitSheet: { minWidth: 72, height: 40 },
+  cancelSheet: { alignItems: 'flex-start', minWidth: 72 },
   submitText: { color: '#FFFFFF', fontSize: 14, fontWeight: '700' },
   main: { flex: 1, minHeight: 0, flexDirection: 'row', justifyContent: 'center', paddingTop: 12 },
   mainSheet: { flexDirection: 'column', paddingTop: 0 },

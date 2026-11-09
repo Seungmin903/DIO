@@ -4,10 +4,12 @@ export const profileStyles = StyleSheet.create({
   // 큰 페이지 바탕(surfaceSoft, 바탕은 하나) 위에 카드 없는 열린 폼. 본문은 가운데 최대 640, 아래에 저장 바가 고정된다(코덱스 3차)
   root: { flex: 1, backgroundColor: c.surfaceSoft },
   flex: { flex: 1 },
-  scroll: { flexGrow: 1, paddingHorizontal: 32, paddingTop: 40, paddingBottom: 48 },
+  scroll: { flexGrow: 1, paddingHorizontal: 30, paddingTop: 40, paddingBottom: 48 },
   // 폰은 좁은 폭이라 보관함 · 내 공간과 같은 좌우 14, 제목 24(코덱스 2026-11-01)
   phoneScroll: { paddingHorizontal: 14, paddingTop: 16, paddingBottom: 40 },
   rail: { width: '100%', maxWidth: 640, alignSelf: 'center' },
+  // 회원정보 수정 본문: 설정 · 알림 설정과 같은 최대 폭 1040, 좌우 여백 30(지라 654, 태블릿 가로 정렬 통일). 폰은 폭이 좁아 그대로다
+  railWide: { width: '100%', maxWidth: 1040, alignSelf: 'center' },
   heading: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 28 },
   title: { fontSize: 28, fontWeight: '800', letterSpacing: -0.6, color: c.text, flex: 1 },
   titleCompact: { fontSize: 24, letterSpacing: -0.5 },
@@ -75,10 +77,10 @@ export const profileStyles = StyleSheet.create({
   dangerTextButton: { backgroundColor: 'transparent' },
   danger: { backgroundColor: c.dangerStrong }, // 흰 글자 대비 6.0:1
   disabled: { opacity: DISABLED_OPACITY },
-  // 하단 고정 바: 위 선 하나, 안쪽은 폼 폭(640)과 같다
-  bar: { paddingHorizontal: 32, paddingVertical: 16, borderTopWidth: 1, borderTopColor: c.cardBorder, backgroundColor: c.surface }, // 높이 84(버튼 52 + 위아래 16), 폰 76
+  // 하단 고정 바: 위 선 하나, 안쪽은 회원정보 수정 폼 폭(railWide 1040)과 같다 — 이 바는 회원정보 수정에서만 쓴다
+  bar: { paddingHorizontal: 30, paddingVertical: 16, borderTopWidth: 1, borderTopColor: c.cardBorder, backgroundColor: c.surface }, // 높이 84(버튼 52 + 위아래 16), 폰 76
   phoneBar: { paddingHorizontal: 20, paddingVertical: 12 },
-  barInner: { width: '100%', maxWidth: 640, alignSelf: 'center', flexDirection: 'row', justifyContent: 'flex-end', gap: 12 },
+  barInner: { width: '100%', maxWidth: 1040, alignSelf: 'center', flexDirection: 'row', justifyContent: 'flex-end', gap: 12 },
   phoneBarInner: { justifyContent: 'flex-start' },
   barButton: { minHeight: 52 },
   // 폰: 취소 96 + 저장은 남은 폭 전체. 폭 320 안팎에서는 저장 글자가 꺾이지 않게 저장은 글자 폭 아래로 줄지 않고 취소가 줄어든다(최소 64)
@@ -136,5 +138,13 @@ export const profileStyles = StyleSheet.create({
     marginTop: -10,
   },
   dialogBody: { gap: 14 },
+  // 회원 탈퇴 확인창: 공용 ConfirmDialog 틀(폭 320 · 모서리 24 · 안쪽 20 · 제목 16/700 · 버튼 오른쪽 정렬)에 확인 문구 입력칸만 더한다(지라 651)
+  confirmDialog: { width: 320, maxWidth: '100%', borderRadius: 12, padding: 20, gap: 8 },
+  confirmTitle: { color: c.text, fontWeight: '700', fontSize: 16 },
+  confirmActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 8, marginTop: 10 },
+  confirmButton: { minWidth: 76, minHeight: 48, paddingVertical: 10, paddingHorizontal: 16, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  confirmDanger: { backgroundColor: c.dangerStrong },
+  confirmCancelText: { fontSize: 14, fontWeight: '700', color: c.textMuted },
+  confirmOkText: { fontSize: 14, fontWeight: '700', color: c.surface },
   eye: { minHeight: 48, width: 44, alignItems: 'center', justifyContent: 'center' },
 });

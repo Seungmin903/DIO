@@ -85,56 +85,22 @@ function setup({
     ri = ei = 0;
     return mod.exports.default({ members, onPress() {}, ...props });
   };
-  let tree = render();
-  nodes(tree).find((n) => n.props.ref).props.ref.current = {
-    measureInWindow: (fn) => {
-      resolve = fn;
-    },
-  };
+  render();
   return {
     render,
     setProps(next) { props = next; },
-    open: () =>
-      nodes(render())
-        .find((n) => n.props.accessibilityLabel === '참여자 8명 보기')
-        .props.onPress(),
-    resolve: () => resolve(10, 20, 80, 44),
-    resize: () => {
-      dimensions = { width: 844, height: 390 };
-      render();
-    },
     unmount: () => cleanups.forEach((fn) => fn?.()),
   };
 }
-test('참여자 위치 측정이 늦게 끝나도 공유 창 진입·회전 후 목록을 다시 열지 않는다', () => {
+test('680: 상단 얼굴은 보여 주기만 하고 누르지 않는다(자세히 보기는 공유 버튼의 공유 창)', () => {
   const ui = setup();
-  ui.open();
-  nodes(ui.render())
-    .find((n) => n.props.accessibilityLabel === '다이어리 공유')
-    .props.onPress();
-  ui.resolve();
-  assert.ok(!nodes(ui.render()).some((n) => n.props.onRequestClose));
-  ui.open();
-  ui.resize();
-  ui.resolve();
-  assert.ok(!nodes(ui.render()).some((n) => n.props.onRequestClose));
-  ui.unmount();
-});
-test('가로 폰의 노치·홈 영역 안으로 참여자 목록 위치와 높이를 제한한다', () => {
-  const ui = setup({
-    width: 844,
-    height: 390,
-    insets: { left: 44, right: 44, top: 0, bottom: 20 },
-  });
-  ui.open();
-  ui.resolve();
-  const card = nodes(ui.render()).find(
-    (n) => n.type === 'Pressable' && Array.isArray(n.props.style),
-  );
-  const box = card.props.style[1];
-  assert.ok(box.left >= 52);
-  assert.ok(box.left + box.width <= 792);
-  assert.ok(box.top + box.maxHeight <= 362);
+  const tree = ui.render();
+  const group = nodes(tree).find((n) => /^함께하는 사람 \d+명/.test(n.props.accessibilityLabel ?? ''));
+  assert.equal(group.type, 'View');
+  assert.equal(group.props.onPress, undefined);
+  assert.ok(!nodes(tree).some((n) => n.props.onRequestClose), '참여자 목록 창은 없다');
+  // 공유 버튼은 그대로 눌린다
+  assert.equal(typeof nodes(tree).find((n) => n.props.accessibilityLabel === '다이어리 공유').props.onPress, 'function');
   ui.unmount();
 });
 

@@ -259,6 +259,15 @@ test('받은 이메일 초대 목록·확인·수락·거절은 이메일 초대
   assert.equal((await f.runtime.notificationApi.count()).actionableUnreadCount, 1);
 });
 
+test('다른 계정의 초대 ID로는 상세 조회나 수락 요청을 보내지 않는다', async () => {
+  const f = fixture({ fetch: async url => url.includes('/me/invites?')
+    ? reply({ items: [], hasNext: false }) : null });
+  await assert.rejects(f.runtime.invitationGateway.get('123'), { code: 'INVITE_NOT_FOUND' });
+  await assert.rejects(f.runtime.accept('123', '기본이름'), { code: 'INVITE_NOT_FOUND' });
+  assert.ok(f.calls.length > 0);
+  assert.ok(f.calls.every(call => call.url.includes('/me/invites?')));
+});
+
 test('붙여넣은 링크의 외부 주소로 인증 토큰을 보내지 않고 고정 API에서 토큰만 조회한다', async () => {
   const f = fixture();
   await f.runtime.resolveLink('https://another.example/invite/link-token?extra=1');
@@ -519,3 +528,24 @@ for (const email of ['legacy@[127.0.0.1]', 'legacy@old_domain.example', '"legacy
   const sent=f.calls.find(c=>c.method==='POST' && c.url.endsWith('/invites/email'));
   assert.equal(JSON.parse(sent.body).email,email);
  });
+
+test('거절한 초대는 받은 초대 목록(알림함)에서 빠진다', async () => {
+  const f = fixture({ fetch: async url => url.includes('/me/invites?') ? reply({ items: [
+    { inviteId: '1', token: 't1', diaryId, diaryTitle: '거절함', inviterNickname: '친구', status: 'DECLINED', createdAt: '2026-11-08T00:00:00Z' },
+    { inviteId: '2', token: 't2', diaryId, diaryTitle: '대기', inviterNickname: '친구', status: 'PENDING', createdAt: '2026-11-08T00:00:00Z' },
+    { inviteId: '3', token: 't3', diaryId, diaryTitle: '만료', inviterNickname: '친구', status: 'EXPIRED', createdAt: '2026-11-08T00:00:00Z' },
+  ], hasNext: false }) : null });
+  const list = await f.runtime.notificationApi.list();
+  assert.deepEqual(list.items.map(row => row.inviteId), ['2', '3']);
+});
+
+test('한 쪽이 전부 거절한 초대면 다음 쪽을 이어 받아 빈 목록 + 더 보기만 남지 않는다', async () => {
+  const pages = {
+    0: { items: [{ inviteId: '1', token: 't1', diaryId, diaryTitle: '거절', inviterNickname: '친구', status: 'DECLINED', createdAt: '2026-11-08T00:00:00Z' }], hasNext: true },
+    1: { items: [{ inviteId: '2', token: 't2', diaryId, diaryTitle: '대기', inviterNickname: '친구', status: 'PENDING', createdAt: '2026-11-08T00:00:00Z' }], hasNext: false },
+  };
+  const f = fixture({ fetch: async url => { const m = url.match(/\/me\/invites\?page=(\d+)/); return m ? reply(pages[m[1]]) : null; } });
+  const list = await f.runtime.notificationApi.list();
+  assert.deepEqual(list.items.map(row => row.inviteId), ['2']);
+  assert.equal(list.nextCursor, null);
+});

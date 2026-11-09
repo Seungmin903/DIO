@@ -23,9 +23,12 @@ public class PageService {
 
 	@Transactional(readOnly=true) public PageListResponse list(UUID diaryId,Long userId){diaryAccessService.requireRead(diaryId,userId);return listWithoutDiaryCheck(diaryId);}
 	@Transactional public PageResponse create(UUID diaryId,PageCreateRequest r,Long userId){
-		diaryAccessService.requireWrite(diaryId,userId); PageTemplate t=findTemplate(r.getTemplateId());
-        // 원격 속지(V34)는 형식에 맞는 remoteTemplate 이 있어야 하고 다른 속지에는 둘 수 없다(공유 구성원 앱이 이 값으로 속지를 찾는다)
-        RemoteTemplates.requireValidConfig(r.getTemplateConfig(),t==null?null:t.getCode());
+		diaryAccessService.requireWrite(diaryId,userId);
+        // 재시도 판별에 쓰는 행은 비활성이어도 읽는다(처음 요청 뒤 그 속지가 내려가도 이미 만든 페이지를 돌려준다). 활성 확인은 새로 만들 때 resolveTemplate 이 한다
+        PageTemplate byId=r.getTemplateId()==null?null:templateRepository.findById(r.getTemplateId()).orElseThrow(PageTemplateNotFoundException::new);
+        // 원격 속지(V34)는 형식에 맞는 remoteTemplate 이 있어야 하고 다른 속지에는 둘 수 없다(공유 구성원 앱이 이 값으로 속지를 찾는다).
+        // templateId 가 없으면 설정의 templateCode 로 원격 속지인지 본다
+        RemoteTemplates.requireValidConfig(r.getTemplateConfig(),byId==null?null:byId.getCode());
         String requestId=r.getTemplateConfig()==null?null:r.getTemplateConfig().path("clientPageRequestId").asText(null);
         if(requestId!=null){
             UUID.fromString(requestId);
@@ -37,14 +40,27 @@ public class PageService {
                 if(existing.getTemplateConfig()==null)continue;
                 var config=JSON.readTree(existing.getTemplateConfig());
                 if(!requestId.equals(config.path("clientPageRequestId").asText(null)))continue;
-                if(existing.getDeletedAt()!=null||!sameConfig(config,r.getTemplateConfig())||!Objects.equals(existing.getTemplateId(),r.getTemplateId())
-                    ||!Objects.equals(existing.getTitle(),r.getTitle())||existing.getCanvasWidth().compareTo(r.getCanvasWidth()==null?width(t):r.getCanvasWidth())!=0
-                    ||existing.getCanvasHeight().compareTo(r.getCanvasHeight()==null?height(t):r.getCanvasHeight())!=0
+                // 재시도 판별은 속지 해석(resolveTemplate)보다 먼저 한다. 처음 요청 뒤 그 속지가 내려가거나 행이 겹쳐도 이미 만든 페이지를 돌려줘야
+                // 앱이 대기 중인 요청을 지우고 같은 페이지를 한 장 더 만드는 일이 없다.
+                // templateId 없이 온 요청의 속지는 설정의 templateCode · templateVersion 이 정하므로 sameConfig 로 함께 비교된다
+                // (이 서버 배포 전에 template_id 없이 만든 페이지도 같다). templateId 를 직접 보낸 요청은 예전처럼 그 값을 비교한다
+                boolean sameTemplate=r.getTemplateId()==null||Objects.equals(existing.getTemplateId(),r.getTemplateId());
+                PageTemplate sized=byId!=null?byId:existing.getTemplateId()==null?null:templateRepository.findById(existing.getTemplateId()).orElse(null);
+                if(existing.getDeletedAt()!=null||!sameConfig(config,r.getTemplateConfig())||!sameTemplate
+                    ||!Objects.equals(existing.getTitle(),r.getTitle())||existing.getCanvasWidth().compareTo(r.getCanvasWidth()==null?width(sized):r.getCanvasWidth())!=0
+                    ||existing.getCanvasHeight().compareTo(r.getCanvasHeight()==null?height(sized):r.getCanvasHeight())!=0
                     ||existing.isGridVisible()!=Boolean.TRUE.equals(r.getGridVisible())||!Objects.equals(existing.getGridColor(),r.getGridColor()))throw new PageCreationConflictException();
                 return new PageResponse(pageData(existing));
             }
         }
-		DiaryPage page=new DiaryPage(diaryId,r.getTemplateId(),r.getTemplateConfig()==null?defaultConfig(t):copy(r.getTemplateConfig()),r.getTitle(),nextSortKey(diaryId),r.getCanvasWidth()==null?width(t):r.getCanvasWidth(),r.getCanvasHeight()==null?height(t):r.getCanvasHeight(),Boolean.TRUE.equals(r.getGridVisible()),r.getGridColor());
+		// 새 페이지: 앱은 templateId 없이 설정의 templateCode · templateVersion 으로 속지를 알린다. 그 글자로 속지 행을 찾아 template_id 를 채워 저장한다(V35 와 같은 기준)
+		PageTemplate t=resolveTemplate(r.getTemplateId(),r.getTemplateConfig()); Long templateId=t==null?null:t.getTemplateId();
+		// 코드로 속지를 알린 페이지는 만들 때 크기가 그 속지 행과 같아야 한다(V35 와 같은 기준). 다르면 template_id 와 페이지 크기가 어긋난다.
+		// 만든 뒤 크기를 바꾸는 수정(PDF 쪽 크기 맞추기 등)은 그대로 허용한다
+		if(t!=null&&r.getTemplateConfig()!=null&&r.getTemplateConfig().has("templateCode")
+		    &&((r.getCanvasWidth()!=null&&r.getCanvasWidth().compareTo(t.getCanvasWidth())!=0)||(r.getCanvasHeight()!=null&&r.getCanvasHeight().compareTo(t.getCanvasHeight())!=0)))
+		    throw new IllegalArgumentException("속지 크기와 페이지 크기가 다릅니다.");
+		DiaryPage page=new DiaryPage(diaryId,templateId,r.getTemplateConfig()==null?defaultConfig(t):copy(r.getTemplateConfig()),r.getTitle(),nextSortKey(diaryId),r.getCanvasWidth()==null?width(t):r.getCanvasWidth(),r.getCanvasHeight()==null?height(t):r.getCanvasHeight(),Boolean.TRUE.equals(r.getGridVisible()),r.getGridColor());
 		pageRepository.saveAndFlush(page); events.publishEvent(new PageCatalogChanged(diaryId));return new PageResponse(pageData(page));
 	}
 	@Transactional(readOnly=true) public PageDetailResponse detail(UUID pageId,Long userId){
@@ -66,14 +82,11 @@ public class PageService {
 			if(t!=null&&r.getTemplateConfig()==null&&RemoteTemplates.isRemoteCode(code)&&RemoteTemplates.isRemoteCode(currentTemplateCode(page)))
 				templateConfig=inheritRemoteTemplate(page.getTemplateConfig(),templateConfig);
 			JsonNode next=templateConfig==null?null:JSON.readTree(templateConfig);
-			// 설정만 바꾸면서 원격 ↔ 일반 속지 코드를 바꾸면 속지가 바뀌는 것이라 받지 않는다(속지 변경은 templateId 로).
-			// 속지 코드가 없는 페이지(빈 종이)는 일반 속지로 본다. 설정만으로 원격 속지가 되지 않는다
-			if(t==null&&next!=null&&next.path("templateCode").isString()
-				&&RemoteTemplates.isRemoteCode(code)!=RemoteTemplates.isRemoteCode(next.get("templateCode").asString()))
-				throw new IllegalArgumentException("설정으로 원격 속지와 일반 속지를 바꿀 수 없습니다.");
-			// 원격 속지 페이지는 설정만으로 방향 행(dio-remote-landscape ↔ portrait)도 바꿀 수 없다. 캔버스 크기와 어긋나 구성원 앱마다 다르게 그린다
-			if(t==null&&RemoteTemplates.isRemoteCode(code)&&next!=null&&next.path("templateCode").isString()&&!code.equals(next.get("templateCode").asString()))
-				throw new IllegalArgumentException("설정으로 원격 속지의 방향을 바꿀 수 없습니다. 속지 변경은 templateId 로 합니다.");
+			// 속지 변경은 templateId 로만 한다. 설정의 templateCode 는 지금 속지(templateId 를 보냈으면 그 행)와 같아야 한다.
+			// 다르면 template_id 와 설정이 서로 다른 속지를 가리키게 되므로 받지 않는다(원격 ↔ 일반, 원격 방향 바꾸기, 빈 종이 → 속지 모두 포함)
+			String nextCode=next!=null&&next.path("templateCode").isString()?next.get("templateCode").asString():null;
+			if(nextCode!=null&&!nextCode.equals(code))
+				throw new IllegalArgumentException(t!=null?"templateId 와 설정의 templateCode 가 다릅니다.":"설정으로 속지를 바꿀 수 없습니다. 속지 변경은 templateId 로 합니다.");
 			// 원격 속지 규칙은 실제로 저장될 설정으로 검사한다
 			RemoteTemplates.requireValidConfig(next,code);
 			templateConfig=preserveCreationRequestId(page.getTemplateConfig(),templateConfig);
@@ -150,6 +163,21 @@ public class PageService {
 		if(page.getTemplateConfig()==null)return null;
 		JsonNode code=JSON.readTree(page.getTemplateConfig()).path("templateCode");
 		return code.isString()?code.asString():null;
+	}
+	/**
+	 * 새 페이지의 속지 행. templateId 가 있으면 그 행, 설정에 templateCode 가 있으면 code · templateVersion 이 같은 활성 행.
+	 * 둘 다 있으면 같은 행이어야 한다. 없는 코드 · 버전이면 400 (오타 · 옛 코드가 저장되면 모든 구성원에게 속지가 깨진다)
+	 */
+	private PageTemplate resolveTemplate(Long id,JsonNode config){
+		PageTemplate t=findTemplate(id);
+		if(config==null||!config.isObject()||!config.has("templateCode"))return t;
+		if(!config.path("templateCode").isString()||!config.path("templateVersion").isString())throw new IllegalArgumentException("templateCode 와 templateVersion 은 함께 문자열로 보내야 합니다.");
+		var rows=templateRepository.findAllByCodeAndTemplateVersionAndIsActiveTrue(config.get("templateCode").asString(),config.get("templateVersion").asString());
+		if(rows.isEmpty())throw new UnknownPageTemplateException();
+		if(rows.size()>1)throw new PageTemplateCatalogException(config.get("templateCode").asString(),config.get("templateVersion").asString(),rows.size());
+		PageTemplate byCode=rows.get(0);
+		if(t!=null&&!t.getTemplateId().equals(byCode.getTemplateId()))throw new IllegalArgumentException("templateId 와 설정의 templateCode 가 다릅니다.");
+		return byCode;
 	}
 	private PageTemplate findTemplate(Long id){return id==null?null:templateRepository.findByTemplateIdAndIsActiveTrue(id).orElseThrow(PageTemplateNotFoundException::new);}
 	private BigDecimal nextSortKey(UUID diaryId){BigDecimal max=pageRepository.findMaxSortKeyByDiaryId(diaryId);return max==null?SORT_STEP:max.add(SORT_STEP);}

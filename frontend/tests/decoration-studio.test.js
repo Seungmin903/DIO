@@ -15,7 +15,7 @@ const stickerAction = (ui, text) => {
   find(ui.render(), '스티커 추가').props.onPress()
   return nodes(ui.render()).find(n => n.type === '../components/DiaryActionBubble').props.actions.find(action => action.text === text)
 }
-function fixture({ supported = false, failFonts = false, family = null, failRemove = false, libraryReady = true, entries = [], cutout = false, platform = 'web', pickerCalls = [], pickedImage = null, discarded = [] } = {}) {
+function fixture({ supported = false, failFonts = false, family = null, failRemove = false, libraryReady = true, entries = [], cutout = true, platform = 'web', pickerCalls = [], pickedImage = null, discarded = [] } = {}) {
   const states = [], refs = [], deps = [], cleanups = [], saves = [], removals = []
   let si, ri, ei, studio = null, fontLoads = 0, backHandler = null
   const opened = [], draftRemovals = []
@@ -42,7 +42,7 @@ function fixture({ supported = false, failFonts = false, family = null, failRemo
     if (id.endsWith('/useMyLibrary')) return { __esModule: true, default: () => library }
     if (id.endsWith('/useDefaultPaperStyle')) return { __esModule: true, default: () => ({ style: {}, ready: true, save: async () => true }) }
     if (id === 'react/jsx-runtime') return require(id)
-    if (id === 'react-native') return { Platform: { OS: platform }, StyleSheet: {create:v=>v}, View:'View', Text:'Text', Pressable:'Pressable', ScrollView:'ScrollView' }
+    if (id === 'react-native') return { Platform: { OS: platform }, Keyboard: { dismiss() {} }, StyleSheet: {create:v=>v}, View:'View', Text:'Text', Pressable:'Pressable', ScrollView:'ScrollView' }
     if (id.endsWith('/services/image')) return { pickImages: async opts => { pickerCalls.push(['photo', opts.usage]); return pickedImage ? [pickedImage] : [] } }
     if (id.endsWith('/services/mediaStore')) return { discardGeneratedMedia: async items => { discarded.push(...items) } }
     if (id.endsWith('/utils/mediaRecovery.js')) return { mediaFailureMessage: error => error.message }
@@ -148,17 +148,23 @@ test('폰트 제작 재사용·닫기 후 목록 새로고침과 파일 오류 �
   assert.equal(nodes(failed.render()).some(n=>n.props.children==='private'),false)
   failed.unmount()
 })
-test('미지원 시트 분리는 차단하고 저장이 미리보기뿐인 사진 오리기 입구는 감춘다', async () => {
+test('미지원 시트 분리는 차단하고 API 연결된 사진 오리기 입구를 노출한다', async () => {
   const ui = fixture(); ui.render(); await tick(); ui.tab('stickers')
   assert.equal(stickerAction(ui,'스티커 시트 분리').disabled,true)
-  assert.equal(stickerAction(ui,'사진 속 대상 오리기'),undefined)
-  assert.equal(nodes(ui.render()).some(n=>n.type?.includes?.('StickerCutoutModal')),false)
+  assert.equal(stickerAction(ui,'사진 속 대상 오리기').text,'사진 속 대상 오리기')
   assert.equal(ui.saves.length,0)
   ui.unmount()
-  // 스위치를 켜면 같은 말풍선에 오리기 항목이 돌아온다
-  const on = fixture({ cutout: true }); on.render(); await tick(); on.tab('stickers')
-  assert.equal(stickerAction(on,'사진 속 대상 오리기').text,'사진 속 대상 오리기')
-  on.unmount()
+  const off = fixture({ cutout: false }); off.render(); await tick(); off.tab('stickers')
+  assert.equal(stickerAction(off,'사진 속 대상 오리기'),undefined)
+  off.unmount()
+})
+test('사진 오리기 저장은 공방 보관함 저장 함수를 호출한다', async () => {
+  const ui = fixture(); ui.render(); await tick(); ui.tab('stickers')
+  stickerAction(ui, '사진 속 대상 오리기').onPress()
+  const modal = nodes(ui.render()).find(n => n.type?.includes?.('StickerCutoutModal'))
+  await modal.props.onSave(undefined, ' 내 스티커 ', [{ emoji: '🌼' }])
+  assert.deepEqual(ui.saves, [[undefined, ' 내 스티커 ', [{ emoji: '🌼' }]]])
+  ui.unmount()
 })
 test('시트 분리 저장은 기존 보관함 함수를 사용하고 삭제는 확인 전까지 반영하지 않는다', async () => {
   const ui=fixture({supported:true}); ui.render(); await tick(); ui.tab('stickers')

@@ -9,6 +9,8 @@ import CharacterArt from '../../shared/CharacterArt';
 // 벡터로 그린다(shared/CharacterArt). 그림 둘레의 투명 여백을 뺀 먹선 경계로 배치한다(shared/characterScale CHARACTER_ART).
 const MASCOT_HEIGHT = 112;
 const COMPACT_MASCOT_HEIGHT = 96;
+// small: 폰 공유 창 알림처럼 좁은 창 안 빈 화면(그림 72 · 제목 16 · 최소 높이 없음, 2026-11-08 지라 686)
+const SMALL_MASCOT_HEIGHT = 72;
 const art = (character, heightScale) => {
   const { width, height, ink } = CHARACTER_ART[character];
   return { character, sourceWidth: width, sourceHeight: height, ...ink, heightScale };
@@ -31,14 +33,14 @@ export function LoadingSpot({ label, compact = false, art = 'moa' }) {
   );
 }
 
-export default function EmptyState({ title, onCreate, action = null, search = false, compact = false, art = 'moa', raised = false }) {
+export default function EmptyState({ title, onCreate, action = null, search = false, compact = false, small = false, art = 'moa', raised = false }) {
   const picture = search ? null : ART[art] || ART.moa;
-  const scale = picture ? (compact ? COMPACT_MASCOT_HEIGHT : MASCOT_HEIGHT) * picture.heightScale / picture.height : 0;
+  const scale = picture ? (small ? SMALL_MASCOT_HEIGHT : compact ? COMPACT_MASCOT_HEIGHT : MASCOT_HEIGHT) * picture.heightScale / picture.height : 0;
   return (
-    <View style={[s.empty, compact && s.emptyCompact, raised && (compact ? s.emptyRaisedCompact : art === 'dio' ? s.emptyRaisedTrash : s.emptyRaised)]}>
+    <View style={[s.empty, compact && s.emptyCompact, small && s.emptySmall, raised && (compact ? s.emptyRaisedCompact : art === 'dio' ? s.emptyRaisedTrash : s.emptyRaised)]}>
       {picture ? (
         // 그림은 꾸밈이라 화면 읽기 프로그램에서는 건너뛰고 제목만 읽힌다
-        <View style={{ width: picture.width * scale, height: picture.height * scale, marginBottom: 14, overflow: 'hidden' }}>
+        <View style={{ width: picture.width * scale, height: picture.height * scale, marginBottom: small ? 10 : 14, overflow: 'hidden' }}>
           <CharacterArt character={picture.character} style={{
             position: 'absolute', left: -picture.left * scale, top: -picture.top * scale,
             width: picture.sourceWidth * scale, height: picture.sourceHeight * scale,
@@ -49,7 +51,7 @@ export default function EmptyState({ title, onCreate, action = null, search = fa
           <AppIcon name="search" size={30} color={C.blue} strokeWidth={1.7} />
         </View>
       )}
-      <Text accessibilityRole="header" style={s.emptyTitle}>{title}</Text>
+      <Text accessibilityRole="header" style={[s.emptyTitle, small && s.emptyTitleSmall]}>{title}</Text>
       {action && (
         <Pressable accessibilityRole="button" onPress={action.onPress} style={({ pressed }) => [s.secondary, pressed && s.pressed]}>
           <Text style={s.secondaryText}>{action.label}</Text>

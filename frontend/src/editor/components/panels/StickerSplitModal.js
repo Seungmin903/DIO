@@ -33,6 +33,8 @@ export default function StickerSplitModal({ folder, initialName = '', onSave, on
   const pendingScroll = useRef(null)
   const longPressGroup = useRef(null)
   const initialPickerOpened = useRef(false)
+  // 699: 창보다 갤러리를 먼저 연다. 고르면 그때 창을 애니메이션 없이 띄우고(갤러리 뒤로 올라오며 깜박이지 않게), 갤러리를 닫으면 창 없이 공방 · 편집기로 바로 돌아간다(빈 '이미지 선택' 창을 남기지 않음)
+  const [shown, setShown] = useState(false)
   const [name, setName] = useState(folder?.name ?? initialName)
   const [source, setSource] = useState(null)
   const previewHeight = wide ? Math.max(180, height - insets.top - insets.bottom - 152)
@@ -77,21 +79,25 @@ export default function StickerSplitModal({ folder, initialName = '', onSave, on
   function openInitialPicker() {
     if (initialPickerOpened.current) return
     initialPickerOpened.current = true
-    return chooseImage()
+    return chooseImage({ initial: true })
   }
-  async function chooseImage() {
+  // iOS 에서 말풍선이 닫히는 중에 갤러리를 띄우지 않도록 여는 쪽이 기다린다(공방은 openPickerAfterMenu). InteractionManager 는 SDK 58 에서 빠졌다
+  useEffect(() => { openInitialPicker() }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  // 버튼은 눌림 이벤트를 첫 인자로 넘기므로 '처음 자동으로 연 갤러리'는 { initial: true } 로만 가린다(리뷰)
+  async function chooseImage(options) {
+    const initial = options?.initial === true
     if (busy.current) return
     busy.current = true; setPhase('picking'); setError('')
     try {
       const next = await stickerSplit.pick()
-      if (!next) return
+      if (!next) { if (initial && !sourceRef.current && alive.current) onClose(); return }
       if (!alive.current) { stickerSplit.disposeSource(next); return }
       for (const id of jobIds.current) stickerSplit.cancel(id)
       await stickerSplit.cleanup(jobIds.current); jobIds.current = []
       if (!alive.current) { stickerSplit.disposeSource(next); return }
       if (sourceRef.current) stickerSplit.disposeSource(sourceRef.current)
-      sourceRef.current = next; setSourceReady(false); setSource(next); setParts([]); editing.reset(); setCrop(FULL_CROP); setCropDefined(true); setAddCrop(null); setBackground(null); setToleranceDraft(null); setMode('review'); setDirty(false); setSection('background'); setManualMerge(false); setMergeTargets([]); setMore(false); setSmallOnly(false); setZoomed(null); setFocusedPart(null); setView({ zoom: 1, x: 0, y: 0 })
-    } catch (failure) { if (alive.current) setError(/이미지|GIF|선택/.test(failure.message) ? failure.message : splitError(failure)) }
+      sourceRef.current = next; setShown(true); setSourceReady(false); setSource(next); setParts([]); editing.reset(); setCrop(FULL_CROP); setCropDefined(true); setAddCrop(null); setBackground(null); setToleranceDraft(null); setMode('review'); setDirty(false); setSection('background'); setManualMerge(false); setMergeTargets([]); setMore(false); setSmallOnly(false); setZoomed(null); setFocusedPart(null); setView({ zoom: 1, x: 0, y: 0 })
+    } catch (failure) { if (alive.current) { setShown(true); setError(/이미지|GIF|선택/.test(failure.message) ? failure.message : splitError(failure)) } }
     finally { busy.current = false; if (alive.current) setPhase('idle') }
   }
   async function run(kind = 'replace', targetCrop = crop) {
@@ -247,7 +253,7 @@ export default function StickerSplitModal({ folder, initialName = '', onSave, on
   }
   const preview = source && <View style={[s.previewPane, wide && s.previewPaneWide]}>
     <View style={s.imageHeader}>
-      <Action label="이미지 바꾸기" disabled={working} onPress={chooseImage} />
+      <Action label="이미지 바꾸기" disabled={working} onPress={() => chooseImage()} />
     </View>
     <View style={s.preview}>
       <StickerSplitPreview key={source.uri} source={source} parts={parts} selected={selected} groups={groups}
@@ -288,7 +294,7 @@ export default function StickerSplitModal({ folder, initialName = '', onSave, on
       </MakerBar>
     </View>}
   </View>
-  return <EditorModal visible animationType="slide" onShow={openInitialPicker} onRequestClose={() => zoomed ? setZoomed(null) : close()}>
+  return <EditorModal visible={shown} animationType="none" onRequestClose={() => zoomed ? setZoomed(null) : close()}>
     <View style={[s.screen, { paddingTop: Math.max(8, insets.top), paddingBottom: Math.max(12, insets.bottom), paddingLeft: insets.left, paddingRight: insets.right }]}>
       {/* 제작 화면 문법(디자인 가이드 5.8): 높이 64 상단 바, 왼쪽 `<` 가 이 흐름에서 나가기, 오른쪽엔 되돌리기 · 다시 실행만 */}
       <MakerHeader title="스티커 시트 분리" onBack={close} backLabel="닫기" busy={saving || phase === 'picking'}>
@@ -305,7 +311,7 @@ export default function StickerSplitModal({ folder, initialName = '', onSave, on
             keyboardShouldPersistTaps="handled" contentContainerStyle={s.content} columnWrapperStyle={s.cardRow}
             scrollEnabled={!interacting} onContentSizeChange={revealPending}
             ListHeaderComponent={<View onLayout={event => { headerSection.current = section; listHeaderHeight.current = event.nativeEvent.layout.height + 10; revealPending() }}>
-              {!source ? <View style={s.empty}><Action label="이미지 선택" primary disabled={working} onPress={chooseImage} /></View> : <>
+              {!source ? <View style={s.empty}><Action label="이미지 선택" primary disabled={working} onPress={() => chooseImage()} /></View> : <>
                 {!wide && preview}
                 <StickerSplitTools section={section} onChange={changeSection} disabled={working || !sourceReady}
                   hasResults={!!parts.length} summaries={summaries}>

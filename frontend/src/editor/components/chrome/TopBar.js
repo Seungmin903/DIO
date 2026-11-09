@@ -50,7 +50,7 @@ export default function TopBar({
           <TitleField compact title={doc.title} renamable={!readOnly && Boolean(onRename)} onCommit={onRename} />
         </View>
         <View style={[styles.right, styles.rightCompact]}>
-          {onOpenSharing && <SharingEntry variant="bar" members={sharingMembers} count={invitationCount} onPress={onOpenSharing} showLabel={false} memberLimit={1} hideCounter plain />}
+          {onOpenSharing && <SharingEntry variant="bar" members={sharingMembers} count={invitationCount} onPress={onOpenSharing} showLabel={false} memberLimit={3} hideCounter plain />}
           {exportEnabled && <Pressable ref={shareRef} onPress={() => { shareRef.current?.measureInWindow?.((x, y, width, height) => onShareAnchor?.({ x, y, width, height })); onShare() }} hitSlop={2} style={({ pressed }) => [styles.toggle, styles.toggleCompact, pressed && styles.togglePressed]} accessibilityRole="button" accessibilityLabel={shareLabel}>
             <Icon name={shareIcon} size={20} />
           </Pressable>}
@@ -113,7 +113,7 @@ export default function TopBar({
 
       {/* 오른쪽 묶음의 왼쪽 끝(공유 버튼)부터 화면 오른쪽 끝까지의 폭을 알린다: 레이어 창이 이 폭으로 열려 왼쪽 끝이 공유 버튼과 맞는다(페이지 버튼 · 페이지 목록과 같은 짝) */}
       <View style={styles.right} onLayout={onRightWidth ? (event) => onRightWidth(windowWidth - event.nativeEvent.layout.x) : undefined}>
-        {onOpenSharing && <SharingEntry variant="bar" members={sharingMembers} count={invitationCount} onPress={onOpenSharing} showLabel={semi} memberLimit={wide ? 2 : 1} hideCounter={!semi}/>}
+        {onOpenSharing && <SharingEntry variant="bar" members={sharingMembers} count={invitationCount} onPress={onOpenSharing} showLabel={semi} memberLimit={semi ? 3 : 1} hideCounter={!semi}/>}
         {!readOnly && <IconToggle chip icon="layers" label="레이어" text={mid ? '레이어' : undefined} active={layersOpen} onPress={onToggleLayers} />}
         {exportEnabled && <Pressable ref={shareRef} onPress={() => { shareRef.current?.measureInWindow?.((x, y, width, height) => onShareAnchor?.({ x, y, width, height })); onShare() }} hitSlop={2} style={styles.share} accessibilityLabel={shareLabel}>
           <Icon name={shareIcon} size={20} forText={13} color={colors.surface} />
@@ -163,7 +163,10 @@ function TitleField({ title, renamable, onCommit, compact }) {
       <Text style={[styles.tabTitle, compact && styles.docTitleText]} numberOfLines={1}>
         {title}
       </Text>
-      {renamable && <Icon name="edit" size={13} forText={compact ? 15 : 13} color={colors.textMuted} />}
+      {/* 폰(compact)은 제목 15 에 맞춘 연필이 대문자 높이보다 커 보이고 1 높게 떠 있었다 — 태블릿(13 글자 · 13 연필)과 같은 비율로 13 에 맞추고 살짝 내린다(2026-11-08) */}
+      {renamable && (compact
+        ? <View style={styles.titlePencilCompact}><Icon name="edit" size={13} forText={13} color={colors.textMuted} /></View>
+        : <Icon name="edit" size={13} forText={13} color={colors.textMuted} />)}
     </Pressable>
   )
 }
@@ -196,7 +199,8 @@ const HOME_SHIFT = 4
 const styles = StyleSheet.create({
   narrowTitle: { flex: 1, minWidth: 0, alignItems: 'center', flexDirection: 'row' },
   bar: {
-    height: 52, // 태블릿: 아래 도구 줄(50)과 함께 쓰는 높이를 줄여 작업창을 넓힌다
+    height: 59, // 태블릿: 버튼 줄 52 + 위 여백 7(아래 도구 줄 50 과 함께 쓰는 높이)
+    paddingTop: 7, // 버튼(44) 위 보이는 여백 11(= 7 + 52 칸 안 4). 오른쪽 여백(22)만큼은 넓어 반으로 줄였다(2026-11-08)
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
@@ -240,6 +244,7 @@ const styles = StyleSheet.create({
   // 오른쪽 구분선: 흰 표지면 색 띠가 흰 탭과 이어져 보이지 않으므로 늘 한 줄 긋는다
   spine: { position: 'absolute', left: 0, top: 0, bottom: 0, width: 20, opacity: 0.92, borderRightWidth: 1, borderRightColor: colors.cardBorder },
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: 5, flexShrink: 1 },
+  titlePencilCompact: { marginTop: 0.5 },
   tabTitle: { flexShrink: 1, fontSize: 13, fontWeight: '700', color: colors.text },
   titleInput: {
     minWidth: 140,

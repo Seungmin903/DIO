@@ -9,6 +9,8 @@ export const safetyStyles = StyleSheet.create({
   header: { minHeight: 64, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', gap: 12, borderBottomWidth: 1, borderColor: c.cardBorder, backgroundColor: c.surface },
   // 폰은 화면 전체를 덮어 상단 안전 영역이 바탕색(surfaceSoft)이다. 머리줄도 같은 색이어야 위쪽이 두 색으로 갈리지 않는다(지라 598)
   phoneHeader: { backgroundColor: c.surfaceSoft },
+  // 머리줄 오른쪽 X: 터치 48, 그림 오른쪽 끝을 머리줄 안쪽 여백(16)에 맞춘다(왼쪽 ‹ 의 marginLeft -12 와 대칭)
+  closeButton: { width: 48, height: 48, marginRight: -12, alignItems: 'center', justifyContent: 'center', borderRadius: 10 },
   title: { fontSize: 19, fontWeight: '700', color: c.text, flex: 1 },
   body: { padding: 20, gap: 16, flexGrow: 1 },
   heading: { fontSize: 15, fontWeight: '700', color: c.text },

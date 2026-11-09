@@ -188,7 +188,7 @@ const server = http.createServer((req, res) => {
       assert.ok(await button('탈퇴하기').isEnabled());
       await page.waitForTimeout(350);
       await page.screenshot({ path: path.join(out, `withdraw-${width}.png`) });
-      await button('확인 창 닫기').click();
+      await button('취소').click();
       await button('회원 탈퇴').click();
       assert.equal(await input('탈퇴 확인 문구').inputValue(), '');
       await input('탈퇴 확인 문구').fill('탈퇴합니다');

@@ -6,7 +6,7 @@ const read = (path) => readFileSync(new URL(path, import.meta.url), 'utf8')
 
 test('648: 폰 더보기 메뉴는 항목이 다 보이는 높이까지 펴지고, 자리가 모자랄 때만 줄어 스크롤한다', () => {
   const bar = read('../src/editor/components/canvas/ContextBar.js')
-  assert.match(bar, /const COMPACT_MENU_MAX_ROWS = 8\nconst COMPACT_MENU_HEIGHT = COMPACT_MENU_MAX_ROWS \* 44 \+ 10/)
+  assert.match(bar, /const COMPACT_MENU_MAX_ROWS = 8\nconst COMPACT_MENU_HEIGHT = COMPACT_MENU_MAX_ROWS \* 48 \+ 10/)
   assert.doesNotMatch(bar, /4\.5 \* 44/)
   // 아래에 메뉴 전체가 안 들어가고 위가 더 넓으면 위로 올린다
   assert.match(bar, /const below = spaceBelow >= COMPACT_MENU_HEIGHT \|\| spaceBelow >= spaceAbove/)

@@ -46,9 +46,11 @@ export default function StudioShelf({ kind, items, onRemove, onRename, onOpen })
                 ? <PdfPageThumb page={item.pages[0]} width={slot.width - 2} ratio={slot.width / slot.height} maxHeight={slot.height - 2} />
                 // 견본의 '다이어리 이름' 자리는 표지 편집 미리보기와 같은 '새 다이어리'(파일 이름이 표지 제목처럼 보이지 않게)
                 : <CoverArt cover={item.cover} name="새 다이어리" width={slot.width} height={slot.height} />;
+              // 표지는 CoverArt 가 책 모양(왼쪽 6 · 오른쪽 14 모서리)을 직접 그리니 바깥 틀로 다시 자르지 않는다(지라 677)
+              const artStyle = paper ? local.art : local.coverArt;
               return onOpen
-                ? <Pressable accessibilityRole="button" accessibilityLabel={paper ? `${label} 속지 펼치기` : `${label} 표지 편집`} onPress={() => onOpen(item)} style={[local.art, slot]}>{art}</Pressable>
-                : <View accessible accessibilityRole="image" accessibilityLabel={paper ? `${label} 속지` : `${label} 표지`} style={[local.art, slot]}>{art}</View>;
+                ? <Pressable accessibilityRole="button" accessibilityLabel={paper ? `${label} 속지 펼치기` : `${label} 표지 편집`} onPress={() => onOpen(item)} style={[artStyle, slot]}>{art}</Pressable>
+                : <View accessible accessibilityRole="image" accessibilityLabel={paper ? `${label} 속지` : `${label} 표지`} style={[artStyle, slot]}>{art}</View>;
             })()}
             <View style={local.meta}>
               <View style={local.names}>
@@ -79,6 +81,7 @@ const local = StyleSheet.create({
   grid: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-end', gap: GAP, paddingVertical: 4 },
   cell: { alignItems: 'center' },
   art: { overflow: 'hidden', borderRadius: 12, borderWidth: 1, borderColor: colors.cardBorder, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surface },
+  coverArt: { alignItems: 'center', justifyContent: 'center' },
   meta: { flexDirection: 'row', alignItems: 'center', marginTop: 6 },
   names: { flex: 1, minWidth: 0, paddingLeft: 2 },
   name: { fontSize: 14, fontWeight: '700', color: colors.text },

@@ -124,7 +124,7 @@ function IconButton({ icon, label, danger, onPress }) {
 // 선택 바(ContextBar)와 같은 크기·모양
 const styles = StyleSheet.create({
   wrap: { alignItems: 'flex-start', gap: 6 },
-  bar: { height: 52, flexDirection: 'row', alignItems: 'center', gap: 2, paddingHorizontal: 5, borderRadius: 12, backgroundColor: colors.surface, ...shadow.float },
+  bar: { height: 52, flexDirection: 'row', alignItems: 'center', gap: 2, paddingHorizontal: 5, borderRadius: 16, backgroundColor: colors.surface, ...shadow.float },
   formatRow: { gap: 6, paddingHorizontal: 10 },
   button: { flexDirection: 'row', alignItems: 'center', gap: 5, height: 42, paddingHorizontal: 10, borderRadius: 11 },
   buttonText: { fontSize: 12.5, fontWeight: '700', color: colors.text },
