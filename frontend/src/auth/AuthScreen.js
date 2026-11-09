@@ -540,7 +540,7 @@ export default function AuthScreen({
                 }} />
             ) : route === 'link' ? (
               <View style={s.form}>
-                <Text style={s.muted}>이미 가입된 이메일이에요. 기존 계정 비밀번호를 확인하면 구글 로그인을 연결할 수 있어요.</Text>
+                <Text style={s.muted}>이미 가입된 이메일이에요. 기존 계정 비밀번호를 확인하면 {profile?.provider === 'apple' ? '애플' : '구글'} 로그인을 연결할 수 있어요.</Text>
                 <FormField label="이메일" value={profile?.email || ''} editable={false} />
                 <FormField onInputFocus={focusInput} onInputBlur={blurInput} inputRef={passwordInput}
                   label="기존 비밀번호" placeholder="기존 비밀번호를 입력해 주세요" value={linkPassword}
@@ -548,7 +548,7 @@ export default function AuthScreen({
                   returnKeyType="done" onSubmitEditing={linkExistingAccount} />
                 <View ref={submitArea} style={s.submitArea}>
                   <View style={s.submitErrorSlot}>{message ? <Text accessibilityRole="alert" accessibilityLiveRegion="polite" style={[s.error,s.submitError]}>{message}</Text> : null}</View>
-                  {primary('구글 로그인 연결', linkExistingAccount, !linkPassword)}
+                  {primary(`${profile?.provider === 'apple' ? '애플' : '구글'} 로그인 연결`, linkExistingAccount, !linkPassword)}
                 </View>
               </View>
             ) : route === 'welcome' || route === 'signup' ? (

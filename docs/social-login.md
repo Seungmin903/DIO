@@ -33,6 +33,12 @@
 
 사진은 같은 경로의 multipart `oauth`(application/json) 및 선택 `photo`를 사용한다. 새 이미지 API는 추가하지 않고 기존 프로필 사진 저장/조회 경로를 쓴다. 기존 계정 로그인 요청으로 사진을 변경하지 않는다.
 
+### 기존 계정 연결·해제
+
+기존 이메일 계정 연결은 `POST /api/v1/auth/oauth/{provider}/link`로 요청한다. `{ "idToken":"...", "email":"member@example.com", "password":"기존 DIO 비밀번호" }`를 보내며, 성공하면 일반 로그인과 같은 200 `LoginResponse`를 받는다. `SOCIAL_IDENTITY_ALREADY_LINKED`, `SOCIAL_PROVIDER_ALREADY_LINKED`, `SOCIAL_LINK_CONFLICT`는 409이고 `INVALID_EXISTING_CREDENTIALS`는 401이다. 비밀번호가 없는 소셜 전용 기존 계정은 `SOCIAL_EXISTING_PROVIDER_LOGIN_REQUIRED`(409)로 기존 제공자 로그인 후 연결하도록 안내한다.
+
+연결 해제는 `DELETE /api/v1/me/auth-providers/{provider}`에 새 제공자 `idToken`을 본문으로 보내며 성공 시 204다. `SOCIAL_PROVIDER_NOT_LINKED`(404), `SOCIAL_PROVIDER_MISMATCH`(403), `LAST_LOGIN_PROVIDER`(409)를 반환한다. 마지막 **사용 가능한** 로그인 수단(소셜 제공자 또는 비밀번호 해시가 있는 EMAIL)은 해제할 수 없다.
+
 선택 약관은 기존 4종을 독립 전송하며 필수 v2/선택 v1 규칙을 재사용한다. 새 회원의 닉네임·만 14세 이상 자기확인이 필요하다. 기존 회원은 인증 후 프로필 입력 없이 바로 로그인한다. 현재 기존 화면 흐름상 소셜 버튼 다음 연령·약관 확인을 먼저 거친다.
 
 ## 검증과 오류

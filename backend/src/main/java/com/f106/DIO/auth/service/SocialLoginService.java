@@ -70,7 +70,8 @@ public class SocialLoginService {
             var linked=accounts.findForUpdate(provider.name(),identity.subject()).orElseThrow(()->error(HttpStatus.NOT_FOUND,"SOCIAL_PROVIDER_NOT_LINKED","연결된 로그인 방식이 아니에요."));
             if(!linked.getUserId().equals(userId))throw error(HttpStatus.FORBIDDEN,"SOCIAL_PROVIDER_MISMATCH","다른 계정에 연결된 로그인 방식이에요.");
             var all=accounts.findAllForUserUpdate(userId);
-            if(all.size()<=1)throw error(HttpStatus.CONFLICT,"LAST_LOGIN_PROVIDER","마지막 로그인 방식은 해제할 수 없어요.");
+            long usable=all.stream().filter(a->!"EMAIL".equals(a.getProvider())||a.getPasswordHash()!=null).count();
+            if(usable<=1)throw error(HttpStatus.CONFLICT,"LAST_LOGIN_PROVIDER","마지막 로그인 방식은 해제할 수 없어요.");
             accounts.delete(linked);
         });
     }
@@ -101,8 +102,12 @@ public class SocialLoginService {
             // 기존 이메일 계정은 약관·프로필을 다시 입력시키지 않고 곧바로
             // 비밀번호 확인을 거쳐 제공자를 연결한다. 이메일 일치만으로는 연결하지 않는다.
             String email=UserInput.normalizeEmail(identity.email());
-            if(enrollment==null && identity.emailVerified() && email!=null && users.existsByEmail(email))
-                throw error(HttpStatus.CONFLICT,"SOCIAL_ACCOUNT_LINK_REQUIRED","기존 계정 비밀번호를 확인해 구글 로그인을 연결해 주세요.");
+            if(enrollment==null && identity.emailVerified() && email!=null && users.existsByEmail(email)) {
+                var emailAccount=accounts.findByProviderAndProviderUserId("EMAIL",email).orElse(null);
+                if(emailAccount!=null&&emailAccount.getPasswordHash()!=null)
+                    throw error(HttpStatus.CONFLICT,"SOCIAL_ACCOUNT_LINK_REQUIRED","기존 계정 비밀번호를 확인해 소셜 로그인을 연결해 주세요.");
+                throw error(HttpStatus.CONFLICT,"SOCIAL_EXISTING_PROVIDER_LOGIN_REQUIRED","기존 로그인 방식으로 로그인한 뒤 계정을 연결해 주세요.");
+            }
             if(enrollment==null)throw error(HttpStatus.CONFLICT,"SOCIAL_SIGNUP_REQUIRED","가입 정보를 입력해 주세요.");
             if(!validator.validate(enrollment).isEmpty())throw error(HttpStatus.BAD_REQUEST,"INVALID_SOCIAL_ENROLLMENT","연령 확인과 가입 정보를 확인해 주세요.");
             terms.validate(enrollment.agreements());
