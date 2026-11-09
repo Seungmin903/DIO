@@ -85,9 +85,15 @@ export function drawGlassStroke(canvas, points, width, color, _zoom = 1, ink = {
   if (broken || !points?.length) return false
   const P = GLASS_INK
   try {
-    const dabs = glassDabs(points, width)
+    // 표본 수 상한: 아주 긴 획(되돌아오는 스크리블)은 길이가 수만 px 이라 간격을 그대로 두면
+    // 표본이 수만 개가 되고 고임 계산이 프레임을 먹는다(실측 260ms). 길이에 맞춰 간격을 벌린다.
+    let len = 0
+    for (let i = 1; i < points.length; i++) len += Math.hypot(points[i].x - points[i - 1].x, points[i].y - points[i - 1].y)
+    const base = Math.max(0.25, width * P.pathSpacing)
+    const step = Math.max(base, len / P.pathMaxSamples)
+    const dabs = glassDabs(points, width, { ...P, spacing: step / width })
     if (dabs.length < 2) return false
-    const { pool } = glassPool(dabs, width)
+    const { pool } = glassPool(dabs, width, P.poolSpread, step)
     const sheenEdge = ink.sheen === false ? 0 : P.sheenEdge * (ink.sheenAmount ?? 1)
     const body = bodyPaint(color, ink, P, width)
     // 테: 획 전체를 굵기대로 한 번 깔고, 그 위에 몸통을 띠만큼 좁게 덮는다.

@@ -12,7 +12,11 @@
 export const GLASS_INK = {
   version: 25,
   T_MAX: 4,            // 마스크 G 채널 1.0 = 두께 4
-  spacing: 0.12,       // 표본 간격(굵기 배수)
+  spacing: 0.12,       // 표본 간격(굵기 배수) — 도장을 찍던 시절 값(하네스 전용)
+  // 앱은 도장을 찍지 않고 경로만 그으므로 이렇게 촘촘할 필요가 없다. 표본 수가 줄면
+  // 고임 계산(이웃 세기)이 제곱으로 가벼워진다 — 긴 획을 빠르게 그을 때의 렉이 여기서 왔다.
+  pathSpacing: 0.45,   // 앱 경로용 표본 간격(굵기 배수)
+  pathMaxSamples: 2500, // 획 하나의 표본 수 상한(길면 간격을 벌린다)
   // 속도 → 두께: 빠르면 얇게, 느리면 두껍게 (page 단위/ms)
   tFast: 0.75,
   tSlow: 1.55,
@@ -253,10 +257,10 @@ half4 main(float2 p) {
 //   pool_i = Σ_j  t_j · (간격 × 굵기) · G2(거리)   ← 가우시안 블러의 이산합과 같다
 //   cov_i  = 같은 식에서 t_j = 1
 // 곧은 선 하나면 pool ≈ t · 굵기 / (σ√2π) 로, 블러로 재던 값(굵기 2.5 · σ 6.25 에서 0.16·t)과 같다.
-export function glassPool(dabs, width, spread = GLASS_INK.poolSpread) {
+export function glassPool(dabs, width, spread = GLASS_INK.poolSpread, step = Math.max(0.02, width * GLASS_INK.pathSpacing)) {
   const n = dabs.length, pool = new Float32Array(n), cov = new Float32Array(n)
   if (!n) return { pool, cov }
-  const step = Math.max(0.02, width * GLASS_INK.spacing), area = step * width
+  const area = step * width
   const k = 1 / (2 * Math.PI * spread * spread), inv2s2 = 1 / (2 * spread * spread)
   const reach = spread * 2.5, cell = reach
   // 획을 따라 이어진 이웃(|i−j| ≤ gap)은 곧은 선이면 늘 같은 값이므로 식으로 바로 구한다.
