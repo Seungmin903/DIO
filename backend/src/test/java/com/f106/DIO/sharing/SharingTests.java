@@ -72,7 +72,8 @@ class SharingTests extends SharingTestSupport {
              "ribbon":{"color":"#ABCDEF"},"band":{"on":false}}
             """.formatted(mediaId), id);
 
-        String invitePath = "/api/v1/invites/" + links.create(id, owner.id()).token();
+        String linkToken = links.create(id, owner.id()).token();
+        String invitePath = "/api/v1/invites/" + linkToken;
         mvc.perform(get(invitePath).header("Authorization", "Bearer " + outsider.token()))
             .andExpect(status().isOk())
             .andExpect(header().string("Cache-Control", "private, no-store"))
@@ -104,6 +105,20 @@ class SharingTests extends SharingTestSupport {
             .andExpect(status().isForbidden());
         mvc.perform(get(emailImagePath).header("Authorization", "Bearer " + recipient.token()))
             .andExpect(status().isOk()).andExpect(content().bytes(png));
+
+        var expired = invites.saveAndFlush(new com.f106.DIO.sharing.domain.DiaryInvite(
+            id, owner.id(), Instant.now().minusSeconds(3601).truncatedTo(java.time.temporal.ChronoUnit.MICROS)));
+        String expiredToken = tokenSigner.token(expired);
+        expired.initializeHash(tokenSigner.hash(expiredToken));
+        invites.saveAndFlush(expired);
+        mvc.perform(get("/api/v1/invites/" + expiredToken + "/cover-media/" + mediaId))
+            .andExpect(status().isGone()).andExpect(jsonPath("code").value("INVITE_EXPIRED"));
+
+        jdbc.update("update diary_invites set max_uses=1,use_count=1 where invite_id=?", tokenSigner.id(linkToken));
+        mvc.perform(get(invitePath)).andExpect(status().isOk())
+            .andExpect(jsonPath("$.cover.kind").value("plain"));
+        mvc.perform(get(imagePath)).andExpect(status().isNotFound());
+        jdbc.update("update diary_invites set use_count=0 where invite_id=?", tokenSigner.id(linkToken));
 
         jdbc.update("update diaries set cover_json=? where diary_id=?", "{}", id);
         mvc.perform(get(imagePath)).andExpect(status().isNotFound());

@@ -2,6 +2,8 @@ import { normalizeSharingNickname, sharingNicknameError, normalizeInviteEmail, i
 import { AUTHENTICATION_FAILED_MESSAGE } from '../auth/sessionExpiry.js';
 
 export const isSharingDiaryId = id => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id || '');
+const INVITE_COVER_CACHE_TTL_MS = 30_000;
+const INVITE_COVER_CACHE_MAX_LENGTH = 2 * 1024 * 1024;
 
 // 로그인 세션에 묶인 공유 API. 로컬 다이어리를 서버 다이어리로 가장하지 않는다.
 export function createSharingApi({ user, auth, fetchImpl = globalThis.fetch, buildPhotoBody,
@@ -54,7 +56,7 @@ export function createSharingApi({ user, auth, fetchImpl = globalThis.fetch, bui
   }
   const path = id => { ensureServerId(id); return `/diaries/${encodeURIComponent(id)}`; };
   const uri = value => value ? new URL(value, baseUrl).href : null;
-  const cachedPhoto = (key, load, ttlMs = photoCacheTtlMs) => {
+  const cachedPhoto = (key, load, ttlMs = photoCacheTtlMs, maxLength = Infinity) => {
     const cached = photoCache.get(key);
     if (cached && cached.expiresAt > now()) {
       // Map insertion order is our small LRU policy.
@@ -66,7 +68,8 @@ export function createSharingApi({ user, auth, fetchImpl = globalThis.fetch, bui
     const entry = { value: pending, expiresAt: now() + ttlMs };
     photoCache.set(key, entry);
     while (photoCache.size > maxPhotoCacheEntries) photoCache.delete(photoCache.keys().next().value);
-    pending.then(value => { if (!value && photoCache.get(key) === entry) photoCache.delete(key); }, () => { if (photoCache.get(key) === entry) photoCache.delete(key); });
+    const remove = () => { if (photoCache.get(key) === entry) photoCache.delete(key); };
+    pending.then(value => { if (!value || value.length > maxLength) remove(); }, remove);
     return pending;
   };
   async function privatePhoto(value) {
@@ -120,7 +123,7 @@ export function createSharingApi({ user, auth, fetchImpl = globalThis.fetch, bui
     if (!isSharingDiaryId(id))
       fail('LOCAL_DIARY', '서버에서 만든 다이어리만 공유할 수 있어요.');
   };
-  async function inviteDiary(row, token, signal) {
+  async function inviteDiary(row, token, { signal, reuseImages = false } = {}) {
     const revision = generation;
     const pattern = row.coverStyle && row.coverStyle !== 'PLAIN' ? row.coverStyle.toLowerCase() : null;
     const diary = { diaryId: row.diaryId, id: row.diaryId, title: row.title || row.diaryTitle,
@@ -133,7 +136,11 @@ export function createSharingApi({ user, auth, fetchImpl = globalThis.fetch, bui
       if (!isSharingDiaryId(id)) return item;
       if (!images.has(id)) {
         const url = new URL(`${baseUrl}/invites/${encodeURIComponent(token)}/cover-media/${encodeURIComponent(id)}`);
-        images.set(id, readPhoto(url, () => headers(url.href), true, signal));
+        const load = () => readPhoto(url, () => headers(url.href), true, reuseImages ? undefined : signal);
+        // A shared download must survive cancellation by just one of its callers.
+        images.set(id, reuseImages
+          ? cachedPhoto(`invite:${url.href}`, load, INVITE_COVER_CACHE_TTL_MS, INVITE_COVER_CACHE_MAX_LENGTH)
+          : load());
       }
       const { mediaFileId, ...preview } = item;
       return { ...preview, src: await images.get(id) };
@@ -172,7 +179,8 @@ export function createSharingApi({ user, auth, fetchImpl = globalThis.fetch, bui
   async function inviteDetail(own, signal) {
     const detail = await request(`/invites/${encodeURIComponent(own.token)}`, { signal });
     return { ...own, ...detail, inviteId: own.inviteId, token: own.token,
-      diary: await inviteDiary({ ...own, ...detail }, own.token, signal), canOpen: detail.status === 'PENDING' };
+      diary: await inviteDiary({ ...own, ...detail }, own.token, { signal, reuseImages: detail.status === 'PENDING' }),
+      canOpen: detail.status === 'PENDING' };
   }
   async function receivedWithCovers({ cursor, signal, inviteIds } = {}) {
     const page = await received({ cursor, signal });

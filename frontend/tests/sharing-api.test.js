@@ -556,12 +556,14 @@ test('홈 알림 썸네일, 받은 초대 상세, 링크 미리보기가 같은 
   const unavailableId = '33333333-3333-4333-8333-333333333333';
   const image = { mediaFileId: mediaId, src: `media:${mediaId}` };
   const builtin = { id: 'builtin-sticker', builtin: 'star' };
-  const f = fixture({ fetch: async url => {
+  let clock = 0, revoked = false;
+  const f = fixture({ runtimeOptions: { now: () => clock }, fetch: async url => {
     if (url.endsWith('/cover-media/' + mediaId)) return new Response(new Uint8Array([1, 2, 3]), {
       headers: { 'Content-Type': 'image/webp' },
     });
     if (url.endsWith('/cover-media/' + unavailableId)) return reply(null, 404);
     if (url.endsWith('/invites/private-token') || url.endsWith('/invites/link-token')) {
+      if (revoked) return reply({ code: 'INVITE_REVOKED' }, 410);
       return reply({ diaryId, title: '우리 기록', status: 'PENDING', pageSize: 'portrait',
         coverColor: '#123456', coverStyle: 'DOT', cover: {
           kind: 'photo', photo: { ...image, aspect: 2 }, band: { on: false }, ribbon: { color: '#FFFFFF' },
@@ -584,7 +586,16 @@ test('홈 알림 썸네일, 받은 초대 상세, 링크 미리보기가 같은 
   ]);
   for (const token of ['link-token', 'private-token']) {
     const imageCalls = f.calls.filter(call => call.url.includes(`/invites/${token}/cover-media/`));
-    assert.equal(imageCalls.length, token === 'private-token' ? 4 : 2);
+    assert.equal(imageCalls.filter(call => call.url.endsWith(mediaId)).length, 1);
+    assert.equal(imageCalls.filter(call => call.url.endsWith(unavailableId)).length, token === 'private-token' ? 2 : 1);
     assert.ok(imageCalls.every(call => call.headers['X-DIO-Access-Token'] === 'test-token'));
   }
+  assert.equal(f.calls.filter(call => call.url.endsWith('/invites/private-token')).length, 2);
+  clock += 30_001;
+  await describeSharingInvitations(f.runtime.notificationApi, ['123']);
+  assert.equal(f.calls.filter(call => call.url.endsWith(`/invites/private-token/cover-media/${mediaId}`)).length, 2);
+  revoked = true;
+  const refreshed = await describeSharingInvitations(f.runtime.notificationApi, ['123']);
+  assert.equal(refreshed.get('123').diary.cover, undefined);
+  assert.equal(f.calls.filter(call => call.url.endsWith(`/invites/private-token/cover-media/${mediaId}`)).length, 2);
 });
