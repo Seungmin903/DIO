@@ -517,8 +517,16 @@ function drawParts(canvas, parts, style) {
   // 셰이더가 실패하면 아래 평범한 선으로 떨어진다.
   if (kind === 'glass') {
     const pts = parts.flatMap(part => part.points)
-    if (style.live ? drawGlassLive(canvas, pts, style.width, style.color, style.zoom ?? 1, style.ink)
-                   : drawGlassStroke(canvas, pts, style.width, style.color, style.zoom ?? 1, style.ink)) return
+    if (!style.live) {
+      if (drawGlassStroke(canvas, pts, style.width, style.color, style.zoom ?? 1, style.ink)) return
+    } else {
+      // 쓰는 중에는 평범한 선을 먼저 깔고 그 위에 유리펜 그림을 얹는다.
+      // 셰이더 쪽에 무슨 일이 나도 쓰는 사람이 획을 못 보는 일은 없어야 한다(선은 잉크 그림에 덮인다).
+      const under = linePath(parts)
+      if (under) canvas.drawPath(under, strokePaint(style.color, style.width))
+      drawGlassLive(canvas, pts, style.width, style.color, style.zoom ?? 1, style.ink)
+      return
+    }
   }
   if (isNibKind(kind)) {
     const paths = nibPreviewPaths(parts, style.width, kind)

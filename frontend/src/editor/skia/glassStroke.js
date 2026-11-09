@@ -16,7 +16,7 @@ const SAMPLING = { filter: FilterMode.Linear, mipmap: MipmapMode.None }   // 밉
 const makeSurface = (w, h) => Skia.Surface.MakeOffscreen ? Skia.Surface.MakeOffscreen(w, h) : Skia.Surface.Make(w, h)
 const hex3 = color => { const c = Skia.Color(color); return [c[0], c[1], c[2]] }
 
-let effect = null, broken = false, logged = 0
+let effect = null, broken = false, logLive = 0, logDone = 0
 export const glassBroken = () => broken
 
 // 도장 스프라이트: 안티에일리어스 흰 원. 많이 줄이면 가장자리가 거칠어지므로 크기를 몇 단계로 나눠 둔다.
@@ -124,7 +124,7 @@ let live = null, keep = []
 const sweep = (n = 3) => { while (keep.length > n) keep.shift()?.dispose?.() }
 export function endGlassLive() {
   while (keep.length) keep.shift()?.dispose?.()
-  live?.mask?.dispose?.(); live?.blur?.dispose?.(); live?.out?.dispose?.(); live = null
+  live?.mask?.dispose?.(); live?.blur?.dispose?.(); live?.outs?.[0]?.dispose?.(); live?.outs?.[1]?.dispose?.(); live = null
 }
 export function drawGlassLive(canvas, points, width, color, zoom = 1, ink = {}) {
   if (broken || !points?.length) return false
@@ -137,13 +137,19 @@ export function drawGlassLive(canvas, points, width, color, zoom = 1, ink = {}) 
       && need.x + need.w <= live.box.x + live.box.w && need.y + need.h <= live.box.y + live.box.h
     if (!inside) {
       endGlassLive()
-      const grow = Math.max(160, width * 24)   // 획이 자랄 여유를 미리 잡아 둔다(자주 다시 만들지 않게)
+      const grow = Math.max(72, width * 10)    // 획이 자랄 여유(크게 잡으면 매 프레임 블러 비용이 커진다)
       const box = { x: need.x - grow, y: need.y - grow, w: need.w + 2 * grow, h: need.h + 2 * grow }
       const { ppu, pw, ph } = sizeOf(box, zoom)
       if (pw * ph > MAX_PIXELS) return false
-      const mask = makeSurface(pw, ph), blur = makeSurface(Math.ceil(pw / POOL_DIV), Math.ceil(ph / POOL_DIV)), out = makeSurface(pw, ph)
-      if (!mask || !blur || !out) { mask?.dispose?.(); blur?.dispose?.(); out?.dispose?.(); throw new Error(`MakeOffscreen ${pw}x${ph} 실패`) }
-      live = { key, box, ppu, pw, ph, mask, blur, out, count: 0 }
+      // 구울 표면은 **두 장을 번갈아** 쓴다. 한 장만 쓰면 다음 프레임에 그 표면을 지우는 순간
+      // 아직 화면에 그려지지 않은 앞 프레임의 이미지까지 비어 버린다(쓰는 중 획이 안 보이던 원인).
+      const mask = makeSurface(pw, ph), blur = makeSurface(Math.ceil(pw / POOL_DIV), Math.ceil(ph / POOL_DIV))
+      const outs = [makeSurface(pw, ph), makeSurface(pw, ph)]
+      if (!mask || !blur || !outs[0] || !outs[1]) {
+        mask?.dispose?.(); blur?.dispose?.(); outs[0]?.dispose?.(); outs[1]?.dispose?.()
+        throw new Error(`MakeOffscreen ${pw}x${ph} 실패`)
+      }
+      live = { key, box, ppu, pw, ph, mask, blur, outs, turn: 0, count: 0 }
       stampDabs(mask, dabs, 0, box, ppu, true)
       live.count = dabs.length
     } else if (dabs.length > live.count) {
@@ -155,16 +161,18 @@ export function drawGlassLive(canvas, points, width, color, zoom = 1, ink = {}) 
     blurPool(live.blur, maskImage, live.ppu)
     live.blur.flush()
     const poolImage = live.blur.makeImageSnapshot()
-    const oc = live.out.getCanvas()
+    live.turn ^= 1
+    const out = live.outs[live.turn]
+    const oc = out.getCanvas()
     oc.clear(Skia.Color('transparent'))
     oc.save(); oc.scale(live.ppu, live.ppu); oc.translate(-live.box.x, -live.box.y)
     paintInk(oc, live.box, live.ppu, color, width, ink, maskImage, poolImage)
     oc.restore()
-    live.out.flush()
-    const baked = live.out.makeImageSnapshot()
+    out.flush()
+    const baked = out.makeImageSnapshot()
     maskImage.dispose?.(); poolImage.dispose?.()   // 굽는 데만 썼다(이 자리에서 다 쓰임)
-    keep.push(baked); sweep()
-    if (logged < 6) { logged++; console.log(`[유리펜] 쓰는중 ${live.pw}x${live.ph} ppu ${live.ppu.toFixed(2)} 도장 ${dabs.length}`) }
+    keep.push(baked); sweep(2)
+    if (logLive < 40) { logLive++; console.log(`[유리펜] 쓰는중 ${live.pw}x${live.ph} 도장 ${dabs.length} 상자 ${Math.round(live.box.x)},${Math.round(live.box.y)} ${Math.round(live.box.w)}x${Math.round(live.box.h)}`) }
     canvas.save()
     canvas.translate(live.box.x, live.box.y); canvas.scale(live.box.w / live.pw, live.box.h / live.ph)
     canvas.drawImage(baked, 0, 0)
@@ -210,7 +218,7 @@ export function drawGlassStroke(canvas, points, width, color, zoom = 1, ink = {}
     canvas.translate(box.x, box.y); canvas.scale(box.w / pw, box.h / ph)
     canvas.drawImage(baked, 0, 0)
     canvas.restore()
-    if (logged < 6) { logged++; console.log(`[유리펜] 완성 ${pw}x${ph} ppu ${ppu.toFixed(2)} 도장 ${dabs.length}`) }
+    if (logDone < 12) { logDone++; console.log(`[유리펜] 완성 ${pw}x${ph} ppu ${ppu.toFixed(2)} 도장 ${dabs.length}`) }
     return true
   } catch (error) {
     broken = true
