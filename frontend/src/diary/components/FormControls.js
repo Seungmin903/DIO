@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native'
 import { SettingSwitch } from './SettingRow'
 import ColorPicker from '../../editor/components/controls/ColorPicker'
@@ -8,7 +8,7 @@ import { Segmented } from '../../editor/components/ToolPanel'
 import { colors } from '../../shared/theme'
 import { clampWhole } from '../utils/paperChoice'
 import { PanelScroll } from './Workbench'
-import useFillGrid from '../../shared/useFillGrid'
+import { GRID_COLUMNS, swatchGridLayout } from '../utils/swatchGridLayout'
 
 // 새 다이어리 · 다이어리 수정 화면이 함께 쓰는 입력 부품.
 // 숫자는 − [값] + 단위, 색은 견본 줄 + # HEX + 색 고르기, 켜고 끄는 요소는 줄 머리의 스위치.
@@ -74,26 +74,27 @@ const dark = color => {
   return r * 0.299 + g * 0.587 + b * 0.114 < 150
 }
 
-// 색 견본 격자: 칸 크기를 맞춰 어느 팔레트든 열이 맞는다. 터치 48이 들어가는 만큼 한 줄에 둔다(최대 7칸).
+// 색 견본 격자: 칸 크기를 맞춰 어느 팔레트든 열이 맞는다. 한 줄은 늘 7칸이다.
 // 견본(최대 6) + 맨 끝 사용자 지정 칸이 한 줄, 그 아래 줄(그라데이션 등)도 같은 열에 놓인다.
-export const GRID_COLUMNS = 7
+export { GRID_COLUMNS }
 const CellSize = createContext(36)
 // 견본 터치 여유(hitSlop). 위아래 6, 좌우는 칸 사이 폭의 절반까지만(이웃 견본 터치 영역과 겹치지 않게, 리뷰 지적 2026-11-08)
 const SwatchSlop = createContext({ top: 6, bottom: 6, left: 6, right: 6 })
 
-// 칸 크기는 고정한다. 폭을 잰 뒤 다시 그리면 처음 그린 칸이 커지며 아래 줄이 밀린다.
-// 칸 36 + 사이 4 이상(위아래 터치 48, 좌우 터치 여유는 사이 폭의 절반까지 — SwatchSlop). 7칸이 들어가는 최소 폭은 276 이라 태블릿 가로의 좁은 옵션 판에서도 맨 끝 + 칸이 혼자 다음 줄로 내려가지 않는다.
-// 폭이 더 모자라면 한 줄 칸 수를 줄인다(가장 넓을 때 7칸). 넓을 때는 spreadGap 이 사이를 넓혀 끝을 맞춘다.
-const CELL = 36, CELL_GAP = 4
-
+// 칸 크기 · 사이는 utils/swatchGridLayout: 한 줄은 늘 7칸이고 좁은 폰에서는 줄을 바꾸지 않고 칸을 줄인다(지라 796).
+// 줄 수는 폭과 상관없이 같아 잰 뒤 다시 그려도 아래 줄이 칸 크기 차이만큼만 움직인다.
 /** 견본 격자 */
 export function SwatchGrid({ label, children }) {
-  // 칸(36)은 그대로 두고 사이만 넓혀 7번째 칸 오른쪽 끝을 줄 끝에 맞춘다(useFillGrid spreadGap)
-  const grid = useFillGrid({ cell: CELL, gap: CELL_GAP, maxColumns: GRID_COLUMNS })
-  const side = Math.max(0, Math.min(6, Math.floor(grid.spreadGap / 2)))
+  const [width, setWidth] = useState(0)
+  const onLayout = useCallback(event => {
+    const next = event.nativeEvent.layout.width
+    setWidth(prev => (Math.abs(prev - next) < 0.5 ? prev : next))
+  }, [])
+  const { cell, gap } = swatchGridLayout(width)
+  const side = Math.max(0, Math.min(6, Math.floor(gap / 2)))
   const slop = useMemo(() => ({ top: 6, bottom: 6, left: side, right: side }), [side])
-  return <View accessibilityRole="radiogroup" accessibilityLabel={label} style={[styles.grid, { columnGap: grid.spreadGap }]} onLayout={grid.onLayout}>
-    <CellSize.Provider value={CELL}><SwatchSlop.Provider value={slop}>{children}</SwatchSlop.Provider></CellSize.Provider>
+  return <View accessibilityRole="radiogroup" accessibilityLabel={label} style={[styles.grid, { columnGap: gap }]} onLayout={onLayout}>
+    <CellSize.Provider value={cell}><SwatchSlop.Provider value={slop}>{children}</SwatchSlop.Provider></CellSize.Provider>
   </View>
 }
 
@@ -169,7 +170,7 @@ export function AutoSwatch({ color, on, onPress, label }) {
   return <Pressable accessibilityRole="radio" accessibilityLabel={label} accessibilityState={{ selected: on, checked: on }} onPress={onPress} hitSlop={slop}
     style={[styles.ring, { width: size, height: size, borderRadius: size / 2 }, on && styles.ringOn]}>
     <View style={[styles.swatch, { width: inner, height: inner, borderRadius: inner / 2, backgroundColor: color }]}>
-      <Text allowFontScaling={false} numberOfLines={1} style={[styles.autoText, { color: dark(color) ? '#FFFFFF' : colors.text }]}>맞춤</Text>
+      <Text allowFontScaling={false} numberOfLines={1} style={[styles.autoText, { fontSize: Math.min(11, inner / 2), color: dark(color) ? '#FFFFFF' : colors.text }]}>맞춤</Text>
     </View>
   </Pressable>
 }

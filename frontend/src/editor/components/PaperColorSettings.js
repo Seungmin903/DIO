@@ -7,6 +7,7 @@ import PaperFontDropdown from '../../diary/components/PaperFontDropdown'
 import { Segmented, ToolPanelHeader, toolPanelStyles } from './ToolPanel'
 import { START_HOURS } from '../templates/studyPlanner.js'
 import { HIGHLIGHTER_COLORS } from '../utils/penSettings'
+import { paletteSwatchStyles } from './controls/EditablePalette'
 
 const SCOPES = [{ id: 'page', label: '이 페이지' }, { id: 'all', label: '모든 페이지' }]
 
@@ -43,12 +44,15 @@ export default function PaperColorSettings({ appearance, onChange, onClose, styl
         {[['backgroundColor', '배경색', PAPER_BACKGROUNDS], ['layoutColor', '레이아웃 색', PAPER_LAYOUTS]].map(([key, label, presets]) => (
           <View key={key} style={styles.section}>
             <Text style={toolPanelStyles.label}>{label}</Text>
-            <View style={styles.row}>
+            {/* 색 견본 줄은 펜 · 글자 · 테이프 팔레트와 같은 규격(칸 = 줄 폭의 1/8, 원 28)이라 7색이 기기와 상관없이 한 줄에 놓인다(지라 796) */}
+            <View style={paletteSwatchStyles.row}>
               {presets.map(([name, color]) => {
                 const on = appearance[key]?.toUpperCase() === color.toUpperCase()
                 return (
-                  <Pressable hitSlop={8} key={color} disabled={saving} onPress={() => pick({ [key]: color })} accessibilityRole="radio" accessibilityLabel={`${label} ${name}`} accessibilityState={{ selected: on, disabled: saving }}
-                    style={[styles.swatch, { backgroundColor: color }, on && styles.swatchOn]} />
+                  <Pressable key={color} disabled={saving} onPress={() => pick({ [key]: color })} accessibilityRole="radio" accessibilityLabel={`${label} ${name}`} accessibilityState={{ selected: on, disabled: saving }}
+                    style={paletteSwatchStyles.cell}>
+                    <View style={[paletteSwatchStyles.dot, { backgroundColor: color }, on && paletteSwatchStyles.chosen]} />
+                  </Pressable>
                 )
               })}
             </View>
@@ -73,14 +77,15 @@ function PlannerOptions({ options, onChange }) {
     <>
       <View style={styles.section}>
         <Text style={toolPanelStyles.label}>쉬는 시간 색 · 합계에서 빼요</Text>
-        <View style={styles.row}>
+        <View style={paletteSwatchStyles.row}>
           {rest.map((color) => {
             const on = (options.restColor ?? null) === (color && color.toUpperCase())
             return (
               <Pressable key={color ?? 'none'} onPress={() => onChange?.({ restColor: color && color.toUpperCase() })} accessibilityRole="radio"
-                accessibilityLabel={color ? `쉬는 시간 색 ${color}` : '쉬는 시간 색 없음'} accessibilityState={{ selected: on }} hitSlop={10}
-                style={[styles.restSwatch, color ? { backgroundColor: color } : styles.none, on && styles.swatchOn]}>
-                {!color && <Text style={styles.noneText}>없음</Text>}
+                accessibilityLabel={color ? `쉬는 시간 색 ${color}` : '쉬는 시간 색 없음'} accessibilityState={{ selected: on }} style={paletteSwatchStyles.cell}>
+                <View style={[paletteSwatchStyles.dot, styles.restDot, color ? { backgroundColor: color } : styles.none, on && paletteSwatchStyles.chosen]}>
+                  {!color && <Text style={styles.noneText}>없음</Text>}
+                </View>
               </Pressable>
             )
           })}
@@ -110,10 +115,7 @@ function DayPlannerOptions({ options, onChange }) {
 
 const styles = StyleSheet.create({
   section: { gap: 8 },
-  row: { flexDirection: 'row', flexWrap: 'wrap', columnGap: 16, rowGap: 16 },
-  swatch: { width: 32, height: 32, borderRadius: 16, borderWidth: 1, borderColor: 'rgba(28,28,28,0.15)' },
-  swatchOn: { borderWidth: 3, borderColor: colors.primary },
-  restSwatch: { width: 28, height: 28, borderRadius: 14, borderWidth: 1, borderColor: 'rgba(28,28,28,0.15)', alignItems: 'center', justifyContent: 'center' },
+  restDot: { alignItems: 'center', justifyContent: 'center' },
   none: { backgroundColor: colors.surface },
   noneText: { fontSize: 11, fontWeight: '700', color: colors.textMuted },
 })
