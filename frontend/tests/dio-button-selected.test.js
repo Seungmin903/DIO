@@ -41,6 +41,8 @@ test('처리 중(loading) 버튼은 아이콘 자리에 글자색 스피너를 �
   assert.equal(find(busy, 'spinner').props.color, 'WHITE')
   assert.equal(busy.props.disabled, true)
   assert.deepEqual(busy.props.accessibilityState, { disabled: true, selected: false, busy: true })
+  // react-native-web은 accessibilityState.busy를 aria-busy로 옮기지 않아 따로 넘긴다
+  assert.equal(busy.props['aria-busy'], true)
   assert.equal(busy.props.accessibilityLabel, '사진 선택')
   assert.equal(flat(busy.props.style).opacity, undefined)
   assert.equal(labelColor(busy), 'WHITE')

@@ -19,7 +19,7 @@ export default function DioButton({ variant = 'tonal', label, text = label, icon
   const glyph = iconOnly ? 22 : 18;
   return (
     // 안드로이드는 accessibilityState · disabled 에 참 · 거짓이 아닌 값(예: 'merge')이 오면 멈춘다
-    <Pressable accessibilityRole="button" accessibilityLabel={label} accessibilityHint={hint} accessibilityState={{ disabled: !!(disabled || loading), selected: !!selected, busy: !!loading }}
+    <Pressable accessibilityRole="button" accessibilityLabel={label} accessibilityHint={hint} accessibilityState={{ disabled: !!(disabled || loading), selected: !!selected, busy: !!loading }} aria-busy={!!loading}
       disabled={!!(disabled || loading)} onPress={onPress} onLongPress={onLongPress}
       style={[local.base, iconOnly ? local.icon : local.text, local[variant], outline && variant === 'ghost' && local.outline, block && local.block, selected && local.selected, disabled && !loading && local.disabled, style]}>
       {loading ? <View style={[local.spinner, { width: glyph, height: glyph }]}><ActivityIndicator size="small" color={ink} /></View>
