@@ -148,3 +148,54 @@ test('합치기는 앞쪽 순서를 지키고 뒤쪽에만 있는 폴더 · 스�
   const merged = mergeFolders([folder('a', 'A', [{ mediaFileId: L1 }])], [folder('b', 'B', []), folder('a', 'A2', [{ mediaFileId: L1 }, { builtin: 'x' }])])
   assert.deepEqual(merged, [folder('a', 'A', [{ mediaFileId: L1 }, { builtin: 'x' }]), folder('b', 'B', [])])
 })
+
+test('기기만 바뀐 저장이 409 로 다른 기기 변경과 합쳐지면 그 결과를 기기에도 들여, 다음 맞추기에서 다른 기기 폴더를 지우지 않는다', async () => {
+  const remote = server()
+  const a = device(remote, { folders: [folder('f1', '여행', [sticker(L1)])] })
+  await a.sync.start()
+  remote.state.conflictOnce = true // 저장 직전에 다른 기기가 'other' 폴더를 만든다
+  a.edit([folder('f1', '여행 2', [sticker(L1)])])
+  await a.sync.whenIdle()
+  assert.deepEqual(remote.state.folders.map(f => f.id), ['f1', 'other'])
+  assert.deepEqual(a.local.folders.map(f => f.id), ['f1', 'other'])
+  // 다음 맞추기에서 서버를 기기 목록으로 덮어쓰지 않는다
+  await a.sync.sync()
+  assert.deepEqual(remote.state.folders.map(f => f.id), ['f1', 'other'])
+})
+
+test('서버 것을 들일 때도 아직 올리지 못한 스티커 · 보낼 수 없는 칸 · 맞춘 적 없는 폴더는 기기에서 지우지 않는다', async () => {
+  const remote = server(), failUploads = new Set([L2])
+  const a = device(remote, { failUploads, folders: [folder('f1', '여행', [sticker(L1)])] })
+  await a.sync.start()
+  // 서버가 다른 기기에서 바뀌었고, 그사이 이 기기에서는 올리지 못할 스티커와 스타일만 있는 칸, 보낼 수 없는 id 의 폴더를 더했다
+  remote.state.version++; remote.state.folders = [folder('f1', '여행', [...remote.state.folders[0].items, { emoji: '⭐' }])]
+  a.edit([folder('f1', '여행', [sticker(L1), sticker(L2), { style: 'only' }]), folder('로컬 폴더', '로컬', [])])
+  await a.sync.whenIdle()
+  const items = a.local.folders.find(f => f.id === 'f1').items
+  assert.ok(items.some(item => item.mediaFileId === L2))
+  assert.ok(items.some(item => item.style === 'only'))
+  assert.ok(items.some(item => item.emoji === '⭐'))
+  assert.ok(a.local.folders.some(f => f.id === '로컬 폴더'))
+  assert.equal(remote.state.folders[0].items.some(item => item.emoji === '⭐'), true)
+})
+
+test('다른 기기에서 지운 폴더는 지우되, 그 폴더의 올리지 못한 스티커는 남긴다', async () => {
+  const remote = server(), failUploads = new Set()
+  const a = device(remote, { failUploads, folders: [folder('f1', '여행', [sticker(L1)]), folder('f2', '지울 폴더', [])] })
+  await a.sync.start()
+  remote.state.version++; remote.state.folders = [remote.state.folders[0]] // 다른 기기에서 f2 를 지웠다
+  await a.sync.sync()
+  assert.deepEqual(a.local.folders.map(f => f.id), ['f1'])
+})
+
+test('서버 한도에 맞춰 보낸다: 이름의 제어 문자 · 길이를 정리하고, 개수 한도를 넘는 것은 보내지 않고 기기에 남긴다', async () => {
+  const remote = server()
+  const many = Array.from({ length: 205 }, (_, i) => folder(`f${i}`, `폴더${i}`, []))
+  many[0] = folder('f0', `이름\u0000${'가'.repeat(60)}`, [{ builtin: 'heart', name: `스티커\n${'나'.repeat(300)}` }, { builtin: 'x'.repeat(201) }])
+  const a = device(remote, { folders: many })
+  await a.sync.start()
+  assert.equal(remote.state.folders.length, 200)
+  assert.equal(remote.state.folders[0].name, `이름${'가'.repeat(38)}`)
+  assert.deepEqual(remote.state.folders[0].items, [{ builtin: 'heart', name: `스티커${'나'.repeat(197)}` }])
+  assert.equal(a.local.folders.length, 205) // 기기에는 모두 남는다
+})
