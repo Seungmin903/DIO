@@ -27,8 +27,8 @@ export default function SignupTerms({ terms, onChange, onView, disabled }) {
           </View>
         ))}
       </View>
-      <DocumentRow label="개인정보처리방침" accessibilityLabel="개인정보처리방침 보기"
-        disabled={disabled} onPress={() => onView('policy', '개인정보처리방침')} />
+      <DocumentRow label="개인정보 처리방침" accessibilityLabel="개인정보 처리방침 보기"
+        disabled={disabled} onPress={() => onView('policy', '개인정보 처리방침')} />
       <View style={s.consentDivider} />
       <Text accessibilityRole="header" style={s.consentTitle}>마케팅 수신 동의 (선택)</Text>
       <View style={s.consentRequired}>

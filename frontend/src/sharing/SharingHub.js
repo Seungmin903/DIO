@@ -511,7 +511,7 @@ export default function SharingHub({
         () => runtime.removeMember(diary.id, current.member.id),
         (result) => {
           setDiary(result);
-          setToast('참여자를 내보냈어요.');
+          setToast('참여자를 제외했어요.');
         },
       );
     else
@@ -860,11 +860,12 @@ export default function SharingHub({
                         onPress={() => run(() => onOpenDiary(diary.id))}
                         disabled={busy}
                       />}
-                      {/* 참여자 ⋯ 말풍선: 소유자는 소유권 양도 · 내보내기, 누구나 신고하기 · 차단하기(따로 '참여자 관리' 화면 없음, 2026-11-08 지라 686) */}
+                      {/* 참여자 ⋯ 말풍선: 소유자는 소유권 양도 · 다이어리에서 제외, 누구나 신고하기 · 차단하기(따로 '참여자 관리' 화면 없음, 2026-11-08 지라 686) */}
+                      {/* 참여자를 빼는 동작은 파일 '내보내기'와 겹치지 않게 '다이어리에서 제외'라 부른다(노션 · 슬랙의 '~에서 제거' 꼴, 2026-11-09 지라 655) */}
                       {memberMenu && <DiaryActionBubble anchor={memberMenu.anchor} title={memberMenu.member.nickname} onClose={() => setMemberMenu(null)} actions={[
                         isOwner && typeof runtime.transferOwner === 'function' && { id: 'transfer', icon: 'crown', text: '소유권 양도', label: `${memberMenu.member.nickname} 소유권 양도`,
                           onPress: () => { const member = memberMenu.member; setMemberMenu(null); setQuestion({ kind: 'transfer', member }); } },
-                        isOwner && { id: 'remove', icon: 'user-minus', danger: true, text: '내보내기', label: `${memberMenu.member.nickname} 내보내기`,
+                        isOwner && { id: 'remove', icon: 'user-minus', danger: true, text: '다이어리에서 제외', label: `${memberMenu.member.nickname} 다이어리에서 제외`,
                           onPress: () => { const member = memberMenu.member; setMemberMenu(null); setQuestion({ kind: 'remove', member }); } },
                         onOpenParticipants && { id: 'report', icon: 'flag', text: '신고하기', label: `${memberMenu.member.nickname} 신고하기`,
                           onPress: () => { const member = memberMenu.member; setMemberMenu(null); onOpenParticipants(diary, member, 'report'); } },
@@ -1241,7 +1242,7 @@ export default function SharingHub({
         )}
         <ConfirmDialog
           open={!!question}
-          title={question?.kind === 'blocked-members' ? '차단한 사용자가 참여 중인 다이어리예요' : question?.kind === 'transfer' ? `${question.member.nickname}님에게 소유권을 양도할까요?` : question?.kind === 'remove' ? `${question.member.nickname}님을 내보낼까요?` : question?.kind === 'decline' ? '초대를 삭제할까요?' : question?.kind === 'relink' ? '초대 링크를 다시 만들까요?' : question?.kind === 'block' ? `${question.member.nickname}님을 차단할까요?` : question?.kind === 'unblock' ? `${question.member.nickname}님의 차단을 해제할까요?` : '참여를 해제할까요?'}
+          title={question?.kind === 'blocked-members' ? '차단한 사용자가 참여 중인 다이어리예요' : question?.kind === 'transfer' ? `${question.member.nickname}님에게 소유권을 양도할까요?` : question?.kind === 'remove' ? `${question.member.nickname}님을 제외할까요?` : question?.kind === 'decline' ? '초대를 삭제할까요?' : question?.kind === 'relink' ? '초대 링크를 다시 만들까요?' : question?.kind === 'block' ? `${question.member.nickname}님을 차단할까요?` : question?.kind === 'unblock' ? `${question.member.nickname}님의 차단을 해제할까요?` : '참여를 해제할까요?'}
           danger={question?.kind !== 'transfer' && question?.kind !== 'blocked-members' && question?.kind !== 'unblock' && question?.kind !== 'relink'}
           message={
             question?.kind === 'blocked-members'
@@ -1260,7 +1261,7 @@ export default function SharingHub({
               ? '서로 이메일 초대를 주고받거나 수락할 수 있게 돼요. 유효한 대기 초대도 다시 수락할 수 있어요.'
               : '참여가 해제되면 이 다이어리를 함께 편집할 수 없어요.'
           }
-          confirmLabel={question?.kind === 'blocked-members' ? '계속 참여하기' : question?.kind === 'transfer' ? '양도' : question?.kind === 'remove' ? '내보내기' : question?.kind === 'decline' ? '삭제' : question?.kind === 'relink' ? '다시 만들기' : question?.kind === 'block' ? '차단하기' : question?.kind === 'unblock' ? '차단 해제' : '참여 해제'}
+          confirmLabel={question?.kind === 'blocked-members' ? '계속 참여하기' : question?.kind === 'transfer' ? '양도' : question?.kind === 'remove' ? '제외' : question?.kind === 'decline' ? '삭제' : question?.kind === 'relink' ? '다시 만들기' : question?.kind === 'block' ? '차단하기' : question?.kind === 'unblock' ? '차단 해제' : '참여 해제'}
           onConfirm={confirmQuestion}
           onCancel={() => { if (question?.kind === 'blocked-members' && question.stage === 'prepare') setScreen('detail'); setQuestion(null); }}
         />

@@ -44,7 +44,7 @@ const server = http.createServer((req, res) => {
       await page.getByRole('button',{name:'[필수] 개인정보 수집·이용 동의 내용 보기',exact:true}).click();
       await page.getByRole('button',{name:'문서 닫기',exact:true}).click();
       assert.equal(await page.getByRole('checkbox',{name:'[필수] 개인정보 수집·이용 동의',exact:true}).getAttribute('aria-checked'),'false');
-      await page.getByRole('button',{name:'개인정보처리방침 보기',exact:true}).click();
+      await page.getByRole('button',{name:'개인정보 처리방침 보기',exact:true}).click();
       assert.equal(await page.getByRole('button',{name:'동의하고 돌아가기',exact:true}).count(),0);
       await page.getByRole('button',{name:'닫기',exact:true}).click();
       await page.getByRole('checkbox', { name: '필수 항목 전체 동의', exact: true }).click();
@@ -54,7 +54,7 @@ const server = http.createServer((req, res) => {
       assert.equal(await next.isDisabled(), false);
       const bounds = await next.boundingBox();
       assert.ok(bounds.x >= 0 && bounds.x + bounds.width <= width);
-      assert.equal(await page.getByRole('button', { name: '개인정보처리방침 보기', exact: true }).count(), 1);
+      assert.equal(await page.getByRole('button', { name: '개인정보 처리방침 보기', exact: true }).count(), 1);
       assert.equal(await page.getByRole('checkbox').count(), 7);
       await page.getByRole('checkbox', {name:'[선택] 광고성 이메일 수신 동의',exact:true}).click();
       for (const label of ['마케팅 목적 개인정보 수집·이용 동의', '광고성 이메일 수신 동의', '광고성 앱 푸시 수신 동의', '야간 광고성 앱 푸시 수신 동의']) {
