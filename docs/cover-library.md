@@ -1,0 +1,62 @@
+# 꾸미기 공방 내 표지 서버 저장
+
+꾸미기 공방 > 표지 탭의 내 표지 목록을 계정에 저장해 다른 기기 · 재설치 기기에서도 같은 표지가 보이게 한다.
+표지 사진 · 표지에 붙인 내 스티커 이미지는 [미디어 API](./media.md)의 `POST /api/v1/media`(사진 `PHOTO`, 스티커 `STICKER`)로 올리고, 이 API 는 표지 목록 문서와 그 안의 미디어 id 만 저장한다.
+저장 · 충돌 · 동기화 규칙은 [스티커 보관함](./sticker-library.md) · [테이프 보관함](./tape-library.md)과 같고, 여기에는 다른 점만 적는다. 내 속지는 범위 밖이며 기기에만 남는다.
+
+## GET / PUT /api/v1/me/cover-library
+
+인증 · `Cache-Control: no-store` · `expectedVersion`(409 `COVER_LIBRARY_CONFLICT`) 규칙은 스티커 보관함과 같다. 폴더가 없는 한 줄 목록(`covers`)이다.
+
+```json
+{
+  "version": 2,
+  "covers": [
+    { "id": "6a1f…", "name": "여행 표지", "createdAt": "2026-11-10T01:00:00.000Z", "orientation": "portrait",
+      "cover": { "kind": "photo", "photo": { "src": "media:f681d27f-…", "mediaFileId": "f681d27f-…", "aspect": 0.75 },
+                 "stickers": [ { "id": "s1", "src": "media:0b2c…", "mediaFileId": "0b2c…", "x": 40, "y": 60, "size": 14, "rotation": 0 } ], "…": "…" } }
+  ]
+}
+```
+
+- PUT 본문은 `{ "expectedVersion": 2, "covers": [ … ] }`.
+- `cover`(표지 디자인)는 받은 그대로 저장하고 돌려준다. 앱이 읽을 때 `coverDesign.normalizeCover`로 맞춘다.
+- 빈 `createdAt`은 `null`로 온다.
+
+### 한도와 형식(넘으면 400 `INVALID_COVER_LIBRARY`, 문서 전체를 거절)
+
+| 항목 | 규칙 |
+| --- | --- |
+| 표지 수 | 100개 이하(앱은 30개까지 둔다) |
+| `id` | `^[A-Za-z0-9_-]{1,64}$`, 목록 안에서 겹치지 않음 |
+| `name` | 1~40자, 제어 문자 불가 |
+| `createdAt` | 있으면 40자 이하 |
+| `orientation` | `portrait` 또는 `landscape` |
+| `cover` | 객체, JSON 64KB 이하, 안의 `mediaFileId` 칸은 모두 UUID(표지 하나에 200개 이하) |
+
+### 미디어(400 `COVER_MEDIA_NOT_FOUND`)
+
+`cover` 안 어디든 `mediaFileId`는 본인이 올린 `READY` 상태의 `IMAGE`만 넣을 수 있다. 이미 보관함에 있던 이미지는 미디어에서 지웠어도 그대로 둘 수 있다.
+
+## 저장 구조(V40)
+
+- `user_cover_libraries(user_id PK, version, document_json, updated_at)`, `user_cover_library_media(user_id, media_file_id)`.
+- 미디어 정리(`MediaReferenceSql`)는 `user_cover_library_media`를 참조로 보아 보관함 표지 그림을 물리 삭제하지 않는다.
+- 회원 탈퇴는 두 표를 지운 뒤 참조 없는 개인 파일을 기존 정리 경로로 보낸다.
+
+## 앱 동기화
+
+`frontend/src/diary/services/coverLibrarySync.js`. `StickerLibrarySyncHost`가 스티커 · 테이프 동기화와 함께 띄운다.
+
+- 내 표지 · 내 속지 목록은 `useMyLibrary`의 모듈 저장소 한 벌을 모든 화면과 동기화가 함께 쓴다(화면마다 따로 읽어 덮어쓰지 않게).
+- 맞추기 · 합치기 · 기기에만 있는 것 보존 규칙은 스티커 보관함과 같다. 합칠 때 같은 표지는 `id`로 가리고, 양쪽에서 고쳤으면 이 기기 것을 쓴다.
+- 표지 안의 그림(표지 사진 · 내 스티커)마다 기기 id ↔ 서버 id 짝을 기록한다. 그림 하나라도 올리지 못한 표지는 이번에는 빼고 기기에 남긴 뒤 다음 맞추기에서 다시 올린다.
+- 기본 스티커(`builtin`)는 그림이 아니라 그대로 보낸다.
+- 서버 목록을 받는 사이 이 기기에서 목록을 고치면 받은 것으로 덮지 않고 다시 맞춘다.
+- 맞춘 상태는 `dio:cover-library-sync:v1:<서버>:…`에 스티커 · 테이프와 따로 둔다.
+
+## 검증
+
+- `./gradlew test --tests "com.f106.DIO.cover.*"`: 저장 · 다른 기기에서 읽기, 409, 남의 이미지 · 폰트 거절, 형식 오류, 물리 삭제 제외, 탈퇴 정리.
+- `sharingPostgresTest`의 `UserWithdrawalPostgresTests`: `media_files` 외래 키 목록과 탈퇴 시 보관함 표지 그림 정리.
+- `node --test tests/cover-library-sync.test.js`: 새 기기 · 재설치 복원, 지우기 · 이름 · 편집 반영, 409 합치기, 올리지 못한 표지 보존, 다른 계정 기기, 받는 중 수정.

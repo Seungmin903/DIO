@@ -8,6 +8,8 @@ import { createMediaRequest } from '../../collaboration/canvasMedia.js'
 import { canvasMediaFiles } from '../../editor/services/canvasMediaFiles'
 import { createStickerLibrarySync } from '../../editor/services/stickerLibrarySync.js'
 import { createTapeLibrarySync } from '../../editor/services/tapeLibrarySync.js'
+import { createCoverLibrarySync } from '../services/coverLibrarySync.js'
+import { myCoversReady, myCoversSnapshot, replaceMyCovers, subscribeMyLibrary } from '../hooks/useMyLibrary'
 import { customDecorFolders, customDecorTapeFolders, replaceStickerFolders, replaceTapeFolders, subscribeCustomDecor, useCustomDecor } from '../../editor/hooks/useCustomDecor'
 import { sharedGifMaxBytes } from '../../shared/mediaLimits.js'
 
@@ -44,23 +46,25 @@ function stopShared() {
   shared.appState.remove(); shared = null
 }
 
-// 스티커 · 테이프 보관함은 따로 맞춘다(서버 문서 · 맞춘 상태 기록이 따로다). 인증 · 미디어 요청은 함께 쓴다
+// 스티커 · 테이프 보관함 · 내 표지는 따로 맞춘다(서버 문서 · 맞춘 상태 기록이 따로다). 인증 · 미디어 요청은 함께 쓴다
 function createSyncs(accountId, sessionKey) {
   const active = () => authService.getSessionKey() === sessionKey
   const transport = createAuthenticatedMemberTransport({ auth: authService, accountId, baseUrl: apiBaseUrl, accessTokenHeader, fetchImpl: memberFetch })
   const request = createMediaRequest({ auth: authService, accountId, sessionKey, baseUrl: apiBaseUrl, fetchImpl: memberFetch })
   const server = encodeURIComponent(apiBaseUrl)
-  const common = ({ path, category, tag, label }) => ({
+  // field: 문서의 목록 칸(보관함은 folders, 내 표지는 covers), read: 응답 확인
+  const common = ({ path, category, tag, label, field = 'folders', read = body => readLibrary(body, label) }) => ({
     account: String(accountId),
     storage: AsyncStorage,
     isActive: active,
     api: {
-      get: () => transport({ path }).then(body => readLibrary(body, label)),
-      put: (expectedVersion, folders) => transport({ method: 'PUT', path, body: { expectedVersion, folders } }).then(body => readLibrary(body, label)),
+      get: () => transport({ path }).then(read),
+      put: (expectedVersion, list) => transport({ method: 'PUT', path, body: { expectedVersion, [field]: list } }).then(read),
     },
     media: {
-      async upload(localId) {
-        const body = await request('/media', { method: 'POST', body: await canvasMediaFiles.upload(localId, category), timeoutMs: 120000 })
+      // 내 표지는 그림마다 종류(표지 사진 PHOTO · 스티커 STICKER)를 함께 넘긴다
+      async upload(localId, kind = category) {
+        const body = await request('/media', { method: 'POST', body: await canvasMediaFiles.upload(localId, kind), timeoutMs: 120000 })
         return body?.mediaFileId
       },
       async download(serverId) {
@@ -82,12 +86,17 @@ function createSyncs(accountId, sessionKey) {
       key: `dio:tape-library-sync:v1:${server}`,
       decor: { snapshot: customDecorTapeFolders, subscribe: subscribeCustomDecor, replace: replaceTapeFolders },
     }),
+    createCoverLibrarySync({
+      ...common({ path: '/me/cover-library', category: 'PHOTO', tag: '[DIO_COVER_SYNC]', label: '내 표지', field: 'covers', read: readCovers }),
+      key: `dio:cover-library-sync:v1:${server}`,
+      library: { ready: myCoversReady, snapshot: myCoversSnapshot, subscribe: subscribeMyLibrary, replace: replaceMyCovers },
+    }),
   ]
 }
 
 /**
- * 회원으로 로그인해 있는 동안 꾸미기 공방 스티커 · 테이프 보관함(폴더 구성 · 이미지)을 계정 서버와 맞춘다. 화면은 그리지 않는다.
- * 앱을 켤 때 · 다시 앞으로 올 때 맞추고, 보관함이 바뀌면 잠시 모아 올린다(services/stickerLibrarySync.js · tapeLibrarySync.js).
+ * 회원으로 로그인해 있는 동안 꾸미기 공방 스티커 · 테이프 보관함(폴더 구성 · 이미지)과 내 표지를 계정 서버와 맞춘다. 화면은 그리지 않는다.
+ * 앱을 켤 때 · 다시 앞으로 올 때 맞추고, 바뀌면 잠시 모아 올린다(services/stickerLibrarySync.js · tapeLibrarySync.js · diary/services/coverLibrarySync.js).
  */
 export function StickerLibrarySyncHost({ accountId, enabled = true }) {
   const { loaded } = useCustomDecor() // 보관함을 기기에서 읽어 둔다(읽은 뒤에 맞춘다)
@@ -102,6 +111,11 @@ export function StickerLibrarySyncHost({ accountId, enabled = true }) {
 function readLibrary(body, label) {
   if (!body || !Number.isSafeInteger(body.version) || body.version < 0 || !Array.isArray(body.folders)) throw Error(`${label} 응답을 확인하지 못했어요.`)
   return { version: body.version, folders: body.folders.map(folder => ({ id: String(folder.id), name: String(folder.name ?? ''), items: Array.isArray(folder.items) ? folder.items.map(dropNulls) : [] })) }
+}
+function readCovers(body) {
+  if (!body || !Number.isSafeInteger(body.version) || body.version < 0 || !Array.isArray(body.covers)) throw Error('내 표지 응답을 확인하지 못했어요.')
+  // 표지 디자인(cover)은 서버가 받은 그대로 돌려준다. 바깥 칸(createdAt 등)만 빈 칸(null)을 뺀다
+  return { version: body.version, covers: body.covers.map(dropNulls) }
 }
 // 서버는 빈 칸을 null 로 보낸다. 기기 보관함과 비교할 때 같게 보이도록 빈 칸을 뺀다
 const dropNulls = item => Object.fromEntries(Object.entries(item ?? {}).filter(([, value]) => value != null))
