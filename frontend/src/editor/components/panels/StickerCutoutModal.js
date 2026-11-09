@@ -22,6 +22,9 @@ export default function StickerCutoutModal({ folder, onClose, onSave, photoPicke
   const [history, setHistory] = useState(emptyCutout)
   const [mode, setMode] = useState('add'), [brushSize, setBrushSize] = useState(24)
   const [brushDraft, setBrushDraft] = useState(null), [sliding, setSliding] = useState(false)
+  // 세로 화면은 작업 판과 도구를 하나의 ScrollView에 쌓는다. Android ScrollView는 자식 responder가
+  // 이미 잡은 획도 스크롤로 가로챌 수 있으므로, 사진 위 제스처가 이어지는 동안만 즉시 스크롤을 잠근다.
+  const [painting, setPainting] = useState(false), contentScroll = useRef(null)
   const shownBrushSize = brushDraft ?? brushSize
   const [draft, setDraft] = useState(null), gesture = useRef(null), origin = useRef({ x: 0, y: 0 })
   const [area, setArea] = useState({ width: 0, height: 0 })
@@ -155,8 +158,13 @@ export default function StickerCutoutModal({ folder, onClose, onSave, photoPicke
     finally { if (alive.current && token === revision.current) { locked.current = false; setBusy(false) } }
   }
   const endStroke = cancelled => {
-    const stroke = gesture.current; gesture.current = null; setDraft(null)
+    const stroke = gesture.current; gesture.current = null; setDraft(null); setStageInteraction(false)
     if (!cancelled && stroke?.points) setHistory(value => cutoutHistory(value, { type: 'stroke', stroke }))
+  }
+  const setStageInteraction = active => {
+    setPainting(active)
+    // 상태 반영 전에도 다음 이동 이벤트부터 native ScrollView가 가로채지 않게 한다.
+    contentScroll.current?.setNativeProps?.({ scrollEnabled: !active && !sliding })
   }
   // 두 손가락: 칠하던 획은 버리고 확대 · 이동만 한다. 두 손가락 가운데 아래의 사진 지점이 손가락을 따라간다.
   // 판 기준 좌표는 page 좌표에서 판의 page 원점(origin)을 빼서 얻는다. (사진 칸은 확대로 위치가 바뀌므로 판 원점을 쓴다)
@@ -164,6 +172,7 @@ export default function StickerCutoutModal({ folder, onClose, onSave, photoPicke
   const pinchStart = event => {
     const [a, b] = event.nativeEvent.touches || []
     if (!a || !b) return
+    setStageInteraction(true)
     gesture.current = { pinch: true, view, ids: [a.identifier, b.identifier], distance: Math.max(1, Math.hypot(a.pageX - b.pageX, a.pageY - b.pageY)),
       midX: (a.pageX + b.pageX) / 2 - origin.current.x, midY: (a.pageY + b.pageY) / 2 - origin.current.y }
     setDraft(null)
@@ -187,6 +196,7 @@ export default function StickerCutoutModal({ folder, onClose, onSave, photoPicke
     const point = cutoutPoint(locationX, locationY, rect)
     if (!point) return
     // 붓 크기는 화면 px 그대로: 확대하면 사진 위에서는 가늘어져 가장자리를 섬세하게 칠할 수 있다
+    setStageInteraction(true)
     gesture.current = { mode, width: Math.min(1, brushSize / rect.width), points: [point] }
     setDraft({ ...gesture.current })
   }
@@ -210,6 +220,8 @@ export default function StickerCutoutModal({ folder, onClose, onSave, photoPicke
   const stageHeight = Math.max(240, Math.min(width < 600 ? 360 : 480, height * .5))
   const picture = source && rect && <View accessibilityLabel="스티커 대상 칠하기 영역" testID="cutout-canvas"
     style={{ position: 'absolute', left: rect.x, top: rect.y, width: rect.width, height: rect.height, touchAction: 'none' }}
+    onStartShouldSetResponderCapture={() => ready && !busy}
+    onMoveShouldSetResponderCapture={() => ready && !busy}
     onStartShouldSetResponder={() => ready && !busy}
     onMoveShouldSetResponder={() => ready && !busy}
     onResponderGrant={startStroke} onResponderStart={pinchStart} onResponderEnd={pinchStart}
@@ -296,7 +308,7 @@ export default function StickerCutoutModal({ folder, onClose, onSave, photoPicke
             </View>
           </View>
           : <>
-            <ScrollView style={s.fill} scrollEnabled={!sliding} keyboardShouldPersistTaps="handled" contentContainerStyle={s.content}>
+            <ScrollView ref={contentScroll} style={s.fill} scrollEnabled={!sliding && !painting} keyboardShouldPersistTaps="handled" contentContainerStyle={s.content}>
               {stage}
               <View style={s.controls}>{tools}</View>
             </ScrollView>
