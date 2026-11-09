@@ -23,9 +23,9 @@ test('구글 가입 사진은 기존 multipart 도우미의 oauth 파트로 전�
  let n=0;let part;const upload={};const {api,calls}=setup(()=>++n===1?response({code:'SOCIAL_SIGNUP_REQUIRED'},409):response(tokens()),{buildPhotoBody:async(body,uri,name)=>{part=name;assert.equal(body.idToken,'google-id-token');return {body:upload};}});
  const draft=await api.social('google',{ageConfirmed:true});await api.completeProfile({...draft,nickname:user.nickname,terms,photoUri:'file:///photo.png'});assert.equal(part,'oauth');assert.equal(calls[1].body,upload);
 });
-test('연령 미확인·미지원 제공자는 SDK를 호출하지 않는다',async()=>{
- let n=0;const {api,calls}=setup(()=>response(tokens()),{googleSignIn:async()=>{n++;}});
- await assert.rejects(api.social('google'),/14세/);await assert.rejects(api.social('kakao',{ageConfirmed:true}),/준비/);assert.equal(n,0);assert.equal(calls.length,0);
+test('구글 로그인은 연령 확인 전에 SDK를 열고, 미지원 제공자는 SDK를 호출하지 않는다',async()=>{
+ let n=0;const {api,calls}=setup(()=>response(tokens()),{googleSignIn:async()=>{n++;return {idToken:'google-id-token',email:user.email}}});
+ await api.social('google');await assert.rejects(api.social('kakao'),/준비/);assert.equal(n,1);assert.equal(calls.length,1);
 });
 test('화면 취소 후 늦은 Google 응답으로 서버 세션을 만들지 않는다',async()=>{
  let resolve;const pending=new Promise(r=>resolve=r);const {api,calls}=setup(()=>response(tokens()),{googleSignIn:()=>pending});

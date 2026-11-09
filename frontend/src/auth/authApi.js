@@ -514,10 +514,9 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
         if (withdrawn && session === current) await endLocalSession();
       }
     },
-    async social(provider, {ageConfirmed} = {}) {
+    async social(provider) {
       const name=SOCIAL_NAMES[provider], signIn=socialSignIns[provider];
       if(!name)throw new Error('아직 준비 중인 로그인 방식이에요.');
-      if(ageConfirmed!==true)throw new Error('만 14세 이상인지 확인해 주세요.');
       if(typeof signIn!=='function')throw new Error(`${name} 로그인 기능이 연결되지 않았어요.`);
       const attempt=++revision;socialDraft=null;
       const credential=await signIn();

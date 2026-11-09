@@ -191,7 +191,10 @@ export default function AuthScreen({
       return;
     }
     if (next === 'signup' && !signupEligibility({ ageConfirmed, terms }, legalDocuments)) next = 'eligibility';
-    service.cancelPending?.({ keepEnrollment: next === 'profile' || next === 'verification' });
+    // 소셜 계정 확인 뒤에만 가입 전 동의를 받는다. 그 사이에는 인증 토큰을
+    // 보존해야 프로필 완성 때 Google/Apple 창을 다시 열지 않는다.
+    service.cancelPending?.({ keepEnrollment: next === 'profile' || next === 'verification' ||
+      (next === 'eligibility' && provider !== 'email') });
     Keyboard.dismiss();
     focusedInput.current = null;
     clearTimeout(focusTimer.current);
@@ -223,23 +226,25 @@ export default function AuthScreen({
     setEnrollmentProvider(provider);
     navigate('eligibility', provider);
   };
-  const submitSocial = (provider, eligibility) => run(
-    () => service.social(provider, eligibility),
+  const submitSocial = (provider) => run(
+    () => service.social(provider),
     result => {
       socialAccessRetry.current=null;
       if(result?.mode==='authenticated'){Keyboard.dismiss();onContinue(result);return;}
-      setPhotoUri(null);setValues(emptyValues());setProfile(result);navigate('profile');
+      // 기존 회원은 위에서 바로 로그인한다. 가입이 필요한 계정만 약관 화면을
+      // 거쳐, 이미 받은 소셜 인증 정보를 이용해 프로필을 완성한다.
+      setPhotoUri(null);setValues(emptyValues());setProfile(result);setEnrollmentProvider(provider);navigate('eligibility', provider);
     },
     error => {
       if(canSetDevelopmentAccess && error?.code==='DEVELOPMENT_ACCESS_REQUIRED'){
-        socialAccessRetry.current={provider,eligibility};setNeedsLoginAccess(true);setRoute('welcome');
+        socialAccessRetry.current={provider};setNeedsLoginAccess(true);setRoute('welcome');
       }
     },
   );
   const continueEnrollment = () => {
     if (enrollmentBlocked.current || !signupEligibility({ ageConfirmed, terms }, legalDocuments)) return;
     if (enrollmentProvider === 'email') { navigate('signup'); return; }
-    submitSocial(enrollmentProvider,{ageConfirmed,terms});
+    navigate('profile', enrollmentProvider);
   };
   const closeDocument = () => {
     documentRef.current = null;
@@ -595,7 +600,7 @@ export default function AuthScreen({
                           if (error?.code === 'DEVELOPMENT_ACCESS_REQUIRED') setNeedsLoginAccess(true);
                           else if ([401, 403].includes(error?.status)) { restoreAfterAccess.current = false; setNeedsLoginAccess(false); }
                         });
-                      } else if(retry)submitSocial(retry.provider,retry.eligibility);else submitLogin();
+                      } else if(retry)submitSocial(retry.provider);else submitLogin();
                     } catch (error) {
                       setMessage(error?.message || '개발 서버 접속 정보를 확인해 주세요.');
                     }
@@ -650,7 +655,7 @@ export default function AuthScreen({
                           accessibilityLabel={`${provider.name}로 로그인`}
                           accessibilityState={{ disabled: busy }}
                           disabled={busy}
-                          onPress={() => beginEnrollment(provider.id)}
+                          onPress={() => submitSocial(provider.id)}
                           style={({ pressed }) => [
                             s.social,
                             busy && s.disabled,
