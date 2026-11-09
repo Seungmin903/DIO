@@ -2,6 +2,8 @@ import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { SvgAst, parse } from 'react-native-svg'
 import PageBackground from '../../editor/components/PageBackground'
+import { PackingFrontLayer } from '../../editor/components/canvas/PackingColorLayer'
+import { packingLayout } from '../../editor/templates/packingLayout.js'
 import Icon from '../../editor/components/controls/Icon'
 import { usePan } from '../../editor/hooks/usePan'
 import { useRemoteTemplates } from '../../editor/hooks/useRemoteTemplates'
@@ -85,10 +87,11 @@ export function TemplatePreview({ assetId, width: previewWidth, appearance, styl
   const previewHeight = previewWidth * height / width
   const lined = asset.type === 'note' && asset.background !== 'plain'
   const sketchKey = sketch && !lined && previewWidth < NOTE_THUMB_MAX ? paperSketchKey(assetId) : null
+  const page = { id: `preview-${assetId}`, backgroundAssetId: assetId, templateVersion: asset.templateVersion ?? TEMPLATE_VERSION, canvasWidth: width, canvasHeight: height, paperAppearance: appearance, objects: [] }
   return <View pointerEvents="none" style={[styles.preview, { width: previewWidth, height: previewHeight, backgroundColor: appearance?.backgroundColor ?? '#FFFFFF' }, style]}>
     {sketchKey ? <PaperSketch sketchKey={sketchKey} orientation={asset.orientation} width={previewWidth} height={previewHeight} appearance={appearance} />
       : lined ? <NoteThumb assetId={assetId} background={asset.background} pageWidth={width} width={previewWidth} height={previewHeight} crop={previewWidth < NOTE_THUMB_MAX} appearance={appearance} />
-      : <PageBackground page={{ id: `preview-${assetId}`, backgroundAssetId: assetId, templateVersion: TEMPLATE_VERSION, canvasWidth: width, canvasHeight: height, paperAppearance: appearance }} zoom={previewWidth / width} compact />}
+      : <><PageBackground page={page} zoom={previewWidth / width} compact />{packingLayout(assetId) && <PackingFrontLayer page={page} zoom={previewWidth / width} />}</>}
   </View>
 }
 

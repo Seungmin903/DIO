@@ -38,7 +38,7 @@ const LEGACY_NAMES = { year: '1년 플래너' }
 const REPLACED_PAPERS = { daily: 'day' }
 
 export const COUNT_STEPS = [10, 30, 50, 100]
-/** 장수 빠른 선택: 속지가 정한 것(여행 기간 등)이 있으면 그것, 아니면 공통 10 · 30 · 50 · 100 */
+/** 장수 빠른 선택: 속지가 정한 값이 있으면 우선한다. */
 export const countStepsOf = paper => paper?.countSteps ?? COUNT_STEPS
 export const MONTH_STEPS = [3, 6, 12]
 export const COUNT_LIMIT = { min: 1, max: 400 }
@@ -51,7 +51,7 @@ export const MONTH_LIMIT = 12
 // 고른 속지 id 는 'remote:<id>'. 목록을 아직 못 받았거나 숨긴 속지도 이미 고른 줄에서는 그대로 쓴다(이름만 '추가 속지').
 // 목록은 새 탭(templateGroups)도 더할 수 있다. 숨긴 탭의 속지는 고르기에 보이지 않는다.
 const REMOTE_PAPER = /^remote:([a-z0-9][a-z0-9-]{0,39})$/
-const remotePaper = (id, item) => ({ id: `remote:${id}`, group: item?.group ?? 'note', name: item?.name ?? '추가 속지', kind: 'count', remoteTemplate: id })
+const remotePaper = (id, item) => ({ id: `remote:${id}`, group: item?.group ?? 'note', name: item?.name ?? '추가 속지', kind: 'count', remoteTemplate: id, ...(/^packing-list(?:-v[2-8])?$/.test(id) ? { defaultCount: 1, countSteps: [1, 2, 3] } : {}) })
 const hiddenGroups = () => new Set(remoteTemplateGroups().filter(group => group.hidden).map(group => group.id))
 const remotePapers = () => {
   const hidden = hiddenGroups()
@@ -153,7 +153,7 @@ export function tidySection(section) {
 // 화면은 묶음을 따로 보이지 않고 속지를 한 줄 목록으로 둔다. 이웃한 두 속지 사이마다 '이어서'(다음 묶음) · '섞어서'(같은 묶음)를 고른다.
 // 아래 함수는 그 목록 조작을 묶음 배열(sections)에 옮긴다.
 
-/** 목록 끝에 속지 한 종류를 이어서 더한다 (새 묶음). 장수 속지는 10장, 날짜 속지는 올해 1월부터 12개월. */
+/** 목록 끝에 속지 한 종류를 이어서 더한다 (새 묶음). */
 export function appendPaper(sections, paperId) {
   const paper = paperById(paperId)
   return [...sections, tidySection({ ...newSection(), rows: [newRow(paperId, paper.kind === 'count' ? paper.defaultCount ?? 10 : 1)] })]

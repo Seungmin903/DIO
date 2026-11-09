@@ -12,6 +12,8 @@ import { SkiaPencilScale } from '../skia/skiaPencilScale.js'
 import { isSkiaPencil } from '../skia/pencilRaster.js'
 import { builtinStickerOf } from '../builtinStickers'
 import { useStickerPacks } from '../hooks/useStickerPacks'
+import { packingLayout } from '../templates/packingLayout.js'
+import { PackingColorLayer, PackingFrontLayer } from './canvas/PackingColorLayer'
 
 // 원격 스티커 팩(catalog.json)을 기다리는 최대 시간. 앱이 켜질 때 받으므로 보통은 이미 들어와 있다
 export const REMOTE_PACK_WAIT_MS = 10000
@@ -74,15 +76,27 @@ export default function PageImageSurface({ job }) {
     failed.current = true
     reject(new PageExportError('EXPORT_MEDIA_FAILED', '이미지를 표시하지 못했어요. 원본을 확인해 주세요.'))
   }
+  const packing = packingLayout(snapshot.template?.backgroundAssetId)
+  const packingPage = packing && { ...snapshot.template, objects: snapshot.objects, canvasWidth: snapshot.pageWidth ?? snapshot.width, canvasHeight: snapshot.pageHeight ?? snapshot.height }
+  const packed = packing ? snapshot.objects.filter(o => o.packingSlot === 0 || o.packingSlot === 1) : []
+  const ordinary = packing ? snapshot.objects.filter(o => !o.packingColorRegion && o.packingSlot !== 0 && o.packingSlot !== 1) : snapshot.objects
+  const renderObject = (object, pageCoordinates = false) => <View key={object.id} needsOffscreenAlphaCompositing={snapshot.isolateObjectOpacity ? objectDrawOpacity(object) < 1 : undefined} style={{ position: 'absolute', ...(pageCoordinates ? { left: object.x * scale, top: object.y * scale } : exportObjectPosition(object, snapshot, scale)), width: object.w * scale, height: object.h * scale, transform: [{ rotate: `${object.rotation ?? 0}deg` }], opacity: objectDrawOpacity(object) }}>
+    <ObjectContent object={object} zoom={scale} still onAssetLoad={() => setLoaded((previous) => new Set(previous).add(object.id))} onAssetError={assetError} />
+  </View>
   return <View style={{ flex: 1 }} onLayout={(event) => setArea(event.nativeEvent.layout)}>
     {(Platform.OS === 'web' || area?.width > 0 && area?.height > 0) && <View ref={surface} collapsable={false} testID="page-export-surface" onLayout={() => setLaidOut(true)} style={{ width: snapshot.width * scale, height: snapshot.height * scale, backgroundColor: snapshot.background, overflow: 'hidden' }}>
       {snapshot.template && <View style={{ position: 'absolute', ...exportObjectPosition({ x: 0, y: 0 }, snapshot, scale), width: (snapshot.pageWidth ?? snapshot.width) * scale, height: (snapshot.pageHeight ?? snapshot.height) * scale }}>
         <PageBackground page={{ id: snapshot.pageId, ...snapshot.template, canvasWidth: snapshot.pageWidth ?? snapshot.width, canvasHeight: snapshot.pageHeight ?? snapshot.height }} zoom={scale} preparedXml={snapshot.backgroundXml} onReady={() => setBackgroundReady(true)} onError={backgroundError} />
       </View>}
       <SkiaPencilScale.Provider value={snapshot.pixelWidth / snapshot.width}>
-      {snapshot.objects.map((object) => <View key={object.id} needsOffscreenAlphaCompositing={snapshot.isolateObjectOpacity ? objectDrawOpacity(object) < 1 : undefined} style={{ position: 'absolute', ...exportObjectPosition(object, snapshot, scale), width: object.w * scale, height: object.h * scale, transform: [{ rotate: `${object.rotation ?? 0}deg` }], opacity: objectDrawOpacity(object) }}>
-        <ObjectContent object={object} zoom={scale} still onAssetLoad={() => setLoaded((previous) => new Set(previous).add(object.id))} onAssetError={assetError} />
-      </View>)}
+      {packing && <View pointerEvents="none" style={{ position: 'absolute', ...exportObjectPosition({ x: 0, y: 0 }, snapshot, scale), width: packingPage.canvasWidth * scale, height: packingPage.canvasHeight * scale }}><PackingColorLayer page={packingPage} zoom={scale} /></View>}
+      {packing && packing.interiors.map((box, slot) => {
+        const sx = packing.scaleX ?? 1, sy = packing.scaleY ?? 1
+        const x = packing.origin.x + box.x * sx, y = packing.origin.y + box.y * sy
+        return <View key={slot} style={{ position: 'absolute', ...exportObjectPosition({ x, y }, snapshot, scale), width: box.width * sx * scale, height: box.height * sy * scale, borderRadius: box.rx * Math.min(sx, sy) * scale, overflow: 'hidden' }}><View style={{ position: 'absolute', left: -x * scale, top: -y * scale, width: packingPage.canvasWidth * scale, height: packingPage.canvasHeight * scale }}>{packed.filter(o => o.packingSlot === slot).map(o => renderObject(o, true))}</View></View>
+      })}
+      {packing && <View pointerEvents="none" style={{ position: 'absolute', ...exportObjectPosition({ x: 0, y: 0 }, snapshot, scale), width: packingPage.canvasWidth * scale, height: packingPage.canvasHeight * scale }}><PackingFrontLayer page={packingPage} zoom={scale} /></View>}
+      {ordinary.map(o => renderObject(o))}
       </SkiaPencilScale.Provider>
     </View>}
   </View>

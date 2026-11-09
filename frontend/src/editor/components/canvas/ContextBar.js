@@ -56,6 +56,7 @@ export default function ContextBar({
   onTextLink,
   onCopyLink, // 링크 카드의 복사
   onObjectLink, // 스티커·테이프·사진에 링크 걸기
+  onPackingSlot,
   textSettingsOpen = false, // 텍스트 서식 창이 열려 있음 ('서식' 버튼 표시)
   frame = null, // 작업창 위에 그릴 때 { x, y: 페이지 왼쪽 위의 작업창 좌표, area: 바를 둘 보이는 영역 { left, top, right, bottom } }. 없으면 페이지 안
 }) {
@@ -126,6 +127,9 @@ export default function ContextBar({
     const fillable = !single?.locked && hasEmptyCell(single)
     const leading = [
       ...lassoModes,
+      onPackingSlot && single && !single.locked && ['photo', 'sticker'].includes(single.type) && { icon: 'layers', label: '왼쪽에 넣기', onPress: () => onPackingSlot(single, 0) },
+      onPackingSlot && single && !single.locked && ['photo', 'sticker'].includes(single.type) && { icon: 'layers', label: '오른쪽에 넣기', onPress: () => onPackingSlot(single, 1) },
+      onPackingSlot && single && !single.locked && (single.packingSlot === 0 || single.packingSlot === 1) && { icon: 'layers', label: '캐리어에서 빼기', onPress: () => onPackingSlot(single, null) },
       single?.type === 'shape' && !single.locked && {icon:'text',label:'서식',active:textSettingsOpen,onPress:()=>onTextSettings?.()},
       cropable && { icon: 'crop', label: '자르기', onPress: () => onCrop(single.id) },
       fillable && { icon: 'image', label: '사진 채우기', onPress: () => onFillCells(single.id) },

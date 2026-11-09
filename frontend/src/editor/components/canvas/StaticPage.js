@@ -9,6 +9,8 @@ import CompletedStrokeLayer from './CompletedStrokeLayer'
 import WebStrokeCache from './WebStrokeCache'
 import { WebStrokeCacheEnabled } from './WebStrokeCacheContext'
 import { ViewportMotion } from './viewportMotion'
+import { PackingColorLayer, PackingFrontLayer } from './PackingColorLayer'
+import { packingLayout } from '../../templates/packingLayout.js'
 
 const DRAG_OPACITY = 0.5
 
@@ -44,6 +46,9 @@ const StaticPage = memo(function StaticPage({ qaPageMeasurement = null, page, zo
   const transformsInk = Boolean(fadeIds?.length || stillIds?.length) && page.objects.some(object =>
     object.type === 'stroke' && (fadeIds?.includes(object.id) || stillIds?.includes(object.id)))
   const cacheAllowed = !cropId && !transformsInk
+  const packing = packingLayout(page.backgroundAssetId)
+  const packed = packing ? page.objects.filter(o => !o.hidden && (o.packingSlot === 0 || o.packingSlot === 1)) : []
+  const renderableObjects = packing ? page.objects.filter(o => !o.packingColorRegion && o.packingSlot !== 0 && o.packingSlot !== 1) : page.objects
   const renderObject = stored => {
     const object = fitBackdropToPage(stored, width, height)
     return <PageObject key={object.id} object={object} zoom={zoom} areaPreview={areaErasing && Boolean(areaPreviewObjects?.has(stored))}
@@ -57,14 +62,23 @@ const StaticPage = memo(function StaticPage({ qaPageMeasurement = null, page, zo
       pointerEvents="none"
     >
       {showBackground && <PageBackground page={page} zoom={zoom} compact />}
+      <PackingColorLayer page={page} zoom={zoom} />
+      {packed.length > 0 && packing.interiors.map((box, slot) => {
+        const sx = packing.scaleX ?? 1, sy = packing.scaleY ?? 1
+        const x = packing.origin.x + box.x * sx, y = packing.origin.y + box.y * sy
+        return <View key={slot} style={{ position: 'absolute', left: x * zoom, top: y * zoom, width: box.width * sx * zoom, height: box.height * sy * zoom, borderRadius: box.rx * Math.min(sx, sy) * zoom, overflow: 'hidden' }}>
+          <View style={{ position: 'absolute', left: -x * zoom, top: -y * zoom, width: width * zoom, height: height * zoom }}>{packed.filter(o => o.packingSlot === slot).map(renderObject)}</View>
+        </View>
+      })}
+      {packing && <PackingFrontLayer page={page} zoom={zoom} />}
       <TextMeasure.Provider value={onTextMeasure}>
       <TextMeasureReady.Provider value={textMeasureReady}>
       {webCache && cacheAllowed
-        ? <WebStrokeCache objects={page.objects} width={width} height={height} zoom={zoom} renderObject={renderObject} areaPreviewObjects={areaPreviewObjects} deferredAreaObjects={deferredAreaObjects} areaErasing={areaErasing} />
+        ? <WebStrokeCache objects={renderableObjects} width={width} height={height} zoom={zoom} renderObject={renderObject} areaPreviewObjects={areaPreviewObjects} deferredAreaObjects={deferredAreaObjects} areaErasing={areaErasing} />
         // 앱(Skia)은 끌어 옮기거나 크기를 바꾸는 중에도 같은 획 층에 그린다(SVG 로 바뀌면 연필 결이 달라진다)
         : cacheStrokes && !cropId && (Platform.OS !== 'web' || !transformsInk)
-        ? <CompletedStrokeLayer objects={page.objects} width={width} height={height} zoom={zoom} renderObject={renderObject} uncachedObjects={uncachedObjects} fadeIds={fadeIds} />
-        : page.objects.filter(object => !object.hidden).map(renderObject)}
+        ? <CompletedStrokeLayer objects={renderableObjects} width={width} height={height} zoom={zoom} renderObject={renderObject} uncachedObjects={uncachedObjects} fadeIds={fadeIds} />
+        : renderableObjects.filter(object => !object.hidden).map(renderObject)}
       </TextMeasureReady.Provider>
       </TextMeasure.Provider>
     </View>
