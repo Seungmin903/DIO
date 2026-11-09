@@ -2,11 +2,13 @@
 // 앱 테마 파랑 계열 6색은 빼고, 기본 펜 색(검정)을 맨 앞에 둔다. 형광펜과 같은 7색이라 옵션 창에서 한 줄로 보인다.
 // 기본 프리셋 색(코덱스 2026-10-31): DIO 성격(차분 · 따뜻)에 맞춘 한 세트 — 채도 · 명도를 맞춰 따뜻 · 차가움 · 무채를 고르게, 패널 한 줄에 들어가는 7색. 펜 · 글자는 흰 바탕 4.5:1 이상
 export const EDITOR_COLORS = ['#18224D', '#A33C4B', '#917019', '#397A5B', '#34769F', '#7653A6', '#626878']
+import { DASH_TYPES, dashPattern, isDashedKind } from './dashedStroke.js'
 export const PEN_TYPES = [
   // 2026-11-02: 만년필 · 펠트펜 · 붓펜이 불투명도 100 단색에서 거의 같아 볼펜(굵기 고정) · 캘리펜(평촉) · 붓펜(테이퍼)으로 바꿨다(코덱스).
   // 예전 식별자(fountain · felt · brush)는 고를 수 없을 뿐 이미 그린 획은 그대로 그린다. 새 붓펜은 식별자가 다르다.
   { id: 'ball', label: '볼펜' }, { id: 'calligraphy', label: '캘리펜' },
   { id: 'taperBrush', label: '붓펜' }, { id: 'pencil', label: '연필' },
+  { id: 'dashed', label: '점선' },
 ]
 export const DEFAULT_PEN_SETTINGS = { kind: 'ball', color: '#18224D', width: 2.5 }
 // 종류를 고를 때 들어가는 기본 불투명도(사용자 2026-11-03: 연필은 기본을 반투명으로, 슬라이더는 100 까지 그대로 —
@@ -15,8 +17,15 @@ export const PEN_DEFAULT_OPACITY = { pencil: 0.8 }
 export const penDefaultOpacity = kind => PEN_DEFAULT_OPACITY[kind] ?? 1
 // 펜 종류마다 마지막으로 쓴 굵기 · 불투명도를 기억한다(사용자 2026-11-03: 다른 펜을 오가도 설정이 그대로여야 한다).
 // 처음 쓰는 종류는 지금 굵기를 이어 받고 불투명도만 그 종류의 기본값이다.
-export const rememberPen = (memory, settings) => ({ ...memory, [settings.kind]: { width: settings.width, opacity: settings.opacity ?? penDefaultOpacity(settings.kind) } })
-export const applyPenKind = (memory, settings, kind) => ({ ...settings, kind, width: memory?.[kind]?.width ?? settings.width, opacity: memory?.[kind]?.opacity ?? penDefaultOpacity(kind) })
+const penPattern = (kind, settings) => isDashedKind(kind) ? dashPattern(kind, settings) : {}
+export const rememberPen = (memory, settings) => ({
+  ...memory,
+  [settings.kind]: { width: settings.width, opacity: settings.opacity ?? penDefaultOpacity(settings.kind), ...penPattern(settings.kind, settings) },
+})
+export function applyPenKind(memory, { dashLength, dashGap, ...settings }, kind) {
+  const saved = memory?.[kind]
+  return { ...settings, kind, width: saved?.width ?? settings.width, opacity: saved?.opacity ?? penDefaultOpacity(kind), ...penPattern(kind, saved) }
+}
 // 형광펜: 0.42 로 겹쳐 칠해도 · 속지 종이 색으로 깔아도 뽀얀 톤
 export const HIGHLIGHTER_COLORS = ['#F7DF8A', '#F6C79B', '#F2B4AE', '#D8C5EF', '#C6D0F0', '#BDE4D1', '#E5DDD2']
 export const DEFAULT_HIGHLIGHTER_SETTINGS = { kind: 'highlighter', color: '#F7DF8A', width: 18, lineCap: 'square' }
@@ -31,15 +40,15 @@ const validColor = (value, fallback) => typeof value === 'string' ? normalizeHex
 const inRange = (value, min, max, fallback) => Number.isFinite(value) ? Math.max(min, Math.min(max, value)) : fallback
 export function sanitizePenSettings(saved) {
   if (!saved || typeof saved !== 'object') return undefined
-  const kind = PEN_TYPES.some(type => type.id === saved.kind) ? saved.kind : DEFAULT_PEN_SETTINGS.kind
-  return { kind, color: validColor(saved.color, DEFAULT_PEN_SETTINGS.color), width: inRange(saved.width, 1, 16, DEFAULT_PEN_SETTINGS.width), opacity: inRange(saved.opacity, 0.1, 1, penDefaultOpacity(kind)) }
+  const kind = [...PEN_TYPES, ...DASH_TYPES].some(type => type.id === saved.kind) ? saved.kind : DEFAULT_PEN_SETTINGS.kind
+  return { kind, color: validColor(saved.color, DEFAULT_PEN_SETTINGS.color), width: inRange(saved.width, 1, 16, DEFAULT_PEN_SETTINGS.width), opacity: inRange(saved.opacity, 0.1, 1, penDefaultOpacity(kind)), ...penPattern(kind, saved) }
 }
 export function sanitizePenKinds(saved) {
   if (!saved || typeof saved !== 'object') return undefined
   const result = {}
-  for (const type of PEN_TYPES) {
+  for (const type of [...PEN_TYPES, ...DASH_TYPES]) {
     const item = saved[type.id]
-    if (item && typeof item === 'object') result[type.id] = { width: inRange(item.width, 1, 16, DEFAULT_PEN_SETTINGS.width), opacity: inRange(item.opacity, 0.1, 1, penDefaultOpacity(type.id)) }
+    if (item && typeof item === 'object') result[type.id] = { width: inRange(item.width, 1, 16, DEFAULT_PEN_SETTINGS.width), opacity: inRange(item.opacity, 0.1, 1, penDefaultOpacity(type.id)), ...penPattern(type.id, item) }
   }
   return result
 }
