@@ -14,16 +14,16 @@ final class FormJson {
 	static JsonNode parse(String value, int maxBytes, String field) {
 		if (value == null || value.isBlank()) return null;
 		if (value.getBytes(StandardCharsets.UTF_8).length > maxBytes) {
-			throw new IllegalArgumentException(field + "의 크기가 허용 범위를 초과했습니다.");
+			throw new IllegalArgumentException(field + "의 크기가 허용 범위를 초과했어요.");
 		}
 		try {
 			JsonNode parsed = JSON.readTree(value);
-			if (parsed == null) throw new IllegalArgumentException(field + "은 유효한 JSON이어야 합니다.");
+			if (parsed == null) throw new IllegalArgumentException(field + "은 유효한 JSON이어야 해요.");
 			return parsed;
 		} catch (IllegalArgumentException exception) {
 			throw exception;
 		} catch (Exception exception) {
-			throw new IllegalArgumentException(field + "은 유효한 JSON이어야 합니다.", exception);
+			throw new IllegalArgumentException(field + "은 유효한 JSON이어야 해요.", exception);
 		}
 	}
 }

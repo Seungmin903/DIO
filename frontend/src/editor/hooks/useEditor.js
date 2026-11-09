@@ -22,6 +22,7 @@ const withDiary = (doc, diary) => (diary ? {
   ...(diary.createdAt ? { createdAt: diary.createdAt } : {}),
   title: diary.title,
   coverColor: diary.color,
+  ...(diary.source === 'member-api' && diary.paperAppearance && { paperAppearance: diary.paperAppearance }),
 } : doc)
 
 /** 편집기 상태 + 기기 저장소 자동 저장 */

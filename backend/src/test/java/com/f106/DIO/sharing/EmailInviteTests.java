@@ -162,7 +162,7 @@ class EmailInviteTests extends SharingTestSupport {
         for(String email:List.of(address(recipient),address(inactive),address(owner),UUID.randomUUID()+"@example.com")) {
             for(int i=0;i<3;i++)mvc.perform(post("/api/v1/diaries/"+id+"/invites/email").header("Authorization","Bearer "+owner.token())
                 .contentType(MediaType.APPLICATION_JSON).content("{\"email\":\""+email+"\"}"))
-                .andExpect(status().isAccepted()).andExpect(jsonPath("message").value("가입된 이메일이라면 초대가 전달됩니다."));
+                .andExpect(status().isAccepted()).andExpect(jsonPath("message").value("가입된 이메일이면 초대가 전달돼요."));
             mvc.perform(post("/api/v1/diaries/"+id+"/invites/email").header("Authorization","Bearer "+owner.token())
                 .contentType(MediaType.APPLICATION_JSON).content("{\"email\":\""+email+"\"}"))
                 .andExpect(status().isTooManyRequests()).andExpect(jsonPath("code").value("EMAIL_INVITE_RATE_LIMITED"));

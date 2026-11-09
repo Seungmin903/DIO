@@ -22,10 +22,14 @@ public class IdempotentDiaryCreationService {
     }
     @Transactional
     public Result create(String key,DiaryCreateRequest metadata,List<DiaryInitialPages.Selection> pages) {
+        return create(key,metadata,pages,null);
+    }
+    @Transactional
+    public Result create(String key,DiaryCreateRequest metadata,List<DiaryInitialPages.Selection> pages,tools.jackson.databind.JsonNode paperAppearance) {
         if(!TransactionSynchronizationManager.isActualTransactionActive()) throw new IllegalStateException("Idempotent creation requires a transaction");
         long user=identity.requireUserId();
         if(user<=0 || users.lockActiveUserColor(user).isEmpty()) throw DiaryCreationException.unauthorized();
-        String keyHash=DiaryCreationFingerprint.key(key), requestHash=DiaryCreationFingerprint.request(metadata,pages);
+        String keyHash=DiaryCreationFingerprint.key(key), requestHash=DiaryCreationFingerprint.request(metadata,pages,paperAppearance);
         var claim=receipts.claim(user,keyHash,requestHash);
         boolean fresh=claim.fresh();
         var receipt=claim.receipt();
@@ -42,6 +46,7 @@ public class IdempotentDiaryCreationService {
             } catch(JacksonException | IllegalArgumentException invalid) { throw DiaryCreationException.invalidState(); }
         }
         var result=creation.create(metadata,pages);
+        if(paperAppearance!=null)users.setInitialPaperAppearance(UUID.fromString(result.diary().diaryId()),paperAppearance.toString());
         receipts.complete(user,keyHash,UUID.fromString(result.diary().diaryId()),json.writeValueAsString(result));
         return new Result(result,false);
     }
