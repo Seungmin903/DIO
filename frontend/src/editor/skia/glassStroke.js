@@ -16,9 +16,11 @@
 // 잃은 것: 픽셀 단위 고임 장(겹쳐 칠한 웅덩이 안쪽의 등고선 테 · 커피링 그라데이션).
 //   고임은 띠 폭으로만 들어간다. 되살리려면 saveLayer + Plus 경로를 따로 확인해야 한다.
 import { PaintStyle, Skia, StrokeCap, StrokeJoin } from '@shopify/react-native-skia'
-import { glassProbe } from './glassProbe.js'
+import { drawGlassPooled, glassPooledFailed } from './glassPooled.js'
 import { GLASS_INK, GLASS_LIVE_SKSL, GLASS_RIM_SKSL, glassBand, glassDabs, glassPool, inkDensity, micaColor, sheenAutoColor } from '../utils/glassInk.js'
 
+// 27판 경로를 쓸지. 끄면 26판(경로 + 테 띠 폭)으로 돌아간다 — 비교용 스위치.
+const POOLED = true
 let bodyEffect = null, rimEffect = null, broken = false
 export const glassBroken = () => broken
 export function endGlassLive() {}           // 표면을 안 쓰므로 치울 것이 없다
@@ -95,9 +97,9 @@ export function drawGlassStroke(canvas, points, width, color, _zoom = 1, ink = {
   if (broken || !points?.length) return false
   const P = GLASS_INK
   try {
-    // 2단계 탐침: 이 기기에서 Skia 관리 층(saveLayer)이 안전한지 단계별로 확인한다.
-    // 전 단계를 통과하면 픽셀 단위 고임을 되살릴 수 있다. 끝나면 스스로 멈춘다.
-    glassProbe(canvas, points[0].x, points[0].y)
+    // 27판: 고임 장을 픽셀마다 읽는 경로를 먼저 쓴다(웅덩이 안쪽 등고선 테 · 커피링 · 농담 흐름).
+    // 셰이더가 안 되는 기기에서는 스스로 꺼지고, 아래 26판 경로(테 띠 폭)로 떨어진다.
+    if (POOLED && !glassPooledFailed() && drawGlassPooled(canvas, points, width, color, _zoom, ink)) return true
     // 표본 수 상한: 아주 긴 획(되돌아오는 스크리블)은 길이가 수만 px 이라 간격을 그대로 두면
     // 표본이 수만 개가 되고 고임 계산이 프레임을 먹는다(실측 260ms). 길이에 맞춰 간격을 벌린다.
     let len = 0
