@@ -64,6 +64,15 @@ public class MediaFileTransactionService {
 		return new StorageReference(mediaFile.getMimeType(), mediaFile.getOriginalFilename(), mediaFile.getStorageKey());
 	}
 
+    @Transactional(readOnly = true)
+    public StorageReference invitationCoverImageReference(UUID mediaFileId) {
+        var image = mediaFiles.findByMediaFileIdAndDeletedAtIsNull(mediaFileId)
+            .filter(file -> file.getStatus() == com.f106.DIO.media.domain.MediaStatus.READY
+                && file.getMediaType() == com.f106.DIO.media.domain.MediaType.IMAGE)
+            .orElseThrow(MediaFileNotFoundException::new);
+        return new StorageReference(image.getMimeType(), null, image.getStorageKey());
+    }
+
 	@Transactional
 	public void delete(UUID mediaFileId, Long userId) {
 		MediaFile mediaFile = mediaFiles.findOwnedForUpdate(mediaFileId, userId).orElseThrow(MediaFileNotFoundException::new);

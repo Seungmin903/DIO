@@ -19,9 +19,11 @@ Jira S15P31F106-324~333의 기존 공유 구현에 이메일 초대를 확장했
 | POST | `/api/v1/invites/{token}/accept` | 링크/이메일 초대 수락, 200 |
 | POST | `/api/v1/me/invites/{inviteId}/decline` | 수신자의 이메일 초대 거절, 204 |
 
-검색 API·별도 재발송 API는 없다. 업무 API 12개와 다이어리 전용 사진 조회 GET을 Swagger의 ‘공유 다이어리’에서 확인한다. 공개 일반 링크 미리보기를 제외하면 로그인 accessToken을 Bearer로 전달한다. 이메일 초대 미리보기는 같은 GET 경로를 사용하지만 반드시 수신자 계정으로 로그인해야 한다.
+검색 API·별도 재발송 API는 없다. 업무 API 12개와 다이어리 전용 사진·초대 표지 이미지 조회 GET을 Swagger의 ‘공유 다이어리’에서 확인한다. 공개 일반 링크 미리보기와 해당 표지 이미지 조회를 제외하면 로그인 accessToken을 Bearer로 전달한다. 이메일 초대 미리보기는 같은 GET 경로를 사용하지만 반드시 수신자 계정으로 로그인해야 한다.
 
-초대 미리보기는 `coverColor`, `coverStyle`, `cover`를 반환한다. 현재 멤버에게는 보관함과 같은 형식의 표지를 반환한다. 비로그인 사용자와 비멤버에게는 사진·스티커·사용자 지정 문구를 제외한 단색 표지(`kind: plain`, 유효한 저장 색상이 있으면 `color`)를 반환한다. 저장된 표지 설정이 없으면 `cover`는 null이다. `pageSize`는 삭제되지 않은 첫 페이지의 크기에 따라 `portrait` 또는 `landscape`이며, 페이지가 없으면 `landscape`다. 표지 이미지 파일에는 기존 미디어 접근 권한이 적용된다.
+초대 미리보기는 `coverColor`, `coverStyle`, `cover`를 반환한다. 유효하고 사용 가능한 초대에는 보관함과 같은 표지 설정을 반환한다. 저장된 표지 설정이 없으면 `cover`는 null이다. `pageSize`는 삭제되지 않은 첫 페이지의 크기에 따라 `portrait` 또는 `landscape`이며, 페이지가 없으면 `landscape`다. 표지 사진과 사진 스티커는 `GET /api/v1/invites/{token}/cover-media/{mediaId}`로 조회한다. 서버는 매 요청에 초대 상태·수신자와 현재 표지의 이미지 참조를 검사한다.
+
+앱의 알림 목록은 표시할 수락 대기 초대의 표지를 같은 초대 미리보기 API로 조회한다. 표지 조회가 실패한 초대는 목록에서 기본 표지로 표시한다.
 
 ## 멤버 정책
 

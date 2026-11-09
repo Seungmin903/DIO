@@ -56,31 +56,59 @@ class SharingTests extends SharingTestSupport {
             .andExpect(jsonPath("$.cover.kind").value("plain"));
     }
 
-    @Test void previewKeepsPrivateCoverMetadataForMembersOnly() throws Exception {
-        var owner=actor();
-        var outsider=actor();
-        var id=diary(owner);
-        var token=links.create(id,owner.id()).token();
-        var mediaId=UUID.randomUUID();
+    @Test void previewReturnsOriginalCoverAndOnlyItsImagesUntilLinkIsRevoked() throws Exception {
+        var owner = actor();
+        var outsider = actor();
+        var id = diary(owner);
+        byte[] png = Base64.getDecoder().decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aZ1cAAAAASUVORK5CYII=");
+        var upload = new org.springframework.mock.web.MockMultipartFile("file", "cover.png", "image/png", png);
+        var media = mvc.perform(multipart("/api/v1/media").file(upload).header("Authorization", "Bearer " + owner.token()))
+            .andExpect(status().isCreated()).andReturn();
+        String mediaId = new tools.jackson.databind.json.JsonMapper().readTree(media.getResponse().getContentAsString())
+            .path("mediaFileId").asText();
         jdbc.update("update diaries set cover_json=? where diary_id=?", """
             {"kind":"photo","color":"#ABCDEF","photo":{"mediaFileId":"%1$s","src":"media:%1$s"},
-             "stickers":[{"mediaFileId":"%1$s","src":"media:%1$s"}],"title":{"text":"Private cover title"}}
-            """.formatted(mediaId),id);
+             "stickers":[{"mediaFileId":"%1$s","src":"media:%1$s"}],"title":{"text":"Cover title"},
+             "ribbon":{"color":"#ABCDEF"},"band":{"on":false}}
+            """.formatted(mediaId), id);
 
-        var anonymous=get("/api/v1/invites/"+token);
-        var authenticatedOutsider=get("/api/v1/invites/"+token).header("Authorization","Bearer "+outsider.token());
-        for(var request:List.of(anonymous,authenticatedOutsider)) {
-            mvc.perform(request).andExpect(status().isOk())
-                .andExpect(jsonPath("$.cover.kind").value("plain"))
-                .andExpect(jsonPath("$.cover.color").value("#ABCDEF"))
-                .andExpect(jsonPath("$.cover.photo").doesNotExist())
-                .andExpect(jsonPath("$.cover.stickers").doesNotExist())
-                .andExpect(jsonPath("$.cover.title").doesNotExist());
-        }
-        mvc.perform(get("/api/v1/invites/"+token).header("Authorization","Bearer "+owner.token()))
+        String invitePath = "/api/v1/invites/" + links.create(id, owner.id()).token();
+        mvc.perform(get(invitePath).header("Authorization", "Bearer " + outsider.token()))
             .andExpect(status().isOk())
-            .andExpect(jsonPath("$.cover.photo.mediaFileId").value(mediaId.toString()))
-            .andExpect(jsonPath("$.cover.stickers[0].mediaFileId").value(mediaId.toString()));
+            .andExpect(header().string("Cache-Control", "private, no-store"))
+            .andExpect(jsonPath("$.cover.kind").value("photo"))
+            .andExpect(jsonPath("$.cover.photo.mediaFileId").value(mediaId))
+            .andExpect(jsonPath("$.cover.stickers[0].mediaFileId").value(mediaId))
+            .andExpect(jsonPath("$.cover.title.text").value("Cover title"))
+            .andExpect(jsonPath("$.cover.ribbon.color").value("#ABCDEF"))
+            .andExpect(jsonPath("$.cover.band.on").value(false));
+
+        String imagePath = invitePath + "/cover-media/" + mediaId;
+        mvc.perform(get(imagePath)).andExpect(status().isOk())
+            .andExpect(header().string("Cache-Control", "private, no-store"))
+            .andExpect(content().contentType("image/png")).andExpect(content().bytes(png));
+        mvc.perform(get(invitePath + "/cover-media/" + UUID.randomUUID())).andExpect(status().isNotFound());
+
+        var recipient = actor();
+        String email = users.findById(recipient.id()).orElseThrow().getEmail();
+        mvc.perform(post("/api/v1/diaries/" + id + "/invites/email")
+                .header("Authorization", "Bearer " + owner.token())
+                .contentType("application/json").content("{\"email\":\"" + email + "\"}"))
+            .andExpect(status().isAccepted());
+        String emailPath = "/api/v1/invites/" + tokenSigner.token(invites.pendingEmail(id, recipient.id()).orElseThrow());
+        mvc.perform(get(emailPath).header("Authorization", "Bearer " + recipient.token()))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.cover.photo.mediaFileId").value(mediaId));
+        String emailImagePath = emailPath + "/cover-media/" + mediaId;
+        mvc.perform(get(emailImagePath)).andExpect(status().isUnauthorized());
+        mvc.perform(get(emailImagePath).header("Authorization", "Bearer " + outsider.token()))
+            .andExpect(status().isForbidden());
+        mvc.perform(get(emailImagePath).header("Authorization", "Bearer " + recipient.token()))
+            .andExpect(status().isOk()).andExpect(content().bytes(png));
+
+        jdbc.update("update diaries set cover_json=? where diary_id=?", "{}", id);
+        mvc.perform(get(imagePath)).andExpect(status().isNotFound());
+        links.create(id, owner.id());
+        mvc.perform(get(imagePath)).andExpect(status().isGone());
     }
 
     @Test void protectedEndpointsRejectMissingAndInvalidToken() throws Exception {

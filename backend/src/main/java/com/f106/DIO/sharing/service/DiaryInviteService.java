@@ -74,8 +74,23 @@ public class DiaryInviteService {
             count>=SharingPolicy.MAX_MEMBERS,invite.email()?"EMAIL":"LINK",invite.status(),
             actor!=null&&!alreadyMember&&requiresConfirmation(diary,actor),
             pageSize,diary.getCoverColor(),diary.getCoverStyle(),
-            alreadyMember?DiaryCoverDesign.read(diary.getCoverJson()):DiaryCoverDesign.publicPreview(diary.getCoverJson()));
+            alreadyMember||canPreviewOriginal(invite)?DiaryCoverDesign.read(diary.getCoverJson()):DiaryCoverDesign.publicPreview(diary.getCoverJson()));
     }
+    @Transactional(readOnly=true)
+    public void requirePreviewCoverImage(String token, Long actor, UUID mediaId) {
+        var invite = valid(tokens.id(token), token, actor);
+        var diary = access.read(invite.getDiaryId());
+        if (!canPreviewOriginal(invite)
+                || !DiaryCoverDesign.references(DiaryCoverDesign.read(diary.getCoverJson())).contains(mediaId)) {
+            throw tokens.notFound();
+        }
+    }
+
+    private boolean canPreviewOriginal(DiaryInvite invite) {
+        return "PENDING".equals(invite.status())
+            && (invite.getMaxUses() == null || invite.getUseCount() < invite.getMaxUses());
+    }
+
     public InviteAcceptResponse accept(String token,long actor) {return accept(token,actor,false);}
     public InviteAcceptResponse accept(String token,long actor,boolean acknowledgeBlockedMembers) {
         long inviteId=tokens.id(token);

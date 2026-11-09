@@ -8,7 +8,7 @@ export async function describeSharingInvitations(api, inviteIds, { signal } = {}
   let cursor, pages = 0;
   do {
     if (signal?.aborted) throw Object.assign(new Error('Cancelled'), { name: 'AbortError' });
-    const page = await api.list({ cursor, signal });
+    const page = await api.list({ cursor, signal, inviteIds: remaining });
     pages++;
     for (const row of page.items) {
       const id = String(row.inviteId);

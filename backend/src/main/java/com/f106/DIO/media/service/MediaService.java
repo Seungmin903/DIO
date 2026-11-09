@@ -88,6 +88,12 @@ public class MediaService {
 	public void delete(UUID mediaFileId, Long userId) {
 		transactions.delete(mediaFileId, userId);
 	}
+    /** The invitation service must first authorize this image against the current cover. */
+    public DownloadedMedia invitationCoverImage(UUID mediaFileId) {
+        var reference = transactions.invitationCoverImageReference(mediaFileId);
+        return new DownloadedMedia(reference.mimeType(), null, files.read(reference.storageKey()));
+    }
+
 	private static byte[] read(MultipartFile upload) {
 		if (upload == null || upload.isEmpty()) throw MediaRequestException.invalidFile();
 		try (var in = new PushbackInputStream(upload.getInputStream(), 1024)) {
