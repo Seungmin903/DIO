@@ -10,7 +10,7 @@
 //   → 셰이더 한 번: 두께 → 불투명도 · 색 깊이
 
 export const GLASS_INK = {
-  version: 22,
+  version: 24,
   T_MAX: 4,            // 마스크 G 채널 1.0 = 두께 4
   spacing: 0.12,       // 표본 간격(굵기 배수)
   // 속도 → 두께: 빠르면 얇게, 느리면 두껍게 (page 단위/ms)
@@ -36,6 +36,12 @@ export const GLASS_INK = {
   //   넓은 면 안쪽 = 밝음(빨강 R 200~235), 경계 안쪽 띠 = 진함(R 120~150, 폭 ≈ 가는 선 4~5배), 가는 선 = 그 중간(R 165~180)
   //   색: 펜 색 C 를 '진하기 1' 의 투과율로 보고 C^f (베르-람베르트). 흰 종이 위에서 f = 1 이면 정확히 C.
   rimR: 7,             // 경계 감지 반지름(굵기 배수) 7판: 2.5 → 7 (실물 띠 폭 ≈ 선폭 4~5배)
+  // 24판: 커피링 · 안쪽 밝아짐을 **실제로 고인 만큼만** 적용한다(사용자: 굵기 16 획이 윤곽선 있는
+  //   마커처럼 보인다). fIn · fRim 은 참고 05 의 넓은 붓 스와치에서 잰 값이라, 그냥 굵은 펜 획에
+  //   그대로 걸면 진한 테두리 + 밝은 속이 되어 잉크가 아니라 윤곽선으로 읽힌다.
+  //   고임도 pool01 = smoothstep(ringStart, ringFull, Tb0): 굵기 16 한 획 0.8 · 칠 1.05 · 웅덩이 2.0
+  ringStart: 0.5,      // 이 고임부터 커피링이 보이기 시작
+  ringFull: 1.9,       // 이 고임에서 참고 05 와 같은 세기
   fIn: 0.55,           // 넓은 면 안쪽 진하기
   fRim: 3,             // 면 경계 안쪽 띠 진하기 7판: 1.3 → 3 (실물 띠 R 120~150 맞춤)
   tGamma: 0.3,         // 두께(느림 · 겹침)가 진하기에 주는 영향 f × (T/1)^γ
@@ -61,7 +67,7 @@ export const GLASS_INK = {
   sheenInT: 1.7,       // 내부 패치 문턱(고임 장 두께) — 웅덩이 내부 2.0, 칠 내부 1.05
   sheenInAmp: 0.4,     // 내부 패치 세기(0 = 윤곽 띠만)
   // 19판: 가는 획의 테. 넓은 면은 블러 덮임 Ab 가 1 까지 가지만 가는 선은 0.16 이 최대라 등고선이 아예 없었다.
-  //   선 하나의 블러 덮임 최대값(abLine = erf(1/(2·poolBlur·√2)), 굵기와 무관한 상수)으로 정규화한 An 에
+  //   선 하나의 블러 덮임 최대값(abLine, 23판부터 굵기에 따라 달라진다)으로 정규화한 An 에
   //   같은 등고선을 걸면 가는 획의 **양 가장자리**에 테가 돈다(실물 20: 강한 쉰 잉크는 글씨에도 테가 돈다).
   //   넓은 면에서는 꺼서(Ab 로 게이트) 기존 윤곽 테와 겹치지 않게 한다.
   sheenEdge: 0.9,      // 가는 획의 테 세기(0 = 끔) 20판: 0.55 는 티가 안 났다
@@ -70,7 +76,13 @@ export const GLASS_INK = {
   //   에어브러시 테두리처럼 보였다. 실물은 접촉선이 고르게 고정되지 않아 **군데군데 끊기고 몰린다**.
   sheenPatch: 0.42,    // 띠가 끊기는 정도(0 = 빠짐없이 두름, 1 = 많이 끊김)
   sheenGrain: 0.4,     // 띠 안의 결(고운 알갱이) — 매끈한 그라데이션을 깬다
-  poolBlur: 2.5,       // 고임 장 블러 시그마(굵기 배수) — 액체 평탄화 규모
+  // 23판: 고임 장 블러를 **굵기 배수가 아니라 절대 길이**로(사용자: "획 하나가 1이든 16이든 테가
+  //   안 뜨고 같은 모양인 건 이상하다"). 22판까지는 sigma = poolBlur × 굵기라 기하가 자기닮음이 되어
+  //   굵기를 바꿔도 Ab · Tu · 테 · 글리터가 전부 같았다. 실제로 잉크가 퍼지는 거리는 잉크 · 종이의
+  //   성질이지 닙 굵기가 아니다. 절대 길이로 두면 굵은 획일수록 고이고(Ab 커짐) 테 · 글리터가 살아난다.
+  //   선 하나의 블러 덮임 최대값 abLine = erf(굵기 / (2·poolSpread·√2)):
+  //     굵기 1 → 0.07 · 2.5 → 0.16 · 6 → 0.37 · 10 → 0.58 · 16 → 0.81
+  poolSpread: 6.25,    // 고임 장 블러 시그마(페이지 단위) — 22판까지의 굵기 2.5 와 같은 값
   // 16판: 염료 두께 평탄화 — 액체는 주변 평균 높이로 퍼진다. 도장 격자(와플) · 지그재그 빗살 제거.
   //   평탄 두께 = 블러 두께 / 블러 덮임 = 주변 평균 두께(가는 선은 값이 거의 안 변해 영향 없음)
   poolMix: 0.55,       // 평탄 두께를 섞는 비율(0 = 16판 이전)
@@ -170,10 +182,11 @@ export function sheenAutoColor(ink, { n = 1.55, kScale = 0.25, lightness = 0.62 
   return R.map(r => Math.pow(Math.min(1, r / mx * lightness), 1 / 2.2))  // 선형 반사율 → sRGB
 }
 
-// 선 하나를 가우시안 블러했을 때의 덮임 최대값 = erf(1 / (2·poolBlur·√2)). 굵기와 무관한 상수다.
+// 선 하나를 가우시안 블러했을 때의 덮임 최대값 = erf(굵기 / (2·poolSpread·√2)).
+// 23판부터 블러가 절대 길이라 **굵기에 따라 달라진다**(굵기 1 → 0.07 · 2.5 → 0.16 · 16 → 0.81).
 // 가는 획의 "획 가운데 ↔ 가장자리"를 재는 기준(An = Ab / abLine)으로 쓴다.
 const erf = x => { const t = 1 / (1 + 0.3275911 * Math.abs(x)), y = 1 - ((((1.061405429 * t - 1.453152027) * t + 1.421413741) * t - 0.284496736) * t + 0.254829592) * t * Math.exp(-x * x); return x < 0 ? -y : y }
-export const abLineOf = (blur = GLASS_INK.poolBlur) => erf(1 / (2 * blur * Math.SQRT2))
+export const abLineOf = (width, spread = GLASS_INK.poolSpread) => erf(width / (2 * spread * Math.SQRT2))
 
 // 쓰는 중에 쓰는 가벼운 셰이더: 마스크 · 고임 장 없이 잉크색 + 운모 막 + 입자만.
 // 손을 뗀 뒤 그림과 완전히 같지는 않지만(테 · 커피링 없음) 쓰는 동안 밋밋하지 않게 한다.
@@ -300,6 +313,8 @@ uniform float3 dens;   // 채널별 광학 밀도(inkDensity)
 uniform float satK;    // 채도 유지 세기(0 = C^f 와 동일)
 uniform float tMax;
 uniform float rad;     // 경계 감지 반지름(화면 px)
+uniform float ringStart;
+uniform float ringFull;
 uniform float fIn;
 uniform float fRim;
 uniform float tGamma;
@@ -379,9 +394,11 @@ half4 main(float2 p) {
   float x = clamp(1.0 - Ab, 0.0, 1.0);
   // 13판: 픽셀별 건조 진행 — 고임(Tb0)이 클수록 늦게 마름
   float dq = smoothstep(0.0, 1.0, dry * (1.0 + dryLag) - dryLag * (Tb0 / satMax));
-  float base = mix(fIn, 1.0, smoothstep(0.0, 0.6, x)); // 안쪽 밝게 → 가는 선 = 1
-  float bump = smoothstep(0.08, 0.3, x) * (1.0 - smoothstep(0.45, 0.7, x)); // 넓은 면 경계 안쪽 띠
-  bump *= dq;                                        // 커피링은 마르면서 생김
+  // 24판: 고인 만큼만 — 그냥 굵은 획은 거의 고르게, 진짜 웅덩이는 참고 05 처럼
+  float pool01 = smoothstep(ringStart, ringFull, Tb0);
+  float base = mix(1.0, mix(fIn, 1.0, smoothstep(0.0, 0.6, x)), pool01); // 안쪽 밝게(고였을 때만)
+  float bump = smoothstep(0.08, 0.3, x) * (1.0 - smoothstep(0.45, 0.7, x)); // 경계 안쪽 띠
+  bump *= dq * pool01;                               // 커피링은 마르면서 · 고인 만큼만
   float f = (base + (fRim - 1.0) * bump) * pow(max(T, 0.05), tGamma);
   // 6판: 베르-람베르트(감마 2.2 선형) + 채널별 f 반응 — 어두운 채널은 얇아져도 안 밝아짐(채도 유지)
   // f < 1(얇음): 채도 유지 쪽이 f 보다 큼 → 선택됨. f > 1(두꺼움): f 그대로 → 밝은 채널도 어두워짐.

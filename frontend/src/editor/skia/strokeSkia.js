@@ -3,7 +3,7 @@ import { createStrokePreview, partPath } from '../utils/strokePreview.js'
 import { ballPreviewPaths, ballSweepPath, ballVaries, isNibKind, nibContour, nibPreviewPaths } from '../utils/nibStroke.js'
 import { PENCIL_BRUSH, pencilAccumulates, PENCIL_STRAND_SKSL, strandUniforms, brushPartSamples, depositFloor, depositGain, brushSampledPoints, brushSeed, ribbonStretch, copyDabs, previewSegmentFor, shaderCap, shaderDabAlpha, shaderUniforms, PENCIL_SHADER_SKSL, brushTipPower, partRange, partTotal, paperMatrices, paperUniforms, pencilDabs, PENCIL_PAPER_SKSL } from '../utils/pencilBrush.js'
 import { HIGHLIGHTER_OPACITY } from '../utils/penSettings.js'
-import { drawGlassStroke, glassLivePaint } from './glassStroke.js'
+import { drawGlassLive, drawGlassStroke } from './glassStroke.js'
 // 유리펜 잉크 설정(획 설정 · 저장 획 공용). 없으면 기본값(글리터 · 테 켬)
 const glassInkOf = one => ({ glitter: one?.inkGlitter !== false, sheen: one?.inkSheen !== false, film: one?.inkFilm, amount: one?.inkAmount, sheenColor: one?.inkSheenColor, sheenAmount: one?.inkSheenAmount })
 const glassKey = one => `|${one?.inkGlitter !== false}|${one?.inkSheen !== false}|${one?.inkFilm ?? ''}|${one?.inkAmount ?? ''}|${one?.inkSheenColor ?? ''}|${one?.inkSheenAmount ?? ''}`
@@ -512,18 +512,13 @@ function drawParts(canvas, parts, style) {
   const kind = skiaKind(style.kind)
   if (!parts.length || !parts[0].points.length) return
   if (kind === 'pencil') return drawBrushParts(canvas, parts, style)
-  // 유리펜: 손을 뗀 뒤에만 셰이더로 한 번(쓰는 중은 아래 평범한 선 — 프레임마다 오프스크린 표면을 만들면
-  // 연필이 같은 기기에서 겪은 MakeOffscreen SIGTRAP 이 그대로 난다). 셰이더가 실패해도 평범한 선으로 떨어진다
-  if (kind === 'glass' && !style.live && drawGlassStroke(canvas, parts.flatMap(part => part.points), style.width, style.color, style.zoom ?? 1, style.ink)) return
-  // 쓰는 중: 가벼운 셰이더(잉크색 + 막 + 입자)를 획 경로에 바로 칠한다 — 표면을 만들지 않는다
-  if (kind === 'glass' && style.live) {
-    const path = linePath(parts), live = path && glassLivePaint(style.color, style.ink)
-    if (path && live) {
-      live.setAntiAlias(true); live.setStyle(PaintStyle.Stroke)
-      live.setStrokeCap(StrokeCap.Round); live.setStrokeJoin(StrokeJoin.Round); live.setStrokeWidth(style.width)
-      canvas.drawPath(path, live)
-      return
-    }
+  // 유리펜: 쓰는 중과 손을 뗀 뒤가 같은 그림이 되도록 같은 셰이더 경로를 쓴다.
+  // 쓰는 중은 획 하나당 표면을 한 번만 잡고 새 도장만 덧찍는다(매 프레임 표면을 만들면 이 기기에서 죽는다).
+  // 셰이더가 실패하면 아래 평범한 선으로 떨어진다.
+  if (kind === 'glass') {
+    const pts = parts.flatMap(part => part.points)
+    if (style.live ? drawGlassLive(canvas, pts, style.width, style.color, style.zoom ?? 1, style.ink)
+                   : drawGlassStroke(canvas, pts, style.width, style.color, style.zoom ?? 1, style.ink)) return
   }
   if (isNibKind(kind)) {
     const paths = nibPreviewPaths(parts, style.width, kind)
