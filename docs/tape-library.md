@@ -42,7 +42,8 @@
 
 - `user_tape_libraries(user_id PK, version, document_json, updated_at)`, `user_tape_library_media(user_id, media_file_id)`.
 - 미디어 정리(`MediaReferenceSql`)는 `user_tape_library_media`를 참조로 보아 보관함 테이프 사진을 물리 삭제하지 않는다.
-- 회원 탈퇴는 두 표를 지운 뒤 참조 없는 개인 파일을 기존 정리 경로로 보낸다.
+- 미디어에서 지운(삭제 표시) 사진이라도 내 보관함에 든 동안은 본인이 `GET /api/v1/media/{id}/file`로 받을 수 있다(새 기기 · 재설치 기기가 보관함을 받을 때). 보관함에서 빠지면 404다.
+- 회원 탈퇴는 두 표를 지운 뒤 참조 없는 개인 파일을 기존 정리 경로로 보낸다. 두 표의 `users` 외래 키는 `ON DELETE CASCADE`라 다른 경로로 계정 행을 지워도 막히지 않는다.
 
 ## 앱 동기화
 
