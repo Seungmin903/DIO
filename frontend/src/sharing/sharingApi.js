@@ -131,6 +131,14 @@ export function createSharingApi({ user, auth, fetchImpl = globalThis.fetch, bui
       actionable: row.status === 'PENDING', createdAt: row.createdAt, readAt: row.createdAt,
       diary: { title: row.diaryTitle } })), hasNext: result.hasNext, nextCursor: result.hasNext ? String(page + 1) : null };
   }
+  // 초대 미리보기의 표지(지라 636): 서버가 주는 첫 페이지 방향 · 표지 색 · 무늬 · 표지 설정을 보관함 카드와 같은 모양으로 옮긴다.
+  // 비회원에게는 서버가 사진 · 스티커 · 문구를 뺀 단색 표지만 준다. 값이 이상하면 그 칸만 빼고 기본 표지로 그린다.
+  const previewCover = row => ({
+    ...(typeof row?.coverColor === 'string' && /^#[0-9a-f]{6}$/i.test(row.coverColor) ? { color: row.coverColor } : {}),
+    ...(typeof row?.coverStyle === 'string' ? { pattern: row.coverStyle === 'PLAIN' ? null : row.coverStyle.toLowerCase() } : {}),
+    ...(row?.cover && typeof row.cover === 'object' && !Array.isArray(row.cover) ? { cover: row.cover } : {}),
+    ...(row?.pageSize === 'portrait' || row?.pageSize === 'landscape' ? { pageSize: row.pageSize } : {}),
+  });
   async function invitation(id) {
     // 목록의 오래된 상태를 그대로 사용하지 않고 본인 수신 목록을 다시 확인한다.
     let cursor = null;
@@ -141,7 +149,7 @@ export function createSharingApi({ user, auth, fetchImpl = globalThis.fetch, bui
         if (own.status !== 'PENDING') return own;
         const detail = await request(`/invites/${encodeURIComponent(own.token)}`);
         const fresh = { ...own, ...detail, inviteId: own.inviteId, token: own.token,
-          diary: { ...own.diary, title: detail.title || own.diary.title }, canOpen: detail.status === 'PENDING' };
+          diary: { ...own.diary, ...previewCover(detail), title: detail.title || own.diary.title }, canOpen: detail.status === 'PENDING' };
         invitations.set(id, fresh); return fresh;
       }
       cursor = result.nextCursor;
@@ -379,7 +387,7 @@ export function createSharingApi({ user, auth, fetchImpl = globalThis.fetch, bui
       catch { fail('INVALID_LINK', '초대 링크를 확인해 주세요.'); }
       if (!token) fail('INVALID_LINK', '초대 링크를 확인해 주세요.');
       const row = await request(`/invites/${encodeURIComponent(token)}`);
-      const result = { ...row, inviteId: token, token, canOpen: row.status === 'PENDING', memberCount: row.currentMembers, diary: { diaryId: row.diaryId, title: row.title } };
+      const result = { ...row, inviteId: token, token, canOpen: row.status === 'PENDING', memberCount: row.currentMembers, diary: { diaryId: row.diaryId, title: row.title, ...previewCover(row) } };
       invitations.set(token, result); return result;
     },
     async accept(id, nickname, { photoUri = self.photoUri, acknowledgeBlockedMembers = false } = {}) {

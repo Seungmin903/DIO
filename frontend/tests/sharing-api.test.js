@@ -549,3 +549,24 @@ test('한 쪽이 전부 거절한 초대면 다음 쪽을 이어 받아 빈 목�
   assert.deepEqual(list.items.map(row => row.inviteId), ['2']);
   assert.equal(list.nextCursor, null);
 });
+
+test('636: 초대 미리보기의 방향 · 표지 색 · 무늬 · 표지 설정을 초대 수락 창 표지로 넘긴다', async () => {
+  const preview = { diaryId, title: '세로 일기', status: 'PENDING', inviteType: 'LINK', pageSize: 'portrait', coverColor: '#AABBCC', coverStyle: 'DOTS', cover: { kind: 'plain', color: '#112233' } };
+  const f = fixture({ fetch: async url => url.endsWith('/invites/cover-token') ? reply(preview) : null });
+  const result = await f.runtime.resolveLink('/invite/cover-token');
+  assert.deepEqual(result.diary, { diaryId, title: '세로 일기', color: '#AABBCC', pattern: 'dots', cover: { kind: 'plain', color: '#112233' }, pageSize: 'portrait' });
+  // 이상한 값은 그 칸만 빼고(기본 표지로) 그린다
+  const odd = fixture({ fetch: async url => url.endsWith('/invites/odd-token') ? reply({ ...preview, pageSize: 'A4', coverColor: 'red', coverStyle: 'PLAIN', cover: [1] }) : null });
+  const oddResult = await odd.runtime.resolveLink('/invite/odd-token');
+  assert.deepEqual(oddResult.diary, { diaryId, title: '세로 일기', pattern: null });
+});
+
+test('636: 받은 초대(이메일)도 토큰 상세의 방향 · 표지를 수락 창 표지로 넘긴다', async () => {
+  const f = fixture({ fetch: async url => url.endsWith('/invites/private-token') ? reply({ diaryId, title: '우리 기록', status: 'PENDING', inviteType: 'EMAIL', pageSize: 'portrait', coverColor: '#AABBCC', coverStyle: 'PLAIN', cover: null }) : null });
+  const invite = await f.runtime.invitationGateway.get('123');
+  assert.equal(invite.diary.pageSize, 'portrait');
+  assert.equal(invite.diary.color, '#AABBCC');
+  assert.equal(invite.diary.pattern, null);
+  assert.equal(invite.diary.cover, undefined); // 저장된 표지 설정이 없으면 기본 표지
+  assert.equal(invite.diary.title, '우리 기록');
+});
