@@ -47,8 +47,9 @@ export function isFontBytes(bytes) {
  * storage · key: 올린 폰트의 서버 id 기록(계정 · 서버마다 한 번만 올린다)
  * consent: { status() → 'granted'|'denied'|null, ask() → 공유하기면 true } 내 폰트를 올려도 되는지(handwriting/fontShareConsent.js)
  */
-const ALWAYS_GRANTED = { status: async () => 'granted', ask: async () => true }
-export function createDiaryFonts({ diaryId, transport, request, files, library, storage, key, isActive = () => true, ready = Promise.resolve(), consent = ALWAYS_GRANTED, now = Date.now, setTimer = setTimeout, clearTimer = clearTimeout }) {
+// 동의를 넘기지 않은 호출부는 올리지 않는다(폰트 파일은 다른 멤버가 내려받는 개인 데이터라, 빠뜨려도 조용히 올라가지 않게)
+const NO_CONSENT = { status: async () => 'denied', ask: async () => false }
+export function createDiaryFonts({ diaryId, transport, request, files, library, storage, key, isActive = () => true, ready = Promise.resolve(), consent = NO_CONSENT, now = Date.now, setTimer = setTimeout, clearTimer = clearTimeout }) {
   if (!uuid(diaryId)) throw Error('다이어리 ID를 확인해 주세요.')
   // shared: 이 다이어리에 내 파일로 공유된 것을 확인한 내 폰트 id. registered: 이 세션에서 받아 등록한 친구 폰트 id → 서버 파일 id
   const shared = new Set(), sharing = new Map(), registered = new Map(), loadFailures = new Map()

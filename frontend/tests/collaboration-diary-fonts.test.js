@@ -10,6 +10,7 @@ const mediaFileId = '30000000-0000-4000-8000-000000000001', otherMediaId = '3000
 const textRow = (font, elementType = 'TEXT') => ({ elementType, propertiesJson: { text: '안녕', font } })
 const body = rows => ({ clientOperationId: 'op', changes: { creates: rows }, expectedVersions: {} })
 
+const GRANTED = { status: async () => 'granted', ask: async () => true }
 const TTF = new Uint8Array([0, 1, 0, 0, 0, 10, 0, 128, 0, 3, 0, 32])
 function fixture({ mine = [{ id: `personal-${fileId}`, fileId, uri: 'file://font.ttf' }], has = () => false, serverFonts = [], shareFailure = null, fileBytes = () => TTF, consent } = {}) {
   const failed = {}, disk = new Map(), calls = [], registered = [], unregistered = [], saved = new Map(), timers = []
@@ -34,7 +35,7 @@ function fixture({ mine = [{ id: `personal-${fileId}`, fileId, uri: 'file://font
     diaryId, transport, request, storage: { getItem: async k => disk.get(k) ?? null, setItem: async (k, v) => disk.set(k, v), removeItem: async k => disk.delete(k) }, key: 'uploads',
     files: { upload: async font => ({ font }), cachedUri: async id => saved.get(id) ?? null, save: async (id, bytes) => { saved.set(id, `file://shared/${id}.ttf`); return saved.get(id) } },
     library: { mine: async () => mine, has, register: (list, onFailed) => { registered.push(...list); failed.onFailed = onFailed }, unregister: ids => unregistered.push(ids) },
-    now: () => now, consent,
+    now: () => now, consent: consent ?? GRANTED,
     setTimer: (run, ms) => { const timer = { run, ms, cleared: false }; timers.push(timer); return timer },
     clearTimer: timer => { timer.cleared = true },
   })
@@ -104,6 +105,16 @@ test('공유 안 함을 고르거나 끈 계정은 올리지 않는다', async (
   assert.equal(asks, 1)
   assert.equal(off.uploads(), 0)
   assert.equal(shares(off), 0)
+})
+
+test('동의(consent)를 넘기지 않은 호출부는 내 폰트를 올리지 않는다', async () => {
+  const calls = []
+  const fonts = createDiaryFonts({ diaryId, key: 'k', storage: { getItem: async () => null, setItem: async () => {} },
+    files: { upload: async () => ({}) }, request: async path => { calls.push(path); return { mediaFileId } },
+    transport: async request => { calls.push(request.path); return null },
+    library: { mine: async () => [{ id: `personal-${fileId}`, fileId, uri: 'file://font.ttf' }], has: () => false, register() {} } })
+  await fonts.prepare(body([textRow(`personal-${fileId}`)])); await fonts.whenShared()
+  assert.deepEqual(calls, [])
 })
 
 test('친구 폰트는 동의를 묻지 않는다', async () => {

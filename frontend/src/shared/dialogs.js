@@ -34,10 +34,12 @@ export function confirmAction({ title, message, confirmLabel, cancelLabel = '취
     else onCancel?.();
     return;
   }
+  // 안드로이드 창이 버튼 없이 닫히면(바깥 누르기 · 뒤로 가기가 허용된 경우) 버튼 onPress 대신 onDismiss 만 불린다: 그때도 취소로 본다.
+  // cancelable 은 바꾸지 않는다(기본 false: 다른 확인 창의 동작을 그대로 둔다)
   Alert.alert(title, message, [
     { text: cancelLabel, style: 'cancel', onPress: onCancel },
     { text: confirmLabel, style: danger ? 'destructive' : 'default', onPress: onConfirm },
-  ]);
+  ], { onDismiss: onCancel });
 }
 
 /** 확인 버튼만 있는 안내 창 */
