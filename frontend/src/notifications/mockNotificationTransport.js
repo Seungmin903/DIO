@@ -27,8 +27,26 @@ export function createMockNotificationTransport({ account = 'A', delay = 500, pa
   const project = row => { if (!row.invitation) return row; const status = invitations.get(row.invitation.inviteId)?.status || 'UNAVAILABLE';
     return { ...row, invitation: { ...row.invitation, status }, action: { enabled: status === 'PENDING' } }; };
   const fail = () => { throw new NotificationError('TEMPORARILY_UNAVAILABLE', '알림 요청을 처리하지 못했어요. 다시 시도해 주세요.', 503); };
+  async function simulate(channel, signal) {
+    const mode = modes.get(channel);
+    if (mode === 'fail-once' || mode === 'response-lost') modes.delete(channel);
+    await wait(delay, signal);
+    if (mode === 'fail-once' || mode === 'error') fail();
+    if (mode === 'unauthorized') throw new NotificationError('AUTHENTICATION_REQUIRED', '로그인이 필요해요.', 401);
+    if (mode === 'not-found') throw new NotificationError('NOT_FOUND', '대상을 찾을 수 없어요.', 404);
+    if (mode === 'network-error') throw new NotificationError('NETWORK_ERROR', '연결하지 못했어요.');
+    if (mode === 'forbidden') throw new NotificationError('FORBIDDEN', '이 초대를 확인할 권한이 없어요.', 403);
+    return mode;
+  }
   return {
     add,
+    async getInvitation(inviteId, { signal } = {}) {
+      const mode = await simulate('invitation', signal);
+      const value = invitations.get(inviteId);
+      if (!value) throw new NotificationError('INVITATION_NOT_FOUND', '초대를 찾을 수 없어요.', 404);
+      const status = mode === 'expired' ? 'EXPIRED' : mode === 'revoked' ? 'REVOKED' : value.status;
+      return clone({ ...value, status, canOpen: status === 'PENDING' && value.canOpen === true && mode !== 'cannot-open' });
+    },
     // 테스트용 종류이며 서버 계약의 enum을 추가하지 않는다.
     addGeneral(type = 'MOCK_NOTICE') {
       const notificationId = String(++serial);
@@ -40,22 +58,8 @@ export function createMockNotificationTransport({ account = 'A', delay = 500, pa
     setInvitationCanOpen(id, canOpen) { const value = invitations.get(id); if (value) value.canOpen = canOpen; },
     inspect: () => ({ rows: clone(rows), invitations: clone([...invitations.values()]) }),
     async transport({ path, method = 'GET', query = {}, body, signal }) {
-      const channel = path.startsWith('/me/') ? 'invitation' : method !== 'GET' ? 'write' : path.endsWith('unread-count') ? 'count' : 'list';
-      const mode = modes.get(channel);
-      if (mode === 'fail-once' || mode === 'response-lost') modes.delete(channel);
-      await wait(delay, signal);
-      if (mode === 'fail-once' || mode === 'error') fail();
-      if (mode === 'unauthorized') throw new NotificationError('AUTHENTICATION_REQUIRED', '로그인이 필요해요.', 401);
-      if (mode === 'not-found') throw new NotificationError('NOT_FOUND', '대상을 찾을 수 없어요.', 404);
-      if (mode === 'network-error') throw new NotificationError('NETWORK_ERROR', '연결하지 못했어요.');
-      if (mode === 'forbidden') throw new NotificationError('FORBIDDEN', '이 초대를 확인할 권한이 없어요.', 403);
-      if (channel === 'invitation') {
-        const inviteId = decodeURIComponent(path.split('/').pop());
-        const value = invitations.get(inviteId);
-        if (!value) throw new NotificationError('INVITATION_NOT_FOUND', '초대를 찾을 수 없어요.', 404);
-        const status = mode === 'expired' ? 'EXPIRED' : mode === 'revoked' ? 'REVOKED' : value.status;
-        return clone({ ...value, status, canOpen: status === 'PENDING' && value.canOpen === true && mode !== 'cannot-open' });
-      }
+      const channel = method !== 'GET' ? 'write' : path.endsWith('unread-count') ? 'count' : 'list';
+      const mode = await simulate(channel, signal);
       const live = rows.filter(row => !row.deletedAt);
       if (channel === 'count') return { unreadCount: live.filter(row => !row.readAt).length,
         actionableUnreadCount: live.filter(row => !row.readAt && project(row).action?.enabled === true).length };
