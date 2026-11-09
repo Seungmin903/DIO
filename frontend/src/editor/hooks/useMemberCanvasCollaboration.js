@@ -14,6 +14,8 @@ import { loadServerPageSnapshot, createServerPage, copyServerPage, deleteServerP
 import { createCanvasSession } from '../../collaboration/canvasSession.js'
 import { createCanvasMedia, createMediaRequest } from '../../collaboration/canvasMedia.js'
 import { canvasMediaFiles } from '../services/canvasMediaFiles'
+import { createDiaryFonts, withDiaryFonts } from '../../collaboration/diaryFonts.js'
+import { sharedFontFiles, sharedFontLibrary } from '../../handwriting/sharedFonts.js'
 import { connectCollaboration } from '../../collaboration/collaborationSocket.js'
 import { createCanvasHttpFetch } from '../../collaboration/canvasFetch.js'
 import { serverPaperAppearance } from '../../diary/services/serverPaperFont.js'
@@ -57,7 +59,13 @@ export function useMemberCanvasCollaboration({diary,page,state,loaded,readOnly,d
     const diagnostics=createCollaborationDiagnostics({enabled:typeof __DEV__!=='undefined'&&__DEV__&&process.env.EXPO_PUBLIC_COLLABORATION_DIAGNOSTICS==='1'})
     const transport=diagnostics.transport(createAuthenticatedMemberTransport({auth:authService,accountId:diary.memberAccountId,baseUrl:apiBaseUrl,accessTokenHeader,fetchImpl}))
     const media=createCanvasMedia({request:createMediaRequest({auth:authService,accountId:diary.memberAccountId,sessionKey,baseUrl:apiBaseUrl,fetchImpl:memberFetch}),files:canvasMediaFiles,storage:AsyncStorage,key:`${memberDocumentKey(diary)}:media-uploads:v1:${encodeURIComponent(apiBaseUrl)}`,isActive:active})
-    const api=createCanvasWriteApi(transport,media,diary.id)
+    // 손글씨 폰트: 내 폰트로 쓴 글자를 보내기 전에 폰트를 이 다이어리에 공유하고, 친구 폰트는 받아 등록한다.
+    // 올린 폰트의 서버 id 는 계정 · 서버마다 기록해 다이어리가 달라도 다시 올리지 않는다
+    const mediaRequest=createMediaRequest({auth:authService,accountId:diary.memberAccountId,sessionKey,baseUrl:apiBaseUrl,fetchImpl:memberFetch})
+    const fonts=createDiaryFonts({diaryId:diary.id,transport,request:mediaRequest,files:sharedFontFiles,library:sharedFontLibrary,storage:AsyncStorage,
+      key:`dio:member:v1:${diary.memberAccountId}:font-uploads:v1:${encodeURIComponent(apiBaseUrl)}`,isActive:active})
+    fonts.sync().catch(()=>{})
+    const api=createCanvasWriteApi(transport,withDiaryFonts(media,fonts),diary.id)
     const fetchDocument=(sourceId,mediaFileId)=>media.fetchDocument(sourceId,mediaFileId)
     setPdfSourceFetcher(fetchDocument)
     r.pageEpoch=0;r.pageIds=null;r.removing=new Set()

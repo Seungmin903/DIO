@@ -85,3 +85,19 @@ export async function restoreFontUri(font) {
   return URL.createObjectURL(new Blob([bytes], { type: 'font/ttf' }))
 }
 export async function readFontBytes(uri) { return new Uint8Array(await (await fetch(uri)).arrayBuffer()) }
+// 공유 다이어리 폰트: 올릴 때 파일 이름에 기기 폰트 id 를 담는다(collaboration/diaryFonts.js)
+export async function sharedFontUploadBody(font) {
+  if (!font.uri) throw Object.assign(new Error('기기에 저장한 폰트를 찾지 못했어요.'), { code: 'FONT_SOURCE_MISSING' })
+  const body = new FormData()
+  body.append('file', new Blob([await readFontBytes(font.uri)], { type: 'font/ttf' }), `dio-hw-${font.fileId.toLowerCase()}.ttf`)
+  body.append('libraryCategory', 'FONT')
+  return body
+}
+// 웹은 받은 폰트를 탭이 열려 있는 동안만 기억한다(다시 열면 서버에서 다시 받는다)
+const sharedFontCache = new Map()
+export async function cachedSharedFontUri(fileId) { return sharedFontCache.get(fileId) ?? null }
+export async function saveSharedFontBytes(fileId, bytes) {
+  const uri = URL.createObjectURL(new Blob([bytes], { type: 'font/ttf' }))
+  sharedFontCache.set(fileId, uri)
+  return uri
+}

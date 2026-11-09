@@ -79,6 +79,36 @@ export async function readFontBytes(uri) {
   if (!uri?.startsWith('file://')) throw new Error('기기에 저장한 폰트만 읽을 수 있어요.')
   return fromBase64(await FS.readAsStringAsync(uri, { encoding: FS.EncodingType.Base64 }))
 }
+// 공유 다이어리 폰트: 올릴 때 파일 이름에 기기 폰트 id 를 담는다(collaboration/diaryFonts.js). expo/fetch 가 읽도록 bytes() 를 붙인다
+export async function sharedFontUploadBody(font) {
+  if (!font.uri?.startsWith('file://')) throw Object.assign(new Error('기기에 저장한 폰트만 올릴 수 있어요.'), { code: 'FONT_SOURCE_MISSING' })
+  const name = `dio-hw-${font.fileId.toLowerCase()}.ttf`
+  const body = new FormData()
+  body.append('file', { uri: font.uri, type: 'font/ttf', name, bytes: () => new File(font.uri).bytes() })
+  body.append('libraryCategory', 'FONT')
+  return body
+}
+const sharedFontPath = fileId => {
+  if (!/^[0-9a-f-]{36}$/i.test(fileId)) throw new Error('폰트 파일 ID가 올바르지 않아요.')
+  return `${FS.documentDirectory}dio-shared-fonts/${fileId}.ttf`
+}
+export async function cachedSharedFontUri(fileId) {
+  const uri = sharedFontPath(fileId)
+  const info = await FS.getInfoAsync(uri)
+  return info.exists && info.size > 0 ? uri : null
+}
+export async function saveSharedFontBytes(fileId, bytes) {
+  const uri = sharedFontPath(fileId), temporary = `${uri}.pending`
+  await FS.makeDirectoryAsync(`${FS.documentDirectory}dio-shared-fonts/`, { intermediates: true })
+  try {
+    await FS.writeAsStringAsync(temporary, toBase64(bytes), { encoding: FS.EncodingType.Base64 })
+    const info = await FS.getInfoAsync(temporary)
+    if (!info.exists || info.size !== bytes.length) throw new Error('폰트 파일을 모두 저장하지 못했어요. 저장 공간을 확인해 주세요.')
+    await FS.deleteAsync(uri, { idempotent: true })
+    await FS.moveAsync({ from: temporary, to: uri })
+    return uri
+  } catch (error) { await FS.deleteAsync(temporary, { idempotent: true }).catch(() => {}); throw error }
+}
 export async function restoreFontUri(font) {
   if (!font.uri?.startsWith('file://')) throw new Error('기기 폰트 경로가 올바르지 않아요.')
   const info = await FS.getInfoAsync(font.uri)

@@ -13,6 +13,7 @@ import * as pdfSourceRemoteModule from '../src/editor/services/pdfSourceRemote.j
 import * as sessionModule from '../src/collaboration/canvasSession.js'
 import * as serverPaperFontModule from '../src/diary/services/serverPaperFont.js'
 import * as memberStorage from '../src/diary/services/memberStorage.js'
+import * as diaryFontsModule from '../src/collaboration/diaryFonts.js'
 import {createInitialState,editorReducer} from '../src/editor/state/editorReducer.js'
 import {collaborationReducer} from '../src/collaboration/collaborationReducer.js'
 const require=createRequire(import.meta.url),expo=createRequire(require.resolve('expo/package.json'))
@@ -59,6 +60,7 @@ function fixture(failure=null,shared=false,sourceDiaryId=diaryId){
     serverPages.push(p);return {page:p}
    }
    if(r.path.endsWith('/history/me'))return {items:[],nextUndo:null,nextRedo:null}
+   if(!r.method&&r.path===`/diaries/${sourceDiaryId}/fonts`)return []
    if(r.method==='PATCH'&&r.path===`/pages/${pageId}`){Object.assign(basePage,r.body);return {page:{...basePage}}}
    if(!r.method){
     const id=r.path.split('/')[2],p=serverPages.find(p=>p.pageId===id)
@@ -80,6 +82,8 @@ function fixture(failure=null,shared=false,sourceDiaryId=diaryId){
   if(name.endsWith('/canvasMedia.js'))return mediaModule
   if(name.endsWith('/canvasMediaFiles'))return {canvasMediaFiles:{cached:async()=>true}}
   if(name.endsWith('/canvasApi.js'))return apiModule
+  if(name.endsWith('/diaryFonts.js'))return diaryFontsModule
+  if(name.endsWith('/sharedFonts.js'))return {sharedFontFiles:{},sharedFontLibrary:{mine:async()=>[],has:()=>false,register(){}}}
   if(name.endsWith('/canvasElements.js'))return elementsModule
   if(name.endsWith('/collaborationDiagnostics.js'))return diagnosticsModule
   if(name.endsWith('/canvasWriteApi.js'))return writeApiModule

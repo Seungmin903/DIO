@@ -66,17 +66,27 @@ const FONT_ALIASES = { sans: 'nanum-gothic', serif: 'nanum-myeongjo' }
 export const resolveFontId = (id) => FONT_ALIASES[id] ?? id
 // 원격 글꼴(앱 배포 없이 에셋 저장소에 올린 글꼴, shared/remoteAssets/remoteCatalog.js)은 앱 글꼴 뒤 · 내 폰트 앞에 둔다.
 // hidden 은 글꼴 고르기 목록(getPickableTextFonts)에서만 빠지고, 이미 쓴 글자는 계속 그 글꼴로 그린다.
-let personalFonts = [], catalogFonts = [], allFonts = TEXT_FONTS, fontListRevision = 0
+let personalFonts = [], catalogFonts = [], sharedFonts = [], allFonts = TEXT_FONTS, fontListRevision = 0
 export const getTextFonts = () => allFonts
 export const getPickableTextFonts = () => allFonts.filter(font => !font.hidden)
 export const textFontListSnapshot = () => fontListRevision
 function rebuildFontList() {
-  allFonts = [...TEXT_FONTS, ...catalogFonts, ...personalFonts]
+  // 친구가 공유한 폰트는 그 글자를 그릴 때만 쓴다(고르기 목록에는 숨김). 같은 폰트가 내 폰트에 있으면 내 폰트를 쓴다
+  const shared = sharedFonts.filter(font => !personalFonts.some(mine => mine.id === font.id))
+  allFonts = [...TEXT_FONTS, ...catalogFonts, ...personalFonts, ...shared]
   fontListRevision++
   fontListeners.forEach(listener => listener())
 }
 export function registerPersonalTextFonts(fonts) {
   personalFonts = fonts.filter(f => /^personal-[a-f0-9-]{36}$/.test(f.id) && /^DIOHW_[a-f0-9]{32}$/.test(f.family)).map(f => ({ id: f.id, label: f.label, family: f.family, personal: true, aiGenerated: isAiHandwritingFont(f) }))
+  rebuildFontList()
+}
+/** 공유 다이어리에서 받은 다른 사람의 손글씨 폰트. 이미 받은 것에 더한다(같은 id 는 새 값으로) */
+export function registerSharedTextFonts(fonts) {
+  const added = fonts.filter(f => /^personal-[a-f0-9-]{36}$/.test(f.id) && /^DIOHW_[a-f0-9]{32}$/.test(f.family))
+    .map(f => ({ id: f.id, label: f.label ?? '함께 쓰는 폰트', family: f.family, personal: true, shared: true, hidden: true }))
+  if (!added.length) return
+  sharedFonts = [...sharedFonts.filter(font => !added.some(item => item.id === font.id)), ...added]
   rebuildFontList()
 }
 /** 문서에 저장된 글꼴 id 를 받아도 되는지. 원격 글꼴은 목록을 아직 못 받았어도(오프라인 첫 실행) 기본 글꼴로 그리므로 받는다 */
