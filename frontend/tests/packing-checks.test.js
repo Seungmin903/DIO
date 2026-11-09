@@ -1,6 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { packingBoxes, packingCheckAction, packingCheckPath, packingPenAction } from '../src/editor/templates/packingChecks.js'
+import { packingLayout } from '../src/editor/templates/packingLayout.js'
 import { encodeElement, decodeElement } from '../src/collaboration/canvasElements.js'
 
 test('양방향 32개 체크박스를 선택하고 서버 요소 복원 후 해제한다', () => {
@@ -29,6 +30,12 @@ test('누락되거나 유효하지 않은 탭 좌표는 안전하게 무시한�
   assert.equal(packingCheckAction('remote-packing-list-portrait', null, []), null)
   assert.equal(packingCheckAction('remote-packing-list-portrait', {}, []), null)
   assert.equal(packingCheckAction('remote-packing-list-portrait', { x: NaN, y: 10 }, []), null)
+})
+
+test('체크 입력 우선 처리는 캐리어 속지에만 적용된다', () => {
+  assert.ok(packingLayout('remote-packing-list-v8-portrait'))
+  assert.equal(packingLayout('day-planner-portrait'), null)
+  assert.equal(packingLayout('route-planner-portrait'), null)
 })
 
 test('펜으로 체크하면 선택한 색과 상자 밖까지 이어지는 표시를 저장한다', () => {
