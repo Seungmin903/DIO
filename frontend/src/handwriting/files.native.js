@@ -88,18 +88,27 @@ export async function sharedFontUploadBody(font) {
   body.append('libraryCategory', 'FONT')
   return body
 }
-const sharedFontPath = fileId => {
-  if (!/^[0-9a-f-]{36}$/i.test(fileId)) throw new Error('폰트 파일 ID가 올바르지 않아요.')
-  return `${FS.documentDirectory}dio-shared-fonts/${fileId}.ttf`
+// 받은 친구 폰트 캐시: 서버 파일 id(mediaFileId) 이름으로 둔다. 다른 계정으로 열면 통째로 비운다(sharedFonts.js)
+const sharedFontDirectory = () => `${FS.documentDirectory}dio-shared-fonts/`
+const sharedFontPath = mediaFileId => {
+  if (!/^[0-9a-f-]{36}$/i.test(mediaFileId)) throw new Error('폰트 파일 ID가 올바르지 않아요.')
+  return `${sharedFontDirectory()}${mediaFileId}.ttf`
 }
-export async function cachedSharedFontUri(fileId) {
-  const uri = sharedFontPath(fileId)
+export async function cachedSharedFontUri(mediaFileId) {
+  const uri = sharedFontPath(mediaFileId)
   const info = await FS.getInfoAsync(uri)
   return info.exists && info.size > 0 ? uri : null
 }
-export async function saveSharedFontBytes(fileId, bytes) {
-  const uri = sharedFontPath(fileId), temporary = `${uri}.pending`
-  await FS.makeDirectoryAsync(`${FS.documentDirectory}dio-shared-fonts/`, { intermediates: true })
+export async function removeSharedFontBytes(mediaFileId) {
+  await FS.deleteAsync(sharedFontPath(mediaFileId), { idempotent: true })
+}
+export async function clearSharedFontBytes() {
+  await FS.deleteAsync(sharedFontDirectory(), { idempotent: true })
+}
+export function releaseSharedFontUris() {} // 네이티브는 파일 경로라 풀어 줄 것이 없다
+export async function saveSharedFontBytes(mediaFileId, bytes) {
+  const uri = sharedFontPath(mediaFileId), temporary = `${uri}.pending`
+  await FS.makeDirectoryAsync(sharedFontDirectory(), { intermediates: true })
   try {
     await FS.writeAsStringAsync(temporary, toBase64(bytes), { encoding: FS.EncodingType.Base64 })
     const info = await FS.getInfoAsync(temporary)

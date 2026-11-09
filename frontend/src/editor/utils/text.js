@@ -89,6 +89,17 @@ export function registerSharedTextFonts(fonts) {
   sharedFonts = [...sharedFonts.filter(font => !added.some(item => item.id === font.id)), ...added]
   rebuildFontList()
 }
+/** 편집 세션을 닫거나 계정이 바뀔 때: 받은 친구 폰트를 목록에서 뺀다(빼면 그 글꼴로 그리지 않는다). 뺀 글꼴 family 를 돌려준다 */
+export function clearSharedTextFonts() {
+  // 내 폰트와 같은 글꼴(내가 공유한 폰트를 다시 받은 경우)은 불러온 상태를 지우지 않는다
+  const families = sharedFonts.map(font => font.family).filter(family => !personalFonts.some(mine => mine.family === family))
+  if (!sharedFonts.length) return []
+  sharedFonts = []
+  for (const family of families) { loadedFamilies.delete(family); failedFamilies.delete(family) }
+  fontStateRevision++
+  rebuildFontList()
+  return families
+}
 /** 문서에 저장된 글꼴 id 를 받아도 되는지. 원격 글꼴은 목록을 아직 못 받았어도(오프라인 첫 실행) 기본 글꼴로 그리므로 받는다 */
 export const isKnownTextFontId = (id) => getTextFonts().some(font => font.id === resolveFontId(id)) || /^remote-[a-z0-9-]{1,40}$/.test(id)
 export function registerCatalogTextFonts(fonts) {

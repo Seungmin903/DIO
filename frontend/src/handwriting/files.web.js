@@ -93,11 +93,23 @@ export async function sharedFontUploadBody(font) {
   body.append('libraryCategory', 'FONT')
   return body
 }
-// 웹은 받은 폰트를 탭이 열려 있는 동안만 기억한다(다시 열면 서버에서 다시 받는다)
-const sharedFontCache = new Map()
-export async function cachedSharedFontUri(fileId) { return sharedFontCache.get(fileId) ?? null }
-export async function saveSharedFontBytes(fileId, bytes) {
+// 웹은 받은 폰트를 편집 세션 동안만 기억한다(세션을 닫으면 object URL 을 풀고, 다시 열면 서버에서 다시 받는다)
+const sharedFontCache = new Map() // mediaFileId → object URL
+export async function cachedSharedFontUri(mediaFileId) { return sharedFontCache.get(mediaFileId) ?? null }
+export async function saveSharedFontBytes(mediaFileId, bytes) {
   const uri = URL.createObjectURL(new Blob([bytes], { type: 'font/ttf' }))
-  sharedFontCache.set(fileId, uri)
+  const previous = sharedFontCache.get(mediaFileId)
+  if (previous) URL.revokeObjectURL(previous)
+  sharedFontCache.set(mediaFileId, uri)
   return uri
 }
+export async function removeSharedFontBytes(mediaFileId) {
+  const uri = sharedFontCache.get(mediaFileId)
+  if (uri) URL.revokeObjectURL(uri)
+  sharedFontCache.delete(mediaFileId)
+}
+export function releaseSharedFontUris() {
+  for (const uri of sharedFontCache.values()) URL.revokeObjectURL(uri)
+  sharedFontCache.clear()
+}
+export async function clearSharedFontBytes() { releaseSharedFontUris() }

@@ -31,18 +31,25 @@ export function personalFontIds(rows) {
   return [...ids]
 }
 const bodyRows = body => [...(body?.changes?.creates ?? []), ...(body?.changes?.updates ?? [])]
+// 받은 파일이 TrueType · OpenType 인지(서버도 같은 머리를 본다). 기기 폰트 파서에 다른 파일을 넘기지 않는다
+const FONT_SIGNATURES = [0x00010000, 0x4f54544f /* OTTO */, 0x74727565 /* true */]
+export function isFontBytes(bytes) {
+  if (!(bytes instanceof Uint8Array) || bytes.length < 12) return false
+  const head = ((bytes[0] << 24) | (bytes[1] << 16) | (bytes[2] << 8) | bytes[3]) >>> 0
+  return FONT_SIGNATURES.includes(head)
+}
 
 /**
  * diaryId: 서버 다이어리 id
  * transport: JSON API(목록 · 공유). request: 파일 업로드 · 내려받기(createMediaRequest)
- * files: { upload(font) → 업로드 본문, cachedUri(fileId) → uri|null, save(fileId, bytes) → uri }
- * library: { mine() → 이 기기의 내 폰트 목록, has(fileId) → 이미 그릴 수 있는지, register(fonts[{ fileId, uri }]) }
+ * files: { upload(font) → 업로드 본문, cachedUri(mediaFileId) → uri|null, save(mediaFileId, bytes) → uri }
+ * library: { mine() → 이 기기의 내 폰트 목록, has(fileId) → 이미 그릴 수 있는지, register(fonts[{ fileId, mediaFileId, uri }]) }
  * storage · key: 올린 폰트의 서버 id 기록(계정 · 서버마다 한 번만 올린다)
  */
-export function createDiaryFonts({ diaryId, transport, request, files, library, storage, key, isActive = () => true, now = Date.now }) {
+export function createDiaryFonts({ diaryId, transport, request, files, library, storage, key, isActive = () => true, ready = Promise.resolve(), now = Date.now, setTimer = setTimeout, clearTimer = clearTimeout }) {
   if (!uuid(diaryId)) throw Error('다이어리 ID를 확인해 주세요.')
   const shared = new Set(), sharing = new Map()
-  let syncJob = null, lastSync = -Infinity
+  let syncJob = null, lastSync = -Infinity, disposed = false
   const active = () => { if (!isActive()) throw Error('편집 세션이 종료됐어요.') }
   const uploadKey = fileId => `${key}:${fileId}`
 
@@ -76,29 +83,36 @@ export function createDiaryFonts({ diaryId, transport, request, files, library, 
   }
 
   async function download() {
+    await ready; active() // 기기 캐시 정리(다른 계정 파일 지우기)가 끝난 뒤에 받는다
     const list = await transport({ path: `/diaries/${diaryId}/fonts` }); active()
     if (!Array.isArray(list)) throw Error('다이어리 폰트 목록을 확인하지 못했어요.')
-    const ready = []
+    const fetched = [], claimed = new Set()
     // 내 폰트(파일이 기기에 있는 것)는 아직 글꼴 등록 전이어도 받지 않는다
     const own = new Set((await library.mine().catch(() => [])).filter(font => !font.missing).map(font => font.fileId?.toLowerCase())); active()
     for (const item of list) {
       const fileId = fileIdFromSharedName(item?.name)
       if (!fileId || item.enabled === false || !uuid(item.mediaFileId)) continue
-      shared.add(fileId)
+      // 이름은 올린 사람이 정하므로 같은 폰트 id 를 둘 이상이 주장할 수 있다. 서버 목록은 먼저 공유한 순서라 첫 파일만 쓴다
+      if (claimed.has(fileId)) continue
+      claimed.add(fileId); shared.add(fileId)
       if (own.has(fileId) || library.has(fileId)) continue
       try {
-        let uri = await files.cachedUri(fileId); active()
+        // 캐시는 서버 파일(mediaFileId) 기준: 같은 폰트 id 를 단 다른 파일이 서로 덮어쓰지 않는다
+        let uri = await files.cachedUri(item.mediaFileId); active()
         if (!uri) {
           const bytes = await request(`/diaries/${diaryId}/fonts/${item.mediaFileId}/file`, { binary: true, maxBytes: SHARED_FONT_MAX_BYTES, timeoutMs: 120000 }); active()
-          uri = await files.save(fileId, bytes); active()
+          if (!isFontBytes(bytes)) throw Error('폰트 파일 형식을 확인하지 못했어요.')
+          uri = await files.save(item.mediaFileId, bytes); active()
         }
-        ready.push({ fileId, uri })
+        fetched.push({ fileId, mediaFileId: item.mediaFileId, uri })
       } catch (error) { active() } // 한 폰트를 못 받아도 나머지는 받는다(그 글자는 안내 문구로 남는다)
     }
-    if (ready.length) library.register(ready)
-    return ready
+    if (fetched.length) library.register(fetched)
+    return fetched
   }
 
+  let retryTimer = null
+  const clearRetry = () => { if (retryTimer != null) clearTimer(retryTimer); retryTimer = null }
   const api = {
     /** 캔버스 작업을 보내기 전에 부른다. 폰트 공유에 실패해도 글자 저장은 막지 않는다(다음 저장에서 다시 시도) */
     async prepare(body) {
@@ -109,17 +123,26 @@ export function createDiaryFonts({ diaryId, transport, request, files, library, 
     },
     /** 다이어리 폰트 목록을 받아 기기에 없는 폰트를 등록한다. 진행 중인 받기는 하나로 합친다 */
     sync() {
+      if (disposed) return Promise.resolve([])
       if (syncJob) return syncJob
+      clearRetry()
       lastSync = now()
       syncJob = download().finally(() => { syncJob = null })
       return syncJob
     },
-    /** 서버에서 받은 요소에 이 기기가 못 그리는 폰트가 있으면 목록을 다시 받는다(잦은 요청은 건너뛴다) */
+    /** 서버에서 받은 요소에 이 기기가 못 그리는 폰트가 있으면 목록을 다시 받는다.
+     *  막 받은 직후라 건너뛰면 남은 시간 뒤에 한 번 다시 받는다(폰트 공유가 글자보다 늦게 끝나는 경우) */
     hydrate(rows) {
       const missing = personalFontIds(rows).filter(fileId => !library.has(fileId))
-      if (!missing.length || syncJob || now() - lastSync < RETRY_MS) return syncJob ?? Promise.resolve([])
-      return api.sync()
+      if (disposed || !missing.length) return Promise.resolve([])
+      if (syncJob) { syncJob.then(() => { if (personalFontIds(rows).some(fileId => !library.has(fileId))) api.hydrate(rows) }, () => {}); return syncJob }
+      const wait = RETRY_MS - (now() - lastSync)
+      if (wait <= 0) return api.sync()
+      if (retryTimer == null) retryTimer = setTimer(() => { retryTimer = null; api.sync().catch(() => {}) }, wait)
+      return Promise.resolve([])
     },
+    /** 세션을 닫을 때: 예약한 재조회를 멈춘다 */
+    dispose() { disposed = true; clearRetry() },
   }
   return api
 }
@@ -130,5 +153,6 @@ export function withDiaryFonts(media, fonts) {
     ...media,
     async prepare(body) { await fonts.prepare(body); return media.prepare(body) },
     hydrate(rows) { fonts.hydrate(rows).catch(() => {}); return media.hydrate(rows) },
+    dispose() { fonts.dispose(); return media.dispose?.() },
   }
 }
