@@ -18,7 +18,6 @@ import { createDiaryFonts, withDiaryFonts } from '../../collaboration/diaryFonts
 import { sharedFontFiles, sharedFontLibrary } from '../../handwriting/sharedFonts.js'
 import { connectCollaboration } from '../../collaboration/collaborationSocket.js'
 import { createCanvasHttpFetch } from '../../collaboration/canvasFetch.js'
-import { serverPaperAppearance } from '../../diary/services/serverPaperFont.js'
 import { setPdfSourceFetcher } from '../services/pdfSourceRemote.js'
 
 // PDF 쪽 바탕(원본 PDF 를 올리기 전)이 아직 서버에 없는 쪽인지
@@ -109,13 +108,17 @@ export function useMemberCanvasCollaboration({diary,page,state,loaded,readOnly,d
       if(!active())throw Error('다시 로그인해 주세요.')
       const settings=await updateServerPage(transport,diary.id,pageId,body)
       if(!active())throw Error('계정이 바뀌어 페이지 설정을 반영하지 않았어요.')
-      dispatch({type:'applyServerPageSettings',settings:[settings]})
+      const allAppearance=body.applyPaperAppearanceToAllPages?settings.paperAppearance:null
+      const patches=allAppearance
+        ? latest.current.state.doc.pages.map(page=>page.id===pageId?settings:{id:page.id,paperAppearance:allAppearance})
+        : [settings]
+      dispatch({type:'applyServerPageSettings',settings:patches,paperAppearance:allAppearance})
       return settings
     })
     r.addPage=backgroundAssetId=>mutatePages(async()=>{
       dispatch({type:'commitCheckpoint'})
       const page=await createServerPage({transport,diaryId:diary.id,backgroundAssetId,
-        orientation:latest.current.state.doc.orientation??'landscape',paperAppearance:serverPaperAppearance(latest.current.state.doc.paperAppearance),
+        orientation:latest.current.state.doc.orientation??'landscape',paperAppearance:latest.current.state.doc.paperAppearance,
         storage:AsyncStorage,key:`${memberDocumentKey(diary)}:page-create:v1`,createId,isActive:active})
       if(active()){r.pageIds?.add(page.id);dispatch({type:'importServerPages',pages:[page],selectId:page.id})}
       return page
@@ -127,7 +130,7 @@ export function useMemberCanvasCollaboration({diary,page,state,loaded,readOnly,d
       try{
         for(const docPage of docPages){
           const page=await createServerPage({transport,diaryId:diary.id,backgroundAssetId:null,
-            orientation:latest.current.state.doc.orientation??'landscape',paperAppearance:serverPaperAppearance(docPage.paperAppearance),
+            orientation:latest.current.state.doc.orientation??'landscape',paperAppearance:docPage.paperAppearance,
             storage:AsyncStorage,key:`${memberDocumentKey(diary)}:page-create:v1`,createId,isActive:active})
           // 쪽 크기를 못 맞추면 방금 만든 빈 페이지를 지운다(남기면 기본 크기 빈 쪽이 목록에 생기고, 다시 시도하면 한 장 더 생긴다)
           try{await transport({method:'PATCH',path:`/pages/${encodeURIComponent(page.id)}`,body:{canvasWidth:docPage.canvasWidth,canvasHeight:docPage.canvasHeight}})}

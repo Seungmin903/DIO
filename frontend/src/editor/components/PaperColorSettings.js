@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { colors } from '../../shared/theme'
 import { PAPER_BACKGROUNDS, PAPER_LAYOUTS, withPaperBackground } from '../templates/appearance.js'
@@ -21,13 +21,26 @@ const SNAP = [{ id: 'on', label: '켬' }, { id: 'off', label: '끔' }]
  */
 export default function PaperColorSettings({ appearance, onChange, onClose, style, planner = null, plannerKind = 'study', onPlannerOptions, showFont = false }) {
   const [scope, setScope] = useState('page')
+  const [saving, setSaving] = useState(false)
+  const savingRef = useRef(false)
   // 종이 색을 바꾸면 선과 글씨가 읽히게 맞춘다(어두운 종이 → 흰 선)
-  const pick = (patch) => onChange('backgroundColor' in patch ? withPaperBackground({ ...appearance, ...patch }, patch.backgroundColor) : { ...appearance, ...patch }, scope === 'all')
+  const pick = async (patch) => {
+    if (savingRef.current) return
+    savingRef.current = true
+    setSaving(true)
+    try {
+      const next = { ...appearance, ...patch }
+      await onChange('backgroundColor' in patch ? withPaperBackground(next, patch.backgroundColor) : next, scope === 'all')
+    } finally {
+      savingRef.current = false
+      setSaving(false)
+    }
+  }
   return (
-    <View style={[toolPanelStyles.card, style]} accessibilityLabel="속지 색 설정" onStartShouldSetResponder={() => true}>
+    <View style={[toolPanelStyles.card, style]} accessibilityLabel="속지 색 설정" accessibilityState={{ busy: saving }} onStartShouldSetResponder={() => true}>
       <ToolPanelHeader icon="roller" title={planner ? '속지 옵션' : '속지 색'} closeLabel={planner ? '속지 옵션 닫기' : '속지 색 설정 닫기'} onClose={onClose} />
       <View style={toolPanelStyles.content}>
-        <Segmented items={SCOPES} selected={(id) => scope === id} onPress={setScope} />
+        <Segmented items={SCOPES} selected={(id) => scope === id} onPress={setScope} disabled={saving} />
         {[['backgroundColor', '배경색', PAPER_BACKGROUNDS], ['layoutColor', '레이아웃 색', PAPER_LAYOUTS]].map(([key, label, presets]) => (
           <View key={key} style={styles.section}>
             <Text style={toolPanelStyles.label}>{label}</Text>
@@ -36,7 +49,7 @@ export default function PaperColorSettings({ appearance, onChange, onClose, styl
               {presets.map(([name, color]) => {
                 const on = appearance[key]?.toUpperCase() === color.toUpperCase()
                 return (
-                  <Pressable key={color} onPress={() => pick({ [key]: color })} accessibilityRole="radio" accessibilityLabel={`${label} ${name}`} accessibilityState={{ selected: on }}
+                  <Pressable key={color} disabled={saving} onPress={() => pick({ [key]: color })} accessibilityRole="radio" accessibilityLabel={`${label} ${name}`} accessibilityState={{ selected: on, disabled: saving }}
                     style={paletteSwatchStyles.cell}>
                     <View style={[paletteSwatchStyles.dot, { backgroundColor: color }, on && paletteSwatchStyles.chosen]} />
                   </Pressable>
@@ -48,7 +61,7 @@ export default function PaperColorSettings({ appearance, onChange, onClose, styl
         {showFont && (
           <View style={styles.section}>
             <Text style={toolPanelStyles.label}>글꼴</Text>
-            <PaperFontDropdown value={appearance.font ?? DEFAULT_PAPER_FONT} onChange={(font) => pick({ font: font === DEFAULT_PAPER_FONT ? undefined : font })} />
+            <PaperFontDropdown disabled={saving} value={appearance.font ?? DEFAULT_PAPER_FONT} onChange={(font) => pick({ font: font === DEFAULT_PAPER_FONT ? undefined : font })} />
           </View>
         )}
         {planner && (plannerKind === 'day' ? <DayPlannerOptions options={planner.options} onChange={onPlannerOptions} /> : <PlannerOptions options={planner.options} onChange={onPlannerOptions} />)}

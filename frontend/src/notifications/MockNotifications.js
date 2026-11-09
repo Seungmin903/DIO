@@ -15,7 +15,7 @@ export default function MockNotifications({ onClose }) {
 function Session({ account, onClose, onSwitch }) {
   const mock = useMemo(() => createMockNotificationTransport({ account }), [account]);
   const api = useMemo(() => createNotificationApi(mock.transport), [mock]);
-  const invitations = useMemo(() => createInvitationGateway(mock.transport), [mock]);
+  const invitations = useMemo(() => createInvitationGateway(mock.getInvitation), [mock]);
   return <NotificationProvider api={api} invitations={invitations}><SessionContent account={account} onClose={onClose} onSwitch={onSwitch} mock={mock} /></NotificationProvider>;
 }
 function SessionContent({ account, onClose, onSwitch, mock }) {

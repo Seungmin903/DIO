@@ -20,7 +20,7 @@ function setup(report, store) {
   };
   const native = { Platform: { OS: 'android' } };
   for (const type of ['ActivityIndicator', 'Image', 'KeyboardAvoidingView', 'Pressable', 'ScrollView', 'Text', 'TextInput', 'View']) native[type] = type;
-  const mocks = { react, 'react-native': native, 'react-native-safe-area-context': { SafeAreaView: 'safe' }, './safetyModel': model,
+  const mocks = { react, 'react-native': native, 'react-native-safe-area-context': { SafeAreaView: 'safe', useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }) }, './safetyModel': model,
     '../shared/useFormFactor': { useFormFactor: () => ({ isPhone: true }) }, '../shared/theme': { colors: {} },
     './styles': { safetyStyles: new Proxy({}, { get: (_, key) => key }) }, 'expo-crypto': { randomUUID: () => `22222222-2222-4222-8222-${String(++serial).padStart(12, '0')}` } };
   const mod = { exports: {} };
@@ -38,14 +38,14 @@ test('신고 화면은 실패 후 설명·증빙·요청 ID를 보존하고 성�
   const ui = setup(async input => { calls.push(input); if (calls.length === 1) throw new Error('네트워크 실패'); return { reportId: '101' }; });
   try {
     ui.render(); await new Promise(resolve => setImmediate(resolve));
-    ui.find('신고하기').props.onPress(); ui.find('욕설·괴롭힘').props.onPress();
+    ui.find('신고하기').props.onPress(); ui.find('욕설·괴롭힘').props.onPress(); ui.find('다음').props.onPress();
     ui.find('상세 설명').props.onChangeText('구체적인 설명');
     await ui.find('사진 첨부 (0/3)').props.onPress();
     await submitReport(ui);
     assert.equal(ui.find('상세 설명').props.value, '구체적인 설명'); assert.ok(ui.find('증빙 사진 1 확대'));
     await submitReport(ui);
     assert.equal(calls[0].clientRequestId, calls[1].clientRequestId); assert.equal(calls[1].photos.length, 1);
-    ui.find('확인').props.onPress(); ui.find('친구 메뉴').props.onPress(); ui.find('신고하기').props.onPress(); ui.find('욕설·괴롭힘').props.onPress();
+    ui.find('확인').props.onPress(); ui.find('친구 메뉴').props.onPress(); ui.find('신고하기').props.onPress(); ui.find('욕설·괴롭힘').props.onPress(); ui.find('다음').props.onPress();
     await submitReport(ui);
     assert.notEqual(calls[2].clientRequestId, calls[1].clientRequestId); assert.equal(calls[2].description, '');
   } finally { ui.unmount(); }
@@ -60,17 +60,19 @@ test('내용을 바꾼 재시도가 충돌해도 최초 설명·사유·사진�
   });
   try {
     ui.render(); await new Promise(resolve => setImmediate(resolve));
-    ui.find('신고하기').props.onPress(); ui.find('욕설·괴롭힘').props.onPress();
+    ui.find('신고하기').props.onPress(); ui.find('욕설·괴롭힘').props.onPress(); ui.find('다음').props.onPress();
     ui.find('상세 설명').props.onChangeText('처음 전송한 설명');
     await ui.find('사진 첨부 (0/3)').props.onPress();
     await submitReport(ui);
-    ui.find('기타').props.onPress(); ui.find('상세 설명').props.onChangeText('바뀐 설명');
+    // 사유는 작성 화면의 '신고 사유' 줄을 눌러 사유 고르기로 돌아가 바꾼다(2026-11-09 지라 537 두 단계)
+    ui.find('신고 사유 욕설·괴롭힘 바꾸기').props.onPress(); ui.find('기타').props.onPress(); ui.find('다음').props.onPress();
+    ui.find('상세 설명').props.onChangeText('바뀐 설명');
     ui.find('증빙 사진 1 삭제').props.onPress();
     await submitReport(ui);
     assert.equal(calls[1].description, '바뀐 설명'); assert.equal(calls[1].photos.length, 0);
     ui.find('처음 전송한 내용으로 되돌리기').props.onPress();
     assert.equal(ui.find('상세 설명').props.value, '처음 전송한 설명');
-    assert.equal(ui.find('욕설·괴롭힘').props.accessibilityState.checked, true);
+    assert.ok(ui.find('신고 사유 욕설·괴롭힘 바꾸기'));
     assert.ok(ui.find('증빙 사진 1 확대'));
     await submitReport(ui);
     assert.deepEqual(calls[2], calls[0]);
@@ -106,19 +108,35 @@ test('참여자 화면은 기존 차단 목록을 먼저 조회하고 차단·�
   } finally { ui.unmount(); }
 });
 
-test('686: 신고 접수는 확인창을 거치고, "신고와 함께 차단하기"를 켜면 접수 뒤 차단한다', async () => {
+test('537: 신고는 사유 고르기(설문 동그라미 + 다음) → 작성 두 단계, 접수는 확인창 한 번', async () => {
   const src = (await import('node:fs')).readFileSync(new URL('../src/safety/SafetyScreen.js', import.meta.url), 'utf8')
+  assert.match(src, /accessibilityRole="radio"/)
+  assert.match(src, /<SafetyButton disabled=\{busy \|\| !reason\} onPress=\{\(\) => \{ setError\(''\); setStep\('write'\); \}\}>다음<\/SafetyButton>/)
+  assert.match(src, /if \(screen === 'report' && step === 'write'\) \{ setStep\('reason'\); setError\(''\); return; \}/)
   assert.match(src, /onPress=\{\(\) => setQuestion\(\{ kind: 'submit' \}\)\}/)
-  assert.match(src, /question\?\.kind === 'submit' \? '신고를 접수할까요\?'/)
-  assert.match(src, /accessibilityLabel="신고와 함께 차단하기"/)
-  assert.match(src, /if \(alsoBlock && !blocked\(target\.id\)\) \{\s*try \{ await store\.block\(target, request\.diary\.sharedDiaryId \|\| request\.diary\.id\); \} catch \{ blockError = true; \}/)
-  assert.match(src, /신고는 접수됐지만 차단하지 못했어요\./)
+  assert.match(src, /question\?\.kind === 'submit' \? `\$\{target\?\.nickname \|\| '사용자'\}님을 신고할까요\?`/)
 })
 
-test('AI 리뷰: 신고와 함께 차단하기 · 차단 실패 표시는 초안을 비울 때(다른 사람 신고 · 닫기) 함께 꺼진다', async () => {
+test('537: 차단은 신고와 섞지 않는다 — 체크 대신 접수 화면의 "○○님 차단하기"', async () => {
   const src = (await import('node:fs')).readFileSync(new URL('../src/safety/SafetyScreen.js', import.meta.url), 'utf8')
-  assert.match(src, /function clearDraft\(\) \{[^}]*setAlsoBlock\(false\); setBlockFailed\(false\); \}/)
+  assert.doesNotMatch(src, /신고와 함께 차단하기|alsoBlock/)
+  assert.match(src, /accessibilityLabel=\{`\$\{target\.nickname\}님 차단하기`\} disabled=\{busy\} onPress=\{\(\) => askBlock\(target\)\}/)
+  assert.match(src, /function clearDraft\(\) \{[^}]*setStep\('reason'\); \}/)
   assert.match(src, /function startReport\(member\) \{ clearDraft\(\);/)
+  // 차단 확인창 첫 줄: 백엔드가 상대에게 알리지 않는다(BlockService.block 은 user_blocks 한 줄만 저장)
+  assert.match(src, /const blockMessage = '· 상대에게 알리지 않아요\\n· 서로 이메일 초대를/)
+})
+
+test('537: 카드 없이 줄 + 구분선, 머리줄 연보라 · 본문 흰색, 참여 안내는 가운데 모달', async () => {
+  const fs = await import('node:fs')
+  const src = fs.readFileSync(new URL('../src/safety/SafetyScreen.js', import.meta.url), 'utf8')
+  const st = fs.readFileSync(new URL('../src/safety/styles.js', import.meta.url), 'utf8')
+  assert.doesNotMatch(src, /s\.card\b/)
+  assert.match(st, /panel: \{[^}]*backgroundColor: c\.surface,/)
+  assert.match(st, /header: \{[^}]*backgroundColor: c\.surfaceSoft \}/)
+  assert.match(st, /listRow: \{ minHeight: 64, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: c\.cardBorder \}/)
+  assert.match(src, /if \(screen === 'warning'\) \{\s*return <EditorModal visible transparent animationType="none" onRequestClose=\{back\}>/)
+  assert.match(src, /<View style=\{s\.dialogActions\}>\s*<SafetyButton secondary disabled=\{busy\} onPress=\{back\} style=\{s\.grow\}>돌아가기<\/SafetyButton>/)
 })
 
 test('머리줄 ‹ · X 통일: X 는 창 전체를 닫고, 쓰던 신고는 버릴지 묻고, 공유 다이어리 안내는 ‹ 와 같게 닫는다', async () => {

@@ -24,6 +24,8 @@ public class PageService {
 	@Transactional(readOnly=true) public PageListResponse list(UUID diaryId,Long userId){diaryAccessService.requireRead(diaryId,userId);return listWithoutDiaryCheck(diaryId);}
 	@Transactional public PageResponse create(UUID diaryId,PageCreateRequest r,Long userId){
 		diaryAccessService.requireWrite(diaryId,userId);
+        if(r.getTemplateConfig()!=null && r.getTemplateConfig().has("paperAppearance"))
+            PaperAppearance.normalize(r.getTemplateConfig().get("paperAppearance"));
         // 재시도 판별에 쓰는 행은 비활성이어도 읽는다(처음 요청 뒤 그 속지가 내려가도 이미 만든 페이지를 돌려준다). 활성 확인은 새로 만들 때 resolveTemplate 이 한다
         PageTemplate byId=r.getTemplateId()==null?null:templateRepository.findById(r.getTemplateId()).orElseThrow(PageTemplateNotFoundException::new);
         // 원격 속지(V34)는 형식에 맞는 remoteTemplate 이 있어야 하고 다른 속지에는 둘 수 없다(공유 구성원 앱이 이 값으로 속지를 찾는다).
@@ -68,6 +70,24 @@ public class PageService {
 	}
 	@Transactional public PageResponse update(UUID pageId,PageUpdateRequest r,Long userId){
 		DiaryPage page=requirePage(pageId); diaryAccessService.requireWrite(page.getDiaryId(),userId); PageTemplate t=findTemplate(r.getTemplateId()); BigDecimal w=r.getCanvasWidth(),h=r.getCanvasHeight();
+        if(r.getPaperAppearance()!=null){
+            var appearance=PaperAppearance.normalize(r.getPaperAppearance());
+            if(r.appliesPaperAppearanceToAllPages()){
+                var diary=diaries.findForUpdate(page.getDiaryId()).orElseThrow(com.f106.DIO.diary.support.DiaryNotFoundException::new);
+                entities.refresh(diary);
+                entities.refresh(page);
+                if(page.getDeletedAt()!=null)throw new PageNotFoundException();
+                diaryAccessService.requireWrite(page.getDiaryId(),userId);
+                if(!Objects.equals(PaperAppearance.read(diary.getPaperAppearanceJson()),appearance))
+                    diary.updatePaperAppearance(appearance.toString());
+                updatePaperAppearanceForAll(page.getDiaryId(),appearance);
+            }else{
+                setPaperAppearance(page,appearance);
+                pageRepository.flush();
+                events.publishEvent(new PageCatalogChanged(page.getDiaryId()));
+            }
+            return new PageResponse(pageData(page));
+        }
 		if(t!=null&&w==null){w=t.getCanvasWidth();h=t.getCanvasHeight();}
 		boolean replaceTemplateConfig=r.getTemplateConfig()!=null||t!=null;
 		String templateConfig=r.getTemplateConfig()==null?defaultConfig(t):copy(r.getTemplateConfig());
@@ -93,6 +113,20 @@ public class PageService {
 		}
 		page.updateSettings(r.getTemplateId(),templateConfig,replaceTemplateConfig,r.getTitle(),w,h,r.getGridVisible(),r.getGridColor()); pageRepository.flush(); events.publishEvent(new PageCatalogChanged(page.getDiaryId())); return new PageResponse(pageData(page));
 	}
+    /** Used inside an already authorized transaction holding the diary write lock. */
+    @Transactional(propagation=org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public void updatePaperAppearanceForAll(UUID diaryId,JsonNode appearance){
+        for(var page:pageRepository.findAllByDiaryIdAndDeletedAtIsNullOrderBySortKeyAscPageIdAsc(diaryId))
+            setPaperAppearance(page,appearance);
+        pageRepository.flush();
+        events.publishEvent(new PageCatalogChanged(diaryId));
+    }
+    private static void setPaperAppearance(DiaryPage page,JsonNode appearance){
+        String current=page.getTemplateConfig();
+        var previous=PaperAppearance.read(current);
+        if(previous!=null && Objects.equals(previous.get("paperAppearance"),appearance))return;
+        page.updateSettings(null,PaperAppearance.inPageConfig(current,appearance),true,null,null,null,null,null);
+    }
 	@Transactional public PageResponse copy(UUID pageId,Long userId){
 		DiaryPage source=requirePage(pageId); diaryAccessService.requireWrite(source.getDiaryId(),userId); DiaryPage copied=new DiaryPage(source.getDiaryId(),source.getTemplateId(),copyTemplateConfig(source.getTemplateConfig()),source.getTitle(),nextSortKey(source.getDiaryId()),source.getCanvasWidth(),source.getCanvasHeight(),source.isGridVisible(),source.getGridColor());
 		pageRepository.saveAndFlush(copied);
@@ -186,7 +220,8 @@ public class PageService {
         var pages=pageRepository.findAllByDiaryIdAndDeletedAtIsNullOrderBySortKeyAscPageIdAsc(id);
         var ids=pages.stream().map(DiaryPage::getTemplateId).filter(java.util.Objects::nonNull).collect(java.util.stream.Collectors.toSet());
         var templates=templateRepository.findAllById(ids).stream().collect(java.util.stream.Collectors.toMap(PageTemplate::getTemplateId,t->t));
-        return new PageListResponse(pages.stream().map(p->PageMapper.toPageData(p,templates.get(p.getTemplateId()))).toList());
+        var appearance=diaries.findById(id).map(diary->PaperAppearance.read(diary.getPaperAppearanceJson())).orElse(null);
+        return new PageListResponse(pages.stream().map(p->PageMapper.toPageData(p,templates.get(p.getTemplateId()))).toList(),appearance);
     }
 	private static BigDecimal width(PageTemplate t){return t==null?DEFAULT_CANVAS_WIDTH:t.getCanvasWidth();} private static BigDecimal height(PageTemplate t){return t==null?DEFAULT_CANVAS_HEIGHT:t.getCanvasHeight();}
 	private static String defaultConfig(PageTemplate t){return t==null?null:t.getDefaultConfig();} private static String copy(JsonNode v){return v==null?null:v.toString();}

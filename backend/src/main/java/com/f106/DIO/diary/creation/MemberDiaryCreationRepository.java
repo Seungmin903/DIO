@@ -33,6 +33,9 @@ public class MemberDiaryCreationRepository {
 		jdbc.update("insert into diary_members(diary_id,user_id,role,member_color,joined_at) values (?,?,'OWNER',?,?)",
 			id,userId,color,Timestamp.from(at));
 	}
+	public void setInitialPaperAppearance(UUID id,String appearance) {
+		jdbc.update("update diaries set paper_appearance_json=? where diary_id=?",appearance,id);
+	}
 	public List<UUID> activePageIds(UUID id) {
 		return jdbc.queryForList("select page_id from pages where diary_id=? and deleted_at is null order by sort_key,page_id",UUID.class,id);
 	}

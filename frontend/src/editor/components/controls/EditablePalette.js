@@ -15,7 +15,8 @@ function FocusRing() {
 }
 
 // One immutable slot is edited at a time. No add/delete/custom collection.
-export default function EditablePalette({ scope, label, value, onPick, onOpenEditor, initiallyEditing = false, allowDirect = false, heading }) {
+// flushEdit: '팔레트 편집' 글자 오른쪽 끝을 줄 끝(위 구분선 끝)에 맞춘다 — 누르는 자리 여백(6)은 바깥으로 뺀다(공방 도구 · 속지 탭)
+export default function EditablePalette({ scope, label, value, onPick, onOpenEditor, initiallyEditing = false, allowDirect = false, heading, flushEdit = false }) {
   const palette = usePalette(scope)
   const [editing, setEditing] = useState(initiallyEditing), [request, setRequest] = useState(null), [error, setError] = useState(false)
   // 편집 중 굵은 점선(포커스)은 지금 고치고 있는 칸으로 옮긴다(지라 605). 아직 연 칸이 없으면 지금 고른 색의 칸
@@ -39,7 +40,7 @@ export default function EditablePalette({ scope, label, value, onPick, onOpenEdi
   return <View style={s.box}>
     <View style={s.heading}>
       <Text style={s.label}>{heading ?? `${label} 색상`}</Text>
-      <Pressable accessibilityRole="button" accessibilityLabel={`${label} 팔레트 편집`} accessibilityState={{ selected: editing }} hitSlop={6} onPress={toggleEditing} style={s.edit}>
+      <Pressable accessibilityRole="button" accessibilityLabel={`${label} 팔레트 편집`} accessibilityState={{ selected: editing }} hitSlop={6} onPress={toggleEditing} style={[s.edit, flushEdit && s.editFlush]}>
         <Text style={s.editText}>{editing ? '편집 끝내기' : '팔레트 편집'}</Text>
       </Pressable>
     </View>
@@ -73,6 +74,6 @@ export const paletteSwatchStyles=StyleSheet.create({
 })
 const s=StyleSheet.create({
  box:{gap:8},heading:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:8},
- label:{fontSize:13,fontWeight:'700',color:colors.text},edit:{minHeight:36,justifyContent:'center',paddingHorizontal:6},editText:{fontSize:12,fontWeight:'700',color:colors.primaryText},
+ label:{fontSize:13,fontWeight:'700',color:colors.text},edit:{minHeight:36,justifyContent:'center',paddingHorizontal:6},editText:{fontSize:12,fontWeight:'700',color:colors.primaryText},editFlush:{marginRight:-6},
  direct:{borderStyle:'dashed',alignItems:'center',justifyContent:'center'},editing:{borderStyle:'dashed',borderColor:colors.textMuted},editFocus:{borderWidth:0},ring:{position:'absolute',left:0,top:0},solid:{borderStyle:'solid'},inner:{position:'absolute',right:3,bottom:3,width:9,height:9,borderRadius:5},notice:{fontSize:12,color:colors.textMuted}
 })
