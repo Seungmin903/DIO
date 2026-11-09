@@ -1,7 +1,6 @@
 package com.f106.DIO.sharing.service;
 import com.f106.DIO.diary.domain.DiaryMember;
 import com.f106.DIO.diary.domain.DiaryMemberId;
-import com.f106.DIO.diary.http.DiaryCoverDesign;
 import com.f106.DIO.diary.repository.DiaryMemberRepository;
 import com.f106.DIO.sharing.domain.DiaryMembershipChanged;
 import com.f106.DIO.sharing.domain.*;
@@ -62,18 +61,7 @@ public class DiaryInviteService {
         var currentMembers=access.visibleMembers(diary);
         int count=currentMembers.size();
         boolean alreadyMember=actor!=null&&currentMembers.stream().anyMatch(m->m.getUserId().equals(actor)&&m.active()&&m.supportedRole());
-        String pageSize=entities.createQuery("""
-            select case when p.canvasWidth < p.canvasHeight then 'portrait' else 'landscape' end
-            from DiaryPage p
-            where p.diaryId = :id and p.deletedAt is null
-            order by p.sortKey, p.pageId
-            """,String.class).setParameter("id",id).setMaxResults(1).getResultList()
-            .stream().findFirst().orElse("landscape");
-        return new InvitePreviewResponse(
-            id,diary.getTitle(),invite.publicExpiresAt(),count,SharingPolicy.MAX_MEMBERS,
-            count>=SharingPolicy.MAX_MEMBERS,invite.email()?"EMAIL":"LINK",invite.status(),
-            actor!=null&&!alreadyMember&&requiresConfirmation(diary,actor),
-            pageSize,diary.getCoverColor(),diary.getCoverStyle(),DiaryCoverDesign.read(diary.getCoverJson()));
+        return new InvitePreviewResponse(id,diary.getTitle(),invite.publicExpiresAt(),count,SharingPolicy.MAX_MEMBERS,count>=SharingPolicy.MAX_MEMBERS,invite.email()?"EMAIL":"LINK",invite.status(),actor!=null&&!alreadyMember&&requiresConfirmation(diary,actor));
     }
     public InviteAcceptResponse accept(String token,long actor) {return accept(token,actor,false);}
     public InviteAcceptResponse accept(String token,long actor,boolean acknowledgeBlockedMembers) {
