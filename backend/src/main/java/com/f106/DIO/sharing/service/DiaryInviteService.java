@@ -77,12 +77,25 @@ public class DiaryInviteService {
             alreadyMember||canPreviewOriginal(invite)?DiaryCoverDesign.read(diary.getCoverJson()):DiaryCoverDesign.publicPreview(diary.getCoverJson()));
     }
     @Transactional(readOnly=true)
-    public void requirePreviewCoverImage(String token, Long actor, UUID mediaId) {
+    public AuthorizedCoverImage requirePreviewCoverImage(String token, Long actor, UUID mediaId) {
         var invite = valid(tokens.id(token), token, actor);
         var diary = access.read(invite.getDiaryId());
         if (!canPreviewOriginal(invite)
                 || !DiaryCoverDesign.references(DiaryCoverDesign.read(diary.getCoverJson())).contains(mediaId)) {
             throw tokens.notFound();
+        }
+        return new AuthorizedCoverImage(mediaId);
+    }
+
+    public static final class AuthorizedCoverImage {
+        private final UUID mediaFileId;
+
+        private AuthorizedCoverImage(UUID mediaFileId) {
+            this.mediaFileId = mediaFileId;
+        }
+
+        public UUID mediaFileId() {
+            return mediaFileId;
         }
     }
 

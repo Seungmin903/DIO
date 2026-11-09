@@ -33,10 +33,10 @@ public class InviteController {
     @Operation(summary="초대 미리보기 표지 이미지 조회", description="유효한 초대의 현재 표지에 사용된 이미지 파일을 조회합니다. 이메일 초대는 지정된 수신자 로그인이 필요합니다.")
     public ResponseEntity<byte[]> coverImage(@PathVariable String token, @PathVariable UUID mediaId,
             @AuthenticationPrincipal Jwt jwt) {
-        service.requirePreviewCoverImage(token, jwt == null ? null : SharingActor.require(jwt), mediaId);
+        var authorizedImage = service.requirePreviewCoverImage(token, jwt == null ? null : SharingActor.require(jwt), mediaId);
         MediaService.DownloadedMedia image;
         try {
-            image = media.invitationCoverImage(mediaId);
+            image = media.invitationCoverImage(authorizedImage);
         } catch (MediaFileNotFoundException missing) {
             return ResponseEntity.notFound().build();
         }
