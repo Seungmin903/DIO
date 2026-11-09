@@ -59,6 +59,7 @@ import DecorationStudioScreen from './src/diary/screens/DecorationStudioScreen';
 import TrashScreen from './src/diary/screens/TrashScreen';
 import { GuestImportHost } from './src/diary/components/GuestImportDialog';
 import { StickerLibrarySyncHost } from './src/diary/components/StickerLibrarySyncHost';
+import { PaletteSyncHost } from './src/diary/components/PaletteSyncHost';
 import { styles as s } from './src/diary/styles';
 import { confirmAction, notify } from './src/shared/dialogs';
 import DialogHost from './src/shared/DialogHost';
@@ -1335,6 +1336,8 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onWithdraw
       </View>}
       {/* 꾸미기 공방 스티커 보관함을 계정 서버와 맞춘다(다른 기기 · 재설치에서도 같은 구성) */}
       {member && signedIn && <StickerLibrarySyncHost key={`${previewUser.userId}:${authService.getSessionKey()}`} accountId={String(previewUser.userId)} enabled={appLocked === false} />}
+      {/* 꾸미기 공방 도구 탭 팔레트도 계정 서버와 맞춘다 */}
+      {member && signedIn && <PaletteSyncHost key={`${previewUser.userId}:${authService.getSessionKey()}`} accountId={String(previewUser.userId)} enabled={appLocked === false} />}
       {member && signedIn && <GuestImportHost key={`${previewUser.userId}:${authService.getSessionKey()}`} accountId={String(previewUser.userId)} enabled={appLocked === false} onImported={() => diaryState.store.reload().catch(() => {})} onEntry={setGuestImport} />}
       <DialogHost />
     </>
