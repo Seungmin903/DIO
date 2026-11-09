@@ -63,11 +63,20 @@ function rimPaint(color, ink, P) {
 // 획이 직선으로 뚝뚝 끊겨 보인다 → 중심선을 Skia 가 굵기대로 긋게 둔다(이음새 · 끝 처리도 맡긴다).
 function centerPath(samples, from, to) {
   const pb = Skia.PathBuilder.Make()
-  pb.moveTo(samples[from].x, samples[from].y)
-  for (let i = from + 1; i <= to; i++) pb.lineTo(samples[i].x, samples[i].y)
-  if (to === from) pb.lineTo(samples[from].x + 0.01, samples[from].y)
+  const a = samples[from]
+  pb.moveTo(a.x, a.y)
+  if (to <= from) { pb.lineTo(a.x + 0.01, a.y); return pb.build() }
+  // 표본 사이를 직선으로 이으면 각져 보인다 → 표본을 제어점으로 둔 2차 곡선으로 잇는다
+  // (앞 점과 다음 점의 중점을 지나게 하면 이음새가 매끄럽다 — 볼펜 경로와 같은 방식).
+  for (let i = from + 1; i < to; i++) {
+    const p = samples[i], q = samples[i + 1]
+    pb.quadTo(p.x, p.y, (p.x + q.x) / 2, (p.y + q.y) / 2)
+  }
+  const last = samples[to]
+  pb.lineTo(last.x, last.y)
   return pb.build()
 }
+
 const strokeStyle = (paint, w) => {
   paint.setStyle(PaintStyle.Stroke); paint.setStrokeWidth(Math.max(0.1, w))
   paint.setStrokeCap(StrokeCap.Round); paint.setStrokeJoin(StrokeJoin.Round)
