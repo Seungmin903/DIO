@@ -155,6 +155,9 @@ function fragmentStroke(source, points, id, caps) {
   const stroke = createStroke(points.map((p) => ({ ...p, x: p.x + source.x, y: p.y + source.y })), {
     id, color: source.color, width: source.strokeWidth, kind: source.penKind, lineCap: source.lineCap,
     renderVersion: source.renderVersion, materialSeed: source.materialSeed,
+  // 유리펜 잉크 설정도 조각에 물려준다 — 안 그러면 지운 조각만 기본값으로 바뀐다
+    inkGlitter: source.inkGlitter, inkSheen: source.inkSheen, inkFilm: source.inkFilm,
+    inkAmount: source.inkAmount, inkSheenColor: source.inkSheenColor, inkSheenAmount: source.inkSheenAmount,
   })
   return { ...source, ...stroke, ...ink, ...tail, renderVersion: source.renderVersion, name: source.name,
     ...(grain && { grainOrigin: { ...grain, x: grain.x + source.x - stroke.x, y: grain.y + source.y - stroke.y } }) }

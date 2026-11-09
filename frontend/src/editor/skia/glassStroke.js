@@ -7,12 +7,12 @@
 //   프레임마다 오프스크린 표면을 만들면 GPU 이미지가 쌓여 MakeOffscreen 에서 SIGTRAP 으로 죽는다
 //   (pencilBrush.js engine 주석). 그래서 쓰는 중은 평범한 선, 손을 뗀 뒤 한 번만 이 경로로 그린다.
 // 좌표는 페이지 단위로 통일한다. 자식 이미지만 셰이더 안에서 픽셀 좌표로 바꿔 읽는다 → 확대해도 무늬가 그대로.
-import { BlendMode, FilterMode, MipmapMode, Skia, TileMode } from '@shopify/react-native-skia'
+import { BlendMode, FilterMode, MipmapMode, PaintStyle, Skia, StrokeCap, StrokeJoin, TileMode } from '@shopify/react-native-skia'
 import { abLineOf, GLASS_INK, GLASS_INK_SKSL, GLASS_LIVE_SKSL, glassDabs, inkDensity, micaColor, sheenAutoColor } from '../utils/glassInk.js'
 
 const MAX_EDGE = 4096, MAX_PIXELS = 4 * 1024 * 1024   // 연필 shader 경로와 같은 상한
 const TIP = 64, TIP_R = TIP / 2 - 1
-const SAMPLING = { filter: FilterMode.Linear, mipmap: MipmapMode.Linear }
+const SAMPLING = { filter: FilterMode.Linear, mipmap: MipmapMode.None }   // 밉맵은 축소할 때 알파를 깎는다 → 획이 반투명해진다
 const makeSurface = (w, h) => Skia.Surface.MakeOffscreen ? Skia.Surface.MakeOffscreen(w, h) : Skia.Surface.Make(w, h)
 const hex3 = color => { const c = Skia.Color(color); return [c[0], c[1], c[2]] }
 
@@ -74,14 +74,14 @@ const uniforms = (box, ppu, color, ink, P = GLASS_INK) => {
 }
 
 // 두께 마스크: G = 두께 / T_MAX, 알파 = 덮임. 도장끼리 Lighten(최대) — 한 획 안에서 겹쳐도 끝없이 진해지지 않는다
-function stampMask(surface, dabs, box, ppu, pw, ph) {
+function stampMask(surface, dabs, box, ppu, pw, ph, width) {
   const sc = surface.getCanvas(), img = tipImage()
   sc.save()
   sc.clipRect(Skia.XYWHRect(0, 0, pw, ph), 1 /* Intersect */, false)
   sc.clear(Skia.Color('transparent'))
   const src = Skia.XYWHRect(0, 0, TIP, TIP), srcs = [], dsts = [], colors = []
   for (const one of dabs) {
-    const k = (one.r * ppu) / TIP_R
+    const k = ((one.r + 0.6 / ppu) * ppu) / TIP_R
     const x = (one.x - box.x) * ppu, y = (one.y - box.y) * ppu
     srcs.push(src)
     dsts.push(Skia.RSXform(k, 0, x - k * (TIP / 2), y - k * (TIP / 2)))
@@ -91,6 +91,20 @@ function stampMask(surface, dabs, box, ppu, pw, ph) {
   const paint = Skia.Paint()
   paint.setBlendMode(BlendMode.Lighten)
   sc.drawAtlas(img, srcs, dsts, paint, BlendMode.Modulate, colors, SAMPLING)
+  // 덮임: 획 경로를 안티에일리어스로 그어 알파를 깎는다(DstIn). 도장만 쓰면 안쪽 알파가 1 에 못 미쳐
+  // 획 전체가 반투명해지고(종이가 비쳐 뿌옇다) 가장자리도 거칠다. 하네스와 같은 두 겹 구조다.
+  const dstIn = Skia.Paint(); dstIn.setBlendMode(BlendMode.DstIn)
+  sc.saveLayer(dstIn)
+  const line = Skia.Paint()
+  line.setAntiAlias(true); line.setStyle(PaintStyle.Stroke); line.setColor(Skia.Color('white'))
+  line.setStrokeCap(StrokeCap.Round); line.setStrokeJoin(StrokeJoin.Round); line.setStrokeWidth(width * ppu)
+  const pb = Skia.PathBuilder.Make()
+  pb.moveTo((dabs[0].x - box.x) * ppu, (dabs[0].y - box.y) * ppu)
+  for (const one of dabs) pb.lineTo((one.x - box.x) * ppu, (one.y - box.y) * ppu)
+  sc.drawPath(pb.build(), line)
+  const fill = Skia.Paint(); fill.setAntiAlias(true); fill.setColor(Skia.Color('white'))
+  for (const one of dabs) if (one.r > width / 2 * 1.01) sc.drawCircle((one.x - box.x) * ppu, (one.y - box.y) * ppu, one.r * ppu, fill)
+  sc.restore()
   sc.restore()
 }
 
@@ -100,14 +114,14 @@ export function drawGlassStroke(canvas, points, width, color, zoom = 1, ink = {}
   const box = glassBox(points, width)
   if (!(box.w > 0 && box.h > 0)) return false
   const { ppu, pw, ph } = sizeOf(box, zoom)
-  let maskImage = null, poolImage = null
+  let maskImage = null, poolImage = null, out = null
   try {
     const dabs = glassDabs(points, width)
     if (!dabs.length) return false
     effect ??= Skia.RuntimeEffect.Make(GLASS_INK_SKSL)
     if (!effect) throw new Error('RuntimeEffect.Make 실패')
     const pair = acquire(pw, ph)
-    stampMask(pair.mask, dabs, box, ppu, pw, ph)
+    stampMask(pair.mask, dabs, box, ppu, pw, ph, width)
     pair.mask.flush(); maskImage = pair.mask.makeImageSnapshot(Skia.XYWHRect(0, 0, pw, ph))
     // 고임 장: 마스크를 가우시안 블러(액체 평탄화 규모 = poolBlur × 굵기)
     const bc = pair.blur.getCanvas()
@@ -119,18 +133,34 @@ export function drawGlassStroke(canvas, points, width, color, zoom = 1, ink = {}
     bc.drawImage(maskImage, 0, 0, blurPaint)
     bc.restore()
     pair.blur.flush(); poolImage = pair.blur.makeImageSnapshot(Skia.XYWHRect(0, 0, pw, ph))
+    // 완성 획은 Picture 에 기록됐다가 나중에 재생된다. 제자리에 칠하면 Picture 가 마스크 · 고임 장
+    // 이미지를 계속 참조하는데, 그건 풀 표면의 스냅숏이라 다음 획이 덮어쓴다 →
+    // 지우개로 조각이 한꺼번에 생기면 먼저 만든 조각에 네모난 딴 그림이 보였다.
+    // 그래서 독립 표면에 한 장으로 구운 뒤 그 이미지만 넘긴다.
+    out = makeSurface(pw, ph)
+    if (!out) throw new Error(`MakeOffscreen ${pw}x${ph} 실패`)
     const paint = Skia.Paint()
     paint.setShader(effect.makeShaderWithChildren(uniforms(box, ppu, color, ink), [
       maskImage.makeShaderOptions(TileMode.Clamp, TileMode.Clamp, FilterMode.Nearest, MipmapMode.None),
       poolImage.makeShaderOptions(TileMode.Clamp, TileMode.Clamp, FilterMode.Linear, MipmapMode.None)]))
-    canvas.drawRect(Skia.XYWHRect(box.x, box.y, box.w, box.h), paint)
+    const oc = out.getCanvas()
+    oc.clear(Skia.Color('transparent'))
+    oc.save(); oc.scale(ppu, ppu); oc.translate(-box.x, -box.y)
+    oc.drawRect(Skia.XYWHRect(box.x, box.y, box.w, box.h), paint)
+    oc.restore()
+    out.flush()
+    const baked = out.makeImageSnapshot()   // 이 이미지만 Picture 가 들고 간다(해제하지 않는다)
+    canvas.save()
+    canvas.translate(box.x, box.y); canvas.scale(box.w / pw, box.h / ph)
+    canvas.drawImage(baked, 0, 0)
+    canvas.restore()
     return true
   } catch (error) {
     broken = true
     console.warn('[유리펜] 셰이더 경로 실패 — 평범한 선으로 전환:', error?.message ?? error)
     return false
   } finally {
-    maskImage?.dispose?.(); poolImage?.dispose?.()
+    maskImage?.dispose?.(); poolImage?.dispose?.(); out?.dispose?.()
   }
 }
 
