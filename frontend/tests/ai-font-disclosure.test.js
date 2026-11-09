@@ -18,5 +18,5 @@ test('생성 작업 또는 검증된 DIO 형식만 AI 폰트로 구분하고 외
     assert.equal(getTextFonts().find(f => f.id === id).aiGenerated, false)
   } finally { registerPersonalTextFonts([]) }
   assert.equal(AI_FONT_LABEL, 'AI 생성 손글씨 폰트')
-  assert.equal(AI_FONT_INPUT_NOTICE, '입력한 손글씨를 바탕으로 AI가 나머지 글자를 생성합니다.')
+  assert.equal(AI_FONT_INPUT_NOTICE, '입력한 손글씨를 바탕으로 AI가 나머지 글자를 생성해요.')
 })

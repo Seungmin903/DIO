@@ -32,7 +32,7 @@ public class NotificationMutationService {
 
 	public PreparedRead prepareReadAll(long userId) {
 		if (!watermarks.lockRecipient(userId)) {
-			throw new NotificationException(HttpStatus.UNAUTHORIZED, "AUTHENTICATION_REQUIRED", "로그인이 필요합니다.");
+			throw new NotificationException(HttpStatus.UNAUTHORIZED, "AUTHENTICATION_REQUIRED", "로그인이 필요해요.");
 		}
 		Instant now = now();
 		if (watermarks.activeCount(userId, now) >= MAX_WATERMARKS) {
@@ -49,7 +49,7 @@ public class NotificationMutationService {
 			HttpStatus.BAD_REQUEST, "INVALID_READ_WATERMARK", "전체 읽음 요청을 다시 준비해 주세요."));
 		Instant now = now();
 		if (!now.isBefore(watermark.expiresAt())) {
-			throw new NotificationException(HttpStatus.GONE, "READ_WATERMARK_EXPIRED", "전체 읽음 요청이 만료됐습니다. 다시 준비해 주세요.");
+			throw new NotificationException(HttpStatus.GONE, "READ_WATERMARK_EXPIRED", "전체 읽음 요청이 만료됐어요. 다시 준비해 주세요.");
 		}
 		// 이미 완료한 요청은 동일한 성공 응답. 알림이 새로 생겨도 다시 대상으로 삼지 않는다.
 		if (watermark.appliedAt() == null) watermarks.apply(id, userId, now);

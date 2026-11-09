@@ -11,7 +11,7 @@ import {
   View,
   useWindowDimensions,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Clipboard from 'expo-clipboard';
 import EditorModal from '../editor/components/controls/EditorModal';
 import ConfirmDialog from '../editor/components/controls/ConfirmDialog';
@@ -127,12 +127,21 @@ export default function SharingHub({
   const [joinedId, setJoinedId] = useState(null);
   // 참여자 ⋯ 말풍선(신고하기 · 차단하기). 참여자 목록 화면으로 옮겨 가지 않는다(2026-11-08 지라 686)
   const [memberMenu, setMemberMenu] = useState(null);
+  // 서버 공유 정보(참여자)를 처음 받는 동안: 빈 창이 떴다가 늘어나지 않게 창 대신 가운데 동그라미만 보인다
+  const [firstLoad, setFirstLoad] = useState(false);
+  const firstLoadToken = useRef(0); // 첫 로딩 동그라미를 올린 요청 번호
   // 공유 첫 화면 창 높이(다른 화면은 이 높이로 연다)
   const [mainHeight, setMainHeight] = useState(null);
   const memberMore = useRef({});
   const safety = typeof useSafety === 'function' ? useSafety() : null;
+  // 모달 안 SafeAreaView 는 첫 프레임에 여백이 0 이었다가 다음 프레임에 들어와, 가운데 놓인 창이 상태 표시줄 절반만큼 아래로 튀었다(폰 약 17dp).
+  // 앱 루트가 이미 아는 여백을 처음부터 쓴다(CoverEditModal 과 같은 방식)
+  const insets = typeof useSafeAreaInsets === 'function' ? useSafeAreaInsets() : null;
   const isBlocked = member => (safety?.state?.status === 'ready' ? safety.state.blocks.some(row => String(row.id) === String(member.id)) : member.blockedByMe === true);
   const openMemberMenu = member => {
+    // 차단 목록은 신고 · 차단 화면을 열 때만 불러왔다 → 공유 창에서 바로 '차단하기'가 꺼져 있었다. ⋯ 를 누를 때 아직 안 불러왔으면 불러온다
+    const status = safety?.state?.status;
+    if (safety?.store?.mode === 'server' && (status === 'idle' || status === 'error')) safety.store.refresh();
     const node = memberMore.current[member.id];
     if (node?.measureInWindow) node.measureInWindow((x, y, width, height) => setMemberMenu({ member, anchor: { x, y, width, height } }));
     else setMemberMenu({ member, anchor: null });
@@ -237,6 +246,7 @@ export default function SharingHub({
     setInvite(null);
     setBlockedAcknowledged(false);
     setMainHeight(null); // 다른 다이어리 · 다른 진입이면 높이를 다시 잰다
+    setFirstLoad(false);
     setLinkInput('');
     setInviteEmail('');
     setCreatedCopy(null);
@@ -270,12 +280,23 @@ export default function SharingHub({
         setScreen('sharing');
         if (runtime.server) {
           const pending = job.current;
-          setBusy(true);
+          // 참여자를 이미 알면(이 기기에 받아 둔 공유 정보) 창을 바로 보이고 뒤에서 새로 받는다 — 그동안 버튼을 흐리게 막지 않는다
+          // (뒤에서 받는 중에 다른 동작을 하면 run 이 job 을 올려 늦게 온 결과는 버린다)
+          const blocking = !registered.members?.length;
+          // 동그라미는 올린 요청만 내린다: A 를 받는 중에 B 를 열면 A 의 늦은 응답이 B 의 동그라미를 내리지 않게(리뷰 !489)
+          const loadToken = blocking ? ++firstLoadToken.current : null;
+          if (blocking) { setBusy(true); setFirstLoad(true); }
           runtime.getSharing(registered.id).then(value => {
             if (alive.current && pending === job.current) setDiary(value);
           }).catch(error => {
             if (alive.current && pending === job.current) { showFailure(error); setScreen('invitations'); }
-          }).finally(() => { if (alive.current && pending === job.current) setBusy(false); });
+          }).finally(() => {
+            if (!blocking || !alive.current) return;
+            // 자기 동그라미는 응답이 오면 늘 내린다(그사이 다른 동작이 job 을 올려도 남지 않게, 리뷰 !489).
+            // 버튼 막기(busy)는 그 동작이 따로 풀므로 이 요청이 마지막일 때만 푼다
+            if (loadToken === firstLoadToken.current) setFirstLoad(false);
+            if (pending === job.current) setBusy(false);
+          });
         }
       } catch (error) {
         showFailure(error);
@@ -627,7 +648,7 @@ export default function SharingHub({
   // 알림 화면은 높이를 '고정'해야 목록만 스크롤된다. 공유 첫 화면을 거치지 않았으면 화면 높이에 맞춘 높이
   const fixedHeight = screen === 'invitations' ? (lockedHeight || Math.min(Math.max(windowHeight - 96, 360), 720)) : null;
   const content = (
-      <SafeAreaView style={s.backdrop}>
+      <SafeFrame insets={embedded ? null : insets} style={s.backdrop}>
         <Pressable testID="sharing-outside" accessible={false} style={s.keyboard} onPress={close}>
           <KeyboardAvoidingView
             style={s.keyboard}
@@ -643,7 +664,7 @@ export default function SharingHub({
               contentContainerStyle={[s.center, isPhone && { padding: 16 }]}
               keyboardShouldPersistTaps="handled"
             >
-              <Pressable
+              {firstLoad && screen === 'sharing' ? <ActivityIndicator accessibilityLabel="공유 정보 불러오는 중" color={colors.surface} size="large" /> : <Pressable
                 accessible={false}
                 style={[s.card, isPhone && s.phoneCard, fixedHeight ? { height: fixedHeight } : lockedHeight && { minHeight: lockedHeight }]}
                 onLayout={screen === 'sharing' ? event => { const height = Math.round(event.nativeEvent.layout.height); if (height > 0) setMainHeight(previous => (previous === height ? previous : height)); } : undefined}
@@ -785,7 +806,7 @@ export default function SharingHub({
                           run(() => runtime.sendEmailInvite(diary.id, inviteEmail), result => {
                             setDiary(result);
                             setInviteEmail('');
-                            setToast('가입된 이메일이라면 초대가 전달됩니다.');
+                            setToast('가입된 이메일이면 초대가 전달돼요.');
                           });
                         };
                         return (
@@ -1198,7 +1219,7 @@ export default function SharingHub({
                     <Button label="계정 바꾸기" onPress={() => onSwitchInvitationAccount(request.inviteId)} />
                   )}
                 </View>
-              </Pressable>
+              </Pressable>}
             </ScrollView>
           </KeyboardAvoidingView>
         </Pressable>
@@ -1266,7 +1287,13 @@ export default function SharingHub({
           onConfirm={confirmQuestion}
           onCancel={() => { if (question?.kind === 'blocked-members' && question.stage === 'prepare') setScreen('detail'); setQuestion(null); }}
         />
-      </SafeAreaView>
+      </SafeFrame>
   );
   return embedded ? content : <EditorModal transparent animationType="none" visible onRequestClose={back}>{content}</EditorModal>;
+}
+
+// 여백 값을 알면 바로 패딩으로 비우고, 모르면(시험 환경 등) 예전처럼 SafeAreaView 에 맡긴다
+function SafeFrame({ insets, style, children }) {
+  if (!insets) return <SafeAreaView style={style}>{children}</SafeAreaView>;
+  return <View style={[style, { paddingTop: insets.top, paddingBottom: insets.bottom, paddingLeft: insets.left, paddingRight: insets.right }]}>{children}</View>;
 }

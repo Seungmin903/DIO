@@ -6,25 +6,16 @@ const STILL_UNREADABLE = '앱 잠금 정보를 아직 읽지 못했어요. 기�
 
 /**
  * PIN 화면 '잊었어요' 칸에 둘 동작. 없으면 undefined(칸을 비운다).
- * - 회원: 잠금을 지우고 로그아웃한다(다시 로그인해야 들어온다). 지우기에 실패하면 로그아웃하지 않고 알린다.
- * - 게스트: 되찾을 계정이 없으므로 정상 잠금은 PIN 없이 풀지 않는다.
+ * - 회원: 앱 잠금 4자리는 계정에 묶인 정보(이 기기 · 이 계정)라 계정으로 다시 확인한다(onReauth → AppLockReauth, 지라 799).
+ *   통과하면 새 4자리를 정하거나 잠금을 끈다. 로그아웃 없이 이어서 쓴다.
+ * - 게스트: 앱 잠금을 쓸 수 없다(지라 799). 예전에 켜 둔 잠금은 맞는 4자리로 한 번 열면 꺼진다. 정상 잠금은 PIN 없이 풀지 않는다.
  *   - corrupt(저장값 손상): 다시 읽어도 PIN을 확인할 수 없으므로 잠금 초기화를 연다(일기는 지우지 않는다).
  *   - storage(보안 저장소 읽기 오류): 재부팅·기기 잠금 직후처럼 잠시 읽히지 않는 경우가 있어, PIN 없이 풀리지 않게
  *     초기화는 열지 않고 다시 읽기만 한다. 다시 읽은 상태는 onStateChange 로 알린다.
- * state: readAppLockState 결과. onLogout: 회원 로그아웃. onCleared: 게스트 초기화가 끝난 뒤.
+ * state: readAppLockState 결과. onReauth: 회원 계정 다시 확인 화면을 연다. onCleared: 게스트 초기화가 끝난 뒤.
  */
-export function appLockRecoveryAction({ member, state, scope, onLogout, onCleared, onStateChange }) {
-  if (member) {
-    if (!onLogout) return undefined;
-    return () => confirmAction({
-      title: '비밀번호를 잊었나요?', message: '로그아웃하면 이 계정의 앱 잠금이 풀려요. 다시 로그인하면 새로 설정할 수 있어요.', confirmLabel: '로그아웃',
-      onConfirm: async () => {
-        try { await clearAppLock(scope); }
-        catch { notify('앱 잠금', FAILED); return; }
-        onLogout();
-      },
-    });
-  }
+export function appLockRecoveryAction({ member, state, scope, onReauth, onCleared, onStateChange }) {
+  if (member) return typeof onReauth === 'function' ? onReauth : undefined;
   if (state === 'storage') {
     return async () => {
       const next = await readAppLockState(scope).catch(() => 'storage');

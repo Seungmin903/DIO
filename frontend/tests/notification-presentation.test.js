@@ -25,7 +25,7 @@ test('일반·미지원 종류의 초대 payload는 무시하고 일반 문구�
 });
 test('일반/미지원 알림은 상세 gateway 없이 읽음·삭제하고 이전 초대 상세를 닫는다', async () => {
   for (const type of ['MOCK_NOTICE', 'FUTURE_TYPE']) {
-    const mock = createMockNotificationTransport({ delay: 0 }); const api = createNotificationApi(mock.transport), gateway = createInvitationGateway(mock.transport);
+    const mock = createMockNotificationTransport({ delay: 0 }); const api = createNotificationApi(mock.transport), gateway = createInvitationGateway(mock.getInvitation);
     let lookups = 0;
     const store = createNotificationStore(api, { get: (...args) => { lookups++; return gateway.get(...args); } });
     await store.refresh(); await store.open(store.getSnapshot().items[0]); assert.equal(lookups, 1);
@@ -76,7 +76,7 @@ test('공통 패널은 서버와 목 모두 읽음과 기본 동작을 제공한
   }, module, module.exports);
   const Panel = module.exports.default;
   const mock = createMockNotificationTransport({ delay: 0 });
-  const mockStore = createNotificationStore(createNotificationApi(mock.transport), createInvitationGateway(mock.transport));
+  const mockStore = createNotificationStore(createNotificationApi(mock.transport), createInvitationGateway(mock.getInvitation));
   const serverApi = createServerNotificationApi(async ({ path }) => path.endsWith('unread-count')
     ? { unreadCount: 1 } : { items: [{ notification: { notificationId: '1', notificationType: 'NOTICE', createdAt: 'date', readAt: null }, invitation: null }], hasNext: false, nextCursor: null });
   const serverStore = createNotificationStore(serverApi, {});
@@ -152,7 +152,7 @@ test('초대 확인은 열 수 있는 초대면 안쪽 상세 카드 없이 곧�
   const Panel = module.exports.default;
   const nodes = value => !value || typeof value !== 'object' ? [] : [value, ...[value.props?.children].flat(Infinity).flatMap(nodes)];
   const mock = createMockNotificationTransport({ delay: 0, pageSize: 10 });
-  const store = createNotificationStore(createNotificationApi(mock.transport), createInvitationGateway(mock.transport));
+  const store = createNotificationStore(createNotificationApi(mock.transport), createInvitationGateway(mock.getInvitation));
   await store.refresh();
   const press = async (row, onInvitationReady) => {
     const tree = Panel({ model: { ...store.getSnapshot(), store }, onInvitationReady });

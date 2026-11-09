@@ -13,7 +13,7 @@ public class MediaStorageException extends RuntimeException {
 			"미디어 저장소에 연결할 수 없어요. 잠시 후 다시 시도해 주세요.");
 	}
 	public static MediaStorageException missing() {
-		return new MediaStorageException(HttpStatus.NOT_FOUND, "MEDIA_FILE_CONTENT_NOT_FOUND", "미디어 파일을 찾을 수 없습니다.");
+		return new MediaStorageException(HttpStatus.NOT_FOUND, "MEDIA_FILE_CONTENT_NOT_FOUND", "미디어 파일을 찾을 수 없어요.");
 	}
 	public HttpStatus status() { return status; }
 	public String code() { return code; }

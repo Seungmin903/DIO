@@ -50,7 +50,7 @@ public class CanvasElementService {
         if(request.getElementId()==null)request.setElementId(UUID.randomUUID());
         var ticket=journal.begin(pageId,userId,List.of(request.getElementId()),UUID.randomUUID(),null,"CREATE");
 		if (request.getElementId() != null && elementRepository.existsById(request.getElementId())) {
-			throw new IllegalArgumentException("이미 사용 중인 elementId입니다.");
+			throw new IllegalArgumentException("이미 사용 중인 elementId예요.");
 		}
 		CanvasElement element = newElement(pageId, request, nextSortKey(pageId), userId);
 		elementRepository.saveAndFlush(element);
@@ -109,7 +109,7 @@ public class CanvasElementService {
 		BigDecimal nextSortKey = nextSortKey(pageId);
 		for (CanvasElementCreateRequest create : safe(request.creates())) {
 			if (create.getElementId() != null && elementRepository.existsById(create.getElementId())) {
-				throw new IllegalArgumentException("이미 사용 중인 elementId입니다.");
+				throw new IllegalArgumentException("이미 사용 중인 elementId예요.");
 			}
 			elementRepository.save(newElement(pageId, create, nextSortKey, userId));
 			nextSortKey = nextSortKey.add(SORT_STEP);
@@ -153,7 +153,7 @@ public class CanvasElementService {
 	private void validateReferences(UUID pageId, UUID groupId, UUID mediaFileId, tools.jackson.databind.JsonNode properties, Long userId) {
 		mediaAccess.requireAttach(pageId, mediaFileId, properties, userId);
 		if (groupId != null && elementRepository.existsByGroupIdAndPageIdNot(groupId, pageId)) {
-			throw new IllegalArgumentException("다른 페이지에서 사용 중인 groupId입니다.");
+			throw new IllegalArgumentException("다른 페이지에서 사용 중인 groupId예요.");
 		}
 	}
 
@@ -164,7 +164,7 @@ public class CanvasElementService {
 
     private static BigDecimal checkedSortKey(BigDecimal value) {
         if(value.abs().compareTo(MAX_SORT_KEY)>0||Math.max(0,value.stripTrailingZeros().scale())>10)
-            throw new IllegalArgumentException("레이어 순서 범위를 초과했습니다. 기존 요소의 순서를 조정한 뒤 다시 시도해 주세요.");
+            throw new IllegalArgumentException("레이어 순서 범위를 초과했어요. 기존 요소의 순서를 조정한 뒤 다시 시도해 주세요.");
         return value;
     }
 
@@ -182,12 +182,12 @@ public class CanvasElementService {
 		Set<UUID> ids = new HashSet<>();
 		for (CanvasElementCreateRequest create : safe(request.creates())) {
 			if (create.getElementId() != null && !ids.add(create.getElementId())) {
-				throw new IllegalArgumentException("하나의 요소에 여러 일괄 작업을 적용할 수 없습니다.");
+				throw new IllegalArgumentException("하나의 요소에 여러 일괄 작업을 적용할 수 없어요.");
 			}
 		}
 		for (CanvasElementUpdateRequest update : safe(request.updates())) {
-			if (update.getElementId() == null) { throw new IllegalArgumentException("updates의 elementId는 필수입니다."); }
-			if (!ids.add(update.getElementId())) { throw new IllegalArgumentException("하나의 요소에 여러 일괄 작업을 적용할 수 없습니다."); }
+			if (update.getElementId() == null) { throw new IllegalArgumentException("updates의 elementId가 필요해요."); }
+			if (!ids.add(update.getElementId())) { throw new IllegalArgumentException("하나의 요소에 여러 일괄 작업을 적용할 수 없어요."); }
 		}
 		validateIds(ids, request.deleteElementIds());
 		validateIds(ids, request.restoreElementIds());
@@ -196,7 +196,7 @@ public class CanvasElementService {
 	private void validateIds(Set<UUID> seen, List<UUID> values) {
 		for (UUID value : safe(values)) {
 			if (value == null || !seen.add(value)) {
-				throw new IllegalArgumentException("하나의 요소에 여러 일괄 작업을 적용할 수 없습니다.");
+				throw new IllegalArgumentException("하나의 요소에 여러 일괄 작업을 적용할 수 없어요.");
 			}
 		}
 	}

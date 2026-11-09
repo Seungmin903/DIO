@@ -170,20 +170,17 @@ const recovery=({clear=async()=>{},reads=[]}={})=>{
   return {...mod,dialogs,notices,cleared};
 };
 
-test('회원의 잊었어요는 잠금을 지운 뒤 로그아웃하고, 지우기에 실패하면 로그아웃하지 않고 알린다', async()=>{
-  const ok=recovery();let logouts=0;
-  const action=ok.appLockRecoveryAction({member:true,state:'on',scope:'user:7',onLogout:()=>{logouts+=1}});
-  assert.equal(typeof action,'function');
-  action();assert.equal(ok.dialogs.length,1);assert.equal(ok.dialogs[0].confirmLabel,'로그아웃');
-  await ok.dialogs[0].onConfirm();
-  assert.deepEqual(ok.cleared,['user:7']);assert.equal(logouts,1);assert.deepEqual(ok.notices,[]);
-
-  const failed=recovery({clear:async()=>{throw Error('keystore unavailable')}});
-  failed.appLockRecoveryAction({member:true,state:'corrupt',scope:'user:7',onLogout:()=>{logouts+=1}})();
-  await failed.dialogs[0].onConfirm();
-  assert.equal(logouts,1);
-  assert.deepEqual(failed.notices,[{title:'앱 잠금',message:'앱 잠금을 초기화하지 못했어요. 잠시 후 다시 시도해 주세요.'}]);
-  assert.equal(ok.appLockRecoveryAction({member:true,state:'on',scope:'user:7'}),undefined); // 로그아웃 수단이 없으면 칸을 비운다
+test('799: 회원의 잊었어요는 로그아웃 대신 계정으로 다시 확인하는 화면을 연다(잠금은 이 기기 · 이 계정 정보), 확인 수단이 없으면 칸을 비운다', async()=>{
+  const ok=recovery();let opened=0;
+  const onReauth=()=>{opened+=1};
+  const action=ok.appLockRecoveryAction({member:true,state:'on',scope:'user:7',onReauth});
+  assert.equal(action,onReauth);
+  action();assert.equal(opened,1);
+  // 확인 창 · 잠금 지우기 · 로그아웃을 바로 하지 않는다
+  assert.deepEqual(ok.dialogs,[]);assert.deepEqual(ok.cleared,[]);
+  assert.equal(ok.appLockRecoveryAction({member:true,state:'corrupt',scope:'user:7',onReauth}),onReauth);
+  assert.equal(ok.appLockRecoveryAction({member:true,state:'on',scope:'user:7'}),undefined);
+  assert.equal(ok.appLockRecoveryAction({member:true,state:'on',scope:'user:7',onLogout(){}}),undefined); // 예전 로그아웃 경로는 받지 않는다
 });
 
 test('게스트는 정상 잠금을 PIN 없이 풀 수 없고, 저장값이 손상됐을 때만 초기화한다', async()=>{
