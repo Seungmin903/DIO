@@ -17,7 +17,7 @@ const MAX_EDGE = 2048, MAX_PIXELS = 640 * 1024
 // 배율을 **고정**한다. zoom 을 따라가면 확대 · 축소 · 베이크마다 배율이 달라져 같은 획이
 // 계속 다시 구워진다(실기 로그: 같은 획이 ppu 3.00 <-> 1.57 로 번갈아 재생성 → 메모리 폭증 → SIGTRAP).
 // 한 번 구운 그림을 캔버스가 늘려 쓰므로, 많이 확대하면 조금 부드러워진다(구운 잉크답기도 하다).
-const FIXED_PPU = 2.4
+const FIXED_PPU = 3.0     // 캔버스가 쓰는 배율(실기 로그 3.00)에 맞춘다 — 더 낮추면 눈에 띄게 뿌옇다
 const POOL_DIV = 2            // 고임 장은 저주파라 절반 해상도로 블러해도 같다(블러 비용 1/4)
 const SAMPLING = { filter: FilterMode.Linear, mipmap: MipmapMode.None }   // 밉맵은 축소할 때 알파를 깎는다 → 획이 반투명해진다
 const makeSurface = (w, h) => Skia.Surface.MakeOffscreen ? Skia.Surface.MakeOffscreen(w, h) : Skia.Surface.Make(w, h)
@@ -188,7 +188,10 @@ export function drawGlassStroke(canvas, points, width, color, _zoom = 1, ink = {
     const baked = out.makeImageSnapshot()   // 이 이미지만 Picture 가 들고 간다(해제하지 않는다)
     canvas.save()
     canvas.translate(box.x, box.y); canvas.scale(box.w / pw, box.h / ph)
-    canvas.drawImage(baked, 0, 0)
+    // 확대하면 구운 그림을 늘려 쓰므로 **반드시 선형 보간**으로 그린다.
+    // 기본(최근접)으로 그리면 화소가 네모로 드러나 글리터가 네모 블록이 되고 가장자리가 깨진다.
+    if (canvas.drawImageOptions) canvas.drawImageOptions(baked, 0, 0, FilterMode.Linear, MipmapMode.None)
+    else canvas.drawImage(baked, 0, 0)
     canvas.restore()
     if (logDone < 12) { logDone++; console.log(`[유리펜] 완성 ${pw}x${ph} ppu ${ppu.toFixed(2)} 도장 ${dabs.length}`) }
     return true
