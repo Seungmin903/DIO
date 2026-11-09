@@ -64,8 +64,9 @@ export function ChipGroup({ items, value, onChange, label, columns = 0 }) {
 }
 
 /** 자주 쓰는 값 칩 (예: 10 · 30 · 50 · 100) */
+/** values: 숫자, 또는 [값, 이름](예: [3, '2박 3일']) */
 export function QuickValues({ values, value, onChange, label, unit = '' }) {
-  return <ChipGroup label={label} items={values.map(item => ({ id: item, label: String(item), a11y: `${label} ${item}${unit}` }))} value={value} onChange={onChange} />
+  return <ChipGroup label={label} items={values.map(item => Array.isArray(item) ? { id: item[0], label: item[1], a11y: `${label} ${item[1]} ${item[0]}${unit}` } : { id: item, label: String(item), a11y: `${label} ${item}${unit}` })} value={value} onChange={onChange} />
 }
 
 const dark = color => {

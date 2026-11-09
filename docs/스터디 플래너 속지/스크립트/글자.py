@@ -19,10 +19,11 @@ from fontTools.ttLib import TTFont
 DIGITS = "0123456789"
 TEXT = {
     # 제목 · 칸 묶음 제목(TO DO LIST 등) · 큰 합계 숫자
-    "Bold": "스터디 플래너 데일리 TO DO LIST TIMELINE RECORD" + DIGITS + "시간분",
+    "Bold": "스터디 플래너 데일리 TO DO LIST TIMELINE RECORD" + DIGITS + "시간분" + "여행 노선 DAY",  # 여행 노선 속지 제목(DAY n)
     # 머리줄 · 소제목 · 칸 이름 · 숫자
     "Regular": "날짜 월화수목금토일 D- 오늘의 목표 완료 할 일 색 메모 총 공부 시간 "
-               "시간 분포 오늘 돌아보기 오늘 만족도 쉬는 시간 쉼 분 종일 시작 진행 오전 오후" + DIGITS + ":~%.",
+               "시간 분포 오늘 돌아보기 오늘 만족도 쉬는 시간 쉼 분 종일 시작 진행 오전 오후" + DIGITS + ":~%."
+               + "DAY 지역" + "출발 방문 도착 노선",  # 여행 노선 속지 머리줄 칸 이름 · 아래 범례
 }
 OUT = Path(__file__).resolve().parents[3] / "frontend/src/editor/templates/studyPlannerGlyphs.js"
 

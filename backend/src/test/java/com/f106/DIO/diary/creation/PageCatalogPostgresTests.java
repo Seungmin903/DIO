@@ -65,8 +65,8 @@ class PageCatalogPostgresTests {
         flyway("latest").migrate();
         var templates=contract.get("templates");
         var stored=jdbc.queryForList("select code,template_version,orientation,canvas_width,canvas_height from page_templates");
-        // V9 288 + V27 플래너 4 + V34 원격 속지 2
-        assertThat(stored).hasSize(294);
+        // V9 288 + V27 플래너 4 + V34 원격 속지 2 + V36 여행 노선 2
+        assertThat(stored).hasSize(296);
         for(int i=0;i<templates.size();i++) {
             var row=templates.get(i);
             var actual=stored.stream().filter(s -> s.get("code").equals(row.get("templateCode").asString())
@@ -111,14 +111,17 @@ class PageCatalogPostgresTests {
 
         flyway("latest").migrate();
 
-        // V9 288 + V27 플래너 4 + V34 원격 속지 2
-        assertThat(jdbc.queryForObject("select count(*) from page_templates",Long.class)).isEqualTo(294);
+        // V9 288 + V27 플래너 4 + V34 원격 속지 2 + V36 여행 노선 2
+        assertThat(jdbc.queryForObject("select count(*) from page_templates",Long.class)).isEqualTo(296);
         assertThat(jdbc.queryForList("select code from page_templates where code in ('study-planner-landscape','study-planner-portrait','day-planner-landscape','day-planner-portrait') order by code",String.class))
             .containsExactly("day-planner-landscape","day-planner-portrait","study-planner-landscape","study-planner-portrait");
         assertPlannerTemplate("study-planner-landscape","STUDY","LANDSCAPE",1024,768,288);
         assertPlannerTemplate("study-planner-portrait","STUDY","PORTRAIT",768,1024,289);
         assertPlannerTemplate("day-planner-landscape","DAY","LANDSCAPE",1024,768,290);
         assertPlannerTemplate("day-planner-portrait","DAY","PORTRAIT",768,1024,291);
+        // V34 원격 속지 2행(292 · 293) 다음에 V36 여행 노선 2행
+        assertPlannerTemplate("route-planner-landscape","ROUTE","LANDSCAPE",1024,768,294);
+        assertPlannerTemplate("route-planner-portrait","ROUTE","PORTRAIT",768,1024,295);
         assertThat(jdbc.queryForObject("select count(*) from page_templates where code in ('2026-reusable-daily-landscape','2026-reusable-daily-portrait')",Long.class)).isEqualTo(2);
         assertPageMigration(landscapeWithCode,"day-planner-landscape",8,"day-planner-landscape","1.0.0");
         assertPageMigration(portraitWithCode,"day-planner-portrait",12,"day-planner-portrait","1.0.0");
@@ -214,7 +217,7 @@ class PageCatalogPostgresTests {
         // 운영 배포 전에 실행할 확인 SQL(docs). 앱이 보내는 코드를 빠짐없이 담고, 마이그레이션만 한 DB 에서는 두 조회 모두 0행이어야 한다
         String sql=Files.readString(docsFile("다이어리 저장","속지 코드 배포 전 확인.sql")).replace("\r\n","\n");
         for(var row:contract.get("templates")) assertThat(sql).contains("('"+row.get("templateCode").asString()+"', '"+row.get("templateVersion").asString()+"')");
-        for(var code:List.of("study-planner-landscape","study-planner-portrait","day-planner-landscape","day-planner-portrait","dio-remote-landscape","dio-remote-portrait")) assertThat(sql).contains("('"+code+"', '1.0.0')");
+        for(var code:List.of("study-planner-landscape","study-planner-portrait","day-planner-landscape","day-planner-portrait","dio-remote-landscape","dio-remote-portrait","route-planner-landscape","route-planner-portrait")) assertThat(sql).contains("('"+code+"', '1.0.0')");
         var queries=java.util.Arrays.stream(sql.replaceAll("(?m)^--.*$","").split(";")).map(String::trim).filter(q->!q.isEmpty()).toList();
         assertThat(queries).hasSize(2);
         for(var query:queries) assertThat(jdbc.queryForList(query)).isEmpty();
@@ -230,7 +233,7 @@ class PageCatalogPostgresTests {
         for(var row:contract.get("templates")) codes.add(row.get("templateCode").asString()+"/"+row.get("templateVersion").asString());
         // V9 계약에는 앱이 빈 종이 페이지에 보내는 빈 속지 코드도 들어 있다(앱 목록과 계약은 프런트 server-template-catalog 테스트가 맞춘다)
         assertThat(codes).contains("dio-blank-landscape/1.0.0","dio-blank-portrait/1.0.0");
-        for(var code:List.of("study-planner-landscape","study-planner-portrait","day-planner-landscape","day-planner-portrait","dio-remote-landscape","dio-remote-portrait")) codes.add(code+"/1.0.0");
+        for(var code:List.of("study-planner-landscape","study-planner-portrait","day-planner-landscape","day-planner-portrait","dio-remote-landscape","dio-remote-portrait","route-planner-landscape","route-planner-portrait")) codes.add(code+"/1.0.0");
         var active=jdbc.queryForList("select code||'/'||template_version from page_templates where is_active",String.class);
         for(var code:codes) assertThat(active.stream().filter(code::equals).count()).as(code).isEqualTo(1L);
         // 활성 행끼리 같은 코드 · 버전이 겹치지 않는다
@@ -240,6 +243,36 @@ class PageCatalogPostgresTests {
     private void insertUnlinkedPage(UUID diary,UUID page,String config,long version,int sortKey) {
         jdbc.update("insert into pages(page_id,diary_id,template_id,template_config,sort_key,canvas_width,canvas_height,version) values(?,?,null,cast(? as jsonb),?,768,1024,?)",
             page,diary,config,sortKey,version);
+    }
+
+    @Test void V36SkipsARowThatAlreadyExistsWithTheSameGeometry() {
+        flyway("35").migrate();
+        // 운영자가 미리 넣어 둔(또는 앞선 배포가 남긴) 같은 코드 · 버전 · 규격의 행은 그대로 두고 그 방향만 건너뛴다
+        jdbc.update("insert into page_templates(code,template_version,name,category,orientation,canvas_width,canvas_height,default_config,is_active,display_order)"
+            + " values('route-planner-landscape','1.0.0','미리 넣은 여행 노선','ROUTE','LANDSCAPE',1024,768,'{}'::jsonb,true,999)");
+        flyway("latest").migrate();
+        assertThat(jdbc.queryForObject("select count(*) from page_templates where code='route-planner-landscape'",Long.class)).isEqualTo(1L);
+        assertThat(jdbc.queryForObject("select name from page_templates where code='route-planner-landscape'",String.class)).isEqualTo("미리 넣은 여행 노선");
+        assertThat(jdbc.queryForObject("select count(*) from page_templates where code='route-planner-portrait'",Long.class)).isEqualTo(1L);
+        assertThat(jdbc.queryForObject("select count(*) from page_templates",Long.class)).isEqualTo(296);
+    }
+
+    @Test void V36RejectsAnExistingRowWithConflictingGeometryAndLeavesNothingBehind() {
+        flyway("35").migrate();
+        jdbc.update("insert into page_templates(code,template_version,name,category,orientation,canvas_width,canvas_height,default_config,is_active,display_order)"
+            + " values('route-planner-landscape','1.0.0','wrong size','ROUTE','LANDSCAPE',999,768,'{}'::jsonb,true,999)");
+        assertThatThrownBy(() -> flyway("latest").migrate()).isInstanceOf(org.flywaydb.core.api.FlywayException.class).hasMessageContaining("Conflicting page template geometry");
+        assertThat(jdbc.queryForObject("select count(*) from flyway_schema_history where version='36' and success",Long.class)).isZero();
+        // DO 블록은 한 트랜잭션이라 세로 행도 들어가지 않는다
+        assertThat(jdbc.queryForObject("select count(*) from page_templates where code='route-planner-portrait'",Long.class)).isZero();
+    }
+
+    @Test void V36RegistersOneTravelRouteTemplatePerOrientationAndIsRepeatable() {
+        flyway("latest").migrate();
+        assertThat(jdbc.queryForList("select code||':'||category||':'||orientation||':'||canvas_width::int||'x'||canvas_height::int from page_templates where code like 'route-planner-%' order by code",String.class))
+            .containsExactly("route-planner-landscape:ROUTE:LANDSCAPE:1024x768","route-planner-portrait:ROUTE:PORTRAIT:768x1024");
+        assertThat(jdbc.queryForObject("select default_config->>'blank' from page_templates where code='route-planner-portrait'",String.class)).isEqualTo("false");
+        assertThat(jdbc.queryForObject("select name from page_templates where code='route-planner-landscape'",String.class)).isEqualTo("여행 노선");
     }
 
     @Test void V27RejectsPageTemplateGeometryThatDoesNotMatchTheReplacement() throws Exception {
@@ -335,8 +368,8 @@ class PageCatalogPostgresTests {
         jdbc.update("insert into diaries(diary_id,owner_user_id,title,cover_color,cover_style,visibility) values(?,1,'historical','#123456','PLAIN','PRIVATE')",diary);
         jdbc.update("insert into pages(page_id,diary_id,template_id,template_config,sort_key,canvas_width,canvas_height) values(?,?,987,'{\"legacy\":true}'::jsonb,1,1280,800)",page,diary);
         flyway("latest").migrate();
-        // 기존 1 + 예전 버전 1 + 나머지 V9 287 + V27 4 + V34 2
-        assertThat(jdbc.queryForObject("select count(*) from page_templates",Long.class)).isEqualTo(295);
+        // 기존 1 + 예전 버전 1 + 나머지 V9 287 + V27 4 + V34 2 + V36 여행 노선 2
+        assertThat(jdbc.queryForObject("select count(*) from page_templates",Long.class)).isEqualTo(297);
         assertThat(jdbc.queryForObject("select template_id from page_templates where code=? and template_version=?",Long.class,row.get("templateCode").asString(),row.get("templateVersion").asString())).isEqualTo(987);
         assertThat(jdbc.queryForObject("select is_active from page_templates where template_id=987",Boolean.class)).isFalse();
         assertThat(jdbc.queryForObject("select name from page_templates where template_id=987",String.class)).isEqualTo("custom name");
@@ -348,8 +381,8 @@ class PageCatalogPostgresTests {
         try(var stream=getClass().getResourceAsStream("/db/migration/V9__seed_page_template_catalog.sql")) {
             jdbc.execute(new String(stream.readAllBytes(),StandardCharsets.UTF_8));
         }
-        // 기존 1 + 예전 버전 1 + 나머지 V9 287 + V27 4 + V34 2
-        assertThat(jdbc.queryForObject("select count(*) from page_templates",Long.class)).isEqualTo(295);
+        // 기존 1 + 예전 버전 1 + 나머지 V9 287 + V27 4 + V34 2 + V36 여행 노선 2
+        assertThat(jdbc.queryForObject("select count(*) from page_templates",Long.class)).isEqualTo(297);
         assertThat(jdbc.queryForObject("select count(*) from pages",Long.class)).isEqualTo(1);
     }
 

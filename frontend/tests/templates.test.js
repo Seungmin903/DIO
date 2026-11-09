@@ -56,7 +56,7 @@ test('세로형 연간 순서·공용 속지 추가·빈 페이지 크기를 유
   assert.equal(new Set(doc.pages.map(page => page.id)).size, 78)
   for (const page of doc.pages) assert.deepEqual(pageSize(page), { width: 768, height: 1024 })
   const menu = reusableTemplates('portrait')
-  assert.equal(menu.length, 8)
+  assert.equal(menu.length, 9)
   for (const item of menu) {
     const state = editorReducer(createInitialState(doc), { type: 'addPage', backgroundAssetId: item.assetId })
     assert.equal(getTemplate(getCurrentPage(state).backgroundAssetId).orientation, 'portrait')
@@ -113,8 +113,8 @@ test('내용 없는 이전 연간 문서와 편집한 문서를 모두 그대로
   assert.equal(migrateUntouchedAnnualDoc(edited), edited)
 })
 
-test('공용 속지 8종(스터디 · 데일리 플래너 포함)은 현재 페이지 다음에 추가되며 취소 이력·재실행·JSON 복원이 유지된다', () => {
-  assert.equal(REUSABLE_TEMPLATES.length, 8)
+test('공용 속지 9종(스터디 · 데일리 플래너 · 여행 노선 포함)은 현재 페이지 다음에 추가되며 취소 이력·재실행·JSON 복원이 유지된다', () => {
+  assert.equal(REUSABLE_TEMPLATES.length, 9)
   for (const item of REUSABLE_TEMPLATES) {
     const doc = createDefaultDoc()
     let state = createInitialState(doc)

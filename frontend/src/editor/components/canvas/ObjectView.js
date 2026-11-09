@@ -32,6 +32,7 @@ import { loadedFontFamily, textLayoutKey, textSettings, textStyle } from '../../
 import { useTextFont } from '../../hooks/useTextFont'
 import { useStickerPlayback } from '../../hooks/useStickerPlayback'
 import DdayWidget from '../../widgets/DdayWidget'
+import RouteNodeArt from './RouteNodeArt'
 
 /**
  * 텍스트가 실제로 그려진 높이를 알려 받는 곳 (id, 논리 높이). 편집 화면 캔버스만 주고, 썸네일은 null 이다.
@@ -79,6 +80,8 @@ function ObjectContent({ object, zoom, areaPreview = false, still: stillRequeste
     case 'stroke':
       return <StrokeContent areaPreview={areaPreview} object={object} zoom={zoom} transform={flipTransform(object)} onAssetLoad={onAssetLoad} onAssetError={onAssetError} showFallbackWhileLoading={showFallbackWhileLoading} />
     case 'sticker':
+      // 여행 노선 지점(출발 · 방문 · 도착): 스티커 하위 종류(widgets/routeNode.js)
+      if (object.routeNode) return <RouteNodeArt node={object.routeNode} width={width} height={height} />
       if (object.widget) return <View style={{ transform: flipTransform(object) }}><DdayWidget widget={object.widget} width={width} height={height} /></View>
       if (object.pdfSource) return <PdfStickerContent object={object} width={width} height={height} zoom={zoom} still={still} onAssetLoad={onAssetLoad} onAssetError={onAssetError} />
       return <StickerContent object={object} width={width} height={height} zoom={zoom} still={still} onAssetLoad={onAssetLoad} onAssetError={onAssetError} />

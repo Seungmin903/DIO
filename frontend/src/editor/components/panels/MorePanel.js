@@ -10,6 +10,8 @@ import ShapeSettings from '../ShapeSettings'
 import TapeOptions from './TapeOptions'
 import FrameOptions from './FrameOptions'
 import DdayOptions from '../../widgets/DdayOptions'
+import RouteNodeOptions from '../../widgets/RouteNodeOptions'
+import { isRouteNode } from '../../widgets/routeNode'
 import { isStripFrame } from '../../utils/photoStrip'
 import { hasPhotoMedia } from '../../utils/objects'
 import { PaletteInteractionContext } from '../controls/ColorPicker'
@@ -38,10 +40,11 @@ export default function MorePanel({ objects, dispatch, onReplacePhoto, onReplace
   const isShape = single?.type === 'shape' && !single.locked
   const isTape = single?.type === 'tape' && !single.locked
   const isWidget = single?.type === 'sticker' && Boolean(single.widget) && !single.locked
+  const isRouteStop = Boolean(single) && isRouteNode(single) && !single.locked
   const hasStyle = true // 불투명도는 모든 요소에 있어 꾸미기 탭이 늘 있다
   const current = hasStyle ? tab : 'layout'
   // 메모(종이 그림이 있는 도형) · 디데이 같은 스티커형 위젯은 보관함의 위젯 칸에서 붙이므로 '위젯'으로 부른다
-  const typeTitle = single?.art || single?.widget ? '위젯' : TYPE_TITLES[single?.type]
+  const typeTitle = single?.art || single?.widget ? '위젯' : single && isRouteNode(single) ? '지점' : TYPE_TITLES[single?.type]
   const title = objects.length > 1 ? `${objects.length}개 요소` : `${typeTitle ?? '요소'} 옵션`
   const updateEach = (makePatch, record = true) =>
     dispatch({ type: 'updateMany', record, patches: Object.fromEntries(editable.map((o) => [o.id, makePatch(o)])) })
@@ -111,6 +114,7 @@ export default function MorePanel({ objects, dispatch, onReplacePhoto, onReplace
             {isPhoto && <FrameOptions photo={single} dispatch={dispatch} onReplaceCell={onReplaceCell} onCropCell={onCropCell} />}
 
             {isWidget && <DdayOptions object={single} dispatch={dispatch} />}
+            {isRouteStop && <RouteNodeOptions object={single} dispatch={dispatch} />}
             <Section title="불투명도">
               <Slider
                 value={objectOpacity(editable[0])}
@@ -128,8 +132,8 @@ export default function MorePanel({ objects, dispatch, onReplacePhoto, onReplace
               />
             </Section>
 
-            {/* 위젯은 코드로 그려 윤곽선·그림자를 따라 그릴 수 없다 */}
-            <EffectOptions objects={editable.filter((o) => !o.widget)} dispatch={dispatch} />
+            {/* 위젯 · 여행 노선 지점은 코드로 그려 윤곽선·그림자를 따라 그릴 수 없다 */}
+            <EffectOptions objects={editable.filter((o) => !o.widget && !isRouteNode(o))} dispatch={dispatch} />
 
             {isTape && (
               <TapeOptions tape={single} dispatch={dispatch} />
