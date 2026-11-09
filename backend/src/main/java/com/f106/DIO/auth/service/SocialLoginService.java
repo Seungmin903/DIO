@@ -47,13 +47,31 @@ public class SocialLoginService {
         if(credential==null||credential.isBlank()||credential.length()>16384||password==null||password.isBlank())throw error(HttpStatus.BAD_REQUEST,"INVALID_SOCIAL_REQUEST","로그인 요청을 확인해 주세요.");
         jwt.configured();var identity=verifier.verify(credential);String normalized=UserInput.normalizeEmail(email);
         if(identity==null||identity.provider()!=provider||!identity.emailVerified()||!normalized.equals(UserInput.normalizeEmail(identity.email())))throw error(HttpStatus.UNAUTHORIZED,"INVALID_SOCIAL_CREDENTIAL","소셜 인증을 다시 진행해 주세요.");
-        return transaction.execute(status->{
+        try { return transaction.execute(status->{
             if(accounts.findForUpdate(provider.name(),identity.subject()).isPresent())throw error(HttpStatus.CONFLICT,"SOCIAL_IDENTITY_ALREADY_LINKED","이미 다른 계정에 연결된 소셜 계정이에요.");
             var emailAccount=accounts.findForUpdate("EMAIL",normalized).orElseThrow(()->error(HttpStatus.UNAUTHORIZED,"INVALID_EXISTING_CREDENTIALS","기존 이메일 또는 비밀번호를 확인해 주세요."));
             if(emailAccount.getPasswordHash()==null||!passwords.matches(password,emailAccount.getPasswordHash()))throw error(HttpStatus.UNAUTHORIZED,"INVALID_EXISTING_CREDENTIALS","기존 이메일 또는 비밀번호를 확인해 주세요.");
             var user=users.findForUpdate(emailAccount.getUserId()).filter(u->u.isActive()).orElseThrow(()->error(HttpStatus.UNAUTHORIZED,"SOCIAL_ACCOUNT_INACTIVE","사용할 수 없는 계정이에요."));
+            if(accounts.findByUserIdAndProvider(user.getUserId(),provider.name()).isPresent())throw error(HttpStatus.CONFLICT,"SOCIAL_PROVIDER_ALREADY_LINKED","이미 연결된 로그인 방식이에요.");
             accounts.saveAndFlush(EmailAuthProvider.social(user.getUserId(),provider,identity.subject(),Instant.now()));
             return sessions.create(user,deviceName,Instant.now());
+        }); } catch(org.springframework.dao.DataIntegrityViolationException conflict) {
+            throw error(HttpStatus.CONFLICT,"SOCIAL_LINK_CONFLICT","계정 연결 상태가 변경됐어요. 다시 확인해 주세요.");
+        }
+    }
+    @Transactional(propagation=Propagation.NEVER)
+    public void unlink(long userId,SocialProvider provider,String credential){
+        var verifier=provider==null?null:verifiers.get(provider);
+        if(verifier==null)throw error(HttpStatus.BAD_REQUEST,"INVALID_SOCIAL_PROVIDER","로그인 방식을 확인해 주세요.");
+        if(credential==null||credential.isBlank()||credential.length()>16384)throw error(HttpStatus.BAD_REQUEST,"INVALID_SOCIAL_REQUEST","연결 해제 요청을 확인해 주세요.");
+        var identity=verifier.verify(credential);
+        if(identity==null||identity.provider()!=provider)throw error(HttpStatus.UNAUTHORIZED,"INVALID_SOCIAL_CREDENTIAL","소셜 인증을 다시 진행해 주세요.");
+        transaction.executeWithoutResult(status->{
+            var linked=accounts.findForUpdate(provider.name(),identity.subject()).orElseThrow(()->error(HttpStatus.NOT_FOUND,"SOCIAL_PROVIDER_NOT_LINKED","연결된 로그인 방식이 아니에요."));
+            if(!linked.getUserId().equals(userId))throw error(HttpStatus.FORBIDDEN,"SOCIAL_PROVIDER_MISMATCH","다른 계정에 연결된 로그인 방식이에요.");
+            var all=accounts.findAllForUserUpdate(userId);
+            if(all.size()<=1)throw error(HttpStatus.CONFLICT,"LAST_LOGIN_PROVIDER","마지막 로그인 방식은 해제할 수 없어요.");
+            accounts.delete(linked);
         });
     }
     @Transactional(propagation=Propagation.NEVER)

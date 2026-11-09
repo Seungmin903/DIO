@@ -368,13 +368,13 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
       else api.cancelPending();
     },
 
-    async completeProfile({ provider, email, nickname, photoUri, terms }) {
+    async completeProfile({ provider, email, nickname, photoUri, terms, ageConfirmed }) {
       if (SOCIAL_NAMES[provider]) {
         if(signupPending)throw new Error('회원가입을 처리하고 있어요. 잠시만 기다려 주세요.');
         const current=socialDraft, attempt=revision;
         if(!current || current.provider!==provider || current.email!==normalizeEmail(email))throw new Error(`${SOCIAL_NAMES[provider]} 인증을 다시 진행해 주세요.`);
         if(nicknameError(nickname))throw new Error(nicknameError(nickname));
-        if(!current.ageConfirmed || terms?.service!==true || terms?.privacy!==true)throw new Error('연령 확인과 필수 약관 동의가 필요해요.');
+        if(ageConfirmed!==true || terms?.service!==true || terms?.privacy!==true)throw new Error('연령 확인과 필수 약관 동의가 필요해요.');
         const body={idToken:current.idToken,enrollment:{nickname:normalizeNickname(nickname),ageConfirmed:true,agreements:signupAgreements(terms)}};
         let upload;signupPending=true;
         try{
@@ -542,7 +542,7 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
         if(error?.code!=='SOCIAL_SIGNUP_REQUIRED'&&error?.code!=='SOCIAL_ACCOUNT_LINK_REQUIRED')throw error;
         // 신규 가입은 서버가 확인된 이메일을 요구한다. 이메일을 못 받았으면 다시 로그인하게 한다.
         if(!credential.email)throw Object.assign(new Error(`${name} 계정의 이메일을 받지 못했어요. 이메일 공유를 허용하고 다시 시도해 주세요.`),{code:'SOCIAL_EMAIL_REQUIRED'});
-        socialDraft={provider,idToken:credential.idToken,email:normalizeEmail(credential.email),ageConfirmed:true};
+        socialDraft={provider,idToken:credential.idToken,email:normalizeEmail(credential.email)};
         return {provider,email:socialDraft.email,mode:error.code==='SOCIAL_ACCOUNT_LINK_REQUIRED'?'social-link':'social-signup'};
       }
     },

@@ -15,6 +15,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import static org.assertj.core.api.Assertions.*;
@@ -48,6 +50,7 @@ class SocialLoginTests {
  @Autowired UserRepository users;
  @Autowired TermsAgreementRepository terms;
  @Autowired RefreshTokenRepository tokens;
+ @Autowired @Qualifier("authPasswordEncoder") PasswordEncoder passwords;
  SocialEnrollment enrollment(){return new SocialEnrollment("소셜회원",true,List.of(
   new Agreement(TermsType.SERVICE,"v2",true),new Agreement(TermsType.PRIVACY,"v2",true),new Agreement(TermsType.AD_EMAIL,"v1",false)));}
  String credential(){String id=UUID.randomUUID().toString();return id+";"+id+"@example.com;true";}
@@ -79,6 +82,16 @@ class SocialLoginTests {
   code(()->social.authenticate(SocialProvider.KAKAO,UUID.randomUUID()+";"+user.getEmail()+";true",null,null),"SOCIAL_ACCOUNT_LINK_REQUIRED");
   code(()->social.authenticate(SocialProvider.KAKAO,UUID.randomUUID()+";"+user.getEmail()+";true",enrollment(),null),"SOCIAL_ACCOUNT_LINK_REQUIRED");
   assertThat(accounts.findByUserIdAndProvider(user.getUserId(),"KAKAO")).isEmpty();assertThat(tokens.count()).isEqualTo(count);
+ }
+ @Test void linksOnlyAfterMatchingExistingPassword(){
+  var user=users.saveAndFlush(new User("linked@example.com","기존회원",Instant.now()));
+  accounts.saveAndFlush(new EmailAuthProvider(user.getUserId(),user.getEmail(),passwords.encode("Password123!"),Instant.now()));
+  String credential="linked-subject;"+user.getEmail()+";true";
+  code(()->social.link(SocialProvider.KAKAO,credential,user.getEmail(),"Wrong123!",null),"INVALID_EXISTING_CREDENTIALS");
+  assertThat(accounts.findByUserIdAndProvider(user.getUserId(),"KAKAO")).isEmpty();
+  var response=social.link(SocialProvider.KAKAO,credential,user.getEmail(),"Password123!",null);
+  assertThat(response.user().userId()).isEqualTo(user.getUserId().toString());
+  assertThat(accounts.findByUserIdAndProvider(user.getUserId(),"KAKAO")).isPresent();
  }
  @Test void inactiveSocialUserCannotLogin(){
   String c=credential();var r=social.authenticate(SocialProvider.KAKAO,c,enrollment(),null);

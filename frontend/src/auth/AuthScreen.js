@@ -369,7 +369,7 @@ export default function AuthScreen({
   const complete = () => {
     if (profileReady)
       run(
-        () => service.completeProfile({ ...profile, nickname, photoUri, terms }),
+        () => service.completeProfile({ ...profile, nickname, photoUri, terms, ageConfirmed }),
         (result) => {
           if (result.provider === 'email') {
             navigate('welcome');
@@ -550,6 +550,7 @@ export default function AuthScreen({
                   <View style={s.submitErrorSlot}>{message ? <Text accessibilityRole="alert" accessibilityLiveRegion="polite" style={[s.error,s.submitError]}>{message}</Text> : null}</View>
                   {primary('구글 로그인 연결', linkExistingAccount, !linkPassword)}
                 </View>
+              </View>
             ) : route === 'welcome' || route === 'signup' ? (
               <View style={s.form}>
                 {!(needsLoginAccess && restoreAfterAccess.current && canSetDevelopmentAccess) ? <>
