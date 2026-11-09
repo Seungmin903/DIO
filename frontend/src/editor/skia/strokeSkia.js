@@ -1,5 +1,6 @@
 import { BlendMode, FilterMode, MipmapMode, PaintStyle, Skia, StrokeCap, StrokeJoin, TileMode, VertexMode } from '@shopify/react-native-skia'
 import { createStrokePreview, partPath } from '../utils/strokePreview.js'
+import { isDashedKind, dashedPreviewContour, dashedObjectContour } from '../utils/dashedStroke.js'
 import { ballPreviewPaths, ballSweepPath, ballVaries, isNibKind, nibContour, nibPreviewPaths } from '../utils/nibStroke.js'
 import { PENCIL_BRUSH, pencilAccumulates, PENCIL_STRAND_SKSL, strandUniforms, brushPartSamples, depositFloor, depositGain, brushSampledPoints, brushSeed, ribbonStretch, copyDabs, previewSegmentFor, shaderCap, shaderDabAlpha, shaderUniforms, PENCIL_SHADER_SKSL, brushTipPower, partRange, partTotal, paperMatrices, paperUniforms, pencilDabs, PENCIL_PAPER_SKSL } from '../utils/pencilBrush.js'
 import { HIGHLIGHTER_OPACITY } from '../utils/penSettings.js'
@@ -507,6 +508,13 @@ function linePath(parts) {
 function drawParts(canvas, parts, style) {
   const kind = skiaKind(style.kind)
   if (!parts.length || !parts[0].points.length) return
+  if (isDashedKind(kind)) {
+    const path = join(parts.map(part => part.continuing
+      ? cachedParse(part, 'dashed:' + style.width + ':' + kind, () => parse(dashedPreviewContour(part, style.width, kind)))
+      : parse(dashedPreviewContour(part, style.width, kind))))
+    if (path) canvas.drawPath(path, fillPaint(style.color))
+    return
+  }
   if (kind === 'pencil') return drawBrushParts(canvas, parts, style)
   if (isNibKind(kind)) {
     const paths = nibPreviewPaths(parts, style.width, kind)
@@ -547,6 +555,11 @@ export function drawPreview(canvas, { parts, settings }, zoom = 1) {
 
 // 손을 뗀 획(요소 좌표): 쓰는 중과 같은 구간으로 나눠 같은 함수로 그린다. 지우개 조각(sampled)은 이미 곡선 표본이라 통째로.
 function drawObjectContent(canvas, object, zoom = 1) {
+  if (isDashedKind(object.penKind)) {
+    const path = parse(dashedObjectContour(object))
+    if (path) canvas.drawPath(path, fillPaint(object.color))
+    return
+  }
   const kind = skiaKind(object.penKind), { points, strokeWidth: width, color } = object
   const style = { kind, width, color, lineCap: object.lineCap,
     dotWidth: width * (points[0]?.pressure ?? 1), origin: object.grainOrigin ?? points[0], zoom, opacity: object.opacity ?? 1 }

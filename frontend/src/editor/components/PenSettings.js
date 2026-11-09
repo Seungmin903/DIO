@@ -7,6 +7,7 @@ import { colors } from '../../shared/theme'
 import EditablePalette, { paletteSwatchStyles } from './controls/EditablePalette'
 import Slider from './controls/Slider'
 import { PEN_TYPES, penDefaultOpacity } from '../utils/penSettings'
+import { DASH_TYPES, isDashedKind } from '../utils/dashedStroke'
 import { useRecentPenColors } from '../hooks/useRecentPenColors'
 import { createPenSample } from '../utils/penSample'
 import ObjectContent from './canvas/ObjectView'
@@ -36,6 +37,7 @@ export function PenSample({ settings, small = false }) {
  */
 export default function PenSettings({ settings, onChange, onClose, straightAssist = true, onStraightAssistChange, onOpenColorPicker, sheet = false, dragHandlers }) {
   const highlighter = settings.kind === 'highlighter'
+  const selectedKind = isDashedKind(settings.kind) ? 'dashed' : settings.kind
   const label = highlighter ? '형광펜' : '펜'
   const recentColors = useRecentPenColors(highlighter ? 'highlighter' : 'pen')
   const chooseColor = (color) => onChange({ ...settings, color })
@@ -53,14 +55,17 @@ export default function PenSettings({ settings, onChange, onClose, straightAssis
         /></View>
       ) : (
         <View style={styles.types}>{PEN_TYPES.map((type) => (
-          <Pressable key={type.id} accessibilityRole="button" accessibilityLabel={type.label} accessibilityState={{ selected: settings.kind === type.id }}
-            onPress={() => onChange({ ...settings, kind: type.id, opacity: penDefaultOpacity(type.id) })} style={[styles.type, settings.kind === type.id && styles.typeSelected]}>
-            <PenSample settings={{ ...settings, kind: type.id, width: 10 }} small /><Text style={[styles.typeText, settings.kind === type.id && styles.typeTextSelected]}>{type.label}</Text>
+          <Pressable key={type.id} accessibilityRole="button" accessibilityLabel={type.label} accessibilityState={{ selected: selectedKind === type.id }}
+            onPress={() => onChange({ ...settings, kind: selectedKind === type.id ? settings.kind : type.id, opacity: penDefaultOpacity(type.id) })} style={[styles.type, selectedKind === type.id && styles.typeSelected]}>
+            <PenSample settings={{ ...settings, kind: type.id, width: 10 }} small /><Text style={[styles.typeText, selectedKind === type.id && styles.typeTextSelected]}>{type.label}</Text>
           </Pressable>
         ))}</View>
       )}
       </View>
       <Slider name="굵기" label={highlighter ? '형광펜 굵기' : '펜 굵기'} minusLabel={`${label} 가늘게`} plusLabel={`${label} 굵게`} min={highlighter ? 8 : 1} max={highlighter ? 40 : 16} step={0.5} value={settings.width} onChange={(width) => onChange({ ...settings, width: Math.round(width * 2) / 2 })} />
+      {isDashedKind(settings.kind) && <Segmented items={DASH_TYPES}
+        selected={id => settings.kind === id}
+        onPress={kind => onChange({ ...settings, kind })} />}
       {/* 펜만: 굵기처럼 불투명도를 정한다(10~100%). 형광펜은 정해진 뽀얀 농도를 쓴다 */}
       {!highlighter && <>
         <Slider name="불투명도" label="펜 불투명도" minusLabel="펜 더 투명하게" plusLabel="펜 더 진하게" min={10} max={100} step={5} value={Math.round((settings.opacity ?? 1) * 100)}
