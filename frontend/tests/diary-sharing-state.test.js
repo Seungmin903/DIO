@@ -970,3 +970,28 @@ test('AI 리뷰: 콜드 스타트로 만드는 중에 복사를 누르면 그 �
   assert.ok(nodes(ui.render()).some(n => n.props?.children === 'https://dio.example/invite/cold'));
   ui.unmount();
 });
+
+test('외부 공유 링크는 기존 참여 화면을 열고 확인을 누른 뒤에만 수락한다', async () => {
+  const link = 'https://k15f106.p.ssafy.io/invite/7.' + 'a'.repeat(43);
+  const token = link.split('/').at(-1);
+  const lookedUp = [], accepted = [];
+  const ui = setup({
+    resolveLink: async url => {
+      lookedUp.push(url);
+      return { inviteId: token, token, status: 'PENDING', diary: { diaryId: 'd', title: '초대' } };
+    },
+    accept: async (id, name) => {
+      accepted.push(id);
+      return { id: 'd', members: [{ id: 'self', nickname: name, role: 'EDITOR' }] };
+    },
+  }, undefined, { mode: 'invitation', link });
+  ui.render();
+  await tick();
+  const screen = ui.render();
+  assert.deepEqual(lookedUp, [link]);
+  assert.deepEqual(accepted, []);
+  find(screen, '수락하고 참여하기').props.onPress();
+  await tick();
+  assert.deepEqual(accepted, [token]);
+  ui.unmount();
+});

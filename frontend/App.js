@@ -226,7 +226,11 @@ export default function App() {
   const [mailInvitation, setMailInvitation] = useState(null);
   useEffect(() => {
     if (Platform.OS === 'web' || apiConfigurationError || mockSource) return;
-    return subscribeMemberInviteLinks(Linking, inviteId => setMailInvitation({ inviteId }));
+    return subscribeMemberInviteLinks(
+      Linking,
+      inviteId => setMailInvitation({ inviteId }),
+      link => setMailInvitation({ link }),
+    );
   }, [apiConfigurationError, mockSource]);
   useEffect(() => {
     if (mailInvitation && !authenticatedSession && !loginRequest && !booting
@@ -390,7 +394,9 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onWithdraw
   const [sharingRequest, setSharingRequest] = useState(null);
   useEffect(() => {
     if (!mailInvitation || loginOverlayOpen || appLocked !== false) return;
-    setSharingRequest({ mode: 'invitation', inviteId: mailInvitation.inviteId, fromMail: true });
+    setSharingRequest(mailInvitation.link
+      ? { mode: 'invitation', link: mailInvitation.link }
+      : { mode: 'invitation', inviteId: mailInvitation.inviteId, fromMail: true });
     onConsumeMailInvitation(mailInvitation);
   }, [mailInvitation, loginOverlayOpen, appLocked, onConsumeMailInvitation]);
   const openSafetyParticipants = (diary, target, action) => {

@@ -277,3 +277,12 @@ curl -X PATCH "$API/api/v1/diaries/$DIARY_ID/membership" \
 - 기존 이메일 초대 입력란과 버튼을 서버 모드에서도 연결한다. 발송·보낸 목록·취소는 기존 `/invites/email`, `/invites`, `/invites/{inviteId}` API를 사용한다. 새 화면이나 API는 추가하지 않는다.
 - 상대 초대 주소 `/invite/{token}`은 현재 API 서버를 기준으로 절대 주소로 표시·복사한다. HTTPS 배포 서버에서는 HTTPS 주소가 되며, 서버가 지정한 별도 초대 주소는 유지한다. 로컬 HTTP 서버를 HTTPS로 임의 변경하지 않는다.
 - 앱에 붙여넣어 확인하는 기존 초대 방식은 유지한다. 브라우저에서 초대 안내 페이지를 열거나 앱을 자동 실행하는 라우팅은 별도 연결이 필요하다.
+
+### 일반 공유 초대 링크의 앱 연결
+
+- 운영 초대 주소는 `https://k15f106.p.ssafy.io/invite/{token}`이다. 설치된 앱이 이 주소를 받으면 로그인 또는 기존 세션 복원 후 기존 초대 확인 흐름을 연다. 초대는 이용자가 기존 화면에서 확인하고 수락한다.
+- 운영 백엔드의 `SHARING_INVITE_BASE_URL`을 `https://k15f106.p.ssafy.io/invite/`로 지정하고 컨테이너에 전달한다.
+- 운영 HTTPS의 `/.well-known/assetlinks.json`에 Android 패키지 `com.f106.DIO`와 실제 설치 APK 또는 Play 앱 서명 인증서의 SHA-256 지문을 등록한다.
+- 운영 HTTPS의 `/.well-known/apple-app-site-association`에 `<Apple Team ID>.com.f106.DIO` 및 `/invite/*` 경로를 등록한다. 두 파일은 인증이나 리다이렉트 없이 JSON과 HTTP 200으로 제공한다.
+- 브라우저로 열린 `/invite/{token}`에는 앱 설치 또는 DIO의 ‘초대 링크 확인’에 주소를 붙여넣는 방법을 안내하는 웹 폴백을 운영한다. 초대 토큰은 접속 로그와 외부 분석 도구에 남기지 않는다.
+- 연동 파일을 배포한 뒤 Android·iOS 앱을 새로 빌드해 설치하고 외부 앱에서 링크를 열어 확인한다. 로그아웃 상태에서는 로그인 후 같은 초대 화면이 열리는지 확인한다.
