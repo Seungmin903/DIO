@@ -245,6 +245,83 @@ half4 main(float2 p) {
 }
 `
 
+// ── 앱 전용: 표면 없이 그리기 위한 CPU 고임 계산 ──────────────────────────────
+// 지금까지는 마스크를 가우시안 블러해서 "고임 장"을 만들었지만, 그 오프스크린 표면이
+// 이 기기에서 librnskia 를 죽인다. 블러가 하던 일은 결국 **표본마다 이웃이 얼마나 겹쳤나**
+// 를 재는 것이므로, 표본을 이미 CPU 에서 만드는 김에 여기서 직접 센다(격자 해시로 O(n)).
+//   pool_i = Σ_j  t_j · (간격 × 굵기) · G2(거리)   ← 가우시안 블러의 이산합과 같다
+//   cov_i  = 같은 식에서 t_j = 1
+// 곧은 선 하나면 pool ≈ t · 굵기 / (σ√2π) 로, 블러로 재던 값(굵기 2.5 · σ 6.25 에서 0.16·t)과 같다.
+export function glassPool(dabs, width, spread = GLASS_INK.poolSpread) {
+  const n = dabs.length, pool = new Float32Array(n), cov = new Float32Array(n)
+  if (!n) return { pool, cov }
+  const step = Math.max(0.02, width * GLASS_INK.spacing), area = step * width
+  const k = 1 / (2 * Math.PI * spread * spread), inv2s2 = 1 / (2 * spread * spread)
+  const reach = spread * 2.5, cell = reach
+  // 획을 따라 이어진 이웃(|i−j| ≤ gap)은 곧은 선이면 늘 같은 값이므로 식으로 바로 구한다.
+  // 격자로는 **멀리 떨어진 부분이 되돌아와 겹친 것**(스크리블 · 덧칠)만 센다 → 보통 획은 O(n).
+  const gap = Math.ceil(reach / step)
+  const line = width / (spread * Math.sqrt(2 * Math.PI))
+  const grid = new Map(), key = (cx, cy) => cx * 73856093 ^ cy * 19349663
+  for (let i = 0; i < n; i++) {
+    const cx = Math.floor(dabs[i].x / cell), cy = Math.floor(dabs[i].y / cell), h = key(cx, cy)
+    let list = grid.get(h); if (!list) grid.set(h, list = []); list.push(i)
+  }
+  for (let i = 0; i < n; i++) {
+    const a = dabs[i], cx = Math.floor(a.x / cell), cy = Math.floor(a.y / cell)
+    let sp = a.t * line, sc = line
+    for (let gx = cx - 1; gx <= cx + 1; gx++) for (let gy = cy - 1; gy <= cy + 1; gy++) {
+      const list = grid.get(key(gx, gy)); if (!list) continue
+      for (const j of list) {
+        if (j > i - gap && j < i + gap) continue        // 이어진 이웃은 위 식에 이미 들어 있다
+        const b = dabs[j], dx = b.x - a.x, dy = b.y - a.y, d2 = dx * dx + dy * dy
+        if (d2 > reach * reach) continue
+        const g = k * Math.exp(-d2 * inv2s2) * area
+        sp += b.t * g; sc += g
+      }
+    }
+    pool[i] = sp; cov[i] = sc
+  }
+  return { pool, cov }
+}
+
+// 테 띠: 표면 없이 그리므로 **띠의 폭**으로 고임을 표현한다(기하가 거리를 들고 있게 한다).
+//   고임이 없으면 폭 0 → 몸통이 전부 덮어 테가 안 보이고, 고일수록 띠가 넓어진다.
+//   가는 획도 가장자리에 얇은 띠는 둔다(참고 20 · 25: 강한 쉰은 글씨에도 돈다).
+const smooth01 = x => { const t = Math.max(0, Math.min(1, x)); return t * t * (3 - 2 * t) }
+export function glassBand(poolValue, width, sheenEdge = GLASS_INK.sheenEdge) {
+  const P = GLASS_INK
+  const pooled = Math.min(width * 0.38, P.poolSpread * 0.3)
+    * smooth01((poolValue - P.sheenGate0) / (P.sheenGate1 - P.sheenGate0))
+  const thin = width * 0.17 * Math.min(1, sheenEdge)
+  return Math.min(width * 0.42, Math.max(thin, pooled))
+}
+
+// 테 페인트용 셰이더: 띠를 고르게 칠하면 화면 그래픽처럼 보인다 → 구간마다 끊고(patch) 결을 넣는다(grain).
+export const GLASS_RIM_SKSL = `
+uniform float3 rimCol;
+uniform float patch;
+uniform float grain;
+uniform float scl;
+float vhash(float2 q) {
+  float3 p3 = fract(float3(mod(q.x, 256.0), mod(q.y, 256.0), mod(q.x, 256.0)) * float3(0.1031, 0.1030, 0.0973));
+  p3 += dot(p3, p3.yzx + 33.33);
+  return fract((p3.x + p3.y) * p3.z);
+}
+float vnoise(float2 q) {
+  float2 i = floor(q), f = fract(q);
+  float2 u = f * f * (3.0 - 2.0 * f);
+  return mix(mix(vhash(i), vhash(i + float2(1, 0)), u.x),
+             mix(vhash(i + float2(0, 1)), vhash(i + float2(1, 1)), u.x), u.y);
+}
+half4 main(float2 p) {
+  float n = vnoise(p / scl) * 0.62 + vnoise(p / (scl * 0.32) + 13.7) * 0.38;
+  float a = mix(1.0, smoothstep(0.30, 0.74, n), patch);
+  a *= mix(1.0, 0.45 + 0.55 * vnoise(p * 0.75 + 31.1), grain);
+  return half4(half3(rimCol * a), half(a));
+}
+`
+
 // 펜 색(sRGB 0~1) → 채널별 광학 밀도(감마 2.2 선형 기준). 셰이더 uniform 으로 전달.
 export function inkDensity(ink) {
   return ink.map(c => -Math.log(Math.max(Math.pow(c, 2.2), 1e-4)))
