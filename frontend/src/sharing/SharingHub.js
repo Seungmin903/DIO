@@ -104,6 +104,7 @@ function DiarySummary({ diary }) {
 
 export default function SharingHub({
   request,
+  visible = true,
   runtime,
   model,
   onClose,
@@ -589,7 +590,7 @@ export default function SharingHub({
     onBackReady(back);
     return () => onBackReady(null);
   }, [embedded, onBackReady, back]);
-  if (!request) return null;
+  if (!request || !visible) return null;
   const mine = diary?.members.find((member) => member.id === runtime.self.id);
   const isOwner = mine?.role === 'OWNER';
   const isFull = (diary?.members.length || 0) >= MAX_SHARING_MEMBERS;

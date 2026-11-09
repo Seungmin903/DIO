@@ -5,7 +5,7 @@ import SharingHub from '../sharing/SharingHub';
 import AuthenticatedNotificationDialog from './AuthenticatedNotificationDialog';
 
 // 목록→공유 상세에서 네이티브 Modal을 교체하지 않는다.
-export default function HomeNotificationFlow({ request, model, sharing, onRequest, onClose, onOpenCopy, onOpenDiary, onOpenParticipants }) {
+export default function HomeNotificationFlow({ visible = true, request, model, sharing, onRequest, onClose, onOpenCopy, onOpenDiary, onOpenParticipants }) {
   const sharingBack = useRef(null);
   const onBackReady = useCallback(handler => { sharingBack.current = handler; }, []);
   const inSharing = request.mode !== 'notifications';
@@ -19,6 +19,7 @@ export default function HomeNotificationFlow({ request, model, sharing, onReques
     else if (model.invitation.status !== 'idle') model.store.closeInvitation();
     else onClose();
   };
+  if (!visible) return null;
   return <EditorModal visible transparent animationType="none" onRequestClose={back}>
     <View testID="home-notification-modal-content" style={{ flex: 1 }}>{inSharing
       ? <SharingHub onOpenParticipants={onOpenParticipants} embedded onBackReady={onBackReady} request={request} runtime={sharing.runtime} model={sharing.notifications} onReturnToNotifications={returnToList} onClose={onClose} onOpenCopy={onOpenCopy} onOpenDiary={onOpenDiary} />
