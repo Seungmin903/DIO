@@ -567,6 +567,33 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
         if (withdrawn && session === current) await endLocalSession();
       }
     },
+    // 앱 잠금 4자리를 잊었을 때(지라 799): 지금 로그인한 계정의 주인인지 다시 확인한다. 지금 세션 · 기기 정보는 그대로 둔다.
+    // 이메일 가입은 계정 비밀번호, 구글 · 애플 가입은 그 로그인을 한 번 더 받는다. 확인용으로 서버가 새로 연 세션은 쓰지 않고 바로 끊는다(로그아웃은 그 세션만 끊는다).
+    // 다른 계정(다른 구글 계정 · 가입 안 된 계정)이면 그 세션을 받지 않고 거절한다 — 계정이 바뀌지 않는다.
+    async verifyAccount({ password } = {}) {
+      const current = session;
+      if (!current) throw unauthorized();
+      const provider = current.provider || 'email';
+      const mismatch = () => Object.assign(new Error('지금 로그인한 계정으로 확인해 주세요.'), { code: 'ACCOUNT_MISMATCH' });
+      let result;
+      if (provider === 'email') {
+        if (typeof password !== 'string' || !password) throw Object.assign(new Error('비밀번호를 입력해 주세요.'), { code: 'PASSWORD_REQUIRED' });
+        result = await request('login', { email: normalizeEmail(current.user.email), password });
+      } else {
+        const name = SOCIAL_NAMES[provider], signIn = socialSignIns[provider];
+        if (!name || typeof signIn !== 'function') throw Object.assign(new Error('이 로그인 방식으로는 확인할 수 없어요.'), { code: 'REAUTH_UNAVAILABLE' });
+        const credential = await signIn();
+        if (!credential?.idToken) throw new Error(`${name} 인증 정보를 받지 못했어요.`);
+        try { result = await request(`oauth/${provider}`, { idToken: credential.idToken }); }
+        catch (error) {
+          if (error?.code === 'SOCIAL_SIGNUP_REQUIRED' || error?.code === 'SOCIAL_ACCOUNT_LINK_REQUIRED') throw mismatch();
+          throw error;
+        }
+      }
+      if (typeof result?.accessToken === 'string' && result.accessToken) request('logout', undefined, result.accessToken).catch(() => {});
+      if (result?.user?.userId == null || String(result.user.userId) !== String(current.user.userId)) throw mismatch();
+      return true;
+    },
     async social(provider) {
       const name=SOCIAL_NAMES[provider], signIn=socialSignIns[provider];
       if(!name)throw new Error('아직 준비 중인 로그인 방식이에요.');
