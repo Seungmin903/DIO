@@ -79,6 +79,17 @@ export function createSafetyApi({ userId, auth, fetchImpl = globalThis.fetch, bu
   }
   return {
     mode: 'server', listBlocks,
+    async listWarningDismissals(diaryId) {
+      if (!uuid(diaryId)) throw invalid();
+      const { data } = await request(`/me/block-warning-dismissals/${diaryId}`);
+      if (!Array.isArray(data?.userIds) || !data.userIds.every(validId)) throw invalid();
+      return data.userIds.map(String);
+    },
+    async dismissWarning(diaryId, userIds) {
+      if (!uuid(diaryId) || !Array.isArray(userIds) || !userIds.length || !userIds.every(validId)) throw invalid();
+      const { status } = await request(`/me/block-warning-dismissals/${diaryId}`, { method: 'PUT', body: { userIds } });
+      if (status !== 204) throw invalid();
+    },
     async listParticipants(diaryId) {
       if (!uuid(diaryId)) throw failure('INVALID_DIARY', '공유 다이어리를 다시 선택해 주세요.');
       check();

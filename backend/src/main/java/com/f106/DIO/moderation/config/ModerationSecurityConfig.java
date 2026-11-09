@@ -15,7 +15,7 @@ public class ModerationSecurityConfig {
             @Qualifier("loginBearerTokenResolver") BearerTokenResolver resolver) throws Exception {
         // Own only moderation routes; preserve existing security chains.
         var paths=org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher.withDefaults();
-        var matcher=new org.springframework.security.web.util.matcher.OrRequestMatcher(java.util.stream.Stream.of("/api/v1/reports","/api/v1/me/blocks","/api/v1/me/blocks/{userId}").map(paths::matcher).map(m->(org.springframework.security.web.util.matcher.RequestMatcher)m).toList());
+        var matcher=new org.springframework.security.web.util.matcher.OrRequestMatcher(java.util.stream.Stream.of("/api/v1/reports","/api/v1/me/blocks","/api/v1/me/blocks/{userId}","/api/v1/me/block-warning-dismissals/{diaryId}").map(paths::matcher).map(m->(org.springframework.security.web.util.matcher.RequestMatcher)m).toList());
         return http.securityMatcher(matcher).cors(org.springframework.security.config.Customizer.withDefaults())
             .csrf(c -> c.disable()).formLogin(c -> c.disable()).httpBasic(c -> c.disable()).logout(c -> c.disable())
             .requestCache(c -> c.disable()).sessionManagement(c -> c.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
