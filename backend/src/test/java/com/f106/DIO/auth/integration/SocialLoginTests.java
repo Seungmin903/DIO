@@ -120,6 +120,13 @@ class SocialLoginTests {
    .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status().isTooManyRequests())
    .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header().string("Retry-After","900"));
   assertThat(accounts.findByUserIdAndProvider(user.getUserId(),"KAKAO")).isEmpty();
+  // 연결 실패는 같은 계정·주소의 이메일 로그인 예산을 함께 쓰고, 같은 주소의 다른 계정은 막지 않는다
+  assertThatThrownBy(()->login.login(new com.f106.DIO.auth.dto.LoginRequest(user.getEmail(),"Password123!","phone"),"10.20.0.2"))
+   .isInstanceOfSatisfying(com.f106.DIO.auth.exception.LoginException.class,e->assertThat(e.code).isEqualTo("LOGIN_RATE_LIMITED"));
+  var other=users.saveAndFlush(new User("link-throttle-other@example.com","다른회원",Instant.now()));
+  accounts.saveAndFlush(new EmailAuthProvider(other.getUserId(),other.getEmail(),passwords.encode("Password123!"),Instant.now()));
+  postLink("kakao","10.20.0.2","other-subject;"+other.getEmail()+";true",other.getEmail(),"Password123!")
+   .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status().isOk());
 
   // 다른 주소에서는 연결되고, 이미 연결된 뒤의 충돌은 비밀번호 실패로 세지 않아 예약도 남지 않는다
   postLink("kakao","10.20.0.3",credential,user.getEmail(),"Password123!")

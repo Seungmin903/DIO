@@ -25,7 +25,9 @@ public class SocialLoginController {
   SocialProvider value;
   try {value=SocialProvider.valueOf(provider.toUpperCase(java.util.Locale.ROOT));}
   catch(IllegalArgumentException error){throw new SocialLoginException(HttpStatus.BAD_REQUEST,"INVALID_SOCIAL_PROVIDER","로그인 방식을 확인해 주세요.");}
-  var reservation=throttle.reserve("social-link:"+value,request.getRemoteAddr());
+  // 기존 계정 비밀번호를 확인하므로 이메일 로그인과 같은 계정(이메일)·주소 예산을 쓴다.
+  // 주소는 dev/prod의 RemoteIpValve가 신뢰 프록시의 X-Forwarded-For로 바꿔 둔 실제 클라이언트 주소다.
+  var reservation=throttle.reserve(body.email(),request.getRemoteAddr());
   try {var response=service.link(value,body.idToken(),body.email(),body.password(),body.deviceName());throttle.success(reservation);return ResponseEntity.ok().header("Cache-Control","no-store").body(response);}
   catch(SocialLoginException error){if("INVALID_SOCIAL_CREDENTIAL".equals(error.code)||"INVALID_EXISTING_CREDENTIALS".equals(error.code))throttle.failed(reservation);throw error;}
   finally {throttle.cancel(reservation);}
