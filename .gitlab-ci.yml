@@ -85,17 +85,14 @@ deploy-production:
     - docker build --tag "dio-backend:prod-${CI_COMMIT_SHORT_SHA}" ./backend
     # AI 이미지는 의존성·모델 레이어가 캐시되어 ai/app만 바뀌면 빠르게 끝난다.
     - docker build --tag "dio-ai:prod-${CI_COMMIT_SHORT_SHA}" ./ai
+    # AI를 먼저 교체하고 healthy(모델 로딩 완료, ai/Dockerfile HEALTHCHECK)를 확인한 뒤에만 backend를 교체한다.
+    # AI가 3분 안에 healthy가 아니거나 종료되면 로그를 남기고 실패하며, 운영 backend는 이전 이미지로 계속 돈다.
+    - docker compose --project-name dio-prod-backend --env-file /home/gitlab-runner/dio-env/prod.env -f infra/compose/compose.prod.yml up -d --force-recreate --no-deps ai
+    - bash infra/scripts/wait-container-healthy.sh "$(docker compose --project-name dio-prod-backend --env-file /home/gitlab-runner/dio-env/prod.env -f infra/compose/compose.prod.yml ps -q ai)" 180
     - >
-      if ! docker compose --project-name dio-prod-backend --env-file /home/gitlab-runner/dio-env/prod.env -f infra/compose/compose.prod.yml up -d --force-recreate ||
+      if ! docker compose --project-name dio-prod-backend --env-file /home/gitlab-runner/dio-env/prod.env -f infra/compose/compose.prod.yml up -d --force-recreate --no-deps backend ||
          ! curl --fail --retry 12 --retry-all-errors --retry-delay 2 http://127.0.0.1:8082/actuator/health; then
         docker compose --project-name dio-prod-backend --env-file /home/gitlab-runner/dio-env/prod.env -f infra/compose/compose.prod.yml logs --tail=200 backend || true;
-        exit 1;
-      fi
-    # AI는 모델 로딩 뒤 healthy가 된다. 3분 안에 healthy가 아니면 로그를 남기고 실패한다.
-    - >
-      AI_CONTAINER="$(docker compose --project-name dio-prod-backend --env-file /home/gitlab-runner/dio-env/prod.env -f infra/compose/compose.prod.yml ps -q ai)";
-      if ! timeout 180 sh -c "until [ \"\$(docker inspect -f '{{.State.Health.Status}}' $AI_CONTAINER)\" = healthy ]; do sleep 3; done"; then
-        docker logs --tail=200 "$AI_CONTAINER" || true;
         exit 1;
       fi
 
