@@ -24,13 +24,19 @@ export default function EditSetting({ compact = false, accountId = null }) {
 
 const saveFailed = () => notify('설정을 저장하지 못했어요', '잠시 후 다시 시도해 주세요.');
 
+/** 스위치에 보일 값: 실제로 올리는 상태(granted)만 켬. 아직 묻지 않음(null) · 읽지 못함(unavailable) · 거부는 지금 올리지 않으므로 끔이다.
+ *  묻지 않은 상태에서 켜면 처음 공유할 때 다시 묻지 않는다 */
+export const fontShareSwitchValue = value => (value === 'granted' ? 'on' : 'off');
+
+/** 스위치를 바꿀 때: 켜면 바로 저장, 끄면 한 번 확인한 뒤 저장. 저장에 실패하면 알린다 */
+export function changeFontShare(next, set, { confirm = confirmAction, onFailed = saveFailed } = {}) {
+  if (next === 'on') { set('granted').catch(onFailed); return; }
+  // 끄면 앞으로 쓰는 글의 폰트만 올리지 않는다. 이미 공유한 다이어리에서는 그대로 보인다
+  confirm({ title: '내 폰트 공유를 끌까요?', message: '앞으로 공유 다이어리에 내 폰트를 올리지 않아요. 이미 공유한 다이어리에서는 그대로 보여요.',
+    confirmLabel: '끄기', danger: false, onConfirm: () => set('denied').catch(onFailed) });
+}
+
 function FontShareRow({ accountId }) {
   const consent = useFontShareConsent(accountId);
-  const change = value => {
-    if (value === 'on') { consent.set('granted').catch(saveFailed); return; }
-    // 끄면 앞으로 쓰는 글의 폰트만 올리지 않는다. 이미 공유한 다이어리에서는 그대로 보인다
-    confirmAction({ title: '내 폰트 공유를 끌까요?', message: '앞으로 공유 다이어리에 내 폰트를 올리지 않아요. 이미 공유한 다이어리에서는 그대로 보여요.',
-      confirmLabel: '끄기', danger: false, onConfirm: () => consent.set('denied').catch(saveFailed) });
-  };
-  return <SettingRow label="공유 다이어리에 내 폰트 공유" options={ON_OFF} value={consent.value === 'granted' ? 'on' : 'off'} onChange={change} />;
+  return <SettingRow label="공유 다이어리에 내 폰트 공유" options={ON_OFF} value={fontShareSwitchValue(consent.value)} onChange={next => changeFontShare(next, consent.set)} />;
 }

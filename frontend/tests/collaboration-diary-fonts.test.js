@@ -117,6 +117,23 @@ test('동의(consent)를 넘기지 않은 호출부는 내 폰트를 올리지 �
   assert.deepEqual(calls, [])
 })
 
+test('내 폰트 목록을 읽지 못하면 이번에는 아무 폰트도 받거나 등록하지 않는다', async () => {
+  let failMine = true
+  const mine = [{ id: `personal-${fileId}`, fileId, uri: 'file://font.ttf' }]
+  const registered = [], downloads = []
+  const fonts = createDiaryFonts({ diaryId, key: 'k', storage: { getItem: async () => null, setItem: async () => {} }, consent: GRANTED,
+    files: { cachedUri: async () => null, save: async id => `file://${id}` },
+    request: async path => { downloads.push(path); return TTF },
+    transport: async () => [{ mediaFileId, name: sharedFontFileName(fileId), enabled: true }],
+    library: { mine: async () => { if (failMine) throw Error('read failed'); return mine }, has: () => false, register: list => registered.push(...list) } })
+  await assert.rejects(fonts.sync(), /read failed/)
+  assert.deepEqual([downloads, registered], [[], []])
+  // 다음 조회에서는 내 폰트로 알아보고 받지 않는다
+  failMine = false
+  await fonts.sync()
+  assert.deepEqual([downloads, registered], [[], []])
+})
+
 test('친구 폰트는 동의를 묻지 않는다', async () => {
   let asks = 0
   const f = fixture({ mine: [], consent: { status: async () => null, ask: async () => { asks++; return true } } })

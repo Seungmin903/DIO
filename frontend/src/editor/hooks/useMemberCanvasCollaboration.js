@@ -58,10 +58,11 @@ export function useMemberCanvasCollaboration({diary,page,state,loaded,readOnly,d
     const fetchImpl=createCanvasHttpFetch({auth:authService,headersFor,accessTokenHeader,fetchImpl:memberFetch})
     const diagnostics=createCollaborationDiagnostics({enabled:typeof __DEV__!=='undefined'&&__DEV__&&process.env.EXPO_PUBLIC_COLLABORATION_DIAGNOSTICS==='1'})
     const transport=diagnostics.transport(createAuthenticatedMemberTransport({auth:authService,accountId:diary.memberAccountId,baseUrl:apiBaseUrl,accessTokenHeader,fetchImpl}))
-    const media=createCanvasMedia({request:createMediaRequest({auth:authService,accountId:diary.memberAccountId,sessionKey,baseUrl:apiBaseUrl,fetchImpl:memberFetch}),files:canvasMediaFiles,storage:AsyncStorage,key:`${memberDocumentKey(diary)}:media-uploads:v1:${encodeURIComponent(apiBaseUrl)}`,isActive:active})
+    // 미디어(사진 · 스티커 · PDF)와 손글씨 폰트가 같은 요청 함수를 쓴다(인증 · 시간 제한 설정을 한곳에서)
+    const mediaRequest=createMediaRequest({auth:authService,accountId:diary.memberAccountId,sessionKey,baseUrl:apiBaseUrl,fetchImpl:memberFetch})
+    const media=createCanvasMedia({request:mediaRequest,files:canvasMediaFiles,storage:AsyncStorage,key:`${memberDocumentKey(diary)}:media-uploads:v1:${encodeURIComponent(apiBaseUrl)}`,isActive:active})
     // 손글씨 폰트: 내 폰트로 쓴 글자를 보내기 전에 폰트를 이 다이어리에 공유하고, 친구 폰트는 받아 등록한다.
     // 올린 폰트의 서버 id 는 계정 · 서버마다 기록해 다이어리가 달라도 다시 올리지 않는다
-    const mediaRequest=createMediaRequest({auth:authService,accountId:diary.memberAccountId,sessionKey,baseUrl:apiBaseUrl,fetchImpl:memberFetch})
     // 받은 친구 폰트 캐시는 계정 · 서버마다: 다른 계정으로 열면 이전 계정이 받은 파일을 먼저 지운다. 세션을 닫으면 목록에서 뺀다
     const fontOwner=`${diary.memberAccountId}@${apiBaseUrl}`
     const fonts=createDiaryFonts({diaryId:diary.id,transport,request:mediaRequest,files:sharedFontFiles,library:sharedFontLibrary,storage:AsyncStorage,

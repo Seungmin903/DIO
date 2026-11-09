@@ -106,8 +106,9 @@ export function createDiaryFonts({ diaryId, transport, request, files, library, 
     const list = await transport({ path: `/diaries/${diaryId}/fonts` }); active()
     if (!Array.isArray(list)) throw Error('다이어리 폰트 목록을 확인하지 못했어요.')
     const fetched = []
-    // 내 폰트(파일이 기기에 있는 것)는 아직 글꼴 등록 전이어도 받지 않는다
-    const own = new Set((await library.mine().catch(() => [])).filter(font => !font.missing).map(font => font.fileId?.toLowerCase())); active()
+    // 내 폰트(파일이 기기에 있는 것)는 아직 글꼴 등록 전이어도 받지 않는다.
+    // 목록을 읽지 못하면 내 폰트를 친구 폰트로 잘못 받지 않게 이번 받기를 멈춘다(다음 조회에서 다시 읽는다)
+    const own = new Set((await library.mine()).filter(font => !font.missing).map(font => font.fileId?.toLowerCase())); active()
     // 이름(dio-hw-<폰트 id>.ttf)은 올린 사람이 정하므로 다른 멤버가 남의 폰트 id 로 다른 파일을 올릴 수 있다.
     // 서버 목록에는 올린 사람이 없어 어느 쪽이 진짜인지 알 수 없으니, 한 폰트 id 를 서로 다른 파일이 주장하면 어느 파일로도 그리지 않는다
     // (그 글자는 안내 문구로 남는다. 다른 글꼴로 바꿔치기되는 것보다 낫다)

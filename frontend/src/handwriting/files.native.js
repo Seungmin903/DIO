@@ -110,7 +110,10 @@ export async function saveSharedFontBytes(mediaFileId, bytes) {
   const uri = sharedFontPath(mediaFileId), temporary = `${uri}.pending`
   await FS.makeDirectoryAsync(sharedFontDirectory(), { intermediates: true })
   try {
-    await FS.writeAsStringAsync(temporary, toBase64(bytes), { encoding: FS.EncodingType.Base64 })
+    // 최대 25MB 폰트를 Base64 문자열(약 1.33배)로 바꾸지 않고 바이트 그대로 쓴다(저사양 기기 메모리. PDF 원본 저장과 같은 방법)
+    const pending = new File(temporary)
+    pending.create({ overwrite: true })
+    await pending.write(bytes)
     const info = await FS.getInfoAsync(temporary)
     if (!info.exists || info.size !== bytes.length) throw new Error('폰트 파일을 모두 저장하지 못했어요. 저장 공간을 확인해 주세요.')
     await FS.deleteAsync(uri, { idempotent: true })

@@ -59,3 +59,16 @@ test('취소하면 onCancel 을 부른다(앱 창 · 기본 창 모두)', () => 
   detach();
   assert.deepEqual(log, ['native-cancel', 'native-cancel', 'cancel', 'confirm']);
 });
+
+test('마지막 호스트가 떨어지면 남은 확인 창을 취소로 끝낸다', () => {
+  const { confirmAction, notify, dialogStore } = load();
+  const log = [];
+  const first = dialogStore.attach(), second = dialogStore.attach();
+  confirmAction({ title: 'a', message: 'm', confirmLabel: '확인', onConfirm: () => log.push('a-confirm'), onCancel: () => log.push('a-cancel') });
+  notify('b', 'm');
+  first();
+  assert.deepEqual(log, []); // 다른 호스트가 아직 보여 준다
+  second();
+  assert.deepEqual(log, ['a-cancel']);
+  assert.equal(dialogStore.getSnapshot(), null);
+});
