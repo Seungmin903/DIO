@@ -8,7 +8,7 @@
 // 그래서 획 하나당 표면을 한 번만 잡고, 프레임마다 새로 생긴 도장만 덧찍는다(Lighten 은 누적이라 된다).
 // 프레임마다 뜨는 스냅숏 이미지는 다음 프레임 첫머리에 놓아 준다(GPU 메모리가 쌓이지 않게).
 import { BlendMode, FilterMode, MipmapMode, Skia, TileMode } from '@shopify/react-native-skia'
-import { abLineOf, GLASS_INK, GLASS_INK_SKSL, glassDabs, inkDensity, micaColor, sheenAutoColor } from '../utils/glassInk.js'
+import { abLineOf, GLASS_INK, GLASS_INK_SKSL, GLASS_LIVE_SKSL, glassDabs, inkDensity, micaColor, sheenAutoColor } from '../utils/glassInk.js'
 
 const MAX_EDGE = 4096, MAX_PIXELS = 4 * 1024 * 1024
 const POOL_DIV = 2            // 고임 장은 저주파라 절반 해상도로 블러해도 같다(블러 비용 1/4)
@@ -16,7 +16,7 @@ const SAMPLING = { filter: FilterMode.Linear, mipmap: MipmapMode.None }   // 밉
 const makeSurface = (w, h) => Skia.Surface.MakeOffscreen ? Skia.Surface.MakeOffscreen(w, h) : Skia.Surface.Make(w, h)
 const hex3 = color => { const c = Skia.Color(color); return [c[0], c[1], c[2]] }
 
-let effect = null, broken = false, logLive = 0, logDone = 0
+let effect = null, liveEffect = null, broken = false, logDone = 0
 export const glassBroken = () => broken
 
 // 도장 스프라이트: 안티에일리어스 흰 원. 많이 줄이면 가장자리가 거칠어지므로 크기를 몇 단계로 나눠 둔다.
@@ -116,73 +116,28 @@ function paintInk(canvas, box, ppu, color, width, ink, maskImage, poolImage) {
 }
 
 // 쓰는 중 ────────────────────────────────────────────────────────────────────
-// 획 하나당 표면 한 쌍을 잡아 두고 새 도장만 덧찍는다. 상자를 벗어나면 다시 잡고 전부 다시 찍는다.
-// 쓰는 중 그림도 **구운 이미지 한 장**으로 넘긴다. Picture 에 셰이더를 직접 기록하면 Picture 가
-// 마스크 · 고임 장 이미지를 계속 참조하는데, 그건 다음 프레임에 놓아 주는 이미지라 그릴 때쯤이면 없다
-// (쓰는 중 획이 아예 안 보이던 원인). 구운 이미지는 몇 프레임 살려 두었다가 놓아 준다.
-let live = null, keep = []
-const sweep = (n = 3) => { while (keep.length > n) keep.shift()?.dispose?.() }
-export function endGlassLive() {
-  while (keep.length) keep.shift()?.dispose?.()
-  live?.mask?.dispose?.(); live?.blur?.dispose?.(); live?.outs?.[0]?.dispose?.(); live?.outs?.[1]?.dispose?.(); live = null
-}
-export function drawGlassLive(canvas, points, width, color, zoom = 1, ink = {}) {
-  if (broken || !points?.length) return false
+// **오프스크린 표면을 쓰지 않는다.** 이 기기(SM-X510)에서 쓰는 중에 표면을 만들거나 다시 쓰면
+// librnskia.so 가 SIGTRAP · SIGSEGV 로 죽는다(2026-11-09 실기 확인, 연필도 같은 이유로
+// shader 엔진을 꺼 두었다 — pencilBrush.js engine 주석).
+// 그래서 쓰는 중에는 마스크 · 고임 장 없이 **획 경로에 바로 칠하는 가벼운 셰이더**를 쓴다.
+// 잉크색 + 운모 막 + 입자까지는 같고, 테 · 커피링은 손을 뗀 뒤에 생긴다.
+export function endGlassLive() {}
+export function glassLivePaint(color, width, ink = {}, P = GLASS_INK) {
+  if (broken) return null
   try {
-    const dabs = glassDabs(points, width)
-    if (!dabs.length) return false
-    const need = glassBox(points, width)
-    const key = `${width}|${Math.round(zoom * 100)}|${color}|${ink.film ?? ''}|${ink.glitter}|${ink.sheen}|${ink.amount ?? ''}|${ink.sheenColor ?? ''}|${ink.sheenAmount ?? ''}`
-    const inside = live && live.key === key && need.x >= live.box.x && need.y >= live.box.y
-      && need.x + need.w <= live.box.x + live.box.w && need.y + need.h <= live.box.y + live.box.h
-    if (!inside) {
-      endGlassLive()
-      const grow = Math.max(72, width * 10)    // 획이 자랄 여유(크게 잡으면 매 프레임 블러 비용이 커진다)
-      const box = { x: need.x - grow, y: need.y - grow, w: need.w + 2 * grow, h: need.h + 2 * grow }
-      const { ppu, pw, ph } = sizeOf(box, zoom)
-      if (pw * ph > MAX_PIXELS) return false
-      // 구울 표면은 **두 장을 번갈아** 쓴다. 한 장만 쓰면 다음 프레임에 그 표면을 지우는 순간
-      // 아직 화면에 그려지지 않은 앞 프레임의 이미지까지 비어 버린다(쓰는 중 획이 안 보이던 원인).
-      const mask = makeSurface(pw, ph), blur = makeSurface(Math.ceil(pw / POOL_DIV), Math.ceil(ph / POOL_DIV))
-      const outs = [makeSurface(pw, ph), makeSurface(pw, ph)]
-      if (!mask || !blur || !outs[0] || !outs[1]) {
-        mask?.dispose?.(); blur?.dispose?.(); outs[0]?.dispose?.(); outs[1]?.dispose?.()
-        throw new Error(`MakeOffscreen ${pw}x${ph} 실패`)
-      }
-      live = { key, box, ppu, pw, ph, mask, blur, outs, turn: 0, count: 0 }
-      stampDabs(mask, dabs, 0, box, ppu, true)
-      live.count = dabs.length
-    } else if (dabs.length > live.count) {
-      stampDabs(live.mask, dabs, Math.max(0, live.count - 2), live.box, live.ppu, false)
-      live.count = dabs.length
-    }
-    live.mask.flush()
-    const maskImage = live.mask.makeImageSnapshot(Skia.XYWHRect(0, 0, live.pw, live.ph))
-    blurPool(live.blur, maskImage, live.ppu)
-    live.blur.flush()
-    const poolImage = live.blur.makeImageSnapshot()
-    live.turn ^= 1
-    const out = live.outs[live.turn]
-    const oc = out.getCanvas()
-    oc.clear(Skia.Color('transparent'))
-    oc.save(); oc.scale(live.ppu, live.ppu); oc.translate(-live.box.x, -live.box.y)
-    paintInk(oc, live.box, live.ppu, color, width, ink, maskImage, poolImage)
-    oc.restore()
-    out.flush()
-    const baked = out.makeImageSnapshot()
-    maskImage.dispose?.(); poolImage.dispose?.()   // 굽는 데만 썼다(이 자리에서 다 쓰임)
-    keep.push(baked); sweep(2)
-    if (logLive < 40) { logLive++; console.log(`[유리펜] 쓰는중 ${live.pw}x${live.ph} 도장 ${dabs.length} 상자 ${Math.round(live.box.x)},${Math.round(live.box.y)} ${Math.round(live.box.w)}x${Math.round(live.box.h)}`) }
-    canvas.save()
-    canvas.translate(live.box.x, live.box.y); canvas.scale(live.box.w / live.pw, live.box.h / live.ph)
-    canvas.drawImage(baked, 0, 0)
-    canvas.restore()
-    return true
+    liveEffect ??= Skia.RuntimeEffect.Make(GLASS_LIVE_SKSL)
+    if (!liveEffect) return null
+    const amount = ink.glitter === false ? 0 : (ink.amount ?? 1) * P.glAmp
+    if (amount <= 0.001) return null
+    const mica = micaColor(ink.film ?? P.glFilm, 1)
+    const paint = Skia.Paint()
+    paint.setShader(liveEffect.makeShader([...hex3(color), ...mica, 0.35, amount,
+      P.glCell, P.glP * P.glThinP, P.glRThin, P.glRThin * 1.6, P.glBMin, P.glBMax, P.glTail, P.glDesat,
+      P.glCloud, P.glCloudScale, P.glVeil, P.glVeilDesat, P.glVeilLift, P.glVeilScale]))
+    return paint
   } catch (error) {
-    broken = true
-    endGlassLive()
-    console.warn('[유리펜] 쓰는 중 셰이더 실패 — 평범한 선으로 전환:', error?.message ?? error)
-    return false
+    console.warn('[유리펜] 쓰는 중 셰이더 실패:', error?.message ?? error)
+    return null
   }
 }
 
@@ -198,7 +153,6 @@ export function drawGlassStroke(canvas, points, width, color, zoom = 1, ink = {}
   try {
     const dabs = glassDabs(points, width)
     if (!dabs.length) return false
-    endGlassLive()                      // 쓰는 중 표면은 여기서 놓아 준다
     mask = makeSurface(pw, ph)
     blur = makeSurface(Math.ceil(pw / POOL_DIV), Math.ceil(ph / POOL_DIV))
     out = makeSurface(pw, ph)

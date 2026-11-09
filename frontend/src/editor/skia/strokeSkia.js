@@ -3,7 +3,7 @@ import { createStrokePreview, partPath } from '../utils/strokePreview.js'
 import { ballPreviewPaths, ballSweepPath, ballVaries, isNibKind, nibContour, nibPreviewPaths } from '../utils/nibStroke.js'
 import { PENCIL_BRUSH, pencilAccumulates, PENCIL_STRAND_SKSL, strandUniforms, brushPartSamples, depositFloor, depositGain, brushSampledPoints, brushSeed, ribbonStretch, copyDabs, previewSegmentFor, shaderCap, shaderDabAlpha, shaderUniforms, PENCIL_SHADER_SKSL, brushTipPower, partRange, partTotal, paperMatrices, paperUniforms, pencilDabs, PENCIL_PAPER_SKSL } from '../utils/pencilBrush.js'
 import { HIGHLIGHTER_OPACITY } from '../utils/penSettings.js'
-import { drawGlassLive, drawGlassStroke } from './glassStroke.js'
+import { drawGlassStroke, glassLivePaint } from './glassStroke.js'
 // 유리펜 잉크 설정(획 설정 · 저장 획 공용). 없으면 기본값(글리터 · 테 켬)
 const glassInkOf = one => ({ glitter: one?.inkGlitter !== false, sheen: one?.inkSheen !== false, film: one?.inkFilm, amount: one?.inkAmount, sheenColor: one?.inkSheenColor, sheenAmount: one?.inkSheenAmount })
 const glassKey = one => `|${one?.inkGlitter !== false}|${one?.inkSheen !== false}|${one?.inkFilm ?? ''}|${one?.inkAmount ?? ''}|${one?.inkSheenColor ?? ''}|${one?.inkSheenAmount ?? ''}`
@@ -512,19 +512,25 @@ function drawParts(canvas, parts, style) {
   const kind = skiaKind(style.kind)
   if (!parts.length || !parts[0].points.length) return
   if (kind === 'pencil') return drawBrushParts(canvas, parts, style)
-  // 유리펜: 쓰는 중과 손을 뗀 뒤가 같은 그림이 되도록 같은 셰이더 경로를 쓴다.
-  // 쓰는 중은 획 하나당 표면을 한 번만 잡고 새 도장만 덧찍는다(매 프레임 표면을 만들면 이 기기에서 죽는다).
-  // 셰이더가 실패하면 아래 평범한 선으로 떨어진다.
+  // 유리펜: 손을 뗀 뒤는 마스크 · 고임 장 · 셰이더 전체 경로, 쓰는 중은 표면 없는 가벼운 셰이더.
+  // 쓰는 중에 오프스크린 표면을 쓰면 이 기기에서 librnskia 가 죽는다(2026-11-09 실기 SIGTRAP · SIGSEGV).
   if (kind === 'glass') {
     const pts = parts.flatMap(part => part.points)
     if (!style.live) {
       if (drawGlassStroke(canvas, pts, style.width, style.color, style.zoom ?? 1, style.ink)) return
     } else {
-      // 쓰는 중에는 평범한 선을 먼저 깔고 그 위에 유리펜 그림을 얹는다.
-      // 셰이더 쪽에 무슨 일이 나도 쓰는 사람이 획을 못 보는 일은 없어야 한다(선은 잉크 그림에 덮인다).
-      const under = linePath(parts)
-      if (under) canvas.drawPath(under, strokePaint(style.color, style.width))
-      drawGlassLive(canvas, pts, style.width, style.color, style.zoom ?? 1, style.ink)
+      // 쓰는 중: 오프스크린 표면 없이 획 경로에 바로 칠한다(표면을 쓰면 이 기기에서 죽는다).
+      // 잉크색 + 운모 막 + 입자까지 보이고, 테 · 커피링은 손을 뗀 뒤에 생긴다.
+      const path = linePath(parts)
+      if (path) {
+        const ink = glassLivePaint(style.color, style.width, style.ink)
+        const paint = ink ?? strokePaint(style.color, style.width)
+        if (ink) {
+          ink.setAntiAlias(true); ink.setStyle(PaintStyle.Stroke)
+          ink.setStrokeCap(StrokeCap.Round); ink.setStrokeJoin(StrokeJoin.Round); ink.setStrokeWidth(style.width)
+        }
+        canvas.drawPath(path, paint)
+      }
       return
     }
   }
