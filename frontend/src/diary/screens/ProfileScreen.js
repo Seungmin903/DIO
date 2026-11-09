@@ -47,25 +47,34 @@ export default function ProfileScreen({ guestImport = null, section = 'profile',
   // 게스트(로그인 전 방문자)는 설정만 연다. 마이페이지는 사이드바에서 로그인으로 대신한다.
   const authenticatedUser = previewUser?.mode === 'authenticated';
   const guest = !authenticatedUser && previewUser?.provider === 'guest';
-  // 앱 잠금: locked 는 이 계정에 잠금이 있는지(null = 읽는 중). pin 은 열려 있는 비밀번호 화면
+  // 앱 잠금: locked는 확인된 상태만 표시한다. pin은 열려 있는 비밀번호 화면
   // ({ mode: 'setup' } 새로 켜기 · 바꾸기 2단계 | { mode: 'verify', next: 'off' | 'change' })
   const lockScope = appLockScope(previewUser);
-  const [lockState, setLockState] = useState(null); // readAppLockState 결과(null = 읽는 중 · 읽기 실패)
-  const locked = lockState === null ? null : lockState !== 'off';
+  const [lockRead, setLockRead] = useState(null);
+  const [lockAttempt, setLockAttempt] = useState(0);
+  const currentLockRead = lockRead?.scope === lockScope ? lockRead : null;
+  const lockState = currentLockRead?.state ?? null;
+  const lockReadFailed = lockState === 'storage';
+  const locked = lockState === null || lockReadFailed ? null : lockState !== 'off';
   const [pin, setPin] = useState(null);
-  const reloadLock = () => readAppLockState(lockScope).catch(() => null).then(setLockState);
+  const reloadLock = () => {
+    setLockRead({ scope: lockScope, state: null });
+    setLockAttempt(attempt => attempt + 1);
+  };
   useEffect(() => {
     let alive = true;
-    // 읽기 실패는 '꺼짐'으로 두지 않는다(켜기로 기존 비밀번호를 확인 없이 덮어쓸 수 있다). null 이면 스위치가 눌리지 않고, 다시 들어오면 다시 읽는다
-    readAppLockState(lockScope).then(value => { if (alive) setLockState(value); }).catch(() => { if (alive) setLockState(null); });
+    readAppLockState(lockScope).catch(() => 'storage')
+      .then(state => { if (alive) setLockRead({ scope: lockScope, state }); });
     return () => { alive = false; };
-  }, [lockScope]);
+  }, [lockScope, lockAttempt]);
+  const canEnableLock = appLockSupported && !guest;
+  const showLockSetting = canEnableLock || locked || lockReadFailed || (currentLockRead && lockState === null);
   // 지금 비밀번호를 잊었거나 저장소 손상으로 확인할 수 없을 때: 회원은 로그아웃 후 재로그인, 게스트는 저장값 손상일 때만 초기화(읽기 오류는 다시 읽기).
   // 새 비밀번호를 정하는 setup 화면에는 두지 않는다(새 비밀번호를 정하다 로그아웃 흐름이 열리지 않게).
   const recoverAppLock = appLockRecoveryAction({
     member: authenticatedUser, state: lockState, scope: lockScope, onLogout: onEndPreview,
     onCleared: () => { setPin(null); reloadLock(); },
-    onStateChange: setLockState,
+    onStateChange: state => setLockRead({ scope: lockScope, state }),
   });
   // 내 공간에 들어올 때 서버 회원정보(GET /me)로 로그인 시점 값을 갱신한다. 실패하면 로그인 응답 값을 그대로 보여 주고 다시 들어올 때 재시도한다.
   const userId = authenticatedUser ? previewUser.userId : null;
@@ -102,7 +111,7 @@ export default function ProfileScreen({ guestImport = null, section = 'profile',
         if (pin.mode === 'verify') await clearAppLock(lockScope);
         else await setAppLock(lockScope, value);
       } catch { notify('앱 잠금', '앱 잠금을 바꾸지 못했어요. 다시 시도해 주세요.'); }
-      await reloadLock();
+      reloadLock();
       setPin(null);
     };
     pinScreen = (
@@ -197,7 +206,7 @@ export default function ProfileScreen({ guestImport = null, section = 'profile',
         {settingsBody && <SettingCard compact={compact}>
           <NotificationSetting compact={compact}>{serverNotifications}</NotificationSetting>
           {/* 게스트는 새로 켤 수 없다. 이미 켠 게스트는 끌 수 있게 끄기만 남긴다 */}
-          {((appLockSupported !== false && !guest) || locked) && <AppLockSetting compact={compact} locked={locked} canEnable={appLockSupported !== false && !guest} onTurnOn={() => setPin({ mode: 'setup' })} onTurnOff={() => setPin({ mode: 'verify', next: 'off' })} onChange={() => setPin({ mode: 'verify', next: 'change' })} />}
+          {showLockSetting && <AppLockSetting compact={compact} locked={locked} readFailed={lockReadFailed} onRetry={reloadLock} canEnable={canEnableLock} onTurnOn={() => setPin({ mode: 'setup' })} onTurnOff={() => setPin({ mode: 'verify', next: 'off' })} onChange={() => setPin({ mode: 'verify', next: 'change' })} />}
           <EditSetting compact={compact} />
           <AppInformation />
         </SettingCard>}
