@@ -430,6 +430,16 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
         signupPending = false;
       }
     },
+    async linkSocial(provider, email, password) {
+      const current=socialDraft, attempt=revision;
+      if(!SOCIAL_NAMES[provider]||!current||current.provider!==provider||current.email!==normalizeEmail(email))
+        throw new Error(`${SOCIAL_NAMES[provider] || '소셜'} 인증을 다시 진행해 주세요.`);
+      if(!password)throw new Error('기존 계정 비밀번호를 입력해 주세요.');
+      const result=await request(`oauth/${provider}/link`,{idToken:current.idToken,email:current.email,password});
+      if(attempt!==revision||socialDraft!==current)throw new Error('계정 연결 요청이 취소되었어요.');
+      await acceptSession({...result,provider});sessionSequence++;socialDraft=null;
+      return userView(result.user);
+    },
     async updateProfile(user, { nickname, photoUri }) {
       if (!session || String(user?.userId) !== String(session.user.userId)) throw unauthorized();
       const nextNickname = normalizeNickname(nickname);

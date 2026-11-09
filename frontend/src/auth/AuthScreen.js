@@ -95,6 +95,7 @@ export default function AuthScreen({
   const socialAccessRetry = useRef(null);
   const [accessId, setAccessId] = useState('');
   const [accessPassword, setAccessPassword] = useState('');
+  const [linkPassword, setLinkPassword] = useState('');
   const job = useRef(0);
   const running = useRef(false);
   const enrollmentBlocked = useRef(false);
@@ -193,7 +194,7 @@ export default function AuthScreen({
     if (next === 'signup' && !signupEligibility({ ageConfirmed, terms }, legalDocuments)) next = 'eligibility';
     // 소셜 계정 확인 뒤에만 가입 전 동의를 받는다. 그 사이에는 인증 토큰을
     // 보존해야 프로필 완성 때 Google/Apple 창을 다시 열지 않는다.
-    service.cancelPending?.({ keepEnrollment: next === 'profile' || next === 'verification' ||
+    service.cancelPending?.({ keepEnrollment: next === 'profile' || next === 'verification' || next === 'link' ||
       (next === 'eligibility' && provider !== 'email') });
     Keyboard.dismiss();
     focusedInput.current = null;
@@ -210,6 +211,7 @@ export default function AuthScreen({
     setNeedsLoginAccess(false);
     setAccessId('');
     setAccessPassword('');
+    setLinkPassword('');
     setRoute(next);
     if (next === 'welcome' || next === 'underage') {
       enrollmentBlocked.current = next === 'underage';
@@ -385,9 +387,17 @@ export default function AuthScreen({
             // 같은 가입 흐름에서 재인증한다. 닉네임·사진·약관은 부모 상태에 유지한다.
             setVerificationAttempt(value => value + 1);
             navigate('verification');
+          } else if (profile?.provider !== 'email' && error?.code === 'SOCIAL_ACCOUNT_LINK_REQUIRED') {
+            navigate('link', profile.provider);
           }
         },
       );
+  };
+  const linkExistingAccount = () => {
+    if (!profile?.provider || !linkPassword) return;
+    run(() => service.linkSocial(profile.provider, profile.email, linkPassword), result => {
+      Keyboard.dismiss();setValues(emptyValues());onContinue(result);
+    });
   };
   const link = (label, onPress, style) => (
     <Pressable
@@ -471,6 +481,7 @@ export default function AuthScreen({
                     : route === 'signup'
                       ? '나만의 기록을 시작해요'
                       : route === 'verification' ? '이메일을 인증해 주세요'
+                      : route === 'link' ? '기존 계정을 확인해 주세요'
                       : '프로필을 완성해 주세요'}
                 </Text>
                 <Text style={s.subtitle}>
@@ -480,6 +491,7 @@ export default function AuthScreen({
                     : route === 'signup'
                       ? '이메일로 DIO 계정을 만들어 주세요.'
                       : route === 'verification' ? '인증번호를 입력해 이메일을 확인해 주세요.'
+                      : route === 'link' ? '비밀번호를 확인하면 구글 로그인을 연결해 드려요.'
                       : '나만의 이름으로 DIO의 기록을 시작해요.'}
                 </Text>
               </View>
@@ -525,6 +537,18 @@ export default function AuthScreen({
                     });
                   } else navigate('profile');
                 }} />
+            ) : route === 'link' ? (
+              <View style={s.form}>
+                <Text style={s.muted}>이미 가입된 이메일이에요. 기존 계정 비밀번호를 확인하면 구글 로그인을 연결할 수 있어요.</Text>
+                <FormField label="이메일" value={profile?.email || ''} editable={false} />
+                <FormField onInputFocus={focusInput} onInputBlur={blurInput} inputRef={passwordInput}
+                  label="기존 비밀번호" placeholder="기존 비밀번호를 입력해 주세요" value={linkPassword}
+                  onChange={value => { setLinkPassword(value); setMessage(''); }} password editable={!busy}
+                  returnKeyType="done" onSubmitEditing={linkExistingAccount} />
+                <View ref={submitArea} style={s.submitArea}>
+                  <View style={s.submitErrorSlot}>{message ? <Text accessibilityRole="alert" accessibilityLiveRegion="polite" style={[s.error,s.submitError]}>{message}</Text> : null}</View>
+                  {primary('구글 로그인 연결', linkExistingAccount, !linkPassword)}
+                </View>
             ) : route === 'welcome' || route === 'signup' ? (
               <View style={s.form}>
                 {!(needsLoginAccess && restoreAfterAccess.current && canSetDevelopmentAccess) ? <>
