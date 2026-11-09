@@ -10,6 +10,18 @@
 // 마지막 로그가 N단계 시작이면 N단계에서 죽은 것이다. 획 하나에 한 단계씩만 올라간다.
 import { BlendMode, Skia, TileMode } from '@shopify/react-native-skia'
 
+// 5단계용: 자식 둘(선명한 마스크 · 블러된 고임)을 같은 층에서 뽑아 읽는다 — 하네스 구조 그대로.
+// 고임이 클수록 붉게 칠해 눈으로도 장이 맞는지 본다.
+const PAIR_SKSL = `
+uniform shader mask;
+uniform shader pool;
+half4 main(float2 p) {
+  half a = mask.eval(p).a;
+  half q = pool.eval(p).a;
+  if (a < 0.01) return half4(0.0);
+  return half4(q * 1.6, 0.25 - q, 0.0, 1.0) * a;
+}`
+
 const PROBE_SKSL = `
 uniform shader src;
 half4 main(float2 p) {
@@ -22,9 +34,10 @@ const STAGES = [
   'saveLayer + 안쪽 Plus 합성',
   'saveLayer(가우시안 블러 이미지 필터)',
   'saveLayer(블러 → RuntimeShader 이미지 필터) — 고임 장 그대로',
+  'saveLayer(자식 둘: 선명한 마스크 + 블러된 고임) — 하네스 구조 그대로',
 ]
 
-let stage = 0, done = false, builder = null, last = 0
+let stage = 0, done = false, builder = null, pairBuilder = null, last = 0
 
 export function glassProbeDone() { return done }
 
@@ -51,6 +64,14 @@ export function glassProbe(canvas, x, y) {
     builder ??= Skia.RuntimeShaderBuilder(effect)
     const blur = Skia.ImageFilter.MakeBlur(6, 6, TileMode.Decal, null)
     layer.setImageFilter(Skia.ImageFilter.MakeRuntimeShader(builder, 'src', blur))
+  }
+  if (n === 4) {
+    const effect = Skia.RuntimeEffect.Make(PAIR_SKSL)
+    if (!effect) { console.log('[유리펜 탐침] 5단계 실패: RuntimeEffect.Make 가 null'); done = true; return }
+    pairBuilder ??= Skia.RuntimeShaderBuilder(effect)
+    const blur = Skia.ImageFilter.MakeBlur(7, 7, TileMode.Decal, null)
+    // null = 층 원본(선명한 마스크), blur = 같은 층을 블러한 것(고임 장)
+    layer.setImageFilter(Skia.ImageFilter.MakeRuntimeShaderWithChildren(pairBuilder, 0, ['mask', 'pool'], [null, blur]))
   }
   canvas.saveLayer(layer, bounds)
   for (let i = 0; i < 3; i++) canvas.drawCircle(x - 14 + i * 14, y, 16, dab)
