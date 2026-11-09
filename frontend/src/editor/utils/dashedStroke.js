@@ -41,9 +41,25 @@ export function dashedContour(points, width, kind) {
   return paths.join('')
 }
 
+// A straightened stroke has two endpoints, but its tip can still carry the
+// distance travelled by the pointer before snapping or dragging back.
+function straightDashPoints(points, startDistance) {
+  if (points.length !== 2) return points
+  const [start, end] = points
+  return [
+    { ...start, inkDistance: startDistance },
+    { ...end, inkDistance: startDistance + Math.hypot(end.x - start.x, end.y - start.y) },
+  ]
+}
+
+export function dashedObjectSamples(object) {
+  if (object.sampled) return object.points
+  const startDistance = object.inkStartDistance ?? 0
+  return samplePenCurve(straightDashPoints(object.points, startDistance), startDistance)
+}
+
 export function dashedObjectContour(object) {
-  const points = object.sampled ? object.points : samplePenCurve(object.points, object.inkStartDistance ?? 0)
-  return dashedContour(points, object.strokeWidth, object.penKind)
+  return dashedContour(dashedObjectSamples(object), object.strokeWidth, object.penKind)
 }
 
 const previews = new WeakMap()
@@ -51,7 +67,11 @@ export function dashedPreviewContour(part, width, kind) {
   const key = width + ':' + kind
   const cached = previews.get(part)
   if (cached?.key === key) return cached.path
-  const path = dashedContour(samplePenPart(part), width, kind)
+  const wholeStroke = !part.continuing && !part.key && !part.curveBefore
+  const samples = wholeStroke && part.points.length === 2
+    ? samplePenCurve(straightDashPoints(part.points, part.startDistance ?? 0))
+    : samplePenPart(part)
+  const path = dashedContour(samples, width, kind)
   if (part.continuing) previews.set(part, { key, path })
   return path
 }

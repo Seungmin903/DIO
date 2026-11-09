@@ -8,6 +8,20 @@ import { encodePage, decodePage } from '../src/editor/utils/strokeCodec.js'
 import { sanitizePenSettings, sanitizePenKinds } from '../src/editor/utils/penSettings.js'
 
 for (const kind of ['dashed', 'dotted']) {
+  test(kind + ' straightening keeps the pattern after dragging the tip back or forward', () => {
+    const start = { x: 0, y: 0, inkDistance: 0 }
+    for (const [length, travelled] of [[120, 140], [48, 212], [180, 344]]) {
+      const points = [start, { x: length, y: 0, inkDistance: travelled }]
+      const expectedPoints = [start, { x: length, y: 0, inkDistance: length }]
+      const part = createStrokePreview().snapshot(points)[0]
+      assert.equal(dashedPreviewContour(part, 4, kind), dashedContour(samplePenCurve(expectedPoints), 4, kind))
+      assert.equal(
+        dashedObjectContour(createStroke(points, { kind, width: 4 })),
+        dashedObjectContour(createStroke(expectedPoints, { kind, width: 4 })),
+      )
+    }
+  })
+
   test(kind + ' settings and saved geometry survive serialization', () => {
     assert.equal(sanitizePenSettings({ kind }).kind, kind)
     assert.equal(sanitizePenKinds({ [kind]: { width: 4, opacity: 0.5 } })[kind].width, 4)
