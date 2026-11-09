@@ -15,9 +15,8 @@
 //
 // 잃은 것: 픽셀 단위 고임 장(겹쳐 칠한 웅덩이 안쪽의 등고선 테 · 커피링 그라데이션).
 //   고임은 띠 폭으로만 들어간다. 되살리려면 saveLayer + Plus 경로를 따로 확인해야 한다.
-import { Skia } from '@shopify/react-native-skia'
+import { PaintStyle, Skia, StrokeCap, StrokeJoin } from '@shopify/react-native-skia'
 import { GLASS_INK, GLASS_LIVE_SKSL, GLASS_RIM_SKSL, glassBand, glassDabs, glassPool, inkDensity, micaColor, sheenAutoColor } from '../utils/glassInk.js'
-import { strokeOutline } from '../utils/strokes.js'
 
 let bodyEffect = null, rimEffect = null, broken = false
 export const glassBroken = () => broken
@@ -36,15 +35,17 @@ function rimColor(rgb, ink, P) {
   return mix3(ring, sheen, 0.62 * (ink.sheenAmount ?? 1))
 }
 
-function bodyPaint(color, ink, P) {
+function bodyPaint(color, ink, P, width = 2.5) {
   bodyEffect ??= Skia.RuntimeEffect.Make(GLASS_LIVE_SKSL)
   if (!bodyEffect) throw new Error('RuntimeEffect.Make(body) 실패')
   const amount = ink.glitter === false ? 0 : (ink.amount ?? 1) * P.glAmp
   const mica = micaColor(ink.film ?? P.glFilm, 1)
-  const r = Math.max(0.3, P.glRThin * 4)
+  // 입자 크기: 현미경 레퍼런스(참고 25 · 28 · 29)는 획 폭의 1~4%. 다만 그대로 두면 화면에서
+  // 반 픽셀도 안 돼 사라지므로 바닥값을 둔다. 바닥값을 낮출수록 더 고운 가루가 된다.
+  const r = Math.max(P.glRMinLive, width * 0.025)
   const paint = Skia.Paint()
   paint.setAntiAlias(true)
-  paint.setShader(bodyEffect.makeShader([...hex3(color), ...mica, r * 0.7, amount,
+  paint.setShader(bodyEffect.makeShader([...hex3(color), ...mica, r * 0.6, amount,
     P.glCell, P.glP * P.glThinP, r, r * 1.6, P.glBMin, P.glBMax, P.glTail, P.glDesat,
     P.glCloud, P.glCloudScale, P.glVeil, P.glVeilDesat, P.glVeilLift, P.glVeilScale]))
   return paint
@@ -58,10 +59,25 @@ function rimPaint(color, ink, P) {
   return paint
 }
 
-// 점 목록 → 외곽선 경로. pressure 에 (그 자리 굵기 / 기준 굵기)를 넣어 가변 굵기를 만든다.
-const outlinePath = (pts, width) => {
-  const d = strokeOutline(pts, width, { start: true, end: true })
-  return d ? Skia.Path.MakeFromSVGString(d) : null
+// 표본 목록 → 중심선 경로. 외곽선 다각형을 직접 만들면 꺾이는 곳에서 자기 교차가 생겨
+// 획이 직선으로 뚝뚝 끊겨 보인다 → 중심선을 Skia 가 굵기대로 긋게 둔다(이음새 · 끝 처리도 맡긴다).
+function centerPath(samples, from, to) {
+  const pb = Skia.PathBuilder.Make()
+  pb.moveTo(samples[from].x, samples[from].y)
+  for (let i = from + 1; i <= to; i++) pb.lineTo(samples[i].x, samples[i].y)
+  if (to === from) pb.lineTo(samples[from].x + 0.01, samples[from].y)
+  return pb.build()
+}
+const strokeStyle = (paint, w) => {
+  paint.setStyle(PaintStyle.Stroke); paint.setStrokeWidth(Math.max(0.1, w))
+  paint.setStrokeCap(StrokeCap.Round); paint.setStrokeJoin(StrokeJoin.Round)
+  return paint
+}
+// 획을 따라가는 1차원 값 노이즈 — 테가 구간마다 떴다 안 떴다 하게(고르게 두르면 마커 윤곽선처럼 보인다)
+const hash1 = n => { const x = Math.sin(n * 127.1) * 43758.5453; return x - Math.floor(x) }
+function patch1(d, scale) {
+  const t = d / scale, i = Math.floor(t), f = t - i, u = f * f * (3 - 2 * f)
+  return hash1(i) * (1 - u) + hash1(i + 1) * u
 }
 
 // 획 하나를 그린다. 쓰는 중과 손을 뗀 뒤가 같은 함수를 쓴다(그림이 같다).
@@ -73,20 +89,33 @@ export function drawGlassStroke(canvas, points, width, color, _zoom = 1, ink = {
     if (dabs.length < 2) return false
     const { pool } = glassPool(dabs, width)
     const sheenEdge = ink.sheen === false ? 0 : P.sheenEdge * (ink.sheenAmount ?? 1)
-    const outer = [], inner = []
-    for (let i = 0; i < dabs.length; i++) {
-      const one = dabs[i], w = 2 * one.r
-      const band = sheenEdge > 0 ? glassBand(pool[i], w, sheenEdge) : 0
-      outer.push({ x: one.x, y: one.y, pressure: w / width })
-      inner.push({ x: one.x, y: one.y, pressure: Math.max(0.04, (w - 2 * band) / width) })
-    }
-    const body = outlinePath(inner, width)
-    if (!body) return false
+    const body = bodyPaint(color, ink, P, width)
+    // 테: 획 전체를 굵기대로 한 번 깔고, 그 위에 몸통을 띠만큼 좁게 덮는다.
     if (sheenEdge > 0) {
-      const rim = outlinePath(outer, width)
-      if (rim) canvas.drawPath(rim, rimPaint(color, ink, P))
+      canvas.drawPath(centerPath(dabs, 0, dabs.length - 1), strokeStyle(rimPaint(color, ink, P), 2 * dabs[0].r))
     }
-    canvas.drawPath(body, bodyPaint(color, ink, P))
+    // 띠 폭은 자리마다 다르므로(고인 곳이 넓다) 몇 단계로 묶어 구간별로 긋는다.
+    // 몸통 색은 같으므로 구간끼리 맞닿아도 이음새가 보이지 않는다.
+    const LEVELS = 5
+    let maxBand = 0, d = 0, from = 0, level = -1
+    const bands = new Float32Array(dabs.length)
+    for (let i = 0; i < dabs.length; i++) {
+      if (i) d += Math.hypot(dabs[i].x - dabs[i - 1].x, dabs[i].y - dabs[i - 1].y)
+      const w = 2 * dabs[i].r
+      const wobble = 0.25 + 0.75 * patch1(d, P.sheenWScale * 1.6)   // 구간마다 떴다 안 떴다
+      bands[i] = sheenEdge > 0 ? glassBand(pool[i], w, sheenEdge) * wobble : 0
+      maxBand = Math.max(maxBand, bands[i])
+    }
+    const widthAt = lv => 2 * dabs[0].r - 2 * (lv / (LEVELS - 1)) * maxBand
+    if (maxBand <= 0.001) { canvas.drawPath(centerPath(dabs, 0, dabs.length - 1), strokeStyle(body, 2 * dabs[0].r)); return true }
+    for (let i = 0; i < dabs.length; i++) {
+      const lv = Math.min(LEVELS - 1, Math.round(bands[i] / maxBand * (LEVELS - 1)))
+      if (lv !== level) {
+        if (level >= 0) canvas.drawPath(centerPath(dabs, from, i), strokeStyle(body, widthAt(level)))
+        from = Math.max(0, i - 1); level = lv
+      }
+    }
+    canvas.drawPath(centerPath(dabs, from, dabs.length - 1), strokeStyle(body, widthAt(level)))
     return true
   } catch (error) {
     broken = true
