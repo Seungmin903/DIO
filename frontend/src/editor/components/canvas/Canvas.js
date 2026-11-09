@@ -41,6 +41,9 @@ import PaperColorSettings from '../PaperColorSettings'
 import { plannerFor } from '../../templates/planners.js'
 import { routePathOf } from '../../templates/routePaper.js'
 import { createRouteNode, isRouteNode, ROUTE_NODE_SNAP_PX, routeNodeKindLabel } from '../../widgets/routeNode.js'
+import { packingCheckAction, packingPenAction } from '../../templates/packingChecks.js'
+import { packingLayout } from '../../templates/packingLayout.js'
+import { packingSlotPatch, packingDropPatch, packingTapColor } from '../../templates/packingEditing.js'
 import { setDayDate, setDayRow, suggestStart } from '../../templates/dayPlanner.js'
 import DayNowLine from './DayNowLine'
 import DayTimePicker, { DAY_TIME_PICKER, DayPickBackdrop } from '../DayTimePicker'
@@ -177,7 +180,15 @@ export default function Canvas({
     if (result.routeAdd) setRouteAdd(current => current?.kind === result.routeAdd ? null : { kind: result.routeAdd })
     if (result.text) editTitle(result.text)
   }
-  const plannerStroke = planner ? (points, settings) => {
+  const packingPaper = Boolean(packingLayout(page.backgroundAssetId))
+  const plannerStroke = planner || (packingPaper && activeTool === 'pen') ? (points, settings) => {
+    if (packingPaper && activeTool === 'pen') {
+      const action = packingPenAction(page.backgroundAssetId, points, page.objects, settings.color)
+      if (action) { dispatch(action); return true }
+      const colorAction = packingTapColor(page.backgroundAssetId, points, page.objects, settings.color, zoom)
+      if (colorAction) { dispatch(colorAction); return true }
+    }
+    if (!planner) return false
     const result = planner.stroke(page.planner, points, settings, page.objects)
     if (!result) return false
     applyPlannerResult(result, points[0])
@@ -258,7 +269,7 @@ export default function Canvas({
   const [routePick, setRoutePick] = useState(null)
   useEffect(() => { setRouteAdd(null); setRoutePick(null) }, [page.id, activeTool])
   const objectLive = useRef(null)
-  objectLive.current = { objects: page.objects, selectedIds, onEditText, onEditMedia, onEditFrameText, routePath }
+  objectLive.current = { objects: page.objects, assetId: page.backgroundAssetId, selectedIds, onEditText, onEditMedia, onEditFrameText, routePath }
   const [guides, setGuides] = useState(null)
   const [rotationLabel, setRotationLabel] = useState(null)
   const [interacting, setInteracting] = useState(false)
@@ -276,7 +287,7 @@ export default function Canvas({
   }
   const eraseDrawing = useRef(null)
   const previewErase = (ids, pieces = null, ticket = null) => eraseDrawing.current?.preview(ids, pieces, ticket)
-  const visible = page.objects.filter((o) => !o.hidden)
+  const visible = page.objects.filter((o) => !o.hidden && (!packingLayout(page.backgroundAssetId) || !o.packingColorRegion))
   const touchSelectable = visible.filter((o) => o.type !== 'stroke' && !isBackdrop(o))
   const selected = visible.filter((o) => selectedIds.includes(o.id))
   const lassoEditing = activeTool === 'lasso' && selected.length > 0 && !lassoDrawing && !lassoCapture
@@ -312,11 +323,16 @@ export default function Canvas({
     const ox = dx + (guideX == null ? 0 : guideX - move.bounds.cx - dx)
     const oy = dy + (guideY == null ? 0 : guideY - move.bounds.cy - dy)
     setGuides(guideX == null && guideY == null ? null : { x: guideX, y: guideY })
-    dispatch({ type: 'updateMany', patches: Object.fromEntries(Object.entries(move.starts).map(([id, start]) => [id, { x: start.x + ox, y: start.y + oy }])) })
+    move.latestPatches = Object.fromEntries(Object.entries(move.starts).map(([id, start]) => [id, { x: start.x + ox, y: start.y + oy }]))
+    dispatch({ type: 'updateMany', patches: move.latestPatches })
   }
   const endLassoMove = cancelled => {
     if (cancelled && lassoMove.current?.checkpointed) dispatch({ type: 'revertToCheckpoint' })
-    else if(lassoMove.current?.checkpointed) dispatch({type:'commitCheckpoint'})
+    else if (lassoMove.current?.checkpointed) {
+      const patches = packingDropPatches(page.backgroundAssetId, page.objects, lassoMove.current.latestPatches)
+      if (Object.keys(patches).length) dispatch({ type: 'updateMany', patches })
+      dispatch({type:'commitCheckpoint'})
+    }
     lassoMove.current = null
     setInteracting(false)
     setDraggingIds(null)
@@ -402,7 +418,9 @@ export default function Canvas({
       // 요소를 살짝 빗나가게 눌렀으면 가장 가까운 요소를 고른다 (지도 게임·노트 앱의 '가까운 것 고르기').
       // 이미 선택된 요소 근처를 누른 것은 '선택 풀기'로 본다. (요소가 하나뿐일 때 빈 곳을 눌러도 안 풀리던 문제)
       // 속지의 칸(완료 · 할 일 · 시작 · 진행 · 날짜 · 일정 막대)을 누르면 선택 도구에서도 바로 그 칸의 입력이 열린다.
-      // 여행 노선: 제목 · 범례는 먼저 보고(editTap), 지점 추가 중이면 노선 가까운 곳을 누른 자리에 지점을 놓는다(노선에서 멀면 그대로 기다린다)
+      // 여행 노선과 캐리어는 각 속지에 맞는 입력을 우선 처리한다.
+      const checkAction = packingCheckAction(page.backgroundAssetId, start, page.objects, penSettings.color)
+      if (checkAction) { dispatch(checkAction); return }
       const edit = planner && start ? planner.editTap(page.planner, start, page.objects, penSettings.color) : null
       if (edit) { dispatch({ type: 'select', ids: [] }); applyPlannerResult(edit, start); return }
       if (routeAdd && routePath && start) { addRouteNodeAt(start); return }
@@ -654,6 +672,10 @@ export default function Canvas({
           key={selectedIds.join(',')}
           objects={selected}
           allObjects={page.objects}
+          onPackingSlot={packingLayout(page.backgroundAssetId) ? (object, slot) => {
+            const patch = packingSlotPatch(page.backgroundAssetId, object, slot)
+            if (patch) dispatch({ type: 'updateObject', id: object.id, patch, record: true })
+          } : null}
           lassoActions={activeTool === 'lasso' ? { mode: lassoMode, onModeChange: (mode) => { setLassoCapture(true); onLassoModeChange(mode) } } : null}
           pageWidth={PAGE_WIDTH}
           pageHeight={PAGE_HEIGHT}
@@ -878,6 +900,17 @@ function containsPoint(object, point) {
   return Math.abs(local.x) <= object.w / 2 && Math.abs(local.y) <= object.h / 2
 }
 
+// 이동 좌표를 같은 체크포인트에 반영해 수납과 이동이 한 번에 되돌려진다.
+function packingDropPatches(assetId, objects, positions = {}) {
+  const patches = {}
+  for (const object of objects) {
+    if (!positions?.[object.id]) continue
+    const patch = packingDropPatch(assetId, { ...object, ...positions[object.id] })
+    if (patch) patches[object.id] = patch
+  }
+  return patches
+}
+
 const FADE_WHILE_DRAGGING = ['sticker', 'tape', 'photo']
 // 텍스트: 한 번 누르면 선택, 선택된 채 다시 누르거나 두 번 빠르게 누르면(더블 탭) 내용 수정
 // 사진·이미지 테이프: 더블 탭으로 자르기 (여러 칸 틀은 누른 칸을 채우거나 자른다)
@@ -1026,6 +1059,7 @@ const CanvasObject = memo(function CanvasObject({ object, live, pageWidth: PAGE_
       if (guideY != null) oy += guideY - cy
       onGuides(guideX == null && guideY == null ? null : { x: guideX, y: guideY })
       const patches = Object.fromEntries(Object.entries(g.starts).map(([id, s]) => [id, { x: s.x + ox, y: s.y + oy }]))
+      g.latestPatches = patches
       queueMove(patches)
     },
     onEnd: ({ moved, duration, cancelled }) => {
@@ -1041,7 +1075,11 @@ const CanvasObject = memo(function CanvasObject({ object, live, pageWidth: PAGE_
         if (g?.checkpointed) dispatch({ type: 'revertToCheckpoint' })
         return
       }
-      if(g?.checkpointed) dispatch({type:'commitCheckpoint'})
+      if (g?.checkpointed) {
+        const patches = packingDropPatches(live.current.assetId, live.current.objects, g.latestPatches)
+        if (Object.keys(patches).length) dispatch({ type: 'updateMany', patches })
+        dispatch({type:'commitCheckpoint'})
+      }
       // 움직이지 않고 길게 누르면 누르기 전 선택에 이 요소를 넣거나 뺀다.
       if (g?.mode === 'move' && !moved && duration >= LONG_PRESS_MS) {
         dispatch({ type: 'select', ids: g.previousSelection })
