@@ -56,6 +56,33 @@ class SharingTests extends SharingTestSupport {
             .andExpect(jsonPath("$.cover.kind").value("plain"));
     }
 
+    @Test void previewKeepsPrivateCoverMetadataForMembersOnly() throws Exception {
+        var owner=actor();
+        var outsider=actor();
+        var id=diary(owner);
+        var token=links.create(id,owner.id()).token();
+        var mediaId=UUID.randomUUID();
+        jdbc.update("update diaries set cover_json=? where diary_id=?", """
+            {"kind":"photo","color":"#ABCDEF","photo":{"mediaFileId":"%1$s","src":"media:%1$s"},
+             "stickers":[{"mediaFileId":"%1$s","src":"media:%1$s"}],"title":{"text":"Private cover title"}}
+            """.formatted(mediaId),id);
+
+        var anonymous=get("/api/v1/invites/"+token);
+        var authenticatedOutsider=get("/api/v1/invites/"+token).header("Authorization","Bearer "+outsider.token());
+        for(var request:List.of(anonymous,authenticatedOutsider)) {
+            mvc.perform(request).andExpect(status().isOk())
+                .andExpect(jsonPath("$.cover.kind").value("plain"))
+                .andExpect(jsonPath("$.cover.color").value("#ABCDEF"))
+                .andExpect(jsonPath("$.cover.photo").doesNotExist())
+                .andExpect(jsonPath("$.cover.stickers").doesNotExist())
+                .andExpect(jsonPath("$.cover.title").doesNotExist());
+        }
+        mvc.perform(get("/api/v1/invites/"+token).header("Authorization","Bearer "+owner.token()))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.cover.photo.mediaFileId").value(mediaId.toString()))
+            .andExpect(jsonPath("$.cover.stickers[0].mediaFileId").value(mediaId.toString()));
+    }
+
     @Test void protectedEndpointsRejectMissingAndInvalidToken() throws Exception {
         var id=UUID.randomUUID();
         mvc.perform(get("/api/v1/diaries/"+id+"/members")).andExpect(status().isUnauthorized());

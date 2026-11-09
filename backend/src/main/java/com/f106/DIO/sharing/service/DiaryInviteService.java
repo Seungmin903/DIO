@@ -73,7 +73,8 @@ public class DiaryInviteService {
             id,diary.getTitle(),invite.publicExpiresAt(),count,SharingPolicy.MAX_MEMBERS,
             count>=SharingPolicy.MAX_MEMBERS,invite.email()?"EMAIL":"LINK",invite.status(),
             actor!=null&&!alreadyMember&&requiresConfirmation(diary,actor),
-            pageSize,diary.getCoverColor(),diary.getCoverStyle(),DiaryCoverDesign.read(diary.getCoverJson()));
+            pageSize,diary.getCoverColor(),diary.getCoverStyle(),
+            alreadyMember?DiaryCoverDesign.read(diary.getCoverJson()):DiaryCoverDesign.publicPreview(diary.getCoverJson()));
     }
     public InviteAcceptResponse accept(String token,long actor) {return accept(token,actor,false);}
     public InviteAcceptResponse accept(String token,long actor,boolean acknowledgeBlockedMembers) {
