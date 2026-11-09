@@ -10,8 +10,8 @@ export const WEEKLY_CHOICES = [
   { id: 'blocks', name: '4열 블록형', assetId: '2026-weekly-blocks-2026-01-05-landscape' },
   { id: 'journal', name: '저널형', assetId: '2026-weekly-journal-2026-01-05-landscape' },
 ]
-// 하루 기록 묶음. 데일리 · 스터디 플래너도 장수로 넣는 속지라 여기에 둔다.
-const DAILY_TYPES = ['day', 'daily', 'study', 'diary', 'scrap']
+// 하루 기록 묶음. 데일리 · 스터디 플래너 · 여행 노선도 장수로 넣는 속지라 여기에 둔다.
+const DAILY_TYPES = ['day', 'daily', 'study', 'route', 'diary', 'scrap']
 export const DAILY_TEMPLATES = REUSABLE_TEMPLATES.filter(item => DAILY_TYPES.includes(item.type))
 export const EXTRA_TEMPLATES = REUSABLE_TEMPLATES.filter(item => item.type === 'note')
 export const DAILY_ASSET_ID = DAILY_TEMPLATES.find(item => item.type === 'day' || item.type === 'daily').assetId

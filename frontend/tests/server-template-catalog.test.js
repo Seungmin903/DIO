@@ -9,6 +9,7 @@ import { SERVER_TEMPLATE_CATALOG, serverTemplateConfigFor, serverTemplateReferen
 import { catalogContract, seedMigration, catalogResource, migrationResource, V9_CONTRACT_SHA256, normalizeV9ContractSource } from '../scripts/generate-page-template-catalog.mjs'
 
 const remoteMigrationResource = new URL('../../backend/src/main/resources/db/migration/V34__add_remote_page_templates.sql', import.meta.url)
+const routeMigrationResource = new URL('../../backend/src/main/resources/db/migration/V36__add_travel_route_templates.sql', import.meta.url)
 
 test('V34 원격 속지 시드는 프런트 원격 행과 같은 코드·규격·기본 설정을 쓴다', async () => {
   const sql = await readFile(remoteMigrationResource, 'utf8')
@@ -50,10 +51,11 @@ test('전체 속지·플래너·빈 속지가 독립된 서버 코드로 매핑�
   const plannerAssets = ['landscape', 'portrait'].flatMap(orientation => [
     { id: `study-planner-${orientation}`, templateVersion: '1.0.0', orientation, type: 'study' },
     { id: `day-planner-${orientation}`, templateVersion: '1.0.0', orientation, type: 'day' },
+    { id: `route-planner-${orientation}`, templateVersion: '1.0.0', orientation, type: 'route' },
   ])
-  // V9 288 + V27 플래너 4 + V34 원격 속지 2
-  assert.equal(SERVER_TEMPLATE_CATALOG.length, 294)
-  assert.equal(new Set(SERVER_TEMPLATE_CATALOG.map(t => `${t.templateCode}\0${t.templateVersion}`)).size, 294)
+  // V9 288 + V27 플래너 4 + V34 원격 속지 2 + V36 여행 노선 2
+  assert.equal(SERVER_TEMPLATE_CATALOG.length, 296)
+  assert.equal(new Set(SERVER_TEMPLATE_CATALOG.map(t => `${t.templateCode}\0${t.templateVersion}`)).size, 296)
   for (const asset of [...catalog.assets, ...UNDATED_TEMPLATES, ...plannerAssets]) {
     const before = structuredClone(asset)
     const ref = serverTemplateReference(asset.id, asset.templateVersion, asset.orientation)
@@ -172,4 +174,15 @@ test('DB 숫자 PK나 다른 속지 ID를 프런트 속지 ID 대신 보내지 �
   const [selection] = toServerInitialPageSelections([{ templateId: ref.templateCode, ...ref, templateConfig: config }])
   assert.equal(selection.templateCode, '2026-cover-landscape')
   assert.equal('templateId' in selection, false)
+})
+
+test('V36 여행 노선 시드는 프런트 노선 속지 행과 같은 코드·규격·기본 설정을 쓴다', async () => {
+  const sql = await readFile(routeMigrationResource, 'utf8')
+  const rows = SERVER_TEMPLATE_CATALOG.filter(row => /^route-planner-(landscape|portrait)$/.test(row.templateCode))
+  assert.deepEqual(rows.map(row => [row.templateCode, row.category, row.name]), [['route-planner-landscape', 'ROUTE', '여행 노선'], ['route-planner-portrait', 'ROUTE', '여행 노선']])
+  rows.forEach((row, index) => {
+    const seed = `('${row.templateCode}', '${row.templateVersion}', '${row.name}', '${row.category}', '${row.orientation}', ${row.canvasWidth}, ${row.canvasHeight}, '${JSON.stringify(row.defaultConfig)}'::jsonb, ${index + 1})`
+    assert.ok(sql.includes(seed), `missing V36 seed: ${row.templateCode}`)
+  })
+  assert.equal(catalogContract().templates.some(t => /^route-planner-/.test(t.templateCode)), false, 'V9 고정 계약에는 들어가지 않는다')
 })

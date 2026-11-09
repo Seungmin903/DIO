@@ -15,7 +15,7 @@ import EditablePalette from '../../editor/components/controls/EditablePalette'
 import PaperSketch, { paperSketchKey } from './PaperSketch'
 import { DEFAULT_PAPER_FONT } from '../../editor/templates/paperFont.js'
 import {
-  COUNT_LIMIT, COUNT_STEPS, INSERT_LIMIT, MONTH_LIMIT, MONTH_STEPS, PAPER_EVERY, PAPER_YEARS, REPEAT_LIMIT, ROW_LIMIT, paperGroups,
+  COUNT_LIMIT, INSERT_LIMIT, countStepsOf, MONTH_LIMIT, MONTH_STEPS, PAPER_EVERY, PAPER_YEARS, REPEAT_LIMIT, ROW_LIMIT, paperGroups,
   appendPaper, changeRow, changeRowPaper, isPeriodSection, mergeSections, mixOrder, moveDown, movePaper, moveUp, paperById, paperPreviewId, papersIn, periodLabel,
   removePaper, rowAmount, splitSection,
 } from '../utils/paperChoice'
@@ -250,7 +250,7 @@ function PaperRow({ section, row, number, orientation, appearance, open, onToggl
     {!fixed && <View style={styles.rowControls}>
       {period && <View style={styles.every}><Segmented items={PAPER_EVERY} selected={id => id === row.every} onPress={every => onChange(changeRow(section, row.key, { every }))} /></View>}
       <NumberField label={`${paper.name} 장수`} unit={period ? '' : '장'} min={COUNT_LIMIT.min} max={period ? INSERT_LIMIT : COUNT_LIMIT.max} value={row.count} onChange={count => onChange(changeRow(section, row.key, { count }))} />
-      {!period && section.rows.length === 1 && <QuickValues label="장수" unit="장" values={COUNT_STEPS} value={row.count} onChange={count => onChange(changeRow(section, row.key, { count }))} />}
+      {!period && section.rows.length === 1 && <QuickValues label="장수" unit="장" values={countStepsOf(paper)} value={row.count} onChange={count => onChange(changeRow(section, row.key, { count }))} />}
     </View>}
     {picker}
   </View>

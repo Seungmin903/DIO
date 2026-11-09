@@ -1,7 +1,7 @@
 -- 속지 코드 배포 전 확인 (MR: 페이지 추가의 속지 코드를 속지 행에 연결해 저장, V35)
 -- 페이지 추가는 앱이 보낸 속지 코드 · 버전의 활성 행이 정확히 하나여야 저장된다(PageService.create).
 -- 운영 DB 에서 배포 전에 실행한다. 두 조회 모두 0행이어야 한다. 읽기만 한다.
--- 목록: V9 계약(page-templates-v1.json, 빈 속지 dio-blank-* 포함) 288개 + 플래너 4개 + 원격 속지 2개 = 294개
+-- 목록: V9 계약(page-templates-v1.json, 빈 속지 dio-blank-* 포함) 288개 + 플래너 4개 + 원격 속지 2개 + 여행 노선 2개(V36) = 296개
 -- PageCatalogPostgresTests.deployCheckQueriesReturnNothingOnAFreshDatabase 가 이 파일을 실제로 실행해 확인한다.
 
 -- 1) 앱이 보내는 코드 · 버전 중 활성 행이 없거나(누락 · 비활성) 둘 이상인 것
@@ -299,7 +299,9 @@ WITH required(code, template_version) AS (VALUES
     ('day-planner-landscape', '1.0.0'),
     ('day-planner-portrait', '1.0.0'),
     ('dio-remote-landscape', '1.0.0'),
-    ('dio-remote-portrait', '1.0.0')
+    ('dio-remote-portrait', '1.0.0'),
+    ('route-planner-landscape', '1.0.0'),
+    ('route-planner-portrait', '1.0.0')
 )
 SELECT required.code, required.template_version, count(template.template_id) AS active_rows
 FROM required

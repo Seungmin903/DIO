@@ -16,7 +16,7 @@ const callers = files.map(path => [relative(root, path).replaceAll('\\', '/'), r
 // 글꼴 상태를 구독해야 하는 파일(그리면서 글꼴을 찾는다)
 const SUBSCRIBES = new Set([
   'diary/components/CoverArt.js', 'editor/components/canvas/ObjectView.js', 'editor/components/TextEditor.js', 'editor/components/TextLinkOverlay.js',
-  'editor/components/TextSettings.js', 'editor/components/controls/TextFontDropdown.js',
+  'editor/components/TextSettings.js', 'editor/components/controls/TextFontDropdown.js', 'editor/components/canvas/RouteNodeArt.js',
 ])
 // 직접 구독하지 않아도 되는 파일과 이유
 const EXEMPT = {
