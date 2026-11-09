@@ -3,6 +3,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import DioButton from '../shared/DioButton';
 import { colors } from '../shared/theme';
 
+/**
+ * 회원 보관함 복구 화면(부팅 복원 실패). 만료(expired)면 저장 토큰이 이미 지워져 '연결 재시도'가 의미 없으므로 '다시 로그인'을 주 버튼으로 두고
+ * 재시도 버튼은 두지 않는다(S15P31F106-718). 통신 · 서버 오류는 '연결 재시도'가 주 버튼이다. 게스트 전환은 어느 경우든 '게스트로 계속'을 골라야만 한다.
+ */
 export default function SessionRestoreScreen({ error, busy, onRetry, onLogin, onGuest }) {
   const expired = error?.sessionExpired === true || (error?.status === 401 && error.code === 'INVALID_TOKEN');
   const message = expired ? '로그인이 만료됐어요. 다시 로그인하면 회원 보관함을 볼 수 있어요.'
@@ -17,8 +21,12 @@ export default function SessionRestoreScreen({ error, busy, onRetry, onLogin, on
         <Text accessibilityRole="alert" style={styles.copy}>{message}</Text>
         <Text style={styles.copy}>지금은 회원 다이어리를 불러오지 못한 상태예요. 로그인 연결을 확인한 뒤 다시 불러올 수 있어요.</Text>
         {busy && <ActivityIndicator color={colors.primaryStrong} accessibilityLabel="로그인 복원 중" />}
-        <DioButton block variant="filled" label={busy ? '확인 중…' : '연결 재시도'} disabled={busy} onPress={onRetry} />
-        <DioButton block variant="ghost" outline label="다시 로그인" disabled={busy} onPress={onLogin} />
+        {expired
+          ? <DioButton block variant="filled" label="다시 로그인" disabled={busy} onPress={onLogin} />
+          : <>
+            <DioButton block variant="filled" label={busy ? '확인 중…' : '연결 재시도'} disabled={busy} onPress={onRetry} />
+            <DioButton block variant="ghost" outline label="다시 로그인" disabled={busy} onPress={onLogin} />
+          </>}
         <DioButton block variant="ghost" label="게스트로 계속" disabled={busy} onPress={onGuest} />
       </View>
     </ScrollView>

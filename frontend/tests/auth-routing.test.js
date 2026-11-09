@@ -133,6 +133,39 @@ test('F-02: 실패한 재시도는 복구 화면을 유지하고 로그인 취�
  }finally{cleanup()}
 });
 
+test('S15P31F106-718: 만료로 저장 토큰이 지워진 뒤 연결 재시도는 게스트를 시작하지 않고 만료 복구 화면을 유지한다',async()=>{
+ const expired={status:401,code:'INVALID_TOKEN',sessionExpired:true};
+ const {probe,screen,cleanup}=await failStartup(expired);
+ try{
+  assert.equal(screen.props.error,expired);
+  assert.ok(probe.updates.some(update=>update.index===2&&update.value?.sessionExpired),'부팅 만료는 재로그인 화면을 연다');
+  // 로그인 화면에서 '나중에' 뒤 복구 화면의 연결 재시도: 저장 로그인이 없다고 나와도(토큰이 지워짐) 게스트가 되지 않는다
+  probe.restoreMock=async()=>null;
+  await screen.props.onRetry();
+  assert.equal(probe.guestStarts??0,0,'게스트 자동 시작 없음');
+  const last=probe.updates.filter(update=>update.index===3).at(-1).value;
+  assert.equal(last.status,'error');assert.equal(last.error,expired,'만료 안내를 유지한다');
+  probe.restoreState=last;
+  assert.ok(nodes(root(false,undefined,null,null,probe)).some(node=>node.type==='./src/auth/SessionRestoreScreen'),'복구 화면 유지');
+  // 게스트로 계속을 고르면 그때만 게스트 보관함을 연다
+  await screen.props.onGuest();
+  assert.equal(probe.guestStarts,1);
+ }finally{cleanup()}
+});
+
+test('S15P31F106-718: 처음 실행(저장 로그인 없음)은 전처럼 바로 게스트로 시작한다',async()=>{
+ const probe={effects:[],updates:[],hidden:0,booting:true,restored:null};
+ root(false,undefined,null,null,probe);
+ const timer=globalThis.setTimeout;globalThis.setTimeout=()=>0;
+ let cleanups;
+ try{cleanups=probe.effects.map(fn=>fn())}finally{globalThis.setTimeout=timer}
+ await new Promise(resolve=>setImmediate(resolve));
+ try{
+  assert.equal(probe.guestStarts,1);
+  assert.deepEqual(probe.updates.filter(update=>update.index===3).at(-1).value,{status:'done',error:null});
+ }finally{cleanups.forEach(fn=>{if(typeof fn==='function')fn()})}
+});
+
 test('F-02: 게스트로 계속을 명시적으로 선택할 때만 게스트 보관함을 연다',async()=>{
  const {probe,screen,cleanup}=await failStartup({code:'NETWORK_ERROR'});
  try{

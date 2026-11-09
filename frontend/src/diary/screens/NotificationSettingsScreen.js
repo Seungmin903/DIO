@@ -9,7 +9,8 @@ import TermsConsentSection from '../components/TermsConsentSection';
 import { SERVICE_SECTION_ENABLED } from '../../shared/featureFlags';
 import { notificationsBlocked } from '../../notifications/notificationPermission';
 
-export default function NotificationSettingsScreen({ compact = false, onClose, userId, accountService, backLabel = '마이페이지로 돌아가기'}) {
+// pushIssue: 기기 알림 연결에서 앱이 복구하지 못한 문제 { title, message } (App 의 푸시 런타임이 준다, S15P31F106-719). 없으면 줄을 두지 않는다
+export default function NotificationSettingsScreen({ compact = false, onClose, userId, accountService, backLabel = '마이페이지로 돌아가기', pushIssue = null }) {
   const [termsReady, setTermsReady] = useState(false);
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState('');
@@ -53,6 +54,15 @@ export default function NotificationSettingsScreen({ compact = false, onClose, u
             <Pressable accessibilityRole="button" accessibilityLabel="기기 설정에서 알림 켜기" onPress={() => Linking.openSettings()} hitSlop={4} style={styles.openSettings}>
               <Text style={styles.openSettingsText}>설정 열기</Text>
             </Pressable>
+          </View>
+          <View style={styles.divider} />
+        </>}
+        {pushIssue && <>
+          <View style={styles.blockedRow} accessibilityRole="alert">
+            <View style={styles.rowCopy}>
+              <Text style={styles.rowLabel}>{pushIssue.title}</Text>
+              <Text style={styles.description}>{pushIssue.message}</Text>
+            </View>
           </View>
           <View style={styles.divider} />
         </>}
