@@ -610,7 +610,7 @@ const contentKey = object => [object.penKind, object.strokeWidth, object.color, 
 // 연필은 확대 배율마다 결 크기 · 붓 끝 판이 달라 배율도 열쇠에 넣는다
 function contentPicture(object, zoom = 1) {
   const key = contentKey(object) + (skiaKind(object.penKind) === 'pencil' ? `|${zoom}|${PENCIL_BRUSH.engine}|${object.opacity ?? 1}` : '')
-    + (skiaKind(object.penKind) === 'glass' ? `|${Math.min(3, Math.round(zoom * 2) / 2)}${glassKey(object)}` : ''), cached = contents.get(object.points)
+    + (skiaKind(object.penKind) === 'glass' ? glassKey(object) : ''), cached = contents.get(object.points)
   if (cached?.key === key) return cached.picture
   const recorder = Skia.PictureRecorder()
   drawObjectContent(recorder.beginRecording(), object, zoom)

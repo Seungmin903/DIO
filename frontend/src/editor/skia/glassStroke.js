@@ -13,8 +13,11 @@ import { abLineOf, GLASS_INK, GLASS_INK_SKSL, GLASS_LIVE_SKSL, glassDabs, inkDen
 // 표면 상한 — 크게 잡으면 기기가 죽는다. 2026-11-09 실기: 확대(ppu 5.5)에서 획 하나가
 // 3789x1059(400만 화소) 짜리 표면을 3장씩 쓰고, 확대할 때마다 보이는 획이 전부 다시 그려져
 // librnskia 가 SIGTRAP 으로 죽었다. 품질보다 안 죽는 게 먼저다.
-const MAX_EDGE = 2048, MAX_PIXELS = 1024 * 1024
-const MAX_PPU = 3            // 확대해도 이 이상으로는 더 잘게 그리지 않는다(캐시된 그림을 늘려 쓴다)
+const MAX_EDGE = 2048, MAX_PIXELS = 640 * 1024
+// 배율을 **고정**한다. zoom 을 따라가면 확대 · 축소 · 베이크마다 배율이 달라져 같은 획이
+// 계속 다시 구워진다(실기 로그: 같은 획이 ppu 3.00 <-> 1.57 로 번갈아 재생성 → 메모리 폭증 → SIGTRAP).
+// 한 번 구운 그림을 캔버스가 늘려 쓰므로, 많이 확대하면 조금 부드러워진다(구운 잉크답기도 하다).
+const FIXED_PPU = 2.4
 const POOL_DIV = 2            // 고임 장은 저주파라 절반 해상도로 블러해도 같다(블러 비용 1/4)
 const SAMPLING = { filter: FilterMode.Linear, mipmap: MipmapMode.None }   // 밉맵은 축소할 때 알파를 깎는다 → 획이 반투명해진다
 const makeSurface = (w, h) => Skia.Surface.MakeOffscreen ? Skia.Surface.MakeOffscreen(w, h) : Skia.Surface.Make(w, h)
@@ -62,8 +65,8 @@ export function glassBox(points, width) {
   return { x: x0 - pad, y: y0 - pad, w: (x1 - x0) + 2 * pad, h: (y1 - y0) + 2 * pad }
 }
 // 화면 픽셀 / 페이지 단위. 긴 획이 흐려지지 않게 한 변 상한과 넓이 상한을 따로 본다
-const sizeOf = (box, zoom) => {
-  const ppu = Math.max(0.25, Math.min(zoom, MAX_PPU, MAX_EDGE / box.w, MAX_EDGE / box.h, Math.sqrt(MAX_PIXELS / (box.w * box.h))))
+const sizeOf = box => {
+  const ppu = Math.max(0.25, Math.min(FIXED_PPU, MAX_EDGE / box.w, MAX_EDGE / box.h, Math.sqrt(MAX_PIXELS / (box.w * box.h))))
   return { ppu, pw: Math.max(1, Math.ceil(box.w * ppu)), ph: Math.max(1, Math.ceil(box.h * ppu)) }
 }
 
@@ -160,11 +163,11 @@ export function glassLivePaint(color, width, ink = {}, P = GLASS_INK) {
 // 손을 뗀 뒤 ─────────────────────────────────────────────────────────────────
 // 완성 획은 Picture 에 기록됐다가 나중에 재생된다. 제자리에 칠하면 Picture 가 자식 이미지를 계속
 // 참조하는데 그 표면은 다음 획이 쓴다 → 독립 표면에 한 장으로 구워 그 이미지만 넘긴다.
-export function drawGlassStroke(canvas, points, width, color, zoom = 1, ink = {}) {
+export function drawGlassStroke(canvas, points, width, color, _zoom = 1, ink = {}) {
   if (broken || !points?.length) return false
   const box = glassBox(points, width)
   if (!(box.w > 0 && box.h > 0)) return false
-  const { ppu, pw, ph } = sizeOf(box, zoom)
+  const { ppu, pw, ph } = sizeOf(box)
   let out = null, maskImage = null, poolImage = null
   try {
     const dabs = glassDabs(points, width)
