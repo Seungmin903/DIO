@@ -2,7 +2,7 @@
 
 꾸미기 공방 스티커 보관함(폴더 구성 · 폴더 안 스티커)을 계정에 저장해 다른 기기 · 재설치 기기에서도 같은 구성으로 보이게 한다(S15P31F106-806).
 스티커 이미지 파일은 [미디어 API](./media.md)의 `POST /api/v1/media`(`libraryCategory=STICKER`)로 올리고, 이 API 는 폴더 구성 문서와 그 안의 미디어 id 만 저장한다.
-테이프 보관함은 [테이프 보관함 서버 저장](./tape-library.md)에서 같은 방식으로 저장한다. 즐겨찾기 · 최근 · 칩 순서는 범위 밖이며 기기에만 남는다.
+테이프 · 즐겨찾기 · 최근 · 칩 순서는 범위 밖이며 기기에만 남는다.
 
 ## 인증
 
@@ -67,7 +67,7 @@
 
 ## 앱 동기화
 
-`frontend/src/editor/services/libraryFolderSync.js`(스티커 · 테이프 공용 맞추기 규칙), `stickerLibrarySync.js`(스티커 항목 모양), `frontend/src/diary/components/StickerLibrarySyncHost.js`(스티커 · 테이프 동기화를 함께 띄운다).
+`frontend/src/editor/services/stickerLibrarySync.js`, `frontend/src/diary/components/StickerLibrarySyncHost.js`.
 
 - 회원으로 로그인한 동안 앱 시작 · 다시 앞으로 올 때 맞추고, 보관함이 바뀌면 1.5초 모아 올린다.
 - 이 기기에서 마지막으로 맞춘 상태(계정 · `version` · 그때 문서)를 기억해 어느 쪽이 바뀌었는지 가린다.
