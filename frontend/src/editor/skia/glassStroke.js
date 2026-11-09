@@ -16,6 +16,7 @@
 // 잃은 것: 픽셀 단위 고임 장(겹쳐 칠한 웅덩이 안쪽의 등고선 테 · 커피링 그라데이션).
 //   고임은 띠 폭으로만 들어간다. 되살리려면 saveLayer + Plus 경로를 따로 확인해야 한다.
 import { PaintStyle, Skia, StrokeCap, StrokeJoin } from '@shopify/react-native-skia'
+import { glassProbe } from './glassProbe.js'
 import { GLASS_INK, GLASS_LIVE_SKSL, GLASS_RIM_SKSL, glassBand, glassDabs, glassPool, inkDensity, micaColor, sheenAutoColor } from '../utils/glassInk.js'
 
 let bodyEffect = null, rimEffect = null, broken = false
@@ -94,6 +95,9 @@ export function drawGlassStroke(canvas, points, width, color, _zoom = 1, ink = {
   if (broken || !points?.length) return false
   const P = GLASS_INK
   try {
+    // 2단계 탐침: 이 기기에서 Skia 관리 층(saveLayer)이 안전한지 단계별로 확인한다.
+    // 전 단계를 통과하면 픽셀 단위 고임을 되살릴 수 있다. 끝나면 스스로 멈춘다.
+    glassProbe(canvas, points[0].x, points[0].y)
     // 표본 수 상한: 아주 긴 획(되돌아오는 스크리블)은 길이가 수만 px 이라 간격을 그대로 두면
     // 표본이 수만 개가 되고 고임 계산이 프레임을 먹는다(실측 260ms). 길이에 맞춰 간격을 벌린다.
     let len = 0
