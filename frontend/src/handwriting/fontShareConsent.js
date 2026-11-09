@@ -12,7 +12,8 @@ const emit = account => listeners.forEach(listener => listener(account))
 
 export const FONT_SHARE_PROMPT = {
   title: '내 폰트를 함께 쓸까요?',
-  message: '다이어리 멤버도 내 손글씨로 쓴 글을 같은 글씨로 볼 수 있게, 폰트 파일을 서버에 올려 이 다이어리에 공유해요. 설정에서 언제든 바꿀 수 있어요.',
+  // 동의는 계정 단위다: 한 번 공유하기를 고르면 앞으로 참여한 모든 공유 다이어리에 묻지 않고 올린다. 문구도 그 범위로 안내한다
+  message: '앞으로 내가 참여한 공유 다이어리에서 내 폰트로 글을 쓰면, 멤버도 같은 글씨로 볼 수 있게 폰트 파일을 서버에 올려 그 다이어리에 공유해요. 설정에서 언제든 바꿀 수 있어요.',
   confirmLabel: '공유하기',
   cancelLabel: '공유 안 함',
 }

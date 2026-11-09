@@ -4,6 +4,8 @@ import { Alert, Platform } from 'react-native';
 // react-native-web의 Alert.alert는 아무것도 띄우지 않으므로 웹의 기본 창은 브라우저 confirm · alert 다.
 
 let queue = [];
+// 마지막 호스트가 떨어진 뒤 다시 붙기를 기다리는 시간
+const HOST_GRACE_MS = 1000;
 let hosts = 0;
 const listeners = new Set();
 const emit = () => listeners.forEach(listener => listener());
@@ -17,13 +19,17 @@ export const dialogStore = {
     hosts += 1;
     return () => {
       hosts -= 1;
-      if (hosts > 0 || !queue.length) return;
-      // 마지막 호스트가 떨어지면 보이지 않게 된 확인 창을 모두 끝낸다(답을 기다리는 쪽이 영원히 멈추지 않게).
-      // 사용자가 고른 것이 아니므로 onAbort(없으면 onCancel)를 부른다
-      const pending = queue;
-      queue = [];
-      emit();
-      for (const request of pending) (request.onAbort ?? request.onCancel)?.();
+      if (hosts > 0) return;
+      // 마지막 호스트가 떨어지면: 레이아웃 전환 · 재마운트로 잠깐 떨어진 것일 수 있어 조금 기다린다.
+      // 그래도 호스트가 없으면 onAbort 를 준 창(답을 기다리는 질문)만 끝낸다. 다른 창은 예전처럼 큐에 남아 호스트가 다시 붙으면 보인다
+      setTimeout(() => {
+        if (hosts > 0) return;
+        const aborted = queue.filter(request => request.onAbort);
+        if (!aborted.length) return;
+        queue = queue.filter(request => !request.onAbort);
+        emit();
+        for (const request of aborted) request.onAbort();
+      }, HOST_GRACE_MS);
     };
   },
   /** 맨 앞 창을 닫는다. 확인이면 닫은 뒤에 onConfirm 을 실행해(그 안에서 새 창을 띄워도 되게) 순서가 꼬이지 않는다. */

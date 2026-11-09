@@ -60,34 +60,42 @@ test('취소하면 onCancel 을 부른다(앱 창 · 기본 창 모두)', () => 
   assert.deepEqual(log, ['native-cancel', 'native-cancel', 'cancel', 'confirm']);
 });
 
-test('마지막 호스트가 떨어지면 남은 확인 창을 취소로 끝낸다', () => {
+test('마지막 호스트가 떨어져도 잠깐 기다리고, 그래도 없으면 답을 기다리는 창(onAbort)만 끝낸다', t => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
   const { confirmAction, notify, dialogStore } = load();
   const log = [];
   const first = dialogStore.attach(), second = dialogStore.attach();
   confirmAction({ title: 'a', message: 'm', confirmLabel: '확인', onConfirm: () => log.push('a-confirm'), onCancel: () => log.push('a-cancel') });
+  confirmAction({ title: 'q', message: 'm', confirmLabel: '공유하기', onConfirm() {}, onCancel: () => log.push('q-cancel'), onAbort: () => log.push('q-abort') });
   notify('b', 'm');
   first();
+  t.mock.timers.tick(1000);
   assert.deepEqual(log, []); // 다른 호스트가 아직 보여 준다
   second();
-  assert.deepEqual(log, ['a-cancel']);
-  assert.equal(dialogStore.getSnapshot(), null);
+  // 레이아웃 전환처럼 곧 다시 붙으면 아무것도 끝내지 않는다
+  t.mock.timers.tick(500);
+  const again = dialogStore.attach();
+  t.mock.timers.tick(1000);
+  assert.deepEqual(log, []);
+  assert.equal(dialogStore.getSnapshot().title, 'a');
+  // 다시 떨어지고 돌아오지 않으면 onAbort 창만 끝내고, 나머지(삭제 확인 · 안내)는 큐에 남아 호스트가 붙으면 보인다
+  again();
+  t.mock.timers.tick(1000);
+  assert.deepEqual(log, ['q-abort']);
+  assert.deepEqual([dialogStore.getSnapshot().title], ['a']);
+  dialogStore.settle(false);
+  assert.equal(dialogStore.getSnapshot().kind, 'notify');
+  dialogStore.settle(true);
+  assert.deepEqual(log, ['q-abort', 'a-cancel']);
 });
 
-test('호스트가 사라지거나 시스템 창이 버튼 없이 닫히면 onAbort 를 부르고, 없으면 onCancel 을 부른다', () => {
-  const { confirmAction, dialogStore, native } = load();
+test('시스템 창이 버튼 없이 닫히면 onAbort 를, 없으면 onCancel 을 부른다', () => {
+  const { confirmAction, native } = load();
   const log = [];
-  confirmAction({ title: 't', message: 'm', confirmLabel: '확인', onConfirm() {}, onCancel: () => log.push('native-cancel'), onAbort: () => log.push('native-abort') });
+  confirmAction({ title: 't', message: 'm', confirmLabel: '확인', onConfirm() {}, onCancel: () => log.push('cancel'), onAbort: () => log.push('abort') });
   native[0][3].onDismiss();
   native[0][2][0].onPress();
-  let detach = dialogStore.attach();
-  confirmAction({ title: 'a', message: 'm', confirmLabel: '확인', onConfirm() {}, onCancel: () => log.push('a-cancel'), onAbort: () => log.push('a-abort') });
-  confirmAction({ title: 'b', message: 'm', confirmLabel: '확인', onConfirm() {}, onCancel: () => log.push('b-cancel') });
-  detach();
-  // 호스트가 다시 붙으면 새 창은 그대로 앱 창으로 뜬다
-  detach = dialogStore.attach();
-  confirmAction({ title: 'c', message: 'm', confirmLabel: '확인', onConfirm() {}, onCancel: () => log.push('c-cancel'), onAbort: () => log.push('c-abort') });
-  assert.equal(dialogStore.getSnapshot().title, 'c');
-  dialogStore.settle(false);
-  detach();
-  assert.deepEqual(log, ['native-abort', 'native-cancel', 'a-abort', 'b-cancel', 'c-cancel']);
+  confirmAction({ title: 'u', message: 'm', confirmLabel: '확인', onConfirm() {}, onCancel: () => log.push('u-cancel') });
+  native[1][3].onDismiss();
+  assert.deepEqual(log, ['abort', 'cancel', 'u-cancel']);
 });
