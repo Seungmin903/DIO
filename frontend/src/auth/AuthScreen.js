@@ -271,6 +271,21 @@ export default function AuthScreen({
     navigate(route === 'verification' || (route === 'profile' && profile?.provider === 'email') ? 'signup' : route === 'signup' ? 'eligibility' : 'welcome');
   // 글자는 실제로 가는 곳과 같다: 가입 정보 → 가입 전 확인, 인증 · 이메일 프로필 → 이전 화면(가입 정보), 그 밖 → 시작 화면
   const backLabel = route === 'signup' ? '가입 전 확인' : (route === 'verification' || (route === 'profile' && profile?.provider === 'email')) ? '이전 화면' : '시작 화면';
+  const hasBack = route !== 'welcome' && route !== 'underage';
+  const stickyBack = isPhone && hasBack;
+  const backButton = (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel="이전 화면"
+      onPress={back}
+      style={[s.back, stickyBack && s.backInBar]}
+    >
+      <AppIcon name="chevron-left" size={20} forText={12.5} />
+      <Text style={s.linkText}>
+        {backLabel}
+      </Text>
+    </Pressable>
+  );
   useEffect(() => {
     const listener = BackHandler.addEventListener('hardwareBackPress', () => {
       if (documentRef.current) {
@@ -445,6 +460,9 @@ export default function AuthScreen({
         style={s.keyboard}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
+        {/* 폰: '‹ 시작 화면'은 스크롤해도 보이게 스크롤 밖 위쪽 머리줄로 뺀다(지라 702). 태블릿은 가운데 카드 안 그대로(보통 스크롤하지 않음).
+            머리줄도 바깥 SafeAreaView(모든 가장자리) 안이라 상태 표시줄 · 카메라 구멍 아래에서 시작하고, 폰 바탕과 같은 흰 면이다 */}
+        {stickyBack && <View style={s.phoneBackBar}>{backButton}</View>}
         <ScrollView
           ref={formScroll}
           style={s.scrollViewport}
@@ -459,20 +477,8 @@ export default function AuthScreen({
           keyboardDismissMode="on-drag"
           showsVerticalScrollIndicator={false}
         >
-          <View style={[s.card, isPhone && s.phoneCard]}>
-            {route !== 'welcome' && route !== 'underage' && (
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="이전 화면"
-                onPress={back}
-                style={s.back}
-              >
-                <AppIcon name="chevron-left" size={20} forText={12.5} />
-                <Text style={s.linkText}>
-                  {backLabel}
-                </Text>
-              </Pressable>
-            )}
+          <View style={[s.card, isPhone && s.phoneCard, stickyBack && s.phoneCardBelowBack]}>
+            {hasBack && !stickyBack && backButton}
             <View style={[s.header, route === 'welcome' && s.welcomeHeader, isPhone && s.phoneHeader]}>
               <BrandLogo size={52} />
               <View style={[s.headingCopy, isPhone && s.phoneCopy]}>
