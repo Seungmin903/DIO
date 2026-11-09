@@ -45,7 +45,8 @@ test('회원 다이어리 문서는 서버 페이지 id 에 PDF 쪽 크기와 �
   assert.deepEqual(doc.pages.map(page => page.id), pages)
   assert.deepEqual(sizes.map(item => item.pageId), pages)
   assert.deepEqual(sizes.map(item => [item.canvasWidth, item.canvasHeight]), doc.pages.map(page => [page.canvasWidth, page.canvasHeight]))
-  assert.ok(doc.pages[0].canvasWidth > doc.pages[0].canvasHeight && doc.pages[1].canvasWidth < doc.pages[1].canvasHeight)
+  // 세로 다이어리: 가로 쪽도 세로 속지(768×1024) 안에 넣고, 세로 쪽은 쪽 비율을 따른다
+  assert.deepEqual(doc.pages.map(page => [page.canvasWidth, page.canvasHeight]), [[768, 1024], [512, 1024]])
   for (const [index, page] of doc.pages.entries()) {
     assert.equal(page.objects.length, 1)
     assert.equal(page.objects[0].backdrop, true); assert.equal(page.objects[0].locked, true)

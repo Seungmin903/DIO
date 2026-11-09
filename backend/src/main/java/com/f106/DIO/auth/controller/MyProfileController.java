@@ -2,6 +2,10 @@ package com.f106.DIO.auth.controller;
 
 import com.f106.DIO.auth.dto.LoginUserResponse;
 import com.f106.DIO.auth.dto.WithdrawalRequest;
+import com.f106.DIO.auth.dto.ProviderUnlinkRequest;
+import com.f106.DIO.auth.domain.SocialProvider;
+import com.f106.DIO.auth.exception.SocialLoginException;
+import com.f106.DIO.auth.service.SocialLoginService;
 import com.f106.DIO.auth.exception.LoginException;
 import com.f106.DIO.auth.service.AppleWithdrawalRevocation;
 import com.f106.DIO.auth.service.MyProfileService;
@@ -21,6 +25,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.multipart.MultipartFile;
 
 @RestController
@@ -29,10 +34,21 @@ import org.springframework.web.multipart.MultipartFile;
 public class MyProfileController {
     private final MyProfileService profiles;
     private final AppleWithdrawalRevocation apple;
+    private final SocialLoginService social;
 
-    public MyProfileController(MyProfileService profiles, AppleWithdrawalRevocation apple) {
-        this.profiles = profiles;
+    public MyProfileController(MyProfileService profiles, AppleWithdrawalRevocation apple, SocialLoginService social) {
+        this.profiles = profiles;this.social=social;
         this.apple = apple;
+    }
+
+    @DeleteMapping("/auth-providers/{provider}")
+    @Operation(summary="소셜 로그인 연결 해제",description="현재 로그인 사용자만 해제할 수 있으며, 제공자 ID 토큰을 다시 확인합니다. 마지막 로그인 수단은 해제할 수 없습니다.")
+    public ResponseEntity<Void> unlink(@AuthenticationPrincipal Jwt jwt,@PathVariable String provider,@Valid @RequestBody ProviderUnlinkRequest request){
+        SocialProvider value;
+        try { value=SocialProvider.valueOf(provider.toUpperCase(java.util.Locale.ROOT)); }
+        catch(IllegalArgumentException error){ throw new SocialLoginException(org.springframework.http.HttpStatus.BAD_REQUEST,"INVALID_SOCIAL_PROVIDER","로그인 방식을 확인해 주세요."); }
+        social.unlink(userId(jwt),value,request.idToken());
+        return ResponseEntity.noContent().header("Cache-Control","no-store").build();
     }
 
     @GetMapping

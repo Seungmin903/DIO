@@ -10,14 +10,27 @@ import { editorReducer, createInitialState } from '../src/editor/state/editorRed
 const page = (aspect, n = 1) => ({ src: `media:m${n}`, mediaFileId: `m${n}`, aspect, name: `문서 ${n}쪽` })
 
 test('PDF 쪽의 페이지 크기는 쪽 비율을 따르고 긴 변은 1024다', () => {
-  assert.deepEqual(pdfPageCanvasSize(0.75, 'landscape'), { width: 768, height: 1024 })
   assert.deepEqual(pdfPageCanvasSize(595 / 842, 'portrait'), { width: 724, height: 1024 })
-  assert.deepEqual(pdfPageCanvasSize(842 / 595, 'portrait'), { width: 1024, height: 724 })
+  assert.deepEqual(pdfPageCanvasSize(842 / 595, 'landscape'), { width: 1024, height: 724 })
   assert.deepEqual(pdfPageCanvasSize(1, 'portrait'), { width: 1024, height: 1024 })
+  assert.deepEqual(pdfPageCanvasSize(1, 'landscape'), { width: 1024, height: 1024 })
   // 너무 길쭉한 쪽은 3 : 1 까지만 따른다
   assert.deepEqual(pdfPageCanvasSize(0.1, 'portrait'), { width: 341, height: 1024 })
-  assert.deepEqual(pdfPageCanvasSize(10, 'portrait'), { width: 1024, height: 341 })
+  assert.deepEqual(pdfPageCanvasSize(10, 'landscape'), { width: 1024, height: 341 })
   assert.deepEqual(pdfPageCanvasSize(0, 'portrait'), { width: 768, height: 1024 })
+})
+
+test('PDF 쪽 방향이 다이어리 방향과 다르면 다이어리 방향의 속지 크기를 쓴다', () => {
+  assert.deepEqual(pdfPageCanvasSize(0.75, 'landscape'), { width: 1024, height: 768 })
+  assert.deepEqual(pdfPageCanvasSize(595 / 842, 'landscape'), { width: 1024, height: 768 })
+  assert.deepEqual(pdfPageCanvasSize(842 / 595, 'portrait'), { width: 768, height: 1024 })
+  // 세로 PDF 를 가로 다이어리로: 페이지는 가로, 쪽 그림은 원본 비율 그대로 가운데에 잘리지 않게 놓인다
+  const wide = pdfDocPage(page(595 / 842), 'landscape', {})
+  assert.deepEqual([wide.canvasWidth, wide.canvasHeight], [1024, 768])
+  const [image] = wide.objects
+  assert.ok(Math.abs(image.w / image.h - 595 / 842) < 1e-6)
+  assert.equal(image.y, 0); assert.equal(image.h, 768)
+  assert.ok(image.x > 0 && Math.abs(image.x - (1024 - image.w) / 2) < 1e-6)
 })
 
 test('PDF 쪽은 페이지를 꽉 채우는 바탕 요소 하나이고, 비율이 다른 쪽도 각자 크기를 가진다', () => {
@@ -25,8 +38,8 @@ test('PDF 쪽은 페이지를 꽉 채우는 바탕 요소 하나이고, 비율�
   const [image] = a4.objects
   assert.equal(isBackdrop(image), true); assert.equal(image.locked, true)
   assert.deepEqual([image.x, image.y, Math.round(image.w), Math.round(image.h)], [0, 0, a4.canvasWidth, a4.canvasHeight])
-  const doc = withPdfPages(createDefaultDoc({ title: '시험', pageSize: 'portrait' }), [page(0.7, 1), page(1.5, 2)], 'portrait', {})
-  assert.deepEqual(doc.pages.map(p => [p.canvasWidth, p.canvasHeight]), [[717, 1024], [1024, 683]])
+  const doc = withPdfPages(createDefaultDoc({ title: '시험', pageSize: 'portrait' }), [page(0.7, 1), page(0.5, 2), page(1.5, 3)], 'portrait', {})
+  assert.deepEqual(doc.pages.map(p => [p.canvasWidth, p.canvasHeight]), [[717, 1024], [512, 1024], [768, 1024]])
 })
 
 test('기존 PDF 바탕은 현재 페이지 영역에 맞추고 저장된 좌표와 일반 스티커는 유지한다', () => {
