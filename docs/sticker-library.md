@@ -63,7 +63,8 @@
 - `user_sticker_libraries(user_id PK, version, document_json, updated_at)`: 폴더 구성 문서 한 벌.
 - `user_sticker_library_media(user_id, media_file_id)`: 문서에 든 미디어 id. 저장마다 문서와 같이 다시 쓴다.
 - 미디어 정리(`MediaReferenceSql`)는 이 표를 참조로 보아 보관함 스티커 파일을 물리 삭제하지 않는다.
-- 회원 탈퇴는 두 표를 지운 뒤 참조 없는 개인 파일을 기존 정리 경로로 보낸다([회원 탈퇴](./user-withdrawal.md)).
+- 미디어에서 지운(삭제 표시) 이미지라도 내 보관함에 든 동안은 본인이 `GET /api/v1/media/{id}/file`로 받을 수 있다(새 기기 · 재설치 기기가 보관함을 받을 때). 보관함에서 빠지면 404다. 앱은 404 · 410 으로 받지 못한 이미지는 다시 받지 않고 실패로 알리지도 않는다.
+- 회원 탈퇴는 두 표를 지운 뒤 참조 없는 개인 파일을 기존 정리 경로로 보낸다([회원 탈퇴](./user-withdrawal.md)). 두 표의 `users` 외래 키는 `ON DELETE CASCADE`라 다른 경로로 계정 행을 지워도 막히지 않는다.
 
 ## 앱 동기화
 

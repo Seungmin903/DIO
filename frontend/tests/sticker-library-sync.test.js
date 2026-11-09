@@ -22,7 +22,7 @@ function server() {
     upload: async localId => { const id = `90000000-0000-4000-8000-${String(++serial).padStart(12, '0')}`; state.uploads.set(id, localId); return id },
   }
 }
-function device(remote, { account = '1', folders = [], storage = new Map(), failUploads = new Set(), failDownloads = new Set() } = {}) {
+function device(remote, { account = '1', folders = [], storage = new Map(), failUploads = new Set(), failDownloads = new Set(), goneDownloads = new Set() } = {}) {
   const local = { folders: structuredClone(folders) }, listeners = new Set(), downloads = [], errors = [], timers = [], statuses = [], attempts = []
   const hooks = {} // hooks.download(id): 내려받는 중에 일어나는 일(편집 등)
   const decor = {
@@ -34,7 +34,7 @@ function device(remote, { account = '1', folders = [], storage = new Map(), fail
   const sync = createStickerLibrarySync({
     account, api: remote.api, decor, key: 'sync',
     storage: { getItem: async k => storage.get(k) ?? null, setItem: async (k, v) => { storage.set(k, v) } },
-    media: { upload: async id => { attempts.push(id); if (failUploads.has(id)) throw Error('too large'); return remote.upload(id) }, download: async id => { downloads.push(id); await hooks.download?.(id); if (failDownloads.has(id)) throw Error('offline') } },
+    media: { upload: async id => { attempts.push(id); if (failUploads.has(id)) throw Error('too large'); return remote.upload(id) }, download: async id => { downloads.push(id); await hooks.download?.(id); if (failDownloads.has(id)) throw Error('offline'); if (goneDownloads.has(id)) throw Object.assign(Error('not found'), { status: 404 }) } },
     setTimer: (run, ms) => { const timer = { run, ms }; timers.push(timer); return timer }, clearTimer: timer => { timer.cleared = true },
     onError: error => errors.push(error.message),
     onStatus: status => statuses.push(status.error),
@@ -249,6 +249,21 @@ test('받지 못한 이미지는 서버가 그대로여도 맞출 때마다 다�
   assert.equal(again.statuses.at(-1), null)
   await again.sync.sync()
   assert.equal(again.downloads.length, 1) // 받은 뒤에는 더 받지 않는다
+  assert.equal(remote.state.puts, 1)
+})
+
+test('서버에 파일이 없는 이미지(404)는 맞출 때마다 다시 받거나 계속 실패로 알리지 않는다', async () => {
+  const remote = server()
+  const a = device(remote, { folders: [folder('f1', '여행', [sticker(L1)])] })
+  await a.sync.start()
+  const uploaded = remote.state.folders[0].items[0].mediaFileId
+  const b = device(remote, { goneDownloads: new Set([uploaded]) })
+  await b.sync.start()
+  assert.equal(b.local.folders[0].items.length, 1) // 칸은 들인다(구성은 서버와 같게 둔다)
+  assert.equal(b.statuses.at(-1), null)
+  await b.sync.sync()
+  assert.equal(b.downloads.length, 1) // 다시 받지 않는다
+  assert.equal(b.statuses.at(-1), null)
   assert.equal(remote.state.puts, 1)
 })
 

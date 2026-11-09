@@ -134,7 +134,13 @@ export function createStickerLibrarySync({ account, api, media, decor, storage, 
   const writeMissing = () => storage.setItem(missingKey, JSON.stringify([...missing]))
   async function fetchImage(serverId) {
     try { await media.download(serverId); active(); missing.delete(serverId) }
-    catch (error) { if (error?.code === 'SYNC_CLOSED') throw error; onError(error); missing.add(serverId) }
+    catch (error) {
+      if (error?.code === 'SYNC_CLOSED') throw error
+      onError(error)
+      // 서버에 파일이 없으면(404 · 410) 다시 받아도 소용없다: 맞출 때마다 재시도하거나 계속 알리지 않는다
+      if (error?.status === 404 || error?.status === 410) missing.delete(serverId)
+      else missing.add(serverId)
+    }
   }
   // 지난번에 받지 못한 이미지를 다시 받는다. 그사이 보관함에서 빠진 스티커는 더 받지 않는다
   async function retryMissing() {
