@@ -149,7 +149,7 @@ test('알림이 많으면 목록 칸만 창 안에서 스크롤하고 초대 링
   assert.match(src, /const fixedHeight = screen === 'invitations' \? \(lockedHeight \|\| /)
   assert.match(src, /fixedHeight \? \{ height: fixedHeight \}/)
   // useWindowDimensions 는 if (!request) return null 보다 위(훅 순서가 바뀌면 창을 열 때 앱이 멈췄다)
-  assert.ok(src.indexOf('useWindowDimensions().height') < src.indexOf('if (!request) return null'))
+  assert.ok(src.indexOf('useWindowDimensions().height') < src.indexOf('if (!request || !visible) return null'))
   const styles = read('../src/sharing/styles.js')
   assert.match(styles, /invitationScroll: \{ flex: 1, minHeight: 0 \}/)
 })

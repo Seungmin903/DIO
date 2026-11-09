@@ -371,44 +371,59 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onWithdraw
   const lockScope = appLockScope(previewUser);
   const [appLocked, setAppLocked] = useState(null);
   const [appLockState, setAppLockState] = useState(null); // readAppLockState 결과(게스트 초기화 경로 판단용)
+  const [appForeground, setAppForeground] = useState(() => !AppState.currentState || AppState.currentState === 'active');
+  const lockRead = useRef(0);
   useEffect(() => {
-    let alive = true, awayAt = null;
-    readAppLockState(lockScope).then(state => { if (alive) { setAppLockState(state); setAppLocked(state !== 'off'); } }).catch(() => { if (alive) setAppLocked(false); });
+    let awayAt = AppState.currentState === 'background' ? Date.now() : null;
+    const readLock = async () => {
+      const read = ++lockRead.current;
+      setAppLocked(null);
+      const state = await readAppLockState(lockScope).catch(() => 'storage');
+      if (lockRead.current !== read) return;
+      setAppLockState(state);
+      setAppLocked(state !== 'off');
+    };
     const subscription = AppState.addEventListener('change', state => {
       if (state === 'background') awayAt ??= Date.now();
-      else if (state === 'active' && awayAt != null) {
-        const over = appLockGraceOver(awayAt);
+      if (state === 'active') {
+        if (appLockGraceOver(awayAt)) readLock();
         awayAt = null;
-        if (over) readAppLockState(lockScope).then(value => { if (alive && value !== 'off') { setAppLockState(value); setAppLocked(true); } }).catch(() => {});
       }
+      setAppForeground(state === 'active');
     });
-    return () => { alive = false; subscription.remove(); };
+    readLock();
+    return () => { lockRead.current++; subscription.remove(); };
   }, [lockScope]);
+  const checkedLock = lockRead.current;
+  const unlockApp = () => { if (lockRead.current === checkedLock) setAppLocked(false); };
   // 회원은 비밀번호를 잊으면 로그아웃으로 잠금을 푼다(다시 로그인해야 들어온다).
   // 게스트는 되찾을 계정이 없어, 저장값 손상으로 PIN을 확인할 수 없을 때만 초기화를 연다. 일시적 읽기 오류는 다시 읽기만 한다.
   const forgotAppLock = appLockRecoveryAction({
     member: previewUser.mode === 'authenticated', state: appLockState, scope: lockScope, onLogout: onEndPreview,
-    onCleared: () => { setAppLockState('off'); setAppLocked(false); },
-    onStateChange: state => { setAppLockState(state); if (state === 'off') setAppLocked(false); },
+    onCleared: () => { if (lockRead.current === checkedLock) { setAppLockState('off'); unlockApp(); } },
+    onStateChange: state => { if (lockRead.current === checkedLock) { setAppLockState(state); if (state === 'off') unlockApp(); } },
   });
   const [sharingRequest, setSharingRequest] = useState(null);
+  // 공유 모달은 PIN 화면보다 위에 그려진다. 백그라운드에서부터 숨겨 복귀 직후의 잠금 조회도 기다린다.
+  const sharingVisible = appForeground && appLocked === false;
   useEffect(() => {
-    if (!mailInvitation || loginOverlayOpen || appLocked !== false) return;
+    if (!mailInvitation || loginOverlayOpen || !sharingVisible) return;
     setSharingRequest(mailInvitation.link
       ? { mode: 'invitation', link: mailInvitation.link }
       : { mode: 'invitation', inviteId: mailInvitation.inviteId, fromMail: true });
     onConsumeMailInvitation(mailInvitation);
-  }, [mailInvitation, loginOverlayOpen, appLocked, onConsumeMailInvitation]);
+  }, [mailInvitation, loginOverlayOpen, sharingVisible, onConsumeMailInvitation]);
   const openSafetyParticipants = (diary, target, action) => {
     const previous = sharingRequest;
     setSharingRequest(null);
     safety.openParticipants(diary, { target, action, onClosed: () => setSharingRequest(previous) });
   };
-  // 초대 푸시도 공유 입구(sharingGate)를 거친다. 효과가 다시 걸리지 않게 최신 입구를 ref로 읽는다
-  const sharingGateRef = useRef(null);
+  const [pendingPush, setPendingPush] = useState(null);
+  const deliveredPush = useRef(null);
   const pushWarningShown = useRef(false);
   useEffect(() => {
     if (previewUser.mode !== 'authenticated') return;
+    const sessionKey = authService.getSessionKey();
     let disposed = false, stop = () => {};
     const onPushError = error => {
       if (__DEV__) console.warn('푸시 연결 오류', /^PUSH_[A-Z_]+$/.test(error?.message || '') ? error.message : 'UNKNOWN');
@@ -418,7 +433,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onWithdraw
       }
     };
     startPushRuntime({ auth: authService, userId: previewUser.userId, invitations: sharing.runtime.invitationGateway,
-      onInvitation: ({ inviteId }) => { if (!disposed) sharingGateRef.current.pushInvitation(inviteId); },
+      onInvitation: ({ inviteId }) => { if (!disposed) setPendingPush({ inviteId, sessionKey }); },
       onError: onPushError }).then(cleanup => { if (disposed) cleanup(); else stop = cleanup; }).catch(error => { if (!disposed) onPushError(error); });
     return () => { disposed = true; stop(); };
   }, [previewUser.mode, previewUser.userId, sharing.runtime]);
@@ -427,7 +442,14 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onWithdraw
   const loginGate = useLoginGate();
   const sharingGate = useMemo(() => createSharingGate({ authenticated: signedIn, loginGate, open: setSharingRequest,
     beforeOpen: run => { if (profileLeaveGuard.current) profileLeaveGuard.current(run); else run(); } }), [signedIn, loginGate]);
-  sharingGateRef.current = sharingGate;
+  useEffect(() => {
+    if (!pendingPush || !sharingVisible || loginOverlayOpen || deliveredPush.current === pendingPush) return;
+    deliveredPush.current = pendingPush;
+    setPendingPush(null);
+    if (pendingPush.sessionKey && authService.getSessionKey() === pendingPush.sessionKey) {
+      sharingGate.pushInvitation(pendingPush.inviteId);
+    }
+  }, [pendingPush, sharingVisible, loginOverlayOpen, sharingGate]);
   const shareDiary = sharingGate.share;
   const unreadInvites = (authenticatedNotifications ?? sharing.notifications).count.data?.actionableUnreadCount || 0;
   const openInvitations = sharingGate.invitations;
@@ -1218,10 +1240,10 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onWithdraw
   return (
     <>
       {authenticatedNotifications && (sharingRequest?.mode === 'notifications' || sharingRequest?.returnToNotifications)
-        ? <HomeNotificationFlow onOpenParticipants={openSafetyParticipants} request={sharingRequest} model={authenticatedNotifications} sharing={sharing} onRequest={setSharingRequest}
+        ? <HomeNotificationFlow visible={sharingVisible} onOpenParticipants={openSafetyParticipants} request={sharingRequest} model={authenticatedNotifications} sharing={sharing} onRequest={setSharingRequest}
             onClose={() => { setSharingRequest(null); if(member)diaryState.store.reload().catch(error=>notify('공유 목록을 확인하지 못했어요',error.message)); }}
             onOpenDiary={openSharedDiary} onOpenCopy={diary => openCopyIfSafe(diary, invitationLeaveGuard.current, () => { setSharingRequest(null); if(member)diaryState.store.reload().catch(error=>notify('공유 목록을 확인하지 못했어요',error.message)); }, enterEditor)} />
-        : <SharingHub onOpenParticipants={openSafetyParticipants} onOpenCopy={diary => openCopyIfSafe(diary, invitationLeaveGuard.current, () => { setSharingRequest(null); if(member)diaryState.store.reload().catch(error=>notify('공유 목록을 확인하지 못했어요',error.message)); }, enterEditor)} onOpenDiary={openSharedDiary} request={sharingRequest} runtime={sharing.runtime} model={sharing.notifications}
+        : <SharingHub visible={sharingVisible} onOpenParticipants={openSafetyParticipants} onOpenCopy={diary => openCopyIfSafe(diary, invitationLeaveGuard.current, () => { setSharingRequest(null); if(member)diaryState.store.reload().catch(error=>notify('공유 목록을 확인하지 못했어요',error.message)); }, enterEditor)} onOpenDiary={openSharedDiary} request={sharingRequest} runtime={sharing.runtime} model={sharing.notifications}
             onSwitchInvitationAccount={inviteId => { setSharingRequest(null); onSwitchInvitationAccount(inviteId); }}
             onClose={() => { setSharingRequest(null); if(member)diaryState.store.reload().catch(error=>notify('공유 목록을 확인하지 못했어요',error.message)); }} />}
       {/* 폰 세로 화면은 노치·다이내믹 아일랜드 아래부터 그린다. 안전 영역은 바로 옆(아래) 화면과 같은 색으로 칠해 경계가 보이지 않게 한다. */}
@@ -1244,7 +1266,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onWithdraw
       {/* 잠금 여부를 읽는 1~3프레임 덮개: 흰색이면 번쩍여 보여 앱 바탕(surfaceSoft)과 같은 색으로 둔다 */}
       {appLocked === null && <View style={[StyleSheet.absoluteFill, { zIndex: 100, backgroundColor: C.canvas }]} />}
       {appLocked && <PinScreen mode="unlock" user={previewUser} getProfilePhotoSource={previewUser.mode === 'authenticated' ? authService.getProfilePhotoSource : undefined}
-        check={value => checkAppLockStatus(lockScope, value)} onDone={() => setAppLocked(false)} onForgot={forgotAppLock} />}
+        check={value => checkAppLockStatus(lockScope, value)} onDone={unlockApp} onForgot={forgotAppLock} />}
       {member && signedIn && <GuestImportHost key={`${previewUser.userId}:${authService.getSessionKey()}`} accountId={String(previewUser.userId)} enabled={appLocked === false} onImported={() => diaryState.store.reload().catch(() => {})} onEntry={setGuestImport} />}
       <DialogHost />
     </>
