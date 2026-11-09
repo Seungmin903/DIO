@@ -1375,7 +1375,20 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
                 canPaste={copiedObjects.length > 0}
                 paperAppearance={normalizePaperAppearance(page.paperAppearance)}
                 menuRequest={pageMenuRequest}
-                onPaperAppearance={(appearance, all) => dispatch({ type: 'setPaperAppearance', appearance, all })}
+                onPaperAppearance={async (appearance, all) => {
+                  if (diary?.source !== 'member-api') {
+                    dispatch({ type: 'setPaperAppearance', appearance, all })
+                    return
+                  }
+                  try {
+                    await textSync.updatePage(page.id, {
+                      paperAppearance: normalizePaperAppearance(appearance),
+                      ...(all && { applyPaperAppearanceToAllPages: true }),
+                    })
+                  } catch {
+                    showToast('속지 설정을 저장하지 못했어요. 다시 시도해 주세요.')
+                  }
+                }}
                 onCut={(objects) => { objectClipboard.set(objects); dispatch({ type: 'removeObjects', ids: objects.filter(o => !o.locked).map(o => o.id) }); showToast('잘라 냈어요.') }}
                 onTextLink={setTextLinkTarget}
                 onObjectLink={setObjectLinkTarget}
