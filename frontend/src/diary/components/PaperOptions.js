@@ -1,5 +1,5 @@
-import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
-import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { Fragment, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
+import { Platform, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native'
 import { SvgAst, parse } from 'react-native-svg'
 import PageBackground from '../../editor/components/PageBackground'
 import Icon from '../../editor/components/controls/Icon'
@@ -11,6 +11,9 @@ import { loadTemplate, peekTemplate } from '../../editor/templates/loadTemplate'
 import { colors } from '../../shared/theme'
 import { NumberField, OptionRow, QuickValues, Segmented } from './FormControls'
 import PaperFontDropdown from './PaperFontDropdown'
+import { PanelWidth } from './Workbench'
+import { keepKoreanWords } from '../../shared/keepWords'
+import { PAPER_GRID_GAP, paperGridMetrics } from '../utils/paperGridLayout'
 import EditablePalette from '../../editor/components/controls/EditablePalette'
 import PaperSketch, { paperSketchKey } from './PaperSketch'
 import { DEFAULT_PAPER_FONT } from '../../editor/templates/paperFont.js'
@@ -117,26 +120,36 @@ export function PaperTabs({ groups, value, onChange }) {
 }
 
 /**
- * 분류 안의 속지: 미리보기 + 이름 타일 3열 (세로로 길어지지 않게 작게).
- * 폭을 재지 않고 칸은 1/3 폭, 미리보기는 고정 크기로 그린다 (잰 뒤 다시 그리면 아래 옵션이 밀린다).
+ * 분류 안의 속지: 미리보기 + 이름 타일. 한눈에 보기처럼 폭에 들어가는 만큼 한 줄에 놓고 줄마다 수를 고르게 나눈다(utils/paperGridLayout).
+ * 미리보기는 고정 크기다. 폭을 재기 전에는 estimateWidth(없으면 Workbench 옵션 패널 폭 어림값)로 그려, 잰 뒤 줄 수가 바뀌어 아래 옵션이 밀리지 않게 한다.
+ * fillTo: 분류를 바꿔도 높이가 같게 맞출 속지 수(가장 많은 분류). 모자란 줄은 빈 칸으로 채운다.
  */
-export function PaperGrid({ papers, selected, onSelect, orientation, appearance, period = null, minSlots = 0 }) {
+export function PaperGrid({ papers, selected, onSelect, orientation, appearance, period = null, fillTo = 0, estimateWidth = null }) {
   const { width: w, height: h } = templateCanvasSize(orientation)
   const thumb = w > h ? 72 : 54
-  const empty = Math.max(0, minSlots - papers.length) // 적은 분류도 줄 수가 같게 빈 칸으로 채운다
-  return <View accessibilityRole="radiogroup" style={styles.grid}>
+  const panelWidth = useContext(PanelWidth)
+  const screen = useWindowDimensions()
+  const [measured, setMeasured] = useState(0)
+  const onLayout = useCallback(event => {
+    const next = event.nativeEvent.layout.width
+    setMeasured(prev => (Math.abs(prev - next) < 0.5 ? prev : next))
+  }, [])
+  const grid = paperGridMetrics(measured || estimateWidth || panelWidth || screen.width - 32, papers.length, thumb, { fillTo })
+  const cell = { width: grid.cell }
+  return <View onLayout={onLayout}><View accessibilityRole="radiogroup" style={[styles.grid, { width: grid.width + 0.5 }]}>
     {papers.map(paper => {
       const on = paper.id === selected
-      return <View key={paper.id} style={styles.cell}><Pressable accessibilityRole="radio" accessibilityLabel={paper.name} accessibilityState={{ selected: on, checked: on }}
+      return <View key={paper.id} style={cell}><Pressable accessibilityRole="radio" accessibilityLabel={paper.name} accessibilityState={{ selected: on, checked: on }}
         onPress={() => onSelect(paper.id)} style={({ pressed }) => [styles.tile, on && styles.tileOn, pressed && styles.pressed]}>
         <TemplatePreview assetId={paperPreviewId(paper.id, orientation, period)} width={thumb} appearance={appearance} sketch />
-        <Text numberOfLines={1} style={[styles.tileName, on && styles.tileNameOn]}>{paper.name}</Text>
+        {/* 칸이 좁거나 글자 크기를 키운 기기에서는 이름이 두 줄로 내려간다. 낱말 가운데에서 끊지 않는다(안드로이드 keepKoreanWords · iOS hangul-word) */}
+        <Text numberOfLines={2} lineBreakStrategyIOS="hangul-word" accessibilityLabel={paper.name} style={[styles.tileName, on && styles.tileNameOn]}>{keepKoreanWords(paper.name, Platform.OS)}</Text>
       </Pressable></View>
     })}
-    {Array.from({ length: empty }, (_, i) => <View key={`empty-${i}`} pointerEvents="none" style={styles.cell}>
+    {Array.from({ length: grid.empty }, (_, i) => <View key={`empty-${i}`} pointerEvents="none" style={cell}>
       <View style={styles.tile}><View style={{ width: thumb, height: thumb * h / w }} /><Text style={styles.tileName}> </Text></View>
     </View>)}
-  </View>
+  </View></View>
 }
 
 /** 속지 고르기: 가로 분류 탭 + 그 분류의 속지 타일. 고른 속지가 있으면 그 분류에서 연다. */
@@ -380,11 +393,10 @@ const styles = StyleSheet.create({
   tabTextOn: { color: colors.text, fontWeight: '800' },
   tabLine: { alignSelf: 'stretch', height: 2.5, marginBottom: -1, borderRadius: 2, backgroundColor: 'transparent' },
   tabLineOn: { backgroundColor: colors.primaryStrong },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -4 },
-  cell: { width: '33.333%', padding: 4 },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: PAPER_GRID_GAP },
   tile: { alignItems: 'center', gap: 5, paddingTop: 8, paddingBottom: 6, borderRadius: 12, borderWidth: 1.5, borderColor: 'transparent' },
   tileOn: { borderColor: colors.primary, backgroundColor: colors.primarySoft },
-  tileName: { color: colors.textMuted, fontSize: 11.5, fontWeight: '700' },
+  tileName: { alignSelf: 'stretch', paddingHorizontal: 2, textAlign: 'center', color: colors.textMuted, fontSize: 11.5, fontWeight: '700' },
   tileNameOn: { color: colors.text, fontWeight: '800' },
   context: { padding: 12, borderRadius: 12, backgroundColor: colors.surfaceSoft },
   // 시작(해 · 달) 두 칸은 위 '날짜 있음 · 날짜 없이'(Segmented)와 같은 반반 폭 · 사이 6 · 높이 40 · cardBorder 테두리(2026-11-08)
