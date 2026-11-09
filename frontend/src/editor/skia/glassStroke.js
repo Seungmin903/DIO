@@ -168,7 +168,7 @@ export function drawGlassStroke(canvas, points, width, color, _zoom = 1, ink = {
   const box = glassBox(points, width)
   if (!(box.w > 0 && box.h > 0)) return false
   const { ppu, pw, ph } = sizeOf(box)
-  let out = null, maskImage = null, poolImage = null
+  let out = null, maskImage = null, poolImage = null   // 해제하지 않는다(아래 설명)
   try {
     const dabs = glassDabs(points, width)
     if (!dabs.length) return false
@@ -199,7 +199,9 @@ export function drawGlassStroke(canvas, points, width, color, _zoom = 1, ink = {
     broken = true
     console.warn('[유리펜] 셰이더 경로 실패 — 평범한 선으로 전환:', error?.message ?? error)
     return false
-  } finally {
-    maskImage?.dispose?.(); poolImage?.dispose?.(); out?.dispose?.()
   }
+  // dispose 를 하지 않는다. SIGTRAP(TRAP_BRKPT)은 메모리 부족이 아니라 **라이브러리 내부 어서션**이고,
+  // 가장 흔한 원인이 이미 해제한 객체를 나중에 건드리는 것이다. 우리가 만든 Paint 는 마스크 · 고임 장
+  // 이미지를 셰이더로 물고 있는데, 그 이미지를 먼저 해제하면 Paint 가 GC 로 정리될 때 터진다.
+  // 표면 · 이미지는 그림이 버려질 때 GC 가 순서대로 정리한다(획마다 한 번이라 프레임 비용도 아니다).
 }

@@ -10,7 +10,7 @@
 //   → 셰이더 한 번: 두께 → 불투명도 · 색 깊이
 
 export const GLASS_INK = {
-  version: 24,
+  version: 25,
   T_MAX: 4,            // 마스크 G 채널 1.0 = 두께 4
   spacing: 0.12,       // 표본 간격(굵기 배수)
   // 속도 → 두께: 빠르면 얇게, 느리면 두껍게 (page 단위/ms)
@@ -365,7 +365,13 @@ uniform float dry;
 uniform float dryLag;
 uniform float wetDark;
 uniform float wetGloss;
-float vhash(float2 q) { return fract(sin(dot(q, float2(127.1, 311.7))) * 43758.5453); }
+// 25판: sin 기반 해시는 좌표가 커지면 32비트 부동소수점에서 정밀도가 깨져 무늬가 뭉친다(모바일 GPU).
+// sin 을 쓰지 않는 해시로 바꾸고, 좌표도 256 으로 접어 큰 값이 들어오지 않게 한다.
+float vhash(float2 q) {
+  float3 p3 = fract(float3(mod(q.x, 256.0), mod(q.y, 256.0), mod(q.x, 256.0)) * float3(0.1031, 0.1030, 0.0973));
+  p3 += dot(p3, p3.yzx + 33.33);
+  return fract((p3.x + p3.y) * p3.z);
+}
 float vnoise(float2 q) {
   float2 i = floor(q), f = fract(q);
   float2 u = f * f * (3.0 - 2.0 * f);
@@ -444,19 +450,24 @@ half4 main(float2 p) {
   col += wetGloss * (1.0 - dq) * smoothstep(0.5, 0.95, vnoise(p / (glCloudScl * 1.6) + 31.7));
   // 11판: 글리터 쉬머 — 셀 해시 입자. 비용은 입자 수와 무관.
   if (glAmp > 0.001) {
-    float2 cell = floor(p / glCellPx);
-    float u0 = vhash(cell * 1.013 + 0.37);                    // 존재
+    // 25판: 셀마다 입자 하나면 양을 올렸을 때 바둑판으로 보인다(사용자: "격자판 같다").
+    //   간격이 무리수 비율로 다른 두 겹을 겹쳐 규칙성을 깬다. 비용은 해시 몇 개뿐.
+    for (int layer = 0; layer < 2; layer++) {
+    float lay = float(layer);
+    float cellPx = glCellPx * mix(1.0, 1.37, lay);
+    float2 cell = floor(p / cellPx + lay * 0.41);
+    float u0 = vhash(cell * (1.013 + lay * 0.73) + 0.37 + lay * 5.9);   // 존재
     float pooled = smoothstep(0.25, 1.0, Tu);                       // 0 = 얇게 쓴 획, 1 = 고인 면
     float centre = mix(smoothstep(0.25, 0.75, An), 1.0, pooled);    // 얇은 획은 가운데로(현미경 사진)
-    float gdens = glP * glAmp * smoothstep(0.06, 0.5, Tu)
+    float gdens = 0.5 * glP * glAmp * smoothstep(0.06, 0.5, Tu)
                * mix(glThinP, 1.0, pooled)                           // 작아진 만큼 많이
                * centre
                * mix(1.0, 1.6, smoothstep(1.0, 2.0, Tb0))      // 고인 곳 밀집
                * (1.0 + glCloud * (vnoise(p / glCloudScl) - 0.5) * 2.0); // 구름 얼룩
     if (u0 < gdens) {
-      float u1 = vhash(cell * 2.117 + 1.11), u2 = vhash(cell * 3.721 + 2.53);
-      float u3 = vhash(cell * 5.313 + 4.19), u4 = vhash(cell * 7.919 + 5.87);
-      float2 pos = (cell + 0.18 + 0.64 * float2(u1, u2)) * glCellPx;  // 셀 안쪽 여백 → 이웃 셀 탐색 불필요
+      float u1 = vhash(cell * (2.117 + lay * 1.3) + 1.11), u2 = vhash(cell * (3.721 + lay * 0.9) + 2.53);
+      float u3 = vhash(cell * (5.313 + lay * 1.7) + 4.19), u4 = vhash(cell * (7.919 + lay * 2.1) + 5.87);
+      float2 pos = (cell - lay * 0.41 + 0.18 + 0.64 * float2(u1, u2)) * cellPx;  // 셀 안쪽 여백 → 이웃 셀 탐색 불필요
       float r = mix(glRThin, mix(glRMin, glRMax, u3), pooled);
       float w = 1.0 - smoothstep(r - aa, r + aa, length(p - pos)); // 점(1px 이하 — AA 폭만)
       float boost = mix(glBMin, glBMax, pow(u4, glTail)) * mix(0.6, 1.0, dq); // 마르면 또렷(추정)
@@ -468,6 +479,7 @@ half4 main(float2 p) {
       float u5 = vhash(cell * 9.173 + 7.41);
       if (u5 < sparkAmp * 0.07) { spark = float3(0.96); w = 1.0 - smoothstep(r - aa, r + 2.4 * aa, length(p - pos)); }
       col = mix(col, spark, w * A);
+    }
     }
   }
   // 12판: 십자 글린트 — 성긴 큰 셀, 셀당 최대 1개, 팔은 셀 안에서만
