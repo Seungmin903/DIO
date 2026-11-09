@@ -28,7 +28,7 @@ export function createStrokePreview(segmentPoints = PREVIEW_SEGMENT_POINTS) {
 }
 
 export function previewGeometry(part, settings) {
-  if (isDashedKind(settings.kind)) return { outline: dashedPreviewContour(part, settings.width, settings.kind) }
+  if (isDashedKind(settings.kind)) return { outline: dashedPreviewContour(part, settings.width, settings.kind, settings) }
   return part.points.length > 1 && (settings.kind === 'brush' || settings.kind === 'fountain' || (settings.kind === 'ball' && part.points.some(p => (p.pressure ?? 1) !== 1)))
     ? { outline: penContour(part.points, settings.width, settings.kind) }
     : { path: partPath(part) }

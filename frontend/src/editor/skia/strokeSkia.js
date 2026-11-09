@@ -513,9 +513,11 @@ function drawParts(canvas, parts, style) {
   const kind = skiaKind(style.kind)
   if (!parts.length || !parts[0].points.length) return
   if (isDashedKind(kind)) {
+    const key = ['dashed', kind, style.width, style.dashLength, style.dashGap].join(':')
+    const parsePart = part => parse(dashedPreviewContour(part, style.width, kind, style))
     const path = join(parts.map(part => part.continuing
-      ? cachedParse(part, 'dashed:' + style.width + ':' + kind, () => parse(dashedPreviewContour(part, style.width, kind)))
-      : parse(dashedPreviewContour(part, style.width, kind))))
+      ? cachedParse(part, key, () => parsePart(part))
+      : parsePart(part)))
     if (path) canvas.drawPath(path, fillPaint(style.color))
     return
   }
@@ -558,6 +560,7 @@ export function drawPreview(canvas, { parts, settings }, zoom = 1) {
   const kind = skiaKind(settings.kind)
   const first = parts[0]?.points[0]
   const style = { kind, width: settings.width, color: settings.color, lineCap: settings.lineCap,
+    dashLength: settings.dashLength, dashGap: settings.dashGap,
     dotWidth: settings.width * (first?.pressure ?? 1), origin: kind === 'pencil' && PENCIL_BRUSH.strand?.on ? { x: 0, y: 0, seed: brushSeed(first) } : { x: first?.x ?? 0, y: first?.y ?? 0 }, zoom, opacity: settings.opacity ?? 1,
     live: true, ink: glassInkOf(settings) }
   withAlpha(canvas, kind === 'highlighter' ? HIGHLIGHTER_OPACITY : kind === 'pencil' && pencilAccumulates() ? 1 : settings.opacity ?? 1, () => drawParts(canvas, parts, style))
@@ -602,7 +605,7 @@ function drawObjectContent(canvas, object, zoom = 1) {
 // 획 내용(요소 좌표)은 점 배열마다 한 번만 녹화한다: 옮기기 · 돌리기 · 투명도만 바뀐 획은 같은 점 배열이라 모양을 다시 계산하지 않는다
 const contents = new WeakMap()
 const contentKey = object => [object.penKind, object.strokeWidth, object.color, object.lineCap, object.materialSeed, object.sampled, object.taperBaked,
-  object.grainOrigin?.x, object.grainOrigin?.y, object.inkStartDistance].join('|')
+  object.grainOrigin?.x, object.grainOrigin?.y, object.inkStartDistance, object.dashLength, object.dashGap].join('|')
 // 연필은 확대 배율마다 결 크기 · 붓 끝 판이 달라 배율도 열쇠에 넣는다
 function contentPicture(object, zoom = 1) {
   const key = contentKey(object) + (skiaKind(object.penKind) === 'pencil' ? `|${zoom}|${PENCIL_BRUSH.engine}|${object.opacity ?? 1}` : '')

@@ -15,9 +15,10 @@ const storedPoint = (point, x, y, renderVersion) => {
 }
 
 // opacity: 펜 설정의 불투명도(0.1~1). 1 이 아니면 획의 불투명도(요소 옵션의 불투명도와 같은 값)로 저장한다.
-export function createStroke(points, { id, color = DEFAULT_PEN.color, width = DEFAULT_PEN.width, kind = 'ball', lineCap = 'round', renderVersion = 2, materialSeed, opacity = 1, inkGlitter, inkSheen, inkFilm, inkAmount, inkSheenColor, inkSheenAmount } = {}) {
+export function createStroke(points, { id, color = DEFAULT_PEN.color, width = DEFAULT_PEN.width, kind = 'ball', lineCap = 'round', renderVersion = 2, materialSeed, opacity = 1, dashLength, dashGap, inkGlitter, inkSheen, inkFilm, inkAmount, inkSheenColor, inkSheenAmount } = {}) {
   if (!points.length) return null
-  if (kind === 'dashed' || kind === 'dotted') renderVersion = PEN_MATERIAL_RENDER_VERSION
+  const dashed = kind === 'dashed' || kind === 'dotted'
+  if (dashed) renderVersion = PEN_MATERIAL_RENDER_VERSION
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
   for (const p of points) {
     if (!Number.isFinite(p.x) || !Number.isFinite(p.y)) throw new Error('잘못된 필기 좌표입니다.')
@@ -35,6 +36,8 @@ export function createStroke(points, { id, color = DEFAULT_PEN.color, width = DE
     baseWidth: w, baseHeight: h, color, strokeWidth: width, penKind: kind, renderVersion,
     ...(renderVersion === PEN_MATERIAL_RENDER_VERSION && { materialSeed: materialSeed ?? 0 }),
     ...(kind === 'highlighter' && { lineCap }),
+    ...(dashed && Number.isFinite(dashLength) && { dashLength }),
+    ...(dashed && Number.isFinite(dashGap) && { dashGap }),
     ...(kind !== 'highlighter' && opacity < 1 && { opacity }),
     // 연필: 요소 좌표에서 페이지 원점 자리 + 획 시드(첫 점 페이지 좌표의 해시). 종이 이빨이 페이지에 붙고, 옮겨도 무늬가 획과 함께 움직인다. 쓰는 중과 같은 값
     // 유리펜 잉크 설정은 획에 박아 둔다(나중에 설정을 바꿔도 이미 그린 획은 그대로)

@@ -8,7 +8,7 @@ import EditablePalette, { paletteSwatchStyles } from './controls/EditablePalette
 import Slider from './controls/Slider'
 import { GLASS_FILMS, GLASS_SHEENS, PEN_TYPES, penDefaultOpacity } from '../utils/penSettings'
 import { micaColor, sheenAutoColor } from '../utils/glassInk'
-import { DASH_TYPES, isDashedKind } from '../utils/dashedStroke'
+import { DASH_TYPES, DASH_LENGTH_RANGE, DASH_GAP_RANGE, dashPattern, isDashedKind } from '../utils/dashedStroke'
 import { useRecentPenColors } from '../hooks/useRecentPenColors'
 import { createPenSample } from '../utils/penSample'
 import ObjectContent from './canvas/ObjectView'
@@ -38,7 +38,9 @@ export function PenSample({ settings, small = false }) {
  */
 export default function PenSettings({ settings, onChange, onClose, straightAssist = true, onStraightAssistChange, onOpenColorPicker, sheet = false, dragHandlers }) {
   const highlighter = settings.kind === 'highlighter'
-  const selectedKind = isDashedKind(settings.kind) ? 'dashed' : settings.kind
+  const dashed = isDashedKind(settings.kind)
+  const selectedKind = dashed ? 'dashed' : settings.kind
+  const pattern = dashed ? dashPattern(settings.kind, settings) : null
   const label = highlighter ? '형광펜' : '펜'
   const recentColors = useRecentPenColors(highlighter ? 'highlighter' : 'pen')
   const chooseColor = (color) => onChange({ ...settings, color })
@@ -64,9 +66,17 @@ export default function PenSettings({ settings, onChange, onClose, straightAssis
       )}
       </View>
       <Slider name="굵기" label={highlighter ? '형광펜 굵기' : '펜 굵기'} minusLabel={`${label} 가늘게`} plusLabel={`${label} 굵게`} min={highlighter ? 8 : 1} max={highlighter ? 40 : 16} step={0.5} value={settings.width} onChange={(width) => onChange({ ...settings, width: Math.round(width * 2) / 2 })} />
-      {isDashedKind(settings.kind) && <Segmented items={DASH_TYPES}
-        selected={id => settings.kind === id}
-        onPress={kind => onChange({ ...settings, kind })} />}
+      {pattern && <>
+        <Slider name="점 길이" label="점 길이" minusLabel="점 짧게" plusLabel="점 길게"
+          {...DASH_LENGTH_RANGE} step={0.5} unit="배" value={pattern.dashLength}
+          onChange={dashLength => onChange({ ...settings, dashLength: Math.round(dashLength * 2) / 2 })} />
+        <Slider name="점 간격" label="점 간격" minusLabel="점 간격 좁게" plusLabel="점 간격 넓게"
+          {...DASH_GAP_RANGE} step={0.5} unit="배" value={pattern.dashGap}
+          onChange={dashGap => onChange({ ...settings, dashGap: Math.round(dashGap * 2) / 2 })} />
+        <Segmented items={DASH_TYPES}
+          selected={id => settings.kind === id}
+          onPress={kind => onChange({ ...settings, kind })} />
+      </>}
       {/* 펜만: 굵기처럼 불투명도를 정한다(10~100%). 형광펜은 정해진 뽀얀 농도를 쓴다 */}
       {!highlighter && <>
         <Slider name="불투명도" label="펜 불투명도" minusLabel="펜 더 투명하게" plusLabel="펜 더 진하게" min={10} max={100} step={5} value={Math.round((settings.opacity ?? 1) * 100)}
