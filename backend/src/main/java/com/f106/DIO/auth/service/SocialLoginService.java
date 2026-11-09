@@ -66,10 +66,14 @@ public class SocialLoginService {
         if(credential==null||credential.isBlank()||credential.length()>16384)throw error(HttpStatus.BAD_REQUEST,"INVALID_SOCIAL_REQUEST","연결 해제 요청을 확인해 주세요.");
         var identity=verifier.verify(credential);
         if(identity==null||identity.provider()!=provider)throw error(HttpStatus.UNAUTHORIZED,"INVALID_SOCIAL_CREDENTIAL","소셜 인증을 다시 진행해 주세요.");
+        var owner=accounts.findByProviderAndProviderUserId(provider.name(),identity.subject()).orElseThrow(()->error(HttpStatus.NOT_FOUND,"SOCIAL_PROVIDER_NOT_LINKED","연결된 로그인 방식이 아니에요."));
+        if(!owner.getUserId().equals(userId))throw error(HttpStatus.FORBIDDEN,"SOCIAL_PROVIDER_MISMATCH","다른 계정에 연결된 로그인 방식이에요.");
         transaction.executeWithoutResult(status->{
-            var linked=accounts.findForUpdate(provider.name(),identity.subject()).orElseThrow(()->error(HttpStatus.NOT_FOUND,"SOCIAL_PROVIDER_NOT_LINKED","연결된 로그인 방식이 아니에요."));
-            if(!linked.getUserId().equals(userId))throw error(HttpStatus.FORBIDDEN,"SOCIAL_PROVIDER_MISMATCH","다른 계정에 연결된 로그인 방식이에요.");
+            // Always lock this user's providers in the same order before selecting one.
+            // Locking a single provider first can deadlock two concurrent unlink requests.
             var all=accounts.findAllForUserUpdate(userId);
+            var linked=all.stream().filter(a->a.getProvider().equals(provider.name())&&a.getProviderUserId().equals(identity.subject())).findFirst()
+                .orElseThrow(()->error(HttpStatus.NOT_FOUND,"SOCIAL_PROVIDER_NOT_LINKED","연결된 로그인 방식이 아니에요."));
             long usable=all.stream().filter(a->!"EMAIL".equals(a.getProvider())||a.getPasswordHash()!=null).count();
             if(usable<=1)throw error(HttpStatus.CONFLICT,"LAST_LOGIN_PROVIDER","마지막 로그인 방식은 해제할 수 없어요.");
             accounts.delete(linked);
