@@ -2,6 +2,7 @@
 // 앱 테마 파랑 계열 6색은 빼고, 기본 펜 색(검정)을 맨 앞에 둔다. 형광펜과 같은 7색이라 옵션 창에서 한 줄로 보인다.
 // 기본 프리셋 색(코덱스 2026-10-31): DIO 성격(차분 · 따뜻)에 맞춘 한 세트 — 채도 · 명도를 맞춰 따뜻 · 차가움 · 무채를 고르게, 패널 한 줄에 들어가는 7색. 펜 · 글자는 흰 바탕 4.5:1 이상
 export const EDITOR_COLORS = ['#18224D', '#A33C4B', '#917019', '#397A5B', '#34769F', '#7653A6', '#626878']
+import { DASH_TYPES } from './dashedStroke.js'
 export const PEN_TYPES = [
   // 2026-11-02: 만년필 · 펠트펜 · 붓펜이 불투명도 100 단색에서 거의 같아 볼펜(굵기 고정) · 캘리펜(평촉) · 붓펜(테이퍼)으로 바꿨다(코덱스).
   // 예전 식별자(fountain · felt · brush)는 고를 수 없을 뿐 이미 그린 획은 그대로 그린다. 새 붓펜은 식별자가 다르다.
@@ -9,6 +10,7 @@ export const PEN_TYPES = [
   { id: 'taperBrush', label: '붓펜' }, { id: 'pencil', label: '연필' },
   // 2026-11-09: 유리펜(글라스 딥펜) — 염료 투과 · 커피링 · 테(쉰) · 운모 글리터. 설계는 `유리펜 설계/` 참고
   { id: 'glass', label: '유리펜' },
+  { id: 'dashed', label: '점선' },
 ]
 export const DEFAULT_PEN_SETTINGS = { kind: 'ball', color: '#18224D', width: 2.5 }
 // 유리펜 잉크: 글리터 · 테를 따로 켜고 끈다. 글리터 색은 색상환이 아니라 **운모 코팅 두께(nm)** 하나로 정한다 —
@@ -45,14 +47,14 @@ const validColor = (value, fallback) => typeof value === 'string' ? normalizeHex
 const inRange = (value, min, max, fallback) => Number.isFinite(value) ? Math.max(min, Math.min(max, value)) : fallback
 export function sanitizePenSettings(saved) {
   if (!saved || typeof saved !== 'object') return undefined
-  const kind = PEN_TYPES.some(type => type.id === saved.kind) ? saved.kind : DEFAULT_PEN_SETTINGS.kind
+  const kind = [...PEN_TYPES, ...DASH_TYPES].some(type => type.id === saved.kind) ? saved.kind : DEFAULT_PEN_SETTINGS.kind
   return { kind, color: validColor(saved.color, DEFAULT_PEN_SETTINGS.color), width: inRange(saved.width, 1, 16, DEFAULT_PEN_SETTINGS.width), opacity: inRange(saved.opacity, 0.1, 1, penDefaultOpacity(kind)),
     ...(kind === 'glass' && sanitizeGlassInk(saved)) }
 }
 export function sanitizePenKinds(saved) {
   if (!saved || typeof saved !== 'object') return undefined
   const result = {}
-  for (const type of PEN_TYPES) {
+  for (const type of [...PEN_TYPES, ...DASH_TYPES]) {
     const item = saved[type.id]
     if (item && typeof item === 'object') result[type.id] = { width: inRange(item.width, 1, 16, DEFAULT_PEN_SETTINGS.width), opacity: inRange(item.opacity, 0.1, 1, penDefaultOpacity(type.id)) }
   }

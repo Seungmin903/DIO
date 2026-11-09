@@ -17,6 +17,7 @@ const storedPoint = (point, x, y, renderVersion) => {
 // opacity: 펜 설정의 불투명도(0.1~1). 1 이 아니면 획의 불투명도(요소 옵션의 불투명도와 같은 값)로 저장한다.
 export function createStroke(points, { id, color = DEFAULT_PEN.color, width = DEFAULT_PEN.width, kind = 'ball', lineCap = 'round', renderVersion = 2, materialSeed, opacity = 1, inkGlitter, inkSheen, inkFilm, inkAmount, inkSheenColor, inkSheenAmount } = {}) {
   if (!points.length) return null
+  if (kind === 'dashed' || kind === 'dotted') renderVersion = PEN_MATERIAL_RENDER_VERSION
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
   for (const p of points) {
     if (!Number.isFinite(p.x) || !Number.isFinite(p.y)) throw new Error('잘못된 필기 좌표입니다.')
