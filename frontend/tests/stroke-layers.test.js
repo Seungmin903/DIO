@@ -31,6 +31,8 @@ function loadComponent(file, platform = 'ios', cacheOverride = null) {
     if (id === './ObjectView') return contexts
     if (id === './viewportMotion') return { ViewportMotion: {} }
     if (['./PageObject', '../PageBackground', './CompletedStrokeLayer', './WebStrokeCache'].includes(id)) return { __esModule: true, default: id }
+    // 바탕 요소 판별(PDF 쪽 바탕)은 실제 모듈을 쓴다. 상대 경로는 소스 기준이라 테스트 위치에서 다시 푼다
+    if (id.endsWith('/utils/backdrop.js')) return require('../src/editor/utils/backdrop.js')
     return require(id)
   }
   new Function('require', 'module', 'exports', code)(load, module, module.exports)

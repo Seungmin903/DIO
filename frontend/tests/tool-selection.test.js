@@ -16,7 +16,11 @@ function fixture(activeTool = 'hand') {
   const events = []
   const context = { ...state, dispatch: action => events.push(action),
     finishCrop: () => events.push('finishCrop'), closeBubbles() {},
-    setTextEditing() {}, setLasso() {} }
+    setTextEditing() {}, setLasso() {},
+    // 도구 선택이 함께 닫는 사진 패널과 도구 전환 측정(핸들러가 부르는 외부 동작)
+    closePhotoPanel() {},
+    toolChangeMeasurement: { current: null }, startPagePanelMeasurement: () => ({ dispose() {} }),
+    page: { objects: [] }, state: { doc: { pages: [] } } }
   for (const key of Object.keys(state)) {
     context[`set${key[0].toUpperCase()}${key.slice(1)}`] = value => { state[key] = value }
   }
