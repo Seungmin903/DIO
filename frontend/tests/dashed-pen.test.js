@@ -5,9 +5,29 @@ import { createStroke, samplePenCurve } from '../src/editor/utils/strokes.js'
 import { createStrokePreview } from '../src/editor/utils/strokePreview.js'
 import { createEraserSession } from '../src/editor/utils/eraser.js'
 import { encodePage, decodePage } from '../src/editor/utils/strokeCodec.js'
-import { sanitizePenSettings, sanitizePenKinds } from '../src/editor/utils/penSettings.js'
+import { applyPenKind, rememberPen, sanitizePenSettings, sanitizePenKinds } from '../src/editor/utils/penSettings.js'
 
 for (const kind of ['dashed', 'dotted']) {
+  test(kind + ' uses custom length and gap in preview, saved strokes, and eraser fragments', () => {
+    const points = [{ x: 0, y: 100 }, { x: 200, y: 100 }]
+    const settings = { id: kind, kind, width: 4, dashLength: 5, dashGap: 3 }
+    const object = createStroke(points, settings)
+    const restored = decodePage(JSON.parse(JSON.stringify(encodePage({ objects: [object] })))).objects[0]
+    const part = createStrokePreview().snapshot(restored.points)[0]
+    assert.equal(dashedPreviewContour(part, 4, kind, settings), dashedObjectContour(restored))
+    assert.notEqual(dashedPreviewContour(part, 4, kind), dashedObjectContour(restored))
+    const hit = x => createEraserSession([restored], 0.1).move({ x, y: 100 })
+    assert.deepEqual(hit(15), [kind])
+    assert.deepEqual(hit(24), [])
+    assert.deepEqual(hit(32), [kind])
+    const erase = createEraserSession([restored], 10, 'area')
+    erase.move({ x: 100, y: 100 })
+    for (const piece of erase.finish().replacements[kind]) {
+      assert.equal(piece.dashLength, 5)
+      assert.equal(piece.dashGap, 3)
+    }
+  })
+
   test(kind + ' straightening keeps the pattern after dragging the tip back or forward', () => {
     const start = { x: 0, y: 0, inkDistance: 0 }
     for (const [length, travelled] of [[120, 140], [48, 212], [180, 344]]) {
@@ -60,3 +80,14 @@ for (const kind of ['dashed', 'dotted']) {
     assert.deepEqual(createEraserSession([right], 0.1).move({ x: kind === 'dotted' ? 182 : 180, y: 100 }), [right.id])
   })
 }
+
+test('switching dash presets restores each pattern independently', () => {
+  const settings = { kind: 'dashed', width: 4, dashLength: 6, dashGap: 3 }
+  const memory = sanitizePenKinds(rememberPen({}, settings))
+  const dotted = applyPenKind(memory, settings, 'dotted')
+  assert.equal(dotted.dashLength, 1)
+  assert.equal(dotted.dashGap, 2.5)
+  const restored = sanitizePenSettings(applyPenKind(memory, dotted, 'dashed'))
+  assert.equal(restored.dashLength, 6)
+  assert.equal(restored.dashGap, 3)
+})
