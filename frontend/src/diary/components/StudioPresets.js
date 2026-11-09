@@ -50,7 +50,7 @@ function Group({ group, compact, width }) {
     <GroupHead icon={TOOL_ICON[group.scope]} title={group.label} full={compact} right={edited ? <Pressable accessibilityRole="button" accessibilityLabel={`${group.label} 기본 색으로`} hitSlop={6} onPress={resetPalette} style={paletteLinkStyles.button}>
       <Text style={paletteLinkStyles.text}>기본 색으로</Text>
     </Pressable> : null} />
-    <EditablePalette scope={group.scope} label={group.label} />
+    <PaletteFit full={compact}><EditablePalette scope={group.scope} label={group.label} flushEdit /></PaletteFit>
     {failed && <Text accessibilityRole="alert" style={local.error}>팔레트를 저장하지 못했어요.</Text>}
   </View>
 }
@@ -94,6 +94,14 @@ export function GroupHead({ icon, title, right = null, line = true, wide = false
   </>;
 }
 
+/**
+ * 색 견본 줄 + '팔레트 편집'을 머리줄 · 구분선과 같은 폭(태블릿 318, 폰 칸 전체)에 둔다.
+ * 묶음 칸이 318 보다 넓을 때(태블릿 세로 2열) '팔레트 편집'이 선 끝을 넘어 칸 끝에 붙던 것을 막는다 — 기준은 선이다(디자인 가이드 '폰 공방', 2026-11-09)
+ */
+export function PaletteFit({ full = false, children }) {
+  return <View style={[local.paletteFit, full && local.lineFull]}>{children}</View>;
+}
+
 /** 묶음 한 칸의 폭 · 사이 여백(도구 탭과 같은 값) */
 export const groupStyle = (width, compact) => [local.card, { width }, compact && local.cardCompact];
 /** 견본 줄(폭 288, 7개씩 감김) */
@@ -121,6 +129,7 @@ const local = StyleSheet.create({
   // 칸 7×36 + 사이 6×12 − 칸 안 여백 3×2 = 318. 좁은 화면에서는 칸 폭을 넘지 않는다
   line: { width: 318, maxWidth: '100%', height: 1, backgroundColor: colors.cardBorder },
   lineFull: { width: '100%' },
+  paletteFit: { width: 318, maxWidth: '100%' },
   // 칸(36)이 원(30)보다 3씩 넓어, 첫 원의 왼쪽 끝이 제목 왼쪽 끝과 맞도록 줄을 3 당긴다
   row: { width: 324, maxWidth: '100%', flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', columnGap: 12, rowGap: 12, marginLeft: -3 },
   cell: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },

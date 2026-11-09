@@ -33,7 +33,8 @@ export function GlassDot({ look }) {
   </>
 }
 
-export default function EditablePalette({ scope, label, value, onPick, onOpenEditor, initiallyEditing = false, allowDirect = false, heading }) {
+// flushEdit: '팔레트 편집' 글자 오른쪽 끝을 줄 끝(위 구분선 끝)에 맞춘다 — 누르는 자리 여백(6)은 바깥으로 뺀다(공방 도구 · 속지 탭)
+export default function EditablePalette({ scope, label, value, onPick, onOpenEditor, initiallyEditing = false, allowDirect = false, heading, flushEdit = false }) {
   const palette = usePalette(scope)
   const [editing, setEditing] = useState(initiallyEditing), [request, setRequest] = useState(null), [error, setError] = useState(false)
   // 편집 중 굵은 점선(포커스)은 지금 고치고 있는 칸으로 옮긴다(지라 605). 아직 연 칸이 없으면 지금 고른 색의 칸
@@ -74,8 +75,8 @@ export default function EditablePalette({ scope, label, value, onPick, onOpenEdi
   return <View style={s.box}>
     <View style={s.heading}>
       <Text style={s.label}>{heading ?? `${label} 색상`}</Text>
-      <Pressable accessibilityRole="button" accessibilityLabel={`${label} 팔레트 편집`} accessibilityState={{ selected: editing }} hitSlop={6} onPress={toggleEditing} style={paletteLinkStyles.button}>
-        <Text style={paletteLinkStyles.text}>{editing ? '편집 끝내기' : '팔레트 편집'}</Text>
+      <Pressable accessibilityRole="button" accessibilityLabel={`${label} 팔레트 편집`} accessibilityState={{ selected: editing }} hitSlop={6} onPress={toggleEditing} style={[s.edit, flushEdit && s.editFlush]}>
+        <Text style={s.editText}>{editing ? '편집 끝내기' : '팔레트 편집'}</Text>
       </Pressable>
     </View>
     <View style={paletteSwatchStyles.row} accessibilityLabel={`${label} 기본 팔레트`}>
@@ -105,11 +106,6 @@ export default function EditablePalette({ scope, label, value, onPick, onOpenEdi
     {request && <PresetColorEditor {...request} onDone={async color => { await request.onDone(color); setRequest(null) }} onClose={() => { request.onClose?.(); setRequest(null) }} />}
   </View>
 }
-// 색 줄 제목 옆의 글자 단추(팔레트 편집 · 기본 색으로). 두 곳이 같은 모양이어야 해서 여기서 한 번만 정한다.
-export const paletteLinkStyles=StyleSheet.create({
- button:{minHeight:36,justifyContent:'center',paddingHorizontal:6},
- text:{fontSize:12,fontWeight:'700',color:colors.primaryText},
-})
 export const paletteSwatchStyles=StyleSheet.create({
  row:{flexDirection:'row',flexWrap:'wrap'},cell:{width:'12.5%',height:48,alignItems:'center',justifyContent:'center'},
  dot:{width:28,height:28,borderRadius:14,borderWidth:1,borderColor:colors.cardBorder},chosen:{borderWidth:3,borderColor:colors.primaryText}
@@ -118,6 +114,8 @@ const s=StyleSheet.create({
  glassBody:{position:'absolute',left:3,top:3,right:3,bottom:3,borderRadius:11},
  glassSpeck:{position:'absolute',width:2.4,height:2.4,borderRadius:1.2},
  box:{gap:8},heading:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:8},
- label:{fontSize:13,fontWeight:'700',color:colors.text},
+ label:{fontSize:13,fontWeight:'700',color:colors.text},edit:{minHeight:36,justifyContent:'center',paddingHorizontal:6},editText:{fontSize:12,fontWeight:'700',color:colors.primaryText},editFlush:{marginRight:-6},
  direct:{borderStyle:'dashed',alignItems:'center',justifyContent:'center'},editing:{borderStyle:'dashed',borderColor:colors.textMuted},editFocus:{borderWidth:0},ring:{position:'absolute',left:0,top:0},solid:{borderStyle:'solid'},inner:{position:'absolute',right:3,bottom:3,width:9,height:9,borderRadius:5},notice:{fontSize:12,color:colors.textMuted}
 })
+// 색 줄 제목 옆의 글자 단추(팔레트 편집 · 기본 색으로)는 같은 모양이어야 한다 → 공방이 이것을 쓴다
+export const paletteLinkStyles = { button: s.edit, text: s.editText }
