@@ -247,15 +247,9 @@ export default function StickerCutoutModal({ folder, onClose, onSave, photoPicke
   </View>
   const stepView = <MakerSteps steps={steps} current={phase} onStep={back} disabled={busy} label={phase === 'select' ? '1단계 대상 고르기' : '2단계 스티커 확인'} />
   // ① 대상 고르기 도구 · ② 폴더 이름. ② 에는 ① 의 도구를 다시 띄우지 않는다(돌아갈 땐 헤더 뒤로)
-  // 줄 폭에 넣지 않고 띄운다. 빈 화면은 가운데 버튼 바깥 오른쪽(버튼이 가운데에서 밀리지 않게), 도구 단의 꽉 찬 버튼은 버튼 안 오른쪽 끝
-  const pickingSpinner = inside => picking && <View pointerEvents="none" style={[s.pickSpinner, inside ? s.pickSpinnerInside : s.pickSpinnerOutside]}>
-    <ActivityIndicator accessibilityLabel="사진을 불러오고 있어요" color={colors.primaryStrong} />
-  </View>
+  // 사진을 고르는 동안은 누른 버튼이 직접 처리 중을 보인다(아이콘 자리 스피너 + '사진 불러오는 중', 흐리지 않음). 다른 버튼은 busy 로 흐린다
   const tools = phase === 'select' ? <>
-    <View style={s.pickRow}>
-      <DioButton variant="tonal" icon="image" label="이미지 바꾸기" text={picking ? '사진 불러오는 중' : '이미지 바꾸기'} disabled={busy} onPress={requestImage} />
-      {pickingSpinner(true)}
-    </View>
+    <DioButton variant="tonal" icon="image" label="이미지 바꾸기" text={picking ? '사진 불러오는 중' : '이미지 바꾸기'} loading={picking} disabled={busy} onPress={requestImage} />
     <View style={s.toolSection}>
       <Text accessibilityRole="header" style={s.heading}>대상 고르기</Text>
       <MakerSegment label="대상 고르기">
@@ -293,10 +287,7 @@ export default function StickerCutoutModal({ folder, onClose, onSave, photoPicke
   // 가로는 왼쪽 단 높이를 끝까지 채운다(아래가 비지 않게). 세로 · 폰은 도구가 아래에 쌓이므로 높이를 정한다
   const stage = <MakerStage testID="cutout-viewport" style={source && !wide ? { height: stageHeight } : s.emptyStage} onLayout={event => setArea(event.nativeEvent.layout)}>
     {!source && <MakerEmpty icon="image" title="사진을 골라 주세요">
-      <View style={[s.pickRow, s.pickRowCentered]}>
-        <DioButton variant="filled" icon="image" label="사진 선택" text={picking ? '사진 불러오는 중' : '사진 선택'} disabled={busy} onPress={choose} />
-        {pickingSpinner(false)}
-      </View>
+      <DioButton variant="filled" icon="image" label="사진 선택" text={picking ? '사진 불러오는 중' : '사진 선택'} loading={picking} disabled={busy} onPress={choose} />
     </MakerEmpty>}
     {picture}
   </MakerStage>
@@ -352,11 +343,6 @@ const s = StyleSheet.create({
   side: { flexShrink: 0 }, panel: { paddingTop: 16, paddingLeft: 12, paddingRight: 16, paddingBottom: 16, gap: 16 },
   sideAction: { gap: 10, paddingLeft: 12, paddingRight: 16, paddingTop: 12, paddingBottom: 12, borderTopWidth: 1, borderColor: colors.border },
   controls: { gap: 16 },
-  pickRow: { justifyContent: 'center' },
-  // 빈 화면: 줄을 버튼 폭에 맞춰 가운데에 둔다(바깥 스피너의 left: 100% 가 버튼 오른쪽 끝을 가리키게)
-  pickRowCentered: { alignSelf: 'center' },
-  pickSpinner: { position: 'absolute', top: 0, bottom: 0, justifyContent: 'center' },
-  pickSpinnerOutside: { left: '100%', marginLeft: 10 }, pickSpinnerInside: { right: 16 },
   toolSection: { gap: 14 },
   sizeHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   historyRow: { flexDirection: 'row', alignItems: 'center', gap: 4 }, spacer: { flex: 1 },

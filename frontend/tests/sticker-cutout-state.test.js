@@ -106,43 +106,42 @@ test('사진 선택 연타와 폐기 후 응답은 상태 변경 없이 임시 �
   finish({ uri: 'photo', width: 100, height: 100, dispose: () => disposed++ }); await tick()
   assert.equal(disposed, 1)
 })
-test('사진을 불러오는 동안 진행 표시는 아래 상태 줄이 아니라 사진 선택 버튼 옆에 둔다', async () => {
+test('사진을 불러오는 동안 사진 선택 버튼이 직접 처리 중(loading)을 보이고 상태 줄에는 스피너가 없다', async () => {
   let finish
   const ui = fixture(() => new Promise(resolve => { finish = resolve }), undefined, {}, undefined, { width: 390, height: 844 })
+  assert.equal(find(ui.render(), '사진 선택').props.loading, false)
   find(ui.render(), '사진 선택').props.onPress()
   const loading = ui.render()
   const button = find(loading, '사진 선택')
   assert.equal(button.props.text, '사진 불러오는 중')
-  assert.equal(button.props.disabled, true)
-  const spinners = nodes(loading).filter(n => n.type === 'ActivityIndicator')
-  assert.deepEqual(spinners.map(n => n.props.accessibilityLabel), ['사진을 불러오고 있어요'])
-  const row = nodes(loading).find(n => [n.props.children].flat().includes(button))
-  assert.ok(nodes(row).includes(spinners[0]))
+  assert.equal(button.props.loading, true)
+  assert.equal(nodes(loading).some(n => n.type === 'ActivityIndicator'), false)
   finish({ uri: 'photo', width: 100, height: 100 }); await tick()
-  assert.equal(nodes(ui.render()).some(n => n.type === 'ActivityIndicator'), false)
-  assert.equal(find(ui.render(), '이미지 바꾸기').props.text, '이미지 바꾸기')
+  const done = find(ui.render(), '이미지 바꾸기')
+  assert.equal(done.props.text, '이미지 바꾸기')
+  assert.equal(done.props.loading, false)
   ui.unmount()
 })
-test('이미지 바꾸기 중에도 진행 표시는 그 버튼 옆에만 두고, 취소 · 실패 뒤에는 원래대로 돌아가며 미리보기 진행 표시는 상태 줄에 둔다', async () => {
+test('이미지 바꾸기 중에도 그 버튼만 처리 중을 보이고, 취소 · 실패 뒤에는 원래대로 돌아가며 미리보기 진행 표시는 상태 줄에 둔다', async () => {
   let calls = 0, pending
   const ui = fixture(() => ++calls === 1 ? Promise.resolve({ uri: 'photo', width: 100, height: 100 }) : new Promise(resolve => { pending = resolve }),
     // 넓은 배치: 상태 줄이 도구 단 아래(children)에 있어 트리에서 오류 · 미리보기 스피너까지 확인할 수 있다
     () => new Promise(() => {}))
   await load(ui)
   const spinnerLabels = tree => nodes(tree).filter(n => n.type === 'ActivityIndicator').map(n => n.props.accessibilityLabel)
-  // 이미지 바꾸기 → 사진 고르는 중: 버튼 글자와 그 줄 안 스피너 하나뿐
+  // 이미지 바꾸기 → 사진 고르는 중: 그 버튼만 loading, 상태 줄 스피너 없음, 다른 도구는 막힘
   find(ui.render(), '이미지 바꾸기').props.onPress()
   let tree = ui.render()
   const change = find(tree, '이미지 바꾸기')
   assert.equal(change.props.text, '사진 불러오는 중')
-  assert.equal(change.props.disabled, true)
-  assert.deepEqual(spinnerLabels(tree), ['사진을 불러오고 있어요'])
-  const row = nodes(tree).find(n => [n.props.children].flat().includes(change))
-  assert.ok(nodes(row).some(n => n.type === 'ActivityIndicator'))
-  // 고르기 취소: 글자 · 스피너가 원래대로
+  assert.equal(change.props.loading, true)
+  assert.deepEqual(spinnerLabels(tree), [])
+  assert.equal(find(tree, '선택 추가').props.disabled, true)
+  // 고르기 취소: 글자 · 처리 중 표시가 원래대로
   pending(null); await tick()
   tree = ui.render()
   assert.equal(find(tree, '이미지 바꾸기').props.text, '이미지 바꾸기')
+  assert.equal(find(tree, '이미지 바꾸기').props.loading, false)
   assert.deepEqual(spinnerLabels(tree), [])
   // 고르기 실패: 원래대로 돌아가고 오류는 상태 줄에 보인다
   find(tree, '이미지 바꾸기').props.onPress()
@@ -157,6 +156,7 @@ test('이미지 바꾸기 중에도 진행 표시는 그 버튼 옆에만 두고
   tree = ui.render()
   assert.deepEqual(spinnerLabels(tree), ['스티커 미리보기 처리 중'])
   assert.equal(find(tree, '이미지 바꾸기').props.text, '이미지 바꾸기')
+  assert.equal(find(tree, '이미지 바꾸기').props.loading, false)
   ui.unmount()
 })
 test('사진 재선택 취소는 기존 선택을 유지하고 새 사진으로 바꾸면 이력을 초기화·기존 사진 해제한다', async () => {
