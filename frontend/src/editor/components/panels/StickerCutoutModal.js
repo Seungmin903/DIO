@@ -220,8 +220,6 @@ export default function StickerCutoutModal({ folder, onClose, onSave, photoPicke
   const stageHeight = Math.max(240, Math.min(width < 600 ? 360 : 480, height * .5))
   const picture = source && rect && <View accessibilityLabel="스티커 대상 칠하기 영역" testID="cutout-canvas"
     style={{ position: 'absolute', left: rect.x, top: rect.y, width: rect.width, height: rect.height, touchAction: 'none' }}
-    onStartShouldSetResponderCapture={() => ready && !busy}
-    onMoveShouldSetResponderCapture={() => ready && !busy}
     onStartShouldSetResponder={() => ready && !busy}
     onMoveShouldSetResponder={() => ready && !busy}
     onResponderGrant={startStroke} onResponderStart={pinchStart} onResponderEnd={pinchStart}

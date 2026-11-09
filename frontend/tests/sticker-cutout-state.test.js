@@ -341,3 +341,20 @@ test('폰에서는 사진 위 붓질 동안 부모 스크롤을 즉시 잠갔다
   assert.equal(nodes(ui.render()).find(n => n.type === 'ScrollView').props.scrollEnabled, true)
   ui.unmount()
 })
+
+test('폰에서 핀치가 취소돼도 부모 스크롤 잠금을 푼다', async () => {
+  const ui = fixture(async () => ({ uri: 'photo', width: 100, height: 100 }), null, {}, undefined, { width: 390, height: 800 })
+  await load(ui)
+  const scroll = nodes(ui.render()).find(n => n.type === 'ScrollView')
+  const changes = []
+  scroll.props.ref.current = { setNativeProps: props => changes.push(props) }
+  const touch = (x, y, identifier) => ({ pageX: x, pageY: y, identifier })
+  find(ui.render(), 'cutout-canvas').props.onResponderGrant({ nativeEvent: {
+    pageX: 150, pageY: 100, locationX: 100, locationY: 100, touches: [touch(140, 100, 0), touch(160, 100, 1)],
+  } })
+  assert.deepEqual(changes.at(-1), { scrollEnabled: false })
+  find(ui.render(), 'cutout-canvas').props.onResponderTerminate()
+  assert.deepEqual(changes.at(-1), { scrollEnabled: true })
+  assert.equal(nodes(ui.render()).find(n => n.type === 'ScrollView').props.scrollEnabled, true)
+  ui.unmount()
+})
