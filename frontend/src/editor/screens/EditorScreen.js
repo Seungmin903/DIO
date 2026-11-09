@@ -1337,6 +1337,7 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
               )}
               {/* 크기가 정해진 뒤 한 번에 그린다(임시 배율 .6 → 측정 크기 → 상단바 · 패널 폭 반영 순서로 세 번 그렸다) */}
               {pageReady && <Canvas
+                visiblePage={viewportMotion.visible}
                 onStrokeCommitted={recordPenColorUse}
                 readingImage={readingPreviews.current}
                 qaPageMeasurement={pageSelectMeasurement.current}
