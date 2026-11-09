@@ -87,13 +87,18 @@ export function setRoutePlannerOptions(value, patch) {
   const planner = normalizeRoutePlanner(value)
   return normalizeRoutePlanner({ ...planner, options: { ...planner.options, ...patch } })
 }
-/** 새로 만드는 페이지들 중 노선 속지에 DAY 번호를 매긴다: 이미 있는 노선 페이지 수 다음부터 1씩. 번호가 있는 페이지는 그대로 둔다. */
+/**
+ * 새로 만드는 페이지들 중 노선 속지에 DAY 번호를 매긴다: 이미 있는 노선 페이지의 가장 큰 번호(번호가 없으면 장수) 다음부터 1씩.
+ * 수가 아니라 가장 큰 번호를 쓰는 이유: DAY 1 을 지운 뒤 추가해도 번호가 겹치지 않는다(MR !473 자동 리뷰). 번호가 있는 페이지는 그대로 두고 그 뒤는 그 번호 다음을 잇는다. 최대 99.
+ */
 export function assignRouteDays(pages, existingPages = []) {
-  let day = existingPages.filter(page => isRoutePaperId(page?.backgroundAssetId)).length
+  const existing = existingPages.filter(page => isRoutePaperId(page?.backgroundAssetId))
+  const dayOf = page => Number.isFinite(page.planner?.options?.day) ? page.planner.options.day : 0
+  let day = Math.max(existing.length, ...existing.map(dayOf))
   return pages.map(page => {
     if (!isRoutePaperId(page?.backgroundAssetId)) return page
-    day += 1
-    if (Number.isFinite(page.planner?.options?.day)) return page
+    if (Number.isFinite(page.planner?.options?.day)) { day = Math.max(day, page.planner.options.day); return page }
+    day = Math.min(ROUTE_DAY_RANGE.max, day + 1)
     return { ...page, planner: { ...(page.planner ?? {}), options: { ...(page.planner?.options ?? {}), day } } }
   })
 }
