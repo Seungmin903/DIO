@@ -66,6 +66,9 @@ import { useHiddenNavigationBar } from './src/shared/useHiddenNavigationBar';
 import { normalizeTemplateConfig } from './src/editor/templates/creation.js';
 import { createDefaultDoc } from './src/editor/state/defaultDoc.js';
 import { loadJSON, saveJSON, STORAGE_KEYS } from './src/editor/services/storage';
+import { createPushIssueMemory, pushIssueOf } from './src/notifications/pushIssue';
+// 기기 알림 연결 문제 팝업을 띄운 마지막 상태(pushIssue.signature)의 기기 기록 키
+const PUSH_ISSUE_NOTIFIED_KEY = 'dio-push-issue-notified-v1';
 import { randomUUID } from 'expo-crypto';
 import { createId, setUuidGenerator } from './src/editor/utils/common';
 import HandwritingStudio from './src/handwriting/HandwritingStudio';
@@ -129,7 +132,8 @@ export default function App() {
   // 로그인이 필요한 기능에서 연 로그인 화면 { feature, action }. 지금 화면 위에 겹쳐 띄워, 닫아도 보던 화면이 그대로 남는다.
   const [loginRequest, setLoginRequest] = useState(null);
   const [restoreState, setRestoreState] = useState({ status: 'loading', error: null });
-  const restoration = useRef({ active: false, busy: false, job: 0 });
+  // failed: 마지막 복원 실패. 복구 화면에서 다시 시도해 저장 로그인이 없다고 나와도 이 실패를 유지한다(S15P31F106-718)
+  const restoration = useRef({ active: false, busy: false, job: 0, failed: null });
   const openLogin = request => setLoginRequest(current => current?.sessionExpired
     ? { ...request, sessionExpired: true } : request);
   const closeLogin = () => {
@@ -172,10 +176,16 @@ export default function App() {
       const restored = await authService.restoreSession();
       if (!current()) return;
       if (restored) setPreviewSession(restored);
-      else await startGuest(); // No saved login is the only automatic guest path.
+      // 저장된 로그인이 없을 때만 자동으로 게스트가 된다. 단, 복구 화면에서 다시 시도한 경우는 예외다:
+      // 만료 처리가 저장 토큰을 지운 뒤의 재시도는 회원 다이어리가 사라진 것처럼 보이므로 앞선 실패(만료) 안내를 유지하고,
+      // 게스트 전환은 '게스트로 계속'을 골랐을 때만 한다(S15P31F106-718).
+      else if (control.failed) { setRestoreState({ status: 'error', error: control.failed }); return; }
+      else await startGuest();
+      control.failed = null;
       if (current()) setRestoreState({ status: 'done', error: null });
     } catch (error) {
       if (!current()) return;
+      control.failed = error;
       setRestoreState({ status: 'error', error });
       if (__DEV__ && error?.code === 'DEVELOPMENT_ACCESS_REQUIRED') setLoginRequest({ restoreSession: true });
       else if (error?.status === 401 && error.code === 'INVALID_TOKEN') setLoginRequest({ sessionExpired: true });
@@ -430,20 +440,28 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onWithdraw
   };
   const [pendingPush, setPendingPush] = useState(null);
   const deliveredPush = useRef(null);
-  const pushWarningShown = useRef(false);
+  // 기기 알림 연결에서 앱이 복구하지 못하는 문제(S15P31F106-719): 상태는 알림 설정 화면에 줄로 보여 주고(pushIssue),
+  // 팝업은 같은 상태에 한 번만 띄운다 — 띄운 기록을 기기에 남겨 앱을 다시 실행해도 홈 진입을 거듭 막지 않는다.
+  const [pushIssue, setPushIssue] = useState(null);
+  const pushIssueMemory = useRef(null);
+  if (!pushIssueMemory.current) pushIssueMemory.current = createPushIssueMemory({ load: () => loadJSON(PUSH_ISSUE_NOTIFIED_KEY, null), save: value => saveJSON(PUSH_ISSUE_NOTIFIED_KEY, value) });
   useEffect(() => {
     if (previewUser.mode !== 'authenticated') return;
     const sessionKey = authService.getSessionKey();
-    let disposed = false, stop = () => {};
+    let disposed = false, stop = () => {}, noticed = null;
+    setPushIssue(null);
     const onPushError = error => {
       if (__DEV__) console.warn('푸시 연결 오류', /^PUSH_[A-Z_]+$/.test(error?.message || '') ? error.message : 'UNKNOWN');
-      if (!pushWarningShown.current && ((error?.status === 409 && error?.message !== 'PUSH_BINDING_CONFLICT') || error?.message === 'PUSH_RECOVERY_REQUIRES_ORIGINAL_ACCOUNT')) {
-        pushWarningShown.current = true;
-        notify('알림 연결 확인', '이전에 사용한 계정으로 로그인해 기기 알림을 확인해 주세요.');
-      }
+      const issue = pushIssueOf(error, previewUser.userId);
+      if (!issue || disposed) return;
+      setPushIssue(issue);
+      if (noticed === issue.signature) return;
+      noticed = issue.signature;
+      pushIssueMemory.current.notifyOnce(issue).then(first => { if (first && !disposed) notify(issue.title, issue.message); }).catch(() => {});
     };
     startPushRuntime({ auth: authService, userId: previewUser.userId, invitations: sharing.runtime.invitationGateway,
       onInvitation: ({ inviteId }) => { if (!disposed) setPendingPush({ inviteId, sessionKey }); },
+      onSynced: () => { if (!disposed) setPushIssue(null); },
       onError: onPushError }).then(cleanup => { if (disposed) cleanup(); else stop = cleanup; }).catch(error => { if (!disposed) onPushError(error); });
     return () => { disposed = true; stop(); };
   }, [previewUser.mode, previewUser.userId, sharing.runtime]);
@@ -992,7 +1010,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onWithdraw
         onRetry={()=>diaryState.store.retryLibrary().catch(()=>{})}
 /><MemberTrashNotice state={diaryState} onReload={()=>diaryState.store.loadTrash().catch(()=>{})} onRetry={()=>diaryState.store.retryLifecycle().catch(()=>{})}/><MemberRequestNotice pending={diaryState.pending} error={diaryState.error} busy={saving} refreshing={diaryState.refreshing}
         onReload={() => diaryState.store.load().catch(() => {})}
-        onArchiveExpired={() => confirmAction({title:'이전 생성 요청을 정리할까요?',message:'서버 목록을 다시 확인한 뒤 새 생성을 허용해요. 이미 생성된 다이어리는 삭제하지 않고 이전 요청은 이 계정의 기록에 보관해요.',confirmLabel:'요청 정리',onConfirm:async()=>{
+        onArchiveExpired={() => confirmAction({title:'이전 요청을 정리할까요?',message:'보관함 목록을 다시 확인한 뒤 이전 생성 요청을 정리해요. 이미 만들어진 다이어리는 지우지 않아요.',confirmLabel:'정리',onConfirm:async()=>{
           if(savingRef.current) return; savingRef.current=true;setSaving(true);
           try {await diaryState.store.archiveExpiredCreation();} catch(error) {notify('요청을 정리하지 못했어요',error.message);} finally {savingRef.current=false;setSaving(false);}
         }})}
@@ -1105,11 +1123,11 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onWithdraw
     content = <DecorationStudioScreen compact={isPhone} registerBackHandler={registerStudioBackHandler} />;
   } else if (page === 'profile') {
     content = <ProfileScreen onOpenBlockedUsers={safety.openBlocks} key="profile" guestImport={guestImport} compact={isPhone} diaries={visibleDiaries} previewUser={previewUser} onEndPreview={onEndPreview} onClearSession={onClearSession} onWithdrawn={onWithdrawn} onUpdatePreview={onUpdatePreview} registerLeaveGuard={registerProfileLeaveGuard}
-      accountService={previewUser?.mode === 'authenticated' ? authService : undefined}
+      accountService={previewUser?.mode === 'authenticated' ? authService : undefined} pushIssue={pushIssue}
       getProfilePhotoSource={previewUser?.mode === 'authenticated' ? authService.getProfilePhotoSource : undefined} />;
   } else if (page === 'settings') {
     content = <ProfileScreen onOpenBlockedUsers={safety.openBlocks} key="settings" section="settings" registerLeaveGuard={registerProfileLeaveGuard} compact={isPhone} previewUser={previewUser} onEndPreview={onEndPreview} onClearSession={onClearSession} onWithdrawn={onWithdrawn} onUpdatePreview={onUpdatePreview}
-      accountService={previewUser?.mode === 'authenticated' ? authService : undefined}
+      accountService={previewUser?.mode === 'authenticated' ? authService : undefined} pushIssue={pushIssue}
       getProfilePhotoSource={previewUser?.mode === 'authenticated' ? authService.getProfilePhotoSource : undefined} />;
   }
 

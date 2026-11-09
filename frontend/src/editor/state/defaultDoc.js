@@ -2,6 +2,7 @@ import { normalizePaperAppearance } from '../templates/appearance.js'
 import { createId } from '../utils/common.js'
 import { TEMPLATE_VERSION, getTemplate, normalizeOrientation, templateCanvasSize, templateIdForOrientation } from '../templates/catalog.js'
 import { configuredPageIds, normalizeTemplateConfig, replacedAssetId } from '../templates/creation.js'
+import { assignRouteDays } from '../templates/routePaper.js'
 
 const FIRST_PAGE_ASSETS = {
   blank: '2026-reusable-note-plain-landscape',
@@ -58,7 +59,8 @@ export function createDefaultDoc(diary) {
     templateConfig,
     paperAppearance,
     templateVersion: TEMPLATE_VERSION,
-    pages: ids.length ? ids.map(id => createTemplatePage(id, paperAppearance)) : [{ ...createBlankPage(templateConfig.orientation), paperAppearance }],
+    // 여행 노선 속지는 순서대로 DAY 1, 2, 3… 을 매긴다
+    pages: ids.length ? assignRouteDays(ids.map(id => createTemplatePage(id, paperAppearance))) : [{ ...createBlankPage(templateConfig.orientation), paperAppearance }],
   }
 }
 

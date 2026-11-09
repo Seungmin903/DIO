@@ -24,10 +24,11 @@ export const PAPER_FONTS = [
 export const DEFAULT_PAPER_FONT = PAPER_FONTS[0].id
 const TABLES = { 'nanum-gothic': nanumGothic, 'nanum-myeongjo': nanumMyeongjo, 'gowun-batang': gowunBatang, 'gowun-dodum': gowunDodum, 'nanum-pen': nanumPen, 'poor-story': poorStory }
 
-/** 글자가 인쇄되는 속지인가. 빈 종이와 노트(무지 · 줄 · 모눈 · 도트)에는 인쇄 글자가 없어 글꼴을 고를 일이 없다. */
+/** 글자가 인쇄되는 속지인가. 빈 종이와 노트(무지 · 줄 · 모눈 · 도트)에는 인쇄 글자가 없어 글꼴을 고를 일이 없다.
+ *  여행 노선 속지는 인쇄 글자가 DAY · 지역 · 날짜뿐이라 글꼴 고르기를 두지 않는다(실기 피드백 2026-11-09). */
 export function paperPrintsText(assetId) {
   if (assetId == null) return false
-  try { return getTemplate(assetId).type !== 'note' } catch { return false }
+  try { return !['note', 'route'].includes(getTemplate(assetId).type) } catch { return false }
 }
 
 /** 바꿀 수 있는(원본이 아닌) 속지 글꼴 ID 인가 */

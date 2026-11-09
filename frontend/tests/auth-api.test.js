@@ -99,9 +99,23 @@ test('프로필 사진은 같은 서버의 사진 경로에만 개발 접속 인
   assert.deepEqual(production.getProfilePhotoSource(uri), { uri });
   assert.equal(production.verificationService.setDevelopmentAccess, undefined);
 });
-test('로그인 실패는 실제 오류이며 mock 성공으로 대체하지 않는다', async () => {
-  const { api } = setup(() => response({ detail: '이메일 또는 비밀번호가 맞지 않아요.', code: 'INVALID_CREDENTIALS' }, 401));
-  await assert.rejects(api.login({ email: user.email, password: 'wrong' }), { code: 'INVALID_CREDENTIALS', status: 401 });
+test('로그인 실패 시 서버 원문 대신 오류 코드에 맞는 한국어 안내를 표시한다', async () => {
+  const { api } = setup(() => response({ detail: 'UsernamePasswordAuthentication failed', code: 'INVALID_CREDENTIALS' }, 401));
+  await assert.rejects(api.login({ email: user.email, password: 'wrong' }), {
+    code: 'INVALID_CREDENTIALS', status: 401, message: '이메일 또는 비밀번호를 확인해 주세요.',
+  });
+});
+
+test('알 수 없는 인증 오류나 서버 장애는 서버 원문을 노출하지 않는다', async () => {
+  const fallback = '요청을 처리하지 못했어요. 다시 시도해 주세요.';
+  for (const { status, code, message } of [
+    { status: 400, code: 'UNKNOWN_AUTH_FAILURE', message: fallback },
+    { status: 400, code: undefined, message: fallback },
+    { status: 503, code: 'INVALID_CREDENTIALS', message: '서버에 문제가 있어요. 잠시 후 다시 시도해 주세요.' },
+  ]) {
+    const { api } = setup(() => response({ detail: 'Internal provider response', code }, status));
+    await assert.rejects(api.login({ email: user.email, password: 'wrong' }), { code, status, message });
+  }
 });
 
 test('잘못된 로그인 응답은 사용자 화면·세션으로 채택하지 않는다', async () => {

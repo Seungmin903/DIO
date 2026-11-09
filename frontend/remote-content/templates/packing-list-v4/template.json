@@ -1,0 +1,7 @@
+{
+  "name": "짐 싸기",
+  "group": "planner",
+  "landscape": "packing-landscape.svg",
+  "portrait": "packing-portrait.svg",
+  "hidden": true
+}

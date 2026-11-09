@@ -20,6 +20,12 @@ export function pdfPageAspect(page, fallback = 0.75) {
   return Number.isFinite(page?.aspect) && page.aspect > 0 ? page.aspect : fallback
 }
 
+/** PDF 쪽이 다이어리 속지가 됐을 때의 페이지 비율(가로 / 세로). 미리보기도 만든 페이지와 같은 틀로 보인다. */
+export function pdfPaperRatio(page, orientation) {
+  const { width, height } = pdfPageCanvasSize(page?.aspect, orientation)
+  return width / height
+}
+
 /**
  * 불러온 쪽을 표지와 속지로 나눈다. firstAsCover 이면 첫 쪽은 표지, 나머지가 속지.
  * 한 쪽짜리 PDF 를 표지로 쓰면 속지는 비는 것으로 본다.
@@ -76,10 +82,13 @@ export function restoreCoverBase(cover, backup) {
 }
 
 // PDF 쪽 하나의 페이지 크기: 쪽 비율을 그대로 따르고 긴 변은 속지와 같은 1024. 너무 길쭉한 쪽은 3 : 1 까지만 따른다.
+// 쪽 방향이 다이어리 방향(세로 · 가로)과 다르면 다이어리 방향의 속지 크기를 쓰고, 쪽 그림은 그 안에 잘리지 않게 넣는다.
 const PDF_PAGE_LONG_EDGE = 1024
 const PDF_PAGE_MAX_ASPECT = 3
 export function pdfPageCanvasSize(aspect, orientation) {
   if (!(aspect > 0)) return templateCanvasSize(orientation)
+  const landscape = normalizeOrientation(orientation) === 'landscape'
+  if (landscape ? aspect < 1 : aspect > 1) return templateCanvasSize(orientation)
   const clamped = Math.min(PDF_PAGE_MAX_ASPECT, Math.max(1 / PDF_PAGE_MAX_ASPECT, aspect))
   return clamped >= 1
     ? { width: PDF_PAGE_LONG_EDGE, height: Math.round(PDF_PAGE_LONG_EDGE / clamped) }

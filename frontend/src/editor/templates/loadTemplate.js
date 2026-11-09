@@ -11,6 +11,7 @@ import { datedBaseId, datedSvg, isDatedId } from './dated.js'
 import { isRemoteAsset } from '../../shared/remoteAssets/remoteAssets.js'
 import { fetchRemoteAsset } from '../../shared/remoteAssets/remoteAssetFile'
 import { parseRemoteTemplateAssetId, waitForRemoteTemplateFile } from './remoteTemplates.js'
+import { notifyTemplateLoaded } from './templateLoadedSignal.js'
 
 // 번들 속지는 expo-asset 으로, 원격 속지(2026 날짜 속지 등)는 에셋 저장소에서 받아 읽는다.
 // 받지 못하면 TemplateError 로 바뀌고, 캐시는 실패를 남기지 않아 다음에 다시 받는다.
@@ -46,8 +47,12 @@ const load = createTemplateCache(async key => {
 
 async function loadEntry(reference) {
   const asset = getTemplate(reference.backgroundAssetId, reference.templateVersion)
-  try { return await load(keyOf(asset.id, reference.font)) }
+  let entry
+  try { entry = await load(keyOf(asset.id, reference.font)) }
   catch (error) { throw error instanceof TemplateError ? error : new TemplateError(undefined, error) }
+  // 실패한 채 멈춘 축소 표시(썸네일)가 이 캐시로 복구할 수 있게 알린다(templateLoadedSignal)
+  notifyTemplateLoaded(asset.id)
+  return entry
 }
 
 /** 내보내기처럼 원본 XML이 필요한 곳에서 쓴다. */

@@ -17,7 +17,7 @@ import Workbench, { StagePill, fit } from './Workbench';
 import ConfirmDialog from '../../editor/components/controls/ConfirmDialog';
 import { coverSummary, newDiaryCover, normalizeCover } from '../utils/coverDesign';
 import { defaultSections, savedPaperSummary, sectionTitle, sectionsTemplateConfig } from '../utils/paperChoice';
-import { PdfImportError, coverBackupOf, coverForLibrary, coverWithPdfPage, pdfOrientation, pdfPageAspect, pdfPapersSummary, restoreCoverBase, splitPdfPages } from '../utils/pdfImport';
+import { PdfImportError, coverBackupOf, coverForLibrary, coverWithPdfPage, pdfOrientation, pdfPaperRatio, pdfPapersSummary, restoreCoverBase, splitPdfPages } from '../utils/pdfImport';
 import { pickPdfPages } from '../utils/pdfPages';
 import { discardPdfImport } from '../utils/pdfCleanup';
 import useMyLibrary from '../hooks/useMyLibrary';
@@ -228,7 +228,8 @@ export default function DiaryCreateModal({ diary, onSubmit, onCancel, saving = f
   // ---------- 가운데 미리보기: 지금 고치는 것만 ----------
   const paperRatio = (() => { const { width, height } = templateCanvasSize(orientation); return width / height; })();
   const coverRatio = orientation === 'landscape' ? 1 / COVER_RATIO : COVER_RATIO;
-  const pdfRatio = pdfPageAspect(pdfPapers[0], paperRatio);
+  // PDF 속지는 고른 방향의 틀에 맞춰 만들어진다(쪽 그림은 그 안에 잘리지 않게 들어간다): 미리보기도 같은 틀로 보인다
+  const pdfRatio = pdfPapers[0] ? pdfPaperRatio(pdfPapers[0], orientation) : paperRatio;
   let preview = null;
   if (stage.width > 0) {
     const maxHeight = stage.height - (stacked ? 44 : 80);
@@ -262,7 +263,7 @@ export default function DiaryCreateModal({ diary, onSubmit, onCancel, saving = f
       preview = <>
         <PdfPageThumb page={pdfPapers[0]} width={size.width} ratio={pdfRatio} style={styles.paperShadow} />
         {stripCount > 1 && <View style={styles.strip}>
-          {pdfPapers.slice(0, stripCount).map((page, index) => <PdfPageThumb key={`${page.mediaFileId}-${index}`} page={page} width={stripWidth} maxHeight={stripHeight} />)}
+          {pdfPapers.slice(0, stripCount).map((page, index) => <PdfPageThumb key={`${page.mediaFileId}-${index}`} page={page} width={stripWidth} ratio={pdfPaperRatio(page, orientation)} maxHeight={stripHeight} />)}
           {pdfPapers.length > stripCount && <Text style={styles.stripMore}>…</Text>}
         </View>}
         <StagePill>전체 {pdfPapers.length}페이지</StagePill>

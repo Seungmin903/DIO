@@ -376,7 +376,9 @@ for (const operation of ['refresh', 'restoreSession']) {
       await login(api);
       const saved = [...f.rows.values()];
       if (operation === 'restoreSession') api = createAuthApi(options);
-      await assert.rejects(api[operation](), { status: failure.status, message: '접근 제한' });
+      await assert.rejects(api[operation](), {
+        status: failure.status, code: failure.code, message: '요청을 처리하지 못했어요. 다시 시도해 주세요.',
+      });
       assert.deepEqual([...f.rows.values()], saved);
       assert.equal(api.getCurrentUserId(), operation === 'refresh' ? '7' : null);
       blocked = false;

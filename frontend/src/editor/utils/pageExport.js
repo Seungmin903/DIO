@@ -7,6 +7,7 @@ import { normalizeTextLink } from './textFormats.js'
 import { EDITOR_SHAPES, SHAPE_BORDER_STYLES } from './editorShapes.js'
 import { RETIRED_TEXT_FONTS, isKnownTextFontId } from './text.js'
 import { stripCellBoxes } from './photoStrip.js'
+import { packingLayout } from '../templates/packingLayout.js'
 
 
 /** 화면 줌·선택 상태·저장 지연과 독립적인 출력 입력. 현재 로컬 요소 배열은 뒤→앞 순서다. */
@@ -31,7 +32,8 @@ export function createExportSnapshot(page, { width = pageSize(page).width, heigh
       (object.font != null && !RETIRED_TEXT_FONTS.includes(object.font) && !isKnownTextFontId(object.font)) ||
       (object.textAlign != null && !['left', 'center', 'right', 'justify'].includes(object.textAlign))
     )) throw new PageExportError('EXPORT_GEOMETRY_INVALID', '텍스트 서식을 확인해 주세요.')
-    if (object.type === 'shape' && (
+    const packingColor = Boolean(packingLayout(page.backgroundAssetId) && object.type === 'shape' && ['case-0', 'case-1', 'interior-0', 'interior-1', 'mesh'].includes(object.packingColorRegion) && /^#[0-9a-f]{6}$/i.test(object.fill))
+    if (object.type === 'shape' && !packingColor && (
       (object.verticalAlign != null && !['top','middle','bottom'].includes(object.verticalAlign)) ||
       !EDITOR_SHAPES.some(item => item.id === object.shape) || typeof object.text !== 'string' ||
       (object.fill !== 'none' && !/^#[0-9a-f]{6}$/i.test(object.fill)) ||
