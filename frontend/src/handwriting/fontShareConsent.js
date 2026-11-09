@@ -43,9 +43,11 @@ export function askFontShareConsent(accountId) {
   const job = (async () => {
     const current = await fontShareConsent(account)
     if (current) return current === 'granted'
-    const granted = await new Promise(resolve => confirmAction({ ...FONT_SHARE_PROMPT, danger: false, onConfirm: () => resolve(true), onCancel: () => resolve(false) }))
-    await setFontShareConsent(account, granted ? 'granted' : 'denied').catch(() => {})
-    return granted
+    // 고르지 않았는데 창이 닫히면(앱 창 호스트가 사라짐 · 시스템이 닫음) 답을 저장하지 않는다: '아직 묻지 않음'으로 남아 다음에 다시 묻는다
+    const answer = await new Promise(resolve => confirmAction({ ...FONT_SHARE_PROMPT, danger: false,
+      onConfirm: () => resolve('granted'), onCancel: () => resolve('denied'), onAbort: () => resolve(null) }))
+    if (answer) await setFontShareConsent(account, answer).catch(() => {})
+    return answer === 'granted'
   })().finally(() => asking.delete(account))
   asking.set(account, job)
   return job

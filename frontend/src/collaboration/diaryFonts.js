@@ -78,8 +78,9 @@ export function createDiaryFonts({ diaryId, transport, request, files, library, 
       let mediaFileId = await uploaded(font)
       try { await transport({ method: 'POST', path: `/diaries/${diaryId}/fonts`, body: { mediaFileId } }) }
       catch (error) {
-        if (error?.status !== 404) throw error
-        // 서버에서 지워진 파일이면 기록을 비우고 한 번 다시 올린다
+        // 서버에서 지워진(또는 내 것이 아닌) 폰트 파일일 때(FONT_NOT_FOUND)만 기록을 비우고 한 번 다시 올린다.
+        // 다이어리가 없거나(DIARY_NOT_FOUND) 권한 · 네트워크 문제면 다시 올려도 소용없으니 그대로 실패한다(다음 저장에서 다시 시도)
+        if (error?.status !== 404 || error?.code !== 'FONT_NOT_FOUND') throw error
         await storage.removeItem?.(uploadKey(fileId)); active()
         mediaFileId = await uploaded(font)
         await transport({ method: 'POST', path: `/diaries/${diaryId}/fonts`, body: { mediaFileId } })

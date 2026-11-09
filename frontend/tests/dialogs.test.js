@@ -72,3 +72,22 @@ test('마지막 호스트가 떨어지면 남은 확인 창을 취소로 끝낸�
   assert.deepEqual(log, ['a-cancel']);
   assert.equal(dialogStore.getSnapshot(), null);
 });
+
+test('호스트가 사라지거나 시스템 창이 버튼 없이 닫히면 onAbort 를 부르고, 없으면 onCancel 을 부른다', () => {
+  const { confirmAction, dialogStore, native } = load();
+  const log = [];
+  confirmAction({ title: 't', message: 'm', confirmLabel: '확인', onConfirm() {}, onCancel: () => log.push('native-cancel'), onAbort: () => log.push('native-abort') });
+  native[0][3].onDismiss();
+  native[0][2][0].onPress();
+  let detach = dialogStore.attach();
+  confirmAction({ title: 'a', message: 'm', confirmLabel: '확인', onConfirm() {}, onCancel: () => log.push('a-cancel'), onAbort: () => log.push('a-abort') });
+  confirmAction({ title: 'b', message: 'm', confirmLabel: '확인', onConfirm() {}, onCancel: () => log.push('b-cancel') });
+  detach();
+  // 호스트가 다시 붙으면 새 창은 그대로 앱 창으로 뜬다
+  detach = dialogStore.attach();
+  confirmAction({ title: 'c', message: 'm', confirmLabel: '확인', onConfirm() {}, onCancel: () => log.push('c-cancel'), onAbort: () => log.push('c-abort') });
+  assert.equal(dialogStore.getSnapshot().title, 'c');
+  dialogStore.settle(false);
+  detach();
+  assert.deepEqual(log, ['native-abort', 'native-cancel', 'a-abort', 'b-cancel', 'c-cancel']);
+});

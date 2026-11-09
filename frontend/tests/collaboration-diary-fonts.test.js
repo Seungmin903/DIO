@@ -69,11 +69,20 @@ test('다른 다이어리에서는 이미 올린 파일을 다시 올리지 않�
 })
 
 test('서버에서 지워진 폰트 파일이면 다시 올려 공유한다', async () => {
-  const f = fixture({ shareFailure: Object.assign(Error('missing'), { status: 404 }) })
+  const f = fixture({ shareFailure: Object.assign(Error('missing'), { status: 404, code: 'FONT_NOT_FOUND' }) })
   f.disk.set(`uploads:${fileId}`, 'aaaaaaaa-0000-4000-8000-000000000000')
   await f.fonts.prepare(body([textRow(`personal-${fileId}`)])); await f.fonts.whenShared()
   assert.equal(f.uploads(), 1)
   assert.equal(f.disk.get(`uploads:${fileId}`), mediaFileId)
+})
+
+test('다이어리가 없는 404(DIARY_NOT_FOUND)면 폰트를 다시 올리지 않는다', async () => {
+  const old = 'aaaaaaaa-0000-4000-8000-000000000000'
+  const f = fixture({ shareFailure: Object.assign(Error('missing'), { status: 404, code: 'DIARY_NOT_FOUND' }) })
+  f.disk.set(`uploads:${fileId}`, old)
+  await f.fonts.prepare(body([textRow(`personal-${fileId}`)])); await f.fonts.whenShared()
+  assert.equal(f.uploads(), 0)
+  assert.equal(f.disk.get(`uploads:${fileId}`), old)
 })
 
 const settle = () => new Promise(resolve => setImmediate(resolve))
