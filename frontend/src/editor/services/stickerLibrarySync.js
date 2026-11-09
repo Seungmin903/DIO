@@ -41,6 +41,27 @@ export function localItem(item) {
   return out
 }
 const stable = folders => JSON.stringify(folders)
+/**
+ * 서버 한도 안에서 보낼 폴더와 칸(기기 보관함의 같은 객체). 보낼 때(toServer)와 받아 바꿀 때 남길 칸(keepUnsent)이 같은 규칙을 쓴다.
+ * 보낼 수 없는 id 의 폴더 · 보낼 수 없는 칸은 세지 않고, 폴더 200개 · 칸 3000개를 넘는 것은 빠진다(넘은 뒤의 폴더는 빈 폴더로 간다)
+ */
+function withinLimits(folders) {
+  const out = []
+  let total = 0
+  for (const folder of folders ?? []) {
+    if (!folder || !FOLDER_ID.test(String(folder.id ?? ''))) continue
+    if (out.length >= LIBRARY_LIMITS.folders) break
+    const items = []
+    for (const item of folder.items ?? []) {
+      if (!syncable(item)) continue
+      if (total >= LIBRARY_LIMITS.items) break
+      total++
+      items.push(item)
+    }
+    out.push({ folder, items })
+  }
+  return out
+}
 const serverFolderName = name => clip(String(name ?? '').trim(), LIBRARY_LIMITS.folderName).trim() || '내 스티커'
 
 /** 두 보관함(서버 문서 모양)을 합친다: 앞쪽(base) 순서를 지키고 뒤쪽(extra)에만 있는 폴더 · 스티커를 덧붙인다 */
@@ -65,6 +86,7 @@ export function mergeFolders(base, extra) {
 export function createStickerLibrarySync({ account, api, media, decor, storage, key, isActive = () => true, setTimer = setTimeout, clearTimer = clearTimeout, debounceMs = STICKER_SYNC_DEBOUNCE_MS, onError = () => {}, onStatus = () => {} }) {
   // meta 는 기기마다 하나(어느 계정과 맞췄는지 알아야 한다), 기기 id ↔ 서버 id 짝은 계정마다 따로 둔다(서버 id 가 계정마다 다르다)
   const metaKey = `${key}:meta`, idKey = id => `${key}:${account}:id:${String(id).toLowerCase()}`, localKey = id => `${key}:${account}:local:${String(id).toLowerCase()}`
+  const missingKey = `${key}:${account}:missing`
   let meta = null, timer = null, running = null, again = false, closed = false, unsubscribe = null, applying = false
   const active = () => { if (closed || !isActive()) throw Object.assign(Error('스티커 보관함 동기화가 끝났어요.'), { code: 'SYNC_CLOSED' }) }
   const readMeta = async () => { try { const value = JSON.parse(await storage.getItem(metaKey) ?? 'null'); return value && typeof value === 'object' ? value : null } catch { return null } }
@@ -75,15 +97,10 @@ export function createStickerLibrarySync({ account, api, media, decor, storage, 
   // 결과 배열의 pending: 보낼 수 있는데 아직 서버 짝이 없는(올리지 못한) 스티커 수. 보낼 수 없는 폴더 · 칸 · 한도 초과는 세지 않는다
   async function toServer(folders, upload) {
     const out = []
-    let total = 0, pending = 0
-    for (const folder of folders ?? []) {
-      if (!folder || !FOLDER_ID.test(String(folder.id ?? ''))) continue
-      if (out.length >= LIBRARY_LIMITS.folders) break
+    let pending = 0
+    for (const { folder, items: sendable } of withinLimits(folders)) {
       const items = []
-      for (const item of folder.items ?? []) {
-        if (!syncable(item)) continue
-        if (total >= LIBRARY_LIMITS.items) break
-        total++
+      for (const item of sendable) {
         if (!item.mediaFileId) { items.push(serverItem(item, null)); continue }
         let serverId = await storage.getItem(idKey(item.mediaFileId)); active()
         if (!uuid(serverId) && upload) {
@@ -106,10 +123,38 @@ export function createStickerLibrarySync({ account, api, media, decor, storage, 
     return out
   }
 
+  // 내려받지 못한 서버 이미지 id. 맞출 때마다 다시 받아 보고, 남아 있으면 공방에 알린다(앱을 다시 켜도 이어서 받는다)
+  let missing = null
+  const readMissing = async () => {
+    if (missing) return missing
+    try { const value = JSON.parse(await storage.getItem(missingKey) ?? '[]'); missing = new Set(Array.isArray(value) ? value.filter(uuid) : []) }
+    catch { missing = new Set() }
+    return missing
+  }
+  const writeMissing = () => storage.setItem(missingKey, JSON.stringify([...missing]))
+  async function fetchImage(serverId) {
+    try { await media.download(serverId); active(); missing.delete(serverId) }
+    catch (error) { if (error?.code === 'SYNC_CLOSED') throw error; onError(error); missing.add(serverId) }
+  }
+  // 지난번에 받지 못한 이미지를 다시 받는다. 그사이 보관함에서 빠진 스티커는 더 받지 않는다
+  async function retryMissing() {
+    await readMissing(); active()
+    if (!missing.size) return
+    const present = new Set((decor.snapshot() ?? []).flatMap(folder => folder?.items ?? []).map(item => item?.mediaFileId).filter(uuid))
+    for (const id of [...missing]) {
+      if (present.has(id)) await fetchImage(id)
+      else missing.delete(id)
+    }
+    await writeMissing(); active()
+  }
+
   // 서버 문서를 기기에 들인다: 이 기기가 올린 스티커는 기기 원본을 그대로 쓰고, 나머지 이미지는 내려받아 서버 id 로 저장한 뒤 폴더를 바꾼다.
-  // keepLocal 이면 아직 서버에 없는 기기 것(올리지 못한 스티커 · 보낼 수 없는 칸 · 한 번도 맞춘 적 없는 폴더)은 지우지 않고 남긴다.
+  // keepLocal 이면 아직 서버에 없는 기기 것(올리지 못한 스티커 · 보낼 수 없는 칸 · 한도를 넘어 보내지 않은 칸 · 한 번도 맞춘 적 없는 폴더)은 지우지 않고 남긴다.
   // 다른 계정이 쓰던 기기에서는 남기지 않는다(그 계정의 스티커를 이 계정 보관함에 섞지 않는다)
+  // 내려받는 동안 기기 보관함이 바뀌면 들이지 않고 false 를 돌려준다(그 편집을 덮어쓰지 않는다). 바뀐 보관함은 다시 맞춘다
   async function adopt(server, { keepLocal = true } = {}) {
+    const before = stable(decor.snapshot() ?? [])
+    await readMissing(); active()
     const folders = []
     for (const folder of server.folders) {
       const items = []
@@ -119,27 +164,31 @@ export function createStickerLibrarySync({ account, api, media, decor, storage, 
         if (uuid(mine)) { items.push(localItem({ ...item, mediaFileId: mine })); continue }
         // 서버 id 는 내려받기 성공과 상관없이 짝을 기록한다(받지 못한 스티커를 '안 올린 스티커'로 보고 서버에서 빼지 않게)
         await storage.setItem(idKey(item.mediaFileId), item.mediaFileId); active()
-        try { await media.download(item.mediaFileId); active() }
-        catch (error) { if (error?.code === 'SYNC_CLOSED') throw error; onError(error) } // 못 받은 이미지도 칸은 남기고(서버에도 있다) 다음에 다시 받는다
+        await fetchImage(item.mediaFileId) // 못 받은 이미지도 칸은 남기고(서버에도 있다) 다음 맞추기에서 다시 받는다
         items.push(localItem(item))
       }
       folders.push({ id: folder.id, name: folder.name, items })
     }
-    if (keepLocal) await keepUnsent(folders)
+    await writeMissing(); active()
+    const local = decor.snapshot() ?? []
+    if (keepLocal) await keepUnsent(folders, local)
     active()
+    if (stable(decor.snapshot() ?? []) !== before) { again = true; return false }
     applying = true
     try { decor.replace(folders) } finally { applying = false }
     await writeMeta({ account, version: server.version, synced: stable(server.folders) })
+    return true
   }
 
-  async function keepUnsent(folders) {
+  async function keepUnsent(folders, local) {
     let previous = new Set()
     try { previous = new Set(JSON.parse(meta?.synced ?? '[]').map(folder => folder.id)) } catch { /* 처음 맞추는 기기 */ }
-    for (const folder of decor.snapshot() ?? []) {
+    const sent = new Set(withinLimits(local).flatMap(row => row.items)) // 한도 안이라 서버로 보내는 칸
+    for (const folder of local) {
       if (!folder) continue
       const leftovers = []
       for (const item of folder.items ?? []) {
-        if (!syncable(item)) { leftovers.push(item); continue }
+        if (!sent.has(item)) { leftovers.push(item); continue } // 보낼 수 없는 칸 · 한도를 넘어 보내지 않은 칸
         if (item.mediaFileId && !uuid(await storage.getItem(idKey(item.mediaFileId)))) leftovers.push(item) // 아직 올리지 못한 스티커
       }
       active()
@@ -171,16 +220,18 @@ export function createStickerLibrarySync({ account, api, media, decor, storage, 
     active()
     meta ??= await readMeta(); active()
     const server = await api.get(); active()
+    await retryMissing()
     const local = decor.snapshot() ?? []
-    if (meta && meta.account !== account) return adopt(server, { keepLocal: false }) // 다른 계정이 쓰던 기기: 그 스티커를 이 계정에 올리지 않는다
-    if (!meta && !local.length) return adopt(server) // 새 기기 · 재설치: 서버 보관함을 그대로 받는다
+    // 들이는 동안 기기 보관함이 바뀌어 들이지 않았으면(adopt 가 false) 알리지 않고 다시 맞춘다
+    if (meta && meta.account !== account) return await adopt(server, { keepLocal: false }) ? report(0) : null // 다른 계정이 쓰던 기기: 그 스티커를 이 계정에 올리지 않는다
+    if (!meta && !local.length) return await adopt(server) ? report(0) : null // 새 기기 · 재설치: 서버 보관함을 그대로 받는다
     // 바뀌었는지는 보낼 수 있는 것끼리만 비교한다(보낼 수 없는 폴더 · 칸 · 한도 초과가 있다고 매번 저장하지 않는다).
     // 아직 올리지 못한 스티커가 있으면 업로드를 다시 시도한다
     const known = await toServer(local, false); active()
     const localChanged = !meta || stable(known) !== meta.synced || known.pending > 0
     const serverChanged = !meta || server.version !== meta.version
     if (!localChanged && !serverChanged) return report(0)
-    if (!localChanged) { await adopt(server); return report(0) }
+    if (!localChanged) return await adopt(server) ? report(0) : null
     const mine = await toServer(local, true); active()
     // 다시 올려 봤지만 새로 올라간 것이 없고 서버도 그대로면 저장하지 않는다(version 만 올라 다른 기기가 매번 다시 받지 않게)
     if (!serverChanged && meta && stable(mine) === meta.synced) return report(mine.pending)
@@ -191,9 +242,12 @@ export function createStickerLibrarySync({ account, api, media, decor, storage, 
     report(mine.pending)
     return saved
   }
-  // 맞추기 결과를 알린다: 올리지 못한 스티커가 남았으면 실패, 아니면 정상
+  // 맞추기 결과를 알린다: 올리지 못한 스티커나 받지 못한 이미지가 남았으면 실패, 아니면 정상
   function report(pending) {
-    onStatus(pending > 0 ? { error: `스티커 ${pending}개를 계정에 올리지 못했어요. 다른 기기에서는 보이지 않아요.` } : { error: null })
+    const failures = []
+    if (pending > 0) failures.push(`스티커 ${pending}개를 계정에 올리지 못했어요. 다른 기기에서는 보이지 않아요.`)
+    if (missing?.size) failures.push(`스티커 ${missing.size}개의 이미지를 받지 못했어요. 연결을 확인해 주세요.`)
+    onStatus({ error: failures.length ? failures.join(' ') : null })
     return null
   }
 
