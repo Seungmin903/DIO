@@ -29,6 +29,8 @@ export default function StickerCutoutModal({ folder, onClose, onSave, photoPicke
   const [draft, setDraft] = useState(null), gesture = useRef(null), origin = useRef({ x: 0, y: 0 })
   const [area, setArea] = useState({ width: 0, height: 0 })
   const [phase, setPhase] = useState('select'), [busy, setBusy] = useState(false), locked = useRef(false)
+  // 사진을 고르고 서버에 여는 동안. 진행 표시를 아래 상태 줄이 아니라 누른 버튼(사진 선택 · 이미지 바꾸기) 옆에 둔다
+  const [picking, setPicking] = useState(false)
   const [cutoutId, setCutoutId] = useState(null), cutoutRef = useRef(null)
   // 서버 저장은 같은 선택에 한 번만 한다. 이후 캐시·보관함 저장이 실패해도 같은 mediaFileId로 이어서 처리한다.
   const savedMediaRef = useRef(null)
@@ -83,7 +85,7 @@ export default function StickerCutoutModal({ folder, onClose, onSave, photoPicke
   }
   const choose = async () => {
     if (locked.current) return
-    locked.current = true; setBusy(true); setError('')
+    locked.current = true; setBusy(true); setPicking(true); setError('')
     const token = ++revision.current
     let next = null
     try {
@@ -105,7 +107,7 @@ export default function StickerCutoutModal({ folder, onClose, onSave, photoPicke
       next?.dispose?.()
       if (alive.current && token === revision.current) setError(failure.message || '사진을 열지 못했어요. 다시 선택해 주세요.')
     }
-    finally { if (alive.current && token === revision.current) { locked.current = false; setBusy(false) } }
+    finally { if (alive.current && token === revision.current) { locked.current = false; setBusy(false); setPicking(false) } }
   }
   const analyze = async () => {
     if (locked.current || !canPreview) return
@@ -245,8 +247,15 @@ export default function StickerCutoutModal({ folder, onClose, onSave, photoPicke
   </View>
   const stepView = <MakerSteps steps={steps} current={phase} onStep={back} disabled={busy} label={phase === 'select' ? '1단계 대상 고르기' : '2단계 스티커 확인'} />
   // ① 대상 고르기 도구 · ② 폴더 이름. ② 에는 ① 의 도구를 다시 띄우지 않는다(돌아갈 땐 헤더 뒤로)
+  // 줄 폭에 넣지 않고 띄운다. 빈 화면은 가운데 버튼 바깥 오른쪽(버튼이 가운데에서 밀리지 않게), 도구 단의 꽉 찬 버튼은 버튼 안 오른쪽 끝
+  const pickingSpinner = inside => picking && <View pointerEvents="none" style={[s.pickSpinner, inside ? s.pickSpinnerInside : s.pickSpinnerOutside]}>
+    <ActivityIndicator accessibilityLabel="사진을 불러오고 있어요" color={colors.primaryStrong} />
+  </View>
   const tools = phase === 'select' ? <>
-    <DioButton variant="tonal" icon="image" label="이미지 바꾸기" disabled={busy} onPress={requestImage} />
+    <View style={s.pickRow}>
+      <DioButton variant="tonal" icon="image" label="이미지 바꾸기" text={picking ? '사진 불러오는 중' : '이미지 바꾸기'} disabled={busy} onPress={requestImage} />
+      {pickingSpinner(true)}
+    </View>
     <View style={s.toolSection}>
       <Text accessibilityRole="header" style={s.heading}>대상 고르기</Text>
       <MakerSegment label="대상 고르기">
@@ -274,8 +283,8 @@ export default function StickerCutoutModal({ folder, onClose, onSave, photoPicke
     {folder ? <Text numberOfLines={1} style={s.folder}>{folder.name}</Text>
       : <PenSafeTextInput value={name} editable={!busy && !saved} onChangeText={setName} maxLength={FOLDER_NAME_LIMIT} placeholder="폴더 이름" placeholderTextColor={colors.textMuted} accessibilityLabel="스티커 폴더 이름" style={s.input} />}
   </View>
-  const status = (busy || !!error) ? <>
-    {busy && <ActivityIndicator accessibilityLabel="스티커 미리보기 처리 중" color={colors.primaryStrong} />}
+  const status = ((busy && !picking) || !!error) ? <>
+    {busy && !picking && <ActivityIndicator accessibilityLabel="스티커 미리보기 처리 중" color={colors.primaryStrong} />}
     {!!error && <Text accessibilityRole="alert" style={s.error}>{error}</Text>}
   </> : null
   const action = phase === 'select'
@@ -284,7 +293,10 @@ export default function StickerCutoutModal({ folder, onClose, onSave, photoPicke
   // 가로는 왼쪽 단 높이를 끝까지 채운다(아래가 비지 않게). 세로 · 폰은 도구가 아래에 쌓이므로 높이를 정한다
   const stage = <MakerStage testID="cutout-viewport" style={source && !wide ? { height: stageHeight } : s.emptyStage} onLayout={event => setArea(event.nativeEvent.layout)}>
     {!source && <MakerEmpty icon="image" title="사진을 골라 주세요">
-      <DioButton variant="filled" icon="image" label="사진 선택" disabled={busy} onPress={choose} />
+      <View style={s.pickRow}>
+        <DioButton variant="filled" icon="image" label="사진 선택" text={picking ? '사진 불러오는 중' : '사진 선택'} disabled={busy} onPress={choose} />
+        {pickingSpinner(false)}
+      </View>
     </MakerEmpty>}
     {picture}
   </MakerStage>
@@ -340,6 +352,9 @@ const s = StyleSheet.create({
   side: { flexShrink: 0 }, panel: { paddingTop: 16, paddingLeft: 12, paddingRight: 16, paddingBottom: 16, gap: 16 },
   sideAction: { gap: 10, paddingLeft: 12, paddingRight: 16, paddingTop: 12, paddingBottom: 12, borderTopWidth: 1, borderColor: colors.border },
   controls: { gap: 16 },
+  pickRow: { justifyContent: 'center' },
+  pickSpinner: { position: 'absolute', top: 0, bottom: 0, justifyContent: 'center' },
+  pickSpinnerOutside: { left: '100%', marginLeft: 10 }, pickSpinnerInside: { right: 16 },
   toolSection: { gap: 14 },
   sizeHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   historyRow: { flexDirection: 'row', alignItems: 'center', gap: 4 }, spacer: { flex: 1 },

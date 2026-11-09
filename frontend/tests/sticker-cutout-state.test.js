@@ -106,6 +106,23 @@ test('사진 선택 연타와 폐기 후 응답은 상태 변경 없이 임시 �
   finish({ uri: 'photo', width: 100, height: 100, dispose: () => disposed++ }); await tick()
   assert.equal(disposed, 1)
 })
+test('사진을 불러오는 동안 진행 표시는 아래 상태 줄이 아니라 사진 선택 버튼 옆에 둔다', async () => {
+  let finish
+  const ui = fixture(() => new Promise(resolve => { finish = resolve }), undefined, {}, undefined, { width: 390, height: 844 })
+  find(ui.render(), '사진 선택').props.onPress()
+  const loading = ui.render()
+  const button = find(loading, '사진 선택')
+  assert.equal(button.props.text, '사진 불러오는 중')
+  assert.equal(button.props.disabled, true)
+  const spinners = nodes(loading).filter(n => n.type === 'ActivityIndicator')
+  assert.deepEqual(spinners.map(n => n.props.accessibilityLabel), ['사진을 불러오고 있어요'])
+  const row = nodes(loading).find(n => [n.props.children].flat().includes(button))
+  assert.ok(nodes(row).includes(spinners[0]))
+  finish({ uri: 'photo', width: 100, height: 100 }); await tick()
+  assert.equal(nodes(ui.render()).some(n => n.type === 'ActivityIndicator'), false)
+  assert.equal(find(ui.render(), '이미지 바꾸기').props.text, '이미지 바꾸기')
+  ui.unmount()
+})
 test('사진 재선택 취소는 기존 선택을 유지하고 새 사진으로 바꾸면 이력을 초기화·기존 사진 해제한다', async () => {
   let calls = 0, disposed = 0
   const ui = fixture(async () => ++calls === 2 ? null : ({ uri: `photo-${calls}`, width: 100, height: 100, dispose: () => disposed++ }))
