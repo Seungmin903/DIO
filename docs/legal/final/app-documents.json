@@ -9,7 +9,7 @@
       "termsType": "SERVICE",
       "termsVersion": "v2",
       "effectiveDate": "2026-11-09",
-      "sourceSha256": "f061c84276a494c7a70645b3d2b2c0d6853715a91845d43a242e0c85910c266b",
+      "sourceSha256": "fc4ac6cc07247aae91851cdfe9a45d3736651664a3d61327cd6e8449190293d3",
       "source": "service.md",
       "html": "service.html",
       "blocks": [
@@ -96,7 +96,7 @@
         },
         {
           "type": "listItem",
-          "text": "운영자는 가입 전에 이용자가 약관을 읽고 저장할 수 있도록 내용을 제공하고, 가입 이후에는 공식 문의 이메일 dioapp.official@gmail.com으로 자신에게 적용된 약관의 사본을 요청할 수 있으며, 운영자는 요청을 받으면 사본을 제공합니다. 영구 삭제·공동 작업 보존 등 중요한 사항은 이용자가 이해할 수 있도록 설명합니다.",
+          "text": "운영자는 회원가입 화면에서 동의 전에 이 약관을 열람할 수 있도록 합니다. 가입 후 회원이 공식 문의 이메일 dioapp.official@gmail.com으로 요청하면 운영자는 해당 회원에게 적용되는 약관의 사본을 이메일로 제공합니다. 영구 삭제·공동 작업 보존 등 중요한 사항은 이용자가 이해할 수 있도록 설명합니다.",
           "number": 1
         },
         {
@@ -191,8 +191,18 @@
         },
         {
           "type": "listItem",
-          "text": "운영자는 전체 공지를 DIO 공식 인스타그램과 X(트위터)에 게시합니다. 중요한 개별 통지는 운영자가 공식 Gmail 계정인 dioapp.official@gmail.com에서 해당 회원이 등록한 이메일 주소로 직접 보냅니다. 문의·신고·이의제기는 공식 이메일로 접수합니다.",
-          "number": 1
+          "text": "운영자는 전체 공지를 DIO 공식 인스타그램 @dio_dakku과 X(트위터) @dio_dakku에 게시합니다. 중요한 개별 통지는 운영자가 공식 Gmail 계정인 dioapp.official@gmail.com에서 해당 회원이 등록한 이메일 주소로 직접 보냅니다. 문의·신고·이의제기는 공식 이메일로 접수합니다.",
+          "number": 1,
+          "links": [
+            {
+              "label": "인스타그램 @dio_dakku",
+              "url": "https://www.instagram.com/dio_dakku/"
+            },
+            {
+              "label": "X(트위터) @dio_dakku",
+              "url": "https://x.com/dio_dakku"
+            }
+          ]
         },
         {
           "type": "listItem",
@@ -801,7 +811,7 @@
       "termsType": null,
       "termsVersion": "v2",
       "effectiveDate": "2026-11-09",
-      "sourceSha256": "46ed5329280cb1395bd89f4984a65366b888a399a24fa76c53985454d35131f0",
+      "sourceSha256": "16805c4d05ae9478bb5281f509461f234ed19b805c849bf3a10b34c0d46f6d1d",
       "source": "privacy-policy.md",
       "html": "privacy-policy.html",
       "blocks": [
@@ -1159,21 +1169,49 @@
         },
         {
           "type": "listItem",
+          "text": "중요한 개별 통지: 약관 변경이나 계정 이용 제한 등 개별 안내가 필요한 경우, 운영자가 등록 이메일 주소와 통지 내용을 Gmail을 통해 전송합니다. 발송과 필요한 후속 확인이 끝나면 관련 이메일을 지체 없이 삭제합니다. 법령에 따라 보존해야 하는 정보는 해당 근거와 기간에 한해 별도로 보관합니다."
+        },
+        {
+          "type": "listItem",
           "text": "앱 내 신고 접수 알림: 운영자에게는 접수 사실을 알리는 고정 문구만 이메일로 전송합니다. 신고 내용, 회원 정보 및 증빙은 앱 내 신고 처리 기준에 따라 관리합니다."
         },
         {
-          "type": "paragraph",
-          "text": "Google은 전 세계에 서버를 운영하며, Gmail에서 처리하는 정보가 대한민국 밖에서 처리·보관될 수 있다고 안내합니다. Google의 일반 데이터 삭제 정책에 따르면 계정에서 삭제한 데이터를 서버에서 제거하는 데 통상 약 2개월이 걸리고, 암호화된 백업에는 최대 6개월간 남을 수 있습니다. 기술적 사유로 삭제가 지연되거나 법령에 따라 일부 정보가 더 오래 보존될 수 있습니다. Google 개인정보처리방침, Google 데이터 보관·삭제 안내",
+          "type": "listItem",
+          "text": "서비스 제공자 및 문의처: Google LLC(미국 소재). Google 서비스 약관, Google 개인정보 문의",
+          "links": [
+            {
+              "label": "Google 서비스 약관",
+              "url": "https://policies.google.com/terms?hl=ko"
+            },
+            {
+              "label": "Google 개인정보 문의",
+              "url": "https://support.google.com/policies/contact/general_privacy_form"
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "text": "처리·보관 지역: Google은 전 세계 서버에서 이용자의 거주 국가 밖에서도 정보를 처리할 수 있다고 안내합니다. Google LLC의 법인 소재지는 미국이며, 공개 자료로는 DIO의 개인용 Gmail에서 개별 이메일이 실제로 처리·보관되는 국가를 특정할 수 없습니다. Google 개인정보처리방침",
           "links": [
             {
               "label": "Google 개인정보처리방침",
               "url": "https://policies.google.com/privacy?hl=ko"
-            },
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "text": "Google 시스템에서의 삭제: Google의 일반 삭제 정책에 따르면 계정에서 삭제한 데이터를 서버에서 제거하는 데 통상 약 2개월이 걸리고, 암호화된 백업에는 최대 6개월간 남을 수 있습니다. 기술적 사유로 삭제가 지연되거나 법령에 따라 일부 정보가 더 오래 보존될 수 있습니다. Google 데이터 보관·삭제 안내",
+          "links": [
             {
               "label": "Google 데이터 보관·삭제 안내",
               "url": "https://policies.google.com/technologies/retention?hl=ko"
             }
           ]
+        },
+        {
+          "type": "listItem",
+          "text": "이용을 원하지 않는 경우: 이메일 인증이나 재설정 이메일을 요청하지 않을 수 있습니다. 이 경우 해당 방식의 가입 또는 비밀번호 재설정을 완료할 수 없습니다. 공식 Gmail 주소로 문의를 보내지 않으면 해당 이메일 문의는 처리되지 않습니다."
         },
         {
           "type": "heading",
