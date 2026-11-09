@@ -119,7 +119,7 @@ GET `/diaries/{diaryId}/invites`는 기존 최상위 available/token/inviteUrl/e
 - H2: `./gradlew test --tests "com.f106.DIO.sharing.SharingTests" --tests "com.f106.DIO.sharing.EmailInviteTests"`.
 - 실제 PostgreSQL: 별도 폐기용 dio_sharing_qa DB를 만들고 DIO_SHARING_POSTGRES_URL=`jdbc:postgresql://127.0.0.1:포트/dio_sharing_qa`, DIO_SHARING_POSTGRES_PASSWORD를 설정한 뒤 `./gradlew sharingPostgresTest`.
 - 전용 이름/루프백이 아니거나 환경변수가 없으면 거부한다. 개인/공용 DB로 폴백하지 않는다. 테스트는 고유 사용자/다이어리를 생성하며 개인 DB를 초기화하지 않는다.
-- CI의 백엔드 기본 테스트는 새 회원 초대에서 SMTP가 정확히 한 번 호출되고 미가입·비활성·이미 참여·차단 관계·중복 요청에는 추가 호출이 없는지 검증한다. 발신 주소가 비어 있을 때의 SMTP 미호출도 확인한다. 별도 격리 PostgreSQL 공유 테스트는 초대 생성·중복·수신자 권한·알림 저장을 검증한다.
+- CI의 백엔드 기본 테스트는 새 회원 초대에서 SMTP가 정확히 한 번 호출되고 미가입·비활성·이미 참여·차단 관계·중복 요청에는 추가 호출이 없는지 검증한다. `EmailInviteTests`는 발신 주소가 비어 있을 때 앱 내 알림이 생성되고 SMTP가 호출되지 않는지 검증한다. 별도 격리 PostgreSQL 공유 테스트는 초대 생성·중복·수신자 권한·알림 저장을 검증한다.
 
 초대와 앱 내 알림을 같은 트랜잭션에 저장한다. 커밋 뒤 전용 실행기에서 메일을 한 번 시도한다. 메일 실패 또는 대기열 포화는 서버 로그에 남기며, 저장된 초대·앱 내 알림과 API 응답에 영향을 주지 않는다. 기존 EMAIL_FAILED 행의 조회 호환성은 유지한다.
 
