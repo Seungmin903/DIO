@@ -63,7 +63,7 @@ function fixture(t, initial, { failedRead = false, failedDelete = false, failedW
   async function flush() { for (let i = 0; i < 12; i++) { if (dirty) render(); await new Promise(resolve => setImmediate(resolve)); } if (dirty) render(); }
   render();
   t.after(() => slots.forEach(slot => slot?.cleanup?.()));
-  return { data, flush, get hook() { return value; }, setNow: n => { now = n; }, resume() { listeners.forEach(fn => fn('active')); }, tick() { intervals.forEach(fn => fn()); } };
+  return { data, flush, get hook() { return value; }, allowReads() { failedRead = false; }, setNow: n => { now = n; }, resume() { listeners.forEach(fn => fn('active')); }, tick() { intervals.forEach(fn => fn()); } };
 }
 
 test('시작 시 30일 만료 항목만 삭제하고 1ms 남은 항목은 앱 복귀 시 정리한다', async t => {
@@ -100,8 +100,24 @@ test('자동 삭제 실패는 휴지통에 남기고 오류를 안내하며 삭�
 test('읽기 실패 시 기존 목록과 편집 문서를 덮어쓰거나 자동 삭제하지 않는다', async t => {
   const f = fixture(t, [item('a', retention.TRASH_RETENTION_MS)], { failedRead: true });
   const original = f.data.get('diaries'); await f.flush();
+  assert.equal(f.hook.loaded, true);
+  assert.equal(f.hook.libraryReadFailed, true);
   assert.equal(f.data.get('diaries'), original);
   assert.equal(f.data.has('doc:a'), true);
+});
+
+test('기기 목록 읽기를 다시 시도해 성공하면 실패 상태를 지우고 저장을 재개한다', async t => {
+  const f = fixture(t, [item('saved', null)], { failedRead: true });
+  assert.equal(f.hook.loaded, false);
+  await f.flush();
+  assert.equal(await f.hook.addDiary(item('new', null)), false);
+  f.allowReads();
+  f.hook.retryLibraryRead();
+  await f.flush();
+  assert.equal(f.hook.loaded, true);
+  assert.equal(f.hook.libraryReadFailed, false);
+  assert.deepEqual(f.hook.diaries.map(d => d.id), ['saved']);
+  assert.equal(await f.hook.addDiary(item('new', null)), true);
 });
 
 test('자동 정리와 새 다이어리 저장은 같은 큐를 사용해 서로의 목록 변경을 보존한다', async t => {

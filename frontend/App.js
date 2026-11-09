@@ -34,6 +34,8 @@ import { C, DEFAULT_FILTER } from './src/diary/constants';
 import { useDiaries } from './src/diary/hooks/useDiaries';
 import { useMemberDiaries } from './src/diary/hooks/useMemberDiaries';
 import MemberRequestNotice from './src/diary/components/MemberRequestNotice';
+import { LoadingSpot } from './src/diary/components/EmptyState';
+import DioButton from './src/shared/DioButton';
 import DiaryCreateModal from './src/diary/components/DiaryCreateModal';
 import { withPdfPages } from './src/diary/utils/pdfImport';
 import { coverTabPaint } from './src/diary/utils/coverDesign';
@@ -301,7 +303,11 @@ export default function App() {
           onConsumeMailInvitation={consumeMailInvitation} onSwitchInvitationAccount={switchInvitationAccount}
           onEndPreview={endSession} onClearSession={clearSession} onWithdrawn={withdrawSession} /></LoginGateProvider> : null
       )}
-      {!booting && !previewSession && !mockSource && !restoreFailed && <View style={[s.empty, { backgroundColor: SPLASH.backgroundColor }]}><Text style={s.emptyCopy} accessibilityLiveRegion="polite">앱을 준비하고 있어요…</Text></View>}
+      {!booting && !previewSession && !mockSource && !restoreFailed && (
+        <View style={[s.provider, { backgroundColor: SPLASH.backgroundColor }]}>
+          <LoadingSpot centered label="로그인 정보를 확인하고 있어요." />
+        </View>
+      )}
       {!booting && restoreFailed && <SessionRestoreScreen error={restoreState.error} busy={restoreState.status !== 'error'} onRetry={restoreLogin}
         onLogin={() => setLoginRequest({ sessionExpired: restoreState.error?.sessionExpired === true,
           restoreSession: __DEV__ && restoreState.error?.code === 'DEVELOPMENT_ACCESS_REQUIRED' })} onGuest={continueAsGuest} />}
@@ -512,6 +518,8 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onWithdraw
     setDiaries,
     addDiary,
     loaded,
+    libraryReadFailed,
+    retryLibraryRead,
     moveToTrash,
     moveManyToTrash,
     restoreFromTrash,
@@ -959,6 +967,10 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onWithdraw
     return () => { cancelled = true; clearTimeout(timer); };
   }, [loaded, page, prefetchKey]);
 
+  const memberListFailed = member && Boolean(diaryState.error || (memberLibraryMatches && libraryFailed));
+  const libraryLoading = !loaded || (member && (libraryBusy || (!memberListFailed
+    && (fullLoadPending || !memberLibraryMatches || !libraryReady || diaryState.refreshing))));
+  const localListFailed = !member && libraryReadFailed;
   const libraryScreen = useMemo(() => (
     <LibraryScreen
       compact={isPhone}
@@ -979,7 +991,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onWithdraw
       onEdit={edit}
       onDelete={moveDiaryToTrash}
       onShare={shareDiary}
-      onCreate={create}
+      onCreate={loaded && !localListFailed ? create : undefined}
       railWidthRef={isPhone ? null : railWidthRef}
       selection={selection}
       onSelectionChange={setSelection}
@@ -1002,11 +1014,14 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onWithdraw
           try { const d = await diaryState.retryCreation(); setCreateOpen(false); await enterEditor(d); }
           catch (error) { notify('이전 생성을 확인하지 못했어요', error.message); }
           finally { savingRef.current = false; setSaving(false); }
-        }} /></> : null}
-      suppressEmpty={member && Boolean(fullLoadPending || !memberLibraryMatches || diaryState.library.loading || diaryState.library.error || diaryState.error || diaryState.refreshing)}
-      loading={member && libraryDiaries.length === 0 && Boolean(fullLoadPending || !memberLibraryMatches || diaryState.library.loading) && !diaryState.library.error}
+        }} /></> : localListFailed ? <View style={{ padding: 12, gap: 8 }} accessibilityLiveRegion="polite">
+          {loaded && <Text accessibilityRole="alert" style={s.cardMeta}>기기에 저장된 다이어리 목록을 불러오지 못했어요.</Text>}
+          <DioButton label={loaded ? '다시 불러오기' : '불러오는 중…'} disabled={!loaded} onPress={retryLibraryRead} style={s.noticeAction} />
+        </View> : null}
+      suppressEmpty={libraryLoading || memberListFailed || localListFailed}
+      loading={libraryLoading}
     />
-  ), [guestImport, carousel, navigate, changeCarousel, changeFilter, changeView, changeLibrarySort, create, edit, favorite, filter, isPhone, tabletPortrait,libraryMetadata, librarySort, moveDiaryToTrash, moveSelectedToTrash, open, selection, trashing, view, libraryDiaries, member, memberLibraryMatches, remoteQuery, diaryState.library, diaryState.bulkTrash, diaryState.pending, diaryState.error, diaryState.refreshing, diaryState.lifecycle, diaryState.trashLoading, diaryState.trashError, diaryState.store, saving, enterEditor]);
+  ), [guestImport, carousel, navigate, changeCarousel, changeFilter, changeView, changeLibrarySort, create, edit, favorite, filter, isPhone, tabletPortrait,libraryMetadata, librarySort, moveDiaryToTrash, moveSelectedToTrash, open, selection, trashing, view, libraryDiaries, member, memberLibraryMatches, remoteQuery, diaryState.library, diaryState.bulkTrash, diaryState.pending, diaryState.error, diaryState.refreshing, diaryState.lifecycle, diaryState.trashLoading, diaryState.trashError, diaryState.store, saving, enterEditor, loaded, localListFailed, retryLibraryRead, libraryLoading, memberListFailed]);
 
   // 보관함(libraryScreen)처럼 요소를 memo 해 둔다. 사이드 메뉴를 여닫느라 App 이 다시 그려져도 휴지통 목록은 다시 그리지 않는다.
   const trashScreen = useMemo(() => (
@@ -1064,10 +1079,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onWithdraw
     />
   ), [member, diaryState.lifecycle, diaryState.bulkTrash, diaryState.trashLoading, diaryState.trashError, diaryState.store, isPhone, tabletPortrait, trashedDiaries, trashNow, trashError, cleanupTrash, restoreFromTrash, deletePermanently]);
 
-  // 시작 애니메이션보다 저장 목록 로딩이 길면 준비 안내를 표시한다.
-  let content = loaded ? libraryScreen : (
-    <View style={s.empty}><Text style={s.emptyCopy} accessibilityLiveRegion="polite">다이어리를 불러오고 있어요.</Text></View>
-  );
+  let content = libraryScreen;
   if (page === 'editor') {
     content = (
       <EditorScreen

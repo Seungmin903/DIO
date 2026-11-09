@@ -32,7 +32,13 @@ export function useDiaries() {
     return result;
   }, []);
   const [loaded, setLoaded] = useState(false);
-  // 저장소를 읽지 못했으면 기존 목록을 빈 목록으로 덮어쓰지 않도록 이번 실행 동안 저장하지 않는다.
+  const [libraryReadFailed, setLibraryReadFailed] = useState(false);
+  const [loadAttempt, setLoadAttempt] = useState(0);
+  const retryLibraryRead = useCallback(() => {
+    setLoaded(false);
+    setLoadAttempt(attempt => attempt + 1);
+  }, []);
+  // 목록 읽기에 성공한 뒤에만 저장해 기존 목록을 빈 목록으로 덮어쓰지 않는다.
   const [writable, setWritable] = useState(false);
 
   useEffect(() => {
@@ -68,11 +74,12 @@ export function useDiaries() {
         const ids = new Set(restored.map((diary) => diary.id));
         return sortByCreated([...restored, ...current.filter((diary) => !ids.has(diary.id))]);
       });
+      setLibraryReadFailed(!readable);
       setWritable(readable);
       setLoaded(true);
     })();
     return () => { cancelled = true; };
-  }, [setDiaries]);
+  }, [loadAttempt, setDiaries]);
 
   useEffect(() => {
     if (writable) enqueue(() => saveJSON(STORAGE_KEYS.diaries, currentDiaries.current));
@@ -161,6 +168,8 @@ export function useDiaries() {
     setDiaries,
     addDiary,
     loaded,
+    libraryReadFailed,
+    retryLibraryRead,
     moveToTrash,
     moveManyToTrash,
     restoreFromTrash,
