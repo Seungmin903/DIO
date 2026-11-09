@@ -35,3 +35,19 @@ test('구글 가입의 네트워크 실패는 재시도 가능하고 뒤로가�
  let n=0;const {api}=setup(()=>{if(++n===1)return response({code:'SOCIAL_SIGNUP_REQUIRED'},409);throw new Error('offline');});
  const draft=await api.social('google',{ageConfirmed:true});await assert.rejects(api.completeProfile({...draft,nickname:user.nickname,terms,ageConfirmed:true}),/서버/);api.cancelPending();await assert.rejects(api.completeProfile({...draft,nickname:user.nickname,terms,ageConfirmed:true}),/구글 인증/);
 });
+test('기존 이메일 계정은 비밀번호 확인 후에만 구글 로그인을 연결한다',async()=>{
+ let n=0;const {api,calls}=setup(()=>{n++;return n===1?response({code:'SOCIAL_ACCOUNT_LINK_REQUIRED'},409):n===2?response({code:'INVALID_EXISTING_CREDENTIALS',detail:'비밀번호를 확인해 주세요.'},401):response(tokens());});
+ const draft=await api.social('google');assert.equal(draft.mode,'social-link');
+ await assert.rejects(api.linkSocial('google',draft.email,'Wrong123!'),/비밀번호/);
+ const linked=await api.linkSocial('google',draft.email,'Password123!');
+ assert.equal(linked.userId,user.userId);assert.equal(calls.length,3);
+ assert.deepEqual(JSON.parse(calls[1].body),{idToken:'google-id-token',email:user.email,password:'Wrong123!'});
+ assert.deepEqual(JSON.parse(calls[2].body),{idToken:'google-id-token',email:user.email,password:'Password123!'});
+});
+test('계정 연결 취소 뒤 늦은 응답은 세션을 만들지 않는다',async()=>{
+ let resolve;const pending=new Promise(r=>resolve=r);let n=0;
+ const {api}=setup(()=>++n===1?response({code:'SOCIAL_ACCOUNT_LINK_REQUIRED'},409):pending);
+ const draft=await api.social('google');const link=api.linkSocial('google',draft.email,'Password123!');
+ api.cancelPending();resolve(response(tokens()));
+ await assert.rejects(link,/취소/);assert.equal(api.getSessionKey(),null);
+});

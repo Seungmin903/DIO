@@ -93,6 +93,53 @@ class SocialLoginTests {
   assertThat(response.user().userId()).isEqualTo(user.getUserId().toString());
   assertThat(accounts.findByUserIdAndProvider(user.getUserId(),"KAKAO")).isPresent();
  }
+ @Test void linkingRejectsAnIdentityOrProviderAlreadyLinkedToAnAccount(){
+  var first=users.saveAndFlush(new User("first-linked@example.com","첫회원",Instant.now()));
+  var second=users.saveAndFlush(new User("second-linked@example.com","둘회원",Instant.now()));
+  accounts.saveAndFlush(new EmailAuthProvider(first.getUserId(),first.getEmail(),passwords.encode("Password123!"),Instant.now()));
+  accounts.saveAndFlush(new EmailAuthProvider(second.getUserId(),second.getEmail(),passwords.encode("Password123!"),Instant.now()));
+  accounts.saveAndFlush(EmailAuthProvider.social(second.getUserId(),SocialProvider.KAKAO,"already-linked",Instant.now()));
+  code(()->social.link(SocialProvider.KAKAO,"already-linked;"+first.getEmail()+";true",first.getEmail(),"Password123!",null),"SOCIAL_IDENTITY_ALREADY_LINKED");
+  code(()->social.link(SocialProvider.KAKAO,"new-subject;"+second.getEmail()+";true",second.getEmail(),"Password123!",null),"SOCIAL_PROVIDER_ALREADY_LINKED");
+ }
+ @Test void unlinkRequiresTheOwnerAndAnotherUsableLoginMethod(){
+  var user=users.saveAndFlush(new User("unlink@example.com","해제회원",Instant.now()));
+  accounts.saveAndFlush(new EmailAuthProvider(user.getUserId(),user.getEmail(),passwords.encode("Password123!"),Instant.now()));
+  accounts.saveAndFlush(EmailAuthProvider.social(user.getUserId(),SocialProvider.KAKAO,"unlink-subject",Instant.now()));
+  social.unlink(user.getUserId(),SocialProvider.KAKAO,"unlink-subject;"+user.getEmail()+";true");
+  assertThat(accounts.findByUserIdAndProvider(user.getUserId(),"KAKAO")).isEmpty();
+
+  var socialOnly=users.saveAndFlush(new User("social-only@example.com","소셜회원",Instant.now()));
+  accounts.saveAndFlush(EmailAuthProvider.social(socialOnly.getUserId(),SocialProvider.KAKAO,"only-subject",Instant.now()));
+  code(()->social.unlink(socialOnly.getUserId(),SocialProvider.KAKAO,"only-subject;"+socialOnly.getEmail()+";true"),"LAST_LOGIN_PROVIDER");
+  code(()->social.unlink(user.getUserId(),SocialProvider.KAKAO,"only-subject;"+socialOnly.getEmail()+";true"),"SOCIAL_PROVIDER_MISMATCH");
+  code(()->social.unlink(user.getUserId(),SocialProvider.KAKAO,"missing-subject;"+user.getEmail()+";true"),"SOCIAL_PROVIDER_NOT_LINKED");
+ }
+ @Test void unlinkDoesNotTreatPasswordlessEmailRecordAsUsable(){
+  var user=users.saveAndFlush(new User("passwordless@example.com","비밀번호없음",Instant.now()));
+  accounts.saveAndFlush(new EmailAuthProvider(user.getUserId(),user.getEmail(),null,Instant.now()));
+  accounts.saveAndFlush(EmailAuthProvider.social(user.getUserId(),SocialProvider.KAKAO,"passwordless-subject",Instant.now()));
+  code(()->social.unlink(user.getUserId(),SocialProvider.KAKAO,"passwordless-subject;"+user.getEmail()+";true"),"LAST_LOGIN_PROVIDER");
+ }
+ @Test void unlinkEndpointReturnsNoStoreAndRejectsUnknownProvider() throws Exception {
+  var user=users.saveAndFlush(new User("unlink-http@example.com","해제HTTP",Instant.now()));
+  accounts.saveAndFlush(new EmailAuthProvider(user.getUserId(),user.getEmail(),passwords.encode("Password123!"),Instant.now()));
+  accounts.saveAndFlush(EmailAuthProvider.social(user.getUserId(),SocialProvider.KAKAO,"unlink-http-subject",Instant.now()));
+  var token=login.login(new com.f106.DIO.auth.dto.LoginRequest(user.getEmail(),"Password123!","phone"),"127.0.0.1").accessToken();
+  mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete("/api/v1/me/auth-providers/kakao")
+   .header("Authorization","Bearer "+token)
+   .contentType("application/json").content("{\"idToken\":\"unlink-http-subject;"+user.getEmail()+";true\"}"))
+   .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status().isNoContent())
+   .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header().string("Cache-Control","no-store"));
+  mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete("/api/v1/me/auth-providers/unknown")
+   .header("Authorization","Bearer "+token)
+   .contentType("application/json").content("{\"idToken\":\"token\"}"))
+   .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status().isBadRequest())
+   .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("code").value("INVALID_SOCIAL_PROVIDER"));
+  mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete("/api/v1/me/auth-providers/kakao")
+   .contentType("application/json").content("{\"idToken\":\"token\"}"))
+   .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status().isUnauthorized());
+ }
  @Test void inactiveSocialUserCannotLogin(){
   String c=credential();var r=social.authenticate(SocialProvider.KAKAO,c,enrollment(),null);
   var user=users.findById(Long.parseLong(r.user().userId())).orElseThrow();user.withdraw(Instant.now());users.saveAndFlush(user);

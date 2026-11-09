@@ -211,6 +211,26 @@ test('구글 로그인 창을 먼저 열고, 인증 오류는 시작 화면에�
  } finally { ui.unmount(); }
 });
 
+test('소셜 인증 대기 중 화면을 닫으면 늦은 응답을 적용하지 않는다',async()=>{
+ let resolve,cancelled=0;const ui=setup({social:()=>new Promise(r=>resolve=r),cancelPending:()=>{cancelled++;}});
+ try{
+  find(ui.render(),'구글로 로그인').props.onPress();ui.unmount();
+  resolve({mode:'authenticated',provider:'google',userId:'7',email:'user@gmail.com'});await tick();
+  assert.deepEqual(ui.sessions,[]);assert.ok(cancelled>0);
+ }finally{ui.unmount();}
+});
+
+test('소셜 신규 가입도 14세 미만 선택 뒤 가입 정보를 열지 않는다',async()=>{
+ const calls=[];const ui=setup({social:async()=>{calls.push('social');return {mode:'social-signup',provider:'google',email:'new@dio.test'};}});
+ try{
+  find(ui.render(),'구글로 로그인').props.onPress();await tick();
+  find(ui.render(),'만 14세 미만입니다').props.onPress();
+  assert.ok(find(ui.render(),'시작 화면으로'));assert.equal(find(ui.render(),'닉네임'),undefined);
+  find(ui.render(),'시작 화면으로').props.onPress();
+  assert.equal(find(ui.render(),'구글로 로그인').props.disabled,false);assert.deepEqual(calls,['social']);
+ }finally{ui.unmount();}
+});
+
 const reader = ui => nodes(ui.render()).find(node => node.type === 'LegalDocumentScreen');
 const consentRows = [
  ['service','[필수] 이용약관 동의'], ['privacy','[필수] 개인정보 수집·이용 동의'],
@@ -228,7 +248,7 @@ for(const [key,label] of consentRows) test(`앱 내 문서에서 동의하면 �
   find(ui.render(),'회원가입').props.onPress();
   const doc=openConsent(ui,key);
   assert.equal(doc.props.document.id,key);
-  assert.equal(doc.props.document.effectiveDate,'2026-11-04');
+  assert.equal(doc.props.document.effectiveDate,'2026-11-05');
   assert.equal(find(ui.render(),label).props.checked,false);
   doc.props.onAgree();
   assert.equal(reader(ui),undefined);
@@ -399,6 +419,17 @@ test('구글 로그인은 처리 중 중복 실행하지 않고 신규 계정만
  const button=find(ui.render(),'구글로 로그인');button.props.onPress();button.props.onPress();assert.equal(calls,1)
  resolveSocial({provider:'kakao',mode:'social-signup',email:'new@dio.test'});await tick();
  assert.ok(find(ui.render(),'만 14세 이상입니다'));assert.equal(find(ui.render(),'닉네임'),undefined);ui.unmount()
+})
+
+test('기존 이메일 계정의 소셜 로그인은 비밀번호 확인 화면에서 연결한다',async()=>{
+ const calls=[];const linked={provider:'google',userId:'7',email:'existing@dio.test'};
+ const ui=setup({social:async()=>({provider:'google',mode:'social-link',email:'existing@dio.test'}),linkSocial:async(...args)=>{calls.push(args);return linked;}});
+ try{
+  find(ui.render(),'구글로 로그인').props.onPress();await tick();
+  assert.ok(find(ui.render(),'기존 비밀번호'));find(ui.render(),'기존 비밀번호').props.onChange('Password123!');
+  find(ui.render(),'구글 로그인 연결').props.onPress();await tick();
+  assert.deepEqual(calls,[['google','existing@dio.test','Password123!']]);assert.deepEqual(ui.sessions,[linked]);
+ }finally{ui.unmount();}
 })
 
 test('키보드가 열린 뒤 입력칸 위치를 재측정하고 가려진 만큼 스크롤한다',async()=>{

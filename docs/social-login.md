@@ -35,7 +35,7 @@
 
 ### 기존 계정 연결·해제
 
-기존 이메일 계정 연결은 `POST /api/v1/auth/oauth/{provider}/link`로 요청한다. `{ "idToken":"...", "email":"member@example.com", "password":"기존 DIO 비밀번호" }`를 보내며, 성공하면 일반 로그인과 같은 200 `LoginResponse`를 받는다. `SOCIAL_IDENTITY_ALREADY_LINKED`, `SOCIAL_PROVIDER_ALREADY_LINKED`, `SOCIAL_LINK_CONFLICT`는 409이고 `INVALID_EXISTING_CREDENTIALS`는 401이다. 비밀번호가 없는 소셜 전용 기존 계정은 `SOCIAL_EXISTING_PROVIDER_LOGIN_REQUIRED`(409)로 기존 제공자 로그인 후 연결하도록 안내한다.
+기존 **이메일·비밀번호** 계정 연결은 `POST /api/v1/auth/oauth/{provider}/link`로 요청한다. `{ "idToken":"...", "email":"member@example.com", "password":"기존 DIO 비밀번호" }`를 보내며, 성공하면 일반 로그인과 같은 200 `LoginResponse`를 받는다. `SOCIAL_IDENTITY_ALREADY_LINKED`, `SOCIAL_PROVIDER_ALREADY_LINKED`, `SOCIAL_LINK_CONFLICT`는 409이고 `INVALID_EXISTING_CREDENTIALS`는 401이다. 비밀번호가 없는 소셜 전용 기존 계정은 `SOCIAL_EXISTING_PROVIDER_LOGIN_REQUIRED`(409)를 받고, 연결이 아니라 기존에 가입한 제공자로 로그인해야 한다. 로그인한 사용자에게 다른 제공자를 추가하는 API는 아직 제공하지 않는다.
 
 연결 해제는 `DELETE /api/v1/me/auth-providers/{provider}`에 새 제공자 `idToken`을 본문으로 보내며 성공 시 204다. `SOCIAL_PROVIDER_NOT_LINKED`(404), `SOCIAL_PROVIDER_MISMATCH`(403), `LAST_LOGIN_PROVIDER`(409)를 반환한다. 마지막 **사용 가능한** 로그인 수단(소셜 제공자 또는 비밀번호 해시가 있는 EMAIL)은 해제할 수 없다.
 
@@ -90,6 +90,6 @@ Google의 고정 JWKS에서 RS256 서명, issuer, audience, azp, 만료, subject
 
 공식 안내: https://developers.google.com/identity/sign-in/android/backend-auth , https://react-native-google-signin.github.io/docs/setting-up/expo , https://docs.expo.dev/guides/google-authentication/ .
 
-카카오·애플 실제 검증, 이메일 중복 계정 연결, Google의 비-Gmail/Workspace 신규 이메일 추가 인증 및 제공자 연결 해제는 후속 작업이다.
+카카오·애플 실제 검증, 로그인한 소셜 전용 사용자의 추가 제공자 연결, Google의 비-Gmail/Workspace 신규 이메일 추가 인증은 후속 작업이다.
 
-최종 자동 검증: 백엔드 관련 48개, 프론트 인증 177개 통과. Android JS/Hermes 번들 생성 성공. APK 설치 및 실제 구글 계정 로그인은 미검증.
+최종 자동 검증: 백엔드 전체 1104개(PostgreSQL 전용 355개 건너뜀), 프론트 `test:auth` 395개 통과. Android JS/Hermes 번들 생성은 이전 검증에서 성공했고 이번 변경 뒤에는 다시 만들지 않았다. APK 설치 및 실제 구글 계정 로그인은 미검증.

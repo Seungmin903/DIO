@@ -110,7 +110,7 @@ public class SocialLoginService {
                 var emailAccount=accounts.findByProviderAndProviderUserId("EMAIL",email).orElse(null);
                 if(emailAccount!=null&&emailAccount.getPasswordHash()!=null)
                     throw error(HttpStatus.CONFLICT,"SOCIAL_ACCOUNT_LINK_REQUIRED","기존 계정 비밀번호를 확인해 소셜 로그인을 연결해 주세요.");
-                throw error(HttpStatus.CONFLICT,"SOCIAL_EXISTING_PROVIDER_LOGIN_REQUIRED","기존 로그인 방식으로 로그인한 뒤 계정을 연결해 주세요.");
+                throw error(HttpStatus.CONFLICT,"SOCIAL_EXISTING_PROVIDER_LOGIN_REQUIRED","이 이메일은 다른 로그인 방식으로 이미 가입되어 있어요. 해당 로그인 방식으로 계속해 주세요.");
             }
             if(enrollment==null)throw error(HttpStatus.CONFLICT,"SOCIAL_SIGNUP_REQUIRED","가입 정보를 입력해 주세요.");
             if(!validator.validate(enrollment).isEmpty())throw error(HttpStatus.BAD_REQUEST,"INVALID_SOCIAL_ENROLLMENT","연령 확인과 가입 정보를 확인해 주세요.");
