@@ -33,6 +33,22 @@ test('휴지통 오류·재시도·메타데이터 경고 시 기존 복구 동�
   assert.ok(buttons(busyView).filter(b => b.props.onPress === reload || b.props.onPress === retry).every(b => b.props.disabled))
 })
 
+test('보관함은 휴지통 복원·영구 삭제 오류를 숨기고 휴지통 이동 복구는 유지한다', () => {
+  const error = { status: 503 }
+  for (const kind of ['restore', 'purge']) {
+    const state = { lifecycle: { kind, error, canRetry: true }, trashError: error, metadataCleanupError: { code: 'cleanup', message: '정리 경고' } }
+    assert.equal(trash({ state, context: 'library' }), null)
+    assert.ok(trash({ state }), '휴지통에서는 오류를 볼 수 있어야 한다')
+  }
+  const calls = []
+  const state = { lifecycle: { kind: 'trash', error, canRetry: true } }
+  const view = trash({ state, context: 'library', onReload: () => calls.push('reload'), onRetry: () => calls.push('retry') })
+  assert.ok(words(view).includes('처리 결과를 확인하지 못했어요. 다시 확인해 주세요.'))
+  buttons(view).forEach(button => button.props.onPress())
+  assert.deepEqual(calls, ['reload', 'retry'])
+  assert.equal(trash({ state: { trashError: error }, context: 'library' }), null)
+})
+
 test('회원 목록을 다시 받기만 할 때는 칸을 그리지 않는다(목록이 밀리지 않게)', () => {
   assert.equal(request({ refreshing: true }), null)
   assert.equal(request({}), null)
