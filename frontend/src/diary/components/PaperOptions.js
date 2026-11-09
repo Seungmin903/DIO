@@ -87,7 +87,7 @@ export function TemplatePreview({ assetId, width: previewWidth, appearance, styl
   const previewHeight = previewWidth * height / width
   const lined = asset.type === 'note' && asset.background !== 'plain'
   const sketchKey = sketch && !lined && previewWidth < NOTE_THUMB_MAX ? paperSketchKey(assetId) : null
-  const page = { id: `preview-${assetId}`, backgroundAssetId: assetId, templateVersion: asset.templateVersion, canvasWidth: width, canvasHeight: height, paperAppearance: appearance, objects: [] }
+  const page = { id: `preview-${assetId}`, backgroundAssetId: assetId, templateVersion: asset.templateVersion ?? TEMPLATE_VERSION, canvasWidth: width, canvasHeight: height, paperAppearance: appearance, objects: [] }
   return <View pointerEvents="none" style={[styles.preview, { width: previewWidth, height: previewHeight, backgroundColor: appearance?.backgroundColor ?? '#FFFFFF' }, style]}>
     {sketchKey ? <PaperSketch sketchKey={sketchKey} orientation={asset.orientation} width={previewWidth} height={previewHeight} appearance={appearance} />
       : lined ? <NoteThumb assetId={assetId} background={asset.background} pageWidth={width} width={previewWidth} height={previewHeight} crop={previewWidth < NOTE_THUMB_MAX} appearance={appearance} />

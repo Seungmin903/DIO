@@ -56,6 +56,7 @@ export function packingBoxes(assetId) {
 }
 
 export function packingCheckAction(assetId, point, objects, color = '#292929') {
+  if (!point || !Number.isFinite(point.x) || !Number.isFinite(point.y)) return null
   const boxes = packingBoxes(assetId)
   const index = boxes.findIndex(({ x, y }) => Math.abs(point.x - x - 5) <= 10 && Math.abs(point.y - y - 5) <= 10)
   if (index < 0) return null
