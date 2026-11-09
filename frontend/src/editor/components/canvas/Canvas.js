@@ -419,12 +419,16 @@ export default function Canvas({
       // 이미 선택된 요소 근처를 누른 것은 '선택 풀기'로 본다. (요소가 하나뿐일 때 빈 곳을 눌러도 안 풀리던 문제)
       // 속지의 칸(완료 · 할 일 · 시작 · 진행 · 날짜 · 일정 막대)을 누르면 선택 도구에서도 바로 그 칸의 입력이 열린다.
       // 여행 노선과 캐리어는 각 속지에 맞는 입력을 우선 처리한다.
+      const near = start && nearestObject(touchSelectable, start, TAP_SLOP_PX / zoom)
+      if (near) {
+        dispatch({ type: 'select', ids: selectedIds.includes(near.id) ? [] : [near.id] })
+        return
+      }
       const checkAction = packingCheckAction(page.backgroundAssetId, start, page.objects, penSettings.color)
       if (checkAction) { dispatch(checkAction); return }
       const edit = planner && start ? planner.editTap(page.planner, start, page.objects, penSettings.color) : null
       if (edit) { dispatch({ type: 'select', ids: [] }); applyPlannerResult(edit, start); return }
       if (routeAdd && routePath && start) { addRouteNodeAt(start); return }
-      const near = start && nearestObject(touchSelectable, start, TAP_SLOP_PX / zoom)
       dispatch({ type: 'select', ids: near && !selectedIds.includes(near.id) ? [near.id] : [] })
     },
   })

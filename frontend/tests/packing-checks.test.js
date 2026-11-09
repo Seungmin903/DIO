@@ -25,6 +25,12 @@ test('다른 속지와 체크박스 바깥은 건드리지 않는다', () => {
   assert.equal(packingCheckAction('remote-packing-list-portrait', { x: 100, y: 602 }, []), null)
 })
 
+test('누락되거나 유효하지 않은 탭 좌표는 안전하게 무시한다', () => {
+  assert.equal(packingCheckAction('remote-packing-list-portrait', null, []), null)
+  assert.equal(packingCheckAction('remote-packing-list-portrait', {}, []), null)
+  assert.equal(packingCheckAction('remote-packing-list-portrait', { x: NaN, y: 10 }, []), null)
+})
+
 test('펜으로 체크하면 선택한 색과 상자 밖까지 이어지는 표시를 저장한다', () => {
   const asset = 'remote-packing-list-portrait'
   const points = [{ x: 41, y: 602 }, { x: 44, y: 607 }, { x: 55, y: 592 }]

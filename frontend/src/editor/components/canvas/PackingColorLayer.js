@@ -1,12 +1,8 @@
-import { useEffect, useId, useRef, useState } from 'react'
-import { Pressable, Text, View } from 'react-native'
+import { useId } from 'react'
 import Svg, { Circle, ClipPath, Defs, G, Path, Rect } from 'react-native-svg'
 import { packingLayout } from '../../templates/packingLayout.js'
-import { packingColorAction } from '../../templates/packingEditing.js'
 import { pageSize } from '../../utils/pageGeometry.js'
-import { usePan } from '../../hooks/usePan'
 
-const regions = [['case-0', '왼쪽 틀'], ['interior-0', '왼쪽 안'], ['case-1', '오른쪽 틀'], ['interior-1', '오른쪽 안']]
 const rounded = ({ x, y, width: w, height: h, rx: r }) => `M${x+r} ${y}H${x+w-r}A${r} ${r} 0 0 1 ${x+w} ${y+r}V${y+h-r}A${r} ${r} 0 0 1 ${x+w-r} ${y+h}H${x+r}A${r} ${r} 0 0 1 ${x} ${y+h-r}V${y+r}A${r} ${r} 0 0 1 ${x+r} ${y}Z`
 
 // 색상은 기존 캔버스 요소로 저장해 서버·기기 복원 경로에서 보존한다.
@@ -21,48 +17,6 @@ export function PackingColorLayer({ page, zoom }) {
       {layout.interiors.map((box, i) => colors[`interior-${i}`] && <Rect key={`inside-${i}`} {...box} fill={colors[`interior-${i}`]} />)}
     </G>
   </Svg>
-}
-
-export function PackingColorControls({ page, zoom, color, dispatch, onOpenDrawer }) {
-  const [open, setOpen] = useState(false)
-  const [collapsed, setCollapsed] = useState(false)
-  const [position, setPosition] = useState(null)
-  const startRef = useRef(null)
-  const { width, height } = pageSize(page)
-  const pageWidth = width * zoom, pageHeight = height * zoom
-  const clamp = (value, max) => Math.max(0, Math.min(value, Math.max(0, max)))
-  const initial = { x: Math.max(0, pageWidth - 164), y: Math.max(0, pageHeight - 120) }
-  const current = position ?? initial
-  const pan = usePan({
-    onStart: () => { startRef.current = current; setOpen(false) },
-    onMove: (dx, dy) => {
-      const start = startRef.current ?? initial
-      setPosition({ x: clamp(start.x + dx, pageWidth - 148), y: clamp(start.y + dy, pageHeight - 44) })
-    },
-    onEnd: () => { startRef.current = null },
-  })
-  useEffect(() => { setPosition(null); setOpen(false); setCollapsed(false) }, [page.id])
-  if (!packingLayout(page.backgroundAssetId)) return null
-  const setRegion = region => {
-    const action = packingColorAction(region, color, page.objects)
-    if (action) dispatch(action)
-  }
-  const top = current.y < Math.min(200, pageHeight / 2)
-  return <View pointerEvents="box-none" style={{ position: 'absolute', left: clamp(current.x, pageWidth - 148), top: clamp(current.y, pageHeight - 44), zIndex: 10 }}>
-    {collapsed ? <Pressable accessibilityRole="button" accessibilityLabel="캐리어 꾸미기 다시 열기" onPress={() => setCollapsed(false)} style={{ backgroundColor: '#353047', borderRadius: 18, width: 36, height: 36, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#fff', fontSize: 20 }}>+</Text></Pressable> : <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#353047', borderRadius: 22, borderWidth: 1, borderColor: '#4c4560', elevation: 3 }}>
-      <View {...pan} accessibilityLabel="캐리어 꾸미기 이동" style={{ paddingHorizontal: 10, paddingVertical: 10 }}><Text style={{ color: '#ded8ef', fontSize: 17, lineHeight: 20 }}>⠿</Text></View>
-      <Pressable accessibilityRole="button" accessibilityLabel="캐리어 꾸미기" onPress={() => setOpen(!open)} style={{ paddingVertical: 11, paddingRight: 16 }}><Text style={{ color: '#ffffff', fontWeight: '700', fontSize: 13 }}>캐리어 꾸미기</Text></Pressable>
-    </View>}
-    {open && !collapsed && <View style={{ position: 'absolute', ...(top ? { top: 50 } : { bottom: 50 }), right: current.x < 110 ? undefined : 0, left: current.x < 110 ? 0 : undefined, width: Math.min(248, pageWidth), backgroundColor: '#ffffff', borderColor: '#e8e5f0', borderWidth: 1, borderRadius: 16, padding: 14, elevation: 5, shadowColor: '#252037', shadowOpacity: 0.15, shadowRadius: 12, shadowOffset: { width: 0, height: 4 } }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}><Text style={{ fontWeight: '700', fontSize: 15, color: '#302a3d' }}>캐리어 꾸미기</Text><Pressable accessibilityRole="button" accessibilityLabel="캐리어 꾸미기 숨기기" onPress={() => { setOpen(false); setCollapsed(true) }}><Text style={{ color: '#706a7d', fontSize: 12, padding: 4 }}>숨기기</Text></Pressable></View>
-      <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
-        <Pressable accessibilityRole="button" accessibilityLabel="캐리어에 넣을 스티커 고르기" onPress={() => { setOpen(false); onOpenDrawer?.('sticker') }} style={{ flex: 1, backgroundColor: '#f2eff9', borderRadius: 10, padding: 10, alignItems: 'center' }}><Text style={{ color: '#554b73', fontWeight: '600', fontSize: 12 }}>스티커</Text></Pressable>
-        <Pressable accessibilityRole="button" accessibilityLabel="캐리어에 넣을 사진 고르기" onPress={() => { setOpen(false); onOpenDrawer?.('photo') }} style={{ flex: 1, backgroundColor: '#f2eff9', borderRadius: 10, padding: 10, alignItems: 'center' }}><Text style={{ color: '#554b73', fontWeight: '600', fontSize: 12 }}>사진</Text></Pressable>
-      </View>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7, marginBottom: 7 }}><View style={{ width: 13, height: 13, backgroundColor: color, borderRadius: 7, borderWidth: 1, borderColor: '#e4e1e8' }} /><Text style={{ color: '#615b6b', fontSize: 12, fontWeight: '600' }}>선택한 펜 색으로 칠하기</Text></View>
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>{regions.map(([id, label]) => <Pressable key={id} accessibilityRole="button" accessibilityLabel={`캐리어 ${label} 색칠`} onPress={() => setRegion(id)} style={{ width: '47%', paddingVertical: 9, alignItems: 'center', borderWidth: 1, borderColor: '#e8e5ee', borderRadius: 9 }}><Text style={{ fontSize: 12, color: '#45404d' }}>{label}</Text></Pressable>)}</View>
-    </View>}
-  </View>
 }
 
 // 수납 요소 위에는 테두리, 고정 끈과 그물만 다시 그린다.
