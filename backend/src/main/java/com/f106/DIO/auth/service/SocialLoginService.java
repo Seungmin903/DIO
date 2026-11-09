@@ -17,6 +17,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.*;
 import org.springframework.transaction.support.TransactionTemplate;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.security.crypto.password.PasswordEncoder;
 
 /** No public endpoint until real provider verification is configured. */
 @Service
@@ -30,12 +32,29 @@ public class SocialLoginService {
     private final com.f106.DIO.user.service.UserPhotoService photos;
     private final Validator validator;
     private final TransactionTemplate transaction;
+    private final PasswordEncoder passwords;
     public SocialLoginService(List<SocialIdentityVerifier> adapters,EmailAuthProviderRepository accounts,UserRepository users,
-            UserTermsService terms,LoginSessionService sessions,LoginJwt jwt,Validator validator,PlatformTransactionManager manager,com.f106.DIO.user.service.UserPhotoService photos){
+            UserTermsService terms,LoginSessionService sessions,LoginJwt jwt,Validator validator,PlatformTransactionManager manager,com.f106.DIO.user.service.UserPhotoService photos,@Qualifier("authPasswordEncoder") PasswordEncoder passwords){
         for(var adapter:adapters)if(verifiers.put(adapter.provider(),adapter)!=null)throw new IllegalStateException("Duplicate social verifier");
         this.photos=photos;
         this.accounts=accounts;this.users=users;this.terms=terms;this.sessions=sessions;this.jwt=jwt;this.validator=validator;
-        transaction=new TransactionTemplate(manager);
+        transaction=new TransactionTemplate(manager);this.passwords=passwords;
+    }
+    @Transactional(propagation=Propagation.NEVER)
+    public LoginResponse link(SocialProvider provider,String credential,String email,String password,String deviceName){
+        var verifier=provider==null?null:verifiers.get(provider);
+        if(verifier==null)throw error(HttpStatus.SERVICE_UNAVAILABLE,"SOCIAL_PROVIDER_NOT_CONFIGURED","아직 준비 중인 로그인 방식이에요.");
+        if(credential==null||credential.isBlank()||credential.length()>16384||password==null||password.isBlank())throw error(HttpStatus.BAD_REQUEST,"INVALID_SOCIAL_REQUEST","로그인 요청을 확인해 주세요.");
+        jwt.configured();var identity=verifier.verify(credential);String normalized=UserInput.normalizeEmail(email);
+        if(identity==null||identity.provider()!=provider||!identity.emailVerified()||!normalized.equals(UserInput.normalizeEmail(identity.email())))throw error(HttpStatus.UNAUTHORIZED,"INVALID_SOCIAL_CREDENTIAL","소셜 인증을 다시 진행해 주세요.");
+        return transaction.execute(status->{
+            if(accounts.findForUpdate(provider.name(),identity.subject()).isPresent())throw error(HttpStatus.CONFLICT,"SOCIAL_IDENTITY_ALREADY_LINKED","이미 다른 계정에 연결된 소셜 계정이에요.");
+            var emailAccount=accounts.findForUpdate("EMAIL",normalized).orElseThrow(()->error(HttpStatus.UNAUTHORIZED,"INVALID_EXISTING_CREDENTIALS","기존 이메일 또는 비밀번호를 확인해 주세요."));
+            if(emailAccount.getPasswordHash()==null||!passwords.matches(password,emailAccount.getPasswordHash()))throw error(HttpStatus.UNAUTHORIZED,"INVALID_EXISTING_CREDENTIALS","기존 이메일 또는 비밀번호를 확인해 주세요.");
+            var user=users.findForUpdate(emailAccount.getUserId()).filter(u->u.isActive()).orElseThrow(()->error(HttpStatus.UNAUTHORIZED,"SOCIAL_ACCOUNT_INACTIVE","사용할 수 없는 계정이에요."));
+            accounts.saveAndFlush(EmailAuthProvider.social(user.getUserId(),provider,identity.subject(),Instant.now()));
+            return sessions.create(user,deviceName,Instant.now());
+        });
     }
     @Transactional(propagation=Propagation.NEVER)
     public LoginResponse authenticate(SocialProvider provider,String credential,SocialEnrollment enrollment,String deviceName){

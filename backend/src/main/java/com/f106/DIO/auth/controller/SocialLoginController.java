@@ -19,6 +19,17 @@ public class SocialLoginController {
  @PostMapping(value="/{provider}",consumes=MediaType.APPLICATION_JSON_VALUE)
  @Operation(summary="소셜 로그인·가입",description="google, apple 지원. 제공자 ID 토큰(Google ID 토큰, Apple identityToken)을 검증하여 기존 회원은 DIO 토큰을 발급합니다. 신규 회원은 409 SOCIAL_SIGNUP_REQUIRED 후 같은 경로로 enrollment(닉네임, ageConfirmed=true, agreements)를 보내 가입합니다. 사진은 multipart의 oauth JSON과 photo 파트로 전송합니다. 이메일이 같아도 기존 계정과 자동 연결하지 않습니다.")
  public ResponseEntity<LoginResponse> login(@PathVariable String provider,@Valid @RequestBody SocialLoginRequest body,HttpServletRequest request){return handle(provider,body,null,request);}
+ @PostMapping(value="/{provider}/link",consumes=MediaType.APPLICATION_JSON_VALUE)
+ @Operation(summary="기존 이메일 계정에 소셜 로그인 연결",description="Google 등 소셜 인증과 기존 DIO 이메일·비밀번호를 모두 확인한 뒤에만 로그인 수단을 연결합니다.")
+ public ResponseEntity<LoginResponse> link(@PathVariable String provider,@Valid @RequestBody SocialLinkRequest body,HttpServletRequest request){
+  SocialProvider value;
+  try {value=SocialProvider.valueOf(provider.toUpperCase(java.util.Locale.ROOT));}
+  catch(IllegalArgumentException error){throw new SocialLoginException(HttpStatus.BAD_REQUEST,"INVALID_SOCIAL_PROVIDER","로그인 방식을 확인해 주세요.");}
+  var reservation=throttle.reserve("social-link:"+value,request.getRemoteAddr());
+  try {var response=service.link(value,body.idToken(),body.email(),body.password(),body.deviceName());throttle.success(reservation);return ResponseEntity.ok().header("Cache-Control","no-store").body(response);}
+  catch(SocialLoginException error){if("INVALID_SOCIAL_CREDENTIAL".equals(error.code)||"INVALID_EXISTING_CREDENTIALS".equals(error.code))throttle.failed(reservation);throw error;}
+  finally {throttle.cancel(reservation);}
+ }
  @PostMapping(value="/{provider}",consumes=MediaType.MULTIPART_FORM_DATA_VALUE)
  public ResponseEntity<LoginResponse> signup(@PathVariable String provider,@Valid @RequestPart("oauth") SocialLoginRequest body,@RequestPart(value="photo",required=false) MultipartFile photo,HttpServletRequest request){return handle(provider,body,photo,request);}
  private ResponseEntity<LoginResponse> handle(String name,SocialLoginRequest body,MultipartFile photo,HttpServletRequest request){
