@@ -64,7 +64,7 @@ const uniforms = (box, ppu, color, ink, P = GLASS_INK) => {
   return [
     box.x, box.y, ppu, 0.5 / ppu,
     ...rgb, ...inkDensity(rgb), P.satK, P.T_MAX, P.rimR, P.fIn, P.fRim, P.tGamma, P.alphaK, P.satStart, P.satMax, P.flowAmp, P.flowScale,
-    ...sheenCol, ink.sheen === false ? 0 : P.sheenAmp * (ink.sheenAmount ?? 1), P.sheenRimA, P.sheenRimBand, P.sheenGate0, P.sheenGate1, P.sheenInT, P.sheenInAmp, P.sheenEdge, abLineOf(P.poolBlur), P.poolMix, P.sheenWiggle, P.sheenWScale,
+    ...sheenCol, ink.sheen === false ? 0 : P.sheenAmp * (ink.sheenAmount ?? 1), P.sheenRimA, P.sheenRimBand, P.sheenGate0, P.sheenGate1, P.sheenInT, P.sheenInAmp, P.sheenEdge, P.sheenPatch, P.sheenGrain, abLineOf(P.poolBlur), P.poolMix, P.sheenWiggle, P.sheenWScale,
     ...micaColor(film, 1), ...micaColor(film, Math.cos(tilt / 2)), ...micaColor(film, Math.cos(tilt)),
     P.glVeil, P.glVeilDesat, P.glVeilLift, P.glVeilScale,
     amount, P.glCell, P.glP, P.glRThin, P.glThinP, P.glRMin, P.glRMax, P.glBMin, P.glBMax, P.glTail, P.glDesat, P.glCloud, P.glCloudScale,

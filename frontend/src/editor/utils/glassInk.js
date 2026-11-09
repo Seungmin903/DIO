@@ -10,7 +10,7 @@
 //   → 셰이더 한 번: 두께 → 불투명도 · 색 깊이
 
 export const GLASS_INK = {
-  version: 21,
+  version: 22,
   T_MAX: 4,            // 마스크 G 채널 1.0 = 두께 4
   spacing: 0.12,       // 표본 간격(굵기 배수)
   // 속도 → 두께: 빠르면 얇게, 느리면 두껍게 (page 단위/ms)
@@ -65,6 +65,11 @@ export const GLASS_INK = {
   //   같은 등고선을 걸면 가는 획의 **양 가장자리**에 테가 돈다(실물 20: 강한 쉰 잉크는 글씨에도 테가 돈다).
   //   넓은 면에서는 꺼서(Ab 로 게이트) 기존 윤곽 테와 겹치지 않게 한다.
   sheenEdge: 0.9,      // 가는 획의 테 세기(0 = 끔) 20판: 0.55 는 티가 안 났다
+  // 22판: 테가 "화면 그래픽처럼" 보이던 것(사용자). 실물(참고 02 · 14 · 24)과 견주면 우리 띠는
+  //   ① 윤곽을 **빠짐없이** 두르고 ② 폭이 고르고 ③ 중간 스케일(1.5~5px) 변동이 실물의 2~8배라
+  //   에어브러시 테두리처럼 보였다. 실물은 접촉선이 고르게 고정되지 않아 **군데군데 끊기고 몰린다**.
+  sheenPatch: 0.42,    // 띠가 끊기는 정도(0 = 빠짐없이 두름, 1 = 많이 끊김)
+  sheenGrain: 0.4,     // 띠 안의 결(고운 알갱이) — 매끈한 그라데이션을 깬다
   poolBlur: 2.5,       // 고임 장 블러 시그마(굵기 배수) — 액체 평탄화 규모
   // 16판: 염료 두께 평탄화 — 액체는 주변 평균 높이로 퍼진다. 도장 격자(와플) · 지그재그 빗살 제거.
   //   평탄 두께 = 블러 두께 / 블러 덮임 = 주변 평균 두께(가는 선은 값이 거의 안 변해 영향 없음)
@@ -312,6 +317,8 @@ uniform float sheenGate1;
 uniform float sheenInT;
 uniform float sheenInAmp;
 uniform float sheenEdge;
+uniform float sheenPatch;
+uniform float sheenGrain;
 uniform float abLine;   // 선 하나의 블러 덮임 최대값(정규화 기준)
 uniform float poolMix;
 uniform float sheenWiggle;
@@ -387,13 +394,18 @@ half4 main(float2 p) {
   // 19판: 테(쉰) 세기를 먼저 구해 둔다 — 테가 뜬 자리에서는 운모 막을 비킨다(표면 염료막이 판을 덮는다)
   float wig = sheenWiggle * (vnoise(p / sheenWScl) * 0.65 + vnoise(p * 2.7 / sheenWScl) * 0.35 - 0.5);
   float dA = (Ab + wig * 0.45 - sheenRimA) / sheenRimBand;
-  float rim = exp(-dA * dA) * smoothstep(sheenGate0, sheenGate1, Tb0 + wig)
-            * (0.55 + 0.45 * vnoise(p / (sheenWScl * 1.7) + 5.1));
+  // 22판: 띠를 군데군데 끊고(patch) 안에 결을 넣는다(grain). 프로파일도 가우시안보다 조금 날카롭게.
+  float patchN = vnoise(p / (sheenWScl * 1.9) + 5.1) * 0.62 + vnoise(p / (sheenWScl * 0.6) + 13.7) * 0.38;
+  float patch = mix(1.0, smoothstep(0.32, 0.72, patchN), sheenPatch);
+  float grain = mix(1.0, 0.45 + 0.55 * vnoise(p * 0.75 + 31.1), sheenGrain);
+  float rim = exp(-dA * dA * 1.7) * smoothstep(sheenGate0, sheenGate1, Tb0 + wig) * patch * grain;
   float An = min(1.0, Ab / max(abLine, 0.02));
-  // 20판: 얇은 획의 테는 가장자리 띠가 아니라 **획 전체의 색 변화**다(참고 25 · 26, 얇은 획 조사.md).
-  //   가장자리를 조금 더 진하게 두되 가운데도 뜨게 한다.
-  float lineRim = (0.72 + 0.28 * (1.0 - smoothstep(0.2, 0.9, An + wig * 0.5)))
-                * (1.0 - smoothstep(0.4, 0.8, Ab)) * smoothstep(0.08, 0.35, Tu) * sheenEdge;
+  // 20판: 얇은 획의 테는 가장자리 띠가 아니라 획 전체의 색 변화다(참고 25 · 26, 얇은 획 조사.md).
+  // 22판: 다만 **고르게 덮으면 그냥 다른 색 펜으로 쓴 것처럼 뿌옇다**(사용자). 실물은 구간마다 뜨고
+  //   안 뜬다 — 띠와 같은 patch · grain 을 걸어 획을 따라 들쭉날쭉하게 한다.
+  float lineRim = (0.45 + 0.55 * (1.0 - smoothstep(0.2, 0.9, An + wig * 0.5)))
+                * (1.0 - smoothstep(0.4, 0.8, Ab)) * smoothstep(0.08, 0.35, Tu) * sheenEdge
+                * patch * grain;
   float inp = smoothstep(sheenInT, sheenInT + 0.4, Tb0)
             * smoothstep(0.35, 0.75, vnoise(p / (sheenWScl * 2.3) + 11.3));
   float sh = min(1.0, rim + sheenInAmp * inp + lineRim) * sheenAmp * dq;
