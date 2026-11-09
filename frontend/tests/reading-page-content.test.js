@@ -25,6 +25,7 @@ function fixture(platform) {
       if (id === './WebStrokeCacheContext') return { WebStrokeCacheEnabled: cacheContext }
       if (id.endsWith('/pageGeometry.js')) return { pageSize }
       if (['../PageBackground', './PageObject', './CompletedStrokeLayer', './WebStrokeCache'].includes(id)) return { __esModule: true, default: id }
+      if (id.endsWith('/utils/backdrop.js')) return require('../src/editor/utils/backdrop.js')
       return require(id)
     }, module, module.exports)
     return module.exports.default

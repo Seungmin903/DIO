@@ -14,7 +14,8 @@ export function createPushCoordinator({ auth, userId, api, native, uuid, platfor
     let state=await read();check();
     if(!state){state={installationId:uuid(),requestId:uuid(),registrationSettings:settings,registrationUser:String(userId)};await save(state);check();}
     if(!state.secret){
-      if(state.registrationUser!==String(userId))throw new Error('PUSH_RECOVERY_REQUIRES_ORIGINAL_ACCOUNT');
+      // 앱이 "같은 상태"의 안내를 한 번만 띄울 수 있게 설치 · 원래 계정을 붙인다(pushIssue.js, S15P31F106-719)
+      if(state.registrationUser!==String(userId))throw Object.assign(new Error('PUSH_RECOVERY_REQUIRES_ORIGINAL_ACCOUNT'),{installationId:state.installationId,registrationUser:state.registrationUser});
       let result;
       try { result=await api.register({installationId:state.installationId,requestId:state.requestId,settings:state.registrationSettings}); }
       catch(error) {

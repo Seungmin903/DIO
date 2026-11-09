@@ -5,12 +5,16 @@ import { colors, DISABLED_OPACITY, shadow } from '../../shared/theme'
 
 /** 옵션 패널 스크롤: 펼친 요소 줄이 화면 밖이면 보이도록 끌어온다 (ElementRow 가 쓴다) */
 export const PanelScroll = createContext(null)
+/** 옵션 패널 안쪽 폭 어림값: 격자가 폭을 재기 전 첫 화면을 이 폭으로 그려 잰 뒤 줄 수가 바뀌어 아래가 밀리지 않게 한다(PaperGrid) */
+export const PanelWidth = createContext(null)
 
 /**
  * 새 다이어리 · 다이어리 수정이 함께 쓰는 틀 (2안 · 구역 카드).
  * 위 막대(취소 · 제목 · 주요 버튼) | 왼쪽 큰 구역 카드 | 가운데 미리보기 | 오른쪽 옵션.
  * sheet(폰)에서는 구역 카드를 위쪽 가로 줄로, 미리보기를 그 아래 낮은 판으로, 옵션을 남은 높이에 둔다.
  */
+const PANEL_WIDTH = 420, PANEL_PADDING = 16
+
 export default function Workbench({ title, actionLabel, onCancel, onSubmit, submitDisabled = false, cancelDisabled = false,
   sections, section, onSection, sheet = false, roomy = false, topInset = 0, bottomInset = 0, onStageLayout, stage, panel, foot, panelLocked = false }) {
   const scrollRef = useRef(null), contentRef = useRef(null)
@@ -59,7 +63,7 @@ export default function Workbench({ title, actionLabel, onCancel, onSubmit, subm
           onScroll={event => { view.current.y = event.nativeEvent.contentOffset.y }} onLayout={event => { view.current.height = event.nativeEvent.layout.height }}
           contentContainerStyle={[styles.panelBody, sheet && !foot && { paddingBottom: 16 + bottomInset }]}>
           <View ref={contentRef} collapsable={false} pointerEvents={panelLocked ? 'none' : 'auto'}>
-            <PanelScroll.Provider value={scroll}>{panel}</PanelScroll.Provider>
+            <PanelScroll.Provider value={scroll}><PanelWidth.Provider value={(sheet ? windowWidth : PANEL_WIDTH) - PANEL_PADDING * 2}>{panel}</PanelWidth.Provider></PanelScroll.Provider>
           </View>
         </ScrollView>
         {foot ? <View style={[styles.panelFoot, sheet && { paddingBottom: 12 + bottomInset }]}>{foot}</View> : null}
@@ -114,9 +118,9 @@ const styles = StyleSheet.create({
   // 세로 태블릿: 구역 카드와 옵션 사이 남은 높이를 미리보기와 옵션이 나눠 쓴다
   stageRoomy: { flexGrow: 1, flexShrink: 1, flexBasis: 0, minHeight: 240 },
   panelRoomy: { flexGrow: 1.4 },
-  panel: { width: 420, borderTopLeftRadius: 24, backgroundColor: colors.surface, ...shadow.card, shadowOpacity: 0.06 },
+  panel: { width: PANEL_WIDTH, borderTopLeftRadius: 24, backgroundColor: colors.surface, ...shadow.card, shadowOpacity: 0.06 },
   panelSheet: { flex: 1, width: '100%', marginTop: 12, borderTopRightRadius: 24 },
-  panelBody: { padding: 16 },
+  panelBody: { padding: PANEL_PADDING },
   panelFoot: { gap: 8, paddingHorizontal: 16, paddingVertical: 12, borderTopWidth: 1, borderTopColor: colors.border },
   pill: { overflow: 'hidden', paddingHorizontal: 14, paddingVertical: 7, borderRadius: 999, color: colors.text, fontSize: 12.5, fontWeight: '700', backgroundColor: 'rgba(255,255,255,.85)' },
 })

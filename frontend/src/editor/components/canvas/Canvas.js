@@ -39,10 +39,16 @@ import GridOverlay, { DEFAULT_GUIDES, hasGuides } from './GridOverlay'
 import { pageGridGuides } from '../../utils/pageGrid.js'
 import PaperColorSettings from '../PaperColorSettings'
 import { plannerFor } from '../../templates/planners.js'
+import { routePathOf } from '../../templates/routePaper.js'
+import { createRouteNode, isRouteNode, ROUTE_NODE_SNAP_PX, routeNodeKindLabel } from '../../widgets/routeNode.js'
+import { packingCheckAction, packingPenAction } from '../../templates/packingChecks.js'
+import { packingLayout } from '../../templates/packingLayout.js'
+import { packingSlotPatch, packingDropPatch, packingTapColor } from '../../templates/packingEditing.js'
 import { setDayDate, setDayRow, suggestStart } from '../../templates/dayPlanner.js'
 import DayNowLine from './DayNowLine'
 import DayTimePicker, { DAY_TIME_PICKER, DayPickBackdrop } from '../DayTimePicker'
 import DayDatePicker, { DAY_DATE_PICKER } from '../DayDatePicker'
+import RouteStylePopup, { routePopupSize } from '../RouteStylePopup'
 import { paperPrintsText } from '../../templates/paperFont.js'
 import { LinkBadges, ObjectLinkOverlay } from './ObjectLinks'
 import { isBackdrop } from '../../utils/backdrop.js'
@@ -71,6 +77,9 @@ const MIN_TARGET_PX = 44
  * - 빈 곳 드래그: 점선 네모(영역 선택) 안에 완전히 들어간 요소를 선택. Shift·Ctrl 을 누르고 있으면 기존 선택에 더한다.
  * - 자르기 중인 사진은 드래그하면 보이는 영역이 움직인다.
  */
+// 속지 옵션 말풍선에서 플래너 옵션 칸이 차지하는 높이(종류별). 여행 노선은 속지 위(제목 · 범례)에서 설정하므로 속지 색 창에 옵션이 없다
+const PLANNER_OPTION_HEIGHT = { day: 70, study: 250 }
+
 export default function Canvas({
   onStrokeCommitted,
   readingImage = null,
@@ -163,10 +172,23 @@ export default function Canvas({
   // 속지가 받은 입력(획 · 선택 도구로 누른 칸)의 결과를 문서에 반영한다: 새 기록 · 고르는 창 열기 · 할 일 글 입력
   const applyPlannerResult = (result, at) => {
     if (result.planner) dispatch({ type: 'setPlanner', planner: result.planner })
-    if (result.picker) setDayPick({ page: page.id, ...result.picker, at, draft: null })
+    if (result.picker) {
+      if (planner.kind === 'route') setRoutePick({ ...result.picker, at })
+      else setDayPick({ page: page.id, ...result.picker, at, draft: null })
+    }
+    // 여행 노선 범례의 표식: 지점 추가 상태를 켜고, 같은 표식을 다시 누르면 끈다
+    if (result.routeAdd) setRouteAdd(current => current?.kind === result.routeAdd ? null : { kind: result.routeAdd })
     if (result.text) editTitle(result.text)
   }
-  const plannerStroke = planner ? (points, settings) => {
+  const packingPaper = Boolean(packingLayout(page.backgroundAssetId))
+  const plannerStroke = planner || (packingPaper && activeTool === 'pen') ? (points, settings) => {
+    if (packingPaper && activeTool === 'pen') {
+      const action = packingPenAction(page.backgroundAssetId, points, page.objects, settings.color)
+      if (action) { dispatch(action); return true }
+      const colorAction = packingTapColor(page.backgroundAssetId, points, page.objects, settings.color, zoom)
+      if (colorAction) { dispatch(colorAction); return true }
+    }
+    if (!planner) return false
     const result = planner.stroke(page.planner, points, settings, page.objects)
     if (!result) return false
     applyPlannerResult(result, points[0])
@@ -201,12 +223,32 @@ export default function Canvas({
   const createText = ({ tap, ...box }) => {
     const cell = planner && tap ? planner.cellTap(tap) : null
     if (cell) { setDayPick({ page: page.id, ...cell.picker, at: tap, draft: null }); return }
-    const slot = planner && tap ? planner.textSlot(tap) : null
+    const slot = planner && tap ? planner.textSlot(tap, page.planner) : null
     if (!slot) return onCreateText(box)
     const { width, ...rest } = slot
     onCreateText({ ...rest, width, w: width, baseWidth: width, h: slot.fontSize * slot.lineSpacing })
   }
-  const changePlannerOptions = (patch) => dispatch({ type: 'setPlanner', planner: planner.setOptions(page.planner, patch) })
+  // 속지 옵션 변경. 슬라이더 · 색 창은 start(체크포인트) → drag(기록만, 되돌리기 없이) → end(확정)로 한 번의 되돌리기 단위가 된다. 단일 선택(세그먼트 · 색 칸)은 그 자체가 한 단위.
+  const changePlannerOptions = (patch, phase) => {
+    if (phase === 'start') dispatch({ type: 'checkpoint' })
+    else if (phase === 'end') dispatch({ type: 'commitCheckpoint' })
+    else {
+      const next = planner.setOptions(page.planner, patch)
+      dispatch({ type: 'setPlanner', planner: next, silent: phase === 'drag' })
+      // 노선 색을 바꾸면 지점 색도 따라간다(지점 색은 요소에 저장돼 노선 기록이 없는 기기에서도 같은 색으로 보인다). 같은 되돌리기 단위다.
+      if (planner.kind === 'route' && patch.color) {
+        const patches = Object.fromEntries(page.objects.filter(isRouteNode).map((o) => [o.id, { routeNode: { ...o.routeNode, color: next.options.color } }]))
+        if (Object.keys(patches).length) dispatch({ type: 'updateMany', patches, record: false })
+      }
+    }
+  }
+  const addRouteNodeAt = (point) => {
+    const hit = routePath.nearest(point)
+    if (hit.distance > ROUTE_NODE_SNAP_PX / zoom) return false
+    dispatch({ type: 'addObjects', objects: [createRouteNode({ kind: routeAdd.kind, point: hit, color: planner.normalize(page.planner).options.color })] })
+    setRouteAdd(null)
+    return true
+  }
   const [lassoDrawing, setLassoDrawing] = useState(false)
   // 고치는 중인 틀. 틀 선택이 풀리거나 잠기면 입력칸을 내린다.
   const frameTextObject = frameTextEdit && selectedIds.includes(frameTextEdit.id) ? page.objects.find((o) => o.id === frameTextEdit.id && !o.locked) : null
@@ -219,8 +261,15 @@ export default function Canvas({
   }, [lassoOutline, outlinePaths])
   useEffect(() => { setLassoDrawing(false); setLassoCapture(false) }, [page.id, activeTool])
   // 터치 상자가 제스처 시작·끝에 읽는 최신 값. 렌더마다 갱신한다.
+  // 여행 노선 속지: 지점은 노선 위로만 끌린다(CanvasObject 가 live 로 읽는다)
+  const routePath = planner?.kind === 'route' ? routePathOf(planner.orientation) : null
+  // 지점 추가 상태 { kind }: 범례의 출발 · 방문 · 도착 표식을 누르면 켜지고(같은 표식을 다시 누르면 꺼진다), 선택 도구로 노선 위를 누르면 그 자리에 지점을 놓고 꺼진다. 페이지 · 도구를 바꾸면 꺼진다.
+  const [routeAdd, setRouteAdd] = useState(null)
+  // 노선 속지 위 고르는 창 { kind: 'routeDay' | 'routeStyle', at }: 제목 · 범례 견본을 누르면 그 자리 옆에 뜬다
+  const [routePick, setRoutePick] = useState(null)
+  useEffect(() => { setRouteAdd(null); setRoutePick(null) }, [page.id, activeTool])
   const objectLive = useRef(null)
-  objectLive.current = { objects: page.objects, selectedIds, onEditText, onEditMedia, onEditFrameText }
+  objectLive.current = { objects: page.objects, assetId: page.backgroundAssetId, selectedIds, onEditText, onEditMedia, onEditFrameText, routePath }
   const [guides, setGuides] = useState(null)
   const [rotationLabel, setRotationLabel] = useState(null)
   const [interacting, setInteracting] = useState(false)
@@ -238,7 +287,7 @@ export default function Canvas({
   }
   const eraseDrawing = useRef(null)
   const previewErase = (ids, pieces = null, ticket = null) => eraseDrawing.current?.preview(ids, pieces, ticket)
-  const visible = page.objects.filter((o) => !o.hidden)
+  const visible = page.objects.filter((o) => !o.hidden && (!packingLayout(page.backgroundAssetId) || !o.packingColorRegion))
   const touchSelectable = visible.filter((o) => o.type !== 'stroke' && !isBackdrop(o))
   const selected = visible.filter((o) => selectedIds.includes(o.id))
   const lassoEditing = activeTool === 'lasso' && selected.length > 0 && !lassoDrawing && !lassoCapture
@@ -274,11 +323,16 @@ export default function Canvas({
     const ox = dx + (guideX == null ? 0 : guideX - move.bounds.cx - dx)
     const oy = dy + (guideY == null ? 0 : guideY - move.bounds.cy - dy)
     setGuides(guideX == null && guideY == null ? null : { x: guideX, y: guideY })
-    dispatch({ type: 'updateMany', patches: Object.fromEntries(Object.entries(move.starts).map(([id, start]) => [id, { x: start.x + ox, y: start.y + oy }])) })
+    move.latestPatches = Object.fromEntries(Object.entries(move.starts).map(([id, start]) => [id, { x: start.x + ox, y: start.y + oy }]))
+    dispatch({ type: 'updateMany', patches: move.latestPatches })
   }
   const endLassoMove = cancelled => {
     if (cancelled && lassoMove.current?.checkpointed) dispatch({ type: 'revertToCheckpoint' })
-    else if(lassoMove.current?.checkpointed) dispatch({type:'commitCheckpoint'})
+    else if (lassoMove.current?.checkpointed) {
+      const patches = packingDropPatches(page.backgroundAssetId, page.objects, lassoMove.current.latestPatches)
+      if (Object.keys(patches).length) dispatch({ type: 'updateMany', patches })
+      dispatch({type:'commitCheckpoint'})
+    }
     lassoMove.current = null
     setInteracting(false)
     setDraggingIds(null)
@@ -364,9 +418,18 @@ export default function Canvas({
       // 요소를 살짝 빗나가게 눌렀으면 가장 가까운 요소를 고른다 (지도 게임·노트 앱의 '가까운 것 고르기').
       // 이미 선택된 요소 근처를 누른 것은 '선택 풀기'로 본다. (요소가 하나뿐일 때 빈 곳을 눌러도 안 풀리던 문제)
       // 속지의 칸(완료 · 할 일 · 시작 · 진행 · 날짜 · 일정 막대)을 누르면 선택 도구에서도 바로 그 칸의 입력이 열린다.
+      // 여행 노선과 캐리어는 각 속지에 맞는 입력을 우선 처리한다.
+      const packingPaper = Boolean(packingLayout(page.backgroundAssetId))
+      const near = start && nearestObject(touchSelectable, start, TAP_SLOP_PX / zoom)
+      if (packingPaper && near) {
+        dispatch({ type: 'select', ids: selectedIds.includes(near.id) ? [] : [near.id] })
+        return
+      }
+      const checkAction = packingCheckAction(page.backgroundAssetId, start, page.objects, penSettings.color)
+      if (checkAction) { dispatch(checkAction); return }
       const edit = planner && start ? planner.editTap(page.planner, start, page.objects, penSettings.color) : null
       if (edit) { dispatch({ type: 'select', ids: [] }); applyPlannerResult(edit, start); return }
-      const near = start && nearestObject(touchSelectable, start, TAP_SLOP_PX / zoom)
+      if (routeAdd && routePath && start) { addRouteNodeAt(start); return }
       dispatch({ type: 'select', ids: near && !selectedIds.includes(near.id) ? [near.id] : [] })
     },
   })
@@ -401,6 +464,12 @@ export default function Canvas({
       </View>
       </View>
       {!pageReady && <View pointerEvents="none" accessibilityRole="progressbar" accessibilityLabel="페이지 불러오는 중" style={styles.pageLoading}><Text style={styles.pageLoadingText}>페이지 불러오는 중</Text></View>}
+      {routeAdd && (
+        <View accessibilityRole="alert" style={styles.routeHint}>
+          <Text style={styles.pageLoadingText}>{`${routeNodeKindLabel(routeAdd.kind)} 지점 추가 중`}</Text>
+          <Pressable onPress={() => setRouteAdd(null)} hitSlop={8} accessibilityRole="button" accessibilityLabel="지점 추가 취소"><Text style={styles.routeHintCancel}>취소</Text></Pressable>
+        </View>
+      )}
       {readOnly && <TextLinkOverlay objects={page.objects} zoom={zoom} onError={onToast} onInteractionStart={onReadingLinkStart} />}
       {readOnly && <ObjectLinkOverlay objects={page.objects} zoom={zoom} onError={onToast} onInteractionStart={onReadingLinkStart} />}
       {pageReady && !readOnly && linkBadges && <LinkBadges objects={page.objects} zoom={zoom} selectedIds={selectedIds} onSelect={(id) => dispatch({ type: 'select', ids: [id] })} />}
@@ -454,6 +523,7 @@ export default function Canvas({
         <EraserInput key={`${page.id}-${zoom}-${eraserSize}-${eraserMode}-${eraserTarget}`} compact={compact} objects={page.objects} diameter={eraserSize} mode={eraserMode} target={eraserTarget} zoom={zoom} dispatch={dispatch} onPreview={previewErase} planner={page.planner} onPlannerErase={plannerErase} onPlannerPreview={setPlannerDraft} />
       </View>}
       {planner?.kind === 'day' && dayPick?.page === page.id && <View style={styles.penClip}><DayPickBackdrop onClose={closeDayPick} /></View>}
+      {planner?.kind === 'route' && routePick && <View style={styles.penClip}><DayPickBackdrop onClose={() => setRoutePick(null)} /></View>}
       </PalmRejectionArea>
       {/* 창을 닫으려고 누른 터치는 여기서 삼키고 창만 닫는다. 펜·형광펜에 점이 찍히던 문제 */}
       {inputBlocker && ['pen', 'highlighter', 'eraser'].includes(activeTool) && (
@@ -488,6 +558,10 @@ export default function Canvas({
           onClose={closeDayPick}
           style={pickerPosition(dayPick.at, zoom, PAGE_WIDTH, PAGE_HEIGHT, DAY_DATE_PICKER)}
         />
+      )}
+      {planner?.kind === 'route' && routePick && (
+        <RouteStylePopup kind={routePick.kind} options={planner.normalize(page.planner).options} onChange={changePlannerOptions} onClose={() => setRoutePick(null)}
+          style={pickerPosition(routePick.at, zoom, PAGE_WIDTH, PAGE_HEIGHT, routePopupSize(routePick.kind))} />
       )}
       {!readOnly && activeTool === 'text' && !textEditing && <TextBoxInput key={`${page.id}-${zoom}`} zoom={zoom} pageWidth={PAGE_WIDTH} pageHeight={PAGE_HEIGHT} onCreate={createText} />}
       {!readOnly && textEditing?.type === 'shape' && <ShapeTextEditor commitRef={textCommitRef} key={textEditing.id} object={textEditing} zoom={zoom} onSave={onSaveText} boundary={textBoundary} onReveal={onRevealText} visibleTop={textEditingTop} onPaletteChange={onTextPaletteChange} paletteBounds={textPaletteBounds} onToast={onToast} />}
@@ -535,11 +609,11 @@ export default function Canvas({
           appearance={paperAppearance}
           onChange={(appearance, all) => onPaperAppearance?.(appearance, all)}
           onClose={() => setEmptyMenu(null)}
-          planner={planner ? planner.normalize(page.planner) : null}
+          planner={planner && planner.kind !== 'route' ? planner.normalize(page.planner) : null}
           plannerKind={planner?.kind}
           showFont={paperPrintsText(page.backgroundAssetId)}
           onPlannerOptions={changePlannerOptions}
-          style={paperBubblePosition(emptyMenu, zoom, PAGE_WIDTH, PAGE_HEIGHT, (planner ? (planner.kind === 'day' ? 70 : 250) : 0) + (paperPrintsText(page.backgroundAssetId) ? 96 : 0))}
+          style={paperBubblePosition(emptyMenu, zoom, PAGE_WIDTH, PAGE_HEIGHT, (planner ? PLANNER_OPTION_HEIGHT[planner.kind] ?? 0 : 0) + (paperPrintsText(page.backgroundAssetId) ? 96 : 0))}
         />
       )}
       {emptyMenu && !emptyMenu.panel && canPageMenu && (
@@ -603,6 +677,10 @@ export default function Canvas({
           key={selectedIds.join(',')}
           objects={selected}
           allObjects={page.objects}
+          onPackingSlot={packingLayout(page.backgroundAssetId) ? (object, slot) => {
+            const patch = packingSlotPatch(page.backgroundAssetId, object, slot)
+            if (patch) dispatch({ type: 'updateObject', id: object.id, patch, record: true })
+          } : null}
           lassoActions={activeTool === 'lasso' ? { mode: lassoMode, onModeChange: (mode) => { setLassoCapture(true); onLassoModeChange(mode) } } : null}
           pageWidth={PAGE_WIDTH}
           pageHeight={PAGE_HEIGHT}
@@ -827,6 +905,17 @@ function containsPoint(object, point) {
   return Math.abs(local.x) <= object.w / 2 && Math.abs(local.y) <= object.h / 2
 }
 
+// 이동 좌표를 같은 체크포인트에 반영해 수납과 이동이 한 번에 되돌려진다.
+function packingDropPatches(assetId, objects, positions = {}) {
+  const patches = {}
+  for (const object of objects) {
+    if (!positions?.[object.id]) continue
+    const patch = packingDropPatch(assetId, { ...object, ...positions[object.id] })
+    if (patch) patches[object.id] = patch
+  }
+  return patches
+}
+
 const FADE_WHILE_DRAGGING = ['sticker', 'tape', 'photo']
 // 텍스트: 한 번 누르면 선택, 선택된 채 다시 누르거나 두 번 빠르게 누르면(더블 탭) 내용 수정
 // 사진·이미지 테이프: 더블 탭으로 자르기 (여러 칸 틀은 누른 칸을 채우거나 자른다)
@@ -954,6 +1043,18 @@ const CanvasObject = memo(function CanvasObject({ object, live, pageWidth: PAGE_
       }
       let ox = dx / zoom
       let oy = dy / zoom
+      // 여행 노선 지점 하나를 끌면 손가락에 가장 가까운 노선 위 점으로 붙인다(가운데 맞춤 안내선은 쓰지 않는다). t 도 함께 저장한다.
+      const { routePath } = live.current
+      const movingIds = Object.keys(g.starts)
+      if (routePath && movingIds.length === 1) {
+        const node = objects.find((o) => o.id === movingIds[0])
+        if (node && isRouteNode(node)) {
+          const s = g.starts[node.id], hit = routePath.nearest({ x: s.x + ox + node.w / 2, y: s.y + oy + node.h / 2 })
+          onGuides(null)
+          queueMove({ [node.id]: { x: hit.x - node.w / 2, y: hit.y - node.h / 2, routeNode: { ...node.routeNode, t: hit.t } } })
+          return
+        }
+      }
       const threshold = SNAP_SCREEN_PX / zoom
       const cx = g.bounds.cx + ox
       const cy = g.bounds.cy + oy
@@ -963,6 +1064,7 @@ const CanvasObject = memo(function CanvasObject({ object, live, pageWidth: PAGE_
       if (guideY != null) oy += guideY - cy
       onGuides(guideX == null && guideY == null ? null : { x: guideX, y: guideY })
       const patches = Object.fromEntries(Object.entries(g.starts).map(([id, s]) => [id, { x: s.x + ox, y: s.y + oy }]))
+      g.latestPatches = patches
       queueMove(patches)
     },
     onEnd: ({ moved, duration, cancelled }) => {
@@ -978,7 +1080,11 @@ const CanvasObject = memo(function CanvasObject({ object, live, pageWidth: PAGE_
         if (g?.checkpointed) dispatch({ type: 'revertToCheckpoint' })
         return
       }
-      if(g?.checkpointed) dispatch({type:'commitCheckpoint'})
+      if (g?.checkpointed) {
+        const patches = packingDropPatches(live.current.assetId, live.current.objects, g.latestPatches)
+        if (Object.keys(patches).length) dispatch({ type: 'updateMany', patches })
+        dispatch({type:'commitCheckpoint'})
+      }
       // 움직이지 않고 길게 누르면 누르기 전 선택에 이 요소를 넣거나 뺀다.
       if (g?.mode === 'move' && !moved && duration >= LONG_PRESS_MS) {
         dispatch({ type: 'select', ids: g.previousSelection })
@@ -1064,6 +1170,9 @@ function panCrop(photo, startCrop, dx, dy, zoom, dispatch) {
 const styles = StyleSheet.create({
   pageLoading: { position: 'absolute', top: 12, alignSelf: 'center', paddingHorizontal: 12, paddingVertical: 8, borderRadius: radius.lg, backgroundColor: colors.surface },
   pageLoadingText: { fontSize: 12.5, fontWeight: '600', lineHeight: 19, color: colors.textMuted },
+  // 지점 추가 안내: 페이지 불러오는 중 띠와 같은 자리 · 모양에 취소 글자만 더한다
+  routeHint: { position: 'absolute', top: 12, alignSelf: 'center', flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 12, paddingVertical: 8, borderRadius: radius.lg, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
+  routeHintCancel: { fontSize: 12.5, fontWeight: '700', lineHeight: 19, color: colors.primary },
   drawingSurface: Platform.select({ web: {
     userSelect: 'none', WebkitUserSelect: 'none', WebkitTouchCallout: 'none', WebkitTapHighlightColor: 'transparent',
   }, default: {} }),

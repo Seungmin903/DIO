@@ -57,7 +57,7 @@ test('데일리 플래너가 새 다이어리 속지 고르기의 하루 계획 
   const day = PAPERS.find(p => p.id === 'day')
   assert.equal(day.name, '데일리 플래너')
   assert.equal(PAPERS.some(p => p.id === 'daily'), false)
-  assert.deepEqual(papersIn('planner').filter(p => p.kind === 'count').map(p => p.id), ['day', 'study'])
+  assert.deepEqual(papersIn('planner').filter(p => p.kind === 'count').map(p => p.id), ['day', 'study', 'route'])
   for (const o of ['landscape', 'portrait']) assert.equal(countAssetId('day', o), dayPlannerId(o))
 })
 

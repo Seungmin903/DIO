@@ -2,8 +2,9 @@ import { catalog, annualBook, portraitAnnualBook, reusableMenu } from './data.js
 import { UNDATED_TEMPLATES } from './undated.js'
 import { STUDY_PLANNER_MENU_ITEM, STUDY_PLANNER_TEMPLATES } from './studyPlanner.js'
 import { DAY_PLANNER_MENU_ITEM, DAY_PLANNER_TEMPLATES } from './dayPlanner.js'
+import { ROUTE_PAPER_MENU_ITEM, ROUTE_PAPER_TEMPLATES } from './routePaper.js'
 import { datedTemplate } from './dated.js'
-import { PLANNER_TEMPLATE_SELECTION_ENABLED } from './serverCatalog.js'
+import { PLANNER_TEMPLATE_SELECTION_ENABLED, ROUTE_TEMPLATE_SELECTION_ENABLED } from './serverCatalog.js'
 import { remoteTemplateAsset } from './remoteTemplates.js'
 
 export const TEMPLATE_VERSION = catalog.templateVersion
@@ -23,13 +24,15 @@ function displayName(item) {
 }
 // 예전 하루 계획(reusableMenu 첫 항목)은 메뉴에서 빼고 데일리 플래너(구글 일간식)로 대체한다. 옛 속지 파일은 이미 만든 다이어리를 위해 아래 assets 에 남긴다.
 // V27 전(플래너 선택 꺼짐)에는 DB에 플래너가 없으므로 예전 하루 계획을 그대로 고르게 둔다. 이렇게 만든 페이지는 V27이 데일리 플래너로 옮긴다.
+// 여행 노선 속지도 서버 행(V36)이 들어가기 전에는 고르지 못하게 둔다(ROUTE_TEMPLATE_SELECTION_ENABLED). 플래너 뒤, 공용 속지 앞에 둔다.
+const routeItems = ROUTE_TEMPLATE_SELECTION_ENABLED ? [ROUTE_PAPER_MENU_ITEM] : []
 const menuItems = PLANNER_TEMPLATE_SELECTION_ENABLED
-  ? [STUDY_PLANNER_MENU_ITEM, DAY_PLANNER_MENU_ITEM, ...reusableMenu.slice(1)]
-  : reusableMenu
+  ? [STUDY_PLANNER_MENU_ITEM, DAY_PLANNER_MENU_ITEM, ...routeItems, ...reusableMenu.slice(1)]
+  : [...reusableMenu, ...routeItems]
 export const reusableTemplates = (orientation = 'landscape') => menuItems.map(item => ({ ...item, name: displayName(item), assetId: item.assets.find(asset => asset.orientation === normalizeOrientation(orientation)).assetId }))
 export const REUSABLE_TEMPLATES = reusableTemplates()
 const assets = new Map(catalog.assets.map(asset => [asset.id, { ...asset, name: displayName(asset) }]))
-for (const asset of [...UNDATED_TEMPLATES, ...STUDY_PLANNER_TEMPLATES, ...DAY_PLANNER_TEMPLATES]) assets.set(asset.id, asset)
+for (const asset of [...UNDATED_TEMPLATES, ...STUDY_PLANNER_TEMPLATES, ...DAY_PLANNER_TEMPLATES, ...ROUTE_PAPER_TEMPLATES]) assets.set(asset.id, asset)
 
 export class TemplateError extends Error {
   constructor(message = '속지를 불러오지 못했어요. 다시 시도해 주세요.', cause) {

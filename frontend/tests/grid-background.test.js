@@ -31,16 +31,21 @@ const { code } = expo('@babel/core').transformSync(source + '\nexport { Backgrou
   configFile: false, babelrc: false,
   plugins: [[expo.resolve('@babel/plugin-transform-react-jsx'), { runtime: 'automatic' }], expo.resolve('@babel/plugin-transform-modules-commonjs')],
 })
-function fixture() {
+// error: 두 번째 useState(실패 상태)에 넣을 오류, cached: 속지 캐시(peekTemplateAst)가 있는지(f.cache.cached 로 뒤에 바꿀 수 있다)
+// f.effects: 모아 둔 useEffect, f.sets: useState 설정 호출 [index, value], f.signal.listener: 캐시 채움 신호 구독자
+function fixture({ error = null, cached = true } = {}) {
   const ast = paper(1024, 768)
   const module = { exports: {} }
+  let stateCalls = 0
+  const effects = [], sets = [], cache = { cached }, signal = { listener: null }
   const load = id => {
-    if (id === 'react') return { ...React, useMemo: fn => fn(), useEffect() {}, useState: initial => [typeof initial === 'function' ? initial() : initial, () => {}], useRef: current => ({ current }) }
+    if (id === 'react') return { ...React, useMemo: fn => fn(), useEffect: fn => { effects.push(fn) }, useState: initial => { const index = stateCalls++; const set = value => sets.push([index, value]); if (index === 1 && error) return [error, set]; return [typeof initial === 'function' ? initial() : initial, set] }, useRef: current => ({ current }) }
+    if (id.endsWith('/templateLoadedSignal.js')) return { subscribeTemplateLoaded: listener => { signal.listener = listener; return () => { signal.listener = null } } }
     if (id === 'react-native') return { Pressable: 'pressable', Text: 'text', View: 'view', StyleSheet: { create: v => v, absoluteFill: {} } }
     if (id === 'react-native-svg') return { SvgAst: 'svg-ast', SvgXml: 'svg-xml', parse: () => null }
     if (id.endsWith('/planners.js')) return planners
     if (id.endsWith('/catalog.js')) return { templateReference: page => page.backgroundAssetId ? { backgroundAssetId: page.backgroundAssetId } : null }
-    if (id.endsWith('/loadTemplate')) return { peekTemplateAst: () => ast }
+    if (id.endsWith('/loadTemplate')) return { peekTemplateAst: () => cache.cached ? ast : null, loadTemplateAst: () => new Promise(() => {}) }
     if (id.endsWith('/appearance.js')) return { colorTemplateAst, normalizePaperAppearance: a => ({ backgroundColor: a?.backgroundColor ?? '#FFFFFF', layoutColor: '#292929' }) }
     if (id.endsWith('/pageGeometry.js')) return { pageSize: () => ({ width: 1024, height: 768 }) }
     if (id.endsWith('/shared/theme')) return { colors: {} }
@@ -50,8 +55,48 @@ function fixture() {
     return require(id)
   }
   new Function('require', 'module', 'exports', code)(load, module, module.exports)
-  return { render: module.exports.BackgroundAttempt, backgroundKey: module.exports.backgroundKey, fontPhase: module.exports.fontPhase, ast }
+  const render = props => { stateCalls = 0; effects.length = 0; return module.exports.BackgroundAttempt(props) }
+  return { render, backgroundKey: module.exports.backgroundKey, fontPhase: module.exports.fontPhase, ast, effects, sets, cache, signal }
 }
+const flat = node => !node || typeof node !== 'object' ? [] : [node, ...[node.props?.children].flat(Infinity).flatMap(flat)]
+
+test('S15P31F106-724: 축소 표시(썸네일)는 속지 로딩에 실패해도 문구 · 재시도 버튼 없이 빈 종이로 두고, 캐시가 채워지면 스스로 복구한다', () => {
+  const error = new Error('속지를 불러오지 못했어요. 다시 시도해 주세요.'), page = { id: 'p', backgroundAssetId: 'monthly' }
+  const retry = () => {}
+  // 본문 캔버스: 실패 안내와 다시 시도 버튼(한 곳)
+  const canvas = flat(fixture({ error, cached: false }).render({ page, zoom: 1, onRetry: retry }))
+  assert.ok(canvas.some(node => node.props?.accessibilityRole === 'alert'))
+  assert.ok(canvas.some(node => node.type === 'pressable' && node.props.accessibilityLabel === '속지 다시 불러오기'))
+  assert.equal(canvas.some(node => node.type === 'svg-ast' || node.props?.ast), false, '실패했으니 속지는 그리지 않는다')
+  // 썸네일(compact): 안내 · 버튼 없음(페이지 선택과 경쟁하지 않는다) · 빈 종이
+  const thumb = flat(fixture({ error, cached: false }).render({ page, zoom: 0.2, compact: true, onRetry: retry }))
+  assert.equal(thumb.some(node => node.props?.accessibilityRole === 'alert'), false)
+  assert.equal(thumb.some(node => node.type === 'pressable'), false)
+  assert.equal(thumb.some(node => node.type === 'text'), false, '짧은 문구도 두지 않는다')
+  assert.equal(thumb[0].props.style[1].backgroundColor, '#FFFFFF', '종이색 바탕은 남는다')
+  // 본문의 다시 시도로 캐시가 채워진 뒤: 같은 실패 상태라도 썸네일은 캐시로 그린다
+  const healed = fixture({ error, cached: true }).render({ page, zoom: 0.2, compact: true, onRetry: retry })
+  assert.ok(flat(healed).some(node => node.props?.ast && node.props.ast.children?.length === 3), '캐시 AST 로 속지를 그린다')
+  assert.equal(flat(healed).some(node => node.type === 'pressable'), false)
+})
+
+test('S15P31F106-724: 실패한 썸네일은 캐시 채움 신호를 구독해 다시 그려지지 않아도 실패 상태를 풀고 캐시로 복구한다', () => {
+  const error = new Error('속지를 불러오지 못했어요.'), page = { id: 'p', backgroundAssetId: 'monthly' }
+  const f = fixture({ error, cached: false })
+  f.render({ page, zoom: 0.2, compact: true })
+  f.effects.forEach(fn => fn())
+  assert.ok(f.signal.listener, '실패한 축소 표시는 캐시 채움 신호를 구독한다')
+  f.signal.listener('monthly')
+  assert.deepEqual(f.sets, [], '아직 캐시가 없으면 그대로 둔다')
+  f.cache.cached = true
+  f.signal.listener('monthly')
+  assert.deepEqual(f.sets, [[0, { ast: f.ast }], [1, null]], '캐시가 채워지면 속지를 넣고 실패 상태를 푼다')
+  // 본문 캔버스(compact 아님) · 실패 없음 · 출력용 XML 경로는 구독하지 않는다
+  for (const props of [{ page, zoom: 1 }, { page, zoom: 0.2, compact: true, preparedXml: '<svg/>' }]) {
+    const g = fixture({ error, cached: false }); g.render(props); g.effects.forEach(fn => fn()); assert.equal(g.signal.listener, null, JSON.stringify(Object.keys(props)))
+  }
+  const h = fixture({ cached: false }); h.render({ page, zoom: 0.2, compact: true }); h.effects.forEach(fn => fn()); assert.equal(h.signal.listener, null, '실패하지 않았으면 구독하지 않는다')
+})
 
 test('실제 배경 컴포넌트에서 가이드가 바탕 위·속지 SVG 아래에 있고 출력 XML에는 들어가지 않는다', () => {
   const f = fixture(), guide = React.createElement('guide'), page = { id: 'p', backgroundAssetId: 'monthly' }

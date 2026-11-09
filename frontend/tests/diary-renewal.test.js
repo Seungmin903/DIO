@@ -1,12 +1,25 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { PAPERS, appendPaper, changeRow, changeRowPaper, clampWhole, isPeriodSection, mergeSections, mixOrder, moveDown, movePaper, moveUp, newRow, newSection, paperPreviewId, removePaper, savedPaperSummary, splitSection, sectionTitle, sectionsTemplateConfig } from '../src/diary/utils/paperChoice.js'
+import { PAPERS, appendPaper, changeRow, changeRowPaper, clampWhole, countStepsOf, paperById, isPeriodSection, mergeSections, mixOrder, moveDown, movePaper, moveUp, newRow, newSection, paperPreviewId, removePaper, savedPaperSummary, splitSection, sectionTitle, sectionsTemplateConfig } from '../src/diary/utils/paperChoice.js'
 import { bandAutoColor, changeCoverKind, coverElementSummary, coverTabPaint, createStickerCopy, defaultCover, newDiaryCover, normalizeCover } from '../src/diary/utils/coverDesign.js'
 import { photoTone } from '../src/diary/utils/photoTone.js'
 import { configuredPageIds, defaultTemplateConfig, normalizeTemplateConfig, templatePageCount } from '../src/editor/templates/creation.js'
 import { getTemplate } from '../src/editor/templates/catalog.js'
 import { createDefaultDoc } from '../src/editor/state/defaultDoc.js'
 import { normalizeDiaries } from '../src/diary/utils/diaryLibrary.js'
+
+test('캐리어 속지는 한 장부터 시작하고 다른 속지의 장수는 유지한다', () => {
+  const packing = appendPaper([], 'remote:packing-list')[0]
+  assert.equal(packing.rows[0].count, 1)
+  assert.deepEqual(countStepsOf(paperById('remote:packing-list')), [1, 2, 3])
+  assert.equal(appendPaper([], 'ruled')[0].rows[0].count, 10)
+  assert.deepEqual(countStepsOf(paperById('ruled')), [10, 30, 50, 100])
+  assert.equal(appendPaper([], 'remote:other')[0].rows[0].count, 10)
+  const ruled = appendPaper([], 'ruled')[0]
+  const changed = changeRowPaper(ruled, ruled.rows[0].key, 'remote:packing-list')
+  assert.equal(changed.rows[0].paper, 'remote:packing-list')
+  assert.equal(changed.rows[0].count, 10)
+})
 
 // 줄을 직접 넣은 묶음
 const sectionOf = (rows, extra = {}) => ({ ...newSection(), ...extra, rows: rows.map(([paper, count = 1, every = 'month']) => newRow(paper, count, every)) })

@@ -14,8 +14,8 @@ import { useRemoteTemplates } from '../hooks/useRemoteTemplates'
 // 페이지로 더할 수 있는 속지: 장수로 넣는 속지만 (날짜 속지는 다이어리를 만들 때 기간으로 넣는다)
 // 탭별 장수 속지. 원격 속지(catalog.json)가 바뀌면 다시 만든다(PageAddPicker 의 useRemoteTemplates)
 const countGroups = () => paperGroups().map(group => ({ ...group, papers: papersIn(group.id).filter(paper => paper.kind === 'count') })).filter(group => group.papers.length)
-const CARD_WIDTH = 340
-const SLOTS = 6 // 분류마다 두 줄(3열)로 맞춘다
+const CARD_WIDTH = 348 // 속지 칸(최소 76 · 사이 4) 4개가 한 줄에 든다(플래너 7종이 3 + 3 + 1 이 아니라 4 + 3)
+const CONTENT_PADDING = 12
 const MINE_GAP = 12
 const MINE = { id: 'mine', name: '내 속지' } // 공방 · 새 다이어리에서 PDF 로 만든 속지 묶음. 있을 때만 탭을 보인다
 
@@ -45,6 +45,9 @@ export default function PageAddPicker({ compact = false, orientation, appearance
   const shown = tabs.some(item => item.id === group) ? group : GROUPS[0].id
   const window = useWindowDimensions()
   const place = compact ? { left: 8, right: 8, bottom: anchor.bottom } : { left: anchor.left, bottom: anchor.bottom, width: Math.min(CARD_WIDTH, window.width - anchor.left - 16) }
+  // 속지 격자는 재기 전 이 폭으로 그린다. 분류를 바꿔도 높이가 같게 가장 많은 분류의 줄 수로 맞춘다
+  const gridWidth = (compact ? window.width - 16 : place.width) - CONTENT_PADDING * 2
+  const tallest = Math.max(...GROUPS.map(item => item.papers.length))
   return <View style={[StyleSheet.absoluteFill, styles.layer]} pointerEvents="box-none">
     <Pressable style={StyleSheet.absoluteFill} onPress={onClose} accessibilityLabel="페이지 추가 닫기" />
     <View style={[styles.bubble, place]} accessibilityViewIsModal accessibilityLabel="페이지 추가">
@@ -61,7 +64,7 @@ export default function PageAddPicker({ compact = false, orientation, appearance
         </Pressable>}
         <PaperTabs groups={tabs} value={shown} onChange={setGroup} />
         {shown === MINE.id ? <MyPaperGrid items={myPapers} onSelect={onSelectMine} />
-          : <PaperGrid papers={GROUPS.find(item => item.id === shown).papers} selected={null} orientation={orientation} appearance={appearance} minSlots={SLOTS}
+          : <PaperGrid papers={GROUPS.find(item => item.id === shown).papers} selected={null} orientation={orientation} appearance={appearance} fillTo={tallest} estimateWidth={gridWidth}
             onSelect={id => onSelect(countAssetId(id, orientation))} />}
       </ScrollView>
     </View>
@@ -125,7 +128,7 @@ const styles = StyleSheet.create({
   layer: { zIndex: 60, elevation: 60 },
   bubble: { position: 'absolute', maxHeight: '90%', overflow: 'hidden', borderRadius: PANEL_RADIUS, backgroundColor: colors.surface, ...shadow.float },
   scroll: { flexShrink: 1 },
-  content: { paddingHorizontal: 12, paddingBottom: 12, gap: 8 },
+  content: { paddingHorizontal: CONTENT_PADDING, paddingBottom: CONTENT_PADDING, gap: 8 },
   pressed: {}, // 눌림 효과 없음(사용자 지시)
   current: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 8, borderRadius: 12, borderWidth: 1.5, borderColor: colors.primary, backgroundColor: colors.primarySoft },
   currentText: { flex: 1, minWidth: 0, gap: 2 },

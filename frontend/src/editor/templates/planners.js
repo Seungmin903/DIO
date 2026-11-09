@@ -2,6 +2,7 @@
 // 속지 ID 가 인터랙션 속지가 아니면 null.
 import * as study from './studyPlanner.js'
 import * as day from './dayPlanner.js'
+import * as route from './routePaper.js'
 
 const orientationOf = id => id.endsWith('portrait') ? 'portrait' : 'landscape'
 
@@ -48,6 +49,21 @@ export function plannerFor(assetId) {
       editTap: (value, point, objects, markColor) => day.dayEditTap(o, point, value, objects, markColor),
       titleAt: (point, objects) => day.dayTitleAt(o, point, objects),
       autoColor: (value, objects) => day.assignDayColors(value, o, objects),
+    }
+  }
+  if (route.isRoutePaperId(assetId)) {
+    const o = orientationOf(assetId)
+    return {
+      kind: 'route', orientation: o,
+      startHour: () => 6,
+      normalize: route.normalizeRoutePlanner, setOptions: route.setRoutePlannerOptions,
+      baseSvg: () => route.routePaperBaseSvg(o), overlaySvg: value => route.routePaperOverlaySvg(o, value), svg: value => route.routePaperSvg(o, value),
+      // 노선은 기록이 없어도 기본 스타일로 덮개에 그린다. 덮개를 늘 그리게 빈 객체가 아닌 값을 돌려준다(PageBackground 는 titles 가 비면 덮개를 건너뛴다).
+      titles: () => ({ route: true }),
+      stroke: () => null, erase: () => null, cellTap: () => null, nowLine: () => null, autoColor: () => null, titleAt: () => null,
+      // 선택 도구: "DAY n" 제목 → 번호 창, 아래 범례 → 노선 스타일 창 · 지점 추가
+      editTap: (value, point) => route.routeEditTap(o, value, point),
+      textSlot: (point, value) => route.routeTextSlot(o, point, value),
     }
   }
   return null

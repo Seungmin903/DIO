@@ -11,6 +11,7 @@ const templates = path.join(root, 'assets/templates')
 const load = file => fs.readFileSync(path.join(templates, file), 'utf8')
 const day = await import(pathToFileURL(path.join(root, 'src/editor/templates/dayPlanner.js')))
 const study = await import(pathToFileURL(path.join(root, 'src/editor/templates/studyPlanner.js')))
+const route = await import(pathToFileURL(path.join(root, 'src/editor/templates/routePaper.js')))
 
 const SOURCES = {
   cover: o => load(`undated/undated-cover-${o}.svg`),
@@ -20,6 +21,7 @@ const SOURCES = {
   'weekly-journal': o => load(`undated/undated-weekly-journal-${o}.svg`),
   day: o => day.dayPlannerBaseSvg(o),
   study: o => study.plannerBaseSvg(o),
+  route: o => route.routePaperSketchSvg(o),
   diary: o => load(`2026/SVG/2026-reusable-diary-${o}.svg`),
   scrap: o => load(`2026/SVG/2026-reusable-scrap-${o}.svg`),
 }

@@ -154,3 +154,22 @@ test('선택 휴지통 이동도 각 표지·방향을 계정별 저장소에 �
  for(const item of f.store.getSnapshot().trash){assert.deepEqual(item.cover,meta[item.id].cover);assert.equal(item.pageSize,meta[item.id].pageSize)}
  assert.equal(f.store.getSnapshot().trash.length,2);
 });
+
+test('S15P31F106-722: 첫 조회 실패는 목록 오류 한 곳(library.error)에만 남고, 재시도에 성공하면 안내가 사라진다', async () => {
+  const f=fixture();let fail=true
+  f.api.list=async input=>{f.calls.push(['list',input]);if(fail)throw Object.assign(new Error('서버에 연결하지 못했어요.'),{status:503});return page([row('a')])}
+  await assert.rejects(f.store.load())
+  let state=f.store.getSnapshot()
+  assert.equal(state.loaded,true);assert.equal(state.library.error?.status,503,'목록 알림 칸이 보여 주는 오류')
+  assert.equal(state.error,null,'같은 실패를 생성 요청 알림(회원 목록 다시 확인)에 겹쳐 두지 않는다')
+  fail=false;await f.store.retryLibrary()
+  state=f.store.getSnapshot()
+  assert.equal(state.library.error,null);assert.equal(state.error,null);assert.deepEqual(state.library.items.map(r=>r.id),['a'])
+})
+
+test('S15P31F106-722: 기기 캐시가 깨진 실패는 목록 오류가 아니라 error 로 알린다', async () => {
+  const f=fixture();f.disk.set(f.keys.index,JSON.stringify([{id:'x',source:'guest'}]))
+  await assert.rejects(f.store.load(),/회원 목록을 확인하지 못했어요/)
+  const state=f.store.getSnapshot()
+  assert.equal(state.error?.code,'INVALID_LOCAL_CACHE');assert.equal(state.library.error,null)
+})

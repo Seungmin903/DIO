@@ -177,8 +177,11 @@ test('게스트는 앱 잠금을 새로 켤 수 없다(이미 켠 게스트는 �
   const guest=setup({mode:'preview',provider:'guest',nickname:'방문자'},undefined,undefined,{compact:true});
   assert.equal(nodes(guest.render()).find(node=>node.type==='AppLockSetting'),undefined);
   const source=readFileSync(new URL('../src/diary/screens/ProfileScreen.js',import.meta.url),'utf8');
-  assert.match(source,/\(\(appLockSupported !== false && !guest\) \|\| locked\) && <AppLockSetting/);
-  assert.match(source,/canEnable=\{appLockSupported !== false && !guest\}/);
+  // 켤 수 있는 조건은 canEnableLock(지원 기기 · 게스트 아님) 하나로 두고, 줄 표시는 그 조건 또는 이미 켬(locked) · 읽기 실패 · 확인 중일 때다(release 7f6dafd2 가 조건식을 바꿨다)
+  assert.match(source,/const canEnableLock = appLockSupported && !guest;/);
+  assert.match(source,/const showLockSetting = canEnableLock \|\| locked \|\| lockReadFailed/);
+  assert.match(source,/\{showLockSetting && <AppLockSetting/);
+  assert.match(source,/canEnable=\{canEnableLock\}/);
 });
 
 test('옮기기 입구는 마이페이지에만 있고 누르면 옮기기를 연다(폰 · 태블릿), 옮길 것이 없으면 없다',()=>{

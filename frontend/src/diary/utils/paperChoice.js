@@ -1,5 +1,6 @@
 import { configuredPageIds, defaultTemplateConfig, normalizeTemplateConfig, templatePageCount } from '../../editor/templates/creation.js'
 import { normalizeOrientation, reusableTemplates } from '../../editor/templates/catalog.js'
+import { ROUTE_TEMPLATE_SELECTION_ENABLED } from '../../editor/templates/serverCatalog.js'
 import { datedCalendar, datedCoverId, datedMonthId, datedWeekId } from '../../editor/templates/dated.js'
 import { undatedTemplateId } from '../../editor/templates/undated.js'
 import { remoteTemplateAssetId, remoteTemplateGroups, remoteTemplateList, remoteTemplateOf } from '../../editor/templates/remoteTemplates.js'
@@ -26,6 +27,8 @@ export const PAPERS = [
   { id: 'weekly-journal', group: 'planner', name: '주간 · 저널', kind: 'period', every: 'week' },
   { id: 'day', group: 'planner', name: '데일리 플래너', kind: 'count', type: 'day' },
   { id: 'study', group: 'planner', name: '스터디 플래너', kind: 'count', type: 'study' },
+  // 여행 노선은 장수를 여행 기간으로 고른다(실기 피드백 2026-11-09). 기본 2박 3일
+  { id: 'route', group: 'planner', name: '여행 노선', kind: 'count', type: 'route', defaultCount: 3, countSteps: [[2, '1박 2일'], [3, '2박 3일'], [4, '3박 4일'], [5, '4박 5일'], [7, '1주'], [14, '2주'], [30, '한 달']] },
   { id: 'diary', group: 'diary', name: '하루 일기', kind: 'count', type: 'diary' },
   { id: 'scrap', group: 'diary', name: '사진 · 스크랩', kind: 'count', type: 'scrap' },
 ]
@@ -35,6 +38,8 @@ const LEGACY_NAMES = { year: '1년 플래너' }
 const REPLACED_PAPERS = { daily: 'day' }
 
 export const COUNT_STEPS = [10, 30, 50, 100]
+/** 장수 빠른 선택: 속지가 정한 값이 있으면 우선한다. */
+export const countStepsOf = paper => paper?.countSteps ?? COUNT_STEPS
 export const MONTH_STEPS = [3, 6, 12]
 export const COUNT_LIMIT = { min: 1, max: 400 }
 // 날짜 속지는 앱이 만들어(editor/templates/dated.js) 어느 해든 고를 수 있다. 고르는 칸은 올해 앞뒤로 둔다.
@@ -46,7 +51,7 @@ export const MONTH_LIMIT = 12
 // 고른 속지 id 는 'remote:<id>'. 목록을 아직 못 받았거나 숨긴 속지도 이미 고른 줄에서는 그대로 쓴다(이름만 '추가 속지').
 // 목록은 새 탭(templateGroups)도 더할 수 있다. 숨긴 탭의 속지는 고르기에 보이지 않는다.
 const REMOTE_PAPER = /^remote:([a-z0-9][a-z0-9-]{0,39})$/
-const remotePaper = (id, item) => ({ id: `remote:${id}`, group: item?.group ?? 'note', name: item?.name ?? '추가 속지', kind: 'count', remoteTemplate: id })
+const remotePaper = (id, item) => ({ id: `remote:${id}`, group: item?.group ?? 'note', name: item?.name ?? '추가 속지', kind: 'count', remoteTemplate: id, ...(/^packing-list(?:-v[2-8])?$/.test(id) ? { defaultCount: 1, countSteps: [1, 2, 3] } : {}) })
 const hiddenGroups = () => new Set(remoteTemplateGroups().filter(group => group.hidden).map(group => group.id))
 const remotePapers = () => {
   const hidden = hiddenGroups()
@@ -61,8 +66,10 @@ export const paperById = id => {
   if (remote) return remotePaper(remote[1], remoteTemplateOf(remote[1]))
   return PAPERS.find(paper => paper.id === (REPLACED_PAPERS[id] ?? id)) ?? (LEGACY_NAMES[id] ? { id, name: LEGACY_NAMES[id], kind: 'period' } : PAPERS[0])
 }
+// 여행 노선은 서버 행(V36)이 들어가기 전 빌드(플래그 0)에서는 고르지 못한다(catalog.js 의 페이지 추가 메뉴와 같은 기준). 이미 만든 노선 다이어리는 paperById 로 그대로 읽는다.
+const selectable = paper => paper.type !== 'route' || ROUTE_TEMPLATE_SELECTION_ENABLED
 /** 탭의 속지들: 앱 속지 + 원격 속지(숨긴 것 빼고). 원격 목록이 바뀌면 다시 불러야 한다(useRemoteTemplates) */
-export const papersIn = group => [...PAPERS, ...remotePapers()].filter(paper => paper.group === group)
+export const papersIn = group => [...PAPERS, ...remotePapers()].filter(paper => paper.group === group && selectable(paper))
 
 /** 장수형 속지(표지 포함) → 그 방향의 속지 ID. 날짜 없는 표지를 쓴다. */
 export function countAssetId(paperId, orientation) {
@@ -146,9 +153,10 @@ export function tidySection(section) {
 // 화면은 묶음을 따로 보이지 않고 속지를 한 줄 목록으로 둔다. 이웃한 두 속지 사이마다 '이어서'(다음 묶음) · '섞어서'(같은 묶음)를 고른다.
 // 아래 함수는 그 목록 조작을 묶음 배열(sections)에 옮긴다.
 
-/** 목록 끝에 속지 한 종류를 이어서 더한다 (새 묶음). 장수 속지는 10장, 날짜 속지는 올해 1월부터 12개월. */
+/** 목록 끝에 속지 한 종류를 이어서 더한다 (새 묶음). */
 export function appendPaper(sections, paperId) {
-  return [...sections, tidySection({ ...newSection(), rows: [newRow(paperId, paperById(paperId).kind === 'count' ? 10 : 1)] })]
+  const paper = paperById(paperId)
+  return [...sections, tidySection({ ...newSection(), rows: [newRow(paperId, paper.kind === 'count' ? paper.defaultCount ?? 10 : 1)] })]
 }
 
 const isCountOnly = section => section.rows.length === 1 && section.repeat === 1 && paperById(section.rows[0].paper).kind === 'count'
