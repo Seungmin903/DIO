@@ -2,6 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
+import { keepKoreanWords } from '../src/shared/keepWords.js'
 
 const require = createRequire(import.meta.url)
 const expo = createRequire(require.resolve('expo/package.json'))
@@ -12,6 +13,7 @@ const mod = { exports: {} }
 new Function('require', 'module', 'exports', code)(id => id === 'react-native' ? {
   Platform: { OS: 'android' }, Pressable: 'Pressable', ScrollView: 'ScrollView', Text: 'Text', View: 'View', StyleSheet: { create: value => value },
 } : id === '../../../shared/theme' ? { colors: {}, shadow: {} }
+  : id === '../../../shared/keepWords' ? { keepKoreanWords }
   : id === '../ToolPanel' ? { PANEL_RADIUS: 12 }
     : id === 'react/jsx-runtime' ? require(id) : { __esModule: true, default: 'EditorModal' }, mod, mod.exports)
 const nodes = node => !node || typeof node !== 'object' ? [] : [node, ...[node.props?.children].flat(Infinity).flatMap(nodes)]

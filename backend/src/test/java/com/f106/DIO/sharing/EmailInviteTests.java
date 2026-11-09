@@ -13,7 +13,7 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
-@org.springframework.test.context.TestPropertySource(properties={"SHARING_INVITE_BASE_URL=/invite/", "dio.signup.mail-from="})
+@org.springframework.test.context.TestPropertySource(properties={"SHARING_INVITE_BASE_URL=/invite/", "dio.signup.mail-from=dio@example.com"})
 class EmailInviteTests extends SharingTestSupport {
     @Autowired EmailInviteService emails;
     @org.springframework.test.context.bean.override.mockito.MockitoSpyBean

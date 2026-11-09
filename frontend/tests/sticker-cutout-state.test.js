@@ -15,7 +15,7 @@ const closeButton = tree => ({ props: { onPress: header(tree).props.onBack } })
 // 단계 이동 줄(MakerNav)의 `이전`
 const prevButton = tree => nodes(tree).find(n => n.props.onPrev)
 const tick = () => new Promise(resolve => setImmediate(resolve))
-function fixture(photoPicker, preview, apiOverride = {}, onSave) {
+function fixture(photoPicker, preview, apiOverride = {}, onSave, screen = { width: 1280, height: 800 }) {
   let si = 0, ri = 0, ei = 0, closed = 0
   const states = [], refs = [], deps = [], cleanups = []
   const react = {
@@ -23,7 +23,7 @@ function fixture(photoPicker, preview, apiOverride = {}, onSave) {
     useRef(initial) { const i = ri++; return refs[i] ??= { current: initial } },
     useEffect(fn, next) { const i = ei++; if (!deps[i] || next.some((v, k) => v !== deps[i][k])) { cleanups[i]?.(); deps[i] = next; cleanups[i] = fn() } },
   }
-  const native = { StyleSheet: { create: v => v }, useWindowDimensions: () => ({ width: 1280, height: 800 }) }
+  const native = { StyleSheet: { create: v => v }, useWindowDimensions: () => screen }
   for (const id of ['ActivityIndicator', 'Image', 'Pressable', 'ScrollView', 'Text', 'View']) native[id] = id
   const mocks = { react, 'react-native': native,
     'react-native-safe-area-context': { SafeAreaView: 'SafeAreaView' },
@@ -323,5 +323,38 @@ test('확대 중 한 손가락을 떼었다 다른 자리에 다시 대도 배�
   assert.deepEqual(area().props.style, before)
   area().props.onResponderRelease()
   assert.equal(find(ui.render(), '되돌리기').props.disabled, true)
+  ui.unmount()
+})
+
+test('폰에서는 사진 위 붓질 동안 부모 스크롤을 즉시 잠갔다가 손을 떼면 다시 푼다', async () => {
+  const ui = fixture(async () => ({ uri: 'photo', width: 100, height: 100 }), null, {}, undefined, { width: 390, height: 800 })
+  await load(ui)
+  const scroll = nodes(ui.render()).find(n => n.type === 'ScrollView')
+  const changes = []
+  scroll.props.ref.current = { setNativeProps: props => changes.push(props) }
+  const area = find(ui.render(), 'cutout-canvas')
+  area.props.onResponderGrant({ nativeEvent: { locationX: 20, locationY: 20 } })
+  assert.deepEqual(changes.at(-1), { scrollEnabled: false })
+  assert.equal(nodes(ui.render()).find(n => n.type === 'ScrollView').props.scrollEnabled, false)
+  find(ui.render(), 'cutout-canvas').props.onResponderRelease()
+  assert.deepEqual(changes.at(-1), { scrollEnabled: true })
+  assert.equal(nodes(ui.render()).find(n => n.type === 'ScrollView').props.scrollEnabled, true)
+  ui.unmount()
+})
+
+test('폰에서 핀치가 취소돼도 부모 스크롤 잠금을 푼다', async () => {
+  const ui = fixture(async () => ({ uri: 'photo', width: 100, height: 100 }), null, {}, undefined, { width: 390, height: 800 })
+  await load(ui)
+  const scroll = nodes(ui.render()).find(n => n.type === 'ScrollView')
+  const changes = []
+  scroll.props.ref.current = { setNativeProps: props => changes.push(props) }
+  const touch = (x, y, identifier) => ({ pageX: x, pageY: y, identifier })
+  find(ui.render(), 'cutout-canvas').props.onResponderGrant({ nativeEvent: {
+    pageX: 150, pageY: 100, locationX: 100, locationY: 100, touches: [touch(140, 100, 0), touch(160, 100, 1)],
+  } })
+  assert.deepEqual(changes.at(-1), { scrollEnabled: false })
+  find(ui.render(), 'cutout-canvas').props.onResponderTerminate()
+  assert.deepEqual(changes.at(-1), { scrollEnabled: true })
+  assert.equal(nodes(ui.render()).find(n => n.type === 'ScrollView').props.scrollEnabled, true)
   ui.unmount()
 })

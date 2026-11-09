@@ -1,6 +1,7 @@
 import EditorModal from './EditorModal'
 import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { colors, shadow } from '../../../shared/theme'
+import { keepKoreanWords } from '../../../shared/keepWords'
 import { PANEL_RADIUS } from '../ToolPanel'
 
 /**
@@ -22,8 +23,10 @@ export function ConfirmDialogContent({ title, message, confirmLabel = '삭제', 
         {/* 카드 안을 눌러도 닫히지 않게 터치를 여기서 받는다 */}
         <ScrollView style={styles.cardScroll} keyboardShouldPersistTaps="handled">
         <Pressable style={styles.card} onPress={() => {}} accessibilityRole="alert">
-          <Text maxFontSizeMultiplier={0} style={styles.title}>{title}</Text>
-          {message ? <Text maxFontSizeMultiplier={0} lineBreakStrategyIOS="hangul-word" style={styles.message}>{message}</Text> : null}
+          {/* 한글은 낱말 단위로 줄을 바꾼다: iOS lineBreakStrategyIOS · 웹 keep-all · 안드로이드 keepKoreanWords(지라 655 '작 / 성한') */}
+          {/* 화면 읽기는 결합자 없는 원문을 읽게 한다(안드로이드만 결합자를 넣는다) */}
+          <Text maxFontSizeMultiplier={0} lineBreakStrategyIOS="hangul-word" accessibilityLabel={Platform.OS === 'android' && typeof title === 'string' ? title : undefined} style={styles.title}>{keepKoreanWords(title, Platform.OS)}</Text>
+          {message ? <Text maxFontSizeMultiplier={0} lineBreakStrategyIOS="hangul-word" accessibilityLabel={Platform.OS === 'android' && typeof message === 'string' ? message : undefined} style={styles.message}>{keepKoreanWords(message, Platform.OS)}</Text> : null}
           <View style={styles.actions}>
             {showCancel && <Pressable onPress={onCancel} style={({ pressed }) => [styles.button, pressed && styles.pressed]} accessibilityRole="button">
               <Text maxFontSizeMultiplier={0} style={styles.cancelText}>{cancelLabel}</Text>
@@ -46,7 +49,7 @@ const styles = StyleSheet.create({
   backdrop: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24, backgroundColor: colors.scrim },
   cardScroll: { width: 320, maxWidth: '100%', maxHeight: '100%', flexGrow: 0, borderRadius: PANEL_RADIUS, backgroundColor: colors.surface, ...shadow.float },
   card: { padding: 20 },
-  title: { fontSize: 16, fontWeight: '700', color: colors.text },
+  title: { fontSize: 16, fontWeight: '700', color: colors.text, ...(Platform.OS === 'web' && { wordBreak: 'keep-all' }) },
   message: { marginTop: 8, fontSize: 13, lineHeight: 19, color: colors.textMuted, ...(Platform.OS === 'web' && { wordBreak: 'keep-all' }) }, // 한글은 단어 단위로 줄을 바꾼다
   actions: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'flex-end', gap: 8, marginTop: 18 },
   button: { minWidth: 76, minHeight: 48, paddingVertical: 10, paddingHorizontal: 16, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },

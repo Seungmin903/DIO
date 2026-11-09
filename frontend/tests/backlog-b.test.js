@@ -56,20 +56,22 @@ test('개인정보 처리방침 등 법률 문서 화면은 상태 표시줄 영
   assert.match(legal, /edges=\{\['bottom', 'left', 'right'\]\}/);
 });
 
-test('처리방침 양쪽 맞춤: 안드로이드만 한글 글자 사이 줄바꿈 자리를 넣고, 링크 문단은 왼쪽 맞춤', () => {
-  const ZW = String.fromCharCode(0x200B);
-  assert.equal(justifyBreaks('개인·정보 OK', { os: 'android' }), ['개', '인', '·', '정', '보'].join(ZW) + ' OK');
+test('처리방침: 안드로이드는 낱말 안은 붙이고 띄어쓰기 · 가운뎃점 뒤에서만 줄을 바꾸며, 본문은 왼쪽 맞춤(iOS 는 양쪽 맞춤)', () => {
+  const ZW = String.fromCharCode(0x200B), WJ = String.fromCharCode(0x2060);
+  // 낱말 가운데('신승 / 민')에서는 끊지 않고 '·' 뒤에서만 끊을 수 있다(지라 655)
+  assert.equal(justifyBreaks('개인·정보 신승민', { os: 'android' }), `개${WJ}인${WJ}·${ZW}정${WJ}보 신${WJ}승${WJ}민`);
+  assert.equal(justifyBreaks('Android·iOS 앱', { os: 'android' }), `Android${WJ}·${ZW}iOS 앱`);
   assert.equal(justifyBreaks('개인정보', { os: 'ios' }), '개인정보');
-  assert.equal(justifyBreaks('개인정보', { os: 'android', skip: true }), '개인정보');
   // 줄바꿈 자리를 넣은 문단만 화면 읽기에 원문을 준다(링크 문단 · 제목 · iOS 는 없음)
   assert.equal(paragraphLabel({ type: 'paragraph', text: '개인정보 처리' }, 'android', '1. '), '1. 개인정보 처리');
   assert.equal(paragraphLabel({ type: 'paragraph', text: 'a', links: [{ label: 'a', url: 'b' }] }, 'android'), undefined);
-  assert.equal(paragraphLabel({ type: 'heading', text: 'a' }, 'android'), undefined);
+  assert.equal(paragraphLabel({ type: 'heading', text: '1. 처리 원칙' }, 'android'), '1. 처리 원칙');
   assert.equal(paragraphLabel({ type: 'paragraph', text: 'a' }, 'ios'), undefined);
   assert.equal(justifyBreaks(undefined, { os: 'android' }), undefined);
   assert.equal(justifiedParagraph({ links: [{ label: 'a', url: 'b' }] }, 'android'), false);
   assert.equal(justifiedParagraph({ links: [{ label: 'a', url: 'b' }] }, 'ios'), true);
-  assert.equal(justifiedParagraph({}, 'android'), true);
+  assert.equal(justifiedParagraph({}, 'android'), false);
+  assert.equal(justifiedParagraph({}, 'ios'), true);
 });
 
 test('탈퇴 토스트 타이머는 다시 그려져도 처음부터 다시 세지 않는다(최신 onDone 은 ref)', () => {

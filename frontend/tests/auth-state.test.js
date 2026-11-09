@@ -252,11 +252,11 @@ test('문서 닫기와 Android 뒤로가기는 동의를 변경하거나 가입 
   for(const [id,label] of consentRows)assert.equal(find(ui.render(),label).props.checked,id==='service');
  }finally{ui.unmount()}
 });
-test('개인정보처리방침에는 동의 콜백이 없고 닫기만 한다',()=>{
+test('개인정보 처리방침에는 동의 콜백이 없고 닫기만 한다',()=>{
  const ui=setup({});
  try {
   find(ui.render(),'회원가입').props.onPress();
-  find(ui.render(),'개인정보처리방침 보기').props.onPress();
+  find(ui.render(),'개인정보 처리방침 보기').props.onPress();
   const doc=reader(ui);assert.equal(doc.props.document.id,'policy');assert.equal(doc.props.onAgree,undefined);
   doc.props.onClose();assert.equal(reader(ui),undefined);
   for(const [,label] of consentRows)assert.equal(find(ui.render(),label).props.checked,false);

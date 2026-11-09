@@ -61,7 +61,6 @@ public class EmailInviteService {
         String token=tokens.token(invite);invite.initializeHash(tokens.hash(token));diary.updateSettings(null,null,null,"MEMBERS");
         entities.flush();
         events.publishEvent(new com.f106.DIO.notification.event.InvitationConfirmedEvent(UUID.randomUUID(),invite.getInviteId(),recipient.getUserId(),now));
-        events.publishEvent(new MemberInviteMailRequested(invite.getInviteId(), recipient.getEmail()));
     }
     @Transactional(readOnly=true)
     public DiaryInvitationsResponse sent(UUID diaryId,long actor,int page,int size){

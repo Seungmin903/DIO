@@ -228,7 +228,7 @@ test('실서버와 개인 원본에는 목 사본 만들기를 노출하지 않�
   }
 });
 
-test('참여자 ⋯ 말풍선의 소유권 양도: 취소는 유지하고 실패는 재시도, 성공하면 편집자 화면(양도 · 내보내기 없음)', async () => {
+test('참여자 ⋯ 말풍선의 소유권 양도: 취소는 유지하고 실패는 재시도, 성공하면 편집자 화면(양도 · 다이어리에서 제외 없음)', async () => {
   const diary = { id: 'd', title: '관리', members: [
     { id: 'self', nickname: '소연', role: 'OWNER' },
     { id: 'friend', nickname: '모아', role: 'EDITOR' },
@@ -252,11 +252,11 @@ test('참여자 ⋯ 말풍선의 소유권 양도: 취소는 유지하고 실패
   await tick();
   assert.equal(attempts, 2);
   assert.ok(find(ui.render(), '다이어리 참여 해제'));
-  // 이제 편집자라 양도 · 내보내기가 없다(신고 · 차단 연결도 없는 하네스라 ⋯ 자체가 없다)
+  // 이제 편집자라 양도 · 다이어리에서 제외가 없다(신고 · 차단 연결도 없는 하네스라 ⋯ 자체가 없다)
   assert.equal(find(ui.render(), '모아 메뉴'), undefined);
 });
 
-test('실서버 참여자 ⋯ 말풍선에도 연결된 양도 · 내보내기가 있다(소유자)', () => {
+test('실서버 참여자 ⋯ 말풍선에도 연결된 양도 · 다이어리에서 제외가 있다(소유자)', () => {
   const diary = { id: 'd', title: '관리', members: [
     { id: 'self', nickname: '소연', role: 'OWNER' }, { id: 'friend', nickname: '모아', role: 'EDITOR' },
   ] };
@@ -265,7 +265,7 @@ test('실서버 참여자 ⋯ 말풍선에도 연결된 양도 · 내보내기�
   find(ui.render(), '모아 메뉴').props.onPress();
   const actions = nodes(ui.render()).find(n => Array.isArray(n.props?.actions)).props.actions.map(a => a.label);
   assert.ok(actions.includes('모아 소유권 양도'));
-  assert.ok(actions.includes('모아 내보내기'));
+  assert.ok(actions.includes('모아 다이어리에서 제외'));
 });
 
 test('초대 상세는 취소·만료·정원 초과를 구분하고 사용 불가 초대에 수락을 제공하지 않는다', async () => {
