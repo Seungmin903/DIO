@@ -10,13 +10,28 @@
 import { BlendMode, FilterMode, MipmapMode, Skia, TileMode } from '@shopify/react-native-skia'
 import { abLineOf, GLASS_INK, GLASS_INK_SKSL, GLASS_LIVE_SKSL, glassDabs, inkDensity, micaColor, sheenAutoColor } from '../utils/glassInk.js'
 
-const MAX_EDGE = 4096, MAX_PIXELS = 4 * 1024 * 1024
+// 표면 상한 — 크게 잡으면 기기가 죽는다. 2026-11-09 실기: 확대(ppu 5.5)에서 획 하나가
+// 3789x1059(400만 화소) 짜리 표면을 3장씩 쓰고, 확대할 때마다 보이는 획이 전부 다시 그려져
+// librnskia 가 SIGTRAP 으로 죽었다. 품질보다 안 죽는 게 먼저다.
+const MAX_EDGE = 2048, MAX_PIXELS = 1024 * 1024
+const MAX_PPU = 3            // 확대해도 이 이상으로는 더 잘게 그리지 않는다(캐시된 그림을 늘려 쓴다)
 const POOL_DIV = 2            // 고임 장은 저주파라 절반 해상도로 블러해도 같다(블러 비용 1/4)
 const SAMPLING = { filter: FilterMode.Linear, mipmap: MipmapMode.None }   // 밉맵은 축소할 때 알파를 깎는다 → 획이 반투명해진다
 const makeSurface = (w, h) => Skia.Surface.MakeOffscreen ? Skia.Surface.MakeOffscreen(w, h) : Skia.Surface.Make(w, h)
 const hex3 = color => { const c = Skia.Color(color); return [c[0], c[1], c[2]] }
 
 let effect = null, liveEffect = null, broken = false, logDone = 0
+// 마스크 · 고임 장 표면은 이 함수 안에서만 쓰고 밖으로 안 나간다 → 재사용해도 안전하다.
+// (밖으로 나가는 건 구운 이미지뿐이고, 그 표면만 획마다 새로 만든다.)
+let scratch = null
+function acquireScratch(pw, ph) {
+  const w = Math.ceil(pw / 256) * 256, h = Math.ceil(ph / 256) * 256
+  if (scratch && scratch.w >= w && scratch.h >= h && scratch.w * scratch.h <= 4 * w * h) return scratch
+  scratch?.mask?.dispose?.(); scratch?.blur?.dispose?.(); scratch = null
+  const mask = makeSurface(w, h), blur = makeSurface(Math.ceil(w / POOL_DIV), Math.ceil(h / POOL_DIV))
+  if (!mask || !blur) { mask?.dispose?.(); blur?.dispose?.(); throw new Error(`MakeOffscreen ${w}x${h} 실패`) }
+  return (scratch = { w, h, mask, blur })
+}
 export const glassBroken = () => broken
 
 // 도장 스프라이트: 안티에일리어스 흰 원. 많이 줄이면 가장자리가 거칠어지므로 크기를 몇 단계로 나눠 둔다.
@@ -48,7 +63,7 @@ export function glassBox(points, width) {
 }
 // 화면 픽셀 / 페이지 단위. 긴 획이 흐려지지 않게 한 변 상한과 넓이 상한을 따로 본다
 const sizeOf = (box, zoom) => {
-  const ppu = Math.max(0.25, Math.min(zoom, MAX_EDGE / box.w, MAX_EDGE / box.h, Math.sqrt(MAX_PIXELS / (box.w * box.h))))
+  const ppu = Math.max(0.25, Math.min(zoom, MAX_PPU, MAX_EDGE / box.w, MAX_EDGE / box.h, Math.sqrt(MAX_PIXELS / (box.w * box.h))))
   return { ppu, pw: Math.max(1, Math.ceil(box.w * ppu)), ph: Math.max(1, Math.ceil(box.h * ppu)) }
 }
 
@@ -131,8 +146,9 @@ export function glassLivePaint(color, width, ink = {}, P = GLASS_INK) {
     if (amount <= 0.001) return null
     const mica = micaColor(ink.film ?? P.glFilm, 1)
     const paint = Skia.Paint()
-    paint.setShader(liveEffect.makeShader([...hex3(color), ...mica, 0.35, amount,
-      P.glCell, P.glP * P.glThinP, P.glRThin, P.glRThin * 1.6, P.glBMin, P.glBMax, P.glTail, P.glDesat,
+    const r = Math.max(0.3, P.glRThin * 4)   // 쓰는 중에는 보이는 크기로(0.08 은 AA 에 뭉개져 안 보였다)
+    paint.setShader(liveEffect.makeShader([...hex3(color), ...mica, r * 0.7, amount,
+      P.glCell, P.glP * P.glThinP, r, r * 1.6, P.glBMin, P.glBMax, P.glTail, P.glDesat,
       P.glCloud, P.glCloudScale, P.glVeil, P.glVeilDesat, P.glVeilLift, P.glVeilScale]))
     return paint
   } catch (error) {
@@ -149,18 +165,17 @@ export function drawGlassStroke(canvas, points, width, color, zoom = 1, ink = {}
   const box = glassBox(points, width)
   if (!(box.w > 0 && box.h > 0)) return false
   const { ppu, pw, ph } = sizeOf(box, zoom)
-  let mask = null, blur = null, out = null, maskImage = null, poolImage = null
+  let out = null, maskImage = null, poolImage = null
   try {
     const dabs = glassDabs(points, width)
     if (!dabs.length) return false
-    mask = makeSurface(pw, ph)
-    blur = makeSurface(Math.ceil(pw / POOL_DIV), Math.ceil(ph / POOL_DIV))
+    const pad = acquireScratch(pw, ph)
     out = makeSurface(pw, ph)
-    if (!mask || !blur || !out) throw new Error(`MakeOffscreen ${pw}x${ph} 실패`)
-    stampDabs(mask, dabs, 0, box, ppu, true)
-    mask.flush(); maskImage = mask.makeImageSnapshot()
-    blurPool(blur, maskImage, ppu)
-    blur.flush(); poolImage = blur.makeImageSnapshot()
+    if (!out) throw new Error(`MakeOffscreen ${pw}x${ph} 실패`)
+    stampDabs(pad.mask, dabs, 0, box, ppu, true)
+    pad.mask.flush(); maskImage = pad.mask.makeImageSnapshot(Skia.XYWHRect(0, 0, pw, ph))
+    blurPool(pad.blur, maskImage, ppu)
+    pad.blur.flush(); poolImage = pad.blur.makeImageSnapshot(Skia.XYWHRect(0, 0, Math.ceil(pw / POOL_DIV), Math.ceil(ph / POOL_DIV)))
     const oc = out.getCanvas()
     oc.clear(Skia.Color('transparent'))
     oc.save(); oc.scale(ppu, ppu); oc.translate(-box.x, -box.y)
@@ -179,6 +194,6 @@ export function drawGlassStroke(canvas, points, width, color, zoom = 1, ink = {}
     console.warn('[유리펜] 셰이더 경로 실패 — 평범한 선으로 전환:', error?.message ?? error)
     return false
   } finally {
-    maskImage?.dispose?.(); poolImage?.dispose?.(); mask?.dispose?.(); blur?.dispose?.(); out?.dispose?.()
+    maskImage?.dispose?.(); poolImage?.dispose?.(); out?.dispose?.()
   }
 }
