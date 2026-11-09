@@ -98,7 +98,9 @@ services:
       DIO_AI_API_KEY: "${DIO_AI_API_KEY:?DIO_AI_API_KEY is required}"
       # 사진 1장 임베딩 ≈ 23MB(실측). 24장이면 약 1.3GB로 2GB 상한 안에 여유를 둔다.
       SAM2_CACHE_SIZE: "24"
+    # dev AI(2GB)와 같은 EC2를 쓴다. 스왑까지 2GB로 묶어 상한을 넘으면 이 컨테이너만 OOM으로 끝나게 한다(backend·DB 보호).
     mem_limit: 2g
+    memswap_limit: 2g
     cpus: 2
     networks:
       ai:

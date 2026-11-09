@@ -27,11 +27,13 @@ http://localhost:8000 에 접속하면 두 가지 버전을 고를 수 있습니
 
 ## Docker (dev·운영 서버 배포)
 
-dev 서버에서는 `infra/compose/compose.dev.yml`, 운영 서버에서는 `infra/compose/compose.prod.yml`의 `ai` 컨테이너로 뜹니다. 각각 `deploy-development`, `deploy-production` CI 잡이 `./ai`를 빌드합니다. 두 환경은 같은 EC2에서 돌아 AI 컨테이너만 최대 4GB를 쓸 수 있습니다.
+dev 서버에서는 `infra/compose/compose.dev.yml`, 운영 서버에서는 `infra/compose/compose.prod.yml`의 `ai` 컨테이너로 뜹니다. 각각 `deploy-development`, `deploy-production` CI 잡이 `./ai`를 빌드합니다. 두 환경은 같은 EC2에서 돌아 AI 컨테이너만 최대 4GB를 쓸 수 있습니다. 운영 배포 전 호스트 총 메모리와 backend·DB·dev 스택 사용량을 합산해 여유를 확인합니다.
+
+운영 배포는 AI 이미지 태그를 `ai/` 폴더 내용(git tree 해시)으로 정합니다. `ai/`가 바뀌지 않은 배포(backend만 수정)는 AI 빌드와 컨테이너 재생성을 건너뛰어, 모델 재로딩·임베딩 캐시 손실 없이 오리기 기능이 계속 동작합니다. `ai/`가 바뀐 배포에서는 새 AI가 healthy가 될 때까지(최대 3분) 오리기 요청이 실패할 수 있고, 그 뒤에 backend를 교체합니다.
 
 - 이미지에 CPU 전용 torch와 모델을 미리 넣습니다. 실행 중에는 인터넷에서 모델을 받지 않습니다(`HF_HUB_OFFLINE=1`).
 - 외부 포트가 없습니다. backend와 둘만 쓰는 `internal` 네트워크로 `http://ai:8000`에 접근합니다.
-- 메모리 2GB, CPU 2코어 상한이 걸려 있습니다. worker는 하나입니다.
+- 메모리 2GB, CPU 2코어 상한이 걸려 있습니다(운영은 스왑 포함 2GB, `memswap_limit`). worker는 하나입니다.
 - `DIO_AI_API_KEY`는 서버 `dev.env`·`prod.env`에 넣고(환경마다 다른 값), 같은 환경의 backend와 ai가 같은 값을 받습니다. 비어 있으면 배포가 중단됩니다.
 
 로컬에서 이미지 확인:
