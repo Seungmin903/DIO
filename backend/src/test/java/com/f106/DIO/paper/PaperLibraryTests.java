@@ -153,4 +153,21 @@ class PaperLibraryTests {
         assertThat(jdbc.queryForObject("select count(*) from user_paper_library_media where user_id=?", Integer.class, actor.id())).isZero();
         assertThat(jdbc.queryForObject("select deleted_at from media_files where media_file_id=?", java.sql.Timestamp.class, page)).isNotNull();
     }
+    @Test void ownerCanStillDownloadALibraryImageDeletedFromMediaUntilItLeavesTheLibrary() throws Exception {
+        var actor = actor();
+        byte[] png = java.util.Base64.getDecoder().decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aZ1cAAAAASUVORK5CYII=");
+        var uploaded = mvc.perform(multipart("/api/v1/media").file(new org.springframework.mock.web.MockMultipartFile("file", "image.png", "image/png", png))
+            .param("libraryCategory", "PHOTO").header("Authorization", "Bearer " + actor.token())).andExpect(status().isCreated()).andReturn();
+        String media = tools.jackson.databind.json.JsonMapper.builder().build().readTree(uploaded.getResponse().getContentAsString()).path("mediaFileId").asString();
+        put(actor, body(0, "[" + paper("a", UUID.fromString(media)) + "]", "null")).andExpect(status().isOk());
+        // 미디어에서 지워도(삭제 표시) 보관함에 든 동안은 다른 기기가 보관함을 받을 때 파일을 내려받을 수 있다
+        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete("/api/v1/media/" + media).header("Authorization", "Bearer " + actor.token())).andExpect(status().isNoContent());
+        mvc.perform(get("/api/v1/media/" + media + "/file").header("Authorization", "Bearer " + actor.token())).andExpect(status().isOk()).andExpect(content().bytes(png));
+        // 남의 보관함 이미지는 받을 수 없다
+        var other = actor();
+        mvc.perform(get("/api/v1/media/" + media + "/file").header("Authorization", "Bearer " + other.token())).andExpect(status().isNotFound());
+        // 보관함에서 빠지면 지운 이미지라 더 받을 수 없다
+        put(actor, body(1, "[]", "null")).andExpect(status().isOk());
+        mvc.perform(get("/api/v1/media/" + media + "/file").header("Authorization", "Bearer " + actor.token())).andExpect(status().isNotFound());
+    }
 }
