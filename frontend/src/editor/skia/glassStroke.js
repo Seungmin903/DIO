@@ -16,7 +16,7 @@ const SAMPLING = { filter: FilterMode.Linear, mipmap: MipmapMode.None }   // 밉
 const makeSurface = (w, h) => Skia.Surface.MakeOffscreen ? Skia.Surface.MakeOffscreen(w, h) : Skia.Surface.Make(w, h)
 const hex3 = color => { const c = Skia.Color(color); return [c[0], c[1], c[2]] }
 
-let effect = null, broken = false
+let effect = null, broken = false, logged = 0
 export const glassBroken = () => broken
 
 // 도장 스프라이트: 안티에일리어스 흰 원. 많이 줄이면 가장자리가 거칠어지므로 크기를 몇 단계로 나눠 둔다.
@@ -117,16 +117,18 @@ function paintInk(canvas, box, ppu, color, width, ink, maskImage, poolImage) {
 
 // 쓰는 중 ────────────────────────────────────────────────────────────────────
 // 획 하나당 표면 한 쌍을 잡아 두고 새 도장만 덧찍는다. 상자를 벗어나면 다시 잡고 전부 다시 찍는다.
-let live = null, frameImages = []
-const releaseFrame = () => { for (const one of frameImages) one?.dispose?.(); frameImages = [] }
+// 쓰는 중 그림도 **구운 이미지 한 장**으로 넘긴다. Picture 에 셰이더를 직접 기록하면 Picture 가
+// 마스크 · 고임 장 이미지를 계속 참조하는데, 그건 다음 프레임에 놓아 주는 이미지라 그릴 때쯤이면 없다
+// (쓰는 중 획이 아예 안 보이던 원인). 구운 이미지는 몇 프레임 살려 두었다가 놓아 준다.
+let live = null, keep = []
+const sweep = (n = 3) => { while (keep.length > n) keep.shift()?.dispose?.() }
 export function endGlassLive() {
-  releaseFrame()
-  live?.mask?.dispose?.(); live?.blur?.dispose?.(); live = null
+  while (keep.length) keep.shift()?.dispose?.()
+  live?.mask?.dispose?.(); live?.blur?.dispose?.(); live?.out?.dispose?.(); live = null
 }
 export function drawGlassLive(canvas, points, width, color, zoom = 1, ink = {}) {
   if (broken || !points?.length) return false
   try {
-    releaseFrame()
     const dabs = glassDabs(points, width)
     if (!dabs.length) return false
     const need = glassBox(points, width)
@@ -139,9 +141,9 @@ export function drawGlassLive(canvas, points, width, color, zoom = 1, ink = {}) 
       const box = { x: need.x - grow, y: need.y - grow, w: need.w + 2 * grow, h: need.h + 2 * grow }
       const { ppu, pw, ph } = sizeOf(box, zoom)
       if (pw * ph > MAX_PIXELS) return false
-      const mask = makeSurface(pw, ph), blur = makeSurface(Math.ceil(pw / POOL_DIV), Math.ceil(ph / POOL_DIV))
-      if (!mask || !blur) { mask?.dispose?.(); blur?.dispose?.(); throw new Error(`MakeOffscreen ${pw}x${ph} 실패`) }
-      live = { key, box, ppu, pw, ph, mask, blur, count: 0 }
+      const mask = makeSurface(pw, ph), blur = makeSurface(Math.ceil(pw / POOL_DIV), Math.ceil(ph / POOL_DIV)), out = makeSurface(pw, ph)
+      if (!mask || !blur || !out) { mask?.dispose?.(); blur?.dispose?.(); out?.dispose?.(); throw new Error(`MakeOffscreen ${pw}x${ph} 실패`) }
+      live = { key, box, ppu, pw, ph, mask, blur, out, count: 0 }
       stampDabs(mask, dabs, 0, box, ppu, true)
       live.count = dabs.length
     } else if (dabs.length > live.count) {
@@ -153,8 +155,20 @@ export function drawGlassLive(canvas, points, width, color, zoom = 1, ink = {}) 
     blurPool(live.blur, maskImage, live.ppu)
     live.blur.flush()
     const poolImage = live.blur.makeImageSnapshot()
-    frameImages.push(maskImage, poolImage)
-    paintInk(canvas, live.box, live.ppu, color, width, ink, maskImage, poolImage)
+    const oc = live.out.getCanvas()
+    oc.clear(Skia.Color('transparent'))
+    oc.save(); oc.scale(live.ppu, live.ppu); oc.translate(-live.box.x, -live.box.y)
+    paintInk(oc, live.box, live.ppu, color, width, ink, maskImage, poolImage)
+    oc.restore()
+    live.out.flush()
+    const baked = live.out.makeImageSnapshot()
+    maskImage.dispose?.(); poolImage.dispose?.()   // 굽는 데만 썼다(이 자리에서 다 쓰임)
+    keep.push(baked); sweep()
+    if (logged < 6) { logged++; console.log(`[유리펜] 쓰는중 ${live.pw}x${live.ph} ppu ${live.ppu.toFixed(2)} 도장 ${dabs.length}`) }
+    canvas.save()
+    canvas.translate(live.box.x, live.box.y); canvas.scale(live.box.w / live.pw, live.box.h / live.ph)
+    canvas.drawImage(baked, 0, 0)
+    canvas.restore()
     return true
   } catch (error) {
     broken = true
@@ -172,14 +186,14 @@ export function drawGlassStroke(canvas, points, width, color, zoom = 1, ink = {}
   const box = glassBox(points, width)
   if (!(box.w > 0 && box.h > 0)) return false
   const { ppu, pw, ph } = sizeOf(box, zoom)
-  let mask = null, blur = null, maskImage = null, poolImage = null
+  let mask = null, blur = null, out = null, maskImage = null, poolImage = null
   try {
     const dabs = glassDabs(points, width)
     if (!dabs.length) return false
     endGlassLive()                      // 쓰는 중 표면은 여기서 놓아 준다
     mask = makeSurface(pw, ph)
     blur = makeSurface(Math.ceil(pw / POOL_DIV), Math.ceil(ph / POOL_DIV))
-    const out = makeSurface(pw, ph)
+    out = makeSurface(pw, ph)
     if (!mask || !blur || !out) throw new Error(`MakeOffscreen ${pw}x${ph} 실패`)
     stampDabs(mask, dabs, 0, box, ppu, true)
     mask.flush(); maskImage = mask.makeImageSnapshot()
@@ -196,12 +210,13 @@ export function drawGlassStroke(canvas, points, width, color, zoom = 1, ink = {}
     canvas.translate(box.x, box.y); canvas.scale(box.w / pw, box.h / ph)
     canvas.drawImage(baked, 0, 0)
     canvas.restore()
+    if (logged < 6) { logged++; console.log(`[유리펜] 완성 ${pw}x${ph} ppu ${ppu.toFixed(2)} 도장 ${dabs.length}`) }
     return true
   } catch (error) {
     broken = true
     console.warn('[유리펜] 셰이더 경로 실패 — 평범한 선으로 전환:', error?.message ?? error)
     return false
   } finally {
-    maskImage?.dispose?.(); poolImage?.dispose?.(); mask?.dispose?.(); blur?.dispose?.()
+    maskImage?.dispose?.(); poolImage?.dispose?.(); mask?.dispose?.(); blur?.dispose?.(); out?.dispose?.()
   }
 }
