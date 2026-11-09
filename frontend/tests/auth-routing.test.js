@@ -23,6 +23,7 @@ function root(dev,mode,session=null,loginRequest=null,probe=null,apiConfiguratio
  }};
  mocks['./src/editor/utils/common']={setUuidGenerator(){}};
  mocks['./src/shared/BootSplash']={__esModule:true,default:'./src/shared/BootSplash',SPLASH:{backgroundColor:'#F0ECFD'}};
+ mocks['./src/diary/components/EmptyState']={LoadingSpot:'LoadingSpot'};
  mocks['./src/shared/bootIntro']=bootIntro;
  Object.assign(mocks['./src/auth/authService'].authService, {
   getSessionKey:()=>probe?.sessionKey??null,
@@ -538,12 +539,18 @@ test('로그아웃 이중 실패 안내는 기기 로그인 정보를 지웠다�
  }
 });
 
-test('세션 확인이 늦으면 스플래시 종료 후 준비 안내를 표시한다',()=>{
+test('세션 확인이 늦으면 스플래시 종료 후 로딩을 표시하고 보관함 또는 복구 화면으로 전환한다',()=>{
  const tree=root(false,undefined,null,null,{booting:false,effects:[]});
  assert.equal(has(tree,'./src/shared/BootSplash'),false);
- assert.ok(nodes(tree).some(node=>node.props?.children==='앱을 준비하고 있어요…'));
- assert.equal(has(root(false,undefined,{mode:'authenticated',userId:'7'},null,{booting:false,effects:[]}),'./src/shared/BootSplash'),false);
- assert.equal(has(root(false,undefined,{mode:'preview',provider:'guest'},null,{booting:false,effects:[]}),'./src/shared/BootSplash'),false);
+ assert.equal(nodes(tree).find(node=>node.type==='LoadingSpot').props.label,'로그인 정보를 확인하고 있어요.');
+ for(const [session,screen] of [[{mode:'authenticated',userId:'7'},'MemberDiaryApp'],[{mode:'preview',provider:'guest'},'LocalDiaryApp']]){
+  const ready=root(false,undefined,session,null,{booting:false,effects:[]});
+  assert.ok(has(ready,screen));
+  assert.equal(has(ready,'LoadingSpot'),false);
+ }
+ const failed=root(false,undefined,null,null,{booting:false,effects:[],restoreState:{status:'error',error:new Error('offline')}});
+ assert.ok(has(failed,'./src/auth/SessionRestoreScreen'));
+ assert.equal(has(failed,'LoadingSpot'),false);
 });
 
 test('글꼴 로딩이 멈춰도 부팅 제한 시간이 지나면 기본 글꼴로 화면을 연다',()=>{
@@ -562,7 +569,7 @@ test('글꼴 로딩이 멈춰도 부팅 제한 시간이 지나면 기본 글꼴
  assert.ok(probe.updates.some(update=>update.index===1&&update.value===false));
  assert.equal(probe.hidden,1);
  probe.booting=false;
- assert.ok(nodes(root(false,undefined,null,null,probe)).some(node=>node.props?.children==='앱을 준비하고 있어요…'));
+ assert.ok(has(root(false,undefined,null,null,probe),'LoadingSpot'));
  assert.ok(nodes(root(false,undefined,{mode:'preview',provider:'guest'},null,probe)).some(node=>node.type?.name==='LocalDiaryApp'));
  cleanups.forEach(cleanup=>{if(typeof cleanup==='function')cleanup()});
 });
