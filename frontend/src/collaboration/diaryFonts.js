@@ -43,14 +43,15 @@ export function isFontBytes(bytes) {
  * diaryId: 서버 다이어리 id
  * transport: JSON API(목록 · 공유). request: 파일 업로드 · 내려받기(createMediaRequest)
  * files: { upload(font) → 업로드 본문, cachedUri(mediaFileId) → uri|null, save(mediaFileId, bytes) → uri }
- * library: { mine() → 이 기기의 내 폰트 목록, has(fileId) → 이미 그릴 수 있는지, register(fonts[{ fileId, mediaFileId, uri }]) }
+ * library: { mine() → 이 기기의 내 폰트 목록, has(fileId) → 이미 그릴 수 있는지, register(fonts[{ fileId, mediaFileId, uri }]), unregister(fileIds) }
  * storage · key: 올린 폰트의 서버 id 기록(계정 · 서버마다 한 번만 올린다)
  * consent: { status() → 'granted'|'denied'|null, ask() → 공유하기면 true } 내 폰트를 올려도 되는지(handwriting/fontShareConsent.js)
  */
 const ALWAYS_GRANTED = { status: async () => 'granted', ask: async () => true }
 export function createDiaryFonts({ diaryId, transport, request, files, library, storage, key, isActive = () => true, ready = Promise.resolve(), consent = ALWAYS_GRANTED, now = Date.now, setTimer = setTimeout, clearTimer = clearTimeout }) {
   if (!uuid(diaryId)) throw Error('다이어리 ID를 확인해 주세요.')
-  const shared = new Set(), sharing = new Map()
+  // shared: 이 다이어리에 내 파일로 공유된 것을 확인한 내 폰트 id. registered: 이 세션에서 받아 등록한 친구 폰트 id → 서버 파일 id
+  const shared = new Set(), sharing = new Map(), registered = new Map()
   let syncJob = null, lastSync = -Infinity, disposed = false
   const active = () => { if (!isActive()) throw Error('편집 세션이 종료됐어요.') }
   const uploadKey = fileId => `${key}:${fileId}`
@@ -71,8 +72,8 @@ export function createDiaryFonts({ diaryId, transport, request, files, library, 
       if (!font) return // 친구의 폰트이거나 이 기기에서 파일을 잃은 폰트: 올릴 것이 없다
       // 폰트 파일은 다른 멤버가 내려받을 수 있게 되므로 동의를 받은 뒤에만 올린다
       const permission = await consent.status(); active()
-      if (permission === 'denied') return
-      if (permission !== 'granted') { askLater(fileId); return }
+      if (permission === null) { askLater(fileId); return } // 아직 묻지 않음
+      if (permission !== 'granted') return // 거부 또는 저장소를 읽지 못함: 올리지도 묻지도 않는다(다음 저장에서 다시 읽는다)
       let mediaFileId = await uploaded(font)
       try { await transport({ method: 'POST', path: `/diaries/${diaryId}/fonts`, body: { mediaFileId } }) }
       catch (error) {
@@ -103,16 +104,29 @@ export function createDiaryFonts({ diaryId, transport, request, files, library, 
     await ready; active() // 기기 캐시 정리(다른 계정 파일 지우기)가 끝난 뒤에 받는다
     const list = await transport({ path: `/diaries/${diaryId}/fonts` }); active()
     if (!Array.isArray(list)) throw Error('다이어리 폰트 목록을 확인하지 못했어요.')
-    const fetched = [], claimed = new Set()
+    const fetched = []
     // 내 폰트(파일이 기기에 있는 것)는 아직 글꼴 등록 전이어도 받지 않는다
     const own = new Set((await library.mine().catch(() => [])).filter(font => !font.missing).map(font => font.fileId?.toLowerCase())); active()
-    for (const item of list) {
-      const fileId = fileIdFromSharedName(item?.name)
-      if (!fileId || item.enabled === false || !uuid(item.mediaFileId)) continue
-      // 이름은 올린 사람이 정하므로 같은 폰트 id 를 둘 이상이 주장할 수 있다. 서버 목록은 먼저 공유한 순서라 첫 파일만 쓴다
-      if (claimed.has(fileId)) continue
-      claimed.add(fileId); shared.add(fileId)
-      if (own.has(fileId) || library.has(fileId)) continue
+    // 이름(dio-hw-<폰트 id>.ttf)은 올린 사람이 정하므로 다른 멤버가 남의 폰트 id 로 다른 파일을 올릴 수 있다.
+    // 서버 목록에는 올린 사람이 없어 어느 쪽이 진짜인지 알 수 없으니, 한 폰트 id 를 서로 다른 파일이 주장하면 어느 파일로도 그리지 않는다
+    // (그 글자는 안내 문구로 남는다. 다른 글꼴로 바꿔치기되는 것보다 낫다)
+    const entries = list.map(item => ({ item, fileId: fileIdFromSharedName(item?.name) }))
+      .filter(({ item, fileId }) => fileId && item.enabled !== false && uuid(item.mediaFileId))
+    const claims = new Map()
+    for (const { item, fileId } of entries) claims.set(fileId, new Set([...(claims.get(fileId) ?? []), item.mediaFileId.toLowerCase()]))
+    for (const [fileId, ids] of claims) {
+      // 내 폰트는 내가 올린 파일(기록한 mediaFileId)이 목록에 있을 때만 공유된 것으로 본다. 남이 같은 id 를 먼저 주장해도 내 공유는 막히지 않는다
+      if (!own.has(fileId)) continue
+      const mine = await storage.getItem(uploadKey(fileId)).catch(() => null); active()
+      if (uuid(mine) && ids.has(mine.toLowerCase())) shared.add(fileId)
+    }
+    // 이 세션에서 등록한 친구 폰트가 이제 다툼이 생겼거나(다른 파일이 같은 id 를 주장) 목록에서 빠졌으면 더는 그리지 않는다
+    const dropped = [...registered.keys()].filter(fileId => claims.get(fileId)?.size !== 1 || !claims.get(fileId).has(registered.get(fileId)))
+    if (dropped.length) { for (const fileId of dropped) registered.delete(fileId); library.unregister?.(dropped) }
+    for (const [fileId, ids] of claims) {
+      if (own.has(fileId) || ids.size !== 1) continue
+      const item = entries.find(entry => entry.fileId === fileId).item
+      if (registered.get(fileId) === item.mediaFileId.toLowerCase() || (!registered.has(fileId) && library.has(fileId))) continue
       try {
         // 캐시는 서버 파일(mediaFileId) 기준: 같은 폰트 id 를 단 다른 파일이 서로 덮어쓰지 않는다
         let uri = await files.cachedUri(item.mediaFileId); active()
@@ -124,6 +138,7 @@ export function createDiaryFonts({ diaryId, transport, request, files, library, 
         fetched.push({ fileId, mediaFileId: item.mediaFileId, uri })
       } catch (error) { active() } // 한 폰트를 못 받아도 나머지는 받는다(그 글자는 안내 문구로 남는다)
     }
+    for (const font of fetched) registered.set(font.fileId, font.mediaFileId.toLowerCase())
     if (fetched.length) library.register(fetched)
     return fetched
   }

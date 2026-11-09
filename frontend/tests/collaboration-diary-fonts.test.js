@@ -12,7 +12,7 @@ const body = rows => ({ clientOperationId: 'op', changes: { creates: rows }, exp
 
 const TTF = new Uint8Array([0, 1, 0, 0, 0, 10, 0, 128, 0, 3, 0, 32])
 function fixture({ mine = [{ id: `personal-${fileId}`, fileId, uri: 'file://font.ttf' }], has = () => false, serverFonts = [], shareFailure = null, fileBytes = () => TTF, consent } = {}) {
-  const disk = new Map(), calls = [], registered = [], saved = new Map(), timers = []
+  const disk = new Map(), calls = [], registered = [], unregistered = [], saved = new Map(), timers = []
   let now = 0
   const transport = async request => {
     calls.push({ ...request })
@@ -33,12 +33,12 @@ function fixture({ mine = [{ id: `personal-${fileId}`, fileId, uri: 'file://font
   const fonts = createDiaryFonts({
     diaryId, transport, request, storage: { getItem: async k => disk.get(k) ?? null, setItem: async (k, v) => disk.set(k, v), removeItem: async k => disk.delete(k) }, key: 'uploads',
     files: { upload: async font => ({ font }), cachedUri: async id => saved.get(id) ?? null, save: async (id, bytes) => { saved.set(id, `file://shared/${id}.ttf`); return saved.get(id) } },
-    library: { mine: async () => mine, has, register: list => registered.push(...list) },
+    library: { mine: async () => mine, has, register: list => registered.push(...list), unregister: ids => unregistered.push(ids) },
     now: () => now, consent,
     setTimer: (run, ms) => { const timer = { run, ms, cleared: false }; timers.push(timer); return timer },
     clearTimer: timer => { timer.cleared = true },
   })
-  return { fonts, calls, registered, disk, saved, timers, uploads: () => uploads, tick: ms => { now += ms } }
+  return { fonts, calls, registered, unregistered, disk, saved, timers, uploads: () => uploads, tick: ms => { now += ms } }
 }
 
 test('폰트 이름에 기기 폰트 id 를 담고 글자 · 도형 요소에서 내 폰트만 모은다', () => {
@@ -138,14 +138,38 @@ test('다이어리 폰트 목록에서 기기에 없는 폰트만 받아 등록�
   assert.deepEqual(f.calls.filter(call => call.path?.endsWith('/file')).map(call => call.path), [`/diaries/${diaryId}/fonts/${mediaFileId}/file`])
 })
 
-test('같은 폰트 id 를 단 파일이 여럿이면 먼저 공유된 파일만 받는다', async () => {
-  const f = fixture({ mine: [], serverFonts: [
-    { mediaFileId, name: sharedFontFileName(fileId), enabled: true },
-    { mediaFileId: otherMediaId, name: sharedFontFileName(fileId), enabled: true },
-  ] })
+test('같은 폰트 id 를 서로 다른 파일이 주장하면 어느 파일로도 그리지 않고, 이미 그리던 것도 뺀다', async () => {
+  const serverFonts = [{ mediaFileId, name: sharedFontFileName(fileId), enabled: true }]
+  const f = fixture({ mine: [], serverFonts })
   await f.fonts.sync()
   assert.deepEqual(f.registered.map(font => font.mediaFileId), [mediaFileId])
+  // 다른 멤버가 같은 폰트 id 로 다른 파일을 공유했다
+  serverFonts.push({ mediaFileId: otherMediaId, name: sharedFontFileName(fileId), enabled: true })
+  f.tick(10000)
+  await f.fonts.sync()
+  assert.deepEqual(f.unregistered, [[fileId]])
+  assert.equal(f.registered.length, 1)
   assert.deepEqual([...f.saved.keys()], [mediaFileId])
+  // 처음부터 다투는 폰트는 받지 않는다
+  const g = fixture({ mine: [], serverFonts: [...serverFonts] })
+  await g.fonts.sync()
+  assert.deepEqual(g.registered, [])
+  assert.equal(g.saved.size, 0)
+})
+
+test('다른 멤버가 내 폰트 id 를 먼저 주장해도 내 파일이 목록에 없으면 내 폰트를 공유한다', async () => {
+  // 남이 내 폰트 id 로 다른 파일을 먼저 공유한 다이어리
+  const f = fixture({ serverFonts: [{ mediaFileId: otherMediaId, name: sharedFontFileName(fileId), enabled: true }] })
+  await f.fonts.sync()
+  await f.fonts.prepare(body([textRow(`personal-${fileId}`)]))
+  assert.equal(f.uploads(), 1)
+  assert.deepEqual(f.calls.filter(call => call.method === 'POST' && call.path === `/diaries/${diaryId}/fonts`).map(call => call.body), [{ mediaFileId }])
+  // 내 파일이 목록에 있으면 다시 공유하지 않는다
+  const g = fixture({ serverFonts: [{ mediaFileId, name: sharedFontFileName(fileId), enabled: true }] })
+  g.disk.set(`uploads:${fileId}`, mediaFileId)
+  await g.fonts.sync()
+  await g.fonts.prepare(body([textRow(`personal-${fileId}`)]))
+  assert.equal(g.calls.filter(call => call.method === 'POST' && call.path === `/diaries/${diaryId}/fonts`).length, 0)
 })
 
 test('폰트 형식이 아닌 파일은 저장 · 등록하지 않는다', async () => {

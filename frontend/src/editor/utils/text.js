@@ -89,12 +89,13 @@ export function registerSharedTextFonts(fonts) {
   sharedFonts = [...sharedFonts.filter(font => !added.some(item => item.id === font.id)), ...added]
   rebuildFontList()
 }
-/** 편집 세션을 닫거나 계정이 바뀔 때: 받은 친구 폰트를 목록에서 뺀다(빼면 그 글꼴로 그리지 않는다). 뺀 글꼴 family 를 돌려준다 */
-export function clearSharedTextFonts() {
+/** 편집 세션을 닫거나 계정이 바뀔 때(ids 없이), 또는 특정 친구 폰트를 더 쓰지 않을 때(ids: 글꼴 id 목록): 목록에서 뺀다(빼면 그 글꼴로 그리지 않는다) */
+export function clearSharedTextFonts(ids = null) {
+  const removing = ids ? sharedFonts.filter(font => ids.includes(font.id)) : sharedFonts
   // 내 폰트와 같은 글꼴(내가 공유한 폰트를 다시 받은 경우)은 불러온 상태를 지우지 않는다
-  const families = sharedFonts.map(font => font.family).filter(family => !personalFonts.some(mine => mine.family === family))
-  if (!sharedFonts.length) return []
-  sharedFonts = []
+  const families = removing.map(font => font.family).filter(family => !personalFonts.some(mine => mine.family === family))
+  if (!removing.length) return []
+  sharedFonts = sharedFonts.filter(font => !removing.includes(font))
   for (const family of families) { loadedFamilies.delete(family); failedFamilies.delete(family) }
   fontStateRevision++
   rebuildFontList()

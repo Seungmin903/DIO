@@ -34,6 +34,11 @@ export const sharedFontLibrary = {
       })
     }
   },
+  // 같은 폰트 id 를 다른 파일이 주장하게 됐을 때: 그 친구 폰트로 더는 그리지 않는다
+  unregister(fileIds) {
+    for (const fileId of fileIds) sharedUris.delete(fileId)
+    clearSharedTextFonts(fileIds.map(fileId => `personal-${fileId}`))
+  },
 }
 
 /** 편집 세션을 열 때: 다른 계정이 받아 둔 폰트 파일이 있으면 지운다 */
