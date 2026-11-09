@@ -20,20 +20,22 @@ export const dialogStore = {
     queue = rest;
     emit();
     if (confirmed) front?.onConfirm?.();
+    else front?.onCancel?.();
   },
 };
 
 const show = request => { queue = [...queue, request]; emit(); };
 
-/** 확인·취소 창. 확인을 누르면 onConfirm을 실행한다. danger 가 거짓이면 되돌릴 수 있는 동작이라 위험색 대신 주 버튼 색을 쓴다. */
-export function confirmAction({ title, message, confirmLabel, cancelLabel = '취소', onConfirm, danger = true }) {
-  if (hosts > 0) { show({ kind: 'confirm', title, message, confirmLabel, cancelLabel, onConfirm, danger }); return; }
+/** 확인·취소 창. 확인을 누르면 onConfirm, 취소(바깥 누르기 · 뒤로 가기 포함)면 onCancel 을 실행한다. danger 가 거짓이면 되돌릴 수 있는 동작이라 위험색 대신 주 버튼 색을 쓴다. */
+export function confirmAction({ title, message, confirmLabel, cancelLabel = '취소', onConfirm, onCancel, danger = true }) {
+  if (hosts > 0) { show({ kind: 'confirm', title, message, confirmLabel, cancelLabel, onConfirm, onCancel, danger }); return; }
   if (Platform.OS === 'web') {
     if (globalThis.confirm?.(`${title}\n\n${message}`)) onConfirm();
+    else onCancel?.();
     return;
   }
   Alert.alert(title, message, [
-    { text: cancelLabel, style: 'cancel' },
+    { text: cancelLabel, style: 'cancel', onPress: onCancel },
     { text: confirmLabel, style: danger ? 'destructive' : 'default', onPress: onConfirm },
   ]);
 }

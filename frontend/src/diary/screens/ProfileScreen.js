@@ -213,7 +213,7 @@ export default function ProfileScreen({ guestImport = null, section = 'profile',
           <NotificationSetting compact={compact}>{serverNotifications}</NotificationSetting>
           {/* 게스트는 새로 켤 수 없다. 이미 켠 게스트는 끌 수 있게 끄기만 남긴다 */}
           {showLockSetting && <AppLockSetting compact={compact} locked={locked} readFailed={lockReadFailed} onRetry={reloadLock} canEnable={canEnableLock} onTurnOn={() => setPin({ mode: 'setup' })} onTurnOff={() => setPin({ mode: 'verify', next: 'off' })} onChange={() => setPin({ mode: 'verify', next: 'change' })} />}
-          <EditSetting compact={compact} />
+          <EditSetting compact={compact} accountId={userId == null ? null : String(userId)} />
           <AppInformation />
         </SettingCard>}
         {/* 기기 다이어리를 계정으로 옮기고 원본을 지우는 계정 · 데이터 동작이라 보관함이 아니라 여기 둔다(사용자 결정 2026-11-05) */}

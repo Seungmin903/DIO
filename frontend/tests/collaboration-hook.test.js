@@ -83,6 +83,7 @@ function fixture(failure=null,shared=false,sourceDiaryId=diaryId){
   if(name.endsWith('/canvasMediaFiles'))return {canvasMediaFiles:{cached:async()=>true}}
   if(name.endsWith('/canvasApi.js'))return apiModule
   if(name.endsWith('/diaryFonts.js'))return diaryFontsModule
+  if(name.endsWith('/fontShareConsent.js'))return {fontShareConsent:async()=>'denied',askFontShareConsent:async()=>false}
   if(name.endsWith('/sharedFonts.js'))return {sharedFontFiles:{},sharedFontLibrary:{mine:async()=>[],has:()=>false,register(){}},claimSharedFonts:async()=>{},releaseSharedFonts(){}}
   if(name.endsWith('/canvasElements.js'))return elementsModule
   if(name.endsWith('/collaborationDiagnostics.js'))return diagnosticsModule

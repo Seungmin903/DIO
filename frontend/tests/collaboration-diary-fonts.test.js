@@ -11,7 +11,7 @@ const textRow = (font, elementType = 'TEXT') => ({ elementType, propertiesJson: 
 const body = rows => ({ clientOperationId: 'op', changes: { creates: rows }, expectedVersions: {} })
 
 const TTF = new Uint8Array([0, 1, 0, 0, 0, 10, 0, 128, 0, 3, 0, 32])
-function fixture({ mine = [{ id: `personal-${fileId}`, fileId, uri: 'file://font.ttf' }], has = () => false, serverFonts = [], shareFailure = null, fileBytes = () => TTF } = {}) {
+function fixture({ mine = [{ id: `personal-${fileId}`, fileId, uri: 'file://font.ttf' }], has = () => false, serverFonts = [], shareFailure = null, fileBytes = () => TTF, consent } = {}) {
   const disk = new Map(), calls = [], registered = [], saved = new Map(), timers = []
   let now = 0
   const transport = async request => {
@@ -34,7 +34,7 @@ function fixture({ mine = [{ id: `personal-${fileId}`, fileId, uri: 'file://font
     diaryId, transport, request, storage: { getItem: async k => disk.get(k) ?? null, setItem: async (k, v) => disk.set(k, v), removeItem: async k => disk.delete(k) }, key: 'uploads',
     files: { upload: async font => ({ font }), cachedUri: async id => saved.get(id) ?? null, save: async (id, bytes) => { saved.set(id, `file://shared/${id}.ttf`); return saved.get(id) } },
     library: { mine: async () => mine, has, register: list => registered.push(...list) },
-    now: () => now,
+    now: () => now, consent,
     setTimer: (run, ms) => { const timer = { run, ms, cleared: false }; timers.push(timer); return timer },
     clearTimer: timer => { timer.cleared = true },
   })
@@ -73,6 +73,45 @@ test('서버에서 지워진 폰트 파일이면 다시 올려 공유한다', as
   await f.fonts.prepare(body([textRow(`personal-${fileId}`)]))
   assert.equal(f.uploads(), 1)
   assert.equal(f.disk.get(`uploads:${fileId}`), mediaFileId)
+})
+
+const settle = () => new Promise(resolve => setImmediate(resolve))
+const shares = f => f.calls.filter(call => call.method === 'POST' && call.path === `/diaries/${diaryId}/fonts`).length
+
+test('동의를 묻지 않은 계정은 글자 저장을 기다리게 하지 않고 한 번만 묻고, 공유하기면 그때 올린다', async () => {
+  let state = null, asks = 0, answer
+  const f = fixture({ consent: { status: async () => state, ask: () => { asks++; return new Promise(resolve => { answer = granted => { state = granted ? 'granted' : 'denied'; resolve(granted) } }) } } })
+  await f.fonts.prepare(body([textRow(`personal-${fileId}`)]))
+  await f.fonts.prepare(body([textRow(`personal-${fileId}`)]))
+  await settle()
+  assert.equal(asks, 1)
+  assert.equal(f.uploads(), 0)
+  answer(true); await settle(); await settle()
+  assert.equal(f.uploads(), 1)
+  assert.equal(shares(f), 1)
+})
+
+test('공유 안 함을 고르거나 끈 계정은 올리지 않는다', async () => {
+  let asks = 0
+  const declined = fixture({ consent: { status: async () => null, ask: async () => { asks++; return false } } })
+  await declined.fonts.prepare(body([textRow(`personal-${fileId}`)]))
+  await settle(); await settle()
+  assert.equal(asks, 1)
+  assert.equal(declined.uploads(), 0)
+  const off = fixture({ consent: { status: async () => 'denied', ask: async () => { asks++; return true } } })
+  await off.fonts.prepare(body([textRow(`personal-${fileId}`)]))
+  await settle()
+  assert.equal(asks, 1)
+  assert.equal(off.uploads(), 0)
+  assert.equal(shares(off), 0)
+})
+
+test('친구 폰트는 동의를 묻지 않는다', async () => {
+  let asks = 0
+  const f = fixture({ mine: [], consent: { status: async () => null, ask: async () => { asks++; return true } } })
+  await f.fonts.prepare(body([textRow(`personal-${otherId}`)]))
+  await settle()
+  assert.equal(asks, 0)
 })
 
 test('친구 폰트 · 실패한 업로드는 글자 저장을 막지 않는다', async () => {

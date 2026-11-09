@@ -45,8 +45,10 @@ export function isFontBytes(bytes) {
  * files: { upload(font) → 업로드 본문, cachedUri(mediaFileId) → uri|null, save(mediaFileId, bytes) → uri }
  * library: { mine() → 이 기기의 내 폰트 목록, has(fileId) → 이미 그릴 수 있는지, register(fonts[{ fileId, mediaFileId, uri }]) }
  * storage · key: 올린 폰트의 서버 id 기록(계정 · 서버마다 한 번만 올린다)
+ * consent: { status() → 'granted'|'denied'|null, ask() → 공유하기면 true } 내 폰트를 올려도 되는지(handwriting/fontShareConsent.js)
  */
-export function createDiaryFonts({ diaryId, transport, request, files, library, storage, key, isActive = () => true, ready = Promise.resolve(), now = Date.now, setTimer = setTimeout, clearTimer = clearTimeout }) {
+const ALWAYS_GRANTED = { status: async () => 'granted', ask: async () => true }
+export function createDiaryFonts({ diaryId, transport, request, files, library, storage, key, isActive = () => true, ready = Promise.resolve(), consent = ALWAYS_GRANTED, now = Date.now, setTimer = setTimeout, clearTimer = clearTimeout }) {
   if (!uuid(diaryId)) throw Error('다이어리 ID를 확인해 주세요.')
   const shared = new Set(), sharing = new Map()
   let syncJob = null, lastSync = -Infinity, disposed = false
@@ -67,6 +69,10 @@ export function createDiaryFonts({ diaryId, transport, request, files, library, 
     const job = (async () => {
       const font = (await library.mine()).find(item => item.fileId?.toLowerCase() === fileId && !item.missing); active()
       if (!font) return // 친구의 폰트이거나 이 기기에서 파일을 잃은 폰트: 올릴 것이 없다
+      // 폰트 파일은 다른 멤버가 내려받을 수 있게 되므로 동의를 받은 뒤에만 올린다
+      const permission = await consent.status(); active()
+      if (permission === 'denied') return
+      if (permission !== 'granted') { askLater(fileId); return }
       let mediaFileId = await uploaded(font)
       try { await transport({ method: 'POST', path: `/diaries/${diaryId}/fonts`, body: { mediaFileId } }) }
       catch (error) {
@@ -80,6 +86,17 @@ export function createDiaryFonts({ diaryId, transport, request, files, library, 
     })().finally(() => sharing.delete(fileId))
     sharing.set(fileId, job)
     return job
+  }
+  // 아직 묻지 않았으면: 글자 저장은 기다리게 하지 않고 확인 창을 한 번 띄운다. 공유하기를 고르면 그동안 모인 폰트를 바로 공유한다
+  const waiting = new Set()
+  let asking = null
+  function askLater(fileId) {
+    waiting.add(fileId)
+    if (asking) return
+    asking = Promise.resolve().then(() => consent.ask()).then(granted => {
+      const ids = [...waiting]; waiting.clear()
+      if (granted && !disposed && isActive()) for (const id of ids) share(id).catch(() => {})
+    }, () => { waiting.clear() }).finally(() => { asking = null })
   }
 
   async function download() {

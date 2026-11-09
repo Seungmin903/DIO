@@ -43,3 +43,17 @@ test('호스트가 있으면 앱 창 요청으로 쌓고, 확인은 창을 닫�
   assert.equal(log.length, 1);
   detach();
 });
+
+test('취소하면 onCancel 을 부른다(앱 창 · 기본 창 모두)', () => {
+  const { confirmAction, dialogStore, native } = load();
+  const log = [];
+  confirmAction({ title: 't', message: 'm', confirmLabel: '공유하기', onConfirm: () => log.push('native-confirm'), onCancel: () => log.push('native-cancel'), danger: false });
+  native[0][2][0].onPress();
+  const detach = dialogStore.attach();
+  confirmAction({ title: 't', message: 'm', confirmLabel: '공유하기', onConfirm: () => log.push('confirm'), onCancel: () => log.push('cancel'), danger: false });
+  dialogStore.settle(false);
+  confirmAction({ title: 't', message: 'm', confirmLabel: '공유하기', onConfirm: () => log.push('confirm'), onCancel: () => log.push('cancel'), danger: false });
+  dialogStore.settle(true);
+  detach();
+  assert.deepEqual(log, ['native-cancel', 'cancel', 'confirm']);
+});

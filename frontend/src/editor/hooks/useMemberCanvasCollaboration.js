@@ -16,6 +16,7 @@ import { createCanvasMedia, createMediaRequest } from '../../collaboration/canva
 import { canvasMediaFiles } from '../services/canvasMediaFiles'
 import { createDiaryFonts, withDiaryFonts } from '../../collaboration/diaryFonts.js'
 import { claimSharedFonts, releaseSharedFonts, sharedFontFiles, sharedFontLibrary } from '../../handwriting/sharedFonts.js'
+import { askFontShareConsent, fontShareConsent } from '../../handwriting/fontShareConsent.js'
 import { connectCollaboration } from '../../collaboration/collaborationSocket.js'
 import { createCanvasHttpFetch } from '../../collaboration/canvasFetch.js'
 import { setPdfSourceFetcher } from '../services/pdfSourceRemote.js'
@@ -64,7 +65,8 @@ export function useMemberCanvasCollaboration({diary,page,state,loaded,readOnly,d
     // 받은 친구 폰트 캐시는 계정 · 서버마다: 다른 계정으로 열면 이전 계정이 받은 파일을 먼저 지운다. 세션을 닫으면 목록에서 뺀다
     const fontOwner=`${diary.memberAccountId}@${apiBaseUrl}`
     const fonts=createDiaryFonts({diaryId:diary.id,transport,request:mediaRequest,files:sharedFontFiles,library:sharedFontLibrary,storage:AsyncStorage,
-      key:`dio:member:v1:${diary.memberAccountId}:font-uploads:v1:${encodeURIComponent(apiBaseUrl)}`,isActive:active,ready:claimSharedFonts(fontOwner)})
+      key:`dio:member:v1:${diary.memberAccountId}:font-uploads:v1:${encodeURIComponent(apiBaseUrl)}`,isActive:active,ready:claimSharedFonts(fontOwner),
+      consent:{status:()=>fontShareConsent(diary.memberAccountId),ask:()=>askFontShareConsent(diary.memberAccountId)}})
     fonts.sync().catch(()=>{})
     const sessionMedia=withDiaryFonts(media,fonts)
     const api=createCanvasWriteApi(transport,sessionMedia,diary.id)
