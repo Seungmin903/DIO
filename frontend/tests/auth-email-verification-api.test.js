@@ -92,10 +92,12 @@ test('화면 이탈 후 늦은 발송 응답은 성공으로 처리하지 않는
   await assert.rejects(pending, /취소/);
 });
 
-test('발송 제한의 Retry-After와 서버 오류 문구를 화면에 전달한다', async () => {
+test('발송 제한 시 한국어 안내와 Retry-After를 화면에 전달한다', async () => {
   const { gateway } = setup(path => path === 'email-availability' ? success(path)
-    : response({ code: 'EMAIL_RESEND_TOO_SOON', detail: '잠시 후 다시 요청해 주세요.' }, 429, '47'));
-  await assert.rejects(gateway.send(email), { status: 429, retryAfter: 47, message: '잠시 후 다시 요청해 주세요.' });
+    : response({ code: 'VERIFICATION_RATE_LIMITED', detail: 'Verification rate limit exceeded' }, 429, '47'));
+  await assert.rejects(gateway.send(email), {
+    status: 429, code: 'VERIFICATION_RATE_LIMITED', retryAfter: 47, message: '잠시 후 다시 요청해 주세요.',
+  });
 });
 
 test('개발 Nginx의 Basic 인증 401을 이메일 인증 오류와 구분하고 메일 발송을 진행하지 않는다', async () => {
