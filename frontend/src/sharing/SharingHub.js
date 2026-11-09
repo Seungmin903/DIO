@@ -244,7 +244,10 @@ export default function SharingHub({
     clearTimeout(focusTimer.current);
     if (!request) return;
     dismissInput();
-    if (request.inviteId) {
+    if (request.link) {
+      setScreen('invitations');
+      run(() => runtime.resolveLink(request.link), value => prepareNickname(value));
+    } else if (request.inviteId) {
       const pending = job.current;
       setScreen('detail'); setBusy(true);
       runtime.invitationGateway.get(request.inviteId).then(value => {
@@ -332,7 +335,7 @@ export default function SharingHub({
       .catch(() => {})
       .finally(() => { if (coldPending.current === pending) coldPending.current = null; });
   }, [screen, diary, busy, linkExpired]); // eslint-disable-line react-hooks/exhaustive-deps -- 만료 시각이 지나면 다시 본다
-  const run = async (action, done = () => {}) => {
+  async function run(action, done = () => {}) {
     if (running.current) return;
     const id = ++job.current;
     running.current = true;
@@ -355,7 +358,7 @@ export default function SharingHub({
         setBusy(false);
       }
     }
-  };
+  }
   const close = () => {
     if (!running.current) {
       dismissInput();

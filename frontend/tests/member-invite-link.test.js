@@ -30,3 +30,24 @@ test('a cold start and subsequent links both deliver the invitation ID', async (
   assert.equal(removed, true);
   assert.deepEqual(received, ['123', '456']);
 });
+
+test('only production HTTPS sharing links enter the shared invitation flow', async () => {
+  const url = 'https://k15f106.p.ssafy.io/invite/7.' + 'a'.repeat(43);
+  const received = [];
+  let receive;
+  const stop = subscribeMemberInviteLinks({
+    addEventListener(_type, callback) {
+      receive = callback;
+      return { remove() {} };
+    },
+    getInitialURL: async () => url,
+  }, id => assert.fail(id), link => received.push(link));
+  await Promise.resolve();
+  for (const invalid of [url.replace('https', 'http'), url.replace('.io/', '.io:8443/'),
+    url.replace('.io/', '.io.example/'), url + '?next=1', url + '\n', url.slice(0, -1)]) {
+    receive({ url: invalid });
+  }
+  receive({ url: url.replace('/7.', '/8.') });
+  stop();
+  assert.deepEqual(received, [url, url.replace('/7.', '/8.')]);
+});

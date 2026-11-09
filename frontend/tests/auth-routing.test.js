@@ -16,8 +16,8 @@ function root(dev,mode,session=null,loginRequest=null,probe=null,apiConfiguratio
  const mod={exports:{}},mocks={'./src/diary/utils/routeMemory':routeMemory,'./src/shared/dialogs':{notify:(...args)=>probe?.notices?.push(args)},'./src/editor/utils/savePdfFile':{cleanupPdfShareCache:async()=>{}},'./src/auth/authService':{apiConfigurationError,authService:{logout:async()=>{if(probe?.logoutError)throw probe.logoutError},restoreSession:async()=>{if(probe?.restoreMock)return probe.restoreMock();if(probe?.restoreError)throw probe.restoreError;return probe?.restored??null}}},react:{useState:()=>{const index=calls++;return [states[index],value=>probe?.updates?.push({index,value})]},useEffect(fn){probe?.effects.push(fn)},useCallback:f=>f,useRef:current=>({current})},'./src/auth/guestProfileDevice':{guestProfile:{start:async session=>{if(probe)probe.guestStarts=(probe.guestStarts||0)+1;return session}}},'./src/diary/services/legacyMockCleanup':{clearMockLibrary:async()=>{if(probe)probe.cleaned=(probe.cleaned||0)+1}},'expo-splash-screen':{preventAutoHideAsync:async()=>{},hideAsync:async()=>{if(probe)probe.hidden++}},'react-native':{Platform:{OS:'web'},StatusBar:'StatusBar',View:'View',Text:'Text',StyleSheet:{absoluteFill:{},create:value=>value}},'react-native-safe-area-context':{SafeAreaProvider:'SafeAreaProvider'},'expo-font':{useFonts:()=>[true,null]},'./src/shared/pretendardFiles':{PRETENDARD_FILES:{}},'./src/editor/services/textFonts':{preloadTextFonts(){}},'./src/shared/remoteAssets/remoteCatalogService':{loadRemoteCatalog(){}},'./src/diary/styles':{styles:{empty:{},emptyTitle:{},emptyCopy:{}}},'./src/shared/useHiddenNavigationBar':{useHiddenNavigationBar(){}}}
  mocks['expo-font']={useFonts:()=>[probe?.fontsLoaded??true,null]};
  mocks['react-native'].Platform.OS=probe?.platform??'web';
- mocks['./src/sharing/memberInviteLink']={subscribeMemberInviteLinks(_linking,onInvite){
-  if(probe)probe.receiveMailInvite=onInvite;
+ mocks['./src/sharing/memberInviteLink']={subscribeMemberInviteLinks(_linking,onInvite,onSharedInvite){
+  if(probe){probe.receiveMailInvite=onInvite;probe.receiveSharedInvite=onSharedInvite;}
   return ()=>{};
  }};
  mocks['./src/editor/utils/common']={setUuidGenerator(){}};
@@ -549,4 +549,27 @@ test('준비 안내가 사용하는 공용 스타일은 실제 스타일 모듈�
  const {empty,emptyCopy}=mod.exports.styles;
  assert.equal(empty.flex,1);assert.equal(empty.alignItems,'center');assert.equal(empty.justifyContent,'center');
  assert.equal(emptyCopy.fontSize,13);assert.equal(emptyCopy.lineHeight,21);assert.equal(emptyCopy.color,tokens.muted);
+});
+
+test('일반 초대 링크를 게스트 로그인 뒤 회원 화면으로 전달한다',()=>{
+ const link='https://k15f106.p.ssafy.io/invite/7.'+'a'.repeat(43);
+ const guest={mode:'preview',provider:'guest'};
+ const probe={platform:'android',effects:[],updates:[],restoreState:{status:'done',error:null}};
+ const runEffects=()=> {
+  const timer=globalThis.setTimeout;globalThis.setTimeout=()=>0;
+  try{probe.effects.map(effect=>effect())}finally{globalThis.setTimeout=timer}
+ };
+ root(false,undefined,guest,null,probe);
+ runEffects();
+ probe.receiveSharedInvite(link);
+ probe.mailInvitation=probe.updates.at(-1).value;
+ assert.deepEqual(probe.mailInvitation,{link});
+ probe.effects=[];
+ root(false,undefined,guest,null,probe);
+ runEffects();
+ assert.ok(probe.updates.some(update=>update.index===2&&update.value));
+ probe.sessionKey='7:1';
+ const signedIn=nodes(root(false,undefined,{mode:'authenticated',userId:'7'},null,probe))
+  .find(node=>node.props?.onConsumeMailInvitation);
+ assert.deepEqual(signedIn.props.mailInvitation,{link});
 });
