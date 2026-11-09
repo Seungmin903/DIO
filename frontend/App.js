@@ -1343,7 +1343,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onWithdraw
       {appLocked && lockMember && lockRecovery === 'setup' && <View style={[StyleSheet.absoluteFill, { zIndex: 110 }]}>
         <PinScreen mode="setup" user={previewUser} getProfilePhotoSource={authService.getProfilePhotoSource} onDone={finishLockRecovery} onCancel={() => setLockRecovery(null)} />
       </View>}
-      {/* 꾸미기 공방 스티커 보관함을 계정 서버와 맞춘다(다른 기기 · 재설치에서도 같은 구성) */}
+      {/* 꾸미기 공방 스티커 · 테이프 보관함을 계정 서버와 맞춘다(다른 기기 · 재설치에서도 같은 구성) */}
       {member && signedIn && <StickerLibrarySyncHost key={`${previewUser.userId}:${authService.getSessionKey()}`} accountId={String(previewUser.userId)} enabled={appLocked === false} />}
       {member && signedIn && <GuestImportHost key={`${previewUser.userId}:${authService.getSessionKey()}`} accountId={String(previewUser.userId)} enabled={appLocked === false} onImported={() => diaryState.store.reload().catch(() => {})} onEntry={setGuestImport} />}
       <DialogHost />
