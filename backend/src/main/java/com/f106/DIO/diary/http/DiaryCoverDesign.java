@@ -12,6 +12,15 @@ public final class DiaryCoverDesign {
     private static final JsonMapper JSON=JsonMapper.builder().build();
     private DiaryCoverDesign() {}
     public static JsonNode read(String value) { return value==null?null:JSON.readTree(value); }
+    public static JsonNode publicPreview(String value) {
+        var saved=read(value);
+        if(saved==null||!saved.isObject())return null;
+
+        var preview=JSON.createObjectNode().put("kind","plain");
+        var color=saved.path("color").asText();
+        if(color.matches("#[0-9a-fA-F]{6}"))preview.put("color",color);
+        return preview;
+    }
     public static String referencePattern(UUID id) { return "%\"mediaFileId\":\""+id+"\"%"; }
     public static Set<UUID> references(JsonNode cover) {
         var ids=new TreeSet<UUID>();
