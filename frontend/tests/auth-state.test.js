@@ -368,12 +368,13 @@ test('잘못된 개발 접속 정보는 다시 입력할 수 있고 뒤로가기
 test('내 공간은 인증된 사진 소스를 사용하고 사진 로드 실패 시 기본 프로필을 표시한다', () => {
  const source=babel.transformSync(readFileSync(new URL('../src/diary/screens/ProfileScreen.js',import.meta.url),'utf8'),{configFile:false,babelrc:false,plugins:[[expo.resolve('@babel/plugin-transform-react-jsx'),{runtime:'automatic'}],expo.resolve('@babel/plugin-transform-modules-commonjs')]}).code
  const states=[];let index=0
- const react={useEffect(){},useState:initial=>{const i=index++;if(!(i in states))states[i]=initial;return[states[i],value=>states[i]=value]}}
- const native={StyleSheet:{create:value=>value}};for(const name of ['Image','Pressable','ScrollView','Text','View'])native[name]=name
+ const refs=[];let refIndex=0
+ const react={useEffect(){},useRef:initial=>{const i=refIndex++;if(!(i in refs))refs[i]={current:initial};return refs[i]},useState:initial=>{const i=index++;if(!(i in states))states[i]=initial;return[states[i],value=>states[i]=value]}}
+ const native={Platform:{OS:'android'},StyleSheet:{create:value=>value}};for(const name of ['Image','Pressable','ScrollView','Text','TextInput','View'])native[name]=name
  const mocks={react,'../shared/legalContent':legalContent,'./LegalDocumentScreen':{__esModule:true,default:'LegalDocumentScreen'},'react-native':{...native,useWindowDimensions:()=>({width:411,height:914,fontScale:1})},'expo-image':{Image:'Image'},'../styles':{styles:{}},'../constants':{C:{white:'#fff',line:'#ddd',active:'#eef',blueStrong:'#467',pale:'#eef',ink:'#112',muted:'#667',canvas:'#f3f4f7'}},'../../shared/theme':{colors:{},radius:{}},'../../auth/loginGate':{useLoginGate:()=>(_feature,action)=>action(),useLoginEntry:()=>()=>{}},'../../shared/appLock':{appLockScope:()=>'scope',appLockSupported:true,readAppLockState:async()=>'off',hasAppLock:async()=>false,checkAppLockStatus:async()=>({ok:true,retryAfterMs:0}),clearAppLock:async()=>{},setAppLock:async()=>{}},'../components/appLockRecovery':{appLockRecoveryAction:()=>undefined}},mod={exports:{}}
  new Function('require','module','exports',source)(id=>id==='../components/profileNavigationModel'?profileNavigation:mocks[id]??(id==='react/jsx-runtime'?require(id):{__esModule:true,default:id}),mod,mod.exports)
  const photo={uri:'https://server.example/photo',headers:{Authorization:'test-header'}}
- const render=(uri=photo.uri,userId='one')=>{index=0;return mod.exports.default({diaries:[],previewUser:{mode:'authenticated',photoUri:uri,nickname:'회원',userId},getProfilePhotoSource:uri=>({...photo,uri})})}
+ const render=(uri=photo.uri,userId='one')=>{index=0;refIndex=0;return mod.exports.default({diaries:[],previewUser:{mode:'authenticated',photoUri:uri,nickname:'회원',userId},getProfilePhotoSource:uri=>({...photo,uri})})}
  const image=nodes(render()).find(node=>node.type==='Image')
  assert.deepEqual(image.props.source,{...photo,cacheKey:JSON.stringify(['profile','one',photo.uri])})
  assert.equal(image.props.cachePolicy,'memory')
@@ -680,7 +681,7 @@ test('인증 화면의 접근성 역할은 설치된 React Native 네이티브 �
   if(node.type==='JSXAttribute'&&node.name?.name==='accessibilityRole'&&node.value?.type==='StringLiteral')assert.ok(supported.has(node.value.value.toLowerCase()),`네이티브 미지원 역할: ${node.value.value}`)
   for(const value of Object.values(node)){if(Array.isArray(value))value.forEach(visit);else if(value&&typeof value==='object')visit(value)}
  }
- for(const path of ['../src/auth/AuthScreen.js','../src/auth/ProfileEditScreen.js','../src/diary/screens/ProfileScreen.js'])visit(babel.parseSync(readFileSync(new URL(path,import.meta.url),'utf8'),{configFile:false,babelrc:false,parserOpts:{plugins:['jsx']}}))
+ for(const path of ['../src/auth/AuthScreen.js','../src/auth/WithdrawDialog.js','../src/diary/screens/ProfileScreen.js'])visit(babel.parseSync(readFileSync(new URL(path,import.meta.url),'utf8'),{configFile:false,babelrc:false,parserOpts:{plugins:['jsx']}}))
 })
 
 test('구글 기존 회원은 프로필 입력 없이 바로 로그인한다',async()=>{
