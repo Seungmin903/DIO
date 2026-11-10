@@ -124,20 +124,136 @@ test('화살표로 넘기면 부드러운 이동이 끝난 뒤 JS 쪽 scrollX �
   }
 })
 
-test('펼쳐서 보기도 자리마다 노드를 유지하고 자리가 바뀐 책은 새로 마운트하며, 멈춘 뒤 · 화살표 이동이 끝난 뒤 JS 쪽 scrollValue 를 맞춘다', () => {
-  const shelf = readFileSync(new URL('../src/diary/components/OpenBookShelf.js', import.meta.url), 'utf8')
-  assert.match(shelf, /const motionCache = useMemo\(\(\) => new Map\(\), \[scrollValue, step\]\);/)
-  assert.match(shelf, /if \(!motionCache\.has\(at\)\) motionCache\.set\(at, carouselMotion\(/)
-  assert.match(shelf, /<OpenBook key=\{`\$\{diary\.id\}:\$\{at\}`\}/)
-  // settle: 스냅 위치에 멈췄으면 scrollValue 를 그 위치로(덜 맞으면 마저 붙인 뒤 다시 settle 된다)
-  assert.match(shelf, /if \(Math\.abs\(row\.offsets\[at\] - x\) > 1\) scrollRef\.current\?\.scrollTo\?\.\(\{ x: row\.offsets\[at\], animated: true \}\);[\s\S]{0,400}?else scrollValue\.setValue\(x\);/)
-  // goTo: 이동이 끝나는 타이머에서 scrollValue 도 스크롤이 실제로 알려 준 마지막 위치로(목표로 덮기 전에)
-  assert.match(shelf, /moveTimer\.current = setTimeout\(\(\) => \{ target\.current = null; if \(Number\.isFinite\(scrollX\.current\)\) scrollValue\.setValue\(scrollX\.current\); scrollX\.current = row\.offsets\[at\];/)
+// ── 펼쳐서 보기(OpenBookShelf): 스와이프와 같은 방식으로 실제로 그려 확인한다 ──
+// 렌더 사이에 상태 · ref · memo · effect 를 이어 가는 가짜 React(마운트마다 새로)
+function hookRuntime() {
+  const slots = []; let cursor = 0
+  const slot = init => { const i = cursor++; if (!(i in slots)) slots[i] = init(); return slots[i] }
+  const runtime = {
+    begin() { cursor = 0 },
+    react: {
+      memo: fn => fn,
+      useState: initial => { const s = slot(() => ({ value: typeof initial === 'function' ? initial() : initial })); return [s.value, next => { s.value = typeof next === 'function' ? next(s.value) : next }] },
+      useRef: initial => slot(() => ({ current: initial })),
+      useMemo: (fn, deps) => { const s = slot(() => ({})); if (!s.deps || deps.some((v, j) => v !== s.deps[j])) { s.deps = deps; s.value = fn() } return s.value },
+      useCallback: (fn, deps) => runtime.react.useMemo(() => fn, deps),
+      useEffect: (fn, deps) => { const s = slot(() => ({})); if (!s.deps || !deps || deps.some((v, j) => v !== s.deps[j])) { s.cleanup?.(); s.deps = deps; s.cleanup = fn() } },
+    },
+  }
+  runtime.react.useLayoutEffect = runtime.react.useEffect
+  return runtime
+}
+function setupShelf() {
+  const values = []; let made = 0
+  class Value { constructor(v) { this.v = v; this.sets = []; values.push(this) } interpolate() { return 1 } setValue(v) { this.v = v; this.sets.push(v) } }
+  const runtime = hookRuntime()
+  const sized = new Proxy({}, { get: () => ({ width: 200 }) }) // 스타일 값(폭)만 읽는다
+  const mocks = {
+    react: runtime.react,
+    'react-native': { Animated: { Value, View: 'animated', ScrollView: 'scroll', event: (_mapping, config) => event => config?.listener?.(event) },
+      PixelRatio: { roundToNearestPixel: v => v }, Pressable: 'press', StyleSheet: { create: v => v, absoluteFill: {} }, Text: 'text', View: 'view' },
+    '../styles': { styles: sized }, '../constants': { C: {} },
+    '../utils/carouselFollow': { CAROUSEL_SCALE: [0.84, 1.06, 0.84], OPEN_BOOK_LIFT: [42, 0, 42], OPEN_BOOK_SCALE: [0.79, 1, 0.79], carouselMotion: (_value, at) => ({ card: { at, made: ++made }, info: {} }) },
+    '../../editor/templates/catalog.js': { normalizeOrientation: () => 'portrait' },
+    '../../editor/services/editorDocs': { editorDocKey: () => 'k', loadEditorSpread: async () => null, peekEditorSpread: () => null, prefetchPageTemplate: () => {} },
+    '../utils/coverDesign': { bandAutoColor: () => '#000', coverTone: () => '#000', mix: () => '#000', normalizeCover: () => ({ enabled: true }), relativeLuminance: () => 0.5 },
+  }
+  const module = { exports: {} }
+  new Function('require', 'module', 'exports', compile('../src/diary/components/OpenBookShelf.js'))(id => mocks[id] ?? (id === 'react/jsx-runtime' || id.endsWith('bookRow.js') ? require(id.endsWith('bookRow.js') ? '../src/diary/utils/bookRow.js' : id) : { __esModule: true, default: id, CoverSurface: 'cover', spreadAt: () => null, spreadOf: () => null, pageSize: () => ({ width: 768, height: 1024 }), createDefaultDoc: () => ({}) }), module, module.exports)
+  const Shelf = module.exports.default
+  const render = props => { runtime.begin(); return Shelf(props) }
+  return { render, values }
+}
+// 처음 자리 잡기(effect 안의 requestAnimationFrame)는 바로 돌린다: 정한 자리로 옮기고 scrollValue 를 맞춘 뒤 보인다
+globalThis.requestAnimationFrame = callback => { callback(); return 0 }
+globalThis.cancelAnimationFrame = () => {}
+// 처음 그린 뒤 책상 크기를 알려 주고(onLayout) 다시 그려 책이 놓이게 한다(태블릿 가로)
+function placeShelf(shelf, props) {
+  let tree = shelf.render(props)
+  const desk = nodes(tree).find(node => node.props?.onLayout)
+  desk.props.onLayout({ nativeEvent: { layout: { width: 1280, height: 700 } } })
+  return shelf.render(props)
+}
+const books = tree => nodes(tree).filter(node => node.props?.motion)
+const shelfProps = (list, index, moved = []) => ({ diaries: list, index, onIndexChange: at => moved.push(at), onOpen() {}, compact: false })
+
+test('펼쳐서 보기: 휴지통 이동으로 다이어리가 줄어도 자리가 그대로인 책은 같은 움직임 노드 · key 를 유지하고, 자리가 바뀐 책은 새로 마운트한다', () => {
+  const shelf = setupShelf()
+  const before = books(placeShelf(shelf, shelfProps(diaries, 1)))
+  const at = (list, id) => list.find(book => book.props.diary.id === id)
+  const rest = diaries.filter(diary => diary.id !== 'b')
+  const after = books(shelf.render(shelfProps(rest, 1)))
+  assert.equal(at(after, 'a').key, at(before, 'a').key)
+  assert.equal(at(after, 'a').props.motion, at(before, 'a').props.motion, '자리(0)가 그대로면 노드도 그대로(바꾸면 react-native 가 기본값으로 되돌려 튄다)')
+  assert.notEqual(at(after, 'c').key, at(before, 'c').key, 'c 는 자리 2 → 1 로 당겨져 새로 마운트된다')
+  assert.equal(at(after, 'c').props.motion, at(before, 'b').props.motion, '자리 1 의 노드는 새로 만들지 않고 그대로 쓴다')
 })
 
-test('다시 마운트된 카드는 기억해 둔 표지 안쪽 여백으로 시작한다(이름 줄이 옆으로 움찔하지 않게)', () => {
-  const card = readFileSync(new URL('../src/diary/components/DiaryCard.js', import.meta.url), 'utf8')
-  assert.match(card, /const coverInsetMemory = new Map\(\);/)
-  assert.match(card, /useState\(\(\) => coverInsetMemory\.get\(insetKey\) \?\? 0\)/)
-  assert.match(card, /coverInsetMemory\.set\(insetKey, value\)/)
+test('펼쳐서 보기: 손으로 넘겨 멈추면 JS 쪽 scrollValue 를 멈춘 위치로 맞추고, 화살표 이동은 끝난 뒤 스크롤이 실제로 알려 준 위치로 맞춘다', (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] })
+  const moved = [], shelf = setupShelf()
+  const tree = placeShelf(shelf, shelfProps(diaries, 0, moved))
+  const scroll = nodes(tree).find(node => node.type === 'scroll')
+  const offsets = scroll.props.snapToOffsets, scrollValue = shelf.values[0]
+  scrollValue.sets.length = 0 // 처음 자리 잡기에서 맞춘 값은 빼고 본다
+  // 손으로 넘겨 2번째 자리에 멈춤
+  scroll.props.onMomentumScrollEnd({ nativeEvent: { contentOffset: { x: offsets[2] } } })
+  assert.deepEqual(scrollValue.sets, [offsets[2]])
+  assert.deepEqual(moved, [2])
+  // 화살표: 이동 중 스크롤 이벤트(네이티브라 JS 값은 안 바뀜) → 끝나면 마지막으로 알려 준 실제 위치로
+  scrollValue.sets.length = 0
+  nodes(tree).find(node => node.props?.accessibilityLabel === '다음 다이어리').props.onPress()
+  scroll.props.onScroll({ nativeEvent: { contentOffset: { x: offsets[1] - 30 } } })
+  assert.deepEqual(scrollValue.sets, [], '이동 중에는 맞추지 않는다')
+  t.mock.timers.tick(1000)
+  assert.deepEqual(scrollValue.sets, [offsets[1] - 30], '목표가 아니라 실제 위치')
+})
+
+// ── DiaryCard: 표지 안쪽 여백 기억(스와이프 카드만) ──
+function setupCard() {
+  const mocks = {
+    '../../shared/FavoriteStar': { __esModule: true, default: 'star' }, './DiaryActionBubble': { __esModule: true, default: 'sheet' },
+    './SelectionMark': { __esModule: true, default: 'SelectionMark' }, './Cover': { __esModule: true, default: 'Cover' },
+    '../utils/coverDesign': { COVER_GRADIENTS: [], relativeLuminance: () => 0.5, normalizeCover: () => ({ enabled: true, kind: 'color', color: '#BDC2E1' }) },
+    'react-native': { Animated: { View: 'animated' }, Platform: { OS: 'android' }, BackHandler: { addEventListener: () => ({ remove() {} }) }, Pressable: 'button', Text: 'text', View: 'view' },
+    '../constants': { C: {} }, '../utils/libraryQuery': { isSharedDiary: () => false }, '../utils/libraryView': { cardTapAction: () => 'open' },
+    '../../shared/theme': { DISABLED_OPACITY: 0.45 }, '../styles': { styles: new Proxy({}, { get: (_, key) => key }) },
+  }
+  let runtime = hookRuntime()
+  // 모듈은 처음 불러올 때 react 객체를 잡아 두므로, 훅을 부를 때마다 지금 마운트의 런타임을 찾아가게 한다
+  const react = new Proxy({}, { get: (_, name) => runtime.react[name] })
+  const module = { exports: {} }
+  new Function('require', 'module', 'exports', compile('../src/diary/components/DiaryCard.js'))(id => (id === 'react' ? react : mocks[id]) ?? (id.endsWith('/AppIcon') ? { __esModule: true, default: 'icon' } : require(id)), module, module.exports)
+  const Card = module.exports.default
+  return {
+    MAX: module.exports.COVER_INSET_MEMORY_MAX,
+    // 새로 마운트(상태가 빈 새 카드)
+    mount(props) { runtime = hookRuntime(); const render = () => { runtime.begin(); return Card(props) }; return render },
+  }
+}
+const cardProps = (id, layout = 'carousel') => ({ diary: { id, title: id }, layout, onOpen() {} })
+const reportInset = (render, px) => nodes(render()).find(node => node.type === 'Cover').props.onInset(px)
+// 이름 · 페이지 수 줄의 표지 안쪽 여백(없으면 0)
+const infoInset = tree => nodes(tree).flatMap(node => [node.props?.style].flat(Infinity)).find(style => style && typeof style === 'object' && 'marginLeft' in style)?.marginLeft ?? 0
+
+test('스와이프 카드가 다시 마운트되면 기억해 둔 표지 안쪽 여백으로 시작하고(이름 줄이 움찔하지 않게), 한눈에 · 목록 카드는 기억하지 않는다', () => {
+  const cards = setupCard()
+  const first = cards.mount(cardProps('p1'))
+  assert.equal(infoInset(first()), 0)
+  reportInset(first, 24)
+  assert.equal(infoInset(first()), 24)
+  assert.equal(infoInset(cards.mount(cardProps('p1'))()), 24, '자리가 바뀌어 새로 마운트돼도 처음부터 24')
+  // 한눈에: 칸 폭이 창 크기를 따라 바뀌므로 기억하지 않는다(새 마운트는 0 에서 시작해 표지가 알려 주면 맞춘다)
+  const grid = cards.mount(cardProps('g1', 'grid'))
+  reportInset(grid, 18)
+  assert.equal(infoInset(grid()), 18)
+  assert.equal(infoInset(cards.mount(cardProps('g1', 'grid'))()), 0)
+})
+
+test('표지 안쪽 여백 기억은 최대 개수를 넘으면 오래 쓰지 않은 것부터 지운다(지운 다이어리 항목이 쌓이지 않게)', () => {
+  const cards = setupCard()
+  assert.ok(cards.MAX > 0)
+  for (let i = 0; i <= cards.MAX; i++) reportInset(cards.mount(cardProps(`d${i}`)), 10) // MAX + 1 개
+  assert.equal(infoInset(cards.mount(cardProps('d0'))()), 0, '가장 오래된 것은 밀려났다')
+  assert.equal(infoInset(cards.mount(cardProps(`d${cards.MAX}`))()), 10, '최근 것은 남아 있다')
 })
