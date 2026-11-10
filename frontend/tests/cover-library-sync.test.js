@@ -361,7 +361,8 @@ test('회원 탈퇴한 계정의 동기화 기록만 지운다(다른 계정 · 
   assert.ok(prefixed.has('dio:cover-library-sync:v1:server:meta')) // 지금 meta 는 계정 2 것이라 남긴다
   assert.ok(prefixed.has('other-feature:1:keep'))
   await forgetLibrarySyncRecords({ storage: asyncStorage(prefixed), account: '2' })
-  assert.ok(!prefixed.has('dio:cover-library-sync:v1:server:meta')) // 계정 2 와 맞춘 meta 는 지운다
+  // 계정 2 와 맞춘 meta 는 지우지 않고 '탈퇴한 계정 것' 표식으로 바꾼다(다음 계정이 남은 목록을 올리지 않게)
+  assert.deepEqual(JSON.parse(prefixed.get('dio:cover-library-sync:v1:server:meta')), { account: null, withdrawn: true })
 })
 
 test('30개를 넘는 서버 목록을 받아도 줄이지 않고, 그 위에 표지를 만들어도 다른 표지를 서버에서 지우지 않는다', async () => {
@@ -396,7 +397,28 @@ test('회원 탈퇴 정리는 스티커 · 테이프 보관함 동기화 기록�
     `${s}:2:id:local-b`, // 다른 계정 기록
     `${t}:2:missing`,
     `${t}:meta`, // 계정 2 와 맞춘 meta
+    `${s}:meta`, // 계정 1 과 맞춘 meta 는 표식으로 남는다
   ].sort())
+  assert.deepEqual(JSON.parse(disk.get(`${s}:meta`)), { account: null, withdrawn: true })
+  assert.equal(JSON.parse(disk.get(`${t}:meta`)).account, '2')
+})
+
+test('탈퇴한 계정이 쓰던 기기에 다음 계정이 로그인하면 남은 표지를 올리지 않고 서버 목록을 받는다', async () => {
+  const one = server(), two = server()
+  const storage = new Map()
+  const first = device(one, { account: '1', covers: [plainCover('a1'), photoCover('a-big', L3, L2, '큰 사진')], storage, failUploads: new Set([L3]) })
+  await first.sync.start(); first.sync.stop()
+  // 계정 1 탈퇴: 기기 표지 목록(myCovers)은 남지만 동기화 기록은 지우고 meta 는 표식으로 바꾼다
+  const keyed = new Map([...storage].map(([k, v]) => [k.replace(/^cover-sync/, 'dio:cover-library-sync:v1:server'), v]))
+  await forgetLibrarySyncRecords({ storage: asyncStorage(keyed), account: '1' })
+  storage.clear(); for (const [k, v] of keyed) storage.set(k.replace(/^dio:cover-library-sync:v1:server/, 'cover-sync'), v)
+  two.state.covers = asApp(asServer([plainCover('theirs')])); two.state.version = 2
+  const second = device(two, { account: '2', covers: first.local.covers, storage })
+  await second.sync.start(); await second.sync.whenIdle()
+  assert.deepEqual(second.local.covers.map(c => c.id), ['theirs']) // 탈퇴한 사용자 표지는 기기에서도 빠진다
+  assert.deepEqual(two.state.covers.map(c => c.id), ['theirs'])
+  assert.equal(two.state.puts, 0)
+  assert.ok(![...storage.keys()].some(k => k.includes(':null:'))) // 계정 id 가 없는 몫(stash)은 만들지 않는다
 })
 
 test('계정이 바뀐 뒤 받는 사이 새 계정으로 만든 표지는 이전 계정 몫에 섞이지 않고 새 계정에 남는다', async () => {
@@ -448,6 +470,7 @@ test('멈춘 뒤 settled 는 돌던 맞추기가 끝나야 풀리고, 그 뒤로
   // 테스트 키는 'cover-sync:<계정>:…' 이라 접두어 'cover-' 뒤를 [서버('sync'), 계정, …] 로 읽는다
   await forgetLibrarySyncRecords({ storage: asyncStorage(storage), account: '1', prefixes: ['cover-'] })
   await new Promise(resolve => setTimeout(resolve, 10))
-  assert.deepEqual([...storage.keys()].filter(k => k.startsWith('cover-sync:1:') || k === 'cover-sync:meta'), []) // 지운 뒤 다시 쓰이지 않는다
+  assert.deepEqual([...storage.keys()].filter(k => k.startsWith('cover-sync:1:')), []) // 지운 뒤 다시 쓰이지 않는다
+  assert.deepEqual(JSON.parse(storage.get('cover-sync:meta')), { account: null, withdrawn: true }) // meta 는 탈퇴 표식 그대로
   assert.equal(remote.state.puts, 1) // 멈춘 뒤에는 저장하지 않는다
 })
