@@ -2,7 +2,7 @@ import { openCopyIfSafe } from './src/notifications/editorInvitationGuard';
 import { describeSharingInvitations } from './src/notifications/describeSharingInvitations';
 import MemberTrashNotice from './src/diary/components/MemberTrashNotice';
 import MemberLibraryNotice from './src/diary/components/MemberLibraryNotice';
-import { memberLibraryQuery } from './src/diary/services/memberLibraryQuery';
+import { memberLibraryQuery, scheduleLibraryQuery } from './src/diary/services/memberLibraryQuery';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AppState, BackHandler, Linking, Platform, StatusBar, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import PinScreen from './src/diary/components/PinScreen';
@@ -576,8 +576,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onWithdraw
   const [selection, setSelection] = useState(null);
   useEffect(() => {
     if (!member || !loaded) return undefined;
-    const timer = setTimeout(() => { diaryState.store.queryLibrary(memberQuery).catch(() => {}); }, 200);
-    return () => clearTimeout(timer);
+    return scheduleLibraryQuery(diaryState.store, memberQuery);
   }, [member, loaded, diaryState.store, memberQuery]);
   const memberLibraryMatches = member && JSON.stringify(memberQuery) === JSON.stringify(diaryState.library.criteria);
   const remoteQuery = useMemo(() => member ? { query: memberSearch, searchOpen: memberSearchOpen,

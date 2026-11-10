@@ -29,7 +29,7 @@ test('825: 보관함 오류 안내 위치, 재시도 및 401 로그인 복구', 
   const loginCalls = []
   const authRecovery = load('auth/AuthenticationRecovery', {
     'react-native': native, './loginGate': { useLoginEntry: () => value => loginCalls.push(value) },
-    '../shared/theme': { colors: {} },
+    '../shared/DioButton': { __esModule: true, default: 'Pressable' },
   }, { allExports: true })
   const recovery = authRecovery.default
   const notice = load('diary/components/MemberLibraryNotice', {
@@ -74,7 +74,9 @@ test('825: 보관함 오류 안내 위치, 재시도 및 401 로그인 복구', 
   const expired = notice({ library: { error: { status: 401, sessionExpired: true } }, centered: true, onRetry })
   assert.equal(buttons(expired).length, 0)
   const recoveryNode = walk(expired).find(node => node.type === recovery)
-  recovery(recoveryNode.props).props.onPress()
+  const loginButton = recovery(recoveryNode.props)
+  assert.equal(loginButton.props.label, '다시 로그인')
+  loginButton.props.onPress()
   assert.deepEqual(loginCalls, [{ sessionExpired: true }])
 })
 

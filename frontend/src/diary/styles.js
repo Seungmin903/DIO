@@ -89,6 +89,8 @@ export const styles = StyleSheet.create({
   libraryGridScroll: { flexGrow: 1, paddingHorizontal: LIBRARY_SIDE_PADDING, paddingBottom: 34 },
   libraryGridScrollCompact: { paddingHorizontal: 14, paddingBottom: 20 },
   libraryCenteredNotice: { flexGrow: 1, justifyContent: 'center', alignItems: 'center', padding: 14 },
+  libraryLoadingPosition: { paddingBottom: 110 }, // 본문 가운데에서 48dp 위에 로딩 표시를 둔다.
+  loadingWithLabel: { alignItems: 'center' },
   memberLibraryNotice: { padding: 12, gap: 8 },
   memberLibraryNoticeCentered: { alignItems: 'center' },
   memberLibraryNoticeTextCentered: { textAlign: 'center' },
