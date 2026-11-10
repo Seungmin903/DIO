@@ -43,7 +43,8 @@ const VERTICAL_ALIGNS = [['top','위 정렬'],['middle','세로 가운데 정렬
 
 
 /** 텍스트 서식. 스티커·마테·사진 옵션과 같은 모양(구역 제목·세그먼트 버튼·막대·색 줄)으로 만든다 */
-export default function TextSettings({ settings, onChange, onClose, verticalAlignment = false, sheet = false, dragHandlers }) {
+// onOpenColorPicker: 팔레트 끝 점선 + 칸(직접 지정)을 누르면 편집기 위층의 색 창(PresetColorEditor)을 연다 — 펜 · 형광펜과 같다(지라 824)
+export default function TextSettings({ settings, onChange, onClose, verticalAlignment = false, sheet = false, dragHandlers, onOpenColorPicker }) {
 
   const fontStatus = useTextFont(settings.font)
   const support = textStyleSupport(settings.font, Platform.OS)
@@ -83,7 +84,7 @@ export default function TextSettings({ settings, onChange, onClose, verticalAlig
         <View style={styles.inlineRow}><Text style={styles.inlineLabel}>세로 정렬</Text><View style={styles.fill}><Segmented items={VERTICAL_ALIGNS.map(([id,label])=>({id,a11y:label,icon:<Svg width={20} height={20} viewBox="0 0 24 24"><Path d="M4 3h16M4 21h16" stroke={settings.verticalAlign===id?colors.text:colors.textMuted} strokeWidth={1.8} strokeOpacity={0.35} strokeLinecap="round" /><Path d={VERTICAL_ALIGN_PATHS[id]} stroke={settings.verticalAlign===id?colors.text:colors.textMuted} strokeWidth={1.8} strokeLinecap="round" /></Svg>}))} selected={id=>settings.verticalAlign===id} onPress={id=>onChange({verticalAlign:id})} /></View></View>
       </>}
 
-      <EditablePalette scope="text" label="글자" value={settings.color} onPick={color => onChange({color})} />
+      <EditablePalette allowDirect scope="text" label="글자" value={settings.color} onPick={color => onChange({color})} onOpenEditor={onOpenColorPicker} />
 
       {/* 자간 · 줄간격: 접지 않고 숫자와 좌우 −·+ 로만 바꾼다 (글자 크기 대비 백분율 값, 단위 표시는 뺀다) */}
       <View style={styles.spacingRow}>
