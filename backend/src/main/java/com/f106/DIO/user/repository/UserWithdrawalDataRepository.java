@@ -15,9 +15,6 @@ public class UserWithdrawalDataRepository {
         // 꾸미기 공방 스티커 보관함은 개인 데이터라 지운다. 참조가 없어진 스티커 이미지는 아래에서 정리 경로로 간다
         jdbc.update("delete from user_sticker_library_media where user_id=?",actor);
         jdbc.update("delete from user_sticker_libraries where user_id=?",actor);
-        // 테이프 보관함도 같은 이유로 지운다
-        jdbc.update("delete from user_tape_library_media where user_id=?",actor);
-        jdbc.update("delete from user_tape_libraries where user_id=?",actor);
         // 내 표지 보관함도 같은 이유로 지운다
         jdbc.update("delete from user_cover_library_media where user_id=?",actor);
         jdbc.update("delete from user_cover_libraries where user_id=?",actor);
