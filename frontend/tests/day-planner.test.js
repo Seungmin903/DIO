@@ -2,8 +2,8 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
   DAY_PALETTE, DAY_PLANNER_TEMPLATES, DURATION_HOURS, DURATION_RANGE, applyDayStroke, assignDayColors, clock, dayCellTap, dayEditTap, dayNowLine, dayPlannerBaseSvg, dayPlannerBlocks, dayPlannerId, dayPlannerLayout,
-  dayPlannerOverlaySvg, dayPlannerSvg, dayTextSlot, dayTitleAt, dayTitleRows, dayTitles, effectiveDay, eraseDayPlanner, isScheduled, normalizeDayPlanner, setDayDate, setDayPlannerOptions,
-  setDayRow, suggestStart, weekdayOf,
+  dayAllDayItems, dayPlannerOverlaySvg, dayPlannerSvg, dayTextSlot, dayTitleAt, dayTitleRows, dayTitles, effectiveDay, eraseDayPlanner, isScheduled, normalizeDayPlanner, setDayDate, setDayPlannerOptions,
+  NOW_LINE_COLOR, setDayRow, setDayRowColor, suggestStart, weekdayOf,
 } from '../src/editor/templates/dayPlanner.js'
 import { plannerFor } from '../src/editor/templates/planners.js'
 import { getTemplate, reusableTemplates } from '../src/editor/templates/catalog.js'
@@ -172,8 +172,13 @@ test('색 칸을 형광펜으로 쓸어 덮어쓰면 지나간 줄의 색이 바
   assert.deepEqual(planner.rows[1], { color: PINK, start: at(9), dur: 60 })
   assert.equal(planner.rows[2].color, PINK)
   assert.equal(dayPlannerBlocks('landscape', planner)[0].color, PINK)
-  // 펜은 색을 바꾸지 못한다(받았지만 바꿀 것이 없음)
-  assert.deepEqual(applyDayStroke(p, 'landscape', [listPoint(1, 'color')], PEN), {})
+  // 펜으로 톡 누르면 색 고르기 창, 펜으로 긋는 것은 받기만 한다(잉크 없음)
+  assert.deepEqual(applyDayStroke(p, 'landscape', [listPoint(1, 'color')], PEN), { picker: { kind: 'color', row: 1 } })
+  assert.deepEqual(applyDayStroke(p, 'landscape', [listPoint(1, 'color'), listPoint(3, 'color')], PEN), {})
+  // 할 일 줄을 형광펜으로 가로질러 쓸면 그 줄 색이 바뀐다(톡은 글 입력)
+  const sweep = applyDayStroke(p, 'landscape', [listPoint(2, 'text'), { x: listPoint(2, 'text').x + 80, y: listPoint(2, 'text').y }], { kind: 'highlighter', color: GREEN }).planner
+  assert.equal(sweep.rows[2].color, GREEN)
+  assert.deepEqual(applyDayStroke(p, 'landscape', [listPoint(2, 'text')], HL), { text: listPoint(2, 'text') })
 })
 
 test('날짜 칸을 누르면 날짜 고르는 창을 열고, 텍스트 도구로 눌러도 시작 · 진행 · 날짜는 고르는 창이 열린다', () => {
@@ -247,17 +252,17 @@ test('할 일 글이 막대에 비치고, 긴 글은 …으로 줄며, 막대가
 test('시간표를 형광펜으로 위아래로 그으면 15분 단위 일정이 비어 있는 첫 줄에 생기고, 오전에서 오후로 이어 그을 수 있다', () => {
   // 9:07 → 10:20: 9:00 부터 1시간 30분
   const down = applyDayStroke(null, 'landscape', [gridPoint(at(9, 7)), gridPoint(at(10, 20))], HL).planner
-  assert.deepEqual(down.rows[0], { color: null, start: at(9), dur: 90 }) // 색은 할 일을 쓰면 자동으로 붙는다(형광펜 색을 쓰지 않는다)
+  assert.deepEqual(down.rows[0], { color: YELLOW, start: at(9), dur: 90 }) // 일정 색은 그은 형광펜 색(지라 829)
   assert.deepEqual(applyDayStroke(null, 'landscape', [gridPoint(at(10, 20)), gridPoint(at(9, 7))], HL).planner.rows[0], down.rows[0])
   // 이미 찬 줄은 건너뛰고 다음 빈 줄, 오후 열
   const second = applyDayStroke(down, 'landscape', [gridPoint(at(14)), gridPoint(at(15))], { kind: 'highlighter', color: PINK }).planner
-  assert.deepEqual(second.rows[1], { color: null, start: at(14), dur: 60 })
+  assert.deepEqual(second.rows[1], { color: PINK, start: at(14), dur: 60 })
   // 오전 열 11시에서 오후 열 13시까지
-  assert.deepEqual(applyDayStroke(null, 'landscape', [gridPoint(at(11)), gridPoint(at(13))], HL).planner.rows[0], { color: null, start: at(11), dur: 120 })
+  assert.deepEqual(applyDayStroke(null, 'landscape', [gridPoint(at(11)), gridPoint(at(13))], HL).planner.rows[0], { color: YELLOW, start: at(11), dur: 120 })
   // 가로로 그은 획처럼 높이가 거의 같으면 15분, 손끝이 거의 안 움직인 톡은 한 시간
   const flat = gridPoint(at(9, 10))
   assert.equal(applyDayStroke(null, 'landscape', [flat, { ...flat, x: flat.x + 80 }], HL).planner.rows[0].dur, 15)
-  assert.deepEqual(applyDayStroke(null, 'landscape', [gridPoint(at(9, 10))], HL).planner.rows[0], { color: null, start: at(9), dur: 60 })
+  assert.deepEqual(applyDayStroke(null, 'landscape', [gridPoint(at(9, 10))], HL).planner.rows[0], { color: YELLOW, start: at(9), dur: 60 })
   // 할 일만 써 둔 줄이 있으면 그 줄은 건너뛰고 빈 줄에 만든다
   assert.equal(applyDayStroke(null, 'landscape', [gridPoint(at(9, 7)), gridPoint(at(10, 20))], HL, [title(0)]).planner.rows[1].start, at(9))
 })
@@ -267,8 +272,68 @@ test('시간표에 펜으로 쓰는 것은 자유 필기이고, 목록이 가득
   for (const part of ['box', 'text', 'start', 'dur', 'color']) assert.equal(applyDayStroke({ options: { snap: false } }, 'landscape', [listPoint(0, part)], PEN), null)
   assert.equal(applyDayStroke({ options: { snap: false } }, 'landscape', [datePoint()], PEN), null)
   let full = null
-  for (let i = 0; i < 12; i++) full = setDayRow(full, i, { color: YELLOW, start: at(8) + i * 30, dur: 30 })
+  for (let i = 0; i < 12; i++) full = setDayRow(full, i, { color: PINK, start: at(8) + i * 30, dur: 30 })
   assert.equal(applyDayStroke(full, 'landscape', [gridPoint(at(9, 7)), gridPoint(at(10, 20))], HL), null)
+})
+
+test('829: 같은 색 형광펜으로 일정에 겹치거나 맞닿게 그으면 새 일정 대신 그 일정이 늘어난다(목록이 가득 차도)', () => {
+  const base = setDayRow(null, 3, { color: YELLOW, start: at(9), dur: 60 })
+  // 맞닿게(10:00 ~ 11:00) → 9:00 ~ 11:00 한 일정
+  const touch = applyDayStroke(base, 'landscape', [gridPoint(at(10)), gridPoint(at(11))], HL).planner
+  assert.deepEqual(touch.rows[3], { color: YELLOW, start: at(9), dur: 120 })
+  assert.equal(Object.values(touch.rows).filter(isScheduled).length, 1)
+  // 겹치게 앞쪽으로(8:00 ~ 9:30) → 8:00 ~ 10:00
+  assert.deepEqual(applyDayStroke(base, 'landscape', [gridPoint(at(8)), gridPoint(at(9, 30))], HL).planner.rows[3], { color: YELLOW, start: at(8), dur: 120 })
+  // 이미 그 일정 안을 다시 칠하면 바뀌는 것이 없다(잉크도 남기지 않는다)
+  assert.deepEqual(applyDayStroke(base, 'landscape', [gridPoint(at(9, 10)), gridPoint(at(9, 40))], HL), {})
+  // 다른 색은 새 일정(나란히 놓인다), 떨어진 같은 색도 새 일정
+  const other = applyDayStroke(base, 'landscape', [gridPoint(at(9)), gridPoint(at(10))], { kind: 'highlighter', color: PINK }).planner
+  assert.equal(Object.values(other.rows).filter(isScheduled).length, 2)
+  const apart = applyDayStroke(base, 'landscape', [gridPoint(at(11)), gridPoint(at(12))], HL).planner
+  assert.equal(Object.values(apart.rows).filter(isScheduled).length, 2)
+  // 두 같은 색 일정에 걸치면 목록 위쪽 줄 하나만 늘리고 다른 할 일의 시간은 그대로 둔다
+  const two = setDayRow(base, 1, { color: YELLOW, start: at(11), dur: 60 })
+  const both = applyDayStroke(two, 'landscape', [gridPoint(at(10)), gridPoint(at(11))], HL).planner
+  assert.deepEqual(both.rows[1], { color: YELLOW, start: at(10), dur: 120 })
+  assert.deepEqual(both.rows[3], { color: YELLOW, start: at(9), dur: 60 })
+  // 할 일을 먼저 써서 색이 정해진 줄에 새 일정이 들어가면 그 줄 색을 지킨다
+  // 자정을 넘는 일정(22:00부터 4시간)에 앞쪽으로 이어 칠해도 끝은 줄지 않는다
+  const late = setDayRow(null, 2, { color: YELLOW, start: at(22), dur: 240 })
+  assert.deepEqual(applyDayStroke(late, 'landscape', [gridPoint(at(21)), gridPoint(at(22))], HL).planner.rows[2], { color: YELLOW, start: at(21), dur: 300 })
+  const colored = setDayRow(null, 0, { color: GREEN, start: null, dur: null })
+  assert.equal(applyDayStroke(colored, 'landscape', [gridPoint(at(15)), gridPoint(at(16))], HL).planner.rows[0].color, GREEN)
+})
+
+test('827: 종일 칸에 못 올라온 일정은 마지막 줄 끝 +n 알약 — 누르면(선택 도구 · 펜 톡) 종일 전체 목록, 줄은 그 줄의 시간 창', () => {
+  for (const o of ['landscape', 'portrait']) {
+    const L = dayPlannerLayout(o), t = L.time, n = t.laneRows + 2
+    const objects = Array.from({ length: n }, (_, i) => title(i, `할 일 ${i + 1}`, o))
+    const items = dayAllDayItems(o, null, objects)
+    assert.equal(items.length, n)
+    assert.deepEqual(items.map(i => i.row), Array.from({ length: n }, (_, i) => i))
+    const right = t.x + t.w, lastY = t.y + (t.laneRows - 0.5) * t.laneRh
+    const chip = { x: right - 3 - 15, y: lastY }
+    assert.deepEqual(dayEditTap(o, chip, null, objects), { picker: { kind: 'allday' } })
+    assert.deepEqual(applyDayStroke(null, o, [chip], PEN, objects), { picker: { kind: 'allday' } })
+    // 올라온 줄은 그 줄의 시간 창(펜 톡도 같다), 긋는 획은 잉크 없이 받기만 한다
+    const firstLane = { x: t.x + t.axis + 40, y: t.y + t.laneRh / 2 }
+    assert.deepEqual(dayEditTap(o, firstLane, null, objects), { picker: { kind: 'time', row: 0 } })
+    assert.deepEqual(applyDayStroke(null, o, [firstLane], HL, objects), { picker: { kind: 'time', row: 0 } })
+    assert.deepEqual(applyDayStroke(null, o, [firstLane, { x: firstLane.x + 120, y: firstLane.y }], PEN, objects), {})
+    const svg = dayPlannerOverlaySvg(o, null, objects)
+    assert.match(svg, new RegExp(`>\\+${n - t.laneRows}</text>`))
+  }
+  // 넘치지 않으면 알약이 없다
+  assert.doesNotMatch(dayPlannerOverlaySvg('landscape', null, [title(0)]), />\+\d+<\/text>/)
+})
+
+test('826: 종일 칸 · 일정 막대의 작은 글자는 보통 굵기 마루부리(굵은 글꼴은 작게 그리면 ㅇ 속이 메워진다)', () => {
+  const objects = [title(0, '영어 공부'), title(1, '운동')]
+  const p = setDayRow(setDayRow(null, 1, { color: PINK, start: at(9), dur: 90 }), 0, { color: YELLOW, start: null, dur: null })
+  const svg = dayPlannerOverlaySvg('landscape', p, objects)
+  assert.match(svg, /font-family="MaruBuri, serif"[^>]*>영어 공부</)
+  assert.match(svg, /font-family="MaruBuri, serif"[^>]*>운동</)
+  assert.doesNotMatch(svg, /MaruBuriBold/)
 })
 
 test('할 일 · 시간 · 종일이 채워지면 형광펜 프리셋 색이 겹치지 않게 돌아가며 자동으로 붙는다', () => {
@@ -448,7 +513,13 @@ test('선택 도구로 칸을 누르면 그 칸의 입력이 열린다', () => {
   assert.deepEqual(dayEditTap('landscape', listPoint(3, 'dur'), null, objects), { picker: { kind: 'time', row: 3 } })
   assert.deepEqual(dayEditTap('landscape', datePoint(), null, objects), { picker: { kind: 'date' } })
   assert.deepEqual(dayEditTap('landscape', listPoint(4, 'text'), null, objects), { text: listPoint(4, 'text') })
-  assert.equal(dayEditTap('landscape', listPoint(4, 'color'), null, objects), null)
+  assert.deepEqual(dayEditTap('landscape', listPoint(4, 'color'), null, objects), { picker: { kind: 'color', row: 4 } })
+  assert.equal(setDayRowColor(null, 4, GREEN).rows[4].color, GREEN)
+  // 요일: 날짜가 없으면 동그라미를 켜고 끄고, 날짜가 있으면 날짜 창
+  const mark = dayEditTap('landscape', weekPoint(2), null, objects, '#3366FF').planner
+  assert.deepEqual(normalizeDayPlanner(mark).day, { i: 2, color: '#3366FF', hl: false })
+  assert.equal(normalizeDayPlanner(dayEditTap('landscape', weekPoint(2), mark, objects).planner).day, null)
+  assert.deepEqual(dayEditTap('landscape', weekPoint(2), setDayDate(null, { y: 2026, m: 11, d: 10 }), objects), { picker: { kind: 'date' } })
   assert.equal(dayEditTap('landscape', { x: 300, y: 700 }, null, objects), null) // 메모는 칸이 아니다
   // 완료: 켜고 끈다
   const on = dayEditTap('landscape', listPoint(1, 'box'), null, objects, '#3366FF')
@@ -505,4 +576,38 @@ test('진행 시간 휠은 일정 최대 길이(24시간)까지 있어 긴 일�
   // 24시간은 그대로 기록되고, 분이 더해져 넘치는 값은 기록에서 버려지므로 창이 24시간으로 자른다(DayTimePicker.pickDuration)
   assert.deepEqual(normalizeDayPlanner(setDayRow(null, 0, { color: null, start: 0, dur: DURATION_RANGE.max })).rows[0], { color: null, start: 0, dur: DURATION_RANGE.max })
   assert.equal(normalizeDayPlanner(setDayRow(null, 0, { color: null, start: 0, dur: DURATION_RANGE.max + 5 })).rows[0], undefined)
+})
+
+test('현재 시각 줄: 펜 · 형광펜으로 톡 누르거나 줄을 따라 칠하면 그 색, 줄을 따라 지우면 기본 빨강', () => {
+  for (const o of ['landscape', 'portrait']) {
+    const now = new Date(2026, 10, 10, 10, 0), line = dayNowLine(o, null, now)
+    assert.equal(line.color, NOW_LINE_COLOR)
+    const mid = { x: line.x + line.w / 2, y: line.y }
+    // 펜 톡 → 펜 색, 잉크 · 일정 없음
+    const pen = applyDayStroke(null, o, [mid], PEN, [], now).planner
+    assert.equal(pen.nowColor, PEN.color)
+    assert.equal(Object.keys(pen.rows).length, 0)
+    assert.equal(dayNowLine(o, pen, now).color, PEN.color)
+    // 형광펜으로 줄을 따라 칠함 → 형광펜 색(일정을 만들지 않는다)
+    const along = [{ x: line.x + 10, y: line.y + 2 }, { x: line.x + 60, y: line.y - 3 }, { x: line.x + 110, y: line.y + 1 }]
+    const hl = applyDayStroke(pen, o, along, HL, [], now).planner
+    assert.equal(hl.nowColor, HL.color)
+    assert.equal(Object.values(hl.rows).filter(isScheduled).length, 0)
+    // 같은 색을 다시 → 받기만
+    assert.deepEqual(applyDayStroke(hl, o, [mid], HL, [], now), {})
+    // 줄에서 떨어진 톡 · 줄을 세로로 가로지르는 칠은 예전처럼 일정
+    assert.equal(applyDayStroke(null, o, [{ x: mid.x, y: line.y + 20 }], HL, [], now).planner.nowColor, undefined)
+    const cross = applyDayStroke(null, o, [{ x: mid.x, y: line.y - 30 }, { x: mid.x, y: line.y + 30 }], HL, [], now).planner
+    assert.equal(cross.nowColor, undefined)
+    assert.equal(Object.values(cross.rows).filter(isScheduled).length, 1)
+    // 줄을 따라 지우면 기본 빨강으로(밑 일정은 그대로), 바꾼 색이 없으면 지우개는 예전대로
+    const reset = eraseDayPlanner(hl, o, along, now)
+    assert.equal(reset.nowColor, undefined)
+    assert.equal(dayNowLine(o, reset, now).color, NOW_LINE_COLOR)
+    // 지금 시각을 안 주면(테스트 · 내보내기) 줄을 보지 않는다
+    assert.equal(applyDayStroke(null, o, [mid], PEN, []), null)
+  }
+  // 저장 값 정리: 잘못된 색은 버린다
+  assert.equal(normalizeDayPlanner({ nowColor: 'red' }).nowColor, undefined)
+  assert.equal(normalizeDayPlanner({ nowColor: '#3a86ff' }).nowColor, '#3A86FF')
 })

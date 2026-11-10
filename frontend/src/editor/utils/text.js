@@ -214,6 +214,15 @@ export function textLayoutKey(object) {
   return JSON.stringify([object.text, object.w, object.baseWidth ?? object.w, textSettings(object), object.styleRanges ?? []])
 }
 
+/**
+ * 글상자 입력 안내 글. 폭이 고정된 좁은 상자(속지 D-day 밑줄 칸 등)에서는 '텍스트 입력'이 두 줄로 접혀 한 줄 높이 칸 밖으로 잘리므로 빈 칸으로 둔다(지라 835).
+ * 한글 다섯 자 + 띄어쓰기 ≈ 5.3 글자 폭이라 5.5 글자 폭보다 좁으면 뺀다. 글자만큼 넓어지는 상자는 입력 폭이 넓어 접히지 않는다.
+ */
+export const TEXT_PLACEHOLDER = '텍스트 입력'
+export function textPlaceholder(boxWidth, fontSize, autoWidth = false) {
+  return autoWidth || !(boxWidth > 0 && fontSize > 0) || boxWidth >= fontSize * 5.5 ? TEXT_PLACEHOLDER : ''
+}
+
 // 글자만큼 넓어지는 상자의 입력창 폭. 상자 폭은 글자를 그린 뒤에 잰 값이라 한 번 늦게 따라온다.
 // 입력창을 상자 폭에 맞추면 그 사이 한 줄이 둘로 접혔다 펴져 깜박이므로, 입력창은 최대 폭까지 넓혀 두고
 // 상자 폭 밖은 잘라서 보이지 않게 한다. 가운데 · 오른쪽 맞춤은 상자 기준 자리에 오도록 입력창을 왼쪽으로 민다.

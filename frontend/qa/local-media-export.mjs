@@ -1,6 +1,7 @@
 import { readFile } from 'node:fs/promises'
 import { createHash } from 'node:crypto'
 import { STORAGE_KEYS, MEDIA_DB } from '../src/editor/utils/storageContract.js'
+import { setRegion } from './region-gestures.mjs'
 
 // 외부 Playwright 실행기에서 runLocalMediaQa(browser, options)를 호출한다.
 // 전용 새 BrowserContext만 사용한다. 사용자 탭의 localStorage/IndexedDB는 수정하지 않는다.
@@ -8,7 +9,7 @@ export async function runLocalMediaQa(browser, { baseUrl, fixtureDir, outputDir,
   const url=new URL(baseUrl)
   if(url.protocol!=='http:'||url.hostname!=='127.0.0.1'||url.username||url.password)throw Error('QA는 http://127.0.0.1의 전용 서버만 허용합니다.')
   const path={join:(...parts)=>parts.join('/')}
-  const context=await browser.newContext({viewport:{width:1280,height:800},acceptDownloads:true})
+  const context=await browser.newContext({viewport:{width:1800,height:1100},acceptDownloads:true})
   let page=await context.newPage()
   const report={baseCommit,dateKST,fixtureKind:'synthetic PNG quadrants / generated two-frame GIFs',cases:[],pending:['iPhone/iPad/Android 실기기 사진첩 저장·권한·강제 종료','실제 12MP/48MP·HEIC 사진 성능·기기 메모리', '필압 센서·IME 조합·OS 공유 시트 실제 기기 검증'],scope:'실제 가져오기·자동 저장·웹 재실행·PNG 다운로드. 변형 좌표는 고정 fixture를 저장소에 넣어 렌더러를 검증하며 편집 제스처 검증은 아님.'}
   report.pageErrors=[]
@@ -71,9 +72,7 @@ export async function runLocalMediaQa(browser, { baseUrl, fixtureDir, outputDir,
     await share().click({timeout:10000})
     if(region){
       await page.getByRole('button',{name:'영역 선택 내보내기',exact:true}).click()
-      await page.getByRole('button',{name:'영역 수치 조정',exact:true}).click()
-      for(const [k,v] of Object.entries({x:50,y:600,width:900,height:150}))await page.getByLabel(`영역 ${k}`,{exact:true}).fill(String(v))
-      await page.getByRole('button',{name:'영역 수치 적용',exact:true}).click()
+      await setRegion(page,{x:50,y:600,width:900,height:150},PAGE.width,PAGE.height)
       await page.getByRole('button',{name:'선택 영역 확정',exact:true}).click()
     }else{
       await page.getByRole('button',{name:'현재 페이지 내보내기',exact:true}).click()

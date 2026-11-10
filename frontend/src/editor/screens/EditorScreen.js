@@ -11,7 +11,6 @@ import { mediaFailureMessage } from '../utils/mediaRecovery.js'
 import { createRegionExportSnapshot } from '../utils/regionExport.js'
 import RegionExportSelector from '../components/RegionExportSelector'
 import ExportMenu from '../components/ExportMenu'
-import PageExportPreview from '../components/PageExportPreview'
 import ExportRunner from '../components/ExportRunner'
 import { createExportSnapshot } from '../utils/pageExport.js'
 import { pngFileName } from '../utils/pngFileSave.js'
@@ -170,7 +169,6 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
   }, [neighborTemplates])
   const [templatePickerOpen, setTemplatePickerOpen] = useState(false)
 
-  const [exportSnapshot, setExportSnapshot] = useState(null)
   // 화면 없이 진행하는 내보내기 (ExportRunner). 진행률은 아래쪽 작은 알림으로 보여 준다
   const [exportJob, setExportJob] = useState(null)
   const [exportProgress, setExportProgress] = useState(0)
@@ -1089,7 +1087,6 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
       if (readOnly || saveStatus === 'load-error') { goHome(); return true }
       if (photoCropId) { setPhotoCropId(null); return true }
       if (tapeCropId) { setTapeCropId(null); return true }
-      if (exportSnapshot) { setExportSnapshot(null); setRegionOpen(false); return true }
       if (regionOpen) { setRegionOpen(false); return true }
       if (exportOpen) { setExportOpen(false); return true }
       if (overviewFilter) { setOverviewFilter(null); return true }
@@ -1109,11 +1106,15 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
       return true
     })
     return () => subscription.remove()
-  }, [readOnly, saveStatus, bubbleOpen, cropId, exportOpen, exportSnapshot, focusMode, frameTextEdit, importFailure, layersOpen, objectLinkTarget, overviewFilter, pagesOpen, photoCropId, regionOpen, state.selectedIds.length, tapeCropId, templatePickerOpen, textEditing, textLinkTarget, colorPicker, backDisabled])
+  }, [readOnly, saveStatus, bubbleOpen, cropId, exportOpen, focusMode, frameTextEdit, importFailure, layersOpen, objectLinkTarget, overviewFilter, pagesOpen, photoCropId, regionOpen, state.selectedIds.length, tapeCropId, templatePickerOpen, textEditing, textLinkTarget, colorPicker, backDisabled])
 
   useEffect(() => {
-    if (colorPicker && (readOnly || page.id !== colorPicker.pageId || activeTool !== colorPicker.tool || colorScreen.width !== colorPicker.screen.width)) { colorPicker.onClose?.(); setColorPicker(null) }
-  }, [colorPicker, readOnly, page.id, activeTool, colorScreen.width, colorScreen.height])
+    // 색 창을 연 패널(글자 설정 · 펜 설정)이 닫히면 색 창도 닫는다(리뷰 !511)
+    const panelClosed = (colorPicker?.source === 'text' && !textSettingsOpen) || (colorPicker?.source === 'pen' && !penSettingsOpen)
+    if (colorPicker && (panelClosed || readOnly || page.id !== colorPicker.pageId || activeTool !== colorPicker.tool || colorScreen.width !== colorPicker.screen.width)) { colorPicker.onClose?.(); setColorPicker(null) }
+  }, [colorPicker, readOnly, page.id, activeTool, colorScreen.width, colorScreen.height, textSettingsOpen, penSettingsOpen])
+  // 펜 · 형광펜 · 글자 팔레트의 직접 지정(점선 +) 색 창: 편집기 위층에 띄운다. 도구 · 페이지 · 창 폭이 바뀌면 위 효과가 닫는다
+  const openColorPicker = (request, source) => setColorPicker({ ...request, source, tool: activeTool, pageId: page.id, screen: { width: colorScreen.width, height: colorScreen.height } })
 
 
   const previewScreen = useWindowDimensions()
@@ -1241,10 +1242,13 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
 
       {/* 폰은 내보내기 버튼 위치(세로 상단 바·가로 왼쪽 막대)와 상관없이 화면 가운데에 띄운다 */}
       {exportOpen && <ExportMenu mobilePortrait={compact && !landscape} anchor={compact ? null : exportAnchor} doc={state.doc} currentId={page.id} onClose={() => setExportOpen(false)} onRegion={onRegionExport ?? (() => { setExportOpen(false); setRegionOpen(true) })} onPng={(id) => startPageExport('png', id)} onGif={(id) => startPageExport('gif', id)} onPdf={(snapshots) => startExport({ kind: 'pdf', snapshots })} />}
-      {regionOpen && <RegionExportSelector page={page} visible={!exportSnapshot} onConfirm={(selection) => {
-        setExportSnapshot(createRegionExportSnapshot(page, { ...selection, pageWidth: PAGE_WIDTH, pageHeight: PAGE_HEIGHT, title: state.doc.title, pageNumber: state.doc.pages.findIndex((p) => p.id === page.id) + 1 }))
+      {regionOpen && <RegionExportSelector page={page} onConfirm={(selection) => {
+        if (exportJob) throw new Error('이미 내보내고 있어요. 끝난 뒤 다시 시도해 주세요.')
+        if (state.pagesLoading) throw new Error(PAGES_LOADING_MESSAGE)
+        const snapshot = createRegionExportSnapshot(page, { ...selection, pageWidth: PAGE_WIDTH, pageHeight: PAGE_HEIGHT, title: state.doc.title, pageNumber: state.doc.pages.findIndex((p) => p.id === page.id) + 1 })
+        startExport({ kind: 'png', snapshot })
+        setRegionOpen(false)
       }} onCancel={() => { setRegionOpen(false); setExportOpen(true) }} />}
-      {exportSnapshot && <PageExportPreview snapshot={exportSnapshot} onReselect={exportSnapshot.region ? () => setExportSnapshot(null) : undefined} onClose={() => { setExportSnapshot(null); setRegionOpen(false) }} />}
       {overviewFilter && (
         <PageOverview
           canUndoDelete={!textSync.enabled}
@@ -1542,12 +1546,12 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
             // 폰 세로는 고른 글자가 있어도 하단 시트(다른 도구 옵션과 같은 자리 · 열고 닫는 손짓이 같다). 글을 고치는 중의 서식은 키보드 위 줄(TextFormatStrip)이 맡는다
             (selectedText && !phoneSheet
               ? <View style={[styles.optionsWrap, optionsPlacement(selectedObjects, zoom, offset, stageSize, compact ? OPTIONS_TOP_PHONE : OPTIONS_TOP)]} pointerEvents="box-none" {...markInside}>
-                  <TextSettings verticalAlignment={selectedText?.type === 'shape'} settings={currentTextSettings} onChange={changeTextSettings} onClose={() => setTextSettingsOpen(false)} />
+                  <TextSettings onOpenColorPicker={(request) => openColorPicker(request, 'text')} verticalAlignment={selectedText?.type === 'shape'} settings={currentTextSettings} onChange={changeTextSettings} onClose={() => setTextSettingsOpen(false)} />
                 </View>
-              : renderPanel((sheet) => <TextSettings verticalAlignment={selectedText?.type === 'shape'} settings={currentTextSettings} onChange={changeTextSettings} onClose={() => setTextSettingsOpen(false)} sheet={Boolean(sheet)} dragHandlers={sheet?.dragHandlers} />, [styles.penSettingsWrap, toolPopoverStyle()], { onClose: () => setTextSettingsOpen(false) }))
+              : renderPanel((sheet) => <TextSettings onOpenColorPicker={(request) => openColorPicker(request, 'text')} verticalAlignment={selectedText?.type === 'shape'} settings={currentTextSettings} onChange={changeTextSettings} onClose={() => setTextSettingsOpen(false)} sheet={Boolean(sheet)} dragHandlers={sheet?.dragHandlers} />, [styles.penSettingsWrap, toolPopoverStyle()], { onClose: () => setTextSettingsOpen(false) }))
           )}
           {!readOnly && ['pen', 'highlighter'].includes(activeTool) && penSettingsOpen && !drawerTab && (
-            renderPanel((sheet) => <PenSettings onOpenColorPicker={request => setColorPicker({ ...request, tool: activeTool, pageId: page.id, screen: { width: colorScreen.width, height: colorScreen.height } })} key={activeTool} settings={activeTool === 'highlighter' ? highlighterSettings : penSettings} onChange={activeTool === 'highlighter' ? setHighlighterSettings : setPenSettings} onClose={() => { setColorPicker(null); setPenSettingsOpen(false) }} straightAssist={straightAssist} onStraightAssistChange={setStraightAssist} sheet={Boolean(sheet)} dragHandlers={sheet?.dragHandlers} />, [styles.penSettingsWrap, toolPopoverStyle()], { onClose: () => { setColorPicker(null); setPenSettingsOpen(false) } })
+            renderPanel((sheet) => <PenSettings onOpenColorPicker={(request) => openColorPicker(request, 'pen')} key={activeTool} settings={activeTool === 'highlighter' ? highlighterSettings : penSettings} onChange={activeTool === 'highlighter' ? setHighlighterSettings : setPenSettings} onClose={() => { setColorPicker(null); setPenSettingsOpen(false) }} straightAssist={straightAssist} onStraightAssistChange={setStraightAssist} sheet={Boolean(sheet)} dragHandlers={sheet?.dragHandlers} />, [styles.penSettingsWrap, toolPopoverStyle()], { onClose: () => { setColorPicker(null); setPenSettingsOpen(false) } })
           )}
           {!readOnly && activeTool === 'eraser' && penSettingsOpen && !drawerTab && (
             renderPanel((sheet) => <EraserSettings size={eraserSize} onChange={setEraserSize} mode={eraserMode} onModeChange={setEraserMode} target={eraserTarget} onTargetChange={setEraserTarget} onClose={() => setPenSettingsOpen(false)} sheet={Boolean(sheet)} dragHandlers={sheet?.dragHandlers} />, [styles.penSettingsWrap, toolPopoverStyle()], { onClose: () => setPenSettingsOpen(false) })

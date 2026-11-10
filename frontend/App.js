@@ -197,7 +197,7 @@ export default function App() {
   };
   const continueAsGuest = async () => {
     const control = restoration.current;
-    if (control.busy) return;
+    if (!control.active || control.busy) return;
     control.busy = true;
     const job = ++control.job;
     setRestoreState(previous => ({ ...previous, status: 'guest' }));
@@ -320,9 +320,12 @@ export default function App() {
           <LoadingSpot centered label="로그인 정보를 확인하고 있어요." />
         </View>
       )}
-      {!booting && restoreFailed && <SessionRestoreScreen error={restoreState.error} busy={restoreState.status !== 'error'} onRetry={restoreLogin}
-        onLogin={() => setLoginRequest({ sessionExpired: restoreState.error?.sessionExpired === true,
-          restoreSession: __DEV__ && restoreState.error?.code === 'DEVELOPMENT_ACCESS_REQUIRED' })} onGuest={continueAsGuest} />}
+      {!booting && restoreFailed && <SessionRestoreScreen error={restoreState.error} status={restoreState.status} onRetry={restoreLogin}
+        onLogin={() => {
+          if (restoration.current.busy) return;
+          setLoginRequest({ sessionExpired: restoreState.error?.sessionExpired === true,
+            restoreSession: __DEV__ && restoreState.error?.code === 'DEVELOPMENT_ACCESS_REQUIRED' });
+        }} onGuest={continueAsGuest} />}
       {!booting && loginRequest && <EditorModal visible transparent animationType="none" onRequestClose={closeLogin}><View style={[StyleSheet.absoluteFill, { zIndex: 10 }]}><AuthScreen key={loginRequest.sessionExpired ? 'expired' : 'login'} sessionExpired={loginRequest.sessionExpired === true} initialEmail={authenticatedSession?.email || ''} resumeSession={loginRequest.restoreSession === true} onContinue={continueFromLogin} onClose={closeLogin} /></View></EditorModal>}
       {accountToast && <AccountToast key={accountToast.key} message={accountToast.message} onDone={() => setAccountToast(null)} />}
       <HandwritingStudio />
@@ -1006,6 +1009,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onWithdraw
   const libraryLoading = !loaded || (member && (libraryBusy || (!memberListFailed
     && (fullLoadPending || !memberLibraryMatches || !libraryReady || diaryState.refreshing))));
   const localListFailed = !member && libraryReadFailed;
+  const centerMemberError = member && memberLibraryMatches && libraryFailed && libraryDiaries.length === 0;
   const libraryScreen = useMemo(() => view === null ? (
     <LoadingSpot compact={isPhone} label="보관함 보기를 불러오고 있어요." />
   ) : (
@@ -1037,7 +1041,9 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onWithdraw
       remoteQuery={remoteQuery}
       historyKey={member ? diaryState.store.keys.searchHistory : undefined}
       hasMore={member && memberLibraryMatches && diaryState.library.hasNext}
-      requestNotice={member ? <><MemberLibraryNotice library={diaryState.library} pending={!memberLibraryMatches} bulk={diaryState.bulkTrash}
+      centeredNotice={centerMemberError ? <MemberLibraryNotice library={diaryState.library} centered
+        onRetry={() => diaryState.store.retryLibrary().catch(() => {})} /> : null}
+      requestNotice={member ? <><MemberLibraryNotice library={diaryState.library} pending={!memberLibraryMatches || centerMemberError} bulk={diaryState.bulkTrash}
         onRetry={()=>diaryState.store.retryLibrary().catch(()=>{})}
 /><MemberTrashNotice state={diaryState} context="library" onReload={()=>diaryState.store.loadTrash().catch(()=>{})} onRetry={()=>diaryState.store.retryLifecycle().catch(()=>{})}/><MemberRequestNotice pending={diaryState.pending} error={diaryState.error} busy={saving} refreshing={diaryState.refreshing}
         onReload={() => diaryState.store.load().catch(() => {})}
@@ -1058,7 +1064,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onWithdraw
       suppressEmpty={libraryLoading || memberListFailed || localListFailed}
       loading={libraryLoading}
     />
-  ), [guestImport, carousel, navigate, changeCarousel, changeFilter, changeView, changeLibrarySort, create, edit, favorite, filter, isPhone, tabletPortrait,libraryMetadata, librarySort, moveDiaryToTrash, moveSelectedToTrash, open, selection, trashing, view, libraryDiaries, member, memberLibraryMatches, remoteQuery, diaryState.library, diaryState.bulkTrash, diaryState.pending, diaryState.error, diaryState.refreshing, diaryState.lifecycle, diaryState.trashLoading, diaryState.trashError, diaryState.store, saving, enterEditor, loaded, localListFailed, retryLibraryRead, libraryLoading, memberListFailed]);
+  ), [guestImport, carousel, navigate, changeCarousel, changeFilter, changeView, changeLibrarySort, create, edit, favorite, filter, isPhone, tabletPortrait,libraryMetadata, librarySort, moveDiaryToTrash, moveSelectedToTrash, open, selection, trashing, view, libraryDiaries, member, memberLibraryMatches, remoteQuery, diaryState.library, diaryState.bulkTrash, diaryState.pending, diaryState.error, diaryState.refreshing, diaryState.lifecycle, diaryState.trashLoading, diaryState.trashError, diaryState.store, saving, enterEditor, loaded, localListFailed, retryLibraryRead, libraryLoading, memberListFailed, centerMemberError]);
 
   // 보관함(libraryScreen)처럼 요소를 memo 해 둔다. 사이드 메뉴를 여닫느라 App 이 다시 그려져도 휴지통 목록은 다시 그리지 않는다.
   const trashScreen = useMemo(() => (
@@ -1302,7 +1308,10 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onWithdraw
     <>
       {authenticatedNotifications && (sharingRequest?.mode === 'notifications' || sharingRequest?.returnToNotifications)
         ? <HomeNotificationFlow visible={sharingVisible} onOpenParticipants={openSafetyParticipants} request={sharingRequest} model={authenticatedNotifications} sharing={sharing} onRequest={setSharingRequest}
-            onClose={() => { setSharingRequest(null); if(member)diaryState.store.reload().catch(error=>notify('공유 목록을 확인하지 못했어요',error.message)); }}
+            onClose={visitedSharing => {
+              setSharingRequest(null);
+              if (member && visitedSharing) diaryState.store.reload().catch(error => notify('공유 목록을 확인하지 못했어요', error.message));
+            }}
             onOpenDiary={openSharedDiary} onOpenCopy={diary => openCopyIfSafe(diary, invitationLeaveGuard.current, () => { setSharingRequest(null); if(member)diaryState.store.reload().catch(error=>notify('공유 목록을 확인하지 못했어요',error.message)); }, enterEditor)} />
         : <SharingHub visible={sharingVisible} onOpenParticipants={openSafetyParticipants} onOpenCopy={diary => openCopyIfSafe(diary, invitationLeaveGuard.current, () => { setSharingRequest(null); if(member)diaryState.store.reload().catch(error=>notify('공유 목록을 확인하지 못했어요',error.message)); }, enterEditor)} onOpenDiary={openSharedDiary} request={sharingRequest} runtime={sharing.runtime} model={sharing.notifications}
             onSwitchInvitationAccount={inviteId => { setSharingRequest(null); onSwitchInvitationAccount(inviteId); }}
@@ -1334,8 +1343,9 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onWithdraw
         <PinScreen mode="setup" user={previewUser} getProfilePhotoSource={authService.getProfilePhotoSource} onDone={finishLockRecovery} onCancel={() => setLockRecovery(null)} />
       </View>}
       {/* 꾸미기 공방 스티커 보관함을 계정 서버와 맞춘다(다른 기기 · 재설치에서도 같은 구성) */}
-      {member && signedIn && <StickerLibrarySyncHost key={`${previewUser.userId}:${authService.getSessionKey()}`} accountId={String(previewUser.userId)} enabled={appLocked === false} />}
-      {member && signedIn && <GuestImportHost key={`${previewUser.userId}:${authService.getSessionKey()}`} accountId={String(previewUser.userId)} enabled={appLocked === false} onImported={() => diaryState.store.reload().catch(() => {})} onEntry={setGuestImport} />}
+      {/* 두 호스트는 형제라 key 가 서로 달라야 한다(같으면 React 가 'two children with the same key' 경고를 띄우고 하나를 빼먹을 수 있다). 계정 · 세션이 바뀌면 새로 만든다 */}
+      {member && signedIn && <StickerLibrarySyncHost key={`sticker-sync:${previewUser.userId}:${authService.getSessionKey()}`} accountId={String(previewUser.userId)} enabled={appLocked === false} />}
+      {member && signedIn && <GuestImportHost key={`guest-import:${previewUser.userId}:${authService.getSessionKey()}`} accountId={String(previewUser.userId)} enabled={appLocked === false} onImported={() => diaryState.store.reload().catch(() => {})} onEntry={setGuestImport} />}
       <DialogHost />
     </>
   );

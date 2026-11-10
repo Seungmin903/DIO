@@ -31,7 +31,7 @@ export function PlannerPopup({ label, closeLabel, onClose, headerLeft = null, st
   return (
     <View ref={card} style={[styles.card, style]} accessibilityLabel={label} onStartShouldSetResponder={() => true}>
       <View style={styles.header}>
-        {headerLeft}
+        {headerLeft ?? <View />}
         <Pressable accessibilityRole="button" accessibilityLabel={closeLabel} onPress={onClose} style={styles.close}><Icon name="close" size={16} color={LABEL} /></Pressable>
       </View>
       <View style={styles.body}>{children}</View>
