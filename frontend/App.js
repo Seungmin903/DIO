@@ -58,7 +58,7 @@ import ProfileCropHost from './src/auth/ProfileCropHost';
 import DecorationStudioScreen from './src/diary/screens/DecorationStudioScreen';
 import TrashScreen from './src/diary/screens/TrashScreen';
 import { GuestImportHost } from './src/diary/components/GuestImportDialog';
-import { StickerLibrarySyncHost } from './src/diary/components/StickerLibrarySyncHost';
+import { StickerLibrarySyncHost, forgetLibrarySyncAccount } from './src/diary/components/StickerLibrarySyncHost';
 import { styles as s } from './src/diary/styles';
 import { confirmAction, notify } from './src/shared/dialogs';
 import DialogHost from './src/shared/DialogHost';
@@ -233,7 +233,12 @@ export default function App() {
   };
   // 회원 탈퇴를 마치면 게스트 홈으로 돌아가며 보관함이 통째로 바뀌므로, 완료 토스트는 바뀌지 않는 앱 맨 위에서 띄운다(지라 670)
   const [accountToast, setAccountToast] = useState(null);
-  const withdrawSession = () => { clearSession(); setAccountToast({ key: Date.now(), message: '회원 탈퇴가 완료됐어요.' }); };
+  // 탈퇴한 계정의 내 표지 동기화 기록(계정 전환 때 따로 둔 표지 포함)은 이 기기에서 지운다(공용 기기에 개인 데이터가 남지 않게)
+  const withdrawSession = () => {
+    const withdrawn = authenticatedSession?.userId;
+    clearSession(); setAccountToast({ key: Date.now(), message: '회원 탈퇴가 완료됐어요.' });
+    forgetLibrarySyncAccount(withdrawn);
+  };
   const endSession = async () => {
     try {
       if (authenticatedSession) await authService.logout();
