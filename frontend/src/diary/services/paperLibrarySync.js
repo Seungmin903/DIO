@@ -7,6 +7,8 @@
 //   같은 계정: 기기만 바뀜 → 올림, 서버만 바뀜 → 받음, 둘 다 → 합쳐 올림. 이 기기 처음: 합쳐 올림. 다른 계정이 쓰던 기기: 서버 것을 받음.
 //   합치기는 속지를 id 로 가려 모두 남기고(같은 속지를 양쪽에서 고쳤으면 이 기기 것), 스타일은 이 기기에서 고른 값이 있으면 그것을 쓴다.
 // 런타임 의존성은 모두 주입받는다(테스트에서 바꿔 끼운다).
+import { readJson, removeKeys } from './librarySyncRecords.js'
+
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const uuid = value => typeof value === 'string' && UUID.test(value)
 const ENTRY_ID = /^[A-Za-z0-9_-]{1,64}$/
@@ -46,30 +48,7 @@ function serverEntry(entry, pages) {
 
 // 다른 계정으로 바뀔 때 따로 둔 이전 계정 몫(stash)은 이 기간이 지나면 버린다(공용 기기에 이전 사용자 속지가 오래 남지 않게). 내 표지와 같은 기간
 export const PAPER_STASH_TTL_MS = 30 * 24 * 60 * 60 * 1000
-export const PAPER_SYNC_KEY_PREFIX = 'dio:paper-library-sync:v1:'
-const removeKeys = async (storage, keys) => {
-  if (!keys.length) return
-  if (storage.multiRemove) await storage.multiRemove(keys)
-  else for (const key of keys) await (storage.removeItem ? storage.removeItem(key) : storage.setItem(key, 'null'))
-}
-const readJson = async (storage, key) => { try { return JSON.parse(await storage.getItem(key) ?? 'null') } catch { return null } }
-
-/**
- * 회원 탈퇴한 계정의 내 속지 동기화 기록(맞춘 상태 · 기기 id ↔ 서버 id 짝 · 받지 못한 그림 · 따로 둔 몫)을 이 기기에서 지운다.
- * 키는 `<prefix><서버>:<계정>:…`(서버 주소는 encodeURIComponent 라 ':' 가 없다)와 `<prefix><서버>:meta`(그 계정과 맞췄을 때만) 다.
- * storage 는 getAllKeys 가 있어야 한다(AsyncStorage). 없으면 아무것도 하지 않는다
- */
-export async function forgetPaperLibraryAccount({ storage, account, prefix = PAPER_SYNC_KEY_PREFIX }) {
-  if (!storage?.getAllKeys || account == null) return
-  const owner = String(account), doomed = []
-  for (const key of await storage.getAllKeys()) {
-    if (!key.startsWith(prefix)) continue
-    const [, scope] = key.slice(prefix.length).split(':')
-    if (scope === owner) doomed.push(key)
-    else if (scope === 'meta' && key.split(':').length === prefix.split(':').length + 1 && (await readJson(storage, key))?.account === owner) doomed.push(key)
-  }
-  await removeKeys(storage, doomed)
-}
+// 회원 탈퇴 때 기기 기록을 지우는 것은 librarySyncRecords.forgetLibrarySyncRecords(스티커 · 테이프 보관함 · 내 표지 · 내 속지를 함께)
 
 /** 두 목록(서버 문서 모양)을 합친다: 앞쪽(base) 순서를 지키고 뒤쪽(extra)에만 있는 속지를 덧붙인다 */
 export function mergePapers(base, extra) {
@@ -108,6 +87,7 @@ export function createPaperLibrarySync({ account, api, media, library, storage, 
   const active = () => { if (closed || !isActive()) throw Object.assign(Error('내 속지 동기화가 끝났어요.'), { code: 'SYNC_CLOSED' }) }
   const readMeta = async () => { try { const value = JSON.parse(await storage.getItem(metaKey) ?? 'null'); return value && typeof value === 'object' ? value : null } catch { return null } }
   const writeMeta = async (version, document) => { meta = { account, version, synced: stable(document) }; await storage.setItem(metaKey, JSON.stringify(meta)) }
+  const writeRawMeta = async next => { meta = next; await storage.setItem(metaKey, JSON.stringify(next)) }
 
   // 기기 속지 하나를 서버 문서 모양으로. 쪽 하나라도 서버 id 가 없으면(올리지 못했거나 upload 가 거짓) null
   async function toServerEntry(entry, upload) {
@@ -181,8 +161,10 @@ export function createPaperLibrarySync({ account, api, media, library, storage, 
   // 서버 문서를 기기에 들인다: 이 기기가 올린 그림은 기기 원본을 그대로 쓰고, 나머지는 내려받아 서버 id 로 저장한 뒤 목록 · 스타일을 바꾼다.
   // keepLocal 이면 아직 서버에 없는 기기 속지(올리지 못한 속지 · 보낼 수 없는 속지 · 한 번도 맞춘 적 없는 속지)는 지우지 않고 남긴다.
   // restore: 이 계정이 예전에 이 기기에 남겨 둔 몫(stash). 그중 아직 서버에 없는 속지를 같은 규칙으로 되살리고, 서버에 스타일이 없으면 그때 고른 스타일을 되살린다.
+  // othersIds · keepStyle: 계정이 바뀐 기기에서 이전 계정 몫(stash)에 넣은 속지 id 와, 그 뒤 이 계정으로 스타일을 바꿨는지.
+  // 몫에 없는 기기 속지와 바꾼 스타일은 계정이 바뀐 뒤 이 계정으로 만든 것이라 남기고 다음 맞추기에서 올린다
   // 받는 사이 이 기기에서 고치면 들이지 않고 false(그 편집을 덮어쓰지 않는다). 바뀐 값은 다시 맞춘다
-  async function adopt(server, { keepLocal = true, restore = null } = {}) {
+  async function adopt(server, { keepLocal = true, restore = null, othersIds = null, keepStyle = false } = {}) {
     await readMissing(); active()
     const base = library.papers() ?? [], baseStyle = library.style()
     const before = new Map(base.map(entry => [entry.id, entry]))
@@ -206,11 +188,13 @@ export function createPaperLibrarySync({ account, api, media, library, storage, 
       papers.push({ id: entry.id, name: entry.name, createdAt: entry.createdAt ?? null, orientation: entry.orientation, pages })
     }
     await writeMissing(); active()
-    const kept = keepLocal ? await unsent(base, papers, syncedIds(meta?.synced)) : []
+    const inServer = new Set(papers.map(entry => entry.id))
+    const kept = keepLocal ? await unsent(base, papers, syncedIds(meta?.synced))
+      : othersIds ? base.filter(entry => entry && !othersIds.has(entry.id) && !inServer.has(entry.id)) : []
     const restored = restore ? await unsent(restore.papers, papers, syncedIds(restore.synced)) : []
     const next = [...restored, ...kept, ...papers]
     const restoredStyle = !server.style && restore?.style ? restore.style : null
-    const style = server.style ?? (keepLocal ? baseStyle : restoredStyle)
+    const style = keepStyle ? baseStyle : server.style ?? (keepLocal ? baseStyle : restoredStyle)
     active()
     // replace 가 돌려준 값(적용한 것)과 지금 값이 다르면 그사이 사용자가 고친 것이다. 받아서 바꾼 알림은 무시하지만 그 편집은 다시 맞춘다
     applying = true
@@ -221,7 +205,7 @@ export function createPaperLibrarySync({ account, api, media, library, storage, 
     } finally { applying = false }
     if (!applied || !appliedStyle) { again = true; return false } // 받는 사이 이 기기에서 고쳤다: 기록을 남기지 않고 곧 다시 맞춘다
     // 되살린 속지 · 스타일은 다음 맞추기에서 올린다
-    if (library.papers() !== applied || library.style() !== appliedStyle.style || restored.length || restoredStyle) again = true
+    if (library.papers() !== applied || library.style() !== appliedStyle.style || restored.length || restoredStyle || (othersIds && (kept.length || keepStyle))) again = true
     await writeMeta(server.version, server)
     return true
   }
@@ -266,9 +250,18 @@ export function createPaperLibrarySync({ account, api, media, library, storage, 
     // 다른 계정이 쓰던 기기: 그 속지 · 스타일을 이 계정에 올리지 않는다. 지우지도 않고 그 계정 몫(stash)으로 따로 두었다가 그 계정으로 다시 로그인하면 되살린다
     // (올리지 못해 서버에 없던 속지가 계정을 바꾸는 순간 사라지지 않게). 이 계정이 남겨 둔 몫이 있으면 함께 되살린다
     if (meta && meta.account !== account) {
-      await storage.setItem(stashKey(meta.account), JSON.stringify({ papers: local, style: library.style() ?? null, synced: meta.synced ?? '{}', savedAt: now() })); active()
+      // 이전 계정 몫은 계정이 바뀐 뒤 처음 맞출 때 한 번만 쓴다(그때의 기기 값이 이전 계정 것이 확실한 마지막 시점이다). 받는 사이 편집으로 들이지 못해
+      // 다시 맞출 때 덮어쓰면 그사이 이 계정으로 만든 속지 · 스타일이 이전 계정 몫에 섞여 그 계정에 올라간다(내 표지 동기화와 같은 보호).
+      // 몫에 넣은 속지 id 와 그때 스타일은 meta 에 둔다(몫이 지워졌어도 이전 계정 것을 이 계정 것으로 보지 않게).
+      // 탈퇴한 계정이 쓰던 기기(librarySyncRecords 의 WITHDRAWN_META)는 되살릴 계정이 없으니 몫을 두지 않는다
+      if (meta.stashedFor !== account) {
+        if (!meta.withdrawn) await storage.setItem(stashKey(meta.account), JSON.stringify({ papers: local, style: library.style() ?? null, synced: meta.synced ?? '{}', savedAt: now() })); active()
+        await writeRawMeta({ ...meta, stashedFor: account, stashedIds: local.map(entry => entry?.id).filter(Boolean), stashedStyle: JSON.stringify(library.style() ?? null) }); active()
+      }
+      const othersIds = new Set(Array.isArray(meta.stashedIds) ? meta.stashedIds : [])
+      const keepStyle = JSON.stringify(library.style() ?? null) !== (meta.stashedStyle ?? 'null') // 바뀐 뒤 이 계정으로 고른 스타일
       const restore = await readStash(); active()
-      if (!await adopt(server, { keepLocal: false, restore })) return null
+      if (!await adopt(server, { keepLocal: false, restore, othersIds, keepStyle })) return null
       await removeKeys(storage, [stashKey(account)]) // 되살렸거나 기한이 지난 이 계정 몫은 더 두지 않는다
       await sweepStashes()
       return report(0)
