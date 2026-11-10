@@ -59,12 +59,24 @@ export default function PenSettings({ settings, onChange, onClose, straightAssis
       ) : (
         <View style={styles.types}>{PEN_TYPES.map((type) => (
           <Pressable key={type.id} accessibilityRole="button" accessibilityLabel={type.label} accessibilityState={{ selected: selectedKind === type.id }}
-            onPress={() => onChange({ ...settings, kind: selectedKind === type.id ? settings.kind : type.id, opacity: penDefaultOpacity(type.id) })} style={[styles.type, selectedKind === type.id && styles.typeSelected]}>
+            onPress={() => onChange({ ...settings, kind: selectedKind === type.id ? settings.kind : type.id })} style={[styles.type, selectedKind === type.id && styles.typeSelected]}>
             <PenSample settings={{ ...settings, kind: type.id, width: 10 }} small /><Text style={[styles.typeText, selectedKind === type.id && styles.typeTextSelected]}>{type.label}</Text>
           </Pressable>
         ))}</View>
       )}
       </View>
+      {/* 색은 펜 종류와 무관하게 늘 쓰므로 종류 바로 아래에 고정한다(아래 옵션은 종류마다 개수가 달라 자리가 밀린다) */}
+      <EditablePalette allowDirect scope={highlighter ? 'highlighter' : 'pen'} label={label} value={settings.color} onPick={chooseColor} onOpenEditor={onOpenColorPicker} />
+      {recentColors.length > 0 && <>
+      <Text style={toolPanelStyles.label}>마지막으로 사용했던 색</Text>
+      <View accessibilityLabel={`${label} 최근 사용 색상`} style={paletteSwatchStyles.row}>
+        {recentColors.map(color => <Pressable key={color} accessibilityRole="button"
+          accessibilityLabel={`최근 사용한 ${label} 색상 ${color}`} accessibilityState={{ selected: settings.color === color }}
+          hitSlop={1} onPress={() => chooseColor(color)} style={paletteSwatchStyles.cell}>
+          <View style={[paletteSwatchStyles.dot,{backgroundColor:color},settings.color === color && paletteSwatchStyles.chosen]} />
+        </Pressable>)}
+      </View>
+      </>}
       <Slider name="굵기" label={highlighter ? '형광펜 굵기' : '펜 굵기'} minusLabel={`${label} 가늘게`} plusLabel={`${label} 굵게`} min={highlighter ? 8 : 1} max={highlighter ? 40 : 16} step={0.5} value={settings.width} onChange={(width) => onChange({ ...settings, width: Math.round(width * 2) / 2 })} />
       {pattern && <>
         <Slider name="점 길이" label="점 길이" minusLabel="점 짧게" plusLabel="점 길게"
@@ -124,17 +136,6 @@ export default function PenSettings({ settings, onChange, onClose, straightAssis
             })}
           </View>
         </>}
-      </>}
-      <EditablePalette allowDirect scope={highlighter ? 'highlighter' : 'pen'} label={label} value={settings.color} onPick={chooseColor} onOpenEditor={onOpenColorPicker} />
-      {recentColors.length > 0 && <>
-      <Text style={toolPanelStyles.label}>마지막으로 사용했던 색</Text>
-      <View accessibilityLabel={`${label} 최근 사용 색상`} style={paletteSwatchStyles.row}>
-        {recentColors.map(color => <Pressable key={color} accessibilityRole="button"
-          accessibilityLabel={`최근 사용한 ${label} 색상 ${color}`} accessibilityState={{ selected: settings.color === color }}
-          hitSlop={1} onPress={() => chooseColor(color)} style={paletteSwatchStyles.cell}>
-          <View style={[paletteSwatchStyles.dot,{backgroundColor:color},settings.color === color && paletteSwatchStyles.chosen]} />
-        </Pressable>)}
-      </View>
       </>}
       <View style={styles.assist}>
         <Text style={styles.assistText}>직선 만들기</Text>

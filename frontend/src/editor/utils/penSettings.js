@@ -32,13 +32,25 @@ export const penDefaultOpacity = kind => PEN_DEFAULT_OPACITY[kind] ?? 1
 // 펜 종류마다 마지막으로 쓴 굵기 · 불투명도를 기억한다(사용자 2026-11-03: 다른 펜을 오가도 설정이 그대로여야 한다).
 // 처음 쓰는 종류는 지금 굵기를 이어 받고 불투명도만 그 종류의 기본값이다.
 const penPattern = (kind, settings) => isDashedKind(kind) ? dashPattern(kind, settings) : {}
+// 종류 전용 옵션은 그 종류를 고르지 않았을 때 설정에 남아 있으면 안 된다(사용자 2026-11-10:
+// 한 펜에서 고른 옵션이 다른 펜에 영향을 준다). 종류를 바꿀 때 여기 적힌 열쇠를 전부 털고,
+// 새 종류의 것만 기억에서 되살린다.
+const KIND_ONLY_KEYS = ['dashLength', 'dashGap', ...Object.keys(DEFAULT_GLASS_INK)]
+const withoutKindOnly = settings => {
+  const rest = { ...settings }
+  for (const key of KIND_ONLY_KEYS) delete rest[key]
+  return rest
+}
+const penInk = (kind, settings) => kind === 'glass' ? sanitizeGlassInk(settings) : {}
 export const rememberPen = (memory, settings) => ({
   ...memory,
-  [settings.kind]: { width: settings.width, opacity: settings.opacity ?? penDefaultOpacity(settings.kind), ...penPattern(settings.kind, settings) },
+  [settings.kind]: { width: settings.width, opacity: settings.opacity ?? penDefaultOpacity(settings.kind),
+    ...penPattern(settings.kind, settings), ...penInk(settings.kind, settings) },
 })
-export function applyPenKind(memory, { dashLength, dashGap, ...settings }, kind) {
+export function applyPenKind(memory, settings, kind) {
   const saved = memory?.[kind]
-  return { ...settings, kind, width: saved?.width ?? settings.width, opacity: saved?.opacity ?? penDefaultOpacity(kind), ...penPattern(kind, saved) }
+  return { ...withoutKindOnly(settings), kind, width: saved?.width ?? settings.width,
+    opacity: saved?.opacity ?? penDefaultOpacity(kind), ...penPattern(kind, saved), ...penInk(kind, saved) }
 }
 // 형광펜: 0.42 로 겹쳐 칠해도 · 속지 종이 색으로 깔아도 뽀얀 톤
 export const HIGHLIGHTER_COLORS = ['#F7DF8A', '#F6C79B', '#F2B4AE', '#D8C5EF', '#C6D0F0', '#BDE4D1', '#E5DDD2']
@@ -63,7 +75,7 @@ export function sanitizePenKinds(saved) {
   const result = {}
   for (const type of [...PEN_TYPES, ...DASH_TYPES]) {
     const item = saved[type.id]
-    if (item && typeof item === 'object') result[type.id] = { width: inRange(item.width, 1, 16, DEFAULT_PEN_SETTINGS.width), opacity: inRange(item.opacity, 0.1, 1, penDefaultOpacity(type.id)), ...penPattern(type.id, item) }
+    if (item && typeof item === 'object') result[type.id] = { width: inRange(item.width, 1, 16, DEFAULT_PEN_SETTINGS.width), opacity: inRange(item.opacity, 0.1, 1, penDefaultOpacity(type.id)), ...penPattern(type.id, item), ...penInk(type.id, item) }
   }
   return result
 }

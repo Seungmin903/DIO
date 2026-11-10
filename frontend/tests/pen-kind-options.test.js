@@ -1,0 +1,44 @@
+// 펜 종류마다 고른 옵션이 다른 종류로 새지 않아야 한다(사용자 2026-11-10:
+// "불투명도 옵션이 다른 쪽에도 영향 주는데 펜 각각이 각자 옵션 선택한 거 다른 펜에 영향 안 가게 해줘")
+import { strict as assert } from 'node:assert'
+import test from 'node:test'
+import { applyPenKind, DEFAULT_GLASS_INK, penDefaultOpacity, rememberPen, sanitizePenKinds } from '../src/editor/utils/penSettings.js'
+
+const base = { kind: 'ball', color: '#18224D', width: 2.5, opacity: 1 }
+
+test('불투명도는 종류마다 따로 기억한다 — 한 펜에서 바꿔도 다른 펜은 그대로다', () => {
+  const faint = { ...base, opacity: 0.4 }
+  const memory = rememberPen({}, faint)
+  // 처음 쓰는 종류는 그 종류의 기본값이다(볼펜에서 낮춘 값이 따라오지 않는다)
+  const calligraphy = applyPenKind(memory, faint, 'calligraphy')
+  assert.equal(calligraphy.opacity, penDefaultOpacity('calligraphy'))
+  // 연필은 기본이 따로 있다
+  assert.equal(applyPenKind(memory, faint, 'pencil').opacity, penDefaultOpacity('pencil'))
+  // 되돌아오면 그 종류가 기억하던 값이 살아난다
+  assert.equal(applyPenKind(rememberPen(memory, calligraphy), calligraphy, 'ball').opacity, 0.4)
+})
+
+test('유리펜 잉크 옵션은 유리펜에만 남는다', () => {
+  const glass = { ...base, kind: 'glass', inkGlitter: false, inkFilm: 125, inkAmount: 0.5, inkSheen: true, inkSheenColor: null, inkSheenAmount: 1 }
+  const memory = rememberPen({}, glass)
+  const ball = applyPenKind(memory, glass, 'ball')
+  for (const key of Object.keys(DEFAULT_GLASS_INK)) assert.equal(key in ball, false, `${key} 가 볼펜 설정에 남았다`)
+  const back = applyPenKind(rememberPen(memory, ball), ball, 'glass')
+  assert.equal(back.inkGlitter, false)
+  assert.equal(back.inkFilm, 125)
+  assert.equal(back.inkAmount, 0.5)
+})
+
+test('점선 패턴도 점선에만 남는다', () => {
+  const dashed = { ...base, kind: 'dashed', dashLength: 4, dashGap: 2 }
+  const memory = rememberPen({}, dashed)
+  const ball = applyPenKind(memory, dashed, 'ball')
+  assert.equal('dashLength' in ball, false)
+  assert.equal('dashGap' in ball, false)
+})
+
+test('저장된 기억을 읽을 때도 종류 전용 옵션을 검사한다', () => {
+  const saved = sanitizePenKinds({ glass: { width: 8, opacity: 1, inkFilm: 9999, inkAmount: 5 } })
+  assert.equal(saved.glass.inkFilm, DEFAULT_GLASS_INK.inkFilm)
+  assert.equal(saved.glass.inkAmount, 1)
+})
