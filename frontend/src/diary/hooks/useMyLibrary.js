@@ -51,12 +51,16 @@ export function subscribeMyLibrary(listener) {
 }
 /**
  * 서버에서 받은 목록으로 바꾸고 적용한 목록을 돌려준다. base(받기 전에 본 목록)가 지금 목록과 다르면(그 사이 사용자가 고쳤으면) 바꾸지 않고 null.
- * 동기화는 돌려받은 목록과 지금 목록을 비교해, 바꾼 직후 들어온 사용자 편집을 놓치지 않는다
+ * 동기화는 돌려받은 목록과 지금 목록을 비교해, 바꾼 직후 들어온 사용자 편집을 놓치지 않는다.
+ * 기기 저장에 실패하면(저장 공간 부족 등) null 이 아니라 오류(code LOCAL_SAVE_FAILED)를 던진다. null 은 '다시 맞추면 되는' 편집 충돌이라
+ * 저장 실패까지 null 로 돌려주면 동기화가 맞출 때마다 서버를 다시 조회하며 끝없이 돈다
  */
 export async function replaceMyCovers(covers, base) {
   let applied = null
   const done = await commit('covers', list => (list === base ? (applied = normalizeMyCovers(covers)) : null))
-  return done ? applied : null
+  if (done) return applied
+  if (applied) throw Object.assign(Error('기기에 내 표지를 저장하지 못했어요.'), { code: 'LOCAL_SAVE_FAILED' })
+  return null
 }
 
 /** 테스트에서 기기 저장소를 새로 읽게 한다 */
