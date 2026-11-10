@@ -20,6 +20,7 @@ import { drawGlassPooled, glassPooledFailed } from './glassPooled.js'
 import { GLASS_INK, GLASS_LIVE_SKSL, GLASS_RIM_SKSL, glassBand, glassDabs, glassPool, inkDensity, micaColor, sheenAutoColor } from '../utils/glassInk.js'
 
 // 27판 경로를 쓸지. 끄면 26판(경로 + 테 띠 폭)으로 돌아간다 — 비교용 스위치.
+// (아래 broken 은 한 번 실패하면 계속 평범한 선으로 떨어진다 — 새로고침해야 풀린다)
 const POOLED = true
 let bodyEffect = null, rimEffect = null, broken = false
 export const glassBroken = () => broken
