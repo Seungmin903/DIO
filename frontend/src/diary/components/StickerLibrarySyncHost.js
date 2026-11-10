@@ -12,7 +12,8 @@ import { customDecorFolders, customDecorTapeFolders, replaceStickerFolders, repl
 import { sharedGifMaxBytes } from '../../shared/mediaLimits.js'
 import { setStickerSyncRetry, setStickerSyncStatus } from '../../editor/services/stickerLibrarySyncStatus.js'
 import { setTapeSyncRetry, setTapeSyncStatus } from '../../editor/services/tapeLibrarySyncStatus.js'
-import { createCoverLibrarySync, forgetCoverLibraryAccount } from '../services/coverLibrarySync.js'
+import { createCoverLibrarySync } from '../services/coverLibrarySync.js'
+import { forgetLibrarySyncRecords } from '../services/librarySyncRecords.js'
 import { setCoverSyncRetry, setCoverSyncStatus } from '../services/coverLibrarySyncStatus.js'
 import { myCoversReady, myCoversSnapshot, replaceMyCovers, subscribeMyLibrary } from '../hooks/useMyLibrary'
 
@@ -144,12 +145,12 @@ function readCovers(body) {
 const dropNulls = item => Object.fromEntries(Object.entries(item ?? {}).filter(([, value]) => value != null))
 
 /**
- * 회원 탈퇴를 마친 계정의 내 표지 동기화 기록을 이 기기에서 지운다(맞춘 상태 · 기기 id ↔ 서버 id 짝 · 받지 못한 그림 · 계정 전환 때 따로 둔 몫).
+ * 회원 탈퇴를 마친 계정의 꾸미기 공방 동기화 기록(스티커 · 테이프 보관함 · 내 표지)을 이 기기에서 지운다(맞춘 상태 · 기기 id ↔ 서버 id 짝 · 받지 못한 그림 · 계정 전환 때 따로 둔 몫).
  * 그 계정 동기화가 돌고 있으면 먼저 멈춰, 지운 뒤에 다시 쓰지 않게 한다. 실패해도 탈퇴는 끝난 것으로 본다
  */
 export async function forgetLibrarySyncAccount(accountId) {
   if (accountId == null) return
   if (shared?.id?.startsWith(`${accountId}:`)) stopShared()
-  try { await forgetCoverLibraryAccount({ storage: AsyncStorage, account: String(accountId) }) }
-  catch (error) { if (typeof __DEV__ !== 'undefined' && __DEV__) console.warn('[DIO_COVER_SYNC]', error?.message) }
+  try { await forgetLibrarySyncRecords({ storage: AsyncStorage, account: String(accountId) }) }
+  catch (error) { if (typeof __DEV__ !== 'undefined' && __DEV__) console.warn('[DIO_LIBRARY_SYNC]', error?.message) }
 }

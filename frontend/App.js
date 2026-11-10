@@ -233,7 +233,7 @@ export default function App() {
   };
   // 회원 탈퇴를 마치면 게스트 홈으로 돌아가며 보관함이 통째로 바뀌므로, 완료 토스트는 바뀌지 않는 앱 맨 위에서 띄운다(지라 670)
   const [accountToast, setAccountToast] = useState(null);
-  // 탈퇴한 계정의 내 표지 동기화 기록(계정 전환 때 따로 둔 표지 포함)은 이 기기에서 지운다(공용 기기에 개인 데이터가 남지 않게)
+  // 탈퇴한 계정의 꾸미기 공방 동기화 기록(스티커 · 테이프 보관함 · 내 표지, 계정 전환 때 따로 둔 표지 포함)은 이 기기에서 지운다(공용 기기에 개인 데이터가 남지 않게)
   const withdrawSession = () => {
     const withdrawn = authenticatedSession?.userId;
     clearSession(); setAccountToast({ key: Date.now(), message: '회원 탈퇴가 완료됐어요.' });

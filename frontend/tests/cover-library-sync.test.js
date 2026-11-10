@@ -1,7 +1,8 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { COVER_STASH_TTL_MS, createCoverLibrarySync, forgetCoverLibraryAccount, mergeCovers } from '../src/diary/services/coverLibrarySync.js'
-import { normalizeMyCovers } from '../src/diary/utils/myLibrary.js'
+import { COVER_STASH_TTL_MS, createCoverLibrarySync, mergeCovers } from '../src/diary/services/coverLibrarySync.js'
+import { forgetLibrarySyncRecords } from '../src/diary/services/librarySyncRecords.js'
+import { addMyCover, normalizeMyCovers } from '../src/diary/utils/myLibrary.js'
 // 앱이 도는 React Native(Hermes)에는 structuredClone 이 없을 수 있어 테스트 도우미도 JSON 으로 복사한다
 const clone = value => JSON.parse(JSON.stringify(value))
 
@@ -355,10 +356,45 @@ test('회원 탈퇴한 계정의 동기화 기록만 지운다(다른 계정 · 
   for (const [k, v] of storage) if (!k.startsWith('cover-sync')) prefixed.set(k, v)
   const keysOf = owner => [...prefixed.keys()].filter(k => k.startsWith(`dio:cover-library-sync:v1:server:${owner}:`))
   assert.ok(keysOf('1').length > 0) // 계정 1 의 짝 · 따로 둔 몫
-  await forgetCoverLibraryAccount({ storage: asyncStorage(prefixed), account: '1' })
+  await forgetLibrarySyncRecords({ storage: asyncStorage(prefixed), account: '1' })
   assert.deepEqual(keysOf('1'), [])
   assert.ok(prefixed.has('dio:cover-library-sync:v1:server:meta')) // 지금 meta 는 계정 2 것이라 남긴다
   assert.ok(prefixed.has('other-feature:1:keep'))
-  await forgetCoverLibraryAccount({ storage: asyncStorage(prefixed), account: '2' })
+  await forgetLibrarySyncRecords({ storage: asyncStorage(prefixed), account: '2' })
   assert.ok(!prefixed.has('dio:cover-library-sync:v1:server:meta')) // 계정 2 와 맞춘 meta 는 지운다
+})
+
+test('30개를 넘는 서버 목록을 받아도 줄이지 않고, 그 위에 표지를 만들어도 다른 표지를 서버에서 지우지 않는다', async () => {
+  const remote = server()
+  const many = Array.from({ length: 40 }, (_, i) => plainCover(`c${i}`, `표지 ${i}`))
+  const a = device(remote, { covers: many })
+  await a.sync.start()
+  assert.equal(remote.state.covers.length, 40)
+  const b = device(remote)
+  await b.sync.start(); await b.sync.whenIdle()
+  assert.equal(b.local.covers.length, 40) // normalizeMyCovers 를 거쳐도 그대로
+  assert.equal(remote.state.puts, 1) // 받기만 했으니 다시 올리지 않는다
+  // 공방 · 새 다이어리에서 표지를 하나 더 만든다(useMyLibrary.addCover 와 같은 계산)
+  b.edit(addMyCover(b.local.covers, { name: '새 표지', orientation: 'portrait', cover: { kind: 'plain' } }))
+  await b.sync.whenIdle()
+  assert.equal(remote.state.covers.length, 40) // 가장 오래된 하나만 빠지고 30개로 줄지 않는다
+  assert.equal(remote.state.covers[0].name, '새 표지')
+})
+
+test('회원 탈퇴 정리는 스티커 · 테이프 보관함 동기화 기록도 함께 지운다', async () => {
+  const s = 'dio:sticker-library-sync:v1:server', t = 'dio:tape-library-sync:v1:server', c = 'dio:cover-library-sync:v1:server'
+  const disk = new Map([
+    [`${s}:meta`, JSON.stringify({ account: '1', version: 3 })], [`${s}:1:id:local-a`, 'srv-a'], [`${s}:1:missing`, '[]'], [`${s}:2:id:local-b`, 'srv-b'],
+    [`${t}:meta`, JSON.stringify({ account: '2', version: 1 })], [`${t}:1:local:srv-c`, 'local-c'], [`${t}:2:missing`, '[]'],
+    [`${c}:1:stash`, JSON.stringify({ covers: [], savedAt: 0 })],
+    ['dio:diary:my-covers:v1', '[]'], ['dio:sticker-library-sync:v1:server:1x:id:z', 'other-account-1x'],
+  ])
+  await forgetLibrarySyncRecords({ storage: asyncStorage(disk), account: '1' })
+  assert.deepEqual([...disk.keys()].sort(), [
+    'dio:diary:my-covers:v1', // 다른 기능 키는 그대로
+    'dio:sticker-library-sync:v1:server:1x:id:z', // 계정 '1x' 는 '1' 이 아니다
+    `${s}:2:id:local-b`, // 다른 계정 기록
+    `${t}:2:missing`,
+    `${t}:meta`, // 계정 2 와 맞춘 meta
+  ].sort())
 })

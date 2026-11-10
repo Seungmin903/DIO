@@ -8,6 +8,8 @@
 // - 받지 못한 그림은 기억해 두고 맞출 때마다 다시 받는다(서버에 파일이 없으면(404 · 410) 더 받지 않는다).
 // 런타임 의존성은 모두 주입받는다(테스트에서 바꿔 끼운다).
 
+import { readJson, removeKeys } from './librarySyncRecords.js'
+
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const uuid = value => typeof value === 'string' && UUID.test(value)
 const ENTRY_ID = /^[A-Za-z0-9_-]{1,64}$/
@@ -76,30 +78,7 @@ export function mergeCovers(base, extra) {
 
 // 다른 계정으로 바뀔 때 따로 둔 이전 계정 몫(stash)은 이 기간이 지나면 버린다(공용 기기에 이전 사용자 표지가 오래 남지 않게)
 export const COVER_STASH_TTL_MS = 30 * 24 * 60 * 60 * 1000
-export const COVER_SYNC_KEY_PREFIX = 'dio:cover-library-sync:v1:'
-const removeKeys = async (storage, keys) => {
-  if (!keys.length) return
-  if (storage.multiRemove) await storage.multiRemove(keys)
-  else for (const key of keys) await (storage.removeItem ? storage.removeItem(key) : storage.setItem(key, 'null'))
-}
-const readJson = async (storage, key) => { try { return JSON.parse(await storage.getItem(key) ?? 'null') } catch { return null } }
-
-/**
- * 회원 탈퇴한 계정의 내 표지 동기화 기록(맞춘 상태 · 기기 id ↔ 서버 id 짝 · 받지 못한 그림 · 따로 둔 몫)을 이 기기에서 지운다.
- * 키는 `<prefix><서버>:<계정>:…`(서버 주소는 encodeURIComponent 라 ':' 가 없다)와 `<prefix><서버>:meta`(그 계정과 맞췄을 때만) 다.
- * storage 는 getAllKeys 가 있어야 한다(AsyncStorage). 없으면 아무것도 하지 않는다
- */
-export async function forgetCoverLibraryAccount({ storage, account, prefix = COVER_SYNC_KEY_PREFIX }) {
-  if (!storage?.getAllKeys || account == null) return
-  const owner = String(account), doomed = []
-  for (const key of await storage.getAllKeys()) {
-    if (!key.startsWith(prefix)) continue
-    const [, scope] = key.slice(prefix.length).split(':')
-    if (scope === owner) doomed.push(key)
-    else if (scope === 'meta' && key.split(':').length === prefix.split(':').length + 1 && (await readJson(storage, key))?.account === owner) doomed.push(key)
-  }
-  await removeKeys(storage, doomed)
-}
+// 회원 탈퇴 때 기기 기록을 지우는 것은 librarySyncRecords.forgetLibrarySyncRecords(스티커 · 테이프 보관함 · 내 표지를 함께)
 
 /**
  * account: 지금 로그인한 계정 id(문자열)

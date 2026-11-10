@@ -38,7 +38,7 @@
 
 `cover` 안 어디든 `mediaFileId`는 본인이 올린 `READY` 상태의 `IMAGE`만 넣을 수 있다. 이미 보관함에 있던 이미지는 미디어에서 지웠어도 그대로 둘 수 있다.
 
-## 저장 구조(V40)
+## 저장 구조(V41)
 
 - `user_cover_libraries(user_id PK, version, document_json, updated_at)`, `user_cover_library_media(user_id, media_file_id)`.
 - 미디어 정리(`MediaReferenceSql`)는 `user_cover_library_media`를 참조로 보아 보관함 표지 그림을 물리 삭제하지 않는다.
@@ -60,7 +60,8 @@
 - 올리지 못한 표지 · 받지 못한 그림 · 연결 오류는 꾸미기 공방 표지 탭에 `다시 맞추기`와 함께 보인다(`coverLibrarySyncStatus.js`).
 - 맞춘 상태는 `dio:cover-library-sync:v1:<서버>:…`에 스티커 보관함과 따로 둔다.
 - 다른 계정이 쓰던 기기에서는 그 계정 표지를 이 계정에 올리지 않고 서버 목록으로 바꾼다. 바꾸기 전 기기 목록은 이전 계정 몫(`…:<계정>:stash`)으로 따로 두고, 그 계정으로 다시 로그인하면 아직 서버에 없던 표지(그림을 올리지 못한 표지 · 한 번도 맞춘 적 없는 표지)만 되살려 다시 올린다. 따로 둔 표지의 그림 파일은 지우지 않는다. 따로 둔 몫은 30일이 지나면 되살리지 않고, 다른 계정으로 맞출 때 지운다.
-- 회원 탈퇴를 마치면 그 계정의 동기화 기록(`dio:cover-library-sync:v1:<서버>:<계정>:…` · 그 계정과 맞춘 `…:meta` · 따로 둔 몫)을 이 기기에서 지운다(`forgetLibrarySyncAccount`).
+- 회원 탈퇴를 마치면 그 계정의 꾸미기 공방 동기화 기록(스티커 · 테이프 보관함 · 내 표지의 `…:<서버>:<계정>:…` · 그 계정과 맞춘 `…:meta` · 따로 둔 몫)을 이 기기에서 지운다(`forgetLibrarySyncAccount` → `librarySyncRecords.js`).
+- 기기 목록이 다른 기기와 합쳐 30개를 넘으면(서버는 100개까지) 새 표지를 더할 때 한 번에 30개로 줄이지 않고 가장 오래된 하나만 뺀다. 줄이면 동기화가 줄인 만큼을 서버에서도 지운다.
 - 표지 복사는 JSON 으로 한다(`structuredClone` 은 React Native(Hermes) 전역에 없을 수 있다).
 - 앱은 보내기 전에 그림 칸의 `src`를 `media:<mediaFileId>`로 맞춘다(예전 표지처럼 `src`만 있으면 그 id 를 `mediaFileId`로 채운다).
 - 서버 목록으로 바꾼 직후 들어온 사용자 편집은 바꾼 목록과 지금 목록을 비교해 다시 맞춘다.
