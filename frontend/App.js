@@ -197,7 +197,7 @@ export default function App() {
   };
   const continueAsGuest = async () => {
     const control = restoration.current;
-    if (control.busy) return;
+    if (!control.active || control.busy) return;
     control.busy = true;
     const job = ++control.job;
     setRestoreState(previous => ({ ...previous, status: 'guest' }));
@@ -320,9 +320,12 @@ export default function App() {
           <LoadingSpot centered label="로그인 정보를 확인하고 있어요." />
         </View>
       )}
-      {!booting && restoreFailed && <SessionRestoreScreen error={restoreState.error} busy={restoreState.status !== 'error'} onRetry={restoreLogin}
-        onLogin={() => setLoginRequest({ sessionExpired: restoreState.error?.sessionExpired === true,
-          restoreSession: __DEV__ && restoreState.error?.code === 'DEVELOPMENT_ACCESS_REQUIRED' })} onGuest={continueAsGuest} />}
+      {!booting && restoreFailed && <SessionRestoreScreen error={restoreState.error} status={restoreState.status} onRetry={restoreLogin}
+        onLogin={() => {
+          if (restoration.current.busy) return;
+          setLoginRequest({ sessionExpired: restoreState.error?.sessionExpired === true,
+            restoreSession: __DEV__ && restoreState.error?.code === 'DEVELOPMENT_ACCESS_REQUIRED' });
+        }} onGuest={continueAsGuest} />}
       {!booting && loginRequest && <EditorModal visible transparent animationType="none" onRequestClose={closeLogin}><View style={[StyleSheet.absoluteFill, { zIndex: 10 }]}><AuthScreen key={loginRequest.sessionExpired ? 'expired' : 'login'} sessionExpired={loginRequest.sessionExpired === true} initialEmail={authenticatedSession?.email || ''} resumeSession={loginRequest.restoreSession === true} onContinue={continueFromLogin} onClose={closeLogin} /></View></EditorModal>}
       {accountToast && <AccountToast key={accountToast.key} message={accountToast.message} onDone={() => setAccountToast(null)} />}
       <HandwritingStudio />
