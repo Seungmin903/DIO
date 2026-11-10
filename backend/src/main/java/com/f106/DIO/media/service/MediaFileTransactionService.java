@@ -61,6 +61,7 @@ public class MediaFileTransactionService {
 	@Transactional(readOnly = true)
 	public StorageReference storageReference(UUID mediaFileId, Long userId) {
 		MediaFile mediaFile = mediaFiles.findByMediaFileIdAndOwnerUserIdAndDeletedAtIsNull(mediaFileId, userId)
+			.or(() -> mediaFiles.findKeptInPersonalLibrary(mediaFileId, userId))
 			.orElseGet(() -> readableSharedMedia(mediaFileId, userId));
 		return new StorageReference(mediaFile.getMimeType(), mediaFile.getOriginalFilename(), mediaFile.getStorageKey());
 	}

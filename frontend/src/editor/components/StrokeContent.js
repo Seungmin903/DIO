@@ -11,10 +11,12 @@ import { ballVaries, isNibKind } from '../utils/nibStroke'
 import { useSvgId } from '../utils/svgId'
 import { HIGHLIGHTER_OPACITY } from '../utils/penSettings'
 import { packingCheckPath } from '../templates/packingChecks.js'
+import { isDashedKind, dashedObjectContour } from '../utils/dashedStroke'
 
 export default function StrokeContent({ object, zoom, transform, areaPreview = false, onAssetLoad, showFallbackWhileLoading = false }) {
   const grainId = useSvgId('pencil-grain')
   const { points, penKind: kind, strokeWidth: width, color } = object
+  const dashed = useMemo(() => isDashedKind(kind) ? dashedObjectContour(object) : '', [object])
   const variable = kind === 'fountain' || kind === 'brush' || (kind === 'ball' && ballVaries(points))
   const modern = object.renderVersion === 2 || object.renderVersion === 3
   const outline = useMemo(() => variable && !modern && points.length > 1
@@ -29,6 +31,7 @@ export default function StrokeContent({ object, zoom, transform, areaPreview = f
   const dotWidth = width * (points[0]?.pressure ?? 1)
   const svg = <Svg width={object.w * zoom} height={object.h * zoom} viewBox={`0 0 ${object.baseWidth} ${object.baseHeight}`} preserveAspectRatio="none" style={{ opacity: pencilBakesOpacity(object) ? object.opacity ?? 1 : undefined, transform }}>
     {object.packingTemplate === 'packing-list' && packingCheckPath(points, object.packingCheckVersion) ? <Path d={packingCheckPath(points, object.packingCheckVersion)} fill={color} />
+      : isDashedKind(kind) ? <Path d={dashed} fill={color} />
       : isNibKind(kind) ? <NibStrokeContent object={object} color={color} />
       : modern && kind === 'felt' ? <FeltStrokeContent object={object} points={points} width={width} color={color} renderVersion={object.renderVersion} materialSeed={object.materialSeed} />
       : modern && variable ? <InkStrokeContent object={kind === 'ball' ? undefined : object} areaPreview={areaPreview} points={points} width={width} kind={kind} color={color} startDistance={object.inkStartDistance ?? 0} renderVersion={object.renderVersion} />
