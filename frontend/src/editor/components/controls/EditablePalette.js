@@ -25,13 +25,14 @@ export const glassResolved = (entry) => {
 }
 // 칸 안의 유리펜 미리보기: 바깥 고리가 테, 안쪽 면이 잉크, 그 위에 글리터 몇 점.
 // 자리는 고정이라 어느 칸이든 같은 모양으로 비교된다.
-// 자리는 22×22 안쪽 면 기준(칸 28 에서 테 고리 3 을 뺀 크기)
-const GLASS_SPECKS = [[5, 4], [14, 7], [8, 13], [3, 11]]
+// 자리는 16×16 안쪽 면 기준(칸 28 − 선택 테두리 3 − 테 고리 3, 양쪽)
+const GLASS_SPECKS = [[4, 3], [10, 5], [6, 9], [2, 8]]
 // border: 칸 테두리 두께(고른 칸은 3, 아니면 1). 절대 배치는 테두리 **안쪽**을 기준으로 하므로
 // 그대로 두면 고를 때마다 점 자리가 밀려 반짝이 모양이 바뀌어 보인다(사용자 2026-11-10).
-// 칸 바깥 테두리에서 늘 3 만큼 들어온 22×22 자리에 고정한다 — 테두리를 덮지 않아 선택 표시도 보인다.
+// 잉크 면을 칸 바깥에서 늘 6(선택 테두리 3 + 테 고리 3) 들어온 16×16 에 고정한다.
+// 그러면 ① 점 자리가 안 바뀌고 ② 테(쉰) 고리가 선택 테두리 안쪽에 남아 골라도 보인다.
 export function GlassDot({ look, border = 1 }) {
-  return <View style={[s.glassLayer, { left: 3 - border, top: 3 - border, backgroundColor: look.ink }]}>
+  return <View style={[s.glassLayer, { left: 6 - border, top: 6 - border, backgroundColor: look.ink }]}>
     {GLASS_SPECKS.map(([x, y], i) => <View key={i} style={[s.glassSpeck, { left: x, top: y, backgroundColor: look.glitter, opacity: i % 2 ? 0.95 : 0.7 }]} />)}
   </View>
 }
@@ -118,8 +119,8 @@ export const paletteSwatchStyles=StyleSheet.create({
  dot:{width:28,height:28,borderRadius:14,borderWidth:1,borderColor:colors.cardBorder},chosen:{borderWidth:3,borderColor:colors.primaryText}
 })
 const s=StyleSheet.create({
- glassLayer:{position:'absolute',width:22,height:22,borderRadius:11,overflow:'hidden'},
- glassSpeck:{position:'absolute',width:2.4,height:2.4,borderRadius:1.2},
+ glassLayer:{position:'absolute',width:16,height:16,borderRadius:8,overflow:'hidden'},
+ glassSpeck:{position:'absolute',width:2.2,height:2.2,borderRadius:1.1},
  box:{gap:8},heading:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:8},
  label:{fontSize:13,fontWeight:'700',color:colors.text},edit:{minHeight:36,justifyContent:'center',paddingHorizontal:6},editText:{fontSize:12,fontWeight:'700',color:colors.primaryText},editFlush:{marginRight:-6},
  direct:{borderStyle:'dashed',alignItems:'center',justifyContent:'center'},editing:{borderStyle:'dashed',borderColor:colors.textMuted},editFocus:{borderWidth:0},ring:{position:'absolute',left:0,top:0},solid:{borderStyle:'solid'},inner:{position:'absolute',right:3,bottom:3,width:9,height:9,borderRadius:5},notice:{fontSize:12,color:colors.textMuted}
