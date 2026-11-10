@@ -15,11 +15,15 @@ export function tastingElementId(pageId, markId, assetId) {
 }
 
 // Existing planner records remain readable; new pages keep their marks as canvas elements.
+// An ID-conflict recovery can leave two elements with one tastingMark. Reading uses the
+// first one (the same element updateTastingElements looks up) and fills update all of
+// them, so the shown value and the next fill or erase stay in agreement.
 export function tastingElementValue(page) {
   if (!isTastingId(page.backgroundAssetId)) return page.planner
-  const fills = { ...(page.planner?.fills ?? {}) }
+  const fills = { ...(page.planner?.fills ?? {}) }, seen = new Set()
   for (const object of page.objects ?? []) {
-    if (!object.tastingMark) continue
+    if (!object.tastingMark || seen.has(object.tastingMark)) continue
+    seen.add(object.tastingMark)
     if (object.fill === 'none') delete fills[object.tastingMark]
     else fills[object.tastingMark] = object.fill
   }
@@ -34,7 +38,7 @@ export function updateTastingElements(page, planner) {
     const existing = objects.find(o => o.tastingMark === mark.id)
     const fill = after[mark.id] ?? 'none'
     objects = existing
-      ? objects.map(o => o.id === existing.id ? { ...o, fill } : o)
+      ? objects.map(o => o.tastingMark === mark.id ? { ...o, fill } : o)
       : [...objects, { id: tastingElementId(page.id, mark.id, page.backgroundAssetId), type: 'shape', shape: 'rect', x: 0, y: 0, w: 1, h: 1, rotation: 0, opacity: 1, hidden: true, locked: true, tastingMark: mark.id, fill }]
   }
   return objects

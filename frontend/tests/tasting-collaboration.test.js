@@ -44,3 +44,15 @@ test('기존 비 UUID 개인 페이지도 테이스팅 표시를 만들고 이�
   assert.equal(second.find(object => object.tastingMark === 'star-0').id, first[0].id)
   assert.equal(second.length, 2)
 })
+
+test('같은 표시 요소가 둘이어도 읽기는 첫 요소를 따르고 칠하기 · 지우기는 둘 다 바꾼다', () => {
+  const page = { id: '10000000-0000-4000-8000-000000000001', backgroundAssetId: 'remote-tasting-note-portrait', objects: [] }
+  const [mark] = updateTastingElements(page, { fills: { 'star-0': '#123456' } })
+  const duplicated = { ...page, objects: [mark, { ...mark, id: '40000000-0000-4000-8000-000000000009', fill: '#abcdef' }] }
+  assert.equal(tastingElementValue(duplicated).fills['star-0'], '#123456')
+  const filled = updateTastingElements(duplicated, { fills: { 'star-0': '#654321' } })
+  assert.deepEqual(filled.map(o => o.fill), ['#654321', '#654321'])
+  const erased = updateTastingElements({ ...duplicated, objects: filled }, { fills: {} })
+  assert.deepEqual(erased.map(o => o.fill), ['none', 'none'])
+  assert.equal(tastingElementValue({ ...duplicated, objects: erased }).fills['star-0'], undefined)
+})

@@ -1,9 +1,12 @@
+const path = require('path')
 const { chromium } = require('playwright')
 const QA_BASE_URL = process.env.QA_BASE_URL || 'http://localhost:8093/'
 const CHROME_PATH = process.env.CHROME_PATH
+// 기본은 태블릿 가로 폭. 폰 배치는 QA_VIEWPORT=390x844 처럼 넘긴다
+const [VIEWPORT_WIDTH, VIEWPORT_HEIGHT] = (process.env.QA_VIEWPORT || '1440x900').split('x').map(Number)
 
 async function check(browser, orientation) {
-  const context = await browser.newContext({ viewport: { width: 1440, height: 900 } })
+  const context = await browser.newContext({ viewport: { width: VIEWPORT_WIDTH, height: VIEWPORT_HEIGHT } })
   const page = await context.newPage(), errors = []
   page.on('pageerror', error => errors.push(error.message))
   try {
