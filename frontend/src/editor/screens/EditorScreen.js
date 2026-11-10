@@ -1359,6 +1359,7 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
               {/* 크기가 정해진 뒤 한 번에 그린다(임시 배율 .6 → 측정 크기 → 상단바 · 패널 폭 반영 순서로 세 번 그렸다) */}
               {pageReady && <Canvas
                 onTastingPhoto={addTastingPhoto}
+                visiblePage={viewportMotion.visible}
                 onStrokeCommitted={recordPenColorUse}
                 readingImage={readingPreviews.current}
                 qaPageMeasurement={pageSelectMeasurement.current}
@@ -1397,7 +1398,20 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
                 canPaste={copiedObjects.length > 0}
                 paperAppearance={normalizePaperAppearance(page.paperAppearance)}
                 menuRequest={pageMenuRequest}
-                onPaperAppearance={(appearance, all) => dispatch({ type: 'setPaperAppearance', appearance, all })}
+                onPaperAppearance={async (appearance, all) => {
+                  if (diary?.source !== 'member-api') {
+                    dispatch({ type: 'setPaperAppearance', appearance, all })
+                    return
+                  }
+                  try {
+                    await textSync.updatePage(page.id, {
+                      paperAppearance: normalizePaperAppearance(appearance),
+                      ...(all && { applyPaperAppearanceToAllPages: true }),
+                    })
+                  } catch {
+                    showToast('속지 설정을 저장하지 못했어요. 다시 시도해 주세요.')
+                  }
+                }}
                 onCut={(objects) => { objectClipboard.set(objects); dispatch({ type: 'removeObjects', ids: objects.filter(o => !o.locked).map(o => o.id) }); showToast('잘라 냈어요.') }}
                 onTextLink={setTextLinkTarget}
                 onObjectLink={setObjectLinkTarget}

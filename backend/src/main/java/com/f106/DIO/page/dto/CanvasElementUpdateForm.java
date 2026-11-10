@@ -32,7 +32,7 @@ public class CanvasElementUpdateForm {
 	public void setRotation(BigDecimal value) { rotation = value; } public void setOpacity(BigDecimal value) { opacity = value; }
 	public void setLocked(Boolean value) { locked = value; } public void setHidden(Boolean value) { hidden = value; }
 	public void setPropertiesJson(String value) { propertiesJson = value; } public void setVersion(Long value) { version = value; }
-	@AssertTrue(message = "수정할 필드를 하나 이상 전달해야 합니다.") public boolean isAnyFieldPresent() { return groupId != null || mediaFileId != null || name != null || sortKey != null || x != null || y != null || w != null || h != null || rotation != null || opacity != null || locked != null || hidden != null || (propertiesJson != null && !propertiesJson.isBlank()); }
+	@AssertTrue(message = "수정할 필드를 하나 이상 전달해 주세요.") public boolean isAnyFieldPresent() { return groupId != null || mediaFileId != null || name != null || sortKey != null || x != null || y != null || w != null || h != null || rotation != null || opacity != null || locked != null || hidden != null || (propertiesJson != null && !propertiesJson.isBlank()); }
 
 	public CanvasElementUpdateRequest toRequest() {
 		CanvasElementUpdateRequest request = new CanvasElementUpdateRequest();

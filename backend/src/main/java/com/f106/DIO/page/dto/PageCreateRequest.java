@@ -16,8 +16,8 @@ public class PageCreateRequest {
 	@JsonSetter(nulls=Nulls.FAIL) public void setCanvasHeight(BigDecimal value){canvasHeight=value;}
 	@JsonSetter(nulls=Nulls.FAIL) public void setGridVisible(Boolean value){gridVisible=value;}
 	@JsonSetter(nulls=Nulls.FAIL) public void setGridColor(String value){gridColor=value;}
-	@AssertTrue(message="canvasWidth와 canvasHeight는 함께 전달해야 합니다.") public boolean isCanvasSizeComplete(){return (canvasWidth==null)==(canvasHeight==null);}
-	@AssertTrue(message="templateConfig는 512KiB 이하여야 합니다.") public boolean isTemplateConfigSizeValid(){return JsonPayloadLimits.fits(templateConfig,JsonPayloadLimits.MAX_TEMPLATE_CONFIG_BYTES);}
+	@AssertTrue(message="canvasWidth와 canvasHeight를 함께 전달해 주세요.") public boolean isCanvasSizeComplete(){return (canvasWidth==null)==(canvasHeight==null);}
+	@AssertTrue(message="templateConfig는 512KiB 이하여야 해요.") public boolean isTemplateConfigSizeValid(){return JsonPayloadLimits.fits(templateConfig,JsonPayloadLimits.MAX_TEMPLATE_CONFIG_BYTES);}
 	public Long getTemplateId(){return templateId;} public JsonNode getTemplateConfig(){return templateConfig;} public String getTitle(){return title;}
 	public BigDecimal getCanvasWidth(){return canvasWidth;} public BigDecimal getCanvasHeight(){return canvasHeight;}
 	public Boolean getGridVisible(){return gridVisible;} public String getGridColor(){return gridColor;}

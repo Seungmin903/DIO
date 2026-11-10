@@ -55,7 +55,7 @@ public class NotificationController {
 
 	static long userId(Principal principal) {
 		if (!(principal instanceof NotificationUserPrincipal verified) || verified.userId() <= 0) {
-			throw new NotificationException(HttpStatus.UNAUTHORIZED, "AUTHENTICATION_REQUIRED", "로그인이 필요합니다.");
+			throw new NotificationException(HttpStatus.UNAUTHORIZED, "AUTHENTICATION_REQUIRED", "로그인이 필요해요.");
 		}
 		return verified.userId();
 	}

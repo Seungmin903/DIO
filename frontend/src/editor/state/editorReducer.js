@@ -277,13 +277,14 @@ export function editorReducer(state, action) {
 
   switch (action.type) {
     case 'hydratePages': return hydratePages(state, action.items, action.done)
-    case 'applyServerPageSettings': return applyPageSettings(state, action.settings)
+    case 'applyServerPageSettings': return applyPageSettings(state, action.settings, action.paperAppearance)
     case 'reconcileServerPages': {
       const settings = (action.settings ?? []).filter(p => {
         const current = state.doc.pages.find(page => page.id === p.id)
         return current && Object.keys(p).some(key => JSON.stringify(current[key]) !== JSON.stringify(p[key]))
       })
-      if (settings.length) state = applyPageSettings(state, settings)
+      const defaultChanged = action.paperAppearance && JSON.stringify(state.doc.paperAppearance) !== JSON.stringify(action.paperAppearance)
+      if (settings.length || defaultChanged) state = applyPageSettings(state, settings, action.paperAppearance)
       const ids=new Set(action.pageIds),existing=new Map(state.doc.pages.map(p=>[p.id,p]))
       for(const p of action.pages)if(!existing.has(p.id))existing.set(p.id,p)
       const removed=state.doc.pages.filter(p=>!ids.has(p.id))

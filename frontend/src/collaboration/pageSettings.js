@@ -4,7 +4,7 @@ export function normalizePageSettings(page) {
   return { ...page, gridVisible: page.gridVisible === true, gridColor: gridColor(page.gridColor) }
 }
 
-const allowed = new Set(['title', 'templateId', 'templateConfig', 'canvasWidth', 'canvasHeight', 'gridVisible', 'gridColor'])
+const allowed = new Set(['title', 'templateId', 'templateConfig', 'canvasWidth', 'canvasHeight', 'gridVisible', 'gridColor', 'paperAppearance', 'applyPaperAppearanceToAllPages'])
 const invalid = message => { throw Object.assign(new Error(message), { code: 'INVALID_PAGE_SETTINGS' }) }
 export function pageSettingsBody(input) {
   if (!input || typeof input !== 'object' || Array.isArray(input) || !Object.keys(input).length) invalid('수정할 페이지 설정을 입력해 주세요.')
@@ -24,6 +24,13 @@ export function pageSettingsBody(input) {
   if ('gridColor' in body && (typeof body.gridColor !== 'string' || !/^#[0-9a-f]{6}$/i.test(body.gridColor))) invalid('격자 색은 #RRGGBB 형식으로 입력해 주세요.')
   if ('templateId' in body && (!Number.isSafeInteger(body.templateId) || body.templateId <= 0)) invalid('속지 정보를 확인해 주세요.')
   if ('templateConfig' in body && (typeof body.templateConfig !== 'object' || Array.isArray(body.templateConfig))) invalid('속지 설정을 확인해 주세요.')
+  if ('paperAppearance' in body) {
+    if (typeof body.paperAppearance !== 'object' || Array.isArray(body.paperAppearance)
+      || Object.keys(body).some(key => key !== 'paperAppearance' && key !== 'applyPaperAppearanceToAllPages'))
+      invalid('속지 설정을 확인해 주세요.')
+  }
+  if ('applyPaperAppearanceToAllPages' in body && (!body.paperAppearance || typeof body.applyPaperAppearanceToAllPages !== 'boolean'))
+    invalid('속지 적용 범위를 확인해 주세요.')
   return body
 }
 
@@ -41,9 +48,9 @@ export function pageSettingsChanges(page, { title, width, height, grid, color })
 
 // A settings acknowledgement never replaces unsent canvas objects or creates a
 // local undo operation for a setting already committed on the server.
-export function applyPageSettings(state, settings) {
+export function applyPageSettings(state, settings, paperAppearance) {
   const byId = new Map(settings.map(p => [p.id, p]))
-  const adapt = doc => ({ ...doc, pages: doc.pages.map(page => {
+  const adapt = doc => ({ ...doc, ...(paperAppearance && { paperAppearance }), pages: doc.pages.map(page => {
     const patch = byId.get(page.id)
     return patch ? { ...page, ...patch, objects: page.objects } : page
   }) })

@@ -4,14 +4,16 @@ import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import * as model from '../src/safety/safetyModel.js';
 const require = createRequire(import.meta.url), expo = createRequire(require.resolve('expo/package.json')), babel = expo('@babel/core');
-const code = babel.transformSync(readFileSync(new URL('../src/safety/SafetyScreen.js', import.meta.url), 'utf8'), {
+const compile = file => babel.transformSync(readFileSync(new URL(file, import.meta.url), 'utf8'), {
   configFile: false, babelrc: false, plugins: [[expo.resolve('@babel/plugin-transform-react-jsx'), { runtime: 'automatic' }], expo.resolve('@babel/plugin-transform-modules-commonjs')],
 }).code;
+const code = compile('../src/safety/SafetyScreen.js');
+const providerCode = compile('../src/safety/SafetyProvider.js');
 // 신고 접수는 확인창(접수하기)을 한 번 거친다(지라 686)
 const submitReport = async ui => { ui.find('신고 접수하기').props.onPress(); const dialog = nodes(ui.render()).find(n => n.props?.confirmLabel === '접수하기'); return dialog.props.onConfirm(); };
 const nodes = n => !n || typeof n !== 'object' ? [] : [n, ...[n.props?.children].flat(Infinity).flatMap(nodes)];
 const label = n => n.props?.label || n.props?.accessibilityLabel || [n.props?.children].flat(Infinity).filter(x => typeof x === 'string' || typeof x === 'number').join('');
-function setup(report, store) {
+function setup(report, store, screenProps = {}) {
   const states = [], refs = [], deps = [], cleanups = []; let si = 0, ri = 0, ei = 0, serial = 0;
   const react = {
     useState: initial => { const i = si++; if (!(i in states)) states[i] = typeof initial === 'function' ? initial() : initial; return [states[i], value => { states[i] = typeof value === 'function' ? value(states[i]) : value; }]; },
@@ -28,11 +30,113 @@ function setup(report, store) {
   const target = { id: '25', nickname: '친구', role: 'EDITOR', participation: 'CURRENT' };
   const props = { request: { kind: 'participants', target, diary: { id: '11111111-1111-4111-8111-111111111111', title: '기록', members: [target] } },
     user: { userId: '10', nickname: '나' }, store: { mode: 'server', participants: async () => [target], refresh() {}, report },
-    state: { status: 'ready', blocks: [] }, onClose() {}, evidencePicker: async () => [{ uri: 'file:///evidence.png', fileName: 'evidence.png', mimeType: 'image/png', size: 500 }] };
+    state: { status: 'ready', blocks: [] }, onClose() {}, evidencePicker: async () => [{ uri: 'file:///evidence.png', fileName: 'evidence.png', mimeType: 'image/png', size: 500 }], ...screenProps };
   if (store) props.store = store;
   const render = () => { si = ri = ei = 0; if (store) props.state = store.getSnapshot(); return mod.exports.default(props); };
   return { render, find: text => nodes(render()).find(n => label(n) === text), unmount: () => cleanups.forEach(fn => fn?.()) };
 }
+const sharedDiary = { id: 'local-diary', sharedDiaryId: 'shared-diary', title: '공유 기록' };
+const blockedMember = { id: '25', nickname: '친구', role: 'EDITOR', participation: 'CURRENT', blockedByMe: true };
+const flush = () => new Promise(resolve => setImmediate(resolve));
+
+function mountProvider(overrides) {
+  let request, pendingRef, aliveRef, jobRef, cleanup, refIndex;
+  const adapter = {
+    mode: 'server', listParticipants: async () => [blockedMember],
+    listWarningDismissals: async () => [], dismissWarning: async () => {},
+    ...overrides,
+  };
+  const store = model.createSafetyStore(adapter);
+  const react = {
+    createContext: () => ({ Provider: 'provider' }),
+    useState: () => [request, next => { request = next; }],
+    useMemo: factory => factory(),
+    useCallback: callback => callback,
+    useSyncExternalStore: (_subscribe, getSnapshot) => getSnapshot(),
+    useRef: initial => {
+      switch (refIndex++) {
+        case 0: return pendingRef ??= { current: initial };
+        case 1: return aliveRef ??= { current: initial };
+        default: return jobRef ??= { current: initial };
+      }
+    },
+    useEffect: effect => { cleanup ??= effect(); },
+  };
+  const mocks = { react, './safetyModel': { ...model, createSafetyStore: () => store } };
+  const mod = { exports: {} };
+  new Function('require', 'module', 'exports', providerCode)(
+    id => mocks[id] ?? (id === 'react/jsx-runtime' ? require(id) : { __esModule: true, default: id }),
+    mod, mod.exports,
+  );
+  const user = { mode: 'authenticated', userId: '10' };
+  const render = () => {
+    refIndex = 0;
+    return mod.exports.default({ user, adapter }).props;
+  };
+  const context = render().value;
+  return { open: context.canOpenDiary, warning: () => render().children[1]?.props, unmount: () => cleanup() };
+}
+
+test('서버의 닫기 기록이 있으면 경고를 건너뛰고 차단 참여자가 없으면 기록을 조회하지 않는다', async t => {
+  const lookup = t.mock.fn(async () => ['25']);
+  const participants = t.mock.fn(async id => id === sharedDiary.sharedDiaryId ? [blockedMember] : []);
+  const ui = mountProvider({ listWarningDismissals: lookup, listParticipants: participants });
+  t.after(ui.unmount);
+  assert.equal(await ui.open(sharedDiary), true);
+  assert.equal(ui.warning(), undefined);
+  assert.deepEqual(lookup.mock.calls[0].arguments, [sharedDiary.sharedDiaryId]);
+  assert.equal(await ui.open({ ...sharedDiary, sharedDiaryId: 'another-shared-diary' }), true);
+  assert.equal(ui.warning(), undefined);
+  assert.equal(lookup.mock.callCount(), 1);
+  assert.equal(participants.mock.callCount(), 2);
+});
+
+test('기록 조회 실패 시 경고가 뜨고 저장 실패 후 같은 경고에서 다시 시도할 수 있다', async t => {
+  let attempts = 0;
+  const save = t.mock.fn(async () => { if (++attempts === 1) throw new Error('저장 실패'); });
+  const ui = mountProvider({ listWarningDismissals: async () => { throw new Error('조회 실패'); }, dismissWarning: save });
+  t.after(ui.unmount);
+  let admitted;
+  const opening = ui.open(sharedDiary).then(result => { admitted = result; });
+  await flush();
+  assert.equal(ui.warning().request.kind, 'warning');
+  const screen = setup(undefined, undefined, ui.warning());
+  t.after(screen.unmount);
+  screen.find('이 다이어리에서 다시 보지 않기').props.onPress();
+  await screen.find('계속하기').props.onPress();
+  await flush();
+  assert.ok(screen.find('저장 실패'));
+  assert.equal(admitted, undefined);
+  assert.ok(ui.warning());
+  await screen.find('계속하기').props.onPress();
+  await opening;
+  assert.equal(admitted, true);
+  assert.equal(ui.warning(), undefined);
+  assert.deepEqual(save.mock.calls.map(call => call.arguments), [[sharedDiary.sharedDiaryId, ['25']], [sharedDiary.sharedDiaryId, ['25']]]);
+});
+
+test('이전 경고의 저장이 늦게 끝나도 새 경고를 닫거나 새 입장 요청을 해소하지 않는다', async t => {
+  let completeSave;
+  const ui = mountProvider({ dismissWarning: () => new Promise(resolve => { completeSave = resolve; }) });
+  t.after(ui.unmount);
+  const first = ui.open(sharedDiary);
+  await flush();
+  const previous = ui.warning();
+  const saving = previous.onWarning(true, true, previous.request.rows, sharedDiary);
+
+  const nextDiary = { ...sharedDiary, id: 'next-local-diary', sharedDiaryId: 'next-shared-diary' };
+  const second = ui.open(nextDiary);
+  assert.equal(await first, false);
+  await flush();
+  completeSave();
+  await saving;
+
+  const next = ui.warning();
+  assert.equal(next.request.diary, nextDiary);
+  await next.onWarning(false, false, next.request.rows, nextDiary);
+  assert.equal(await second, false);
+});
+
 test('신고 화면은 실패 후 설명·증빙·요청 ID를 보존하고 성공한 뒤 새 신고에만 ID를 바꾼다', async () => {
   const calls = [];
   const ui = setup(async input => { calls.push(input); if (calls.length === 1) throw new Error('네트워크 실패'); return { reportId: '101' }; });

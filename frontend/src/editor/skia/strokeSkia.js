@@ -1,5 +1,6 @@
 import { BlendMode, FilterMode, MipmapMode, PaintStyle, Skia, StrokeCap, StrokeJoin, TileMode, VertexMode } from '@shopify/react-native-skia'
 import { createStrokePreview, partPath } from '../utils/strokePreview.js'
+import { isDashedKind, dashedPreviewContour, dashedObjectContour } from '../utils/dashedStroke.js'
 import { ballPreviewPaths, ballSweepPath, ballVaries, isNibKind, nibContour, nibPreviewPaths } from '../utils/nibStroke.js'
 import { PENCIL_BRUSH, pencilAccumulates, PENCIL_STRAND_SKSL, strandUniforms, brushPartSamples, depositFloor, depositGain, brushSampledPoints, brushSeed, ribbonStretch, copyDabs, previewSegmentFor, shaderCap, shaderDabAlpha, shaderUniforms, PENCIL_SHADER_SKSL, brushTipPower, partRange, partTotal, paperMatrices, paperUniforms, pencilDabs, PENCIL_PAPER_SKSL } from '../utils/pencilBrush.js'
 import { HIGHLIGHTER_OPACITY } from '../utils/penSettings.js'
@@ -507,6 +508,15 @@ function linePath(parts) {
 function drawParts(canvas, parts, style) {
   const kind = skiaKind(style.kind)
   if (!parts.length || !parts[0].points.length) return
+  if (isDashedKind(kind)) {
+    const key = ['dashed', kind, style.width, style.dashLength, style.dashGap].join(':')
+    const parsePart = part => parse(dashedPreviewContour(part, style.width, kind, style))
+    const path = join(parts.map(part => part.continuing
+      ? cachedParse(part, key, () => parsePart(part))
+      : parsePart(part)))
+    if (path) canvas.drawPath(path, fillPaint(style.color))
+    return
+  }
   if (kind === 'pencil') return drawBrushParts(canvas, parts, style)
   if (isNibKind(kind)) {
     const paths = nibPreviewPaths(parts, style.width, kind)
@@ -541,12 +551,18 @@ export function drawPreview(canvas, { parts, settings }, zoom = 1) {
   const kind = skiaKind(settings.kind)
   const first = parts[0]?.points[0]
   const style = { kind, width: settings.width, color: settings.color, lineCap: settings.lineCap,
+    dashLength: settings.dashLength, dashGap: settings.dashGap,
     dotWidth: settings.width * (first?.pressure ?? 1), origin: kind === 'pencil' && PENCIL_BRUSH.strand?.on ? { x: 0, y: 0, seed: brushSeed(first) } : { x: first?.x ?? 0, y: first?.y ?? 0 }, zoom, opacity: settings.opacity ?? 1 }
   withAlpha(canvas, kind === 'highlighter' ? HIGHLIGHTER_OPACITY : kind === 'pencil' && pencilAccumulates() ? 1 : settings.opacity ?? 1, () => drawParts(canvas, parts, style))
 }
 
 // 손을 뗀 획(요소 좌표): 쓰는 중과 같은 구간으로 나눠 같은 함수로 그린다. 지우개 조각(sampled)은 이미 곡선 표본이라 통째로.
 function drawObjectContent(canvas, object, zoom = 1) {
+  if (isDashedKind(object.penKind)) {
+    const path = parse(dashedObjectContour(object))
+    if (path) canvas.drawPath(path, fillPaint(object.color))
+    return
+  }
   const kind = skiaKind(object.penKind), { points, strokeWidth: width, color } = object
   const style = { kind, width, color, lineCap: object.lineCap,
     dotWidth: width * (points[0]?.pressure ?? 1), origin: object.grainOrigin ?? points[0], zoom, opacity: object.opacity ?? 1 }
@@ -578,7 +594,7 @@ function drawObjectContent(canvas, object, zoom = 1) {
 // 획 내용(요소 좌표)은 점 배열마다 한 번만 녹화한다: 옮기기 · 돌리기 · 투명도만 바뀐 획은 같은 점 배열이라 모양을 다시 계산하지 않는다
 const contents = new WeakMap()
 const contentKey = object => [object.penKind, object.strokeWidth, object.color, object.lineCap, object.materialSeed, object.sampled, object.taperBaked,
-  object.grainOrigin?.x, object.grainOrigin?.y, object.inkStartDistance].join('|')
+  object.grainOrigin?.x, object.grainOrigin?.y, object.inkStartDistance, object.dashLength, object.dashGap].join('|')
 // 연필은 확대 배율마다 결 크기 · 붓 끝 판이 달라 배율도 열쇠에 넣는다
 function contentPicture(object, zoom = 1) {
   const key = contentKey(object) + (skiaKind(object.penKind) === 'pencil' ? `|${zoom}|${PENCIL_BRUSH.engine}|${object.opacity ?? 1}` : ''), cached = contents.get(object.points)

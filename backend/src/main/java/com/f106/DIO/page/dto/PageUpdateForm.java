@@ -27,8 +27,8 @@ public class PageUpdateForm {
 	public void setCanvasHeight(BigDecimal value) { canvasHeight = value; }
 	public void setGridVisible(Boolean value) { gridVisible = value; }
 	public void setGridColor(String value) { gridColor = value; }
-	@AssertTrue(message = "수정할 필드를 하나 이상 전달해야 합니다.") public boolean isAnyFieldPresent() { return templateId != null || (templateConfig != null && !templateConfig.isBlank()) || title != null || canvasWidth != null || canvasHeight != null || gridVisible != null || gridColor != null; }
-	@AssertTrue(message = "canvasWidth와 canvasHeight는 함께 전달해야 합니다.") public boolean isCanvasSizeComplete() { return (canvasWidth == null) == (canvasHeight == null); }
+	@AssertTrue(message = "수정할 필드를 하나 이상 전달해 주세요.") public boolean isAnyFieldPresent() { return templateId != null || (templateConfig != null && !templateConfig.isBlank()) || title != null || canvasWidth != null || canvasHeight != null || gridVisible != null || gridColor != null; }
+	@AssertTrue(message = "canvasWidth와 canvasHeight를 함께 전달해 주세요.") public boolean isCanvasSizeComplete() { return (canvasWidth == null) == (canvasHeight == null); }
 
 	public PageUpdateRequest toRequest() {
 		PageUpdateRequest request = new PageUpdateRequest();

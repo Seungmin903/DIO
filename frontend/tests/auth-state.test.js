@@ -29,7 +29,7 @@ const nodes=n=>!n||typeof n!=='object'?[]:typeof n.type==='function'&&(n.type.na
 const find=(tree,label)=>nodes(tree).find(n=>n.props.accessibilityLabel===label||n.props.label===label)
 function enterSignup(ui) {
  find(ui.render(),'회원가입').props.onPress();
- const age=find(ui.render(),'만 14세 이상입니다');
+ const age=find(ui.render(),'만 14세 이상이에요');
  if (!age) return;
  age.props.onPress();find(ui.render(),'필수 항목 전체 동의').props.onPress();
  find(ui.render(),'동의하고 계속').props.onPress();
@@ -37,7 +37,7 @@ function enterSignup(ui) {
 async function enterSocial(ui) {
  find(ui.render(),'구글로 로그인').props.onPress();
   await tick();
- find(ui.render(),'만 14세 이상입니다').props.onPress();
+ find(ui.render(),'만 14세 이상이에요').props.onPress();
  find(ui.render(),'필수 항목 전체 동의').props.onPress();
  find(ui.render(),'동의하고 계속').props.onPress();
 }
@@ -140,19 +140,19 @@ test('가입 전 연령·필수 동의를 받으며 전체 동의가 연령까�
  try {
   find(ui.render(),'회원가입').props.onPress();
   assert.equal(find(ui.render(),'이메일'),undefined);
-  assert.equal(find(ui.render(),'만 14세 이상입니다').props.checked,false);
+  assert.equal(find(ui.render(),'만 14세 이상이에요').props.checked,false);
   find(ui.render(),'필수 항목 전체 동의').props.onPress();
   assert.equal(find(ui.render(),'동의하고 계속').props.disabled,true);
   find(ui.render(),'동의하고 계속').props.onPress();
   assert.equal(find(ui.render(),'이메일'),undefined);
-  find(ui.render(),'만 14세 이상입니다').props.onPress();
+  find(ui.render(),'만 14세 이상이에요').props.onPress();
   assert.equal(find(ui.render(),'동의하고 계속').props.disabled,false);
   find(ui.render(),'동의하고 계속').props.onPress();
   assert.ok(find(ui.render(),'이메일'));
   assert.equal(find(ui.render(),'생년월일'),undefined);
   ui.render();ui.back();ui.render();ui.back();ui.render();
   find(ui.render(),'회원가입').props.onPress();
-  assert.equal(find(ui.render(),'만 14세 이상입니다').props.checked,false);
+  assert.equal(find(ui.render(),'만 14세 이상이에요').props.checked,false);
  } finally { ui.unmount(); }
 });
 
@@ -161,7 +161,7 @@ test('문서 URL 미게시여도 필수 동의 후 가입 화면으로 진행한
  try {
   assert.ok(find(ui.render(),'로그인'));
   find(ui.render(),'회원가입').props.onPress();
-  find(ui.render(),'만 14세 이상입니다').props.onPress();
+  find(ui.render(),'만 14세 이상이에요').props.onPress();
   find(ui.render(),'필수 항목 전체 동의').props.onPress();
   find(ui.render(),'동의하고 계속').props.onPress();
   assert.ok(find(ui.render(),'이메일'));
@@ -177,15 +177,15 @@ test('14세 미만 응답은 가입을 중단하고 오래된 계속 버튼으�
    find(ui.render(),'이메일').props.onChange('private@example.com');
    find(ui.render(),'비밀번호').props.onChange('Private123!');
    find(ui.render(),entry).props.onPress();
-   assert.equal(find(ui.render(),'만 14세 이상입니다').props.checked,false);
-   assert.equal(find(ui.render(),'만 14세 미만입니다').props.checked,false);
-   find(ui.render(),'만 14세 이상입니다').props.onPress();
+   assert.equal(find(ui.render(),'만 14세 이상이에요').props.checked,false);
+   assert.equal(find(ui.render(),'만 14세 미만이에요').props.checked,false);
+   find(ui.render(),'만 14세 이상이에요').props.onPress();
    find(ui.render(),'필수 항목 전체 동의').props.onPress();
    const previousContinue=find(ui.render(),'동의하고 계속');
-   find(ui.render(),'만 14세 미만입니다').props.onPress();
+   find(ui.render(),'만 14세 미만이에요').props.onPress();
    previousContinue.props.onPress();
    const blocked=ui.render();
-   for (const label of ['이메일','비밀번호','동의하고 계속','만 14세 이상입니다','구글로 로그인','이전 화면'])
+   for (const label of ['이메일','비밀번호','동의하고 계속','만 14세 이상이에요','구글로 로그인','이전 화면'])
     assert.equal(find(blocked,label),undefined);
    assert.ok(find(blocked,'시작 화면으로'));
    assert.deepEqual(calls,[]);
@@ -193,7 +193,7 @@ test('14세 미만 응답은 가입을 중단하고 오래된 계속 버튼으�
    assert.equal(find(ui.render(),'이메일').props.value,'');
    assert.equal(find(ui.render(),'비밀번호').props.value,'');
    find(ui.render(),entry).props.onPress();
-   assert.equal(find(ui.render(),'만 14세 이상입니다').props.checked,false);
+   assert.equal(find(ui.render(),'만 14세 이상이에요').props.checked,false);
    assert.equal(find(ui.render(),'[필수] 이용약관 동의').props.checked,false);
   } finally { ui.unmount(); }
  }
@@ -206,7 +206,7 @@ test('구글 로그인 창을 먼저 열고, 인증 오류는 시작 화면에�
   find(ui.render(),'구글로 로그인').props.onPress();
   await tick();
   assert.deepEqual(providers,['google']);
-  assert.equal(find(ui.render(),'만 14세 이상입니다'),undefined);
+  assert.equal(find(ui.render(),'만 14세 이상이에요'),undefined);
   assert.ok(nodes(ui.render()).some(node=>node.props.children==='소셜 로그인 API는 아직 연결되지 않았어요.'));
  } finally { ui.unmount(); }
 });
@@ -224,7 +224,7 @@ test('소셜 신규 가입도 14세 미만 선택 뒤 가입 정보를 열지 �
  const calls=[];const ui=setup({social:async()=>{calls.push('social');return {mode:'social-signup',provider:'google',email:'new@dio.test'};}});
  try{
   find(ui.render(),'구글로 로그인').props.onPress();await tick();
-  find(ui.render(),'만 14세 미만입니다').props.onPress();
+  find(ui.render(),'만 14세 미만이에요').props.onPress();
   assert.ok(find(ui.render(),'시작 화면으로'));assert.equal(find(ui.render(),'닉네임'),undefined);
   find(ui.render(),'시작 화면으로').props.onPress();
   assert.equal(find(ui.render(),'구글로 로그인').props.disabled,false);assert.deepEqual(calls,['social']);
@@ -253,7 +253,7 @@ for(const [key,label] of consentRows) test(`앱 내 문서에서 동의하면 �
   doc.props.onAgree();
   assert.equal(reader(ui),undefined);
   for(const [id,text] of consentRows) assert.equal(find(ui.render(),text).props.checked,id===key);
-  assert.equal(find(ui.render(),'만 14세 이상입니다').props.checked,false);
+  assert.equal(find(ui.render(),'만 14세 이상이에요').props.checked,false);
  }finally{ui.unmount()}
 });
 test('문서 닫기와 Android 뒤로가기는 동의를 변경하거나 가입 화면을 이탈하지 않는다',()=>{
@@ -264,7 +264,7 @@ test('문서 닫기와 Android 뒤로가기는 동의를 변경하거나 가입 
   openConsent(ui,'privacy').props.onClose();
   openConsent(ui,'adEmail');assert.equal(ui.back(),true);
   assert.equal(reader(ui),undefined);
-  assert.ok(find(ui.render(),'만 14세 이상입니다'));
+  assert.ok(find(ui.render(),'만 14세 이상이에요'));
   for(const [id,label] of consentRows)assert.equal(find(ui.render(),label).props.checked,id==='service');
  }finally{ui.unmount()}
 });
@@ -418,7 +418,7 @@ test('구글 로그인은 처리 중 중복 실행하지 않고 신규 계정만
  let resolveSocial,calls=0;const ui=setup({social:()=>{calls++;return new Promise(r=>resolveSocial=r)}})
  const button=find(ui.render(),'구글로 로그인');button.props.onPress();button.props.onPress();assert.equal(calls,1)
  resolveSocial({provider:'kakao',mode:'social-signup',email:'new@dio.test'});await tick();
- assert.ok(find(ui.render(),'만 14세 이상입니다'));assert.equal(find(ui.render(),'닉네임'),undefined);ui.unmount()
+ assert.ok(find(ui.render(),'만 14세 이상이에요'));assert.equal(find(ui.render(),'닉네임'),undefined);ui.unmount()
 })
 
 test('기존 이메일 계정의 소셜 로그인은 비밀번호 확인 화면에서 연결한다',async()=>{
@@ -717,7 +717,7 @@ for (const failure of ['local-expiry', 'server-rejection']) test(`가입 인증 
  const ui=setup(service,async()=> 'file:///selected-profile.jpg');
  try{
   find(ui.render(),'회원가입').props.onPress();
-  find(ui.render(),'만 14세 이상입니다').props.onPress();
+  find(ui.render(),'만 14세 이상이에요').props.onPress();
   find(ui.render(),'필수 항목 전체 동의').props.onPress();
   find(ui.render(),`[선택] ${marketingDocuments[0].label}`).props.onPress();
   find(ui.render(),'동의하고 계속').props.onPress();
@@ -773,7 +773,7 @@ for(const choices of [{service:false,privacy:false},{service:true,privacy:false}
  test(`연령 확인 뒤 필수 약관 미동의는 다음 단계로 진행할 수 없다: ${JSON.stringify(choices)}`,()=>{
  const ui=setup({});
  try{
-  find(ui.render(),'회원가입').props.onPress();find(ui.render(),'만 14세 이상입니다').props.onPress();
+  find(ui.render(),'회원가입').props.onPress();find(ui.render(),'만 14세 이상이에요').props.onPress();
   if(choices.service)find(ui.render(),'[필수] 이용약관 동의').props.onPress();
   if(choices.privacy)find(ui.render(),'[필수] 개인정보 수집·이용 동의').props.onPress();
   const allowed=choices.service&&choices.privacy;
