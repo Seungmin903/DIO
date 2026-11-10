@@ -1337,8 +1337,9 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onWithdraw
         <PinScreen mode="setup" user={previewUser} getProfilePhotoSource={authService.getProfilePhotoSource} onDone={finishLockRecovery} onCancel={() => setLockRecovery(null)} />
       </View>}
       {/* 꾸미기 공방 스티커 보관함을 계정 서버와 맞춘다(다른 기기 · 재설치에서도 같은 구성) */}
-      {member && signedIn && <StickerLibrarySyncHost key={`${previewUser.userId}:${authService.getSessionKey()}`} accountId={String(previewUser.userId)} enabled={appLocked === false} />}
-      {member && signedIn && <GuestImportHost key={`${previewUser.userId}:${authService.getSessionKey()}`} accountId={String(previewUser.userId)} enabled={appLocked === false} onImported={() => diaryState.store.reload().catch(() => {})} onEntry={setGuestImport} />}
+      {/* 두 호스트는 형제라 key 가 서로 달라야 한다(같으면 React 가 'two children with the same key' 경고를 띄우고 하나를 빼먹을 수 있다). 계정 · 세션이 바뀌면 새로 만든다 */}
+      {member && signedIn && <StickerLibrarySyncHost key={`sticker-sync:${previewUser.userId}:${authService.getSessionKey()}`} accountId={String(previewUser.userId)} enabled={appLocked === false} />}
+      {member && signedIn && <GuestImportHost key={`guest-import:${previewUser.userId}:${authService.getSessionKey()}`} accountId={String(previewUser.userId)} enabled={appLocked === false} onImported={() => diaryState.store.reload().catch(() => {})} onEntry={setGuestImport} />}
       <DialogHost />
     </>
   );
