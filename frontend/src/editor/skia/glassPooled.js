@@ -24,7 +24,7 @@ let builder = null, failed = false, reported = 0
 const hex3 = color => { const c = Skia.Color(color); return [c[0], c[1], c[2]] }
 
 // 두께 마스크는 도장이 겹쳐야 매끈하다. 경로용(0.38)보다 촘촘하되, 긴 획에서는 수를 제한한다.
-const MASK_SPACING = 0.22
+const MASK_SPACING = 0.18
 const MASK_MAX_DABS = 3000
 // 페이지 1단위가 화면 몇 px 인가. 눈대중으로 두면 입자 가장자리(aa)와 도장 여유(fringe)가
 // 실제 픽셀보다 커져 그대로 뭉개진다 — 기기 배율 × 확대율로 정확히 구한다.
@@ -106,11 +106,16 @@ export function drawGlassPooled(canvas, points, width, color, zoom = 1, ink = {}
   layer.setImageFilter(Skia.ImageFilter.MakeRuntimeShaderWithChildren(builder, 0, ['mask', 'pool'], [null, blur]))
   canvas.saveLayer(layer, bounds)
 
-  // 두께: 도장을 Lighten(최댓값)으로 — 겹쳐도 끝없이 두꺼워지지 않는다. 안티에일리어스는 끈다
-  // (켜면 도장 경계마다 반투명 테두리가 생겨 두께에 결이 간다). 대신 반지름을 조금 키워 틈을 메운다.
-  const fringe = 0.5 / pxPerUnit(zoom)   // 화면 0.5px — 안티에일리어스를 끈 도장 사이의 틈만 메운다
+  // 두께: 도장을 Lighten(최댓값)으로 — 겹쳐도 끝없이 두꺼워지지 않는다.
+  //
+  // 안티에일리어스를 **켠다**. 셰이더에서 획의 가장자리는 곧 이 마스크의 알파(A = m.a)이므로,
+  // 끄면 계단진 원 경계가 그대로 획의 가장자리가 된다 — 화질이 나빴던 이유가 이것이다.
+  // 켜도 두께는 멀쩡하다: 셰이더가 T = m.g / m.a 로 되돌려 읽는다.
+  // 이음매도 안 생긴다: Lighten 은 같은 값끼리는 제자리라, 반투명 가장자리가 겹쳐도 값이 안 변한다
+  // (Plus 였다면 겹친 자리가 밝아졌을 것이다).
+  const fringe = 1 / pxPerUnit(zoom)   // 화면 1px — 도장 사이 가리비 자국이 덮임 밖으로 나오지 않게
   const dab = Skia.Paint()
-  dab.setAntiAlias(false)
+  dab.setAntiAlias(true)
   dab.setBlendMode(BlendMode.Lighten)
   for (const d of dabs) {
     const g = Math.min(1, d.t / P.T_MAX)
