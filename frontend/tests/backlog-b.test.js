@@ -6,17 +6,16 @@ import { justifiedParagraph, justifyBreaks, paragraphLabel } from '../src/shared
 const read = file => readFileSync(new URL(`../${file}`, import.meta.url), 'utf8').replaceAll(String.fromCharCode(13, 10), String.fromCharCode(10));
 
 test('지라 651: 회원 탈퇴 확인창은 공용 확인창 틀(오른쪽 위 X 없음, 취소 글자 + dangerStrong 채움)', () => {
-  const screen = read('src/auth/ProfileEditScreen.js');
+  const screen = read('src/auth/WithdrawDialog.js');
   const styles = read('src/auth/profileStyles.js');
-  assert.match(screen, /const withdrawDialog = dialog === 'withdraw'/);
-  assert.match(screen, /\{!discardDialog && !withdrawDialog && \(\s*<Pressable[\s\S]*?확인 창 닫기/);
+  assert.doesNotMatch(screen, /확인 창 닫기/);
   assert.match(screen, /s\.confirmDialog/);
   assert.match(screen, /탈퇴하기/);
   assert.match(styles, /confirmDialog: \{ width: 320, maxWidth: '100%', borderRadius: 12, padding: 20/);
   assert.match(styles, /confirmDanger: \{ backgroundColor: c\.dangerStrong \}/);
   assert.match(styles, /confirmActions: \{[^}]*justifyContent: 'flex-end'/);
   // 확인 문구 입력은 유지한다
-  assert.match(screen, /withdrawText !== WITHDRAW_TEXT/);
+  assert.match(screen, /text === WITHDRAW_TEXT/);
 });
 
 test('지라 665: 옮기기 확인 · 완료 창은 확인창 버튼(취소 글자 + 채움, 완료는 확인 하나)', () => {

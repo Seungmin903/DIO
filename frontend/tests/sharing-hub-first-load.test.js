@@ -42,7 +42,7 @@ test('537 리뷰 !489: 태블릿 차단 목록 페이지는 창이 폰 배치로
   assert.match(profile, /if \(route === 'blocks' && !compact && authenticatedUser && onOpenBlockedUsers\) return <BlockedUsersPage/)
   assert.match(profile, /onPress=\{compact \? onOpenBlockedUsers : \(\) => setRoute\('blocks'\)\}/)
   // 훅은 앞쪽(조건부 return 전)에 있어야 한다
-  assert.ok(profile.indexOf("if (compact && route === 'blocks')") < profile.indexOf('if (editing) return'))
+  assert.ok(profile.indexOf("if (compact && route === 'blocks')") < profile.indexOf("if (route === 'password'"))
 })
 
 test('537 리뷰 !489: 역할을 모르는 신고 대상은 역할을 쓰지 않고(소유자를 편집자로 보이지 않게), 내 줄은 나 · 역할로 잇는다', () => {
