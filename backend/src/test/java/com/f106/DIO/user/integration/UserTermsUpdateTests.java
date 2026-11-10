@@ -26,7 +26,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
     "spring.datasource.url=jdbc:h2:mem:user-terms-update;MODE=PostgreSQL;DB_CLOSE_DELAY=-1",
     "dio.auth.jwt-secret=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
     "dio.signup.service-terms-version=v2",
-    "dio.signup.photos.storage=local","dio.signup.photos.local-directory=build/test-terms-photos",
+    "dio.signup.photos.storage=local","dio.signup.photos.local-directory=build/test-terms-photos/${org.gradle.test.worker:0}",
     "SHARING_INVITE_SECRET=BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB=",
     "SHARING_INVITE_BASE_URL=https://dio.test/invite/"})
 @AutoConfigureMockMvc @ActiveProfiles("test")

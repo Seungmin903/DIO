@@ -7,10 +7,12 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
+import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.not;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-@SpringBootTest(properties = {"dio.diary.formats.1.width=1280", "dio.diary.formats.1.height=800"})
+@SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 class SwaggerDocumentationTests {
@@ -28,7 +30,12 @@ class SwaggerDocumentationTests {
 			.andExpect(jsonPath("$.paths['/api/v1/diaries/{diaryId}'].get").exists())
 			.andExpect(jsonPath("$.paths['/api/v1/diaries/{diaryId}'].patch").exists())
 			.andExpect(jsonPath("$.paths['/api/v1/diaries/{diaryId}'].delete.responses['204'].content").doesNotExist())
+			.andExpect(jsonPath("$.info.description").value(not(containsString("501"))))
 			.andExpect(jsonPath("$.paths['/api/v1/diaries'].post.responses['501']").doesNotExist())
+			.andExpect(jsonPath("$.paths['/api/v1/diaries'].get.responses['501']").doesNotExist())
+			.andExpect(jsonPath("$.paths['/api/v1/diaries/{diaryId}'].get.responses['501']").doesNotExist())
+			.andExpect(jsonPath("$.paths['/api/v1/diaries/{diaryId}'].patch.responses['501']").doesNotExist())
+			.andExpect(jsonPath("$.paths['/api/v1/diaries/{diaryId}'].delete.responses['501']").doesNotExist())
 			.andExpect(jsonPath("$.paths['/api/v1/diaries'].post.responses['201'].content['application/json'].schema['$ref']").value("#/components/schemas/DiaryCreateResponse"))
 			.andExpect(jsonPath("$.paths['/api/v1/diaries'].get.responses['200']").exists())
 			.andExpect(jsonPath("$.paths['/api/v1/diaries/{diaryId}'].get.responses['200']").exists())
@@ -67,5 +74,11 @@ class SwaggerDocumentationTests {
 	void servesSwaggerUiWithoutToken() throws Exception {
 		mvc.perform(get("/swagger-ui.html")).andExpect(status().is3xxRedirection());
 		mvc.perform(get("/swagger-ui/index.html")).andExpect(status().isOk());
+	}
+
+	@Test
+	void healthEndpointIsPublicAndUp() throws Exception {
+		// 배포 health 대기가 이 응답을 본다. 메일 서버 상태는 넣지 않는다(MailHealthConfigurationTests 가 운영 설정을 확인)
+		mvc.perform(get("/actuator/health")).andExpect(status().isOk()).andExpect(jsonPath("$.status").value("UP"));
 	}
 }

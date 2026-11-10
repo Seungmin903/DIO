@@ -5,6 +5,8 @@ import com.f106.DIO.collaboration.service.CollaborationAccess;
 import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.LongSupplier;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.task.TaskExecutor;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -21,16 +23,17 @@ public class CollaborationSocket extends TextWebSocketHandler {
     private static final long AUTH_WAIT_MILLIS=5000;
     private static final org.slf4j.Logger LOG=org.slf4j.LoggerFactory.getLogger(CollaborationSocket.class);
     private static final class Connection {
-        final WebSocketSession socket;final UUID diary;final String ip;final long connected=System.currentTimeMillis();
+        final WebSocketSession socket;final UUID diary;final String ip;final long connected;
         final Deque<TextMessage> outgoing=new ArrayDeque<>();boolean sending;volatile long sendingSince;
         volatile UUID sessionId;volatile long actor=-1;volatile java.time.Instant expiresAt;volatile long lastPing;final Deque<Long> authAttempts=new ArrayDeque<>();
-        Connection(WebSocketSession socket){this.socket=new ConcurrentWebSocketSessionDecorator(socket,2000,65536);diary=(UUID)socket.getAttributes().get("diaryId");ip=(String)socket.getAttributes().getOrDefault("remoteIp","unknown");}
+        Connection(WebSocketSession socket,long connected){this.socket=new ConcurrentWebSocketSessionDecorator(socket,2000,65536);diary=(UUID)socket.getAttributes().get("diaryId");ip=(String)socket.getAttributes().getOrDefault("remoteIp","unknown");this.connected=connected;}
         @Override public String toString(){return "CollaborationConnection[credentials=REDACTED]";}
     }
     private final Map<String,Connection> connections=new ConcurrentHashMap<>();
-    private final CollaborationAccess access;private final JwtDecoder decoder;private final ObjectMapper json;private final TaskExecutor executor;private final TaskExecutor sendExecutor;
+    private final CollaborationAccess access;private final JwtDecoder decoder;private final ObjectMapper json;private final TaskExecutor executor;private final TaskExecutor sendExecutor;private final LongSupplier currentTimeMillis;
     private final java.util.concurrent.atomic.AtomicLong droppedEvents=new java.util.concurrent.atomic.AtomicLong(),droppedMessages=new java.util.concurrent.atomic.AtomicLong();
-    public CollaborationSocket(CollaborationAccess access,@Qualifier("loginJwtDecoder") JwtDecoder decoder,ObjectMapper json,@Qualifier("collaborationEventsExecutor") TaskExecutor executor,@Qualifier("collaborationSocketSendExecutor") TaskExecutor sendExecutor){this.access=access;this.decoder=decoder;this.json=json;this.executor=executor;this.sendExecutor=sendExecutor;}
+    @Autowired public CollaborationSocket(CollaborationAccess access,@Qualifier("loginJwtDecoder") JwtDecoder decoder,ObjectMapper json,@Qualifier("collaborationEventsExecutor") TaskExecutor executor,@Qualifier("collaborationSocketSendExecutor") TaskExecutor sendExecutor){this(access,decoder,json,executor,sendExecutor,System::currentTimeMillis);}
+    public CollaborationSocket(CollaborationAccess access,JwtDecoder decoder,ObjectMapper json,TaskExecutor executor,TaskExecutor sendExecutor,LongSupplier currentTimeMillis){this.access=access;this.decoder=decoder;this.json=json;this.executor=executor;this.sendExecutor=sendExecutor;this.currentTimeMillis=currentTimeMillis;}
     @Override public synchronized void afterConnectionEstablished(WebSocketSession socket)throws IOException{
         expirePendingConnections();
         String ip=(String)socket.getAttributes().getOrDefault("remoteIp","unknown");
@@ -38,7 +41,7 @@ public class CollaborationSocket extends TextWebSocketHandler {
         if(connections.size()>=512){socket.close(new CloseStatus(1013,"Try again later"));return;}
         if(connections.values().stream().filter(c->c.actor<0&&c.ip.equals(ip)).count()>=4){socket.close(CloseStatus.POLICY_VIOLATION);return;}
         socket.setTextMessageSizeLimit(4096);socket.setBinaryMessageSizeLimit(1024);
-        connections.put(socket.getId(),new Connection(socket));
+        connections.put(socket.getId(),new Connection(socket,currentTimeMillis.getAsLong()));
     }
     @Override protected void handleTextMessage(WebSocketSession socket,TextMessage message){
         var connection=connections.get(socket.getId());if(connection==null)return;
@@ -94,7 +97,7 @@ public class CollaborationSocket extends TextWebSocketHandler {
         return UUID.fromString(sid);
     }
     @Scheduled(fixedDelay=1000) public synchronized void expirePendingConnections(){
-        long now=System.currentTimeMillis();
+        long now=currentTimeMillis.getAsLong();
         for(var connection:connections.values())if(connection.actor<0&&now-connection.connected>=AUTH_WAIT_MILLIS)close(connection,CloseStatus.POLICY_VIOLATION);
     }
     private void validateToken(Connection connection){
