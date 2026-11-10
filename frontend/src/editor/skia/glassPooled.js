@@ -198,7 +198,8 @@ export function drawGlassPooled(canvas, points, width, color, zoom = 1, ink = {}
   // ① 몸통을 **벡터로 먼저 긋는다**. 실루엣은 이 획이 정한다 — 형광펜 · 볼펜과 똑같이 또렷하다.
   const body = Skia.Paint()
   body.setColor(Skia.Color(color))
-  canvas.drawPath(centerPath(dabs), strokeStyle(body, width))
+  const pathPage = centerPath(dabs)          // 페이지 좌표 — 몸통 · 글리터용
+  canvas.drawPath(pathPage, strokeStyle(body, width))
 
   // ② 고임이 만드는 것(커피링 · 테 · 농담 흐름)을 그 위에 얹는다.
   //
@@ -216,7 +217,7 @@ export function drawGlassPooled(canvas, points, width, color, zoom = 1, ink = {}
   const blur = Skia.ImageFilter.MakeBlur(sigma, sigma, TileMode.Decal, null)
   layer.setImageFilter(Skia.ImageFilter.MakeRuntimeShaderWithChildren(builder, 0, ['mask', 'pool'], [null, blur]))
 
-  const path = centerPath(dabs, S)
+  const path = centerPath(dabs, S)           // 화면 픽셀 좌표 — 필터 층 안에서만 쓴다
   const margin = 3      // 화면 px — 필터 쪽 가장자리를 진짜 가장자리 바깥으로 밀어낸다
   canvas.save()
   canvas.scale(1 / S, 1 / S)
@@ -248,6 +249,8 @@ export function drawGlassPooled(canvas, points, width, color, zoom = 1, ink = {}
   canvas.restore()   // 바깥 층 끝
   canvas.restore()   // 배율 되돌리기
 
-  drawSpark(canvas, path, width, color, ink, zoom)
+  // ③ 입자는 필터 밖에서 전체 해상도로. **페이지 좌표** 경로여야 한다
+  //    (S 배 경로를 넘기면 화면 밖 먼 곳에 그려져 글리터가 통째로 사라진다)
+  drawSpark(canvas, pathPage, width, color, ink, zoom)
   return true
 }
