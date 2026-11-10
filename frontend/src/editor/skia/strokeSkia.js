@@ -365,7 +365,12 @@ function drawShaderStroke(canvas, dabs, width, color, origin, box, zoom) {
     oc.scale(pw / box.w, ph / box.h); oc.translate(-box.x, -box.y)
     paintShader(oc, covImage, prsImage, box, ppu, color, origin, box, zoom, null, width)
     out.flush()
-    const image = out.makeImageSnapshot()
+    // 표면과 **떼어낸** 이미지를 쓴다. 그림(Picture)은 나중에 래스터화되므로, 표면에 매인
+    // 텍스처를 그려 두면 그때는 이미 치워진 뒤라 죽는다(2026-11-09 유리펜에서 같은 것에 당했다.
+    // 완료 획을 굽는 경로가 makeNonTextureImage 를 쓰는 이유도 이것이다).
+    const snapshot = out.makeImageSnapshot()
+    const image = snapshot.makeNonTextureImage?.() ?? snapshot
+    if (image !== snapshot) snapshot.dispose?.()
     covImage.dispose?.(); prsImage.dispose?.(); out.dispose?.()
     canvas.save(); canvas.translate(box.x, box.y); canvas.scale(box.w / pw, box.h / ph); canvas.drawImage(image, 0, 0); canvas.restore()
     return true
