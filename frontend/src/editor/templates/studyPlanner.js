@@ -109,7 +109,8 @@ export function plannerTextSlot(orientation, point) {
   if (row?.part === 'text') {
     // 한 줄짜리 칸이라 줄 높이를 글자에 가깝게(20) 줄여 줄 가운데에 앉힌다. 28 로 두면 입력 중 테두리와 커서가 칸 아래로 튀어나온다.
     const g = todo(L), x = g.t.x + CHECK_W + 10
-    return { x, y: g.t.y + g.head + row.r * g.rh + (g.rh - TODO_LINE) / 2, width: g.cx - 8 - x, font: PLANNER_TEXT_FONT, fontSize: TODO_TEXT_SIZE, lineSpacing: TODO_LINE / TODO_TEXT_SIZE }
+    // 할 일 · 메모 · 돌아보기 줄은 글 쓰는 줄이라 마지막 글자 설정과 상관없이 왼쪽 정렬로 시작한다(머리줄 밑줄 칸만 사용자가 고른 정렬)
+    return { x, y: g.t.y + g.head + row.r * g.rh + (g.rh - TODO_LINE) / 2, width: g.cx - 8 - x, font: PLANNER_TEXT_FONT, fontSize: TODO_TEXT_SIZE, lineSpacing: TODO_LINE / TODO_TEXT_SIZE, textAlign: 'left' }
   }
   // 머리줄 밑줄 칸(날짜 · D-day · 오늘의 목표): 밑줄 폭만큼 상자를 잡고 글자가 밑줄 위에 앉게 한다. 정렬은 사용자가 고른다.
   const underline = (from, to, lineY) => ({ x: from, y: lineY - LINE_PITCH + SIT, width: to - from, ...style })
@@ -123,7 +124,7 @@ export function plannerTextSlot(orientation, point) {
     // 밑줄은 R.y + 58 부터 28 간격. 글자 줄 칸은 그 위 28. 줄 칸 가운데보다 조금 내려 글자가 밑줄에 가깝게 앉게 한다.
     const lines = Math.max(1, Math.floor((R.h - 8 - 30) / LINE_PITCH))
     const k = Math.max(0, Math.min(lines - 1, Math.floor((point.y - (R.y + 30)) / LINE_PITCH)))
-    return { x: R.x + 12, y: R.y + 30 + k * LINE_PITCH + SIT, width: R.w - 24, ...style }
+    return { x: R.x + 12, y: R.y + 30 + k * LINE_PITCH + SIT, width: R.w - 24, ...style, textAlign: 'left' }
   }
   return null
 }
@@ -147,7 +148,7 @@ export function plannerTitleAt(orientation, point, objects) {
 
 /**
  * 선택(화살표) 도구로 칸을 톡 눌렀을 때 그 칸의 입력을 연다. 칸이 아니면 null.
- *   완료: 체크를 켜고 끈다(color 로 친다)   할 일 · 날짜 · D-day · 오늘의 목표: 글 입력   요일: 동그라미를 켜고 끈다   하트: 그 하트를 칠하고 끈다
+ *   완료: 체크를 켜고 끈다(color 로 친다)   할 일 · 날짜 · D-day · 오늘의 목표: 글 입력   색: 색 고르기   요일: 동그라미를 켜고 끈다   하트: 그 하트를 칠하고 끈다
  * 결과는 applyPlannerStroke 와 달리 { planner } | { text: 점 } 로 돌려준다(속지 모음의 editTap 과 같은 모양).
  */
 export function plannerEditTap(orientation, point, value, markColor) {
@@ -159,7 +160,7 @@ export function plannerEditTap(orientation, point, value, markColor) {
     return { planner: normalizePlanner({ ...planner, checks }) }
   }
   if (fieldOf(L, point)) return { text: point }
-  if (row) return null
+  if (row) return row.part === 'color' ? { picker: { kind: 'color', row: row.r } } : null
   const day = hitCircle(days(L), point)
   if (day >= 0) return { planner: normalizePlanner({ ...planner, day: planner.day?.i === day ? null : { i: day, color: c, hl: false } }) }
   const heart = hitCircle(hearts(L), point)
@@ -170,11 +171,32 @@ export function plannerEditTap(orientation, point, value, markColor) {
   return null
 }
 
+/** 할 일 줄 오른쪽 색 칸의 색을 바꾼다(색 칸을 눌러 고른 색). */
+export function setPlannerBand(value, r, c) {
+  const planner = normalizePlanner(value)
+  return normalizePlanner({ ...planner, bands: { ...planner.bands, [r]: c } })
+}
+
 /** 지나간 칸(형광펜이 시간표 안에서 시작했을 때). 화면 미리보기에도 쓴다. */
 export function plannerStrokeCells(orientation, points) {
   const L = plannerLayout(orientation)
   if (!points?.length || !cellAt(L, points[0])) return []
   return [...new Set(sample(points).map(p => cellAt(L, p)).filter(Boolean))]
+}
+
+/**
+ * 펜으로 할 일 줄을 톡 누르면 글 입력을 연다(데일리 플래너 · 선택 도구와 같다, 지라 830). { text: 점 } | null
+ * 할 일 줄은 손글씨도 쓰는 곳이라, 그 줄에 이미 손글씨(획)가 있으면 톡은 글씨의 점으로 두고 입력을 열지 않는다.
+ */
+export function plannerTapText(orientation, points, settings, objects) {
+  if (!points?.length || settings?.kind === 'highlighter') return null
+  const L = plannerLayout(orientation), first = points[0], row = todoAt(L, first)
+  // 색 칸은 펜으로 톡 누르면 색 고르기, 펜으로 긋는 것은 받기만 한다(잉크를 남기지 않는다)
+  if (row?.part === 'color') return span(points) < TAP_SPAN ? { picker: { kind: 'color', row: row.r } } : {}
+  if (span(points) >= TAP_SPAN || row?.part !== 'text') return null
+  const inked = (objects ?? []).some(o => o?.type === 'stroke' && !o.hidden && [o.x, o.y, o.w, o.h].every(Number.isFinite)
+    && todoAt(L, { x: o.x + o.w / 2, y: o.y + o.h / 2 })?.r === row.r)
+  return inked ? null : { text: first }
 }
 
 /**
