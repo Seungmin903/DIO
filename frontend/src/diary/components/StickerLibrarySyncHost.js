@@ -21,6 +21,8 @@ import { myCoversReady, myCoversSnapshot, replaceMyCovers, subscribeMyLibrary } 
 // 같은 계정 · 로그인 세션이면 동기화 하나를 이어 쓰고, 모두 떨어진 채 잠시 지나야(다른 계정 · 로그아웃) 멈춘다
 const RELEASE_MS = 1000
 let shared = null // { id, sticker, tape, cover, appState, mounts, releaseTimer } (cover: 내 표지)
+// 멈춘 동기화(계정 · 세션 id → 이미 돌던 맞추기가 끝나면 풀리는 Promise). 회원 탈퇴 정리가 이것을 기다린 뒤 기록을 지운다
+const stopping = new Map()
 
 function acquire(accountId) {
   const sessionKey = authService.getSessionKey()
@@ -51,10 +53,14 @@ function release(entry) {
 function stopShared() {
   if (!shared) return
   if (shared.releaseTimer != null) clearTimeout(shared.releaseTimer)
-  shared.sticker.stop()
-  shared.tape.stop()
-  shared.cover.stop()
-  shared.appState.remove(); shared = null
+  const entry = shared
+  entry.sticker.stop()
+  entry.tape.stop()
+  entry.cover.stop()
+  const settled = Promise.all([entry.sticker.settled(), entry.tape.settled(), entry.cover.settled()])
+  stopping.set(entry.id, settled)
+  settled.finally(() => { if (stopping.get(entry.id) === settled) stopping.delete(entry.id) })
+  entry.appState.remove(); shared = null
   // 로그아웃 · 다른 계정: 이전 계정의 실패를 보이지 않는다
   setStickerSyncRetry(null)
   setStickerSyncStatus({ error: null, pending: false })
@@ -148,9 +154,18 @@ const dropNulls = item => Object.fromEntries(Object.entries(item ?? {}).filter((
  * 회원 탈퇴를 마친 계정의 꾸미기 공방 동기화 기록(스티커 · 테이프 보관함 · 내 표지)을 이 기기에서 지운다(맞춘 상태 · 기기 id ↔ 서버 id 짝 · 받지 못한 그림 · 계정 전환 때 따로 둔 몫).
  * 그 계정 동기화가 돌고 있으면 먼저 멈춰, 지운 뒤에 다시 쓰지 않게 한다. 실패해도 탈퇴는 끝난 것으로 본다
  */
-export async function forgetLibrarySyncAccount(accountId) {
+export async function forgetLibrarySyncAccount(accountId, { waitMs = SETTLE_WAIT_MS } = {}) {
   if (accountId == null) return
-  if (shared?.id?.startsWith(`${accountId}:`)) stopShared()
-  try { await forgetLibrarySyncRecords({ storage: AsyncStorage, account: String(accountId) }) }
-  catch (error) { if (typeof __DEV__ !== 'undefined' && __DEV__) console.warn('[DIO_LIBRARY_SYNC]', error?.message) }
+  const mine = id => id.startsWith(`${accountId}:`)
+  if (shared && mine(shared.id)) stopShared()
+  // 멈추기 전에 이미 시작된 기록 쓰기가 지운 뒤에 남지 않도록, 돌던 맞추기가 끝나기를 기다린다(느린 네트워크로 오래 걸리면 먼저 지우고 끝난 뒤 한 번 더 지운다)
+  const running = [...stopping].filter(([id]) => mine(id)).map(([, settled]) => settled)
+  const forget = () => forgetLibrarySyncRecords({ storage: AsyncStorage, account: String(accountId) })
+    .catch(error => { if (typeof __DEV__ !== 'undefined' && __DEV__) console.warn('[DIO_LIBRARY_SYNC]', error?.message) })
+  let timer
+  const settledInTime = await Promise.race([Promise.all(running).then(() => true), new Promise(resolve => { timer = setTimeout(() => resolve(false), waitMs) })])
+  clearTimeout(timer)
+  await forget()
+  if (!settledInTime) await Promise.all(running).then(forget)
 }
+const SETTLE_WAIT_MS = 5000

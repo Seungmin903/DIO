@@ -184,8 +184,9 @@ export function createCoverLibrarySync({ account, api, media, library, storage, 
   // 서버 문서를 기기에 들인다: 이 기기가 올린 그림은 기기 원본을 그대로 쓰고, 나머지는 내려받아 서버 id 로 저장한 뒤 목록을 바꾼다.
   // keepLocal 이면 아직 서버에 없는 기기 표지(올리지 못한 표지 · 보낼 수 없는 표지 · 한도 초과 · 한 번도 맞춘 적 없는 표지)는 지우지 않고 남긴다.
   // restore: 이 계정이 예전에 이 기기에 남겨 둔 몫(stash). 그중 아직 서버에 없는 표지를 같은 규칙으로 되살린다
+  // othersIds: 계정이 바뀐 기기에서 이전 계정 몫(stash)에 넣은 표지 id. 그 밖의 기기 표지는 바뀐 뒤 이 계정으로 만든 것이라 남긴다
   // 받는 사이 이 기기에서 목록을 고치면 들이지 않고 false(그 편집을 덮어쓰지 않는다). 바뀐 목록은 다시 맞춘다
-  async function adopt(server, { keepLocal = true, restore = null } = {}) {
+  async function adopt(server, { keepLocal = true, restore = null, othersIds = null } = {}) {
     await readMissing(); active()
     const covers = []
     for (const entry of server.covers) {
@@ -204,7 +205,9 @@ export function createCoverLibrarySync({ account, api, media, library, storage, 
     }
     await writeMissing(); active()
     const base = library.snapshot()
-    const kept = keepLocal ? await unsent(base, covers, syncedIds(meta?.synced)) : []
+    const inServer = new Set(covers.map(entry => entry.id))
+    const kept = keepLocal ? await unsent(base, covers, syncedIds(meta?.synced))
+      : othersIds ? (base ?? []).filter(entry => entry && !othersIds.has(entry.id) && !inServer.has(entry.id)) : []
     const restored = restore ? await unsent(restore.covers, covers, syncedIds(restore.synced)) : []
     const next = [...restored, ...kept, ...covers]
     active()
@@ -213,7 +216,8 @@ export function createCoverLibrarySync({ account, api, media, library, storage, 
     let applied
     try { applied = await library.replace(next, base) } finally { applying = false }
     if (!applied) { again = true; return false }
-    if (library.snapshot() !== applied || restored.length) again = true // 되살린 표지는 다음 맞추기에서 올린다
+    // 되살린 표지 · 계정이 바뀐 뒤 이 계정으로 만든 표지는 다음 맞추기에서 올린다
+    if (library.snapshot() !== applied || restored.length || (othersIds && kept.length)) again = true
     await writeMeta({ account, version: server.version, synced: stable(server.covers) })
     return true
   }
@@ -259,9 +263,16 @@ export function createCoverLibrarySync({ account, api, media, library, storage, 
     // 다른 계정이 쓰던 기기: 그 표지를 이 계정에 올리지 않는다. 지우지도 않고 그 계정 몫(stash)으로 따로 두었다가 그 계정으로 다시 로그인하면 되살린다
     // (올리지 못해 서버에 없던 표지가 계정을 바꾸는 순간 사라지지 않게). 이 계정이 남겨 둔 몫이 있으면 함께 되살린다
     if (meta && meta.account !== account) {
-      await storage.setItem(stashKey(meta.account), JSON.stringify({ covers: local, synced: meta.synced ?? '[]', savedAt: now() })); active()
+      // 이전 계정 몫은 계정이 바뀐 뒤 처음 맞출 때 한 번만 쓴다(그때의 기기 목록이 이전 계정 것이 확실한 마지막 시점이다).
+      // 받는 사이 편집으로 들이지 못해 다시 맞출 때는 덮어쓰지 않는다(그사이 이 계정으로 만든 표지가 이전 계정 몫에 섞여 그 계정에 올라가지 않게)
+      // 이전 계정 몫에 넣은 표지 id 는 meta 에 함께 둔다(다시 맞출 때 몫이 지워졌어도 이전 계정 표지를 이 계정 것으로 보지 않게)
+      if (meta.stashedFor !== account) {
+        await storage.setItem(stashKey(meta.account), JSON.stringify({ covers: local, synced: meta.synced ?? '[]', savedAt: now() })); active()
+        await writeMeta({ ...meta, stashedFor: account, stashedIds: local.map(entry => entry?.id).filter(Boolean) }); active()
+      }
+      const othersIds = new Set(Array.isArray(meta.stashedIds) ? meta.stashedIds : [])
       const restore = await readStash(); active()
-      if (!await adopt(server, { keepLocal: false, restore })) return null
+      if (!await adopt(server, { keepLocal: false, restore, othersIds })) return null
       await removeKeys(storage, [stashKey(account)]) // 되살렸거나 기한이 지난 이 계정 몫은 더 두지 않는다
       await sweepStashes()
       return report(0)
@@ -317,5 +328,7 @@ export function createCoverLibrarySync({ account, api, media, library, storage, 
     sync: run,
     whenIdle: async () => { while (running || timer != null) { if (timer != null) { clearTimer(timer); timer = null; run() } await running } },
     stop() { closed = true; if (timer != null) clearTimer(timer); timer = null; unsubscribe?.() },
+    /** 멈춘 뒤 이미 돌고 있던 맞추기가 끝나면 풀린다(그 뒤로는 기기 기록을 쓰지 않는다. 회원 탈퇴 정리가 기다린다) */
+    settled: () => (running ?? Promise.resolve()).then(() => {}, () => {}),
   }
 }
