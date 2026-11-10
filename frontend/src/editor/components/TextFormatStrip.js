@@ -106,10 +106,12 @@ export default function TextFormatStrip({ settings, onChange, onHold = () => {},
           <View style={styles.divider} />
           <Stepper label="크기" shown={String(settings.fontSize)} minusLabel="글씨 축소" plusLabel="글씨 확대" onStep={(delta) => onChange({ fontSize: clamp(settings.fontSize + delta * 2, 8, 96) })} />
           <View style={styles.divider} />
+          <View style={styles.glyphGroup}>
           <GlyphButton label="굵게" active={Boolean(settings.bold) && boldReady} disabled={!boldReady} onPress={toggle('bold', boldReady)}><Text style={[styles.glyph, { fontWeight: '800' }]}>B</Text></GlyphButton>
           <GlyphButton label="기울임" active={Boolean(settings.italic)} onPress={toggle('italic')}><Text style={[styles.glyph, { transform: italicTransform() }]}>I</Text></GlyphButton>
           <GlyphButton label="밑줄" active={Boolean(settings.underline)} onPress={toggle('underline')}><LinedGlyph letter="U" line="under" /></GlyphButton>
           <GlyphButton label="취소선" active={Boolean(settings.strike)} onPress={toggle('strike')}><LinedGlyph letter="S" line="through" /></GlyphButton>
+          </View>
           <View style={styles.divider} />
           <Pressable accessibilityRole="button" accessibilityLabel="글자 색 고르기" accessibilityState={{ expanded: panel === 'color' }} {...keepFocus} onPress={() => flip('color')} style={[styles.iconButton, panel === 'color' && styles.active]}>
             <RainbowRing color={settings.color} />
@@ -139,22 +141,23 @@ function RainbowRing({ color }) {
   </Svg>
 }
 
-/** 이름 · − · 값 · + — 입력 칸 없음. 자간 · 줄간격 값은 서식 창(TextSettings)과 같은 숫자(×100, 단위 없음)로 보인다(실기 피드백 2026-11-10: 크기처럼 숫자가 보이길 원했다) */
+/** 이름 · − · 값 · + — 입력 칸 없음(값은 서식 창 숫자 칸처럼 테두리 칸에 담는다). 자간 · 줄간격 값은 서식 창(TextSettings)과 같은 숫자(×100, 단위 없음)로 보인다(실기 피드백 2026-11-10: 크기처럼 숫자가 보이길 원했다) */
 function Stepper({ label, shown = null, minusLabel, plusLabel, onStep }) {
   return (
     <View style={styles.stepper} accessibilityLabel={label}>
       <Text style={styles.stepperLabel}>{label}</Text>
       <Pressable accessibilityRole="button" accessibilityLabel={minusLabel} {...keepFocus} onPress={() => onStep(-1)} style={styles.stepButton}><Icon name="minus" size={14} color={colors.text} /></Pressable>
-      {shown != null && <Text style={styles.stepperValue} accessibilityLabel={`글자 ${label} ${shown}`}>{shown}</Text>}
+      {shown != null && <View style={styles.valueBox}><Text style={styles.stepperValue} accessibilityLabel={`글자 ${label} ${shown}`}>{shown}</Text></View>}
       <Pressable accessibilityRole="button" accessibilityLabel={plusLabel} {...keepFocus} onPress={() => onStep(1)} style={styles.stepButton}><Icon name="plus" size={14} color={colors.text} /></Pressable>
     </View>
   )
 }
 
+/** 굵게 · 기울임 · 밑줄 · 취소선: 서식 창 스타일 칸(Segmented)과 같은 테두리 칩 — 켜진 칸은 primaryStrong 테두리(실기 피드백 2026-11-10: 통일감) */
 function GlyphButton({ label, active, disabled = false, onPress, children }) {
   return (
     <Pressable accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ selected: Boolean(active), disabled }} disabled={disabled} {...keepFocus} onPress={onPress}
-      style={[styles.iconButton, active && styles.active, disabled && styles.disabled]}>
+      style={[styles.glyphChip, active && styles.glyphChipOn, disabled && styles.disabled]}>
       {children}
     </Pressable>
   )
@@ -179,12 +182,18 @@ const styles = StyleSheet.create({
   fontText: { flexShrink: 1, fontSize: 13.5, color: colors.text },
   chip: { height: 36, paddingHorizontal: 12, borderRadius: 9, justifyContent: 'center', maxWidth: 160 },
   chipText: { fontSize: 13.5, color: colors.text },
-  stepper: { flexDirection: 'row', alignItems: 'center', gap: 1, marginHorizontal: 1 },
+  stepper: { flexDirection: 'row', alignItems: 'center', gap: 2, marginHorizontal: 1 },
   stepperLabel: { fontSize: 11.5, fontWeight: '700', color: colors.textMuted, marginRight: 2 },
   stepButton: { width: 28, height: 36, borderRadius: 9, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surfaceMuted },
-  stepperValue: { minWidth: 26, textAlign: 'center', fontSize: 13, fontWeight: '700', color: colors.text, fontVariant: ['tabular-nums'] },
+  // 숫자 칸: 서식 창 NumberStepper 입력 칸과 같은 흰 면 + 1px 테두리(높이는 −/+ 와 같은 36)
+  valueBox: { minWidth: 32, height: 36, paddingHorizontal: 3, borderRadius: 9, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center' },
+  stepperValue: { textAlign: 'center', fontSize: 13, fontWeight: '700', color: colors.text, fontVariant: ['tabular-nums'] },
   iconButton: { width: 34, height: 36, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
   active: { backgroundColor: colors.primarySoft },
+  glyphGroup: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  // 고른 칸은 테두리가 2로 두꺼워지는 만큼 안쪽 여백을 1 줄여 글자가 움직이지 않게(ToolPanel segmentItem 과 같다)
+  glyphChip: { width: 32, height: 36, borderRadius: 9, borderWidth: 1, padding: 1, borderColor: colors.cardBorder, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center' },
+  glyphChipOn: { borderWidth: 2, padding: 0, borderColor: colors.primaryStrong },
   disabled: { opacity: 0.4 },
   glyph: { fontSize: 15, fontWeight: '700', color: colors.text },
   lined: { alignItems: 'center', justifyContent: 'center', paddingHorizontal: 2 },
