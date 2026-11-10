@@ -25,12 +25,15 @@ export const glassResolved = (entry) => {
 }
 // 칸 안의 유리펜 미리보기: 바깥 고리가 테, 안쪽 면이 잉크, 그 위에 글리터 몇 점.
 // 자리는 고정이라 어느 칸이든 같은 모양으로 비교된다.
-const GLASS_SPECKS = [[8, 7], [17, 10], [11, 16], [6, 14]]
-export function GlassDot({ look }) {
-  return <>
-    <View style={[s.glassBody, { backgroundColor: look.ink }]} />
+// 자리는 22×22 안쪽 면 기준(칸 28 에서 테 고리 3 을 뺀 크기)
+const GLASS_SPECKS = [[5, 4], [14, 7], [8, 13], [3, 11]]
+// border: 칸 테두리 두께(고른 칸은 3, 아니면 1). 절대 배치는 테두리 **안쪽**을 기준으로 하므로
+// 그대로 두면 고를 때마다 점 자리가 밀려 반짝이 모양이 바뀌어 보인다(사용자 2026-11-10).
+// 칸 바깥 테두리에서 늘 3 만큼 들어온 22×22 자리에 고정한다 — 테두리를 덮지 않아 선택 표시도 보인다.
+export function GlassDot({ look, border = 1 }) {
+  return <View style={[s.glassLayer, { left: 3 - border, top: 3 - border, backgroundColor: look.ink }]}>
     {GLASS_SPECKS.map(([x, y], i) => <View key={i} style={[s.glassSpeck, { left: x, top: y, backgroundColor: look.glitter, opacity: i % 2 ? 0.95 : 0.7 }]} />)}
-  </>
+  </View>
 }
 
 // flushEdit: '팔레트 편집' 글자 오른쪽 끝을 줄 끝(위 구분선 끝)에 맞춘다 — 누르는 자리 여백(6)은 바깥으로 뺀다(공방 도구 · 속지 탭)
@@ -98,7 +101,7 @@ export default function EditablePalette({ scope, label, value, onPick, onOpenEdi
           accessibilityState={{ selected: value === entry, disabled: editing && !palette.loaded }} disabled={editing && !palette.loaded}
           hitSlop={1} onPress={() => editing ? open(index) : onPick?.(entry)} style={paletteSwatchStyles.cell}>
           {/* key: 안드로이드는 점선 → 실선으로 borderStyle 을 되돌리면 다시 그리지 않아, 편집을 끝내도 점선이 남았다(지라 604). 상태가 바뀌면 새로 그린다 */}
-          <View key={editing ? 'edit' : 'pick'} style={[paletteSwatchStyles.dot, {backgroundColor:bg}, editing ? [s.editing, (editIndex ?? palette.colors.indexOf(value)) === index && s.editFocus] : [s.solid, value === entry && paletteSwatchStyles.chosen]]}>{fg && <View style={[s.inner,{backgroundColor:fg}]} />}{glassLook && <GlassDot look={glassLook} />}{editing && (editIndex ?? palette.colors.indexOf(value)) === index && <FocusRing />}</View>
+          <View key={editing ? 'edit' : 'pick'} style={[paletteSwatchStyles.dot, {backgroundColor:bg}, editing ? [s.editing, (editIndex ?? palette.colors.indexOf(value)) === index && s.editFocus] : [s.solid, value === entry && paletteSwatchStyles.chosen]]}>{fg && <View style={[s.inner,{backgroundColor:fg}]} />}{glassLook && <GlassDot look={glassLook} border={!editing && value === entry ? 3 : 1} />}{editing && (editIndex ?? palette.colors.indexOf(value)) === index && <FocusRing />}</View>
         </Pressable>
       })}
       {allowDirect && <Pressable accessibilityRole="button" accessibilityLabel={`${label} 색 직접 지정`} hitSlop={1} onPress={openDirect} style={paletteSwatchStyles.cell}>
@@ -115,7 +118,7 @@ export const paletteSwatchStyles=StyleSheet.create({
  dot:{width:28,height:28,borderRadius:14,borderWidth:1,borderColor:colors.cardBorder},chosen:{borderWidth:3,borderColor:colors.primaryText}
 })
 const s=StyleSheet.create({
- glassBody:{position:'absolute',left:3,top:3,right:3,bottom:3,borderRadius:11},
+ glassLayer:{position:'absolute',width:22,height:22,borderRadius:11,overflow:'hidden'},
  glassSpeck:{position:'absolute',width:2.4,height:2.4,borderRadius:1.2},
  box:{gap:8},heading:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:8},
  label:{fontSize:13,fontWeight:'700',color:colors.text},edit:{minHeight:36,justifyContent:'center',paddingHorizontal:6},editText:{fontSize:12,fontWeight:'700',color:colors.primaryText},editFlush:{marginRight:-6},

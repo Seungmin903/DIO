@@ -133,7 +133,7 @@ export default function PenSettings({ settings, onChange, onClose, straightAssis
           hitSlop={1} onPress={() => chooseColor(color)} style={paletteSwatchStyles.cell}>
           {/* 유리펜은 칸 안에서 실제 모습을 보여 준다(테 고리 · 잉크 면 · 글리터) — 팔레트 칸과 같은 그림 */}
           {glassPen
-            ? (look => <View style={[paletteSwatchStyles.dot, { backgroundColor: look.sheen }, settings.color === color && paletteSwatchStyles.chosen]}><GlassDot look={look} /></View>)(glassResolved(color))
+            ? (look => <View style={[paletteSwatchStyles.dot, { backgroundColor: look.sheen }, settings.color === color && paletteSwatchStyles.chosen]}><GlassDot look={look} border={settings.color === color ? 3 : 1} /></View>)(glassResolved(color))
             : <View style={[paletteSwatchStyles.dot,{backgroundColor:color},settings.color === color && paletteSwatchStyles.chosen]} />}
         </Pressable>)}
       </View>
