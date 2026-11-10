@@ -24,7 +24,7 @@ const require=createRequire(resolve(root,'package.json')),{GifWriter}=require('o
 const buffer=new Uint8Array(4096),writer=new GifWriter(buffer,4,4,{palette:[0xff0000,0x0000ff],loop:0})
 writer.addFrame(0,0,4,4,new Uint8Array(16),{delay:5});writer.addFrame(0,0,4,4,new Uint8Array(16).fill(1),{delay:5})
 const gif=`data:image/gif;base64,${Buffer.from(buffer.slice(0,writer.end())).toString('base64')}`
-const mime={'.html':'text/html','.js':'text/javascript','.png':'image/png','.gif':'image/gif','.json':'application/json','.wasm':'application/wasm','.woff':'font/woff','.ttf':'font/ttf'}
+const mime={'.html':'text/html','.js':'text/javascript','.png':'image/png','.gif':'image/gif','.svg':'image/svg+xml','.json':'application/json','.wasm':'application/wasm','.woff':'font/woff','.ttf':'font/ttf'}
 const server=createServer(async(req,res)=>{
   try{const path=resolve(web,'.'+decodeURIComponent(new URL(req.url,'http://localhost').pathname));if(path!==web&&!path.startsWith(web+sep)){res.writeHead(403);res.end();return}const file=path===web?resolve(web,'index.html'):path;const data=await readFile(file);res.writeHead(200,{'Content-Type':mime[extname(file)]||'application/octet-stream'});res.end(data)}catch{res.writeHead(404);res.end()}
 })

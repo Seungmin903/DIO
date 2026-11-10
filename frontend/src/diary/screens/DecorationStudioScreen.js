@@ -38,6 +38,7 @@ import PhotoCropper from '../../editor/components/panels/PhotoCropper';
 import { COVER_PHOTO_RATIO, coverCropPhoto, coverPhotoWithAspect } from '../utils/coverPhotoCrop';
 import { Segmented } from '../components/FormControls';
 import { TAPE_SIZES } from '../../editor/constants';
+import { useTapeLibrarySyncStatus } from '../../editor/services/tapeLibrarySyncStatus.js';
 import ConfirmDialog from '../../editor/components/controls/ConfirmDialog';
 import DecorSaveNotice from '../../editor/components/panels/DecorSaveNotice';
 import { useStickerLibrarySyncStatus } from '../../editor/services/stickerLibrarySyncStatus.js';
@@ -93,6 +94,7 @@ export default function DecorationStudioScreen({ compact = false, registerBackHa
   const [tapeFolderId, setTapeFolderId] = useState(null), [tapeRename, setTapeRename] = useState(null), [pendingTape, setPendingTape] = useState(null);
   // 테이프 이름 고치기(카드 이름을 누르면 그 자리에서): { id, draft }
   const [tapeNameEdit, setTapeNameEdit] = useState(null);
+  const tapeSync = useTapeLibrarySyncStatus(); // 테이프 계정 동기화 실패를 스티커 탭과 같은 자리 · 모양으로 테이프 탭에 알린다
   // 사진으로 표지 만들기의 자르기 창: { photo, ratio, resolve }
   const [coverCrop, setCoverCrop] = useState(null);
   // 내 표지 편집(지라 603): 견본을 누르면 새 다이어리 표지 탭과 같은 편집 화면을 열고, 꾸밈까지 저장한다
@@ -433,6 +435,7 @@ export default function DecorationStudioScreen({ compact = false, registerBackHa
       <DioButton variant="icon" icon="trash" label="테이프 폴더 삭제" onPress={() => setQuestion({ tapeFolder })} />
     </> : addTool({ kind: 'tape', icon: 'tape', title: '테이프 추가', description: '사진으로 만들기 · 새 폴더', disabled: !custom.loaded, menu: true })}>
     {custom.saveError ? <DecorSaveNotice error={custom.saveError} pending={custom.savePending} onRetry={custom.retrySave} /> : null}
+    <DecorSaveNotice error={tapeSync.error} pending={tapeSync.pending} onRetry={tapeSync.retry} retryLabel="다시 맞추기" pendingLabel="다시 맞추는 중…" accessibilityLabel="테이프 보관함 계정 동기화 재시도" />
     {/* 폴더 안 추가: 스티커 폴더와 같은 자리 · 버튼. 방법이 하나라 말풍선 없이 바로 사진을 고른다 */}
     {tapeFolder && <View style={s.addRow}>{addTool({ kind: 'tapeIn', icon: 'tape', title: '테이프 추가', description: '사진으로 만들기', onPress: () => addTapeFromPhoto(tapeFolder.id) })}</View>}
     {shelfError === 'tape' && <Text accessibilityRole="alert" style={s.error}>사진을 불러오지 못했어요. 다시 시도해 주세요.</Text>}

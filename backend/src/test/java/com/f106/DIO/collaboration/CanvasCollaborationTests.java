@@ -90,6 +90,40 @@ class CanvasCollaborationTests {
         mvc.perform(get("/api/v1/media/"+media+"/file").header("Authorization","Bearer "+editor.token())).andExpect(status().isOk());
     }
 
+    @Test void personalTapeImageIsVisibleToOtherMembersOnlyAfterPlacement() throws Exception {
+        var owner = actor();
+        var editor = actor();
+        var outsider = actor();
+        UUID book = diary(owner), page = page(book);
+        join(book, editor);
+        byte[] png = Base64.getDecoder().decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aZ1cAAAAASUVORK5CYII=");
+        var file = new org.springframework.mock.web.MockMultipartFile("file", "tape.png", "image/png", png);
+        var upload = mvc.perform(multipart("/api/v1/media").file(file).param("libraryCategory", "TAPE")
+            .header("Authorization", "Bearer " + owner.token())).andExpect(status().isCreated()).andReturn();
+        String media = json.readTree(upload.getResponse().getContentAsString()).path("mediaFileId").asText();
+        var folder = Map.of("id", "tapes", "name", "내 테이프", "items", List.of(Map.of("id", "t1", "mediaFileId", media)));
+        mvc.perform(put("/api/v1/me/tape-library").header("Authorization", "Bearer " + owner.token())
+            .contentType("application/json").content(json.writeValueAsString(Map.of("expectedVersion", 0, "folders", List.of(folder)))))
+            .andExpect(status().isOk());
+
+        String filePath = "/api/v1/media/" + media + "/file";
+        mvc.perform(get(filePath).header("Authorization", "Bearer " + editor.token())).andExpect(status().isNotFound());
+
+        var crop = Map.of("fx", 0.25, "fy", 0.5, "zoom", 2);
+        var tape = Map.of("elementId", UUID.randomUUID(), "elementType", "TAPE", "x", 1, "y", 2,
+            "width", 30, "height", 10, "mediaFileId", media, "propertiesJson", Map.of("crop", crop, "pieceRatio", 3));
+        apply(page, owner, UUID.randomUUID(), Map.of("creates", List.of(tape)));
+        mvc.perform(get("/api/v1/pages/" + page).header("Authorization", "Bearer " + editor.token()))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.elements[0].elementType").value("TAPE"))
+            .andExpect(jsonPath("$.elements[0].mediaFileId").value(media))
+            .andExpect(jsonPath("$.elements[0].propertiesJson.crop.fx").value(0.25));
+        mvc.perform(get(filePath).header("Authorization", "Bearer " + editor.token()))
+            .andExpect(status().isOk()).andExpect(content().bytes(png));
+        mvc.perform(get(filePath).header("Authorization", "Bearer " + outsider.token())).andExpect(status().isNotFound());
+        mvc.perform(get("/api/v1/me/tape-library").header("Authorization", "Bearer " + editor.token()))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.folders.length()").value(0));
+    }
+
     @Test void existingMediaApisShareImagesOnlyWithCurrentDiaryMembers()throws Exception{
         var owner=actor();var editor=actor();var outsider=actor();UUID book=diary(owner),page=page(book);join(book,editor);
         byte[] png=Base64.getDecoder().decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aZ1cAAAAASUVORK5CYII=");

@@ -325,3 +325,20 @@ test('동기화 상태: 실패 문구를 공방에 보이고, 다시 맞추기�
   setStickerSyncRetry(null); setStickerSyncStatus({ error: null, pending: false })
   assert.deepEqual(stickerSyncStatusSnapshot(), { error: null, pending: false })
 })
+
+test('테이프 동기화 상태도 스티커와 같다: 동기화가 없으면 재시도하지 않고, 재시도 중복을 막고, 끝나면 다시 누를 수 있다', async () => {
+  const { setTapeSyncStatus, setTapeSyncRetry, tapeSyncStatusSnapshot, retryTapeLibrarySync } = await import('../src/editor/services/tapeLibrarySyncStatus.js')
+  await retryTapeLibrarySync()
+  assert.deepEqual(tapeSyncStatusSnapshot(), { error: null, pending: false })
+  let runs = 0, finish
+  setTapeSyncRetry(() => { runs++; return new Promise(resolve => { finish = resolve }) })
+  setTapeSyncStatus({ error: '테이프 1개를 계정에 올리지 못했어요.' })
+  const first = retryTapeLibrarySync()
+  retryTapeLibrarySync()
+  assert.equal(runs, 1)
+  assert.equal(tapeSyncStatusSnapshot().pending, true)
+  finish(); await first
+  assert.equal(tapeSyncStatusSnapshot().pending, false)
+  setTapeSyncRetry(null); setTapeSyncStatus({ error: null, pending: false })
+  assert.deepEqual(tapeSyncStatusSnapshot(), { error: null, pending: false })
+})

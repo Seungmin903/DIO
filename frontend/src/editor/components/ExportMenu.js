@@ -11,7 +11,7 @@ import { isAnimatedMedia } from '../stickerAssets'
 
 export { ExportButton }
 
-// 무엇을 내보낼지 (문서 앱 인쇄 창처럼: 현재 페이지 · 전체 · 페이지 지정). 영역 내보내기는 지금은 뺐다.
+// 페이지 범위와 별도로 현재 페이지 PNG에서 좌표 영역을 고를 수 있다.
 const MODES = [
   { id: 'current', label: '현재 페이지' },
   { id: 'all', label: '전체 페이지' },
@@ -117,6 +117,7 @@ export default function ExportMenu({ mobilePortrait = false, anchor, doc, curren
         {!!invalid && <Text accessibilityRole="alert" style={styles.hint}>{invalid}</Text>}
         {!!failure && <Text accessibilityRole="alert" style={styles.hint}>{failure}</Text>}
         <ExportButton primary title={RUN_TITLES[format]} onPress={() => run()} disabled={!!invalid || changed} />
+        {mode === 'current' && format === 'png' && onRegion && <ExportButton title="영역 선택 내보내기" label="영역 선택" onPress={onRegion} disabled={changed} />}
       </ScrollView>
     </View>
     </View>
