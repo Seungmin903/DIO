@@ -1,5 +1,5 @@
 import {decodeElement,encodeElement,sharedObject} from './canvasElements.js'
-import { canvasContent, stable, sameElements } from './canvasApi.js'
+import { canvasContent, stable, sameElements, remapObjectIds } from './canvasApi.js'
 import { assertCanvasBatchLimits, MAX_CANVAS_BATCH_ITEMS } from './canvasBatchLimits.js'
 const copy=v=>JSON.parse(JSON.stringify(v))
 const permanentRejection=error=>[400,403,404,405,410,413,415,422].includes(error.status)
@@ -89,7 +89,8 @@ export function createCanvasSession({api,storage,key,legacyKey,pageId,diaryId,cr
   const apply=async(page,request)=>{const counted=request?.canvasWriteMode==='personal';if(counted)echoes.push(Date.now());sent=true;try{const result=await api.apply(page,request);if(result?.operationId!=null)mine.add(String(result.operationId));return result}catch(error){if(counted)echoes.pop();throw error}}
   const push=entry=>{journal.queue.push(compactEdit(entry))}
   // 동기화 결과. 화면 반영용 objects·expectedLocal 은 읽을 때 만든다(unchanged 면 읽지 않아 복사·미리보기 비용이 없다).
-  const syncResult=fields=>{let objects,expectedLocal;return {status:'saved',unchanged:false,...fields,get objects(){return objects??=preview()},get expectedLocal(){return expectedLocal??=copy(journal.uiLocal)}}}
+  // idRemaps: 편집기가 아직 옛 ID 를 들고 있는 복구된 생성 ID(old → new). 편집기가 결과를 받아들이면(acceptImport) 비운다
+  const syncResult=fields=>{let objects,expectedLocal;return {status:'saved',unchanged:false,idRemaps:journal.pendingIdRemaps?{...journal.pendingIdRemaps}:null,...fields,get objects(){return objects??=preview()},get expectedLocal(){return expectedLocal??=copy(journal.uiLocal)}}}
   const preview=()=>{
     let objects=(journal.base??[]).map(decodeElement)
     for(const entry of journal.queue){
@@ -181,6 +182,8 @@ export function createCanvasSession({api,storage,key,legacyKey,pageId,diaryId,cr
       if(queued.order)queued.order=queued.order.map(id=>id===conflictId?nextId:id)
     }
     journal.uiLocal=(journal.uiLocal??[]).map(remapObject)
+    // The editor document keeps the old ID until it imports the result; edits it sends meanwhile are renamed in enqueue.
+    journal.pendingIdRemaps={...(journal.pendingIdRemaps??{}),[conflictId]:nextId}
     journal.resolvedIdConflicts=[...(journal.resolvedIdConflicts??[]),{oldElementId:conflictId,newElementId:nextId,entryId:entry.id,at:Date.now()}].slice(-50)
     // requestFor detected this before any request was sent, so its command ID is safe to replace.
     entry.id=createId();delete entry.request;delete entry.parts;delete entry.partIndex;delete entry.mediaApiVersion
@@ -225,11 +228,14 @@ export function createCanvasSession({api,storage,key,legacyKey,pageId,diaryId,cr
     async enqueue(entry){
       active();if(!restored)throw new Error('편집 기록을 먼저 확인해 주세요.')
       if(journal.recent.includes(entry.id)||journal.queue.some(row=>row.id===entry.id))return
+      // 복구로 이름이 바뀐 요소를 편집기가 아직 옛 ID 로 보내면 새 ID 로 바꾼다(옛 ID 는 서버에서 다른 요소다)
+      const remaps=journal.pendingIdRemaps
+      if(remaps)entry={...entry,before:remapObjectIds(entry.before,remaps),after:remapObjectIds(entry.after,remaps),...(entry.order?{order:entry.order.map(id=>remaps[id]??id)}:{})}
       const compact=compactEdit(entry)
       canvasContent(compact.before);canvasContent(compact.after)
       journal.queue.push(compact);journal.uiLocal=copy(entry.after.filter(sharedObject));journal.uiLocalAt=Date.now();await persist()
     },
-    async acceptImport(objects){active();journal.uiLocal=copy(objects);journal.uiLocalAt=Date.now();await persist()},
+    async acceptImport(objects){active();journal.uiLocal=copy(objects);journal.uiLocalAt=Date.now();delete journal.pendingIdRemaps;await persist()},
     synchronize(){
       if(running)return running
       running=(async()=>{

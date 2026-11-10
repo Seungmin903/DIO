@@ -255,3 +255,15 @@ test('개인 경로(1인 다이어리)는 저장 응답에 작업 번호가 없�
  await s.enqueue({id:'mine',pageId,before:[text()],after:[text('B')]});state='new'
  const next=await s.synchronize();assert.equal(next.history.nextUndo.operationId,'6')
 })
+test('ID 충돌 복구 뒤 편집기가 옛 ID로 보낸 편집은 새 ID로 바꿔 저장하고, 결과를 받아들이면 바꾸기를 끝낸다',async()=>{
+ const f=fixture(),s=f.session();await s.restore([]);await s.synchronize()
+ await s.enqueue({id:'mine',pageId,before:[],after:[text('mine')]});f.setRows([row(text('friend'),1)])
+ const result=await s.synchronize(),renamed=result.idRemaps[id]
+ assert.ok(renamed&&renamed!==id)
+ await s.enqueue({id:'stale',pageId,before:[text('mine')],after:[text('mine edited')]})
+ await s.synchronize()
+ assert.equal(f.rows().find(e=>e.elementId===id).propertiesJson.text,'friend','옛 ID(상대 요소)는 그대로')
+ assert.equal(f.rows().find(e=>e.elementId===renamed).propertiesJson.text,'mine edited')
+ await s.acceptImport([text('friend'),text('mine edited',renamed)])
+ const after=await s.synchronize();assert.equal(after.idRemaps,null)
+})
