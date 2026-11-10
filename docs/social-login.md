@@ -70,6 +70,11 @@ Google의 고정 JWKS에서 RS256 서명, issuer, audience, azp, 만료, subject
   - Apple 토큰은 DB에 저장하지 않는다. authorizationCode는 5분 안에 한 번만 쓸 수 있다.
   - 철회가 실패하면 탈퇴하지 않는다: `INVALID_APPLE_AUTHORIZATION`(400, code 만료·재사용), `APPLE_ACCOUNT_MISMATCH`(403, 다른 애플 ID), `APPLE_REVOKE_UNAVAILABLE`(503), `APPLE_REVOKE_NOT_CONFIGURED`(503, 키 미설정).
   - 설정: `AUTH_APPLE_TEAM_ID`(기본 `5574VUMQN5`), `AUTH_APPLE_KEY_ID`(Apple Developer > Keys의 Sign in with Apple 키 ID), `AUTH_APPLE_PRIVATE_KEY`(.p8에서 BEGIN/END 줄을 뺀 본문 한 줄. 비밀값). client_secret은 ES256 JWT(iss=Team ID, sub=번들 ID, aud=`https://appleid.apple.com`, 유효 5분)로 요청마다 만든다.
+- 탈퇴 시 구글 연결 해제(앱에서 처리, 서버 변경 없음):
+  - 흐름: `DELETE /api/v1/me` 성공 → 앱이 로그인 상태를 정리 → 이 세션이 구글 로그인(`provider: 'google'`)이면 구글 SDK `revokeAccess()` → `signOut()`. 구글 계정 설정 > 연결된 앱에서 DIO가 사라지고, 같은 구글 계정으로 다시 로그인하면 계정 선택·동의 창을 거쳐 신규 가입으로 진행한다.
+  - 서버는 구글 토큰을 저장하지 않으므로(`offlineAccess: false`) 기기 SDK로 끊는다. 앱을 다시 켜 SDK 계정이 비어 있으면 `signInSilently()`로 기억된 계정을 창 없이 되살려 끊는다(`frontend/src/auth/googleLogin.native.js` `revokeGoogleAccess`).
+  - 탈퇴는 이미 끝났으므로 해제를 기다리지 않는다. 실패해도 경고 로그 `[auth] GOOGLE_REVOKE_FAILED`만 남긴다. 애플과 달리 해제 실패로 탈퇴를 막지 않는다.
+  - 한계: 이 기기에서 구글로 로그인한 세션일 때만 끊는다. 이메일로 로그인한 회원에게 구글이 연결돼 있거나, 이 기기에 구글 로그인 기록이 없으면 끊지 않는다. 이때는 사용자가 구글 계정 설정에서 직접 지워야 한다. 이메일·애플 회원의 탈퇴 동작은 바뀌지 않는다. 웹에는 구글 로그인이 없어 해당 없다.
 - 후속: 재전송 방지용 nonce 검토.
 
 ## 설정·배포·실기기 테스트

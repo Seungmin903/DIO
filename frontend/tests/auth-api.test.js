@@ -466,6 +466,51 @@ test('애플 회원 탈퇴는 애플 재확인 후 authorizationCode를 보내�
  }
 });
 
+test('구글로 로그인한 회원은 탈퇴에 성공한 뒤 구글 연결을 해제한다', async () => {
+ const order=[];let revoked=0;
+ const api=createAuthApi({baseUrl:'http://localhost:8080/api',googleSignIn:async()=>({idToken:'google-id-token',email:user.email}),
+  googleRevoke:async()=>{revoked++;order.push('revoke');},
+  fetchImpl:async(url,init)=>{if(init.method==='DELETE')order.push('delete');return url.endsWith('/oauth/google')?response(tokens()):response(null,204);}});
+ const loggedIn=await api.social('google');
+ await api.withdraw(loggedIn);
+ assert.equal(api.getSessionKey(),null);
+ await new Promise(resolve=>setImmediate(resolve));
+ assert.equal(revoked,1);assert.deepEqual(order,['delete','revoke']);
+});
+
+test('구글 연결 해제가 실패하거나 끝나지 않아도 탈퇴는 완료되고 로그인 상태가 정리된다', async () => {
+ const original=console.warn, warnings=[];console.warn=(...args)=>warnings.push(args);
+ try{
+  for(const revoke of [async()=>{throw Object.assign(new Error('revoke failed'),{code:'NETWORK_ERROR'});},()=>{throw new Error('sync failure');},()=>new Promise(()=>{})]){
+   const api=createAuthApi({baseUrl:'http://localhost:8080/api',googleSignIn:async()=>({idToken:'google-id-token',email:user.email}),googleRevoke:revoke,
+    fetchImpl:async url=>url.endsWith('/oauth/google')?response(tokens()):response(null,204)});
+   const loggedIn=await api.social('google');
+   await api.withdraw(loggedIn);
+   assert.equal(api.getSessionKey(),null);
+  }
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.deepEqual(warnings.map(args=>args[0]),['[auth] GOOGLE_REVOKE_FAILED','[auth] GOOGLE_REVOKE_FAILED']);
+  assert.equal(warnings[0][1],'NETWORK_ERROR');
+ }finally{console.warn=original;}
+});
+
+test('이메일 · 애플 회원 탈퇴와 실패한 탈퇴는 구글 연결 해제를 부르지 않는다', async () => {
+ let revoked=0;const googleRevoke=async()=>{revoked++;};
+ const email=createAuthApi({baseUrl:'http://localhost:8080/api',googleRevoke,fetchImpl:async url=>url.endsWith('/login')?response(tokens()):response(null,204)});
+ await email.withdraw(await email.login({email:user.email,password:'Password123!'}));
+ const apple=createAuthApi({baseUrl:'http://localhost:8080/api',googleRevoke,appleSignIn:async()=>({idToken:'id',authorizationCode:'apple-code'}),
+  fetchImpl:async(url,init)=>url.endsWith('/oauth/apple')?response(tokens()):(!init.body?response({code:'APPLE_REAUTH_REQUIRED'},400):response(null,204))});
+ await apple.withdraw(await apple.social('apple'));
+ assert.equal(apple.getSessionKey(),null);
+ const failed=createAuthApi({baseUrl:'http://localhost:8080/api',googleRevoke,googleSignIn:async()=>({idToken:'google-id-token',email:user.email}),
+  fetchImpl:async url=>url.endsWith('/oauth/google')?response(tokens()):response({code:'OWNERSHIP_TRANSFER_REQUIRED',detail:'소유권을 넘겨 주세요.'},409)});
+ const member=await failed.social('google'), key=failed.getSessionKey();
+ await assert.rejects(failed.withdraw(member),{status:409});
+ assert.equal(failed.getSessionKey(),key);
+ await new Promise(resolve=>setImmediate(resolve));
+ assert.equal(revoked,0);
+});
+
 test('회원 탈퇴 실패 시 로그인 세션을 유지해 다시 시도할 수 있다', async () => {
  const api=createAuthApi({baseUrl:'http://localhost:8080/api',fetchImpl:async(url)=>
   response(url.endsWith('/login') ? tokens() : {code:'WITHDRAWAL_FAILED',detail:'탈퇴 처리에 실패했어요.'}, url.endsWith('/login') ? 200 : 500)});

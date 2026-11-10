@@ -51,7 +51,7 @@ export function authBaseUrl(value) {
 // Access tokens and development-server Basic credentials stay in memory.
 // Only the injected native secure store persists refresh credentials.
 // Never save passwords or tokens in AsyncStorage.
-export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhotoBody, googleSignIn, appleSignIn, now = Date.now, accessTokenHeader = 'Authorization', allowDevelopmentAccess = false, developmentAccessStore = null, presetDevelopmentAccess = null, sessionStore = null }) {
+export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhotoBody, googleSignIn, googleRevoke, appleSignIn, now = Date.now, accessTokenHeader = 'Authorization', allowDevelopmentAccess = false, developmentAccessStore = null, presetDevelopmentAccess = null, sessionStore = null }) {
   if (!['Authorization', 'X-DIO-Access-Token'].includes(accessTokenHeader)) throw new Error('인증 헤더 설정을 확인해 주세요.');
   const base = authBaseUrl(baseUrl);
   const accessOrigin = new URL(base).origin;
@@ -564,7 +564,13 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
         }
         withdrawn = true;
       } finally {
-        if (withdrawn && session === current) await endLocalSession();
+        if (withdrawn && session === current) {
+          await endLocalSession();
+          // 구글로 로그인한 회원은 DIO 탈퇴가 끝난 뒤 구글 쪽 앱 연결도 끊는다(구글 계정 설정 > 연결된 앱에서 DIO 제거).
+          // 탈퇴는 이미 끝났으므로 기다리지 않고, 실패해도 경고만 남긴다.
+          if (current.provider === 'google' && typeof googleRevoke === 'function')
+            Promise.resolve().then(googleRevoke).catch(error => console.warn('[auth] GOOGLE_REVOKE_FAILED', error?.code ?? ''));
+        }
       }
     },
     // 앱 잠금 4자리를 잊었을 때(지라 799): 지금 로그인한 계정의 주인인지 다시 확인한다. 지금 세션 · 기기 정보는 그대로 둔다.
