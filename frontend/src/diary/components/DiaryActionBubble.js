@@ -35,6 +35,7 @@ export function bubblePlacement(anchor, size, window) {
  * 꼬리 없는 작은 말풍선이다. 바깥을 누르면 닫힌다.
  * anchor: 버튼의 창 안 자리 { x, y, width, height } (재지 못했으면 null, 화면 가운데에 뜬다).
  * actions: [{ id, label(접근성 이름), text, icon, filled, disabled, onPress }]. 휴지통으로 보내기는 30일 안에 되돌릴 수 있어 적색이 아니라 네이비다.
+ * 행 사이 구분선은 두지 않는다(사용자 결정 2026-11-10)
  */
 export default function DiaryActionBubble({ anchor, title, actions, onClose, visible = true, onDismiss }) {
   const window = useWindowDimensions();
@@ -47,7 +48,7 @@ export default function DiaryActionBubble({ anchor, title, actions, onClose, vis
       {/* 바깥을 누르면 닫힌다. 막(scrim)은 깔지 않는다 */}
       <Pressable style={StyleSheet.absoluteFill} onPress={onClose} accessibilityLabel="닫기" />
       <View accessibilityRole="menu" accessibilityLabel={`${title} 동작`} style={[local.bubble, { left: place.left, top: place.top, height: place.height, width: place.width }]}>
-        {actions.map((action, index) => (
+        {actions.map(action => (
           <Pressable
             key={action.id}
             accessibilityRole="button"
@@ -55,7 +56,7 @@ export default function DiaryActionBubble({ anchor, title, actions, onClose, vis
             accessibilityState={{ disabled: !!action.disabled }}
             disabled={action.disabled}
             onPress={action.onPress}
-            style={({ pressed }) => [local.row, index > 0 && local.rowDivider, action.disabled && { opacity: DISABLED_OPACITY }, pressed && local.pressed]}
+            style={({ pressed }) => [local.row, action.disabled && { opacity: DISABLED_OPACITY }, pressed && local.pressed]}
           >
             {/* danger: 되돌리기 어려운 동작(다이어리에서 제외 · 차단하기)은 글자 · 아이콘을 dangerStrong 으로(2026-11-08 지라 686) */}
             <AppIcon name={action.icon} size={20} forText={15} color={action.danger ? colors.dangerStrong : colors.text} fill={action.filled ? colors.text : 'none'} />
@@ -70,8 +71,6 @@ export default function DiaryActionBubble({ anchor, title, actions, onClose, vis
 const local = StyleSheet.create({
   bubble: { ...bubble, position: 'absolute', width: WIDTH, padding: PAD },
   row: { height: ROW, flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 12, borderRadius: radius.md },
-  // 행 사이 가는 선(위 행과 이어지는 면이 눌린 색으로 바뀌어도 선이 보이도록 행 안쪽에 둔다)
-  rowDivider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.cardBorder, borderTopLeftRadius: 0, borderTopRightRadius: 0 },
   rowText: { flex: 1, color: colors.text, fontSize: 15, fontWeight: '700' },
   pressed: {}, // 눌림 효과 없음(사용자 지시)
 });

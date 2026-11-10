@@ -61,8 +61,29 @@ test('675 추가: 스티커 폴더 안 추가는 머리줄 아래 `스티커 추
   assert.match(screen, /tool === 'splitIn' \? folder : undefined/)
 })
 
+test('폴더 안 `○○ 추가` 버튼은 오른쪽(폴더 밖 머리줄 추가 버튼과 같은 쪽), 스티커 폴더 안에서도 사진 속 대상 오리기가 열린다', () => {
+  const screen = read('../src/diary/screens/DecorationStudioScreen.js')
+  assert.match(screen, /addRow: \{ alignSelf: 'flex-end'/)
+  const inFolder = screen.slice(screen.indexOf("addMenu.kind === 'stickerIn' ? ["), screen.indexOf("] : addMenu.kind === 'tape'"))
+  assert.match(inFolder, /id: 'cutout'[\s\S]*onPress: \(\) => openPickerAfterMenu\(\(\) => loginGate\('사진 속 대상 오리기', \(\) => setTool\('cutout'\)\)\)/)
+  // 폴더 밖 머리줄 메뉴도 같다: openPickerAfterMenu 는 말풍선(모달)이 다 닫힌 뒤 콜백을 부른다(iOS 는 닫히는 모달 위에 새 모달 · 선택기를 띄우지 못한다)
+  const outside = screen.slice(screen.indexOf("] : addMenu.kind === 'cover' ? ["), screen.indexOf('{coverPages && <PdfCoverPagePicker'))
+  assert.match(outside, /id: 'cutout'[\s\S]*onPress: \(\) => openPickerAfterMenu\(\(\) => loginGate\('사진 속 대상 오리기', \(\) => setTool\('cutout'\)\)\)/)
+  assert.doesNotMatch(screen, /closeAddMenu\(\); loginGate\('사진 속 대상 오리기'/)
+  assert.match(screen, /메뉴 모달이 완전히 닫힌 뒤 시스템 선택 창을 연다[\s\S]*const openPickerAfterMenu = action =>/)
+  assert.match(screen, /<StickerCutoutModal folder=\{folder\}/)
+})
+
 test('675 추가: 테이프 폴더 안 추가도 머리줄 아래 `테이프 추가` 버튼이고 바로 사진을 고른다', () => {
   const screen = read('../src/diary/screens/DecorationStudioScreen.js')
   assert.doesNotMatch(screen, /label="이 폴더에 테이프 추가"/)
   assert.match(screen, /\{tapeFolder && <View style=\{s\.addRow\}>\{addTool\(\{ kind: 'tapeIn', icon: 'tape', title: '테이프 추가'.*onPress: \(\) => addTapeFromPhoto\(tapeFolder\.id\)/)
+})
+
+test('동작 말풍선(DiaryActionBubble)은 행 사이 구분선이 없다', () => {
+  const bubble = read('../src/diary/components/DiaryActionBubble.js')
+  // 행 사이 선은 이 컴포넌트 안에서만 그렸다(행 위 · 아래 테두리). 다시 생기면 여기서 걸린다
+  assert.doesNotMatch(bubble, /rowDivider|border(Top|Bottom)(Width|Color)/)
+  // 각 행은 row 스타일 하나만 받는다(구분선 스타일을 행마다 덧붙이지 않는다)
+  assert.match(bubble, /style=\{\(\{ pressed \}\) => \[local\.row, action\.disabled/)
 })
