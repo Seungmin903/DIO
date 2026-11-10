@@ -2,6 +2,8 @@ import { normalizeSharingNickname, sharingNicknameError, normalizeInviteEmail, i
 import { AUTHENTICATION_FAILED_MESSAGE } from '../auth/sessionExpiry.js';
 
 export const isSharingDiaryId = id => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id || '');
+const INVITE_COVER_CACHE_TTL_MS = 30_000;
+const INVITE_COVER_CACHE_MAX_LENGTH = 2 * 1024 * 1024;
 
 // 로그인 세션에 묶인 공유 API. 로컬 다이어리를 서버 다이어리로 가장하지 않는다.
 export function createSharingApi({ user, auth, fetchImpl = globalThis.fetch, buildPhotoBody,
@@ -54,7 +56,7 @@ export function createSharingApi({ user, auth, fetchImpl = globalThis.fetch, bui
   }
   const path = id => { ensureServerId(id); return `/diaries/${encodeURIComponent(id)}`; };
   const uri = value => value ? new URL(value, baseUrl).href : null;
-  const cachedPhoto = (key, load, ttlMs = photoCacheTtlMs) => {
+  const cachedPhoto = (key, load, ttlMs = photoCacheTtlMs, maxLength = Infinity) => {
     const cached = photoCache.get(key);
     if (cached && cached.expiresAt > now()) {
       // Map insertion order is our small LRU policy.
@@ -66,7 +68,8 @@ export function createSharingApi({ user, auth, fetchImpl = globalThis.fetch, bui
     const entry = { value: pending, expiresAt: now() + ttlMs };
     photoCache.set(key, entry);
     while (photoCache.size > maxPhotoCacheEntries) photoCache.delete(photoCache.keys().next().value);
-    pending.then(value => { if (!value && photoCache.get(key) === entry) photoCache.delete(key); }, () => { if (photoCache.get(key) === entry) photoCache.delete(key); });
+    const remove = () => { if (photoCache.get(key) === entry) photoCache.delete(key); };
+    pending.then(value => { if (!value || value.length > maxLength) remove(); }, remove);
     return pending;
   };
   async function privatePhoto(value) {
@@ -87,17 +90,24 @@ export function createSharingApi({ user, auth, fetchImpl = globalThis.fetch, bui
     if (target.origin !== new URL(baseUrl).origin || target.username || target.password) return null;
     return cachedPhoto(`account:${target.href}`, () => readPhoto(target, () => source.headers), accountPhotoCacheTtlMs);
   }
-  async function readPhoto(url, getHeaders) {
+  async function readPhoto(url, getHeaders, coverImage = false, signal) {
     const revision = generation;
-    const controller = new AbortController(), timer = setTimeout(() => controller.abort(), 15000);
+    const controller = new AbortController();
+    const abort = () => controller.abort();
+    signal?.addEventListener('abort', abort, { once: true });
+    const timer = setTimeout(abort, 15000);
     try {
+      if (signal?.aborted) return null;
       const authorization = await getHeaders();
       if (!active || revision !== generation) return null;
       const response = await fetchImpl(url.href, { headers: authorization, signal: controller.signal, redirect: 'error', credentials: 'omit' });
       if (!response.ok) return null; // 사진 실패로 멤버 관리 전체를 차단하지 않는다.
-      if (!response.headers.get('content-type')?.startsWith('image/png')) return null;
+      const mime = response.headers.get('content-type')?.split(';', 1)[0].trim().toLowerCase();
+      if (!(coverImage ? ['image/png', 'image/jpeg', 'image/webp', 'image/gif'].includes(mime) : mime === 'image/png')) return null;
       const bytes = new Uint8Array(await response.arrayBuffer());
-      if (bytes.length > 6 * 1024 * 1024) return null;
+      if (!active || revision !== generation) return null;
+      const maxBytes = coverImage ? (mime === 'image/gif' ? 15 : 5) : 6;
+      if (bytes.length > maxBytes * 1024 * 1024) return null;
       const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
       let encoded = '';
       for (let i = 0; i < bytes.length; i += 3) {
@@ -105,14 +115,49 @@ export function createSharingApi({ user, auth, fetchImpl = globalThis.fetch, bui
         encoded += alphabet[(n >>> 18) & 63] + alphabet[(n >>> 12) & 63]
           + (i + 1 < bytes.length ? alphabet[(n >>> 6) & 63] : '=') + (i + 2 < bytes.length ? alphabet[n & 63] : '=');
       }
-      return `data:image/png;base64,${encoded}`;
+      return `data:${mime};base64,${encoded}`;
     } catch { return null; }
-    finally { clearTimeout(timer); }
+    finally { clearTimeout(timer); signal?.removeEventListener('abort', abort); }
   }
   const ensureServerId = id => {
     if (!isSharingDiaryId(id))
       fail('LOCAL_DIARY', '서버에서 만든 다이어리만 공유할 수 있어요.');
   };
+  async function inviteDiary(row, token, { signal, reuseImages = false } = {}) {
+    const revision = generation;
+    const pattern = row.coverStyle && row.coverStyle !== 'PLAIN' ? row.coverStyle.toLowerCase() : null;
+    const diary = { diaryId: row.diaryId, id: row.diaryId, title: row.title || row.diaryTitle,
+      color: row.coverColor, pattern, pageSize: row.pageSize };
+    if (!row.cover) return diary;
+
+    const images = new Map();
+    async function previewImage(item) {
+      const id = item?.mediaFileId;
+      if (!isSharingDiaryId(id)) return item;
+      if (!images.has(id)) {
+        const url = new URL(`${baseUrl}/invites/${encodeURIComponent(token)}/cover-media/${encodeURIComponent(id)}`);
+        const load = () => readPhoto(url, () => headers(url.href), true, reuseImages ? undefined : signal);
+        // A shared download must survive cancellation by just one of its callers.
+        images.set(id, reuseImages
+          ? cachedPhoto(`invite:${url.href}`, load, INVITE_COVER_CACHE_TTL_MS, INVITE_COVER_CACHE_MAX_LENGTH)
+          : load());
+      }
+      const { mediaFileId, ...preview } = item;
+      return { ...preview, src: await images.get(id) };
+    }
+    const cover = { ...row.cover };
+    if (pattern && !cover.pattern && Object.keys(cover).every(key => key === 'kind' || key === 'color')) {
+      cover.pattern = { type: pattern, tone: ['dot', 'gingham', 'stripe'].includes(pattern) ? 'light' : 'dark' };
+    }
+    const [photo, stickers] = await Promise.all([
+      previewImage(cover.photo),
+      Array.isArray(cover.stickers)
+        ? Promise.all(cover.stickers.map(item => item?.asset || item?.builtin ? item : previewImage(item)))
+        : cover.stickers,
+    ]);
+    if (!active || revision !== generation) fail('DISPOSED', '화면을 다시 열어 주세요.');
+    return { ...diary, cover: { ...cover, photo, stickers } };
+  }
   const inviteView = row => ({ ...row, inviteId: String(row.inviteId), canOpen: row.status === 'PENDING',
     diary: { diaryId: row.diaryId, id: row.diaryId, title: row.diaryTitle }, inviter: row.inviterNickname });
   async function received({ cursor, signal } = {}) {
@@ -131,17 +176,46 @@ export function createSharingApi({ user, auth, fetchImpl = globalThis.fetch, bui
       actionable: row.status === 'PENDING', createdAt: row.createdAt, readAt: row.createdAt,
       diary: { title: row.diaryTitle } })), hasNext: result.hasNext, nextCursor: result.hasNext ? String(page + 1) : null };
   }
-  async function invitation(id) {
+  async function inviteDetail(own, signal) {
+    const detail = await request(`/invites/${encodeURIComponent(own.token)}`, { signal });
+    return { ...own, ...detail, inviteId: own.inviteId, token: own.token,
+      diary: await inviteDiary({ ...own, ...detail }, own.token, { signal, reuseImages: detail.status === 'PENDING' }),
+      canOpen: detail.status === 'PENDING' };
+  }
+  async function receivedWithCovers({ cursor, signal, inviteIds } = {}) {
+    const page = await received({ cursor, signal });
+    const pending = page.items.filter(row => row.actionable && (!inviteIds || inviteIds.has(row.inviteId)));
+    const loadCover = async row => {
+      const own = invitations.get(row.inviteId);
+      if (!own?.token || signal?.aborted) return row;
+      try {
+        const detail = await inviteDetail(own, signal);
+        if (detail.canOpen) return { ...row, diary: detail.diary };
+      } catch (error) {
+        if (error?.name === 'AbortError' || error?.code === 'DISPOSED') throw error;
+      }
+      return row;
+    };
+    const enriched = new Map();
+    // Limit simultaneous downloads when many unread invitations have photo covers.
+    const batchSize = 4;
+    for (let index = 0; index < pending.length && !signal?.aborted; index += batchSize) {
+      const batch = await Promise.all(pending.slice(index, index + batchSize).map(loadCover));
+      batch.forEach(row => enriched.set(row.inviteId, row));
+    }
+    if (signal?.aborted) throw Object.assign(new Error('Cancelled'), { name: 'AbortError' });
+    return { ...page, items: page.items.map(row => enriched.get(row.inviteId) ?? row) };
+  }
+  async function invitation(id, { signal } = {}) {
     // 목록의 오래된 상태를 그대로 사용하지 않고 본인 수신 목록을 다시 확인한다.
     let cursor = null;
     do {
-      const result = await received({ cursor });
+      const result = await received({ cursor, signal });
       if (result.items.some(row => row.inviteId === id)) {
         const own = invitations.get(id);
         if (own.status !== 'PENDING') return own;
-        const detail = await request(`/invites/${encodeURIComponent(own.token)}`);
-        const fresh = { ...own, ...detail, inviteId: own.inviteId, token: own.token,
-          diary: { ...own.diary, title: detail.title || own.diary.title }, canOpen: detail.status === 'PENDING' };
+        const fresh = await inviteDetail(own, signal);
+        if (signal?.aborted) throw Object.assign(new Error('Cancelled'), { name: 'AbortError' });
         invitations.set(id, fresh); return fresh;
       }
       cursor = result.nextCursor;
@@ -319,7 +393,7 @@ export function createSharingApi({ user, auth, fetchImpl = globalThis.fetch, bui
   }
   return {
     self, server: true, supportsReadState: false, supportsExportSettings: false, canOpenDiary: true,
-    notificationApi: { list: received, async count() {
+    notificationApi: { list: receivedWithCovers, async count() {
       let cursor = null, pending = 0;
       do { const result = await received({ cursor }); pending += result.items.filter(row => row.actionable).length; cursor = result.nextCursor; } while (cursor);
       // 초대 API에는 읽음 상태가 없다. 이 값은 미수락 초대 수로만 사용한다.
@@ -379,7 +453,7 @@ export function createSharingApi({ user, auth, fetchImpl = globalThis.fetch, bui
       catch { fail('INVALID_LINK', '초대 링크를 확인해 주세요.'); }
       if (!token) fail('INVALID_LINK', '초대 링크를 확인해 주세요.');
       const row = await request(`/invites/${encodeURIComponent(token)}`);
-      const result = { ...row, inviteId: token, token, canOpen: row.status === 'PENDING', memberCount: row.currentMembers, diary: { diaryId: row.diaryId, title: row.title } };
+      const result = { ...row, inviteId: token, token, canOpen: row.status === 'PENDING', memberCount: row.currentMembers, diary: await inviteDiary(row, token) };
       invitations.set(token, result); return result;
     },
     async accept(id, nickname, { photoUri = self.photoUri, acknowledgeBlockedMembers = false } = {}) {

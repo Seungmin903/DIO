@@ -11,7 +11,7 @@ import { isMultiSelectKey } from '../../utils/modifiers'
 import { coverLayout, photoInnerBox } from '../../utils/objects'
 import { isStripFrame, stripCellAt } from '../../utils/photoStrip'
 import { pageSize } from '../../utils/pageGeometry.js'
-import { placeHorizontal, placeVertical } from '../../utils/popoverPlacement'
+import { paperPanelPlacement, placeHorizontal, placeVertical } from '../../utils/popoverPlacement'
 import { fitTextHeightPatch, textLayoutKey } from '../../utils/text'
 import { eraserPreviewPage } from '../../utils/eraser.js'
 import { createLassoOutline, resolveLassoOutline } from '../../utils/lassoOutline.js'
@@ -94,6 +94,7 @@ export default function Canvas({
   onCompactMenu,
   page,
   zoom,
+  visiblePage,
   selectedIds,
   cropId,
   dispatch,
@@ -349,6 +350,7 @@ export default function Canvas({
   // 빈 곳을 길게 누르면 뜨는 메뉴: 붙여넣기 · 속지 색. { x, y } 는 페이지 좌표, panel: 'paper' 면 그 자리에 속지 색 말풍선
   // 선택 도구는 이 페이지가 터치를 받아 직접 열고, 손바닥 도구는 화면을 옮기는 보는 영역이 길게 누른 자리를 알려 준다(menuRequest).
   const [emptyMenu, setEmptyMenu] = useState(null)
+  const [paperPanelHeight, setPaperPanelHeight] = useState(null)
   const canPageMenu = canSelect || (!readOnly && !textEditing && activeTool === 'hand')
   useEffect(() => {
     const inside = menuRequest && menuRequest.x >= 0 && menuRequest.y >= 0 && menuRequest.x <= PAGE_WIDTH && menuRequest.y <= PAGE_HEIGHT
@@ -610,11 +612,13 @@ export default function Canvas({
           appearance={paperAppearance}
           onChange={(appearance, all) => onPaperAppearance?.(appearance, all)}
           onClose={() => setEmptyMenu(null)}
+          onLayout={(event) => setPaperPanelHeight(event.nativeEvent.layout.height)}
           planner={planner && planner.kind !== 'route' ? planner.normalize(page.planner) : null}
           plannerKind={planner?.kind}
           showFont={paperPrintsText(page.backgroundAssetId)}
           onPlannerOptions={changePlannerOptions}
-          style={paperBubblePosition(emptyMenu, zoom, PAGE_WIDTH, PAGE_HEIGHT, (planner ? PLANNER_OPTION_HEIGHT[planner.kind] ?? 0 : 0) + (paperPrintsText(page.backgroundAssetId) ? 96 : 0))}
+          style={paperPanelPlacement({ at: emptyMenu, zoom, pageWidth: PAGE_WIDTH, pageHeight: PAGE_HEIGHT, visible: visiblePage,
+            height: paperPanelHeight ?? (290 + (planner ? PLANNER_OPTION_HEIGHT[planner.kind] ?? 0 : 0) + (paperPrintsText(page.backgroundAssetId) ? 96 : 0)) })}
         />
       )}
       {emptyMenu && !emptyMenu.panel && canPageMenu && (
@@ -704,14 +708,6 @@ export default function Canvas({
 
 // 누른 자리 기준 메뉴도 선택 바와 같은 규칙(utils/popoverPlacement): 누른 자리 위 먼저, 안 되면 아래, 가로는 가운데 맞춤
 const pointBox = (at, zoom) => ({ top: at.y * zoom, bottom: at.y * zoom, handleY: null })
-// 속지 색 말풍선
-const PAPER_BUBBLE = { width: 300, height: 290 }
-function paperBubblePosition(at, zoom, pageWidth, pageHeight, extraHeight = 0) {
-  const left = placeHorizontal(at.x * zoom, PAPER_BUBBLE.width, pageWidth * zoom)
-  // 플래너 옵션이 붙으면 창이 길어진다.
-  const { top } = placeVertical(pointBox(at, zoom), PAPER_BUBBLE.height + extraHeight, pageHeight * zoom)
-  return { position: 'absolute', zIndex: 6, width: PAPER_BUBBLE.width, left, top }
-}
 // 데일리 플래너 고르는 창(시간 · 날짜): 누른 칸 위에 먼저, 안 되면 아래
 function pickerPosition(at, zoom, pageWidth, pageHeight, size) {
   const left = placeHorizontal(at.x * zoom, size.width, pageWidth * zoom)

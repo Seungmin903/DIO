@@ -1,4 +1,5 @@
 import { createId, rotateVector } from './common.js'
+import { isDashedKind, dashedObjectContour, dashedObjectSamples } from './dashedStroke.js'
 import { createStroke, penContour, strokeOutline, samplePenCurve } from './strokes.js'
 import { isNibKind, nibContour, nibCurve, withDistances, withTaper } from './nibStroke.js'
 
@@ -65,6 +66,7 @@ function outlinePolygons(path) {
 }
 function strokePolygons(object) {
   const { points, penKind: kind, strokeWidth: width } = object
+  if (isDashedKind(kind)) return outlinePolygons(dashedObjectContour(object))
   if (isNibKind(kind)) return outlinePolygons(nibContour(object))
   if (kind === 'felt' && [2, 3].includes(object.renderVersion)) return outlinePolygons(penContour(points, width, kind))
   if (points.length > 1 && (kind === 'brush' || kind === 'fountain')) {
@@ -206,7 +208,8 @@ function createAreaEraserSession(objects, radius) {
       // 남은 조각은 이 표본을 그대로 그린다(sampled): 직선으로 다시 잇거나 곡선을 또 펴면 지울 때마다 획이 미세하게 흔들렸다.
       const inkPen = ['brush', 'fountain', 'felt'].includes(object.penKind)
       const distanced = withDistances(object.points, object.inkStartDistance ?? 0)
-      let curved = inkPen ? ([2, 3].includes(object.renderVersion) ? samplePenCurve(input, object.inkStartDistance ?? 0) : input)
+      let curved = isDashedKind(object.penKind) ? dashedObjectSamples(object)
+        : inkPen ? ([2, 3].includes(object.renderVersion) ? samplePenCurve(input, object.inkStartDistance ?? 0) : input)
         : object.sampled ? distanced : nibCurve(distanced, { step: 1.5 })
       if (object.penKind === 'taperBrush' && !object.taperBaked && curved.length > 1) curved = withTaper(curved, object.strokeWidth)
       const points = curved.length > 1 ? densify(curved, Math.max(0.5, radius / 2 / scale)) : curved

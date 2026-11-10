@@ -27,9 +27,13 @@ final class DiaryCreationFingerprint {
         return hash(value);
     }
     static String request(DiaryCreateRequest metadata,List<DiaryInitialPages.Selection> pages) {
+        return request(metadata,pages,null);
+    }
+    static String request(DiaryCreateRequest metadata,List<DiaryInitialPages.Selection> pages,JsonNode paperAppearance) {
         if(metadata==null || pages==null || pages.isEmpty() || pages.size()>4096) throw DiaryCreationException.invalid();
         var root=JSON.createObjectNode(); root.put("format","diary-create-v1");
         root.put("title",metadata.diaryTitle()); root.put("color",metadata.coverColor()); root.put("style",metadata.coverStyle()); root.put("visibility",metadata.visibility());
+        if(paperAppearance!=null)root.set("paperAppearance",paperAppearance);
         var array=root.putArray("pages");
         for(var page:pages) {
             if(page==null || page.configurationJson().length()>16384) throw DiaryCreationException.invalid();

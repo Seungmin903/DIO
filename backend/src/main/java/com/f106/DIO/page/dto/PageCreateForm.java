@@ -27,7 +27,7 @@ public class PageCreateForm {
 	public void setCanvasHeight(BigDecimal value) { canvasHeight = value; }
 	public void setGridVisible(Boolean value) { gridVisible = value; }
 	public void setGridColor(String value) { gridColor = value; }
-	@AssertTrue(message = "canvasWidth와 canvasHeight는 함께 전달해야 합니다.") public boolean isCanvasSizeComplete() { return (canvasWidth == null) == (canvasHeight == null); }
+	@AssertTrue(message = "canvasWidth와 canvasHeight를 함께 전달해 주세요.") public boolean isCanvasSizeComplete() { return (canvasWidth == null) == (canvasHeight == null); }
 
 	public PageCreateRequest toRequest() {
 		PageCreateRequest request = new PageCreateRequest();

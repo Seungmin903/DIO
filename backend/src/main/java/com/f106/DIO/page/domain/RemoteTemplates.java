@@ -34,9 +34,9 @@ public final class RemoteTemplates {
             : config != null && config.path("templateCode").isString() ? config.get("templateCode").asString() : null;
         JsonNode value = config == null || !config.isObject() ? null : config.get(CONFIG_KEY);
         if (isRemoteCode(effective)) {
-            if (!isValidId(value)) throw new IllegalArgumentException("원격 속지 페이지에는 형식에 맞는 remoteTemplate 이 필요합니다.");
+            if (!isValidId(value)) throw new IllegalArgumentException("원격 속지 페이지에는 형식에 맞는 remoteTemplate이 필요해요.");
         } else if (value != null) {
-            throw new IllegalArgumentException("remoteTemplate 은 원격 속지 페이지에서만 쓸 수 있습니다.");
+            throw new IllegalArgumentException("remoteTemplate은 원격 속지 페이지에서만 쓸 수 있어요.");
         }
     }
 }
