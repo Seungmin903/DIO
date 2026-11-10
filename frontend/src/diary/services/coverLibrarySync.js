@@ -10,6 +10,8 @@
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const uuid = value => typeof value === 'string' && UUID.test(value)
+// 표지는 JSON 으로 저장되는 값이라 JSON 으로 깊은 복사한다(structuredClone 은 앱 런타임(Hermes)에 없을 수 있다)
+const clone = value => (value === undefined ? undefined : JSON.parse(JSON.stringify(value)))
 const ENTRY_ID = /^[A-Za-z0-9_-]{1,64}$/
 const CONTROL = /[\u0000-\u001f\u007f-\u009f]/g, HAS_CONTROL = /[\u0000-\u001f\u007f-\u009f]/
 const clip = (value, max) => Array.from(String(value ?? '').replace(CONTROL, '')).slice(0, max).join('')
@@ -96,7 +98,7 @@ export function createCoverLibrarySync({ account, api, media, library, storage, 
 
   // 기기 표지 하나를 서버 문서 모양으로. 그림 하나라도 서버 id 가 없으면(올리지 못했거나 upload 가 거짓) null
   async function toServerEntry(entry, upload) {
-    const cover = linkMediaRefs(structuredClone(entry.cover))
+    const cover = linkMediaRefs(clone(entry.cover))
     const slots = []
     eachMedia(cover, (slot, category) => slots.push([slot, category]))
     for (const [slot, category] of slots) {
@@ -171,7 +173,7 @@ export function createCoverLibrarySync({ account, api, media, library, storage, 
     await readMissing(); active()
     const covers = []
     for (const entry of server.covers) {
-      const cover = structuredClone(entry.cover)
+      const cover = clone(entry.cover)
       const slots = []
       eachMedia(cover, slot => slots.push(slot))
       for (const slot of slots) {
