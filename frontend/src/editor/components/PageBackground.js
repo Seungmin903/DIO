@@ -25,7 +25,8 @@ class SvgBoundary extends Component {
 }
 
 function throwSvgError(error) { throw error }
-function RenderedSvg({ xml, ast, width, height, onReady }) {
+// 요소가 바뀌어 BackgroundAttempt 가 다시 그려져도 속지 SVG 는 그대로 둔다(onReady 는 매번 새 함수라 비교에서 뺀다 — 최신 값은 ref 로 부른다)
+const RenderedSvg = memo(function RenderedSvg({ xml, ast, width, height, onReady }) {
   const callback = useRef(onReady)
   callback.current = onReady
   // 렌더링이 성공해 커밋된 다음에만 출력 준비 완료를 알린다.
@@ -34,7 +35,7 @@ function RenderedSvg({ xml, ast, width, height, onReady }) {
   return ast
     ? <SvgAst ast={ast} override={{ width, height }} />
     : <SvgXml xml={xml} width={width} height={height} onError={throwSvgError} />
-}
+}, (previous, next) => previous.xml === next.xml && previous.ast === next.ast && previous.width === next.width && previous.height === next.height)
 
 // 속지 글꼴을 골랐으면 그 글꼴로 바꾼 속지를 불러온다(캐시 키가 다르다)
 const referenceOf = page => { const reference = templateReference(page); return reference ? { ...reference, font: normalizePaperAppearance(page.paperAppearance).font } : null }
