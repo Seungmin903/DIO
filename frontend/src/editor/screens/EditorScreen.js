@@ -85,6 +85,7 @@ import { clamp, createId, unionBounds } from '../utils/common'
 import { OPTIONS_TOP, OPTIONS_TOP_PHONE, OPTIONS_WIDTH, optionsPlacement, tabletToolPopover } from '../utils/toolPanelPlacement'
 import { automaticPageTurn, centeredOffset, clampOffset as clampViewportOffset, isFitView, panView } from '../utils/viewport.js'
 import { pickImages } from '../services/image'
+import { tastingPhotoBox, isTastingId } from '../templates/tastingGeometry.js'
 import { MEDIA_POLICY } from '../utils/mediaPolicy.js'
 import { discardGeneratedMedia } from '../services/mediaStore'
 import { createObjectFromDecor, emptyPhotoSlots, hasPhotoMedia, photoInnerBox, tapePieceRatio } from '../utils/objects'
@@ -109,7 +110,7 @@ const PHONE_STAGE_PADDING = { top: 24, bottom: 68, side: 12 } // 도구 막대 �
 // 가로는 정밀 편집(왼쪽 화면 막대 + 오른쪽 전체 도구 막대 + 확대·축소). onToggleOrientation이 있으면 세로·가로를 버튼으로 바꾼다.
 /** 여러 칸 틀의 칸 하나를 자르기 창에 넘길 사진 모양 (칸 크기의 사각 사진). 빈 칸이면 null */
 // 비율이 정해진 사진: 여러 칸 틀의 칸 · 티켓 틀(글자 자리가 정해져 있다)
-const fixedAspectOf = (photo) => (photo.cell != null ? photo.w / photo.h : isTicketFrame(photo.frame) ? photoInnerBox(photo).width / photoInnerBox(photo).height : undefined)
+const fixedAspectOf = (photo) => (photo.tastingPhoto || photo.cell != null ? photo.w / photo.h : isTicketFrame(photo.frame) ? photoInnerBox(photo).width / photoInnerBox(photo).height : undefined)
 
 function cellCropPhoto(strip, index) {
   const cell = strip.cells?.[index]
@@ -317,7 +318,7 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
   // 사진 넣기 흐름(사진 고르기 → 자르기 · 확대 · 비율 → 붙은 모습)을 모든 사진 자리에서 같게: 붙이기 전에 자르기 창을 띄우고 '적용'한 값으로 넣는다.
   // { photo, fixedAspect, title, resolve } — 취소하면 그 사진은 넣지 않는다(resolve(null))
   const [cropAsk, setCropAsk] = useState(null)
-  const askCrop = (photo, title) => new Promise((resolve) => setCropAsk({ photo, fixedAspect: fixedAspectOf(photo), title, resolve }))
+  const askCrop = (photo, title, aspect = fixedAspectOf(photo)) => new Promise((resolve) => setCropAsk({ photo, fixedAspect: aspect, title, resolve }))
   // 다음 사진을 물으면 그 내용으로 바로 바뀌고, 더 물을 것이 없을 때만 창을 닫는다(사진마다 창이 닫혔다 열리며 튀지 않게)
   const settleCropAsk = (result) => {
     const ask = cropAsk
@@ -633,6 +634,26 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
   // 회원 다이어리의 사진은 서버로 올라간다.
   const photoLimit = textSync.enabled ? { sharedGifMaxBytes: MEDIA_POLICY.sharedGifMaxBytes } : {}
   const { markRecentPhotos } = useCustomDecor()
+  const addTastingPhoto = async () => {
+    if (pickingPhotos.current) return
+    pickingPhotos.current = true
+    const targetPage = pageNow.current.id
+    let image
+    try {
+      ;[image] = await pickImages({ ...photoLimit, multiple: false })
+      if (!image) return
+      const box = tastingPhotoBox(pageNow.current.backgroundAssetId)
+      const photo = createObjectFromDecor({ kind: 'photo', frame: 'none', src: image.src, mediaFileId: image.mediaFileId, poster: image.poster, name: image.name, imageWidth: image.width, imageHeight: image.height }, { x: box.x + box.width / 2, y: box.y + box.height / 2 })
+      const fitted = { ...photo, x: box.x, y: box.y, w: box.width, h: box.height, tastingPhoto: true }
+      const crop = await askCrop(fitted, '사진 자르기', box.width / box.height)
+      if (!crop || pageNow.current.id !== targetPage || !isTastingId(pageNow.current.backgroundAssetId)) { discardUnused([image]); return }
+      dispatch({ type: 'addObjects', objects: [{ ...fitted, ...crop, x: box.x, y: box.y, w: box.width, h: box.height, tastingPhoto: true }] })
+      if (diary?.source !== 'member-api') markRecentPhotos([image])
+    } catch (error) {
+      if (image) discardUnused([image])
+      showToast(mediaFailureMessage(error))
+    } finally { pickingPhotos.current = false }
+  }
   const addPhotos = async (selectedImages, { recent = false } = {}) => {
     // 고르는 창이 떠 있는 동안 다시 누르면 무시한다
     if (pickingPhotos.current) return
@@ -1362,6 +1383,7 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
               )}
               {/* 크기가 정해진 뒤 한 번에 그린다(임시 배율 .6 → 측정 크기 → 상단바 · 패널 폭 반영 순서로 세 번 그렸다) */}
               {pageReady && <Canvas
+                onTastingPhoto={addTastingPhoto}
                 visiblePage={viewportMotion.visible}
                 onStrokeCommitted={recordPenColorUse}
                 readingImage={readingPreviews.current}

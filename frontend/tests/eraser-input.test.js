@@ -97,6 +97,18 @@ test('플래너 지우기와 일반 획 삭제는 한 action으로 확정하고 
   }
 })
 
+test('영역 지우기의 조각 미리보기 제한 중에도 속지 채움은 손을 떼기 전 표시한다', () => {
+  const original = { fills: { a: '#123456' } }, erased = { fills: {} }, drafts = []
+  let calls = 0
+  const f = input(1, 24, { mode: 'area', planner: original, onPlannerErase: () => ++calls === 2 ? erased : null, onPlannerPreview: value => drafts.push(value) })
+  f.handlers.onStart({ locationX: 20, locationY: 20 })
+  f.handlers.onMove(2, 0, {})
+  assert.deepEqual(drafts.at(-1), erased)
+  assert.deepEqual(f.actions, [])
+  f.handlers.onEnd({ cancelled: false })
+  assert.deepEqual(f.actions, [{ type: 'setPlanner', planner: erased }])
+})
+
 
 test('대상 선택은 실제 입력 세션에 전달되고 선택 지우기에서 플래너 기록은 보존된다', () => {
   for (const mode of ['stroke', 'area']) for (const target of ['pen', 'highlighter']) {
