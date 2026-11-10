@@ -146,16 +146,37 @@ const strokeStyle = (paint, w) => {
 }
 
 // 표본 → 중심선 경로(표본 사이는 2차 곡선 — 직선으로 이으면 각져 보인다)
-function centerPath(dabs, s = 1) {
+function centerPath(dabs, s = 1, from = 0, to = dabs.length - 1) {
   const pb = Skia.PathBuilder.Make()
-  pb.moveTo(dabs[0].x * s, dabs[0].y * s)
-  if (dabs.length === 1) { pb.lineTo(dabs[0].x * s + 0.01, dabs[0].y * s); return pb.build() }
-  for (let i = 1; i < dabs.length - 1; i++) {
+  pb.moveTo(dabs[from].x * s, dabs[from].y * s)
+  if (to <= from) { pb.lineTo(dabs[from].x * s + 0.01, dabs[from].y * s); return pb.build() }
+  for (let i = from + 1; i < to; i++) {
     const a = dabs[i], b = dabs[i + 1]
     pb.quadTo(a.x * s, a.y * s, (a.x + b.x) / 2 * s, (a.y + b.y) / 2 * s)
   }
-  pb.lineTo(dabs[dabs.length - 1].x * s, dabs[dabs.length - 1].y * s)
+  pb.lineTo(dabs[to].x * s, dabs[to].y * s)
   return pb.build()
+}
+
+// 필압에 따라 도장 반지름이 달라지므로 획은 굵기가 변한다. Skia 는 한 번에 한 굵기만 그으므로
+// 비슷한 굵기끼리 구간으로 묶어 이어 긋는다(몸통색이 같아 이음새는 보이지 않는다).
+// 필압이 없으면(모두 같은 반지름) 구간이 하나라 예전과 똑같다.
+const WIDTH_LEVELS = 6
+function widthRuns(dabs) {
+  let min = Infinity, max = -Infinity
+  for (const d of dabs) { if (d.r < min) min = d.r; if (d.r > max) max = d.r }
+  if (!(max > min * 1.02)) return [{ from: 0, to: dabs.length - 1, w: 2 * (dabs[0]?.r ?? 0.5) }]
+  const level = d => Math.round((d.r - min) / (max - min) * (WIDTH_LEVELS - 1))
+  const runs = []
+  let from = 0, lv = level(dabs[0])
+  for (let i = 1; i < dabs.length; i++) {
+    const next = level(dabs[i])
+    if (next === lv) continue
+    runs.push({ from, to: i, w: 2 * (min + (max - min) * lv / (WIDTH_LEVELS - 1)) })
+    from = Math.max(0, i - 1); lv = next
+  }
+  runs.push({ from, to: dabs.length - 1, w: 2 * (min + (max - min) * lv / (WIDTH_LEVELS - 1)) })
+  return runs
 }
 
 // 입자를 전체 해상도로 획 위에 덧그린다(필터 밖). 경로를 굵기대로 그으므로 획 밖으로 나가지 않는다.
@@ -199,8 +220,8 @@ export function drawGlassPooled(canvas, points, width, color, zoom = 1, ink = {}
   // ① 몸통을 **벡터로 먼저 긋는다**. 실루엣은 이 획이 정한다 — 형광펜 · 볼펜과 똑같이 또렷하다.
   const body = Skia.Paint()
   body.setColor(Skia.Color(color))
-  const pathPage = centerPath(dabs)          // 페이지 좌표 — 몸통 · 글리터용
-  canvas.drawPath(pathPage, strokeStyle(body, width))
+  const runs = widthRuns(dabs)
+  for (const run of runs) canvas.drawPath(centerPath(dabs, 1, run.from, run.to), strokeStyle(body, run.w))
 
   // ② 고임이 만드는 것(커피링 · 테 · 농담 흐름)을 그 위에 얹는다.
   //
@@ -218,7 +239,7 @@ export function drawGlassPooled(canvas, points, width, color, zoom = 1, ink = {}
   const blur = Skia.ImageFilter.MakeBlur(sigma, sigma, TileMode.Decal, null)
   layer.setImageFilter(Skia.ImageFilter.MakeRuntimeShaderWithChildren(builder, 0, ['mask', 'pool'], [null, blur]))
 
-  const path = centerPath(dabs, S)           // 화면 픽셀 좌표 — 필터 층 안에서만 쓴다
+
   const margin = 3      // 화면 px — 필터 쪽 가장자리를 진짜 가장자리 바깥으로 밀어낸다
   canvas.save()
   canvas.scale(1 / S, 1 / S)
@@ -239,19 +260,19 @@ export function drawGlassPooled(canvas, points, width, color, zoom = 1, ink = {}
   const dstIn = Skia.Paint()
   dstIn.setBlendMode(BlendMode.DstIn)
   canvas.saveLayer(dstIn, bounds)
-  canvas.drawPath(path, strokeStyle(Skia.Paint(), width * S + 2 * margin))
+  for (const run of runs) canvas.drawPath(centerPath(dabs, S, run.from, run.to), strokeStyle(Skia.Paint(), run.w * S + 2 * margin))
   canvas.restore()
   canvas.restore()   // 필터 층 끝
 
   // 필터가 그린 것이 내가 그은 획 밖으로 넘치지 않게 깎는다(사용자 규칙).
   const edge = Skia.Paint()
   edge.setBlendMode(BlendMode.DstIn)
-  canvas.drawPath(path, strokeStyle(edge, width * S))
+  for (const run of runs) canvas.drawPath(centerPath(dabs, S, run.from, run.to), strokeStyle(edge, run.w * S))
   canvas.restore()   // 바깥 층 끝
   canvas.restore()   // 배율 되돌리기
 
   // ③ 입자는 필터 밖에서 전체 해상도로. **페이지 좌표** 경로여야 한다
   //    (S 배 경로를 넘기면 화면 밖 먼 곳에 그려져 글리터가 통째로 사라진다)
-  drawSpark(canvas, pathPage, width, color, ink, zoom)
+  for (const run of runs) drawSpark(canvas, centerPath(dabs, 1, run.from, run.to), run.w, color, ink, zoom)
   return true
 }

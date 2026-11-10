@@ -367,7 +367,8 @@ export function sampleCurve(points, step) {
     for (let j = i === 0 ? 0 : 1; j <= n; j++) {
       const u = j / n, u2 = u * u, u3 = u2 * u
       const cr = (a, b, c, e) => 0.5 * (2 * b + (-a + c) * u + (2 * a - 5 * b + 4 * c - e) * u2 + (-a + 3 * b - 3 * c + e) * u3)
-      const q = { x: cr(p0.x, p1.x, p2.x, p3.x), y: cr(p0.y, p1.y, p2.y, p3.y), time: p1.time + (p2.time - p1.time) * u }
+      const q = { x: cr(p0.x, p1.x, p2.x, p3.x), y: cr(p0.y, p1.y, p2.y, p3.y), time: p1.time + (p2.time - p1.time) * u,
+        pressure: (p1.pressure ?? 1) + ((p2.pressure ?? 1) - (p1.pressure ?? 1)) * u }
       const L = Math.hypot(q.x - prev.x, q.y - prev.y)
       if (out.length === 0) { out.push({ ...q, d: 0 }); prev = q; continue }
       carry += L; d += L
@@ -377,7 +378,7 @@ export function sampleCurve(points, step) {
   }
   const last = points[points.length - 1], tail = out[out.length - 1]
   const extra = Math.hypot(last.x - tail.x, last.y - tail.y)
-  if (extra > step * 0.2) out.push({ x: last.x, y: last.y, time: last.time, d: tail.d + extra })
+  if (extra > step * 0.2) out.push({ x: last.x, y: last.y, time: last.time, pressure: last.pressure ?? 1, d: tail.d + extra })
   return out
 }
 
@@ -400,7 +401,8 @@ export function glassDabs(points, width, P = GLASS_INK) {
     const fromStart = q.d, fromEnd = total - q.d
     const pool = P.poolStart * Math.exp(-((fromStart / L) ** 2)) + P.poolEnd * Math.exp(-((fromEnd / L) ** 2))
     const t = speedT + pool
-    const r = (width / 2) * (1 + P.poolWiden * Math.min(1, pool))
+    // 필압 · 기울기(점의 pressure 에 이미 들어 있다)로 굵기를 조절한다 — 볼펜과 같은 폭
+    const r = (width / 2) * (q.pressure ?? 1) * (1 + P.poolWiden * Math.min(1, pool))
     return { x: q.x, y: q.y, r, t }
   })
 }

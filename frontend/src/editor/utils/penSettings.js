@@ -88,10 +88,12 @@ export function sanitizeHighlighterSettings(saved) {
 // 사용자 2026-11-03: 볼펜 · 캘리펜 · 붓펜 필압 체감이 약하다(힘 0.04 → 0.65 에서 굵기가 볼펜 .9 → 1.25 배, 붓펜은 렌더 상한에 걸려 ±16%)
 // → 코덱스 곡선: 배율 = clamp(lo, hi, base + slope · (힘 / 0.22)^지수). 힘 0.22(평소) 에서 슬라이더 굵기가 거의 그대로(1.03 · 1.05 · .84×몸통 1.25 = 1.05)
 // [base, slope, 지수, lo, hi]. 붓펜 몸통은 렌더에서 1.25 배가 더해져 힘 0.65 에서 약 2.2D(상한 BRUSH_BODY_CAP 2.4)
-const SENSED_WIDTH = { ball: [0.65, 0.38, 0.75, 0.72, 1.52], calligraphy: [0.52, 0.53, 0.85, 0.6, 1.72], taperBrush: [0.27, 0.57, 0.9, 0.38, 1.8] }
+// 유리펜(2026-11-10 사용자: 필압 · 기울기를 펜 정도로): 유리 닙은 금속 닙처럼 휘지 않아
+// 힘으로 선이 굵어지는 폭이 작다. 그래서 볼펜과 같은 은은한 곡선을 쓴다.
+const SENSED_WIDTH = { ball: [0.65, 0.38, 0.75, 0.72, 1.52], calligraphy: [0.52, 0.53, 0.85, 0.6, 1.72], taperBrush: [0.27, 0.57, 0.9, 0.38, 1.8], glass: [0.65, 0.38, 0.75, 0.72, 1.52] }
 // 눕혀 쓸 때 넓어지는 정도. 연필은 점의 기울기 값으로 도장에서 따로 계산한다
 // (코덱스는 힘 곡선이 넓어졌다며 T 를 .05 · .10 · .06 으로 낮추자고 했으나, 기울기 체감을 올리는 게 목표라 기존 값을 유지했다 — 내 판단)
-const TILT_WIDTH = { ball: 0.12, calligraphy: 0.25, taperBrush: 0.35 }
+const TILT_WIDTH = { ball: 0.12, calligraphy: 0.25, taperBrush: 0.35, glass: 0.12 }
 // 기울기(도) → 0~1: 25° 이하 0, 55° 이상 1(코덱스. 예전엔 40°→55° 라 평소 30° 근처에서 반응이 없었다)
 export const tiltAmount = event => Number.isFinite(event?.tiltX) && Number.isFinite(event?.tiltY) ? Math.max(0, Math.min(1, (Math.min(90, Math.hypot(event.tiltX, event.tiltY)) - 25) / 30)) : 0
 // pressure는 센서 원값이 아니라 저장·렌더링용 굵기 배율이다.
