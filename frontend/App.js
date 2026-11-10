@@ -1302,7 +1302,10 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onWithdraw
     <>
       {authenticatedNotifications && (sharingRequest?.mode === 'notifications' || sharingRequest?.returnToNotifications)
         ? <HomeNotificationFlow visible={sharingVisible} onOpenParticipants={openSafetyParticipants} request={sharingRequest} model={authenticatedNotifications} sharing={sharing} onRequest={setSharingRequest}
-            onClose={() => { setSharingRequest(null); if(member)diaryState.store.reload().catch(error=>notify('공유 목록을 확인하지 못했어요',error.message)); }}
+            onClose={visitedSharing => {
+              setSharingRequest(null);
+              if (member && visitedSharing) diaryState.store.reload().catch(error => notify('공유 목록을 확인하지 못했어요', error.message));
+            }}
             onOpenDiary={openSharedDiary} onOpenCopy={diary => openCopyIfSafe(diary, invitationLeaveGuard.current, () => { setSharingRequest(null); if(member)diaryState.store.reload().catch(error=>notify('공유 목록을 확인하지 못했어요',error.message)); }, enterEditor)} />
         : <SharingHub visible={sharingVisible} onOpenParticipants={openSafetyParticipants} onOpenCopy={diary => openCopyIfSafe(diary, invitationLeaveGuard.current, () => { setSharingRequest(null); if(member)diaryState.store.reload().catch(error=>notify('공유 목록을 확인하지 못했어요',error.message)); }, enterEditor)} onOpenDiary={openSharedDiary} request={sharingRequest} runtime={sharing.runtime} model={sharing.notifications}
             onSwitchInvitationAccount={inviteId => { setSharingRequest(null); onSwitchInvitationAccount(inviteId); }}
