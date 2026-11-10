@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {createRequire} from 'node:module';
 import {readFileSync} from 'node:fs';
 import * as profileNavigation from '../src/diary/components/profileNavigationModel.js';
+import * as featureFlags from '../src/shared/featureFlags.js';
 const require=createRequire(import.meta.url),expo=createRequire(require.resolve('expo/package.json'));
 const code=expo('@babel/core').transformSync(readFileSync(new URL('../src/diary/screens/ProfileScreen.js',import.meta.url),'utf8'),{
  configFile:false,babelrc:false,plugins:[[expo.resolve('@babel/plugin-transform-react-jsx'),{runtime:'automatic'}],expo.resolve('@babel/plugin-transform-modules-commonjs')]
@@ -16,6 +17,7 @@ function setup(user,onUpdatePreview,onClearSession,extra={}){
   if(id==='expo-image')return {Image:'Image'};
   if(id==='../styles')return {styles:{}};
   if(id==='../../shared/theme')return {colors:{},radius:{}};
+  if(id==='../../shared/featureFlags')return featureFlags;
   if(id==='../constants')return {C:new Proxy({},{get:()=>''})};
   if(id==='../../auth/ProfileEditScreen')return PasswordForm;
   if(id==='../../auth/PasswordResetScreen')return PasswordForm;
@@ -149,8 +151,8 @@ test('폰 마이페이지의 알림 설정 하위 화면은 안드로이드 뒤�
  const user={mode:'authenticated',userId:'7',provider:'email',email:'member@example.com',nickname:'회원'};
  const registered=[];const registerLeaveGuard=(guard,back)=>{registered.push({guard,back});return()=>{}};
  const ui=setup(user,undefined,undefined,{compact:true,registerLeaveGuard});
- const home=ui.render();find(home,'알림 설정').props.onPress();
- const sub=ui.render();assert.notEqual(find(sub,'알림 설정')?.props.accessibilityLabel,'알림 설정');
+ const home=ui.render();find(home,'마케팅 수신 설정').props.onPress();
+ const sub=ui.render();assert.equal(find(sub,'마케팅 수신 설정'),null);
  const guardEffect=ui.effects.find(entry=>entry.deps?.[0]===true&&entry.deps?.[1]===registerLeaveGuard);
  guardEffect.effect();assert.equal(registered.length,1);
  let moved=0;registered[0].guard(()=>moved++);assert.equal(moved,1);

@@ -2,20 +2,83 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
+import * as libraryQuery from '../src/diary/utils/libraryQuery.js'
+import * as diarySelection from '../src/diary/utils/diarySelection.js'
 
 const require = createRequire(import.meta.url), expo = createRequire(require.resolve('expo/package.json'))
 const walk = node => !node || typeof node !== 'object' ? [] : [node, ...[node.props?.children].flat(Infinity).flatMap(walk)]
-function load(name) {
-  const source = readFileSync(new URL(`../src/diary/components/${name}.js`, import.meta.url), 'utf8')
+function load(name, overrides = {}, { allExports = false } = {}) {
+  const source = readFileSync(new URL(`../src/${name}.js`, import.meta.url), 'utf8')
   const code = expo('@babel/core').transformSync(source, { configFile: false, babelrc: false, plugins: [[expo.resolve('@babel/plugin-transform-react-jsx'), { runtime: 'automatic' }], expo.resolve('@babel/plugin-transform-modules-commonjs')] }).code
   const mod = { exports: {} }
   const mocks = { 'react-native': { Pressable: 'Pressable', Text: 'Text', View: 'View' }, '../styles': { styles: {} }, '../../shared/DioButton': { __esModule: true, default: 'Pressable' }, '../../auth/sessionExpiry.js': { authenticationErrorMessage: () => '인증 오류' }, '../../auth/AuthenticationRecovery': { __esModule: true, default: 'AuthenticationRecovery' } }
-  new Function('require', 'module', 'exports', code)(id => mocks[id] || require(id), mod, mod.exports)
-  return mod.exports.default
+  new Function('require', 'module', 'exports', code)(id => overrides[id] || mocks[id] || require(id), mod, mod.exports)
+  return allExports ? mod.exports : mod.exports.default
 }
-const trash = load('MemberTrashNotice'), request = load('MemberRequestNotice')
+const trash = load('diary/components/MemberTrashNotice'), request = load('diary/components/MemberRequestNotice')
 const buttons = node => walk(node).filter(n => n.type === 'Pressable')
 const words = node => walk(node).filter(n => n.type === 'Text').map(n => n.props.children)
+
+test('825: 보관함 오류 안내 위치, 재시도 및 401 로그인 복구', () => {
+  const react = { memo: fn => fn, useCallback: fn => fn, useEffect() {}, useMemo: fn => fn(),
+    useRef: current => ({ current }), useState: initial => [initial, () => {}] }
+  const native = { View: 'View', Text: 'Text', ScrollView: 'ScrollView', Pressable: 'Pressable',
+    StyleSheet: { create: styles => styles }, Platform: { OS: 'web' },
+    Animated: { Value: class {}, createAnimatedComponent: () => 'FlatList', event() {} } }
+  const styles = { styles: { libraryCenteredNotice: { justifyContent: 'center' }, libraryFixedTop: 'fixedTop' } }
+  const loginCalls = []
+  const authRecovery = load('auth/AuthenticationRecovery', {
+    'react-native': native, './loginGate': { useLoginEntry: () => value => loginCalls.push(value) },
+    '../shared/DioButton': { __esModule: true, default: 'Pressable' },
+  }, { allExports: true })
+  const recovery = authRecovery.default
+  const notice = load('diary/components/MemberLibraryNotice', {
+    '../../auth/AuthenticationRecovery': authRecovery,
+  })
+  const stub = name => ({ __esModule: true, default: name })
+  const screen = load('diary/screens/LibraryScreen', {
+    react, 'react-native': native, '../styles': styles,
+    '../constants': { C: {}, FILTERS: [{ id: 'all' }, { id: 'favorite' }], LIBRARY_SCOPES: [],
+      CAROUSEL_ITEM_WIDTH: 200, CAROUSEL_GAP: 20, CAROUSEL_STEP: 220 },
+    '../utils/libraryQuery': libraryQuery, '../utils/diarySelection': diarySelection,
+    '../utils/useDiaryGrid': { useDiaryGrid: () => null }, '../utils/carouselFollow': { carouselMotion: () => ({}) },
+    '../components/OpenBookShelf': { ...stub('OpenBookShelf'), preloadOpenBooks() {} },
+    '../components/EmptyState': { ...stub('EmptyState'), LoadingSpot: 'LoadingSpot' },
+    '../components/PopoverMenu': stub('PopoverMenu'), '../../editor/components/controls/FadeScroll': stub('FadeScroll'),
+    '../../shared/AppIcon': stub('AppIcon'), '../../shared/FavoriteStar': stub('FavoriteStar'),
+    ...Object.fromEntries(['DiaryCard', 'IconButton', 'PhoneBell', 'SelectionBar', 'SelectionButton', 'LibrarySearchScreen']
+      .map(name => [`../components/${name}`, stub(name)])),
+  })
+  const error = { message: '서버에 연결하지 못했어요.' }
+  let retries = 0
+  const onRetry = () => retries++
+  const props = { diaries: [], view: 'grid', carousel: 0, filter: 'all', suppressEmpty: true }
+  const centered = notice({ library: { error }, centered: true, onRetry })
+  for (const view of ['grid', 'open', 'carousel']) {
+    const tree = screen({ ...props, view, centeredNotice: centered })
+    const body = walk(tree).find(node => node.type === 'ScrollView')
+    assert.equal(body.props.contentContainerStyle, styles.styles.libraryCenteredNotice)
+    assert.deepEqual(words(body).filter(word => word === error.message), [error.message])
+    assert.equal(walk(tree).filter(node => node === centered).length, 1)
+  }
+  const retry = buttons(centered).find(button => button.props.label === '다시 불러오기')
+  retry.props.onPress()
+  assert.equal(retries, 1)
+
+  const inline = notice({ library: { error }, onRetry })
+  const populated = walk(screen({ ...props, diaries: [{ id: 'one' }], remoteQuery: {}, requestNotice: inline }))
+  const header = populated.find(node => node.type === 'View' && node.props.style?.includes?.('fixedTop'))
+  assert.ok(walk(header).includes(inline))
+  assert.ok(populated.some(node => node.type === 'DiaryCard' && node.props.diary.id === 'one'))
+
+  const expired = notice({ library: { error: { status: 401, sessionExpired: true } }, centered: true, onRetry })
+  assert.equal(buttons(expired).length, 0)
+  const recoveryNode = walk(expired).find(node => node.type === recovery)
+  const loginButton = recovery(recoveryNode.props)
+  assert.equal(loginButton.props.label, '다시 로그인')
+  loginButton.props.onPress()
+  assert.deepEqual(loginCalls, [{ sessionExpired: true }])
+})
 
 test('휴지통 알림 칸은 불러오는 동안 줄을 그리지 않는다(처음 불러올 때는 휴지통 자리 가운데 스피너 — TrashScreen loading, 지라 590)', () => {
   for (const state of [{ trashLoading: true }, { lifecycle: { busy: true } }, { trashLoading: true, trashLoaded: true, trash: [{ id: 'a' }] }, {}]) assert.equal(trash({ state }), null)

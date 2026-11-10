@@ -35,7 +35,7 @@
 | 칸 수 | 도구마다 1~64칸 |
 | 칸 값 | `tape`: 테이프 기본 색 id(`^[a-z][a-z0-9_-]{0,31}$`) 또는 테이프 사용자 색 `custom:#바탕:#무늬`. 그 밖의 도구: `#RRGGBB`만(새 도구도 같다. 색이 아닌 값을 쓰는 도구가 생기면 서버 규칙을 함께 바꾼다) |
 
-## 저장 구조(V40)
+## 저장 구조(V43)
 
 - `user_palettes(user_id PK, version, document_json, updated_at)`: 팔레트 문서 한 벌. `users` 외래 키는 `ON DELETE CASCADE`.
 - 회원 탈퇴는 `UserWithdrawalDataRepository`가 이 행을 지운다.

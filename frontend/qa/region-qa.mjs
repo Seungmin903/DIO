@@ -1,9 +1,13 @@
 import assert from 'node:assert/strict'
-import { ANNUAL_PAGE_IDS, TEMPLATE_VERSION } from '../src/editor/templates/catalog.js'
+import { UNDATED_TEMPLATES } from '../src/editor/templates/undated.js'
 import { createHash } from 'node:crypto'
 import { createRequire } from 'node:module'
+import { readFile } from 'node:fs/promises'
 import { release, arch } from 'node:os'
+import { setRegion, touchGesture } from './region-gestures.mjs'
 const UPNG = createRequire(new URL('../package.json', import.meta.url))('upng-js')
+const largeViewport = { width: 1800, height: 1000 }
+const template = UNDATED_TEMPLATES.find(({ id }) => id === 'undated-monthly-landscape')
 
 export async function runRegionQa(browser, { baseURL, keys, gif, screenshotDir }) {
   const records = []
@@ -27,37 +31,30 @@ export async function runRegionQa(browser, { baseURL, keys, gif, screenshotDir }
     localStorage.setItem(keys.diaries,JSON.stringify([{id:'qa119',title:'영역 QA 119',color:'#CED9EE'}]))
     localStorage.setItem(`${keys.doc}:qa119`,JSON.stringify({id:'qa119',title:'영역 QA 119',pages:[fixturePage]}))
     return {elements:fixturePage.objects.length,assets:fixturePage.objects.filter(o=>['photo','sticker','tape'].includes(o.type)).length, original:localStorage.getItem(`${keys.doc}:qa119`)}
-  }, { keys, gif, broken, kind, templateId: ANNUAL_PAGE_IDS[0], templateVersion: TEMPLATE_VERSION })
-  const image = async page => {
-    const png = await page.getByLabel('완성 페이지 PNG',{exact:true}).evaluate(async el => {
-      const i=el.tagName==='IMG'?el:el.querySelector('img'); await i.decode()
-      const c=document.createElement('canvas'); c.width=i.naturalWidth;c.height=i.naturalHeight
-      c.getContext('2d').drawImage(i,0,0);return c.toDataURL()
-    })
-    const bytes=Buffer.from(png.split(',')[1],'base64')
+  }, { keys, gif, broken, kind, templateId: template.id, templateVersion: template.templateVersion })
+  const downloadImage = async (page, button) => {
+    const [download] = await Promise.all([page.waitForEvent('download',{timeout:35000}), button.click()])
+    assert.equal(await download.failure(),null)
+    const bytes = await readFile(await download.path())
     const decoded=UPNG.decode(bytes.buffer.slice(bytes.byteOffset,bytes.byteOffset+bytes.byteLength))
-    return {width:decoded.width,height:decoded.height,png,rgba:new Uint8Array(UPNG.toRGBA8(decoded)[0])}
+    assert.equal(await page.getByRole('button',{name:'PNG 파일 저장',exact:true}).count(),0)
+    return {width:decoded.width,height:decoded.height,filename:download.suggestedFilename(),rgba:new Uint8Array(UPNG.toRGBA8(decoded)[0])}
   }
   const openRegion = async page => {
     await page.getByLabel('공유 및 내보내기',{exact:true}).click()
     await page.getByRole('button',{name:'영역 선택 내보내기',exact:true}).click()
   }
-  const setRegion = async (page, r) => {
-    await page.getByRole('button',{name:'영역 수치 조정',exact:true}).click()
-    for (const [k,v] of Object.entries(r)) await page.getByLabel(`영역 ${k}`,{exact:true}).fill(String(v))
-    await page.getByRole('button',{name:'영역 수치 적용',exact:true}).click()
-  }
   const generate = async page => {
     const quality=page.getByRole('button',{name:'화질 안내 확인 후 계속',exact:true});if(await quality.isVisible())await quality.click()
     const start=performance.now()
-    await page.getByRole('button',{name:'선택 영역 확정',exact:true}).click()
-    await page.getByRole('button',{name:'PNG 파일 저장',exact:true}).waitFor({timeout:35000})
-    const value=await image(page)
+    const value=await downloadImage(page,page.getByRole('button',{name:'선택 영역 확정',exact:true}))
+    assert.match(value.filename,/_region_(free|square|portrait|story)_/)
     const result={...value,ms:Math.round(performance.now()-start),hash:createHash('sha256').update(Buffer.from(value.rgba)).digest('hex')}
-    activeRecord.renders.push({width:result.width,height:result.height,ms:result.ms,hash:result.hash,regionText:await page.getByText(/^영역 [0-9]/).last().innerText()})
+    activeRecord.renders.push({width:result.width,height:result.height,ms:result.ms,hash:result.hash})
+    activeRecord.save.downloadStarted++
     return result
   }
-  const back = async page => page.getByRole('button',{name:'영역 다시 선택',exact:true}).click()
+  const back = openRegion
   async function scenario(name, viewport, dpr, action, broken=false) {
     const context=await browser.newContext({viewport,deviceScaleFactor:dpr,acceptDownloads:true,hasTouch:true})
     const page=await context.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message))
@@ -66,7 +63,7 @@ export async function runRegionQa(browser, { baseURL, keys, gif, screenshotDir }
     try {
       await page.goto(baseURL);const fixture=await fixtures(page,broken,name);record.assets=fixture.assets;record.elements=fixture.elements
       await page.reload();await page.getByText('영역 QA 119',{exact:true}).first().click()
-      await action({page,record,openRegion,setRegion,generate,image,back})
+      await action({page,record,openRegion,setRegion,generate,back})
       assert.equal(await page.evaluate(k=>localStorage.getItem(k),`${keys.doc}:qa119`),fixture.original,'원본 문서 보존')
       assert.deepEqual(errors,[],'pageerror 없음');record.passed=true
       if(screenshotDir)await page.screenshot({path:`${screenshotDir}/${name}.png`})
@@ -76,38 +73,34 @@ export async function runRegionQa(browser, { baseURL, keys, gif, screenshotDir }
   let baseline
   const region={x:100,y:100,width:400,height:400}
   for(const [name,viewport,dpr,scale]of [
-    ['baseline',{width:1280,height:800},1,1],
-    ['zoom-out',{width:1280,height:800},1,0.5],
-    ['zoom-in',{width:1280,height:800},1,2],
-    ['mobile-dpr2',{width:412,height:892},2,1],
+    ['baseline',largeViewport,1,1],
+    ['zoom-out',largeViewport,1,0.5],
+    ['zoom-in',largeViewport,1,2],
+    ['desktop-dpr2',largeViewport,2,1],
   ])await scenario(name,viewport,dpr,async({page,record})=>{
     await openRegion(page)
-    if(scale===0.5)for(let i=0;i<4;i++)await page.getByRole('button',{name:'영역 화면 축소',exact:true}).click()
-    if(scale===2)for(let i=0;i<4;i++)await page.getByRole('button',{name:'영역 화면 확대',exact:true}).click()
-    const actualZoom=await page.getByRole('button',{name:'영역 화면 확대',exact:true}).locator('..').innerText()
-    record.scroll = await page.getByTestId('region-horizontal-scroll').evaluate(el => { el.scrollLeft=120;return {left:el.scrollLeft,scrollWidth:el.scrollWidth,clientWidth:el.clientWidth} })
-    await page.getByTestId('region-vertical-scroll').evaluate(el => {el.scrollTop=80})
-    await setRegion(page,region);const out=await generate(page)
+    await setRegion(page,region)
+    const overlay=page.getByTestId('export-region-overlay'), bounds=await overlay.boundingBox()
+    if(scale!==1){
+      const x=bounds.x+bounds.width/2,y=bounds.y+bounds.height/2
+      await touchGesture(page,[[x-50,y],[x+50,y]],[[x-50*scale,y],[x+50*scale,y]])
+      const after=await overlay.boundingBox()
+      assert.ok(Math.abs(after.width/bounds.width-scale)<0.02,JSON.stringify({bounds,after,scale}))
+    }
+    const out=await generate(page)
     assert.deepEqual([out.width,out.height],[800,800]);if(!baseline)baseline=out.hash;assert.equal(out.hash,baseline)
     const at=(a,b)=>Array.from(out.rgba.slice((b*out.width+a)*4,(b*out.width+a)*4+4))
     assert.deepEqual([at(100,100),at(700,100),at(100,700),at(700,700)],[[255,0,0,255],[0,255,0,255],[0,0,255,255],[255,255,0,255]])
-    record.region=region;record.zoomText=actualZoom;record.output={width:out.width,height:out.height,hash:out.hash,ms:out.ms};record.checks.push('viewport/DPR/선택 줌에 독립적인 동일 픽셀')
+    record.region=region;record.zoom=scale;record.output={width:out.width,height:out.height,hash:out.hash,ms:out.ms};record.checks.push('DPR과 선택 화면의 두 손가락 확대·축소에 독립적인 동일 픽셀')
     if(name==='baseline'){
-      await page.evaluate(()=>{window.showSaveFilePicker=async()=>{throw new DOMException('cancel','AbortError')}})
-      await page.getByRole('button',{name:'PNG 파일 저장',exact:true}).click();await page.getByText('저장을 취소했어요. 다시 저장할 수 있어요.',{exact:true}).waitFor();record.save.cancelled++
-      await page.evaluate(()=>{window.showSaveFilePicker=async()=>{throw new Error('ENOSPC')}})
-      await page.getByRole('button',{name:'PNG 파일 저장',exact:true}).click();await page.getByText('저장 공간이 부족해요. 공간을 확보한 뒤 다시 저장해 주세요.',{exact:true}).waitFor();record.save.failed++
-      await page.evaluate(()=>{window.__qaWrites=0;window.__qaPicks=0;window.showSaveFilePicker=async o=>{window.__qaPicks++;return {name:o.suggestedName,createWritable:async()=>({write:async()=>{window.__qaWrites++;await new Promise(ok=>{window.__qaRelease=ok})},close:async()=>{},abort:async()=>{}})}}})
-      await page.getByRole('button',{name:'PNG 파일 저장',exact:true}).evaluate(el=>{el.click();el.click()})
-      await page.getByText('저장 중…',{exact:true}).waitFor();assert.equal(await page.getByRole('button',{name:'PNG 내보내기 닫기',exact:true}).isDisabled(),true);assert.equal(await page.getByRole('button',{name:'영역 다시 선택',exact:true}).isDisabled(),true)
-      await page.waitForFunction(()=>typeof window.__qaRelease==='function');await page.evaluate(()=>window.__qaRelease());await page.getByText(/저장을 완료했어요/).waitFor();assert.deepEqual(await page.evaluate(()=>[window.__qaPicks,window.__qaWrites]),[1,1]);record.save.saved++;record.checks.push('중복 저장 2회 클릭에도 picker/write 각 1회, 저장 중 닫기·재선택 비활성')
-      record.checks.push('저장 picker 취소/실패/재시도는 브라우저 mock 검증이며 실제 OS 저장 아님')
-      await back(page);await page.getByRole('button',{name:'정사각형 1:1',exact:true}).click();const fixed=await generate(page);assert.deepEqual([fixed.width,fixed.height],[1080,1080]);record.checks.push('영역 재선택/정사각형 1080×1080')
-      await page.evaluate(()=>{window.showSaveFilePicker=undefined});const download=page.waitForEvent('download');await page.getByRole('button',{name:'PNG 파일 저장',exact:true}).click();const d=await download;assert.match(d.suggestedFilename(),/_region_square_/);assert.equal(await d.failure(),null);record.save.downloadStarted++;record.download=d.suggestedFilename()
-      await page.getByRole('button',{name:'PNG 내보내기 닫기',exact:true}).click();await page.getByLabel('공유 및 내보내기',{exact:true}).waitFor();assert.equal(await page.getByRole('button',{name:'선택 영역 확정',exact:true}).count(),0);record.checks.push('PNG 닫기는 편집 화면 복귀, 영역 다시 선택과 구분')
+      await back(page);await setRegion(page,region);await page.getByRole('button',{name:'정사각형 1:1',exact:true}).click()
+      const fixed=await generate(page);assert.deepEqual([fixed.width,fixed.height],[1080,1080]);assert.match(fixed.filename,/_region_square_/)
+      await page.getByLabel('공유 및 내보내기',{exact:true}).waitFor()
+      assert.equal(await page.getByRole('button',{name:'선택 영역 확정',exact:true}).count(),0)
+      record.checks.push('별도 미리보기 없이 정사각형 1080×1080 다운로드 후 편집 화면 유지')
     }
   })
-  await scenario('composition',{width:1280,height:800},1,async({page,record})=>{
+  await scenario('composition',largeViewport,1,async({page,record})=>{
     await openRegion(page);const whole=await generate(page);assert.deepEqual([whole.width,whole.height],[2560,1600])
     const r={x:480,y:80,width:400,height:320};await back(page);await setRegion(page,r);const crop=await generate(page)
     let max=0,different=0,total=0
@@ -119,43 +112,77 @@ export async function runRegionQa(browser, { baseURL, keys, gif, screenshotDir }
     await back(page);await setRegion(page,{x:950,y:120,width:80,height:80});const gifOut=await generate(page);assert.deepEqual(Array.from(gifOut.rgba.slice((80*gifOut.width+80)*4,(80*gifOut.width+80)*4+4)),[255,0,0,255]);record.checks.push('GIF 0번 빨간 프레임')
     await back(page);await setRegion(page,{x:100,y:580,width:650,height:120});const text=await generate(page);const ink=[];for(let y=0;y<text.height;y++)for(let x=0;x<text.width;x++){const k=(y*text.width+x)*4;if(text.rgba[k]<200&&text.rgba[k+1]<200&&text.rgba[k+2]<200)ink.push(x)}assert.ok(ink.some(x=>x<500));assert.ok(ink.some(x=>x>800));record.checks.push('기본 문자열/펜 획 픽셀 존재 확인: 72 전체 검증 대체 아님')
   })
-  await scenario('bounds-presets',{width:1280,height:800},1,async({page,record})=>{
+  await scenario('bounds-presets',largeViewport,1,async({page,record})=>{
     await openRegion(page)
     for(const r of [{x:1248,y:768,width:32,height:32},{x:0,y:0,width:32,height:32}]){
       await setRegion(page,r);const out=await generate(page);assert.deepEqual([out.width,out.height],[64,64]);record.checks.push(`최소/경계 ${JSON.stringify(r)} ->64×64`);await back(page)
     }
-    await setRegion(page,{x:100,y:100,width:400,height:500});await page.getByRole('button',{name:'세로 피드 4:5',exact:true}).click();let out=await generate(page);assert.deepEqual([out.width,out.height],[1080,1350]);await back(page)
+    await setRegion(page,{x:100,y:100,width:400,height:500});await page.getByRole('button',{name:'세로 피드 4:5',exact:true}).click()
+    const fixed=page.getByTestId('export-region-frame')
+    const before=await fixed.boundingBox()
+    const handle=await page.getByTestId('region-handle-se').boundingBox()
+    const x=handle.x+handle.width/2,y=handle.y+handle.height/2
+    await touchGesture(page,[[x,y]],[[x-60,y]])
+    const after=await fixed.boundingBox()
+    assert.ok(after.width < before.width && Math.abs(after.width/after.height-0.8)<0.001,JSON.stringify({before,after}))
+    let out=await generate(page);assert.deepEqual([out.width,out.height],[1080,1350]);await back(page)
+    await setRegion(page,{x:100,y:100,width:200,height:250});await page.getByRole('button',{name:'세로 피드 4:5',exact:true}).click()
+    assert.equal(await page.getByRole('button',{name:'선택 영역 확정',exact:true}).isDisabled(),true)
+    out=await generate(page);assert.deepEqual([out.width,out.height],[1080,1350]);await back(page)
     await page.getByRole('button',{name:'스토리 9:16',exact:true}).click();out=await generate(page);assert.deepEqual([out.width,out.height],[1080,1920]);record.checks.push('세로/스토리 고정 출력 크기');await back(page)
-    await page.getByRole('button',{name:'자유',exact:true}).click();await setRegion(page,{x:0,y:0,width:31,height:32});await page.getByText('최소 32×32·페이지 경계·프리셋 비율을 확인해 주세요.',{exact:true}).waitFor();record.checks.push('31 논리 단위 입력 거부')
-    await page.getByRole('button',{name:'영역 선택 취소',exact:true}).click();await page.getByRole('button',{name:'현재 페이지 내보내기',exact:true}).click();await page.getByRole('button',{name:'PNG 미리보기',exact:true}).click();await page.getByRole('button',{name:'PNG 파일 저장',exact:true}).waitFor();out=await image(page);assert.deepEqual([out.width,out.height],[1280,800]);record.checks.push('공유 메뉴 복귀 및 기존 전체 PNG 1280×800')
+    for(const name of ['화면 이동','영역 조정','새 영역 그리기','영역 화면 확대','영역 수치 조정','피드 비율 안내','스토리 비율 안내']){
+      assert.equal(await page.getByRole('button',{name,exact:true}).count(),0)
+    }
+    for(const name of ['자유','정사각형 1:1','세로 피드 4:5','스토리 9:16']){
+      assert.equal(await page.getByRole('button',{name,exact:true}).count(),1)
+    }
+    assert.equal(await page.getByText('게시 비율 참고',{exact:true}).count(),0)
+    record.checks.push('비율 프리셋은 유지하고 게시 참고와 조작 버튼은 제거')
+    await page.getByRole('button',{name:'영역 선택 취소',exact:true}).click()
+    out=await downloadImage(page,page.getByRole('button',{name:'PNG 만들기',exact:true}))
+    assert.deepEqual([out.width,out.height],[2560,1600]);record.checks.push('내보내기 메뉴 복귀 및 전체 PNG 2560×1600')
   })
-  await scenario('reverse-drag',{width:1280,height:800},1,async({page,record})=>{
-    await openRegion(page);await page.getByRole('button',{name:'새 영역 그리기',exact:true}).click()
-    const overlay=page.getByTestId('export-region-overlay');await overlay.scrollIntoViewIfNeeded();const b=await overlay.boundingBox(),z=b.width/1280
-    await page.mouse.move(b.x+500*z,b.y+500*z);await page.mouse.down();await page.mouse.move(b.x+100*z,b.y+100*z,{steps:12});await page.mouse.up()
-    const selection=await page.getByText(/^선택 .*예상 PNG/).innerText();record.gestureSelection=selection
-    assert.match(selection,/선택 400\.0 × 400\.0/)
-    await page.getByRole('button',{name:'새 영역 그리기',exact:true}).click()
-    await page.mouse.move(b.x+250*z,b.y+250*z);await page.mouse.down();await page.mouse.move(b.x+250*z+2,b.y+250*z+2);await page.mouse.up()
-    assert.equal(await page.getByText(/^선택 .*예상 PNG/).innerText(),selection)
-    record.checks.push('사진 위에서 역방향 마우스 드래그 좌표, 최소 미만 새 드래그의 이전 영역 복원')
+  await scenario('touch-resize-and-pan',{width:412,height:892},2,async({page,record})=>{
+    await openRegion(page)
+    const overlay=page.getByTestId('export-region-overlay')
+    const bounds=await overlay.boundingBox()
+    const corner=await page.getByTestId('region-handle-se').boundingBox()
+    const x=corner.x+corner.width/2,y=corner.y+corner.height/2
+    await touchGesture(page,[[x,y]],[[x-80,y-50]])
+    const frame=page.getByTestId('export-region-frame'), selected=await frame.boundingBox()
+    assert.ok(selected.width < bounds.width-65 && selected.height < bounds.height-40)
+    const mx=selected.x+selected.width/2,my=selected.y+selected.height/2
+    await touchGesture(page,[[mx,my]],[[mx+25,my+20]])
+    const movedSelection=await frame.boundingBox()
+    assert.ok(Math.abs(movedSelection.x-selected.x-25)<2 && Math.abs(movedSelection.y-selected.y-20)<2)
+    assert.ok(Math.abs(movedSelection.width-selected.width)<1 && Math.abs(movedSelection.height-selected.height)<1)
+    const center=[bounds.x+bounds.width/2,bounds.y+bounds.height/2]
+    const [cx,cy]=center
+    await touchGesture(page,[[cx-30,cy],[cx+30,cy]],[[cx-5,cy+30],[cx+55,cy+30]])
+    const moved=await overlay.boundingBox()
+    assert.ok(Math.abs(moved.x-bounds.x-25)<2 && Math.abs(moved.y-bounds.y-30)<2)
+    const after=await frame.boundingBox()
+    assert.ok(Math.abs(after.width-selected.width)<1 && Math.abs(after.height-selected.height)<1)
+    assert.ok(Math.abs(after.x-movedSelection.x-25)<2 && Math.abs(after.y-movedSelection.y-30)<2)
+    record.checks.push('한 손가락 모서리 조절·영역 이동, 두 손가락으로 영역 좌표를 유지한 채 보기 이동')
   })
-  await scenario('touch-scroll',{width:412,height:892},2,async({page,record})=>{
-    await openRegion(page);for(let i=0;i<5;i++)await page.getByRole('button',{name:'영역 화면 확대',exact:true}).click()
-    const scroll=page.getByTestId('region-horizontal-scroll');await scroll.scrollIntoViewIfNeeded();const b=await scroll.boundingBox()
-    const cdp=await page.context().newCDPSession(page),y=Math.min(850,b.y+80),start=Math.min(370,b.x+b.width-20),end=b.x+30
-    await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:start,y}]})
-    for(let i=1;i<=12;i++)await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:start+(end-start)*i/12,y}]})
-    await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});await page.waitForTimeout(200)
-    const moved=await scroll.evaluate(el=>({left:el.scrollLeft,clientWidth:el.clientWidth,scrollWidth:el.scrollWidth}));assert.ok(moved.left>0,JSON.stringify(moved));record.touchScroll=moved;record.checks.push('Chromium CDP 한 손가락 가로 스크롤 에뮬레이션: 실제 태블릿 검증 아님')
+  await scenario('touch-corner-to-pinch',largeViewport,1,async({page,record})=>{
+    await openRegion(page)
+    const overlay=page.getByTestId('export-region-overlay'), bounds=await overlay.boundingBox()
+    const corner=await page.getByTestId('region-handle-nw').boundingBox()
+    const x=corner.x+corner.width/2,y=corner.y+corner.height/2
+    await touchGesture(page,[[x+40,y+40],[x+140,y+140]],[[x+45,y+45],[x+195,y+195]],{initialSingle:[x,y]})
+    await page.getByText('1280 × 800',{exact:true}).waitFor()
+    assert.ok((await overlay.boundingBox()).width > bounds.width*1.4)
+    record.checks.push('모서리에 손가락을 댄 상태에서 두 번째 손가락을 추가하면 확대')
   })
   await scenario('invalid-element',{width:1280,height:800},1,async({page,record})=>{
     await openRegion(page);await page.getByRole('button',{name:'선택 영역 확정',exact:true}).click()
     const alert=page.getByRole('alert').filter({hasText:'아직 내보낼 수 없는 요소가 있어요.'});await alert.waitFor();assert.ok(await alert.isVisible());assert.equal(await page.getByRole('button',{name:'PNG 파일 저장',exact:true}).count(),0);record.checks.push('확정 오류가 선택 Modal 안 alert로 표시됨')
   })
-  await scenario('template-crop',{width:1280,height:800},1,async({page,record})=>{
+  await scenario('template-crop',largeViewport,1,async({page,record})=>{
     await openRegion(page);const whole=await generate(page);assert.deepEqual([whole.width,whole.height],[2048,1536]);await back(page)
-    const r={x:200,y:160,width:400,height:300};await setRegion(page,r);const crop=await generate(page)
+    const r={x:200,y:160,width:400,height:300};await setRegion(page,r,1024,768);const crop=await generate(page)
     let max=0,different=0,total=0,ink=0
     for(let y=0;y<crop.height;y++)for(let x=0;x<crop.width;x++)for(let c=0;c<4;c++){
       const actual=crop.rgba[(y*crop.width+x)*4+c],expected=whole.rgba[((y+r.y*2)*whole.width+x+r.x*2)*4+c]
@@ -164,9 +191,13 @@ export async function runRegionQa(browser, { baseURL, keys, gif, screenshotDir }
     assert.ok(ink>100);assert.ok(different/total<0.001,`template crop mismatch ${different}/${total}`)
     record.templateComparison={different,total,max,tolerance:2};record.checks.push('1024×768 SVG 속지를 재배치/축소하지 않고 전체 2배의 같은 구역으로 클리핑')
   })
-  await scenario('missing-media',{width:1280,height:800},1,async({page,record})=>{
-    await openRegion(page);await setRegion(page,region);await page.getByRole('button',{name:'선택 영역 확정',exact:true}).click();await page.getByText('파일은 저장되지 않았어요. 편집 내용은 그대로 유지돼요.',{exact:true}).waitFor({timeout:35000});assert.equal(await page.getByRole('button',{name:'PNG 파일 저장',exact:true}).count(),0)
-    await page.getByRole('button',{name:'PNG 다시 만들기',exact:true}).click();await page.getByText('파일은 저장되지 않았어요. 편집 내용은 그대로 유지돼요.',{exact:true}).waitFor({timeout:35000});await back(page);record.checks.push('영역 밖 누락 소재도 중단, 저장 버튼 없음, 같은 snapshot 재시도, 영역 재선택 가능')
+  await scenario('missing-media',largeViewport,1,async({page,record})=>{
+    await openRegion(page);await setRegion(page,region)
+    let downloads=0;page.on('download',()=>downloads++)
+    await page.getByRole('button',{name:'선택 영역 확정',exact:true}).click()
+    await page.getByText(/이미지를 준비하지 못했어요|원본 이미지를 찾을 수 없어요/).waitFor({timeout:35000})
+    assert.equal(downloads,0)
+    await back(page);record.checks.push('영역 밖 누락 소재도 다운로드 중단, 편집 화면에서 다시 선택 가능')
   },true)
   return {browser:browser.version(),platform:process.platform,osRelease:release(),arch:arch(),runAt:new Date().toISOString(),records,passed:records.every(r=>r.passed)}
 }

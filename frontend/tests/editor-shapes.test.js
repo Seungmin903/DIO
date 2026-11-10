@@ -188,6 +188,7 @@ test('세로 정렬 선택은 도형 서식에서만 표시하고 선택 값을 
   if(id.endsWith('/ToolPanel'))return {Segmented:'segment',ToolPanelHeader:'header',toolPanelStyles:{}}
   if(id.endsWith('/theme'))return {colors:{}}
   if(id.endsWith('/text'))return text
+  if(id.endsWith('/numberFieldStyles'))return {numberFieldStyles:{box:{},input:{}}}
   if(id==='react/jsx-runtime')return require(id)
   return {__esModule:true,default:'mock',Path:'path'}
  },module,module.exports)

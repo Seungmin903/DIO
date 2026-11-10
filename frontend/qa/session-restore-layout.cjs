@@ -19,7 +19,7 @@ const load = (file, mocks) => {
   const Button = load('src/shared/DioButton.js', { 'react-native': native, './theme': theme, './AppIcon': { __esModule: true, default: () => null } });
   const Screen = load('src/auth/SessionRestoreScreen.js', { 'react-native': native,
     'react-native-safe-area-context': { SafeAreaView: native.View }, '../shared/theme': theme, '../shared/DioButton': { __esModule: true, default: Button } });
-  const body = renderToStaticMarkup(React.createElement(Screen, { error: { code: 'NETWORK_ERROR' }, busy: false }));
+  const body = renderToStaticMarkup(React.createElement(Screen, { error: { code: 'NETWORK_ERROR' }, status: 'error' }));
   const html = `<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>html,body,#root{margin:0;height:100%;font-family:sans-serif}#root{display:flex;flex-direction:column}${native.StyleSheet.getSheet().textContent}</style><div id="root">${body}</div>`;
   const server = http.createServer((req, res) => { res.setHeader('Content-Type', 'text/html;charset=utf-8'); res.end(html); });
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));

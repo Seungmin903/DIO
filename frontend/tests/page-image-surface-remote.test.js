@@ -37,6 +37,9 @@ function renderSurface(snapshot) {
     '../skia/pencilRaster.js': { isSkiaPencil: () => false },
     '../builtinStickers': builtinStickers,
     '../hooks/useStickerPacks': { useStickerPacks: () => 0 },
+    '../templates/packingLayout.js': { packingLayout: () => null },
+    './canvas/PackingColorLayer': { PackingColorLayer: 'PackingColorLayer', PackingFrontLayer: 'PackingFrontLayer' },
+    '../../shared/fontScope': { KeepFont: 'KeepFont' },
   }
   const module = { exports: {} }
   new Function('require', 'module', 'exports', code)(id => { if (!(id in mocks)) throw new Error('mock 없음: ' + id); return mocks[id] }, module, module.exports)

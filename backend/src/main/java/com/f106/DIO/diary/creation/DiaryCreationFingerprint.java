@@ -30,10 +30,14 @@ final class DiaryCreationFingerprint {
         return request(metadata,pages,null);
     }
     static String request(DiaryCreateRequest metadata,List<DiaryInitialPages.Selection> pages,JsonNode paperAppearance) {
+        return request(metadata,pages,paperAppearance,null);
+    }
+    static String request(DiaryCreateRequest metadata,List<DiaryInitialPages.Selection> pages,JsonNode paperAppearance,JsonNode templateConfig) {
         if(metadata==null || pages==null || pages.isEmpty() || pages.size()>4096) throw DiaryCreationException.invalid();
         var root=JSON.createObjectNode(); root.put("format","diary-create-v1");
         root.put("title",metadata.diaryTitle()); root.put("color",metadata.coverColor()); root.put("style",metadata.coverStyle()); root.put("visibility",metadata.visibility());
         if(paperAppearance!=null)root.set("paperAppearance",paperAppearance);
+        if(templateConfig!=null)root.set("templateConfig",templateConfig);
         var array=root.putArray("pages");
         for(var page:pages) {
             if(page==null || page.configurationJson().length()>16384) throw DiaryCreationException.invalid();

@@ -79,6 +79,48 @@ export async function readFontBytes(uri) {
   if (!uri?.startsWith('file://')) throw new Error('기기에 저장한 폰트만 읽을 수 있어요.')
   return fromBase64(await FS.readAsStringAsync(uri, { encoding: FS.EncodingType.Base64 }))
 }
+// 공유 다이어리 폰트: 올릴 때 파일 이름에 기기 폰트 id 를 담는다(collaboration/diaryFonts.js). expo/fetch 가 읽도록 bytes() 를 붙인다
+export async function sharedFontUploadBody(font) {
+  if (!font.uri?.startsWith('file://')) throw Object.assign(new Error('기기에 저장한 폰트만 올릴 수 있어요.'), { code: 'FONT_SOURCE_MISSING' })
+  const name = `dio-hw-${font.fileId.toLowerCase()}.ttf`
+  const body = new FormData()
+  body.append('file', { uri: font.uri, type: 'font/ttf', name, bytes: () => new File(font.uri).bytes() })
+  body.append('libraryCategory', 'FONT')
+  return body
+}
+// 받은 친구 폰트 캐시: 서버 파일 id(mediaFileId) 이름으로 둔다. 다른 계정으로 열면 통째로 비운다(sharedFonts.js)
+const sharedFontDirectory = () => `${FS.documentDirectory}dio-shared-fonts/`
+const sharedFontPath = mediaFileId => {
+  if (!/^[0-9a-f-]{36}$/i.test(mediaFileId)) throw new Error('폰트 파일 ID가 올바르지 않아요.')
+  return `${sharedFontDirectory()}${mediaFileId}.ttf`
+}
+export async function cachedSharedFontUri(mediaFileId) {
+  const uri = sharedFontPath(mediaFileId)
+  const info = await FS.getInfoAsync(uri)
+  return info.exists && info.size > 0 ? uri : null
+}
+export async function removeSharedFontBytes(mediaFileId) {
+  await FS.deleteAsync(sharedFontPath(mediaFileId), { idempotent: true })
+}
+export async function clearSharedFontBytes() {
+  await FS.deleteAsync(sharedFontDirectory(), { idempotent: true })
+}
+export function releaseSharedFontUris() {} // 네이티브는 파일 경로라 풀어 줄 것이 없다
+export async function saveSharedFontBytes(mediaFileId, bytes) {
+  const uri = sharedFontPath(mediaFileId), temporary = `${uri}.pending`
+  await FS.makeDirectoryAsync(sharedFontDirectory(), { intermediates: true })
+  try {
+    // 최대 25MB 폰트를 Base64 문자열(약 1.33배)로 바꾸지 않고 바이트 그대로 쓴다(저사양 기기 메모리. PDF 원본 저장과 같은 방법)
+    const pending = new File(temporary)
+    pending.create({ overwrite: true })
+    await pending.write(bytes)
+    const info = await FS.getInfoAsync(temporary)
+    if (!info.exists || info.size !== bytes.length) throw new Error('폰트 파일을 모두 저장하지 못했어요. 저장 공간을 확인해 주세요.')
+    await FS.deleteAsync(uri, { idempotent: true })
+    await FS.moveAsync({ from: temporary, to: uri })
+    return uri
+  } catch (error) { await FS.deleteAsync(temporary, { idempotent: true }).catch(() => {}); throw error }
+}
 export async function restoreFontUri(font) {
   if (!font.uri?.startsWith('file://')) throw new Error('기기 폰트 경로가 올바르지 않아요.')
   const info = await FS.getInfoAsync(font.uri)

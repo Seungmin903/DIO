@@ -6,11 +6,10 @@ const read = path => readFileSync(new URL(path, import.meta.url), 'utf8')
 // 목 API 는 타이머 없이 바로 끝나므로 이벤트 루프를 몇 바퀴 돌리면 뒤에서 올리는 표지 동기화까지 끝난다
 const flush = async () => { for (let i = 0; i < 30; i++) await new Promise(r => setImmediate(r)) }
 
-test('590: 처음 불러오는 동안은 빈 화면 자리 가운데 스피너만(목록 위 글자 줄 없음)', () => {
+test('590: 휴지통 첫 조회는 빈 화면 자리에 스피너를 표시하고 목록 위에는 로딩 안내를 그리지 않는다', () => {
   const empty = read('../src/diary/components/EmptyState.js')
   assert.match(empty, /export function LoadingSpot\(/)
   assert.match(empty, /accessibilityRole="progressbar" accessibilityLabel=\{label\} accessibilityState=\{\{ busy: true \}\} accessibilityLiveRegion="polite"/)
-  assert.match(read('../src/diary/screens/LibraryScreen.js'), /suppressEmpty \? \(loading \? <LoadingSpot compact=\{compact\} label="다이어리를 불러오고 있어요\." \/> : null\)/)
   assert.match(read('../src/diary/screens/TrashScreen.js'), /suppressEmpty \? \(loading \? <LoadingSpot compact=\{compact\} art="dio" label="휴지통을 불러오고 있어요\." \/> : null\)/)
   assert.doesNotMatch(read('../src/diary/components/MemberLibraryNotice.js'), /다이어리를 불러오고 있어요|ActivityIndicator/)
   assert.doesNotMatch(read('../src/diary/components/MemberTrashNotice.js'), /불러오고 있어요/)

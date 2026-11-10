@@ -36,6 +36,9 @@ public class MemberDiaryCreationRepository {
 	public void setInitialPaperAppearance(UUID id,String appearance) {
 		jdbc.update("update diaries set paper_appearance_json=? where diary_id=?",appearance,id);
 	}
+	public void setInitialTemplateConfig(UUID id,String config) {
+		jdbc.update("update diaries set template_config_json=? where diary_id=?",config,id);
+	}
 	public List<UUID> activePageIds(UUID id) {
 		return jdbc.queryForList("select page_id from pages where diary_id=? and deleted_at is null order by sort_key,page_id",UUID.class,id);
 	}

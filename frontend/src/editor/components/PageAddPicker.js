@@ -13,7 +13,7 @@ import { useRemoteTemplates } from '../hooks/useRemoteTemplates'
 
 // 페이지로 더할 수 있는 속지: 장수로 넣는 속지만 (날짜 속지는 다이어리를 만들 때 기간으로 넣는다)
 // 탭별 장수 속지. 원격 속지(catalog.json)가 바뀌면 다시 만든다(PageAddPicker 의 useRemoteTemplates)
-const countGroups = () => paperGroups().map(group => ({ ...group, papers: papersIn(group.id).filter(paper => paper.kind === 'count') })).filter(group => group.papers.length)
+const countGroups = orientation => paperGroups().map(group => ({ ...group, papers: papersIn(group.id).filter(paper => paper.kind === 'count' && (!paper.portraitOnly || orientation === 'portrait')) })).filter(group => group.papers.length)
 const CARD_WIDTH = 348 // 속지 칸(최소 76 · 사이 4) 4개가 한 줄에 든다(플래너 7종이 3 + 3 + 1 이 아니라 4 + 3)
 const CONTENT_PADDING = 12
 const MINE_GAP = 12
@@ -21,7 +21,7 @@ const MINE = { id: 'mine', name: '내 속지' } // 공방 · 새 다이어리에
 
 /** 팝업을 열기 전에 속지를 미리 불러 둬 열자마자 그려지게 한다 */
 export function prefetchPageAddPapers(orientation) {
-  for (const group of countGroups()) for (const paper of group.papers) {
+  for (const group of countGroups(orientation)) for (const paper of group.papers) {
     try { loadTemplate({ backgroundAssetId: countAssetId(paper.id, orientation), templateVersion: TEMPLATE_VERSION }).catch(() => {}) } catch { /* 없는 속지는 건너뜀 */ }
   }
 }
@@ -35,7 +35,7 @@ export function prefetchPageAddPapers(orientation) {
  */
 export default function PageAddPicker({ compact = false, orientation, appearance, currentAssetId = null, anchor = { left: 16, bottom: 16 }, myPapers = [], onSelect, onSelectMine, onClose }) {
   const remoteRevision = useRemoteTemplates()
-  const GROUPS = useMemo(countGroups, [remoteRevision])
+  const GROUPS = useMemo(() => countGroups(orientation), [remoteRevision, orientation])
   // 지금 페이지의 속지와 같은 속지가 있으면 그 분류에서 열고, 맨 위에 바로 넣는 줄을 둔다
   const current = currentAssetId ? GROUPS.flatMap(item => item.papers.map(paper => ({ paper, group: item.id })))
     .find(item => countAssetId(item.paper.id, orientation) === currentAssetId) ?? null : null
