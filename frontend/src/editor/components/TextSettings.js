@@ -1,13 +1,15 @@
 import { Segmented, ToolPanelHeader, toolPanelStyles } from './ToolPanel'
 import FadeScroll from './controls/FadeScroll'
 import { useEffect, useState } from 'react'
-import { Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native'
+import { Platform, Pressable, StyleSheet, Text, View } from 'react-native'
 import { colors } from '../../shared/theme'
 import Svg, { Path } from 'react-native-svg'
 import { TEXT_COLORS, textStyleSupport, textStyleReady, textFontChangePatch, italicTransform } from '../utils/text'
 import { useTextFont } from '../hooks/useTextFont'
 import EditablePalette from './controls/EditablePalette'
 import NumberStepper from './controls/NumberStepper'
+import PenSafeTextInput from './controls/PenSafeTextInput'
+import { numberFieldStyles } from './controls/numberFieldStyles'
 import TextFontDropdown from './controls/TextFontDropdown'
 
 
@@ -64,7 +66,11 @@ export default function TextSettings({ settings, onChange, onClose, verticalAlig
         <View style={{ flex: 1 }}>
           <TextFontDropdown value={settings.font} onChange={(id) => onChange(textFontChangePatch(settings, id, Platform.OS))} />
         </View>
-        <TextInput accessibilityLabel="글자 크기" keyboardType="numeric" value={size} onChangeText={(raw) => { setSize(raw); const value = Number(raw); if (raw.trim() && Number.isFinite(value) && value >= 8 && value <= 96) onChange({ fontSize: value }) }} onEndEditing={(event) => commitSize(event.nativeEvent.text)} onSubmitEditing={(event) => commitSize(event.nativeEvent.text)} selectTextOnFocus style={styles.size} />
+        <View style={[numberFieldStyles.box, styles.size]}>
+          {/* 자간 · 줄간격 숫자 칸과 같이 PenSafeTextInput: S Pen 이 칸 가까이 지나가기만 해도 입력창이 열리지 않게 한다.
+              자릿수는 막지 않는다(붙여넣은 100 이 10 으로 잘려 적용되지 않게) — 범위 밖 값은 commitSize 가 되돌린다 */}
+          <PenSafeTextInput accessibilityLabel="글자 크기" keyboardType="numeric" value={size} onChangeText={(raw) => { setSize(raw); const value = Number(raw); if (raw.trim() && Number.isFinite(value) && value >= 8 && value <= 96) onChange({ fontSize: value }) }} onEndEditing={(event) => commitSize(event.nativeEvent.text)} onSubmitEditing={(event) => commitSize(event.nativeEvent.text)} selectTextOnFocus style={numberFieldStyles.input} />
+        </View>
       </View>
 
 
@@ -113,8 +119,8 @@ const styles = StyleSheet.create({
   inlineLabel: { width: 52, color: colors.textMuted, fontSize: 12, fontWeight: '700' },
   fill: { flex: 1 },
   spacingColumn: { flex: 1, minWidth: 0, gap: 6 },
-  // 글자 크기 칸: 자간·줄간격 막대의 숫자 칸과 같은 모양 (숫자 칸은 모두 가운데 정렬)
-  size: { width: 52, height: 40, paddingHorizontal: 6, borderRadius: 10, borderWidth: 1, borderColor: colors.cardBorder, backgroundColor: colors.surface, color: colors.text, fontSize: 13, fontWeight: '700', textAlign: 'center', ...(Platform.OS === 'web' && { outlineStyle: 'none' }) },
+  // 글자 크기 칸: 자간 · 줄간격의 숫자 칸과 같은 모양(numberFieldStyles — 글자 14/700 · 가운데 · border 테두리 · 모서리 9), 폭만 52
+  size: { width: 52 },
   // 한 줄에 같은 간격으로 (양 끝 여백도 같게)
   colors: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   swatch: { width: 30, height: 30, borderRadius: 15, borderWidth: 1, borderColor: colors.cardBorder },
