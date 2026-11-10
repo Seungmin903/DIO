@@ -143,7 +143,7 @@ export default function PenSettings({ settings, onChange, onClose, straightAssis
           그 뒤가 견본, 맨 끝이 직접 고르기. 세기는 스위치 없이 0(꺼짐)~100 숫자 하나로 정하고,
           세기를 색보다 위에 둔다(끄고 켜는 게 먼저라 — 사용자 2026-11-10). */}
       {settings.kind === 'glass' && <>
-        <Slider name="글리터 강도" label="글리터 강도" minusLabel="글리터 약하게" plusLabel="글리터 세게" min={0} max={100} step={10}
+        <Slider name="글리터" label="글리터" minusLabel="글리터 약하게" plusLabel="글리터 세게" min={0} max={100} step={10}
           value={settings.inkGlitter === false ? 0 : Math.round((settings.inkAmount ?? 1) * 100)}
           onChange={(value) => { const amount = Math.round(value / 10) * 10 / 100; onChange({ ...settings, inkGlitter: amount > 0, inkAmount: amount }) }} />
         <InkColorRow label="글리터 색" autoColor={rgbCss(glitterColorOf(penRgb))} autoOn={settings.inkFilm == null && !settings.inkGlitterColor}
@@ -154,7 +154,7 @@ export default function PenSettings({ settings, onChange, onClose, straightAssis
           customOn={Boolean(settings.inkGlitterColor)} customCss={settings.inkGlitterColor}
           onCustom={() => onOpenColorPicker?.({ title: '글리터 색', value: settings.inkGlitterColor ?? rgbHex(glitterColorOf(penRgb)),
             onDone: color => onChange({ ...settings, inkGlitterColor: color }) })} />
-        <Slider name="테 강도" label="테 강도" minusLabel="테 약하게" plusLabel="테 세게" min={0} max={100} step={10}
+        <Slider name="테" label="테" minusLabel="테 약하게" plusLabel="테 세게" min={0} max={100} step={10}
           value={settings.inkSheen === false ? 0 : Math.round((settings.inkSheenAmount ?? 1) * 100)}
           onChange={(value) => { const amount = Math.round(value / 10) * 10 / 100; onChange({ ...settings, inkSheen: amount > 0, inkSheenAmount: amount }) }} />
         <InkColorRow label="테 색" autoColor={rgbCss(sheenAutoColor(penRgb))} autoOn={settings.inkSheenColor == null}
@@ -166,9 +166,11 @@ export default function PenSettings({ settings, onChange, onClose, straightAssis
           onCustom={() => onOpenColorPicker?.({ title: '테 색', value: settings.inkSheenColor ?? rgbHex(sheenAutoColor(penRgb)),
             onDone: color => onChange({ ...settings, inkSheenColor: color }) })} />
       </>}
+      {/* 어느 펜을 골라도 마지막 줄은 이것 하나다 → 구분선 하나로 위쪽 '그리기 설정'과 나눈다 */}
+      <View style={styles.divider} />
       <View style={styles.assist}>
-        <Text style={styles.assistText}>직선 만들기</Text>
-        <SettingSwitch label="직선 만들기" on={straightAssist} onToggle={onStraightAssistChange} />
+        <Text style={styles.assistText}>끝점 꾹 눌러 직선 만들기</Text>
+        <SettingSwitch label="끝점 꾹 눌러 직선 만들기" on={straightAssist} onToggle={onStraightAssistChange} />
       </View>
     </FadeScroll>
   </View>
@@ -187,6 +189,7 @@ const styles = StyleSheet.create({
   typeSelected: { borderWidth: 2, paddingVertical: 5, paddingHorizontal: 0, borderColor: colors.primaryStrong }, // 페이지 목록 탭과 같은 선택 표시(테두리 2)
   typeText: { textAlign: 'center', color: colors.textMuted, fontSize: 11.5, fontWeight: '600' },
   typeTextSelected: { color: colors.text, fontWeight: '800' },
+  divider: { height: 1, backgroundColor: colors.cardBorder, marginTop: 4 },
   assist: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, minHeight: 40 },
   assistText: { flex: 1, color: colors.text, fontSize: 13, fontWeight: '600' },
   // '맞춤' 글자: 다이어리 표지 색 줄과 같은 규칙. includeFontPadding 을 끄지 않으면
