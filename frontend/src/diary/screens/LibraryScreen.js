@@ -136,11 +136,15 @@ function LibraryScreen({
   // 폰도 옆 카드를 살짝 보이던 것 대신 화면 밖에 두고 좌우 화살표로 넘긴다(지라 611): 간격 = 양옆 여백 + 8
   const carouselGap = portrait ? PORTRAIT_ITEM_WIDTH : compact ? Math.max(11, Math.round(carouselSidePadding) + 8) : CAROUSEL_GAP;
   const carouselStep = portrait || compact ? carouselItemWidth + carouselGap : CAROUSEL_STEP;
-  // 카드 수가 바뀔 때만 애니메이션 노드를 새로 만든다. 매 렌더마다 만들면 스와이프마다 모든 카드가 다시 연결된다.
-  const motions = useMemo(
-    () => Array.from({ length: itemCount }, (_, index) => carouselMotion(scrollX, index, carouselStep)),
-    [carouselStep, itemCount, scrollX],
-  );
+  // 애니메이션 노드는 위치(index)마다 한 번만 만들어 카드 수가 바뀌어도 그대로 쓴다(칸 폭이 바뀔 때만 새로).
+  // 화면에 남은 카드가 노드를 바꿔 받으면 react-native 가 옛 노드 값을 기본값으로 되돌려(restoreDefaultValues: transform · opacity,
+  // createAnimatedPropsHook 의 useAnimatedPropsLifecycle) 네이티브 드라이버에서 카드가 한 프레임 원래 크기 · 자리로 튄다.
+  // 휴지통 이동 때 위치가 그대로인 카드는 노드가 그대로라 튀지 않고, 위치가 바뀐 카드는 아래 renderItem 에서 새로 마운트한다(마운트 해제에는 되돌리지 않는다)
+  const motionCache = useMemo(() => new Map(), [carouselStep, scrollX]);
+  const motions = useMemo(() => Array.from({ length: itemCount }, (_, index) => {
+    if (!motionCache.has(index)) motionCache.set(index, carouselMotion(scrollX, index, carouselStep));
+    return motionCache.get(index);
+  }), [carouselStep, itemCount, motionCache, scrollX]);
   const activeIndex = Math.max(0, Math.min(carousel, Math.max(0, itemCount - 1)));
   // 다른 보기에 있을 때도 지금 다이어리와 앞뒤 한 권의 문서 · 속지를 읽어 둬, 펼쳐서로 넘어온 순간 속지가 바로 그려지게 한다
   useEffect(() => { preloadOpenBooks(carouselItems, activeIndex); }, [carouselItems, activeIndex]);
@@ -178,21 +182,29 @@ function LibraryScreen({
   const moveTarget = useRef(null);
   const moveTimer = useRef(null);
   useEffect(() => () => clearTimeout(moveTimer.current), []);
+  // 넘기기가 끝나면 JS 쪽 scrollX 도 멈춘 위치로 맞춘다. 스크롤 이벤트는 네이티브 드라이버라 기기에서는 JS 값을 바꾸지 않아
+  // (웹은 JS 로 따라간다) 마지막으로 자리 잡은 위치에 남는다. 카드는 다시 그려질 때 이 JS 값으로 크기 · 높이를 계산해 보내므로,
+  // 맞추지 않으면 휴지통 이동처럼 카드가 한꺼번에 다시 그려질 때 엉뚱한 카드가 한 프레임 가운데 크기로 커졌다가 돌아온다.
+  // 멈춘 위치와 같은 값이라 화면은 움직이지 않는다. 화살표 이동은 목표가 아니라 스크롤이 실제로 알려 준 마지막 위치로 맞춘다
+  // (부드러운 이동이 시간 안에 끝나지 않았어도 카드 크기와 실제 위치가 어긋나지 않게)
+  const lastOffset = useRef(null);
+  const settleScrollX = useCallback(offset => { if (Number.isFinite(offset)) scrollX.setValue(offset); }, [scrollX]);
   const moveCarousel = (nextIndex) => {
     const next = Math.max(0, Math.min(nextIndex, itemCount - 1));
     moveTarget.current = next;
     positioned.current = positionKey(next);
     carouselRef.current?.scrollToOffset?.({ offset: next * carouselStep, animated: true });
     clearTimeout(moveTimer.current);
-    moveTimer.current = setTimeout(() => { moveTarget.current = null; onCarouselChange(next); }, CAROUSEL_MOVE_MS);
+    moveTimer.current = setTimeout(() => { moveTarget.current = null; settleScrollX(lastOffset.current); onCarouselChange(next); }, CAROUSEL_MOVE_MS);
   };
 
   const syncCarouselIndex = useCallback(({ nativeEvent }) => {
     const index = Math.max(0, Math.min(Math.round(nativeEvent.contentOffset.x / carouselStep), itemCount - 1));
     positioned.current = [filter, view, carouselViewportWidth, contentWidth, index].join(':');
     clearTimeout(moveTimer.current); moveTarget.current = null;
+    settleScrollX(nativeEvent.contentOffset.x);
     onCarouselChange(index);
-  }, [carouselStep, carouselViewportWidth, contentWidth, filter, itemCount, onCarouselChange, view]);
+  }, [carouselStep, carouselViewportWidth, contentWidth, filter, itemCount, onCarouselChange, settleScrollX, view]);
 
   // 사이드 메뉴가 열리고 닫히는 동안 줄 폭이 매 프레임 바뀐다. 그때마다 화면을 다시 그리면 메뉴 애니메이션과
   // 같은 JS 스레드를 두고 다퉈 둘 다 끊긴다. 처음 잰 폭만 바로 쓰고, 이후 변화는 멈춘 뒤 한 번만 반영한다.
@@ -215,9 +227,10 @@ function LibraryScreen({
     else apply();
   }, [railWidthRef]);
 
+  // 크기 계산은 네이티브로 바로 따라가고, JS 는 마지막 위치만 기억한다(넘기기가 끝날 때 scrollX 를 맞추는 데 쓴다. 펼쳐서 보기와 같은 방식)
   const onScroll = useMemo(() => Animated.event(
     [{ nativeEvent: { contentOffset: { x: scrollX } } }],
-    { useNativeDriver: true },
+    { useNativeDriver: true, listener: ({ nativeEvent }) => { lastOffset.current = nativeEvent.contentOffset.x; } },
   ), [scrollX]);
 
   const { key: sortKey, direction } = parseSort(sort);
@@ -391,7 +404,8 @@ function LibraryScreen({
               windowSize={5}
               renderItem={({ item, index }) => (
                   <DiaryCard
-                    key={item.id}
+                    // 위치가 바뀌면(휴지통 이동으로 옆 카드가 당겨짐) 같은 다이어리라도 새로 마운트한다. 그대로 두고 노드만 바꾸면 위 motionCache 설명처럼 튄다
+                    key={`${item.id}:${index}`}
                     diary={item}
                     pageCount={metadata[item.id]?.pageCount}
                     layout="carousel"
