@@ -143,3 +143,22 @@ test('replaceMyPapers: 내 속지도 base 가 지금 목록이면 바꾸고 적�
   assert.deepEqual(hook.current.papers.map(item => item.name), ['방금 만든 속지', 's1'])
   hook.unmount()
 })
+
+test('subscribeMyCovers · subscribeMyPapers 는 자기 목록이 바뀔 때만 불린다(표지를 고쳐도 속지 동기화는 깨지 않는다)', async () => {
+  const paper = (id, name = id) => ({ id, name, createdAt: '2026-11-10T00:00:00.000Z', orientation: 'portrait', pages: [{ src: 'media:x', mediaFileId: 'x', aspect: 1, name: 'PDF' }] })
+  const { lib, mountHook } = load({ stored: { covers: [cover('c0')], papers: [paper('p0')] } })
+  await lib.myCoversReady()
+  const hook = mountHook()
+  const calls = []
+  const offCovers = lib.subscribeMyCovers(() => calls.push('covers')), offPapers = lib.subscribeMyPapers(() => calls.push('papers'))
+  await hook.current.addCover({ name: '새 표지', orientation: 'portrait', cover: {} })
+  assert.deepEqual(calls, ['covers'])
+  await hook.current.renamePaper('p0', '바꾼 속지')
+  assert.deepEqual(calls, ['covers', 'papers'])
+  assert.equal(await hook.current.addCover({ name: '하나 더', orientation: 'portrait', cover: {} }), true)
+  assert.deepEqual(calls, ['covers', 'papers', 'covers'])
+  offCovers(); offPapers()
+  await hook.current.renamePaper('p0', '또 바꿈')
+  assert.deepEqual(calls, ['covers', 'papers', 'covers']) // 해제하면 더 불리지 않는다
+  hook.unmount()
+})

@@ -49,6 +49,15 @@ export function subscribeMyLibrary(listener) {
   store.listeners.add(listener)
   return () => store.listeners.delete(listener)
 }
+// 한쪽 목록이 바뀔 때만 부른다(목록은 바꿀 때마다 새 배열이라 참조로 가린다). 표지 동기화가 속지 편집에, 속지 동기화가 표지 편집에 깨지 않게 한다
+function subscribeKind(kind, listener) {
+  let last = store[kind]
+  return subscribeMyLibrary(() => { if (store[kind] === last) return; last = store[kind]; listener() })
+}
+/** 내 표지 목록이 바뀔 때만 불린다. 해제 함수를 돌려준다 */
+export const subscribeMyCovers = listener => subscribeKind('covers', listener)
+/** 내 속지 목록이 바뀔 때만 불린다. 해제 함수를 돌려준다 */
+export const subscribeMyPapers = listener => subscribeKind('papers', listener)
 /**
  * 서버에서 받은 목록으로 바꾸고 적용한 목록을 돌려준다. base(받기 전에 본 목록)가 지금 목록과 다르면(그 사이 사용자가 고쳤으면) 바꾸지 않고 null.
  * 동기화는 돌려받은 목록과 지금 목록을 비교해, 바꾼 직후 들어온 사용자 편집을 놓치지 않는다.

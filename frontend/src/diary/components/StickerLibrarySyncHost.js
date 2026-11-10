@@ -17,7 +17,7 @@ import { forgetLibrarySyncRecords } from '../services/librarySyncRecords.js'
 import { setCoverSyncRetry, setCoverSyncStatus } from '../services/coverLibrarySyncStatus.js'
 import { setPaperSyncRetry, setPaperSyncStatus } from '../services/paperLibrarySyncStatus.js'
 import { createPaperLibrarySync } from '../services/paperLibrarySync.js'
-import { myCoversReady, myCoversSnapshot, myPapersReady, myPapersSnapshot, replaceMyCovers, replaceMyPapers, subscribeMyLibrary } from '../hooks/useMyLibrary'
+import { myCoversReady, myCoversSnapshot, myPapersReady, myPapersSnapshot, replaceMyCovers, replaceMyPapers, subscribeMyCovers, subscribeMyPapers } from '../hooks/useMyLibrary'
 import { defaultPaperStyleReady, defaultPaperStyleSnapshot, replaceDefaultPaperStyle, subscribeDefaultPaperStyle } from '../hooks/useDefaultPaperStyle'
 
 // 로그인 직후 화면이 몇 번 다시 그려지며 이 컴포넌트가 여러 번 붙었다 떨어진다. 그때마다 새로 맞추면 보관함 조회가 수십 번 나가므로,
@@ -118,7 +118,7 @@ function createSyncs(accountId, sessionKey) {
     library: {
       ready: () => Promise.all([myPapersReady(), defaultPaperStyleReady()]),
       papers: myPapersSnapshot, style: defaultPaperStyleSnapshot,
-      subscribe: listener => { const off = [subscribeMyLibrary(listener), subscribeDefaultPaperStyle(listener)]; return () => off.forEach(stop => stop()) },
+      subscribe: listener => { const off = [subscribeMyPapers(listener), subscribeDefaultPaperStyle(listener)]; return () => off.forEach(stop => stop()) },
       replacePapers: replaceMyPapers, replaceStyle: replaceDefaultPaperStyle,
     },
     onError: error => { if (typeof __DEV__ !== 'undefined' && __DEV__) console.warn('[DIO_PAPER_SYNC]', error?.message) },
@@ -146,7 +146,7 @@ function createSyncs(accountId, sessionKey) {
         put: (expectedVersion, covers) => transport({ method: 'PUT', path: '/me/cover-library', body: { expectedVersion, covers } }).then(readCovers),
       },
       media: { upload, download }, // 표지 사진은 PHOTO, 표지 스티커는 STICKER 로 올린다
-      library: { ready: myCoversReady, snapshot: myCoversSnapshot, subscribe: subscribeMyLibrary, replace: replaceMyCovers },
+      library: { ready: myCoversReady, snapshot: myCoversSnapshot, subscribe: subscribeMyCovers, replace: replaceMyCovers },
       onError: error => { if (typeof __DEV__ !== 'undefined' && __DEV__) console.warn('[DIO_COVER_SYNC]', error?.message) },
       onStatus: next => { if (active()) setCoverSyncStatus({ error: next.error }) },
     }),
