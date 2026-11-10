@@ -1,5 +1,7 @@
 export const REGION_MIN = 32
+export const REGION_HANDLE_SIZE = 44
 const clamp = (n, min, max) => Math.max(min, Math.min(max, n))
+export const REGION_CORNERS = { nw: '왼쪽 위', ne: '오른쪽 위', sw: '왼쪽 아래', se: '오른쪽 아래' }
 export const REGION_PRESETS = {
   free: { label: '자유' }, square: { label: '정사각형 1:1', ratio: 1, width: 1080, height: 1080 },
   portrait: { label: '세로 피드 4:5', ratio: 4 / 5, width: 1080, height: 1350 },
@@ -10,6 +12,25 @@ export function validRegion(r, page, ratio) {
     && r.x >= 0 && r.y >= 0 && r.width >= REGION_MIN && r.height >= REGION_MIN
     && r.x + r.width <= page.width + 1e-6 && r.y + r.height <= page.height + 1e-6
     && (!ratio || Math.abs(r.width / r.height / ratio - 1) <= 1e-6)
+}
+
+export function regionDragAction(point, region, zoom) {
+  const dx = (point.x - region.x) * zoom, dy = (point.y - region.y) * zoom
+  const width = region.width * zoom, height = region.height * zoom
+  const halfW = Math.min(REGION_HANDLE_SIZE, width) / 2
+  const halfH = Math.min(REGION_HANDLE_SIZE, height) / 2
+  for (const corner of Object.keys(REGION_CORNERS)) {
+    if (Math.abs(dx - (corner.includes('e') ? width : 0)) < halfW
+      && Math.abs(dy - (corner.includes('s') ? height : 0)) < halfH) return corner
+  }
+  return dx >= 0 && dx <= width && dy >= 0 && dy <= height ? 'move' : null
+}
+
+export function moveRegion(region, dx, dy, page) {
+  return { ...region,
+    x: clamp(region.x + dx, 0, Math.max(0, page.width - region.width)),
+    y: clamp(region.y + dy, 0, Math.max(0, page.height - region.height)),
+  }
 }
 export function resizeRegion(r, corner, dx, dy, page, ratio) {
   const left = corner.includes('w'), top = corner.includes('n')

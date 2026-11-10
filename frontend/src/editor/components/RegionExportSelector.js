@@ -1,16 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { StyleSheet, Text, View } from 'react-native'
-import { colors } from '../../shared/theme'
 import { pageSize as readPageSize } from '../utils/pageGeometry.js'
-import StaticPage from './canvas/StaticPage'
-import Viewport from './canvas/Viewport'
-import RegionOverlay from './RegionOverlay'
+import RegionViewport from './RegionViewport'
 import ExportScreen, { ExportButton, InfoRow, Note } from './ExportScreen'
 import { toolPanelStyles } from './ToolPanel'
 import { REGION_PRESETS, fitRegionPreset, regionOutput, validRegion } from '../utils/regionGeometry.js'
-
-const HANDLE_MARGIN = 24
-const clamp = (value, min, max) => Math.max(min, Math.min(max, value))
 
 export default function RegionExportSelector({
   page,
@@ -59,7 +53,6 @@ export default function RegionExportSelector({
     preview={<RegionViewport page={page} pageSize={pageSize} region={region} draft={draft} ratio={ratio} onDraft={setDraft} onChange={change} />}>
     <Text style={toolPanelStyles.label}>비율</Text>
     <View style={styles.row}>{Object.entries(REGION_PRESETS).map(([id, config]) => <ExportButton key={id} title={config.label} selected={preset === id} disabled={!fitRegionPreset(region, id, pageSize)} onPress={() => switchPreset(id)} />)}</View>
-    <Note>두 손가락으로 확대·축소하거나 화면을 옮겨요. 모서리를 끌어 영역을 조정해요.</Note>
     <InfoRow label="선택" value={`${selection.width.toFixed(0)} × ${selection.height.toFixed(0)}`} />
     <InfoRow label="예상 PNG" value={`${output.width} × ${output.height}px · ${output.magnification.toFixed(2)}배`} />
     {!valid && <Note tone="alert">가로·세로 32 이상으로 페이지 안에서 선택해 주세요.</Note>}
@@ -72,44 +65,6 @@ export default function RegionExportSelector({
   </ExportScreen>
 }
 
-function RegionViewport({ page, pageSize, region, draft, ratio, onDraft, onChange }) {
-  const [frame, setFrame] = useState({ width: 0, height: 0 })
-  const [view, setView] = useState(null)
-  const fit = Math.max(0.01, Math.min(1, (frame.width - HANDLE_MARGIN * 2) / pageSize.width, (frame.height - HANDLE_MARGIN * 2) / pageSize.height))
-  const current = view ?? { scale: 1, zoom: fit, x: (frame.width - pageSize.width * fit) / 2, y: (frame.height - pageSize.height * fit) / 2 }
-  const limitOffset = (offset, visibleSize, pageExtent) => {
-    const minVisible = Math.min(HANDLE_MARGIN * 2, visibleSize, pageExtent)
-    return clamp(offset, minVisible - pageExtent, visibleSize - minVisible)
-  }
-  const place = (scale, zoom, x, y) => ({
-    scale, zoom,
-    x: limitOffset(x, frame.width, pageSize.width * zoom),
-    y: limitOffset(y, frame.height, pageSize.height * zoom),
-  })
-  const resolveZoom = (requested, pagePoint, screenPoint) => {
-    const scale = clamp(requested, 0.5, 4)
-    const zoom = fit * scale
-    return place(scale, zoom, screenPoint.x - pagePoint.x * zoom, screenPoint.y - pagePoint.y * zoom)
-  }
-  const onLayout = ({ nativeEvent: { layout: { width, height } } }) => {
-    if (width === frame.width && height === frame.height) return
-    setFrame({ width, height })
-    setView(null)
-  }
-  return <View testID="region-viewport" style={styles.viewport}>
-    <Viewport zoom={current.zoom} scale={current.scale} offset={current} onLayout={onLayout}
-      resolveZoom={resolveZoom} resolvePan={(v, dx, dy) => place(v.scale, v.zoom, v.x + dx, v.y + dy)}
-      onView={setView}>
-      {frame.width > 0 && frame.height > 0 && <View style={[styles.page, { width: pageSize.width * current.zoom, height: pageSize.height * current.zoom }]}>
-        <StaticPage page={page} zoom={current.zoom} still />
-        <RegionOverlay region={region} draft={draft} zoom={current.zoom} pageSize={pageSize} ratio={ratio} onDraft={onDraft} onChange={onChange} />
-      </View>}
-    </Viewport>
-  </View>
-}
-
 const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6 },
-  viewport: { flex: 1, alignSelf: 'stretch' },
-  page: { backgroundColor: colors.surface, boxShadow: '0px 8px 20px rgba(28, 28, 28, 0.07)' },
 })

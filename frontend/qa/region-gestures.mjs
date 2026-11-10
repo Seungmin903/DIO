@@ -14,10 +14,14 @@ export async function setRegion(page, region, pageWidth = 1280, pageHeight = 800
   await dragRegionCorner(page, 'se', region.x + region.width, region.y + region.height, pageWidth, pageHeight)
 }
 
-export async function touchGesture(page, from, to, { staggered = false } = {}) {
+export async function touchGesture(page, from, to, { initialSingle } = {}) {
   const cdp = await page.context().newCDPSession(page)
   try {
-    if (staggered) await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: from.slice(0, 1).map(([x, y]) => ({ x, y, id: 0 })) })
+    if (initialSingle) {
+      const [x, y] = initialSingle
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y, id: 0 }] })
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: from[0][0], y: from[0][1], id: 0 }] })
+    }
     await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: from.map(([x, y], id) => ({ x, y, id })) })
     for (let step = 1; step <= 12; step++) {
       const t = step / 12

@@ -151,6 +151,11 @@ export async function runRegionQa(browser, { baseURL, keys, gif, screenshotDir }
     await touchGesture(page,[[x,y]],[[x-80,y-50]])
     const frame=page.getByTestId('export-region-frame'), selected=await frame.boundingBox()
     assert.ok(selected.width < bounds.width-65 && selected.height < bounds.height-40)
+    const mx=selected.x+selected.width/2,my=selected.y+selected.height/2
+    await touchGesture(page,[[mx,my]],[[mx+25,my+20]])
+    const movedSelection=await frame.boundingBox()
+    assert.ok(Math.abs(movedSelection.x-selected.x-25)<2 && Math.abs(movedSelection.y-selected.y-20)<2)
+    assert.ok(Math.abs(movedSelection.width-selected.width)<1 && Math.abs(movedSelection.height-selected.height)<1)
     const center=[bounds.x+bounds.width/2,bounds.y+bounds.height/2]
     const [cx,cy]=center
     await touchGesture(page,[[cx-30,cy],[cx+30,cy]],[[cx-5,cy+30],[cx+55,cy+30]])
@@ -158,14 +163,15 @@ export async function runRegionQa(browser, { baseURL, keys, gif, screenshotDir }
     assert.ok(Math.abs(moved.x-bounds.x-25)<2 && Math.abs(moved.y-bounds.y-30)<2)
     const after=await frame.boundingBox()
     assert.ok(Math.abs(after.width-selected.width)<1 && Math.abs(after.height-selected.height)<1)
-    record.checks.push('한 손가락 모서리 조절, 두 손가락으로 영역 크기를 유지한 채 보기 이동')
+    assert.ok(Math.abs(after.x-movedSelection.x-25)<2 && Math.abs(after.y-movedSelection.y-30)<2)
+    record.checks.push('한 손가락 모서리 조절·영역 이동, 두 손가락으로 영역 좌표를 유지한 채 보기 이동')
   })
   await scenario('touch-corner-to-pinch',largeViewport,1,async({page,record})=>{
     await openRegion(page)
     const overlay=page.getByTestId('export-region-overlay'), bounds=await overlay.boundingBox()
     const corner=await page.getByTestId('region-handle-nw').boundingBox()
     const x=corner.x+corner.width/2,y=corner.y+corner.height/2
-    await touchGesture(page,[[x,y],[x+100,y+100]],[[x+5,y+5],[x+155,y+155]],{staggered:true})
+    await touchGesture(page,[[x+40,y+40],[x+140,y+140]],[[x+45,y+45],[x+195,y+195]],{initialSingle:[x,y]})
     await page.getByText('1280 × 800',{exact:true}).waitFor()
     assert.ok((await overlay.boundingBox()).width > bounds.width*1.4)
     record.checks.push('모서리에 손가락을 댄 상태에서 두 번째 손가락을 추가하면 확대')
