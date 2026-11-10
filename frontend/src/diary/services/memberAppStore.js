@@ -279,12 +279,11 @@ export function createMemberAppStore({ accountId, api, storage, makeRequestId, s
         if (!Array.isArray(diaries) || diaries.some(d => d.source !== 'member-api' || d.memberAccountId !== accountId || !d.id)) throw failure('INVALID_LOCAL_CACHE', '회원 목록을 확인하지 못했어요.')
         if (pending && (pending.accountId !== accountId || !pending.input || !pending.requestId)) throw failure('INVALID_PENDING_CREATION', '이전 생성 요청을 확인하지 못했어요.')
         active(); writable = true; emit({ diaries, loaded: true, pending: pending ? { ...pending, uncertain: true } : null, error: null })
-        await this.reload()
       } catch (error) {
-        // 서버 목록 조회 실패는 library.error 로 이미 알린다(MemberLibraryNotice 의 '다시 불러오기'). 같은 실패를 error 에도 두면
-        // MemberRequestNotice 가 '회원 목록 다시 확인'을 한 번 더 그려 안내가 겹쳤다(S15P31F106-722). 기기 캐시 오류 등 그 밖의 실패만 error 에 둔다.
-        emit({ loaded: true, ...(serverLibrary && state.library.error === error ? {} : { error }) }); throw error
+        emit({ loaded: true, error }); throw error
       }
+      // 조회 오류는 reload가 관리한다. 새 조건으로 대체된 조회는 초기 캐시 오류로 기록하지 않는다.
+      await this.reload()
     },
     reload() {
       if (serverLibrary) return this.queryLibrary(state.library.criteria, { force: true })

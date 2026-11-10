@@ -295,7 +295,7 @@ function LibraryScreen({
     diaries={shown} onOpen={onOpen} onFavorite={onFavorite} onEdit={onEdit} onDelete={onDelete} onShare={onShare}
     metadata={metadata} optionsMenu={optionsMenu} selectionBar={selectionBar}
     selecting={selecting} selected={selected} onToggleSelect={toggleSelect} onEnterEdit={enterEdit}
-    requestNotice={<>{centeredNotice}{requestNotice}</>} hasMore={hasMore} suppressEmpty={suppressEmpty} historyKey={historyKey}
+    requestNotice={centeredNotice ? <>{centeredNotice}{requestNotice}</> : requestNotice} hasMore={hasMore} suppressEmpty={suppressEmpty} historyKey={historyKey}
   />;
 
   // 한눈에 보기는 제목 · 필터 · 도구를 위에 고정하고 카드 목록만 스크롤한다.
@@ -359,8 +359,10 @@ function LibraryScreen({
       {selectionBar}
       {requestNotice}
   </>);
+  const centeredContent = centeredNotice || (!carouselItems.length && suppressEmpty && loading
+    ? <LoadingSpot showLabel label="다이어리를 불러오고 있어요." /> : null);
   const body = (<>
-      {!carouselItems.length && suppressEmpty ? (loading ? <LoadingSpot compact={compact} label="다이어리를 불러오고 있어요." /> : null) : !carouselItems.length ? (
+      {!carouselItems.length && suppressEmpty ? null : !carouselItems.length ? (
         <EmptyState compact={compact} raised title={emptyTitle} action={emptyAction} />
       ) : displayView === 'open' ? (
         <OpenBookShelf diaries={carouselItems} index={activeIndex} onIndexChange={onCarouselChange} onOpen={onOpen} onFavorite={onFavorite} onEdit={onEdit} onDelete={onDelete} onShare={onShare} compact={compact} />
@@ -448,9 +450,9 @@ function LibraryScreen({
   </>);
   return (
     <View style={s.libraryRoot}>
-    {centeredNotice ? <>
+    {centeredContent ? <>
       <View style={[s.libraryScreen, compact && s.libraryScreenCompact, s.libraryFixedTop]}>{top}</View>
-      <ScrollView contentContainerStyle={s.libraryCenteredNotice}>{centeredNotice}</ScrollView>
+      <ScrollView contentContainerStyle={centeredNotice ? s.libraryCenteredNotice : [s.libraryCenteredNotice, s.libraryLoadingPosition]}>{centeredContent}</ScrollView>
     </> : isGrid ? <>
       <View style={[s.libraryScreen, compact && s.libraryScreenCompact, s.libraryFixedTop]}>{top}</View>
       <ScrollView {...grid?.scroll} contentContainerStyle={[s.libraryGridScroll, compact && s.libraryGridScrollCompact, canCreate && (compact ? s.libraryGridScrollFabCompact : s.libraryGridScrollFab)]} showsVerticalScrollIndicator={false}>{body}</ScrollView>

@@ -72,6 +72,7 @@ test('보관함은 초기 로딩과 조회 실패에도 상단을 유지하고 �
  const pending=render({...props,suppressEmpty:true,loading:true});
  assert.ok(findControl(pending,'보관함 옵션'));
  assert.equal(nodes(pending).find(n=>n.type==='LoadingSpot').props.label,'다이어리를 불러오고 있어요.');
+ assert.equal(nodes(pending).find(n=>n.type==='LoadingSpot').props.showLabel,true);
  assert.ok(!nodes(pending).some(n=>n.type==='EmptyState'));
  const failed=render({...props,suppressEmpty:true,requestNotice:'오류 안내'});
  assert.ok(findControl(failed,'보관함 옵션'));
