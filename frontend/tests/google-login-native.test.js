@@ -13,10 +13,10 @@ const success={type:'success',data:{idToken:'google-id-token',user:{email:'user@
 // 탈퇴한 DIO 계정(이 계정의 구글 연결만 끊는다). 대소문자 · 앞뒤 공백은 무시한다
 const mine={email:' User@Example.com '};
 
-function load({previous=false,signOut=async()=>null,signIn=async()=>success,current=null,silent=async()=>({type:'success',data:success.data}),revoke=async()=>null,appOwnership=null}={}){
+function load({previous=false,signOut=async()=>null,signIn=async()=>success,current=null,silent=async()=>({type:'success',data:success.data}),revoke=async()=>null,appOwnership=null,configure=()=>{}}={}){
  const calls=[], warnings=[];
  const GoogleSignin={
-  configure(){calls.push('configure');},
+  configure(){calls.push('configure');configure();},
   hasPlayServices:async()=>{calls.push('hasPlayServices');return true;},
   hasPreviousSignIn(){calls.push('hasPreviousSignIn');return previous;},
   signOut:async()=>{calls.push('signOut');return signOut();},
@@ -152,4 +152,19 @@ test('탈퇴 뒤 연결 해제: 끊지 않고 건너뛴 이유를 개인정보 �
   assert.deepEqual(warnings.at(-1),['[GoogleSignin] REVOKE_SKIPPED',reason]);
   assert.equal(JSON.stringify(warnings).includes('@'),false,'이메일은 로그에 남기지 않는다');
  }
+});
+
+test('SDK 설정(configure)이 실패해도 로그인 오류 안내로 바꾼다(원시 네이티브 오류를 그대로 보이지 않게)',async()=>{
+ const configFail=code=>()=>{throw Object.assign(new Error('native configure failure'),{code});};
+ await assert.rejects(load({configure:configFail('DEVELOPER_ERROR')}).signInWithGoogle(),{message:'구글 로그인 앱 설정이 맞지 않아요. (오류 코드: DEVELOPER_ERROR)'});
+ await assert.rejects(load({configure:configFail(12500)}).signInWithGoogle(),{message:'구글 로그인을 완료하지 못했어요. 앱 설정과 네트워크를 확인해 주세요. (오류 코드: 12500)'});
+});
+
+test('SDK 설정이 실패하면 다음 로그인에서 다시 설정한다(한 번 실패로 설정 없이 로그인하지 않게)',async()=>{
+ let fail=true;
+ const {signInWithGoogle,calls}=load({configure:()=>{if(fail)throw Object.assign(new Error('x'),{code:'DEVELOPER_ERROR'});}});
+ await assert.rejects(signInWithGoogle());
+ fail=false;
+ assert.deepEqual(await signInWithGoogle(),{idToken:'google-id-token',email:'user@example.com'});
+ assert.equal(calls.filter(call=>call==='configure').length,2);
 });

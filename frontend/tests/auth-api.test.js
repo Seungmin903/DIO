@@ -519,6 +519,29 @@ test('연결 해제가 멈춰도 다음 구글 로그인은 최대 대기 시간
  assert.equal(revoke.isCancelled(),true,'대기 시간이 지나 로그인을 진행하면 멈춘 해제는 그만두게 한다');
 });
 
+test('끝나지 않는 해제를 그만두게 한 뒤에는 이후 구글 로그인 · 재확인이 그 해제를 다시 기다리지 않는다', async (t) => {
+ const { GOOGLE_REVOKE_WAIT_MS } = await import('../src/auth/authApi.js');
+ let signIns=0;
+ const api=createAuthApi({baseUrl:'http://localhost:8080/api',
+  googleSignIn:async()=>{signIns++;return {idToken:'google-id-token',email:user.email};},
+  googleRevoke:()=>new Promise(()=>{}), // 네이티브 호출이 멈춤
+  fetchImpl:async url=>url.endsWith('/oauth/google')?response(tokens()):response(null,204)});
+ await api.withdraw(await api.social('google'));
+ await new Promise(resolve=>setImmediate(resolve));
+ t.mock.timers.enable({ apis: ['setTimeout'] });
+ const first=api.social('google');
+ await Promise.resolve(); await Promise.resolve();
+ t.mock.timers.tick(GOOGLE_REVOKE_WAIT_MS); // 첫 로그인은 한 번 기다린다
+ await first;
+ assert.equal(signIns,2);
+ // 두 번째 로그인: 시간을 흘리지 않아도 바로 진행한다(같은 해제를 다시 기다리면 여기서 멈춘다)
+ await api.social('google');
+ assert.equal(signIns,3);
+ // 계정 재확인(앱 잠금 비밀번호 잊음)도 바로 진행한다
+ assert.equal(await api.verifyAccount(),true);
+ assert.equal(signIns,4);
+});
+
 test('해제가 시간 안에 끝났으면 그만두게 하지 않는다', async () => {
  let revoke=null;
  const api=createAuthApi({baseUrl:'http://localhost:8080/api',

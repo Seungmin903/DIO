@@ -96,15 +96,21 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
   // 새로 로그인한 SDK 계정에 실행될 수 있어, 구글 로그인은 이것이 끝나기를(최대 GOOGLE_REVOKE_WAIT_MS) 먼저 기다린다.
   // 그래도 끝나지 않으면 그 해제를 그만두게 한다(ticket.cancelled): 같은 구글 계정으로 다시 가입하는 경우 이메일로는 이전 · 새 세션을
   // 구분할 수 없어, 늦게 풀린 해제가 새로 로그인한 계정을 끊지 않도록 revokeGoogleAccess 가 단계마다 확인하고 멈춘다.
+  // 그만두게 한 해제는 더 기다리지 않는다: 네이티브 호출이 멈춰 끝나지 않으면 이후 구글 로그인 · 재확인마다 대기 시간을 다시 기다리게 되므로
+  // 그 자리에서 비운다(이미 그만두게 했으면 바로 넘어간다)
   let googleRevoking = null; // { job, ticket }
   const waitGoogleRevoke = async () => {
     const pending = googleRevoking;
     if (!pending) return;
+    if (pending.ticket.cancelled) { if (googleRevoking === pending) googleRevoking = null; return; }
     let timer, timedOut = false;
     try {
       await Promise.race([pending.job, new Promise(resolve => { timer = setTimeout(() => { timedOut = true; resolve(); }, GOOGLE_REVOKE_WAIT_MS); })]);
     } finally { clearTimeout(timer); }
-    if (timedOut) pending.ticket.cancelled = true;
+    if (timedOut) {
+      pending.ticket.cancelled = true;
+      if (googleRevoking === pending) googleRevoking = null;
+    }
   };
   let session = null, draft = null, verification = null, revision = 0, refreshing = null, accessRefreshAt = 0, sessionSequence = 0;
   let restoringSession = null, storageWrites = Promise.resolve();

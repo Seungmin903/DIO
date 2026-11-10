@@ -1,19 +1,23 @@
 import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 let configured=false;
-const loadSdk=async()=>{
+// SDK 불러오기: 모듈이 없는 앱이면 다시 설치 안내를 던진다(로그인의 오류 변환 try 밖. 그 catch 는 sdk.statusCodes 를 읽는다)
+const importSdk=async()=>{
+ try{return await import('@react-native-google-signin/google-signin');}
+ catch{throw new Error('구글 로그인 설정이 포함된 DIO 앱을 다시 설치해 주세요.');}
+};
+// 처음 한 번 설정한다. 실패하면 오류를 그대로 던진다: 로그인은 아래 try 안에서 불러 오류 코드 안내로 바꾸고, 연결 해제는 부르는 쪽이 경고로 남긴다
+const configureSdk=sdk=>{
+ if(configured)return;
  const webClientId=process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || '180873138469-4h7mm1trcg1cde6ubfipqi06dt36bbai.apps.googleusercontent.com';
  const iosClientId=process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID || '180873138469-94fobh49akflvnq8lof6o8da5hj06dh8.apps.googleusercontent.com';
- let sdk;
- try{sdk=await import('@react-native-google-signin/google-signin');}
- catch{throw new Error('구글 로그인 설정이 포함된 DIO 앱을 다시 설치해 주세요.');}
- if(!configured){sdk.GoogleSignin.configure({webClientId,iosClientId,offlineAccess:false});configured=true;}
- return sdk;
+ sdk.GoogleSignin.configure({webClientId,iosClientId,offlineAccess:false});configured=true;
 };
 export async function signInWithGoogle(){
  if(Constants.appOwnership==='expo')throw new Error('구글 로그인은 Expo Go에서 사용할 수 없어요. DIO 개발 빌드로 실행해 주세요.');
- const sdk=await loadSdk();
+ const sdk=await importSdk();
  try{
+  configureSdk(sdk);
   if(Platform.OS==='android')await sdk.GoogleSignin.hasPlayServices({showPlayServicesUpdateDialog:true});
   // SDK는 마지막 계정을 기억해 선택 창 없이 그 계정으로 바로 로그인한다. 매번 계정을 고를 수 있게 먼저 지운다.
   try{if(sdk.GoogleSignin.hasPreviousSignIn())await sdk.GoogleSignin.signOut();}
@@ -48,7 +52,9 @@ const skip=reason=>{console.warn('[GoogleSignin] REVOKE_SKIPPED',reason);return 
 export async function revokeGoogleAccess({email,isCancelled=()=>false}={}){
  if(Constants.appOwnership==='expo')return false;
  if(typeof email!=='string'||!email.trim())return skip('NO_EMAIL');
- const {GoogleSignin}=await loadSdk();
+ const sdk=await importSdk();
+ configureSdk(sdk);
+ const {GoogleSignin}=sdk;
  if(isCancelled())return skip('CANCELLED');
  let account=GoogleSignin.getCurrentUser();
  if(!account){
