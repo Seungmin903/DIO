@@ -16,7 +16,7 @@ function load(os, native) {
     UIImagePickerPreferredAssetRepresentationMode: { Current: 'current' },
     launchImageLibraryAsync: async options => { calls.push(options); return { canceled: false, assets: ['system'] }; },
   }, m, m.exports);
-  return { selectImages: m.exports.selectImages, calls };
+  return { selectImages: m.exports.selectImages, calls, dismissMs: m.exports.IOS_PICKER_DISMISS_MS };
 }
 
 test('안드로이드에 갤러리가 있으면 갤러리를 열고 고른 결과를 그대로 돌려준다', async () => {
@@ -70,5 +70,14 @@ test('새 요청에 밀린 갤러리 요청은 시스템 창을 열지 않고 �
   const { selectImages, calls } = load('android', { isAvailable: () => true, pick: async () => { throw failure; } });
   assert.deepEqual(await selectImages({ multiple: true }), { canceled: true, assets: [] });
   assert.equal(calls.length, 0);
+  delete globalThis.expo;
+});
+
+test('iOS 는 보관함이 닫힐 때까지 기다린 뒤 고른 결과를 돌려준다(닫히는 중에 자르기 창을 띄우면 뜨지 않았다)', async () => {
+  const { selectImages, dismissMs } = load('ios', null);
+  assert.ok(dismissMs >= 400);
+  const started = Date.now();
+  assert.deepEqual((await selectImages({ multiple: false })).assets, ['system']);
+  assert.ok(Date.now() - started >= dismissMs - 20, '고른 결과를 바로 돌려주지 않는다');
   delete globalThis.expo;
 });

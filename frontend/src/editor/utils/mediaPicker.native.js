@@ -1,6 +1,9 @@
 import { Platform } from 'react-native'
 import * as ImagePicker from 'expo-image-picker'
 
+// 보관함이 닫히는 애니메이션(UIKit 기본 약 0.35초)보다 조금 길게 기다린다
+export const IOS_PICKER_DISMISS_MS = 500
+
 const systemPicker = ({ multiple }) => ImagePicker.launchImageLibraryAsync({
   mediaTypes: ['images'], allowsMultipleSelection: multiple, allowsEditing: false, quality: 1,
   preferredAssetRepresentationMode: ImagePicker.UIImagePickerPreferredAssetRepresentationMode.Current,
@@ -23,5 +26,9 @@ export async function selectImages({ multiple }) {
       if (error?.code === 'ERR_GALLERY_STALE') return { canceled: true, assets: [] }
     }
   }
-  return systemPicker({ multiple })
+  const result = await systemPicker({ multiple })
+  // iOS 보관함은 고른 결과를 넘긴 뒤에야 닫히기 시작한다(expo-image-picker: 결과 전달 → dismiss). 닫히는 동안 자르기 창(Modal)을 띄우면
+  // iOS 가 창을 띄우지 않아 자르기를 끝없이 기다렸다 — iPad 회원 다이어리에서 기기 사진을 넣어도 아무 반응이 없던 원인. 닫힐 때까지 기다린 뒤 돌려준다
+  if (Platform.OS === 'ios' && !result?.canceled) await new Promise(resolve => setTimeout(resolve, IOS_PICKER_DISMISS_MS))
+  return result
 }

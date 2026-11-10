@@ -172,6 +172,8 @@ test('400으로 거절된 작업은 보관하고 다음 편집은 계속 전송�
  const result=await s.synchronize();assert.equal(result.rejectedCount,1);assert.equal(s.snapshot().queue.length,0)
  assert.equal(s.snapshot().rejectedEdits[0].after[0].text,'A');assert.equal(result.objects[0].text,'valid')
  const restored=f.session();await restored.restore([]);assert.equal(restored.snapshot().rejectedEdits[0].id,'bad')
+ // 다음 동기화는 새로 거절된 편집이 없으니 '저장 안 됨'이 아니다(보관한 거절은 keptRejectedCount 로만 남는다)
+ const next=await s.synchronize();assert.equal(next.rejectedCount,0);assert.equal(next.keptRejectedCount,1)
 })
 for(const status of [403,404])test(`${status} 확정 거절은 보관 후 전송을 멈추고 큐 머리는 해제한다`,async()=>{
  const f=fixture(),s=f.session();await s.restore([]);await s.synchronize()

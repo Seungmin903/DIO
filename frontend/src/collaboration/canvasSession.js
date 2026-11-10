@@ -321,7 +321,9 @@ export function createCanvasSession({api,storage,key,legacyKey,pageId,diaryId,cr
           journal.recent=[...journal.recent,entry.id,...(entry.parts??[]).map(part=>part.clientOperationId)].slice(-128);await persist()
         }
         const history=scoped(await api.history(pageId));active()
-        return syncResult({history,direction,historyClientOperationId,rejectedCount:(journal.rejectedEdits??[]).length,unchanged:!changed})
+        // rejectedCount 는 이번 동기화에서 거절된 편집 수다. 기기에 보관한 거절 전체(keptRejectedCount)로 상태를 정하면
+        // 한 번 거절된 뒤로는 모든 편집이 저장돼도 '저장 안 됨'이 풀리지 않았다(보관 목록을 비우는 화면이 없다)
+        return syncResult({history,direction,historyClientOperationId,rejectedCount,keptRejectedCount:(journal.rejectedEdits??[]).length,unchanged:!changed})
       })().finally(()=>{running=null})
       return running
     },
