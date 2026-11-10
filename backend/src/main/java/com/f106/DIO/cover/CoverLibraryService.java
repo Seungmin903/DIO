@@ -27,6 +27,7 @@ public class CoverLibraryService {
     private static final Pattern ID = Pattern.compile("^[A-Za-z0-9_-]{1,64}$");
     private static final Pattern UUID_TEXT = Pattern.compile("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$");
     private static final Set<String> ORIENTATIONS = Set.of("portrait", "landscape");
+    private static final String MEDIA_PREFIX = "media:";
     private static final TypeReference<List<CoverEntry>> COVERS = new TypeReference<>() {};
     private final JdbcTemplate jdbc;
     private final JsonMapper json = JsonMapper.builder().build();
@@ -98,11 +99,16 @@ public class CoverLibraryService {
         return List.copyOf(clean);
     }
 
-    // 표지 안 어디든 mediaFileId 칸은 미디어 id(UUID)여야 한다(표지 사진 · 스티커). 그 밖의 칸은 앱이 읽을 때 맞춘다
+    // 표지 안 어디든 mediaFileId 칸은 미디어 id(UUID)여야 한다(표지 사진 · 스티커). 그 밖의 칸은 앱이 읽을 때 맞춘다.
+    // src 가 미디어 참조(media:…)면 같은 객체의 mediaFileId 를 가리켜야 한다(소유권 검사를 거치지 않은 다른 미디어를 src 로 끼워 넣지 못하게)
     private static void collectMedia(JsonNode node, Set<UUID> media, int[] count) {
         if (node == null) return;
         if (node.isArray()) { for (JsonNode child : node) collectMedia(child, media, count); return; }
         if (!node.isObject()) return;
+        JsonNode src = node.get("src"), id = node.get("mediaFileId");
+        if (src != null && src.isString() && src.asString().startsWith(MEDIA_PREFIX)
+            && (id == null || !id.isString() || !src.asString().equalsIgnoreCase(MEDIA_PREFIX + id.asString())))
+            throw CoverLibraryException.invalid("표지 그림 참조를 확인해 주세요.");
         for (var field : node.properties()) {
             JsonNode value = field.getValue();
             if ("mediaFileId".equals(field.getKey())) {

@@ -27,10 +27,22 @@ const utf8Bytes = text => typeof TextEncoder !== 'undefined' ? new TextEncoder()
 function eachMedia(value, fn, category = 'STICKER') {
   if (Array.isArray(value)) { value.forEach(item => eachMedia(item, fn, category)); return }
   if (!value || typeof value !== 'object') return
-  if (typeof value.mediaFileId === 'string' && value.mediaFileId) fn(value, category)
+  if ((typeof value.mediaFileId === 'string' && value.mediaFileId) || mediaRef(value.src)) fn(value, category)
   for (const [key, child] of Object.entries(value)) if (child && typeof child === 'object') eachMedia(child, fn, key === 'photo' ? 'PHOTO' : category)
 }
-const mediaIds = cover => { const ids = []; eachMedia(cover, slot => ids.push(slot.mediaFileId)); return ids }
+const mediaRef = src => typeof src === 'string' && src.startsWith(MEDIA_PREFIX) && src.length > MEDIA_PREFIX.length ? src.slice(MEDIA_PREFIX.length) : null
+const mediaIds = cover => { const ids = []; eachMedia(cover, slot => ids.push(slot.mediaFileId || mediaRef(slot.src))); return ids }
+/**
+ * 그림 칸의 src(media:…)와 mediaFileId 를 맞춘다(복사본에만). 서버는 src 가 같은 칸의 mediaFileId 를 가리키지 않으면 문서 전체를 거절한다.
+ * 앱(mediaReferences.mediaId)은 mediaFileId 를 먼저 보므로 둘이 다르면 src 를 맞추고, 예전 표지처럼 src 만 있으면 그 id 를 mediaFileId 로 채운다
+ */
+function linkMediaRefs(cover) {
+  eachMedia(cover, slot => {
+    if (typeof slot.mediaFileId !== 'string' || !slot.mediaFileId) slot.mediaFileId = mediaRef(slot.src)
+    else if (mediaRef(slot.src)) slot.src = MEDIA_PREFIX + slot.mediaFileId
+  })
+  return cover
+}
 /** 그림 칸의 미디어 id 를 바꾼다(src 가 media: 참조면 같이) */
 function retarget(slot, id) {
   slot.mediaFileId = id
@@ -65,14 +77,18 @@ export function mergeCovers(base, extra) {
  * api: { get() → { version, covers }, put(expectedVersion, covers) → { version, covers } } (409 는 error.status === 409)
  * media: { upload(localId, category) → 서버 id, download(serverId) → 기기에 저장(이미 있으면 그대로) }
  * library: { ready() → 기기 목록을 읽은 뒤 풀리는 Promise, snapshot() → 기기 내 표지[], subscribe(listener) → 해제 함수,
- *            replace(covers, base) → base 가 지금 목록과 같을 때만 바꾸고 true(그 사이 사용자가 고쳤으면 false) }
+ *            replace(covers, base) → base 가 지금 목록과 같을 때만 바꾸고 적용한 목록(그 사이 사용자가 고쳤으면 null) }
  * storage · key: 이 기기에서 맞춘 상태(meta) · 기기 id → 서버 id 짝 · 받지 못한 그림을 둔다
  * onStatus({ error }): 맞추기 결과(올리지 못한 표지 · 받지 못한 그림 · 연결 오류가 있으면 문구)
  */
 export function createCoverLibrarySync({ account, api, media, library, storage, key, isActive = () => true, setTimer = setTimeout, clearTimer = clearTimeout, debounceMs = COVER_SYNC_DEBOUNCE_MS, onError = () => {}, onStatus = () => {} }) {
   // meta 는 기기마다 하나(어느 계정과 맞췄는지 알아야 한다), 기기 id ↔ 서버 id 짝은 계정마다 따로 둔다(서버 id 가 계정마다 다르다)
   const metaKey = `${key}:meta`, idKey = id => `${key}:${account}:id:${String(id).toLowerCase()}`, localKey = id => `${key}:${account}:local:${String(id).toLowerCase()}`
-  const missingKey = `${key}:${account}:missing`
+  const missingKey = `${key}:${account}:missing`, stashKey = owner => `${key}:${owner}:stash`
+  // 다른 계정으로 바뀔 때 따로 둔 이 계정 몫: { covers(그때 기기 목록), synced(그때 이 계정과 맞춘 문서) }
+  const readStash = async () => {
+    try { const value = JSON.parse(await storage.getItem(stashKey(account)) ?? 'null'); return value && Array.isArray(value.covers) ? value : null } catch { return null }
+  }
   let meta = null, timer = null, running = null, again = false, closed = false, unsubscribe = null, applying = false
   const active = () => { if (closed || !isActive()) throw Object.assign(Error('내 표지 동기화가 끝났어요.'), { code: 'SYNC_CLOSED' }) }
   const readMeta = async () => { try { const value = JSON.parse(await storage.getItem(metaKey) ?? 'null'); return value && typeof value === 'object' ? value : null } catch { return null } }
@@ -80,7 +96,7 @@ export function createCoverLibrarySync({ account, api, media, library, storage, 
 
   // 기기 표지 하나를 서버 문서 모양으로. 그림 하나라도 서버 id 가 없으면(올리지 못했거나 upload 가 거짓) null
   async function toServerEntry(entry, upload) {
-    const cover = structuredClone(entry.cover)
+    const cover = linkMediaRefs(structuredClone(entry.cover))
     const slots = []
     eachMedia(cover, (slot, category) => slots.push([slot, category]))
     for (const [slot, category] of slots) {
@@ -149,8 +165,9 @@ export function createCoverLibrarySync({ account, api, media, library, storage, 
 
   // 서버 문서를 기기에 들인다: 이 기기가 올린 그림은 기기 원본을 그대로 쓰고, 나머지는 내려받아 서버 id 로 저장한 뒤 목록을 바꾼다.
   // keepLocal 이면 아직 서버에 없는 기기 표지(올리지 못한 표지 · 보낼 수 없는 표지 · 한도 초과 · 한 번도 맞춘 적 없는 표지)는 지우지 않고 남긴다.
+  // restore: 이 계정이 예전에 이 기기에 남겨 둔 몫(stash). 그중 아직 서버에 없는 표지를 같은 규칙으로 되살린다
   // 받는 사이 이 기기에서 목록을 고치면 들이지 않고 false(그 편집을 덮어쓰지 않는다). 바뀐 목록은 다시 맞춘다
-  async function adopt(server, { keepLocal = true } = {}) {
+  async function adopt(server, { keepLocal = true, restore = null } = {}) {
     await readMissing(); active()
     const covers = []
     for (const entry of server.covers) {
@@ -169,20 +186,23 @@ export function createCoverLibrarySync({ account, api, media, library, storage, 
     }
     await writeMissing(); active()
     const base = library.snapshot()
-    const next = keepLocal ? [...await unsent(base, covers), ...covers] : covers
+    const kept = keepLocal ? await unsent(base, covers, syncedIds(meta?.synced)) : []
+    const restored = restore ? await unsent(restore.covers, covers, syncedIds(restore.synced)) : []
+    const next = [...restored, ...kept, ...covers]
     active()
+    // replace 가 돌려준 목록(적용한 것)과 지금 목록이 다르면 그사이 사용자가 고친 것이다. 받아서 바꾼 알림은 무시하지만 그 편집은 다시 맞춘다
     applying = true
-    let replaced
-    try { replaced = await library.replace(next, base) } finally { applying = false }
-    if (!replaced) { again = true; return false }
+    let applied
+    try { applied = await library.replace(next, base) } finally { applying = false }
+    if (!applied) { again = true; return false }
+    if (library.snapshot() !== applied || restored.length) again = true // 되살린 표지는 다음 맞추기에서 올린다
     await writeMeta({ account, version: server.version, synced: stable(server.covers) })
     return true
   }
 
-  // 서버 목록에 없는 기기 표지 중 남길 것: 예전에 맞춘 적 있으면 다른 기기에서 지운 것이라 빼고, 한 번도 맞춘 적 없거나 아직 보낼 수 없으면 남긴다
-  async function unsent(local, covers) {
-    let previous = new Set()
-    try { previous = new Set(JSON.parse(meta?.synced ?? '[]').map(entry => entry.id)) } catch { /* 처음 맞추는 기기 */ }
+  const syncedIds = synced => { try { return new Set(JSON.parse(synced ?? '[]').map(entry => entry.id)) } catch { return new Set() } }
+  // 서버 목록에 없는 기기 표지 중 남길 것: 예전에 맞춘 적 있으면(previous) 다른 기기에서 지운 것이라 빼고, 한 번도 맞춘 적 없거나 아직 보낼 수 없으면 남긴다
+  async function unsent(local, covers, previous) {
     const sendable = new Set(withinLimits(local))
     const inServer = new Set(covers.map(entry => entry.id))
     const out = []
@@ -218,7 +238,15 @@ export function createCoverLibrarySync({ account, api, media, library, storage, 
     await retryMissing()
     const local = library.snapshot() ?? []
     // 들이는 동안 기기 목록이 바뀌어 들이지 않았으면(adopt 가 false) 알리지 않고 다시 맞춘다
-    if (meta && meta.account !== account) return await adopt(server, { keepLocal: false }) ? report(0) : null // 다른 계정이 쓰던 기기: 그 표지를 이 계정에 올리지 않는다
+    // 다른 계정이 쓰던 기기: 그 표지를 이 계정에 올리지 않는다. 지우지도 않고 그 계정 몫(stash)으로 따로 두었다가 그 계정으로 다시 로그인하면 되살린다
+    // (올리지 못해 서버에 없던 표지가 계정을 바꾸는 순간 사라지지 않게). 이 계정이 남겨 둔 몫이 있으면 함께 되살린다
+    if (meta && meta.account !== account) {
+      await storage.setItem(stashKey(meta.account), JSON.stringify({ covers: local, synced: meta.synced ?? '[]' })); active()
+      const restore = await readStash(); active()
+      if (!await adopt(server, { keepLocal: false, restore })) return null
+      if (restore) await storage.setItem(stashKey(account), 'null')
+      return report(0)
+    }
     if (!meta && !local.length) return await adopt(server) ? report(0) : null // 새 기기 · 재설치: 서버 목록을 그대로 받는다
     // 바뀌었는지는 보낼 수 있는 것끼리만 비교한다(보낼 수 없는 표지 · 한도 초과가 있다고 매번 저장하지 않는다)
     const known = await toServer(local, false); active()

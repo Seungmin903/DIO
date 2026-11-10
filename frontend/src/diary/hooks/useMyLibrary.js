@@ -49,8 +49,15 @@ export function subscribeMyLibrary(listener) {
   store.listeners.add(listener)
   return () => store.listeners.delete(listener)
 }
-/** 서버에서 받은 목록으로 바꾼다. base(받기 전에 본 목록)가 지금 목록과 다르면(그 사이 사용자가 고쳤으면) 바꾸지 않고 false */
-export const replaceMyCovers = (covers, base) => commit('covers', list => (list === base ? normalizeMyCovers(covers) : null))
+/**
+ * 서버에서 받은 목록으로 바꾸고 적용한 목록을 돌려준다. base(받기 전에 본 목록)가 지금 목록과 다르면(그 사이 사용자가 고쳤으면) 바꾸지 않고 null.
+ * 동기화는 돌려받은 목록과 지금 목록을 비교해, 바꾼 직후 들어온 사용자 편집을 놓치지 않는다
+ */
+export async function replaceMyCovers(covers, base) {
+  let applied = null
+  const done = await commit('covers', list => (list === base ? (applied = normalizeMyCovers(covers)) : null))
+  return done ? applied : null
+}
 
 /** 테스트에서 기기 저장소를 새로 읽게 한다 */
 export function resetMyLibraryForTests() {

@@ -129,6 +129,8 @@ class CoverLibraryTests {
             "[{\"id\":\"a\",\"name\":\"A\",\"orientation\":\"portrait\"}]", // 디자인 없음
             "[{\"id\":\"a\",\"name\":\"A\",\"orientation\":\"portrait\",\"cover\":[1]}]", // 디자인이 객체가 아님
             "[{\"id\":\"a\",\"name\":\"A\",\"orientation\":\"portrait\",\"cover\":{\"photo\":{\"mediaFileId\":\"not-a-uuid\"}}}]", // 그림 id 형식
+            "[{\"id\":\"a\",\"name\":\"A\",\"orientation\":\"portrait\",\"cover\":{\"photo\":{\"src\":\"media:00000000-0000-4000-8000-000000000001\"}}}]", // src 만 미디어를 가리킴(소유권 검사 없음)
+            "[{\"id\":\"a\",\"name\":\"A\",\"orientation\":\"portrait\",\"cover\":{\"stickers\":[{\"id\":\"s\",\"src\":\"media:00000000-0000-4000-8000-000000000001\",\"mediaFileId\":\"00000000-0000-4000-8000-000000000002\"}]}}]", // src 와 mediaFileId 가 다름
             "[{\"id\":\"a\",\"name\":\"A\",\"orientation\":\"portrait\",\"cover\":{\"note\":\"" + big + "\"}}]", // 너무 큼
         }) put(actor, body(0, covers)).andExpect(status().isBadRequest()).andExpect(jsonPath("code").value("INVALID_COVER_LIBRARY"));
         mvc.perform(get("/api/v1/me/cover-library")).andExpect(status().isUnauthorized());
