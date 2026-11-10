@@ -1096,8 +1096,12 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
   }, [readOnly, saveStatus, bubbleOpen, cropId, exportOpen, exportSnapshot, focusMode, frameTextEdit, importFailure, layersOpen, objectLinkTarget, overviewFilter, pagesOpen, photoCropId, regionOpen, state.selectedIds.length, tapeCropId, templatePickerOpen, textEditing, textLinkTarget, colorPicker, backDisabled])
 
   useEffect(() => {
-    if (colorPicker && (readOnly || page.id !== colorPicker.pageId || activeTool !== colorPicker.tool || colorScreen.width !== colorPicker.screen.width)) { colorPicker.onClose?.(); setColorPicker(null) }
-  }, [colorPicker, readOnly, page.id, activeTool, colorScreen.width, colorScreen.height])
+    // 색 창을 연 패널(글자 설정 · 펜 설정)이 닫히면 색 창도 닫는다(리뷰 !511)
+    const panelClosed = (colorPicker?.source === 'text' && !textSettingsOpen) || (colorPicker?.source === 'pen' && !penSettingsOpen)
+    if (colorPicker && (panelClosed || readOnly || page.id !== colorPicker.pageId || activeTool !== colorPicker.tool || colorScreen.width !== colorPicker.screen.width)) { colorPicker.onClose?.(); setColorPicker(null) }
+  }, [colorPicker, readOnly, page.id, activeTool, colorScreen.width, colorScreen.height, textSettingsOpen, penSettingsOpen])
+  // 펜 · 형광펜 · 글자 팔레트의 직접 지정(점선 +) 색 창: 편집기 위층에 띄운다. 도구 · 페이지 · 창 폭이 바뀌면 위 효과가 닫는다
+  const openColorPicker = (request, source) => setColorPicker({ ...request, source, tool: activeTool, pageId: page.id, screen: { width: colorScreen.width, height: colorScreen.height } })
 
 
   const previewScreen = useWindowDimensions()
@@ -1488,12 +1492,12 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
             // 폰 세로는 고른 글자가 있어도 하단 시트(다른 도구 옵션과 같은 자리 · 열고 닫는 손짓이 같다)
             (selectedText && !phoneSheet
               ? <View style={[styles.optionsWrap, optionsPlacement(selectedObjects, zoom, offset, stageSize, compact ? OPTIONS_TOP_PHONE : OPTIONS_TOP)]} pointerEvents="box-none" {...markInside}>
-                  <TextSettings verticalAlignment={selectedText?.type === 'shape'} settings={currentTextSettings} onChange={changeTextSettings} onClose={() => setTextSettingsOpen(false)} />
+                  <TextSettings onOpenColorPicker={(request) => openColorPicker(request, 'text')} verticalAlignment={selectedText?.type === 'shape'} settings={currentTextSettings} onChange={changeTextSettings} onClose={() => setTextSettingsOpen(false)} />
                 </View>
-              : renderPanel((sheet) => <TextSettings verticalAlignment={selectedText?.type === 'shape'} settings={currentTextSettings} onChange={changeTextSettings} onClose={() => setTextSettingsOpen(false)} sheet={Boolean(sheet)} dragHandlers={sheet?.dragHandlers} />, [styles.penSettingsWrap, toolPopoverStyle()], { onClose: () => setTextSettingsOpen(false) }))
+              : renderPanel((sheet) => <TextSettings onOpenColorPicker={(request) => openColorPicker(request, 'text')} verticalAlignment={selectedText?.type === 'shape'} settings={currentTextSettings} onChange={changeTextSettings} onClose={() => setTextSettingsOpen(false)} sheet={Boolean(sheet)} dragHandlers={sheet?.dragHandlers} />, [styles.penSettingsWrap, toolPopoverStyle()], { onClose: () => setTextSettingsOpen(false) }))
           )}
           {!readOnly && ['pen', 'highlighter'].includes(activeTool) && penSettingsOpen && !drawerTab && (
-            renderPanel((sheet) => <PenSettings onOpenColorPicker={request => setColorPicker({ ...request, tool: activeTool, pageId: page.id, screen: { width: colorScreen.width, height: colorScreen.height } })} key={activeTool} settings={activeTool === 'highlighter' ? highlighterSettings : penSettings} onChange={activeTool === 'highlighter' ? setHighlighterSettings : setPenSettings} onClose={() => { setColorPicker(null); setPenSettingsOpen(false) }} straightAssist={straightAssist} onStraightAssistChange={setStraightAssist} sheet={Boolean(sheet)} dragHandlers={sheet?.dragHandlers} />, [styles.penSettingsWrap, toolPopoverStyle()], { onClose: () => { setColorPicker(null); setPenSettingsOpen(false) } })
+            renderPanel((sheet) => <PenSettings onOpenColorPicker={(request) => openColorPicker(request, 'pen')} key={activeTool} settings={activeTool === 'highlighter' ? highlighterSettings : penSettings} onChange={activeTool === 'highlighter' ? setHighlighterSettings : setPenSettings} onClose={() => { setColorPicker(null); setPenSettingsOpen(false) }} straightAssist={straightAssist} onStraightAssistChange={setStraightAssist} sheet={Boolean(sheet)} dragHandlers={sheet?.dragHandlers} />, [styles.penSettingsWrap, toolPopoverStyle()], { onClose: () => { setColorPicker(null); setPenSettingsOpen(false) } })
           )}
           {!readOnly && activeTool === 'eraser' && penSettingsOpen && !drawerTab && (
             renderPanel((sheet) => <EraserSettings size={eraserSize} onChange={setEraserSize} mode={eraserMode} onModeChange={setEraserMode} target={eraserTarget} onTargetChange={setEraserTarget} onClose={() => setPenSettingsOpen(false)} sheet={Boolean(sheet)} dragHandlers={sheet?.dragHandlers} />, [styles.penSettingsWrap, toolPopoverStyle()], { onClose: () => setPenSettingsOpen(false) })
