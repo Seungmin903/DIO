@@ -54,6 +54,8 @@ export default function TextEditor({ commitRef, cancelRef, object, zoom, onSave,
     applyInputSelection(input.current, kept)
     return true
   }
+  // iOS 서식 재주입(아래 styleKey)이 잠깐 넣는 '글 + U+200B'는 입력이 아니다
+  const typed = (value) => { if (Platform.OS === 'ios' && value === `${draft.current}​`) return; updateDraft(value) }
   const updateDraft = (value) => { ranges.current = remapTextRanges(draft.current, value, ranges.current); formats.current = remapTextFormats(draft.current, value, formats.current); draft.current = value; refresh() }
   const resizeSelected = (delta) => {
     if (composing.current) return
@@ -258,10 +260,6 @@ export default function TextEditor({ commitRef, cancelRef, object, zoom, onSave,
     if (held) { wasHeld.current = true; return }
     if (wasHeld.current) { wasHeld.current = false; input.current?.focus() }
   }, [held])
-  // iOS 입력창은 상자 전체 서식(색 · 글꼴 · 정렬 · 자간 …)이 바뀌어도 이미 쓴 글자에는 새 속성을 적용하지 않는다(앞으로 칠 글자에만, 네이티브가 기본 속성만 바꾼다).
-  // 입력창을 새로 만들면 키보드가 내려갔다 올라오므로, 대신 네이티브 setTextAndSelection 명령으로 지금 글(draft)을 새 속성으로 다시 넣는다(S15P31F106-482).
-  // 네이티브는 글이 같으면 다시 입히지 않아, 보이지 않는 글자(U+200B)를 붙인 뒤 곧바로 원래 글로 되돌려 두 번 보낸다(같은 틱이라 깜빡임 없음). 커서 · 선택은 그대로 둔다.
-  // eventCount: 네이티브가 글이 바뀔 때마다 올리는 번호. 명령의 번호가 다르면 무시되므로 onChange 에서 받아 둔다.
   // 상자 전체 글자 색이 바뀌면(서식 줄의 색) 부분 색을 지운다 — 선택한 상자에서 색을 바꿀 때(colorRanges: [])와 같다. 남기면 일부 글자만 옛 색으로 남았다(MR !505 리뷰)
   const colorKey = useRef(object.color)
   useEffect(() => {
@@ -271,6 +269,12 @@ export default function TextEditor({ commitRef, cancelRef, object, zoom, onSave,
     ranges.current = []
     refresh()
   }, [object.color])
+  // iOS 입력창은 상자 전체 서식(색 · 글꼴 · 정렬 · 자간 …)이 바뀌어도 이미 쓴 글자에는 새 속성을 적용하지 않는다(앞으로 칠 글자에만, 네이티브가 기본 속성만 바꾼다).
+  // 입력창을 새로 만들면 키보드가 내려갔다 올라오므로, 대신 네이티브 setTextAndSelection 명령으로 지금 글(draft)을 새 속성으로 다시 넣는다(S15P31F106-482).
+  // 네이티브는 글이 같으면 다시 입히지 않아, 보이지 않는 글자(U+200B)를 붙인 뒤 곧바로 원래 글로 되돌려 두 번 보낸다(같은 틱이라 깜빡임 없음). 커서 · 선택은 그대로 둔다.
+  // eventCount: 네이티브가 글이 바뀔 때마다 올리는 번호. 명령의 번호가 다르면 무시되므로 onChange 에서 받아 둔다.
+  // 명령으로 넣은 글은 사용자 입력이 아니라 onChange 가 오지 않아 번호가 그대로고 두 번째 명령도 받아들여진다(iPad 실기 확인).
+  // 혹시 첫 명령의 글(끝에 U+200B)이 입력 알림으로 오면 typed 가 버려 draft · 저장 값에 섞이지 않게 한다(MR !505 리뷰).
   const eventCount = useRef(0)
   const styleKey = Platform.OS === 'ios' ? JSON.stringify(textStyle(object, 1, 'ios')) : 'fixed'
   const styleKeyRef = useRef(styleKey)
@@ -318,7 +322,7 @@ export default function TextEditor({ commitRef, cancelRef, object, zoom, onSave,
       style={[styles.input, { height, ...inputWidth, ...textStyle(object, scale, Platform.OS) }]}
       onContentSizeChange={(event) => { if (Platform.OS === 'ios' && textLines.current.length) return; setHeight(textInputHeight(object, zoom, event.nativeEvent.contentSize.height)) }}
       onSelectionChange={(event) => { if (restoreSelection(event.nativeEvent.selection)) return; selection.current = event.nativeEvent.selection; setSelected(selection.current.start !== selection.current.end); measure() }}
-      onChangeText={updateDraft}
+      onChangeText={typed}
       onChange={(event) => { const count = event.nativeEvent?.eventCount; if (Number.isFinite(count)) eventCount.current = count }}
       onEndEditing={(event) => { updateDraft(event.nativeEvent.text); if (!cancelled.current) { composing.current = false; save() } }}
       {...(Platform.OS === 'web' && {

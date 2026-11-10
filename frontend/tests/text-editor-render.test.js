@@ -157,3 +157,11 @@ test('S15P31F106-482: 삭제 · 색 변경 · iOS 서식 재주입 연결(소스
   assert.equal((editor.match(/dispatchViewManagerCommand\(tag, 'setTextAndSelection'/g) || []).length, 2)
   assert.match(editor, /\[eventCount\.current, `\$\{draft\.current\}\\u200B`, start, end\]/)
 })
+
+test('S15P31F106-482: iOS 서식 재주입이 잠깐 넣는 U+200B 글은 입력으로 받지 않는다 · 서식 줄을 숨기면 터치 범위를 비운다(소스 확인)', () => {
+  const editor = readFileSync(new URL('../src/editor/components/TextEditor.js', import.meta.url), 'utf8')
+  const screen = readFileSync(new URL('../src/editor/screens/EditorScreen.js', import.meta.url), 'utf8')
+  assert.match(editor, /const typed = \(value\) => \{ if \(Platform\.OS === 'ios' && value === `\$\{draft\.current\}\u200B`\) return; updateDraft\(value\) \}/)
+  assert.match(editor, /onChangeText=\{typed\}/)
+  assert.match(screen, /textPalette\?\.placement === 'panel' \|\| !stageSize\) \{ textFormatStripBounds\.current = null; textFormatStripSize\.current = null; return null \}/)
+})

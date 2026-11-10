@@ -1481,7 +1481,9 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
             </View>
           )}
           {/* 글을 고치는 동안 키보드 위(웹은 작업창 아래 끝) 글상자 서식 줄. 글자를 고른 동안('선택한 글자' 줄)은 숨긴다 (S15P31F106-482) */}
-          {!readOnly && editingText && textPalette?.placement !== 'panel' && stageSize && (() => {
+          {(() => {
+            // 줄을 그리지 않으면(글자를 골라 '선택한 글자' 줄로 바뀜 등) 터치 범위 · 크기도 비운다 — 옛 범위가 남으면 그 자리 터치가 편집을 끝내지 못했다(MR !505 리뷰)
+            if (readOnly || !editingText || textPalette?.placement === 'panel' || !stageSize) { textFormatStripBounds.current = null; textFormatStripSize.current = null; return null }
             // 키보드가 없으면(웹 · 외장 키보드) 아래 떠 있는 되돌리기 · 맞춤 막대(아래 12 · 높이 44) 위에 둔다
             const bottom = keyboardTop != null ? keyboardPanelBottom({ stageTop: stageOrigin.y, stageHeight: stageSize.height, keyboardTop }) : 12 + 44 + 8
             const height = textFormatStripSize.current?.height ?? TEXT_FORMAT_STRIP_HEIGHT
