@@ -60,7 +60,9 @@ export function createPaletteSync({ account, api, palettes, storage, key, isActi
       localNow = local() // 합칠 때 본 기기 값. 기기에 들일 때 이 값과 달라졌으면(그사이 사용자가 바꿈) 덮지 않는다
       merged = mergePalettes(base, localNow, serverFull, scopes)
       if (stable(merged) === stable(serverFull)) break // 서버가 이미 같다(올릴 것 없음)
-      try { server = await api.put(server.version, merged); active(); break }
+      // 서버 문서 전체를 바꾸므로, 이 앱이 모르는 도구(새 버전 앱이 만든 것)는 서버 것을 그대로 실어 지우지 않는다
+      const unknown = Object.fromEntries(Object.entries(server.palettes ?? {}).filter(([scope]) => !scopes.includes(scope)))
+      try { server = await api.put(server.version, { ...unknown, ...merged }); active(); break }
       catch (error) {
         if (error?.status !== 409 || attempt >= 2) throw error
         server = await api.get(); active() // 다른 기기가 먼저 바꿨다: 다시 받아 합친다

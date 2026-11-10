@@ -181,3 +181,13 @@ test('팔레트 동기화 상태도 테이프와 같다: 동기화가 없으면 
   setPaletteSyncRetry(null); setPaletteSyncStatus({ error: null, pending: false })
   assert.deepEqual(paletteSyncStatusSnapshot(), { error: null, pending: false })
 })
+
+test('이 앱이 모르는 도구(새 버전 앱이 만든 것)는 저장할 때 지우지 않는다', async () => {
+  const server = fakeServer(); server.version = 2
+  server.palettes = { pen: ['#111111', '#222222', '#333333'], future: ['#ABCDEF', '#123456'] }
+  const a = device(server); const sync = a.make(); await sync.start()
+  await a.stores.pen.replace(0, '#FF0000'); await sync.whenIdle()
+  assert.deepEqual(server.palettes.pen, ['#FF0000', '#222222', '#333333'])
+  assert.deepEqual(server.palettes.future, ['#ABCDEF', '#123456'])
+  sync.stop()
+})
