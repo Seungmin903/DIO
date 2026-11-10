@@ -7,6 +7,8 @@ import { createTapeLibrarySync, localItem, mergeTapeFolders } from '../src/edito
 const FIELDS = ['id', 'mediaFileId', 'pattern', 'palette', 'name', 'imageWidth', 'imageHeight', 'crop', 'size', 'pieceRatio']
 const asServer = folders => folders.map(f => ({ id: f.id, name: f.name, items: f.items.map(item => Object.fromEntries(FIELDS.map(k => [k, k === 'crop' && item.crop ? { fx: item.crop.fx, fy: item.crop.fy, zoom: item.crop.zoom } : item[k] ?? null]))) }))
 const asApp = folders => folders.map(f => ({ ...f, items: f.items.map(item => Object.fromEntries(Object.entries(item).filter(([, v]) => v != null))) }))
+import { forgetLibrarySyncRecords } from '../src/diary/services/librarySyncRecords.js'
+const asyncStorage = map => ({ getItem: async k => map.get(k) ?? null, setItem: async (k, v) => { map.set(k, v) }, getAllKeys: async () => [...map.keys()], multiRemove: async keys => { keys.forEach(k => map.delete(k)) } })
 function server() {
   const state = { version: 0, folders: [], puts: 0, uploads: new Map(), conflictOnce: false, conflictAlways: false, offline: false }
   let serial = 0
@@ -187,4 +189,24 @@ test('멈춘 동기화(로그아웃 · 다른 계정)는 상태를 알리지 않
   a.sync.stop()
   await a.sync.sync()
   assert.deepEqual(a.statuses, [])
+})
+
+test('탈퇴한 계정이 쓰던 기기에 다음 계정이 로그인하면 남은 테이프을 올리지 않고 서버 보관함을 받으며, 계정 id 없는 몫(:null:)도 남기지 않는다', async () => {
+  const remote1 = server(), storage = new Map()
+  const a = device(remote1, { account: '1', storage, folders: [folder('f1', '1번 계정', [photoTape('t1', L1)])] })
+  await a.sync.start(); a.sync.stop()
+  // 계정 1 탈퇴: 기기 보관함은 남지만 동기화 기록은 지우고 meta 는 탈퇴 표식으로 바꾼다(앱 키 모양으로 옮겨 실제 접두어로 지운다)
+  const keyed = new Map([...storage].map(([k, v]) => [k.replace(/^tape-sync/, 'dio:tape-library-sync:v1:server'), v]))
+  await forgetLibrarySyncRecords({ storage: asyncStorage(keyed), account: '1' })
+  storage.clear(); for (const [k, v] of keyed) storage.set(k.replace(/^dio:tape-library-sync:v1:server/, 'tape-sync'), v)
+  assert.deepEqual(JSON.parse(storage.get('tape-sync:meta')), { account: null, withdrawn: true })
+  const remote2 = server()
+  remote2.state.version = 3; remote2.state.folders = [folder('g', '2번 계정', [])]
+  const b = device(remote2, { account: '2', storage, folders: a.local.folders })
+  await b.sync.start()
+  assert.equal(remote2.state.puts, 0)
+  assert.equal(remote2.state.uploads.size, 0)
+  assert.deepEqual(b.local.folders.map(f => f.name), ['2번 계정']) // 탈퇴한 사용자 테이프은 기기에서도 빠진다
+  assert.ok(![...storage.keys()].some(k => k.includes(':null:')))
+  assert.equal(JSON.parse(storage.get('tape-sync:meta')).account, '2')
 })

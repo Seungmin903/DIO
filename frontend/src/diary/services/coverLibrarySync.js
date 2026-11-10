@@ -277,8 +277,9 @@ export function createCoverLibrarySync({ account, api, media, library, storage, 
       // 이전 계정 몫은 계정이 바뀐 뒤 처음 맞출 때 한 번만 쓴다(그때의 기기 목록이 이전 계정 것이 확실한 마지막 시점이다).
       // 받는 사이 편집으로 들이지 못해 다시 맞출 때는 덮어쓰지 않는다(그사이 이 계정으로 만든 표지가 이전 계정 몫에 섞여 그 계정에 올라가지 않게)
       // 이전 계정 몫에 넣은 표지 id 는 meta 에 함께 둔다(다시 맞출 때 몫이 지워졌어도 이전 계정 표지를 이 계정 것으로 보지 않게)
+      // 탈퇴한 계정이 쓰던 기기(librarySyncRecords 의 WITHDRAWN_META): 되살릴 계정이 없으니 몫을 두지 않고, 그 목록을 이 계정에 올리지도 않는다
       if (meta.stashedFor !== account) {
-        await storage.setItem(stashKey(meta.account), JSON.stringify({ covers: local, synced: meta.synced ?? '[]', savedAt: now() })); active()
+        if (!meta.withdrawn) await storage.setItem(stashKey(meta.account), JSON.stringify({ covers: local, synced: meta.synced ?? '[]', savedAt: now() })); active()
         await writeMeta({ ...meta, stashedFor: account, stashedIds: local.map(entry => entry?.id).filter(Boolean) }); active()
       }
       const othersIds = new Set(Array.isArray(meta.stashedIds) ? meta.stashedIds : [])

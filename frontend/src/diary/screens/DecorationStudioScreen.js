@@ -43,6 +43,7 @@ import ConfirmDialog from '../../editor/components/controls/ConfirmDialog';
 import DecorSaveNotice from '../../editor/components/panels/DecorSaveNotice';
 import { useStickerLibrarySyncStatus } from '../../editor/services/stickerLibrarySyncStatus.js';
 import { useCoverLibrarySyncStatus } from '../services/coverLibrarySyncStatus.js';
+import { usePaperLibrarySyncStatus } from '../services/paperLibrarySyncStatus.js';
 import DiaryActionBubble from '../components/DiaryActionBubble';
 import { PdfImportError, coverWithPdfPage, pdfOrientation } from '../utils/pdfImport';
 import { pickPdfPages } from '../utils/pdfPages';
@@ -80,6 +81,7 @@ export default function DecorationStudioScreen({ compact = false, registerBackHa
   const custom = useCustomDecor();
   const stickerSync = useStickerLibrarySyncStatus(); // 계정 동기화 실패(다른 기기에서 안 보임)를 스티커 탭에 알린다
   const coverSync = useCoverLibrarySyncStatus(); // 내 표지 계정 동기화 실패를 표지 탭에 알린다
+  const paperSync = usePaperLibrarySyncStatus(); // 내 속지 계정 동기화 실패를 속지 탭에 알린다
   const library = useMyLibrary();
   const paperStyle = useDefaultPaperStyle();
   const studio = useSyncExternalStore(subscribeStudio, studioSnapshot, studioSnapshot);
@@ -508,6 +510,7 @@ export default function DecorationStudioScreen({ compact = false, registerBackHa
     {papersReady && <View style={[s.divider, s.paperDivider]} />}
     {papersReady && <GroupHead title="내 속지" section line={false} wide count={count(library.papers)} right={paperAdd} />}
     {makeAlert('paper')}
+    <DecorSaveNotice error={paperSync.error} pending={paperSync.pending} onRetry={paperSync.retry} retryLabel="다시 맞추기" pendingLabel="다시 맞추는 중…" accessibilityLabel="내 속지 계정 동기화 재시도" />
     {!papersReady ? <Text style={s.empty}>속지를 불러오고 있어요.</Text>
       : !library.papers.length ? <EmptyState compact={compact} art="dio" raised title="아직 저장한 속지가 없어요" />
       : <StudioShelf kind="paper" items={library.papers} onOpen={paper => setPaperId(paper.id)} onRemove={paper => setQuestion({ paper })} onRename={(paper, name) => renameItem('paper', paper, name)} />}

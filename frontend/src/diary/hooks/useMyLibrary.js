@@ -49,6 +49,15 @@ export function subscribeMyLibrary(listener) {
   store.listeners.add(listener)
   return () => store.listeners.delete(listener)
 }
+// 한쪽 목록이 바뀔 때만 부른다(목록은 바꿀 때마다 새 배열이라 참조로 가린다). 표지 동기화가 속지 편집에, 속지 동기화가 표지 편집에 깨지 않게 한다
+function subscribeKind(kind, listener) {
+  let last = store[kind]
+  return subscribeMyLibrary(() => { if (store[kind] === last) return; last = store[kind]; listener() })
+}
+/** 내 표지 목록이 바뀔 때만 불린다. 해제 함수를 돌려준다 */
+export const subscribeMyCovers = listener => subscribeKind('covers', listener)
+/** 내 속지 목록이 바뀔 때만 불린다. 해제 함수를 돌려준다 */
+export const subscribeMyPapers = listener => subscribeKind('papers', listener)
 /**
  * 서버에서 받은 목록으로 바꾸고 적용한 목록을 돌려준다. base(받기 전에 본 목록)가 지금 목록과 다르면(그 사이 사용자가 고쳤으면) 바꾸지 않고 null.
  * 동기화는 돌려받은 목록과 지금 목록을 비교해, 바꾼 직후 들어온 사용자 편집을 놓치지 않는다.
@@ -63,13 +72,25 @@ export async function replaceMyCovers(covers, base) {
   return null
 }
 
+// 계정 서버 동기화(services/paperLibrarySync.js)가 쓰는 내 속지 창구
+/** 기기 목록을 읽은 뒤 풀린다 */
+export const myPapersReady = () => load()
+/** 지금 내 속지 목록 */
+export const myPapersSnapshot = () => store.papers
+/** 서버에서 받은 목록으로 바꾸고 적용한 목록을 돌려준다. base 가 지금 목록과 다르면(그 사이 사용자가 고쳤으면) 바꾸지 않고 null (replaceMyCovers 와 같다) */
+export async function replaceMyPapers(papers, base) {
+  let applied = null
+  const done = await commit('papers', list => (list === base ? (applied = normalizeMyPapers(papers)) : null))
+  return done ? applied : null
+}
+
 /** 테스트에서 기기 저장소를 새로 읽게 한다 */
 export function resetMyLibraryForTests() {
   store.covers = []; store.papers = []; store.loaded = null; store.queue = Promise.resolve(); store.listeners.clear()
 }
 
 /**
- * 내 표지 · 내 속지. 기기에 저장하고 새 다이어리 화면에서 꺼내 쓴다. 로그인한 동안 내 표지는 계정 서버와도 맞춘다(CoverLibrarySync).
+ * 내 표지 · 내 속지. 기기에 저장하고 새 다이어리 화면에서 꺼내 쓴다. 로그인한 동안 계정 서버와도 맞춘다(CoverLibrarySync · PaperLibrarySync).
  */
 export default function useMyLibrary() {
   const [state, setState] = useState(() => ({ covers: store.covers, papers: store.papers, ready: false }))
