@@ -89,12 +89,12 @@ function BackgroundAttempt({ page, zoom, preparedXml, onReady, onError, onRetry,
   // 스터디 · 데일리 플래너: 바탕은 캐시한 속지 그대로 두고, 칠한 칸 · 일정 · 체크 · 합계는 작은 덮개 SVG로 위에 겹친다.
   // 기록이 바뀌어도 덮개만 다시 만들어 지우기 · 칠하기가 가볍다. 시간표 시작 시각을 바꾼 페이지만 바탕을 다시 만든다.
   const plannerApi = preparedXml == null ? plannerFor(page.backgroundAssetId) : null
-  const planner = useMemo(() => plannerApi ? (isTastingId(page.backgroundAssetId) && !page.tastingDraft ? tastingElementValue(page) : page.planner ?? null) : null, [page.backgroundAssetId, page.planner, page.objects, page.tastingDraft])
+  const planner = useMemo(() => plannerApi ? (isTastingId(page.backgroundAssetId) && !page.tastingDraft ? tastingElementValue(page) : page.planner ?? null) : null, [plannerApi, preparedXml, page.backgroundAssetId, page.planner, page.objects, page.tastingDraft])
   // 데일리 플래너는 할 일 글(글상자)을 막대 · 종일 칸에 비춰 그리므로, 글이 바뀌면 덮개도 다시 만든다.
   const titles = plannerApi?.titles(page.objects) ?? null, titleKey = titles ? JSON.stringify(titles) : ''
   const startHour = planner ? plannerApi.startHour(planner) : 6
-  const shiftedBase = useMemo(() => startHour === 6 ? null : parse(swapPaperFont(plannerApi.baseSvg(startHour), appearance.font)), [page.backgroundAssetId, startHour, appearance.font]) // eslint-disable-line react-hooks/exhaustive-deps
-  const plannerAst = useMemo(() => planner || (titleKey && titleKey !== '{}') ? parse(swapPaperFont(plannerApi.overlaySvg(planner, page.objects), appearance.font)) : null, [page.backgroundAssetId, planner, titleKey, appearance.font]) // eslint-disable-line react-hooks/exhaustive-deps
+  const shiftedBase = useMemo(() => !plannerApi || startHour === 6 ? null : parse(swapPaperFont(plannerApi.baseSvg(startHour), appearance.font)), [plannerApi, preparedXml, startHour, appearance.font])
+  const plannerAst = useMemo(() => !plannerApi || !(planner || (titleKey && titleKey !== '{}')) ? null : parse(swapPaperFont(plannerApi.overlaySvg(planner, page.objects), appearance.font)), [plannerApi, preparedXml, planner, page.objects, titleKey, appearance.font])
   const baseAst = shiftedBase ?? shown?.ast
   const styledAst = useMemo(() => baseAst ? colorTemplateAst(baseAst, appearance, { transparentPaper }) : null, [baseAst, appearance.backgroundColor, appearance.layoutColor, transparentPaper])
   const styledPlanner = useMemo(() => plannerAst ? colorTemplateAst(plannerAst, appearance) : null, [plannerAst, appearance.backgroundColor, appearance.layoutColor])

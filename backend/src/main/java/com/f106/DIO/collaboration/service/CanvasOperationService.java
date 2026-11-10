@@ -4,6 +4,9 @@ import com.f106.DIO.collaboration.dto.*;
 import com.f106.DIO.collaboration.exception.CollaborationException;
 import com.f106.DIO.collaboration.repository.*;
 import com.f106.DIO.page.service.CanvasElementService;
+import com.f106.DIO.page.dto.CanvasElementBatchRequest;
+import com.f106.DIO.page.dto.CanvasElementCreateRequest;
+import com.f106.DIO.page.dto.CanvasElementUpdateRequest;
 import java.util.*;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.*;
@@ -25,10 +28,34 @@ public class CanvasOperationService {
             var current=snapshots.capture(page,versions.keySet());
             for(var e:versions.entrySet()){var state=current.get(e.getKey().toString());if(state==null||state.version()!=e.getValue())throw CollaborationException.conflict();}
         }
-        canvas.batchTracked(page,request.changes(),actor,request.clientOperationId(),hash);
+        // Two clients can create the same deterministic tasting-mark ID before either
+        // has observed the other's element. Page locking makes this check and conversion
+        // atomic; preserve a member's own history by tracking the second fill as update.
+        canvas.batchTracked(page,coalesceConcurrentTastingMarks(page,request.changes()),actor,request.clientOperationId(),hash);
         var row=history.findFirstByPageIdAndActorUserIdAndClientOperationId(page,actor,request.clientOperationId()).orElseThrow();
         return response(row,page,actor,false);
     }
+    private CanvasElementBatchRequest coalesceConcurrentTastingMarks(UUID page,CanvasElementBatchRequest changes){
+        if(changes==null||changes.creates()==null||changes.creates().isEmpty())return changes;
+        var existing=snapshots.capture(page,changes.creates().stream().map(CanvasElementCreateRequest::getElementId).filter(Objects::nonNull).toList());
+        var creates=new ArrayList<CanvasElementCreateRequest>();var updates=new ArrayList<CanvasElementUpdateRequest>();
+        if(changes.updates()!=null)updates.addAll(changes.updates());
+        for(var create:changes.creates()){
+            var current=create.getElementId()==null?null:existing.get(create.getElementId().toString());
+            if(current==null||current.deletedAt()!=null||!sameTastingMark(current,create)){creates.add(create);continue;}
+            var update=new CanvasElementUpdateRequest();update.setElementId(current.elementId());update.setVersion(current.version());update.setPropertiesJson(create.getPropertiesJson());updates.add(update);
+        }
+        return new CanvasElementBatchRequest(creates.isEmpty()?null:creates,updates.isEmpty()?null:updates,changes.deleteElementIds(),changes.restoreElementIds());
+    }
+    private boolean sameTastingMark(com.f106.DIO.collaboration.domain.CanvasElementSnapshot current,CanvasElementCreateRequest create){
+        if(!"SHAPE".equals(create.getElementType())||!"SHAPE".equals(current.elementType())||!Boolean.TRUE.equals(create.getIsLocked())||!Boolean.TRUE.equals(create.getIsHidden())||!current.isLocked()||!current.isHidden())return false;
+        if(!Objects.equals(current.groupId(),create.getGroupId())||!Objects.equals(current.name(),create.getName())||!Objects.equals(current.mediaFileId(),create.getMediaFileId())||(create.getSortKey()!=null&&!same(current.sortKey(),create.getSortKey())))return false;
+        if(!same(current.x(),create.getX())||!same(current.y(),create.getY())||!same(current.width(),create.getWidth())||!same(current.height(),create.getHeight())||!same(current.rotation(),create.getRotation()==null?java.math.BigDecimal.ZERO:create.getRotation())||!same(current.opacity(),create.getOpacity()==null?java.math.BigDecimal.ONE:create.getOpacity()))return false;
+        var old=current.propertiesJson();var next=create.getPropertiesJson();if(old==null||next==null||!old.isObject()||!next.isObject())return false;
+        var oldMark=old.get("tastingMark");var nextMark=next.get("tastingMark");if(oldMark==null||!oldMark.isTextual()||!oldMark.equals(nextMark))return false;
+        var oldComparable=old.deepCopy();var nextComparable=next.deepCopy();((tools.jackson.databind.node.ObjectNode)oldComparable).remove("fill");((tools.jackson.databind.node.ObjectNode)nextComparable).remove("fill");return oldComparable.equals(nextComparable);
+    }
+    private boolean same(java.math.BigDecimal a,java.math.BigDecimal b){return a==null?b==null:b!=null&&a.compareTo(b)==0;}
     @Transactional public CanvasOperationResponse transition(UUID page,long actor,CanvasHistoryCommand request,boolean undo){
         UUID diary=access.lockPage(page,actor);
         var row=history.findByOperationIdAndPageIdAndActorUserId(request.operationId(),page,actor).orElseThrow(CollaborationException::missing);

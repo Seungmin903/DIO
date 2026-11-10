@@ -41,6 +41,8 @@ function fixture({ error = null, cached = true } = {}) {
   const load = id => {
     if (id === 'react') return { ...React, useMemo: fn => fn(), useEffect: fn => { effects.push(fn) }, useState: initial => { const index = stateCalls++; const set = value => sets.push([index, value]); if (index === 1 && error) return [error, set]; return [typeof initial === 'function' ? initial() : initial, set] }, useRef: current => ({ current }) }
     if (id.endsWith('/templateLoadedSignal.js')) return { subscribeTemplateLoaded: listener => { signal.listener = listener; return () => { signal.listener = null } } }
+    if (id.endsWith('/tastingGeometry.js')) return { isTastingId: () => false }
+    if (id.endsWith('/tastingElements.js')) return { tastingElementValue: () => null }
     if (id === 'react-native') return { Pressable: 'pressable', Text: 'text', View: 'view', StyleSheet: { create: v => v, absoluteFill: {} } }
     if (id === 'react-native-svg') return { SvgAst: 'svg-ast', SvgXml: 'svg-xml', parse: () => null }
     if (id.endsWith('/planners.js')) return planners
