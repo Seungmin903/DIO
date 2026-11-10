@@ -39,6 +39,8 @@ import GridOverlay, { DEFAULT_GUIDES, hasGuides } from './GridOverlay'
 import { pageGridGuides } from '../../utils/pageGrid.js'
 import PaperColorSettings from '../PaperColorSettings'
 import { plannerFor } from '../../templates/planners.js'
+import { isTastingId, tastingPhotoBox } from '../../templates/tastingGeometry.js'
+import { tastingElementValue } from '../../templates/tastingElements.js'
 import { routePathOf } from '../../templates/routePaper.js'
 import { createRouteNode, isRouteNode, ROUTE_NODE_SNAP_PX, routeNodeKindLabel } from '../../widgets/routeNode.js'
 import { packingCheckAction, packingPenAction } from '../../templates/packingChecks.js'
@@ -120,6 +122,7 @@ export default function Canvas({
   onEditMedia,
   onFillCells,
   onFillSlot,
+  onTastingPhoto,
   frameTextEdit, // 사진 틀의 인쇄 글자를 그 자리에서 고치는 중 { id, line } (이 페이지 것만)
   onEditFrameText, // (object, line) 고치기 시작 · (null) 끝
   onTextSettings,
@@ -159,6 +162,7 @@ export default function Canvas({
   const { width: PAGE_WIDTH, height: PAGE_HEIGHT } = pageSize(page)
   // 스터디 · 데일리 플래너 속지: 형광펜 · 펜 · 지우개 획을 칸 · 일정 기록으로 받는다.
   const planner = readOnly ? null : plannerFor(page.backgroundAssetId)
+  const plannerValue = useMemo(() => isTastingId(page.backgroundAssetId) ? tastingElementValue(page) : page.planner, [page.backgroundAssetId, page.planner, page.objects])
   // 데일리 플래너: 시작 · 진행 · 날짜 칸을 누르면 뜨는 고르는 창. draft 는 고르는 중인 기록이고 닫을 때 한 번에 문서에 반영한다(되돌리기 한 번).
   const [dayPick, setDayPick] = useState(null) // { page, kind: 'time' | 'date', row?, at, draft }
   const dayPickRef = useRef(null)
@@ -189,7 +193,7 @@ export default function Canvas({
       if (colorAction) { dispatch(colorAction); return true }
     }
     if (!planner) return false
-    const result = planner.stroke(page.planner, points, settings, page.objects)
+    const result = planner.stroke(plannerValue, points, settings, page.objects)
     if (!result) return false
     applyPlannerResult(result, points[0])
     return true
@@ -218,7 +222,7 @@ export default function Canvas({
   // 지우는 중인 플래너 기록(손을 떼면 문서에 확정). 그동안 속지는 이 기록으로 그린다. 시간 창에서 고르는 중인 일정도 같은 식으로 속지에 바로 보인다.
   const [plannerDraft, setPlannerDraft] = useState(null)
   const shownPlanner = plannerDraft ?? (dayPick?.page === page.id ? dayPick.draft : null)
-  const backgroundPage = useMemo(() => shownPlanner ? { ...page, planner: shownPlanner } : page, [page, shownPlanner])
+  const backgroundPage = useMemo(() => shownPlanner ? { ...page, planner: shownPlanner, tastingDraft: true } : page, [page, shownPlanner])
   // 텍스트 도구로 할 일 · 메모 · 돌아보기 줄을 탭하면 그 줄에 맞춘 글상자(폭 · 글자 크기 · 줄간격 고정)를 만든다.
   const createText = ({ tap, ...box }) => {
     const cell = planner && tap ? planner.cellTap(tap) : null
@@ -520,7 +524,7 @@ export default function Canvas({
         </View>
       )}
       {!readOnly && activeTool === 'eraser' && <View style={styles.penClip}>
-        <EraserInput key={`${page.id}-${zoom}-${eraserSize}-${eraserMode}-${eraserTarget}`} compact={compact} objects={page.objects} diameter={eraserSize} mode={eraserMode} target={eraserTarget} zoom={zoom} dispatch={dispatch} onPreview={previewErase} planner={page.planner} onPlannerErase={plannerErase} onPlannerPreview={setPlannerDraft} />
+        <EraserInput key={`${page.id}-${zoom}-${eraserSize}-${eraserMode}-${eraserTarget}`} compact={compact} objects={page.objects} diameter={eraserSize} mode={eraserMode} target={eraserTarget} zoom={zoom} dispatch={dispatch} onPreview={previewErase} planner={plannerValue} onPlannerErase={plannerErase} onPlannerPreview={setPlannerDraft} />
       </View>}
       {planner?.kind === 'day' && dayPick?.page === page.id && <View style={styles.penClip}><DayPickBackdrop onClose={closeDayPick} /></View>}
       {planner?.kind === 'route' && routePick && <View style={styles.penClip}><DayPickBackdrop onClose={() => setRoutePick(null)} /></View>}
@@ -573,6 +577,12 @@ export default function Canvas({
           <SlotAddButtons objects={page.objects} zoom={zoom} onFill={onFillSlot} />
         </View>
       )}
+      {canSelect && isTastingId(page.backgroundAssetId) && !page.objects.some(o => o.tastingPhoto) && onTastingPhoto && (
+        <Pressable accessibilityRole="button" accessibilityLabel="사진 추가" onPress={onTastingPhoto}
+          style={{ position: 'absolute', left: (tastingPhotoBox(page.backgroundAssetId).x + tastingPhotoBox(page.backgroundAssetId).width / 2) * zoom - Math.max(120 * zoom, 96) / 2, top: (tastingPhotoBox(page.backgroundAssetId).y + tastingPhotoBox(page.backgroundAssetId).height / 2) * zoom - Math.max(44 * zoom, 44) / 2, width: Math.max(120 * zoom, 96), height: Math.max(44 * zoom, 44), alignItems: 'center', justifyContent: 'center' }}>
+          <Text numberOfLines={1} style={{ color: '#8b9095', fontSize: 18 * zoom }}>＋ 사진 추가</Text>
+        </Pressable>
+      )}
       {!readOnly && frameTextObject && !interacting && (
         <View pointerEvents="box-none" style={styles.selectionControls}>
           <FrameTextEditor key={`${frameTextEdit.id}-${frameTextEdit.line}`} object={frameTextObject} line={frameTextEdit.line} zoom={zoom} dispatch={dispatch} onClose={() => onEditFrameText(null)} onReveal={onRevealText} />
@@ -609,7 +619,7 @@ export default function Canvas({
           appearance={paperAppearance}
           onChange={(appearance, all) => onPaperAppearance?.(appearance, all)}
           onClose={() => setEmptyMenu(null)}
-          planner={planner && planner.kind !== 'route' ? planner.normalize(page.planner) : null}
+          planner={planner && ['day', 'study'].includes(planner.kind) ? planner.normalize(page.planner) : null}
           plannerKind={planner?.kind}
           showFont={paperPrintsText(page.backgroundAssetId)}
           onPlannerOptions={changePlannerOptions}

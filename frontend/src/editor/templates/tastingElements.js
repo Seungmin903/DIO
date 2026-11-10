@@ -1,0 +1,36 @@
+import { isTastingId, tastingMarks } from './tastingGeometry.js'
+
+// Each page/mark pair gets one stable UUID, so concurrent first fills target
+// the same server element rather than creating competing overlays.
+export function tastingElementId(pageId, markId, assetId) {
+  const index = tastingMarks(assetId).findIndex(mark => mark.id === markId)
+  if (index < 0 || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(pageId ?? '')) throw Error('테이스팅 노트 표시 ID를 만들 수 없어요.')
+  const suffix = (Number.parseInt(pageId.slice(-8), 16) ^ (0x74610000 + index)) >>> 0
+  return pageId.slice(0, -8) + suffix.toString(16).padStart(8, '0')
+}
+
+// Existing planner records remain readable; new pages keep their marks as canvas elements.
+export function tastingElementValue(page) {
+  if (!isTastingId(page.backgroundAssetId)) return page.planner
+  const fills = { ...(page.planner?.fills ?? {}) }
+  for (const object of page.objects ?? []) {
+    if (!object.tastingMark) continue
+    if (object.fill === 'none') delete fills[object.tastingMark]
+    else fills[object.tastingMark] = object.fill
+  }
+  return { ...(page.planner ?? {}), fills }
+}
+
+export function updateTastingElements(page, planner) {
+  const before = tastingElementValue(page).fills, after = planner?.fills ?? {}
+  let objects = page.objects
+  for (const mark of tastingMarks(page.backgroundAssetId)) {
+    if ((before[mark.id] ?? null) === (after[mark.id] ?? null)) continue
+    const existing = objects.find(o => o.tastingMark === mark.id)
+    const fill = after[mark.id] ?? 'none'
+    objects = existing
+      ? objects.map(o => o.id === existing.id ? { ...o, fill } : o)
+      : [...objects, { id: tastingElementId(page.id, mark.id, page.backgroundAssetId), type: 'shape', shape: 'rect', x: 0, y: 0, w: 1, h: 1, rotation: 0, opacity: 1, hidden: true, locked: true, tastingMark: mark.id, fill }]
+  }
+  return objects
+}

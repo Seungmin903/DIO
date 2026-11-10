@@ -155,6 +155,28 @@ class CanvasCollaborationTests {
         assertThat(restored.path("items").get(0).path("propertiesJson").path("text").asText()).isEqualTo("hello");
         postJson(page,owner,"/undo",Map.of("operationId",first.path("operationId").asText(),"expectedRevision",0,"clientOperationId",UUID.randomUUID()),409);
     }
+    @Test void sameColorTastingUpdateHasOwnUndoHistory()throws Exception{
+        var owner=actor();var editor=actor();UUID diary=diary(owner),page=page(diary),star=UUID.randomUUID();join(diary,editor);
+        var props=Map.of("shape","rect","tastingMark","star-0","fill","#112233");
+        var first=apply(page,owner,UUID.randomUUID(),Map.of("creates",List.of(Map.of("elementId",star,"elementType","SHAPE","x",0,"y",0,"width",1,"height",1,"isLocked",true,"isHidden",true,"propertiesJson",props))));
+        var second=apply(page,editor,UUID.randomUUID(),Map.of("updates",List.of(Map.of("elementId",star,"version",first.path("items").get(0).path("version").asLong(),"propertiesJson",props))));
+        assertThat(history(page,editor).path("nextUndo").path("operationId").asText()).isEqualTo(second.path("operationId").asText());
+        var undone=postJson(page,editor,"/undo",command(history(page,editor).path("nextUndo"),UUID.randomUUID()),200);
+        assertThat(undone.path("items").get(0).path("propertiesJson").path("fill").asText()).isEqualTo("#112233");
+    }
+    @Test void twoMembersFillingSameTastingStarHaveConflictSafeUndo()throws Exception{
+        var owner=actor();var editor=actor();UUID diary=diary(owner),page=page(diary),star=UUID.randomUUID();join(diary,editor);
+        var first=apply(page,owner,UUID.randomUUID(),Map.of("creates",List.of(Map.of("elementId",star,"elementType","SHAPE","x",0,"y",0,"width",1,"height",1,"isLocked",true,"isHidden",true,"propertiesJson",Map.of("shape","rect","tastingMark","star-0","fill","#112233")))));
+        long version=first.path("items").get(0).path("version").asLong();
+        var second=apply(page,editor,UUID.randomUUID(),Map.of("updates",List.of(Map.of("elementId",star,"version",version,"propertiesJson",Map.of("shape","rect","tastingMark","star-0","fill","#abcdef")))));
+        assertThat(second.path("items").size()).isEqualTo(1);
+        assertThat(second.path("items").get(0).path("propertiesJson").path("fill").asText()).isEqualTo("#abcdef");
+        postJson(page,owner,"/undo",command(history(page,owner).path("nextUndo"),UUID.randomUUID()),409);
+        var undone=postJson(page,editor,"/undo",command(history(page,editor).path("nextUndo"),UUID.randomUUID()),200);
+        assertThat(undone.path("items").get(0).path("propertiesJson").path("fill").asText()).isEqualTo("#112233");
+        var ownerUndone=postJson(page,owner,"/undo",command(history(page,owner).path("nextUndo"),UUID.randomUUID()),200);
+        assertThat(ownerUndone.path("items").size()).isZero();
+    }
     @Test void otherEditorsChangesConflictOnlyWhenTheyTouchTheSameElement()throws Exception{
         var owner=actor();var editor=actor();UUID diary=diary(owner),page=page(diary),a=UUID.randomUUID(),b=UUID.randomUUID();join(diary,editor);
         var one=create(page,owner,a,"A");create(page,editor,b,"B");

@@ -139,7 +139,19 @@ export function createCanvasSession({api,storage,key,legacyKey,pageId,diaryId,cr
     const touched=entry.reordered?[...new Set([...(entry.order??[]),...old.keys()])]:[...new Set([...old.keys(),...next.keys()])]
     for(const id of touched){
       const current=remote.get(id)
-      if(!existedBefore(id)){if(!current)creates.push({...next.get(id),sortKey:order.get(id)??top+creates.length+1});continue}
+      if(!existedBefore(id)){
+        if(!current)creates.push({...next.get(id),sortKey:order.get(id)??top+creates.length+1})
+        else {
+          const desired=next.get(id),server=encodeElement(decodeElement(current))
+          const withoutFill=value=>({...value,propertiesJson:{...value.propertiesJson,fill:undefined}})
+          if(desired.elementType==='SHAPE'&&desired.isHidden&&desired.isLocked&&typeof desired.propertiesJson?.tastingMark==='string'&&equal(withoutFill(desired),withoutFill(server))){
+              // Even equal fills need a server operation for this member's undo history.
+              const {elementType,...patch}=desired
+              updates.push({...patch,version:current.version})
+          }else if(!equal(desired,server)) throw Object.assign(Error('같은 ID의 다른 요소가 서버에 있어 저장하지 않았어요. 내 편집은 기기에 보관되어 있어요.'),{code:'CANVAS_CREATE_ID_CONFLICT',elementId:id})
+        }
+        continue
+      }
       // A remote deletion wins over a stale update; never resurrect a deleted object.
       if(!current)continue
       if(old.has(id)&&!next.has(id)){deleteElementIds.push(id);expectedVersions[id]=current.version;continue}
@@ -249,6 +261,13 @@ export function createCanvasSession({api,storage,key,legacyKey,pageId,diaryId,cr
             const result=await apply(pageId,entry.request);active();setBase(result.items,true)
           }
           }catch(error){
+              if(error.code==='CANVAS_CREATE_ID_CONFLICT'){
+                // Preserve the conflict and the original edit before surfacing it.
+                // A future recovery step must validate the latest page state before changing IDs.
+                journal.recoveryPlan??={version:1,kind:'create-id-conflict',pageId,elementId:error.elementId,entryId:entry.id,originalEdit:copy(entry),createdAt:Date.now()}
+                await persist()
+                throw error
+              }
               if(error.code==='CANVAS_BATCH_LIMIT') {
                 await persist()
                 throw Object.assign(Error('이전 대량 편집이 100개 제한을 넘어 저장 대기열이 막혔어요. 이 작업과 이후 편집은 서버에 저장되지 않고 기기에만 보관 중이에요. 재시도만으로 해결되지 않으며 별도 복구가 필요해요.'), {code:'CANVAS_BATCH_LIMIT'})
@@ -271,7 +290,8 @@ export function createCanvasSession({api,storage,key,legacyKey,pageId,diaryId,cr
               journal.rejectedRequests=[...(journal.rejectedRequests??[]),copy(entry.request??entry.parts?.[entry.partIndex]??null)]
               entry.id=createId();delete entry.request;delete entry.parts;delete entry.partIndex;await persist();throw error
           }
-          journal.queue.shift();journal.recent=[...journal.recent,entry.id,...(entry.parts??[]).map(part=>part.clientOperationId)].slice(-128);await persist()
+          journal.queue.shift();if(journal.recoveryPlan?.entryId===entry.id)delete journal.recoveryPlan
+          journal.recent=[...journal.recent,entry.id,...(entry.parts??[]).map(part=>part.clientOperationId)].slice(-128);await persist()
         }
         const history=scoped(await api.history(pageId));active()
         return syncResult({history,direction,historyClientOperationId,rejectedCount:(journal.rejectedEdits??[]).length,unchanged:!changed})

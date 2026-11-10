@@ -3,6 +3,8 @@
 import * as study from './studyPlanner.js'
 import * as day from './dayPlanner.js'
 import * as route from './routePaper.js'
+import { isTastingId } from './tastingGeometry.js'
+import * as tasting from './tastingPaper.js'
 
 const orientationOf = id => id.endsWith('portrait') ? 'portrait' : 'landscape'
 
@@ -18,6 +20,18 @@ const orientationOf = id => id.endsWith('portrait') ? 'portrait' : 'landscape'
  *   titleAt(점, 요소들) → 그 점의 할 일 칸에 이미 있는 글상자 | null, autoColor(기록, 요소들) → 색을 채운 새 기록 | null }
  */
 export function plannerFor(assetId) {
+  if (isTastingId(assetId)) {
+    const landscape = assetId.endsWith('landscape')
+    return {
+      kind: 'tasting', orientation: landscape ? 'landscape' : 'portrait', startHour: () => 6,
+      normalize: value => value ?? {}, setOptions: value => value ?? {},
+      baseSvg: () => tasting.tastingBaseSvg(assetId), overlaySvg: value => tasting.tastingOverlaySvg(value, assetId), svg: value => tasting.tastingSvg(value, assetId),
+      stroke: (value, points, settings) => { const planner = tasting.applyTastingStroke(value, points, settings, assetId); return planner ? { planner } : null },
+      erase: (value, points) => tasting.eraseTastingStroke(value, points, assetId),
+      titles: () => null, textSlot: () => null, cellTap: () => null, nowLine: () => null,
+      editTap: () => null, titleAt: () => null, autoColor: () => null,
+    }
+  }
   if (study.isStudyPlannerId(assetId)) {
     const o = orientationOf(assetId)
     return {

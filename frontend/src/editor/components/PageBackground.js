@@ -6,6 +6,8 @@ import { loadTemplateAst, peekTemplateAst } from '../templates/loadTemplate'
 import { colorTemplateAst, normalizePaperAppearance } from '../templates/appearance.js'
 import { pageSize } from '../utils/pageGeometry.js'
 import { plannerFor, paperDeviceFontIds } from '../templates/planners.js'
+import { isTastingId } from '../templates/tastingGeometry.js'
+import { tastingElementValue } from '../templates/tastingElements.js'
 import { subscribeTemplateLoaded } from '../templates/templateLoadedSignal.js'
 import { swapPaperFont } from '../templates/paperFont.js'
 import { useTextFont } from '../hooks/useTextFont'
@@ -87,7 +89,7 @@ function BackgroundAttempt({ page, zoom, preparedXml, onReady, onError, onRetry,
   // 스터디 · 데일리 플래너: 바탕은 캐시한 속지 그대로 두고, 칠한 칸 · 일정 · 체크 · 합계는 작은 덮개 SVG로 위에 겹친다.
   // 기록이 바뀌어도 덮개만 다시 만들어 지우기 · 칠하기가 가볍다. 시간표 시작 시각을 바꾼 페이지만 바탕을 다시 만든다.
   const plannerApi = preparedXml == null ? plannerFor(page.backgroundAssetId) : null
-  const planner = plannerApi ? page.planner ?? null : null
+  const planner = useMemo(() => plannerApi ? (isTastingId(page.backgroundAssetId) && !page.tastingDraft ? tastingElementValue(page) : page.planner ?? null) : null, [page.backgroundAssetId, page.planner, page.objects, page.tastingDraft])
   // 데일리 플래너는 할 일 글(글상자)을 막대 · 종일 칸에 비춰 그리므로, 글이 바뀌면 덮개도 다시 만든다.
   const titles = plannerApi?.titles(page.objects) ?? null, titleKey = titles ? JSON.stringify(titles) : ''
   const startHour = planner ? plannerApi.startHour(planner) : 6

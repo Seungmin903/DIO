@@ -2,6 +2,8 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import {createCanvasSession} from '../src/collaboration/canvasSession.js'
 import {encodeText,decodeText} from '../src/diary/services/textPageSync.js'
+import {encodeElement} from '../src/collaboration/canvasElements.js'
+import {tastingElementId} from '../src/editor/templates/tastingElements.js'
 const pageId='10000000-0000-4000-8000-000000000001',diaryId='20000000-0000-4000-8000-000000000001',id='30000000-0000-4000-8000-000000000001'
 const text=(value='A',elementId=id)=>({id:elementId,type:'text',text:value,x:1,y:2,w:40,h:20})
 const row=(object,version=1)=>({...encodeText(object),pageId,version})
@@ -15,6 +17,61 @@ function fixture(){
  const session=active=>createCanvasSession({api,storage,key:'journal',pageId,diaryId,createId:()=>`40000000-0000-4000-8000-${String(++sequence).padStart(12,'0')}`,isActive:active??(()=>true)})
  return {api,disk,calls,operations,session,setRows:value=>{rows=value},rows:()=>rows,lose:()=>{lose=true}}
 }
+test('동일 ID로 다른 요소가 생성되면 로컬 작업을 삭제하지 않고 충돌을 알린다',async()=>{
+ const f=fixture(),s=f.session();await s.restore([]);await s.synchronize()
+ await s.enqueue({id:'mine',pageId,before:[],after:[text('mine')]})
+ f.setRows([row(text('friend'),1)])
+ await assert.rejects(s.synchronize(),e=>e.code==='CANVAS_CREATE_ID_CONFLICT')
+ assert.equal(s.snapshot().queue.length,1);assert.equal(s.snapshot().queue[0].after[0].text,'mine')
+ assert.equal(f.rows()[0].propertiesJson.text,'friend');assert.equal(f.calls.length,0)
+})
+test('동일 ID와 내용의 생성은 이미 반영된 것으로 처리한다',async()=>{
+ const f=fixture(),s=f.session();await s.restore([]);await s.synchronize()
+ await s.enqueue({id:'mine',pageId,before:[],after:[text('same')]});f.setRows([row(text('same'),1)])
+ await s.synchronize();assert.equal(s.snapshot().queue.length,0);assert.equal(f.calls.length,0)
+})
+test('두 사용자가 같은 별을 처음 칠하면 서버의 표시를 최신 버전으로 갱신한다',async()=>{
+ const f=fixture(),s=f.session(),asset='remote-tasting-note-portrait'
+ const mark={id:tastingElementId(pageId,'star-0',asset),type:'shape',shape:'rect',x:0,y:0,w:1,h:1,rotation:0,opacity:1,hidden:true,locked:true,tastingMark:'star-0',fill:'#112233'}
+ await s.restore([]);await s.synchronize();await s.enqueue({id:'mine',pageId,before:[],after:[mark]})
+ f.setRows([{...encodeElement({...mark,fill:'#abcdef'}),pageId,version:3}])
+ const result=await s.synchronize()
+ assert.equal(f.calls[0].changes.updates[0].version,3)
+ assert.equal(result.objects.length,1);assert.equal(result.objects[0].fill,'#112233')
+ assert.equal(s.snapshot().queue.length,0)
+})
+test('같은 색 별을 동시에 칠한 두 번째 사용자의 작업도 서버 이력으로 전송한다',async()=>{
+ const f=fixture(),s=f.session(),asset='remote-tasting-note-portrait'
+ const mark={id:tastingElementId(pageId,'star-0',asset),type:'shape',shape:'rect',x:0,y:0,w:1,h:1,rotation:0,opacity:1,hidden:true,locked:true,tastingMark:'star-0',fill:'#112233'}
+ await s.restore([]);await s.synchronize();await s.enqueue({id:'mine',pageId,before:[],after:[mark]})
+ f.setRows([{...encodeElement(mark),pageId,version:3}]);await s.synchronize()
+ assert.equal(f.calls.length,1);assert.equal(f.calls[0].changes.updates[0].version,3)
+ assert.equal(f.calls[0].clientOperationId,'mine');assert.equal(s.snapshot().queue.length,0)
+})
+test('ID 충돌 기록은 후속 편집과 함께 저장되고 재시작 후에도 유지된다',async()=>{
+ const f=fixture();let s=f.session();await s.restore([]);await s.synchronize()
+ await s.enqueue({id:'mine',pageId,before:[],after:[text('mine')]});f.setRows([row(text('friend'),1)])
+ await assert.rejects(s.synchronize(),e=>e.code==='CANVAS_CREATE_ID_CONFLICT')
+ await s.enqueue({id:'later',pageId,before:[text('mine')],after:[text('later')]})
+ s=f.session();await s.restore([text('later')]);const saved=s.snapshot()
+ assert.equal(saved.recoveryPlan.elementId,id);assert.equal(saved.recoveryPlan.entryId,'mine')
+ assert.equal(saved.recoveryPlan.originalEdit.after[0].text,'mine')
+ assert.deepEqual(saved.queue.map(entry=>entry.id),['mine','later'])
+ await assert.rejects(s.synchronize(),e=>e.code==='CANVAS_CREATE_ID_CONFLICT')
+ assert.equal(s.snapshot().recoveryPlan.entryId,'mine');assert.equal(s.snapshot().queue.length,2)
+ f.setRows([]);await s.synchronize();assert.equal(s.snapshot().recoveryPlan,undefined)
+ assert.equal(f.rows()[0].propertiesJson.text,'later')
+})
+test('서버 조회 중 추가된 편집도 저장 대기열에서 유실되지 않는다',async()=>{
+ const f=fixture(),s=f.session();await s.restore([]);await s.synchronize()
+ let release,started;const ready=new Promise(resolve=>{started=resolve}),gate=new Promise(resolve=>{release=resolve})
+ const originalLoad=f.api.load;f.api.load=async()=>{started();await gate;return originalLoad()}
+ const pending=s.synchronize();await ready
+ await s.enqueue({id:'during-load',pageId,before:[],after:[text('during load')]})
+ release();const result=await pending
+ assert.equal(result.objects[0].text,'during load');assert.equal(s.snapshot().queue.length,0)
+ assert.equal(f.rows()[0].propertiesJson.text,'during load')
+})
 test('응답 유실과 앱 재시작 후 동일한 작업 ID·본문으로 재시도하며 두 행동을 합치지 않는다',async()=>{
  const f=fixture();let s=f.session();await s.restore([]);await s.enqueue({id:'a',pageId,before:[],after:[text('A')]});f.lose()
  await assert.rejects(s.synchronize());const first=f.calls[0]
