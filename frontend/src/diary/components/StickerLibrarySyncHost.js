@@ -12,6 +12,7 @@ import { sharedGifMaxBytes } from '../../shared/mediaLimits.js'
 import { setStickerSyncRetry, setStickerSyncStatus } from '../../editor/services/stickerLibrarySyncStatus.js'
 import { createCoverLibrarySync } from '../services/coverLibrarySync.js'
 import { setCoverSyncRetry, setCoverSyncStatus } from '../services/coverLibrarySyncStatus.js'
+import { setPaperSyncRetry, setPaperSyncStatus } from '../services/paperLibrarySyncStatus.js'
 import { createPaperLibrarySync } from '../services/paperLibrarySync.js'
 import { myCoversReady, myCoversSnapshot, myPapersReady, myPapersSnapshot, replaceMyCovers, replaceMyPapers, subscribeMyLibrary } from '../hooks/useMyLibrary'
 import { defaultPaperStyleReady, defaultPaperStyleSnapshot, replaceDefaultPaperStyle, subscribeDefaultPaperStyle } from '../hooks/useDefaultPaperStyle'
@@ -35,6 +36,7 @@ function acquire(accountId) {
   shared = { id, sync, cover, paper, appState, mounts: 1, releaseTimer: null }
   setStickerSyncRetry(() => sync.sync())
   setCoverSyncRetry(() => cover.sync())
+  setPaperSyncRetry(() => paper.sync())
   sync.start(); cover.start(); paper.start()
   return shared
 }
@@ -48,9 +50,9 @@ function stopShared() {
   if (!shared) return
   if (shared.releaseTimer != null) clearTimeout(shared.releaseTimer)
   shared.sync.stop(); shared.cover.stop(); shared.paper.stop(); shared.appState.remove(); shared = null
-  setStickerSyncRetry(null); setCoverSyncRetry(null)
+  setStickerSyncRetry(null); setCoverSyncRetry(null); setPaperSyncRetry(null)
   // 로그아웃 · 다른 계정: 이전 계정의 실패를 보이지 않는다
-  setStickerSyncStatus({ error: null, pending: false }); setCoverSyncStatus({ error: null, pending: false })
+  setStickerSyncStatus({ error: null, pending: false }); setCoverSyncStatus({ error: null, pending: false }); setPaperSyncStatus({ error: null, pending: false })
 }
 
 // 스티커 보관함 · 내 표지 · 내 속지는 따로 맞춘다(서버 문서 · 맞춘 상태 기록이 따로다). 인증 · 미디어 요청은 함께 쓴다
@@ -113,6 +115,7 @@ function createSyncs(accountId, sessionKey) {
       replacePapers: replaceMyPapers, replaceStyle: replaceDefaultPaperStyle,
     },
     onError: error => { if (typeof __DEV__ !== 'undefined' && __DEV__) console.warn('[DIO_PAPER_SYNC]', error?.message) },
+    onStatus: next => { if (active()) setPaperSyncStatus({ error: next.error }) },
   })
   return { sync, cover, paper }
 }

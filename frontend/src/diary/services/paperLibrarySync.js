@@ -55,10 +55,12 @@ export function mergePapers(base, extra) {
  * media: { upload(localId, category) → 서버 id, download(serverId) → 기기에 저장(이미 있으면 그대로) }
  * library: { ready() → 기기 값을 읽은 뒤 풀리는 Promise, papers() → 기기 내 속지[], style() → 고른 기본 속지 스타일(없으면 null),
  *            subscribe(listener) → 해제 함수, replacePapers(papers, base) · replaceStyle(style, base) → base 가 지금 값과 같을 때만 바꾸고 true }
- * storage · key: 이 기기에서 맞춘 상태(meta) · 기기 id → 서버 id 짝을 둔다
+ * storage · key: 이 기기에서 맞춘 상태(meta) · 기기 id → 서버 id 짝 · 받지 못한 쪽 그림을 둔다
+ * onStatus({ error }): 맞추기 결과(올리지 못한 속지 · 받지 못한 쪽 그림 · 연결 오류가 있으면 문구)
  */
-export function createPaperLibrarySync({ account, api, media, library, storage, key, isActive = () => true, setTimer = setTimeout, clearTimer = clearTimeout, debounceMs = PAPER_SYNC_DEBOUNCE_MS, onError = () => {} }) {
+export function createPaperLibrarySync({ account, api, media, library, storage, key, isActive = () => true, setTimer = setTimeout, clearTimer = clearTimeout, debounceMs = PAPER_SYNC_DEBOUNCE_MS, onError = () => {}, onStatus = () => {} }) {
   const metaKey = `${key}:meta`, idKey = id => `${key}:${account}:id:${String(id).toLowerCase()}`, localKey = id => `${key}:${account}:local:${String(id).toLowerCase()}`
+  const missingKey = `${key}:${account}:missing`
   let meta = null, timer = null, running = null, again = false, closed = false, unsubscribe = null, applying = false
   const active = () => { if (closed || !isActive()) throw Object.assign(Error('내 속지 동기화가 끝났어요.'), { code: 'SYNC_CLOSED' }) }
   const readMeta = async () => { try { const value = JSON.parse(await storage.getItem(metaKey) ?? 'null'); return value && typeof value === 'object' ? value : null } catch { return null } }
@@ -86,21 +88,58 @@ export function createPaperLibrarySync({ account, api, media, library, storage, 
     }
     return serverEntry(entry, pages)
   }
-  // 기기 목록을 서버 문서 모양으로. 보낼 수 없는 속지 · 쪽을 아직 올리지 못한 속지 · 한도를 넘는 속지는 빠진다(기기에만 남는다)
+  // 기기 목록을 서버 문서 모양으로. 보낼 수 없는 속지 · 쪽을 아직 올리지 못한 속지 · 한도를 넘는 속지는 빠진다(기기에만 남는다).
+  // 결과 배열의 pending: 보낼 수 있는데 쪽 그림을 아직 올리지 못한 속지 수
   async function toServer(papers, upload) {
     const out = []
+    let pending = 0
     for (const entry of papers ?? []) {
       if (out.length >= PAPER_LIBRARY_LIMITS.papers) break
       if (!syncable(entry)) continue
       const sent = await toServerEntry(entry, upload)
       if (sent) out.push(sent)
+      else pending++
     }
+    out.pending = pending
     return out
+  }
+
+  // 내려받지 못한 서버 쪽 그림 id. 맞출 때마다 다시 받아 보고, 남아 있으면 공방에 알린다(앱을 다시 켜도 이어서 받는다)
+  let missing = null
+  const readMissing = async () => {
+    if (missing) return missing
+    try { const value = JSON.parse(await storage.getItem(missingKey) ?? '[]'); missing = new Set(Array.isArray(value) ? value.filter(uuid) : []) }
+    catch { missing = new Set() }
+    return missing
+  }
+  const writeMissing = () => storage.setItem(missingKey, JSON.stringify([...missing]))
+  async function fetchImage(serverId) {
+    try { await media.download(serverId); active(); missing.delete(serverId) }
+    catch (error) {
+      if (error?.code === 'SYNC_CLOSED') throw error
+      onError(error)
+      // 서버에 파일이 없으면(404 · 410) 다시 받아도 소용없다: 맞출 때마다 재시도하거나 계속 알리지 않는다
+      if (error?.status === 404 || error?.status === 410) missing.delete(serverId)
+      else missing.add(serverId)
+    }
+  }
+  // 지난번에 받지 못한 쪽 그림을 다시 받는다. 그사이 목록에서 빠진 속지의 쪽은 더 받지 않는다
+  async function retryMissing() {
+    await readMissing(); active()
+    if (!missing.size) return
+    const present = new Set((library.papers() ?? []).flatMap(entry => (entry?.pages ?? []).map(page => page?.mediaFileId)).filter(uuid))
+    for (const id of [...missing]) {
+      if (present.has(id)) await fetchImage(id)
+      else missing.delete(id)
+    }
+    await writeMissing(); active()
   }
 
   // 서버 문서를 기기에 들인다: 이 기기가 올린 그림은 기기 원본을 그대로 쓰고, 나머지는 내려받아 서버 id 로 저장한 뒤 목록 · 스타일을 바꾼다.
   // keepLocal 이면 아직 서버에 없는 기기 속지(올리지 못한 속지 · 보낼 수 없는 속지 · 한 번도 맞춘 적 없는 속지)는 지우지 않고 남긴다.
+  // 받는 사이 이 기기에서 고치면 들이지 않고 false(그 편집을 덮어쓰지 않는다). 바뀐 값은 다시 맞춘다
   async function adopt(server, { keepLocal = true } = {}) {
+    await readMissing(); active()
     const base = library.papers() ?? [], baseStyle = library.style()
     const before = new Map(base.map(entry => [entry.id, entry]))
     const papers = []
@@ -114,8 +153,7 @@ export function createPaperLibrarySync({ account, api, media, library, storage, 
         else {
           // 서버 id 는 내려받기 성공과 상관없이 짝을 기록한다(받지 못한 그림을 '안 올린 그림'으로 보고 서버에서 빼지 않게)
           await storage.setItem(idKey(serverId), serverId); active()
-          try { await media.download(serverId); active() }
-          catch (error) { if (error?.code === 'SYNC_CLOSED') throw error; onError(error) } // 못 받은 쪽도 속지는 남기고 다음에 다시 받는다
+          await fetchImage(serverId) // 못 받은 쪽도 속지는 남기고 다음 맞추기에서 다시 받는다
         }
         // 이 기기에 같은 쪽이 있었으면 확대용 원본 PDF 연결을 그대로 둔다
         const kept = before.get(entry.id)?.pages?.find(old => old.mediaFileId === id)?.pdfSource
@@ -123,14 +161,16 @@ export function createPaperLibrarySync({ account, api, media, library, storage, 
       }
       papers.push({ id: entry.id, name: entry.name, createdAt: entry.createdAt ?? null, orientation: entry.orientation, pages })
     }
+    await writeMissing(); active()
     const next = keepLocal ? [...await unsent(base, papers), ...papers] : papers
     const style = server.style ?? (keepLocal ? baseStyle : null)
     active()
     applying = true
     let replaced
     try { replaced = await library.replacePapers(next, base) && await library.replaceStyle(style, baseStyle) } finally { applying = false }
-    if (!replaced) { again = true; return } // 받는 사이 이 기기에서 고쳤다: 기록을 남기지 않고 곧 다시 맞춘다
+    if (!replaced) { again = true; return false } // 받는 사이 이 기기에서 고쳤다: 기록을 남기지 않고 곧 다시 맞춘다
     await writeMeta(server.version, server)
+    return true
   }
 
   // 서버 목록에 없는 기기 속지 중 남길 것: 예전에 맞춘 적 있으면 다른 기기에서 지운 것이라 빼고, 한 번도 맞춘 적 없거나 아직 보낼 수 없으면 남긴다
@@ -168,27 +208,42 @@ export function createPaperLibrarySync({ account, api, media, library, storage, 
     await library.ready(); active()
     meta ??= await readMeta(); active()
     const server = await api.get(); active()
+    await retryMissing()
     const local = library.papers() ?? [], localStyle = serverStyle(library.style())
-    if (meta && meta.account !== account) return adopt(server, { keepLocal: false }) // 다른 계정이 쓰던 기기: 그 속지를 이 계정에 올리지 않는다
-    if (!meta && !local.length && !localStyle) return adopt(server) // 새 기기 · 재설치: 서버 문서를 그대로 받는다
+    // 들이는 동안 기기 값이 바뀌어 들이지 않았으면(adopt 가 false) 알리지 않고 다시 맞춘다
+    if (meta && meta.account !== account) return await adopt(server, { keepLocal: false }) ? report(0) : null // 다른 계정이 쓰던 기기: 그 속지를 이 계정에 올리지 않는다
+    if (!meta && !local.length && !localStyle) return await adopt(server) ? report(0) : null // 새 기기 · 재설치: 서버 문서를 그대로 받는다
     const known = { papers: await toServer(local, false), style: localStyle }; active()
     const localChanged = !meta || stable(known) !== meta.synced || known.papers.length !== local.length
     const serverChanged = !meta || server.version !== meta.version
-    if (!localChanged && !serverChanged) return null
-    if (!localChanged) return adopt(server)
+    if (!localChanged && !serverChanged) return report(0)
+    if (!localChanged) return await adopt(server) ? report(0) : null
     const mine = { papers: await toServer(local, true), style: localStyle }; active()
     // 보낼 것이 그대로면(올리지 못한 속지만 남았으면) 서버가 바뀐 경우에만 받는다
-    if (meta && stable(mine) === meta.synced) return serverChanged ? adopt(server) : null
+    if (meta && stable(mine) === meta.synced) return serverChanged && !await adopt(server) ? null : report(mine.papers.pending)
     const sending = serverChanged ? { papers: mergePapers(mine.papers, server.papers), style: mine.style ?? server.style ?? null } : mine
     const saved = await push(sending, server.version)
     // 저장된 결과가 기기에서 보낸 것과 다르면(서버 것과 합쳤으면) 기기에도 들인다. 들이지 않으면 다음 맞추기에서 다른 기기 속지를 서버에서 지운다
     if (stable(saved) !== stable(mine)) await adopt(saved)
+    report(mine.papers.pending)
     return saved
+  }
+  // 맞추기 결과를 알린다: 올리지 못한 속지나 받지 못한 쪽 그림이 남았으면 실패, 아니면 정상
+  function report(pending) {
+    const failures = []
+    if (pending > 0) failures.push(`속지 ${pending}개를 계정에 올리지 못했어요. 다른 기기에서는 보이지 않아요.`)
+    if (missing?.size) failures.push(`속지 쪽 그림 ${missing.size}개를 받지 못했어요. 연결을 확인해 주세요.`)
+    onStatus({ error: failures.length ? failures.join(' ') : null })
+    return null
   }
 
   function run() {
     if (running) { again = true; return running }
-    running = reconcile().catch(error => { if (error?.code !== 'SYNC_CLOSED') onError(error) })
+    running = reconcile().catch(error => {
+      if (error?.code === 'SYNC_CLOSED') return
+      onError(error)
+      onStatus({ error: error?.status === 409 ? '다른 기기의 변경과 계속 겹쳐 내 속지를 계정에 저장하지 못했어요.' : '내 속지를 계정과 맞추지 못했어요. 연결을 확인해 주세요.' })
+    })
       .finally(() => { running = null; if (again && !closed) { again = false; schedule() } })
     return running
   }
