@@ -6,3 +6,4 @@ export const CUTOUT_ENTRANCE = true;
 export const DEVICE_TOGGLES_ENABLED = false;
 // 알림 설정(회원)의 서비스 알림 구역: 서버 설정에 연결되지 않음
 export const SERVICE_SECTION_ENABLED = false;
+export const NOTIFICATION_SETTINGS_TITLE = SERVICE_SECTION_ENABLED ? '알림 설정' : '마케팅 수신 설정';
