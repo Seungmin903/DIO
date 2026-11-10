@@ -64,8 +64,12 @@ export async function replaceMyCovers(covers, base) {
 export const myPapersReady = () => load()
 /** 지금 내 속지 목록 */
 export const myPapersSnapshot = () => store.papers
-/** 서버에서 받은 목록으로 바꾼다. base 가 지금 목록과 다르면(그 사이 사용자가 고쳤으면) 바꾸지 않고 false */
-export const replaceMyPapers = (papers, base) => commit('papers', list => (list === base ? normalizeMyPapers(papers) : null))
+/** 서버에서 받은 목록으로 바꾸고 적용한 목록을 돌려준다. base 가 지금 목록과 다르면(그 사이 사용자가 고쳤으면) 바꾸지 않고 null (replaceMyCovers 와 같다) */
+export async function replaceMyPapers(papers, base) {
+  let applied = null
+  const done = await commit('papers', list => (list === base ? (applied = normalizeMyPapers(papers)) : null))
+  return done ? applied : null
+}
 
 /** 테스트에서 기기 저장소를 새로 읽게 한다 */
 export function resetMyLibraryForTests() {

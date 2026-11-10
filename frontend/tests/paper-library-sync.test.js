@@ -30,7 +30,7 @@ function server() {
     upload: async (localId, category) => { const id = `90000000-0000-4000-8000-${String(++serial).padStart(12, '0')}`; state.uploads.set(id, localId); state.categories.push(category); return id },
   }
 }
-function device(remote, { account = '1', papers = [], style = null, storage = new Map(), failUploads = new Set(), failDownloads = new Map() } = {}) {
+function device(remote, { account = '1', papers = [], style = null, storage = new Map(), failUploads = new Set(), failDownloads = new Map(), afterReplace = () => {} } = {}) {
   const local = { papers: normalizeMyPapers(structuredClone(papers)), style: style ? normalizePaperAppearance(style) : null }
   const listeners = new Set(), downloads = [], errors = [], statuses = []
   const fire = () => listeners.forEach(listener => listener())
@@ -39,8 +39,9 @@ function device(remote, { account = '1', papers = [], style = null, storage = ne
     papers: () => local.papers,
     style: () => local.style,
     subscribe: listener => { listeners.add(listener); return () => listeners.delete(listener) },
-    replacePapers: async (next, base) => { if (base !== local.papers) return false; local.papers = normalizeMyPapers(next); fire(); return true },
-    replaceStyle: async (next, base) => { if (base !== local.style) return false; local.style = next == null ? null : normalizePaperAppearance(next); fire(); return true },
+    // useMyLibrary · useDefaultPaperStyle 처럼 적용한 값을 돌려준다(base 가 다르면 null)
+    replacePapers: async (next, base) => { if (base !== local.papers) return null; local.papers = normalizeMyPapers(next); fire(); return local.papers },
+    replaceStyle: async (next, base) => { if (base !== local.style) return null; local.style = next == null ? null : normalizePaperAppearance(next); fire(); const applied = local.style; afterReplace(); return { style: applied } },
   }
   const edit = next => { local.papers = normalizeMyPapers(next); fire() }
   const setStyle = next => { local.style = normalizePaperAppearance(next); fire() }
@@ -206,4 +207,48 @@ test('쪽 그림을 올리지 못한 속지와 연결 오류는 공방에 알리
   const b = device(offline, { papers: [planner('p1', [L(1)])] })
   await b.sync.start()
   assert.match(b.statuses.at(-1), /내 속지를 계정과 맞추지 못했어요/)
+})
+
+test('다른 계정으로 바뀌어도 올리지 못한 속지 · 고른 스타일은 사라지지 않고, 그 계정으로 다시 로그인하면 되살아난다', async () => {
+  const one = server(), two = server()
+  const storage = new Map()
+  // 계정 1: p3 은 쪽 그림을 올리지 못했고, p2 는 올라갔다. 스타일은 서버에 올라가지 않은 채(아래에서 서버 스타일을 지운다) 기기에 남았다
+  const first = device(one, { account: '1', papers: [planner('p3', [L(3)], '큰 속지'), planner('p2', [L(2)])], style: CREAM, storage, failUploads: new Set([L(3)]) })
+  await first.sync.start(); first.sync.stop()
+  assert.deepEqual(one.state.papers.map(p => p.id), ['p2'])
+  one.state.style = null; one.state.version++
+  // 같은 기기에서 계정 2로 로그인: 계정 1 속지 · 스타일은 올리지 않고 화면에서 빠진다
+  two.state.papers = [{ id: 'theirs', name: '남의 속지', createdAt: null, orientation: 'portrait', pages: [{ mediaFileId: '90000000-0000-4000-8000-000000009999', aspect: 1, name: null }] }]
+  two.state.version = 3
+  const second = device(two, { account: '2', papers: first.local.papers, style: first.local.style, storage })
+  await second.sync.start(); second.sync.stop()
+  assert.deepEqual(second.local.papers.map(p => p.id), ['theirs'])
+  assert.equal(second.local.style, null)
+  assert.equal(two.state.puts, 0)
+  // 다시 계정 1: 서버 목록(p2)과 함께 올리지 못했던 p3 · 고른 스타일이 돌아오고, 다음 맞추기에서 다시 올린다
+  const again = device(one, { account: '1', papers: second.local.papers, storage })
+  await again.sync.start(); await again.sync.whenIdle()
+  assert.deepEqual(again.local.papers.map(p => p.id), ['p3', 'p2'])
+  assert.deepEqual(again.local.style, CREAM)
+  assert.deepEqual(one.state.papers.map(p => p.id).sort(), ['p2', 'p3'])
+  assert.deepEqual(one.state.style, CREAM)
+  // 다시 계정 2로 와도 계정 2 서버 목록만 보이고, 되살린 몫은 한 번만 쓴다
+  again.sync.stop()
+  const back = device(two, { account: '2', papers: again.local.papers, style: again.local.style, storage })
+  await back.sync.start()
+  assert.deepEqual(back.local.papers.map(p => p.id), ['theirs'])
+  assert.equal(back.local.style, null)
+})
+
+test('서버 문서로 바꾼 직후 들어온 사용자 편집도 다시 맞춰 올린다', async () => {
+  const remote = server()
+  const a = device(remote, { papers: [planner('a1', [L(1)], 'A')] })
+  await a.sync.start()
+  let b
+  let edited = false
+  b = device(remote, { afterReplace: () => { if (!edited) { edited = true; b.edit([planner('b1', [L(5)], 'B'), ...b.local.papers]) } } })
+  await b.sync.start()
+  await b.sync.whenIdle()
+  assert.deepEqual(b.local.papers.map(p => p.id), ['b1', 'a1'])
+  assert.deepEqual(remote.state.papers.map(p => p.id), ['b1', 'a1'])
 })

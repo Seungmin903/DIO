@@ -54,13 +54,18 @@ export function mergePapers(base, extra) {
  * api: { get() → { version, papers, style }, put(expectedVersion, papers, style) → { version, papers, style } } (409 는 error.status === 409)
  * media: { upload(localId, category) → 서버 id, download(serverId) → 기기에 저장(이미 있으면 그대로) }
  * library: { ready() → 기기 값을 읽은 뒤 풀리는 Promise, papers() → 기기 내 속지[], style() → 고른 기본 속지 스타일(없으면 null),
- *            subscribe(listener) → 해제 함수, replacePapers(papers, base) · replaceStyle(style, base) → base 가 지금 값과 같을 때만 바꾸고 true }
+ *            subscribe(listener) → 해제 함수, replacePapers(papers, base) → base 가 지금 목록과 같을 때만 바꾸고 적용한 목록(아니면 null),
+ *            replaceStyle(style, base) → base 가 지금 값과 같을 때만 바꾸고 { style: 적용한 값 }(아니면 null) }
  * storage · key: 이 기기에서 맞춘 상태(meta) · 기기 id → 서버 id 짝 · 받지 못한 쪽 그림을 둔다
  * onStatus({ error }): 맞추기 결과(올리지 못한 속지 · 받지 못한 쪽 그림 · 연결 오류가 있으면 문구)
  */
 export function createPaperLibrarySync({ account, api, media, library, storage, key, isActive = () => true, setTimer = setTimeout, clearTimer = clearTimeout, debounceMs = PAPER_SYNC_DEBOUNCE_MS, onError = () => {}, onStatus = () => {} }) {
   const metaKey = `${key}:meta`, idKey = id => `${key}:${account}:id:${String(id).toLowerCase()}`, localKey = id => `${key}:${account}:local:${String(id).toLowerCase()}`
-  const missingKey = `${key}:${account}:missing`
+  const missingKey = `${key}:${account}:missing`, stashKey = owner => `${key}:${owner}:stash`
+  // 다른 계정으로 바뀔 때 따로 둔 이 계정 몫: { papers(그때 기기 목록), style(그때 고른 스타일), synced(그때 이 계정과 맞춘 문서) }
+  const readStash = async () => {
+    try { const value = JSON.parse(await storage.getItem(stashKey(account)) ?? 'null'); return value && Array.isArray(value.papers) ? value : null } catch { return null }
+  }
   let meta = null, timer = null, running = null, again = false, closed = false, unsubscribe = null, applying = false
   const active = () => { if (closed || !isActive()) throw Object.assign(Error('내 속지 동기화가 끝났어요.'), { code: 'SYNC_CLOSED' }) }
   const readMeta = async () => { try { const value = JSON.parse(await storage.getItem(metaKey) ?? 'null'); return value && typeof value === 'object' ? value : null } catch { return null } }
@@ -137,8 +142,9 @@ export function createPaperLibrarySync({ account, api, media, library, storage, 
 
   // 서버 문서를 기기에 들인다: 이 기기가 올린 그림은 기기 원본을 그대로 쓰고, 나머지는 내려받아 서버 id 로 저장한 뒤 목록 · 스타일을 바꾼다.
   // keepLocal 이면 아직 서버에 없는 기기 속지(올리지 못한 속지 · 보낼 수 없는 속지 · 한 번도 맞춘 적 없는 속지)는 지우지 않고 남긴다.
+  // restore: 이 계정이 예전에 이 기기에 남겨 둔 몫(stash). 그중 아직 서버에 없는 속지를 같은 규칙으로 되살리고, 서버에 스타일이 없으면 그때 고른 스타일을 되살린다.
   // 받는 사이 이 기기에서 고치면 들이지 않고 false(그 편집을 덮어쓰지 않는다). 바뀐 값은 다시 맞춘다
-  async function adopt(server, { keepLocal = true } = {}) {
+  async function adopt(server, { keepLocal = true, restore = null } = {}) {
     await readMissing(); active()
     const base = library.papers() ?? [], baseStyle = library.style()
     const before = new Map(base.map(entry => [entry.id, entry]))
@@ -162,21 +168,29 @@ export function createPaperLibrarySync({ account, api, media, library, storage, 
       papers.push({ id: entry.id, name: entry.name, createdAt: entry.createdAt ?? null, orientation: entry.orientation, pages })
     }
     await writeMissing(); active()
-    const next = keepLocal ? [...await unsent(base, papers), ...papers] : papers
-    const style = server.style ?? (keepLocal ? baseStyle : null)
+    const kept = keepLocal ? await unsent(base, papers, syncedIds(meta?.synced)) : []
+    const restored = restore ? await unsent(restore.papers, papers, syncedIds(restore.synced)) : []
+    const next = [...restored, ...kept, ...papers]
+    const restoredStyle = !server.style && restore?.style ? restore.style : null
+    const style = server.style ?? (keepLocal ? baseStyle : restoredStyle)
     active()
+    // replace 가 돌려준 값(적용한 것)과 지금 값이 다르면 그사이 사용자가 고친 것이다. 받아서 바꾼 알림은 무시하지만 그 편집은 다시 맞춘다
     applying = true
-    let replaced
-    try { replaced = await library.replacePapers(next, base) && await library.replaceStyle(style, baseStyle) } finally { applying = false }
-    if (!replaced) { again = true; return false } // 받는 사이 이 기기에서 고쳤다: 기록을 남기지 않고 곧 다시 맞춘다
+    let applied, appliedStyle
+    try {
+      applied = await library.replacePapers(next, base)
+      appliedStyle = applied ? await library.replaceStyle(style, baseStyle) : null
+    } finally { applying = false }
+    if (!applied || !appliedStyle) { again = true; return false } // 받는 사이 이 기기에서 고쳤다: 기록을 남기지 않고 곧 다시 맞춘다
+    // 되살린 속지 · 스타일은 다음 맞추기에서 올린다
+    if (library.papers() !== applied || library.style() !== appliedStyle.style || restored.length || restoredStyle) again = true
     await writeMeta(server.version, server)
     return true
   }
 
-  // 서버 목록에 없는 기기 속지 중 남길 것: 예전에 맞춘 적 있으면 다른 기기에서 지운 것이라 빼고, 한 번도 맞춘 적 없거나 아직 보낼 수 없으면 남긴다
-  async function unsent(local, papers) {
-    let previous = new Set()
-    try { previous = new Set(JSON.parse(meta?.synced ?? '{}').papers?.map(entry => entry.id) ?? []) } catch { /* 처음 맞추는 기기 */ }
+  const syncedIds = synced => { try { return new Set(JSON.parse(synced ?? '{}').papers?.map(entry => entry.id) ?? []) } catch { return new Set() } }
+  // 서버 목록에 없는 기기 속지 중 남길 것: 예전에 맞춘 적 있으면(previous) 다른 기기에서 지운 것이라 빼고, 한 번도 맞춘 적 없거나 아직 보낼 수 없으면 남긴다
+  async function unsent(local, papers, previous) {
     const inServer = new Set(papers.map(entry => entry.id))
     const out = []
     for (const entry of local ?? []) {
@@ -211,7 +225,15 @@ export function createPaperLibrarySync({ account, api, media, library, storage, 
     await retryMissing()
     const local = library.papers() ?? [], localStyle = serverStyle(library.style())
     // 들이는 동안 기기 값이 바뀌어 들이지 않았으면(adopt 가 false) 알리지 않고 다시 맞춘다
-    if (meta && meta.account !== account) return await adopt(server, { keepLocal: false }) ? report(0) : null // 다른 계정이 쓰던 기기: 그 속지를 이 계정에 올리지 않는다
+    // 다른 계정이 쓰던 기기: 그 속지 · 스타일을 이 계정에 올리지 않는다. 지우지도 않고 그 계정 몫(stash)으로 따로 두었다가 그 계정으로 다시 로그인하면 되살린다
+    // (올리지 못해 서버에 없던 속지가 계정을 바꾸는 순간 사라지지 않게). 이 계정이 남겨 둔 몫이 있으면 함께 되살린다
+    if (meta && meta.account !== account) {
+      await storage.setItem(stashKey(meta.account), JSON.stringify({ papers: local, style: library.style() ?? null, synced: meta.synced ?? '{}' })); active()
+      const restore = await readStash(); active()
+      if (!await adopt(server, { keepLocal: false, restore })) return null
+      if (restore) await storage.setItem(stashKey(account), 'null')
+      return report(0)
+    }
     if (!meta && !local.length && !localStyle) return await adopt(server) ? report(0) : null // 새 기기 · 재설치: 서버 문서를 그대로 받는다
     const known = { papers: await toServer(local, false), style: localStyle }; active()
     const localChanged = !meta || stable(known) !== meta.synced || known.papers.length !== local.length

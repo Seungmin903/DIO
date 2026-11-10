@@ -127,3 +127,19 @@ test('replaceMyCovers: base 가 지금 목록이면 바꾸고 적용한 목록�
   assert.equal(notified.length, before) // 구독을 끊으면 더 불리지 않는다
   hook.unmount()
 })
+
+test('replaceMyPapers: 내 속지도 base 가 지금 목록이면 바꾸고 적용한 목록을, 그 사이 사용자가 고쳤으면 null 을 돌려준다', async () => {
+  const paper = (id, name = id) => ({ id, name, createdAt: '2026-11-10T00:00:00.000Z', orientation: 'portrait', pages: [{ src: 'media:x', mediaFileId: 'x', aspect: 1, name: 'PDF' }] })
+  const { lib, mountHook } = load({ stored: { papers: [paper('old')] } })
+  const hook = mountHook()
+  await lib.myPapersReady()
+  const applied = await lib.replaceMyPapers([paper('s1')], lib.myPapersSnapshot())
+  assert.deepEqual(ids(applied), ['s1'])
+  assert.equal(lib.myPapersSnapshot(), applied)
+  assert.deepEqual(ids(hook.current.papers), ['s1'])
+  const stale = lib.myPapersSnapshot()
+  await hook.current.addPaper({ name: '방금 만든 속지', orientation: 'portrait', pages: [{ src: 'media:y', mediaFileId: 'y', aspect: 1, name: 'PDF' }] })
+  assert.equal(await lib.replaceMyPapers([paper('server')], stale), null)
+  assert.deepEqual(hook.current.papers.map(item => item.name), ['방금 만든 속지', 's1'])
+  hook.unmount()
+})

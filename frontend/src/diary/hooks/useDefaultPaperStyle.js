@@ -47,11 +47,19 @@ export function subscribeDefaultPaperStyle(listener) {
   store.listeners.add(listener)
   return () => store.listeners.delete(listener)
 }
-/** 서버에서 받은 값으로 바꾼다(null 이면 고른 적 없음으로). base(받기 전에 본 값)가 지금 값과 다르면(그 사이 사용자가 고쳤으면) 바꾸지 않고 false */
-export const replaceDefaultPaperStyle = (style, base) => commit(saved => {
-  if (saved !== base) return undefined
-  return style == null ? null : normalizePaperAppearance(style)
-})
+/**
+ * 서버에서 받은 값으로 바꾸고 { style: 적용한 값 }을 돌려준다(null 이면 고른 적 없음으로). base(받기 전에 본 값)가 지금 값과 다르면(그 사이 사용자가 고쳤으면) 바꾸지 않고 null.
+ * 동기화는 돌려받은 값과 지금 값을 비교해, 바꾼 직후 들어온 사용자 편집을 놓치지 않는다
+ */
+export async function replaceDefaultPaperStyle(style, base) {
+  let applied = null
+  const done = await commit(saved => {
+    if (saved !== base) return undefined
+    applied = style == null ? null : normalizePaperAppearance(style)
+    return applied
+  })
+  return done ? { style: applied } : null
+}
 
 /** 테스트에서 기기 저장소를 새로 읽게 한다 */
 export function resetDefaultPaperStyleForTests() {
