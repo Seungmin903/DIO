@@ -167,12 +167,12 @@ class CanvasCollaborationTests {
     @Test void simultaneousTastingMarkCreatesAreSerializedAsMemberUpdates()throws Exception{
         var owner=actor();var editor=actor();UUID diary=diary(owner),page=page(diary),star=UUID.randomUUID();join(diary,editor);
         var firstProps=Map.of("shape","rect","tastingMark","star-0","fill","#112233");
-        var element=Map.of("elementId",star,"elementType","SHAPE","x",0,"y",0,"width",1,"height",1,"isLocked",true,"isHidden",true,"propertiesJson",firstProps);
+        var element=Map.of("elementId",star,"elementType","SHAPE","x",0,"y",0,"width",1,"height",1,"sortKey",1,"isLocked",true,"isHidden",true,"propertiesJson",firstProps);
         apply(page,owner,UUID.randomUUID(),Map.of("creates",List.of(element)));
         // Model two offline clients that both created the deterministic mark ID from
         // an empty base: the second request is still a create, never an update.
         var raced=Map.of("shape","rect","tastingMark","star-0","fill","#abcdef");
-        var secondElement=Map.of("elementId",star,"elementType","SHAPE","x",0,"y",0,"width",1,"height",1,"isLocked",true,"isHidden",true,"propertiesJson",raced);
+        var secondElement=Map.of("elementId",star,"elementType","SHAPE","x",0,"y",0,"width",1,"height",1,"sortKey",99,"isLocked",true,"isHidden",true,"propertiesJson",raced);
         var second=apply(page,editor,UUID.randomUUID(),Map.of("creates",List.of(secondElement)));
         assertThat(second.path("items")).hasSize(1);
         assertThat(second.path("items").get(0).path("propertiesJson").path("fill").asText()).isEqualTo("#abcdef");

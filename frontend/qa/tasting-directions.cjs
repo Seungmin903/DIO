@@ -1,12 +1,13 @@
 const { chromium } = require('playwright')
-const path = require('path')
+const QA_BASE_URL = process.env.QA_BASE_URL || 'http://localhost:8093/'
+const CHROME_PATH = process.env.CHROME_PATH
 
 async function check(browser, orientation) {
   const context = await browser.newContext({ viewport: { width: 1440, height: 900 } })
   const page = await context.newPage(), errors = []
   page.on('pageerror', error => errors.push(error.message))
   try {
-    await page.goto('http://localhost:8093/', { waitUntil: 'networkidle', timeout: 120000 })
+    await page.goto(QA_BASE_URL, { waitUntil: 'networkidle', timeout: 120000 })
     await page.getByRole('button', { name: '새 다이어리 만들기' }).click()
     if (orientation === 'landscape') await page.getByRole('button', { name: '가로', exact: true }).click()
     await page.getByRole('tab', { name: '속지, 없음' }).click()
@@ -62,6 +63,6 @@ async function check(browser, orientation) {
   } finally { await context.close() }
 }
 ;(async () => {
-  const browser = await chromium.launch({ headless: true, executablePath: 'C:/Program Files/Google/Chrome/Application/chrome.exe' })
+  const browser = await chromium.launch({ headless: true, ...(CHROME_PATH ? { executablePath: CHROME_PATH } : {}) })
   try { await check(browser, 'portrait'); await check(browser, 'landscape') } finally { await browser.close() }
 })().catch(error => { console.error(error); process.exitCode = 1 })

@@ -164,6 +164,9 @@ export default function Canvas({
   // 스터디 · 데일리 플래너 속지: 형광펜 · 펜 · 지우개 획을 칸 · 일정 기록으로 받는다.
   const planner = readOnly ? null : plannerFor(page.backgroundAssetId)
   const plannerValue = useMemo(() => isTastingId(page.backgroundAssetId) ? tastingElementValue(page) : page.planner, [page.backgroundAssetId, page.planner, page.objects])
+  const tastingPhotoBoxLayout = isTastingId(page.backgroundAssetId) ? tastingPhotoBox(page.backgroundAssetId) : null
+  const tastingPhotoButtonWidth = Math.max(120 * zoom, 96)
+  const tastingPhotoButtonHeight = Math.max(44 * zoom, 44)
   // 데일리 플래너: 시작 · 진행 · 날짜 칸을 누르면 뜨는 고르는 창. draft 는 고르는 중인 기록이고 닫을 때 한 번에 문서에 반영한다(되돌리기 한 번).
   const [dayPick, setDayPick] = useState(null) // { page, kind: 'time' | 'date', row?, at, draft }
   const dayPickRef = useRef(null)
@@ -579,10 +582,10 @@ export default function Canvas({
           <SlotAddButtons objects={page.objects} zoom={zoom} onFill={onFillSlot} />
         </View>
       )}
-      {canSelect && isTastingId(page.backgroundAssetId) && !page.objects.some(o => o.tastingPhoto) && onTastingPhoto && (
+      {canSelect && tastingPhotoBoxLayout && !page.objects.some(o => o.tastingPhoto) && onTastingPhoto && (
         <Pressable accessibilityRole="button" accessibilityLabel="사진 추가" onPress={onTastingPhoto}
-          style={{ position: 'absolute', left: (tastingPhotoBox(page.backgroundAssetId).x + tastingPhotoBox(page.backgroundAssetId).width / 2) * zoom - Math.max(120 * zoom, 96) / 2, top: (tastingPhotoBox(page.backgroundAssetId).y + tastingPhotoBox(page.backgroundAssetId).height / 2) * zoom - Math.max(44 * zoom, 44) / 2, width: Math.max(120 * zoom, 96), height: Math.max(44 * zoom, 44), alignItems: 'center', justifyContent: 'center' }}>
-          <Text numberOfLines={1} style={{ color: '#8b9095', fontSize: 18 * zoom }}>＋ 사진 추가</Text>
+          style={{ position: 'absolute', left: (tastingPhotoBoxLayout.x + tastingPhotoBoxLayout.width / 2) * zoom - tastingPhotoButtonWidth / 2, top: (tastingPhotoBoxLayout.y + tastingPhotoBoxLayout.height / 2) * zoom - tastingPhotoButtonHeight / 2, width: tastingPhotoButtonWidth, height: tastingPhotoButtonHeight, alignItems: 'center', justifyContent: 'center' }}>
+          <Text numberOfLines={1} style={{ color: colors.textMuted, fontSize: 18 * zoom }}>＋ 사진 추가</Text>
         </Pressable>
       )}
       {!readOnly && frameTextObject && !interacting && (

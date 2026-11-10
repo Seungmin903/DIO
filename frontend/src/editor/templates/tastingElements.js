@@ -1,10 +1,15 @@
 import { isTastingId, tastingMarks } from './tastingGeometry.js'
+import { createId } from '../utils/common.js'
 
 // Each page/mark pair gets one stable UUID, so concurrent first fills target
 // the same server element rather than creating competing overlays.
 export function tastingElementId(pageId, markId, assetId) {
   const index = tastingMarks(assetId).findIndex(mark => mark.id === markId)
-  if (index < 0 || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(pageId ?? '')) throw Error('테이스팅 노트 표시 ID를 만들 수 없어요.')
+  if (index < 0) throw Error('테이스팅 노트 표시 ID를 만들 수 없어요.')
+  // Shared/server pages use UUIDs and therefore deterministic IDs across devices.
+  // Old local pages may have arbitrary IDs; they are personal-only, so assign a
+  // UUID once and keep it on the created canvas object.
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(pageId ?? '')) return createId()
   const suffix = (Number.parseInt(pageId.slice(-8), 16) ^ (0x74610000 + index)) >>> 0
   return pageId.slice(0, -8) + suffix.toString(16).padStart(8, '0')
 }

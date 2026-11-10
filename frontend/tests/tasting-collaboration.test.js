@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { createInitialState, editorReducer } from '../src/editor/state/editorReducer.js'
 import { collaborationReducer } from '../src/collaboration/collaborationReducer.js'
 import { encodeElement, decodeElement } from '../src/collaboration/canvasElements.js'
-import { tastingElementValue } from '../src/editor/templates/tastingElements.js'
+import { tastingElementValue, updateTastingElements } from '../src/editor/templates/tastingElements.js'
 import { createExportSnapshot } from '../src/editor/utils/pageExport.js'
 
 for (const direction of ['portrait', 'landscape']) test(`${direction} 새 속지 채움과 지우기는 협업 요소로 기록된다`, () => {
@@ -34,4 +34,13 @@ test('협업 실행 취소는 상대가 추가한 다른 표시를 보존한다'
   state = reduce(state, { type: 'importCollaborationElements', pageId, expectedElements: [mine], objects: [mine, friend] })
   state = reduce(state, { type: 'collaborationHistoryApplied', direction: 'undo', pageId, expectedElements: [mine, friend], objects: [friend] })
   assert.deepEqual(tastingElementValue(state.doc.pages[0]).fills, { 'star-1': '#654321' })
+})
+
+test('기존 비 UUID 개인 페이지도 테이스팅 표시를 만들고 이후 필기에서 요소 ID를 유지한다', () => {
+  const page = { id: 'legacy-page-1', backgroundAssetId: 'remote-tasting-note-portrait', objects: [] }
+  const first = updateTastingElements(page, { fills: { 'star-0': '#123456' } })
+  assert.match(first[0].id, /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)
+  const second = updateTastingElements({ ...page, objects: first }, { fills: { 'star-0': '#123456', 'visit-0': '#654321' } })
+  assert.equal(second.find(object => object.tastingMark === 'star-0').id, first[0].id)
+  assert.equal(second.length, 2)
 })

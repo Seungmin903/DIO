@@ -49,7 +49,10 @@ public class CanvasOperationService {
     }
     private boolean sameTastingMark(com.f106.DIO.collaboration.domain.CanvasElementSnapshot current,CanvasElementCreateRequest create){
         if(!"SHAPE".equals(create.getElementType())||!"SHAPE".equals(current.elementType())||!Boolean.TRUE.equals(create.getIsLocked())||!Boolean.TRUE.equals(create.getIsHidden())||!current.isLocked()||!current.isHidden())return false;
-        if(!Objects.equals(current.groupId(),create.getGroupId())||!Objects.equals(current.name(),create.getName())||!Objects.equals(current.mediaFileId(),create.getMediaFileId())||(create.getSortKey()!=null&&!same(current.sortKey(),create.getSortKey())))return false;
+        // sortKey is ordering metadata and can differ between offline snapshots.
+        // A tasting mark update changes only propertiesJson, so retain the server's
+        // current order while still merging the same hidden mark.
+        if(!Objects.equals(current.groupId(),create.getGroupId())||!Objects.equals(current.name(),create.getName())||!Objects.equals(current.mediaFileId(),create.getMediaFileId()))return false;
         if(!same(current.x(),create.getX())||!same(current.y(),create.getY())||!same(current.width(),create.getWidth())||!same(current.height(),create.getHeight())||!same(current.rotation(),create.getRotation()==null?java.math.BigDecimal.ZERO:create.getRotation())||!same(current.opacity(),create.getOpacity()==null?java.math.BigDecimal.ONE:create.getOpacity()))return false;
         var old=current.propertiesJson();var next=create.getPropertiesJson();if(old==null||next==null||!old.isObject()||!next.isObject())return false;
         var oldMark=old.get("tastingMark");var nextMark=next.get("tastingMark");if(oldMark==null||!oldMark.isTextual()||!oldMark.equals(nextMark))return false;
