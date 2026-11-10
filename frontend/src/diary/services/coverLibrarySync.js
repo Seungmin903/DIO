@@ -16,7 +16,8 @@ const clip = (value, max) => Array.from(String(value ?? '').replace(CONTROL, '')
 
 export const COVER_SYNC_DEBOUNCE_MS = 1500
 // 서버(CoverLibraryService)와 같은 한도. 넘는 표지는 보내지 않고 기기에만 남긴다
-export const COVER_LIBRARY_LIMITS = Object.freeze({ covers: 100, name: 40, date: 40, coverBytes: 64 * 1024 })
+// (mediaPerCover: 표지 하나 안의 그림 칸 수. 서버는 하나라도 넘으면 문서 전체를 400 으로 거절한다)
+export const COVER_LIBRARY_LIMITS = Object.freeze({ covers: 100, name: 40, date: 40, coverBytes: 64 * 1024, mediaPerCover: 200 })
 const ORIENTATIONS = new Set(['portrait', 'landscape'])
 const MEDIA_PREFIX = 'media:'
 const stable = covers => JSON.stringify(covers)
@@ -39,6 +40,7 @@ function retarget(slot, id) {
 /** 서버로 보낼 수 있는 표지인지(서버가 거절할 표지는 기기에만 남긴다) */
 function syncable(entry) {
   if (!entry || !ENTRY_ID.test(String(entry.id ?? '')) || !entry.cover || typeof entry.cover !== 'object' || Array.isArray(entry.cover)) return false
+  if (mediaIds(entry.cover).length > COVER_LIBRARY_LIMITS.mediaPerCover) return false
   return utf8Bytes(JSON.stringify(entry.cover)) <= COVER_LIBRARY_LIMITS.coverBytes
 }
 /** 보낼 수 있고 한도(100개) 안인 표지 */

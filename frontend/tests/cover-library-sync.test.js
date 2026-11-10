@@ -207,3 +207,29 @@ test('연결 오류는 표지 탭에 알린다', async () => {
   await a.sync.start()
   assert.equal(a.statuses.at(-1), '내 표지를 계정과 맞추지 못했어요. 연결을 확인해 주세요.')
 })
+
+test('그림이 표지당 한도(200개)를 넘는 표지는 보내지 않고 기기에만 남겨, 다른 표지 저장을 막지 않는다', async () => {
+  const remote = server()
+  // 서버(CoverLibraryService)처럼 표지 하나에 그림 칸이 200개를 넘으면 문서 전체를 400 으로 거절한다
+  const put = remote.api.put
+  remote.api.put = async (expected, covers) => {
+    for (const entry of covers) {
+      let count = 0
+      JSON.stringify(entry.cover, (key, value) => { if (key === 'mediaFileId' && value) count++; return value })
+      if (count > 200) throw Object.assign(Error('invalid'), { status: 400 })
+    }
+    return put(expected, covers)
+  }
+  const many = n => Array.from({ length: n }, (_, i) => `20000000-0000-4000-8000-${String(i + 1).padStart(12, '0')}`)
+  const crowded = (id, ids) => ({ ...plainCover(id, '스티커 많은 표지'), cover: { kind: 'plain', color: '#112233',
+    stickers: ids.map((media, i) => ({ id: `s${i}`, src: `media:${media}`, mediaFileId: media, x: 50, y: 50, size: 14, rotation: 0 })) } })
+  const a = device(remote, { covers: [crowded('big', many(201)), crowded('edge', many(200)), plainCover('c2')] })
+  await a.sync.start()
+  assert.deepEqual(remote.state.covers.map(c => c.id), ['edge', 'c2']) // 200개까지는 보낸다
+  assert.equal(remote.state.puts, 1)
+  assert.equal(a.statuses.at(-1), null) // 연결 오류로 보이지 않는다
+  assert.deepEqual(a.local.covers.map(c => c.id), ['big', 'edge', 'c2']) // 넘는 표지는 기기에 그대로
+  await a.sync.sync()
+  assert.equal(remote.state.puts, 1) // 넘는 표지 때문에 저장을 반복하지 않는다
+  assert.deepEqual(a.local.covers.map(c => c.id), ['big', 'edge', 'c2'])
+})
