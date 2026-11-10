@@ -115,9 +115,9 @@ export default function TextFormatStrip({ settings, onChange, onHold = () => {},
             <RainbowRing color={settings.color} />
           </Pressable>
           <View style={styles.divider} />
-          <Stepper label="자간" minusLabel="자간 좁게" plusLabel="자간 넓게"
+          <Stepper label="자간" shown={String(Math.round(settings.letterSpacing * 100))} minusLabel="자간 좁게" plusLabel="자간 넓게"
             onStep={(delta) => onChange({ letterSpacing: round(clamp(settings.letterSpacing + delta * 0.01, -0.1, 0.5), 2) })} />
-          <Stepper label="줄간격" minusLabel="줄간격 좁게" plusLabel="줄간격 넓게"
+          <Stepper label="줄간격" shown={String(Math.round(settings.lineSpacing * 100))} minusLabel="줄간격 좁게" plusLabel="줄간격 넓게"
             onStep={(delta) => onChange({ lineSpacing: round(clamp(settings.lineSpacing + delta * 0.05, 1, 2.5), 2) })} />
         </FadeScroll>
       </View>
@@ -139,7 +139,7 @@ function RainbowRing({ color }) {
   </Svg>
 }
 
-/** 이름 · − · (값) · + — 입력 칸 없음. 값(shown)은 뜻이 분명한 글자 크기에만 보이고, 자간 · 줄간격은 이름과 −/+ 만 둔다 */
+/** 이름 · − · 값 · + — 입력 칸 없음. 자간 · 줄간격 값은 서식 창(TextSettings)과 같은 숫자(×100, 단위 없음)로 보인다(실기 피드백 2026-11-10: 크기처럼 숫자가 보이길 원했다) */
 function Stepper({ label, shown = null, minusLabel, plusLabel, onStep }) {
   return (
     <View style={styles.stepper} accessibilityLabel={label}>
@@ -169,20 +169,21 @@ function LinedGlyph({ letter, line }) {
 }
 
 // 선택한 글자 줄(TextRangePanel)과 같은 크기 · 모양. 글꼴 · 색 줄은 위에 같은 모양으로 쌓인다
+// 칸 사이 여백은 좁게 — 자간 · 줄간격 숫자를 넣은 뒤 iPad 에서 줄간격 + 가 잘려 밀어야 보였다(실기 피드백 2026-11-10). 누르는 칸 높이 36 은 그대로
 const styles = StyleSheet.create({
   wrap: { maxWidth: '100%', alignItems: 'center', gap: ROW_GAP },
   bar: { height: TEXT_FORMAT_STRIP_HEIGHT, maxWidth: '100%', flexDirection: 'row', alignItems: 'center', borderRadius: 16, backgroundColor: colors.surface, ...shadow.float },
   scroll: { flexShrink: 1 },
-  content: { alignItems: 'center', gap: 2, paddingHorizontal: 8 },
-  fontButton: { height: 36, minWidth: 96, maxWidth: 150, flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 10, borderRadius: 9 },
+  content: { alignItems: 'center', gap: 1, paddingHorizontal: 6 },
+  fontButton: { height: 36, minWidth: 84, maxWidth: 128, flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, borderRadius: 9 },
   fontText: { flexShrink: 1, fontSize: 13.5, color: colors.text },
   chip: { height: 36, paddingHorizontal: 12, borderRadius: 9, justifyContent: 'center', maxWidth: 160 },
   chipText: { fontSize: 13.5, color: colors.text },
-  stepper: { flexDirection: 'row', alignItems: 'center', gap: 2, marginHorizontal: 2 },
+  stepper: { flexDirection: 'row', alignItems: 'center', gap: 1, marginHorizontal: 1 },
   stepperLabel: { fontSize: 11.5, fontWeight: '700', color: colors.textMuted, marginRight: 2 },
-  stepButton: { width: 30, height: 36, borderRadius: 9, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surfaceMuted },
-  stepperValue: { minWidth: 28, textAlign: 'center', fontSize: 13, fontWeight: '700', color: colors.text, fontVariant: ['tabular-nums'] },
-  iconButton: { width: 36, height: 36, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
+  stepButton: { width: 28, height: 36, borderRadius: 9, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surfaceMuted },
+  stepperValue: { minWidth: 26, textAlign: 'center', fontSize: 13, fontWeight: '700', color: colors.text, fontVariant: ['tabular-nums'] },
+  iconButton: { width: 34, height: 36, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
   active: { backgroundColor: colors.primarySoft },
   disabled: { opacity: 0.4 },
   glyph: { fontSize: 15, fontWeight: '700', color: colors.text },
@@ -192,5 +193,5 @@ const styles = StyleSheet.create({
   // 직접 고르기(+): 점선 테두리의 빈 칸. 견본에 없는 색을 쓰고 있으면 이 칸이 골라진 것으로 보인다
   custom: { alignItems: 'center', justifyContent: 'center', borderStyle: 'dashed', backgroundColor: colors.surface },
   chosen: { borderWidth: 3, borderColor: colors.primary },
-  divider: { width: 1, height: 22, marginHorizontal: 5, backgroundColor: colors.border },
+  divider: { width: 1, height: 22, marginHorizontal: 3, backgroundColor: colors.border },
 })

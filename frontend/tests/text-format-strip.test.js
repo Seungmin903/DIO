@@ -50,12 +50,14 @@ function load({ recent = [] } = {}) {
 const labels = (html) => [...html.matchAll(/aria-label="([^"]+)"/g)].map(([, label]) => label)
 const base = { ...DEFAULT_TEXT_SETTINGS, font: 'nanum-gothic', fontSize: 28, color: '#222222', textAlign: 'center', bold: true, letterSpacing: 0, lineSpacing: 1.3 }
 
-test('S15P31F106-482: 서식 줄은 글꼴 · 크기 −/+ · 스타일 · 색(무지개 고리) · 자간 · 줄간격을 한 줄에 두고, 자간 · 줄간격은 숫자 없이, 정렬은 두지 않는다', () => {
+test('S15P31F106-482: 서식 줄은 글꼴 · 크기 −/+ · 스타일 · 색(무지개 고리) · 자간 · 줄간격을 한 줄에 두고, 자간 · 줄간격도 크기처럼 가운데 숫자(서식 창과 같은 값)를 보이며, 정렬은 두지 않는다', () => {
   const { Strip } = load()
   const html = renderToStaticMarkup(React.createElement(Strip, { settings: base, onChange() {} }))
   const found = labels(html)
-  for (const label of ['글꼴 나눔고딕', '글씨 축소', '글자 크기 28', '글씨 확대', '굵게', '기울임', '밑줄', '취소선', '글자 색 고르기', '자간 좁게', '자간 넓게', '줄간격 좁게', '줄간격 넓게']) assert.ok(found.includes(label), label)
-  for (const gone of ['자간 0', '글자 자간 0', '줄간격 130', '글자 줄간격 130', '서식']) assert.equal(found.includes(gone), false, `${gone}: 자간 · 줄간격은 숫자 없이 −/+ 만, 서식 켜고 끄기 버튼은 없다`)
+  for (const label of ['글꼴 나눔고딕', '글씨 축소', '글자 크기 28', '글씨 확대', '굵게', '기울임', '밑줄', '취소선', '글자 색 고르기', '자간 좁게', '글자 자간 0', '자간 넓게', '줄간격 좁게', '글자 줄간격 130', '줄간격 넓게']) assert.ok(found.includes(label), label)
+  assert.ok(found.indexOf('자간 좁게') < found.indexOf('글자 자간 0') && found.indexOf('글자 자간 0') < found.indexOf('자간 넓게'), '숫자는 −와 + 사이')
+  assert.doesNotMatch(html, /%/, '단위 글자는 붙이지 않는다')
+  assert.equal(found.includes('서식'), false, '서식 켜고 끄기 버튼은 없다')
   assert.ok(found.indexOf('글씨 축소') < found.indexOf('굵게'), '크기는 글꼴 바로 다음')
   for (const gone of ['왼쪽 정렬', '가운데 정렬', '오른쪽 정렬', '양쪽 정렬']) assert.equal(found.includes(gone), false, '정렬은 두지 않는다(글자 폭 상자에서는 차이가 없다)')
   assert.match(html, /aria-label="굵게" aria-selected="true"/)
