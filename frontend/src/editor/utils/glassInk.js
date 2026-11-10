@@ -302,6 +302,28 @@ export function glassBand(poolValue, width, sheenEdge = GLASS_INK.sheenEdge) {
   return Math.min(width * 0.42, Math.max(thin, pooled))
 }
 
+// 글리터 "맞춤" 색: 펜 색에서 자동 계산한 테 색과 가장 가까운 운모 코팅 두께를 고른다.
+// 테(염료 표면의 프레넬 반사)와 글리터(입자 박막 간섭)는 원래 다른 물리라 색이 따로 놀 수 있는데,
+// 맞춤을 고르면 둘이 같은 계열로 맞는다. 코팅 두께는 실제 펄 안료의 값 범위를 쓴다.
+export const MICA_FILMS = [55, 72, 88, 103, 125, 145]
+export function micaAutoFilm(rgb) {
+  const target = sheenAutoColor(rgb)
+  const chroma = c => { const sum = c[0] + c[1] + c[2] || 1e-6; return [c[0] / sum, c[1] / sum] }
+  const [tx, ty] = chroma(target)
+  let best = MICA_FILMS[0], bestD = Infinity
+  for (const nm of MICA_FILMS) {
+    const [x, y] = chroma(micaColor(nm, 1))
+    const d = (x - tx) ** 2 + (y - ty) ** 2
+    if (d < bestD) { bestD = d; best = nm }
+  }
+  return best
+}
+// 글리터 색 결정: 직접 고른 색 > 고른 코팅 두께 > 맞춤(테에 맞춘 두께)
+export function glitterColorOf(rgb, { glitterColor, film } = {}) {
+  if (glitterColor) return glitterColor
+  return micaColor(film ?? micaAutoFilm(rgb), 1)
+}
+
 // 테 페인트용 셰이더: 띠를 고르게 칠하면 화면 그래픽처럼 보인다 → 구간마다 끊고(patch) 결을 넣는다(grain).
 export const GLASS_RIM_SKSL = `
 uniform float3 rimCol;

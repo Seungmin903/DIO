@@ -17,7 +17,7 @@
 //   고임은 띠 폭으로만 들어간다. 되살리려면 saveLayer + Plus 경로를 따로 확인해야 한다.
 import { PaintStyle, Skia, StrokeCap, StrokeJoin } from '@shopify/react-native-skia'
 import { drawGlassPooled, glassPooledFailed } from './glassPooled.js'
-import { GLASS_INK, GLASS_LIVE_SKSL, GLASS_RIM_SKSL, glassBand, glassDabs, glassPool, inkDensity, micaColor, sheenAutoColor } from '../utils/glassInk.js'
+import { GLASS_INK, GLASS_LIVE_SKSL, GLASS_RIM_SKSL, glassBand, glassDabs, glassPool, inkDensity, micaAutoFilm, micaColor, sheenAutoColor } from '../utils/glassInk.js'
 
 // 27판 경로를 쓸지. 끄면 26판(경로 + 테 띠 폭)으로 돌아간다 — 비교용 스위치.
 // (아래 broken 은 한 번 실패하면 계속 평범한 선으로 떨어진다 — 새로고침해야 풀린다)
@@ -43,7 +43,7 @@ function bodyPaint(color, ink, P, width = 2.5) {
   bodyEffect ??= Skia.RuntimeEffect.Make(GLASS_LIVE_SKSL)
   if (!bodyEffect) throw new Error('RuntimeEffect.Make(body) 실패')
   const amount = ink.glitter === false ? 0 : (ink.amount ?? 1) * P.glAmp
-  const mica = micaColor(ink.film ?? P.glFilm, 1)
+  const mica = ink.glitterColor ? hex3(ink.glitterColor) : micaColor(ink.film ?? micaAutoFilm(hex3(color)), 1)
   // 입자 크기: 현미경 레퍼런스(참고 25 · 28 · 29)는 획 폭의 1~4%. 다만 그대로 두면 화면에서
   // 반 픽셀도 안 돼 사라지므로 바닥값을 둔다. 바닥값을 낮출수록 더 고운 가루가 된다.
   const r = Math.max(P.glRMinLive, width * 0.025)

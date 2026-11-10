@@ -7,8 +7,9 @@ import { colors } from '../../shared/theme'
 import ChipScroller, { justDragged } from './controls/ChipScroller'
 import EditablePalette, { paletteSwatchStyles } from './controls/EditablePalette'
 import Slider from './controls/Slider'
+import Icon from './controls/Icon'
 import { GLASS_FILMS, GLASS_SHEENS, PEN_TYPES, penDefaultOpacity } from '../utils/penSettings'
-import { micaColor, sheenAutoColor } from '../utils/glassInk'
+import { glitterColorOf, micaColor, sheenAutoColor } from '../utils/glassInk'
 import { DASH_TYPES, DASH_LENGTH_RANGE, DASH_GAP_RANGE, dashPattern, isDashedKind } from '../utils/dashedStroke'
 import { useRecentPenColors } from '../hooks/useRecentPenColors'
 import { createPenSample } from '../utils/penSample'
@@ -37,6 +38,39 @@ export function PenSample({ settings, small = false }) {
  * 펜·형광펜 설정. 스티커·마테·사진 옵션과 같은 모양: 구역 제목, 세그먼트 버튼, 막대(−·+·숫자), 기본 팔레트와 최근 사용 색.
  * 기본 팔레트는 편집기와 꾸미기 공방이 함께 사용한다.
  */
+const to255 = v => Math.round(Math.min(1, Math.max(0, v)) * 255)
+const rgbCss = rgb => `rgb(${to255(rgb[0])}, ${to255(rgb[1])}, ${to255(rgb[2])})`
+const rgbHex = rgb => '#' + rgb.map(v => to255(v).toString(16).padStart(2, '0').toUpperCase()).join('')
+// 글자를 얹을 칸의 글자색(배경이 어두우면 흰 글자)
+const darkCss = css => { const n = css.match(/\d+/g)?.map(Number) ?? [255, 255, 255]; return 0.299 * n[0] + 0.587 * n[1] + 0.114 * n[2] < 150 }
+
+/**
+ * 잉크 색 한 줄: [맞춤] + 견본들 + [직접 고르기].
+ * 다이어리 표지의 색 줄과 같은 차례다(맨 앞이 맞춤, 맨 끝이 사용자 지정).
+ */
+function InkColorRow({ label, autoColor, autoOn, onAuto, items, customOn, customCss, onCustom }) {
+  return <>
+    <Text style={toolPanelStyles.label}>{label}</Text>
+    <View accessibilityLabel={label} style={paletteSwatchStyles.row}>
+      <Pressable accessibilityRole="button" accessibilityLabel={`${label} 맞춤`} accessibilityState={{ selected: autoOn }}
+        hitSlop={1} onPress={onAuto} style={paletteSwatchStyles.cell}>
+        <View style={[paletteSwatchStyles.dot, { backgroundColor: autoColor, alignItems: 'center', justifyContent: 'center' }, autoOn && paletteSwatchStyles.chosen]}>
+          <Text allowFontScaling={false} numberOfLines={1} style={[styles.autoText, { color: darkCss(autoColor) ? '#FFFFFF' : colors.text }]}>맞춤</Text>
+        </View>
+      </Pressable>
+      {items.map(one => <Pressable key={one.key} accessibilityRole="button" accessibilityLabel={`${label} ${one.label}`}
+        accessibilityState={{ selected: one.on }} hitSlop={1} onPress={one.onPress} style={paletteSwatchStyles.cell}>
+        <View style={[paletteSwatchStyles.dot, { backgroundColor: one.css }, one.on && paletteSwatchStyles.chosen]} />
+      </Pressable>)}
+      <Pressable accessibilityRole="button" accessibilityLabel={`${label} 직접 고르기`} hitSlop={1} onPress={onCustom} style={paletteSwatchStyles.cell}>
+        <View style={[paletteSwatchStyles.dot, { backgroundColor: customOn ? customCss : colors.surface, alignItems: 'center', justifyContent: 'center' }, customOn && paletteSwatchStyles.chosen]}>
+          {!customOn && <Icon name="plus" size={17} color={colors.primaryText} />}
+        </View>
+      </Pressable>
+    </View>
+  </>
+}
+
 export default function PenSettings({ settings, onChange, onClose, straightAssist = true, onStraightAssistChange, onOpenColorPicker, sheet = false, dragHandlers }) {
   const highlighter = settings.kind === 'highlighter'
   const dashed = isDashedKind(settings.kind)
@@ -45,6 +79,7 @@ export default function PenSettings({ settings, onChange, onClose, straightAssis
   const label = highlighter ? '형광펜' : '펜'
   const recentColors = useRecentPenColors(highlighter ? 'highlighter' : 'pen')
   const [reveal, setReveal] = useState(null)   // 고른 종류가 가려지지 않게 그 자리로 넘긴다
+  const penRgb = useMemo(() => [1, 3, 5].map(i => parseInt(settings.color.slice(i, i + 2), 16) / 255), [settings.color])
   const chooseColor = (color) => onChange({ ...settings, color })
   return <View style={sheet ? [toolPanelStyles.card, toolPanelStyles.sheetCard] : toolPanelStyles.card}>
     <ToolPanelHeader icon={highlighter ? 'highlighter' : 'pen'} title={label} closeLabel={`${label} 설정 닫기`} onClose={onClose} dragHandlers={dragHandlers} />
@@ -104,48 +139,32 @@ export default function PenSettings({ settings, onChange, onClose, straightAssis
           selected={id => settings.kind === id}
           onPress={kind => onChange({ ...settings, kind })} />
       </>}
-      {/* 유리펜 잉크: 글리터 · 테를 따로 켜고 끈다. 글리터 색은 운모 코팅 두께(실제 펄 안료와 같은 원리) */}
+      {/* 유리펜 잉크. 색 줄은 다이어리 표지와 같은 모양이다 — 맨 앞이 '맞춤'(펜 색에서 자동 계산),
+          그 뒤가 견본, 맨 끝이 직접 고르기. 세기는 스위치 없이 0(꺼짐)~100 숫자 하나로 정하고,
+          세기를 색보다 위에 둔다(끄고 켜는 게 먼저라 — 사용자 2026-11-10). */}
       {settings.kind === 'glass' && <>
-        <View style={styles.assist}>
-          <Text style={styles.assistText}>글리터</Text>
-          <SettingSwitch label="글리터" on={settings.inkGlitter !== false} onToggle={(on) => onChange({ ...settings, inkGlitter: on })} />
-        </View>
-        {settings.inkGlitter !== false && <>
-          <Text style={toolPanelStyles.label}>글리터 색</Text>
-          <View accessibilityLabel="글리터 색" style={paletteSwatchStyles.row}>
-            {GLASS_FILMS.map((film) => {
-              const rgb = micaColor(film.id).map(v => Math.round(Math.min(1, Math.max(0, v)) * 255))
-              return <Pressable key={film.id} accessibilityRole="button" accessibilityLabel={`글리터 색 ${film.label}`}
-                accessibilityState={{ selected: (settings.inkFilm ?? 55) === film.id }} hitSlop={1}
-                onPress={() => onChange({ ...settings, inkFilm: film.id })} style={paletteSwatchStyles.cell}>
-                <View style={[paletteSwatchStyles.dot, { backgroundColor: `rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})` }, (settings.inkFilm ?? 55) === film.id && paletteSwatchStyles.chosen]} />
-              </Pressable>
-            })}
-          </View>
-          <Slider name="반짝임" label="글리터 반짝임" minusLabel="반짝임 약하게" plusLabel="반짝임 세게" min={0} max={100} step={10}
-            value={Math.round((settings.inkAmount ?? 1) * 100)} onChange={(value) => onChange({ ...settings, inkAmount: Math.round(value / 10) * 10 / 100 })} />
-        </>}
-        <View style={styles.assist}>
-          <Text style={styles.assistText}>테(쉰)</Text>
-          <SettingSwitch label="테(쉰)" on={settings.inkSheen !== false} onToggle={(on) => onChange({ ...settings, inkSheen: on })} />
-        </View>
-        {settings.inkSheen !== false && <>
-          <Slider name="테 세기" label="테 세기" minusLabel="테 약하게" plusLabel="테 세게" min={0} max={100} step={10}
-            value={Math.round((settings.inkSheenAmount ?? 1) * 100)} onChange={(value) => onChange({ ...settings, inkSheenAmount: Math.round(value / 10) * 10 / 100 })} />
-          <Text style={toolPanelStyles.label}>테 색 — 맨 앞은 펜 색에서 자동 계산</Text>
-          <View accessibilityLabel="테 색" style={paletteSwatchStyles.row}>
-            {[{ id: null, label: '자동' }, ...GLASS_SHEENS].map((one) => {
-              const auto = one.id == null
-              const rgb = auto ? sheenAutoColor([1, 3, 5].map(i => parseInt(settings.color.slice(i, i + 2), 16) / 255)).map(v => Math.round(Math.min(1, Math.max(0, v)) * 255)) : null
-              const chosen = (settings.inkSheenColor ?? null) === one.id
-              return <Pressable key={one.label} accessibilityRole="button" accessibilityLabel={`테 색 ${one.label}`}
-                accessibilityState={{ selected: chosen }} hitSlop={1}
-                onPress={() => onChange({ ...settings, inkSheenColor: one.id })} style={paletteSwatchStyles.cell}>
-                <View style={[paletteSwatchStyles.dot, { backgroundColor: auto ? `rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})` : one.id }, chosen && paletteSwatchStyles.chosen]} />
-              </Pressable>
-            })}
-          </View>
-        </>}
+        <Slider name="글리터 강도" label="글리터 강도" minusLabel="글리터 약하게" plusLabel="글리터 세게" min={0} max={100} step={10}
+          value={settings.inkGlitter === false ? 0 : Math.round((settings.inkAmount ?? 1) * 100)}
+          onChange={(value) => { const amount = Math.round(value / 10) * 10 / 100; onChange({ ...settings, inkGlitter: amount > 0, inkAmount: amount }) }} />
+        <InkColorRow label="글리터 색" autoColor={rgbCss(glitterColorOf(penRgb))} autoOn={settings.inkFilm == null && !settings.inkGlitterColor}
+          onAuto={() => onChange({ ...settings, inkFilm: null, inkGlitterColor: null })}
+          items={GLASS_FILMS.map(film => ({ key: film.id, label: film.label, css: rgbCss(micaColor(film.id, 1)),
+            on: settings.inkFilm === film.id && !settings.inkGlitterColor,
+            onPress: () => onChange({ ...settings, inkFilm: film.id, inkGlitterColor: null }) }))}
+          customOn={Boolean(settings.inkGlitterColor)} customCss={settings.inkGlitterColor}
+          onCustom={() => onOpenColorPicker?.({ title: '글리터 색', value: settings.inkGlitterColor ?? rgbHex(glitterColorOf(penRgb)),
+            onDone: color => onChange({ ...settings, inkGlitterColor: color }) })} />
+        <Slider name="테 강도" label="테 강도" minusLabel="테 약하게" plusLabel="테 세게" min={0} max={100} step={10}
+          value={settings.inkSheen === false ? 0 : Math.round((settings.inkSheenAmount ?? 1) * 100)}
+          onChange={(value) => { const amount = Math.round(value / 10) * 10 / 100; onChange({ ...settings, inkSheen: amount > 0, inkSheenAmount: amount }) }} />
+        <InkColorRow label="테 색" autoColor={rgbCss(sheenAutoColor(penRgb))} autoOn={settings.inkSheenColor == null}
+          onAuto={() => onChange({ ...settings, inkSheenColor: null })}
+          items={GLASS_SHEENS.map(one => ({ key: one.id, label: one.label, css: one.id, on: settings.inkSheenColor === one.id,
+            onPress: () => onChange({ ...settings, inkSheenColor: one.id }) }))}
+          customOn={Boolean(settings.inkSheenColor) && !GLASS_SHEENS.some(one => one.id === settings.inkSheenColor)}
+          customCss={settings.inkSheenColor}
+          onCustom={() => onOpenColorPicker?.({ title: '테 색', value: settings.inkSheenColor ?? rgbHex(sheenAutoColor(penRgb)),
+            onDone: color => onChange({ ...settings, inkSheenColor: color }) })} />
       </>}
       <View style={styles.assist}>
         <Text style={styles.assistText}>직선 만들기</Text>
@@ -170,4 +189,7 @@ const styles = StyleSheet.create({
   typeTextSelected: { color: colors.text, fontWeight: '800' },
   assist: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, minHeight: 40 },
   assistText: { flex: 1, color: colors.text, fontSize: 13, fontWeight: '600' },
+  // '맞춤' 글자: 다이어리 표지 색 줄과 같은 규칙. includeFontPadding 을 끄지 않으면
+  // 안드로이드에서 글꼴 여백 때문에 글자가 칸 가운데보다 위로 붙는다.
+  autoText: { fontSize: 11, fontWeight: '800', textAlign: 'center', includeFontPadding: false },
 })

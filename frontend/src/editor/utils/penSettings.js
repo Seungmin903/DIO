@@ -22,9 +22,10 @@ export const GLASS_FILMS = [
 // 테 색: 비워 두면 펜 색에서 물리식(프레넬)으로 자동 계산한다. 고르면 그 색으로 덮어쓴다
 export const GLASS_SHEENS = [
   { id: '#C9A227', label: '금' }, { id: '#B06A3B', label: '구리' }, { id: '#3E8E6E', label: '초록' },
-  { id: '#B5447E', label: '자주' }, { id: '#4A6FB5', label: '파랑' },
+  { id: '#B5447E', label: '자주' }, { id: '#4A6FB5', label: '파랑' }, { id: '#C8CBD2', label: '은' },
 ]
-export const DEFAULT_GLASS_INK = { inkGlitter: true, inkSheen: true, inkFilm: 55, inkAmount: 1, inkSheenColor: null, inkSheenAmount: 1 }
+// inkFilm · inkSheenColor 가 null 이면 '맞춤'(펜 색에서 자동 계산). inkGlitterColor 는 직접 고른 색.
+export const DEFAULT_GLASS_INK = { inkGlitter: true, inkSheen: true, inkFilm: null, inkGlitterColor: null, inkAmount: 1, inkSheenColor: null, inkSheenAmount: 1 }
 // 종류를 고를 때 들어가는 기본 불투명도(사용자 2026-11-03: 연필은 기본을 반투명으로, 슬라이더는 100 까지 그대로 —
 // 참고 필기 앱(Notability · 애플 노트) 연필은 순검정이 없고 겹칠수록 진해진다). 없는 종류는 1.
 export const PEN_DEFAULT_OPACITY = { pencil: 0.8 }
@@ -149,11 +150,12 @@ export function createPenPressureSampler(kind, useForce = true, useTilt = true) 
 // 유리펜 잉크 설정 검사. 모르는 값은 기본값으로 — 다른 펜에도 그냥 실려 있어도 해가 없다(유리펜일 때만 읽는다)
 export function sanitizeGlassInk(saved) {
   if (!saved || typeof saved !== 'object') return { ...DEFAULT_GLASS_INK }
-  const film = GLASS_FILMS.some(one => one.id === saved.inkFilm) ? saved.inkFilm : DEFAULT_GLASS_INK.inkFilm
+  const film = GLASS_FILMS.some(one => one.id === saved.inkFilm) ? saved.inkFilm : null
   return {
     inkGlitter: typeof saved.inkGlitter === 'boolean' ? saved.inkGlitter : DEFAULT_GLASS_INK.inkGlitter,
     inkSheen: typeof saved.inkSheen === 'boolean' ? saved.inkSheen : DEFAULT_GLASS_INK.inkSheen,
     inkFilm: film,
+    inkGlitterColor: saved.inkGlitterColor == null ? null : validColor(saved.inkGlitterColor, null),
     inkAmount: inRange(saved.inkAmount, 0, 1, DEFAULT_GLASS_INK.inkAmount),
     inkSheenColor: saved.inkSheenColor == null ? null : validColor(saved.inkSheenColor, null),
     inkSheenAmount: inRange(saved.inkSheenAmount, 0, 1, DEFAULT_GLASS_INK.inkSheenAmount),

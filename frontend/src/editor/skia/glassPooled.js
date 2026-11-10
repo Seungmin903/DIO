@@ -18,7 +18,7 @@
 //   덕분에 무늬가 페이지에 붙어 있어 확대해도 그대로다.
 import { PixelRatio } from 'react-native'
 import { BlendMode, PaintStyle, Skia, StrokeCap, StrokeJoin, TileMode } from '@shopify/react-native-skia'
-import { GLASS_INK, GLASS_INK_SKSL, abLineOf, glassDabs, inkDensity, micaColor, sheenAutoColor } from '../utils/glassInk.js'
+import { GLASS_INK, GLASS_INK_SKSL, abLineOf, glassDabs, inkDensity, micaAutoFilm, micaColor, sheenAutoColor } from '../utils/glassInk.js'
 
 let builder = null, sparkEffect = null, failed = false
 // 글리터 입자만 따로 — **전체 해상도**로 획 위에 덧그린다.
@@ -93,8 +93,9 @@ function setUniforms(color, width, ink, S) {
   const sheenOn = ink.sheen !== false
   const sheenAmount = sheenOn ? (ink.sheenAmount ?? 1) : 0
   const glitterAmount = ink.glitter === false ? 0 : (ink.amount ?? 1)
-  const film = ink.film ?? P.glFilm
+  const film = ink.film ?? micaAutoFilm(rgb)
   const tilt = P.glFilmTilt * Math.PI / 180
+  const glit = ink.glitterColor ? hex3(ink.glitterColor) : null
   const u = (name, ...v) => builder.setUniform(name, v)
 
   // 좌표계는 **화면 픽셀**이다(아래 drawGlassPooled 에서 캔버스를 1/S 로 줄이고 기하를 S 배로 그린다).
@@ -117,9 +118,9 @@ function setUniforms(color, width, ink, S) {
   u('sheenPatch', P.sheenPatch); u('sheenGrain', P.sheenGrain)
   u('abLine', abLineOf(width)); u('poolMix', P.poolMix)
   u('sheenWiggle', P.sheenWiggle); u('sheenWScl', P.sheenWScale * S)
-  u('micaA', ...micaColor(film, 1))
-  u('micaB', ...micaColor(film, Math.cos(tilt * 0.5)))
-  u('micaC', ...micaColor(film, Math.cos(tilt)))
+  u('micaA', ...(glit ?? micaColor(film, 1)))
+  u('micaB', ...(glit ?? micaColor(film, Math.cos(tilt * 0.5))))
+  u('micaC', ...(glit ?? micaColor(film, Math.cos(tilt))))
   u('glVeil', P.glVeil); u('glVeilDesat', P.glVeilDesat)
   u('glVeilLift', P.glVeilLift); u('glVeilScl', P.glVeilScale * S)
   u('glAmp', 0)   // 입자는 필터 밖에서 전체 해상도로 그린다(drawSpark)
@@ -167,7 +168,7 @@ function drawSpark(canvas, path, width, color, ink, zoom) {
   // 반지름 바닥값: 그대로 두면 확대율이 낮을 때 입자가 화면 반 픽셀 아래로 내려가 사라진다
   const rmin = Math.max(P.glRMin, 0.6 / pxPerUnit(zoom))
   const paint = Skia.Paint()
-  paint.setShader(sparkEffect.makeShader([...hex3(color), ...micaColor(ink.film ?? P.glFilm, 1),
+  paint.setShader(sparkEffect.makeShader([...hex3(color), ...(ink.glitterColor ? hex3(ink.glitterColor) : micaColor(ink.film ?? micaAutoFilm(hex3(color)), 1)),
     P.glCell, P.glP * amount,
     rmin, rmin * (P.glRMax / P.glRMin),
     P.glBMin, P.glBMax, P.glTail, P.glDesat,
