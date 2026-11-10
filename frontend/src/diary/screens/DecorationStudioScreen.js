@@ -40,6 +40,8 @@ import { Segmented } from '../components/FormControls';
 import { TAPE_SIZES } from '../../editor/constants';
 import ConfirmDialog from '../../editor/components/controls/ConfirmDialog';
 import DecorSaveNotice from '../../editor/components/panels/DecorSaveNotice';
+import { useStickerLibrarySyncStatus } from '../../editor/services/stickerLibrarySyncStatus.js';
+import { useCoverLibrarySyncStatus } from '../services/coverLibrarySyncStatus.js';
 import DiaryActionBubble from '../components/DiaryActionBubble';
 import { PdfImportError, coverWithPdfPage, pdfOrientation } from '../utils/pdfImport';
 import { pickPdfPages } from '../utils/pdfPages';
@@ -75,6 +77,8 @@ let lastTab = 'fonts';
 
 export default function DecorationStudioScreen({ compact = false, registerBackHandler }) {
   const custom = useCustomDecor();
+  const stickerSync = useStickerLibrarySyncStatus(); // 계정 동기화 실패(다른 기기에서 안 보임)를 스티커 탭에 알린다
+  const coverSync = useCoverLibrarySyncStatus(); // 내 표지 계정 동기화 실패를 표지 탭에 알린다
   const library = useMyLibrary();
   const paperStyle = useDefaultPaperStyle();
   const studio = useSyncExternalStore(subscribeStudio, studioSnapshot, studioSnapshot);
@@ -272,6 +276,7 @@ export default function DecorationStudioScreen({ compact = false, registerBackHa
       <DioButton variant="icon" icon="trash" label="스티커 폴더 삭제" onPress={() => setQuestion({ folder })} />
     </> : addTool({ kind: 'sticker', icon: 'sticker', title: '스티커 추가', description: CUTOUT_ENTRANCE ? '스티커 시트 분리 · 사진 속 대상 오리기 · 새 폴더' : '스티커 시트 분리 · 새 폴더', disabled: !custom.loaded, menu: true })}>
     {custom.saveError ? <DecorSaveNotice error={custom.saveError} pending={custom.savePending} onRetry={custom.retrySave} /> : null}
+    <DecorSaveNotice error={stickerSync.error} pending={stickerSync.pending} onRetry={stickerSync.retry} retryLabel="다시 맞추기" pendingLabel="다시 맞추는 중…" accessibilityLabel="스티커 보관함 계정 동기화 재시도" />
     {/* 폴더 안 추가: 머리줄 아래 줄에 `스티커 추가`(다른 `○○ 추가` 버튼과 같은 모양). 누르면 이 폴더로 넣는 방법을 말풍선으로 고른다 */}
     {folder && <View style={s.addRow}>{addTool({ kind: 'stickerIn', icon: 'sticker', title: '스티커 추가', description: '시트에서 분리하기 · 이미지 한 장씩 넣기', menu: true })}</View>}
     {shelfError === 'sticker' && <Text accessibilityRole="alert" style={s.error}>사진을 불러오지 못했어요. 다시 시도해 주세요.</Text>}
@@ -470,6 +475,7 @@ export default function DecorationStudioScreen({ compact = false, registerBackHa
   const coverSection = <StudioSection fill={library.ready && !library.covers.length} title="표지" count={library.ready ? count(library.covers) : null}
     right={addTool({ kind: 'cover', icon: 'book', title: addTitle('cover', '표지 추가'), description: 'PDF로 만들기 · 사진으로 만들기', disabled: !library.ready || Boolean(making), menu: true })}>
     {makeAlert('cover')}
+    <DecorSaveNotice error={coverSync.error} pending={coverSync.pending} onRetry={coverSync.retry} retryLabel="다시 맞추기" pendingLabel="다시 맞추는 중…" accessibilityLabel="내 표지 계정 동기화 재시도" />
     {!library.ready ? <Text style={s.empty}>표지를 불러오고 있어요.</Text>
       : !library.covers.length ? <EmptyState compact={compact} art="dio" raised title="아직 저장한 표지가 없어요" />
       : <StudioShelf kind="cover" items={library.covers} onOpen={setCoverEdit} onRemove={cover => setQuestion({ cover })} onRename={(cover, name) => renameItem('cover', cover, name)} />}

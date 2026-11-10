@@ -24,8 +24,7 @@ public class PageService {
 	@Transactional(readOnly=true) public PageListResponse list(UUID diaryId,Long userId){diaryAccessService.requireRead(diaryId,userId);return listWithoutDiaryCheck(diaryId);}
 	@Transactional public PageResponse create(UUID diaryId,PageCreateRequest r,Long userId){
 		diaryAccessService.requireWrite(diaryId,userId);
-        if(r.getTemplateConfig()!=null && r.getTemplateConfig().has("paperAppearance"))
-            PaperAppearance.normalize(r.getTemplateConfig().get("paperAppearance"));
+        requireValidPaperAppearance(r.getTemplateConfig());
         // 재시도 판별에 쓰는 행은 비활성이어도 읽는다(처음 요청 뒤 그 속지가 내려가도 이미 만든 페이지를 돌려준다). 활성 확인은 새로 만들 때 resolveTemplate 이 한다
         PageTemplate byId=r.getTemplateId()==null?null:templateRepository.findById(r.getTemplateId()).orElseThrow(PageTemplateNotFoundException::new);
         // 원격 속지(V34)는 형식에 맞는 remoteTemplate 이 있어야 하고 다른 속지에는 둘 수 없다(공유 구성원 앱이 이 값으로 속지를 찾는다).
@@ -88,6 +87,8 @@ public class PageService {
             }
             return new PageResponse(pageData(page));
         }
+		// 설정을 통째로 바꾸는 수정도 만들 때와 같은 속지 색·글꼴 규칙으로 검사한다
+		requireValidPaperAppearance(r.getTemplateConfig());
 		if(t!=null&&w==null){w=t.getCanvasWidth();h=t.getCanvasHeight();}
 		boolean replaceTemplateConfig=r.getTemplateConfig()!=null||t!=null;
 		String templateConfig=r.getTemplateConfig()==null?defaultConfig(t):copy(r.getTemplateConfig());
@@ -120,6 +121,10 @@ public class PageService {
             setPaperAppearance(page,appearance);
         pageRepository.flush();
         events.publishEvent(new PageCatalogChanged(diaryId));
+    }
+    private static void requireValidPaperAppearance(JsonNode templateConfig){
+        if(templateConfig!=null && templateConfig.has("paperAppearance"))
+            PaperAppearance.normalize(templateConfig.get("paperAppearance"));
     }
     private static void setPaperAppearance(DiaryPage page,JsonNode appearance){
         String current=page.getTemplateConfig();

@@ -13,7 +13,7 @@ import tools.jackson.databind.json.JsonMapper;
 
 /**
  * 꾸미기 공방 내 표지 보관함(표지 목록)을 계정에 저장한다. 표지 사진 · 표지 스티커 이미지는 /api/v1/media 에 올라가 있고, 여기에는 표지 디자인과 그 안의 미디어 id 만 둔다.
- * 스티커 · 테이프 보관함과 같은 규칙: 문서 전체를 한 번에 바꾸며, 기기가 마지막으로 본 version(expectedVersion)이 지금과 다르면 409 로 막는다.
+ * 스티커 보관함과 같은 규칙: 문서 전체를 한 번에 바꾸며, 기기가 마지막으로 본 version(expectedVersion)이 지금과 다르면 409 로 막는다.
  * 표지 디자인(cover)은 앱(coverDesign.normalizeCover)이 읽을 때 맞추므로 여기서는 객체인지 · 크기 · 미디어 id 만 본다.
  */
 @Service

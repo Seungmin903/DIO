@@ -39,7 +39,7 @@ public class LoginSecurityConfig {
     }
     @Bean
     public SecurityFilterChain loginSecurity(HttpSecurity http, JwtDecoder loginJwtDecoder, BearerTokenResolver loginBearerTokenResolver) throws Exception {
-        return http.securityMatcher("/api/v1/me", "/api/v1/me/password", "/api/v1/me/terms", "/api/v1/me/terms/*/*", "/api/v1/me/auth-providers/*", "/api/v1/me/sticker-library", "/api/v1/me/tape-library", "/api/v1/me/cover-library", "/api/v1/me/paper-library", "/api/v1/auth/logout", "/api/v1/diaries", "/api/v1/diaries/**", "/api/v1/pages/**", "/api/v1/media/**", "/api/v1/sticker-cutouts", "/api/v1/sticker-cutouts/**", "/api/v1/handwriting-fonts", "/api/v1/handwriting-fonts/**", "/api/v1/push/installations", "/api/v1/push/installations/**")
+        return http.securityMatcher("/api/v1/me", "/api/v1/me/password", "/api/v1/me/terms", "/api/v1/me/terms/*/*", "/api/v1/me/auth-providers/*", "/api/v1/me/sticker-library", "/api/v1/me/cover-library", "/api/v1/me/paper-library", "/api/v1/auth/logout", "/api/v1/diaries", "/api/v1/diaries/**", "/api/v1/pages/**", "/api/v1/media/**", "/api/v1/sticker-cutouts", "/api/v1/sticker-cutouts/**", "/api/v1/handwriting-fonts", "/api/v1/handwriting-fonts/**", "/api/v1/push/installations", "/api/v1/push/installations/**")
             .cors(org.springframework.security.config.Customizer.withDefaults())
             .csrf(csrf -> csrf.disable()).formLogin(form -> form.disable()).httpBasic(basic -> basic.disable())
             .logout(logout -> logout.disable()).requestCache(cache -> cache.disable())

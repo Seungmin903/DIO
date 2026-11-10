@@ -42,7 +42,7 @@
 
 쪽의 `mediaFileId`는 본인이 올린 `READY` 상태의 `IMAGE`만 넣을 수 있다. 이미 보관함에 있던 이미지는 미디어에서 지웠어도 그대로 둘 수 있다.
 
-## 저장 구조(V42)
+## 저장 구조(V41)
 
 - `user_paper_libraries(user_id PK, version, document_json, updated_at)`, `user_paper_library_media(user_id, media_file_id)`.
 - 미디어 정리(`MediaReferenceSql`)는 `user_paper_library_media`를 참조로 보아 보관함 쪽 그림을 물리 삭제하지 않는다.
@@ -51,7 +51,7 @@
 
 ## 앱 동기화
 
-`frontend/src/diary/services/paperLibrarySync.js`. `StickerLibrarySyncHost`가 스티커 · 테이프 · 내 표지 동기화와 함께 띄운다.
+`frontend/src/diary/services/paperLibrarySync.js`. `StickerLibrarySyncHost`가 스티커 보관함 · 내 표지 동기화와 함께 띄운다.
 
 - 내 속지는 `useMyLibrary`, 기본 속지 스타일은 `useDefaultPaperStyle`의 모듈 저장소 한 벌을 모든 화면과 동기화가 함께 쓴다.
 - 맞추기 · 합치기 · 기기에만 있는 것 보존 규칙은 내 표지와 같다. 같은 속지는 `id`로 가리고, 양쪽에서 고쳤으면 이 기기 것을 쓴다.

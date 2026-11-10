@@ -22,8 +22,9 @@ function server() {
     upload: async localId => { const id = `90000000-0000-4000-8000-${String(++serial).padStart(12, '0')}`; state.uploads.set(id, localId); return id },
   }
 }
-function device(remote, { account = '1', folders = [], storage = new Map(), failUploads = new Set() } = {}) {
-  const local = { folders: structuredClone(folders) }, listeners = new Set(), downloads = [], errors = [], timers = []
+function device(remote, { account = '1', folders = [], storage = new Map(), failUploads = new Set(), failDownloads = new Set(), goneDownloads = new Set() } = {}) {
+  const local = { folders: structuredClone(folders) }, listeners = new Set(), downloads = [], errors = [], timers = [], statuses = [], attempts = []
+  const hooks = {} // hooks.download(id): 내려받는 중에 일어나는 일(편집 등)
   const decor = {
     snapshot: () => local.folders,
     subscribe: listener => { listeners.add(listener); return () => listeners.delete(listener) },
@@ -33,11 +34,12 @@ function device(remote, { account = '1', folders = [], storage = new Map(), fail
   const sync = createStickerLibrarySync({
     account, api: remote.api, decor, key: 'sync',
     storage: { getItem: async k => storage.get(k) ?? null, setItem: async (k, v) => { storage.set(k, v) } },
-    media: { upload: async id => { if (failUploads.has(id)) throw Error('too large'); return remote.upload(id) }, download: async id => { downloads.push(id) } },
+    media: { upload: async id => { attempts.push(id); if (failUploads.has(id)) throw Error('too large'); return remote.upload(id) }, download: async id => { downloads.push(id); await hooks.download?.(id); if (failDownloads.has(id)) throw Error('offline'); if (goneDownloads.has(id)) throw Object.assign(Error('not found'), { status: 404 }) } },
     setTimer: (run, ms) => { const timer = { run, ms }; timers.push(timer); return timer }, clearTimer: timer => { timer.cleared = true },
     onError: error => errors.push(error.message),
+    onStatus: status => statuses.push(status.error),
   })
-  return { sync, local, edit, downloads, errors, storage, timers }
+  return { sync, local, edit, downloads, errors, storage, timers, statuses, attempts, hooks }
 }
 const L1 = '10000000-0000-4000-8000-000000000001', L2 = '10000000-0000-4000-8000-000000000002', L3 = '10000000-0000-4000-8000-000000000003'
 const sticker = (id, name = '스티커') => ({ mediaFileId: id, src: `media:${id}`, name, aspect: 1 })
@@ -198,4 +200,128 @@ test('서버 한도에 맞춰 보낸다: 이름의 제어 문자 · 길이를 �
   assert.equal(remote.state.folders[0].name, `이름${'가'.repeat(38)}`)
   assert.deepEqual(remote.state.folders[0].items, [{ builtin: 'heart', name: `스티커${'나'.repeat(197)}` }])
   assert.equal(a.local.folders.length, 205) // 기기에는 모두 남는다
+})
+
+test('보낼 수 없는 폴더 · 칸만 있으면 맞출 때마다 저장하지 않는다', async () => {
+  const remote = server()
+  const a = device(remote, { folders: [folder('f1', '여행', [sticker(L1), { style: 'only' }]), folder('로컬 폴더', '로컬', [])] })
+  await a.sync.start()
+  const puts = remote.state.puts, version = remote.state.version
+  await a.sync.sync(); await a.sync.sync(); await a.sync.sync()
+  assert.equal(remote.state.puts, puts)
+  assert.equal(remote.state.version, version)
+  assert.equal(a.statuses.at(-1), null)
+})
+
+test('올리지 못한 스티커는 맞출 때마다 다시 올려 보되, 새로 올라간 것이 없으면 저장하지 않고 실패를 알린다', async () => {
+  const remote = server(), failUploads = new Set([L2])
+  const a = device(remote, { failUploads, folders: [folder('f1', '여행', [sticker(L1), sticker(L2)])] })
+  await a.sync.start()
+  const puts = remote.state.puts
+  await a.sync.sync(); await a.sync.sync()
+  assert.equal(remote.state.puts, puts)
+  assert.equal(a.attempts.filter(id => id === L2).length, 3)
+  assert.match(a.statuses.at(-1), /스티커 1개를 계정에 올리지 못했어요/)
+  failUploads.clear()
+  await a.sync.sync()
+  assert.equal(remote.state.puts, puts + 1)
+  assert.equal(a.statuses.at(-1), null)
+})
+
+test('받지 못한 이미지는 서버가 그대로여도 맞출 때마다 다시 받고, 남아 있는 동안 실패를 알린다', async () => {
+  const remote = server()
+  const a = device(remote, { folders: [folder('f1', '여행', [sticker(L1)])] })
+  await a.sync.start()
+  const uploaded = remote.state.folders[0].items[0].mediaFileId
+  const failDownloads = new Set([uploaded]), storage = new Map()
+  const b = device(remote, { failDownloads, storage })
+  await b.sync.start()
+  assert.equal(b.local.folders[0].items.length, 1) // 칸은 들인다
+  assert.match(b.statuses.at(-1), /스티커 1개의 이미지를 받지 못했어요/)
+  await b.sync.sync()
+  assert.equal(b.downloads.length, 2) // 서버가 바뀌지 않아도 다시 받아 본다
+  assert.match(b.statuses.at(-1), /이미지를 받지 못했어요/)
+  // 앱을 다시 켜도(새 동기화) 이어서 받는다
+  failDownloads.clear()
+  const again = device(remote, { storage, folders: b.local.folders })
+  await again.sync.start()
+  assert.deepEqual(again.downloads, [uploaded])
+  assert.equal(again.statuses.at(-1), null)
+  await again.sync.sync()
+  assert.equal(again.downloads.length, 1) // 받은 뒤에는 더 받지 않는다
+  assert.equal(remote.state.puts, 1)
+})
+
+test('서버에 파일이 없는 이미지(404)는 맞출 때마다 다시 받거나 계속 실패로 알리지 않는다', async () => {
+  const remote = server()
+  const a = device(remote, { folders: [folder('f1', '여행', [sticker(L1)])] })
+  await a.sync.start()
+  const uploaded = remote.state.folders[0].items[0].mediaFileId
+  const b = device(remote, { goneDownloads: new Set([uploaded]) })
+  await b.sync.start()
+  assert.equal(b.local.folders[0].items.length, 1) // 칸은 들인다(구성은 서버와 같게 둔다)
+  assert.equal(b.statuses.at(-1), null)
+  await b.sync.sync()
+  assert.equal(b.downloads.length, 1) // 다시 받지 않는다
+  assert.equal(b.statuses.at(-1), null)
+  assert.equal(remote.state.puts, 1)
+})
+
+test('서버 것을 들이는 동안 기기에서 바꾼 것은 덮어쓰지 않고, 합쳐서 다시 맞춘다', async () => {
+  const remote = server()
+  const a = device(remote, { folders: [folder('f1', '여행', [sticker(L1)])] })
+  await a.sync.start()
+  const b = device(remote)
+  await b.sync.start()
+  a.edit([{ ...a.local.folders[0], items: [...a.local.folders[0].items, sticker(L2)] }])
+  await a.sync.whenIdle()
+  // B 가 A 의 새 스티커를 내려받는 동안 폴더 이름을 바꾼다
+  b.hooks.download = () => { b.hooks.download = null; b.edit([{ ...b.local.folders[0], name: '바다' }]) }
+  await b.sync.sync()
+  await b.sync.whenIdle()
+  assert.equal(b.local.folders[0].name, '바다')
+  assert.equal(b.local.folders[0].items.length, 2)
+  assert.equal(remote.state.folders[0].name, '바다')
+  assert.equal(remote.state.folders[0].items.length, 2)
+})
+
+test('한도를 넘어 보내지 않은 칸은 서버 것을 들일 때도 기기에서 지우지 않는다', async () => {
+  const remote = server()
+  const many = Array.from({ length: 3001 }, (_, i) => ({ builtin: `b${i}` }))
+  const a = device(remote, { folders: [folder('f1', '여행', many)] })
+  await a.sync.start()
+  assert.equal(remote.state.folders[0].items.length, 3000)
+  remote.state.version++; remote.state.folders = [{ ...remote.state.folders[0], name: '바다' }] // 다른 기기에서 이름만 바꿨다
+  await a.sync.sync()
+  assert.equal(a.local.folders[0].name, '바다')
+  assert.equal(a.local.folders[0].items.length, 3001)
+  assert.ok(a.local.folders[0].items.some(item => item.builtin === 'b3000'))
+})
+
+test('저장이 계속 409 거나 연결이 안 되면 실패를 알린다', async () => {
+  const remote = server()
+  const a = device(remote, { folders: [folder('f1', '여행', [])] })
+  remote.api.put = async () => { throw Object.assign(Error('conflict'), { status: 409 }) }
+  await a.sync.start()
+  assert.match(a.statuses.at(-1), /계속 겹쳐/)
+  remote.api.get = async () => { throw Object.assign(Error('offline'), { status: 0 }) }
+  await a.sync.sync()
+  assert.match(a.statuses.at(-1), /연결을 확인해 주세요/)
+})
+
+test('동기화 상태: 실패 문구를 공방에 보이고, 다시 맞추기는 한 번에 하나만 돌며, 로그아웃하면 지운다', async () => {
+  const { setStickerSyncStatus, setStickerSyncRetry, stickerSyncStatusSnapshot, retryStickerLibrarySync } = await import('../src/editor/services/stickerLibrarySyncStatus.js')
+  await retryStickerLibrarySync() // 동기화가 없으면 아무것도 하지 않는다
+  assert.deepEqual(stickerSyncStatusSnapshot(), { error: null, pending: false })
+  let release, calls = 0
+  setStickerSyncRetry(() => { calls++; return new Promise(resolve => { release = resolve }) })
+  setStickerSyncStatus({ error: '스티커 1개를 계정에 올리지 못했어요.' })
+  const first = retryStickerLibrarySync()
+  retryStickerLibrarySync()
+  assert.equal(calls, 1)
+  assert.equal(stickerSyncStatusSnapshot().pending, true)
+  release(); await first
+  assert.equal(stickerSyncStatusSnapshot().pending, false)
+  setStickerSyncRetry(null); setStickerSyncStatus({ error: null, pending: false })
+  assert.deepEqual(stickerSyncStatusSnapshot(), { error: null, pending: false })
 })

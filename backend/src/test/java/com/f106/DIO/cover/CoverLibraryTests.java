@@ -96,8 +96,8 @@ class CoverLibraryTests {
             .andExpect(jsonPath("covers[0].cover.stickers[1].rotation").value(12.5))
             .andExpect(jsonPath("covers[1].cover.color").value("#112233"));
         assertThat(jdbc.queryForList("select media_file_id from user_cover_library_media where user_id=?", UUID.class, actor.id())).containsExactlyInAnyOrder(photo, sticker);
-        // 테이프 보관함과는 따로 저장된다
-        mvc.perform(get("/api/v1/me/tape-library").header("Authorization", "Bearer " + actor.token())).andExpect(jsonPath("version").value(0));
+        // 스티커 보관함과는 따로 저장된다
+        mvc.perform(get("/api/v1/me/sticker-library").header("Authorization", "Bearer " + actor.token())).andExpect(jsonPath("version").value(0));
     }
 
     @Test void staleVersionIsRejectedSoAnotherDevicesChangeIsNotOverwritten() throws Exception {

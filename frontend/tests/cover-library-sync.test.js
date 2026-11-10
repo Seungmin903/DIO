@@ -25,7 +25,8 @@ function server() {
     upload: async (localId, category) => { const id = `90000000-0000-4000-8000-${String(++serial).padStart(12, '0')}`; state.uploads.set(id, localId); state.categories.push(category); return id },
   }
 }
-function device(remote, { account = '1', covers = [], storage = new Map(), failUploads = new Set(), onDownload = () => {} } = {}) {
+function device(remote, { account = '1', covers = [], storage = new Map(), failUploads = new Set(), onDownload = () => {}, failDownloads = new Map() } = {}) {
+  const statuses = []
   const local = { covers: normalizeMyCovers(structuredClone(covers)) }, listeners = new Set(), downloads = [], errors = []
   const library = {
     ready: async () => {},
@@ -37,11 +38,12 @@ function device(remote, { account = '1', covers = [], storage = new Map(), failU
   const sync = createCoverLibrarySync({
     account, api: remote.api, library, key: 'cover-sync',
     storage: { getItem: async k => storage.get(k) ?? null, setItem: async (k, v) => { storage.set(k, v) } },
-    media: { upload: async (id, category) => { if (failUploads.has(id)) throw Error('too large'); return remote.upload(id, category) }, download: async id => { downloads.push(id); onDownload(id) } },
+    media: { upload: async (id, category) => { if (failUploads.has(id)) throw Error('too large'); return remote.upload(id, category) }, download: async id => { downloads.push(id); onDownload(id); if (failDownloads.has(id)) throw Object.assign(Error('download failed'), { status: failDownloads.get(id) }) } },
     setTimer: run => ({ run }), clearTimer: timer => { timer.cleared = true },
     onError: error => errors.push(error.message),
+    onStatus: next => statuses.push(next.error),
   })
-  return { sync, local, edit, downloads, errors, storage }
+  return { sync, local, edit, downloads, errors, storage, statuses }
 }
 const L1 = '10000000-0000-4000-8000-000000000001', L2 = '10000000-0000-4000-8000-000000000002', L3 = '10000000-0000-4000-8000-000000000003'
 // 공방에서 PDF 첫 쪽으로 만든 사진 표지 + 내 스티커 하나 · 기본 스티커 하나(addMyCover 와 같은 칸)
@@ -168,4 +170,40 @@ test('받는 사이 이 기기에서 고치면 덮어쓰지 않고 다시 맞춘
   await b.sync.whenIdle()
   assert.deepEqual(b.local.covers.map(c => c.id), ['b1', 'c1'])
   assert.deepEqual(remote.state.covers.map(c => c.id), ['b1', 'c1'])
+})
+
+test('올리지 못한 표지가 남아도 새로 올라간 것이 없으면 저장을 반복하지 않고 표지 탭에 실패를 알린다', async () => {
+  const remote = server()
+  const a = device(remote, { covers: [photoCover('c3', L3, L2, '큰 사진'), plainCover('c2')], failUploads: new Set([L3]) })
+  await a.sync.start()
+  assert.equal(remote.state.puts, 1)
+  assert.match(a.statuses.at(-1), /표지 1개를 계정에 올리지 못했어요/)
+  await a.sync.sync(); await a.sync.sync()
+  assert.equal(remote.state.puts, 1) // version 이 계속 올라 다른 기기가 매번 다시 받지 않게
+  assert.match(a.statuses.at(-1), /표지 1개/)
+})
+
+test('받지 못한 표지 그림은 다음 맞추기에서 다시 받고, 서버에 없으면(404) 더 받지 않는다', async () => {
+  const remote = server()
+  const a = device(remote, { covers: [photoCover('c1', L1, L2)] })
+  await a.sync.start()
+  const [photo, sticker] = [remote.state.covers[0].cover.photo.mediaFileId, remote.state.covers[0].cover.stickers[0].mediaFileId]
+  const failDownloads = new Map([[photo, 503], [sticker, 404]])
+  const b = device(remote, { failDownloads })
+  await b.sync.start()
+  assert.deepEqual(b.local.covers.map(c => c.id), ['c1']) // 못 받은 그림이 있어도 표지는 들인다
+  assert.match(b.statuses.at(-1), /표지 그림 1개를 받지 못했어요/) // 404 는 다시 받아도 소용없어 세지 않는다
+  failDownloads.clear()
+  b.downloads.length = 0
+  await b.sync.sync()
+  assert.deepEqual(b.downloads, [photo]) // 503 이던 그림만 다시 받는다
+  assert.equal(b.statuses.at(-1), null)
+})
+
+test('연결 오류는 표지 탭에 알린다', async () => {
+  const remote = server()
+  const a = device(remote, { covers: [plainCover('c1')] })
+  remote.api.get = async () => { throw Object.assign(Error('offline'), { status: 0 }) }
+  await a.sync.start()
+  assert.equal(a.statuses.at(-1), '내 표지를 계정과 맞추지 못했어요. 연결을 확인해 주세요.')
 })
