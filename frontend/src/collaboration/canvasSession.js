@@ -1,5 +1,5 @@
 import {decodeElement,encodeElement,sharedObject} from './canvasElements.js'
-import { canvasContent, stable, sameElements } from './canvasApi.js'
+import { canvasContent, stable, sameElements, remapObjectIds } from './canvasApi.js'
 import { assertCanvasBatchLimits, MAX_CANVAS_BATCH_ITEMS } from './canvasBatchLimits.js'
 const copy=v=>JSON.parse(JSON.stringify(v))
 const permanentRejection=error=>[400,403,404,405,410,413,415,422].includes(error.status)
@@ -89,7 +89,8 @@ export function createCanvasSession({api,storage,key,legacyKey,pageId,diaryId,cr
   const apply=async(page,request)=>{const counted=request?.canvasWriteMode==='personal';if(counted)echoes.push(Date.now());sent=true;try{const result=await api.apply(page,request);if(result?.operationId!=null)mine.add(String(result.operationId));return result}catch(error){if(counted)echoes.pop();throw error}}
   const push=entry=>{journal.queue.push(compactEdit(entry))}
   // 동기화 결과. 화면 반영용 objects·expectedLocal 은 읽을 때 만든다(unchanged 면 읽지 않아 복사·미리보기 비용이 없다).
-  const syncResult=fields=>{let objects,expectedLocal;return {status:'saved',unchanged:false,...fields,get objects(){return objects??=preview()},get expectedLocal(){return expectedLocal??=copy(journal.uiLocal)}}}
+  // idRemaps: 편집기가 아직 옛 ID 를 들고 있는 복구된 생성 ID(old → new). 편집기가 결과를 받아들이면(acceptImport) 비운다
+  const syncResult=fields=>{let objects,expectedLocal;return {status:'saved',unchanged:false,idRemaps:journal.pendingIdRemaps?{...journal.pendingIdRemaps}:null,...fields,get objects(){return objects??=preview()},get expectedLocal(){return expectedLocal??=copy(journal.uiLocal)}}}
   const preview=()=>{
     let objects=(journal.base??[]).map(decodeElement)
     for(const entry of journal.queue){
@@ -139,7 +140,19 @@ export function createCanvasSession({api,storage,key,legacyKey,pageId,diaryId,cr
     const touched=entry.reordered?[...new Set([...(entry.order??[]),...old.keys()])]:[...new Set([...old.keys(),...next.keys()])]
     for(const id of touched){
       const current=remote.get(id)
-      if(!existedBefore(id)){if(!current)creates.push({...next.get(id),sortKey:order.get(id)??top+creates.length+1});continue}
+      if(!existedBefore(id)){
+        if(!current)creates.push({...next.get(id),sortKey:order.get(id)??top+creates.length+1})
+        else {
+          const desired=next.get(id),server=encodeElement(decodeElement(current))
+          const withoutFill=value=>({...value,propertiesJson:{...value.propertiesJson,fill:undefined}})
+          if(desired.elementType==='SHAPE'&&desired.isHidden&&desired.isLocked&&typeof desired.propertiesJson?.tastingMark==='string'&&equal(withoutFill(desired),withoutFill(server))){
+              // Even equal fills need a server operation for this member's undo history.
+              const {elementType,...patch}=desired
+              updates.push({...patch,version:current.version})
+          }else if(!equal(desired,server)) throw Object.assign(Error('같은 ID의 다른 요소가 서버에 있어 저장하지 않았어요. 내 편집은 기기에 보관되어 있어요.'),{code:'CANVAS_CREATE_ID_CONFLICT',elementId:id})
+        }
+        continue
+      }
       // A remote deletion wins over a stale update; never resurrect a deleted object.
       if(!current)continue
       if(old.has(id)&&!next.has(id)){deleteElementIds.push(id);expectedVersions[id]=current.version;continue}
@@ -152,6 +165,30 @@ export function createCanvasSession({api,storage,key,legacyKey,pageId,diaryId,cr
     }
     if(!creates.length&&!updates.length&&!deleteElementIds.length)return null
     return {clientOperationId:entry.id,changes:{...(creates.length?{creates}:{}),...(updates.length?{updates}:{}),...(deleteElementIds.length?{deleteElementIds}: {})},expectedVersions}
+  }
+  // A deterministic/local ID can already belong to a different server object. Preserve
+  // both objects by assigning the pending local create a fresh ID and carrying that
+  // identity through later queued edits and the editor snapshot before retrying.
+  const recoverCreateIdConflict=(entry,conflictId)=>{
+    const existed=new Set(entry.before.map(o=>o.id))
+    if(!entry.after.some(o=>o.id===conflictId&&!existed.has(o.id)))return false
+    const used=new Set([...(journal.base??[]).map(row=>row.elementId),...(journal.uiLocal??[]).map(o=>o.id),...journal.queue.flatMap(row=>[...row.before,...row.after].map(o=>o.id))])
+    let nextId=null
+    for(let attempt=0;attempt<16;attempt++){const candidate=createId();if(candidate&&candidate!==conflictId&&!used.has(candidate)){nextId=candidate;break}}
+    if(!nextId)return false
+    const remapObject=object=>({...object,id:object.id===conflictId?nextId:object.id})
+    for(const queued of journal.queue){
+      queued.before=queued.before.map(remapObject);queued.after=queued.after.map(remapObject)
+      if(queued.order)queued.order=queued.order.map(id=>id===conflictId?nextId:id)
+    }
+    journal.uiLocal=(journal.uiLocal??[]).map(remapObject)
+    // The editor document keeps the old ID until it imports the result; edits it sends meanwhile are renamed in enqueue.
+    journal.pendingIdRemaps={...(journal.pendingIdRemaps??{}),[conflictId]:nextId}
+    journal.resolvedIdConflicts=[...(journal.resolvedIdConflicts??[]),{oldElementId:conflictId,newElementId:nextId,entryId:entry.id,at:Date.now()}].slice(-50)
+    // requestFor detected this before any request was sent, so its command ID is safe to replace.
+    entry.id=createId();delete entry.request;delete entry.parts;delete entry.partIndex;delete entry.mediaApiVersion
+    if(journal.recoveryPlan?.entryId)delete journal.recoveryPlan
+    return true
   }
   // 예전 형식(1·2)의 전후 전체 사본 항목을 한 항목씩 양보하며 변환한다. 항목이 수백 개면 한 번에 하면 수십 초 JS 가 멈춘다.
   const migrate=async saved=>{
@@ -191,11 +228,14 @@ export function createCanvasSession({api,storage,key,legacyKey,pageId,diaryId,cr
     async enqueue(entry){
       active();if(!restored)throw new Error('편집 기록을 먼저 확인해 주세요.')
       if(journal.recent.includes(entry.id)||journal.queue.some(row=>row.id===entry.id))return
+      // 복구로 이름이 바뀐 요소를 편집기가 아직 옛 ID 로 보내면 새 ID 로 바꾼다(옛 ID 는 서버에서 다른 요소다)
+      const remaps=journal.pendingIdRemaps
+      if(remaps)entry={...entry,before:remapObjectIds(entry.before,remaps),after:remapObjectIds(entry.after,remaps),...(entry.order?{order:entry.order.map(id=>remaps[id]??id)}:{})}
       const compact=compactEdit(entry)
       canvasContent(compact.before);canvasContent(compact.after)
       journal.queue.push(compact);journal.uiLocal=copy(entry.after.filter(sharedObject));journal.uiLocalAt=Date.now();await persist()
     },
-    async acceptImport(objects){active();journal.uiLocal=copy(objects);journal.uiLocalAt=Date.now();await persist()},
+    async acceptImport(objects){active();journal.uiLocal=copy(objects);journal.uiLocalAt=Date.now();delete journal.pendingIdRemaps;await persist()},
     synchronize(){
       if(running)return running
       running=(async()=>{
@@ -249,6 +289,12 @@ export function createCanvasSession({api,storage,key,legacyKey,pageId,diaryId,cr
             const result=await apply(pageId,entry.request);active();setBase(result.items,true)
           }
           }catch(error){
+              if(error.code==='CANVAS_CREATE_ID_CONFLICT'){
+                if(recoverCreateIdConflict(entry,error.elementId)){await persist();continue}
+                // Keep unexpected update/delete conflicts intact for explicit recovery.
+                journal.recoveryPlan??={version:1,kind:'create-id-conflict',pageId,elementId:error.elementId,entryId:entry.id,originalEdit:copy(entry),createdAt:Date.now()}
+                await persist();throw error
+              }
               if(error.code==='CANVAS_BATCH_LIMIT') {
                 await persist()
                 throw Object.assign(Error('이전 대량 편집이 100개 제한을 넘어 저장 대기열이 막혔어요. 이 작업과 이후 편집은 서버에 저장되지 않고 기기에만 보관 중이에요. 재시도만으로 해결되지 않으며 별도 복구가 필요해요.'), {code:'CANVAS_BATCH_LIMIT'})
@@ -271,10 +317,13 @@ export function createCanvasSession({api,storage,key,legacyKey,pageId,diaryId,cr
               journal.rejectedRequests=[...(journal.rejectedRequests??[]),copy(entry.request??entry.parts?.[entry.partIndex]??null)]
               entry.id=createId();delete entry.request;delete entry.parts;delete entry.partIndex;await persist();throw error
           }
-          journal.queue.shift();journal.recent=[...journal.recent,entry.id,...(entry.parts??[]).map(part=>part.clientOperationId)].slice(-128);await persist()
+          journal.queue.shift();if(journal.recoveryPlan?.entryId===entry.id)delete journal.recoveryPlan
+          journal.recent=[...journal.recent,entry.id,...(entry.parts??[]).map(part=>part.clientOperationId)].slice(-128);await persist()
         }
         const history=scoped(await api.history(pageId));active()
-        return syncResult({history,direction,historyClientOperationId,rejectedCount:(journal.rejectedEdits??[]).length,unchanged:!changed})
+        // rejectedCount 는 이번 동기화에서 거절된 편집 수다. 기기에 보관한 거절 전체(keptRejectedCount)로 상태를 정하면
+        // 한 번 거절된 뒤로는 모든 편집이 저장돼도 '저장 안 됨'이 풀리지 않았다(보관 목록을 비우는 화면이 없다)
+        return syncResult({history,direction,historyClientOperationId,rejectedCount,keptRejectedCount:(journal.rejectedEdits??[]).length,unchanged:!changed})
       })().finally(()=>{running=null})
       return running
     },

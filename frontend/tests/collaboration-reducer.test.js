@@ -122,3 +122,14 @@ test('펜 획의 addObjects(select:false) 는 기존 선택만 풀고, 같은 �
  assert.equal(reduce(none,{type:'selectExact',ids:[]}),none,'같은 선택이면 상태 객체 그대로')
  assert.deepEqual(reduce(none,{type:'addObjects',objects:[{...stroke,id:'20000000-0000-4000-8000-000000000005'}]}).selectedIds,['20000000-0000-4000-8000-000000000005'],'select 를 주지 않으면 새 요소를 선택한다')
 })
+test('저장 중 ID 충돌로 내 새 요소의 ID가 바뀌면 편집기 문서도 새 ID로 바꾸고 상대 요소를 덮지 않는다',()=>{
+ const renamed='40000000-0000-4000-8000-000000000009'
+ let state=reduce(initial(),{type:'importCollaborationElements',pageId,expectedElements:[text,photo],objects:[text,photo]})
+ const mine={...text,text:'mine'},friend={...text,text:'friend'}
+ state=reduce(state,{type:'importCollaborationElements',pageId,expectedElements:[text,photo],objects:[mine,photo]})
+ state=reduce(state,{type:'importCollaborationElements',pageId,idRemaps:{[id]:renamed},expectedElements:[{...mine,id:renamed},photo],objects:[friend,photo,{...mine,id:renamed}]})
+ const objects=state.doc.pages[0].objects
+ assert.equal(objects.find(o=>o.id===id).text,'friend')
+ assert.equal(objects.find(o=>o.id===renamed).text,'mine')
+ assert.equal(objects.length,3)
+})

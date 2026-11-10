@@ -3,6 +3,8 @@ import assert from 'node:assert/strict'
 import { createStickerLibrarySync, mergeFolders } from '../src/editor/services/stickerLibrarySync.js'
 
 // 서버 한 대(계정 하나)와 기기 여러 대를 흉내 낸다
+import { forgetLibrarySyncRecords } from '../src/diary/services/librarySyncRecords.js'
+const asyncStorage = map => ({ getItem: async k => map.get(k) ?? null, setItem: async (k, v) => { map.set(k, v) }, getAllKeys: async () => [...map.keys()], multiRemove: async keys => { keys.forEach(k => map.delete(k)) } })
 function server() {
   const state = { version: 0, folders: [], puts: 0, uploads: new Map(), conflictOnce: false }
   let serial = 0
@@ -324,4 +326,41 @@ test('동기화 상태: 실패 문구를 공방에 보이고, 다시 맞추기�
   assert.equal(stickerSyncStatusSnapshot().pending, false)
   setStickerSyncRetry(null); setStickerSyncStatus({ error: null, pending: false })
   assert.deepEqual(stickerSyncStatusSnapshot(), { error: null, pending: false })
+})
+
+test('테이프 동기화 상태도 스티커와 같다: 동기화가 없으면 재시도하지 않고, 재시도 중복을 막고, 끝나면 다시 누를 수 있다', async () => {
+  const { setTapeSyncStatus, setTapeSyncRetry, tapeSyncStatusSnapshot, retryTapeLibrarySync } = await import('../src/editor/services/tapeLibrarySyncStatus.js')
+  await retryTapeLibrarySync()
+  assert.deepEqual(tapeSyncStatusSnapshot(), { error: null, pending: false })
+  let runs = 0, finish
+  setTapeSyncRetry(() => { runs++; return new Promise(resolve => { finish = resolve }) })
+  setTapeSyncStatus({ error: '테이프 1개를 계정에 올리지 못했어요.' })
+  const first = retryTapeLibrarySync()
+  retryTapeLibrarySync()
+  assert.equal(runs, 1)
+  assert.equal(tapeSyncStatusSnapshot().pending, true)
+  finish(); await first
+  assert.equal(tapeSyncStatusSnapshot().pending, false)
+  setTapeSyncRetry(null); setTapeSyncStatus({ error: null, pending: false })
+  assert.deepEqual(tapeSyncStatusSnapshot(), { error: null, pending: false })
+})
+
+test('탈퇴한 계정이 쓰던 기기에 다음 계정이 로그인하면 남은 스티커을 올리지 않고 서버 보관함을 받으며, 계정 id 없는 몫(:null:)도 남기지 않는다', async () => {
+  const remote1 = server(), storage = new Map()
+  const a = device(remote1, { account: '1', storage, folders: [folder('f1', '1번 계정', [sticker(L1)])] })
+  await a.sync.start(); a.sync.stop()
+  // 계정 1 탈퇴: 기기 보관함은 남지만 동기화 기록은 지우고 meta 는 탈퇴 표식으로 바꾼다(앱 키 모양으로 옮겨 실제 접두어로 지운다)
+  const keyed = new Map([...storage].map(([k, v]) => [k.replace(/^sync/, 'dio:sticker-library-sync:v1:server'), v]))
+  await forgetLibrarySyncRecords({ storage: asyncStorage(keyed), account: '1' })
+  storage.clear(); for (const [k, v] of keyed) storage.set(k.replace(/^dio:sticker-library-sync:v1:server/, 'sync'), v)
+  assert.deepEqual(JSON.parse(storage.get('sync:meta')), { account: null, withdrawn: true })
+  const remote2 = server()
+  remote2.state.version = 3; remote2.state.folders = [folder('g', '2번 계정', [])]
+  const b = device(remote2, { account: '2', storage, folders: a.local.folders })
+  await b.sync.start()
+  assert.equal(remote2.state.puts, 0)
+  assert.equal(remote2.state.uploads.size, 0)
+  assert.deepEqual(b.local.folders.map(f => f.name), ['2번 계정']) // 탈퇴한 사용자 스티커은 기기에서도 빠진다
+  assert.ok(![...storage.keys()].some(k => k.includes(':null:')))
+  assert.equal(JSON.parse(storage.get('sync:meta')).account, '2')
 })

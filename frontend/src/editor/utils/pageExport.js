@@ -8,6 +8,8 @@ import { EDITOR_SHAPES, SHAPE_BORDER_STYLES } from './editorShapes.js'
 import { RETIRED_TEXT_FONTS, isKnownTextFontId } from './text.js'
 import { stripCellBoxes } from './photoStrip.js'
 import { packingLayout } from '../templates/packingLayout.js'
+import { isTastingId } from '../templates/tastingGeometry.js'
+import { tastingElementValue } from '../templates/tastingElements.js'
 
 
 /** 화면 줌·선택 상태·저장 지연과 독립적인 출력 입력. 현재 로컬 요소 배열은 뒤→앞 순서다. */
@@ -62,7 +64,8 @@ export function createExportSnapshot(page, { width = pageSize(page).width, heigh
   try { template = templateReference(page) }
   catch (error) { throw new PageExportError('EXPORT_TEMPLATE_FAILED', error.message, error) }
   // 종이색과 SVG 참조를 분리한다. 배경은 사용자 요소나 보조 UI가 아니다.
-  return { pageId: page.id, width, height, pixelWidth, pixelHeight, background: normalizePaperAppearance(page.paperAppearance).backgroundColor, paperAppearance: normalizePaperAppearance(page.paperAppearance), template, objects, ...(page.planner ? { planner: JSON.parse(JSON.stringify(page.planner)) } : {}) }
+  const planner = isTastingId(page.backgroundAssetId) ? tastingElementValue(page) : page.planner
+  return { pageId: page.id, width, height, pixelWidth, pixelHeight, background: normalizePaperAppearance(page.paperAppearance).backgroundColor, paperAppearance: normalizePaperAppearance(page.paperAppearance), template, objects, ...(planner ? { planner: JSON.parse(JSON.stringify(planner)) } : {}) }
 }
 
 /** 출력 작업이 만든 임시 참조만 소유한다. 화면 표시 캐시/원본 파일은 건드리지 않는다. */

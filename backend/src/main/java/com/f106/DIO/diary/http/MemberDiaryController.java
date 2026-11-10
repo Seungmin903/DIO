@@ -49,11 +49,12 @@ public class MemberDiaryController {
     public ResponseEntity<MemberDiaryResponses.Created> create(@Valid @RequestBody MemberDiaryRequests.Create request,
             @RequestHeader(value="Idempotency-Key",required=false) @io.swagger.v3.oas.annotations.Parameter(required=true,description="사용자별 생성 키. 재시도 시 같은 값, 새 생성에는 새 값.") String idempotencyKey) {
         var appearance=MemberDiaryRequests.normalizePaperAppearance(request.paperAppearance());
-        var outcome=creation.create(idempotencyKey,request.metadata(),request.initialPages().stream().map(MemberDiaryRequests.InitialPage::selection).toList(),appearance);
+        MemberDiaryRequests.serializeTemplateConfig(request.templateConfig());
+        var outcome=creation.create(idempotencyKey,request.metadata(),request.initialPages().stream().map(MemberDiaryRequests.InitialPage::selection).toList(),appearance,request.templateConfig());
         var result=outcome.created();
         return ResponseEntity.created(URI.create("/api/v1/member/diaries/"+result.diary().diaryId())).header("Cache-Control","no-store")
             .header("Idempotency-Replayed",Boolean.toString(outcome.replayed()))
-            .body(new MemberDiaryResponses.Created(MemberDiaryResponses.Diary.from(result.diary(),true).withPaperAppearance(appearance),result.firstPageId(),result.pageIds()));
+            .body(new MemberDiaryResponses.Created(MemberDiaryResponses.Diary.from(result.diary(),true).withPaperAppearance(appearance).withTemplateConfig(request.templateConfig()),result.firstPageId(),result.pageIds()));
     }
     @GetMapping("/{diaryId}")
     @Operation(summary="회원 다이어리 상세",description="활성 멤버만 조회합니다. 삭제·비참여 자료는 존재 여부를 숨겨 404로 응답합니다.")

@@ -1,31 +1,45 @@
-import { useId } from 'react'
+import { memo, useId } from 'react'
 import Svg, { Circle, ClipPath, Defs, G, Path, Rect } from 'react-native-svg'
 import { packingLayout } from '../../templates/packingLayout.js'
 import { pageSize } from '../../utils/pageGeometry.js'
 
 const rounded = ({ x, y, width: w, height: h, rx: r }) => `M${x+r} ${y}H${x+w-r}A${r} ${r} 0 0 1 ${x+w} ${y+r}V${y+h-r}A${r} ${r} 0 0 1 ${x+w-r} ${y+h}H${x+r}A${r} ${r} 0 0 1 ${x} ${y+h-r}V${y+r}A${r} ${r} 0 0 1 ${x+r} ${y}Z`
 
+// 두 층은 페이지(요소 목록)가 아니라 속지 · 크기 · 배율 · 칠한 색만 받아 그 값이 바뀔 때만 다시 그린다.
+// 스티커를 넣거나 끌 때마다 페이지가 바뀌어 캐리어 SVG(그물 220줄 + 잘라내기)를 통째로 다시 그렸고, iPad 에서 화면이 떨려 보였다.
+// (react-native-svg 는 transform 등을 매번 새 값으로 넘겨 같은 그림이어도 네이티브가 다시 그린다)
+
 // 색상은 기존 캔버스 요소로 저장해 서버·기기 복원 경로에서 보존한다.
 export function PackingColorLayer({ page, zoom }) {
-  const layout = packingLayout(page.backgroundAssetId)
-  if (!layout) return null
-  const colors = Object.fromEntries(page.objects.filter(o => o.packingColorRegion && !o.hidden).map(o => [o.packingColorRegion, o.fill]))
+  if (!packingLayout(page.backgroundAssetId)) return null
   const { width, height } = pageSize(page)
+  // 칠한 색만 문자열로 묶어 넘긴다(요소가 늘어도 색이 같으면 다시 그리지 않는다)
+  const colors = JSON.stringify(Object.fromEntries(page.objects.filter(o => o.packingColorRegion && !o.hidden).map(o => [o.packingColorRegion, o.fill])))
+  return <PackingColorSvg assetId={page.backgroundAssetId} width={width} height={height} zoom={zoom} colors={colors} />
+}
+
+const PackingColorSvg = memo(function PackingColorSvg({ assetId, width, height, zoom, colors: colorKey }) {
+  const layout = packingLayout(assetId)
+  const colors = JSON.parse(colorKey)
   return <Svg pointerEvents="none" style={{ position: 'absolute', left: 0, top: 0 }} width={width * zoom} height={height * zoom} viewBox={`0 0 ${width} ${height}`}>
     <G transform={`translate(${layout.origin.x} ${layout.origin.y}) scale(${layout.scaleX ?? 1} ${layout.scaleY ?? 1})`}>
       {layout.cases.map((outer, i) => colors[`case-${i}`] && <Path key={`case-${i}`} d={`${rounded(outer)} ${rounded(layout.interiors[i])}`} fill={colors[`case-${i}`]} fillRule="evenodd" />)}
       {layout.interiors.map((box, i) => colors[`interior-${i}`] && <Rect key={`inside-${i}`} {...box} fill={colors[`interior-${i}`]} />)}
     </G>
   </Svg>
-}
+})
 
 // 수납 요소 위에는 테두리, 고정 끈과 그물만 다시 그린다.
 export function PackingFrontLayer({ page, zoom }) {
-  const clipId = `packing-mesh-${useId().replace(/[^a-zA-Z0-9_-]/g, '')}`
-  const layout = packingLayout(page.backgroundAssetId)
-  if (!layout) return null
+  if (!packingLayout(page.backgroundAssetId)) return null
   const { width, height } = pageSize(page)
-  const portrait = page.backgroundAssetId.endsWith('portrait')
+  return <PackingFrontSvg assetId={page.backgroundAssetId} width={width} height={height} zoom={zoom} />
+}
+
+const PackingFrontSvg = memo(function PackingFrontSvg({ assetId, width, height, zoom }) {
+  const clipId = `packing-mesh-${useId().replace(/[^a-zA-Z0-9_-]/g, '')}`
+  const layout = packingLayout(assetId)
+  const portrait = assetId.endsWith('portrait')
   const beltY = portrait ? 198.45 : 258.3
   const beltRight = portrait ? 294 : 242
   const buckleX = portrait ? 136.5 : 110.5
@@ -71,4 +85,4 @@ export function PackingFrontLayer({ page, zoom }) {
       </>}
     </G>
   </Svg>
-}
+})

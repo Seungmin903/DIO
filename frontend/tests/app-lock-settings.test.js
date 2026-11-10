@@ -190,7 +190,7 @@ test('게스트는 정상 잠금을 PIN 없이 풀 수 없고, 저장값이 손�
   const action=ok.appLockRecoveryAction({member:false,state:'corrupt',scope:'guest:g1',onCleared:()=>{done+=1}});
   assert.equal(typeof action,'function');
   action();const dialog=ok.dialogs.at(-1);
-  assert.equal(dialog.confirmLabel,'초기화');assert.match(dialog.message,/일기는 그대로/);
+  assert.equal(dialog.confirmLabel,'초기화');assert.match(dialog.message,/다이어리는 그대로/);
   await dialog.onConfirm();assert.equal(done,1);
   assert.deepEqual(ok.cleared,['guest:g1']);
   const failed=recovery({clear:async()=>{throw Error('keystore unavailable')}});

@@ -140,6 +140,48 @@ class MemberDiaryHttpTests {
             .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("INVALID_PAPER_APPEARANCE"));
     }
 
+    @Test void diaryTemplateConfigIsStoredOnCreationAndReturnedByDetailAndList() throws Exception {
+        var input=(tools.jackson.databind.node.ObjectNode)json.readTree(body(2));
+        var config=input.putObject("templateConfig").put("version",2).put("dateMode","undated").put("orientation","portrait");
+        config.putObject("paper").putArray("sections").addObject().put("kind","pages");
+        String payload=input.toString();
+        var created=json.readTree(mvc.perform(memberPost().header("Authorization","Bearer "+owner).contentType(MediaType.APPLICATION_JSON).content(payload))
+            .andExpect(status().isCreated()).andExpect(jsonPath("$.diary.templateConfig.dateMode").value("undated"))
+            .andReturn().getResponse().getContentAsByteArray());
+        String diaryId=id(created);
+        mvc.perform(get(PATH+"/"+diaryId).header("Authorization","Bearer "+owner)).andExpect(status().isOk())
+            .andExpect(jsonPath("$.diary.templateConfig.dateMode").value("undated"))
+            .andExpect(jsonPath("$.diary.templateConfig.paper.sections[0].kind").value("pages"));
+        mvc.perform(get(PATH).header("Authorization","Bearer "+owner)).andExpect(status().isOk())
+            .andExpect(jsonPath("$.items[0].diary.templateConfig.orientation").value("portrait"));
+        // 같은 키로 구성을 빼고 다시 보내면 다른 생성 요청이다.
+        input.remove("templateConfig");
+        mvc.perform(post(PATH).header("Authorization","Bearer "+owner).header("Idempotency-Key",lastKey)
+            .contentType(MediaType.APPLICATION_JSON).content(input.toString())).andExpect(status().isConflict());
+    }
+
+    @Test void ownerCanMoveLocalTemplateConfigToServerOnce() throws Exception {
+        var created=json.readTree(mvc.perform(memberPost().header("Authorization","Bearer "+owner).contentType(MediaType.APPLICATION_JSON).content(body(1)))
+            .andExpect(status().isCreated()).andExpect(jsonPath("$.diary.templateConfig").doesNotExist())
+            .andReturn().getResponse().getContentAsByteArray());
+        String diaryId=id(created);
+        var config=Map.of("version",2,"dateMode","dated","orientation","landscape");
+        mvc.perform(patch(PATH+"/"+diaryId).header("Authorization","Bearer "+owner).contentType(MediaType.APPLICATION_JSON)
+            .content(json.writeValueAsString(Map.of("expectedVersion","1","templateConfig",config))))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.diary.templateConfig.dateMode").value("dated"))
+            .andExpect(jsonPath("$.diary.version").value("2"));
+        // 같은 구성을 다시 보내면 버전이 오르지 않는다.
+        mvc.perform(patch(PATH+"/"+diaryId).header("Authorization","Bearer "+owner).contentType(MediaType.APPLICATION_JSON)
+            .content(json.writeValueAsString(Map.of("expectedVersion","2","templateConfig",config))))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.diary.version").value("2"));
+        mvc.perform(patch(PATH+"/"+diaryId).header("Authorization","Bearer "+owner).contentType(MediaType.APPLICATION_JSON)
+            .content("{\"expectedVersion\":\"2\",\"templateConfig\":[1]}"))
+            .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("INVALID_TEMPLATE_CONFIG"));
+        mvc.perform(patch(PATH+"/"+diaryId).header("Authorization","Bearer "+other).contentType(MediaType.APPLICATION_JSON)
+            .content(json.writeValueAsString(Map.of("expectedVersion","2","templateConfig",config))))
+            .andExpect(status().is4xxClientError());
+    }
+
     @Test void absentExpiredInvalidAndLoggedOutTokensFailBeforeJsonValidation() throws Exception {
         for(String token:List.of("", "not.a.jwt",jwt.issue(101L,ownerSession.getSessionId(),Instant.now().minusSeconds(60),Instant.now().minusSeconds(1)))) {
             var request=post(PATH).contentType(MediaType.APPLICATION_JSON).content("not-json");

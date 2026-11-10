@@ -36,14 +36,17 @@ const { code } = expo('@babel/core').transformSync(source + '\nexport { Backgrou
 function fixture({ error = null, cached = true } = {}) {
   const ast = paper(1024, 768)
   const module = { exports: {} }
-  let stateCalls = 0
+  let stateCalls = 0, memoCalls = 0, plannerCalls = 0, overlayCalls = 0
+  const memoValues = [], memoDependencies = []
   const effects = [], sets = [], cache = { cached }, signal = { listener: null }
   const load = id => {
-    if (id === 'react') return { ...React, useMemo: fn => fn(), useEffect: fn => { effects.push(fn) }, useState: initial => { const index = stateCalls++; const set = value => sets.push([index, value]); if (index === 1 && error) return [error, set]; return [typeof initial === 'function' ? initial() : initial, set] }, useRef: current => ({ current }) }
+    if (id === 'react') return { ...React, useMemo: (fn, deps = []) => { const index = memoCalls++, previous = memoDependencies[index]; if (previous && previous.length === deps.length && previous.every((value, i) => Object.is(value, deps[i]))) return memoValues[index]; memoDependencies[index] = deps; return memoValues[index] = fn() }, useEffect: fn => { effects.push(fn) }, useState: initial => { const index = stateCalls++; const set = value => sets.push([index, value]); if (index === 1 && error) return [error, set]; return [typeof initial === 'function' ? initial() : initial, set] }, useRef: current => ({ current }) }
     if (id.endsWith('/templateLoadedSignal.js')) return { subscribeTemplateLoaded: listener => { signal.listener = listener; return () => { signal.listener = null } } }
+    if (id.endsWith('/tastingGeometry.js')) return { isTastingId: () => false }
+    if (id.endsWith('/tastingElements.js')) return { tastingElementValue: () => null }
     if (id === 'react-native') return { Pressable: 'pressable', Text: 'text', View: 'view', StyleSheet: { create: v => v, absoluteFill: {} } }
     if (id === 'react-native-svg') return { SvgAst: 'svg-ast', SvgXml: 'svg-xml', parse: () => null }
-    if (id.endsWith('/planners.js')) return planners
+    if (id.endsWith('/planners.js')) return { ...planners, plannerFor: assetId => { plannerCalls++; return assetId === 'monthly' ? { titles: () => null, startHour: () => 6, baseSvg: () => '<svg/>', overlaySvg: () => { overlayCalls++; return '<svg/>' } } : planners.plannerFor(assetId) } }
     if (id.endsWith('/catalog.js')) return { templateReference: page => page.backgroundAssetId ? { backgroundAssetId: page.backgroundAssetId } : null }
     if (id.endsWith('/loadTemplate')) return { peekTemplateAst: () => cache.cached ? ast : null, loadTemplateAst: () => new Promise(() => {}) }
     if (id.endsWith('/appearance.js')) return { colorTemplateAst, normalizePaperAppearance: a => ({ backgroundColor: a?.backgroundColor ?? '#FFFFFF', layoutColor: '#292929' }) }
@@ -55,8 +58,8 @@ function fixture({ error = null, cached = true } = {}) {
     return require(id)
   }
   new Function('require', 'module', 'exports', code)(load, module, module.exports)
-  const render = props => { stateCalls = 0; effects.length = 0; return module.exports.BackgroundAttempt(props) }
-  return { render, backgroundKey: module.exports.backgroundKey, fontPhase: module.exports.fontPhase, ast, effects, sets, cache, signal }
+  const render = props => { stateCalls = 0; memoCalls = 0; effects.length = 0; return module.exports.BackgroundAttempt(props) }
+  return { render, plannerCalls: () => plannerCalls, overlayCalls: () => overlayCalls, backgroundKey: module.exports.backgroundKey, fontPhase: module.exports.fontPhase, ast, effects, sets, cache, signal }
 }
 const flat = node => !node || typeof node !== 'object' ? [] : [node, ...[node.props?.children].flat(Infinity).flatMap(flat)]
 
@@ -137,4 +140,24 @@ test('글꼴을 불러오면 속지를 한 번만 다시 그린다(Regular · Bo
   assert.equal(key('MaruBuri:error|MaruBuriBold:loaded'), key('MaruBuri:loaded|MaruBuriBold:loaded'))
   assert.notEqual(f.backgroundKey(page, 'settled', 0), f.backgroundKey(page, 'settled', 1)) // 다시 시도
   assert.notEqual(f.backgroundKey(page, '', 0), f.backgroundKey(page, 'loading', 0))
+})
+
+test('같은 속지의 다시 렌더링은 플래너 API를 재생성하지 않고 preparedXml 전환은 API를 비운다', () => {
+  const f = fixture(), page = { id: 'p', backgroundAssetId: 'monthly' }, props = { page, zoom: 1 }
+  f.render(props); f.render(props)
+  assert.equal(f.plannerCalls(), 1, '안정된 API 참조로 반복 SVG 파싱을 막는다')
+  f.render({ ...props, preparedXml: '<svg/>' })
+  assert.equal(f.plannerCalls(), 1, '출력용 XML 경로에서는 플래너 API를 만들지 않는다')
+  f.render(props)
+  assert.equal(f.plannerCalls(), 2, '편집 화면 복귀 시 API를 다시 만든다')
+})
+
+test('테이스팅이 아닌 플래너는 요소만 바뀌어서는 덮개 SVG 를 다시 만들지 않는다(끌기 · 편집 매 프레임 파싱 방지, MR !503 리뷰)', () => {
+  const f = fixture(), planner = { fills: {} }, page = { id: 'p', backgroundAssetId: 'monthly', planner, objects: [] }
+  f.render({ page, zoom: 1 })
+  assert.equal(f.overlayCalls(), 1)
+  f.render({ page: { ...page, objects: [{ id: 'a', type: 'text' }] }, zoom: 1 })
+  assert.equal(f.overlayCalls(), 1, '요소가 바뀌어도 기록 · 할 일 글이 같으면 그대로')
+  f.render({ page: { ...page, planner: { fills: { a: '#111111' } } }, zoom: 1 })
+  assert.equal(f.overlayCalls(), 2, '기록이 바뀌면 다시 만든다')
 })

@@ -14,12 +14,6 @@ test('차단한 사용자 화면 위에 안내 문구가 없다', () => {
   assert.ok(!src('safety/SafetyScreen.js').includes('차단한 사용자와는 이메일 초대'));
 });
 
-test('프로필 수정 화면 제목은 진입 버튼 이름과 같다', () => {
-  const s = src('auth/ProfileEditScreen.js');
-  assert.ok(!s.includes("'회원정보 수정'"));
-  assert.match(s, /accessibilityRole="header" style=\{[^}]*\}>\s*프로필 수정\s*<\/Text>/);
-});
-
 test('회원가입 입력 화면 뒤로가기 글자는 가는 곳(가입 전 확인)과 같다', () => {
   const s = src('auth/AuthScreen.js');
   assert.match(s, /route === 'signup' \? '가입 전 확인'/);

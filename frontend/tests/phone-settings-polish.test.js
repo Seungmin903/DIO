@@ -1,18 +1,18 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 
 const read = path => readFileSync(new URL(path, import.meta.url), 'utf8')
 
 test('597: 회원 탈퇴는 마이페이지 계정 구역 로그아웃 아래 목록 줄, 누르면 탈퇴 창만 뜬다', () => {
   const profile = read('../src/diary/screens/ProfileScreen.js')
-  assert.match(profile, /<SettingSection title="계정">\{logout\}\{withdrawRow\}<\/SettingSection>/)
+  assert.match(profile, /<SettingSection title="계정">\{accountRow\}\{passwordRow\}\{logout\}\{withdrawRow\}<\/SettingSection>/) // 로그인 계정 · 비밀번호 변경은 지라 842에 프로필 수정 화면에서 옮겨 왔다
   assert.match(profile, /accessibilityLabel="회원 탈퇴" onPress=\{\(\) => setWithdrawing\(true\)\} style=\{local\.linkRow\}/)
-  assert.match(profile, /<ProfileEditScreen withdrawOnly service=\{editService\}/)
+  assert.match(profile, /<WithdrawDialog service=\{editService\}/)
   assert.doesNotMatch(profile, /<DioButton variant="ghost" outline label="로그아웃"/)
-  const edit = read('../src/auth/ProfileEditScreen.js')
-  assert.match(edit, /useState\(passwordOnly \? 'password' : withdrawOnly \? 'withdraw' : null\)/)
-  assert.match(edit, /style=\{dialogOnly \? undefined : s\.root\}/)
+  // 프로필 수정 화면은 없앴다(지라 842). 탈퇴 창만 따로 남는다
+  assert.equal(existsSync(new URL('../src/auth/ProfileEditScreen.js', import.meta.url)), false)
+  assert.match(read('../src/auth/WithdrawDialog.js'), /accessibilityLabel="탈퇴하기"/)
 })
 
 test('598: 폰 차단한 사용자 머리줄은 화면 바탕색(위쪽이 두 색으로 갈리지 않게)', () => {
