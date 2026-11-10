@@ -10,8 +10,6 @@
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const uuid = value => typeof value === 'string' && UUID.test(value)
-// 표지는 JSON 으로 저장되는 값이라 JSON 으로 깊은 복사한다(structuredClone 은 앱 런타임(Hermes)에 없을 수 있다)
-const clone = value => (value === undefined ? undefined : JSON.parse(JSON.stringify(value)))
 const ENTRY_ID = /^[A-Za-z0-9_-]{1,64}$/
 const CONTROL = /[\u0000-\u001f\u007f-\u009f]/g, HAS_CONTROL = /[\u0000-\u001f\u007f-\u009f]/
 const clip = (value, max) => Array.from(String(value ?? '').replace(CONTROL, '')).slice(0, max).join('')
@@ -23,6 +21,8 @@ export const COVER_LIBRARY_LIMITS = Object.freeze({ covers: 100, name: 40, date:
 const ORIENTATIONS = new Set(['portrait', 'landscape'])
 const MEDIA_PREFIX = 'media:'
 const stable = covers => JSON.stringify(covers)
+// 표지 디자인은 JSON 값이라 JSON 으로 복사한다(structuredClone 은 React Native(Hermes) 전역에 없을 수 있다)
+const cloneJson = value => JSON.parse(JSON.stringify(value))
 const utf8Bytes = text => typeof TextEncoder !== 'undefined' ? new TextEncoder().encode(text).length : unescape(encodeURIComponent(text)).length
 
 /** 표지 디자인 안의 그림 칸(mediaFileId 가 있는 객체)마다 fn(칸, 종류)을 부른다. 종류는 표지 사진이면 PHOTO, 그 밖(스티커)은 STICKER */
@@ -74,6 +74,33 @@ export function mergeCovers(base, extra) {
   return [...base, ...extra.filter(entry => !ids.has(entry.id))]
 }
 
+// 다른 계정으로 바뀔 때 따로 둔 이전 계정 몫(stash)은 이 기간이 지나면 버린다(공용 기기에 이전 사용자 표지가 오래 남지 않게)
+export const COVER_STASH_TTL_MS = 30 * 24 * 60 * 60 * 1000
+export const COVER_SYNC_KEY_PREFIX = 'dio:cover-library-sync:v1:'
+const removeKeys = async (storage, keys) => {
+  if (!keys.length) return
+  if (storage.multiRemove) await storage.multiRemove(keys)
+  else for (const key of keys) await (storage.removeItem ? storage.removeItem(key) : storage.setItem(key, 'null'))
+}
+const readJson = async (storage, key) => { try { return JSON.parse(await storage.getItem(key) ?? 'null') } catch { return null } }
+
+/**
+ * 회원 탈퇴한 계정의 내 표지 동기화 기록(맞춘 상태 · 기기 id ↔ 서버 id 짝 · 받지 못한 그림 · 따로 둔 몫)을 이 기기에서 지운다.
+ * 키는 `<prefix><서버>:<계정>:…`(서버 주소는 encodeURIComponent 라 ':' 가 없다)와 `<prefix><서버>:meta`(그 계정과 맞췄을 때만) 다.
+ * storage 는 getAllKeys 가 있어야 한다(AsyncStorage). 없으면 아무것도 하지 않는다
+ */
+export async function forgetCoverLibraryAccount({ storage, account, prefix = COVER_SYNC_KEY_PREFIX }) {
+  if (!storage?.getAllKeys || account == null) return
+  const owner = String(account), doomed = []
+  for (const key of await storage.getAllKeys()) {
+    if (!key.startsWith(prefix)) continue
+    const [, scope] = key.slice(prefix.length).split(':')
+    if (scope === owner) doomed.push(key)
+    else if (scope === 'meta' && key.split(':').length === prefix.split(':').length + 1 && (await readJson(storage, key))?.account === owner) doomed.push(key)
+  }
+  await removeKeys(storage, doomed)
+}
+
 /**
  * account: 지금 로그인한 계정 id(문자열)
  * api: { get() → { version, covers }, put(expectedVersion, covers) → { version, covers } } (409 는 error.status === 409)
@@ -83,13 +110,23 @@ export function mergeCovers(base, extra) {
  * storage · key: 이 기기에서 맞춘 상태(meta) · 기기 id → 서버 id 짝 · 받지 못한 그림을 둔다
  * onStatus({ error }): 맞추기 결과(올리지 못한 표지 · 받지 못한 그림 · 연결 오류가 있으면 문구)
  */
-export function createCoverLibrarySync({ account, api, media, library, storage, key, isActive = () => true, setTimer = setTimeout, clearTimer = clearTimeout, debounceMs = COVER_SYNC_DEBOUNCE_MS, onError = () => {}, onStatus = () => {} }) {
+export function createCoverLibrarySync({ account, api, media, library, storage, key, isActive = () => true, setTimer = setTimeout, clearTimer = clearTimeout, debounceMs = COVER_SYNC_DEBOUNCE_MS, onError = () => {}, onStatus = () => {}, now = () => Date.now() }) {
   // meta 는 기기마다 하나(어느 계정과 맞췄는지 알아야 한다), 기기 id ↔ 서버 id 짝은 계정마다 따로 둔다(서버 id 가 계정마다 다르다)
   const metaKey = `${key}:meta`, idKey = id => `${key}:${account}:id:${String(id).toLowerCase()}`, localKey = id => `${key}:${account}:local:${String(id).toLowerCase()}`
   const missingKey = `${key}:${account}:missing`, stashKey = owner => `${key}:${owner}:stash`
-  // 다른 계정으로 바뀔 때 따로 둔 이 계정 몫: { covers(그때 기기 목록), synced(그때 이 계정과 맞춘 문서) }
-  const readStash = async () => {
-    try { const value = JSON.parse(await storage.getItem(stashKey(account)) ?? 'null'); return value && Array.isArray(value.covers) ? value : null } catch { return null }
+  // 다른 계정으로 바뀔 때 따로 둔 이 계정 몫: { covers(그때 기기 목록), synced(그때 이 계정과 맞춘 문서), savedAt }. 기한이 지났으면 없는 것으로 본다
+  const fresh = value => value && Array.isArray(value.covers) && Number.isFinite(value.savedAt) && now() - value.savedAt <= COVER_STASH_TTL_MS
+  const readStash = async () => { const value = await readJson(storage, stashKey(account)); return fresh(value) ? value : null }
+  // 기한이 지난 다른 계정 몫을 지운다(그 계정으로 다시 로그인하지 않아도 정리되게). getAllKeys 가 없는 저장소는 건너뛴다
+  async function sweepStashes() {
+    if (!storage.getAllKeys) return
+    const stale = []
+    for (const item of await storage.getAllKeys()) {
+      if (!item.startsWith(`${key}:`) || !item.endsWith(':stash')) continue
+      const value = await readJson(storage, item)
+      if (value != null && !fresh(value)) stale.push(item)
+    }
+    await removeKeys(storage, stale)
   }
   let meta = null, timer = null, running = null, again = false, closed = false, unsubscribe = null, applying = false
   const active = () => { if (closed || !isActive()) throw Object.assign(Error('내 표지 동기화가 끝났어요.'), { code: 'SYNC_CLOSED' }) }
@@ -98,7 +135,7 @@ export function createCoverLibrarySync({ account, api, media, library, storage, 
 
   // 기기 표지 하나를 서버 문서 모양으로. 그림 하나라도 서버 id 가 없으면(올리지 못했거나 upload 가 거짓) null
   async function toServerEntry(entry, upload) {
-    const cover = linkMediaRefs(clone(entry.cover))
+    const cover = linkMediaRefs(cloneJson(entry.cover))
     const slots = []
     eachMedia(cover, (slot, category) => slots.push([slot, category]))
     for (const [slot, category] of slots) {
@@ -173,7 +210,7 @@ export function createCoverLibrarySync({ account, api, media, library, storage, 
     await readMissing(); active()
     const covers = []
     for (const entry of server.covers) {
-      const cover = clone(entry.cover)
+      const cover = cloneJson(entry.cover)
       const slots = []
       eachMedia(cover, slot => slots.push(slot))
       for (const slot of slots) {
@@ -243,10 +280,11 @@ export function createCoverLibrarySync({ account, api, media, library, storage, 
     // 다른 계정이 쓰던 기기: 그 표지를 이 계정에 올리지 않는다. 지우지도 않고 그 계정 몫(stash)으로 따로 두었다가 그 계정으로 다시 로그인하면 되살린다
     // (올리지 못해 서버에 없던 표지가 계정을 바꾸는 순간 사라지지 않게). 이 계정이 남겨 둔 몫이 있으면 함께 되살린다
     if (meta && meta.account !== account) {
-      await storage.setItem(stashKey(meta.account), JSON.stringify({ covers: local, synced: meta.synced ?? '[]' })); active()
+      await storage.setItem(stashKey(meta.account), JSON.stringify({ covers: local, synced: meta.synced ?? '[]', savedAt: now() })); active()
       const restore = await readStash(); active()
       if (!await adopt(server, { keepLocal: false, restore })) return null
-      if (restore) await storage.setItem(stashKey(account), 'null')
+      await removeKeys(storage, [stashKey(account)]) // 되살렸거나 기한이 지난 이 계정 몫은 더 두지 않는다
+      await sweepStashes()
       return report(0)
     }
     if (!meta && !local.length) return await adopt(server) ? report(0) : null // 새 기기 · 재설치: 서버 목록을 그대로 받는다

@@ -1,7 +1,9 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { createCoverLibrarySync, mergeCovers } from '../src/diary/services/coverLibrarySync.js'
+import { COVER_STASH_TTL_MS, createCoverLibrarySync, forgetCoverLibraryAccount, mergeCovers } from '../src/diary/services/coverLibrarySync.js'
 import { normalizeMyCovers } from '../src/diary/utils/myLibrary.js'
+// 앱이 도는 React Native(Hermes)에는 structuredClone 이 없을 수 있어 테스트 도우미도 JSON 으로 복사한다
+const clone = value => JSON.parse(JSON.stringify(value))
 
 // 서버 한 대(계정 하나)와 기기 여러 대를 흉내 낸다. 서버는 CoverLibraryService 처럼 바깥 칸 순서를 고정하고 빈 칸을 null 로 돌려주며,
 // 앱(StickerLibrarySyncHost 의 readCovers)처럼 바깥 null 을 뺀 뒤 넘긴다. 기기 목록은 useMyLibrary 처럼 normalizeMyCovers 를 거친다.
@@ -13,21 +15,23 @@ function server() {
   return {
     state,
     api: {
-      get: async () => structuredClone({ version: state.version, covers: asApp(asServer(state.covers)) }),
+      get: async () => clone({ version: state.version, covers: asApp(asServer(state.covers)) }),
       put: async (expected, covers) => {
         state.puts++
         if (state.conflictOnce) { state.version++; state.covers = [...state.covers, state.conflictOnce]; state.conflictOnce = null }
         if (expected !== state.version) throw Object.assign(Error('conflict'), { status: 409 })
-        state.version++; state.covers = asApp(asServer(structuredClone(covers)))
-        return structuredClone({ version: state.version, covers: state.covers })
+        state.version++; state.covers = asApp(asServer(clone(covers)))
+        return clone({ version: state.version, covers: state.covers })
       },
     },
     upload: async (localId, category) => { const id = `90000000-0000-4000-8000-${String(++serial).padStart(12, '0')}`; state.uploads.set(id, localId); state.categories.push(category); return id },
   }
 }
+const clock = { now: Date.parse('2026-11-10T00:00:00Z') }
+const asyncStorage = map => ({ getItem: async k => map.get(k) ?? null, setItem: async (k, v) => { map.set(k, v) }, getAllKeys: async () => [...map.keys()], multiRemove: async keys => { keys.forEach(k => map.delete(k)) } })
 function device(remote, { account = '1', covers = [], storage = new Map(), failUploads = new Set(), onDownload = () => {}, failDownloads = new Map(), afterReplace = () => {} } = {}) {
   const statuses = []
-  const local = { covers: normalizeMyCovers(structuredClone(covers)) }, listeners = new Set(), downloads = [], errors = []
+  const local = { covers: normalizeMyCovers(clone(covers)) }, listeners = new Set(), downloads = [], errors = []
   const library = {
     ready: async () => {},
     snapshot: () => local.covers,
@@ -38,7 +42,8 @@ function device(remote, { account = '1', covers = [], storage = new Map(), failU
   const edit = next => { local.covers = normalizeMyCovers(next); listeners.forEach(listener => listener()) }
   const sync = createCoverLibrarySync({
     account, api: remote.api, library, key: 'cover-sync',
-    storage: { getItem: async k => storage.get(k) ?? null, setItem: async (k, v) => { storage.set(k, v) } },
+    // AsyncStorage 처럼 getAllKeys · multiRemove 도 둔다(기한 지난 몫 정리 · 탈퇴 정리)
+    storage: asyncStorage(storage), now: () => clock.now,
     media: { upload: async (id, category) => { if (failUploads.has(id)) throw Error('too large'); return remote.upload(id, category) }, download: async id => { downloads.push(id); onDownload(id); if (failDownloads.has(id)) throw Object.assign(Error('download failed'), { status: failDownloads.get(id) }) } },
     setTimer: run => ({ run }), clearTimer: timer => { timer.cleared = true },
     onError: error => errors.push(error.message),
@@ -297,4 +302,63 @@ test('src 만 있는 예전 표지 그림 · src 와 mediaFileId 가 다른 그�
   assert.equal(sent.stickers[0].src, `media:${sent.stickers[0].mediaFileId}`)
   await a.sync.sync()
   assert.equal(remote.state.puts, 1)
+})
+
+test('structuredClone 이 없는 런타임(React Native · Hermes)에서도 맞춘다', async () => {
+  const original = globalThis.structuredClone
+  delete globalThis.structuredClone
+  try {
+    const remote = server()
+    const a = device(remote, { covers: [photoCover('c1', L1, L2), plainCover('c2')] })
+    await a.sync.start()
+    assert.equal(a.errors.length, 0)
+    assert.deepEqual(remote.state.covers.map(c => c.id), ['c1', 'c2'])
+    const b = device(remote)
+    await b.sync.start()
+    assert.deepEqual(b.local.covers.map(c => c.id), ['c1', 'c2'])
+  } finally { globalThis.structuredClone = original }
+})
+
+test('계정 전환 때 따로 둔 몫은 30일이 지나면 되살리지 않고, 다른 계정으로 맞출 때 지운다', async () => {
+  const start = clock.now
+  try {
+    const one = server(), two = server(), three = server()
+    const storage = new Map()
+    const first = device(one, { account: '1', covers: [photoCover('c3', L3, L2, '큰 사진')], storage, failUploads: new Set([L3]) })
+    await first.sync.start(); first.sync.stop()
+    const second = device(two, { account: '2', covers: first.local.covers, storage })
+    await second.sync.start(); second.sync.stop()
+    assert.ok(storage.has('cover-sync:1:stash'))
+    // 30일이 지나 다른 계정(3)으로 맞추면 계정 1 몫은 정리된다(계정 1 로 다시 로그인하지 않아도)
+    clock.now = start + COVER_STASH_TTL_MS + 1
+    const third = device(three, { account: '3', covers: second.local.covers, storage })
+    await third.sync.start(); third.sync.stop()
+    assert.ok(!storage.has('cover-sync:1:stash'))
+    assert.ok(storage.has('cover-sync:2:stash')) // 방금 둔 계정 2 몫은 남는다
+    // 계정 1 로 돌아와도 기한이 지난 몫은 되살리지 않는다
+    const back = device(one, { account: '1', covers: third.local.covers, storage })
+    await back.sync.start(); await back.sync.whenIdle()
+    assert.deepEqual(back.local.covers.map(c => c.id), [])
+  } finally { clock.now = start }
+})
+
+test('회원 탈퇴한 계정의 동기화 기록만 지운다(다른 계정 · 다른 계정과 맞춘 meta 는 남긴다)', async () => {
+  const one = server(), two = server()
+  const storage = new Map()
+  const first = device(one, { account: '1', covers: [photoCover('c1', L1, L2)], storage })
+  await first.sync.start(); first.sync.stop()
+  const second = device(two, { account: '2', covers: first.local.covers, storage })
+  await second.sync.start(); second.sync.stop()
+  storage.set('other-feature:1:keep', 'x')
+  const prefixed = new Map([...storage].map(([k, v]) => [k.replace(/^cover-sync/, 'dio:cover-library-sync:v1:server'), v]))
+  // 앱 키 모양(dio:cover-library-sync:v1:<서버>:…)으로 옮겨 실제 접두어로 지운다
+  for (const [k, v] of storage) if (!k.startsWith('cover-sync')) prefixed.set(k, v)
+  const keysOf = owner => [...prefixed.keys()].filter(k => k.startsWith(`dio:cover-library-sync:v1:server:${owner}:`))
+  assert.ok(keysOf('1').length > 0) // 계정 1 의 짝 · 따로 둔 몫
+  await forgetCoverLibraryAccount({ storage: asyncStorage(prefixed), account: '1' })
+  assert.deepEqual(keysOf('1'), [])
+  assert.ok(prefixed.has('dio:cover-library-sync:v1:server:meta')) // 지금 meta 는 계정 2 것이라 남긴다
+  assert.ok(prefixed.has('other-feature:1:keep'))
+  await forgetCoverLibraryAccount({ storage: asyncStorage(prefixed), account: '2' })
+  assert.ok(!prefixed.has('dio:cover-library-sync:v1:server:meta')) // 계정 2 와 맞춘 meta 는 지운다
 })

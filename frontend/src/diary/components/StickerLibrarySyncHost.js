@@ -10,7 +10,7 @@ import { createStickerLibrarySync } from '../../editor/services/stickerLibrarySy
 import { customDecorFolders, replaceStickerFolders, subscribeCustomDecor, useCustomDecor } from '../../editor/hooks/useCustomDecor'
 import { sharedGifMaxBytes } from '../../shared/mediaLimits.js'
 import { setStickerSyncRetry, setStickerSyncStatus } from '../../editor/services/stickerLibrarySyncStatus.js'
-import { createCoverLibrarySync } from '../services/coverLibrarySync.js'
+import { createCoverLibrarySync, forgetCoverLibraryAccount } from '../services/coverLibrarySync.js'
 import { setCoverSyncRetry, setCoverSyncStatus } from '../services/coverLibrarySyncStatus.js'
 import { setPaperSyncRetry, setPaperSyncStatus } from '../services/paperLibrarySyncStatus.js'
 import { createPaperLibrarySync } from '../services/paperLibrarySync.js'
@@ -153,3 +153,14 @@ function readPapers(body) {
 }
 // 서버는 빈 칸을 null 로 보낸다. 기기 보관함과 비교할 때 같게 보이도록 빈 칸을 뺀다
 const dropNulls = item => Object.fromEntries(Object.entries(item ?? {}).filter(([, value]) => value != null))
+
+/**
+ * 회원 탈퇴를 마친 계정의 내 표지 동기화 기록을 이 기기에서 지운다(맞춘 상태 · 기기 id ↔ 서버 id 짝 · 받지 못한 그림 · 계정 전환 때 따로 둔 몫).
+ * 그 계정 동기화가 돌고 있으면 먼저 멈춰, 지운 뒤에 다시 쓰지 않게 한다. 실패해도 탈퇴는 끝난 것으로 본다
+ */
+export async function forgetLibrarySyncAccount(accountId) {
+  if (accountId == null) return
+  if (shared?.id?.startsWith(`${accountId}:`)) stopShared()
+  try { await forgetCoverLibraryAccount({ storage: AsyncStorage, account: String(accountId) }) }
+  catch (error) { if (typeof __DEV__ !== 'undefined' && __DEV__) console.warn('[DIO_COVER_SYNC]', error?.message) }
+}
