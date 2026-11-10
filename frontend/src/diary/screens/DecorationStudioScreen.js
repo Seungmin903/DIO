@@ -39,6 +39,7 @@ import { COVER_PHOTO_RATIO, coverCropPhoto, coverPhotoWithAspect } from '../util
 import { Segmented } from '../components/FormControls';
 import { TAPE_SIZES } from '../../editor/constants';
 import { useTapeLibrarySyncStatus } from '../../editor/services/tapeLibrarySyncStatus.js';
+import { usePaletteSyncStatus } from '../../editor/services/paletteSyncStatus.js';
 import ConfirmDialog from '../../editor/components/controls/ConfirmDialog';
 import DecorSaveNotice from '../../editor/components/panels/DecorSaveNotice';
 import { useStickerLibrarySyncStatus } from '../../editor/services/stickerLibrarySyncStatus.js';
@@ -97,6 +98,7 @@ export default function DecorationStudioScreen({ compact = false, registerBackHa
   // 테이프 이름 고치기(카드 이름을 누르면 그 자리에서): { id, draft }
   const [tapeNameEdit, setTapeNameEdit] = useState(null);
   const tapeSync = useTapeLibrarySyncStatus(); // 테이프 계정 동기화 실패를 스티커 탭과 같은 자리 · 모양으로 테이프 탭에 알린다
+  const paletteSync = usePaletteSyncStatus(); // 도구 탭 팔레트 계정 동기화 실패도 같은 모양으로 도구 탭에 알린다
   // 사진으로 표지 만들기의 자르기 창: { photo, ratio, resolve }
   const [coverCrop, setCoverCrop] = useState(null);
   // 내 표지 편집(지라 603): 견본을 누르면 새 다이어리 표지 탭과 같은 편집 화면을 열고, 꾸밈까지 저장한다
@@ -518,7 +520,10 @@ export default function DecorationStudioScreen({ compact = false, registerBackHa
     {shelfError === 'paper-rename' && <Text accessibilityRole="alert" style={s.error}>속지 이름을 바꾸지 못했어요. 다시 시도해 주세요.</Text>}
   </StudioSection>;
 
-  const presetSection = <StudioSection title="도구"><StudioPresets compact={compact} /></StudioSection>;
+  const presetSection = <StudioSection title="도구">
+    <StudioPresets compact={compact} />
+    <DecorSaveNotice error={paletteSync.error} pending={paletteSync.pending} onRetry={paletteSync.retry} retryLabel="다시 맞추기" pendingLabel="다시 맞추는 중…" accessibilityLabel="팔레트 계정 동기화 재시도" />
+  </StudioSection>;
 
   const current = { fonts: fontSection, stickers: stickerSection, tapes: tapeSection, covers: coverSection, papers: paperSection, presets: presetSection }[tab] ?? fontSection;
 

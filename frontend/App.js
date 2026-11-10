@@ -59,6 +59,7 @@ import DecorationStudioScreen from './src/diary/screens/DecorationStudioScreen';
 import TrashScreen from './src/diary/screens/TrashScreen';
 import { GuestImportHost } from './src/diary/components/GuestImportDialog';
 import { StickerLibrarySyncHost, forgetLibrarySyncAccount } from './src/diary/components/StickerLibrarySyncHost';
+import { PaletteSyncHost } from './src/diary/components/PaletteSyncHost';
 import { styles as s } from './src/diary/styles';
 import { confirmAction, notify } from './src/shared/dialogs';
 import DialogHost from './src/shared/DialogHost';
@@ -1349,6 +1350,8 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onWithdraw
       {/* 꾸미기 공방 스티커 · 테이프 보관함 · 내 표지를 계정 서버와 맞춘다(다른 기기 · 재설치에서도 같은 구성) */}
       {/* 두 호스트는 형제라 key 가 서로 달라야 한다(같으면 React 가 'two children with the same key' 경고를 띄우고 하나를 빼먹을 수 있다). 계정 · 세션이 바뀌면 새로 만든다 */}
       {member && signedIn && <StickerLibrarySyncHost key={`sticker-sync:${previewUser.userId}:${authService.getSessionKey()}`} accountId={String(previewUser.userId)} enabled={appLocked === false} />}
+      {/* 꾸미기 공방 도구 탭 팔레트도 계정 서버와 맞춘다 */}
+      {member && signedIn && <PaletteSyncHost key={`palette-sync:${previewUser.userId}:${authService.getSessionKey()}`} accountId={String(previewUser.userId)} enabled={appLocked === false} />}
       {member && signedIn && <GuestImportHost key={`guest-import:${previewUser.userId}:${authService.getSessionKey()}`} accountId={String(previewUser.userId)} enabled={appLocked === false} onImported={() => diaryState.store.reload().catch(() => {})} onEntry={setGuestImport} />}
       <DialogHost />
     </>
