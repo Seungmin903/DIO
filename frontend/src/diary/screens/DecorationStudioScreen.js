@@ -283,8 +283,8 @@ export default function DecorationStudioScreen({ compact = false, registerBackHa
     </> : addTool({ kind: 'sticker', icon: 'sticker', title: '스티커 추가', description: CUTOUT_ENTRANCE ? '스티커 시트 분리 · 사진 속 대상 오리기 · 새 폴더' : '스티커 시트 분리 · 새 폴더', disabled: !custom.loaded, menu: true })}>
     {custom.saveError ? <DecorSaveNotice error={custom.saveError} pending={custom.savePending} onRetry={custom.retrySave} /> : null}
     <DecorSaveNotice error={stickerSync.error} pending={stickerSync.pending} onRetry={stickerSync.retry} retryLabel="다시 맞추기" pendingLabel="다시 맞추는 중…" accessibilityLabel="스티커 보관함 계정 동기화 재시도" />
-    {/* 폴더 안 추가: 머리줄 아래 줄에 `스티커 추가`(다른 `○○ 추가` 버튼과 같은 모양). 누르면 이 폴더로 넣는 방법을 말풍선으로 고른다 */}
-    {folder && <View style={s.addRow}>{addTool({ kind: 'stickerIn', icon: 'sticker', title: '스티커 추가', description: '시트에서 분리하기 · 이미지 한 장씩 넣기', menu: true })}</View>}
+    {/* 폴더 안 추가: 머리줄 아래 줄 오른쪽에 `스티커 추가`(다른 `○○ 추가` 버튼과 같은 모양 · 머리줄의 추가 버튼과 같은 쪽). 누르면 이 폴더로 넣는 방법을 말풍선으로 고른다 */}
+    {folder && <View style={s.addRow}>{addTool({ kind: 'stickerIn', icon: 'sticker', title: '스티커 추가', description: CUTOUT_ENTRANCE ? '시트에서 분리하기 · 사진 속 대상 오리기 · 이미지 한 장씩 넣기' : '시트에서 분리하기 · 이미지 한 장씩 넣기', menu: true })}</View>}
     {shelfError === 'sticker' && <Text accessibilityRole="alert" style={s.error}>사진을 불러오지 못했어요. 다시 시도해 주세요.</Text>}
     {folder && stickerRename != null && <View style={s.renameRow}>
       <TextInput autoFocus selectTextOnFocus maxLength={FOLDER_NAME_LIMIT} value={stickerRename} onChangeText={setStickerRename} onSubmitEditing={commitStickerRename}
@@ -550,6 +550,9 @@ export default function DecorationStudioScreen({ compact = false, registerBackHa
     {addMenu && <DiaryActionBubble visible={!addMenu.closing} onDismiss={() => onAddMenuDismiss(addMenu.token)} anchor={addMenu.anchor} title={addMenu.kind === 'cover' ? '표지 추가' : addMenu.kind === 'tape' ? '테이프 추가' : '스티커 추가'} onClose={closeAddMenu} actions={addMenu.kind === 'stickerIn' ? [
       { id: 'split', label: stickerSplit.available ? '시트에서 분리하기' : `시트에서 분리하기, ${stickerSplit.reason || '이 기기에서는 쓸 수 없어요'}`, text: '시트에서 분리하기', icon: 'grid',
         disabled: !stickerSplit.available, onPress: () => openPickerAfterMenu(() => loginGate('스티커 시트 분리', () => setTool('splitIn'))) }, // 699: 갤러리를 바로 여니 iOS 는 말풍선이 다 닫힌 뒤
+      // 폴더 안에서도 사진 속 대상 오리기(편집기 스티커 보관함 폴더의 + 와 같다). 오린 스티커는 이 폴더에 담긴다(StickerCutoutModal folder)
+      ...(CUTOUT_ENTRANCE ? [{ id: 'cutout', label: '사진 속 대상 오리기', text: '사진 속 대상 오리기', icon: 'scissors',
+        onPress: () => openPickerAfterMenu(() => loginGate('사진 속 대상 오리기', () => setTool('cutout'))) }] : []),
       { id: 'photos', label: '이미지 한 장씩 넣기', text: '이미지 한 장씩 넣기', icon: 'image', onPress: () => openPickerAfterMenu(() => addStickerImages(folder.id)) },
     ] : addMenu.kind === 'tape' ? [
       { id: 'photo', label: '사진으로 만들기', text: '사진으로 만들기', icon: 'image', onPress: () => openPickerAfterMenu(() => addTapeFromPhoto(null)) },
@@ -562,7 +565,7 @@ export default function DecorationStudioScreen({ compact = false, registerBackHa
         disabled: !stickerSplit.available, onPress: () => openPickerAfterMenu(() => loginGate('스티커 시트 분리', () => setTool('split'))) },
       // 사진 속 대상 오리기: 저장이 아직 미리보기 단계라(StickerCutoutModal 확인창) 모든 빌드에서 입구를 감춘다
       ...(CUTOUT_ENTRANCE ? [{ id: 'cutout', label: '사진 속 대상 오리기', text: '사진 속 대상 오리기', icon: 'scissors',
-        onPress: () => { closeAddMenu(); loginGate('사진 속 대상 오리기', () => setTool('cutout')); } }] : []),
+        onPress: () => openPickerAfterMenu(() => loginGate('사진 속 대상 오리기', () => setTool('cutout'))) }] : []),
       { id: 'folder', label: '새 폴더', text: '새 폴더', icon: 'folder', onPress: () => { closeAddMenu(); newStickerFolder(); } },
     ]} />}
     {coverPages && <PdfCoverPagePicker name={coverPages.name} pages={coverPages.pages} limit={coverPages.limit} compact={compact}
@@ -643,7 +646,8 @@ const s = StyleSheet.create({
   tapeNameRow: { minHeight: 32, maxWidth: '100%', flexDirection: 'row', alignItems: 'center', gap: 4 },
   tapeNameText: { flexShrink: 1 },
   tapeNameInput: { minHeight: 32, alignSelf: 'stretch', paddingVertical: 0, paddingHorizontal: 6, borderRadius: 8, borderWidth: 1, borderColor: colors.primary, textAlign: 'center' },
-  addRow: { alignSelf: 'flex-start', marginBottom: 12 },
+  // 폴더 안 `○○ 추가` 버튼 줄: 폴더 밖 머리줄의 추가 버튼과 같은 오른쪽에 둔다
+  addRow: { alignSelf: 'flex-end', marginBottom: 12 },
   renameRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
   renameInput: { flex: 1, minWidth: 0, height: 48, paddingHorizontal: 12, borderRadius: 12, borderWidth: 1, borderColor: colors.primary, color: colors.text, fontSize: 15, fontWeight: '700', backgroundColor: colors.surface },
   stickerRemove: { position: 'absolute', top: -6, right: -6, width: 24, height: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
