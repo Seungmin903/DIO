@@ -15,13 +15,16 @@ env_file="${2:?env file is required}"
 compose_file="${3:?compose file is required}"
 health_url="${4:?health URL is required}"
 ai_wait="${AI_WAIT_SECONDS:-180}"
-health_retries="${HEALTH_RETRIES:-12}"
+# health 대기: HEALTH_RETRY_DELAY초 간격 HEALTH_RETRIES번. CI에서는 .gitlab-ci.yml 맨 위 variables 값을 받고,
+# 직접 실행할 때의 기본값(2초 x 60번, 약 2분)도 그 값과 맞춘다.
+health_retries="${HEALTH_RETRIES:-60}"
+health_retry_delay="${HEALTH_RETRY_DELAY:-2}"
 here="$(cd "$(dirname "$0")" && pwd)"
 # shellcheck source=deploy-images.sh
 . "$here/deploy-images.sh"
 
 compose() { docker compose --project-name "$project" --env-file "$env_file" -f "$compose_file" "$@"; }
-healthy() { curl --fail --silent --show-error --retry "$health_retries" --retry-all-errors --retry-delay 2 "$health_url" >/dev/null; }
+healthy() { curl --fail --silent --show-error --retry "$health_retries" --retry-all-errors --retry-delay "$health_retry_delay" "$health_url" >/dev/null; }
 
 backend_target="$(rollback_target "$BACKEND_IMAGE")"
 ai_target="$(rollback_target "$AI_IMAGE")"
