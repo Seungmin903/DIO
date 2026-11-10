@@ -1,4 +1,4 @@
-import {sameElements,sharedObject,reconcileCanvasObjects,canvasDelta} from './canvasApi.js'
+import {sameElements,sharedObject,reconcileCanvasObjects,canvasDelta,remapObjectIds} from './canvasApi.js'
 import {assertCanvasBatchLimits,assertCanvasBatchCounts} from './canvasBatchLimits.js'
 // Member canvas history is sent as completed actions. Local-only documents keep their existing reducer.
 const elements = (doc, pageId) => (doc.pages.find(p => p.id === pageId)?.objects ?? []).filter(sharedObject)
@@ -102,8 +102,11 @@ function reduceCollaboration(reduce,state,action) {
   if(action.type==='collaborationAck')return {...current,collaborationEdits:current.collaborationEdits.filter(e=>!action.ids.includes(e.id))}
   if(action.type==='commitCheckpoint'){finish();return current}
   if(action.type==='importCollaborationElements'||action.type==='collaborationHistoryApplied'){
-    const page=current.doc.pages.find(p=>p.id===action.pageId)
+    let page=current.doc.pages.find(p=>p.id===action.pageId)
     if(!page)return current
+    // 저장 중 ID 충돌로 내 새 요소의 ID 가 바뀌었으면 편집기 문서도 같은 ID 로 바꾼 뒤 맞춘다. 옛 ID 는 서버에서 다른 요소다
+    const renamed=remapObjectIds(page.objects,action.idRemaps)
+    if(renamed!==page.objects){page={...page,objects:renamed};current={...current,doc:{...current.doc,pages:current.doc.pages.map(p=>p.id===page.id?page:p)}}}
     const matches=action.expectedElements?sameElements(page.objects,action.expectedElements):page.objects===action.expectedObjects
     if(!matches){
       if(action.type!=='importCollaborationElements'||!action.expectedElements)return current

@@ -38,7 +38,8 @@ test('팔레트 칸 색 창: 처음 색과 다르면 X 왼쪽에 원래대로, �
   const editor = read('../src/diary/components/PresetColorEditor.js')
   assert.match(editor, /defaultValue = null, onDone/)
   assert.match(editor, /const changed = Boolean\(defaults\) && !same\(list, defaults\)/)
-  assert.match(editor, /\{changed && <Pressable accessibilityRole="button" accessibilityLabel=\{`\$\{title\} 원래 색으로 되돌리기`\}[^>]*onPress=\{restore\}[^>]*><Text style=\{s\.restoreText\}>원래대로<\/Text><\/Pressable>\}\n\s*<Pressable accessibilityRole="button" accessibilityLabel=\{`\$\{title\} 창 닫기`\}/)
+  // X 자리에는 글자 버튼(doneLabel, 글자 색 창의 '완료' S15P31F106-482)이 대신 올 수 있다. 그래도 '원래대로'는 그 왼쪽이다
+  assert.match(editor, /\{changed && <Pressable accessibilityRole="button" accessibilityLabel=\{`\$\{title\} 원래 색으로 되돌리기`\}[^>]*onPress=\{restore\}[^>]*><Text style=\{s\.restoreText\}>원래대로<\/Text><\/Pressable>\}\n\s*(?:\{doneLabel\n\s*\? <Pressable[^\n]*onPress=\{close\}[^\n]*\n\s*: )?<Pressable accessibilityRole="button" accessibilityLabel=\{`\$\{title\} 창 닫기`\}/)
   assert.match(editor, /onDone\(defaults && same\(latest\.current, defaults\) \? defaultValue : fromList\(latest\.current\)\)/)
   assert.match(read('../src/editor/components/controls/EditablePalette.js'), /defaultValue: palette\.defaults\?\.\[index\] \?\? null/)
 })

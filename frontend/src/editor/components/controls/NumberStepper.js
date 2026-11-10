@@ -9,6 +9,7 @@ import { numberFieldStyles } from './numberFieldStyles'
 /**
  * 숫자와 좌우 −·+ 버튼만 있는 값 고르기(끌어서 바꾸는 막대 없음). 숫자 칸에 값을 직접 넣을 수도 있다.
  * 칸에는 value × scale 을 보여 준다 (예: 자간 0.1 → 10). 버튼은 step 만큼, 입력은 확정(엔터 · 포커스 아웃) 때 범위 안으로 맞춰 반영한다.
+ * 단위 글자는 붙이지 않는다(자간 · 줄간격에 % 를 붙여 봤더니 칸 배열이 어긋나고 보기 싫었다 — 사용자 피드백 2026-11-10)
  */
 export default function NumberStepper({ value, min, max, step, onChange, scale = 1, label = '값', minusLabel = '줄이기', plusLabel = '늘리기' }) {
   const decimals = step * scale < 1 ? 1 : 0

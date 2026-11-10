@@ -61,12 +61,18 @@ test('다른 도구로 전환하면 기존 설정을 닫고, 새 도구를 다�
   assert.equal(f.state.penSettingsOpen, false)
 })
 
-test('텍스트·올가미 설정 동작은 유지하고 펜 설정은 닫는다', () => {
+test('텍스트 도구는 처음 눌러도 다시 눌러도 기본값 서식 창을 열지 않고(S15P31F106-482), 올가미 설정 동작은 유지하며 펜 설정은 닫는다', () => {
   const f = fixture('pen')
   f.state.penSettingsOpen = true
   f.press('text')
-  assert.equal(f.state.textSettingsOpen, true)
+  assert.equal(f.state.textSettingsOpen, false, '처음 고를 때는 창이 뜨지 않는다')
   assert.equal(f.state.penSettingsOpen, false)
+  f.state.activeTool = 'text'
+  f.press('text')
+  assert.equal(f.state.textSettingsOpen, false, '고른 도구를 다시 눌러도 열지 않는다 — 서식은 키보드 위 줄 · 선택 바의 서식이 맡는다')
+  f.state.activeTool = 'text'; f.state.textSettingsOpen = true
+  f.press('text')
+  assert.equal(f.state.textSettingsOpen, false, '열려 있던 창은 닫는다')
   f.press('lasso')
   assert.equal(f.state.lassoSettingsOpen, true)
   assert.equal(f.state.textSettingsOpen, false)

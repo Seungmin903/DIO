@@ -236,6 +236,17 @@ export function createCoverLibrarySync({ account, api, media, library, storage, 
     return out
   }
 
+  // 서버 것과 합친 목록을 서버 한도(100개)에 맞춘다. 서버에 이미 있는 표지는 모두 두고(빼면 다른 기기에서도 지워진다),
+  // 남는 자리만큼 이 기기에만 있는 표지를 넣는다. 들어가지 못한 표지는 기기에만 남고 올리지 못한 수로 알린다(overflow)
+  let overflow = 0
+  function fitLimit(merged, serverCovers) {
+    const onServer = new Set(serverCovers.map(entry => entry.id))
+    let room = COVER_LIBRARY_LIMITS.covers - merged.filter(entry => onServer.has(entry.id)).length
+    const out = merged.filter(entry => onServer.has(entry.id) || room-- > 0)
+    overflow = merged.length - out.length
+    return out
+  }
+
   async function push(covers, version) {
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
@@ -244,9 +255,9 @@ export function createCoverLibrarySync({ account, api, media, library, storage, 
         return saved
       } catch (error) {
         if (error?.status !== 409) throw error
-        // 다른 기기가 먼저 바꿨다: 서버 것을 받아 내 변경을 얹어 다시 저장한다
+        // 다른 기기가 먼저 바꿨다: 서버 것을 받아 내 변경을 얹어 다시 저장한다(합쳐도 서버 한도 안으로)
         const server = await api.get(); active()
-        covers = mergeCovers(covers, server.covers); version = server.version
+        covers = fitLimit(mergeCovers(covers, server.covers), server.covers); version = server.version
       }
     }
     throw Object.assign(Error('다른 기기의 변경과 계속 겹쳐 저장하지 못했어요.'), { status: 409 })
@@ -287,10 +298,12 @@ export function createCoverLibrarySync({ account, api, media, library, storage, 
     const mine = await toServer(local, true); active()
     // 다시 올려 봤지만 새로 올라간 것이 없으면 저장하지 않는다(version 만 올라 다른 기기가 매번 다시 받지 않게). 서버가 바뀌었으면 받는다
     if (meta && stable(mine) === meta.synced) return serverChanged && !await adopt(server) ? null : report(mine.pending)
-    const saved = await push(serverChanged ? mergeCovers(mine, server.covers) : mine, server.version)
+    overflow = 0
+    const saved = await push(serverChanged ? fitLimit(mergeCovers(mine, server.covers), server.covers) : mine, server.version)
     // 저장된 결과가 기기에서 보낸 것과 다르면(서버 것과 합쳤으면) 기기에도 들인다. 들이지 않으면 다음 맞추기에서 다른 기기 표지를 서버에서 지운다
+    // (한도로 빠진 이 기기 표지는 서버에 맞춘 적이 없어 들일 때도 기기에 남는다)
     if (stable(saved.covers) !== stable(mine)) await adopt(saved)
-    report(mine.pending)
+    report(mine.pending + overflow)
     return saved
   }
   // 맞추기 결과를 알린다: 올리지 못한 표지나 받지 못한 그림이 남았으면 실패, 아니면 정상
@@ -302,12 +315,20 @@ export function createCoverLibrarySync({ account, api, media, library, storage, 
     return null
   }
 
+  // 실패 문구: 연결 오류 · 계속 겹침(409) · 서버가 거절(400, 형식 · 한도) · 기기 저장 실패를 가른다
+  function failureText(error) {
+    if (error?.status === 409) return '다른 기기의 변경과 계속 겹쳐 내 표지를 계정에 저장하지 못했어요.'
+    if (error?.status === 400) return '계정이 받을 수 없는 내 표지가 있어 저장하지 못했어요(표지 수 · 크기 한도). 표지를 정리한 뒤 다시 맞춰 주세요.'
+    if (error?.code === 'LOCAL_SAVE_FAILED') return '계정의 내 표지를 이 기기에 저장하지 못했어요. 저장 공간을 확인한 뒤 다시 맞춰 주세요.'
+    return '내 표지를 계정과 맞추지 못했어요. 연결을 확인해 주세요.'
+  }
+
   function run() {
     if (running) { again = true; return running }
     running = reconcile().catch(error => {
       if (error?.code === 'SYNC_CLOSED') return
       onError(error)
-      onStatus({ error: error?.status === 409 ? '다른 기기의 변경과 계속 겹쳐 내 표지를 계정에 저장하지 못했어요.' : '내 표지를 계정과 맞추지 못했어요. 연결을 확인해 주세요.' })
+      onStatus({ error: failureText(error) })
     })
       .finally(() => { running = null; if (again && !closed) { again = false; schedule() } })
     return running

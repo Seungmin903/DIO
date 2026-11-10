@@ -44,6 +44,13 @@ export function canvasDelta(before,after){
   return {old,next,reordered,touched:[...new Set([...old.keys(),...next.keys()])].filter(id=>!old.has(id)||!next.has(id)||reordered||!sameElement(old.get(id),next.get(id)))}
 }
 
+// ID-conflict recovery renames a pending local create (old → new). The editor still holds the
+// old ID until it imports the sync result, so its objects are renamed the same way first.
+export function remapObjectIds(objects,remaps){
+ if(!remaps||!objects.some(o=>remaps[o.id]))return objects
+ return objects.map(o=>remaps[o.id]?{...o,id:remaps[o.id]}:o)
+}
+
 // Apply remote results without discarding edits made while the request was in flight.
 export function reconcileCanvasObjects(expected,current,incoming){
  const before=new Map(expected.filter(sharedObject).map(o=>[o.id,o]))
