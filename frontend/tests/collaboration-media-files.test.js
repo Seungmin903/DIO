@@ -9,14 +9,14 @@ import * as plan from '../src/editor/utils/shareImagePlan.js'
 import {shareJpegAttempts} from '../src/editor/utils/shareImagePlan.js'
 const require=createRequire(import.meta.url),expo=createRequire(require.resolve('expo/package.json'))
 function adapter(platform,stored){
- const writes=[],temps=[],parts=[],seeds=[],jpegCalls=[]
+ const writes=[],temps=[],parts=[],seeds=[],jpegCalls=[],pngCalls=[]
  const repository={get:async()=>stored,decode:async()=>({width:20,height:10}),createDisplay:async()=>null,verifyDisplay:async()=>{},save:async(source,metadata)=>{writes.push({source,metadata});return 'cached-image'},dispose:async()=>{}}
  class File{constructor(_path,name){this.uri=name===undefined?_path:`cache/${name}`;if(name!==undefined)temps.push(this)}create(){}write(bytes){this.bytes=bytes}delete(){this.deleted=true}}
  class Form{append(...args){parts.push(args)}}
  const code=expo('@babel/core').transformSync(readFileSync(new URL(`../src/editor/services/canvasMediaFiles.${platform}.js`,import.meta.url),'utf8'),{configFile:false,babelrc:false,plugins:[expo.resolve('@babel/plugin-transform-modules-commonjs')]}).code
  const module={exports:{}}
- new Function('require','module','exports','FormData',code)(name=>name.endsWith('/mediaStore')?{mediaRegistry:{seed:(id,value)=>seeds.push({id,...value})}}:name.includes('mediaRepository')?repository:name.includes('mediaLimits')?limits:name.includes('mediaPolicy')?{detectMediaType,checkDimensions}:name.includes('shareImagePlan')?plan:name.includes('shareImage')?{toShareJpeg:async(source,options)=>{jpegCalls.push({source,options});return {uri:'jpeg-uri',blob:{jpeg:true},size:1234}}}:{File,Paths:{cache:'cache'}},module,module.exports,Form)
- return {files:module.exports.canvasMediaFiles,writes,temps,parts,seeds,jpegCalls}
+ new Function('require','module','exports','FormData',code)(name=>name.endsWith('/mediaStore')?{mediaRegistry:{seed:(id,value)=>seeds.push({id,...value})}}:name.includes('mediaRepository')?repository:name.includes('mediaLimits')?limits:name.includes('mediaPolicy')?{detectMediaType,checkDimensions}:name.includes('shareImagePlan')?plan:name.includes('shareImage')?{toShareJpeg:async(source,options)=>{jpegCalls.push({source,options});return {uri:'jpeg-uri',blob:{jpeg:true},size:1234}},toSharePng:async(source,options)=>{pngCalls.push({source,options});return {uri:'png-uri',blob:{png:true},size:4321,width:1500,height:1060}}}:{File,Paths:{cache:'cache'}},module,module.exports,Form)
+ return {files:module.exports.canvasMediaFiles,writes,temps,parts,seeds,jpegCalls,pngCalls}
 }
 for(const platform of ['web','native']){
  test(`${platform}: HEIC는 기존 표시본으로 업로드하고 기기 원본을 건드리지 않는다`,async()=>{
@@ -55,11 +55,12 @@ for(const platform of ['web','native']){
   else{const {bytes,...part}=a.parts[0][1];assert.deepEqual(part,{uri:'jpeg-uri',type:'image/jpeg',name:'image.jpg'});assert.equal(typeof bytes,'function')}
   assert.equal(a.parts[1][1],'STICKER');assert.equal(a.writes.length,0)
  })
- test(`${platform}: 5MB 이하이거나 투명할 수 있는 그림은 JPEG 로 바꾸지 않는다`,async()=>{
+ test(`${platform}: 5MB 이하이거나 투명할 수 있는 그림은 JPEG 로 바꾸지 않는다(투명할 수 있는 큰 PNG 는 PNG 그대로 줄인다)`,async()=>{
   const small=adapter(platform,{media:{fileSize:2*1024*1024,extension:'png',mimeType:'image/png',width:3000,height:2121,opaque:true},blob:{uri:'small'}})
   await small.files.upload('id','STICKER');assert.equal(small.jpegCalls.length,0)
   const sticker=adapter(platform,{media:{fileSize:7*1024*1024,extension:'png',mimeType:'image/png',width:3000,height:2121},blob:{uri:'big'}})
-  await assert.rejects(sticker.files.upload('id','STICKER'),error=>error.status===413);assert.equal(sticker.jpegCalls.length,0)
+  await sticker.files.upload('id','STICKER');assert.equal(sticker.jpegCalls.length,0);assert.equal(sticker.pngCalls.length,1)
+  assert.equal(platform==='web'?sticker.parts[0][1].png:sticker.parts[0][1].uri,platform==='web'?true:'png-uri')
  })
 }
 
@@ -78,6 +79,16 @@ test('JPEG 로 낮출 때는 품질을 먼저 낮추고, 그래도 크면 크기
  assert.equal(plan.needsShareJpeg({opaque:true,extension:'png',fileSize:plan.SHARE_MAX_BYTES}),false)
  assert.equal(plan.needsShareJpeg({opaque:true,extension:'gif',fileSize:9e6}),false)
  assert.equal(plan.needsShareJpeg({extension:'png',fileSize:9e6}),false)
+ // 아이폰 사진(HEIC)을 바꾼 JPEG 가 5MiB 를 넘으면 서버가 거절했다 — JPEG 도 낮춘다
+ assert.equal(plan.needsShareJpeg({extension:'jpg',fileSize:plan.SHARE_MAX_BYTES+1+64*1024}),true)
+ assert.equal(plan.needsShareJpeg({extension:'jpeg',fileSize:6e6}),true)
+ assert.equal(plan.needsShareJpeg({extension:'jpg',fileSize:plan.SHARE_MAX_BYTES}),false)
+ // 불투명한지 모르는 큰 PNG(iPad 화면 캡처 11MB)는 JPEG 가 아니라 PNG 그대로 줄인다
+ assert.equal(plan.needsSharePng({extension:'png',fileSize:11e6}),true)
+ assert.equal(plan.needsSharePng({extension:'png',opaque:true,fileSize:11e6}),false)
+ assert.equal(plan.needsSharePng({extension:'png',fileSize:plan.SHARE_MAX_BYTES}),false)
+ assert.equal(plan.needsSharePng({extension:'gif',fileSize:11e6}),false)
+ assert.ok(plan.SHARE_PNG_SCALES.every((scale,i,all)=>scale<1&&(i===0||scale<all[i-1])))
 })
 
 test('편집기 선택 한도(MEDIA_POLICY)와 공유 한도(mediaLimits)는 같은 값이다',()=>{

@@ -32,7 +32,7 @@ test('Android 캔버스 사진·PDF 업로드를 Expo multipart 인코더가 파
     'expo-file-system': { File, Paths: {} },
     '../utils/mediaRepository.native.js': { get: async () => ({ media: { extension: 'png', mimeType: 'image/png', fileSize: image.length }, blob: { uri: 'file:///photo.png' } }) },
     './mediaRetry.js': {}, './mediaStore': {}, '../utils/mediaPolicy.js': {},
-    '../utils/shareImagePlan.js': { needsShareJpeg: () => false }, '../utils/shareImage': {},
+    '../utils/shareImagePlan.js': { needsShareJpeg: () => false, needsSharePng: () => false }, '../utils/shareImage': {},
     '../../diary/utils/pdfSourceStore.native.js': { pdfSourceUri: () => 'file:///document.pdf' },
     '../../diary/utils/pdfSource.js': { PDF_SHARE_MAX_BYTES: 25 * 1024 * 1024 },
     '../../shared/mediaLimits.js': { sharedGifMaxBytes: 15 * 1024 * 1024, sharedImageMaxBytes: 5 * 1024 * 1024, mediaShareSizeMessage: () => 'limit' },
