@@ -117,3 +117,11 @@ test('S15P31F106-482: 직접 고르기는 색 창을 열며 떠 있는 동안 �
   assert.deepEqual(recorded, [['text', '#123456']], '고른 색을 최근 색으로 기억한다')
   opened[0].onClose(); assert.deepEqual(holds, [true, false, false])
 })
+
+test('S15P31F106-482: 색 창은 색 줄 밖에 그려 두고, 서식 줄이 사라지면 떠 있던 창의 보류를 푼다(소스 확인)', () => {
+  const source = readFileSync(new URL('../src/editor/components/TextFormatStrip.js', import.meta.url), 'utf8')
+  assert.match(source, /useEffect\(\(\) => \(\) => \{ if \(heldOpen\.current\) holdRef\.current\(false\) \}, \[\]\)/)
+  const colorRow = source.slice(source.indexOf("{panel === 'color' && ("), source.indexOf('{/* 색 창은 색 줄 밖에'))
+  assert.doesNotMatch(colorRow, /colorWindow\.element/, '색 줄을 닫으면 창도 사라졌다')
+  assert.match(source, /\{colorWindow\.element\}/)
+})

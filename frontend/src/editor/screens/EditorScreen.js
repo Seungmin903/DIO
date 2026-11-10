@@ -122,7 +122,7 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
   const [readingMode, setReadingMode] = useState(false)
   const [readerMenuVisible, setReaderMenuVisible] = useState(true)
   const readOnly = permissionReadOnly || readingMode
-  const textCommitRef = useRef(null)
+  const textCommitRef = useRef(null), textCancelRef = useRef(null)
   const readingLinkRef = useRef(false)
   const modeControlsRef = useRef(null)
   const modeControlsBounds = useRef(null)
@@ -440,7 +440,8 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
     setTextDefaults(next)
     const visualOnly = Object.keys(patch).every((key) => VISUAL_TEXT_KEYS.includes(key))
     // 편집 중에는 설정값만 바꾼다(높이 · 폭은 입력창이 실측하고 끝낼 때 onSaveText 가 맞춘다). textFormatPatch 로 옛 글(새 상자는 '')에서 높이를 다시 어림하면 상자가 줄었다 늘며 글자가 움직였다
-    if (editingText) { setTextEditing(current => current && current.id === editingText.id ? { ...current, ...patch } : current); return }
+    // 전체 색을 바꾸면 부분 색을 지운다(선택 상태 경로와 같다. 입력창이 들고 있는 구간 색은 TextEditor 가 같이 비운다)
+    if (editingText) { setTextEditing(current => current && current.id === editingText.id ? { ...current, ...patch, ...('color' in patch && { colorRanges: [] }) } : current); return }
     if (selectedText) dispatch({ type: 'updateObject', id: selectedText.id, record: true, patch: selectedText.type === 'shape' ? shapeTextFormatPatch(selectedText,patch) : { ...(visualOnly ? patch : textFormatPatch(selectedText, next)), ...('color' in patch && { colorRanges: [] }) } })
   }
   const showMore = moreOpen && selectedObjects.length > 0 && !cropId
@@ -1386,7 +1387,7 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
                 textEditingTop={stageOrigin.y + 8}
                 onTextPaletteChange={setTextPalette}
                 textPaletteBounds={textPaletteBounds}
-                textCommitRef={textCommitRef}
+                textCommitRef={textCommitRef} textCancelRef={textCancelRef}
                 onReadingLinkStart={() => { readingLinkRef.current = true }}
                 textEditing={textEditing?.pageId === page.id ? textEditing : null}
                 textHeld={textHeld}
@@ -1518,7 +1519,8 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
                 onDone={() => textCommitRef.current?.()}
                 // 지금 입력 · 서식을 먼저 저장한 뒤 그 상자를 복제한다(빈 새 상자는 저장되지 않아 복제할 것이 없다). 한글 조합 중(commit false)에는 아무 일도 하지 않는다
                 onDuplicate={() => { const id = editingText.id; if (textCommitRef.current?.() !== false) dispatch({ type: 'duplicateObjects', ids: [id] }) }}
-                onDelete={() => { Keyboard.dismiss(); if (editingText.existing) { dispatch({ type: 'removeObjects', ids: [editingText.id] }); showToast('글상자를 삭제했어요. 되돌리기로 복구할 수 있어요.') } setTextEditing(null); setActiveTool(textReturnTool.current ?? 'select') }} />
+                // 저장을 먼저 막고 키보드를 내린다(키보드를 내리면 입력창이 저장해 새 상자가 생겼다)
+                onDelete={() => { textCancelRef.current?.(); Keyboard.dismiss(); if (editingText.existing) { dispatch({ type: 'removeObjects', ids: [editingText.id] }); showToast('글상자를 삭제했어요. 되돌리기로 복구할 수 있어요.') } setTextEditing(null); setActiveTool(textReturnTool.current ?? 'select') }} />
             </View>
           })()}
           {!readOnly && textLinkTarget && <TextLinkDialog initialValue={textLinkTarget.styleRanges?.find(r => r.href)?.href ?? ''} onCancel={() => setTextLinkTarget(null)} onSave={(href) => {

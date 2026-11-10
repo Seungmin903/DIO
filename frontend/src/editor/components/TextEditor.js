@@ -14,7 +14,8 @@ import { useTextFont } from '../hooks/useTextFont'
 
 // Android는 TextInput의 styled children으로 선택 범위 색상을 즉시 표시한다.
 // held: 바깥 창(글자 색 직접 고르기 등)이 떠 있는 동안 true — 입력창이 포커스를 잃어도 저장 · 닫기를 하지 않고, 창이 닫히면 다시 포커스한다(링크 창의 linkEditing 과 같다, S15P31F106-482)
-export default function TextEditor({ commitRef, object, zoom, onSave, onCancel, boundary, onPaletteChange, paletteBounds, onToast, onReveal, held = false }) {
+// cancelRef: 바깥(글상자 작업 막대의 삭제)이 저장 없이 편집을 끝낼 때 부른다 — 키보드를 내리기 전에 불러야 blur · onEndEditing 의 저장을 막는다(S15P31F106-482)
+export default function TextEditor({ commitRef, cancelRef, object, zoom, onSave, onCancel, boundary, onPaletteChange, paletteBounds, onToast, onReveal, held = false }) {
   const heldRef = useRef(held)
   heldRef.current = held
   const fontStatus = useTextFont(object.font)
@@ -167,6 +168,12 @@ export default function TextEditor({ commitRef, object, zoom, onSave, onCancel, 
     return () => { stop(); keyboardStartup.current = null; Keyboard.dismiss() }
   }, [fontPending])
   const cancel = () => { cancelled.current = true; keyboardStartup.current?.(); Keyboard.dismiss(); onCancel() }
+  useEffect(() => {
+    if (!cancelRef) return
+    const stop = () => { cancelled.current = true; keyboardStartup.current?.() }
+    cancelRef.current = stop
+    return () => { if (cancelRef.current === stop) cancelRef.current = null }
+  }, [cancelRef])
   const [height, setHeight] = useState(() => textInputHeight(object, zoom))
 
   const scale = (object.w ?? 320) / (object.baseWidth ?? object.w ?? 320) * zoom
@@ -255,6 +262,15 @@ export default function TextEditor({ commitRef, object, zoom, onSave, onCancel, 
   // 입력창을 새로 만들면 키보드가 내려갔다 올라오므로, 대신 네이티브 setTextAndSelection 명령으로 지금 글(draft)을 새 속성으로 다시 넣는다(S15P31F106-482).
   // 네이티브는 글이 같으면 다시 입히지 않아, 보이지 않는 글자(U+200B)를 붙인 뒤 곧바로 원래 글로 되돌려 두 번 보낸다(같은 틱이라 깜빡임 없음). 커서 · 선택은 그대로 둔다.
   // eventCount: 네이티브가 글이 바뀔 때마다 올리는 번호. 명령의 번호가 다르면 무시되므로 onChange 에서 받아 둔다.
+  // 상자 전체 글자 색이 바뀌면(서식 줄의 색) 부분 색을 지운다 — 선택한 상자에서 색을 바꿀 때(colorRanges: [])와 같다. 남기면 일부 글자만 옛 색으로 남았다(MR !505 리뷰)
+  const colorKey = useRef(object.color)
+  useEffect(() => {
+    if (colorKey.current === object.color) return
+    colorKey.current = object.color
+    if (!ranges.current.length) return
+    ranges.current = []
+    refresh()
+  }, [object.color])
   const eventCount = useRef(0)
   const styleKey = Platform.OS === 'ios' ? JSON.stringify(textStyle(object, 1, 'ios')) : 'fixed'
   const styleKeyRef = useRef(styleKey)

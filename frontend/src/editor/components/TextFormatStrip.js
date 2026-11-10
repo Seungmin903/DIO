@@ -1,4 +1,4 @@
-import { useRef, useState, useSyncExternalStore } from 'react'
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native'
 import Svg, { Circle, Path } from 'react-native-svg'
 import { colors, shadow } from '../../shared/theme'
@@ -36,6 +36,12 @@ export default function TextFormatStrip({ settings, onChange, onHold = () => {},
   const [panel, setPanel] = useState(defaultPanel)
   const colorWindow = useColorWindow()
   const customAnchor = useRef(null)
+  // 색 창이 떠 있는 채 서식 줄이 사라지면(글자를 골라 '선택한 글자' 줄로 바뀜 등) 창의 닫기가 오지 않으니 보류를 여기서 푼다(MR !505 리뷰)
+  const holdRef = useRef(onHold)
+  holdRef.current = onHold
+  const heldOpen = useRef(false)
+  heldOpen.current = colorWindow.isOpen
+  useEffect(() => () => { if (heldOpen.current) holdRef.current(false) }, [])
   const openCustomColor = () => {
     onHold(true)
     colorWindow.open(customAnchor, { title: '글자 색', value: settings.color, original: settings.color, doneLabel: '완료',
@@ -86,9 +92,10 @@ export default function TextFormatStrip({ settings, onChange, onHold = () => {},
               <Icon name="plus" size={14} color={colors.textMuted} />
             </Pressable>
           </FadeScroll>
-          {colorWindow.element}
         </View>
       )}
+      {/* 색 창은 색 줄 밖에 둔다 — 줄을 닫아도 창이 사라지지 않고 확정 · 닫기가 와서 보류가 풀린다 */}
+      {colorWindow.element}
       <View style={styles.bar}>
         <FadeScroll horizontal style={styles.scroll} keyboardShouldPersistTaps="always" contentContainerStyle={styles.content}>
           <Pressable accessibilityRole="button" accessibilityLabel={`글꼴 ${currentFont ? fontLabel(currentFont, Platform.OS) : ''}`} accessibilityState={{ expanded: panel === 'font' }} {...keepFocus}

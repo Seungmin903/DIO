@@ -18,7 +18,8 @@ const { code } = babel.transformSync(source, {
 })
 
 // 실제 TextEditor JSX를 렌더링한다. OS 입력은 모사하지 않고 input props 계약만 검증한다.
-function renderEditor(platform, overrides = {}, zoom = 1, textProps = null) {
+const renderEditorWith = (platform, props) => renderEditor(platform, {}, 1, null, props)
+function renderEditor(platform, overrides = {}, zoom = 1, textProps = null, extraProps = {}) {
   let inputProps
   const saves = [], cancels = []
   const native = {
@@ -51,7 +52,7 @@ function renderEditor(platform, overrides = {}, zoom = 1, textProps = null) {
   const html = renderToStaticMarkup(React.createElement(module.exports.default, {
     object: { id: 'text', text: '한글 RED', x: 10, y: 20, w: 320, h: 40, colorRanges: [{ start: 3, end: 6, color: '#DD887A' }], ...overrides },
     zoom, boundary: { current: null }, paletteBounds: { current: null },
-    onPaletteChange() {}, onSave: (...args) => saves.push(args), onCancel: () => cancels.push(true),
+    onPaletteChange() {}, onSave: (...args) => saves.push(args), onCancel: () => cancels.push(true), ...extraProps,
   }))
   return { html, inputProps, saves, cancels }
 }
@@ -132,4 +133,27 @@ test('autoWidthInputLayout: 맞춤에 따라 입력창을 상자 기준 자리�
   assert.deepEqual(text.autoWidthInputLayout(100, 480, 'right'), { width: 480, marginLeft: -380 })
   // 상자가 최대 폭보다 넓으면 줄이지 않는다
   assert.deepEqual(text.autoWidthInputLayout(500, 480, 'center'), { width: 500, marginLeft: 0 })
+})
+
+test('S15P31F106-482: 색 창이 떠 있는 동안(held) 입력창이 포커스를 잃어도 저장하지 않는다', () => {
+  const { inputProps, saves } = renderEditor('web', { held: undefined })
+  inputProps.onBlur({ target: { value: '쓰는 중' } })
+  assert.equal(saves.length, 1, '평소에는 blur 에서 저장한다')
+  const held = renderEditorWith('web', { held: true })
+  held.inputProps.onBlur({ target: { value: '쓰는 중' } })
+  assert.deepEqual(held.saves, [], '색 창이 떠 있으면 저장하지 않는다')
+})
+
+test('S15P31F106-482: 삭제 · 색 변경 · iOS 서식 재주입 연결(소스 확인)', () => {
+  const editor = readFileSync(new URL('../src/editor/components/TextEditor.js', import.meta.url), 'utf8')
+  const screen = readFileSync(new URL('../src/editor/screens/EditorScreen.js', import.meta.url), 'utf8')
+  // 삭제는 저장을 막은 뒤 키보드를 내린다
+  assert.match(screen, /onDelete=\{\(\) => \{ textCancelRef\.current\?\.\(\); Keyboard\.dismiss\(\);/)
+  assert.match(editor, /const stop = \(\) => \{ cancelled\.current = true; keyboardStartup\.current\?\.\(\) \}/)
+  // 편집 중 서식 변경은 문서가 아니라 고치는 상자만 바꾸고, 전체 색이면 부분 색을 비운다
+  assert.match(screen, /if \(editingText\) \{ setTextEditing\(current => current && current\.id === editingText\.id \? \{ \.\.\.current, \.\.\.patch, \.\.\.\('color' in patch && \{ colorRanges: \[\] \}\) \} : current\); return \}/)
+  assert.match(editor, /ranges\.current = \[\]\n\s*refresh\(\)\n\s*\}, \[object\.color\]\)/)
+  // iOS: 서식이 바뀌면 같은 글을 두 번(U+200B 를 붙였다 뗀다) 다시 넣는다
+  assert.equal((editor.match(/dispatchViewManagerCommand\(tag, 'setTextAndSelection'/g) || []).length, 2)
+  assert.match(editor, /\[eventCount\.current, `\$\{draft\.current\}\\u200B`, start, end\]/)
 })

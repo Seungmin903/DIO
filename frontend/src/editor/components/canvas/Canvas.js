@@ -139,6 +139,7 @@ export default function Canvas({
   gridGuides = DEFAULT_GUIDES, // 격자·보조선 표시 (편집 화면에만. 끌 때 뜨는 맞춤선 guides 와 다르다)
   textEditing,
   textHeld = false, // 글 편집 중 바깥 창(글자 색 직접 고르기)이 떠 있음 — 입력창이 포커스를 잃어도 편집을 끝내지 않는다
+  textCancelRef, // 저장 없이 편집을 끝내는 함수를 TextEditor 가 채운다(글상자 작업 막대의 삭제)
   textBoundary,
   onRevealText, // (dy) 키보드에 가린 글상자가 보이게 화면을 올린다
   textEditingTop = 0,
@@ -568,7 +569,7 @@ export default function Canvas({
       )}
       {!readOnly && activeTool === 'text' && !textEditing && <TextBoxInput key={`${page.id}-${zoom}`} zoom={zoom} pageWidth={PAGE_WIDTH} pageHeight={PAGE_HEIGHT} onCreate={createText} />}
       {!readOnly && textEditing?.type === 'shape' && <ShapeTextEditor commitRef={textCommitRef} key={textEditing.id} object={textEditing} zoom={zoom} onSave={onSaveText} boundary={textBoundary} onReveal={onRevealText} visibleTop={textEditingTop} onPaletteChange={onTextPaletteChange} paletteBounds={textPaletteBounds} onToast={onToast} />}
-      {!readOnly && textEditing && textEditing.type !== 'shape' && <TextEditor held={textHeld} commitRef={textCommitRef} onToast={onToast} onPaletteChange={onTextPaletteChange} paletteBounds={textPaletteBounds} boundary={textBoundary} key={textEditing.id} object={textEditing} zoom={zoom} onSave={onSaveText} onCancel={onCancelText} onReveal={onRevealText} />}
+      {!readOnly && textEditing && textEditing.type !== 'shape' && <TextEditor held={textHeld} commitRef={textCommitRef} cancelRef={textCancelRef} onToast={onToast} onPaletteChange={onTextPaletteChange} paletteBounds={textPaletteBounds} boundary={textBoundary} key={textEditing.id} object={textEditing} zoom={zoom} onSave={onSaveText} onCancel={onCancelText} onReveal={onRevealText} />}
 
       {/* 사진 틀의 빈 자리 + (선택 도구에서만) */}
       {canSelect && !cropping && !interacting && !marquee && onFillSlot && (
