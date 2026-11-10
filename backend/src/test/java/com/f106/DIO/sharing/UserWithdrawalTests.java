@@ -11,17 +11,9 @@ import static org.assertj.core.api.Assertions.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-@org.springframework.boot.test.context.SpringBootTest(properties={
-    "spring.datasource.url=jdbc:h2:mem:user-withdrawal-tests;MODE=PostgreSQL;DB_CLOSE_DELAY=-1",
-    "dio.auth.jwt-secret=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
-    "dio.signup.photos.storage=local", "dio.signup.photos.local-directory=build/test-withdrawal-photos",
-    "SHARING_INVITE_BASE_URL=https://dio.test/invite/", "SHARING_INVITE_SECRET=BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB=",
-    "spring.datasource.hikari.maximum-pool-size=12"})
 class UserWithdrawalTests extends SharingTestSupport {
     @Autowired ProfilePhotoRepository photos;
     @Autowired UserWithdrawalPhotoCleanup photoCleanup;
-    @org.springframework.test.context.bean.override.mockito.MockitoSpyBean
-    com.f106.DIO.user.infrastructure.storage.ProfilePhotoFiles photoFiles;
     @BeforeEach void referenceFixtures(){
         // 기존 SQL 전용 테이블을 H2 테스트에서도 같은 이름으로 제공한다. 운영 마이그레이션은 추가하지 않는다.
         jdbc.execute("alter table media_files add column if not exists source_media_file_id uuid");

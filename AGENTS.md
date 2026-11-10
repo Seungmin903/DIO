@@ -24,7 +24,7 @@
 |---|---|
 | DB 실행 | `docker compose up -d --wait postgres` (루트) |
 | 백엔드 실행 | `./gradlew bootRun` (backend/, 기본 프로필 `local`) |
-| 백엔드 빌드/테스트 | `./gradlew build` / `./gradlew test` (테스트는 H2 인메모리 DB 사용) |
+| 백엔드 빌드/테스트 | `./gradlew build` / `./gradlew test` (전체 H2 테스트), `./gradlew fastTest` (느린 HTTP·WebSocket·로컬 시드 통합 테스트 제외), `./gradlew changedTest` (develop 이후 바꾼 패키지만, `-PtestPackages=cover,tape`로 직접 지정). `fastTest`·`changedTest`는 개발 중 보조 수단이며 MR 전에는 `./gradlew test`를 돌린다 |
 | 실제 PostgreSQL 다이어리 CRUD 테스트 | `./gradlew postgresTest` (backend/, 로컬 DB 필요, 테스트 행 롤백) |
 | 프론트 의존성 설치 | `pnpm install` (frontend/) |
 | Android 실행 | `pnpm android` (frontend/, Android 에뮬레이터 또는 기기 필요) |

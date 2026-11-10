@@ -44,15 +44,19 @@ class DiaryPersistenceTests {
 			.content("{\"diaryTitle\":\"  여행 다이어리  \"}"))
 			.andExpect(status().isCreated())
 			.andExpect(jsonPath("$.diary.diaryId").isString())
+			.andExpect(jsonPath("$.diary.diaryTitle").value("여행 다이어리")) // 제목 앞뒤 공백은 지운다(DiaryApiContractTests 에서 옮김)
 			.andExpect(jsonPath("$.diary.coverColor").value("#CED9EE"))
 			.andExpect(jsonPath("$.diary.coverStyle").value("PLAIN"))
 			.andExpect(jsonPath("$.diary.visibility").value("PRIVATE"))
+			.andExpect(jsonPath("$.diary.formatId").doesNotExist()) // 예전 판형 칸은 응답에 싣지 않는다
+			.andExpect(result -> assertThat(result.getResponse().getHeader("Location")) // 만든 다이어리 주소(DiaryApiContractTests 에서 옮김)
+				.isEqualTo("/api/v1/diaries/" + com.jayway.jsonpath.JsonPath.read(result.getResponse().getContentAsString(), "$.diary.diaryId")))
 			.andReturn().getResponse().getContentAsString();
 
 		UUID diaryId = UUID.fromString(com.jayway.jsonpath.JsonPath.read(body, "$.diary.diaryId"));
 		entityManager.clear();
 		Diary saved = diaries.findById(diaryId).orElseThrow();
-		assertThat(saved.getTitle()).isEqualTo("여행 다이어리");
+		assertThat(saved.getTitle()).isEqualTo("여행 다이어리"); // 저장된 제목도 앞뒤 공백 없이
 		assertThat(saved.getOwnerUserId()).isEqualTo(1L);
 		assertThat(saved.getCreatedAt()).isEqualTo(saved.getUpdatedAt());
 	}
@@ -184,6 +188,67 @@ class DiaryPersistenceTests {
 			.setParameter("replacementDiaryId", replacementDiaryId)
 			.setParameter("currentDiaryId", currentDiaryId)
 			.executeUpdate();
+	}
+
+	@Test
+	void updatesVisibilityByUuid() throws Exception {
+		// UUID 경로로 공개 범위만 바꾸는 성공 경로(삭제한 DiaryApiContractTests.updatesByUuid 를 실제 DB 기준으로 옮김)
+		Diary diary = diaries.saveAndFlush(new Diary("공개 범위", "#D6BFA7", "PLAIN", "PRIVATE", 1L));
+		mvc.perform(patch("/api/v1/diaries/" + diary.getDiaryId()).with(authenticated()).contentType(MediaType.APPLICATION_JSON)
+			.content("{\"visibility\":\"MEMBERS\"}"))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.diary.diaryId").value(diary.getDiaryId().toString()))
+			.andExpect(jsonPath("$.diary.visibility").value("MEMBERS"));
+		entityManager.clear();
+		assertThat(diaries.findById(diary.getDiaryId()).orElseThrow().getVisibility()).isEqualTo("MEMBERS");
+	}
+
+	@Test
+	void acceptsOneHundredCharacterTitle() throws Exception {
+		// 제목 상한은 100자다(101자 거절은 rejectsInvalidCreateFields 가 확인한다)
+		String title = "가".repeat(100);
+		String body = mvc.perform(post("/api/v1/diaries").with(authenticated()).contentType(MediaType.APPLICATION_JSON)
+			.content("{\"diaryTitle\":\"" + title + "\"}"))
+			.andExpect(status().isCreated())
+			.andReturn().getResponse().getContentAsString();
+		entityManager.clear();
+		Diary saved = diaries.findById(UUID.fromString(com.jayway.jsonpath.JsonPath.read(body, "$.diary.diaryId"))).orElseThrow();
+		assertThat(saved.getTitle()).hasSize(100);
+	}
+
+	@Test
+	void rejectsInvalidCreateFields() throws Exception {
+		long before = diaries.count();
+		for (String body : new String[] {
+			"{\"diaryTitle\":\"   \"}",
+			"{\"diaryTitle\":\"가" + "가".repeat(100) + "\"}",
+			"{\"diaryTitle\":\"기록\",\"coverColor\":\"blue\"}",
+			"{\"diaryTitle\":\"기록\",\"coverStyle\":\"\"}",
+			"{\"diaryTitle\":\"기록\",\"coverStyle\":\"   \"}",
+			"{\"diaryTitle\":\"기록\",\"visibility\":\"PUBLIC\"}"}) {
+			mvc.perform(post("/api/v1/diaries").with(authenticated()).contentType(MediaType.APPLICATION_JSON).content(body))
+				.andExpect(status().isBadRequest());
+		}
+		assertThat(diaries.count()).isEqualTo(before);
+	}
+
+	@Test
+	void rejectsEmptyNullAndUnsupportedPatchFields() throws Exception {
+		Diary diary = diaries.saveAndFlush(new Diary("원래 제목", "#D6BFA7", "PLAIN", "PRIVATE", 1L));
+		var bodies = new java.util.ArrayList<String>(java.util.List.of("{}", "{\"coverStyle\":\"   \"}",
+			"{\"visibility\":\"PUBLIC\"}", "{\"formatId\":\"1\"}"));
+		for (String field : new String[] {"diaryTitle", "coverColor", "coverStyle", "visibility"}) {
+			bodies.add("{\"" + field + "\":null}");
+		}
+		for (String body : bodies) {
+			mvc.perform(patch("/api/v1/diaries/" + diary.getDiaryId()).with(authenticated())
+				.contentType(MediaType.APPLICATION_JSON).content(body))
+				.andExpect(status().isBadRequest());
+		}
+		entityManager.clear();
+		Diary unchanged = diaries.findById(diary.getDiaryId()).orElseThrow();
+		assertThat(unchanged.getTitle()).isEqualTo("원래 제목");
+		assertThat(unchanged.getVisibility()).isEqualTo("PRIVATE");
 	}
 
 	private static RequestPostProcessor authenticated() {
