@@ -5,6 +5,7 @@ import { fetch as memberFetch } from 'expo/fetch'
 import { authService, apiBaseUrl, accessTokenHeader } from '../../auth/authService'
 import { createAuthenticatedMemberTransport } from '../services/memberTransport.js'
 import { createPaletteSync } from '../../editor/services/paletteSync.js'
+import { setPaletteSyncRetry, setPaletteSyncStatus } from '../../editor/services/paletteSyncStatus.js'
 import { PALETTE_SCOPES, normalizePaletteEntry, paletteDefaults, paletteStore } from '../../editor/hooks/usePalettes'
 
 // 로그인 직후 화면이 몇 번 다시 그려지며 이 컴포넌트가 여러 번 붙었다 떨어진다(StickerLibrarySyncHost 와 같은 사정).
@@ -24,6 +25,7 @@ function acquire(accountId) {
   const sync = createSync(accountId, sessionKey)
   const appState = AppState.addEventListener('change', state => { if (state === 'active') sync.sync() })
   shared = { id, sync, appState, mounts: 1, releaseTimer: null }
+  setPaletteSyncRetry(() => sync.sync())
   sync.start()
   return shared
 }
@@ -37,6 +39,9 @@ function stopShared() {
   if (!shared) return
   if (shared.releaseTimer != null) clearTimeout(shared.releaseTimer)
   shared.sync.stop(); shared.appState.remove(); shared = null
+  // 로그아웃 · 다른 계정: 지난 계정의 실패 문구 · 다시 맞추기를 남기지 않는다
+  setPaletteSyncRetry(null)
+  setPaletteSyncStatus({ error: null, pending: false })
 }
 
 const palettes = {
@@ -54,7 +59,7 @@ const palettes = {
 
 function createSync(accountId, sessionKey) {
   const transport = createAuthenticatedMemberTransport({ auth: authService, accountId, baseUrl: apiBaseUrl, accessTokenHeader, fetchImpl: memberFetch })
-  return createPaletteSync({
+  const sync = createPaletteSync({
     account: String(accountId),
     key: `dio:palette-sync:v1:${encodeURIComponent(apiBaseUrl)}`,
     storage: AsyncStorage,
@@ -65,7 +70,10 @@ function createSync(accountId, sessionKey) {
     },
     palettes,
     onError: error => { if (typeof __DEV__ !== 'undefined' && __DEV__) console.warn('[DIO_PALETTE_SYNC]', error?.message) },
+    // 운영 빌드에서도 실패가 드러나게 공방 도구 탭에 알린다(멈춘 동기화의 늦은 결과는 버린다)
+    onStatus: next => { if (shared?.sync === sync) setPaletteSyncStatus({ error: next.error }) },
   })
+  return sync
 }
 
 /**

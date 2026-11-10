@@ -143,3 +143,41 @@ test('서버에 저장하는 동안 사용자가 바꾼 칸도 덮지 않고 이
   assert.deepEqual(server.palettes.pen, ['#FF0000', '#222222', '#00FF00'])
   sync.stop()
 })
+
+test('맞추기 결과를 onStatus 로 알린다: 연결 실패 · 409 재시도 초과는 문구, 다시 맞추면 지운다', async () => {
+  const server = fakeServer()
+  const a = device(server)
+  const statuses = []
+  const realGet = server.api.get
+  server.api.get = async () => { throw Object.assign(Error('offline'), { status: 0 }) }
+  const sync = createPaletteSync({ account: '7', api: server.api, storage: a.storage, key: 'sync', setTimer: fn => setTimeout(fn, 0), clearTimer: clearTimeout,
+    palettes: { scopes: SCOPES, defaults: scope => DEFAULTS[scope], normalize, load: () => Promise.all(SCOPES.map(scope => a.stores[scope].load())), snapshot: scope => a.stores[scope].getSnapshot().colors, subscribe: listener => { const offs = SCOPES.map(scope => a.stores[scope].subscribe(listener)); return () => offs.forEach(off => off()) }, apply: (scope, expected, colors) => a.stores[scope].apply(expected, colors) },
+    onStatus: status => statuses.push(status.error) })
+  await sync.start()
+  assert.equal(statuses.at(-1), '팔레트를 계정과 맞추지 못했어요. 연결을 확인해 주세요.')
+  server.api.get = realGet
+  await sync.sync()
+  assert.equal(statuses.at(-1), null)
+  // 다른 기기가 저장할 때마다 먼저 바꿔 409 가 세 번 나면 겹침 문구
+  server.api.put = async () => { server.version++; throw Object.assign(Error('conflict'), { status: 409 }) }
+  await a.stores.pen.replace(0, '#FF0000'); await sync.whenIdle()
+  assert.equal(statuses.at(-1), '다른 기기의 변경과 계속 겹쳐 팔레트를 계정에 저장하지 못했어요.')
+  sync.stop()
+})
+
+test('팔레트 동기화 상태도 테이프와 같다: 동기화가 없으면 재시도하지 않고, 재시도 중복을 막고, 지울 수 있다', async () => {
+  const { setPaletteSyncStatus, setPaletteSyncRetry, paletteSyncStatusSnapshot, retryPaletteSync } = await import('../src/editor/services/paletteSyncStatus.js')
+  await retryPaletteSync()
+  assert.deepEqual(paletteSyncStatusSnapshot(), { error: null, pending: false })
+  let release, calls = 0
+  setPaletteSyncRetry(() => { calls++; return new Promise(resolve => { release = resolve }) })
+  setPaletteSyncStatus({ error: '팔레트를 계정과 맞추지 못했어요. 연결을 확인해 주세요.' })
+  const first = retryPaletteSync()
+  retryPaletteSync()
+  assert.equal(calls, 1)
+  assert.equal(paletteSyncStatusSnapshot().pending, true)
+  release(); await first
+  assert.equal(paletteSyncStatusSnapshot().pending, false)
+  setPaletteSyncRetry(null); setPaletteSyncStatus({ error: null, pending: false })
+  assert.deepEqual(paletteSyncStatusSnapshot(), { error: null, pending: false })
+})

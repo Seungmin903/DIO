@@ -30,8 +30,9 @@ export function mergePalettes(base, local, server, scopes) {
  * api: { get() → { version, palettes }, put(expectedVersion, palettes) → { version, palettes } } (409 는 error.status === 409)
  * palettes: { scopes, defaults(scope), normalize(scope, value), load(), snapshot(scope), subscribe(listener) → 해제, apply(scope, expected, colors) → 바꿨으면 true }
  * storage · key: 이 기기에서 맞춘 상태(meta)를 둔다
+ * onStatus({ error }): 맞추기 결과. 실패하면 문구, 맞췄으면 null(공방 도구 탭이 실패를 보여 준다)
  */
-export function createPaletteSync({ account, api, palettes, storage, key, isActive = () => true, setTimer = setTimeout, clearTimer = clearTimeout, debounceMs = PALETTE_SYNC_DEBOUNCE_MS, onError = () => {} }) {
+export function createPaletteSync({ account, api, palettes, storage, key, isActive = () => true, setTimer = setTimeout, clearTimer = clearTimeout, debounceMs = PALETTE_SYNC_DEBOUNCE_MS, onError = () => {}, onStatus = () => {} }) {
   const { scopes } = palettes
   const metaKey = `${key}:meta`
   let meta = null, timer = null, running = null, again = false, closed = false, unsubscribe = null, applying = false
@@ -83,7 +84,12 @@ export function createPaletteSync({ account, api, palettes, storage, key, isActi
 
   function run() {
     if (running) { again = true; return running }
-    running = reconcile().catch(error => { if (error?.code !== 'SYNC_CLOSED') onError(error) })
+    // 결과를 onStatus 로 알린다: 맞췄으면 null, 실패하면 화면에 보일 문구(스티커 · 테이프 보관함과 같은 문구)
+    running = reconcile().then(() => onStatus({ error: null }), error => {
+      if (error?.code === 'SYNC_CLOSED') return
+      onError(error)
+      onStatus({ error: error?.status === 409 ? '다른 기기의 변경과 계속 겹쳐 팔레트를 계정에 저장하지 못했어요.' : '팔레트를 계정과 맞추지 못했어요. 연결을 확인해 주세요.' })
+    })
       .finally(() => { running = null; if (again && !closed) { again = false; schedule() } })
     return running
   }
