@@ -719,6 +719,7 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
       let current = session;
       const endingRevision = revision;
       let serverRevoked = false;
+      let localCleared;
       if (!current) {
         clearDevelopmentAccess();
         if (!await endLocalSession()) throw incompleteLogout();
@@ -736,12 +737,13 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
       } finally {
         if (session === current || (!session && revision === endingRevision)) {
           clearDevelopmentAccess();
-          const cleared = await endLocalSession();
+          localCleared = await endLocalSession();
           // Only report incomplete logout when neither server revocation nor
           // deletion of the saved credential could be confirmed.
-          if (!cleared && !serverRevoked) throw incompleteLogout();
+          if (!localCleared && !serverRevoked) throw incompleteLogout();
         }
       }
+      if (localCleared === false) return { localCleared };
     },
   };
   api.verificationService = {

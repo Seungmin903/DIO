@@ -76,12 +76,12 @@ export default function ProfileScreen({ guestImport = null, section = 'profile',
   const canEnableLock = appLockSupported && authenticatedUser;
   const showLockSetting = authenticatedUser && (canEnableLock || locked || lockReadFailed || (currentLockRead && lockState === null));
   // 결과 알약: 이 기기에만 걸리는 설정이라 '이 기기'를 넣어 알린다(다른 기기에서는 꺼져 보인다)
-  const [lockNotice, setLockNotice] = useState(null);
+  const [settingsNotice, setSettingsNotice] = useState(null);
   useEffect(() => {
-    if (!lockNotice) return undefined;
-    const timer = setTimeout(() => setLockNotice(null), 2000);
+    if (!settingsNotice) return undefined;
+    const timer = setTimeout(() => setSettingsNotice(current => current === settingsNotice ? null : current), 2000);
     return () => clearTimeout(timer);
-  }, [lockNotice]);
+  }, [settingsNotice]);
   // 지금 비밀번호를 잊었을 때: 회원은 계정으로 다시 확인(reauth), 게스트는 저장값 손상일 때만 초기화(읽기 오류는 다시 읽기).
   // 새 비밀번호를 정하는 setup 화면에는 두지 않는다.
   const [reauth, setReauth] = useState(null); // 계정 확인 뒤 할 일: 'off' | 'change'
@@ -132,7 +132,7 @@ export default function ProfileScreen({ guestImport = null, section = 'profile',
       try {
         if (pin.mode === 'verify') await clearAppLock(lockScope);
         else await setAppLock(lockScope, value);
-        setLockNotice({ key: Date.now(), message: pin.mode === 'verify' ? '이 기기의 앱 잠금을 껐어요'
+        setSettingsNotice({ message: pin.mode === 'verify' ? '이 기기의 앱 잠금을 껐어요'
           : pin.next === 'change' ? '이 기기의 앱 잠금 비밀번호를 바꿨어요' : '이 기기에 앱 잠금을 켰어요' });
       } catch { notify('앱 잠금', '앱 잠금을 바꾸지 못했어요. 다시 시도해 주세요.'); }
       reloadLock();
@@ -143,7 +143,7 @@ export default function ProfileScreen({ guestImport = null, section = 'profile',
       const next = reauth;
       setReauth(null);
       if (next === 'change') { setPin({ mode: 'setup', next: 'change' }); return; }
-      try { await clearAppLock(lockScope); setLockNotice({ key: Date.now(), message: '이 기기의 앱 잠금을 껐어요' }); }
+      try { await clearAppLock(lockScope); setSettingsNotice({ message: '이 기기의 앱 잠금을 껐어요' }); }
       catch { notify('앱 잠금', '앱 잠금을 바꾸지 못했어요. 다시 시도해 주세요.'); }
       reloadLock();
       setPin(null);
@@ -181,7 +181,7 @@ export default function ProfileScreen({ guestImport = null, section = 'profile',
   // 계정 구역(로그인한 사용자만): 로그아웃 · 회원 탈퇴를 다른 설정과 같은 목록 줄로 둔다(지라 597, 탈퇴는 회원정보 수정에서 옮겨 왔다)
   const canWithdraw = !guest && typeof editService?.withdraw === 'function';
   const logout = onEndPreview && !guest ? (
-    <Pressable accessibilityRole="button" accessibilityLabel="로그아웃" onPress={() => confirmAction({ title: '로그아웃', message: '로그아웃하시겠어요?', confirmLabel: '로그아웃', danger: false, onConfirm: onEndPreview })} style={local.linkRow}>
+    <Pressable accessibilityRole="button" accessibilityLabel="로그아웃" onPress={() => confirmAction({ title: '로그아웃할까요?', message: '', confirmLabel: '로그아웃', danger: false, onConfirm: onEndPreview })} style={local.linkRow}>
       <Text style={local.linkLabel}>로그아웃</Text>
     </Pressable>
   ) : null;
@@ -246,7 +246,9 @@ export default function ProfileScreen({ guestImport = null, section = 'profile',
           {/* 게스트는 새로 켤 수 없다. 이미 켠 게스트는 끌 수 있게 끄기만 남긴다 */}
           {showLockSetting && <AppLockSetting compact={compact} locked={locked} readFailed={lockReadFailed} onRetry={reloadLock} canEnable={canEnableLock} onTurnOn={() => setPin({ mode: 'setup' })} onTurnOff={() => setPin({ mode: 'verify', next: 'off' })} onChange={() => setPin({ mode: 'verify', next: 'change' })} />}
           <EditSetting compact={compact} accountId={userId == null ? null : String(userId)} />
-          <AppInformation />
+          <AppInformation onCopyNotice={message => {
+            setSettingsNotice(current => message ? { source: 'copy', message } : current?.source === 'copy' ? null : current);
+          }} />
         </SettingCard>}
         {/* 기기 다이어리를 계정으로 옮기고 원본을 지우는 계정 · 데이터 동작이라 보관함이 아니라 여기 둔다(사용자 결정 2026-11-05) */}
         {!settingsPage && guestImport && <SettingCard compact={compact}>
@@ -264,7 +266,7 @@ export default function ProfileScreen({ guestImport = null, section = 'profile',
       </View>
     </ScrollView>
     {pinScreen}
-    {lockNotice && <ActionToast key={lockNotice.key} compact={compact} bottom={24} message={lockNotice.message} />}
+    {settingsNotice && <ActionToast compact={compact} bottom={24} message={settingsNotice.message} />}
     {/* 탈퇴는 서버가 모든 세션을 폐기하므로 이 기기의 세션만 정리한다(onClearSession) */}
     {withdrawing && editService && <ProfileEditScreen withdrawOnly service={editService} compact={compact} user={previewUser} onClose={() => setWithdrawing(false)} onEndSession={onWithdrawn} />}
     </>
