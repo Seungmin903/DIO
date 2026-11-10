@@ -44,7 +44,9 @@ import { createRouteNode, isRouteNode, ROUTE_NODE_SNAP_PX, routeNodeKindLabel } 
 import { packingCheckAction, packingPenAction } from '../../templates/packingChecks.js'
 import { packingLayout } from '../../templates/packingLayout.js'
 import { packingSlotPatch, packingDropPatch, packingTapColor } from '../../templates/packingEditing.js'
-import { setDayDate, setDayRow, suggestStart } from '../../templates/dayPlanner.js'
+import { dayAllDayItems, setDayDate, setDayRow, suggestStart } from '../../templates/dayPlanner.js'
+import DayAllDayList, { dayAllDayListSize } from '../DayAllDayList'
+import PlannerColorPopup, { PLANNER_COLOR_POPUP } from '../PlannerColorPopup'
 import DayNowLine from './DayNowLine'
 import DayTimePicker, { DAY_TIME_PICKER, DayPickBackdrop } from '../DayTimePicker'
 import DayDatePicker, { DAY_DATE_PICKER } from '../DayDatePicker'
@@ -196,6 +198,12 @@ export default function Canvas({
     return true
   } : undefined
   const plannerErase = planner ? (value, points) => planner.erase(value, points, eraserMode) : undefined
+  // 펜만 그리는 설정에서 손가락으로 속지 칸을 톡 누르면 선택 도구로 누른 것과 같은 입력을 연다(할 일 글 · 체크 · 시간 · 날짜, 지라 828).
+  // 체크 색은 지금 도구(펜 · 형광펜) 색이다. 칸이 아니면 아무 일도 하지 않는다(손가락은 그리지 않는다). 데일리 · 스터디만(텍스트 도구 칸 입력과 같은 범위)
+  const plannerFingerTap = planner?.kind === 'day' || planner?.kind === 'study' ? (point) => {
+    const edit = planner.editTap(page.planner, point, page.objects, (activeTool === 'highlighter' ? highlighterSettings : penSettings)?.color)
+    if (edit) applyPlannerResult(edit, point)
+  } : undefined
   // 고르는 중인 기록에도 색을 미리 채워 막대가 바로 제 색으로 보이게 한다(닫을 때 한 번에 반영되므로 되돌리기도 한 번).
   const withAutoColor = (value) => planner.autoColor(value, page.objects) ?? value
   const closeDayPick = () => {
@@ -221,7 +229,10 @@ export default function Canvas({
   const shownPlanner = plannerDraft ?? (dayPick?.page === page.id ? dayPick.draft : null)
   const backgroundPage = useMemo(() => shownPlanner ? { ...page, planner: shownPlanner } : page, [page, shownPlanner])
   // 텍스트 도구로 할 일 · 메모 · 돌아보기 줄을 탭하면 그 줄에 맞춘 글상자(폭 · 글자 크기 · 줄간격 고정)를 만든다.
+  // 데일리 · 스터디는 글을 쓰는 칸이 아닌 칸(완료 · 시간 · 날짜 · 색 · 요일 · 하트 · 일정 막대)을 누르면 선택 도구로 누른 것과 같이 그 칸이 답한다.
   const createText = ({ tap, ...box }) => {
+    const edit = (planner?.kind === 'day' || planner?.kind === 'study') && tap ? planner.editTap(page.planner, tap, page.objects, penSettings.color) : null
+    if (edit && !edit.text) { applyPlannerResult(edit, tap); return }
     const cell = planner && tap ? planner.cellTap(tap) : null
     if (cell) { setDayPick({ page: page.id, ...cell.picker, at: tap, draft: null }); return }
     const slot = planner && tap ? planner.textSlot(tap, page.planner) : null
@@ -518,13 +529,13 @@ export default function Canvas({
       {!readOnly && ['pen', 'highlighter'].includes(activeTool) && (
         <View style={styles.penClip}>
           {/* 확대·축소 중에 다시 만들지 않는다 (손가락 아래의 입력 영역이 바뀌면 웹에서 터치 끝이 전달되지 않는다) */}
-          <PenInput onStrokeCommitted={onStrokeCommitted} key={`${page.id}-${activeTool}`} zoom={zoom} pageWidth={PAGE_WIDTH} pageHeight={PAGE_HEIGHT} dispatch={dispatch} objectCount={page.objects.length} straightAssist={straightAssist} settings={activeTool === 'highlighter' ? highlighterSettings : penSettings} onPlannerStroke={plannerStroke} />
+          <PenInput onStrokeCommitted={onStrokeCommitted} key={`${page.id}-${activeTool}`} zoom={zoom} pageWidth={PAGE_WIDTH} pageHeight={PAGE_HEIGHT} dispatch={dispatch} objectCount={page.objects.length} straightAssist={straightAssist} settings={activeTool === 'highlighter' ? highlighterSettings : penSettings} onPlannerStroke={plannerStroke} onFingerTap={plannerFingerTap} />
         </View>
       )}
       {!readOnly && activeTool === 'eraser' && <View style={styles.penClip}>
         <EraserInput key={`${page.id}-${zoom}-${eraserSize}-${eraserMode}-${eraserTarget}`} compact={compact} objects={page.objects} diameter={eraserSize} mode={eraserMode} target={eraserTarget} zoom={zoom} dispatch={dispatch} onPreview={previewErase} planner={page.planner} onPlannerErase={plannerErase} onPlannerPreview={setPlannerDraft} />
       </View>}
-      {planner?.kind === 'day' && dayPick?.page === page.id && <View style={styles.penClip}><DayPickBackdrop onClose={closeDayPick} /></View>}
+      {(planner?.kind === 'day' || planner?.kind === 'study') && dayPick?.page === page.id && <View style={styles.penClip}><DayPickBackdrop onClose={closeDayPick} /></View>}
       {planner?.kind === 'route' && routePick && <View style={styles.penClip}><DayPickBackdrop onClose={() => setRoutePick(null)} /></View>}
       </PalmRejectionArea>
       {/* 창을 닫으려고 누른 터치는 여기서 삼키고 창만 닫는다. 펜·형광펜에 점이 찍히던 문제 */}
@@ -547,6 +558,22 @@ export default function Canvas({
           style={pickerPosition(dayPick.at, zoom, PAGE_WIDTH, PAGE_HEIGHT, DAY_TIME_PICKER)}
         />
       )}
+      {planner?.rowColor && dayPick?.page === page.id && dayPick.kind === 'color' && (
+        // 할 일 줄 색 칸: 형광펜 색 중에서 고르면 바로 칠하고 닫는다(데일리 · 스터디)
+        <PlannerColorPopup key={`${dayPick.page}-color-${dayPick.row}`}
+          value={planner.rowColor(page.planner, dayPick.row)}
+          onPick={(c) => { dispatch({ type: 'setPlanner', planner: planner.setRowColor(page.planner, dayPick.row, c) }); setDayPick(null) }}
+          onClose={closeDayPick}
+          style={pickerPosition(dayPick.at, zoom, PAGE_WIDTH, PAGE_HEIGHT, PLANNER_COLOR_POPUP)} />
+      )}
+      {planner?.kind === 'day' && dayPick?.page === page.id && dayPick.kind === 'allday' && (() => {
+        // 종일 칸 +n: 종일 일정 전체 목록. 줄을 누르면 그 줄의 시간 창으로 바뀐다(지라 827)
+        const items = dayAllDayItems(planner.orientation, page.planner, page.objects)
+        return <DayAllDayList key={`${dayPick.page}-allday`} items={items}
+          onPick={(row) => setDayPick(current => current && { ...current, kind: 'time', row, draft: null })}
+          onClose={closeDayPick}
+          style={pickerPosition(dayPick.at, zoom, PAGE_WIDTH, PAGE_HEIGHT, dayAllDayListSize(items.length))} />
+      })()}
       {planner?.kind === 'day' && dayPick?.page === page.id && dayPick.kind === 'date' && (
         <DayDatePicker
           key={`${dayPick.page}-date`}

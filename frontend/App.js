@@ -197,7 +197,7 @@ export default function App() {
   };
   const continueAsGuest = async () => {
     const control = restoration.current;
-    if (control.busy) return;
+    if (!control.active || control.busy) return;
     control.busy = true;
     const job = ++control.job;
     setRestoreState(previous => ({ ...previous, status: 'guest' }));
@@ -325,9 +325,12 @@ export default function App() {
           <LoadingSpot centered label="로그인 정보를 확인하고 있어요." />
         </View>
       )}
-      {!booting && restoreFailed && <SessionRestoreScreen error={restoreState.error} busy={restoreState.status !== 'error'} onRetry={restoreLogin}
-        onLogin={() => setLoginRequest({ sessionExpired: restoreState.error?.sessionExpired === true,
-          restoreSession: __DEV__ && restoreState.error?.code === 'DEVELOPMENT_ACCESS_REQUIRED' })} onGuest={continueAsGuest} />}
+      {!booting && restoreFailed && <SessionRestoreScreen error={restoreState.error} status={restoreState.status} onRetry={restoreLogin}
+        onLogin={() => {
+          if (restoration.current.busy) return;
+          setLoginRequest({ sessionExpired: restoreState.error?.sessionExpired === true,
+            restoreSession: __DEV__ && restoreState.error?.code === 'DEVELOPMENT_ACCESS_REQUIRED' });
+        }} onGuest={continueAsGuest} />}
       {!booting && loginRequest && <EditorModal visible transparent animationType="none" onRequestClose={closeLogin}><View style={[StyleSheet.absoluteFill, { zIndex: 10 }]}><AuthScreen key={loginRequest.sessionExpired ? 'expired' : 'login'} sessionExpired={loginRequest.sessionExpired === true} initialEmail={authenticatedSession?.email || ''} resumeSession={loginRequest.restoreSession === true} onContinue={continueFromLogin} onClose={closeLogin} /></View></EditorModal>}
       {accountToast && <AccountToast key={accountToast.key} message={accountToast.message} onDone={() => setAccountToast(null)} />}
       <HandwritingStudio />
@@ -1011,6 +1014,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onWithdraw
   const libraryLoading = !loaded || (member && (libraryBusy || (!memberListFailed
     && (fullLoadPending || !memberLibraryMatches || !libraryReady || diaryState.refreshing))));
   const localListFailed = !member && libraryReadFailed;
+  const centerMemberError = member && memberLibraryMatches && libraryFailed && libraryDiaries.length === 0;
   const libraryScreen = useMemo(() => view === null ? (
     <LoadingSpot compact={isPhone} label="보관함 보기를 불러오고 있어요." />
   ) : (
@@ -1042,7 +1046,9 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onWithdraw
       remoteQuery={remoteQuery}
       historyKey={member ? diaryState.store.keys.searchHistory : undefined}
       hasMore={member && memberLibraryMatches && diaryState.library.hasNext}
-      requestNotice={member ? <><MemberLibraryNotice library={diaryState.library} pending={!memberLibraryMatches} bulk={diaryState.bulkTrash}
+      centeredNotice={centerMemberError ? <MemberLibraryNotice library={diaryState.library} centered
+        onRetry={() => diaryState.store.retryLibrary().catch(() => {})} /> : null}
+      requestNotice={member ? <><MemberLibraryNotice library={diaryState.library} pending={!memberLibraryMatches || centerMemberError} bulk={diaryState.bulkTrash}
         onRetry={()=>diaryState.store.retryLibrary().catch(()=>{})}
 /><MemberTrashNotice state={diaryState} context="library" onReload={()=>diaryState.store.loadTrash().catch(()=>{})} onRetry={()=>diaryState.store.retryLifecycle().catch(()=>{})}/><MemberRequestNotice pending={diaryState.pending} error={diaryState.error} busy={saving} refreshing={diaryState.refreshing}
         onReload={() => diaryState.store.load().catch(() => {})}
@@ -1063,7 +1069,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onWithdraw
       suppressEmpty={libraryLoading || memberListFailed || localListFailed}
       loading={libraryLoading}
     />
-  ), [guestImport, carousel, navigate, changeCarousel, changeFilter, changeView, changeLibrarySort, create, edit, favorite, filter, isPhone, tabletPortrait,libraryMetadata, librarySort, moveDiaryToTrash, moveSelectedToTrash, open, selection, trashing, view, libraryDiaries, member, memberLibraryMatches, remoteQuery, diaryState.library, diaryState.bulkTrash, diaryState.pending, diaryState.error, diaryState.refreshing, diaryState.lifecycle, diaryState.trashLoading, diaryState.trashError, diaryState.store, saving, enterEditor, loaded, localListFailed, retryLibraryRead, libraryLoading, memberListFailed]);
+  ), [guestImport, carousel, navigate, changeCarousel, changeFilter, changeView, changeLibrarySort, create, edit, favorite, filter, isPhone, tabletPortrait,libraryMetadata, librarySort, moveDiaryToTrash, moveSelectedToTrash, open, selection, trashing, view, libraryDiaries, member, memberLibraryMatches, remoteQuery, diaryState.library, diaryState.bulkTrash, diaryState.pending, diaryState.error, diaryState.refreshing, diaryState.lifecycle, diaryState.trashLoading, diaryState.trashError, diaryState.store, saving, enterEditor, loaded, localListFailed, retryLibraryRead, libraryLoading, memberListFailed, centerMemberError]);
 
   // 보관함(libraryScreen)처럼 요소를 memo 해 둔다. 사이드 메뉴를 여닫느라 App 이 다시 그려져도 휴지통 목록은 다시 그리지 않는다.
   const trashScreen = useMemo(() => (
