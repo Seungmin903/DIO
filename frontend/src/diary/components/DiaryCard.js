@@ -1,4 +1,4 @@
-import { memo, useRef, useState } from 'react';
+import { memo, useCallback, useRef, useState } from 'react';
 import { C } from '../constants';
 import { DISABLED_OPACITY } from '../../shared/theme';
 import { Animated, Pressable, Text, View } from 'react-native';
@@ -16,6 +16,16 @@ import { cardTapAction } from '../utils/libraryView';
 // 표지 바깥으로 나가는 효과(프레임 3px · 해 방향 그림자)가 좌우에서 통째로 잘렸다. 해 방향 그림자는 시간대에 따라 표지 밖으로 왼쪽 약 43 · 오른쪽 약 40(스와이프 가운데 카드는 1.06배) · 위 약 25 · 아래 약 31px 나가므로
 // 그만큼의 여백을 두고 같은 크기의 음수 마진으로 자리는 그대로 둔다(styles.carouselEffectSpace 와 같은 값).
 export const CAROUSEL_EFFECT_PAD = { x: 48, top: 28, bottom: 36 };
+// 스와이프 카드의 표지 안쪽 여백 기억(자리가 바뀌어 새로 마운트된 카드도 이름 줄이 처음부터 제자리에 오게).
+// 스와이프 카드 폭은 모드(compact · large)마다 고정이라 그 둘과 다이어리 id 로 가린다. 한눈에 · 목록은 칸 폭이 창 크기를 따라 바뀌어 기억하지 않는다.
+// 오래 쓰지 않은 것부터 지워 COVER_INSET_MEMORY_MAX 개를 넘지 않게 한다(지운 다이어리 항목도 이렇게 밀려난다)
+export const COVER_INSET_MEMORY_MAX = 200;
+const coverInsetMemory = new Map();
+const rememberCoverInset = (key, value) => {
+  coverInsetMemory.delete(key); // 다시 넣어 가장 최근으로
+  coverInsetMemory.set(key, value);
+  while (coverInsetMemory.size > COVER_INSET_MEMORY_MAX) coverInsetMemory.delete(coverInsetMemory.keys().next().value);
+};
 
 
 // 즐겨찾기 별의 윤곽선: 표지 위에서는 흰색, 표지 바탕이 밝은 흰 노트이면 남색으로 쓴다(흰색 대비가 1.5:1 아래인 거의 흰 바탕일 때).
@@ -39,7 +49,10 @@ function DiaryCard({ diary, pageCount, layout = 'grid', compact = false, large =
   const [menu, setMenu] = useState(null);
   const moreRef = useRef(null), cardRef = useRef(null);
   // 세로 표지는 칸보다 좁아 가운데에 놓인다. 이름 · 페이지 수를 그 표지의 왼쪽 끝에 맞추려고 Cover 가 알려 주는 값(가로 표지는 0)
-  const [coverInset, setCoverInset] = useState(0);
+  // 스와이프에서 위치가 바뀐 카드는 새로 마운트된다(LibraryScreen). 처음 0 으로 그렸다가 맞추면 이름 줄이 옆으로 움찔하므로 마지막 값을 기억해 두고 시작한다(스와이프만)
+  const insetKey = layout === 'carousel' ? `${compact ? 'c' : ''}${large ? 'l' : ''}:${diary.id}` : null;
+  const [coverInset, setInsetState] = useState(() => (insetKey && coverInsetMemory.get(insetKey)) ?? 0);
+  const setCoverInset = useCallback(value => { if (insetKey) rememberCoverInset(insetKey, value); setInsetState(value); }, [insetKey]);
   // 로컬 요약이 있으면 그것을 사용한다. null은 조회 실패, undefined는 아직 확인 전이다.
   // 책상이 어두운 시각에는 책상 위(제목 · 페이지 수) 글씨를 흰색으로 쓴다. 목록 보기는 흰 카드라 그대로 둔다.
   const count = pageCount === undefined ? diary.pageCount : pageCount;

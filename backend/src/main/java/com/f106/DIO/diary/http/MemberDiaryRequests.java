@@ -21,13 +21,19 @@ public final class MemberDiaryRequests {
         try { return com.f106.DIO.page.domain.PaperAppearance.normalize(value); }
         catch(IllegalArgumentException invalid) { throw new MemberDiaryRequestException("INVALID_PAPER_APPEARANCE"); }
     }
+    static String serializeTemplateConfig(JsonNode value) {
+        if(value==null)return null;
+        try { return com.f106.DIO.diary.support.DiaryTemplateConfig.serialize(value); }
+        catch(IllegalArgumentException invalid) { throw new MemberDiaryRequestException("INVALID_TEMPLATE_CONFIG"); }
+    }
 
     public record Create(
         @NotBlank @Size(max=100) String diaryTitle,
         @Schema(description="생략 또는 null이면 #CED9EE. 지문 계산과 저장 전에 기본값 적용") @Pattern(regexp="#[0-9a-fA-F]{6}") String coverColor,
         @Schema(description="생략 또는 null이면 PLAIN. 지문 계산과 저장 전에 기본값 적용") @Size(max=30) @Pattern(regexp="(?s).*\\S.*") String coverStyle,
         @NotNull @Size(min=1,max=4096) @Valid List<@NotNull @Valid InitialPage> initialPages,
-        JsonNode paperAppearance
+        JsonNode paperAppearance,
+        @Schema(type="object",description="다이어리 단위 속지 구성(고른 속지 묶음·날짜 표시 방식·방향). 생략 가능. 앱이 정한 JSON 객체를 그대로 보관") JsonNode templateConfig
     ) {
         public Create { if(diaryTitle!=null) diaryTitle=com.f106.DIO.diary.support.DiaryTitle.normalize(diaryTitle); }
         public DiaryCreateRequest metadata() { return new DiaryCreateRequest(diaryTitle,coverColor,coverStyle,"PRIVATE"); }
@@ -48,6 +54,9 @@ public final class MemberDiaryRequests {
     public static class Update {
         private tools.jackson.databind.JsonNode cover;
         private JsonNode paperAppearance;
+        private JsonNode templateConfig;
+        public JsonNode getTemplateConfig() { return templateConfig; }
+        @JsonSetter(nulls=Nulls.FAIL) public void setTemplateConfig(JsonNode value) { templateConfig=value; }
         @Pattern(regexp="new|all") private String paperAppearanceScope;
         public JsonNode getPaperAppearance() { return paperAppearance; }
         public String getPaperAppearanceScope() { return paperAppearanceScope; }
@@ -72,7 +81,7 @@ public final class MemberDiaryRequests {
         @JsonSetter(nulls=Nulls.FAIL) public void setCoverColor(String value) { coverColor=value; }
         @JsonSetter(nulls=Nulls.FAIL) public void setCoverStyle(String value) { coverStyle=value; }
         @JsonAnySetter public void unsupported(String name,Object value) { throw new IllegalArgumentException("Unsupported update field"); }
-        @AssertTrue @Schema(hidden=true) public boolean isMetadataPresent() { return diaryTitle!=null || coverColor!=null || coverStyle!=null || cover!=null || paperAppearance!=null; }
+        @AssertTrue @Schema(hidden=true) public boolean isMetadataPresent() { return diaryTitle!=null || coverColor!=null || coverStyle!=null || cover!=null || paperAppearance!=null || templateConfig!=null; }
         public DiaryUpdateRequest patch() {
             var patch=new DiaryUpdateRequest();
             if(diaryTitle!=null) patch.setDiaryTitle(diaryTitle);

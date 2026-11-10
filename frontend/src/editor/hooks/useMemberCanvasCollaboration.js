@@ -6,7 +6,7 @@ import { authService, apiBaseUrl, accessTokenHeader } from '../../auth/authServi
 import { createAuthenticatedMemberTransport } from '../../diary/services/memberTransport.js'
 import { memberDocumentKey } from '../../diary/services/memberStorage.js'
 import { createId } from '../utils/common.js'
-import { sameElements } from '../../collaboration/canvasApi.js'
+import { sameElements, remapObjectIds } from '../../collaboration/canvasApi.js'
 import { isUuid } from '../../collaboration/canvasElements.js'
 import { createCollaborationDiagnostics } from '../../collaboration/collaborationDiagnostics.js'
 import { createCanvasWriteApi } from '../../collaboration/canvasWriteApi.js'
@@ -14,6 +14,9 @@ import { loadServerPageSnapshot, createServerPage, copyServerPage, deleteServerP
 import { createCanvasSession } from '../../collaboration/canvasSession.js'
 import { createCanvasMedia, createMediaRequest } from '../../collaboration/canvasMedia.js'
 import { canvasMediaFiles } from '../services/canvasMediaFiles'
+import { createDiaryFonts, withDiaryFonts } from '../../collaboration/diaryFonts.js'
+import { claimSharedFonts, releaseSharedFonts, sharedFontFiles, sharedFontLibrary } from '../../handwriting/sharedFonts.js'
+import { askFontShareConsent, fontShareConsent } from '../../handwriting/fontShareConsent.js'
 import { connectCollaboration } from '../../collaboration/collaborationSocket.js'
 import { createCanvasHttpFetch } from '../../collaboration/canvasFetch.js'
 import { setPdfSourceFetcher } from '../services/pdfSourceRemote.js'
@@ -55,8 +58,19 @@ export function useMemberCanvasCollaboration({diary,page,state,loaded,readOnly,d
     const fetchImpl=createCanvasHttpFetch({auth:authService,headersFor,accessTokenHeader,fetchImpl:memberFetch})
     const diagnostics=createCollaborationDiagnostics({enabled:typeof __DEV__!=='undefined'&&__DEV__&&process.env.EXPO_PUBLIC_COLLABORATION_DIAGNOSTICS==='1'})
     const transport=diagnostics.transport(createAuthenticatedMemberTransport({auth:authService,accountId:diary.memberAccountId,baseUrl:apiBaseUrl,accessTokenHeader,fetchImpl}))
-    const media=createCanvasMedia({request:createMediaRequest({auth:authService,accountId:diary.memberAccountId,sessionKey,baseUrl:apiBaseUrl,fetchImpl:memberFetch}),files:canvasMediaFiles,storage:AsyncStorage,key:`${memberDocumentKey(diary)}:media-uploads:v1:${encodeURIComponent(apiBaseUrl)}`,isActive:active})
-    const api=createCanvasWriteApi(transport,media,diary.id)
+    // 미디어(사진 · 스티커 · PDF)와 손글씨 폰트가 같은 요청 함수를 쓴다(인증 · 시간 제한 설정을 한곳에서)
+    const mediaRequest=createMediaRequest({auth:authService,accountId:diary.memberAccountId,sessionKey,baseUrl:apiBaseUrl,fetchImpl:memberFetch})
+    const media=createCanvasMedia({request:mediaRequest,files:canvasMediaFiles,storage:AsyncStorage,key:`${memberDocumentKey(diary)}:media-uploads:v1:${encodeURIComponent(apiBaseUrl)}`,isActive:active})
+    // 손글씨 폰트: 내 폰트로 쓴 글자를 보내기 전에 폰트를 이 다이어리에 공유하고, 친구 폰트는 받아 등록한다.
+    // 올린 폰트의 서버 id 는 계정 · 서버마다 기록해 다이어리가 달라도 다시 올리지 않는다
+    // 받은 친구 폰트 캐시는 계정 · 서버마다: 다른 계정으로 열면 이전 계정이 받은 파일을 먼저 지운다. 세션을 닫으면 목록에서 뺀다
+    const fontOwner=`${diary.memberAccountId}@${apiBaseUrl}`
+    const fonts=createDiaryFonts({diaryId:diary.id,transport,request:mediaRequest,files:sharedFontFiles,library:sharedFontLibrary,storage:AsyncStorage,
+      key:`dio:member:v1:${diary.memberAccountId}:font-uploads:v1:${encodeURIComponent(apiBaseUrl)}`,isActive:active,ready:claimSharedFonts(fontOwner),
+      consent:{status:()=>fontShareConsent(diary.memberAccountId),ask:()=>askFontShareConsent(diary.memberAccountId)}})
+    fonts.sync().catch(()=>{})
+    const sessionMedia=withDiaryFonts(media,fonts)
+    const api=createCanvasWriteApi(transport,sessionMedia,diary.id)
     const fetchDocument=(sourceId,mediaFileId)=>media.fetchDocument(sourceId,mediaFileId)
     setPdfSourceFetcher(fetchDocument)
     r.pageEpoch=0;r.pageIds=null;r.removing=new Set()
@@ -206,11 +220,11 @@ export function useMemberCanvasCollaboration({diary,page,state,loaded,readOnly,d
         }
         if(!active()||!r.pageIds?.has(pageId))return
         const current=latest.current.page,target=latest.current.state.doc.pages.find(p=>p.id===pageId)
-        const imported=Boolean(target)&&!result.unchanged&&(!result.direction||sameElements(target.objects,result.expectedLocal))
+        const imported=Boolean(target)&&!result.unchanged&&(!result.direction||sameElements(remapObjectIds(target.objects,result.idRemaps),result.expectedLocal))
         // 전송 확인·화면 반영·저장 상태를 같은 틱에 갱신해 React 가 한 번에 커밋하게 한다(await 뒤로 미루면 커밋이 나뉜다)
         r.flushAcks()
         if(imported)dispatch({type:result.direction?'collaborationHistoryApplied':'importCollaborationElements',direction:result.direction,
-            historyClientOperationId:result.historyClientOperationId,pageId,expectedElements:result.expectedLocal,objects:result.objects})
+            historyClientOperationId:result.historyClientOperationId,pageId,expectedElements:result.expectedLocal,objects:result.objects,idRemaps:result.idRemaps})
         if(current.id===pageId&&active())setView(v=>{
           const next={...v,status:result.rejectedCount?'error':'saved',errorMessage:result.rejectedCount?'서버가 거절한 편집은 기기에 보관했어요. 나머지 편집은 동기화했어요.':null,history:result.history,pageId}
           // 바뀐 것이 없으면 같은 상태를 돌려줘 편집 화면을 다시 그리지 않는다
@@ -251,7 +265,7 @@ export function useMemberCanvasCollaboration({diary,page,state,loaded,readOnly,d
     // Periodic reconciliation also covers an event lost after commit or a proxy without WebSocket support.
     const timer=setInterval(()=>{diagnostics.event('poll');refresh()},5000)
     const appState=AppState.addEventListener('change',next=>{if(next==='active')refresh();else dispatch({type:'commitCheckpoint'})})
-    return ()=>{r.alive=false;setOnlineUserIds(null);collaborationStateChange.current(diary.sharedDiaryId||diary.id,false);setPdfSourceFetcher(null);media.dispose();socket.close();clearInterval(timer);appState.remove();if(runtime.current===r)runtime.current=null}
+    return ()=>{r.alive=false;setOnlineUserIds(null);collaborationStateChange.current(diary.sharedDiaryId||diary.id,false);setPdfSourceFetcher(null);sessionMedia.dispose();releaseSharedFonts();socket.close();clearInterval(timer);appState.remove();if(runtime.current===r)runtime.current=null}
   },[enabled,loaded,diary?.id,diary?.memberAccountId,sessionKey])
   useEffect(()=>{
     const r=runtime.current;if(!r||!enabled||!loaded)return

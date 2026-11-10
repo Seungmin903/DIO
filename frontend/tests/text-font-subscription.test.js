@@ -17,6 +17,7 @@ const callers = files.map(path => [relative(root, path).replaceAll('\\', '/'), r
 const SUBSCRIBES = new Set([
   'diary/components/CoverArt.js', 'editor/components/canvas/ObjectView.js', 'editor/components/TextEditor.js', 'editor/components/TextLinkOverlay.js',
   'editor/components/TextSettings.js', 'editor/components/controls/TextFontDropdown.js', 'editor/components/canvas/RouteNodeArt.js',
+  'editor/components/TextFormatStrip.js',
 ])
 // 직접 구독하지 않아도 되는 파일과 이유
 const EXEMPT = {
@@ -27,6 +28,7 @@ const EXEMPT = {
   'diary/screens/DecorationStudioScreen.js': '내 폰트: 글꼴 파일을 따로 불러오며(refreshPersonalFonts) 지연 로딩 대상이 아니다',
   'handwriting/HandwritingStudio.js': '내 폰트(위와 같다)',
   'handwriting/library.js': '내 폰트(위와 같다)',
+  'handwriting/sharedFonts.js': '공유 다이어리에서 받은 친구 폰트: 그리지 않고 이미 등록됐는지만 본다. 직접 불러온 뒤 markTextFontLoaded 로 알린다',
 }
 const subscribes = source => /useTextFont\(|subscribeTextFonts|textFontStateSnapshot/.test(source)
 const sourceOf = name => readFileSync(join(root, name), 'utf8')

@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { createMemberAppStore } from '../src/diary/services/memberAppStore.js'
 import { memberKeys } from '../src/diary/services/memberStorage.js'
-import { memberLibraryQuery } from '../src/diary/services/memberLibraryQuery.js'
+import { memberLibraryQuery, scheduleLibraryQuery } from '../src/diary/services/memberLibraryQuery.js'
 
 const row = id => ({ id, title: id, color: '#123456', version: '1', canEdit: true, permissions: { canTrash: true }, pageCount: 7, isShared: false })
 const page = (items, nextCursor = null) => ({ items, hasNext: nextCursor !== null, nextCursor })
@@ -33,6 +33,45 @@ test('최초 조회는 20개 첫 페이지만 읽고 더 보기에서 같은 조
   assert.deepEqual(f.store.getSnapshot().library.items.map(r=>r.id),['z','b']);assert.equal(f.store.getSnapshot().library.hasNext,false)
 })
 
+test('첫 보관함 조회 중 같은 조건을 요청하면 진행 중인 요청을 재사용한다', async () => {
+  const { store, api, calls } = fixture()
+  const started = deferred(), response = deferred()
+  api.list = async input => {
+    calls.push(input)
+    started.resolve()
+    return response.promise
+  }
+  const initial = store.load()
+  await started.promise
+  assert.equal(store.getSnapshot().loaded, true)
+  const sameQuery = store.queryLibrary(memberLibraryQuery())
+  assert.equal(calls.length, 1)
+  response.resolve(page([row('a')]))
+  await initial
+  assert.deepEqual((await sameQuery).map(item => item.id), ['a'])
+})
+
+test('검색어 없는 조건은 즉시 조회하고 마지막 검색어만 200ms 뒤 조회한다', t => {
+  t.mock.timers.enable({ apis: ['setTimeout'] })
+  const calls = []
+  const store = { async queryLibrary(query) { calls.push(query) } }
+  const run = options => scheduleLibraryQuery(store, memberLibraryQuery(options))
+
+  run({ filter: 'personal' })
+  run({ filter: 'favorite' })
+  assert.deepEqual(calls.map(query => query.favorite), [false, true])
+
+  const cancel = run({ query: '여', searchOpen: true })
+  t.mock.timers.tick(199)
+  assert.equal(calls.length, 2)
+  cancel()
+  run({ query: '여름', searchOpen: true })
+  t.mock.timers.tick(199)
+  assert.equal(calls.length, 2)
+  t.mock.timers.tick(1)
+  assert.deepEqual(calls.map(query => query.q), ['', '', '여름'])
+})
+
 test('검색·정렬 결과 순서를 보존하고 필터 밖 캐시와 필기 문서를 지우지 않는다', async () => {
   const f=fixture();await f.store.load()
   f.api.list=async input=>{f.calls.push(['list',input]);return page([{...row('z'),isShared:true},row('a')])}
@@ -49,6 +88,40 @@ test('조건이 바뀌면 이전 커서를 버리고 느린 검색 응답을 반
   const old=f.store.queryLibrary({q:'old'});const rejected=assert.rejects(old,{code:'STALE_LIBRARY'})
   await f.store.queryLibrary({q:'new'});const before=f.disk.get(f.keys.index);gate.resolve();await rejected
   assert.deepEqual(f.store.getSnapshot().library.items.map(r=>r.id),['new']);assert.equal(f.disk.get(f.keys.index),before)
+})
+
+test('첫 조회가 대체되면 보관함 오류를 띄우지 않고 현재 조회의 실패만 재시도할 수 있다', async () => {
+  for (const oldFails of [false, true]) {
+    const { store, api } = fixture();
+    const started = deferred(), oldGate = deferred(), currentGate = deferred();
+    const offline = new Error('offline');
+    api.list = async ({ q }) => {
+      if (q) { await currentGate.promise; throw offline; }
+      started.resolve();
+      await oldGate.promise;
+      if (oldFails) throw offline;
+      return page([row('old')]);
+    };
+    const initial = store.load();
+    const initialRejected = assert.rejects(initial, oldFails ? /offline/ : { code: 'STALE_LIBRARY' });
+    await started.promise;
+    const current = store.queryLibrary({ q: 'new' });
+    const currentRejected = assert.rejects(current, /offline/);
+    oldGate.resolve();
+    await initialRejected;
+    assert.equal(store.getSnapshot().error, null);
+    assert.equal(store.getSnapshot().library.error, null);
+    assert.equal(store.getSnapshot().library.loading, true);
+
+    currentGate.resolve();
+    await currentRejected;
+    assert.equal(store.getSnapshot().error, null);
+    assert.equal(store.getSnapshot().library.error, offline);
+    api.list = async ({ q }) => { assert.equal(q, 'new'); return page([row('new')]); };
+    await store.retryLibrary();
+    assert.equal(store.getSnapshot().library.error, null);
+    assert.deepEqual(store.getSnapshot().library.items.map(item => item.id), ['new']);
+  }
 })
 
 test('다음 페이지 네트워크 실패는 기존 행을 유지하고 실패한 페이지 커서로 재시도한다', async () => {

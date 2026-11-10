@@ -210,3 +210,13 @@ test('iOS 구형 PDF 렌더러에는 실제 쪽 크기 이하를 요청하고 �
     assert.equal(mod.exports.canRenderPdfDetail(), supportsScaling);
   }
 });
+
+test('다른 기기와 합쳐 이미 한도를 넘은 표지 목록에 더해도 한 번에 한도로 줄이지 않고 가장 오래된 하나만 뺀다', () => {
+  // 서버(내 표지 보관함)는 100개까지 두므로 기기 목록이 30개를 넘을 수 있다. 30개로 자르면 동기화가 나머지를 서버에서도 지운다
+  let list = [];
+  for (let i = 0; i < 40; i += 1) list = [...list, normalizeMyCovers(addMyCover([], { name: `표지 ${i}`, cover: defaultCover() }))[0]];
+  const next = addMyCover(list, { name: '새 표지', cover: defaultCover() });
+  assert.equal(next.length, 40);
+  assert.equal(next[0].name, '새 표지');
+  assert.equal(next.at(-1).name, '표지 38'); // 가장 오래된 '표지 39' 하나만 빠진다
+});
