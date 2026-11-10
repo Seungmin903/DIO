@@ -88,6 +88,10 @@ export const styles = StyleSheet.create({
   libraryFixedTop: { flexGrow: 0, flexShrink: 0, paddingBottom: 0, zIndex: 3, elevation: 3 },
   libraryGridScroll: { flexGrow: 1, paddingHorizontal: LIBRARY_SIDE_PADDING, paddingBottom: 34 },
   libraryGridScrollCompact: { paddingHorizontal: 14, paddingBottom: 20 },
+  libraryCenteredNotice: { flexGrow: 1, justifyContent: 'center', alignItems: 'center', padding: 14 },
+  memberLibraryNotice: { padding: 12, gap: 8 },
+  memberLibraryNoticeCentered: { alignItems: 'center' },
+  memberLibraryNoticeTextCentered: { textAlign: 'center' },
   // 새 다이어리 버튼이 떠 있을 때는 마지막 줄이 버튼 밑에 깔리지 않게 버튼 높이 + 위아래 여백만큼 비운다
   libraryGridScrollFab: { paddingBottom: 24 + 56 + 16 },
   libraryGridScrollFabCompact: { paddingBottom: 16 + 56 + 16 },

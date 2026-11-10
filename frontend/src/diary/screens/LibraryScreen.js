@@ -56,6 +56,7 @@ function LibraryScreen({
   trashing = false,
   remoteQuery = null, // API 경로에서만 검색 입력을 제어한다. 로컬 경로는 기존 상태를 사용한다.
   requestNotice = null,
+  centeredNotice = null,
   hasMore = false,
   suppressEmpty = false,
   loading = false, // 결과가 아직 없으면 보관함 틀 안에 스피너를 표시한다.
@@ -281,7 +282,7 @@ function LibraryScreen({
     diaries={shown} onOpen={onOpen} onFavorite={onFavorite} onEdit={onEdit} onDelete={onDelete} onShare={onShare}
     metadata={metadata} optionsMenu={optionsMenu} selectionBar={selectionBar}
     selecting={selecting} selected={selected} onToggleSelect={toggleSelect} onEnterEdit={enterEdit}
-    requestNotice={requestNotice} hasMore={hasMore} suppressEmpty={suppressEmpty} historyKey={historyKey}
+    requestNotice={<>{centeredNotice}{requestNotice}</>} hasMore={hasMore} suppressEmpty={suppressEmpty} historyKey={historyKey}
   />;
 
   // 한눈에 보기는 제목 · 필터 · 도구를 위에 고정하고 카드 목록만 스크롤한다.
@@ -433,7 +434,10 @@ function LibraryScreen({
   </>);
   return (
     <View style={s.libraryRoot}>
-    {isGrid ? <>
+    {centeredNotice ? <>
+      <View style={[s.libraryScreen, compact && s.libraryScreenCompact, s.libraryFixedTop]}>{top}</View>
+      <ScrollView contentContainerStyle={s.libraryCenteredNotice}>{centeredNotice}</ScrollView>
+    </> : isGrid ? <>
       <View style={[s.libraryScreen, compact && s.libraryScreenCompact, s.libraryFixedTop]}>{top}</View>
       <ScrollView {...grid?.scroll} contentContainerStyle={[s.libraryGridScroll, compact && s.libraryGridScrollCompact, canCreate && (compact ? s.libraryGridScrollFabCompact : s.libraryGridScrollFab)]} showsVerticalScrollIndicator={false}>{body}</ScrollView>
     </> : displayView === 'open' ? <>
