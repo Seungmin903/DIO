@@ -217,11 +217,7 @@ export function drawGlassPooled(canvas, points, width, color, zoom = 1, ink = {}
   let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity
   for (const d of dabs) { if (d.x < x0) x0 = d.x; if (d.y < y0) y0 = d.y; if (d.x > x1) x1 = d.x; if (d.y > y1) y1 = d.y }
 
-  // ① 몸통을 **벡터로 먼저 긋는다**. 실루엣은 이 획이 정한다 — 형광펜 · 볼펜과 똑같이 또렷하다.
-  const body = Skia.Paint()
-  body.setColor(Skia.Color(color))
   const runs = widthRuns(dabs)
-  for (const run of runs) canvas.drawPath(centerPath(dabs, 1, run.from, run.to), strokeStyle(body, run.w))
 
   // ② 고임이 만드는 것(커피링 · 테 · 농담 흐름)을 그 위에 얹는다.
   //
@@ -243,7 +239,23 @@ export function drawGlassPooled(canvas, points, width, color, zoom = 1, ink = {}
   const margin = 3      // 화면 px — 필터 쪽 가장자리를 진짜 가장자리 바깥으로 밀어낸다
   canvas.save()
   canvas.scale(1 / S, 1 / S)
-  canvas.saveLayer(Skia.Paint(), bounds)   // 바깥 층(필터 없음)
+  // 획 하나를 통째로 **곱해서** 종이에 얹는다.
+  //
+  // 염료는 알파 혼합이 아니라 투과다(6판). 두 겹을 지난 빛은 두 번 흡수되므로 겹친 자리는
+  // 곱한 만큼 진해진다 — 실물 잉크가 겹쳐도 이음새가 안 보이는 이유다.
+  // 덮어쓰기(SrcOver)로 두면 위 획의 옅은 테(쉰)가 아래 획 위에 테두리로 떠서,
+  // 글자가 아니라 겹쳐 놓은 획들로 읽힌다(사용자 2026-11-10: ㅠ · ㅍ 이 어색하다).
+  // 곱하면 그 옅은 테가 아래 잉크에 먹혀 사라지고, 빈 종이 위 가장자리에서만 남는다.
+  // 몸통 · 테 · 고임을 한 층에 모아 그린 뒤 그 층을 곱한다(따로 곱하면 두 번 곱해져 새까매진다).
+  const sheet = Skia.Paint()
+  sheet.setBlendMode(BlendMode.Multiply)
+  canvas.saveLayer(sheet, bounds)   // 바깥 층(필터 없음) — 이 층 전체가 종이에 곱해진다
+
+  // ① 몸통을 벡터로 먼저 긋는다. 실루엣은 이 획이 정한다 — 형광펜 · 볼펜과 똑같이 또렷하다.
+  const body = Skia.Paint()
+  body.setColor(Skia.Color(color))
+  for (const run of runs) canvas.drawPath(centerPath(dabs, S, run.from, run.to), strokeStyle(body, run.w * S))
+
   canvas.saveLayer(layer, bounds)
 
   // 두께: 도장을 Lighten(최댓값)으로. 안티에일리어스는 켠다 — 셰이더가 T = m.g / m.a 로 되돌려 읽으므로
