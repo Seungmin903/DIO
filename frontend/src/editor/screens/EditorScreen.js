@@ -52,6 +52,9 @@ import { DEFAULT_GUIDES, hasGuides } from '../components/canvas/GridOverlay'
 import { TEXT_ACTION_BAR_HEIGHT, TEXT_ACTION_BAR_WIDTH } from '../components/TextActionBar'
 import { keyboardPanelBottom } from '../utils/textKeyboard'
 import { formatTextRange } from '../utils/textFormats'
+import TextEditBar, { TEXT_EDIT_BAR_WIDTH } from '../components/TextEditBar'
+import TextFormatStrip, { TEXT_FORMAT_STRIP_HEIGHT } from '../components/TextFormatStrip'
+import { TEXT_EDIT_BAR_HEIGHT, textBoxOnStage, textEditBarPlacement } from '../utils/textEditBar'
 import { copyText } from '../services/textClipboard'
 import { objectClipboard, useObjectClipboard } from '../services/objectClipboard'
 import { DEFAULT_TEXT_SETTINGS, textSettings, textFormatPatch, VISUAL_TEXT_KEYS } from '../utils/text'
@@ -118,7 +121,7 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
   const [readingMode, setReadingMode] = useState(false)
   const [readerMenuVisible, setReaderMenuVisible] = useState(true)
   const readOnly = permissionReadOnly || readingMode
-  const textCommitRef = useRef(null)
+  const textCommitRef = useRef(null), textCancelRef = useRef(null)
   const readingLinkRef = useRef(false)
   const modeControlsRef = useRef(null)
   const modeControlsBounds = useRef(null)
@@ -224,10 +227,17 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
   const textReturnTool = useRef(null)
   const returnableTool = (tool) => (tool === 'pen' || tool === 'highlighter' ? tool : null)
   // 글 입력이 저장 · 취소 · 그 밖의 어떤 경로로 끝나도 돌아갈 도구를 비워, 다음 입력(도형 글 등)이 옛 도구로 돌아가지 않게 한다.
-  useEffect(() => { if (!textEditing) textReturnTool.current = null }, [textEditing])
+  useEffect(() => { if (!textEditing) { textReturnTool.current = null; textEditBarBounds.current = null; textFormatStripBounds.current = null; setTextHeld(false) } }, [textEditing])
   // 사진 틀(티켓 · 네컷)의 인쇄 글자를 캔버스에서 바로 고치는 중 { pageId, id, line }
   const [frameTextEdit, setFrameTextEdit] = useState(null)
   const textBoundary = useRef(null)
+  // 글상자 작업 막대(TextEditBar)의 창 좌표. 편집 중 터치가 글상자 · 선택한 글자 줄 밖이면 편집을 끝내는 판정(textBoundary)에서 이 막대는 뺀다(S15P31F106-482).
+  // 자리는 그릴 때 계산값(배치 + 작업창 원점)으로 바로 둔다 — 위치만 바뀌면 onLayout 이 다시 오지 않아 측정값이 옛 자리에 머물렀다. 크기만 onLayout 으로 받는다
+  const textEditBarSize = useRef(null), textEditBarBounds = useRef(null)
+  // 키보드 위 글상자 서식 줄(TextFormatStrip): 글을 고치는 동안 늘 떠 있다(켜고 끄는 버튼은 뺐다 — 자동으로 열리니 끄기만 남아 쓸모가 없었다, 실기 피드백 2026-11-10). 글자를 고른 동안은 '선택한 글자' 줄이 그 자리를 쓴다
+  const textFormatStripSize = useRef(null), textFormatStripBounds = useRef(null)
+  // 서식 줄의 글자 색 직접 고르기 창이 떠 있는 동안 true: 입력창이 포커스를 잃어도 편집을 끝내지 않고, 닫히면 다시 포커스한다
+  const [textHeld, setTextHeld] = useState(false)
   const textPaletteBounds = useRef(null)
   const [textPalette, setTextPalette] = useState(null)
   const [textDefaults, setTextDefaults] = useToolPreference('textDefaults', DEFAULT_TEXT_SETTINGS)
@@ -419,12 +429,17 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
   const tapeCrop = tapeCropId ? page.objects.find((o) => o.id === tapeCropId && (o.src || o.mediaFileId) && o.imageWidth) : null
   const selectedObjects = page.objects.filter((o) => state.selectedIds.includes(o.id))
   const selectedText = selectedObjects.length === 1 && ['text','shape'].includes(selectedObjects[0].type) && !selectedObjects[0].locked ? selectedObjects[0] : null
-  const currentTextSettings = selectedText?.type === 'shape' ? shapeTextSettings(selectedText) : textSettings(selectedText ?? textDefaults)
+  // 글을 고치는 중인 글상자(도형 글 제외). 서식 창 · 글상자 작업 막대(TextEditBar)는 문서가 아니라 이 상자에 적용하고, 끝낼 때 onSaveText 가 함께 저장한다(S15P31F106-482)
+  const editingText = textEditing && textEditing.type !== 'shape' ? textEditing : null
+  const currentTextSettings = selectedText?.type === 'shape' ? shapeTextSettings(selectedText) : textSettings(editingText ?? selectedText ?? textDefaults)
   const changeTextSettings = (patch) => {
     if (Object.entries(patch).every(([key, value]) => currentTextSettings[key] === value)) return
     const next = { ...currentTextSettings, ...patch }
     setTextDefaults(next)
     const visualOnly = Object.keys(patch).every((key) => VISUAL_TEXT_KEYS.includes(key))
+    // 편집 중에는 설정값만 바꾼다(높이 · 폭은 입력창이 실측하고 끝낼 때 onSaveText 가 맞춘다). textFormatPatch 로 옛 글(새 상자는 '')에서 높이를 다시 어림하면 상자가 줄었다 늘며 글자가 움직였다
+    // 전체 색을 바꾸면 부분 색을 지운다(선택 상태 경로와 같다. 입력창이 들고 있는 구간 색은 TextEditor 가 같이 비운다)
+    if (editingText) { setTextEditing(current => current && current.id === editingText.id ? { ...current, ...patch, ...('color' in patch && { colorRanges: [] }) } : current); return }
     if (selectedText) dispatch({ type: 'updateObject', id: selectedText.id, record: true, patch: selectedText.type === 'shape' ? shapeTextFormatPatch(selectedText,patch) : { ...(visualOnly ? patch : textFormatPatch(selectedText, next)), ...('color' in patch && { colorRanges: [] }) } })
   }
   const showMore = moreOpen && selectedObjects.length > 0 && !cropId
@@ -984,7 +999,8 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
     }
     setGuidesOpen(false)
     setLassoSettingsOpen(tool === 'lasso' ? tool !== activeTool || !lassoSettingsOpen : false)
-    setTextSettingsOpen(tool === 'text' ? !textSettingsOpen : false)
+    // 텍스트 도구는 누를 때(처음이든 다시든) 기본값 서식 창을 열지 않는다 — 편집 중 서식은 키보드 위 줄이, 상자를 고른 뒤의 서식은 선택 바의 '서식'이 맡는다(실기 피드백, S15P31F106-482)
+    setTextSettingsOpen(false)
     setPenSettingsOpen(['pen', 'highlighter', 'eraser'].includes(tool) && tool === activeTool && !penSettingsOpen)
     if (cropId) finishCrop(false)
     setTapeCropId(null)
@@ -1141,6 +1157,11 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
         const b = modeControlsBounds.current
         const { pageX: x, pageY: y } = event.nativeEvent
         if (b && x >= b.x && x <= b.x + b.width && y >= b.y && y <= b.y + b.height) return false
+        // 글상자 작업 막대 위의 터치는 막대가 받는다(편집을 끝내지 않는다)
+        const t = textEditBarBounds.current
+        if (t && x >= t.x && x <= t.x + t.width && y >= t.y && y <= t.y + t.height) return false
+        const f = textFormatStripBounds.current
+        if (f && x >= f.x && x <= f.x + f.width && y >= f.y && y <= f.y + f.height) return false
         return Boolean(textEditing && textBoundary.current?.(event))
       }}
       onResponderTerminationRequest={() => false}
@@ -1370,9 +1391,10 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
                 textEditingTop={stageOrigin.y + 8}
                 onTextPaletteChange={setTextPalette}
                 textPaletteBounds={textPaletteBounds}
-                textCommitRef={textCommitRef}
+                textCommitRef={textCommitRef} textCancelRef={textCancelRef}
                 onReadingLinkStart={() => { readingLinkRef.current = true }}
                 textEditing={textEditing?.pageId === page.id ? textEditing : null}
+                textHeld={textHeld}
                 onEditText={(object) => { setTextSettingsOpen(false); textReturnTool.current = returnableTool(activeTool); setTextEditing({ ...object, pageId: page.id, existing: true }) }}
                 onTextSettings={() => { setTextSettingsOpen(current => !current); setMoreOpen(false) }}
                 onCopy={(objects) => { objectClipboard.set(objects); showToast(`${objects.length}개를 복사했어요.`) }}
@@ -1462,6 +1484,20 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
               {textPalette.content}
             </View>
           )}
+          {/* 글을 고치는 동안 키보드 위(웹은 작업창 아래 끝) 글상자 서식 줄. 글자를 고른 동안('선택한 글자' 줄)은 숨긴다 (S15P31F106-482) */}
+          {(() => {
+            // 줄을 그리지 않으면(글자를 골라 '선택한 글자' 줄로 바뀜 등) 터치 범위 · 크기도 비운다 — 옛 범위가 남으면 그 자리 터치가 편집을 끝내지 못했다(MR !505 리뷰)
+            if (readOnly || !editingText || textPalette?.placement === 'panel' || !stageSize) { textFormatStripBounds.current = null; textFormatStripSize.current = null; return null }
+            // 키보드가 없으면(웹 · 외장 키보드) 아래 떠 있는 되돌리기 · 맞춤 막대(아래 12 · 높이 44) 위에 둔다
+            const bottom = keyboardTop != null ? keyboardPanelBottom({ stageTop: stageOrigin.y, stageHeight: stageSize.height, keyboardTop }) : 12 + 44 + 8
+            const height = textFormatStripSize.current?.height ?? TEXT_FORMAT_STRIP_HEIGHT
+            textFormatStripBounds.current = { x: stageOrigin.x + 8, y: stageOrigin.y + stageSize.height - bottom - height, width: stageSize.width - 16, height }
+            // 글꼴 · 색 줄이 펼쳐져 두 줄로 커지면 레이아웃이 다시 와서 실제 크기 · 자리로 범위를 고친다(그 전까지는 위 계산값)
+            return <View style={[styles.textRangeWrap, { bottom }]} pointerEvents="box-none" {...markInside}
+              onLayout={(event) => { const { x, y, width, height } = event.nativeEvent.layout; textFormatStripSize.current = { width, height }; textFormatStripBounds.current = { x: stageOrigin.x + x, y: stageOrigin.y + y, width, height } }}>
+              <TextFormatStrip settings={currentTextSettings} onChange={changeTextSettings} onHold={setTextHeld} />
+            </View>
+          })()}
           {/* 웹 말풍선: 고른 줄 위에(위쪽 막대에 닿으면 아래에) 붙인다 */}
           {!readOnly && textEditing && textPalette && textPalette.placement !== 'panel' && (() => {
             const lineTop = (textPalette.anchor?.y ?? stageOrigin.y) - stageOrigin.y
@@ -1473,6 +1509,24 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
               ...(above ? { bottom: (stageSize?.height ?? 500) - lineTop + 6 } : { top: Math.max(paletteTop, Math.min(lineBottom + 6, (stageSize?.height ?? 500) - 164)) }),
             }]} {...markInside}>
               {textPalette.content}
+            </View>
+          })()}
+          {/* 글을 고치는 동안 글상자 위(자리가 없으면 아래) 작업 막대: 완료 · 복제 · 삭제 (S15P31F106-482). 글자 모양은 키보드 위 서식 줄이 맡는다. 아래 한계는 키보드(와 키보드 위 '선택한 글자' 줄) */}
+          {!readOnly && editingText && stageSize && (() => {
+            const box = textBoxOnStage(editingText, offset, zoom)
+            const stripHeight = textPalette?.placement === 'panel' ? TEXT_FORMAT_STRIP_HEIGHT : (textFormatStripSize.current?.height ?? TEXT_FORMAT_STRIP_HEIGHT)
+            const keyboardLimit = (keyboardTop != null ? keyboardTop - stageOrigin.y : stageSize.height) - (stripHeight ? stripHeight + 16 : 8)
+            const place = textEditBarPlacement({ box, stage: stageSize, topLimit: compact ? 84 : 8, bottomLimit: Math.min(stageSize.height, keyboardLimit),
+              barWidth: Math.min(TEXT_EDIT_BAR_WIDTH, stageSize.width - 16), preferBelow: Boolean(textPalette && textPalette.placement !== 'panel') })
+            textEditBarBounds.current = { x: stageOrigin.x + place.left, y: stageOrigin.y + place.top, width: textEditBarSize.current?.width ?? Math.min(TEXT_EDIT_BAR_WIDTH, stageSize.width - 16), height: textEditBarSize.current?.height ?? TEXT_EDIT_BAR_HEIGHT }
+            return <View style={[styles.textEditBarWrap, { left: place.left, top: place.top, maxWidth: stageSize.width - 16 }]} {...markInside}
+              onLayout={(event) => { textEditBarSize.current = { width: event.nativeEvent.layout.width, height: event.nativeEvent.layout.height } }}>
+              <TextEditBar
+                onDone={() => textCommitRef.current?.()}
+                // 지금 입력 · 서식을 먼저 저장한 뒤 그 상자를 복제한다(빈 새 상자는 저장되지 않아 복제할 것이 없다). 한글 조합 중(commit false)에는 아무 일도 하지 않는다
+                onDuplicate={() => { const id = editingText.id; if (textCommitRef.current?.() !== false) dispatch({ type: 'duplicateObjects', ids: [id] }) }}
+                // 저장을 먼저 막고 키보드를 내린다(키보드를 내리면 입력창이 저장해 새 상자가 생겼다)
+                onDelete={() => { textCancelRef.current?.(); Keyboard.dismiss(); if (editingText.existing) { dispatch({ type: 'removeObjects', ids: [editingText.id] }); showToast('글상자를 삭제했어요. 되돌리기로 복구할 수 있어요.') } setTextEditing(null); setActiveTool(textReturnTool.current ?? 'select') }} />
             </View>
           })()}
           {!readOnly && textLinkTarget && <TextLinkDialog initialValue={textLinkTarget.styleRanges?.find(r => r.href)?.href ?? ''} onCancel={() => setTextLinkTarget(null)} onSave={(href) => {
@@ -1489,7 +1543,7 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
           )}
           {/* 텍스트 서식: 고른 텍스트를 고칠 때는 다른 옵션 창처럼 요소 옆에, 텍스트 도구의 기본값을 정할 때는 툴바 아래에 */}
           {!readOnly && textSettingsOpen && !textEditing && !drawerTab && (
-            // 폰 세로는 고른 글자가 있어도 하단 시트(다른 도구 옵션과 같은 자리 · 열고 닫는 손짓이 같다)
+            // 폰 세로는 고른 글자가 있어도 하단 시트(다른 도구 옵션과 같은 자리 · 열고 닫는 손짓이 같다). 글을 고치는 중의 서식은 키보드 위 줄(TextFormatStrip)이 맡는다
             (selectedText && !phoneSheet
               ? <View style={[styles.optionsWrap, optionsPlacement(selectedObjects, zoom, offset, stageSize, compact ? OPTIONS_TOP_PHONE : OPTIONS_TOP)]} pointerEvents="box-none" {...markInside}>
                   <TextSettings onOpenColorPicker={(request) => openColorPicker(request, 'text')} verticalAlignment={selectedText?.type === 'shape'} settings={currentTextSettings} onChange={changeTextSettings} onClose={() => setTextSettingsOpen(false)} />
@@ -1689,6 +1743,7 @@ const styles = StyleSheet.create({
   // 태블릿: 바깥 여백과 패널 사이 틈을 덮어 도구 줄 · 패널 · 화면 끝까지 채운다(틈과 바깥 여백이 같은 16이라 패널 여닫을 때 폭 계산은 그대로다)
   stageEdge: { margin: -BODY_PADDING, borderRadius: 0 },
   textPaletteWrap: { position: 'absolute', maxWidth: '100%' },
+  textEditBarWrap: { position: 'absolute', zIndex: 7 },
   textRangeWrap: { position: 'absolute', left: 8, right: 8, bottom: 8, alignItems: 'center' },
   lassoSettingsWrap: { position: 'absolute', top: 76, left: 12, right: 12, alignItems: 'center' },
   penSettingsWrap: { position: 'absolute', top: 76, left: 16, right: 16, bottom: 64, alignItems: 'flex-start' },

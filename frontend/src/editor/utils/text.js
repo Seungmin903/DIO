@@ -243,6 +243,13 @@ export function textInputHeight(object, zoom, measuredHeight = null) {
   return Math.max(minimum, preserved, Number.isFinite(measuredHeight) && measuredHeight > 0 ? measuredHeight : 0)
 }
 
+// onTextLayout 이 준 줄 배치에서 글 전체 높이(마지막 줄 아래)를 잰다. 줄이 없으면 null
+export function textLinesHeight(lines) {
+  if (!Array.isArray(lines) || !lines.length) return null
+  const bottom = Math.max(...lines.map(line => (line.y ?? 0) + (line.height ?? 0)))
+  return Number.isFinite(bottom) && bottom > 0 ? bottom : null
+}
+
 // 수동으로 늘린 여백은 유지하고, 이전 문서나 줄바꿈 증가로 부족한 높이만 보완한다.
 export function fitTextHeightPatch(object, measuredHeight) {
   if (object?.type !== 'text' || !Number.isFinite(measuredHeight) || measuredHeight <= 0) return null
