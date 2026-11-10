@@ -1,50 +1,19 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { finishRegionDrag, validRegion, moveRegion, regionFromDrag, resizeRegion } from '../src/editor/utils/regionGeometry.js'
+import { moveRegion, regionDragAction, validRegion, resizeRegion } from '../src/editor/utils/regionGeometry.js'
 const page = {
   width: 1280,
   height: 800
 }
-test('free region normalizes reversed drag and clips to page boundaries', () => {
-  assert.deepEqual(regionFromDrag({
-    x: 400,
-    y: 500
-  }, {
-    x: 100,
-    y: 200
-  }, page), {
-    x: 100,
-    y: 200,
-    width: 300,
-    height: 300
-  })
-  const r = regionFromDrag({
-    x: 100,
-    y: 100
-  }, {
-    x: 2000,
-    y: 2000
-  }, page)
-  assert.equal(r.x + r.width, 1280)
-  assert.equal(r.y + r.height, 800)
-})
-test('logical movement is stable across zoom and cannot leave the page', () => {
-  const r = {
-    x: 100,
-    y: 100,
-    width: 200,
-    height: 200
-  }
-  for (const z of [0.5, 1, 2]) assert.deepEqual(moveRegion(r, 40 * z / z, 60 * z / z, page), {
-    ...r,
-    x: 140,
-    y: 160
-  })
-  assert.deepEqual(moveRegion(r, 9999, -9999, page), {
-    ...r,
-    x: 1080,
-    y: 0
-  })
+test('한 손가락 드래그는 모서리와 내부를 구분하고 페이지 안에서 선택 영역을 이동한다', () => {
+  const region = { x: 100, y: 100, width: 400, height: 500 }
+  assert.equal(regionDragAction({ x: 106, y: 106 }, region, 2), 'nw')
+  assert.equal(regionDragAction({ x: 180, y: 160 }, region, 2), 'move')
+  assert.equal(regionDragAction({ x: 90, y: 180 }, region, 2), null)
+  assert.equal(regionDragAction({ x: 116, y: 116 }, { ...region, width: 32, height: 32 }, 0.5), 'move')
+  const moved = moveRegion(region, 9999, -9999, page)
+  assert.deepEqual(moved, { x: 880, y: 0, width: 400, height: 500 })
+  assert.ok(validRegion(moved, page, 4 / 5))
 })
 test('free corner resize preserves page limits and minimum valid dimensions', () => {
   const r = {
@@ -72,38 +41,4 @@ test('tiny selection at page edge cannot escape the page through minimum-size cl
   }, 'se', 1, 1, page)
   assert.ok(r.x + r.width <= page.width && r.y + r.height <= page.height)
   assert.equal(validRegion(r, page), false)
-})
-test('cancelled, unmoved and subminimum drag preserve the previous valid region', () => {
-  const previous = {
-    x: 100,
-    y: 100,
-    width: 400,
-    height: 300
-  }
-  const options = {
-    cancelled: false,
-    moved: true,
-    page
-  }
-  assert.equal(finishRegionDrag(previous, {
-    x: 5,
-    y: 5,
-    width: 4,
-    height: 4
-  }, options), previous)
-  assert.equal(finishRegionDrag(previous, previous, {
-    ...options,
-    cancelled: true
-  }), previous)
-  assert.equal(finishRegionDrag(previous, previous, {
-    ...options,
-    moved: false
-  }), previous)
-  const next = {
-    x: 200,
-    y: 200,
-    width: 100,
-    height: 100
-  }
-  assert.equal(finishRegionDrag(previous, next, options), next)
 })

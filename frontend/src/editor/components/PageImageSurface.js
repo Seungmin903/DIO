@@ -14,6 +14,7 @@ import { builtinStickerOf } from '../builtinStickers'
 import { useStickerPacks } from '../hooks/useStickerPacks'
 import { packingLayout } from '../templates/packingLayout.js'
 import { PackingColorLayer, PackingFrontLayer } from './canvas/PackingColorLayer'
+import { KeepFont } from '../../shared/fontScope'
 
 // 원격 스티커 팩(catalog.json)을 기다리는 최대 시간. 앱이 켜질 때 받으므로 보통은 이미 들어와 있다
 export const REMOTE_PACK_WAIT_MS = 10000
@@ -81,7 +82,9 @@ export default function PageImageSurface({ job }) {
   const packed = packing ? snapshot.objects.filter(o => o.packingSlot === 0 || o.packingSlot === 1) : []
   const ordinary = packing ? snapshot.objects.filter(o => !o.packingColorRegion && o.packingSlot !== 0 && o.packingSlot !== 1) : snapshot.objects
   const renderObject = (object, pageCoordinates = false) => <View key={object.id} needsOffscreenAlphaCompositing={snapshot.isolateObjectOpacity ? objectDrawOpacity(object) < 1 : undefined} style={{ position: 'absolute', ...(pageCoordinates ? { left: object.x * scale, top: object.y * scale } : exportObjectPosition(object, snapshot, scale)), width: object.w * scale, height: object.h * scale, transform: [{ rotate: `${object.rotation ?? 0}deg` }], opacity: objectDrawOpacity(object) }}>
-    <ObjectContent object={object} zoom={scale} still onAssetLoad={() => setLoaded((previous) => new Set(previous).add(object.id))} onAssetError={assetError} />
+    <KeepFont>
+      <ObjectContent object={object} zoom={scale} still onAssetLoad={() => setLoaded((previous) => new Set(previous).add(object.id))} onAssetError={assetError} />
+    </KeepFont>
   </View>
   return <View style={{ flex: 1 }} onLayout={(event) => setArea(event.nativeEvent.layout)}>
     {(Platform.OS === 'web' || area?.width > 0 && area?.height > 0) && <View ref={surface} collapsable={false} testID="page-export-surface" onLayout={() => setLaidOut(true)} style={{ width: snapshot.width * scale, height: snapshot.height * scale, backgroundColor: snapshot.background, overflow: 'hidden' }}>
