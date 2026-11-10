@@ -36,7 +36,7 @@ const { code } = expo('@babel/core').transformSync(source + '\nexport { Backgrou
 function fixture({ error = null, cached = true } = {}) {
   const ast = paper(1024, 768)
   const module = { exports: {} }
-  let stateCalls = 0, memoCalls = 0, plannerCalls = 0
+  let stateCalls = 0, memoCalls = 0, plannerCalls = 0, overlayCalls = 0
   const memoValues = [], memoDependencies = []
   const effects = [], sets = [], cache = { cached }, signal = { listener: null }
   const load = id => {
@@ -46,7 +46,7 @@ function fixture({ error = null, cached = true } = {}) {
     if (id.endsWith('/tastingElements.js')) return { tastingElementValue: () => null }
     if (id === 'react-native') return { Pressable: 'pressable', Text: 'text', View: 'view', StyleSheet: { create: v => v, absoluteFill: {} } }
     if (id === 'react-native-svg') return { SvgAst: 'svg-ast', SvgXml: 'svg-xml', parse: () => null }
-    if (id.endsWith('/planners.js')) return { ...planners, plannerFor: assetId => { plannerCalls++; return assetId === 'monthly' ? { titles: () => null, startHour: () => 6, baseSvg: () => '<svg/>', overlaySvg: () => '<svg/>' } : planners.plannerFor(assetId) } }
+    if (id.endsWith('/planners.js')) return { ...planners, plannerFor: assetId => { plannerCalls++; return assetId === 'monthly' ? { titles: () => null, startHour: () => 6, baseSvg: () => '<svg/>', overlaySvg: () => { overlayCalls++; return '<svg/>' } } : planners.plannerFor(assetId) } }
     if (id.endsWith('/catalog.js')) return { templateReference: page => page.backgroundAssetId ? { backgroundAssetId: page.backgroundAssetId } : null }
     if (id.endsWith('/loadTemplate')) return { peekTemplateAst: () => cache.cached ? ast : null, loadTemplateAst: () => new Promise(() => {}) }
     if (id.endsWith('/appearance.js')) return { colorTemplateAst, normalizePaperAppearance: a => ({ backgroundColor: a?.backgroundColor ?? '#FFFFFF', layoutColor: '#292929' }) }
@@ -59,7 +59,7 @@ function fixture({ error = null, cached = true } = {}) {
   }
   new Function('require', 'module', 'exports', code)(load, module, module.exports)
   const render = props => { stateCalls = 0; memoCalls = 0; effects.length = 0; return module.exports.BackgroundAttempt(props) }
-  return { render, plannerCalls: () => plannerCalls, backgroundKey: module.exports.backgroundKey, fontPhase: module.exports.fontPhase, ast, effects, sets, cache, signal }
+  return { render, plannerCalls: () => plannerCalls, overlayCalls: () => overlayCalls, backgroundKey: module.exports.backgroundKey, fontPhase: module.exports.fontPhase, ast, effects, sets, cache, signal }
 }
 const flat = node => !node || typeof node !== 'object' ? [] : [node, ...[node.props?.children].flat(Infinity).flatMap(flat)]
 
@@ -150,4 +150,14 @@ test('같은 속지의 다시 렌더링은 플래너 API를 재생성하지 않�
   assert.equal(f.plannerCalls(), 1, '출력용 XML 경로에서는 플래너 API를 만들지 않는다')
   f.render(props)
   assert.equal(f.plannerCalls(), 2, '편집 화면 복귀 시 API를 다시 만든다')
+})
+
+test('테이스팅이 아닌 플래너는 요소만 바뀌어서는 덮개 SVG 를 다시 만들지 않는다(끌기 · 편집 매 프레임 파싱 방지, MR !503 리뷰)', () => {
+  const f = fixture(), planner = { fills: {} }, page = { id: 'p', backgroundAssetId: 'monthly', planner, objects: [] }
+  f.render({ page, zoom: 1 })
+  assert.equal(f.overlayCalls(), 1)
+  f.render({ page: { ...page, objects: [{ id: 'a', type: 'text' }] }, zoom: 1 })
+  assert.equal(f.overlayCalls(), 1, '요소가 바뀌어도 기록 · 할 일 글이 같으면 그대로')
+  f.render({ page: { ...page, planner: { fills: { a: '#111111' } } }, zoom: 1 })
+  assert.equal(f.overlayCalls(), 2, '기록이 바뀌면 다시 만든다')
 })
