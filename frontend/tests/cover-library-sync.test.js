@@ -1,7 +1,8 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { COVER_STASH_TTL_MS, createCoverLibrarySync, forgetCoverLibraryAccount, mergeCovers } from '../src/diary/services/coverLibrarySync.js'
-import { normalizeMyCovers } from '../src/diary/utils/myLibrary.js'
+import { COVER_STASH_TTL_MS, createCoverLibrarySync, mergeCovers } from '../src/diary/services/coverLibrarySync.js'
+import { forgetLibrarySyncRecords } from '../src/diary/services/librarySyncRecords.js'
+import { addMyCover, normalizeMyCovers } from '../src/diary/utils/myLibrary.js'
 // 앱이 도는 React Native(Hermes)에는 structuredClone 이 없을 수 있어 테스트 도우미도 JSON 으로 복사한다
 const clone = value => JSON.parse(JSON.stringify(value))
 
@@ -29,7 +30,7 @@ function server() {
 }
 const clock = { now: Date.parse('2026-11-10T00:00:00Z') }
 const asyncStorage = map => ({ getItem: async k => map.get(k) ?? null, setItem: async (k, v) => { map.set(k, v) }, getAllKeys: async () => [...map.keys()], multiRemove: async keys => { keys.forEach(k => map.delete(k)) } })
-function device(remote, { account = '1', covers = [], storage = new Map(), failUploads = new Set(), onDownload = () => {}, failDownloads = new Map(), afterReplace = () => {} } = {}) {
+function device(remote, { account = '1', covers = [], storage = new Map(), failUploads = new Set(), onDownload = () => {}, failDownloads = new Map(), afterReplace = () => {}, beforeReplace = () => {} } = {}) {
   const statuses = []
   const local = { covers: normalizeMyCovers(clone(covers)) }, listeners = new Set(), downloads = [], errors = []
   const library = {
@@ -37,7 +38,7 @@ function device(remote, { account = '1', covers = [], storage = new Map(), failU
     snapshot: () => local.covers,
     subscribe: listener => { listeners.add(listener); return () => listeners.delete(listener) },
     // useMyLibrary.replaceMyCovers 처럼 적용한 목록을 돌려준다. afterReplace: 바꾼 직후(알림 뒤) 사용자 편집을 흉내 낸다
-    replace: async (next, base) => { if (base !== local.covers) return null; local.covers = normalizeMyCovers(next); listeners.forEach(listener => listener()); const applied = local.covers; afterReplace(); return applied },
+    replace: async (next, base) => { beforeReplace(); if (base !== local.covers) return null; local.covers = normalizeMyCovers(next); listeners.forEach(listener => listener()); const applied = local.covers; afterReplace(); return applied },
   }
   const edit = next => { local.covers = normalizeMyCovers(next); listeners.forEach(listener => listener()) }
   const sync = createCoverLibrarySync({
@@ -355,10 +356,98 @@ test('회원 탈퇴한 계정의 동기화 기록만 지운다(다른 계정 · 
   for (const [k, v] of storage) if (!k.startsWith('cover-sync')) prefixed.set(k, v)
   const keysOf = owner => [...prefixed.keys()].filter(k => k.startsWith(`dio:cover-library-sync:v1:server:${owner}:`))
   assert.ok(keysOf('1').length > 0) // 계정 1 의 짝 · 따로 둔 몫
-  await forgetCoverLibraryAccount({ storage: asyncStorage(prefixed), account: '1' })
+  await forgetLibrarySyncRecords({ storage: asyncStorage(prefixed), account: '1' })
   assert.deepEqual(keysOf('1'), [])
   assert.ok(prefixed.has('dio:cover-library-sync:v1:server:meta')) // 지금 meta 는 계정 2 것이라 남긴다
   assert.ok(prefixed.has('other-feature:1:keep'))
-  await forgetCoverLibraryAccount({ storage: asyncStorage(prefixed), account: '2' })
+  await forgetLibrarySyncRecords({ storage: asyncStorage(prefixed), account: '2' })
   assert.ok(!prefixed.has('dio:cover-library-sync:v1:server:meta')) // 계정 2 와 맞춘 meta 는 지운다
+})
+
+test('30개를 넘는 서버 목록을 받아도 줄이지 않고, 그 위에 표지를 만들어도 다른 표지를 서버에서 지우지 않는다', async () => {
+  const remote = server()
+  const many = Array.from({ length: 40 }, (_, i) => plainCover(`c${i}`, `표지 ${i}`))
+  const a = device(remote, { covers: many })
+  await a.sync.start()
+  assert.equal(remote.state.covers.length, 40)
+  const b = device(remote)
+  await b.sync.start(); await b.sync.whenIdle()
+  assert.equal(b.local.covers.length, 40) // normalizeMyCovers 를 거쳐도 그대로
+  assert.equal(remote.state.puts, 1) // 받기만 했으니 다시 올리지 않는다
+  // 공방 · 새 다이어리에서 표지를 하나 더 만든다(useMyLibrary.addCover 와 같은 계산)
+  b.edit(addMyCover(b.local.covers, { name: '새 표지', orientation: 'portrait', cover: { kind: 'plain' } }))
+  await b.sync.whenIdle()
+  assert.equal(remote.state.covers.length, 40) // 가장 오래된 하나만 빠지고 30개로 줄지 않는다
+  assert.equal(remote.state.covers[0].name, '새 표지')
+})
+
+test('회원 탈퇴 정리는 스티커 · 테이프 보관함 동기화 기록도 함께 지운다', async () => {
+  const s = 'dio:sticker-library-sync:v1:server', t = 'dio:tape-library-sync:v1:server', c = 'dio:cover-library-sync:v1:server'
+  const disk = new Map([
+    [`${s}:meta`, JSON.stringify({ account: '1', version: 3 })], [`${s}:1:id:local-a`, 'srv-a'], [`${s}:1:missing`, '[]'], [`${s}:2:id:local-b`, 'srv-b'],
+    [`${t}:meta`, JSON.stringify({ account: '2', version: 1 })], [`${t}:1:local:srv-c`, 'local-c'], [`${t}:2:missing`, '[]'],
+    [`${c}:1:stash`, JSON.stringify({ covers: [], savedAt: 0 })],
+    ['dio:diary:my-covers:v1', '[]'], ['dio:sticker-library-sync:v1:server:1x:id:z', 'other-account-1x'],
+  ])
+  await forgetLibrarySyncRecords({ storage: asyncStorage(disk), account: '1' })
+  assert.deepEqual([...disk.keys()].sort(), [
+    'dio:diary:my-covers:v1', // 다른 기능 키는 그대로
+    'dio:sticker-library-sync:v1:server:1x:id:z', // 계정 '1x' 는 '1' 이 아니다
+    `${s}:2:id:local-b`, // 다른 계정 기록
+    `${t}:2:missing`,
+    `${t}:meta`, // 계정 2 와 맞춘 meta
+  ].sort())
+})
+
+test('계정이 바뀐 뒤 받는 사이 새 계정으로 만든 표지는 이전 계정 몫에 섞이지 않고 새 계정에 남는다', async () => {
+  const one = server(), two = server()
+  const storage = new Map()
+  const first = device(one, { account: '1', covers: [photoCover('a-big', L3, L2, '큰 사진'), plainCover('a1')], storage, failUploads: new Set([L3]) })
+  await first.sync.start(); first.sync.stop()
+  two.state.covers = asApp(asServer([plainCover('theirs')])); two.state.version = 2
+  // 계정 2 로 로그인: 첫 받기에서 바꾸기 직전에 사용자가 표지를 만든다(들이지 못해 다시 맞춘다)
+  let second
+  let made = false
+  second = device(two, { account: '2', covers: first.local.covers, storage,
+    beforeReplace: () => { if (!made) { made = true; second.edit([plainCover('b-new', '계정 2 새 표지'), ...second.local.covers]) } } })
+  await second.sync.start(); await second.sync.whenIdle(); second.sync.stop()
+  const stash = JSON.parse(storage.get('cover-sync:1:stash'))
+  assert.deepEqual(stash.covers.map(c => c.id).sort(), ['a-big', 'a1']) // 다시 맞출 때 덮어쓰지 않아 계정 2 표지가 섞이지 않는다
+  assert.deepEqual(second.local.covers.map(c => c.id), ['b-new', 'theirs']) // 계정 2 로 만든 표지는 남고 계정 1 표지는 빠진다
+  assert.deepEqual(two.state.covers.map(c => c.id).sort(), ['b-new', 'theirs'])
+  // 계정 1 로 돌아오면 계정 1 표지만 되살린다
+  const back = device(one, { account: '1', covers: second.local.covers, storage })
+  await back.sync.start(); await back.sync.whenIdle()
+  assert.deepEqual(back.local.covers.map(c => c.id).sort(), ['a-big', 'a1'])
+  assert.ok(!one.state.covers.some(c => c.id === 'b-new'))
+})
+
+test('멈춘 뒤 settled 는 돌던 맞추기가 끝나야 풀리고, 그 뒤로는 기기 기록을 쓰지 않는다(회원 탈퇴 정리가 기다림)', async () => {
+  const remote = server()
+  const storage = new Map()
+  const a = device(remote, { covers: [photoCover('c1', L1, L2)], storage })
+  await a.sync.start() // 한 번 맞춰 기기 기록(짝 · meta)이 생겼다
+  assert.ok([...storage.keys()].some(k => k.startsWith('cover-sync:1:')))
+  // 두 번째 맞추기가 서버 응답을 기다리는 중에 멈춘다(탈퇴)
+  let open
+  const gate = new Promise(resolve => { open = resolve })
+  const get = remote.api.get
+  let calling
+  const called = new Promise(resolve => { calling = resolve })
+  remote.api.get = async () => { calling(); await gate; return get() }
+  a.edit([plainCover('c2'), ...a.local.covers])
+  const second = a.sync.sync()
+  await called // 서버 요청이 나간 뒤에 멈춘다
+  a.sync.stop()
+  let settled = false
+  const waiting = a.sync.settled().then(() => { settled = true })
+  await new Promise(resolve => setImmediate(resolve))
+  assert.equal(settled, false) // 돌던 맞추기가 아직 끝나지 않았다
+  open()
+  await waiting; await second
+  // 테스트 키는 'cover-sync:<계정>:…' 이라 접두어 'cover-' 뒤를 [서버('sync'), 계정, …] 로 읽는다
+  await forgetLibrarySyncRecords({ storage: asyncStorage(storage), account: '1', prefixes: ['cover-'] })
+  await new Promise(resolve => setTimeout(resolve, 10))
+  assert.deepEqual([...storage.keys()].filter(k => k.startsWith('cover-sync:1:') || k === 'cover-sync:meta'), []) // 지운 뒤 다시 쓰이지 않는다
+  assert.equal(remote.state.puts, 1) // 멈춘 뒤에는 저장하지 않는다
 })

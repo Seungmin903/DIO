@@ -233,7 +233,7 @@ export default function App() {
   };
   // 회원 탈퇴를 마치면 게스트 홈으로 돌아가며 보관함이 통째로 바뀌므로, 완료 토스트는 바뀌지 않는 앱 맨 위에서 띄운다(지라 670)
   const [accountToast, setAccountToast] = useState(null);
-  // 탈퇴한 계정의 내 표지 동기화 기록(계정 전환 때 따로 둔 표지 포함)은 이 기기에서 지운다(공용 기기에 개인 데이터가 남지 않게)
+  // 탈퇴한 계정의 꾸미기 공방 동기화 기록(스티커 · 테이프 보관함 · 내 표지, 계정 전환 때 따로 둔 표지 포함)은 이 기기에서 지운다(공용 기기에 개인 데이터가 남지 않게)
   const withdrawSession = () => {
     const withdrawn = authenticatedSession?.userId;
     clearSession(); setAccountToast({ key: Date.now(), message: '회원 탈퇴가 완료됐어요.' });
@@ -1307,7 +1307,10 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onWithdraw
     <>
       {authenticatedNotifications && (sharingRequest?.mode === 'notifications' || sharingRequest?.returnToNotifications)
         ? <HomeNotificationFlow visible={sharingVisible} onOpenParticipants={openSafetyParticipants} request={sharingRequest} model={authenticatedNotifications} sharing={sharing} onRequest={setSharingRequest}
-            onClose={() => { setSharingRequest(null); if(member)diaryState.store.reload().catch(error=>notify('공유 목록을 확인하지 못했어요',error.message)); }}
+            onClose={visitedSharing => {
+              setSharingRequest(null);
+              if (member && visitedSharing) diaryState.store.reload().catch(error => notify('공유 목록을 확인하지 못했어요', error.message));
+            }}
             onOpenDiary={openSharedDiary} onOpenCopy={diary => openCopyIfSafe(diary, invitationLeaveGuard.current, () => { setSharingRequest(null); if(member)diaryState.store.reload().catch(error=>notify('공유 목록을 확인하지 못했어요',error.message)); }, enterEditor)} />
         : <SharingHub visible={sharingVisible} onOpenParticipants={openSafetyParticipants} onOpenCopy={diary => openCopyIfSafe(diary, invitationLeaveGuard.current, () => { setSharingRequest(null); if(member)diaryState.store.reload().catch(error=>notify('공유 목록을 확인하지 못했어요',error.message)); }, enterEditor)} onOpenDiary={openSharedDiary} request={sharingRequest} runtime={sharing.runtime} model={sharing.notifications}
             onSwitchInvitationAccount={inviteId => { setSharingRequest(null); onSwitchInvitationAccount(inviteId); }}
@@ -1338,9 +1341,10 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onWithdraw
       {appLocked && lockMember && lockRecovery === 'setup' && <View style={[StyleSheet.absoluteFill, { zIndex: 110 }]}>
         <PinScreen mode="setup" user={previewUser} getProfilePhotoSource={authService.getProfilePhotoSource} onDone={finishLockRecovery} onCancel={() => setLockRecovery(null)} />
       </View>}
-      {/* 꾸미기 공방 스티커 보관함 · 내 표지를 계정 서버와 맞춘다(다른 기기 · 재설치에서도 같은 구성) */}
-      {member && signedIn && <StickerLibrarySyncHost key={`${previewUser.userId}:${authService.getSessionKey()}`} accountId={String(previewUser.userId)} enabled={appLocked === false} />}
-      {member && signedIn && <GuestImportHost key={`${previewUser.userId}:${authService.getSessionKey()}`} accountId={String(previewUser.userId)} enabled={appLocked === false} onImported={() => diaryState.store.reload().catch(() => {})} onEntry={setGuestImport} />}
+      {/* 꾸미기 공방 스티커 · 테이프 보관함 · 내 표지를 계정 서버와 맞춘다(다른 기기 · 재설치에서도 같은 구성) */}
+      {/* 두 호스트는 형제라 key 가 서로 달라야 한다(같으면 React 가 'two children with the same key' 경고를 띄우고 하나를 빼먹을 수 있다). 계정 · 세션이 바뀌면 새로 만든다 */}
+      {member && signedIn && <StickerLibrarySyncHost key={`sticker-sync:${previewUser.userId}:${authService.getSessionKey()}`} accountId={String(previewUser.userId)} enabled={appLocked === false} />}
+      {member && signedIn && <GuestImportHost key={`guest-import:${previewUser.userId}:${authService.getSessionKey()}`} accountId={String(previewUser.userId)} enabled={appLocked === false} onImported={() => diaryState.store.reload().catch(() => {})} onEntry={setGuestImport} />}
       <DialogHost />
     </>
   );

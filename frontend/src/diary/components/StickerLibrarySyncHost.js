@@ -7,20 +7,25 @@ import { createAuthenticatedMemberTransport } from '../services/memberTransport.
 import { createMediaRequest } from '../../collaboration/canvasMedia.js'
 import { canvasMediaFiles } from '../../editor/services/canvasMediaFiles'
 import { createStickerLibrarySync } from '../../editor/services/stickerLibrarySync.js'
-import { customDecorFolders, replaceStickerFolders, subscribeCustomDecor, useCustomDecor } from '../../editor/hooks/useCustomDecor'
+import { createTapeLibrarySync } from '../../editor/services/tapeLibrarySync.js'
+import { customDecorFolders, customDecorTapeFolders, replaceStickerFolders, replaceTapeFolders, subscribeCustomDecor, useCustomDecor } from '../../editor/hooks/useCustomDecor'
 import { sharedGifMaxBytes } from '../../shared/mediaLimits.js'
 import { setStickerSyncRetry, setStickerSyncStatus } from '../../editor/services/stickerLibrarySyncStatus.js'
-import { createCoverLibrarySync, forgetCoverLibraryAccount } from '../services/coverLibrarySync.js'
+import { setTapeSyncRetry, setTapeSyncStatus } from '../../editor/services/tapeLibrarySyncStatus.js'
+import { createCoverLibrarySync } from '../services/coverLibrarySync.js'
+import { forgetLibrarySyncRecords } from '../services/librarySyncRecords.js'
 import { setCoverSyncRetry, setCoverSyncStatus } from '../services/coverLibrarySyncStatus.js'
 import { setPaperSyncRetry, setPaperSyncStatus } from '../services/paperLibrarySyncStatus.js'
-import { createPaperLibrarySync, forgetPaperLibraryAccount } from '../services/paperLibrarySync.js'
+import { createPaperLibrarySync } from '../services/paperLibrarySync.js'
 import { myCoversReady, myCoversSnapshot, myPapersReady, myPapersSnapshot, replaceMyCovers, replaceMyPapers, subscribeMyLibrary } from '../hooks/useMyLibrary'
 import { defaultPaperStyleReady, defaultPaperStyleSnapshot, replaceDefaultPaperStyle, subscribeDefaultPaperStyle } from '../hooks/useDefaultPaperStyle'
 
 // 로그인 직후 화면이 몇 번 다시 그려지며 이 컴포넌트가 여러 번 붙었다 떨어진다. 그때마다 새로 맞추면 보관함 조회가 수십 번 나가므로,
 // 같은 계정 · 로그인 세션이면 동기화 하나를 이어 쓰고, 모두 떨어진 채 잠시 지나야(다른 계정 · 로그아웃) 멈춘다
 const RELEASE_MS = 1000
-let shared = null // { id, sync, cover, paper, appState, mounts, releaseTimer } (sync: 스티커 보관함, cover: 내 표지, paper: 내 속지)
+let shared = null // { id, sticker, tape, cover, paper, appState, mounts, releaseTimer } (cover: 내 표지, paper: 내 속지)
+// 멈춘 동기화(계정 · 세션 id → 이미 돌던 맞추기가 끝나면 풀리는 Promise). 회원 탈퇴 정리가 이것을 기다린 뒤 기록을 지운다
+const stopping = new Map()
 
 function acquire(accountId) {
   const sessionKey = authService.getSessionKey()
@@ -31,13 +36,17 @@ function acquire(accountId) {
     return shared
   }
   stopShared()
-  const { sync, cover, paper } = createSyncs(accountId, sessionKey)
-  const appState = AppState.addEventListener('change', state => { if (state === 'active') { sync.sync(); cover.sync(); paper.sync() } })
-  shared = { id, sync, cover, paper, appState, mounts: 1, releaseTimer: null }
-  setStickerSyncRetry(() => sync.sync())
+  const { sticker, tape, cover, paper } = createSyncs(accountId, sessionKey)
+  const appState = AppState.addEventListener('change', state => { if (state === 'active') { sticker.sync(); tape.sync(); cover.sync(); paper.sync() } })
+  shared = { id, sticker, tape, cover, paper, appState, mounts: 1, releaseTimer: null }
+  setStickerSyncRetry(() => sticker.sync())
+  setTapeSyncRetry(() => tape.sync())
   setCoverSyncRetry(() => cover.sync())
   setPaperSyncRetry(() => paper.sync())
-  sync.start(); cover.start(); paper.start()
+  sticker.start()
+  tape.start()
+  cover.start()
+  paper.start()
   return shared
 }
 function release(entry) {
@@ -49,13 +58,27 @@ function release(entry) {
 function stopShared() {
   if (!shared) return
   if (shared.releaseTimer != null) clearTimeout(shared.releaseTimer)
-  shared.sync.stop(); shared.cover.stop(); shared.paper.stop(); shared.appState.remove(); shared = null
-  setStickerSyncRetry(null); setCoverSyncRetry(null); setPaperSyncRetry(null)
+  const entry = shared
+  entry.sticker.stop()
+  entry.tape.stop()
+  entry.cover.stop()
+  entry.paper.stop()
+  const settled = Promise.all([entry.sticker.settled(), entry.tape.settled(), entry.cover.settled(), entry.paper.settled()])
+  stopping.set(entry.id, settled)
+  settled.finally(() => { if (stopping.get(entry.id) === settled) stopping.delete(entry.id) })
+  entry.appState.remove(); shared = null
   // 로그아웃 · 다른 계정: 이전 계정의 실패를 보이지 않는다
-  setStickerSyncStatus({ error: null, pending: false }); setCoverSyncStatus({ error: null, pending: false }); setPaperSyncStatus({ error: null, pending: false })
+  setStickerSyncRetry(null)
+  setStickerSyncStatus({ error: null, pending: false })
+  setTapeSyncRetry(null)
+  setTapeSyncStatus({ error: null, pending: false })
+  setCoverSyncRetry(null)
+  setCoverSyncStatus({ error: null, pending: false })
+  setPaperSyncRetry(null)
+  setPaperSyncStatus({ error: null, pending: false })
 }
 
-// 스티커 보관함 · 내 표지 · 내 속지는 따로 맞춘다(서버 문서 · 맞춘 상태 기록이 따로다). 인증 · 미디어 요청은 함께 쓴다
+// 스티커 · 테이프 보관함 · 내 표지 · 내 속지는 따로 맞춘다(서버 문서 · 맞춘 상태 기록이 따로다). 인증 · 미디어 요청은 함께 쓴다
 function createSyncs(accountId, sessionKey) {
   const active = () => authService.getSessionKey() === sessionKey
   const transport = createAuthenticatedMemberTransport({ auth: authService, accountId, baseUrl: apiBaseUrl, accessTokenHeader, fetchImpl: memberFetch })
@@ -69,33 +92,17 @@ function createSyncs(accountId, sessionKey) {
     const bytes = await request(`/media/${serverId}/file`, { binary: true, maxBytes: sharedGifMaxBytes, timeoutMs: 120000 })
     await canvasMediaFiles.save(serverId, bytes)
   }
-  const cover = createCoverLibrarySync({
+  const options = ({ path, category, label, tag }) => ({
     account: String(accountId),
-    key: `dio:cover-library-sync:v1:${encodeURIComponent(apiBaseUrl)}`,
+    key: `dio:${category.toLowerCase()}-library-sync:v1:${encodeURIComponent(apiBaseUrl)}`,
     storage: AsyncStorage,
     isActive: active,
     api: {
-      get: () => transport({ path: '/me/cover-library' }).then(readCovers),
-      put: (expectedVersion, covers) => transport({ method: 'PUT', path: '/me/cover-library', body: { expectedVersion, covers } }).then(readCovers),
+      get: () => transport({ path }).then(body => readLibrary(body, label)),
+      put: (expectedVersion, folders) => transport({ method: 'PUT', path, body: { expectedVersion, folders } }).then(body => readLibrary(body, label)),
     },
-    media: { upload, download }, // 표지 사진은 PHOTO, 표지 스티커는 STICKER 로 올린다
-    library: { ready: myCoversReady, snapshot: myCoversSnapshot, subscribe: subscribeMyLibrary, replace: replaceMyCovers },
-    onError: error => { if (typeof __DEV__ !== 'undefined' && __DEV__) console.warn('[DIO_COVER_SYNC]', error?.message) },
-    onStatus: next => { if (active()) setCoverSyncStatus({ error: next.error }) },
-  })
-  const sync = createStickerLibrarySync({
-    account: String(accountId),
-    key: `dio:sticker-library-sync:v1:${encodeURIComponent(apiBaseUrl)}`,
-    storage: AsyncStorage,
-    isActive: active,
-    api: {
-      get: () => transport({ path: '/me/sticker-library' }).then(readLibrary),
-      put: (expectedVersion, folders) => transport({ method: 'PUT', path: '/me/sticker-library', body: { expectedVersion, folders } }).then(readLibrary),
-    },
-    media: { upload: localId => upload(localId, 'STICKER'), download },
-    decor: { snapshot: customDecorFolders, subscribe: subscribeCustomDecor, replace: replaceStickerFolders },
-    onError: error => { if (typeof __DEV__ !== 'undefined' && __DEV__) console.warn('[DIO_STICKER_SYNC]', error?.message) },
-    onStatus: next => { if (active()) setStickerSyncStatus({ error: next.error }) },
+    media: { upload: localId => upload(localId, category), download },
+    onError: error => { if (typeof __DEV__ !== 'undefined' && __DEV__) console.warn(tag, error?.message) },
   })
   // 내 속지는 문서에 기본 속지 스타일이 함께 있어 저장 몸통이 다르다(papers · style)
   const paper = createPaperLibrarySync({
@@ -117,12 +124,38 @@ function createSyncs(accountId, sessionKey) {
     onError: error => { if (typeof __DEV__ !== 'undefined' && __DEV__) console.warn('[DIO_PAPER_SYNC]', error?.message) },
     onStatus: next => { if (active()) setPaperSyncStatus({ error: next.error }) },
   })
-  return { sync, cover, paper }
+  return {
+    paper,
+    sticker: createStickerLibrarySync({
+      ...options({ path: '/me/sticker-library', category: 'STICKER', label: '스티커 보관함', tag: '[DIO_STICKER_SYNC]' }),
+      decor: { snapshot: customDecorFolders, subscribe: subscribeCustomDecor, replace: replaceStickerFolders },
+      onStatus: next => { if (active()) setStickerSyncStatus({ error: next.error }) },
+    }),
+    tape: createTapeLibrarySync({
+      ...options({ path: '/me/tape-library', category: 'TAPE', label: '테이프 보관함', tag: '[DIO_TAPE_SYNC]' }),
+      decor: { snapshot: customDecorTapeFolders, subscribe: subscribeCustomDecor, replace: replaceTapeFolders },
+      onStatus: next => { if (active()) setTapeSyncStatus({ error: next.error }) },
+    }),
+    cover: createCoverLibrarySync({
+      account: String(accountId),
+      key: `dio:cover-library-sync:v1:${encodeURIComponent(apiBaseUrl)}`,
+      storage: AsyncStorage,
+      isActive: active,
+      api: {
+        get: () => transport({ path: '/me/cover-library' }).then(readCovers),
+        put: (expectedVersion, covers) => transport({ method: 'PUT', path: '/me/cover-library', body: { expectedVersion, covers } }).then(readCovers),
+      },
+      media: { upload, download }, // 표지 사진은 PHOTO, 표지 스티커는 STICKER 로 올린다
+      library: { ready: myCoversReady, snapshot: myCoversSnapshot, subscribe: subscribeMyLibrary, replace: replaceMyCovers },
+      onError: error => { if (typeof __DEV__ !== 'undefined' && __DEV__) console.warn('[DIO_COVER_SYNC]', error?.message) },
+      onStatus: next => { if (active()) setCoverSyncStatus({ error: next.error }) },
+    }),
+  }
 }
 
 /**
- * 회원으로 로그인해 있는 동안 꾸미기 공방 스티커 보관함(폴더 구성 · 스티커 이미지)과 내 표지 · 내 속지(기본 속지 스타일 포함)를 계정 서버와 맞춘다. 화면은 그리지 않는다.
- * 앱을 켤 때 · 다시 앞으로 올 때 맞추고, 바뀌면 잠시 모아 올린다(services/stickerLibrarySync.js · diary/services/coverLibrarySync.js · paperLibrarySync.js).
+ * 회원으로 로그인해 있는 동안 꾸미기 공방의 스티커·테이프 보관함(폴더 구성과 이미지)과 내 표지 · 내 속지(기본 속지 스타일 포함)를 계정 서버와 맞춘다. 화면은 그리지 않는다.
+ * 앱을 켤 때 · 다시 앞으로 올 때 맞추고, 바뀌면 잠시 모아 올린다(editor/services/stickerLibrarySync.js · tapeLibrarySync.js · diary/services/coverLibrarySync.js · paperLibrarySync.js).
  */
 export function StickerLibrarySyncHost({ accountId, enabled = true }) {
   const { loaded } = useCustomDecor() // 보관함을 기기에서 읽어 둔다(읽은 뒤에 맞춘다)
@@ -134,8 +167,8 @@ export function StickerLibrarySyncHost({ accountId, enabled = true }) {
   return null
 }
 
-function readLibrary(body) {
-  if (!body || !Number.isSafeInteger(body.version) || body.version < 0 || !Array.isArray(body.folders)) throw Error('스티커 보관함 응답을 확인하지 못했어요.')
+function readLibrary(body, label) {
+  if (!body || !Number.isSafeInteger(body.version) || body.version < 0 || !Array.isArray(body.folders)) throw Error(`${label} 응답을 확인하지 못했어요.`)
   return { version: body.version, folders: body.folders.map(folder => ({ id: String(folder.id), name: String(folder.name ?? ''), items: Array.isArray(folder.items) ? folder.items.map(dropNulls) : [] })) }
 }
 function readCovers(body) {
@@ -155,14 +188,21 @@ function readPapers(body) {
 const dropNulls = item => Object.fromEntries(Object.entries(item ?? {}).filter(([, value]) => value != null))
 
 /**
- * 회원 탈퇴를 마친 계정의 내 표지 · 내 속지 동기화 기록을 이 기기에서 지운다(맞춘 상태 · 기기 id ↔ 서버 id 짝 · 받지 못한 그림 · 계정 전환 때 따로 둔 몫).
+ * 회원 탈퇴를 마친 계정의 꾸미기 공방 동기화 기록(스티커 · 테이프 보관함 · 내 표지 · 내 속지)을 이 기기에서 지운다(맞춘 상태 · 기기 id ↔ 서버 id 짝 · 받지 못한 그림 · 계정 전환 때 따로 둔 몫).
  * 그 계정 동기화가 돌고 있으면 먼저 멈춰, 지운 뒤에 다시 쓰지 않게 한다. 실패해도 탈퇴는 끝난 것으로 본다
  */
-export async function forgetLibrarySyncAccount(accountId) {
+export async function forgetLibrarySyncAccount(accountId, { waitMs = SETTLE_WAIT_MS } = {}) {
   if (accountId == null) return
-  if (shared?.id?.startsWith(`${accountId}:`)) stopShared()
-  try { await forgetCoverLibraryAccount({ storage: AsyncStorage, account: String(accountId) }) }
-  catch (error) { if (typeof __DEV__ !== 'undefined' && __DEV__) console.warn('[DIO_COVER_SYNC]', error?.message) }
-  try { await forgetPaperLibraryAccount({ storage: AsyncStorage, account: String(accountId) }) }
-  catch (error) { if (typeof __DEV__ !== 'undefined' && __DEV__) console.warn('[DIO_PAPER_SYNC]', error?.message) }
+  const mine = id => id.startsWith(`${accountId}:`)
+  if (shared && mine(shared.id)) stopShared()
+  // 멈추기 전에 이미 시작된 기록 쓰기가 지운 뒤에 남지 않도록, 돌던 맞추기가 끝나기를 기다린다(느린 네트워크로 오래 걸리면 먼저 지우고 끝난 뒤 한 번 더 지운다)
+  const running = [...stopping].filter(([id]) => mine(id)).map(([, settled]) => settled)
+  const forget = () => forgetLibrarySyncRecords({ storage: AsyncStorage, account: String(accountId) })
+    .catch(error => { if (typeof __DEV__ !== 'undefined' && __DEV__) console.warn('[DIO_LIBRARY_SYNC]', error?.message) })
+  let timer
+  const settledInTime = await Promise.race([Promise.all(running).then(() => true), new Promise(resolve => { timer = setTimeout(() => resolve(false), waitMs) })])
+  clearTimeout(timer)
+  await forget()
+  if (!settledInTime) await Promise.all(running).then(forget)
 }
+const SETTLE_WAIT_MS = 5000

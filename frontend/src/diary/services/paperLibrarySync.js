@@ -324,5 +324,7 @@ export function createPaperLibrarySync({ account, api, media, library, storage, 
     sync: run,
     whenIdle: async () => { while (running || timer != null) { if (timer != null) { clearTimer(timer); timer = null; run() } await running } },
     stop() { closed = true; if (timer != null) clearTimer(timer); timer = null; unsubscribe?.() },
+    /** 멈춘 뒤 이미 돌고 있던 맞추기가 끝나면 풀린다(그 뒤로는 기기 기록을 쓰지 않는다. 회원 탈퇴 정리가 기다린다) */
+    settled: () => (running ?? Promise.resolve()).then(() => {}, () => {}),
   }
 }

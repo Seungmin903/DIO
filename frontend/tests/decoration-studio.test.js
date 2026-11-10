@@ -15,7 +15,7 @@ const stickerAction = (ui, text) => {
   find(ui.render(), '스티커 추가').props.onPress()
   return nodes(ui.render()).find(n => n.type === '../components/DiaryActionBubble').props.actions.find(action => action.text === text)
 }
-function fixture({ supported = false, failFonts = false, family = null, failRemove = false, libraryReady = true, entries = [], cutout = true, platform = 'web', pickerCalls = [], pickedImage = null, discarded = [] } = {}) {
+function fixture({ supported = false, failFonts = false, family = null, failRemove = false, libraryReady = true, entries = [], cutout = true, platform = 'web', pickerCalls = [], pickedImage = null, discarded = [], tapeSync = { error: null, pending: false, retry() {} } } = {}) {
   const states = [], refs = [], deps = [], cleanups = [], saves = [], removals = []
   let si, ri, ei, studio = null, fontLoads = 0, backHandler = null
   const opened = [], draftRemovals = []
@@ -39,6 +39,7 @@ function fixture({ supported = false, failFonts = false, family = null, failRemo
     if (id === 'react') return react
     if (id.endsWith('/aiDisclosure')) return { AI_FONT_LABEL: 'AI 생성 글꼴', isAiHandwritingFont: () => false }
     if (id.endsWith('/featureFlags')) return { CUTOUT_ENTRANCE: cutout }
+    if (id.endsWith('/tapeLibrarySyncStatus.js')) return { useTapeLibrarySyncStatus: () => tapeSync }
     if (id.endsWith('/useMyLibrary')) return { __esModule: true, default: () => library }
     if (id.endsWith('/useDefaultPaperStyle')) return { __esModule: true, default: () => ({ style: {}, ready: true, save: async () => true }) }
     if (id === 'react/jsx-runtime') return require(id)
@@ -304,4 +305,21 @@ test('내 표지 · 속지를 읽는 중에는 목록 대신 불러오는 중이
   assert.ok(nodes(tree).some(n => n.props?.children === '속지를 불러오고 있어요.'))
   assert.equal(nodes(tree).some(n => n.type === '../components/StudioShelf'), false)
   ui.unmount()
+})
+
+test('테이프 계정 동기화 실패는 테이프 탭에 스티커와 같은 알림 · 다시 맞추기로 보이고, 정상이면 숨긴다', async () => {
+  let retried = 0
+  const failing = fixture({ tapeSync: { error: '테이프 1개를 계정에 올리지 못했어요. 다른 기기에서는 보이지 않아요.', pending: false, retry: () => { retried++ } } })
+  failing.render(); await tick(); failing.tab('tapes')
+  const notice = find(failing.render(), '테이프 보관함 계정 동기화 재시도')
+  assert.equal(notice.props.error, '테이프 1개를 계정에 올리지 못했어요. 다른 기기에서는 보이지 않아요.')
+  assert.equal(notice.props.retryLabel, '다시 맞추기')
+  assert.equal(notice.props.pendingLabel, '다시 맞추는 중…')
+  notice.props.onRetry()
+  assert.equal(retried, 1)
+  failing.unmount()
+  const fine = fixture()
+  fine.render(); await tick(); fine.tab('tapes')
+  assert.equal(find(fine.render(), '테이프 보관함 계정 동기화 재시도').props.error, null) // DecorSaveNotice 는 error 가 없으면 그리지 않는다
+  fine.unmount()
 })
