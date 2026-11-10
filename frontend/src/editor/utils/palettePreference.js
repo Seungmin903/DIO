@@ -29,5 +29,20 @@ export function createPalettePreference(storage, key, defaults, normalize) {
       })
     },
     reset() { return enqueue(async () => { await load(); await storage.removeItem(key); publish(defaults) }) },
+    /**
+     * 계정 동기화가 받은 팔레트로 바꾼다. 지금 칸이 expected 와 다르면(그사이 사용자가 바꿨으면) 바꾸지 않고 false.
+     * 기본값과 같으면 저장값을 지운다(reset 과 같은 상태)
+     */
+    apply(expected, colors) {
+      return enqueue(async () => {
+        await load()
+        if (JSON.stringify(snapshot.colors) !== JSON.stringify(expected)) return false
+        const next = defaults.map((value, i) => clean(colors?.[i]) ?? value)
+        if (JSON.stringify(next) === JSON.stringify(defaults)) await storage.removeItem(key)
+        else await storage.setItem(key, JSON.stringify(next))
+        publish(next)
+        return true
+      })
+    },
   }
 }

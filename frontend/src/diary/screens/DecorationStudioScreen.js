@@ -39,9 +39,12 @@ import { COVER_PHOTO_RATIO, coverCropPhoto, coverPhotoWithAspect } from '../util
 import { Segmented } from '../components/FormControls';
 import { TAPE_SIZES } from '../../editor/constants';
 import { useTapeLibrarySyncStatus } from '../../editor/services/tapeLibrarySyncStatus.js';
+import { usePaletteSyncStatus } from '../../editor/services/paletteSyncStatus.js';
 import ConfirmDialog from '../../editor/components/controls/ConfirmDialog';
 import DecorSaveNotice from '../../editor/components/panels/DecorSaveNotice';
 import { useStickerLibrarySyncStatus } from '../../editor/services/stickerLibrarySyncStatus.js';
+import { useCoverLibrarySyncStatus } from '../services/coverLibrarySyncStatus.js';
+import { usePaperLibrarySyncStatus } from '../services/paperLibrarySyncStatus.js';
 import DiaryActionBubble from '../components/DiaryActionBubble';
 import { PdfImportError, coverWithPdfPage, pdfOrientation } from '../utils/pdfImport';
 import { pickPdfPages } from '../utils/pdfPages';
@@ -78,6 +81,8 @@ let lastTab = 'fonts';
 export default function DecorationStudioScreen({ compact = false, registerBackHandler }) {
   const custom = useCustomDecor();
   const stickerSync = useStickerLibrarySyncStatus(); // 계정 동기화 실패(다른 기기에서 안 보임)를 스티커 탭에 알린다
+  const coverSync = useCoverLibrarySyncStatus(); // 내 표지 계정 동기화 실패를 표지 탭에 알린다
+  const paperSync = usePaperLibrarySyncStatus(); // 내 속지 계정 동기화 실패를 속지 탭에 알린다
   const library = useMyLibrary();
   const paperStyle = useDefaultPaperStyle();
   const studio = useSyncExternalStore(subscribeStudio, studioSnapshot, studioSnapshot);
@@ -93,6 +98,7 @@ export default function DecorationStudioScreen({ compact = false, registerBackHa
   // 테이프 이름 고치기(카드 이름을 누르면 그 자리에서): { id, draft }
   const [tapeNameEdit, setTapeNameEdit] = useState(null);
   const tapeSync = useTapeLibrarySyncStatus(); // 테이프 계정 동기화 실패를 스티커 탭과 같은 자리 · 모양으로 테이프 탭에 알린다
+  const paletteSync = usePaletteSyncStatus(); // 도구 탭 팔레트 계정 동기화 실패도 같은 모양으로 도구 탭에 알린다
   // 사진으로 표지 만들기의 자르기 창: { photo, ratio, resolve }
   const [coverCrop, setCoverCrop] = useState(null);
   // 내 표지 편집(지라 603): 견본을 누르면 새 다이어리 표지 탭과 같은 편집 화면을 열고, 꾸밈까지 저장한다
@@ -476,6 +482,7 @@ export default function DecorationStudioScreen({ compact = false, registerBackHa
   const coverSection = <StudioSection fill={library.ready && !library.covers.length} title="표지" count={library.ready ? count(library.covers) : null}
     right={addTool({ kind: 'cover', icon: 'book', title: addTitle('cover', '표지 추가'), description: 'PDF로 만들기 · 사진으로 만들기', disabled: !library.ready || Boolean(making), menu: true })}>
     {makeAlert('cover')}
+    <DecorSaveNotice error={coverSync.error} pending={coverSync.pending} onRetry={coverSync.retry} retryLabel="다시 맞추기" pendingLabel="다시 맞추는 중…" accessibilityLabel="내 표지 계정 동기화 재시도" />
     {!library.ready ? <Text style={s.empty}>표지를 불러오고 있어요.</Text>
       : !library.covers.length ? <EmptyState compact={compact} art="dio" raised title="아직 저장한 표지가 없어요" />
       : <StudioShelf kind="cover" items={library.covers} onOpen={setCoverEdit} onRemove={cover => setQuestion({ cover })} onRename={(cover, name) => renameItem('cover', cover, name)} />}
@@ -505,6 +512,7 @@ export default function DecorationStudioScreen({ compact = false, registerBackHa
     {papersReady && <View style={[s.divider, s.paperDivider]} />}
     {papersReady && <GroupHead title="내 속지" section line={false} wide count={count(library.papers)} right={paperAdd} />}
     {makeAlert('paper')}
+    <DecorSaveNotice error={paperSync.error} pending={paperSync.pending} onRetry={paperSync.retry} retryLabel="다시 맞추기" pendingLabel="다시 맞추는 중…" accessibilityLabel="내 속지 계정 동기화 재시도" />
     {!papersReady ? <Text style={s.empty}>속지를 불러오고 있어요.</Text>
       : !library.papers.length ? <EmptyState compact={compact} art="dio" raised title="아직 저장한 속지가 없어요" />
       : <StudioShelf kind="paper" items={library.papers} onOpen={paper => setPaperId(paper.id)} onRemove={paper => setQuestion({ paper })} onRename={(paper, name) => renameItem('paper', paper, name)} />}
@@ -512,7 +520,10 @@ export default function DecorationStudioScreen({ compact = false, registerBackHa
     {shelfError === 'paper-rename' && <Text accessibilityRole="alert" style={s.error}>속지 이름을 바꾸지 못했어요. 다시 시도해 주세요.</Text>}
   </StudioSection>;
 
-  const presetSection = <StudioSection title="도구"><StudioPresets compact={compact} /></StudioSection>;
+  const presetSection = <StudioSection title="도구">
+    <StudioPresets compact={compact} />
+    <DecorSaveNotice error={paletteSync.error} pending={paletteSync.pending} onRetry={paletteSync.retry} retryLabel="다시 맞추기" pendingLabel="다시 맞추는 중…" accessibilityLabel="팔레트 계정 동기화 재시도" />
+  </StudioSection>;
 
   const current = { fonts: fontSection, stickers: stickerSection, tapes: tapeSection, covers: coverSection, papers: paperSection, presets: presetSection }[tab] ?? fontSection;
 

@@ -106,6 +106,18 @@ test('서버 성공 뒤 목록 저장 실패를 재시도해도 이미 저장·�
   assert.equal(JSON.parse(f.values.get(key)).pages[0].objects[0].id, 'existing-stroke'); assert.equal(f.applied, 1)
 })
 
+test('새 생성 요청은 다이어리 속지 구성을 서버 본문용으로 표시하고 예전 미확인 요청은 본문을 바꾸지 않는다', async () => {
+  const f = fixture(), store = f.store(); await store.load(); await store.create(form)
+  assert.equal(f.sent[0].input.diaryTemplateConfig.dateMode, 'undated')
+  assert.deepEqual(f.sent[0].input.diaryTemplateConfig, f.sent[0].input.templateConfig)
+  // 속지 구성을 싣기 전 앱이 남긴 미확인 요청(defaultPaperAppearance 는 있고 diaryTemplateConfig 는 없음)
+  const g = fixture(), first = g.store(); await first.load(); g.loseResponse(); await assert.rejects(first.create(form)); first.dispose()
+  const key = memberKeys('101').pending, pending = JSON.parse(g.values.get(key))
+  delete pending.input.diaryTemplateConfig; g.values.set(key, JSON.stringify(pending))
+  const resumed = g.store(); await resumed.load(); await resumed.create(form)
+  assert.equal(Object.hasOwn(g.sent[1].input, 'diaryTemplateConfig'), false)
+})
+
 test('빠른 이중 저장은 한 요청으로 합치고 이전 요청을 다른 폼으로 바꾸지 않는다', async () => {
   const f = fixture(), store = f.store(); await store.load()
   const [a, b] = await Promise.all([store.create(form), store.create(form)])

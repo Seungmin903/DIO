@@ -14,6 +14,8 @@ import { assignRouteDays } from '../templates/routePaper.js'
 import { normalizePaperAppearance } from '../templates/appearance.js'
 import { applyPageSettings } from '../../collaboration/pageSettings.js'
 import { packingDropPatch } from '../templates/packingEditing.js'
+import { isTastingId } from '../templates/tastingGeometry.js'
+import { updateTastingElements } from '../templates/tastingElements.js'
 
 const HISTORY_LIMIT = 20
 const PASTE_OFFSET = 24
@@ -535,6 +537,10 @@ export function editorReducer(state, action) {
     case 'setPlanner': {
       const base = action.after ? editorReducer(state, action.after) : action.silent ? state : withHistory(state)
       const pageId = action.pageId ?? getCurrentPage(state).id
+      const page = base.doc.pages.find(item => item.id === pageId)
+      if (page && isTastingId(page.backgroundAssetId) && !page.planner?.fills) {
+        return { ...base, doc: { ...base.doc, pages: base.doc.pages.map(item => item.id === pageId ? { ...item, objects: updateTastingElements(item, action.planner) } : item) } }
+      }
       return { ...base, doc: { ...base.doc, pages: base.doc.pages.map((page) => (page.id === pageId ? { ...page, planner: action.planner } : page)) } }
     }
 

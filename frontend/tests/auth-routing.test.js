@@ -97,7 +97,7 @@ test('F-02: 복원 중 네트워크·503·저장소 오류는 게스트를 시�
   const {probe,screen,cleanup}=await failStartup(error);
   try{
    assert.equal(probe.guestStarts??0,0);assert.ok(screen);assert.equal(screen.props.error,error);
-   assert.equal(screen.props.busy,false);
+   assert.equal(screen.props.status,'error');
    assert.equal(has(root(false,undefined,null,null,probe),'./src/shared/BootSplash'),false);
    assert.ok(probe.hidden>0);
   }finally{cleanup()}
@@ -131,6 +131,25 @@ test('F-02: 실패한 재시도는 복구 화면을 유지하고 로그인 취�
   auth.props.onClose();
   assert.equal(probe.guestStarts??0,0);
   assert.ok(nodes(root(false,undefined,null,null,probe)).some(node=>node.type==='./src/auth/SessionRestoreScreen'));
+ }finally{cleanup()}
+});
+
+test('게스트 보관함을 여는 중에는 재시도와 로그인을 시작하지 않는다',async()=>{
+ const {probe,screen,cleanup}=await failStartup({status:503});
+ try{
+  let finish;
+  probe.guestStart=session=>new Promise(resolve=>{finish=()=>resolve(session)});
+  const pending=screen.props.onGuest();
+  const guest=probe.updates.filter(update=>update.index===3).at(-1).value;
+  assert.equal(guest.status,'guest');
+  await screen.props.onGuest();
+  await screen.props.onRetry();
+  screen.props.onLogin();
+  assert.equal(probe.guestStarts,1);
+  assert.equal(probe.updates.filter(update=>update.index===3).at(-1).value,guest);
+  assert.ok(!probe.updates.some(update=>update.index===2));
+  finish();await pending;
+  assert.deepEqual(probe.updates.filter(update=>update.index===3).at(-1).value,{status:'done',error:null});
  }finally{cleanup()}
 });
 

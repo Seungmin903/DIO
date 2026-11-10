@@ -1,0 +1,360 @@
+import test from 'node:test'
+import assert from 'node:assert/strict'
+import { PAPER_STASH_TTL_MS, createPaperLibrarySync, mergePapers } from '../src/diary/services/paperLibrarySync.js'
+import { forgetLibrarySyncRecords } from '../src/diary/services/librarySyncRecords.js'
+import { normalizeMyPapers } from '../src/diary/utils/myLibrary.js'
+import { normalizePaperAppearance } from '../src/editor/templates/appearance.js'
+
+// 서버 한 대(계정 하나)와 기기 여러 대를 흉내 낸다. 서버는 PaperLibraryService 처럼 칸 순서를 고정하고 빈 칸을 null 로 돌려주며,
+// 앱(StickerLibrarySyncHost 의 readPapers)처럼 null 을 뺀 뒤 넘긴다. 기기 목록은 useMyLibrary 처럼 normalizeMyPapers 를 거친다.
+const dropNulls = item => Object.fromEntries(Object.entries(item ?? {}).filter(([, v]) => v != null))
+const asServerStyle = style => style ? { backgroundColor: style.backgroundColor.toUpperCase(), layoutColor: style.layoutColor.toUpperCase(), font: style.font ?? null } : null
+const asServer = papers => papers.map(p => ({ id: p.id, name: p.name, createdAt: p.createdAt ?? null, orientation: p.orientation,
+  pages: p.pages.map(page => ({ mediaFileId: page.mediaFileId, aspect: page.aspect, name: page.name ?? null })) }))
+const asApp = doc => ({ version: doc.version, papers: doc.papers.map(p => ({ ...dropNulls(p), pages: p.pages.map(dropNulls) })), style: doc.style ? dropNulls(doc.style) : null })
+const clock = { now: Date.parse('2026-11-10T00:00:00Z') }
+const asyncStorage = map => ({ getItem: async k => map.get(k) ?? null, setItem: async (k, v) => { map.set(k, v) }, getAllKeys: async () => [...map.keys()], multiRemove: async keys => { keys.forEach(k => map.delete(k)) } })
+function server() {
+  const state = { version: 0, papers: [], style: null, puts: 0, uploads: new Map(), categories: [], conflictOnce: null }
+  let serial = 0
+  const doc = () => asApp(structuredClone({ version: state.version, papers: asServer(state.papers), style: asServerStyle(state.style) }))
+  return {
+    state,
+    api: {
+      get: async () => doc(),
+      put: async (expected, papers, style) => {
+        state.puts++
+        if (state.conflictOnce) { state.version++; state.papers = [...state.papers, state.conflictOnce]; state.conflictOnce = null }
+        if (expected !== state.version) throw Object.assign(Error('conflict'), { status: 409 })
+        state.version++; state.papers = structuredClone(papers); state.style = style ? structuredClone(style) : null
+        return doc()
+      },
+    },
+    upload: async (localId, category) => { const id = `90000000-0000-4000-8000-${String(++serial).padStart(12, '0')}`; state.uploads.set(id, localId); state.categories.push(category); return id },
+  }
+}
+function device(remote, { account = '1', papers = [], style = null, storage = new Map(), failUploads = new Set(), failDownloads = new Map(), afterReplace = () => {}, beforeReplace = () => {} } = {}) {
+  const local = { papers: normalizeMyPapers(structuredClone(papers)), style: style ? normalizePaperAppearance(style) : null }
+  const listeners = new Set(), downloads = [], errors = [], statuses = []
+  const fire = () => listeners.forEach(listener => listener())
+  const library = {
+    ready: async () => {},
+    papers: () => local.papers,
+    style: () => local.style,
+    subscribe: listener => { listeners.add(listener); return () => listeners.delete(listener) },
+    // useMyLibrary · useDefaultPaperStyle 처럼 적용한 값을 돌려준다(base 가 다르면 null)
+    replacePapers: async (next, base) => { beforeReplace(); if (base !== local.papers) return null; local.papers = normalizeMyPapers(next); fire(); return local.papers },
+    replaceStyle: async (next, base) => { if (base !== local.style) return null; local.style = next == null ? null : normalizePaperAppearance(next); fire(); const applied = local.style; afterReplace(); return { style: applied } },
+  }
+  const edit = next => { local.papers = normalizeMyPapers(next); fire() }
+  const setStyle = next => { local.style = normalizePaperAppearance(next); fire() }
+  const sync = createPaperLibrarySync({
+    account, api: remote.api, library, key: 'paper-sync',
+    // AsyncStorage 처럼 getAllKeys · multiRemove 도 둔다(기한 지난 몫 정리 · 탈퇴 정리)
+    storage: asyncStorage(storage), now: () => clock.now,
+    media: { upload: async (id, category) => { if (failUploads.has(id)) throw Error('too large'); return remote.upload(id, category) }, download: async id => { if (failDownloads.has(id)) throw Object.assign(Error('download failed'), { status: failDownloads.get(id) }); downloads.push(id) } },
+    setTimer: run => ({ run }), clearTimer: timer => { timer.cleared = true },
+    onError: error => errors.push(error.message),
+    onStatus: next => statuses.push(next.error),
+  })
+  return { sync, local, edit, setStyle, downloads, errors, statuses, storage }
+}
+const L = n => `10000000-0000-4000-8000-${String(n).padStart(12, '0')}`
+// 공방에서 PDF 로 만든 속지 묶음(pickPdfPages 결과 모양: 쪽마다 확대용 원본 PDF 연결 pdfSource)
+const planner = (id, pages, name = '플래너') => ({ id, name, createdAt: '2026-11-10T01:00:00.000Z', orientation: 'portrait',
+  pages: pages.map((media, index) => ({ src: `media:${media}`, mediaFileId: media, aspect: 0.7071067811865476, name: `${name} ${index + 1}쪽`, pdfSource: { sourceId: 'pdf1', pageIndex: index, edge: 3000 } })) })
+const CREAM = { backgroundColor: '#FFF8E7', layoutColor: '#33476B', font: 'nanum-gothic' }
+
+test('기기 A 의 내 속지 · 기본 속지 스타일이 서버에 올라가고, 새 기기 B · 재설치 기기에서 같게 복원된다', async () => {
+  const remote = server()
+  const a = device(remote, { papers: [planner('p1', [L(1), L(2)]), planner('p2', [L(3)], '모눈')], style: CREAM })
+  await a.sync.start()
+  assert.equal(remote.state.version, 1)
+  assert.deepEqual(remote.state.papers.map(p => p.id), ['p1', 'p2'])
+  assert.deepEqual(remote.state.papers[0].pages.map(page => remote.state.uploads.get(page.mediaFileId)), [L(1), L(2)])
+  assert.equal(remote.state.papers[0].pages[0].pdfSource, undefined) // 원본 PDF 연결은 기기에만 둔다
+  assert.deepEqual(remote.state.categories, ['PHOTO', 'PHOTO', 'PHOTO'])
+  assert.deepEqual(remote.state.style, CREAM)
+
+  const b = device(remote) // 같은 계정의 새 기기(재설치 기기도 기기 기록이 비어 같다)
+  await b.sync.start()
+  assert.deepEqual(b.local.papers.map(p => [p.id, p.name, p.orientation, p.pages.length]), [['p1', '플래너', 'portrait', 2], ['p2', '모눈', 'portrait', 1]])
+  const first = remote.state.papers[0].pages[0].mediaFileId
+  assert.equal(b.local.papers[0].pages[0].mediaFileId, first)
+  assert.equal(b.local.papers[0].pages[0].src, `media:${first}`)
+  assert.equal(b.local.papers[0].pages[1].name, '플래너 2쪽')
+  assert.equal(b.local.papers[0].pages[0].aspect, 0.7071067811865476)
+  assert.deepEqual(b.local.style, CREAM)
+  assert.equal(b.downloads.length, 3)
+  assert.equal(remote.state.puts, 1) // 받기만 했으니 다시 올리지 않는다
+
+  // 다시 맞춰도 바뀐 것이 없으면 저장하지 않는다(칸 순서 · null · 정리 때문에 '바뀜'으로 보이지 않는다)
+  await a.sync.sync(); await b.sync.sync()
+  assert.equal(remote.state.puts, 1)
+  // A 는 자기 그림 · 원본 PDF 연결을 그대로 쓴다
+  assert.equal(a.local.papers[0].pages[0].mediaFileId, L(1))
+  assert.equal(a.local.papers[0].pages[0].pdfSource.sourceId, 'pdf1')
+})
+
+test('기본 속지 스타일만 바꿔도 다른 기기에 반영되고, 속지를 지우면 다른 기기에서도 빠진다', async () => {
+  const remote = server()
+  const a = device(remote, { papers: [planner('p1', [L(1)]), planner('p2', [L(2)])] })
+  await a.sync.start()
+  const b = device(remote)
+  await b.sync.start()
+  assert.equal(b.local.style, null) // 아무도 고르지 않았으면 기본값(고른 적 없음) 그대로
+
+  b.setStyle({ backgroundColor: '#292929', layoutColor: '#FFFFFF' })
+  await b.sync.whenIdle()
+  await a.sync.sync()
+  assert.deepEqual(a.local.style, { backgroundColor: '#292929', layoutColor: '#FFFFFF' })
+
+  a.edit(a.local.papers.filter(p => p.id !== 'p2'))
+  await a.sync.whenIdle()
+  await b.sync.sync()
+  assert.deepEqual(b.local.papers.map(p => p.id), ['p1'])
+  assert.deepEqual(b.local.style, { backgroundColor: '#292929', layoutColor: '#FFFFFF' })
+})
+
+test('두 기기에서 따로 만든 속지는 합쳐 모두 남고, 동시 저장(409)도 서로 덮어쓰지 않는다', async () => {
+  const remote = server()
+  const a = device(remote, { papers: [planner('p1', [L(1)])] })
+  await a.sync.start()
+  const b = device(remote)
+  await b.sync.start()
+  a.edit([planner('pa', [L(11)]), ...a.local.papers])
+  b.edit([planner('pb', [L(21)]), ...b.local.papers])
+  await a.sync.whenIdle(); await b.sync.whenIdle(); await a.sync.sync()
+  assert.deepEqual(remote.state.papers.map(p => p.id).sort(), ['p1', 'pa', 'pb'])
+  assert.deepEqual(a.local.papers.map(p => p.id).sort(), ['p1', 'pa', 'pb'])
+  assert.deepEqual(b.local.papers.map(p => p.id).sort(), ['p1', 'pa', 'pb'])
+
+  remote.state.conflictOnce = asServer(normalizeMyPapers([planner('pc', [L(1)])]))[0]
+  a.edit([planner('pd', [L(31)]), ...a.local.papers])
+  await a.sync.whenIdle()
+  assert.ok(remote.state.papers.some(p => p.id === 'pc'))
+  assert.ok(remote.state.papers.some(p => p.id === 'pd'))
+})
+
+test('올리지 못한 쪽이 있는 속지는 기기에만 남고 서버 목록에서 지워지지 않는다', async () => {
+  const remote = server()
+  const a = device(remote, { papers: [planner('p1', [L(1), L(2)]), planner('p2', [L(3)])], failUploads: new Set([L(2)]) })
+  await a.sync.start()
+  assert.deepEqual(remote.state.papers.map(p => p.id), ['p2'])
+  assert.deepEqual(a.local.papers.map(p => p.id), ['p1', 'p2'])
+  assert.equal(a.errors.length, 1)
+})
+
+test('다른 계정이 쓰던 기기에서는 이전 계정의 속지 · 스타일을 올리지 않고 서버 것을 받는다', async () => {
+  const remote = server()
+  const storage = new Map()
+  const old = device(server(), { account: '7', papers: [planner('mine', [L(1)])], style: CREAM, storage })
+  await old.sync.start()
+  const next = device(remote, { account: '8', papers: old.local.papers, style: CREAM, storage })
+  await next.sync.start()
+  assert.equal(remote.state.puts, 0)
+  assert.deepEqual(next.local.papers, [])
+  assert.equal(next.local.style, null)
+})
+
+test('mergePapers 는 앞 목록 순서를 지키고 뒤 목록에만 있는 속지를 덧붙인다', () => {
+  assert.deepEqual(mergePapers([{ id: 'a' }, { id: 'b' }], [{ id: 'b', name: 'x' }, { id: 'c' }]).map(p => p.id), ['a', 'b', 'c'])
+})
+
+test('받지 못한 쪽 그림은 기억해 두고 맞출 때마다 다시 받으며, 그동안 공방에 알린다(404 · 410 은 다시 받지 않는다)', async () => {
+  const remote = server()
+  const a = device(remote, { papers: [planner('p1', [L(1), L(2)]), planner('p2', [L(3)], '모눈')] })
+  await a.sync.start()
+  const [first, second] = remote.state.papers[0].pages.map(page => page.mediaFileId)
+  const gone = remote.state.papers[1].pages[0].mediaFileId
+  const storage = new Map()
+  // 새 기기: 첫 쪽은 연결이 끊겨(상태 없음) 못 받고, 셋째 쪽은 서버에서 파일이 지워졌다(404)
+  const failDownloads = new Map([[first, undefined], [gone, 404]])
+  const b = device(remote, { storage, failDownloads })
+  await b.sync.start()
+  assert.deepEqual(b.downloads, [second])
+  assert.deepEqual(b.local.papers.map(p => p.pages.length), [2, 1]) // 못 받은 쪽도 속지는 남긴다
+  assert.match(b.statuses.at(-1), /속지 쪽 그림 1개를 받지 못했어요/)
+
+  // 서버 문서가 그대로여도 다음 맞추기에서 다시 받는다. 404 였던 쪽은 다시 받지 않는다
+  failDownloads.delete(first)
+  await b.sync.sync()
+  assert.deepEqual(b.downloads, [second, first])
+  assert.equal(b.statuses.at(-1), null)
+  await b.sync.sync()
+  assert.deepEqual(b.downloads, [second, first])
+  assert.equal(remote.state.puts, 1)
+
+  // 앱을 다시 켜도(새 동기화 · 같은 기기 기록) 남은 쪽을 이어서 받는다
+  const c = device(remote, { storage: new Map(), failDownloads: new Map([[first, undefined]]) })
+  await c.sync.start()
+  const again = device(remote, { storage: c.storage, papers: c.local.papers })
+  await again.sync.start()
+  assert.deepEqual(again.downloads, [first])
+  assert.equal(again.statuses.at(-1), null)
+})
+
+test('쪽 그림을 올리지 못한 속지와 연결 오류는 공방에 알리고, 다시 올라가면 알림을 지운다', async () => {
+  const remote = server()
+  const failUploads = new Set([L(2)])
+  const a = device(remote, { papers: [planner('p1', [L(1)]), planner('p2', [L(2)], '모눈')], failUploads })
+  await a.sync.start()
+  assert.deepEqual(remote.state.papers.map(p => p.id), ['p1'])
+  assert.match(a.statuses.at(-1), /속지 1개를 계정에 올리지 못했어요/)
+  failUploads.clear()
+  await a.sync.sync()
+  assert.deepEqual(remote.state.papers.map(p => p.id), ['p1', 'p2'])
+  assert.equal(a.statuses.at(-1), null)
+
+  const offline = server()
+  offline.api.get = async () => { throw Error('offline') }
+  const b = device(offline, { papers: [planner('p1', [L(1)])] })
+  await b.sync.start()
+  assert.match(b.statuses.at(-1), /내 속지를 계정과 맞추지 못했어요/)
+})
+
+test('다른 계정으로 바뀌어도 올리지 못한 속지 · 고른 스타일은 사라지지 않고, 그 계정으로 다시 로그인하면 되살아난다', async () => {
+  const one = server(), two = server()
+  const storage = new Map()
+  // 계정 1: p3 은 쪽 그림을 올리지 못했고, p2 는 올라갔다. 스타일은 서버에 올라가지 않은 채(아래에서 서버 스타일을 지운다) 기기에 남았다
+  const first = device(one, { account: '1', papers: [planner('p3', [L(3)], '큰 속지'), planner('p2', [L(2)])], style: CREAM, storage, failUploads: new Set([L(3)]) })
+  await first.sync.start(); first.sync.stop()
+  assert.deepEqual(one.state.papers.map(p => p.id), ['p2'])
+  one.state.style = null; one.state.version++
+  // 같은 기기에서 계정 2로 로그인: 계정 1 속지 · 스타일은 올리지 않고 화면에서 빠진다
+  two.state.papers = [{ id: 'theirs', name: '남의 속지', createdAt: null, orientation: 'portrait', pages: [{ mediaFileId: '90000000-0000-4000-8000-000000009999', aspect: 1, name: null }] }]
+  two.state.version = 3
+  const second = device(two, { account: '2', papers: first.local.papers, style: first.local.style, storage })
+  await second.sync.start(); second.sync.stop()
+  assert.deepEqual(second.local.papers.map(p => p.id), ['theirs'])
+  assert.equal(second.local.style, null)
+  assert.equal(two.state.puts, 0)
+  // 다시 계정 1: 서버 목록(p2)과 함께 올리지 못했던 p3 · 고른 스타일이 돌아오고, 다음 맞추기에서 다시 올린다
+  const again = device(one, { account: '1', papers: second.local.papers, storage })
+  await again.sync.start(); await again.sync.whenIdle()
+  assert.deepEqual(again.local.papers.map(p => p.id), ['p3', 'p2'])
+  assert.deepEqual(again.local.style, CREAM)
+  assert.deepEqual(one.state.papers.map(p => p.id).sort(), ['p2', 'p3'])
+  assert.deepEqual(one.state.style, CREAM)
+  // 다시 계정 2로 와도 계정 2 서버 목록만 보이고, 되살린 몫은 한 번만 쓴다
+  again.sync.stop()
+  const back = device(two, { account: '2', papers: again.local.papers, style: again.local.style, storage })
+  await back.sync.start()
+  assert.deepEqual(back.local.papers.map(p => p.id), ['theirs'])
+  assert.equal(back.local.style, null)
+})
+
+test('서버 문서로 바꾼 직후 들어온 사용자 편집도 다시 맞춰 올린다', async () => {
+  const remote = server()
+  const a = device(remote, { papers: [planner('a1', [L(1)], 'A')] })
+  await a.sync.start()
+  let b
+  let edited = false
+  b = device(remote, { afterReplace: () => { if (!edited) { edited = true; b.edit([planner('b1', [L(5)], 'B'), ...b.local.papers]) } } })
+  await b.sync.start()
+  await b.sync.whenIdle()
+  assert.deepEqual(b.local.papers.map(p => p.id), ['b1', 'a1'])
+  assert.deepEqual(remote.state.papers.map(p => p.id), ['b1', 'a1'])
+})
+
+test('소문자로 저장된 기본 속지 스타일도 대문자로 맞춰 올린다(서버는 대문자로 저장한다)', async () => {
+  const remote = server()
+  const a = device(remote)
+  a.local.style = { backgroundColor: '#fff8e7', layoutColor: '#3a3a3a' } // 정규화를 거치지 않은 예전 값
+  await a.sync.start()
+  assert.deepEqual(remote.state.style, { backgroundColor: '#FFF8E7', layoutColor: '#3A3A3A' })
+  assert.equal(a.errors.length, 0)
+  await a.sync.sync()
+  assert.equal(remote.state.puts, 1) // 대문자로 돌아온 서버 값과 같다고 보고 다시 올리지 않는다
+})
+
+test('계정 전환 때 따로 둔 속지 몫은 30일이 지나면 되살리지 않고, 다른 계정으로 맞출 때 지운다', async () => {
+  const start = clock.now
+  try {
+    const one = server(), two = server(), three = server()
+    const storage = new Map()
+    const first = device(one, { account: '1', papers: [planner('p3', [L(3)], '큰 속지')], style: CREAM, storage, failUploads: new Set([L(3)]) })
+    await first.sync.start(); first.sync.stop()
+    one.state.style = null; one.state.version++ // 스타일은 서버에 없이 기기에만 남은 채(따로 둔 몫에만 있다)
+    const second = device(two, { account: '2', papers: first.local.papers, style: first.local.style, storage })
+    await second.sync.start(); second.sync.stop()
+    assert.ok(storage.has('paper-sync:1:stash'))
+    // 30일이 지나 다른 계정(3)으로 맞추면 계정 1 몫은 정리된다(계정 1 로 다시 로그인하지 않아도)
+    clock.now = start + PAPER_STASH_TTL_MS + 1
+    const third = device(three, { account: '3', papers: second.local.papers, style: second.local.style, storage })
+    await third.sync.start(); third.sync.stop()
+    assert.ok(!storage.has('paper-sync:1:stash'))
+    assert.ok(storage.has('paper-sync:2:stash')) // 방금 둔 계정 2 몫은 남는다
+    // 계정 1 로 돌아와도 기한이 지난 몫(속지 · 스타일)은 되살리지 않는다
+    const back = device(one, { account: '1', papers: third.local.papers, style: third.local.style, storage })
+    await back.sync.start(); await back.sync.whenIdle()
+    assert.deepEqual(back.local.papers.map(p => p.id), [])
+    assert.equal(back.local.style, null)
+  } finally { clock.now = start }
+})
+
+test('회원 탈퇴한 계정의 속지 동기화 기록만 지우고, 그 계정과 맞춘 meta 는 탈퇴 표식으로 남긴다', async () => {
+  const one = server(), two = server()
+  const storage = new Map()
+  const first = device(one, { account: '1', papers: [planner('p1', [L(1)])], storage })
+  await first.sync.start(); first.sync.stop()
+  const second = device(two, { account: '2', papers: first.local.papers, storage })
+  await second.sync.start(); second.sync.stop()
+  // 앱 키 모양(dio:paper-library-sync:v1:<서버>:…)으로 옮겨 실제 접두어로 지운다
+  const prefixed = new Map([...storage].map(([k, v]) => [k.replace(/^paper-sync/, 'dio:paper-library-sync:v1:server'), v]))
+  prefixed.set('dio:cover-library-sync:v1:server:1:stash', 'x')
+  const keysOf = owner => [...prefixed.keys()].filter(k => k.startsWith(`dio:paper-library-sync:v1:server:${owner}:`))
+  assert.ok(keysOf('1').length > 0) // 계정 1 의 짝 · 따로 둔 몫
+  await forgetLibrarySyncRecords({ storage: asyncStorage(prefixed), account: '1' })
+  assert.deepEqual(keysOf('1'), [])
+  assert.ok(prefixed.has('dio:paper-library-sync:v1:server:meta')) // 지금 meta 는 계정 2 것이라 남긴다
+  assert.ok(!prefixed.has('dio:cover-library-sync:v1:server:1:stash')) // 공용 정리(librarySyncRecords)는 내 표지 기록도 함께 지운다
+  await forgetLibrarySyncRecords({ storage: asyncStorage(prefixed), account: '2' })
+  // 계정 2 와 맞춘 meta 는 지우지 않고 탈퇴 표식으로 바꾼다(다음 계정이 남은 속지를 올리지 않게)
+  assert.deepEqual(JSON.parse(prefixed.get('dio:paper-library-sync:v1:server:meta')), { account: null, withdrawn: true })
+})
+
+test('계정이 바뀐 뒤 받는 사이 새 계정으로 만든 속지 · 고른 스타일은 이전 계정 몫에 섞이지 않고 새 계정에 남는다', async () => {
+  const one = server(), two = server()
+  const storage = new Map()
+  const first = device(one, { account: '1', papers: [planner('a-big', [L(3)], '큰 속지'), planner('a1', [L(1)])], style: CREAM, storage, failUploads: new Set([L(3)]) })
+  await first.sync.start(); first.sync.stop()
+  two.state.papers = [{ id: 'theirs', name: '남의 속지', createdAt: null, orientation: 'portrait', pages: [{ mediaFileId: '90000000-0000-4000-8000-000000009999', aspect: 1, name: null }] }]
+  two.state.version = 2
+  // 계정 2 로 로그인: 첫 받기에서 바꾸기 직전에 사용자가 속지를 만들고 스타일을 고른다(들이지 못해 다시 맞춘다)
+  const MINT = { backgroundColor: '#E8F6EF', layoutColor: '#2F5D50', font: 'nanum-gothic' }
+  let second
+  let made = false
+  second = device(two, { account: '2', papers: first.local.papers, style: first.local.style, storage,
+    beforeReplace: () => { if (!made) { made = true; second.edit([planner('b-new', [L(7)], '계정 2 새 속지'), ...second.local.papers]); second.setStyle(MINT) } } })
+  await second.sync.start(); await second.sync.whenIdle(); second.sync.stop()
+  const stash = JSON.parse(storage.get('paper-sync:1:stash'))
+  assert.deepEqual(stash.papers.map(p => p.id).sort(), ['a-big', 'a1']) // 다시 맞출 때 덮어쓰지 않아 계정 2 속지가 섞이지 않는다
+  assert.deepEqual(stash.style, normalizePaperAppearance(CREAM))
+  assert.deepEqual(second.local.papers.map(p => p.id), ['b-new', 'theirs']) // 계정 2 로 만든 속지는 남고 계정 1 속지는 빠진다
+  assert.deepEqual(two.state.papers.map(p => p.id).sort(), ['b-new', 'theirs'])
+  assert.deepEqual(two.state.style, asServerStyle(normalizePaperAppearance(MINT))) // 바뀐 뒤 고른 스타일은 계정 2 에 올라간다
+  // 계정 1 로 돌아오면 계정 1 속지만 되살린다
+  const back = device(one, { account: '1', papers: second.local.papers, style: second.local.style, storage })
+  await back.sync.start(); await back.sync.whenIdle()
+  assert.deepEqual(back.local.papers.map(p => p.id).sort(), ['a-big', 'a1'])
+  assert.ok(!one.state.papers.some(p => p.id === 'b-new'))
+})
+
+test('탈퇴한 계정이 쓰던 기기에 다음 계정이 로그인하면 남은 속지 · 스타일을 올리지 않고 서버 것을 받는다', async () => {
+  const one = server(), two = server()
+  const storage = new Map()
+  const first = device(one, { account: '1', papers: [planner('a1', [L(1)])], style: CREAM, storage })
+  await first.sync.start(); first.sync.stop()
+  const keyed = new Map([...storage].map(([k, v]) => [k.replace(/^paper-sync/, 'dio:paper-library-sync:v1:server'), v]))
+  await forgetLibrarySyncRecords({ storage: asyncStorage(keyed), account: '1' })
+  storage.clear(); for (const [k, v] of keyed) storage.set(k.replace(/^dio:paper-library-sync:v1:server/, 'paper-sync'), v)
+  two.state.papers = [{ id: 'theirs', name: '남의 속지', createdAt: null, orientation: 'portrait', pages: [{ mediaFileId: '90000000-0000-4000-8000-000000009999', aspect: 1, name: null }] }]
+  two.state.version = 2
+  const second = device(two, { account: '2', papers: first.local.papers, style: first.local.style, storage })
+  await second.sync.start(); await second.sync.whenIdle()
+  assert.deepEqual(second.local.papers.map(p => p.id), ['theirs'])
+  assert.equal(second.local.style, null)
+  assert.equal(two.state.puts, 0)
+  assert.ok(![...storage.keys()].some(k => k.includes(':null:'))) // 계정 id 가 없는 몫(stash)은 만들지 않는다
+})

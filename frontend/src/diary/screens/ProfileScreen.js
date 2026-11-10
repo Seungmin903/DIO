@@ -21,6 +21,7 @@ import DioButton from '../../shared/DioButton';
 import ProfileEditScreen from '../../auth/ProfileEditScreen';
 import PasswordResetScreen from '../../auth/PasswordResetScreen';
 import NotificationSettingsScreen from './NotificationSettingsScreen';
+import { NOTIFICATION_SETTINGS_TITLE } from '../../shared/featureFlags';
 import AppIcon from '../../shared/AppIcon';
 import DefaultAvatar from '../../shared/DefaultAvatar';
 import { useLoginEntry } from '../../auth/loginGate';
@@ -189,10 +190,10 @@ export default function ProfileScreen({ guestImport = null, section = 'profile',
       <Text style={[local.linkLabel, local.dangerLabel]}>회원 탈퇴</Text>
     </Pressable>
   ) : null;
-  // 회원만: 서버 알림 설정(초대 · 댓글 등 받을 알림)으로 가는 줄. 앱 정보 행과 같은 높이 · 구분선 · 오른쪽 화살표
+  // 회원만: 현재 제공되는 알림 설정으로 가는 줄.
   const serverNotifications = authenticatedUser ? (
-    <Pressable accessibilityRole="button" accessibilityLabel="알림 설정" onPress={() => setRoute('notifications')} style={local.linkRow}>
-      <Text style={local.linkLabel}>알림 설정</Text>
+    <Pressable accessibilityRole="button" accessibilityLabel={NOTIFICATION_SETTINGS_TITLE} onPress={() => setRoute('notifications')} style={local.linkRow}>
+      <Text style={local.linkLabel}>{NOTIFICATION_SETTINGS_TITLE}</Text>
       <AppIcon name="chevron-right" size={18} forText={16} color={colors.textMuted} />
     </Pressable>
   ) : null;
@@ -244,7 +245,7 @@ export default function ProfileScreen({ guestImport = null, section = 'profile',
           <NotificationSetting compact={compact}>{serverNotifications}</NotificationSetting>
           {/* 게스트는 새로 켤 수 없다. 이미 켠 게스트는 끌 수 있게 끄기만 남긴다 */}
           {showLockSetting && <AppLockSetting compact={compact} locked={locked} readFailed={lockReadFailed} onRetry={reloadLock} canEnable={canEnableLock} onTurnOn={() => setPin({ mode: 'setup' })} onTurnOff={() => setPin({ mode: 'verify', next: 'off' })} onChange={() => setPin({ mode: 'verify', next: 'change' })} />}
-          <EditSetting compact={compact} />
+          <EditSetting compact={compact} accountId={userId == null ? null : String(userId)} />
           <AppInformation onCopyNotice={message => {
             setSettingsNotice(current => message ? { source: 'copy', message } : current?.source === 'copy' ? null : current);
           }} />

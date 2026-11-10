@@ -293,8 +293,14 @@ function OpenBookShelf({ diaries, index, onIndexChange, onOpen, onFavorite, onEd
   const [landed, setLanded] = useState(false); // 정한 자리로 옮긴 뒤에 보인다(첫 다이어리가 한 번 비치지 않게)
   const scrollValue = useRef(new Animated.Value(scrollX.current)).current; // 네이티브 스크롤 위치(넘기는 동안의 움직임)
   const step = layout?.width ?? 0;
-  // 다이어리 수 · 칸 폭이 바뀔 때만 움직임 노드를 새로 만든다(스와이프 보기와 같다)
-  const motions = useMemo(() => Array.from({ length: diaries.length }, (_, at) => carouselMotion(scrollValue, at, step || 1, OPEN_BOOK_SCALE, OPEN_BOOK_LIFT)), [diaries.length, scrollValue, step]);
+  // 움직임 노드는 자리(at)마다 한 번만 만들어 다이어리 수가 바뀌어도 그대로 쓴다(칸 폭이 바뀔 때만 새로).
+  // 남은 책이 노드를 바꿔 받으면 react-native 가 옛 노드 값을 기본값으로 되돌려 책이 한 프레임 튄다(스와이프 보기의 motionCache 설명과 같다).
+  // 자리가 바뀐 책은 아래 books 에서 새로 마운트한다
+  const motionCache = useMemo(() => new Map(), [scrollValue, step]);
+  const motions = useMemo(() => Array.from({ length: diaries.length }, (_, at) => {
+    if (!motionCache.has(at)) motionCache.set(at, carouselMotion(scrollValue, at, step || 1, OPEN_BOOK_SCALE, OPEN_BOOK_LIFT));
+    return motionCache.get(at);
+  }), [diaries.length, motionCache, scrollValue, step]);
   const dragging = useRef(false);
   const target = useRef(null); // 화살표 · 옆 책으로 흘러가는 중인 다이어리
   const moveTimer = useRef(null);
@@ -332,8 +338,11 @@ function OpenBookShelf({ diaries, index, onIndexChange, onOpen, onFavorite, onEd
     target.current = null;
     const at = nearestAt(x);
     follow(at);
-    // 스냅이 없는 환경(웹)이나 덜 맞게 멈췄으면 마저 붙인다
+    // 스냅이 없는 환경(웹)이나 덜 맞게 멈췄으면 마저 붙인다(붙인 뒤 다시 settle 이 불린다)
     if (Math.abs(row.offsets[at] - x) > 1) scrollRef.current?.scrollTo?.({ x: row.offsets[at], animated: true });
+    // 멈췄으면 JS 쪽 scrollValue 도 맞춘다. 스크롤 이벤트는 네이티브 드라이버라 기기에서는 JS 값을 바꾸지 않아,
+    // 맞추지 않으면 휴지통 이동처럼 책이 한꺼번에 다시 그려질 때 엉뚱한 책이 한 프레임 가운데 크기로 보인다(스와이프 보기와 같은 이유)
+    else scrollValue.setValue(x);
     if (at !== index) onIndexChange(at);
   };
   // 화살표 · 옆 책: 그 다이어리까지 부드럽게 흘러간 뒤 가운데 다이어리를 바꾼다(스와이프 보기와 같다)
@@ -343,7 +352,8 @@ function OpenBookShelf({ diaries, index, onIndexChange, onOpen, onFavorite, onEd
     follow(at);
     scrollRef.current?.scrollTo?.({ x: row.offsets[at], animated: true });
     clearTimeout(moveTimer.current);
-    moveTimer.current = setTimeout(() => { target.current = null; scrollX.current = row.offsets[at]; if (at !== index) onIndexChange(at); }, MOVE_MS);
+    // 끝나면 JS 쪽 scrollValue 를 스크롤이 실제로 알려 준 마지막 위치로 맞춘다(settle 과 같은 이유. 목표 위치에 아직 못 갔어도 어긋나지 않게)
+    moveTimer.current = setTimeout(() => { target.current = null; if (Number.isFinite(scrollX.current)) scrollValue.setValue(scrollX.current); scrollX.current = row.offsets[at]; if (at !== index) onIndexChange(at); }, MOVE_MS);
   };
   const goRef = useRef(goTo);
   goRef.current = goTo;
@@ -374,7 +384,7 @@ function OpenBookShelf({ diaries, index, onIndexChange, onOpen, onFavorite, onEd
   if (!diaries[index]) return null;
   // 그리는 범위: 지금 가운데 가까운 다이어리 앞뒤 AHEAD 권 + 멈춰 있는 가운데 다이어리 앞뒤 한 권
   const books = row ? diaries.map((diary, at) => (Math.abs(at - near) <= AHEAD || Math.abs(at - index) <= 1) && (
-    <OpenBook key={diary.id} active={at === index} diary={diary} size={sizes[at]} left={row.lefts[at]} top={Math.round(middle - sizes[at].height / 2)}
+    <OpenBook key={`${diary.id}:${at}`} active={at === index} diary={diary} size={sizes[at]} left={row.lefts[at]} top={Math.round(middle - sizes[at].height / 2)}
       compact={single} motion={motions[at]} onPress={pressBook} onFavorite={onFavorite} onEdit={onEdit} onDelete={onDelete} onShare={onShare} />
   )) : null;
 

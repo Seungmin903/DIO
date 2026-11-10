@@ -280,7 +280,7 @@ function PaperRow({ section, row, number, orientation, appearance, open, onToggl
  */
 export default function PaperOptions({ sections, onChange, orientation, appearance }) {
   const remoteRevision = useRemoteTemplates()
-  const groups = useMemo(allGroups, [remoteRevision])
+  const groups = useMemo(() => allGroups().map(group => ({ ...group, papers: group.papers.filter(paper => !paper.portraitOnly || orientation === 'portrait') })), [remoteRevision, orientation])
   const [picking, setPicking] = useState(null) // null | 'new' | 줄 key
   // 끌기: 시작할 때 줄마다 화면 위 가운데 높이를 재 두고, 끄는 줄의 가운데가 지나간 줄 수로 놓을 자리(뺀 뒤 목록 기준)를 정한다
   const [drag, setDrag] = useState(null) // { key, dy }

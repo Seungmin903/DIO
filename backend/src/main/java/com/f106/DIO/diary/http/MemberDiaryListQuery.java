@@ -86,7 +86,8 @@ public class MemberDiaryListQuery {
             var diary=new MemberDiaryResponses.Diary(rs.getString("diary_id"),rs.getString("title"),rs.getString("cover_color"),rs.getString("cover_style"),rs.getString("visibility"),rs.getTimestamp("created_at").toInstant(),rs.getTimestamp("updated_at").toInstant(),"OWNER".equals(rs.getString("role")),Long.toString(rs.getLong("version")),rs.getString("role"),new MemberDiaryResponses.Membership(rs.getBoolean("is_favorite")),new MemberDiaryResponses.Permissions("OWNER".equals(rs.getString("role")),true,"OWNER".equals(rs.getString("role")),false,false));
             String value=switch(sort){case "title"->rs.getString("title_key");case "pages"->Long.toString(rs.getLong("page_count"));default->rs.getTimestamp(column).toInstant().toString();};
             var enriched=diary.withCover(DiaryCoverDesign.read(rs.getString("cover_json")))
-                .withPaperAppearance(com.f106.DIO.page.domain.PaperAppearance.read(rs.getString("paper_appearance_json")));
+                .withPaperAppearance(com.f106.DIO.page.domain.PaperAppearance.read(rs.getString("paper_appearance_json")))
+                .withTemplateConfig(com.f106.DIO.diary.support.DiaryTemplateConfig.read(rs.getString("template_config_json")));
             return new Row(new Item(enriched,rs.getLong("page_count"),rs.getLong("member_count")>1),value);
         },args.toArray());
         boolean more=rows.size()>limit;var selected=rows.subList(0,Math.min(limit,rows.size()));String next=null;

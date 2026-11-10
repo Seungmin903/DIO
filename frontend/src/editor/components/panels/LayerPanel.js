@@ -37,7 +37,7 @@ const AUTO_SCROLL_MAX_SPEED = 14 // 한 번(16ms)에 넘기는 최대 px
 const CompactContext = createContext(false)
 
 export default function LayerPanel({ objects, selectedIds, dispatch, onClose, onEmptyTap, width = LAYER_PANEL_WIDTH }) {
-  const layers = useMemo(() => objects.filter((o) => !isBackdrop(o) && !o.packingColorRegion).reverse(), [objects])
+  const layers = useMemo(() => objects.filter((o) => !isBackdrop(o) && !o.packingColorRegion && !o.tastingMark).reverse(), [objects])
   const [drag, setDrag] = useState(null) // { key, from, dy }
   const [collapsed, setCollapsed] = useState(() => new Set())
   const rows = useMemo(() => buildLayerRows(layers, collapsed), [layers, collapsed])

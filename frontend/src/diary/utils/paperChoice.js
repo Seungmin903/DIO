@@ -51,7 +51,7 @@ export const MONTH_LIMIT = 12
 // 고른 속지 id 는 'remote:<id>'. 목록을 아직 못 받았거나 숨긴 속지도 이미 고른 줄에서는 그대로 쓴다(이름만 '추가 속지').
 // 목록은 새 탭(templateGroups)도 더할 수 있다. 숨긴 탭의 속지는 고르기에 보이지 않는다.
 const REMOTE_PAPER = /^remote:([a-z0-9][a-z0-9-]{0,39})$/
-const remotePaper = (id, item) => ({ id: `remote:${id}`, group: item?.group ?? 'note', name: item?.name ?? '추가 속지', kind: 'count', remoteTemplate: id, ...(/^packing-list(?:-v[2-8])?$/.test(id) ? { defaultCount: 1, countSteps: [1, 2, 3] } : {}) })
+const remotePaper = (id, item) => ({ id: `remote:${id}`, group: item?.group ?? 'note', name: item?.name ?? '추가 속지', kind: 'count', remoteTemplate: id, ...(item?.portraitOnly ? { portraitOnly: true } : {}), ...(/^packing-list(?:-v[2-8])?$/.test(id) ? { defaultCount: 1, countSteps: [1, 2, 3] } : {}) })
 const hiddenGroups = () => new Set(remoteTemplateGroups().filter(group => group.hidden).map(group => group.id))
 const remotePapers = () => {
   const hidden = hiddenGroups()

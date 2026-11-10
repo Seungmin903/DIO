@@ -30,7 +30,7 @@ test('지라 665: 옮기기 확인 · 완료 창은 확인창 버튼(취소 글�
 test('지라 670: 탈퇴 완료 토스트는 앱 맨 위에서 띄운다', () => {
   const app = read('App.js');
   const profile = read('src/diary/screens/ProfileScreen.js');
-  assert.match(app, /const withdrawSession = \(\) => \{ clearSession\(\); setAccountToast\(/);
+  assert.match(app, /const withdrawSession = \(\) => \{[^}]*?clearSession\(\); setAccountToast\(/);
   assert.match(app, /회원 탈퇴가 완료됐어요\./);
   assert.match(app, /onWithdrawn=\{withdrawSession\}/);
   assert.match(app, /<AccountToast key=\{accountToast\.key\}/);
@@ -47,7 +47,7 @@ test('지라 654: 설정 · 알림 설정 · 회원정보 수정의 태블릿 �
   assert.match(notify, /scroll: \{[^}]*paddingHorizontal: 30/);
   assert.match(profile, /column: \{ width: '100%', maxWidth: 1040/);
   // 제목(머리줄)도 같은 칸 안에 있다
-  assert.match(notify, /<View style=\{styles\.list\}>\s*<Header title="알림 설정"/);
+  assert.match(notify, /<View style=\{styles\.list\}>\s*<Header title=\{NOTIFICATION_SETTINGS_TITLE\}/);
 });
 
 test('개인정보 처리방침 등 법률 문서 화면은 상태 표시줄 영역까지 흰색 상단 바', () => {
