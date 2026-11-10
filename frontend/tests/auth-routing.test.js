@@ -14,7 +14,7 @@ const code=babel.transformSync(readFileSync(new URL('../App.js',import.meta.url)
 function root(dev,mode,session=null,loginRequest=null,probe=null,apiConfigurationError=false){
  let calls=0
  const states=[session,probe?.booting??false,loginRequest,probe?.restoreState??{status:'loading',error:null},null,probe?.mailInvitation]
- const mod={exports:{}},mocks={'./src/diary/utils/routeMemory':routeMemory,'./src/shared/dialogs':{notify:(...args)=>probe?.notices?.push(args)},'./src/editor/utils/savePdfFile':{cleanupPdfShareCache:async()=>{}},'./src/auth/authService':{apiConfigurationError,authService:{logout:async()=>{if(probe?.logoutError)throw probe.logoutError},restoreSession:async()=>{if(probe?.restoreMock)return probe.restoreMock();if(probe?.restoreError)throw probe.restoreError;return probe?.restored??null}}},react:{useState:()=>{const index=calls++;return [states[index],value=>probe?.updates?.push({index,value})]},useEffect(fn){probe?.effects.push(fn)},useCallback:f=>f,useRef:current=>({current})},'./src/auth/guestProfileDevice':{guestProfile:{start:async session=>{if(probe)probe.guestStarts=(probe.guestStarts||0)+1;return session}}},'./src/diary/services/legacyMockCleanup':{clearMockLibrary:async()=>{if(probe)probe.cleaned=(probe.cleaned||0)+1}},'expo-splash-screen':{preventAutoHideAsync:async()=>{},hideAsync:async()=>{if(probe)probe.hidden++}},'react-native':{Platform:{OS:'web'},StatusBar:'StatusBar',View:'View',Text:'Text',StyleSheet:{absoluteFill:{},create:value=>value}},'react-native-safe-area-context':{SafeAreaProvider:'SafeAreaProvider',initialWindowMetrics:{frame:{x:0,y:0,width:390,height:844},insets:{top:24,bottom:16,left:0,right:0}}},'expo-font':{useFonts:()=>[true,null]},'./src/shared/pretendardFiles':{PRETENDARD_FILES:{}},'./src/editor/services/textFonts':{preloadTextFonts(){}},'./src/shared/remoteAssets/remoteCatalogService':{loadRemoteCatalog(){}},'./src/diary/styles':{styles:{empty:{},emptyTitle:{},emptyCopy:{}}},'./src/shared/useHiddenNavigationBar':{useHiddenNavigationBar(){}}}
+ const mod={exports:{}},mocks={'./src/diary/utils/routeMemory':routeMemory,'./src/shared/dialogs':{notify:(...args)=>probe?.notices?.push(args)},'./src/editor/utils/savePdfFile':{cleanupPdfShareCache:async()=>{}},'./src/auth/authService':{apiConfigurationError,authService:{logout:async()=>{if(probe?.logoutError)throw probe.logoutError;return probe?.logoutResult},restoreSession:async()=>{if(probe?.restoreMock)return probe.restoreMock();if(probe?.restoreError)throw probe.restoreError;return probe?.restored??null}}},react:{useState:()=>{const index=calls++;return [states[index],value=>probe?.updates?.push({index,value})]},useEffect(fn){probe?.effects.push(fn)},useCallback:f=>f,useRef:current=>({current})},'./src/auth/guestProfileDevice':{guestProfile:{start:async session=>{if(probe)probe.guestStarts=(probe.guestStarts||0)+1;return session}}},'./src/diary/services/legacyMockCleanup':{clearMockLibrary:async()=>{if(probe)probe.cleaned=(probe.cleaned||0)+1}},'expo-splash-screen':{preventAutoHideAsync:async()=>{},hideAsync:async()=>{if(probe)probe.hidden++}},'react-native':{Platform:{OS:'web'},StatusBar:'StatusBar',View:'View',Text:'Text',StyleSheet:{absoluteFill:{},create:value=>value}},'react-native-safe-area-context':{SafeAreaProvider:'SafeAreaProvider',initialWindowMetrics:{frame:{x:0,y:0,width:390,height:844},insets:{top:24,bottom:16,left:0,right:0}}},'expo-font':{useFonts:()=>[true,null]},'./src/shared/pretendardFiles':{PRETENDARD_FILES:{}},'./src/editor/services/textFonts':{preloadTextFonts(){}},'./src/shared/remoteAssets/remoteCatalogService':{loadRemoteCatalog(){}},'./src/diary/styles':{styles:{empty:{},emptyTitle:{},emptyCopy:{}}},'./src/shared/useHiddenNavigationBar':{useHiddenNavigationBar(){}}}
  mocks['expo-font']={useFonts:()=>[probe?.fontsLoaded??true,null]};
  mocks['react-native'].Platform.OS=probe?.platform??'web';
  mocks['./src/sharing/memberInviteLink']={subscribeMemberInviteLinks(_linking,onInvite,onSharedInvite){
@@ -528,14 +528,18 @@ test('개발 서버 Basic 인증이 필요한 복원은 기존 인증 화면을 
  assert.equal(auth.props.resumeSession,true);
 });
 
-test('로그아웃 이중 실패 안내는 기기 로그인 정보를 지웠다는 문구를 덧붙이지 않는다',async()=>{
- for(const incomplete of [true,false]){
-  const message=incomplete?'다음 실행에서 로그인이 복원될 수 있어요.':'서버에 연결하지 못했어요.';
-  const probe={notices:[],effects:[],updates:[],logoutError:Object.assign(new Error(message),{code:incomplete?'LOGOUT_INCOMPLETE':undefined})};
+test('로그아웃 실패 안내는 서버 확인과 기기 정보 삭제 결과를 구분한다',async()=>{
+ for(const [logoutError,logoutResult,expected] of [
+  [undefined,undefined,[]],
+  [undefined,{localCleared:false},[['기기의 로그인 정보를 지우지 못했어요','서버에서는 로그아웃됐어요. 기기의 로그인 정보를 정리하려면 앱을 다시 열어 주세요.']]],
+  [new Error('offline'),undefined,[['서버 로그아웃을 확인하지 못했어요','이 기기의 로그인 정보는 지웠어요. 계정 알림은 계속 올 수 있어요. 인터넷에 연결한 뒤 다시 로그인해서 로그아웃해 주세요.']]],
+  [Object.assign(new Error('offline'),{code:'LOGOUT_INCOMPLETE'}),undefined,[['서버 로그아웃을 확인하지 못했어요','이 기기의 로그인 정보를 지우지 못해 앱을 다시 열면 로그인이 복원될 수 있어요. 인터넷에 연결한 뒤 다시 로그인해서 로그아웃해 주세요.']]],
+ ]){
+  const probe={notices:[],effects:[],updates:[],logoutError,logoutResult};
   const tree=root(true,undefined,{mode:'authenticated',userId:'7'},null,probe);
   const diary=nodes(tree).find(node=>node.type?.name==='MemberDiaryApp');
   await diary.props.onEndPreview();
-  assert.deepEqual(probe.notices,[['로그아웃',(incomplete?message:message+' 이 기기의 로그인 정보는 지웠어요.')+' 서버에서 로그아웃을 확인하지 못해 이 계정의 알림이 계속 올 수 있어요. 네트워크 연결 후 다시 로그인하고 로그아웃해 주세요.']]);
+  assert.deepEqual(probe.notices,expected);
  }
 });
 

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import AppIcon from '../../shared/AppIcon';
@@ -17,12 +17,14 @@ import { SettingSection } from './SettingRow';
 const PRIVACY_POLICY_URL = signupDocuments.policy;
 const SUPPORT_EMAIL = 'dioapp.official@gmail.com';
 const APP_VERSION = '1.0.0'; // app.json 의 version 과 같다
+const COPY_ERROR = '복사하지 못했어요. 이메일 주소를 길게 눌러 복사해 주세요.';
 
-export default function AppInformation() {
-  const [copyMessage, setCopyMessage] = useState('');
+export default function AppInformation({ onCopyNotice }) {
+  const [copyError, setCopyError] = useState(false);
   const [licensesOpen, setLicensesOpen] = useState(false);
-
   const [policyOpen, setPolicyOpen] = useState(false);
+  const copyAttempt = useRef(0);
+  useEffect(() => () => { copyAttempt.current++; }, []);
 
   const openPrivacyPolicy = async () => {
     if (!PRIVACY_POLICY_URL) { setPolicyOpen(true); return; }
@@ -34,12 +36,18 @@ export default function AppInformation() {
   };
 
   const copyEmail = async () => {
+    const attempt = ++copyAttempt.current;
+    setCopyError(false);
+    onCopyNotice?.(null);
+    let copied;
     try {
-      const copied = await Clipboard.setStringAsync(SUPPORT_EMAIL);
-      setCopyMessage(copied === false ? '복사하지 못했어요. 이메일 주소를 길게 눌러 복사해 주세요.' : '이메일 주소를 복사했어요.');
+      copied = await Clipboard.setStringAsync(SUPPORT_EMAIL);
     } catch {
-      setCopyMessage('복사하지 못했어요. 이메일 주소를 길게 눌러 복사해 주세요.');
+      copied = false;
     }
+    if (attempt !== copyAttempt.current) return;
+    if (copied === false) setCopyError(true);
+    else onCopyNotice?.('이메일 주소를 복사했어요.');
   };
 
   return (
@@ -63,6 +71,7 @@ export default function AppInformation() {
         </View>
         <DioButton variant="tonal" label="문의 이메일 주소 복사" text="복사" onPress={copyEmail} />
       </View>
+      {copyError && <Text accessibilityLiveRegion="polite" role="status" style={styles.copyError}>{COPY_ERROR}</Text>}
       <Pressable accessibilityRole="button" accessibilityLabel="오픈소스 및 콘텐츠 라이선스" onPress={() => setLicensesOpen(true)}
         style={styles.licenses}>
         <Text style={[styles.label, { flex: 1 }]}>오픈소스 및 콘텐츠 라이선스</Text>
@@ -70,7 +79,6 @@ export default function AppInformation() {
       </Pressable>
       {policyOpen && <LegalDocumentScreen document={getSignupDocument('policy')} onClose={() => setPolicyOpen(false)} />}
       <ContentLicenses visible={licensesOpen} onClose={() => setLicensesOpen(false)} />
-      {!!copyMessage && <Text accessibilityLiveRegion="polite" role="status" style={styles.status}>{copyMessage}</Text>}
     </SettingSection>
   );
 }
@@ -86,5 +94,5 @@ const styles = StyleSheet.create({
   label: { color: C.ink, fontSize: 16, lineHeight: 22, fontWeight: '600' },
   hint: { color: C.muted, fontSize: 13 },
   email: { color: colors.primaryText, fontSize: 15, lineHeight: 21, fontWeight: '700' },
-  status: { marginTop: 10, color: C.inkSoft, fontSize: 13, lineHeight: 20 },
+  copyError: { marginBottom: 8, color: colors.dangerStrong, fontSize: 13, lineHeight: 20 },
 });

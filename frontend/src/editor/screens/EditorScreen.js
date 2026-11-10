@@ -1054,7 +1054,6 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
     closeBubbles()
     setFocusMode(true)
     if (!landscape) onToggleOrientation?.()
-    showToast('집중 편집 · 두 손가락으로 이동하고 확대하세요.')
   }
   const toggleGuides = () => {
     const next = !guidesOpen
@@ -1191,10 +1190,7 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
         readOnly={readOnly}
         onTogglePages={togglePages}
         onToggleLayers={switchLayers}
-        onToggleFocus={() => {
-          setFocusMode(!focusMode)
-          if (!focusMode) showToast('집중 편집 · 양옆 패널을 닫았어요.')
-        }}
+        onToggleFocus={() => setFocusMode(current => !current)}
         exportEnabled={exportEnabled}
         shareLabel="공유 및 내보내기"
         shareIcon="share"

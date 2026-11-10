@@ -236,10 +236,16 @@ export default function App() {
   const withdrawSession = () => { clearSession(); setAccountToast({ key: Date.now(), message: '회원 탈퇴가 완료됐어요.' }); };
   const endSession = async () => {
     try {
-      if (authenticatedSession) await authService.logout();
+      if (!authenticatedSession) return;
+      const result = await authService.logout();
+      if (result?.localCleared === false) {
+        notify('기기의 로그인 정보를 지우지 못했어요', '서버에서는 로그아웃됐어요. 기기의 로그인 정보를 정리하려면 앱을 다시 열어 주세요.');
+      }
     } catch (error) {
-      const localMessage = error.code === 'LOGOUT_INCOMPLETE' ? error.message : `${error.message} 이 기기의 로그인 정보는 지웠어요.`;
-      notify('로그아웃', `${localMessage} 서버에서 로그아웃을 확인하지 못해 이 계정의 알림이 계속 올 수 있어요. 네트워크 연결 후 다시 로그인하고 로그아웃해 주세요.`);
+      const localMessage = error.code === 'LOGOUT_INCOMPLETE'
+        ? '이 기기의 로그인 정보를 지우지 못해 앱을 다시 열면 로그인이 복원될 수 있어요.'
+        : '이 기기의 로그인 정보는 지웠어요. 계정 알림은 계속 올 수 있어요.';
+      notify('서버 로그아웃을 확인하지 못했어요', `${localMessage} 인터넷에 연결한 뒤 다시 로그인해서 로그아웃해 주세요.`);
     }
     finally { clearSession(); }
   };

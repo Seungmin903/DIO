@@ -25,7 +25,7 @@ export function appLockRecoveryAction({ member, state, scope, onReauth, onCleare
   }
   if (state !== 'corrupt') return undefined;
   return () => confirmAction({
-    title: '앱 잠금을 초기화할까요?', message: '저장된 앱 잠금 정보가 손상돼 비밀번호를 확인할 수 없어요. 초기화하면 이 기기에서 PIN 없이 앱을 열 수 있고, 일기는 그대로 남아요.', confirmLabel: '초기화',
+    title: '앱 잠금을 초기화할까요?', message: '저장된 앱 잠금 정보가 손상돼 비밀번호를 확인할 수 없어요. 초기화하면 이 기기에서 비밀번호 없이 앱을 열 수 있고, 다이어리는 그대로 남아요.', confirmLabel: '초기화',
     onConfirm: async () => {
       try { await clearAppLock(scope); }
       catch { notify('앱 잠금', FAILED); return; }

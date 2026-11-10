@@ -1268,7 +1268,7 @@ export default function SharingHub({
           danger={question?.kind !== 'transfer' && question?.kind !== 'blocked-members' && question?.kind !== 'unblock' && question?.kind !== 'relink'}
           message={
             question?.kind === 'blocked-members'
-              ? '참여하면 서로의 작업을 보고 함께 편집할 수 있어요. 계속 참여할까요?'
+              ? '참여하면 서로의 작업을 보고 함께 편집할 수 있어요.'
               : question?.kind === 'transfer'
               ? '나는 편집자로 남아요. 참여자 관리 권한은 새 소유자에게 넘어가요.'
               : question?.kind === 'remove'
