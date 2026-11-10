@@ -5,6 +5,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { SettingSwitch } from '../../diary/components/SettingRow'
 import { colors } from '../../shared/theme'
 import ChipScroller, { justDragged } from './controls/ChipScroller'
+import { glassColors, glassEntry } from '../hooks/usePalettes'
 import EditablePalette, { paletteSwatchStyles } from './controls/EditablePalette'
 import Slider from './controls/Slider'
 import Icon from './controls/Icon'
@@ -80,7 +81,18 @@ export default function PenSettings({ settings, onChange, onClose, straightAssis
   const recentColors = useRecentPenColors(highlighter ? 'highlighter' : 'pen')
   const [reveal, setReveal] = useState(null)   // 고른 종류가 가려지지 않게 그 자리로 넘긴다
   const penRgb = useMemo(() => [1, 3, 5].map(i => parseInt(settings.color.slice(i, i + 2), 16) / 255), [settings.color])
-  const chooseColor = (color) => onChange({ ...settings, color })
+  // 유리펜은 한 칸에 잉크 · 글리터 · 테 색을 함께 담는다(마스킹 테이프와 같은 방식).
+  // 그래서 칸을 고르면 세 가지가 한꺼번에 들어온다.
+  const glassPen = settings.kind === 'glass'
+  const paletteScope = highlighter ? 'highlighter' : glassPen ? 'glass' : isDashedKind(settings.kind) ? 'dashed' : 'pen'
+  const paletteValue = glassPen ? glassEntry({ ink: settings.color, glitter: settings.inkGlitterColor, sheen: settings.inkSheenColor }) : settings.color
+  const chooseColor = (entry) => {
+    // 묶음('잉크:글리터:테')이면 셋 다 바꾸고, 색 하나면 잉크만 바꾼다
+    // (최근 색 · 직접 고르기로 색만 바꿀 때 글리터 · 테 선택이 날아가지 않게)
+    if (!glassPen || !String(entry).includes(':')) return onChange({ ...settings, color: entry })
+    const { ink, glitter, sheen } = glassColors(entry)
+    onChange({ ...settings, color: ink, inkGlitterColor: glitter, inkSheenColor: sheen })
+  }
   return <View style={sheet ? [toolPanelStyles.card, toolPanelStyles.sheetCard] : toolPanelStyles.card}>
     <ToolPanelHeader icon={highlighter ? 'highlighter' : 'pen'} title={label} closeLabel={`${label} 설정 닫기`} onClose={onClose} dragHandlers={dragHandlers} />
     <FadeScroll style={toolPanelStyles.scrollFrame} keyboardShouldPersistTaps="handled" contentContainerStyle={toolPanelStyles.content}>
@@ -111,7 +123,7 @@ export default function PenSettings({ settings, onChange, onClose, straightAssis
       </>)}
       <View accessibilityLabel={`${label} 미리보기`} style={styles.preview}><PenSample settings={settings} /></View>
       {/* 색은 펜 종류와 무관하게 늘 쓰므로 종류 바로 아래에 고정한다(아래 옵션은 종류마다 개수가 달라 자리가 밀린다) */}
-      <EditablePalette allowDirect scope={highlighter ? 'highlighter' : 'pen'} label={label} value={settings.color} onPick={chooseColor} onOpenEditor={onOpenColorPicker} />
+      <EditablePalette allowDirect scope={paletteScope} label={label} value={paletteValue} onPick={chooseColor} onOpenEditor={onOpenColorPicker} />
       {recentColors.length > 0 && <>
       <Text style={toolPanelStyles.label}>마지막으로 사용했던 색</Text>
       <View accessibilityLabel={`${label} 최근 사용 색상`} style={paletteSwatchStyles.row}>

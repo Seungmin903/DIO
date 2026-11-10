@@ -12,6 +12,8 @@ import EditablePalette from '../../editor/components/controls/EditablePalette';
 // 바꾸는 중인 견본만 primaryText 2px 고리를 두른다(앱 디자인 점검 원 페이저 10). 흰색에 가까운 색만 옅은 테두리를 남겨 흰 면에 묻히지 않게 한다.
 const GROUPS = [
   { scope: 'pen', label: '펜' },
+  { scope: 'glass', label: '유리펜' },
+  { scope: 'dashed', label: '점선' },
   { scope: 'highlighter', label: '형광펜' },
   { scope: 'tape', label: '마스킹 테이프' },
   { scope: 'text', label: '글자' },
@@ -27,7 +29,7 @@ function Dot({ bg, fg, active }) {
 }
 
 // 도구 표시: 편집기 도구막대와 같은 앱 아이콘(펜 · 형광펜 · 마스킹테이프 · 텍스트)
-const TOOL_ICON = { pen: 'pen', highlighter: 'highlighter', tape: 'tape', text: 'text' };
+const TOOL_ICON = { pen: 'pen', glass: 'pen', dashed: 'pen', highlighter: 'highlighter', tape: 'tape', text: 'text' };
 
 
 // 견본 한 칸(원 30 · 보이는 칸 36 · 터치 48). active 면 2px primaryText 고리. role 은 고르는 줄(기본 속지 설정)이면 'radio'

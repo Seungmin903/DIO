@@ -2,7 +2,8 @@ import { useRef, useState } from 'react'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 import Svg, { Circle } from 'react-native-svg'
 import { colors } from '../../../shared/theme'
-import { tapeColors, usePalette } from '../../hooks/usePalettes'
+import { glassColors, glassEntry, tapeColors, usePalette } from '../../hooks/usePalettes'
+import { glitterColorOf, sheenAutoColor } from '../../utils/glassInk'
 import Icon from './Icon'
 import PresetColorEditor from '../../../diary/components/PresetColorEditor'
 
@@ -25,15 +26,32 @@ export default function EditablePalette({ scope, label, value, onPick, onOpenEdi
   const toggleEditing = () => { setEditing(!editing); setEditIndex(null) }
   const refs = useRef({}), anchors = useRef({})
   const openDirect = () => {
-    const spec = {title:`${label} 색`,value, onDone:color => onPick?.(color),anchor:anchors.current.direct ?? null}
+    // 유리펜의 value 는 '잉크:글리터:테' 묶음이라 색 창에는 잉크색만 넘긴다(고른 색도 잉크색으로 돌려준다)
+    const start = scope === 'glass' ? glassColors(value).ink : value
+    const spec = {title:`${label} 색`,value: start, onDone:color => onPick?.(color),anchor:anchors.current.direct ?? null}
     ;(onOpenEditor ?? setRequest)(spec)
+  }
+  // 유리펜 한 칸은 색 셋이다(잉크 · 글리터 · 테). 'auto' 는 펜 색에서 자동 계산한 색을 보여 주고,
+  // 거기서 고치면 그 색이 칸에 박힌다(마스킹 테이프가 바탕 · 무늬 둘을 고치는 것과 같은 방식).
+  const glassSlots = (entry) => {
+    const { ink, glitter, sheen } = glassColors(entry)
+    const rgb = [1, 3, 5].map(i => parseInt(ink.slice(i, i + 2), 16) / 255)
+    const hex = v => '#' + v.map(c => Math.round(Math.min(1, Math.max(0, c)) * 255).toString(16).padStart(2, '0').toUpperCase()).join('')
+    return [ink, glitter ?? hex(glitterColorOf(rgb)), sheen ?? hex(sheenAutoColor(rgb))]
   }
   const open = (index) => {
     setEditIndex(index)
     const entry = palette.colors[index]
-    const spec = { title: `${label} 색`, tape: scope === 'tape', value: entry, defaultValue: palette.defaults?.[index] ?? null,
+    const glass = scope === 'glass'
+    const spec = { title: `${label} 색`, tape: scope === 'tape',
+      ...(glass && { slots: ['잉크색', '글리터색', '테색'] }),
+      value: glass ? glassSlots(entry) : entry,
+      defaultValue: glass ? null : palette.defaults?.[index] ?? null,
       onChange: color => setPreview({ index, color }), onClose: () => setPreview(null),
-      onDone: async color => { await palette.replace(index, color); setPreview(null); onPick?.(color) } }
+      onDone: async color => {
+        const saved = glass ? glassEntry({ ink: color[0], glitter: color[1], sheen: color[2] }) : color
+        await palette.replace(index, saved); setPreview(null); onPick?.(saved)
+      } }
     ;(onOpenEditor ?? setRequest)({ ...spec, anchor: anchors.current[index] ?? null })
   }
   return <View style={s.box}>
@@ -46,7 +64,9 @@ export default function EditablePalette({ scope, label, value, onPick, onOpenEdi
     <View style={paletteSwatchStyles.row} accessibilityLabel={`${label} 기본 팔레트`}>
       {palette.colors.map((entry, index) => {
         const shown = preview?.index === index ? preview.color : entry
-        const {bg, fg} = scope === 'tape' ? tapeColors(shown) : { bg: shown }
+        const {bg, fg} = scope === 'tape' ? tapeColors(shown)
+          : scope === 'glass' ? (({ ink, glitter }) => ({ bg: ink, fg: glitter }))(glassColors(shown))
+          : { bg: shown }
         return <Pressable key={index} ref={node => { refs.current[index] = node }} collapsable={false}
           onLayout={() => refs.current[index]?.measureInWindow?.((x,y,width,height) => {
             if ([x,y,width,height].every(Number.isFinite) && width > 0 && height > 0) anchors.current[index] = {x,y,width,height}
