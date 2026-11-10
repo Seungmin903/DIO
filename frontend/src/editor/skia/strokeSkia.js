@@ -611,13 +611,21 @@ function drawObjectContent(canvas, object, zoom = 1) {
 const contents = new WeakMap()
 const contentKey = object => [object.penKind, object.strokeWidth, object.color, object.lineCap, object.materialSeed, object.sampled, object.taperBaked,
   object.grainOrigin?.x, object.grainOrigin?.y, object.inkStartDistance, object.dashLength, object.dashGap].join('|')
-// 연필은 확대 배율마다 결 크기 · 붓 끝 판이 달라 배율도 열쇠에 넣는다
+// 연필은 확대 배율마다 결 크기 · 붓 끝 판이 달라 배율도 열쇠에 넣는다. 그런데 배율을 그대로 넣으면
+// 확대를 조금만 움직여도 화면의 모든 연필 획이 다시 녹화된다(핀치 한 번에 수십 번).
+// 배율을 한 옥타브 8칸으로 묶어 쓴다 — 결 크기는 배율^0.25 라 한 칸이 약 2%, 붓 끝 판은 3단계뿐이라
+// 눈에 보이는 차이가 없고, 다시 녹화하는 횟수만 줄어든다. 그린 그림과 열쇠가 어긋나지 않게 **같은**
+// 묶음 배율로 그린다.
+const PENCIL_ZOOM_STEPS = 8
+const pencilZoom = zoom => Math.pow(2, Math.round(Math.log2(Math.max(0.05, zoom)) * PENCIL_ZOOM_STEPS) / PENCIL_ZOOM_STEPS)
 function contentPicture(object, zoom = 1) {
-  const key = contentKey(object) + (skiaKind(object.penKind) === 'pencil' ? `|${zoom}|${PENCIL_BRUSH.engine}|${object.opacity ?? 1}` : '')
+  const pencil = skiaKind(object.penKind) === 'pencil'
+  const drawZoom = pencil ? pencilZoom(zoom) : zoom
+  const key = contentKey(object) + (pencil ? `|${drawZoom}|${PENCIL_BRUSH.engine}|${object.opacity ?? 1}` : '')
     + (skiaKind(object.penKind) === 'glass' ? glassKey(object) : ''), cached = contents.get(object.points)
   if (cached?.key === key) return cached.picture
   const recorder = Skia.PictureRecorder()
-  drawObjectContent(recorder.beginRecording(), object, zoom)
+  drawObjectContent(recorder.beginRecording(), object, drawZoom)
   const picture = recorder.finishRecordingAsPicture()
   contents.set(object.points, { key, picture })
   return picture
