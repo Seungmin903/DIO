@@ -42,6 +42,7 @@ import { useTapeLibrarySyncStatus } from '../../editor/services/tapeLibrarySyncS
 import ConfirmDialog from '../../editor/components/controls/ConfirmDialog';
 import DecorSaveNotice from '../../editor/components/panels/DecorSaveNotice';
 import { useStickerLibrarySyncStatus } from '../../editor/services/stickerLibrarySyncStatus.js';
+import { useCoverLibrarySyncStatus } from '../services/coverLibrarySyncStatus.js';
 import DiaryActionBubble from '../components/DiaryActionBubble';
 import { PdfImportError, coverWithPdfPage, pdfOrientation } from '../utils/pdfImport';
 import { pickPdfPages } from '../utils/pdfPages';
@@ -78,6 +79,7 @@ let lastTab = 'fonts';
 export default function DecorationStudioScreen({ compact = false, registerBackHandler }) {
   const custom = useCustomDecor();
   const stickerSync = useStickerLibrarySyncStatus(); // 계정 동기화 실패(다른 기기에서 안 보임)를 스티커 탭에 알린다
+  const coverSync = useCoverLibrarySyncStatus(); // 내 표지 계정 동기화 실패를 표지 탭에 알린다
   const library = useMyLibrary();
   const paperStyle = useDefaultPaperStyle();
   const studio = useSyncExternalStore(subscribeStudio, studioSnapshot, studioSnapshot);
@@ -476,6 +478,7 @@ export default function DecorationStudioScreen({ compact = false, registerBackHa
   const coverSection = <StudioSection fill={library.ready && !library.covers.length} title="표지" count={library.ready ? count(library.covers) : null}
     right={addTool({ kind: 'cover', icon: 'book', title: addTitle('cover', '표지 추가'), description: 'PDF로 만들기 · 사진으로 만들기', disabled: !library.ready || Boolean(making), menu: true })}>
     {makeAlert('cover')}
+    <DecorSaveNotice error={coverSync.error} pending={coverSync.pending} onRetry={coverSync.retry} retryLabel="다시 맞추기" pendingLabel="다시 맞추는 중…" accessibilityLabel="내 표지 계정 동기화 재시도" />
     {!library.ready ? <Text style={s.empty}>표지를 불러오고 있어요.</Text>
       : !library.covers.length ? <EmptyState compact={compact} art="dio" raised title="아직 저장한 표지가 없어요" />
       : <StudioShelf kind="cover" items={library.covers} onOpen={setCoverEdit} onRemove={cover => setQuestion({ cover })} onRename={(cover, name) => renameItem('cover', cover, name)} />}

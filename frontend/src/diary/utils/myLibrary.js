@@ -43,7 +43,9 @@ export function normalizeMyPapers(raw) {
 }
 
 // 새 항목은 맨 앞에 두고 한도를 넘는 오래된 항목은 뺀다.
-const prepend = (list, entry) => [entry, ...list].slice(0, MY_LIBRARY_LIMIT)
+// 다른 기기와 합쳐 이미 한도(30)를 넘은 목록(서버는 100개까지 둔다)은 한 번에 30개로 줄이지 않고 가장 오래된 하나만 뺀다.
+// 줄이면 동기화가 그만큼을 '이 기기에서 지움'으로 보고 다른 기기 · 서버에서도 지운다
+const prepend = (list, entry) => [entry, ...list].slice(0, Math.max(MY_LIBRARY_LIMIT, list.length))
 
 export function addMyCover(list, { name, orientation, cover }, now = new Date()) {
   return prepend(list, { id: createId(), name: text(name, '내 표지'), createdAt: now.toISOString(), orientation: normalizeOrientation(orientation), cover })

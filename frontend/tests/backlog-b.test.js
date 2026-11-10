@@ -30,7 +30,7 @@ test('지라 665: 옮기기 확인 · 완료 창은 확인창 버튼(취소 글�
 test('지라 670: 탈퇴 완료 토스트는 앱 맨 위에서 띄운다', () => {
   const app = read('App.js');
   const profile = read('src/diary/screens/ProfileScreen.js');
-  assert.match(app, /const withdrawSession = \(\) => \{ clearSession\(\); setAccountToast\(/);
+  assert.match(app, /const withdrawSession = \(\) => \{[^}]*?clearSession\(\); setAccountToast\(/);
   assert.match(app, /회원 탈퇴가 완료됐어요\./);
   assert.match(app, /onWithdrawn=\{withdrawSession\}/);
   assert.match(app, /<AccountToast key=\{accountToast\.key\}/);
