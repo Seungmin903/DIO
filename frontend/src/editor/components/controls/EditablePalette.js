@@ -25,7 +25,7 @@ export const glassResolved = (entry) => {
 }
 // 칸 안의 유리펜 미리보기: 바깥 고리가 테, 안쪽 면이 잉크, 그 위에 글리터 몇 점.
 // 자리는 고정이라 어느 칸이든 같은 모양으로 비교된다.
-const GLASS_SPECKS = [[8, 7], [17, 10], [11, 16], [19, 18], [6, 14]]
+const GLASS_SPECKS = [[8, 7], [17, 10], [11, 16], [6, 14]]
 export function GlassDot({ look }) {
   return <>
     <View style={[s.glassBody, { backgroundColor: look.ink }]} />
@@ -34,9 +34,13 @@ export function GlassDot({ look }) {
 }
 
 // flushEdit: '팔레트 편집' 글자 오른쪽 끝을 줄 끝(위 구분선 끝)에 맞춘다 — 누르는 자리 여백(6)은 바깥으로 뺀다(공방 도구 · 속지 탭)
-export default function EditablePalette({ scope, label, value, onPick, onOpenEditor, initiallyEditing = false, allowDirect = false, heading, flushEdit = false }) {
+// showHeading=false: '○○ 색상' 작은 제목 줄을 그리지 않는다. 그때는 '팔레트 편집' 을 부모가 제목 줄에
+// 올려 두므로, 편집 상태도 부모가 쥔다(editing · onEditingChange). 공방 도구 · 속지 탭이 이렇게 쓴다.
+export default function EditablePalette({ scope, label, value, onPick, onOpenEditor, initiallyEditing = false, allowDirect = false, heading, flushEdit = false, showHeading = true, editing: controlledEditing, onEditingChange }) {
   const palette = usePalette(scope)
-  const [editing, setEditing] = useState(initiallyEditing), [request, setRequest] = useState(null), [error, setError] = useState(false)
+  const [ownEditing, setOwnEditing] = useState(initiallyEditing), [request, setRequest] = useState(null), [error, setError] = useState(false)
+  const editing = controlledEditing ?? ownEditing
+  const setEditing = onEditingChange ?? setOwnEditing
   // 편집 중 굵은 점선(포커스)은 지금 고치고 있는 칸으로 옮긴다(지라 605). 아직 연 칸이 없으면 지금 고른 색의 칸
   const [editIndex, setEditIndex] = useState(null)
   // 색 창에서 고치는 동안 그 칸을 바로 바꿔 보여 준다({ index, color }). 저장하거나 닫으면 저장된 색으로 돌아간다
@@ -73,12 +77,12 @@ export default function EditablePalette({ scope, label, value, onPick, onOpenEdi
     ;(onOpenEditor ?? setRequest)({ ...spec, anchor: anchors.current[index] ?? null })
   }
   return <View style={s.box}>
-    <View style={s.heading}>
+    {showHeading && <View style={s.heading}>
       <Text style={s.label}>{heading ?? `${label} 색상`}</Text>
       <Pressable accessibilityRole="button" accessibilityLabel={`${label} 팔레트 편집`} accessibilityState={{ selected: editing }} hitSlop={6} onPress={toggleEditing} style={[s.edit, flushEdit && s.editFlush]}>
         <Text style={s.editText}>{editing ? '편집 끝내기' : '팔레트 편집'}</Text>
       </Pressable>
-    </View>
+    </View>}
     <View style={paletteSwatchStyles.row} accessibilityLabel={`${label} 기본 팔레트`}>
       {palette.colors.map((entry, index) => {
         const shown = preview?.index === index ? preview.color : entry

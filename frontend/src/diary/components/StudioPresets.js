@@ -41,16 +41,25 @@ export function Swatch({ label, bg, fg, active, onPress, cellRef, role = 'button
 function Group({ group, compact, width }) {
   const { edited, reset } = usePalette(group.scope)
   const [failed,setFailed] = useState(false)
+  // '팔레트 편집' 을 제목 줄로 올렸으므로(사용자 2026-11-10) 편집 상태를 여기서 쥔다.
+  // 작은 제목('○○ 색상')은 묶음 제목과 겹쳐 보여서 뺐다.
+  const [editing, setEditing] = useState(false)
   const resetPalette = async () => {
     setFailed(false)
     try { await reset(); setFailed(false) }
     catch { setFailed(true) }
   }
+  const link = (label, text, onPress, selected) => <Pressable accessibilityRole="button" accessibilityLabel={label}
+    accessibilityState={selected === undefined ? undefined : { selected }} hitSlop={6} onPress={onPress} style={paletteLinkStyles.button}>
+    <Text style={paletteLinkStyles.text}>{text}</Text>
+  </Pressable>
   return <View style={[local.card,{width},compact&&local.cardCompact]}>
-    <GroupHead icon={TOOL_ICON[group.scope]} title={group.label} full={compact} right={edited ? <Pressable accessibilityRole="button" accessibilityLabel={`${group.label} 기본 색으로`} hitSlop={6} onPress={resetPalette} style={paletteLinkStyles.button}>
-      <Text style={paletteLinkStyles.text}>기본 색으로</Text>
-    </Pressable> : null} />
-    <PaletteFit full={compact}><EditablePalette scope={group.scope} label={group.label} flushEdit /></PaletteFit>
+    <GroupHead icon={TOOL_ICON[group.scope]} title={group.label} full={compact} right={<View style={local.headLinks}>
+      {edited ? link(`${group.label} 기본 색으로`, '기본 색으로', resetPalette) : null}
+      {edited ? <Text style={paletteLinkStyles.text}>·</Text> : null}
+      {link(`${group.label} 팔레트 편집`, editing ? '편집 끝내기' : '팔레트 편집', () => setEditing(!editing), editing)}
+    </View>} />
+    <PaletteFit full={compact}><EditablePalette scope={group.scope} label={group.label} showHeading={false} editing={editing} onEditingChange={setEditing} /></PaletteFit>
     {failed && <Text accessibilityRole="alert" style={local.error}>팔레트를 저장하지 못했어요.</Text>}
   </View>
 }
@@ -130,6 +139,8 @@ const local = StyleSheet.create({
   line: { width: 318, maxWidth: '100%', height: 1, backgroundColor: colors.cardBorder },
   lineFull: { width: '100%' },
   paletteFit: { width: 318, maxWidth: '100%' },
+  // 제목 줄 오른쪽: 기본 색으로 · 팔레트 편집
+  headLinks: { flexDirection: 'row', alignItems: 'center', gap: 2, marginRight: -6 },
   // 칸(36)이 원(30)보다 3씩 넓어, 첫 원의 왼쪽 끝이 제목 왼쪽 끝과 맞도록 줄을 3 당긴다
   row: { width: 324, maxWidth: '100%', flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', columnGap: 12, rowGap: 12, marginLeft: -3 },
   cell: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
