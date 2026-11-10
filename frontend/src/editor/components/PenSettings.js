@@ -4,6 +4,7 @@ import FadeScroll from './controls/FadeScroll'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { SettingSwitch } from '../../diary/components/SettingRow'
 import { colors } from '../../shared/theme'
+import ChipScroller, { justDragged } from './controls/ChipScroller'
 import EditablePalette, { paletteSwatchStyles } from './controls/EditablePalette'
 import Slider from './controls/Slider'
 import { GLASS_FILMS, GLASS_SHEENS, PEN_TYPES, penDefaultOpacity } from '../utils/penSettings'
@@ -43,12 +44,14 @@ export default function PenSettings({ settings, onChange, onClose, straightAssis
   const pattern = dashed ? dashPattern(settings.kind, settings) : null
   const label = highlighter ? '형광펜' : '펜'
   const recentColors = useRecentPenColors(highlighter ? 'highlighter' : 'pen')
+  const [reveal, setReveal] = useState(null)   // 고른 종류가 가려지지 않게 그 자리로 넘긴다
   const chooseColor = (color) => onChange({ ...settings, color })
   return <View style={sheet ? [toolPanelStyles.card, toolPanelStyles.sheetCard] : toolPanelStyles.card}>
     <ToolPanelHeader icon={highlighter ? 'highlighter' : 'pen'} title={label} closeLabel={`${label} 설정 닫기`} onClose={onClose} dragHandlers={dragHandlers} />
     <FadeScroll style={toolPanelStyles.scrollFrame} keyboardShouldPersistTaps="handled" contentContainerStyle={toolPanelStyles.content}>
-      {/* 종류는 맨 위다. 한 줄에 여섯 개를 욱여넣으면 칸이 좁아 이름이 두 줄로 접히므로
-          세 개씩 줄바꿈하는 격자로 둔다(사진 테두리 고르기와 같은 방식). */}
+      {/* 종류는 맨 위, 가로로 넘기는 한 줄(앱 공통 ChipScroller). 종류가 늘어도 패널 높이가
+          그대로이고, 끝에 그라데이션이 있어 더 있다는 게 보인다. 격자로 두면 12개쯤에서
+          네 줄이 되어 패널을 다 잡아먹는다(사용자 2026-11-10). 고른 칸은 보이게 넘겨 둔다. */}
       {highlighter ? (
         <View style={styles.inlineRow}>
           <Text style={styles.inlineLabel}>끝 모양</Text>
@@ -60,14 +63,16 @@ export default function PenSettings({ settings, onChange, onClose, straightAssis
         </View>
       ) : (<>
         <Text style={toolPanelStyles.label}>종류</Text>
-        <View style={styles.types}>{PEN_TYPES.map((type) => (
-          <View key={type.id} style={styles.typeSlot}>
-            <Pressable accessibilityRole="button" accessibilityLabel={type.label} accessibilityState={{ selected: selectedKind === type.id }}
-              onPress={() => onChange({ ...settings, kind: selectedKind === type.id ? settings.kind : type.id })} style={[styles.type, selectedKind === type.id && styles.typeSelected]}>
+        <ChipScroller style={styles.typeScroller} contentContainerStyle={styles.types} reveal={reveal}>
+          {PEN_TYPES.map((type) => (
+            <Pressable key={type.id} accessibilityRole="button" accessibilityLabel={type.label} accessibilityState={{ selected: selectedKind === type.id }}
+              onLayout={selectedKind === type.id ? (event) => setReveal({ x: event.nativeEvent.layout.x, width: event.nativeEvent.layout.width }) : undefined}
+              onPress={() => { if (justDragged()) return; onChange({ ...settings, kind: selectedKind === type.id ? settings.kind : type.id }) }}
+              style={[styles.type, selectedKind === type.id && styles.typeSelected]}>
               <PenSample settings={{ ...settings, kind: type.id, width: 10 }} small /><Text style={[styles.typeText, selectedKind === type.id && styles.typeTextSelected]}>{type.label}</Text>
             </Pressable>
-          </View>
-        ))}</View>
+          ))}
+        </ChipScroller>
       </>)}
       <View accessibilityLabel={`${label} 미리보기`} style={styles.preview}><PenSample settings={settings} /></View>
       {/* 색은 펜 종류와 무관하게 늘 쓰므로 종류 바로 아래에 고정한다(아래 옵션은 종류마다 개수가 달라 자리가 밀린다) */}
@@ -156,9 +161,9 @@ const styles = StyleSheet.create({
   inlineRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   fill: { flex: 1 },
   inlineLabel: { width: 52, color: colors.textMuted, fontSize: 12, fontWeight: '700' },
-  types: { flexDirection: 'row', flexWrap: 'wrap', margin: -3 },
-  typeSlot: { width: '33.333%', padding: 3 },
-  type: { minHeight: 52, justifyContent: 'center', borderRadius: 10, borderWidth: 1, borderColor: colors.cardBorder, backgroundColor: colors.surface, paddingVertical: 6, paddingHorizontal: 1 },
+  typeScroller: { marginHorizontal: -2 },
+  types: { flexDirection: 'row', gap: 4, paddingHorizontal: 2 },
+  type: { width: 74, minHeight: 52, justifyContent: 'center', borderRadius: 10, borderWidth: 1, borderColor: colors.cardBorder, backgroundColor: colors.surface, paddingVertical: 6, paddingHorizontal: 1 },
   // 테두리 2 = 여백 1 줄임(칸 폭 · 글자 자리가 고를 때마다 움직이지 않게)
   typeSelected: { borderWidth: 2, paddingVertical: 5, paddingHorizontal: 0, borderColor: colors.primaryStrong }, // 페이지 목록 탭과 같은 선택 표시(테두리 2)
   typeText: { textAlign: 'center', color: colors.textMuted, fontSize: 11.5, fontWeight: '600' },
