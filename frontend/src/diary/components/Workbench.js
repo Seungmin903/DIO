@@ -1,5 +1,5 @@
-import { createContext, useMemo, useRef } from 'react'
-import { Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native'
+import { createContext, useEffect, useMemo, useRef, useState } from 'react'
+import { Keyboard, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native'
 import Icon from '../../editor/components/controls/Icon'
 import { colors, DISABLED_OPACITY, shadow } from '../../shared/theme'
 
@@ -30,6 +30,37 @@ export default function Workbench({ title, actionLabel, onCancel, onSubmit, subm
       } catch { /* 잴 수 없으면 그대로 둔다 */ }
     },
   }), [])
+  // 키보드가 옵션 패널을 가리면(태블릿에서 표지 '제목 · 소제목'의 소제목 칸 등) 가린 만큼 아래를 비우고 입력 중인 칸을 키보드 위로 올린다.
+  // Modal 안이라 화면이 저절로 밀리지 않는다. 입력칸마다 연결하지 않도록 지금 포커스된 입력을 찾아 잰다.
+  const [keyboardPad, setKeyboardPad] = useState(0)
+  const keyboardTop = useRef(null), panelRef = useRef(null)
+  useEffect(() => {
+    if (Platform.OS === 'web') return undefined
+    let timer = null, alive = true
+    const reveal = () => {
+      clearTimeout(timer)
+      timer = setTimeout(() => {
+        const input = TextInput.State?.currentlyFocusedInput?.()
+        const top = keyboardTop.current
+        if (!alive || !input?.measureInWindow || top == null) return
+        scrollRef.current?.measureInWindow?.((sx, sy, sw, sh) => input.measureInWindow((x, y, w, h) => {
+          if (!alive || !h || x < sx || x > sx + sw || y < sy || y > sy + sh) return // 패널 밖 입력(다른 창)은 건드리지 않는다
+          const end = Math.min(sy + sh, top) - 16
+          if (y + h > end) scrollRef.current?.scrollTo({ y: Math.max(0, view.current.y + y + h - end), animated: true })
+        }))
+      }, 80)
+    }
+    const show = Keyboard.addListener('keyboardDidShow', event => {
+      keyboardTop.current = event.endCoordinates?.screenY ?? null
+      panelRef.current?.measureInWindow?.((x, y, w, h) => {
+        if (!alive || keyboardTop.current == null) return
+        setKeyboardPad(Math.max(0, Math.round(y + h - keyboardTop.current)))
+        reveal()
+      })
+    })
+    const hide = Keyboard.addListener('keyboardDidHide', () => { keyboardTop.current = null; setKeyboardPad(0) })
+    return () => { alive = false; clearTimeout(timer); show.remove(); hide.remove() }
+  }, [])
   const { width: windowWidth } = useWindowDimensions()
   const cards = sections.map(item => {
     const on = item.id === section
@@ -58,10 +89,10 @@ export default function Workbench({ title, actionLabel, onCancel, onSubmit, subm
       <View style={[styles.stage, !sheet && styles.stageWide, sheet && styles.stageSheet, sheet && (roomy ? styles.stageRoomy : styles.stagePhone)]} onLayout={event => { const { width, height } = event.nativeEvent.layout; onStageLayout({ width, height }) }}>
         {stage}
       </View>
-      <View style={[styles.panel, sheet && styles.panelSheet, sheet && roomy && styles.panelRoomy]}>
+      <View ref={panelRef} collapsable={false} style={[styles.panel, sheet && styles.panelSheet, sheet && roomy && styles.panelRoomy]}>
         <ScrollView ref={scrollRef} keyboardShouldPersistTaps="handled" scrollEventThrottle={64}
           onScroll={event => { view.current.y = event.nativeEvent.contentOffset.y }} onLayout={event => { view.current.height = event.nativeEvent.layout.height }}
-          contentContainerStyle={[styles.panelBody, sheet && !foot && { paddingBottom: 16 + bottomInset }]}>
+          contentContainerStyle={[styles.panelBody, sheet && !foot && { paddingBottom: 16 + bottomInset }, keyboardPad > 0 && { paddingBottom: 16 + keyboardPad }]}>
           <View ref={contentRef} collapsable={false} pointerEvents={panelLocked ? 'none' : 'auto'}>
             <PanelScroll.Provider value={scroll}><PanelWidth.Provider value={(sheet ? windowWidth : PANEL_WIDTH) - PANEL_PADDING * 2}>{panel}</PanelWidth.Provider></PanelScroll.Provider>
           </View>
