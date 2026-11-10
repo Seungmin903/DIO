@@ -6,7 +6,10 @@ import StaticPage from './canvas/StaticPage'
 import RegionOverlay from './RegionOverlay'
 import ExportScreen, { ExportButton, InfoRow, Note } from './ExportScreen'
 import { toolPanelStyles } from './ToolPanel'
-import { REGION_PRESETS, fitRegionPreset, regionOutput, regionPublishWarning, validRegion } from '../utils/regionGeometry.js'
+import { REGION_PRESETS, fitRegionPreset, regionInputErrors, regionOutput, regionPublishWarning, validRegion } from '../utils/regionGeometry.js'
+
+const fieldLabels = { x: '가로 위치', y: '세로 위치', width: '너비', height: '높이' }
+
 export default function RegionExportSelector({
   page,
   onCancel,
@@ -27,7 +30,7 @@ export default function RegionExportSelector({
   const [panning, setPanning] = useState(true)
   const [confirmError, setConfirmError] = useState('')
   const [fields, setFields] = useState(null),
-    [fieldError, setFieldError] = useState(''),
+    [showFieldErrors, setShowFieldErrors] = useState(false),
     [destination, setDestination] = useState('feed')
   const originalId = useRef(page.id)
   useEffect(() => {
@@ -65,19 +68,19 @@ export default function RegionExportSelector({
     }
   }
   const ratioWarning = preset === 'free' && regionPublishWarning(region, destination)
+  const fieldRegion = fields && Object.fromEntries(Object.entries(fields).map(([key, value]) => [key, value.trim() === '' ? NaN : Number(value)]))
+  const fieldErrors = fieldRegion ? regionInputErrors(fieldRegion, pageSize, ratio) : {}
   const editFields = () => {
-    setFieldError('')
+    setShowFieldErrors(false)
     setFields(Object.fromEntries(Object.entries(region).map(([k, v]) => [k, String(v)])))
   }
   const applyFields = () => {
-    const next = Object.fromEntries(Object.entries(fields).map(([k, v]) => [k, v.trim() === '' ? NaN : Number(v)]))
-    if (!validRegion(next, pageSize, ratio)) {
-      setFieldError('최소 32×32·페이지 경계·프리셋 비율을 확인해 주세요.')
+    if (Object.keys(fieldErrors).length) {
+      setShowFieldErrors(true)
       return
     }
-    change(next)
+    change(fieldRegion)
     setFields(null)
-    setFieldError('')
   }
   const mode = drawing ? 'draw' : panning ? 'pan' : 'adjust'
   const setMode = (next) => { setPanning(next === 'pan'); setDrawing(next === 'draw') }
@@ -105,9 +108,15 @@ export default function RegionExportSelector({
       <ExportButton title="영역 수치 조정" label="수치 입력" selected={!!fields} onPress={fields ? () => setFields(null) : editFields} />
     </View>
     {fields && <View style={styles.fields}>
-      <View style={styles.row}>{Object.keys(fields).map(key => <View key={key} style={styles.field}><Text style={styles.fieldLabel}>{{ x: '가로 위치', y: '세로 위치', width: '너비', height: '높이' }[key]}</Text>
-        <TextInput accessibilityLabel={`영역 ${key}`} value={fields[key]} onChangeText={v => setFields({ ...fields, [key]: v })} keyboardType="decimal-pad" style={styles.input} /></View>)}</View>
-      {!!fieldError && <Note tone="alert">{fieldError}</Note>}
+      <View style={styles.fieldRow}>{Object.keys(fieldLabels).map(key => {
+        const error = showFieldErrors && fieldErrors[key]
+        return <View key={key} style={styles.field}>
+          <Text style={styles.fieldLabel}>{fieldLabels[key]}</Text>
+          <TextInput accessibilityLabel={`영역 ${fieldLabels[key]}`} value={fields[key]} onChangeText={v => setFields(previous => ({ ...previous, [key]: v }))} keyboardType="decimal-pad" style={[styles.input, error && styles.inputError]} />
+          {!!error && <Note tone="alert">{error}</Note>}
+        </View>
+      })}</View>
+      {showFieldErrors && !!fieldErrors.ratio && <Note tone="alert">{fieldErrors.ratio}</Note>}
       <ExportButton title="영역 수치 적용" label="적용" onPress={applyFields} />
     </View>}
     <InfoRow label="선택" value={`${region.width.toFixed(0)} × ${region.height.toFixed(0)}`} />
@@ -117,8 +126,8 @@ export default function RegionExportSelector({
     {ratioWarning && <Note>{destination === 'feed' ? '피드 기본 권장 비율 밖이에요. 게시하면 잘릴 수 있어요.' : '스토리 권장 비율 9:16과 달라 잘리거나 여백이 생길 수 있어요.'} 그대로 고를 수 있어요.</Note>}
     {output.blocked && <Note tone="alert">확대가 6배를 넘어요. 더 넓게 고르거나 자유 비율로 바꿔 주세요.</Note>}
     {output.needsConfirmation && <><Note>3배를 넘게 확대하면 사진·글씨가 흐릴 수 있어요.</Note><ExportButton title="화질 안내 확인 후 계속" label="확인했어요" selected={confirmed} onPress={() => setConfirmed(true)} /></>}
-    <ExportButton primary title="선택 영역 확정" label="이 영역으로 PNG 만들기" disabled={!valid || output.blocked || output.needsConfirmation && !confirmed} onPress={() => {
-      try { onConfirm?.({ pageId: page.id, region: { ...region }, preset, output, upscaleConfirmed: confirmed }); setConfirmError('') } catch (error) { setConfirmError(error.message || '선택 영역을 확인한 뒤 다시 시도해 주세요.') }
+    <ExportButton primary title="선택 영역 확정" label="이 영역으로 PNG 만들기" disabled={!!fields || !valid || output.blocked || output.needsConfirmation && !confirmed} onPress={() => {
+      try { onConfirm?.({ pageId: page.id, region: { ...region }, preset, output, upscaleConfirmed: confirmed }) } catch (error) { setConfirmError(error.message || '선택 영역을 확인한 뒤 다시 시도해 주세요.') }
     }} />
     {!!confirmError && <Note tone="alert">{confirmError}</Note>}
   </ExportScreen>
@@ -131,7 +140,9 @@ const styles = StyleSheet.create({
   page: { borderRadius: 4, overflow: 'hidden', backgroundColor: colors.surface, boxShadow: '0px 8px 20px rgba(28, 28, 28, 0.07)' },
   zoom: { minWidth: 48, textAlign: 'center', fontSize: 12.5, fontWeight: '700', color: colors.text },
   fields: { gap: 8 },
-  field: { gap: 4 },
+  fieldRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-start', gap: 8 },
+  field: { flexBasis: '45%', flexGrow: 1, gap: 4 },
   fieldLabel: { fontSize: 11.5, fontWeight: '700', color: colors.textMuted },
-  input: { width: 64, height: 38, borderWidth: 1, borderColor: colors.border, borderRadius: 10, textAlign: 'center', color: colors.text, fontSize: 13, fontWeight: '700' },
+  input: { height: 44, borderWidth: 1, borderColor: colors.border, borderRadius: 10, textAlign: 'center', color: colors.text, fontSize: 13, fontWeight: '700' },
+  inputError: { borderColor: colors.danger },
 })

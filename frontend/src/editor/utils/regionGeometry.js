@@ -6,7 +6,25 @@ export const REGION_PRESETS = {
   story: { label: '스토리 9:16', ratio: 9 / 16, width: 1080, height: 1920 },
 }
 export function validRegion(r, page, ratio) {
-  return !!r && [r.x,r.y,r.width,r.height].every(Number.isFinite) && r.x >= 0 && r.y >= 0 && r.width >= REGION_MIN && r.height >= REGION_MIN && r.x + r.width <= page.width + 1e-6 && r.y + r.height <= page.height + 1e-6 && (!ratio || Math.abs(r.width/r.height/ratio-1) <= 1e-6)
+  return !!r && Object.keys(regionInputErrors(r, page, ratio)).length === 0
+}
+
+export function regionInputErrors(region, page, ratio) {
+  const errors = {}
+  for (const [position, size] of [['x', 'width'], ['y', 'height']]) {
+    const offset = region[position], length = region[size], limit = page[size]
+    if (!Number.isFinite(offset)) errors[position] = '숫자를 입력해 주세요.'
+    else if (offset < 0 || offset >= limit) errors[position] = '페이지 안의 위치를 입력해 주세요.'
+    if (!Number.isFinite(length)) errors[size] = '숫자를 입력해 주세요.'
+    else if (length < REGION_MIN) errors[size] = `${REGION_MIN} 이상 입력해 주세요.`
+    else if (!errors[position] && !(offset + length <= limit + 1e-6)) {
+      errors[size] = '페이지 밖으로 나가요. 위치나 크기를 조정해 주세요.'
+    }
+  }
+  if (!errors.width && !errors.height && ratio && Math.abs(region.width / region.height / ratio - 1) > 1e-6) {
+    errors.ratio = '너비와 높이를 선택한 비율에 맞춰 주세요.'
+  }
+  return errors
 }
 export function moveRegion(r, dx, dy, page) {
   return { ...r, x: clamp(r.x+dx,0,page.width-r.width), y: clamp(r.y+dy,0,page.height-r.height) }

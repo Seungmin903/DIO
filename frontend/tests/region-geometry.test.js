@@ -1,6 +1,17 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { validRegion, moveRegion, regionFromDrag, resizeRegion, fitRegionPreset, regionOutput, regionPublishWarning, REGION_PRESETS } from '../src/editor/utils/regionGeometry.js'
+import { validRegion, moveRegion, regionFromDrag, resizeRegion, fitRegionPreset, regionInputErrors, regionOutput, regionPublishWarning, REGION_PRESETS } from '../src/editor/utils/regionGeometry.js'
+
+test('수치 입력에서 최소 크기, 경계, 프리셋 비율 오류를 구분한다', () => {
+  const page = { width: 1280, height: 800 }
+  const region = { x: 0, y: 0, width: 64, height: 64 }
+  assert.match(regionInputErrors({ ...region, width: 31 }, page).width, /32 이상/)
+  assert.match(regionInputErrors({ ...region, x: 1250 }, page).width, /페이지 밖/)
+  assert.match(regionInputErrors({ ...region, x: -1 }, page).x, /페이지 안/)
+  assert.match(regionInputErrors({ ...region, y: NaN }, page).y, /숫자/)
+  assert.match(regionInputErrors({ ...region, height: 80 }, page, 1).ratio, /비율/)
+  assert.deepEqual(regionInputErrors(region, page, 1), {})
+})
 const page = {
   width: 1280,
   height: 800

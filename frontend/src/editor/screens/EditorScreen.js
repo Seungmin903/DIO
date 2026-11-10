@@ -11,7 +11,6 @@ import { mediaFailureMessage } from '../utils/mediaRecovery.js'
 import { createRegionExportSnapshot } from '../utils/regionExport.js'
 import RegionExportSelector from '../components/RegionExportSelector'
 import ExportMenu from '../components/ExportMenu'
-import PageExportPreview from '../components/PageExportPreview'
 import ExportRunner from '../components/ExportRunner'
 import { createExportSnapshot } from '../utils/pageExport.js'
 import { pngFileName } from '../utils/pngFileSave.js'
@@ -167,7 +166,6 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
   }, [neighborTemplates])
   const [templatePickerOpen, setTemplatePickerOpen] = useState(false)
 
-  const [exportSnapshot, setExportSnapshot] = useState(null)
   // 화면 없이 진행하는 내보내기 (ExportRunner). 진행률은 아래쪽 작은 알림으로 보여 준다
   const [exportJob, setExportJob] = useState(null)
   const [exportProgress, setExportProgress] = useState(0)
@@ -1073,7 +1071,6 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
       if (readOnly || saveStatus === 'load-error') { goHome(); return true }
       if (photoCropId) { setPhotoCropId(null); return true }
       if (tapeCropId) { setTapeCropId(null); return true }
-      if (exportSnapshot) { setExportSnapshot(null); setRegionOpen(false); return true }
       if (regionOpen) { setRegionOpen(false); return true }
       if (exportOpen) { setExportOpen(false); return true }
       if (overviewFilter) { setOverviewFilter(null); return true }
@@ -1093,7 +1090,7 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
       return true
     })
     return () => subscription.remove()
-  }, [readOnly, saveStatus, bubbleOpen, cropId, exportOpen, exportSnapshot, focusMode, frameTextEdit, importFailure, layersOpen, objectLinkTarget, overviewFilter, pagesOpen, photoCropId, regionOpen, state.selectedIds.length, tapeCropId, templatePickerOpen, textEditing, textLinkTarget, colorPicker, backDisabled])
+  }, [readOnly, saveStatus, bubbleOpen, cropId, exportOpen, focusMode, frameTextEdit, importFailure, layersOpen, objectLinkTarget, overviewFilter, pagesOpen, photoCropId, regionOpen, state.selectedIds.length, tapeCropId, templatePickerOpen, textEditing, textLinkTarget, colorPicker, backDisabled])
 
   useEffect(() => {
     if (colorPicker && (readOnly || page.id !== colorPicker.pageId || activeTool !== colorPicker.tool || colorScreen.width !== colorPicker.screen.width)) { colorPicker.onClose?.(); setColorPicker(null) }
@@ -1220,10 +1217,13 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
 
       {/* 폰은 내보내기 버튼 위치(세로 상단 바·가로 왼쪽 막대)와 상관없이 화면 가운데에 띄운다 */}
       {exportOpen && <ExportMenu mobilePortrait={compact && !landscape} anchor={compact ? null : exportAnchor} doc={state.doc} currentId={page.id} onClose={() => setExportOpen(false)} onRegion={onRegionExport ?? (() => { setExportOpen(false); setRegionOpen(true) })} onPng={(id) => startPageExport('png', id)} onGif={(id) => startPageExport('gif', id)} onPdf={(snapshots) => startExport({ kind: 'pdf', snapshots })} />}
-      {regionOpen && <RegionExportSelector page={page} visible={!exportSnapshot} onConfirm={(selection) => {
-        setExportSnapshot(createRegionExportSnapshot(page, { ...selection, pageWidth: PAGE_WIDTH, pageHeight: PAGE_HEIGHT, title: state.doc.title, pageNumber: state.doc.pages.findIndex((p) => p.id === page.id) + 1 }))
+      {regionOpen && <RegionExportSelector page={page} onConfirm={(selection) => {
+        if (exportJob) throw new Error('이미 내보내고 있어요. 끝난 뒤 다시 시도해 주세요.')
+        if (state.pagesLoading) throw new Error(PAGES_LOADING_MESSAGE)
+        const snapshot = createRegionExportSnapshot(page, { ...selection, pageWidth: PAGE_WIDTH, pageHeight: PAGE_HEIGHT, title: state.doc.title, pageNumber: state.doc.pages.findIndex((p) => p.id === page.id) + 1 })
+        startExport({ kind: 'png', snapshot })
+        setRegionOpen(false)
       }} onCancel={() => { setRegionOpen(false); setExportOpen(true) }} />}
-      {exportSnapshot && <PageExportPreview snapshot={exportSnapshot} onReselect={exportSnapshot.region ? () => setExportSnapshot(null) : undefined} onClose={() => { setExportSnapshot(null); setRegionOpen(false) }} />}
       {overviewFilter && (
         <PageOverview
           canUndoDelete={!textSync.enabled}
