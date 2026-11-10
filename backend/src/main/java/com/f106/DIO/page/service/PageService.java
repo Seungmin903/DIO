@@ -24,8 +24,7 @@ public class PageService {
 	@Transactional(readOnly=true) public PageListResponse list(UUID diaryId,Long userId){diaryAccessService.requireRead(diaryId,userId);return listWithoutDiaryCheck(diaryId);}
 	@Transactional public PageResponse create(UUID diaryId,PageCreateRequest r,Long userId){
 		diaryAccessService.requireWrite(diaryId,userId);
-        if(r.getTemplateConfig()!=null && r.getTemplateConfig().has("paperAppearance"))
-            PaperAppearance.normalize(r.getTemplateConfig().get("paperAppearance"));
+        requireValidPaperAppearance(r.getTemplateConfig());
         // 재시도 판별에 쓰는 행은 비활성이어도 읽는다(처음 요청 뒤 그 속지가 내려가도 이미 만든 페이지를 돌려준다). 활성 확인은 새로 만들 때 resolveTemplate 이 한다
         PageTemplate byId=r.getTemplateId()==null?null:templateRepository.findById(r.getTemplateId()).orElseThrow(PageTemplateNotFoundException::new);
         // 원격 속지(V34)는 형식에 맞는 remoteTemplate 이 있어야 하고 다른 속지에는 둘 수 없다(공유 구성원 앱이 이 값으로 속지를 찾는다).
@@ -61,7 +60,7 @@ public class PageService {
 		// 만든 뒤 크기를 바꾸는 수정(PDF 쪽 크기 맞추기 등)은 그대로 허용한다
 		if(t!=null&&r.getTemplateConfig()!=null&&r.getTemplateConfig().has("templateCode")
 		    &&((r.getCanvasWidth()!=null&&r.getCanvasWidth().compareTo(t.getCanvasWidth())!=0)||(r.getCanvasHeight()!=null&&r.getCanvasHeight().compareTo(t.getCanvasHeight())!=0)))
-		    throw new IllegalArgumentException("속지 크기와 페이지 크기가 다릅니다.");
+		    throw new IllegalArgumentException("속지 크기와 페이지 크기가 달라요.");
 		DiaryPage page=new DiaryPage(diaryId,templateId,r.getTemplateConfig()==null?defaultConfig(t):copy(r.getTemplateConfig()),r.getTitle(),nextSortKey(diaryId),r.getCanvasWidth()==null?width(t):r.getCanvasWidth(),r.getCanvasHeight()==null?height(t):r.getCanvasHeight(),Boolean.TRUE.equals(r.getGridVisible()),r.getGridColor());
 		pageRepository.saveAndFlush(page); events.publishEvent(new PageCatalogChanged(diaryId));return new PageResponse(pageData(page));
 	}
@@ -88,6 +87,8 @@ public class PageService {
             }
             return new PageResponse(pageData(page));
         }
+		// 설정을 통째로 바꾸는 수정도 만들 때와 같은 속지 색·글꼴 규칙으로 검사한다
+		requireValidPaperAppearance(r.getTemplateConfig());
 		if(t!=null&&w==null){w=t.getCanvasWidth();h=t.getCanvasHeight();}
 		boolean replaceTemplateConfig=r.getTemplateConfig()!=null||t!=null;
 		String templateConfig=r.getTemplateConfig()==null?defaultConfig(t):copy(r.getTemplateConfig());
@@ -106,7 +107,7 @@ public class PageService {
 			// 다르면 template_id 와 설정이 서로 다른 속지를 가리키게 되므로 받지 않는다(원격 ↔ 일반, 원격 방향 바꾸기, 빈 종이 → 속지 모두 포함)
 			String nextCode=next!=null&&next.path("templateCode").isString()?next.get("templateCode").asString():null;
 			if(nextCode!=null&&!nextCode.equals(code))
-				throw new IllegalArgumentException(t!=null?"templateId 와 설정의 templateCode 가 다릅니다.":"설정으로 속지를 바꿀 수 없습니다. 속지 변경은 templateId 로 합니다.");
+				throw new IllegalArgumentException(t!=null?"templateId와 설정의 templateCode가 달라요.":"설정으로 속지를 바꿀 수 없어요. 속지 변경에는 templateId를 사용해 주세요.");
 			// 원격 속지 규칙은 실제로 저장될 설정으로 검사한다
 			RemoteTemplates.requireValidConfig(next,code);
 			templateConfig=preserveCreationRequestId(page.getTemplateConfig(),templateConfig);
@@ -120,6 +121,10 @@ public class PageService {
             setPaperAppearance(page,appearance);
         pageRepository.flush();
         events.publishEvent(new PageCatalogChanged(diaryId));
+    }
+    private static void requireValidPaperAppearance(JsonNode templateConfig){
+        if(templateConfig!=null && templateConfig.has("paperAppearance"))
+            PaperAppearance.normalize(templateConfig.get("paperAppearance"));
     }
     private static void setPaperAppearance(DiaryPage page,JsonNode appearance){
         String current=page.getTemplateConfig();
@@ -136,7 +141,7 @@ public class PageService {
 	}
 	@Transactional public PageListResponse reorder(UUID diaryId,PageOrderRequest r,Long userId){
 		diaryAccessService.requireWrite(diaryId,userId); List<DiaryPage> pages=pageRepository.findAllByDiaryIdAndDeletedAtIsNullOrderBySortKeyAscPageIdAsc(diaryId); Set<UUID> expected=pages.stream().map(DiaryPage::getPageId).collect(java.util.stream.Collectors.toSet()); Set<UUID> received=new HashSet<>(r.pageIds());
-		if(received.size()!=r.pageIds().size()||!received.equals(expected))throw new IllegalArgumentException("현재 다이어리의 삭제되지 않은 페이지 ID를 중복 없이 모두 전달해야 합니다.");
+		if(received.size()!=r.pageIds().size()||!received.equals(expected))throw new IllegalArgumentException("현재 다이어리의 삭제되지 않은 페이지 ID를 중복 없이 모두 전달해 주세요.");
 		Map<UUID,DiaryPage> byId=pages.stream().collect(java.util.stream.Collectors.toMap(DiaryPage::getPageId,p->p)); for(int i=0;i<r.pageIds().size();i++)byId.get(r.pageIds().get(i)).reorder(BigDecimal.valueOf(i+1L)); pageRepository.flush();events.publishEvent(new PageCatalogChanged(diaryId)); return listWithoutDiaryCheck(diaryId);
 	}
 	@Transactional public void delete(UUID pageId,Long userId){DiaryPage page=requirePage(pageId);diaryAccessService.requireWrite(page.getDiaryId(),userId);page.softDelete();pageRepository.flush();events.publishEvent(new PageCatalogChanged(page.getDiaryId()));}
@@ -167,10 +172,10 @@ public class PageService {
         var requestId=old==null?null:old.get("clientPageRequestId");
         var next=replacement==null?null:JSON.readTree(replacement);
         var supplied=next==null?null:next.get("clientPageRequestId");
-        if(supplied!=null&&!supplied.equals(requestId))throw new IllegalArgumentException("clientPageRequestId는 변경할 수 없습니다.");
+        if(supplied!=null&&!supplied.equals(requestId))throw new IllegalArgumentException("clientPageRequestId는 변경할 수 없어요.");
         if(requestId==null)return replacement;
         if(next==null)next=JSON.createObjectNode();
-        if(!(next instanceof tools.jackson.databind.node.ObjectNode object))throw new IllegalArgumentException("생성 요청 ID가 있는 페이지 설정은 객체여야 합니다.");
+        if(!(next instanceof tools.jackson.databind.node.ObjectNode object))throw new IllegalArgumentException("생성 요청 ID가 있는 페이지 설정은 객체여야 해요.");
         object.set("clientPageRequestId",requestId);
         return object.toString();
     }
@@ -205,12 +210,12 @@ public class PageService {
 	private PageTemplate resolveTemplate(Long id,JsonNode config){
 		PageTemplate t=findTemplate(id);
 		if(config==null||!config.isObject()||!config.has("templateCode"))return t;
-		if(!config.path("templateCode").isString()||!config.path("templateVersion").isString())throw new IllegalArgumentException("templateCode 와 templateVersion 은 함께 문자열로 보내야 합니다.");
+		if(!config.path("templateCode").isString()||!config.path("templateVersion").isString())throw new IllegalArgumentException("templateCode와 templateVersion을 함께 문자열로 보내 주세요.");
 		var rows=templateRepository.findAllByCodeAndTemplateVersionAndIsActiveTrue(config.get("templateCode").asString(),config.get("templateVersion").asString());
 		if(rows.isEmpty())throw new UnknownPageTemplateException();
 		if(rows.size()>1)throw new PageTemplateCatalogException(config.get("templateCode").asString(),config.get("templateVersion").asString(),rows.size());
 		PageTemplate byCode=rows.get(0);
-		if(t!=null&&!t.getTemplateId().equals(byCode.getTemplateId()))throw new IllegalArgumentException("templateId 와 설정의 templateCode 가 다릅니다.");
+		if(t!=null&&!t.getTemplateId().equals(byCode.getTemplateId()))throw new IllegalArgumentException("templateId와 설정의 templateCode가 달라요.");
 		return byCode;
 	}
 	private PageTemplate findTemplate(Long id){return id==null?null:templateRepository.findByTemplateIdAndIsActiveTrue(id).orElseThrow(PageTemplateNotFoundException::new);}

@@ -33,7 +33,7 @@ public class CanvasElementCreateRequest {
 	@JsonSetter(nulls=Nulls.FAIL) @JsonAlias("hidden") public void setIsHidden(Boolean value){isHidden=value;}
 	@JsonSetter(nulls=Nulls.FAIL) public void setMediaFileId(UUID value){mediaFileId=value;}
 	@JsonSetter(nulls=Nulls.FAIL) public void setPropertiesJson(JsonNode value){propertiesJson=value;}
-	@AssertTrue(message="propertiesJson은 128KiB 이하여야 합니다.") public boolean isPropertiesJsonSizeValid(){return JsonPayloadLimits.fits(propertiesJson,JsonPayloadLimits.MAX_ELEMENT_PROPERTIES_BYTES);}
+	@AssertTrue(message="propertiesJson은 128KiB 이하여야 해요.") public boolean isPropertiesJsonSizeValid(){return JsonPayloadLimits.fits(propertiesJson,JsonPayloadLimits.MAX_ELEMENT_PROPERTIES_BYTES);}
 	public UUID getElementId(){return elementId;} public String getElementType(){return elementType;} public UUID getGroupId(){return groupId;} public String getName(){return name;}
 	public BigDecimal getX(){return x;} public BigDecimal getY(){return y;} public BigDecimal getWidth(){return width;} public BigDecimal getHeight(){return height;} public BigDecimal getRotation(){return rotation;} public BigDecimal getOpacity(){return opacity;}
 	public Boolean getIsLocked(){return isLocked;} public Boolean getIsHidden(){return isHidden;} public UUID getMediaFileId(){return mediaFileId;} public JsonNode getPropertiesJson(){return propertiesJson;}

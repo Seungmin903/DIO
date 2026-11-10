@@ -10,6 +10,8 @@ import NotificationSetting from '../components/NotificationSetting';
 import AppLockSetting from '../components/AppLockSetting';
 import EditSetting from '../components/EditSetting';
 import PinScreen from '../components/PinScreen';
+import AppLockReauth from '../components/AppLockReauth';
+import ActionToast from '../../shared/ActionToast';
 import EditorModal from '../../editor/components/controls/EditorModal';
 import { appLockScope, appLockSupported, checkAppLockStatus, clearAppLock, readAppLockState, setAppLock } from '../../shared/appLock';
 import { appLockRecoveryAction } from '../components/appLockRecovery';
@@ -68,12 +70,27 @@ export default function ProfileScreen({ guestImport = null, section = 'profile',
       .then(state => { if (alive) setLockRead({ scope: lockScope, state }); });
     return () => { alive = false; };
   }, [lockScope, lockAttempt]);
-  const canEnableLock = appLockSupported && !guest;
-  const showLockSetting = canEnableLock || locked || lockReadFailed || (currentLockRead && lockState === null);
-  // 지금 비밀번호를 잊었거나 저장소 손상으로 확인할 수 없을 때: 회원은 로그아웃 후 재로그인, 게스트는 저장값 손상일 때만 초기화(읽기 오류는 다시 읽기).
-  // 새 비밀번호를 정하는 setup 화면에는 두지 않는다(새 비밀번호를 정하다 로그아웃 흐름이 열리지 않게).
+  // 앱 잠금은 회원만 쓴다(지라 799): 4자리는 이 기기 · 이 계정에 묶인 정보라 잊으면 계정으로 되찾는다. 게스트는 줄 자체를 두지 않는다
+  // (예전에 켜 둔 게스트 잠금은 앱을 열 때 맞는 4자리로 열면 꺼진다 — App.js unlockWithPin)
+  const canEnableLock = appLockSupported && authenticatedUser;
+  const showLockSetting = authenticatedUser && (canEnableLock || locked || lockReadFailed || (currentLockRead && lockState === null));
+  // 결과 알약: 이 기기에만 걸리는 설정이라 '이 기기'를 넣어 알린다(다른 기기에서는 꺼져 보인다)
+  const [lockNotice, setLockNotice] = useState(null);
+  useEffect(() => {
+    if (!lockNotice) return undefined;
+    const timer = setTimeout(() => setLockNotice(null), 2000);
+    return () => clearTimeout(timer);
+  }, [lockNotice]);
+  // 지금 비밀번호를 잊었을 때: 회원은 계정으로 다시 확인(reauth), 게스트는 저장값 손상일 때만 초기화(읽기 오류는 다시 읽기).
+  // 새 비밀번호를 정하는 setup 화면에는 두지 않는다.
+  const [reauth, setReauth] = useState(null); // 계정 확인 뒤 할 일: 'off' | 'change'
+  // 계정 확인은 확인할 수단(accountService.verifyAccount)이 있을 때만 연다 — 없으면 '잊었어요' 칸을 비운다(눌러도 아무 일 없는 칸을 두지 않게, 리뷰 !495).
+  // 확인 뒤 할 일은 누른 순간의 PIN 화면 목적(끄기 · 바꾸기)을 그대로 쓴다
+  const canReauth = authenticatedUser && typeof accountService?.verifyAccount === 'function';
+  // PIN 화면이 닫히면(돌아가기 · 안드로이드 뒤로 키) 계정 확인도 함께 닫는다 — 다음에 PIN 화면을 열 때 계정 확인이 바로 뜨지 않게(리뷰 !495)
+  useEffect(() => { if (!pin) setReauth(null); }, [pin]);
   const recoverAppLock = appLockRecoveryAction({
-    member: authenticatedUser, state: lockState, scope: lockScope, onLogout: onEndPreview,
+    member: authenticatedUser, state: lockState, scope: lockScope, onReauth: canReauth ? () => setReauth(pin?.next === 'off' ? 'off' : 'change') : undefined,
     onCleared: () => { setPin(null); reloadLock(); },
     onStateChange: state => setLockRead({ scope: lockScope, state }),
   });
@@ -109,19 +126,33 @@ export default function ProfileScreen({ guestImport = null, section = 'profile',
   let pinScreen = null;
   if (pin) {
     const done = async value => {
-      if (pin.mode === 'verify' && pin.next === 'change') { setPin({ mode: 'setup' }); return; }
+      if (pin.mode === 'verify' && pin.next === 'change') { setPin({ mode: 'setup', next: 'change' }); return; }
       // 저장이 실패하면 잠금 상태를 다시 읽어 실제 값으로 되돌리고 실패를 알린다(켜졌다고 오해하지 않게)
       try {
         if (pin.mode === 'verify') await clearAppLock(lockScope);
         else await setAppLock(lockScope, value);
+        setLockNotice({ key: Date.now(), message: pin.mode === 'verify' ? '이 기기의 앱 잠금을 껐어요'
+          : pin.next === 'change' ? '이 기기의 앱 잠금 비밀번호를 바꿨어요' : '이 기기에 앱 잠금을 켰어요' });
       } catch { notify('앱 잠금', '앱 잠금을 바꾸지 못했어요. 다시 시도해 주세요.'); }
       reloadLock();
       setPin(null);
     };
+    // 계정 확인을 통과하면: 끄려던 거면 바로 끄고, 바꾸려던 거면 새 4자리로 넘어간다
+    const verified = async () => {
+      const next = reauth;
+      setReauth(null);
+      if (next === 'change') { setPin({ mode: 'setup', next: 'change' }); return; }
+      try { await clearAppLock(lockScope); setLockNotice({ key: Date.now(), message: '이 기기의 앱 잠금을 껐어요' }); }
+      catch { notify('앱 잠금', '앱 잠금을 바꾸지 못했어요. 다시 시도해 주세요.'); }
+      reloadLock();
+      setPin(null);
+    };
     pinScreen = (
-      <EditorModal visible animationType="none" statusBarTranslucent navigationBarTranslucent onRequestClose={() => setPin(null)}>
+      <EditorModal visible animationType="none" statusBarTranslucent navigationBarTranslucent onRequestClose={() => { if (reauth) setReauth(null); else setPin(null); }}>
         <PinScreen key={`${pin.mode}:${pin.next || ''}`} mode={pin.mode} user={previewUser} getProfilePhotoSource={getProfilePhotoSource}
           check={value => checkAppLockStatus(lockScope, value)} onDone={done} onCancel={() => setPin(null)} onForgot={pin.mode === 'verify' ? recoverAppLock : undefined} />
+        {reauth && canReauth && <AppLockReauth user={previewUser} getProfilePhotoSource={getProfilePhotoSource}
+          verify={input => accountService.verifyAccount(input)} onVerified={verified} onCancel={() => setReauth(null)} />}
       </EditorModal>
     );
   }
@@ -232,6 +263,7 @@ export default function ProfileScreen({ guestImport = null, section = 'profile',
       </View>
     </ScrollView>
     {pinScreen}
+    {lockNotice && <ActionToast key={lockNotice.key} compact={compact} bottom={24} message={lockNotice.message} />}
     {/* 탈퇴는 서버가 모든 세션을 폐기하므로 이 기기의 세션만 정리한다(onClearSession) */}
     {withdrawing && editService && <ProfileEditScreen withdrawOnly service={editService} compact={compact} user={previewUser} onClose={() => setWithdrawing(false)} onEndSession={onWithdrawn} />}
     </>

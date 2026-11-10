@@ -17,10 +17,10 @@ public class DiaryDetailException extends RuntimeException {
 	public String code() { return code; }
 
 	public static DiaryDetailException unauthorized() {
-		return new DiaryDetailException(HttpStatus.UNAUTHORIZED, "DIARY_AUTHENTICATION_REQUIRED", "로그인이 필요합니다.");
+		return new DiaryDetailException(HttpStatus.UNAUTHORIZED, "DIARY_AUTHENTICATION_REQUIRED", "로그인이 필요해요.");
 	}
 	public static DiaryDetailException notFound() {
-		return new DiaryDetailException(HttpStatus.NOT_FOUND, "DIARY_NOT_FOUND", "다이어리를 찾을 수 없습니다.");
+		return new DiaryDetailException(HttpStatus.NOT_FOUND, "DIARY_NOT_FOUND", "다이어리를 찾을 수 없어요.");
 	}
 	public static DiaryDetailException invalid() {
 		return new DiaryDetailException(HttpStatus.BAD_REQUEST, "INVALID_DIARY_METADATA", "수정 내용과 기준 시각을 확인해 주세요.");

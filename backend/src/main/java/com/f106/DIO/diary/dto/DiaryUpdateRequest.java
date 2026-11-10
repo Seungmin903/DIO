@@ -53,7 +53,7 @@ public class DiaryUpdateRequest {
 		throw new IllegalArgumentException("수정할 수 없는 필드입니다: " + name);
 	}
 
-	@AssertTrue(message = "수정할 필드를 하나 이상 전달해야 합니다.")
+	@AssertTrue(message = "수정할 필드를 하나 이상 전달해 주세요.")
 	@Schema(hidden = true)
 	public boolean isAnyFieldPresent() {
 		return diaryTitle != null || coverColor != null || coverStyle != null || visibility != null;

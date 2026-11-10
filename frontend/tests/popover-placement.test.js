@@ -1,6 +1,22 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { keepOutBox, placeVertical, placeHorizontal, POPOVER_GAP, ROTATE_OFFSET, ROTATE_HANDLE } from '../src/editor/utils/popoverPlacement.js'
+import { keepOutBox, paperPanelPlacement, placeVertical, placeHorizontal, POPOVER_GAP, ROTATE_OFFSET, ROTATE_HANDLE } from '../src/editor/utils/popoverPlacement.js'
+
+test('속지 설정은 확대된 페이지의 보이는 영역 안에 배치하고 높이를 제한한다', () => {
+  const visible = { x: 100, y: 250, width: 500, height: 300 }
+  const panel = paperPanelPlacement({ at: { x: 350, y: 420 }, zoom: 1, pageWidth: 768, pageHeight: 1024, visible, height: 420 })
+  assert.equal(panel.maxHeight, 284)
+  assert.ok(panel.top >= 258 && panel.top + panel.maxHeight <= 542)
+  assert.ok(panel.left >= 108 && panel.left + panel.width <= 592)
+})
+
+test('속지 설정은 화면 밖인 페이지의 크기와 배율을 반영한다', () => {
+  const visible = { x: -50, y: 150, width: 500, height: 250 }
+  const panel = paperPanelPlacement({ at: { x: 60, y: 350 }, zoom: 2, pageWidth: 200, pageHeight: 500, visible, height: 240 })
+  assert.equal(panel.width, 300)
+  assert.ok(panel.left >= 8 && panel.left + panel.width <= 392)
+  assert.ok(panel.top >= 308 && panel.top + 240 <= 792)
+})
 import { rotatedBounds, rotateVector } from '../src/editor/utils/common.js'
 
 const BAR = 52, PAGE_H = 800

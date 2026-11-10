@@ -4,12 +4,13 @@ import { colors } from '../../shared/theme';
 import SettingRow, { ON_OFF, SettingSection } from './SettingRow';
 
 /**
- * 내 공간 보안 설정: 앱 잠금 켬 · 끔, 켜져 있으면 비밀번호 바꾸기 줄. 비밀번호 입력은 내 공간이 전체 화면(PinScreen)으로 연다.
+ * 앱 잠금 설정(회원만): 앱 잠금 켬 · 끔, 켜져 있으면 비밀번호 바꾸기 줄. 비밀번호 입력은 내 공간이 전체 화면(PinScreen)으로 연다.
+ * 4자리는 이 기기 · 이 계정에만 걸린다(다른 기기에서는 따로). 그래서 구역 이름을 '이 기기'로 둬 자리로 알린다(설명 문구 없음, 지라 799).
  * locked: 잠금이 켜져 있는지(null이면 확인 중 또는 조회 실패).
  */
 export default function AppLockSetting({ locked, readFailed = false, onRetry, onTurnOn, onTurnOff, onChange, compact = false, canEnable = true }) {
   return (
-    <SettingSection title="보안" compact={compact}>
+    <SettingSection title="이 기기" compact={compact}>
       {locked === null ? (
         <SettingRow label="앱 잠금">
           <Text accessibilityLiveRegion="polite" style={styles.status}>

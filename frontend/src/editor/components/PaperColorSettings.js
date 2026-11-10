@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { Pressable, StyleSheet, Text, View } from 'react-native'
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { colors } from '../../shared/theme'
 import { PAPER_BACKGROUNDS, PAPER_LAYOUTS, withPaperBackground } from '../templates/appearance.js'
 import { DEFAULT_PAPER_FONT } from '../templates/paperFont.js'
@@ -19,7 +19,7 @@ const SNAP = [{ id: 'on', label: '켬' }, { id: 'off', label: '끔' }]
  * showFont: 인쇄 글자가 있는 속지면 속지 글꼴(appearance.font, 없으면 원본 마루부리)을 함께 고른다. 이미 만든 페이지는 이 페이지 · 모든 페이지를 직접 고를 때만 바뀐다.
  * planner: 스터디 · 데일리 플래너 페이지면 기록의 옵션을 함께 보여 준다. 스터디는 { restColor, startHour, snap }, 데일리(plannerKind 'day')는 { snap }. onPlannerOptions(patch)
  */
-export default function PaperColorSettings({ appearance, onChange, onClose, style, planner = null, plannerKind = 'study', onPlannerOptions, showFont = false }) {
+export default function PaperColorSettings({ appearance, onChange, onClose, onLayout, style, planner = null, plannerKind = 'study', onPlannerOptions, showFont = false }) {
   const [scope, setScope] = useState('page')
   const [saving, setSaving] = useState(false)
   const savingRef = useRef(false)
@@ -37,9 +37,9 @@ export default function PaperColorSettings({ appearance, onChange, onClose, styl
     }
   }
   return (
-    <View style={[toolPanelStyles.card, style]} accessibilityLabel="속지 색 설정" accessibilityState={{ busy: saving }} onStartShouldSetResponder={() => true}>
+    <View style={[toolPanelStyles.card, style]} onLayout={onLayout} accessibilityLabel="속지 색 설정" accessibilityState={{ busy: saving }} onStartShouldSetResponder={() => true}>
       <ToolPanelHeader icon="roller" title={planner ? '속지 옵션' : '속지 색'} closeLabel={planner ? '속지 옵션 닫기' : '속지 색 설정 닫기'} onClose={onClose} />
-      <View style={toolPanelStyles.content}>
+      <ScrollView style={styles.scroll} contentContainerStyle={toolPanelStyles.content} nestedScrollEnabled>
         <Segmented items={SCOPES} selected={(id) => scope === id} onPress={setScope} disabled={saving} />
         {[['backgroundColor', '배경색', PAPER_BACKGROUNDS], ['layoutColor', '레이아웃 색', PAPER_LAYOUTS]].map(([key, label, presets]) => (
           <View key={key} style={styles.section}>
@@ -65,7 +65,7 @@ export default function PaperColorSettings({ appearance, onChange, onClose, styl
           </View>
         )}
         {planner && (plannerKind === 'day' ? <DayPlannerOptions options={planner.options} onChange={onPlannerOptions} /> : <PlannerOptions options={planner.options} onChange={onPlannerOptions} />)}
-      </View>
+      </ScrollView>
     </View>
   )
 }
@@ -114,6 +114,7 @@ function DayPlannerOptions({ options, onChange }) {
 }
 
 const styles = StyleSheet.create({
+  scroll: { flexShrink: 1 },
   section: { gap: 8 },
   restDot: { alignItems: 'center', justifyContent: 'center' },
   none: { backgroundColor: colors.surface },
