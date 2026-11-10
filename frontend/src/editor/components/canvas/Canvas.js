@@ -458,7 +458,8 @@ export default function Canvas({
     },
   })
 
-  const pageGuides = pageGridGuides(page, gridGuides)
+  // 페이지에 격자를 켜 두면 pageGridGuides 가 매번 새 값을 만들어, 요소를 하나 넣을 때마다 격자 SVG 를 다시 그렸다(캐리어 떨림과 같은 경우)
+  const pageGuides = useMemo(() => pageGridGuides({ gridVisible: page.gridVisible, gridColor: page.gridColor }, gridGuides), [page.gridVisible, page.gridColor, gridGuides])
   const guideUnderlay = !readOnly && hasGuides(pageGuides) ? <>
     <GridOverlay guides={pageGuides} layer="grid" width={PAGE_WIDTH} height={PAGE_HEIGHT} zoom={zoom} />
     <GridOverlay guides={gridGuides} layer="guides" width={PAGE_WIDTH} height={PAGE_HEIGHT} zoom={zoom} />
