@@ -15,7 +15,8 @@ env_file="${2:?env file is required}"
 compose_file="${3:?compose file is required}"
 health_url="${4:?health URL is required}"
 ai_wait="${AI_WAIT_SECONDS:-180}"
-health_retries="${HEALTH_RETRIES:-12}"
+# 새 마이그레이션이 있으면 기동이 30초를 넘기기도 해 2초 간격으로 60번(약 2분)까지 기다린다
+health_retries="${HEALTH_RETRIES:-60}"
 here="$(cd "$(dirname "$0")" && pwd)"
 # shellcheck source=deploy-images.sh
 . "$here/deploy-images.sh"
