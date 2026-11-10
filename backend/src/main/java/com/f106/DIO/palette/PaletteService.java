@@ -22,8 +22,10 @@ public class PaletteService {
 
     static final int MAX_SCOPES = 32, MAX_SLOTS = 64;
     private static final Pattern SCOPE = Pattern.compile("^[A-Za-z][A-Za-z0-9]{0,31}$");
-    // '#RRGGBB', 테이프 기본 색 id('pink'), 테이프 사용자 색('custom:#바탕:#무늬')
-    private static final Pattern ENTRY = Pattern.compile("^(#[0-9A-Fa-f]{6}|[a-z][a-z0-9_-]{0,31}|custom:#[0-9A-Fa-f]{6}:#[0-9A-Fa-f]{6})$");
+    // 테이프는 기본 색 id('pink') · 사용자 색('custom:#바탕:#무늬'), 그 밖의 도구는 '#RRGGBB'만(앱 normalizePaletteEntry 와 같은 규칙)
+    static final String TAPE = "tape";
+    private static final Pattern COLOR = Pattern.compile("^#[0-9A-Fa-f]{6}$");
+    private static final Pattern TAPE_ENTRY = Pattern.compile("^([a-z][a-z0-9_-]{0,31}|custom:#[0-9A-Fa-f]{6}:#[0-9A-Fa-f]{6})$");
     private static final TypeReference<Map<String, List<String>>> PALETTES = new TypeReference<>() {};
     private final JdbcTemplate jdbc;
     private final JsonMapper json = JsonMapper.builder().build();
@@ -64,7 +66,8 @@ public class PaletteService {
             List<String> colors = entry.getValue();
             if (scope == null || !SCOPE.matcher(scope).matches()) throw PaletteException.invalid("팔레트 이름을 확인해 주세요.");
             if (colors == null || colors.isEmpty() || colors.size() > MAX_SLOTS) throw PaletteException.invalid("팔레트 칸은 1~" + MAX_SLOTS + "개입니다.");
-            for (String color : colors) if (color == null || !ENTRY.matcher(color).matches()) throw PaletteException.invalid("팔레트 색을 확인해 주세요.");
+            Pattern entryFormat = TAPE.equals(scope) ? TAPE_ENTRY : COLOR;
+            for (String color : colors) if (color == null || !entryFormat.matcher(color).matches()) throw PaletteException.invalid("팔레트 색을 확인해 주세요.");
             clean.put(scope, List.copyOf(colors));
         }
         return Collections.unmodifiableMap(clean);

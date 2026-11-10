@@ -98,7 +98,9 @@ class PaletteTests {
         var actor = actor();
         for (String palettes : new String[] {
             "{\"pen\":[]}", // 빈 칸 목록
-            "{\"pen\":[\"red\",\"#12345\"]}", // 색 형식
+            "{\"pen\":[\"#12345\"]}", // 색 형식
+            "{\"pen\":[\"red\"]}", // 테이프가 아닌 도구에 테이프 기본 색 id
+            "{\"highlighter\":[\"custom:#FFFFFF:#000000\"]}", // 테이프가 아닌 도구에 테이프 사용자 색
             "{\"pen\":[null]}",
             "{\"tape\":[\"custom:#FFFFFF\"]}", // 테이프 사용자 색 형식
             "{\"../x\":[\"#FFFFFF\"]}", // 도구 이름
