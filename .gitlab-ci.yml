@@ -1,3 +1,9 @@
+# 배포 뒤 backend /actuator/health 확인 대기. dev 잡과 운영 infra/scripts/up-backend-with-rollback.sh가 함께 쓴다.
+# 새 마이그레이션이 있으면 기동이 30초를 넘기기도 해 2초 간격 60번(약 2분)까지 기다린다.
+variables:
+  HEALTH_RETRIES: "60"
+  HEALTH_RETRY_DELAY: "2"
+
 stages:
   - check
   - quality
@@ -50,10 +56,10 @@ deploy-development:
     - docker build --tag "dio-backend:dev-${CI_COMMIT_SHORT_SHA}" ./backend
     # AI 이미지는 의존성·모델 레이어가 캐시되어 ai/app만 바뀌면 빠르게 끝난다.
     - docker build --tag "dio-ai:dev-${CI_COMMIT_SHORT_SHA}" ./ai
-    # backend는 새 마이그레이션이 있으면 기동이 30초를 넘기기도 해 health를 2초 간격으로 60번(약 2분)까지 기다린다.
+    # backend health 대기는 맨 위 HEALTH_RETRIES · HEALTH_RETRY_DELAY를 쓴다(운영 롤백 스크립트와 같은 값).
     - >
       if ! docker compose --project-name dio-dev-backend --env-file /home/gitlab-runner/dio-env/dev.env -f infra/compose/compose.dev.yml up -d --force-recreate ||
-         ! curl --fail --retry 60 --retry-all-errors --retry-delay 2 http://127.0.0.1:8081/actuator/health; then
+         ! curl --fail --retry "$HEALTH_RETRIES" --retry-all-errors --retry-delay "$HEALTH_RETRY_DELAY" http://127.0.0.1:8081/actuator/health; then
         docker compose --project-name dio-dev-backend --env-file /home/gitlab-runner/dio-env/dev.env -f infra/compose/compose.dev.yml logs --tail=200 backend || true;
         exit 1;
       fi
