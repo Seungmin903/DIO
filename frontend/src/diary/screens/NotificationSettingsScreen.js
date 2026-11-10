@@ -1,19 +1,20 @@
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, AppState, BackHandler, Linking, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import AppIcon from '../../shared/AppIcon';
 import { colors, radius, DISABLED_OPACITY } from '../../shared/theme';
 import BackButton from '../components/BackButton';
 import Header from '../components/Header';
 import { SettingTitle } from '../components/SettingRow';
 import TermsConsentSection from '../components/TermsConsentSection';
-import { SERVICE_SECTION_ENABLED } from '../../shared/featureFlags';
+import { NOTIFICATION_SETTINGS_TITLE, SERVICE_SECTION_ENABLED } from '../../shared/featureFlags';
 import { notificationsBlocked } from '../../notifications/notificationPermission';
+
+const SAVE_SUCCESS_DURATION_MS = 2000;
 
 // pushIssue: 기기 알림 연결에서 앱이 복구하지 못한 문제 { title, message } (App 의 푸시 런타임이 준다, S15P31F106-719). 없으면 줄을 두지 않는다
 export default function NotificationSettingsScreen({ compact = false, onClose, userId, accountService, backLabel = '마이페이지로 돌아가기', pushIssue = null }) {
   const [termsReady, setTermsReady] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [status, setStatus] = useState('');
+  const [retryResult, setRetryResult] = useState(null);
   const [hasError, setHasError] = useState(false);
   const [termsSaving, setTermsSaving] = useState(false);
   const termsSave = useRef(null);
@@ -33,20 +34,31 @@ export default function NotificationSettingsScreen({ compact = false, onClose, u
     return () => subscription.remove();
   }, [saving, termsSaving]);
 
+  useEffect(() => {
+    if (retryResult !== 'success') return undefined;
+    const timer = setTimeout(() => setRetryResult(null), SAVE_SUCCESS_DURATION_MS);
+    return () => clearTimeout(timer);
+  }, [retryResult]);
+
+  const handleTermsSavingChange = active => {
+    setTermsSaving(active);
+    if (active) setRetryResult(null);
+  };
+
   const retry = async () => {
     if (savePending.current || !termsReady || !termsSave.current) return;
     savePending.current = true;
     setSaving(true);
-    setStatus('');
-    try { await termsSave.current(); setStatus('동의 설정을 저장했어요.'); }
-    catch { setStatus('동의 설정을 저장하지 못했어요. 다시 시도해 주세요.'); }
+    setRetryResult(null);
+    try { await termsSave.current(); setRetryResult('success'); }
+    catch { setRetryResult('error'); }
     finally { savePending.current = false; setSaving(false); }
   };
 
   return (
     <ScrollView contentContainerStyle={[styles.scroll, compact && styles.phoneScroll]} showsVerticalScrollIndicator={false}>
       <View style={styles.list}>
-      <Header title="알림 설정" compact={compact} left={<BackButton label={backLabel} disabled={saving || termsSaving} onPress={onClose} />} />
+      <Header title={NOTIFICATION_SETTINGS_TITLE} compact={compact} left={<BackButton label={backLabel} disabled={saving || termsSaving} onPress={onClose} />} />
 
         {blocked && <>
           <View style={styles.blockedRow}>
@@ -79,7 +91,7 @@ export default function NotificationSettingsScreen({ compact = false, onClose, u
         </>}
         {/* 구역 제목은 마이페이지와 같은 SettingTitle(14/700), 아래 행은 16/600 + 구분선: 제목이 행과 같은 굵기로 묻히지 않게 */}
         <SettingTitle>마케팅 정보 수신</SettingTitle>
-        <TermsConsentSection auth={accountService} userId={userId} saveRef={termsSave} onReadyChange={setTermsReady} onSaveError={setHasError} onSavingChange={setTermsSaving} />
+        <TermsConsentSection auth={accountService} userId={userId} saveRef={termsSave} onReadyChange={setTermsReady} onSaveError={setHasError} onSavingChange={handleTermsSavingChange} />
         {hasError && (
         <Pressable accessibilityRole="button" accessibilityLabel="동의 설정 다시 저장" accessibilityState={{ disabled: saving || termsSaving || !termsReady, busy: saving || termsSaving }}
           disabled={saving || termsSaving || !termsReady} onPress={retry} style={[styles.save, (saving || termsSaving || !termsReady) && styles.disabled]}>
@@ -87,7 +99,7 @@ export default function NotificationSettingsScreen({ compact = false, onClose, u
           <Text style={styles.saveText}>동의 설정 다시 저장</Text>
         </Pressable>
         )}
-        {!!status && <Text accessibilityLiveRegion="polite" style={styles.status}>{status}</Text>}
+        {retryResult && <Text accessibilityLiveRegion="polite" style={styles.status}>{retryResult === 'success' ? '동의 설정을 저장했어요.' : '동의 설정을 저장하지 못했어요. 다시 시도해 주세요.'}</Text>}
       </View>
     </ScrollView>
   );

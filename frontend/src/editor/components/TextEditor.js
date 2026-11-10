@@ -4,7 +4,7 @@ import { startTextKeyboard } from '../utils/textKeyboard'
 import { colors } from '../../shared/theme'
 import { colorTextRange, normalizeRanges, remapTextRanges, textSegments } from '../utils/textRanges'
 import { TEXT_AUTO_MAX_WIDTH, TEXT_AUTO_MIN_WIDTH, TEXT_COLORS, textStyle, TEXT_FRAME_PAD } from '../utils/text'
-import { autoWidthInputLayout, loadedFontFamily, textSettings, textInputHeight } from '../utils/text'
+import { autoWidthInputLayout, loadedFontFamily, textPlaceholder, textSettings, textInputHeight } from '../utils/text'
 
 import { formatTextRange, normalizeTextFormats, remapTextFormats, resizeTextRange, richTextSegments, safeTextSelection, segmentTextStyle, applyInputSelection } from '../utils/textFormats'
 import { copyText, readText, useTextClipboardAvailable } from '../services/textClipboard'
@@ -260,7 +260,7 @@ export default function TextEditor({ commitRef, object, zoom, onSave, onCancel, 
       {richTextSegments(rendered.text, rendered.ranges, rendered.formats).map((segment, index) => <Text key={index} style={segmentTextStyle(segment, scale, textSettings(object).lineSpacing)}>{segment.text}</Text>)}
     </Text>
     {wrapInput(<TextInput allowFontScaling={false} ref={input} autoFocus multiline {...(Platform.OS !== 'android' && { defaultValue: object.text ?? '' })} accessibilityLabel="캔버스 텍스트 내용"
-      placeholder="텍스트 입력" textAlignVertical="top" scrollEnabled={false} showSoftInputOnFocus
+      placeholder={textPlaceholder(boxWidth, textStyle(object, scale, Platform.OS).fontSize, object.autoWidth)} textAlignVertical="top" scrollEnabled={false} showSoftInputOnFocus
       submitBehavior="newline" returnKeyType="default"
       onLayout={measure} onFocus={measure}
       placeholderTextColor={colors.textMuted}
