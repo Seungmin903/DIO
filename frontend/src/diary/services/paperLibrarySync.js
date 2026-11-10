@@ -17,7 +17,8 @@ export const PAPER_SYNC_DEBOUNCE_MS = 1500
 // 서버(PaperLibraryService)와 같은 한도. 넘는 속지는 보내지 않고 기기에만 남긴다
 export const PAPER_LIBRARY_LIMITS = Object.freeze({ papers: 100, pages: 100, name: 40, date: 40 })
 const ORIENTATIONS = new Set(['portrait', 'landscape'])
-const HEX = /^#[0-9A-F]{6}$/
+// 서버(PaperLibraryService)는 대소문자를 모두 받고 대문자로 저장한다. 앱도 대문자로 맞춰 보내고 비교한다
+const HEX = /^#[0-9A-F]{6}$/i
 const FONT = /^[A-Za-z0-9_-]{1,40}$/
 const CONTROL = /[\u0000-\u001f\u007f-\u009f]/
 const stable = document => JSON.stringify({ papers: document.papers, style: document.style ?? null })
@@ -25,7 +26,7 @@ const stable = document => JSON.stringify({ papers: document.papers, style: docu
 /** 서버 문서 모양의 스타일(칸 순서는 서버 응답 PaperStyle 과 같게). 보낼 수 없으면 null */
 function serverStyle(style) {
   if (!style || !HEX.test(style.backgroundColor ?? '') || !HEX.test(style.layoutColor ?? '')) return null
-  return { backgroundColor: style.backgroundColor, layoutColor: style.layoutColor, ...(FONT.test(style.font ?? '') ? { font: style.font } : {}) }
+  return { backgroundColor: style.backgroundColor.toUpperCase(), layoutColor: style.layoutColor.toUpperCase(), ...(FONT.test(style.font ?? '') ? { font: style.font } : {}) }
 }
 
 /** 서버로 보낼 수 있는 속지인지(서버가 거절할 속지는 기기에만 남긴다) */
@@ -41,6 +42,33 @@ function serverEntry(entry, pages) {
   out.orientation = ORIENTATIONS.has(entry.orientation) ? entry.orientation : 'portrait'
   out.pages = pages
   return out
+}
+
+// 다른 계정으로 바뀔 때 따로 둔 이전 계정 몫(stash)은 이 기간이 지나면 버린다(공용 기기에 이전 사용자 속지가 오래 남지 않게). 내 표지와 같은 기간
+export const PAPER_STASH_TTL_MS = 30 * 24 * 60 * 60 * 1000
+export const PAPER_SYNC_KEY_PREFIX = 'dio:paper-library-sync:v1:'
+const removeKeys = async (storage, keys) => {
+  if (!keys.length) return
+  if (storage.multiRemove) await storage.multiRemove(keys)
+  else for (const key of keys) await (storage.removeItem ? storage.removeItem(key) : storage.setItem(key, 'null'))
+}
+const readJson = async (storage, key) => { try { return JSON.parse(await storage.getItem(key) ?? 'null') } catch { return null } }
+
+/**
+ * 회원 탈퇴한 계정의 내 속지 동기화 기록(맞춘 상태 · 기기 id ↔ 서버 id 짝 · 받지 못한 그림 · 따로 둔 몫)을 이 기기에서 지운다.
+ * 키는 `<prefix><서버>:<계정>:…`(서버 주소는 encodeURIComponent 라 ':' 가 없다)와 `<prefix><서버>:meta`(그 계정과 맞췄을 때만) 다.
+ * storage 는 getAllKeys 가 있어야 한다(AsyncStorage). 없으면 아무것도 하지 않는다
+ */
+export async function forgetPaperLibraryAccount({ storage, account, prefix = PAPER_SYNC_KEY_PREFIX }) {
+  if (!storage?.getAllKeys || account == null) return
+  const owner = String(account), doomed = []
+  for (const key of await storage.getAllKeys()) {
+    if (!key.startsWith(prefix)) continue
+    const [, scope] = key.slice(prefix.length).split(':')
+    if (scope === owner) doomed.push(key)
+    else if (scope === 'meta' && key.split(':').length === prefix.split(':').length + 1 && (await readJson(storage, key))?.account === owner) doomed.push(key)
+  }
+  await removeKeys(storage, doomed)
 }
 
 /** 두 목록(서버 문서 모양)을 합친다: 앞쪽(base) 순서를 지키고 뒤쪽(extra)에만 있는 속지를 덧붙인다 */
@@ -59,12 +87,22 @@ export function mergePapers(base, extra) {
  * storage · key: 이 기기에서 맞춘 상태(meta) · 기기 id → 서버 id 짝 · 받지 못한 쪽 그림을 둔다
  * onStatus({ error }): 맞추기 결과(올리지 못한 속지 · 받지 못한 쪽 그림 · 연결 오류가 있으면 문구)
  */
-export function createPaperLibrarySync({ account, api, media, library, storage, key, isActive = () => true, setTimer = setTimeout, clearTimer = clearTimeout, debounceMs = PAPER_SYNC_DEBOUNCE_MS, onError = () => {}, onStatus = () => {} }) {
+export function createPaperLibrarySync({ account, api, media, library, storage, key, isActive = () => true, setTimer = setTimeout, clearTimer = clearTimeout, debounceMs = PAPER_SYNC_DEBOUNCE_MS, onError = () => {}, onStatus = () => {}, now = () => Date.now() }) {
   const metaKey = `${key}:meta`, idKey = id => `${key}:${account}:id:${String(id).toLowerCase()}`, localKey = id => `${key}:${account}:local:${String(id).toLowerCase()}`
   const missingKey = `${key}:${account}:missing`, stashKey = owner => `${key}:${owner}:stash`
-  // 다른 계정으로 바뀔 때 따로 둔 이 계정 몫: { papers(그때 기기 목록), style(그때 고른 스타일), synced(그때 이 계정과 맞춘 문서) }
-  const readStash = async () => {
-    try { const value = JSON.parse(await storage.getItem(stashKey(account)) ?? 'null'); return value && Array.isArray(value.papers) ? value : null } catch { return null }
+  // 다른 계정으로 바뀔 때 따로 둔 이 계정 몫: { papers(그때 기기 목록), style(그때 고른 스타일), synced(그때 이 계정과 맞춘 문서), savedAt }. 기한이 지났으면 없는 것으로 본다
+  const fresh = value => value && Array.isArray(value.papers) && Number.isFinite(value.savedAt) && now() - value.savedAt <= PAPER_STASH_TTL_MS
+  const readStash = async () => { const value = await readJson(storage, stashKey(account)); return fresh(value) ? value : null }
+  // 기한이 지난 다른 계정 몫을 지운다(그 계정으로 다시 로그인하지 않아도 정리되게). getAllKeys 가 없는 저장소는 건너뛴다
+  async function sweepStashes() {
+    if (!storage.getAllKeys) return
+    const stale = []
+    for (const item of await storage.getAllKeys()) {
+      if (!item.startsWith(`${key}:`) || !item.endsWith(':stash')) continue
+      const value = await readJson(storage, item)
+      if (value != null && !fresh(value)) stale.push(item)
+    }
+    await removeKeys(storage, stale)
   }
   let meta = null, timer = null, running = null, again = false, closed = false, unsubscribe = null, applying = false
   const active = () => { if (closed || !isActive()) throw Object.assign(Error('내 속지 동기화가 끝났어요.'), { code: 'SYNC_CLOSED' }) }
@@ -228,10 +266,11 @@ export function createPaperLibrarySync({ account, api, media, library, storage, 
     // 다른 계정이 쓰던 기기: 그 속지 · 스타일을 이 계정에 올리지 않는다. 지우지도 않고 그 계정 몫(stash)으로 따로 두었다가 그 계정으로 다시 로그인하면 되살린다
     // (올리지 못해 서버에 없던 속지가 계정을 바꾸는 순간 사라지지 않게). 이 계정이 남겨 둔 몫이 있으면 함께 되살린다
     if (meta && meta.account !== account) {
-      await storage.setItem(stashKey(meta.account), JSON.stringify({ papers: local, style: library.style() ?? null, synced: meta.synced ?? '{}' })); active()
+      await storage.setItem(stashKey(meta.account), JSON.stringify({ papers: local, style: library.style() ?? null, synced: meta.synced ?? '{}', savedAt: now() })); active()
       const restore = await readStash(); active()
       if (!await adopt(server, { keepLocal: false, restore })) return null
-      if (restore) await storage.setItem(stashKey(account), 'null')
+      await removeKeys(storage, [stashKey(account)]) // 되살렸거나 기한이 지난 이 계정 몫은 더 두지 않는다
+      await sweepStashes()
       return report(0)
     }
     if (!meta && !local.length && !localStyle) return await adopt(server) ? report(0) : null // 새 기기 · 재설치: 서버 문서를 그대로 받는다
