@@ -6,7 +6,7 @@ import { SettingSwitch } from '../../diary/components/SettingRow'
 import { colors } from '../../shared/theme'
 import ChipScroller, { justDragged } from './controls/ChipScroller'
 import { glassColors, glassEntry } from '../hooks/usePalettes'
-import EditablePalette, { paletteSwatchStyles } from './controls/EditablePalette'
+import EditablePalette, { GlassDot, glassResolved, paletteSwatchStyles } from './controls/EditablePalette'
 import Slider from './controls/Slider'
 import Icon from './controls/Icon'
 import { GLASS_FILMS, GLASS_SHEENS, PEN_TYPES, penDefaultOpacity } from '../utils/penSettings'
@@ -130,7 +130,10 @@ export default function PenSettings({ settings, onChange, onClose, straightAssis
         {recentColors.map(color => <Pressable key={color} accessibilityRole="button"
           accessibilityLabel={`최근 사용한 ${label} 색상 ${color}`} accessibilityState={{ selected: settings.color === color }}
           hitSlop={1} onPress={() => chooseColor(color)} style={paletteSwatchStyles.cell}>
-          <View style={[paletteSwatchStyles.dot,{backgroundColor:color},settings.color === color && paletteSwatchStyles.chosen]} />
+          {/* 유리펜은 칸 안에서 실제 모습을 보여 준다(테 고리 · 잉크 면 · 글리터) — 팔레트 칸과 같은 그림 */}
+          {glassPen
+            ? (look => <View style={[paletteSwatchStyles.dot, { backgroundColor: look.sheen }, settings.color === color && paletteSwatchStyles.chosen]}><GlassDot look={look} /></View>)(glassResolved(color))
+            : <View style={[paletteSwatchStyles.dot,{backgroundColor:color},settings.color === color && paletteSwatchStyles.chosen]} />}
         </Pressable>)}
       </View>
       </>}

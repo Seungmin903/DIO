@@ -16,6 +16,23 @@ function FocusRing() {
 }
 
 // One immutable slot is edited at a time. No add/delete/custom collection.
+// 유리펜 칸에 쓸 색 셋. 'auto' 는 잉크색에서 자동 계산한 값으로 채운다(칸이 실제 그림과 같게).
+export const glassResolved = (entry) => {
+  const { ink, glitter, sheen } = glassColors(entry)
+  const rgb = [1, 3, 5].map(i => parseInt(ink.slice(i, i + 2), 16) / 255)
+  const hex = v => '#' + v.map(c => Math.round(Math.min(1, Math.max(0, c)) * 255).toString(16).padStart(2, '0').toUpperCase()).join('')
+  return { ink, glitter: glitter ?? hex(glitterColorOf(rgb)), sheen: sheen ?? hex(sheenAutoColor(rgb)) }
+}
+// 칸 안의 유리펜 미리보기: 바깥 고리가 테, 안쪽 면이 잉크, 그 위에 글리터 몇 점.
+// 자리는 고정이라 어느 칸이든 같은 모양으로 비교된다.
+const GLASS_SPECKS = [[8, 7], [17, 10], [11, 16], [19, 18], [6, 14]]
+export function GlassDot({ look }) {
+  return <>
+    <View style={[s.glassBody, { backgroundColor: look.ink }]} />
+    {GLASS_SPECKS.map(([x, y], i) => <View key={i} style={[s.glassSpeck, { left: x, top: y, backgroundColor: look.glitter, opacity: i % 2 ? 0.95 : 0.7 }]} />)}
+  </>
+}
+
 export default function EditablePalette({ scope, label, value, onPick, onOpenEditor, initiallyEditing = false, allowDirect = false, heading }) {
   const palette = usePalette(scope)
   const [editing, setEditing] = useState(initiallyEditing), [request, setRequest] = useState(null), [error, setError] = useState(false)
@@ -31,7 +48,7 @@ export default function EditablePalette({ scope, label, value, onPick, onOpenEdi
     const spec = {title:`${label} 색`,value: start, onDone:color => onPick?.(color),anchor:anchors.current.direct ?? null}
     ;(onOpenEditor ?? setRequest)(spec)
   }
-  // 유리펜 한 칸은 색 셋이다(잉크 · 글리터 · 테). 'auto' 는 펜 색에서 자동 계산한 색을 보여 주고,
+  // 유리펜 칸은 색 셋이다(잉크 · 글리터 · 테). 'auto' 는 펜 색에서 자동 계산한 색을 보여 주고,
   // 거기서 고치면 그 색이 칸에 박힌다(마스킹 테이프가 바탕 · 무늬 둘을 고치는 것과 같은 방식).
   const glassSlots = (entry) => {
     const { ink, glitter, sheen } = glassColors(entry)
@@ -65,8 +82,9 @@ export default function EditablePalette({ scope, label, value, onPick, onOpenEdi
       {palette.colors.map((entry, index) => {
         const shown = preview?.index === index ? preview.color : entry
         const {bg, fg} = scope === 'tape' ? tapeColors(shown)
-          : scope === 'glass' ? (({ ink, glitter }) => ({ bg: ink, fg: glitter }))(glassColors(shown))
+          : scope === 'glass' ? (({ ink, sheen }) => ({ bg: sheen ?? ink, fg: null }))(glassResolved(shown))
           : { bg: shown }
+        const glassLook = scope === 'glass' ? glassResolved(shown) : null
         return <Pressable key={index} ref={node => { refs.current[index] = node }} collapsable={false}
           onLayout={() => refs.current[index]?.measureInWindow?.((x,y,width,height) => {
             if ([x,y,width,height].every(Number.isFinite) && width > 0 && height > 0) anchors.current[index] = {x,y,width,height}
@@ -75,7 +93,7 @@ export default function EditablePalette({ scope, label, value, onPick, onOpenEdi
           accessibilityState={{ selected: value === entry, disabled: editing && !palette.loaded }} disabled={editing && !palette.loaded}
           hitSlop={1} onPress={() => editing ? open(index) : onPick?.(entry)} style={paletteSwatchStyles.cell}>
           {/* key: 안드로이드는 점선 → 실선으로 borderStyle 을 되돌리면 다시 그리지 않아, 편집을 끝내도 점선이 남았다(지라 604). 상태가 바뀌면 새로 그린다 */}
-          <View key={editing ? 'edit' : 'pick'} style={[paletteSwatchStyles.dot, {backgroundColor:bg}, editing ? [s.editing, (editIndex ?? palette.colors.indexOf(value)) === index && s.editFocus] : [s.solid, value === entry && paletteSwatchStyles.chosen]]}>{fg && <View style={[s.inner,{backgroundColor:fg}]} />}{editing && (editIndex ?? palette.colors.indexOf(value)) === index && <FocusRing />}</View>
+          <View key={editing ? 'edit' : 'pick'} style={[paletteSwatchStyles.dot, {backgroundColor:bg}, editing ? [s.editing, (editIndex ?? palette.colors.indexOf(value)) === index && s.editFocus] : [s.solid, value === entry && paletteSwatchStyles.chosen]]}>{fg && <View style={[s.inner,{backgroundColor:fg}]} />}{glassLook && <GlassDot look={glassLook} />}{editing && (editIndex ?? palette.colors.indexOf(value)) === index && <FocusRing />}</View>
         </Pressable>
       })}
       {allowDirect && <Pressable accessibilityRole="button" accessibilityLabel={`${label} 색 직접 지정`} hitSlop={1} onPress={openDirect} style={paletteSwatchStyles.cell}>
@@ -92,6 +110,8 @@ export const paletteSwatchStyles=StyleSheet.create({
  dot:{width:28,height:28,borderRadius:14,borderWidth:1,borderColor:colors.cardBorder},chosen:{borderWidth:3,borderColor:colors.primaryText}
 })
 const s=StyleSheet.create({
+ glassBody:{position:'absolute',left:3,top:3,right:3,bottom:3,borderRadius:11},
+ glassSpeck:{position:'absolute',width:2.4,height:2.4,borderRadius:1.2},
  box:{gap:8},heading:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:8},
  label:{fontSize:13,fontWeight:'700',color:colors.text},edit:{minHeight:36,justifyContent:'center',paddingHorizontal:6},editText:{fontSize:12,fontWeight:'700',color:colors.primaryText},
  direct:{borderStyle:'dashed',alignItems:'center',justifyContent:'center'},editing:{borderStyle:'dashed',borderColor:colors.textMuted},editFocus:{borderWidth:0},ring:{position:'absolute',left:0,top:0},solid:{borderStyle:'solid'},inner:{position:'absolute',right:3,bottom:3,width:9,height:9,borderRadius:5},notice:{fontSize:12,color:colors.textMuted}
