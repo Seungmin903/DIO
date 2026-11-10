@@ -33,7 +33,7 @@ export default function Workbench({ title, actionLabel, onCancel, onSubmit, subm
   // 키보드가 옵션 패널을 가리면(태블릿에서 표지 '제목 · 소제목'의 소제목 칸 등) 가린 만큼 아래를 비우고 입력 중인 칸을 키보드 위로 올린다.
   // Modal 안이라 화면이 저절로 밀리지 않는다. 입력칸마다 연결하지 않도록 지금 포커스된 입력을 찾아 잰다.
   const [keyboardPad, setKeyboardPad] = useState(0)
-  const keyboardTop = useRef(null), panelRef = useRef(null)
+  const keyboardTop = useRef(null), panelRef = useRef(null), revealFocused = useRef(() => {})
   useEffect(() => {
     if (Platform.OS === 'web') return undefined
     let timer = null, alive = true
@@ -50,6 +50,7 @@ export default function Workbench({ title, actionLabel, onCancel, onSubmit, subm
         }))
       }, 80)
     }
+    revealFocused.current = reveal
     const show = Keyboard.addListener('keyboardDidShow', event => {
       keyboardTop.current = event.endCoordinates?.screenY ?? null
       panelRef.current?.measureInWindow?.((x, y, w, h) => {
@@ -59,7 +60,7 @@ export default function Workbench({ title, actionLabel, onCancel, onSubmit, subm
       })
     })
     const hide = Keyboard.addListener('keyboardDidHide', () => { keyboardTop.current = null; setKeyboardPad(0) })
-    return () => { alive = false; clearTimeout(timer); show.remove(); hide.remove() }
+    return () => { alive = false; clearTimeout(timer); revealFocused.current = () => {}; show.remove(); hide.remove() }
   }, [])
   const { width: windowWidth } = useWindowDimensions()
   const cards = sections.map(item => {
@@ -93,7 +94,8 @@ export default function Workbench({ title, actionLabel, onCancel, onSubmit, subm
         <ScrollView ref={scrollRef} keyboardShouldPersistTaps="handled" scrollEventThrottle={64}
           onScroll={event => { view.current.y = event.nativeEvent.contentOffset.y }} onLayout={event => { view.current.height = event.nativeEvent.layout.height }}
           contentContainerStyle={[styles.panelBody, sheet && !foot && { paddingBottom: 16 + bottomInset }, keyboardPad > 0 && { paddingBottom: 16 + keyboardPad }]}>
-          <View ref={contentRef} collapsable={false} pointerEvents={panelLocked ? 'none' : 'auto'}>
+          {/* 키보드가 떠 있는 채 다른 칸을 누르면 keyboardDidShow 가 다시 오지 않을 수 있다(iOS) — 누른 뒤 포커스된 칸을 다시 잰다 */}
+          <View ref={contentRef} collapsable={false} pointerEvents={panelLocked ? 'none' : 'auto'} onTouchEnd={() => { if (keyboardTop.current != null) revealFocused.current() }}>
             <PanelScroll.Provider value={scroll}><PanelWidth.Provider value={(sheet ? windowWidth : PANEL_WIDTH) - PANEL_PADDING * 2}>{panel}</PanelWidth.Provider></PanelScroll.Provider>
           </View>
         </ScrollView>
