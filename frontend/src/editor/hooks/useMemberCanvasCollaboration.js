@@ -6,7 +6,7 @@ import { authService, apiBaseUrl, accessTokenHeader } from '../../auth/authServi
 import { createAuthenticatedMemberTransport } from '../../diary/services/memberTransport.js'
 import { memberDocumentKey } from '../../diary/services/memberStorage.js'
 import { createId } from '../utils/common.js'
-import { sameElements } from '../../collaboration/canvasApi.js'
+import { sameElements, remapObjectIds } from '../../collaboration/canvasApi.js'
 import { isUuid } from '../../collaboration/canvasElements.js'
 import { createCollaborationDiagnostics } from '../../collaboration/collaborationDiagnostics.js'
 import { createCanvasWriteApi } from '../../collaboration/canvasWriteApi.js'
@@ -206,11 +206,11 @@ export function useMemberCanvasCollaboration({diary,page,state,loaded,readOnly,d
         }
         if(!active()||!r.pageIds?.has(pageId))return
         const current=latest.current.page,target=latest.current.state.doc.pages.find(p=>p.id===pageId)
-        const imported=Boolean(target)&&!result.unchanged&&(!result.direction||sameElements(target.objects,result.expectedLocal))
+        const imported=Boolean(target)&&!result.unchanged&&(!result.direction||sameElements(remapObjectIds(target.objects,result.idRemaps),result.expectedLocal))
         // 전송 확인·화면 반영·저장 상태를 같은 틱에 갱신해 React 가 한 번에 커밋하게 한다(await 뒤로 미루면 커밋이 나뉜다)
         r.flushAcks()
         if(imported)dispatch({type:result.direction?'collaborationHistoryApplied':'importCollaborationElements',direction:result.direction,
-            historyClientOperationId:result.historyClientOperationId,pageId,expectedElements:result.expectedLocal,objects:result.objects})
+            historyClientOperationId:result.historyClientOperationId,pageId,expectedElements:result.expectedLocal,objects:result.objects,idRemaps:result.idRemaps})
         if(current.id===pageId&&active())setView(v=>{
           const next={...v,status:result.rejectedCount?'error':'saved',errorMessage:result.rejectedCount?'서버가 거절한 편집은 기기에 보관했어요. 나머지 편집은 동기화했어요.':null,history:result.history,pageId}
           // 바뀐 것이 없으면 같은 상태를 돌려줘 편집 화면을 다시 그리지 않는다
