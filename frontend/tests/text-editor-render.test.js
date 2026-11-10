@@ -18,14 +18,14 @@ const { code } = babel.transformSync(source, {
 })
 
 // 실제 TextEditor JSX를 렌더링한다. OS 입력은 모사하지 않고 input props 계약만 검증한다.
-function renderEditor(platform, overrides = {}, zoom = 1) {
+function renderEditor(platform, overrides = {}, zoom = 1, textProps = null) {
   let inputProps
   const saves = [], cancels = []
   const native = {
     Platform: { OS: platform }, Keyboard: { dismiss() {} },
     StyleSheet: { create: (styles) => styles },
     View: ({ children }) => React.createElement('div', null, children),
-    Text: ({ children }) => React.createElement('span', null, children),
+    Text: (props) => { textProps?.push(props); return React.createElement('span', { 'data-measure': props.onTextLayout ? 'lines' : undefined }, props.children) },
     Pressable: ({ children }) => React.createElement('button', null, children),
     TextInput: (props) => {
       inputProps = props
@@ -73,6 +73,24 @@ for (const platform of ['web', 'ios']) {
     assert.ok(html.includes('<textarea>한글 RED</textarea>'))
   })
 }
+
+test('S15P31F106-482: 숨은 측정 글은 끝 줄바꿈 뒤 빈 줄을 보이지 않는 글자로 세우고, 글자만큼 넓어지는 상자에서는 입력창 폭으로 줄을 바꾼다', () => {
+  for (const platform of ['ios', 'android', 'web']) {
+    const tail = renderEditor(platform, { text: '첫 줄\n' })
+    assert.match(tail.html, /<span data-measure="lines">(?:(?!<\/span><\/span>).)*\u200B/su, `${platform}: 끝 줄바꿈이면 측정 글 끝에 U+200B`)
+    const flat = renderEditor(platform, { text: '첫 줄\n둘째' })
+    assert.doesNotMatch(flat.html, /\u200B/u, `${platform}: 끝이 줄바꿈이 아니면 덧붙이지 않는다`)
+  }
+  // 측정 글 폭: 고정 폭 상자는 상자 폭(좌우 1), 글자만큼 넓어지는 상자는 입력창 폭 · 자리
+  const captured = []
+  const auto = renderEditor('ios', { autoWidth: true, w: 240, baseWidth: 240, maxWidth: 400, textAlign: 'center' }, 0.5, captured)
+  const measure = captured.find(props => props.onTextLayout)
+  assert.deepEqual(measure.style[1], { left: -39, right: 'auto', width: 200 })
+  assert.equal(auto.inputProps.style[1].width, 200)
+  const fixed = renderEditor('ios', { w: 240, baseWidth: 240 }, 0.5, captured)
+  assert.equal(captured.filter(props => props.onTextLayout).at(-1).style[1], null)
+  assert.ok(fixed.inputProps.onContentSizeChange)
+})
 
 test('android: defaultValue 없이 부분 색상 자식을 전달한다', () => {
   const { inputProps } = renderEditor('android')
