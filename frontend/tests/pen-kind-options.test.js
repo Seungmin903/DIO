@@ -18,6 +18,19 @@ test('불투명도는 종류마다 따로 기억한다 — 한 펜에서 바꿔�
   assert.equal(applyPenKind(rememberPen(memory, calligraphy), calligraphy, 'ball').opacity, 0.4)
 })
 
+test('색도 종류마다 따로 기억한다 — 한 펜에서 고른 색이 다른 펜을 바꾸지 않는다', () => {
+  const red = { ...base, color: '#C0392B' }
+  let memory = rememberPen({}, red)
+  // 처음 쓰는 종류는 지금 색을 이어받는다(굵기와 같은 규칙)
+  const pencil = applyPenKind(memory, red, 'pencil')
+  assert.equal(pencil.color, '#C0392B')
+  // 연필에서 다른 색을 고른 뒤 볼펜으로 돌아오면 볼펜은 제 색 그대로다
+  const blue = { ...pencil, color: '#2E6B9E' }
+  memory = rememberPen(memory, blue)
+  assert.equal(applyPenKind(memory, blue, 'ball').color, '#C0392B')
+  assert.equal(applyPenKind(memory, red, 'pencil').color, '#2E6B9E')
+})
+
 test('유리펜 잉크 옵션은 유리펜에만 남는다', () => {
   const glass = { ...base, kind: 'glass', inkGlitter: false, inkFilm: 125, inkAmount: 0.5, inkSheen: true, inkSheenColor: null, inkSheenAmount: 1 }
   const memory = rememberPen({}, glass)

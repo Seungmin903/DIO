@@ -1,10 +1,9 @@
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Icon from '../../editor/components/controls/Icon';
-import DioButton from '../../shared/DioButton';
 import { usePalette } from '../../editor/hooks/usePalettes';
 import { colors } from '../../shared/theme';
-import EditablePalette from '../../editor/components/controls/EditablePalette';
+import EditablePalette, { paletteLinkStyles } from '../../editor/components/controls/EditablePalette';
 
 // 내 프리셋: 편집기 도구(펜 · 형광펜 · 마스킹 테이프 · 글자)가 한 줄로 보여 주는 색 목록을 여기서 고친다. 편집기 색 줄이 그대로 따른다.
 // 팔레트 편집 모드에서 색을 누르면 공용 색 창이 뜬다. 바꾼 도구에만 '기본 색으로'가 생긴다.
@@ -13,7 +12,6 @@ import EditablePalette from '../../editor/components/controls/EditablePalette';
 const GROUPS = [
   { scope: 'pen', label: '펜' },
   { scope: 'glass', label: '유리펜' },
-  { scope: 'dashed', label: '점선' },
   { scope: 'highlighter', label: '형광펜' },
   { scope: 'tape', label: '마스킹 테이프' },
   { scope: 'text', label: '글자' },
@@ -29,7 +27,7 @@ function Dot({ bg, fg, active }) {
 }
 
 // 도구 표시: 편집기 도구막대와 같은 앱 아이콘(펜 · 형광펜 · 마스킹테이프 · 텍스트)
-const TOOL_ICON = { pen: 'pen', glass: 'pen', dashed: 'pen', highlighter: 'highlighter', tape: 'tape', text: 'text' };
+const TOOL_ICON = { pen: 'pen', glass: 'pen', highlighter: 'highlighter', tape: 'tape', text: 'text' };
 
 
 // 견본 한 칸(원 30 · 보이는 칸 36 · 터치 48). active 면 2px primaryText 고리. role 은 고르는 줄(기본 속지 설정)이면 'radio'
@@ -49,7 +47,9 @@ function Group({ group, compact, width }) {
     catch { setFailed(true) }
   }
   return <View style={[local.card,{width},compact&&local.cardCompact]}>
-    <GroupHead icon={TOOL_ICON[group.scope]} title={group.label} full={compact} right={edited ? <DioButton variant="ghost" outline label={`${group.label} 기본 색으로`} text="기본 색으로" onPress={resetPalette} style={local.reset} /> : null} />
+    <GroupHead icon={TOOL_ICON[group.scope]} title={group.label} full={compact} right={edited ? <Pressable accessibilityRole="button" accessibilityLabel={`${group.label} 기본 색으로`} hitSlop={6} onPress={resetPalette} style={paletteLinkStyles.button}>
+      <Text style={paletteLinkStyles.text}>기본 색으로</Text>
+    </Pressable> : null} />
     <EditablePalette scope={group.scope} label={group.label} />
     {failed && <Text accessibilityRole="alert" style={local.error}>팔레트를 저장하지 못했어요.</Text>}
   </View>
@@ -116,7 +116,6 @@ const local = StyleSheet.create({
   groupCount: { fontSize: 14, fontWeight: '700', color: colors.textMuted },
   grow: { flex: 1 },
   headRight: { flexShrink: 1, minWidth: 0, marginLeft: 8 },
-  reset: { minHeight: 32, paddingHorizontal: 10 },
   error: { fontSize: 12.5, fontWeight: '600', lineHeight: 19, color: colors.dangerStrong },
   // 이름과 색 사이의 옅은 선(사용자 지시로 다시 넣음). 길이는 색 7개의 첫 원 왼쪽 끝부터 마지막 원 오른쪽 끝까지:
   // 칸 7×36 + 사이 6×12 − 칸 안 여백 3×2 = 318. 좁은 화면에서는 칸 폭을 넘지 않는다

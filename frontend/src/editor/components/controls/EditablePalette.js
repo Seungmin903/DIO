@@ -74,8 +74,8 @@ export default function EditablePalette({ scope, label, value, onPick, onOpenEdi
   return <View style={s.box}>
     <View style={s.heading}>
       <Text style={s.label}>{heading ?? `${label} 색상`}</Text>
-      <Pressable accessibilityRole="button" accessibilityLabel={`${label} 팔레트 편집`} accessibilityState={{ selected: editing }} hitSlop={6} onPress={toggleEditing} style={s.edit}>
-        <Text style={s.editText}>{editing ? '편집 끝내기' : '팔레트 편집'}</Text>
+      <Pressable accessibilityRole="button" accessibilityLabel={`${label} 팔레트 편집`} accessibilityState={{ selected: editing }} hitSlop={6} onPress={toggleEditing} style={paletteLinkStyles.button}>
+        <Text style={paletteLinkStyles.text}>{editing ? '편집 끝내기' : '팔레트 편집'}</Text>
       </Pressable>
     </View>
     <View style={paletteSwatchStyles.row} accessibilityLabel={`${label} 기본 팔레트`}>
@@ -105,6 +105,11 @@ export default function EditablePalette({ scope, label, value, onPick, onOpenEdi
     {request && <PresetColorEditor {...request} onDone={async color => { await request.onDone(color); setRequest(null) }} onClose={() => { request.onClose?.(); setRequest(null) }} />}
   </View>
 }
+// 색 줄 제목 옆의 글자 단추(팔레트 편집 · 기본 색으로). 두 곳이 같은 모양이어야 해서 여기서 한 번만 정한다.
+export const paletteLinkStyles=StyleSheet.create({
+ button:{minHeight:36,justifyContent:'center',paddingHorizontal:6},
+ text:{fontSize:12,fontWeight:'700',color:colors.primaryText},
+})
 export const paletteSwatchStyles=StyleSheet.create({
  row:{flexDirection:'row',flexWrap:'wrap'},cell:{width:'12.5%',height:48,alignItems:'center',justifyContent:'center'},
  dot:{width:28,height:28,borderRadius:14,borderWidth:1,borderColor:colors.cardBorder},chosen:{borderWidth:3,borderColor:colors.primaryText}
@@ -113,6 +118,6 @@ const s=StyleSheet.create({
  glassBody:{position:'absolute',left:3,top:3,right:3,bottom:3,borderRadius:11},
  glassSpeck:{position:'absolute',width:2.4,height:2.4,borderRadius:1.2},
  box:{gap:8},heading:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:8},
- label:{fontSize:13,fontWeight:'700',color:colors.text},edit:{minHeight:36,justifyContent:'center',paddingHorizontal:6},editText:{fontSize:12,fontWeight:'700',color:colors.primaryText},
+ label:{fontSize:13,fontWeight:'700',color:colors.text},
  direct:{borderStyle:'dashed',alignItems:'center',justifyContent:'center'},editing:{borderStyle:'dashed',borderColor:colors.textMuted},editFocus:{borderWidth:0},ring:{position:'absolute',left:0,top:0},solid:{borderStyle:'solid'},inner:{position:'absolute',right:3,bottom:3,width:9,height:9,borderRadius:5},notice:{fontSize:12,color:colors.textMuted}
 })

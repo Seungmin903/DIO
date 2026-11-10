@@ -47,11 +47,15 @@ const penInk = (kind, settings) => kind === 'glass' ? sanitizeGlassInk(settings)
 export const rememberPen = (memory, settings) => ({
   ...memory,
   [settings.kind]: { width: settings.width, opacity: settings.opacity ?? penDefaultOpacity(settings.kind),
+    ...(settings.color ? { color: settings.color } : null),
     ...penPattern(settings.kind, settings), ...penInk(settings.kind, settings) },
 })
 export function applyPenKind(memory, settings, kind) {
   const saved = memory?.[kind]
+  // 색도 종류마다 따로 기억한다(사용자 2026-11-10: 한 펜에서 색을 고르면 다른 펜까지 같이 바뀐다).
+  // 처음 쓰는 종류만 지금 색을 이어받는다 — 굵기와 같은 규칙이다.
   return { ...withoutKindOnly(settings), kind, width: saved?.width ?? settings.width,
+    color: saved?.color ?? settings.color,
     opacity: saved?.opacity ?? penDefaultOpacity(kind), ...penPattern(kind, saved), ...penInk(kind, saved) }
 }
 // 형광펜: 0.42 로 겹쳐 칠해도 · 속지 종이 색으로 깔아도 뽀얀 톤
@@ -77,7 +81,9 @@ export function sanitizePenKinds(saved) {
   const result = {}
   for (const type of [...PEN_TYPES, ...DASH_TYPES]) {
     const item = saved[type.id]
-    if (item && typeof item === 'object') result[type.id] = { width: inRange(item.width, 1, 16, DEFAULT_PEN_SETTINGS.width), opacity: inRange(item.opacity, 0.1, 1, penDefaultOpacity(type.id)), ...penPattern(type.id, item), ...penInk(type.id, item) }
+    if (item && typeof item === 'object') result[type.id] = { width: inRange(item.width, 1, 16, DEFAULT_PEN_SETTINGS.width), opacity: inRange(item.opacity, 0.1, 1, penDefaultOpacity(type.id)),
+      ...(validColor(item.color, null) ? { color: validColor(item.color, null) } : null),
+      ...penPattern(type.id, item), ...penInk(type.id, item) }
   }
   return result
 }

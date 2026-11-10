@@ -84,7 +84,8 @@ export default function PenSettings({ settings, onChange, onClose, straightAssis
   // 유리펜은 한 칸에 잉크 · 글리터 · 테 색을 함께 담는다(마스킹 테이프와 같은 방식).
   // 그래서 칸을 고르면 세 가지가 한꺼번에 들어온다.
   const glassPen = settings.kind === 'glass'
-  const paletteScope = highlighter ? 'highlighter' : glassPen ? 'glass' : isDashedKind(settings.kind) ? 'dashed' : 'pen'
+  // 점선은 펜과 같은 팔레트를 쓴다(사용자 2026-11-10: 공방에서 따로 고르는 칸은 뺀다)
+  const paletteScope = highlighter ? 'highlighter' : glassPen ? 'glass' : 'pen'
   const paletteValue = glassPen ? glassEntry({ ink: settings.color, glitter: settings.inkGlitterColor, sheen: settings.inkSheenColor }) : settings.color
   const chooseColor = (entry) => {
     // 묶음('잉크:글리터:테')이면 셋 다 바꾸고, 색 하나면 잉크만 바꾼다
