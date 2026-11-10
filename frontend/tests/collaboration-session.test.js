@@ -17,13 +17,18 @@ function fixture(){
  const session=active=>createCanvasSession({api,storage,key:'journal',pageId,diaryId,createId:()=>`40000000-0000-4000-8000-${String(++sequence).padStart(12,'0')}`,isActive:active??(()=>true)})
  return {api,disk,calls,operations,session,setRows:value=>{rows=value},rows:()=>rows,lose:()=>{lose=true}}
 }
-test('동일 ID로 다른 요소가 생성되면 로컬 작업을 삭제하지 않고 충돌을 알린다',async()=>{
+test('동일 ID의 다른 서버 요소와 충돌하면 로컬 ID를 바꾸고 후속 편집까지 저장한다',async()=>{
  const f=fixture(),s=f.session();await s.restore([]);await s.synchronize()
  await s.enqueue({id:'mine',pageId,before:[],after:[text('mine')]})
+ await s.enqueue({id:'later',pageId,before:[text('mine')],after:[text('mine updated')]})
  f.setRows([row(text('friend'),1)])
- await assert.rejects(s.synchronize(),e=>e.code==='CANVAS_CREATE_ID_CONFLICT')
- assert.equal(s.snapshot().queue.length,1);assert.equal(s.snapshot().queue[0].after[0].text,'mine')
- assert.equal(f.rows()[0].propertiesJson.text,'friend');assert.equal(f.calls.length,0)
+ const result=await s.synchronize(),saved=s.snapshot(),resolved=saved.resolvedIdConflicts.at(-1)
+ assert.equal(saved.queue.length,0);assert.equal(f.calls.length,2)
+ assert.equal(resolved.oldElementId,id);assert.notEqual(resolved.newElementId,id)
+ assert.equal(result.objects.find(o=>o.id===id).text,'friend')
+ assert.equal(result.objects.find(o=>o.id===resolved.newElementId).text,'mine updated')
+ assert.equal(f.rows().find(e=>e.elementId===id).propertiesJson.text,'friend')
+ assert.equal(f.rows().find(e=>e.elementId===resolved.newElementId).propertiesJson.text,'mine updated')
 })
 test('동일 ID와 내용의 생성은 이미 반영된 것으로 처리한다',async()=>{
  const f=fixture(),s=f.session();await s.restore([]);await s.synchronize()
@@ -48,19 +53,14 @@ test('같은 색 별을 동시에 칠한 두 번째 사용자의 작업도 서�
  assert.equal(f.calls.length,1);assert.equal(f.calls[0].changes.updates[0].version,3)
  assert.equal(f.calls[0].clientOperationId,'mine');assert.equal(s.snapshot().queue.length,0)
 })
-test('ID 충돌 기록은 후속 편집과 함께 저장되고 재시작 후에도 유지된다',async()=>{
+test('ID 충돌 자동 복구 기록은 재시작 후에도 유지된다',async()=>{
  const f=fixture();let s=f.session();await s.restore([]);await s.synchronize()
  await s.enqueue({id:'mine',pageId,before:[],after:[text('mine')]});f.setRows([row(text('friend'),1)])
- await assert.rejects(s.synchronize(),e=>e.code==='CANVAS_CREATE_ID_CONFLICT')
- await s.enqueue({id:'later',pageId,before:[text('mine')],after:[text('later')]})
- s=f.session();await s.restore([text('later')]);const saved=s.snapshot()
- assert.equal(saved.recoveryPlan.elementId,id);assert.equal(saved.recoveryPlan.entryId,'mine')
- assert.equal(saved.recoveryPlan.originalEdit.after[0].text,'mine')
- assert.deepEqual(saved.queue.map(entry=>entry.id),['mine','later'])
- await assert.rejects(s.synchronize(),e=>e.code==='CANVAS_CREATE_ID_CONFLICT')
- assert.equal(s.snapshot().recoveryPlan.entryId,'mine');assert.equal(s.snapshot().queue.length,2)
- f.setRows([]);await s.synchronize();assert.equal(s.snapshot().recoveryPlan,undefined)
- assert.equal(f.rows()[0].propertiesJson.text,'later')
+ await s.synchronize();const chosen=s.snapshot().resolvedIdConflicts.at(-1).newElementId
+ s=f.session();await s.restore([text('mine',chosen)]);const saved=s.snapshot()
+ assert.equal(saved.queue.length,0);assert.equal(saved.resolvedIdConflicts.at(-1).newElementId,chosen)
+ assert.equal(f.rows().some(e=>e.elementId===id&&e.propertiesJson.text==='friend'),true)
+ assert.equal(f.rows().some(e=>e.elementId===chosen&&e.propertiesJson.text==='mine'),true)
 })
 test('서버 조회 중 추가된 편집도 저장 대기열에서 유실되지 않는다',async()=>{
  const f=fixture(),s=f.session();await s.restore([]);await s.synchronize()

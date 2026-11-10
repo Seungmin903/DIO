@@ -165,6 +165,28 @@ export function createCanvasSession({api,storage,key,legacyKey,pageId,diaryId,cr
     if(!creates.length&&!updates.length&&!deleteElementIds.length)return null
     return {clientOperationId:entry.id,changes:{...(creates.length?{creates}:{}),...(updates.length?{updates}:{}),...(deleteElementIds.length?{deleteElementIds}: {})},expectedVersions}
   }
+  // A deterministic/local ID can already belong to a different server object. Preserve
+  // both objects by assigning the pending local create a fresh ID and carrying that
+  // identity through later queued edits and the editor snapshot before retrying.
+  const recoverCreateIdConflict=(entry,conflictId)=>{
+    const existed=new Set(entry.before.map(o=>o.id))
+    if(!entry.after.some(o=>o.id===conflictId&&!existed.has(o.id)))return false
+    const used=new Set([...(journal.base??[]).map(row=>row.elementId),...(journal.uiLocal??[]).map(o=>o.id),...journal.queue.flatMap(row=>[...row.before,...row.after].map(o=>o.id))])
+    let nextId=null
+    for(let attempt=0;attempt<16;attempt++){const candidate=createId();if(candidate&&candidate!==conflictId&&!used.has(candidate)){nextId=candidate;break}}
+    if(!nextId)return false
+    const remapObject=object=>({...object,id:object.id===conflictId?nextId:object.id})
+    for(const queued of journal.queue){
+      queued.before=queued.before.map(remapObject);queued.after=queued.after.map(remapObject)
+      if(queued.order)queued.order=queued.order.map(id=>id===conflictId?nextId:id)
+    }
+    journal.uiLocal=(journal.uiLocal??[]).map(remapObject)
+    journal.resolvedIdConflicts=[...(journal.resolvedIdConflicts??[]),{oldElementId:conflictId,newElementId:nextId,entryId:entry.id,at:Date.now()}].slice(-50)
+    // requestFor detected this before any request was sent, so its command ID is safe to replace.
+    entry.id=createId();delete entry.request;delete entry.parts;delete entry.partIndex;delete entry.mediaApiVersion
+    if(journal.recoveryPlan?.entryId)delete journal.recoveryPlan
+    return true
+  }
   // 예전 형식(1·2)의 전후 전체 사본 항목을 한 항목씩 양보하며 변환한다. 항목이 수백 개면 한 번에 하면 수십 초 JS 가 멈춘다.
   const migrate=async saved=>{
     const queue=[]
@@ -262,11 +284,10 @@ export function createCanvasSession({api,storage,key,legacyKey,pageId,diaryId,cr
           }
           }catch(error){
               if(error.code==='CANVAS_CREATE_ID_CONFLICT'){
-                // Preserve the conflict and the original edit before surfacing it.
-                // A future recovery step must validate the latest page state before changing IDs.
+                if(recoverCreateIdConflict(entry,error.elementId)){await persist();continue}
+                // Keep unexpected update/delete conflicts intact for explicit recovery.
                 journal.recoveryPlan??={version:1,kind:'create-id-conflict',pageId,elementId:error.elementId,entryId:entry.id,originalEdit:copy(entry),createdAt:Date.now()}
-                await persist()
-                throw error
+                await persist();throw error
               }
               if(error.code==='CANVAS_BATCH_LIMIT') {
                 await persist()

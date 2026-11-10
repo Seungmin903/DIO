@@ -42,6 +42,8 @@ Jira: S15P31F106-350~355. 커서는 이번 범위에서 제외한다.
 
 `changes`는 기존 batch의 creates/updates/deleteElementIds/restoreElementIds를 사용한다. update에는 현재 `version`, delete/restore에는 `expectedVersions: {"요소 UUID": 현재 버전}`이 필요하다. 생성 요소 UUID는 클라이언트가 먼저 만든다. 기존 batch의 항목 수·본문 크기·미디어 검증 제한을 그대로 적용한다.
 
+테이스팅 표시 SHAPE는 페이지와 표시 키로 결정한 element ID를 사용한다. 같은 표시를 두 클라이언트가 동시에 `creates`로 보내 이미 활성 요소가 있으면, 서버는 타입·위치·크기·잠금/숨김·표시 메타데이터가 일치하고 `fill`만 다른 요청에 한해 해당 `create`를 현재 버전의 `update`로 바꿔 기록한다. 이 경우에도 요청한 회원의 독립 Undo 이력을 만든다. 표시 ID가 다른 요소에 이미 사용 중이거나 조건이 맞지 않으면 일반 ID 충돌로 거절하며 기존 요소를 덮어쓰지 않는다.
+
 응답은 `operationId`, 원래 작업의 `clientOperationId`, `status`, `revision`, `replayed`, 현재 페이지의 살아 있는 요소 목록 `items`다. Long 작업 ID는 문자열로 반환한다. 동일 페이지·사용자·clientOperationId와 동일 본문을 재전송하면 중복 저장하지 않는다. 본문이 다르면 409다. 재전송 응답의 `items`는 최초 응답 복사본이 아니라 **현재 서버 상태**다.
 
 취소·다시 실행은 이력 응답의 `nextUndo` 또는 `nextRedo`에서 operationId/revision을 읽고 다음처럼 요청한다.
