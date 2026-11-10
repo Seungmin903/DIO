@@ -476,7 +476,9 @@ test('구글로 로그인한 회원은 탈퇴에 성공한 뒤 구글 연결을 
  assert.equal(api.getSessionKey(),null);
  await new Promise(resolve=>setImmediate(resolve));
  // 탈퇴한 계정의 이메일을 넘겨 기기 SDK의 구글 계정이 그 계정일 때만 끊게 한다
- assert.deepEqual(revoked,[{email:user.email}]);assert.deepEqual(order,['delete','revoke']);
+ assert.equal(revoked.length,1);assert.equal(revoked[0].email,user.email);
+ assert.equal(revoked[0].isCancelled(),false,'아무도 그만두게 하지 않았으면 계속 진행');
+ assert.deepEqual(order,['delete','revoke']);
 });
 
 test('탈퇴 직후 바로 구글로 다시 로그인하면 진행 중인 연결 해제가 끝난 뒤에 구글 로그인을 시작한다', async () => {
@@ -496,22 +498,36 @@ test('탈퇴 직후 바로 구글로 다시 로그인하면 진행 중인 연결
  assert.deepEqual(order,['revoke start','revoke end','signIn']);
 });
 
-test('연결 해제가 멈춰도 다음 구글 로그인은 최대 대기 시간 뒤에 진행한다', async (t) => {
+test('연결 해제가 멈춰도 다음 구글 로그인은 최대 대기 시간 뒤에 진행하고, 그 해제는 그만두게 한다(같은 계정으로 다시 가입한 새 세션을 끊지 않게)', async (t) => {
  const { GOOGLE_REVOKE_WAIT_MS } = await import('../src/auth/authApi.js');
- let signIns=0;
+ let signIns=0, revoke=null;
  const api=createAuthApi({baseUrl:'http://localhost:8080/api',
   googleSignIn:async()=>{signIns++;return {idToken:'google-id-token',email:user.email};},
-  googleRevoke:()=>new Promise(()=>{}),
+  googleRevoke:account=>{revoke=account;return new Promise(()=>{});},
   fetchImpl:async url=>url.endsWith('/oauth/google')?response(tokens()):response(null,204)});
  await api.withdraw(await api.social('google'));
  await new Promise(resolve=>setImmediate(resolve));
+ assert.equal(revoke.isCancelled(),false);
  t.mock.timers.enable({ apis: ['setTimeout'] });
  const again=api.social('google');
  await Promise.resolve(); await Promise.resolve();
  assert.equal(signIns,1,'아직 기다리는 중');
+ assert.equal(revoke.isCancelled(),false,'기다리는 동안은 해제를 계속한다');
  t.mock.timers.tick(GOOGLE_REVOKE_WAIT_MS);
  await again;
  assert.equal(signIns,2);
+ assert.equal(revoke.isCancelled(),true,'대기 시간이 지나 로그인을 진행하면 멈춘 해제는 그만두게 한다');
+});
+
+test('해제가 시간 안에 끝났으면 그만두게 하지 않는다', async () => {
+ let revoke=null;
+ const api=createAuthApi({baseUrl:'http://localhost:8080/api',
+  googleSignIn:async()=>({idToken:'google-id-token',email:user.email}),
+  googleRevoke:async account=>{revoke=account;return true;},
+  fetchImpl:async url=>url.endsWith('/oauth/google')?response(tokens()):response(null,204)});
+ await api.withdraw(await api.social('google'));
+ await api.social('google');
+ assert.equal(revoke.isCancelled(),false);
 });
 
 test('구글 연결 해제가 실패하거나 끝나지 않아도 탈퇴는 완료되고 로그인 상태가 정리된다', async () => {

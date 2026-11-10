@@ -94,13 +94,17 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
   const SOCIAL_NAMES = { google: '구글', apple: '애플' };
   // 탈퇴 뒤 백그라운드로 도는 구글 연결 해제. 끝나기 전에 같은 기기에서 다시 구글로 로그인하면 진행 중인 revokeAccess · signOut 이
   // 새로 로그인한 SDK 계정에 실행될 수 있어, 구글 로그인은 이것이 끝나기를(최대 GOOGLE_REVOKE_WAIT_MS) 먼저 기다린다.
-  let googleRevoking = null;
+  // 그래도 끝나지 않으면 그 해제를 그만두게 한다(ticket.cancelled): 같은 구글 계정으로 다시 가입하는 경우 이메일로는 이전 · 새 세션을
+  // 구분할 수 없어, 늦게 풀린 해제가 새로 로그인한 계정을 끊지 않도록 revokeGoogleAccess 가 단계마다 확인하고 멈춘다.
+  let googleRevoking = null; // { job, ticket }
   const waitGoogleRevoke = async () => {
     const pending = googleRevoking;
     if (!pending) return;
-    let timer;
-    try { await Promise.race([pending, new Promise(resolve => { timer = setTimeout(resolve, GOOGLE_REVOKE_WAIT_MS); })]); }
-    finally { clearTimeout(timer); }
+    let timer, timedOut = false;
+    try {
+      await Promise.race([pending.job, new Promise(resolve => { timer = setTimeout(() => { timedOut = true; resolve(); }, GOOGLE_REVOKE_WAIT_MS); })]);
+    } finally { clearTimeout(timer); }
+    if (timedOut) pending.ticket.cancelled = true;
   };
   let session = null, draft = null, verification = null, revision = 0, refreshing = null, accessRefreshAt = 0, sessionSequence = 0;
   let restoringSession = null, storageWrites = Promise.resolve();
@@ -583,10 +587,11 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
           // 탈퇴한 계정의 이메일을 넘겨, 기기 SDK가 기억한 구글 계정이 그 계정일 때만 끊게 한다(다른 구글 계정의 연결은 그대로).
           // 탈퇴는 이미 끝났으므로 기다리지 않고, 실패해도 경고만 남긴다. 진행 중인 해제는 다음 구글 로그인이 기다린다(googleRevoking).
           if (current.provider === 'google' && typeof googleRevoke === 'function') {
-            const job = Promise.resolve().then(() => googleRevoke({ email: current.user?.email }))
+            const ticket = { cancelled: false };
+            const job = Promise.resolve().then(() => googleRevoke({ email: current.user?.email, isCancelled: () => ticket.cancelled }))
               .catch(error => console.warn('[auth] GOOGLE_REVOKE_FAILED', error?.code ?? ''))
-              .finally(() => { if (googleRevoking === job) googleRevoking = null; });
-            googleRevoking = job;
+              .finally(() => { if (googleRevoking?.job === job) googleRevoking = null; });
+            googleRevoking = { job, ticket };
           }
         }
       }

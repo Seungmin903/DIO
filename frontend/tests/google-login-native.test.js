@@ -121,3 +121,35 @@ test('탈퇴 뒤 연결 해제: 어느 계정인지 모르면(이메일 없음) 
   assert.deepEqual(calls,[]);
  }
 });
+
+test('탈퇴 뒤 연결 해제: 그만두게 했으면 단계마다 멈춘다(계정 되살린 뒤 · 끊기 직전 · SDK 계정 지우기 직전)',async()=>{
+ // 1) 시작하자마자 그만두게 됨 → SDK 계정을 건드리지 않는다
+ {const {revokeGoogleAccess,calls}=load({current:success.data});
+  assert.equal(await revokeGoogleAccess({...mine,isCancelled:()=>true}),false);
+  assert.equal(calls.includes('revokeAccess'),false);assert.equal(calls.includes('signInSilently'),false);}
+ // 2) 기억된 계정을 되살리는 동안 그만두게 됨(늦게 풀림) → 끊지 않는다
+ {let cancelled=false;
+  const {revokeGoogleAccess,calls}=load({current:null,previous:true,silent:async()=>{cancelled=true;return {type:'success',data:success.data};}});
+  assert.equal(await revokeGoogleAccess({...mine,isCancelled:()=>cancelled}),false);
+  assert.equal(calls.includes('revokeAccess'),false);}
+ // 3) revokeAccess 가 끝나는 사이 그만두게 됨(새 로그인 시작) → 새로 로그인한 SDK 계정을 지우지 않는다
+ {let cancelled=false;
+  const {revokeGoogleAccess,calls}=load({current:success.data,revoke:async()=>{cancelled=true;return null;}});
+  assert.equal(await revokeGoogleAccess({...mine,isCancelled:()=>cancelled}),true);
+  assert.equal(calls.includes('signOut'),false);}
+});
+
+test('탈퇴 뒤 연결 해제: 끊지 않고 건너뛴 이유를 개인정보 없이 경고로 남긴다',async()=>{
+ const cases=[
+  [{current:success.data},{email:''},'NO_EMAIL'],
+  [{current:null,previous:false},mine,'NO_ACCOUNT'],
+  [{current:{user:{email:'someone-else@example.com'}}},mine,'ACCOUNT_MISMATCH'],
+  [{current:success.data},{...mine,isCancelled:()=>true},'CANCELLED'],
+ ];
+ for(const [options,account,reason] of cases){
+  const {revokeGoogleAccess,warnings}=load(options);
+  assert.equal(await revokeGoogleAccess(account),false);
+  assert.deepEqual(warnings.at(-1),['[GoogleSignin] REVOKE_SKIPPED',reason]);
+  assert.equal(JSON.stringify(warnings).includes('@'),false,'이메일은 로그에 남기지 않는다');
+ }
+});
