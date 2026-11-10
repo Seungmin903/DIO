@@ -2,157 +2,57 @@ import { useRef } from 'react'
 import { StyleSheet, View } from 'react-native'
 import { colors } from '../../shared/theme'
 import { usePan } from '../hooks/usePan'
-import { finishRegionDrag, moveRegion, regionFromDrag, resizeRegion } from '../utils/regionGeometry.js'
-export default function RegionOverlay({
-  region,
-  onChange,
-  zoom,
-  pageSize,
-  ratio,
-  drawing,
-  panning = false,
-  onDrawEnd
-}) {
-  const drag = useRef(null),
-    previous = useRef(null),
-    draft = useRef(null)
-  const handlers = usePan({
-    disabled: !drawing || panning,
-    onStart: event => {
-      previous.current = region
-      draft.current = region
-      drag.current = {
-        x: event.locationX / zoom,
-        y: event.locationY / zoom
-      }
-    },
-    onMove: (dx, dy) => {
-      if (drag.current) {
-        draft.current = regionFromDrag(drag.current, {
-          x: drag.current.x + dx / zoom,
-          y: drag.current.y + dy / zoom
-        }, pageSize, ratio)
-        onChange(draft.current)
-      }
-    },
-    onEnd: ({
-      cancelled,
-      moved
-    }) => {
-      onChange(finishRegionDrag(previous.current, draft.current, {
-        cancelled,
-        moved,
-        page: pageSize,
-        ratio
-      }))
-      drag.current = null
-      onDrawEnd?.()
-    }
-  })
-  const r = {
-    x: region.x * zoom,
-    y: region.y * zoom,
-    width: region.width * zoom,
-    height: region.height * zoom
-  }
-  return <View testID="export-region-overlay" accessibilityLabel="내보내기 영역 선택판" pointerEvents={panning ? 'none' : 'auto'} style={StyleSheet.absoluteFill} {...handlers}>
-    <View pointerEvents="none" style={[styles.mask, {
-      left: 0,
-      top: 0,
-      right: 0,
-      height: r.y
-    }]} />
-    <View pointerEvents="none" style={[styles.mask, {
-      left: 0,
-      top: r.y + r.height,
-      right: 0,
-      bottom: 0
-    }]} />
-    <View pointerEvents="none" style={[styles.mask, {
-      left: 0,
-      top: r.y,
-      width: r.x,
-      height: r.height
-    }]} />
-    <View pointerEvents="none" style={[styles.mask, {
-      left: r.x + r.width,
-      top: r.y,
-      right: 0,
-      height: r.height
-    }]} />
-    {!drawing && <RegionMove region={region} zoom={zoom} pageSize={pageSize} onChange={onChange} />}
-    {!drawing && ['nw', 'ne', 'sw', 'se'].map(corner => <RegionHandle key={corner} corner={corner} region={region} zoom={zoom} pageSize={pageSize} ratio={ratio} onChange={onChange} />)}
+import { resizeRegion, validRegion } from '../utils/regionGeometry.js'
+
+const corners = { nw: '왼쪽 위', ne: '오른쪽 위', sw: '왼쪽 아래', se: '오른쪽 아래' }
+
+export default function RegionOverlay({ region, draft, zoom, pageSize, ratio, onDraft, onChange }) {
+  const selection = draft ?? region
+  const x = selection.x * zoom, y = selection.y * zoom
+  const width = selection.width * zoom, height = selection.height * zoom
+  return <View testID="export-region-overlay" accessibilityLabel="내보내기 영역 선택판" pointerEvents="box-none" style={StyleSheet.absoluteFill}>
+    <View pointerEvents="none" style={[styles.mask, { left: 0, top: 0, right: 0, height: y }]} />
+    <View pointerEvents="none" style={[styles.mask, { left: 0, top: y + height, right: 0, bottom: 0 }]} />
+    <View pointerEvents="none" style={[styles.mask, { left: 0, top: y, width: x, height }]} />
+    <View pointerEvents="none" style={[styles.mask, { left: x + width, top: y, right: 0, height }]} />
+    <View testID="export-region-frame" pointerEvents="none" style={[styles.frame, { left: x, top: y, width, height }]} />
+    {Object.keys(corners).map(corner => <RegionHandle key={corner} corner={corner} region={region} selection={selection}
+      zoom={zoom} pageSize={pageSize} ratio={ratio} onDraft={onDraft} onChange={onChange} />)}
   </View>
 }
-function RegionMove({
-  region,
-  zoom,
-  pageSize,
-  onChange
-}) {
-  const start = useRef(null)
+
+function RegionHandle({ corner, region, selection, zoom, pageSize, ratio, onDraft, onChange }) {
+  const drag = useRef(null)
   const pan = usePan({
-    onStart: () => {
-      start.current = region
+    onStart: () => { drag.current = { region, zoom, next: null } },
+    onMove: (dx, dy) => {
+      const start = drag.current
+      if (!start) return
+      start.next = resizeRegion(start.region, corner, dx / start.zoom, dy / start.zoom, pageSize, ratio)
+      onDraft(start.next)
     },
-    onMove: (dx, dy) => onChange(moveRegion(start.current, dx / zoom, dy / zoom, pageSize)),
-    onEnd: ({
-      cancelled
-    }) => {
-      if (cancelled) onChange(start.current)
-    }
-  })
-  return <View testID="export-region-move" accessibilityLabel="선택 영역 이동" {...pan} style={{
-    position: 'absolute',
-    left: region.x * zoom,
-    top: region.y * zoom,
-    width: region.width * zoom,
-    height: region.height * zoom,
-    borderWidth: 2,
-    borderColor: colors.primary
-  }} />
-}
-function RegionHandle({
-  corner,
-  region,
-  zoom,
-  pageSize,
-  ratio,
-  onChange
-}) {
-  const start = useRef(null)
-  const pan = usePan({
-    onStart: () => {
-      start.current = region
+    onEnd: ({ cancelled, moved }) => {
+      const start = drag.current
+      drag.current = null
+      if (!cancelled && moved && validRegion(start?.next, pageSize, ratio)) onChange(start.next)
+      else onDraft(null)
     },
-    onMove: (dx, dy) => onChange(resizeRegion(start.current, corner, dx / zoom, dy / zoom, pageSize, ratio)),
-    onEnd: ({
-      cancelled
-    }) => {
-      if (cancelled) onChange(start.current)
-    }
   })
-  return <View testID={`region-handle-${corner}`} accessibilityLabel={`${corner} 영역 크기 조절`} {...pan} style={{
-    position: 'absolute',
-    left: (region.x + (corner.includes('w') ? 0 : region.width)) * zoom - 22,
-    top: (region.y + (corner.includes('n') ? 0 : region.height)) * zoom - 22,
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center'
-  }}><View pointerEvents="none" style={styles.dot} /></View>
+  // 작은 선택에서는 인접 모서리의 터치 범위가 겹치지 않게 한다.
+  const width = Math.min(44, selection.width * zoom)
+  const height = Math.min(44, selection.height * zoom)
+  const size = Math.min(12, width, height)
+  return <View testID={`region-handle-${corner}`} accessibilityLabel={`${corners[corner]} 영역 크기 조절`} {...pan}
+    style={[styles.handle, {
+      left: (selection.x + (corner.includes('w') ? 0 : selection.width)) * zoom - width / 2,
+      top: (selection.y + (corner.includes('n') ? 0 : selection.height)) * zoom - height / 2,
+      width, height,
+    }]}><View pointerEvents="none" style={[styles.dot, { width: size, height: size }]} /></View>
 }
+
 const styles = StyleSheet.create({
-  mask: {
-    position: 'absolute',
-    backgroundColor: colors.overlay
-  },
-  dot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: colors.surface,
-    borderWidth: 2,
-    borderColor: colors.primary
-  }
+  mask: { position: 'absolute', backgroundColor: colors.overlay },
+  frame: { position: 'absolute', borderWidth: 2, borderColor: colors.primary },
+  handle: { position: 'absolute', alignItems: 'center', justifyContent: 'center' },
+  dot: { borderRadius: 6, backgroundColor: colors.surface, borderWidth: 2, borderColor: colors.primary },
 })
