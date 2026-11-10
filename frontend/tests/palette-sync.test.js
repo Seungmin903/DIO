@@ -131,3 +131,15 @@ test('받는 동안 사용자가 바꾼 칸은 덮지 않고 이어서 올린다
   assert.deepEqual(server.palettes.pen, ['#ABCDEF', '#222222', '#00FF00'])
   sync.stop()
 })
+
+test('서버에 저장하는 동안 사용자가 바꾼 칸도 덮지 않고 이어서 올린다', async () => {
+  const server = fakeServer()
+  const a = device(server); const sync = a.make(); await sync.start()
+  const realPut = server.api.put
+  // 첫 저장 응답을 기다리는 동안 다른 칸을 바꾼다
+  server.api.put = async (expected, palettes) => { server.api.put = realPut; const result = await realPut(expected, palettes); await a.stores.pen.replace(2, '#00FF00'); return result }
+  await a.stores.pen.replace(0, '#FF0000'); await sync.whenIdle()
+  assert.deepEqual(a.colors('pen'), ['#FF0000', '#222222', '#00FF00'])
+  assert.deepEqual(server.palettes.pen, ['#FF0000', '#222222', '#00FF00'])
+  sync.stop()
+})

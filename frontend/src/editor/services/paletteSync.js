@@ -53,10 +53,11 @@ export function createPaletteSync({ account, api, palettes, storage, key, isActi
     await palettes.load(); active()
     let server = await api.get(); active()
     const base = baseFor(local())
-    let merged
+    let merged, localNow
     for (let attempt = 0; ; attempt++) {
       const serverFull = fill(server.palettes)
-      merged = mergePalettes(base, local(), serverFull, scopes)
+      localNow = local() // 합칠 때 본 기기 값. 기기에 들일 때 이 값과 달라졌으면(그사이 사용자가 바꿈) 덮지 않는다
+      merged = mergePalettes(base, localNow, serverFull, scopes)
       if (stable(merged) === stable(serverFull)) break // 서버가 이미 같다(올릴 것 없음)
       try { server = await api.put(server.version, merged); active(); break }
       catch (error) {
@@ -65,14 +66,13 @@ export function createPaletteSync({ account, api, palettes, storage, key, isActi
       }
     }
     const synced = fill(server.palettes)
-    // 기기에 들인다. 그사이 사용자가 바꾼 도구는 덮지 않고(apply 가 false) 맞춘 상태도 기록하지 않은 채 다시 맞춘다
+    // 기기에 들인다. 합친 뒤(저장 응답을 기다리는 동안 포함) 사용자가 바꾼 도구는 덮지 않고(apply 가 false) 맞춘 상태도 기록하지 않은 채 다시 맞춘다
     let complete = true
     applying = true
     try {
       for (const scope of scopes) {
-        const current = palettes.snapshot(scope)
-        if (stable(current) === stable(synced[scope])) continue
-        if (!await palettes.apply(scope, current, synced[scope])) complete = false
+        if (stable(palettes.snapshot(scope)) === stable(synced[scope])) continue
+        if (!await palettes.apply(scope, localNow[scope], synced[scope])) complete = false
         active()
       }
     } finally { applying = false }
