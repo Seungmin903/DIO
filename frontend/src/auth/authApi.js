@@ -3,6 +3,9 @@ import { signupAgreements } from './signupPolicy.js';
 import { developmentAuthorization } from './developmentAccess.js';
 import { SESSION_EXPIRED_MESSAGE } from './sessionExpiry.js';
 
+// 탈퇴 뒤 구글 연결 해제가 끝나기를 다음 구글 로그인이 기다리는 최대 시간. 해제가 멈춰도 로그인은 막지 않는다
+export const GOOGLE_REVOKE_WAIT_MS = 5000;
+
 const authErrorMessages = new Map([
   ['INVALID_CREDENTIALS', '이메일 또는 비밀번호를 확인해 주세요.'],
   ['LOGIN_RATE_LIMITED', '로그인 시도가 너무 많아요. 15분 후 다시 시도해 주세요.'],
@@ -89,6 +92,16 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
   // 지원 제공자와 네이티브 로그인 함수. 화면 문구는 SOCIAL_NAMES를 쓴다.
   const socialSignIns = { google: googleSignIn, apple: appleSignIn };
   const SOCIAL_NAMES = { google: '구글', apple: '애플' };
+  // 탈퇴 뒤 백그라운드로 도는 구글 연결 해제. 끝나기 전에 같은 기기에서 다시 구글로 로그인하면 진행 중인 revokeAccess · signOut 이
+  // 새로 로그인한 SDK 계정에 실행될 수 있어, 구글 로그인은 이것이 끝나기를(최대 GOOGLE_REVOKE_WAIT_MS) 먼저 기다린다.
+  let googleRevoking = null;
+  const waitGoogleRevoke = async () => {
+    const pending = googleRevoking;
+    if (!pending) return;
+    let timer;
+    try { await Promise.race([pending, new Promise(resolve => { timer = setTimeout(resolve, GOOGLE_REVOKE_WAIT_MS); })]); }
+    finally { clearTimeout(timer); }
+  };
   let session = null, draft = null, verification = null, revision = 0, refreshing = null, accessRefreshAt = 0, sessionSequence = 0;
   let restoringSession = null, storageWrites = Promise.resolve();
   let expiredSessionKey = null;
@@ -567,9 +580,14 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
         if (withdrawn && session === current) {
           await endLocalSession();
           // 구글로 로그인한 회원은 DIO 탈퇴가 끝난 뒤 구글 쪽 앱 연결도 끊는다(구글 계정 설정 > 연결된 앱에서 DIO 제거).
-          // 탈퇴는 이미 끝났으므로 기다리지 않고, 실패해도 경고만 남긴다.
-          if (current.provider === 'google' && typeof googleRevoke === 'function')
-            Promise.resolve().then(googleRevoke).catch(error => console.warn('[auth] GOOGLE_REVOKE_FAILED', error?.code ?? ''));
+          // 탈퇴한 계정의 이메일을 넘겨, 기기 SDK가 기억한 구글 계정이 그 계정일 때만 끊게 한다(다른 구글 계정의 연결은 그대로).
+          // 탈퇴는 이미 끝났으므로 기다리지 않고, 실패해도 경고만 남긴다. 진행 중인 해제는 다음 구글 로그인이 기다린다(googleRevoking).
+          if (current.provider === 'google' && typeof googleRevoke === 'function') {
+            const job = Promise.resolve().then(() => googleRevoke({ email: current.user?.email }))
+              .catch(error => console.warn('[auth] GOOGLE_REVOKE_FAILED', error?.code ?? ''))
+              .finally(() => { if (googleRevoking === job) googleRevoking = null; });
+            googleRevoking = job;
+          }
         }
       }
     },
@@ -588,6 +606,7 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
       } else {
         const name = SOCIAL_NAMES[provider], signIn = socialSignIns[provider];
         if (!name || typeof signIn !== 'function') throw Object.assign(new Error('이 로그인 방식으로는 확인할 수 없어요.'), { code: 'REAUTH_UNAVAILABLE' });
+        if (provider === 'google') await waitGoogleRevoke();
         const credential = await signIn();
         if (!credential?.idToken) throw new Error(`${name} 인증 정보를 받지 못했어요.`);
         try { result = await request(`oauth/${provider}`, { idToken: credential.idToken }); }
@@ -605,6 +624,8 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
       if(!name)throw new Error('아직 준비 중인 로그인 방식이에요.');
       if(typeof signIn!=='function')throw new Error(`${name} 로그인 기능이 연결되지 않았어요.`);
       const attempt=++revision;socialDraft=null;
+      if(provider==='google')await waitGoogleRevoke();
+      if(attempt!==revision)throw new Error('로그인 요청이 취소되었어요.');
       const credential=await signIn();
       if(attempt!==revision)throw new Error('로그인 요청이 취소되었어요.');
       if(!credential?.idToken)throw new Error(`${name} 인증 정보를 받지 못했어요.`);

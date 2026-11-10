@@ -10,6 +10,8 @@ assert.ok(source.includes(SDK_IMPORT),'구글 SDK 동적 import 위치를 찾지
 const code=expo('@babel/core').transformSync(source.replace(SDK_IMPORT,"Promise.resolve(require('@react-native-google-signin/google-signin'))"),{configFile:false,babelrc:false,plugins:[expo.resolve('@babel/plugin-transform-modules-commonjs')]}).code;
 const statusCodes={SIGN_IN_CANCELLED:'SIGN_IN_CANCELLED',IN_PROGRESS:'IN_PROGRESS',PLAY_SERVICES_NOT_AVAILABLE:'PLAY_SERVICES_NOT_AVAILABLE'};
 const success={type:'success',data:{idToken:'google-id-token',user:{email:'user@example.com'}}};
+// 탈퇴한 DIO 계정(이 계정의 구글 연결만 끊는다). 대소문자 · 앞뒤 공백은 무시한다
+const mine={email:' User@Example.com '};
 
 function load({previous=false,signOut=async()=>null,signIn=async()=>success,current=null,silent=async()=>({type:'success',data:success.data}),revoke=async()=>null,appOwnership=null}={}){
  const calls=[], warnings=[];
@@ -70,14 +72,14 @@ test('취소는 오류 코드 없이 취소 안내로 바꾼다',async()=>{
 
 test('탈퇴 뒤 연결 해제: SDK에 로그인한 계정이 있으면 바로 revokeAccess 후 signOut한다',async()=>{
  const {revokeGoogleAccess,calls}=load({current:success.data});
- assert.equal(await revokeGoogleAccess(),true);
+ assert.equal(await revokeGoogleAccess(mine),true);
  assert.equal(calls.includes('signInSilently'),false);
  assert.ok(calls.indexOf('revokeAccess')>=0 && calls.indexOf('revokeAccess')<calls.indexOf('signOut'));
 });
 
 test('탈퇴 뒤 연결 해제: 앱을 다시 켜 SDK 계정이 비었으면 기억된 계정을 창 없이 되살려 끊는다',async()=>{
  const {revokeGoogleAccess,calls}=load({current:null,previous:true});
- assert.equal(await revokeGoogleAccess(),true);
+ assert.equal(await revokeGoogleAccess(mine),true);
  assert.ok(calls.indexOf('signInSilently')<calls.indexOf('revokeAccess'));
  assert.equal(calls.includes('signIn'),false);
 });
@@ -85,19 +87,37 @@ test('탈퇴 뒤 연결 해제: 앱을 다시 켜 SDK 계정이 비었으면 기
 test('탈퇴 뒤 연결 해제: 이 기기에 구글 로그인 기록이 없거나 되살리지 못하면 아무것도 끊지 않는다',async()=>{
  for(const options of [{previous:false},{previous:true,silent:async()=>({type:'noSavedCredentialFound',data:null})}]){
   const {revokeGoogleAccess,calls}=load(options);
-  assert.equal(await revokeGoogleAccess(),false);
+  assert.equal(await revokeGoogleAccess(mine),false);
   assert.equal(calls.includes('revokeAccess'),false);
   assert.equal(calls.includes('signIn'),false);
  }
 });
 
 test('탈퇴 뒤 연결 해제: revokeAccess 실패는 그대로 던지고, 끊은 뒤 signOut 실패는 무시한다',async()=>{
- await assert.rejects(load({current:success.data,revoke:failWith('NETWORK_ERROR')}).revokeGoogleAccess(),{code:'NETWORK_ERROR'});
- assert.equal(await load({current:success.data,signOut:failWith('SIGN_OUT_FAILED')}).revokeGoogleAccess(),true);
+ await assert.rejects(load({current:success.data,revoke:failWith('NETWORK_ERROR')}).revokeGoogleAccess(mine),{code:'NETWORK_ERROR'});
+ assert.equal(await load({current:success.data,signOut:failWith('SIGN_OUT_FAILED')}).revokeGoogleAccess(mine),true);
 });
 
 test('탈퇴 뒤 연결 해제: Expo Go에서는 SDK를 부르지 않는다',async()=>{
  const {revokeGoogleAccess,calls}=load({current:success.data,appOwnership:'expo'});
- assert.equal(await revokeGoogleAccess(),false);
+ assert.equal(await revokeGoogleAccess(mine),false);
  assert.deepEqual(calls,[]);
+});
+
+test('탈퇴 뒤 연결 해제: SDK가 기억한 구글 계정이 탈퇴한 계정과 다르면 끊지 않는다(같은 기기의 다른 구글 계정 연결 보호)',async()=>{
+ const other={idToken:'other-token',user:{email:'someone-else@example.com'}};
+ for(const options of [{current:other},{current:null,previous:true,silent:async()=>({type:'success',data:other})}]){
+  const {revokeGoogleAccess,calls}=load(options);
+  assert.equal(await revokeGoogleAccess(mine),false);
+  assert.equal(calls.includes('revokeAccess'),false);
+  assert.equal(calls.includes('signOut'),false);
+ }
+});
+
+test('탈퇴 뒤 연결 해제: 어느 계정인지 모르면(이메일 없음) SDK를 부르지도 않는다',async()=>{
+ for(const account of [undefined,{},{email:''},{email:'   '}]){
+  const {revokeGoogleAccess,calls}=load({current:success.data});
+  assert.equal(await revokeGoogleAccess(account),false);
+  assert.deepEqual(calls,[]);
+ }
 });

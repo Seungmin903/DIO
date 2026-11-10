@@ -38,15 +38,22 @@ export async function signInWithGoogle(){
 }
 // 회원 탈퇴 뒤 구글 쪽 앱 연결을 끊는다(구글 계정 설정 > 연결된 앱에서 DIO가 사라진다). 서버는 구글 토큰을 저장하지 않아 기기 SDK로 끊는다.
 // 이 기기에서 구글로 로그인한 계정만 끊을 수 있다: SDK에 계정이 없으면 기억된 계정을 창 없이 되살리고, 기록이 없으면 아무것도 하지 않는다.
+// SDK가 기억한 계정이 탈퇴한 계정(email)과 같을 때만 끊는다. 이 기기에서 다른 구글 계정으로도 로그인했었다면 그 계정의 DIO 연결을 끊지 않게.
+// 어느 계정인지 모르거나(email 없음) 다르면 아무것도 하지 않는다.
 // 끊었으면 true, 끊을 계정이 없으면 false. 실패는 그대로 던진다(부르는 쪽이 경고만 남긴다).
-export async function revokeGoogleAccess(){
+const sameEmail=(a,b)=>typeof a==='string'&&typeof b==='string'&&a.trim()!==''&&a.trim().toLowerCase()===b.trim().toLowerCase();
+export async function revokeGoogleAccess({email}={}){
  if(Constants.appOwnership==='expo')return false;
+ if(typeof email!=='string'||!email.trim())return false;
  const {GoogleSignin}=await loadSdk();
- if(!GoogleSignin.getCurrentUser()){
+ let account=GoogleSignin.getCurrentUser();
+ if(!account){
   if(!GoogleSignin.hasPreviousSignIn())return false;
   const restored=await GoogleSignin.signInSilently();
   if(restored?.type!=='success')return false;
+  account=restored.data;
  }
+ if(!sameEmail(account?.user?.email,email))return false;
  await GoogleSignin.revokeAccess();
  // 다음 로그인에서 계정 선택 창이 뜨도록 SDK에 남은 계정도 지운다(끊은 뒤라 실패해도 무방)
  try{await GoogleSignin.signOut();}catch{}

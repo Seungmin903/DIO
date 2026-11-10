@@ -467,15 +467,51 @@ test('애플 회원 탈퇴는 애플 재확인 후 authorizationCode를 보내�
 });
 
 test('구글로 로그인한 회원은 탈퇴에 성공한 뒤 구글 연결을 해제한다', async () => {
- const order=[];let revoked=0;
+ const order=[];const revoked=[];
  const api=createAuthApi({baseUrl:'http://localhost:8080/api',googleSignIn:async()=>({idToken:'google-id-token',email:user.email}),
-  googleRevoke:async()=>{revoked++;order.push('revoke');},
+  googleRevoke:async account=>{revoked.push(account);order.push('revoke');},
   fetchImpl:async(url,init)=>{if(init.method==='DELETE')order.push('delete');return url.endsWith('/oauth/google')?response(tokens()):response(null,204);}});
  const loggedIn=await api.social('google');
  await api.withdraw(loggedIn);
  assert.equal(api.getSessionKey(),null);
  await new Promise(resolve=>setImmediate(resolve));
- assert.equal(revoked,1);assert.deepEqual(order,['delete','revoke']);
+ // 탈퇴한 계정의 이메일을 넘겨 기기 SDK의 구글 계정이 그 계정일 때만 끊게 한다
+ assert.deepEqual(revoked,[{email:user.email}]);assert.deepEqual(order,['delete','revoke']);
+});
+
+test('탈퇴 직후 바로 구글로 다시 로그인하면 진행 중인 연결 해제가 끝난 뒤에 구글 로그인을 시작한다', async () => {
+ const order=[];let finishRevoke;
+ const api=createAuthApi({baseUrl:'http://localhost:8080/api',
+  googleSignIn:async()=>{order.push('signIn');return {idToken:'google-id-token',email:user.email};},
+  googleRevoke:()=>{order.push('revoke start');return new Promise(resolve=>{finishRevoke=()=>{order.push('revoke end');resolve(true);};});},
+  fetchImpl:async url=>url.endsWith('/oauth/google')?response(tokens()):response(null,204)});
+ await api.withdraw(await api.social('google'));
+ await new Promise(resolve=>setImmediate(resolve));
+ order.length=0; order.push('revoke start');
+ const again=api.social('google');
+ await new Promise(resolve=>setImmediate(resolve));
+ assert.deepEqual(order,['revoke start'],'해제가 끝나기 전에는 구글 로그인 창을 열지 않는다');
+ finishRevoke();
+ await again;
+ assert.deepEqual(order,['revoke start','revoke end','signIn']);
+});
+
+test('연결 해제가 멈춰도 다음 구글 로그인은 최대 대기 시간 뒤에 진행한다', async (t) => {
+ const { GOOGLE_REVOKE_WAIT_MS } = await import('../src/auth/authApi.js');
+ let signIns=0;
+ const api=createAuthApi({baseUrl:'http://localhost:8080/api',
+  googleSignIn:async()=>{signIns++;return {idToken:'google-id-token',email:user.email};},
+  googleRevoke:()=>new Promise(()=>{}),
+  fetchImpl:async url=>url.endsWith('/oauth/google')?response(tokens()):response(null,204)});
+ await api.withdraw(await api.social('google'));
+ await new Promise(resolve=>setImmediate(resolve));
+ t.mock.timers.enable({ apis: ['setTimeout'] });
+ const again=api.social('google');
+ await Promise.resolve(); await Promise.resolve();
+ assert.equal(signIns,1,'아직 기다리는 중');
+ t.mock.timers.tick(GOOGLE_REVOKE_WAIT_MS);
+ await again;
+ assert.equal(signIns,2);
 });
 
 test('구글 연결 해제가 실패하거나 끝나지 않아도 탈퇴는 완료되고 로그인 상태가 정리된다', async () => {
