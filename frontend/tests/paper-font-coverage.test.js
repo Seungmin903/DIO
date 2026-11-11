@@ -1,13 +1,13 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { readFileSync, readdirSync } from 'node:fs'
+import { readFileSync, readdirSync, existsSync } from 'node:fs'
 import { join } from 'node:path'
-import MARU from '../src/editor/templates/paperFonts/maruburi.js'
+import MARU from '../scripts/paperMetrics/maruburi.js'
 import { PAPER_RUNTIME_CHARS } from '../src/editor/templates/paperRuntimeChars.js'
 
 // 속지의 인쇄 글자는 원본(마루부리) 글자 윤곽(path)이다. 속지 설정에서 다른 글꼴을 고르면
 // paperFont.js 가 그 묶음을 **진짜 글꼴로 쓴 <text>** 로 바꾸는데, 그러려면 묶음이 차지한 폭과
-// 굵기를 알아야 한다. SVG 에는 적혀 있지 않아 원본 글꼴 확인표(paperFonts/maruburi.js)에서 읽는다.
+// 굵기를 알아야 한다. SVG 에는 적혀 있지 않아 **속지에 구워 넣는다**(scripts/bake-paper-metrics.mjs).
 //
 // 확인표에 없는 글자가 섞인 묶음은 **손대지 않아 그 묶음만 원본 글꼴로 남는다** — 화면에는 글꼴이
 // 섞여 보이지만 오류는 나지 않아 조용히 지나간다. 2026-11-11 실측으로 43글자가 그랬다(표를 만드는
@@ -36,7 +36,7 @@ function paperChars() {
   return [...chars].sort()
 }
 
-const HOWTO = '→ frontend 에서 `python scripts/generate-paper-fonts.py` 를 다시 돌리고 바뀐 paperFonts/maruburi.js 를 함께 커밋하세요.'
+const HOWTO = '→ frontend 에서 `python scripts/generate-paper-fonts.py` 를 다시 돌리고 바뀐 scripts/paperMetrics/maruburi.js 와 속지를 함께 커밋하세요.'
 
 test('속지에 인쇄된 글자가 모두 원본 글꼴 확인표에 있다 — 없으면 글꼴을 바꿔도 그 묶음만 원본으로 남는다', () => {
   const chars = paperChars()
@@ -61,7 +61,11 @@ test('확인표를 만드는 스크립트가 속지 SVG 전부와 실행 중 글
   assert.match(script, /RUNTIME_CHARS/, '실행 중에 찍는 글자도 넣어야 한다')
 })
 
-test('글꼴마다 떠 두던 글자 윤곽 표는 더 이상 없다 — 글꼴을 더해도 표를 뽑을 일이 없다', () => {
-  const left = readdirSync(new URL('../src/editor/templates/paperFonts/', import.meta.url))
-  assert.deepEqual(left, ['maruburi.js'], `남은 표: ${left.join(', ')} — 원본 확인표 하나만 있어야 한다`)
+test('앱에는 글꼴 표가 하나도 없다 — 치수는 속지가 들고 다닌다', () => {
+  // 글꼴마다 떠 두던 윤곽 표(1.87MB)도, 원본 글꼴 확인표도 앱에서 쓰지 않는다.
+  // 확인표는 속지에 치수를 구워 넣을 때만 쓰는 빌드 전용 자료라 scripts/ 아래에 둔다.
+  assert.equal(existsSync(new URL('../src/editor/templates/paperFonts/', import.meta.url)), false, 'src 에 글꼴 표 폴더가 남아 있다')
+  assert.ok(existsSync(new URL('../scripts/paperMetrics/maruburi.js', import.meta.url)), '빌드용 확인표가 있어야 한다')
+  const source = readFileSync(new URL('../src/editor/templates/paperFont.js', import.meta.url), 'utf8')
+  assert.doesNotMatch(source, /paperFonts|paperMetrics/, '앱이 글꼴 표를 읽으면 안 된다')
 })

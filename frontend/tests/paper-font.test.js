@@ -8,7 +8,6 @@ import { colorTemplateXml, normalizePaperAppearance } from '../src/editor/templa
 import { PAPER_FONTS, DEFAULT_PAPER_FONT, isPaperFontId, paperPrintsText, swapPaperFont, readGroup, paperFontIdsToLoad } from '../src/editor/templates/paperFont.js'
 import { paperFontFamily, textFromGroup } from '../src/editor/templates/paperTextFont.js'
 import { TEXT_FONTS } from '../src/editor/utils/text.js'
-import MARU from '../src/editor/templates/paperFonts/maruburi.js'
 import { datedSvg } from '../src/editor/templates/dated.js'
 import { plannerBaseSvg } from '../src/editor/templates/studyPlanner.js'
 import { dayPlannerBaseSvg } from '../src/editor/templates/dayPlanner.js'
@@ -100,21 +99,17 @@ test('차지하는 폭(textLength)이 원본과 같다 — 글꼴이 달라도 �
   }
 })
 
-test('뒤에 붙은 공백은 폭에 넣지 않는다 — textLength 는 보이는 글자의 폭이다', () => {
-  const [d] = SAMPLES.daily.match(/<path d="([^"]*)"/)[1] ? [SAMPLES.daily.match(/<path d="([^"]*)"/)[1]] : []
-  const group = outlineGroups(SAMPLES.daily)[0]
-  const s = group.s, x = 40
-  const path = (ch, at) => `<path d="${MARU[ch] ? 'M0 0L1 1' : ''}" transform="translate(${at} 100) scale(${s} ${-s})"/>`
-  void d; void path
-  // 실제 묶음으로 본다: 뒤 공백이 있는 묶음과 없는 묶음의 폭이 글자 폭만으로 결정된다
-  for (const one of outlineGroups(SAMPLES.monthly)) {
-    const label = one.text.join('')
-    if (!/ $/.test(label)) continue
-    const out = textFromGroup(one, 'gowun-dodum')
-    assert.equal(out.match(/>([^<]*)<\/tspan>/)[1], label.trim(), '뒤 공백은 쓰지 않는다')
-    assert.ok(Number(out.match(/textLength="([\d.]+)"/)[1]) <= one.end - one.x + 0.001)
+test('앞뒤에 붙은 공백은 쓰지도 폭에 넣지도 않는다 — textLength 는 보이는 글자의 폭이다', () => {
+  // 속지가 적어 주는 치수(data-adv)는 **보이는 글자**의 폭이다(plannerDraw.write 등이 그렇게 센다).
+  // 쓰는 글자도 앞뒤 공백을 뺀 것이어야 둘이 맞는다.
+  const base = outlineGroups(SAMPLES.daily)[0]
+  for (const label of [' 가운데 ', '가운데 ', ' 가운데']) {
+    const out = textFromGroup({ ...base, text: [...label] }, 'gowun-dodum')
+    assert.equal(out.match(/>([^<]*)<\/tspan>/)[1], '가운데', label)
+    assert.equal(Number(out.match(/textLength="([\d.]+)"/)[1]), Number((base.end - base.x).toFixed(3)), label)
   }
-  void x
+  // 공백뿐인 묶음은 그릴 것이 없다
+  assert.equal(textFromGroup({ ...base, text: [' ', ' '] }, 'gowun-dodum'), null)
 })
 
 test('Bold 가 없는 글꼴은 덧선으로 굵게 만들고, 있는 글꼴은 Bold 글꼴 이름을 쓴다', () => {

@@ -288,7 +288,8 @@ test('PNG · PDF 내보내기 속지에도 칠한 칸이 들어간다', async ()
   const page = { id: 'p1', backgroundAssetId: studyPlannerId('portrait'), templateVersion: '1.0.0', canvasWidth: 768, canvasHeight: 1024, objects: [], planner }
   const prepared = await prepareExportSnapshot(createExportSnapshot(page), null, () => { throw new Error('파일 속지를 읽으면 안 된다') })
   assert.match(prepared.backgroundXml, /fill="#FFE066"/)
-  assert.match(prepared.backgroundXml, /aria-label="1"><path[^]*?aria-label="시간 "><path[^]*?aria-label="00"><path[^]*?aria-label="분">/)
+  // 묶음에 치수(data-adv) 같은 속성이 더 붙어도 되게 이름표만 본다
+  assert.match(prepared.backgroundXml, /aria-label="1"[^>]*><path[^]*?aria-label="시간 "[^>]*><path[^]*?aria-label="00"[^>]*><path[^]*?aria-label="분"/)
   prepared.dispose()
 })
 

@@ -134,7 +134,8 @@ test('값 줄에 손으로 쓰면 그 자리에는 자동 값을 찍지 않는�
 test('덮개는 속지 글꼴을 따라 바뀌고, 내보내기는 바탕 파일 안에 끼워 넣는다', async () => {
   const value = inkRecordValue(PORTRAIT, [stroke([inBottle(layoutOf(PORTRAIT).cells[0])], { penKind: 'glass', color: '#3a6ea5' })])
   const svg = inkRecordOverlaySvg(PORTRAIT, value)
-  assert.match(svg, /<g fill="#292929" aria-label="[0-9A-F]{6}">/)
+  // 글자 윤곽 묶음 + 글꼴 교체에 쓰는 치수(data-adv)
+  assert.match(svg, /<g fill="#292929" aria-label="[0-9A-F]{6}" data-adv="[\d.]+">/)
   assert.notEqual(swapPaperFont(svg, 'nanum-pen'), svg, '속지 글꼴을 바꾸면 HEX 글자도 바뀐다')
   // 빈 장이면 값이 없고, 덮개도 비어 있다
   assert.equal(inkRecordValue(PORTRAIT, []), null)
