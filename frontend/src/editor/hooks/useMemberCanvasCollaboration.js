@@ -24,11 +24,12 @@ import { setPdfSourceFetcher } from '../services/pdfSourceRemote.js'
 // PDF 쪽 바탕(원본 PDF 를 올리기 전)이 아직 서버에 없는 쪽인지
 const needsPdfSeed=page=>(page.objects??[]).some(o=>o.backdrop&&o.pdfSource&&!o.pdfSource.mediaFileId)
 
-export function useMemberCanvasCollaboration({diary,page,state,loaded,readOnly,dispatch,onMembersChanged=()=>{},onCollaborationStateChange=()=>{}}){
+export function useMemberCanvasCollaboration({diary,page,state,loaded,readOnly,dispatch,onMembersChanged=()=>{},onCollaborationStateChange=()=>{},onAlbumRelocated=()=>{}}){
   const enabled=diary?.source==='member-api'&&!readOnly
   const latest=useRef({page,state});latest.current={page,state}
   const membersChanged=useRef(onMembersChanged);membersChanged.current=onMembersChanged
   const collaborationStateChange=useRef(onCollaborationStateChange);collaborationStateChange.current=onCollaborationStateChange
+  const albumRelocated=useRef(onAlbumRelocated);albumRelocated.current=onAlbumRelocated
   const runtime=useRef(null)
   const [view,setView]=useState({status:null,history:null,busy:false,pageId:null})
   // 지금 이 다이어리를 연 회원 id(서버 PRESENCE). 서버가 아직 보내지 않았거나 연결이 끊기면 null(모름)
@@ -225,8 +226,9 @@ export function useMemberCanvasCollaboration({diary,page,state,loaded,readOnly,d
         r.flushAcks()
         if(imported)dispatch({type:result.direction?'collaborationHistoryApplied':'importCollaborationElements',direction:result.direction,
             historyClientOperationId:result.historyClientOperationId,pageId,expectedElements:result.expectedLocal,objects:result.objects,idRemaps:result.idRemaps})
+        if(result.albumRelocated && current.id===pageId)albumRelocated.current()
         if(current.id===pageId&&active())setView(v=>{
-          const next={...v,status:result.rejectedCount?'error':'saved',errorMessage:result.rejectedCount?'서버가 거절한 편집은 기기에 보관했어요. 나머지 편집은 동기화했어요.':null,history:result.history,pageId}
+          const next={...v,status:result.rejectedCount?'error':'saved',errorMessage:result.albumFull?'사진 칸이 모두 차서 추가하지 못했어요. 빈 칸을 만든 뒤 사진을 다시 선택해 주세요. 기존 편집은 기기에 보관돼요.':result.rejectedCount?'서버가 거절한 편집은 기기에 보관했어요. 나머지 편집은 동기화했어요.':null,history:result.history,pageId}
           // 바뀐 것이 없으면 같은 상태를 돌려줘 편집 화면을 다시 그리지 않는다
           return v.status===next.status&&v.errorMessage===next.errorMessage&&v.pageId===pageId&&JSON.stringify(v.history)===JSON.stringify(next.history)?v:next
         })

@@ -235,6 +235,15 @@ test('원격 속지로 회원 다이어리를 만들면 서버 요청에 remoteT
   assert.equal(calls[0].body.templateConfig.remoteTemplate, 'spring-note')
   assert.equal(page.backgroundAssetId, 'remote-spring-note-landscape')
   assert.equal(decodeServerPage({ page: (await transport({ body: calls[0].body })).page, elements: [] }, diaryId).backgroundAssetId, 'remote-spring-note-landscape')
+
+  const albumPage = await createServerPage({ transport, diaryId, backgroundAssetId: 'remote-photo-album-portrait', storage, key: 'pending-album', createId: () => '44444444-4444-4444-8444-444444444444' })
+  const albumRequest = calls.find(request => request.body?.templateConfig?.remoteTemplate === 'photo-album')
+  assert.ok(albumRequest)
+  assert.equal(albumRequest.body.templateConfig.remoteTemplate, 'photo-album')
+  assert.equal(albumPage.backgroundAssetId, 'remote-photo-album-portrait')
+  const albumResponse = { pageId, diaryId, templateId: 7, title: null, sortKey: 1, canvasWidth: albumRequest.body.canvasWidth, canvasHeight: albumRequest.body.canvasHeight,
+    gridVisible: false, gridColor: null, version: 1, templateCode: albumRequest.body.templateConfig.templateCode, templateVersion: albumRequest.body.templateConfig.templateVersion, templateConfig: albumRequest.body.templateConfig }
+  assert.equal(decodeServerPage({ page: albumResponse, elements: [] }, diaryId).backgroundAssetId, 'remote-photo-album-portrait')
 })
 
 test('업로드 안전장치: 이미 공개한 글꼴 · 스티커 팩 · 속지가 새 목록에서 빠지면 알린다(숨김은 통과)', async () => {

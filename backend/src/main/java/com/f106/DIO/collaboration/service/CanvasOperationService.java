@@ -74,6 +74,7 @@ public class CanvasOperationService {
         var current=snapshots.capture(page,ids);
         for(var e:expected.entrySet())if(!codec.same(e.getValue(),current.get(e.getKey())))throw CollaborationException.conflict();
         var desired=codec.states((undo?codec.read(row.getBeforeStateJson()):after).path("elements"));
+        canvas.ensureAlbumHistorySlots(page,desired);
         snapshots.restore(page,desired,current);
         after.set("expected",codec.tree(snapshots.capture(page,ids)));int revision=request.expectedRevision()+1;
         after.put("revision",revision);after.put("lastCommandId",request.clientOperationId().toString());after.put("lastCommandHash",hash);

@@ -16,3 +16,9 @@ export function discardUnusedPhotoImports(images,used,discard) {
   const unused=images.filter(image=>!image.serverStored&&!used.includes(image))
   return unused.length?discard(unused):Promise.resolve()
 }
+
+// 최근 사진 기록이 실패해도 이미 추가한 캔버스 사진은 유지한다.
+export function addPhotoAndRecordRecent(image, add, markRecent) {
+  add()
+  try { markRecent?.([image]) } catch { /* 최근 목록은 사진 저장과 독립적이다. */ }
+}

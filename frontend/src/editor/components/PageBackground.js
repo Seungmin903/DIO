@@ -13,6 +13,8 @@ import { swapPaperFont } from '../templates/paperFont.js'
 import { useTextFont } from '../hooks/useTextFont'
 import { colors } from '../../shared/theme'
 import { KeepFont } from '../../shared/fontScope'
+import { omitFilledAlbumBordersAst } from '../templates/photoAlbumAst.js'
+import { visibleAlbumSlotIndices } from '../templates/photoAlbumSlots.js'
 
 // 속지 · 특수 속지 · 캔버스 요소는 정해진 글꼴을 그대로 쓴다(앱 UI 글꼴 Pretendard 를 넣지 않는다). 가짜 모듈인 테스트에서는 Fragment 로 그린다
 const Keep = KeepFont ?? Fragment
@@ -101,7 +103,8 @@ function BackgroundAttempt({ page, zoom, preparedXml, onReady, onError, onRetry,
   const shiftedBase = useMemo(() => !plannerApi || startHour === 6 ? null : parse(swapPaperFont(plannerApi.baseSvg(startHour), appearance.font)), [plannerApi, preparedXml, startHour, appearance.font])
   const plannerAst = useMemo(() => !plannerApi || !(planner || (titleKey && titleKey !== '{}')) ? null : parse(swapPaperFont(plannerApi.overlaySvg(planner, page.objects), appearance.font)), [plannerApi, preparedXml, plannerKey, titleKey, appearance.font]) // eslint-disable-line react-hooks/exhaustive-deps
   const baseAst = shiftedBase ?? shown?.ast
-  const styledAst = useMemo(() => baseAst ? colorTemplateAst(baseAst, appearance, { transparentPaper }) : null, [baseAst, appearance.backgroundColor, appearance.layoutColor, transparentPaper])
+  const filledAlbumKey = visibleAlbumSlotIndices(page).join(',')
+  const styledAst = useMemo(() => baseAst ? omitFilledAlbumBordersAst(colorTemplateAst(baseAst, appearance, { transparentPaper }), page) : null, [baseAst, appearance.backgroundColor, appearance.layoutColor, transparentPaper, filledAlbumKey])
   const styledPlanner = useMemo(() => plannerAst ? colorTemplateAst(plannerAst, appearance) : null, [plannerAst, appearance.backgroundColor, appearance.layoutColor])
   if (page.backgroundAssetId == null) return <View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: appearance.backgroundColor }]}>{guideUnderlay}</View>
   return <View style={[StyleSheet.absoluteFill, { backgroundColor: appearance.backgroundColor }]} pointerEvents="box-none">
