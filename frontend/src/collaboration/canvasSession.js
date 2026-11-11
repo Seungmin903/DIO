@@ -256,7 +256,14 @@ export function createCanvasSession({api,storage,key,legacyKey,pageId,diaryId,cr
         // 서버 요소도 그대로고 보낼 것도 없으면 화면에 돌려줄 변화가 없다(주기 대조가 매번 미리보기를 만들고 편집 화면과 대조하지 않게)
         let changed=setBase(remote)||journal.queue.length>0||Boolean(journal.control)
         if(changed)await persist()
-        let direction=null,historyClientOperationId=null,rejectedCount=0
+        let direction=null,historyClientOperationId=null,rejectedCount=0,albumRelocated=false
+        const detectAlbumRelocation=(request,result)=>{
+          for(const create of request?.changes?.creates??[]){
+            const slot=create.propertiesJson?.albumSlot
+            const saved=result.items?.find(item=>item.elementId===create.elementId)
+            if(Number.isInteger(slot)&&Number.isInteger(saved?.propertiesJson?.albumSlot)&&slot!==saved.propertiesJson.albumSlot)albumRelocated=true
+          }
+        }
         if(journal.control){const pending=journal.control;direction=pending.direction
           try{const result=await api.control(pageId,pending.direction,pending.request);active();historyClientOperationId=result.clientOperationId;journal.control=null;await accept(result)}
           catch(error){if(error.status===409||permanentRejection(error)){journal.rejectedControls=[...(journal.rejectedControls??[]),copy(pending)];journal.control=null;await persist()}throw error}
@@ -281,12 +288,12 @@ export function createCanvasSession({api,storage,key,legacyKey,pageId,diaryId,cr
               const part=entry.parts[entry.partIndex]
               assertCanvasBatchLimits(part.changes,part.expectedVersions)
               const prepared=api.prepare?await api.prepare(part):part;active()
-              const result=await apply(pageId,prepared);active();setBase(result.items,true)
+              const result=await apply(pageId,prepared);active();detectAlbumRelocation(prepared,result);setBase(result.items,true)
               entry.partIndex+=1;await persist()
             }
           }else if(entry.request){
             assertCanvasBatchLimits(entry.request.changes,entry.request.expectedVersions)
-            const result=await apply(pageId,entry.request);active();setBase(result.items,true)
+            const result=await apply(pageId,entry.request);active();detectAlbumRelocation(entry.request,result);setBase(result.items,true)
           }
           }catch(error){
               if(error.code==='CANVAS_CREATE_ID_CONFLICT'){
@@ -323,7 +330,7 @@ export function createCanvasSession({api,storage,key,legacyKey,pageId,diaryId,cr
         const history=scoped(await api.history(pageId));active()
         // rejectedCount 는 이번 동기화에서 거절된 편집 수다. 기기에 보관한 거절 전체(keptRejectedCount)로 상태를 정하면
         // 한 번 거절된 뒤로는 모든 편집이 저장돼도 '저장 안 됨'이 풀리지 않았다(보관 목록을 비우는 화면이 없다)
-        return syncResult({history,direction,historyClientOperationId,rejectedCount,keptRejectedCount:(journal.rejectedEdits??[]).length,unchanged:!changed})
+        return syncResult({history,direction,historyClientOperationId,albumRelocated,albumFull:rejectedCount>0&&(journal.rejectedEdits??[]).at(-1)?.code==='PHOTO_ALBUM_FULL',rejectedCount,keptRejectedCount:(journal.rejectedEdits??[]).length,unchanged:!changed})
       })().finally(()=>{running=null})
       return running
     },

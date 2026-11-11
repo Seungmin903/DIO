@@ -36,7 +36,7 @@ class CanvasCollaborationTests {
     @Autowired org.springframework.context.ApplicationEventPublisher events;
     @Autowired MockMvc mvc;@Autowired ObjectMapper json;@Autowired UserRepository users;@Autowired EmailAuthProviderRepository accounts;
     @Autowired EmailLoginService login;@Autowired DiaryRepository diaries;@Autowired DiaryMemberRepository members;
-    @Autowired DiaryPageRepository pages;@Autowired JdbcTemplate jdbc;
+    @Autowired DiaryPageRepository pages;@Autowired com.f106.DIO.page.repository.CanvasElementRepository elements;@Autowired JdbcTemplate jdbc;
     record Actor(long id,String token){}
     Actor actor(){String key=UUID.randomUUID().toString();var user=users.saveAndFlush(new User(key+"@example.com","편집"+key.substring(0,12),Instant.now()));
         accounts.saveAndFlush(new EmailAuthProvider(user.getUserId(),user.getEmail(),new BCryptPasswordEncoder(4).encode("DioMember123!"),Instant.now()));
@@ -45,6 +45,7 @@ class CanvasCollaborationTests {
     UUID page(UUID diary){return pages.saveAndFlush(new DiaryPage(diary,null,null,"페이지",BigDecimal.ONE,new BigDecimal("100"),new BigDecimal("100"),false,"#FFFFFF")).getPageId();}
     void join(UUID diary,Actor actor){members.saveAndFlush(new DiaryMember(diary,actor.id(),"EDITOR","#ABCDEF",Instant.now()));}
     Map<String,Object> text(UUID id,String value){return Map.of("elementId",id,"elementType","TEXT","x",1,"y",2,"width",30,"height",20,"propertiesJson",Map.of("text",value));}
+    Map<String,Object> albumPhoto(UUID id){return Map.of("elementId",id,"elementType","PHOTO","x",40,"y",120,"width",335,"height",232.7,"propertiesJson",Map.of("albumSlot",0,"frame","none"));}
     JsonNode postJson(UUID page,Actor actor,String path,Object body,int expected)throws Exception{
         var result=mvc.perform(post("/api/v1/pages/"+page+path).header("Authorization","Bearer "+actor.token()).contentType("application/json").content(json.writeValueAsString(body)))
             .andExpect(status().is(expected)).andReturn().getResponse();return result.getContentAsString().isBlank()?json.nullNode():json.readTree(result.getContentAsString());}
@@ -53,6 +54,153 @@ class CanvasCollaborationTests {
     JsonNode update(UUID page,Actor actor,UUID element,String value,long version)throws Exception{return apply(page,actor,UUID.randomUUID(),Map.of("updates",List.of(Map.of("elementId",element,"version",version,"propertiesJson",Map.of("text",value)))));}
     JsonNode history(UUID page,Actor actor)throws Exception{return json.readTree(mvc.perform(get("/api/v1/pages/"+page+"/history/me").header("Authorization","Bearer "+actor.token())).andExpect(status().isOk()).andReturn().getResponse().getContentAsString());}
     Map<String,Object> command(JsonNode item,UUID client){return Map.of("operationId",item.path("operationId").asText(),"expectedRevision",item.path("revision").asInt(),"clientOperationId",client);}
+    @Test void concurrentAlbumPhotosUseDifferentSlotsAndEachMemberCanUndo() throws Exception {
+        var owner=actor();var editor=actor();UUID book=diary(owner);join(book,editor);
+        UUID album=pages.saveAndFlush(new DiaryPage(book,null,"{\"remoteTemplate\":\"photo-album\"}","앨범",BigDecimal.ONE,new BigDecimal("768"),new BigDecimal("1024"),false,"#FFFFFF")).getPageId();
+        byte[] png=Base64.getDecoder().decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aZ1cAAAAASUVORK5CYII=");
+        var file=new org.springframework.mock.web.MockMultipartFile("file","album.png","image/png",png);
+        String ownerMedia=json.readTree(mvc.perform(multipart("/api/v1/media").file(file).header("Authorization","Bearer "+owner.token())).andExpect(status().isCreated()).andReturn().getResponse().getContentAsString()).path("mediaFileId").asText();
+        String editorMedia=json.readTree(mvc.perform(multipart("/api/v1/media").file(file).header("Authorization","Bearer "+editor.token())).andExpect(status().isCreated()).andReturn().getResponse().getContentAsString()).path("mediaFileId").asText();
+        UUID first=UUID.randomUUID(),second=UUID.randomUUID(),ownerOp=UUID.randomUUID(),editorOp=UUID.randomUUID();
+        var firstPhoto=new HashMap<String,Object>(albumPhoto(first));firstPhoto.put("mediaFileId",ownerMedia);
+        var secondPhoto=new HashMap<String,Object>(albumPhoto(second));secondPhoto.put("mediaFileId",editorMedia);
+        var gate=new java.util.concurrent.CountDownLatch(1);
+        var pool=java.util.concurrent.Executors.newFixedThreadPool(2);
+        try {
+            var a=pool.submit(()->{gate.await();return apply(album,owner,ownerOp,Map.of("creates",List.of(firstPhoto)));});
+            var b=pool.submit(()->{gate.await();return apply(album,editor,editorOp,Map.of("creates",List.of(secondPhoto)));});
+            gate.countDown();a.get(30,java.util.concurrent.TimeUnit.SECONDS);b.get(30,java.util.concurrent.TimeUnit.SECONDS);
+            var rows=json.readTree(mvc.perform(get("/api/v1/pages/"+album+"/elements").header("Authorization","Bearer "+owner.token())).andExpect(status().isOk()).andReturn().getResponse().getContentAsString()).path("items");
+            assertThat(rows).hasSize(2);
+            assertThat(List.of(rows.get(0).path("propertiesJson").path("albumSlot").asInt(),rows.get(1).path("propertiesJson").path("albumSlot").asInt())).containsExactlyInAnyOrder(0,1);
+            assertThat(apply(album,owner,ownerOp,Map.of("creates",List.of(firstPhoto))).path("replayed").asBoolean()).isTrue();
+            postJson(album,owner,"/undo",command(history(album,owner).path("nextUndo"),UUID.randomUUID()),200);
+            postJson(album,editor,"/undo",command(history(album,editor).path("nextUndo"),UUID.randomUUID()),200);
+            assertThat(jdbc.queryForObject("select count(*) from canvas_elements where page_id=? and deleted_at is null",Integer.class,album)).isZero();
+            postJson(album,owner,"/redo",command(history(album,owner).path("nextRedo"),UUID.randomUUID()),200);
+            postJson(album,editor,"/redo",command(history(album,editor).path("nextRedo"),UUID.randomUUID()),200);
+            assertThat(jdbc.queryForObject("select count(*) from canvas_elements where page_id=? and deleted_at is null",Integer.class,album)).isEqualTo(2);
+        } finally {pool.shutdownNow();}
+    }
+    @Test void fullAlbumRejectsNextPhotoWithoutOverwritingAndUnrelatedPaperIsUnchanged() throws Exception {
+        var owner=actor();UUID book=diary(owner);
+        UUID album=pages.saveAndFlush(new DiaryPage(book,null,"{\"remoteTemplate\":\"photo-album\"}","앨범",BigDecimal.ONE,new BigDecimal("768"),new BigDecimal("1024"),false,"#FFFFFF")).getPageId();
+        for(int i=0;i<6;i++) apply(album,owner,UUID.randomUUID(),Map.of("creates",List.of(albumPhoto(UUID.randomUUID()))));
+        var rejected=postJson(album,owner,"/canvas-operations",Map.of("clientOperationId",UUID.randomUUID(),"changes",Map.of("creates",List.of(albumPhoto(UUID.randomUUID())))),422);
+        assertThat(rejected.path("code").asText()).isEqualTo("PHOTO_ALBUM_FULL");
+        mvc.perform(post("/api/v1/pages/"+album+"/elements").header("Authorization","Bearer "+owner.token()).contentType("application/json").content(json.writeValueAsString(albumPhoto(UUID.randomUUID())))).andExpect(status().isUnprocessableEntity());
+        assertThat(jdbc.queryForObject("select count(*) from canvas_elements where page_id=? and deleted_at is null",Integer.class,album)).isEqualTo(6);
+        UUID other=page(book);apply(other,owner,UUID.randomUUID(),Map.of("creates",List.of(albumPhoto(UUID.randomUUID()))));
+        apply(other,owner,UUID.randomUUID(),Map.of("creates",List.of(albumPhoto(UUID.randomUUID()))));
+        assertThat(jdbc.queryForObject("select count(*) from canvas_elements where page_id=? and deleted_at is null",Integer.class,other)).isEqualTo(2);
+    }
+    @Test void albumBatchDeleteCreateUsesFreedSlotAndRestoreRejectsConflict() throws Exception {
+        var owner=actor();UUID book=diary(owner);
+        UUID album=pages.saveAndFlush(new DiaryPage(book,null,"{\"remoteTemplate\":\"photo-album\"}","앨범",BigDecimal.ONE,new BigDecimal("768"),new BigDecimal("1024"),false,"#FFFFFF")).getPageId();
+        UUID first=UUID.randomUUID();apply(album,owner,UUID.randomUUID(),Map.of("creates",List.of(albumPhoto(first))));
+        for(int i=1;i<6;i++) apply(album,owner,UUID.randomUUID(),Map.of("creates",List.of(albumPhoto(UUID.randomUUID()))));
+        UUID replacement=UUID.randomUUID();
+        var result=postJson(album,owner,"/canvas-operations",Map.of("clientOperationId",UUID.randomUUID(),"changes",Map.of("deleteElementIds",List.of(first),"creates",List.of(albumPhoto(replacement))),"expectedVersions",Map.of(first,1)),200).path("items");
+        assertThat(result).hasSize(6);
+        assertThat(result.findValues("albumSlot").stream().filter(n->n.asInt()==0)).hasSize(1);
+        postJson(album,owner,"/elements/"+first+"/restore",Map.of(),409);
+        postJson(album,owner,"/elements/batch",Map.of("restoreElementIds",List.of(first)),409);
+        assertThat(jdbc.queryForObject("select count(*) from canvas_elements where page_id=? and deleted_at is null",Integer.class,album)).isEqualTo(6);
+        var swap=postJson(album,owner,"/elements/batch",Map.of("deleteElementIds",List.of(replacement),"restoreElementIds",List.of(first)),200).path("items");
+        assertThat(swap).hasSize(6);
+    }
+    @Test void batchCreateKeepsPreBatchLayerOrderAfterTopLayerDeletion() throws Exception {
+        var owner=actor();UUID page=page(diary(owner)), bottom=UUID.randomUUID(), top=UUID.randomUUID(), added=UUID.randomUUID();
+        create(page,owner,bottom,"bottom");create(page,owner,top,"top");
+        var result=postJson(page,owner,"/canvas-operations",Map.of("clientOperationId",UUID.randomUUID(),"changes",Map.of("deleteElementIds",List.of(top),"creates",List.of(text(added,"new"))),"expectedVersions",Map.of(top,1)),200).path("items");
+        assertThat(result).hasSize(2);
+        assertThat(result.get(1).path("elementId").asText()).isEqualTo(added.toString());
+        assertThat(result.get(1).path("sortKey").asDouble()).isEqualTo(3.0);
+    }
+    @Test void batchRejectsRepeatedElementIdButAllowsMixedChangesAndGroupIdentifier() throws Exception {
+        var owner=actor(); UUID page=page(diary(owner)), existing=UUID.randomUUID(), added=UUID.randomUUID(), group=UUID.randomUUID();
+        create(page,owner,existing,"before");
+        var created=new HashMap<String,Object>(text(added,"new")); created.put("groupId",group);
+        var updated=Map.of("elementId",existing,"version",1,"groupId",group,"propertiesJson",Map.of("text","after"));
+        var items=postJson(page,owner,"/elements/batch",Map.of("creates",List.of(created),"updates",List.of(updated)),200).path("items");
+        assertThat(items).hasSize(2);
+        for(var item:items) assertThat(item.path("groupId").asText()).isEqualTo(group.toString());
+        UUID repeated=UUID.randomUUID();
+        postJson(page,owner,"/elements/batch",Map.of("creates",List.of(text(repeated,"new")),"updates",List.of(Map.of("elementId",repeated,"version",1))),400);
+        postJson(page,owner,"/elements/batch",Map.of("creates",List.of(text(repeated,"new")),"deleteElementIds",List.of(repeated)),400);
+        assertThat(jdbc.queryForObject("select count(*) from canvas_elements where element_id=?",Integer.class,repeated)).isZero();
+    }
+    @Test void landscapeAlbumCollisionUsesNextLandscapeSlot() throws Exception {
+        var owner=actor();UUID book=diary(owner);
+        UUID album=pages.saveAndFlush(new DiaryPage(book,null,"{\"remoteTemplate\":\"photo-album\"}","앨범",BigDecimal.ONE,new BigDecimal("1024"),new BigDecimal("768"),false,"#FFFFFF")).getPageId();
+        var first=new HashMap<String,Object>(albumPhoto(UUID.randomUUID()));first.put("width",302.7);first.put("height",251);
+        var second=new HashMap<String,Object>(first);second.put("elementId",UUID.randomUUID());
+        apply(album,owner,UUID.randomUUID(),Map.of("creates",List.of(first)));
+        var result=apply(album,owner,UUID.randomUUID(),Map.of("creates",List.of(second))).path("items");
+        assertThat(result).hasSize(2);
+        assertThat(result.get(1).path("propertiesJson").path("albumSlot").asInt()).isEqualTo(1);
+        assertThat(result.get(1).path("x").asDouble()).isEqualTo(360.7);
+        assertThat(result.get(1).path("y").asDouble()).isEqualTo(120);
+    }
+    @Test void albumUpdatesCannotMovePhotosIntoAnOccupiedSlotButCanMoveIntoAnEmptySlot() throws Exception {
+        var owner=actor();UUID book=diary(owner);
+        UUID album=pages.saveAndFlush(new DiaryPage(book,null,"{\"remoteTemplate\":\"photo-album\"}","앨범",BigDecimal.ONE,new BigDecimal("768"),new BigDecimal("1024"),false,"#FFFFFF")).getPageId();
+        var first=apply(album,owner,UUID.randomUUID(),Map.of("creates",List.of(albumPhoto(UUID.randomUUID())))).path("items").get(0);
+        var secondRequest=new HashMap<String,Object>(albumPhoto(UUID.randomUUID()));
+        var second=apply(album,owner,UUID.randomUUID(),Map.of("creates",List.of(secondRequest))).path("items").get(1);
+        UUID firstId=UUID.fromString(first.path("elementId").asText()),secondId=UUID.fromString(second.path("elementId").asText());
+        long version=second.path("version").asLong();
+        var collision=Map.of("elementId",secondId,"version",version,"x",40,"y",120,"propertiesJson",Map.of("albumSlot",0,"frame","none"));
+        postJson(album,owner,"/elements/batch",Map.of("updates",List.of(collision)),409);
+        assertThat(mvc.perform(patch("/api/v1/pages/"+album+"/elements/"+secondId).header("Authorization","Bearer "+owner.token()).contentType("application/json").content(json.writeValueAsString(Map.of("version",version,"x",40,"y",120,"propertiesJson",Map.of("albumSlot",0,"frame","none")))))
+            .andExpect(status().isConflict()).andReturn().getResponse().getStatus()).isEqualTo(409);
+        var moved=postJson(album,owner,"/elements/batch",Map.of("updates",List.of(Map.of("elementId",secondId,"version",version,"x",40,"y",705.3,"propertiesJson",Map.of("albumSlot",4,"frame","none")))),200);
+        var rows=moved.path("items");
+        assertThat(rows).anySatisfy(row->{assertThat(row.path("elementId").asText()).isEqualTo(secondId.toString());assertThat(row.path("propertiesJson").path("albumSlot").asInt()).isEqualTo(4);});
+        assertThat(rows).anySatisfy(row->{assertThat(row.path("elementId").asText()).isEqualTo(firstId.toString());assertThat(row.path("propertiesJson").path("albumSlot").asInt()).isEqualTo(0);});
+    }
+    @Test void correctingMismatchedAlbumSlotCannotOccupyAnotherPhotosSlot() throws Exception {
+        var owner=actor();UUID book=diary(owner);
+        UUID album=pages.saveAndFlush(new DiaryPage(book,null,"{\"remoteTemplate\":\"photo-album\"}","앨범",BigDecimal.ONE,new BigDecimal("768"),new BigDecimal("1024"),false,"#FFFFFF")).getPageId();
+        UUID firstId=UUID.randomUUID(),secondId=UUID.randomUUID();
+        apply(album,owner,UUID.randomUUID(),Map.of("creates",List.of(albumPhoto(firstId),albumPhoto(secondId))));
+        var second=elements.findByElementIdAndPageIdAndDeletedAtIsNull(secondId,album).orElseThrow();
+        second.update(null,null,null,new BigDecimal("40"),new BigDecimal("120"),new BigDecimal("335"),new BigDecimal("232.7"),BigDecimal.ZERO,null,null,null,null,"{\"albumSlot\":4,\"frame\":\"none\"}");
+        elements.saveAndFlush(second);
+        long version=second.getVersion();
+        var properties=Map.of("albumSlot",0,"frame","none");
+        postJson(album,owner,"/elements/batch",Map.of("updates",List.of(Map.of("elementId",secondId,"version",version,"propertiesJson",properties))),409);
+        mvc.perform(patch("/api/v1/pages/"+album+"/elements/"+secondId).header("Authorization","Bearer "+owner.token()).contentType("application/json").content(json.writeValueAsString(Map.of("version",version,"propertiesJson",properties)))).andExpect(status().isConflict());
+        var unchanged=elements.findByElementIdAndPageIdAndDeletedAtIsNull(secondId,album).orElseThrow();
+        assertThat(json.readTree(unchanged.getPropertiesJson()).path("albumSlot").asInt()).isEqualTo(4);
+    }
+    @Test void legacyDuplicatePhotoCanBeEditedWithoutChangingItsSlotAndMovedOutToRecover() throws Exception {
+        var owner=actor();UUID book=diary(owner);
+        UUID album=pages.saveAndFlush(new DiaryPage(book,null,"{\"remoteTemplate\":\"photo-album\"}","앨범",BigDecimal.ONE,new BigDecimal("768"),new BigDecimal("1024"),false,"#FFFFFF")).getPageId();
+        UUID firstId=UUID.randomUUID(),secondId=UUID.randomUUID();
+        apply(album,owner,UUID.randomUUID(),Map.of("creates",List.of(albumPhoto(firstId),albumPhoto(secondId))));
+        var second=elements.findByElementIdAndPageIdAndDeletedAtIsNull(secondId,album).orElseThrow();
+        second.update(null,null,null,new BigDecimal("40"),new BigDecimal("120"),new BigDecimal("335"),new BigDecimal("232.7"),BigDecimal.ZERO,null,null,null,null,"{\"albumSlot\":0,\"frame\":\"none\"}");
+        elements.saveAndFlush(second); // simulate older/corrupt data that already contains an occupied-slot duplicate
+
+        long version=elements.findByElementIdAndPageIdAndDeletedAtIsNull(secondId,album).orElseThrow().getVersion();
+        var cropOnly=Map.of("elementId",secondId,"version",version,"propertiesJson",Map.of("albumSlot",0,"frame","none","crop",Map.of("fx",0.4,"fy",0.5,"zoom",1.5)));
+        var edited=postJson(album,owner,"/elements/batch",Map.of("updates",List.of(cropOnly)),200).path("items");
+        assertThat(edited).anySatisfy(row->{assertThat(row.path("elementId").asText()).isEqualTo(secondId.toString());assertThat(row.path("propertiesJson").path("crop").path("zoom").asDouble()).isEqualTo(1.5);});
+
+        var current=elements.findByElementIdAndPageIdAndDeletedAtIsNull(secondId,album).orElseThrow();
+        var moved=postJson(album,owner,"/elements/batch",Map.of("updates",List.of(Map.of("elementId",secondId,"version",current.getVersion(),"x",40,"y",705.3,"propertiesJson",Map.of("albumSlot",4,"frame","none")))),200).path("items");
+        assertThat(moved).anySatisfy(row->{assertThat(row.path("elementId").asText()).isEqualTo(secondId.toString());assertThat(row.path("propertiesJson").path("albumSlot").asInt()).isEqualTo(4);});
+    }
+    @Test void redoCannotRestorePhotoIntoSlotTakenByAnotherMember() throws Exception {
+        var owner=actor();var editor=actor();UUID book=diary(owner);join(book,editor);
+        UUID album=pages.saveAndFlush(new DiaryPage(book,null,"{\"remoteTemplate\":\"photo-album\"}","앨범",BigDecimal.ONE,new BigDecimal("768"),new BigDecimal("1024"),false,"#FFFFFF")).getPageId();
+        apply(album,owner,UUID.randomUUID(),Map.of("creates",List.of(albumPhoto(UUID.randomUUID()))));
+        postJson(album,owner,"/undo",command(history(album,owner).path("nextUndo"),UUID.randomUUID()),200);
+        apply(album,editor,UUID.randomUUID(),Map.of("creates",List.of(albumPhoto(UUID.randomUUID()))));
+        postJson(album,owner,"/redo",command(history(album,owner).path("nextRedo"),UUID.randomUUID()),409);
+        assertThat(jdbc.queryForObject("select count(*) from canvas_elements where page_id=? and deleted_at is null",Integer.class,album)).isEqualTo(1);
+    }
     @Test void hiddenNestedReferencesCannotPinAnotherUsersPrivateFile()throws Exception{
         var owner=actor();var attacker=actor();UUID page=page(diary(attacker));
         byte[] png=Base64.getDecoder().decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aZ1cAAAAASUVORK5CYII=");

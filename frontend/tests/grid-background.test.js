@@ -50,6 +50,8 @@ function fixture({ error = null, cached = true } = {}) {
     if (id.endsWith('/catalog.js')) return { templateReference: page => page.backgroundAssetId ? { backgroundAssetId: page.backgroundAssetId } : null }
     if (id.endsWith('/loadTemplate')) return { peekTemplateAst: () => cache.cached ? ast : null, loadTemplateAst: () => new Promise(() => {}) }
     if (id.endsWith('/appearance.js')) return { colorTemplateAst, normalizePaperAppearance: a => ({ backgroundColor: a?.backgroundColor ?? '#FFFFFF', layoutColor: '#292929' }) }
+    if (id.endsWith('/photoAlbumAst.js')) return { omitFilledAlbumBordersAst: ast => ast }
+    if (id.endsWith('/photoAlbumSlots.js')) return { visibleAlbumSlotIndices: () => [] }
     if (id.endsWith('/pageGeometry.js')) return { pageSize: () => ({ width: 1024, height: 768 }) }
     if (id.endsWith('/shared/theme')) return { colors: {} }
     if (id.endsWith('/fontScope')) return { KeepFont: 'keep-font' } // 속지는 정해진 글꼴 구역 안에서 그린다
