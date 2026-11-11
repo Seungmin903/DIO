@@ -7,3 +7,7 @@ export const DEVICE_TOGGLES_ENABLED = false;
 // 알림 설정(회원)의 서비스 알림 구역: 서버 설정에 연결되지 않음
 export const SERVICE_SECTION_ENABLED = false;
 export const NOTIFICATION_SETTINGS_TITLE = SERVICE_SECTION_ENABLED ? '알림 설정' : '마케팅 수신 설정';
+// 나만의 폰트 만들기(손글씨 → AI 폰트 생성): v2.0.0 에서는 DM-Font 모델(ONNX)을 앱에서 빼서 새로 만들 수 없다.
+// 이미 만든 폰트 · 공유받은 폰트는 그대로 쓴다. 다시 켜려면 모델 두 개(encoder/decoder.fp32.onnx)의 git 추적 · .easignore 예외,
+// eas.json 의 DIO_REQUIRE_IOS_HANDWRITING, dio-handwriting build.gradle 의 preDebugBuild 모델 검사를 함께 되돌린다.
+export const HANDWRITING_FONT_CREATION_ENABLED = false;

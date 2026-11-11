@@ -25,7 +25,7 @@ import { refreshPersonalFonts } from '../../handwriting/library';
 import { fontWorkflow } from '../../handwriting/manager';
 import { listStatus } from '../../handwriting/workflow';
 import { AI_FONT_LABEL, isAiHandwritingFont } from '../../handwriting/aiDisclosure';
-import { CUTOUT_ENTRANCE } from '../../shared/featureFlags';
+import { CUTOUT_ENTRANCE, HANDWRITING_FONT_CREATION_ENABLED } from '../../shared/featureFlags';
 import { loadedFontFamily } from '../../editor/utils/text';
 import { FOLDER_NAME_LIMIT, useCustomDecor } from '../../editor/hooks/useCustomDecor';
 import { stickerSplit } from '../../editor/services/stickerSplit';
@@ -234,7 +234,7 @@ export default function DecorationStudioScreen({ compact = false, registerBackHa
     </View>;
 
   const fontSection = <StudioSection fill={fontReady && !fontTotal} title="폰트" count={fontReady ? count({ length: fontTotal }) : null}
-    right={addTool({ kind: 'font', icon: 'text', title: '폰트 추가', description: '손글씨를 나만의 글꼴로', onPress: () => loginGate('내 폰트 만들기', () => openFontStudio({ create: true })) })}>
+    right={HANDWRITING_FONT_CREATION_ENABLED ? addTool({ kind: 'font', icon: 'text', title: '폰트 추가', description: '손글씨를 나만의 글꼴로', onPress: () => loginGate('내 폰트 만들기', () => openFontStudio({ create: true })) }) : null}>
     {shelfError === 'font' && <Text accessibilityRole="alert" style={s.error}>폰트를 지우지 못했어요. 다시 시도해 주세요.</Text>}
     {/* 손글씨 공방 상태를 못 읽으면(loaded 가 오지 않음) 불러오는 중에 갇히지 않게 오류와 다시 불러오기를 보인다 */}
     {fontState === 'error' || (!made.loaded && made.error) ? <View accessibilityRole="alert" style={s.alert}><Text style={s.empty}>폰트 목록을 불러오지 못했어요.</Text><DioButton variant="tonal" label="폰트 목록 다시 불러오기" onPress={() => { if (!made.loaded) fontWorkflow.init().catch(() => {}); refreshFonts(); }} /></View>
@@ -244,12 +244,13 @@ export default function DecorationStudioScreen({ compact = false, registerBackHa
         {entries.map(entry => {
           const status = listStatus(entries, entry);
           return <View key={entry.id} style={[s.fontRow, s.fontRowLine, compact && s.fontRowCompact]}>
-            <Pressable accessibilityRole="button" accessibilityLabel={`${entry.name} ${status}`} onPress={() => loginGate('내 폰트 만들기', () => openFontStudio({ open: entry.id }))} style={s.fontOpen}>
+            {/* 폰트 만들기를 끈 빌드에서는 공방을 열 수 없으니 누를 수 없는 줄로 보인다 */}
+            <Pressable accessibilityRole={HANDWRITING_FONT_CREATION_ENABLED ? 'button' : 'text'} accessibilityLabel={`${entry.name} ${status}`} disabled={!HANDWRITING_FONT_CREATION_ENABLED} onPress={() => loginGate('내 폰트 만들기', () => openFontStudio({ open: entry.id }))} style={s.fontOpen}>
               <Text style={s.itemTitle}>{entry.name}</Text>
               {entry.status === 'ready' && (entry.jobId || isAiHandwritingFont(fonts.find(font => font.id === entry.fontId))) ? <Text style={s.description}>{AI_FONT_LABEL}</Text> : null}
               {entry.status === 'ready' ? fontPreview(fonts.find(font => font.id === entry.fontId)) : <Text style={s.description}>{status}</Text>}
             </Pressable>
-            {entry.status === 'draft' ? <DioButton variant="icon" icon="trash" label={`${entry.name} 삭제`} onPress={() => setQuestion({ draft: entry })} /> : <AppIcon name="chevron-right" size={20} color={colors.textMuted} />}
+            {entry.status === 'draft' ? <DioButton variant="icon" icon="trash" label={`${entry.name} 삭제`} onPress={() => setQuestion({ draft: entry })} /> : HANDWRITING_FONT_CREATION_ENABLED ? <AppIcon name="chevron-right" size={20} color={colors.textMuted} /> : null}
           </View>;
         })}
         {loose.map(font => <View key={font.id} style={[s.fontRow, compact && s.fontRowCompact]}>

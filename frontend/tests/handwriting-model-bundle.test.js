@@ -2,6 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { MODEL_VERSION, PREPROCESS_VERSION } from '../src/handwriting/protocol.js'
+import { HANDWRITING_FONT_CREATION_ENABLED } from '../src/shared/featureFlags.js'
 
 const read = path => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8')
 const manifest = JSON.parse(read('modules/dio-handwriting/android/src/main/assets/dio_handwriting/manifest.json'))
@@ -29,7 +30,7 @@ test('JS·Android·iOS·변환기·준비 스크립트는 같은 모델 버전�
   assert.deepEqual(manifest.input_contract.decoder.skips, [1, 3, 128, 32, 32])
 })
 
-test('iOS Expo 모듈과 세 EAS 프로필이 같은 모델 리소스를 포함한다', () => {
+test('폰트 만들기를 켜면 iOS Expo 모듈과 세 EAS 프로필이 같은 모델 리소스를 포함한다', { skip: !HANDWRITING_FONT_CREATION_ENABLED && '폰트 만들기 꺼짐(shared/featureFlags.js)' }, () => {
   const config = JSON.parse(read('modules/dio-handwriting/expo-module.config.json'))
   const app = JSON.parse(read('app.json'))
   const eas = JSON.parse(read('eas.json'))
@@ -44,6 +45,14 @@ test('iOS Expo 모듈과 세 EAS 프로필이 같은 모델 리소스를 포함�
   for (const file of ['encoder.fp32.onnx', 'decoder.fp32.onnx']) {
     assert(read('.easignore').includes(`!modules/dio-handwriting/android/src/main/assets/dio_handwriting/${file}`))
   }
+})
+
+test('폰트 만들기를 끄면 모델 없이 빌드되게 EAS · iOS · Android 모델 필수 검사를 모두 끈다', { skip: HANDWRITING_FONT_CREATION_ENABLED && '폰트 만들기 켜짐' }, () => {
+  const eas = JSON.parse(read('eas.json'))
+  for (const profile of ['development', 'preview', 'production']) assert.equal(eas.build[profile].env.DIO_REQUIRE_IOS_HANDWRITING, undefined)
+  const rootIgnore = readFileSync(new URL('../../.easignore', import.meta.url), 'utf8')
+  for (const ignore of [read('.easignore'), rootIgnore, read('.gitignore')]) assert(!/^!.*.onnx$/m.test(ignore))
+  assert(!/dependsOn verifyDebugHandwritingModels/.test(read('modules/dio-handwriting/android/build.gradle')))
 })
 
 test('모델 번들은 개인 입력·절대 경로 없이 검증 결과와 추론 소스 출처만 포함한다', () => {

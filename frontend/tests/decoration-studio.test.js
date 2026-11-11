@@ -15,7 +15,7 @@ const stickerAction = (ui, text) => {
   find(ui.render(), '스티커 추가').props.onPress()
   return nodes(ui.render()).find(n => n.type === '../components/DiaryActionBubble').props.actions.find(action => action.text === text)
 }
-function fixture({ supported = false, failFonts = false, family = null, failRemove = false, libraryReady = true, entries = [], cutout = true, platform = 'web', pickerCalls = [], pickedImage = null, discarded = [], tapeSync = { error: null, pending: false, retry() {} }, paletteSync = { error: null, pending: false, retry() {} } } = {}) {
+function fixture({ fontCreation = true, supported = false, failFonts = false, family = null, failRemove = false, libraryReady = true, entries = [], cutout = true, platform = 'web', pickerCalls = [], pickedImage = null, discarded = [], tapeSync = { error: null, pending: false, retry() {} }, paletteSync = { error: null, pending: false, retry() {} } } = {}) {
   const states = [], refs = [], deps = [], cleanups = [], saves = [], removals = []
   let si, ri, ei, studio = null, fontLoads = 0, backHandler = null
   const opened = [], draftRemovals = []
@@ -38,7 +38,7 @@ function fixture({ supported = false, failFonts = false, family = null, failRemo
   const load = id => {
     if (id === 'react') return react
     if (id.endsWith('/aiDisclosure')) return { AI_FONT_LABEL: 'AI 생성 글꼴', isAiHandwritingFont: () => false }
-    if (id.endsWith('/featureFlags')) return { CUTOUT_ENTRANCE: cutout }
+    if (id.endsWith('/featureFlags')) return { CUTOUT_ENTRANCE: cutout, HANDWRITING_FONT_CREATION_ENABLED: fontCreation }
     if (id.endsWith('/tapeLibrarySyncStatus.js')) return { useTapeLibrarySyncStatus: () => tapeSync }
     if (id.endsWith('/paletteSyncStatus.js')) return { usePaletteSyncStatus: () => paletteSync }
     if (id.endsWith('/useMyLibrary')) return { __esModule: true, default: () => library }
@@ -216,6 +216,19 @@ test('공방 폰트 목록은 만들던 · 생성 중인 폰트도 보여 주고
   assert.equal(find(tree,'내 글씨 3 생성 완료').props.accessibilityRole,'button');
   running.props.onPress();
   assert.deepEqual(ui.opened,[{open:'e2'}]);
+  ui.unmount();
+});
+test('폰트 만들기를 끄면 폰트 추가 버튼이 없고 목록 항목을 눌러도 공방을 열지 않는다(만든 폰트 미리보기 · 작성 중 삭제는 유지)', async () => {
+  const entries=[{id:'e1',name:'내 글씨 1',status:'draft'},{id:'e2',name:'내 글씨 2',status:'processing'},{id:'e3',name:'내 글씨 3',status:'ready',fontId:'font'}];
+  const ui=fixture({fontCreation:false,family:'MyFont',entries}); ui.render(); await tick();
+  const tree=ui.render();
+  assert.equal(find(tree,'폰트 추가'),undefined);
+  const ready=find(tree,'내 글씨 3 생성 완료');
+  assert.equal(ready.props.disabled,true);
+  assert.notEqual(ready.props.accessibilityRole,'button');
+  assert.ok(find(tree,'테스트 글꼴 미리보기'));
+  assert.ok(find(tree,'내 글씨 1 삭제'));
+  assert.deepEqual(ui.opened,[]);
   ui.unmount();
 });
 test('작성 중인 폰트만 지울 수 있고 확인을 거친 뒤에 지운다', async () => {
