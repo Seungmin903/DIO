@@ -43,6 +43,15 @@ test('596: 카드 없이 이름 순 한 줄 목록 → 누르면 상세, 태블�
   assert.ok(all(tablet).some(n => n.type === 'list'))
   assert.ok(all(tablet).some(n => n.props?.entry?.name === '@expo/cli' && n.props.wide), '넓은 창은 첫 항목 상세를 옆에 연다')
 })
+test('라이선스 이름 순은 localeCompare 없이 대소문자 무시 · 숫자 크기 순으로 정렬하고, 설정 화면은 열 때만 라이선스를 마운트한다', () => {
+  const { sortByName } = loadModule([])
+  const names = ['lib10', 'Zstandard', 'lib2', '@expo/cli', 'libavif', 'Pretendard']
+  assert.deepEqual(sortByName(names.map(name => ({ name }))).map(e => e.name), ['@expo/cli', 'lib2', 'lib10', 'libavif', 'Pretendard', 'Zstandard'])
+  const source = readFileSync(new URL('../src/diary/components/ContentLicenses.js', import.meta.url), 'utf8')
+  assert.doesNotMatch(source, /\.localeCompare\(/)
+  const info = readFileSync(new URL('../src/diary/components/AppInformation.js', import.meta.url), 'utf8')
+  assert.match(info, /\{licensesOpen && <ContentLicenses visible onClose=/)
+})
 test('라이선스 모달 방향·상태바·닫기', () => {
   const Screen = loadLicenses([])
   let closed = false; const t = Screen({ visible: true, onClose: () => { closed = true } })

@@ -19,8 +19,16 @@ const LEGAL_CHUNK = 24000;
 const MONO = Platform.select({ ios: 'Menlo', android: 'monospace', default: 'monospace' });
 const hasVersion = version => typeof version === 'string' && /\d/.test(version);
 const summary = entry => [entry.license, hasVersion(entry.version) ? entry.version : null].filter(Boolean).join(' · ');
-// 대소문자 · 기호를 가리지 않는 이름 순(예전엔 데이터 순서라 Zstandard 다음에 libavif 가 왔다)
-const byName = (a, b) => a.name.localeCompare(b.name, 'en', { sensitivity: 'base', numeric: true });
+// 대소문자를 가리지 않고 숫자는 크기대로 보는 이름 순(예전엔 데이터 순서라 Zstandard 다음에 libavif 가 왔다).
+// localeCompare(locale · 옵션)는 안드로이드 Hermes 에서 부를 때마다 ICU 를 거쳐 300개 정렬에도 설정이 버벅였다.
+// 그래서 항목마다 비교 키(소문자 · 숫자 묶음은 앞을 0으로 채움)를 한 번 만들고 문자열 비교만 한다
+const sortKey = name => String(name ?? '').toLowerCase().replace(/\d+/g, digits => digits.padStart(12, '0'));
+export function sortByName(entries) {
+  return entries.map(entry => [sortKey(entry.name), entry]).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)).map(([, entry]) => entry);
+}
+// 목록은 앱이 도는 동안 바뀌지 않아 처음 열 때 한 번만 정렬하고 다시 쓴다(화면을 다시 열어도 정렬하지 않는다)
+let sortedAll = null;
+const allEntries = () => (sortedAll ??= sortByName([...licenses, ...software.components]));
 
 // 고지 생성기가 파일마다 붙인 '--- LICENSE ---' · '--- Source copyright header 1 ---' 같은 표시 줄(원문 아님)을 걷어 낸다(2026-11-09 사용자).
 // 표시 줄은 지우되, 여러 라이브러리를 묶은 항목(예: Skia 의 HarfBuzz · libpng …)은 어느 고지인지 알 수 있게 대시를 뗀 이름만 작은 소제목으로 남긴다.
@@ -102,7 +110,7 @@ export default function ContentLicenses({ visible, onClose }) {
   const { width, height } = useWindowDimensions();
   // 넓은 가로 창(태블릿 가로)만 목록 · 상세를 나란히. 폰 · 태블릿 세로는 목록 → 상세로 넘어간다
   const wide = width >= 960 && width > height;
-  const all = useMemo(() => [...licenses, ...software.components].sort(byName), []);
+  const all = allEntries();
   const entries = useMemo(() => {
     const term = query.trim().toLowerCase();
     return all.filter(entry => !term || `${entry.name} ${entry.version ?? ''} ${entry.license}`.toLowerCase().includes(term));
