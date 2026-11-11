@@ -26,7 +26,7 @@ import static org.assertj.core.api.Assertions.*;
  "spring.datasource.url=jdbc:h2:mem:social-common;MODE=PostgreSQL;DB_CLOSE_DELAY=-1",
  "dio.auth.jwt-secret=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","dio.auth.apple.client-ids=",
  "dio.signup.service-terms-version=v2","dio.signup.privacy-terms-version=v2",
- "dio.signup.photos.storage=local","dio.signup.photos.local-directory=build/test-social-photos",
+ "dio.signup.photos.storage=local","dio.signup.photos.local-directory=build/test-social-photos/${org.gradle.test.worker:0}",
  "SHARING_INVITE_SECRET=BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB="})
 @org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc
 @ActiveProfiles("test")

@@ -13,11 +13,8 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
-@org.springframework.test.context.TestPropertySource(properties={"SHARING_INVITE_BASE_URL=/invite/", "dio.signup.mail-from=dio@example.com"})
 class EmailInviteTests extends SharingTestSupport {
     @Autowired EmailInviteService emails;
-    @org.springframework.test.context.bean.override.mockito.MockitoSpyBean
-    com.f106.DIO.notification.event.InvitationNotificationRepository notificationRepository;
     String address(Actor actor){return users.findById(actor.id()).orElseThrow().getEmail();}
     DiaryInvite pending(UUID diary,Actor to){return invites.pendingEmail(diary,to.id()).orElseThrow();}
     void send(UUID diary,Actor from,Actor to){emails.send(diary,from.id(),new EmailInviteRequest(address(to)));}

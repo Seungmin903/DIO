@@ -43,6 +43,8 @@ import useMyLibrary from '../../diary/hooks/useMyLibrary'
 import { pdfDocPage } from '../../diary/utils/pdfImport.js'
 import { isBackdrop } from '../utils/backdrop.js'
 import { ERASER_RADIUS } from '../utils/eraser.js'
+import { pencilTapTool, rememberTool } from '../utils/pencilDoubleTap.js'
+import { usePencilDoubleTap } from '../hooks/usePencilDoubleTap'
 import LassoSettings from '../components/LassoSettings'
 import TextSettings from '../components/TextSettings'
 import TextLinkDialog from '../components/TextLinkDialog'
@@ -1062,6 +1064,14 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
     }
     setActiveTool(tool)
   }
+  // 애플펜슬 더블탭: iPad 설정을 따라 펜 ↔ 지우개(기본) 또는 이전 도구로 바꾼다. 글 입력 중에는 무시한다.
+  const pencilToolHistory = useRef({ current: activeTool, ink: 'pen' })
+  useEffect(() => { pencilToolHistory.current = rememberTool(pencilToolHistory.current, activeTool) }, [activeTool])
+  usePencilDoubleTap((action) => {
+    if (textEditing) return
+    const next = pencilTapTool(action, activeTool, pencilToolHistory.current)
+    if (next) selectTool(next)
+  }, !readOnly)
   const openExport = () => {
     if (!exportEnabled) return
     if (state.pagesLoading) { showToast(PAGES_LOADING_MESSAGE); return }

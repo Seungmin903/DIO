@@ -28,7 +28,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @org.springframework.test.context.jdbc.Sql("/push-session-h2.sql")
 @SpringBootTest(webEnvironment=SpringBootTest.WebEnvironment.RANDOM_PORT,properties={"spring.datasource.url=jdbc:h2:mem:collaboration-tests;MODE=PostgreSQL;DB_CLOSE_DELAY=-1",
     "dio.auth.jwt-secret=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","dio.signup.photos.storage=local",
-    "dio.signup.photos.local-directory=build/collaboration-photos","dio.media.local-directory=build/collaboration-media","spring.datasource.hikari.maximum-pool-size=12","server.forward-headers-strategy=native","server.tomcat.remoteip.remote-ip-header=X-Forwarded-For","server.tomcat.remoteip.protocol-header=X-Forwarded-Proto","server.tomcat.remoteip.port-header=X-Forwarded-Port","server.tomcat.remoteip.internal-proxies=127\\.0\\.0\\.1|::1"})
+    "dio.signup.photos.local-directory=build/collaboration-photos/${org.gradle.test.worker:0}","dio.media.local-directory=build/collaboration-media/${org.gradle.test.worker:0}","spring.datasource.hikari.maximum-pool-size=12","server.forward-headers-strategy=native","server.tomcat.remoteip.remote-ip-header=X-Forwarded-For","server.tomcat.remoteip.protocol-header=X-Forwarded-Proto","server.tomcat.remoteip.port-header=X-Forwarded-Port","server.tomcat.remoteip.internal-proxies=127\\.0\\.0\\.1|::1"})
 @AutoConfigureMockMvc @ActiveProfiles("test")
 class CanvasCollaborationTests {
     @org.springframework.boot.test.web.server.LocalServerPort int port;

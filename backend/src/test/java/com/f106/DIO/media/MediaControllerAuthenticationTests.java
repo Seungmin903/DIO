@@ -18,12 +18,7 @@ import com.f106.DIO.media.service.MediaService;
 import com.f106.DIO.media.support.MediaFileNotFoundException;
 import com.f106.DIO.media.library.service.SharedMediaLibraryService;
 
-@SpringBootTest
-@AutoConfigureMockMvc
-class MediaControllerAuthenticationTests {
-	@Autowired MockMvc mvc;
-	@MockitoBean MediaService mediaService;
-	@MockitoBean SharedMediaLibraryService sharedMediaLibraryService;
+class MediaControllerAuthenticationTests extends com.f106.DIO.support.MockedMediaServicesWebTestSupport {
 
 	@Test
 	void rejectsUnauthenticatedMediaRequests() throws Exception {

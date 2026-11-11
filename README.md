@@ -45,7 +45,7 @@ uv run uvicorn app.main:app --port 8000   # → http://localhost:8000
 - 모바일 앱은 Expo 기반 React Native 앱입니다. 개발 서버만 열려면 `pnpm start`를 실행하고 Expo Go 또는 에뮬레이터에서 연결하세요.
 - 모바일 환경에서는 `/api` 같은 상대 경로를 사용할 수 없습니다. `EXPO_PUBLIC_API_BASE_URL`에 API 전체 주소를 설정하세요. Android 에뮬레이터에서는 `http://10.0.2.2:8080/api`, 실제 기기에서는 개발 PC의 LAN IP를 사용합니다. 정적 웹 export를 배포할 때도 이 값을 실제 HTTPS API 주소로 주입해야 하며, 주소가 없는 릴리스 번들은 서버 설정 안내 화면을 표시합니다. `localhost:8080` 대체값은 로컬 웹 개발 전용입니다. 릴리스 검사는 `/api` 같은 같은 출처 상대 경로를 허용하지 않습니다. 배포 Nginx는 정적 웹 번들을 서비스하지 않고 모든 경로를 백엔드로 넘기기 때문입니다. 따라서 `pnpm web:licensed` 웹 배포본은 `eas.json` production의 절대 HTTPS API 주소를 사용하고, API와 다른 출처에서 열리면 백엔드 `AUTH_ALLOWED_ORIGINS`에 그 웹 출처를 등록해야 합니다. 판정 기준은 `frontend/src/shared/apiBaseUrlPolicy.js` 한 곳에서 앱과 웹 export가 함께 씁니다.
 - IntelliJ에서는 `backend/` 폴더를 Gradle 프로젝트로 열고, Project SDK를 17로 지정하세요.
-- 백엔드 테스트(`./gradlew test`)는 H2 인메모리 DB를 사용하므로 Docker 없이도 실행됩니다.
+- 백엔드 전체 테스트(`./gradlew test`)는 H2 인메모리 DB를 사용하므로 Docker 없이도 실행됩니다. 개발 중에는 느린 HTTP·WebSocket·로컬 시드 통합 테스트를 제외한 `./gradlew fastTest`로 빠르게 확인할 수 있습니다. 바꾼 기능만 확인하려면 `./gradlew changedTest`가 develop과 갈라진 뒤 바뀐 패키지(예: `cover`, `sticker`)의 테스트만 돌립니다. `-PtestPackages=cover,tape`로 패키지를 직접 고르거나 `-PtestBase=origin/release/v2.0.0`으로 비교 기준을 바꿀 수 있고, 마이그레이션·설정·`global` 같은 공용 파일이 바뀌면 `fastTest`와 같은 범위로 돕니다. `changedTest`는 패키지 이름으로만 고르므로, 바꾼 코드에 기대는 다른 패키지 테스트는 돌지 않을 수 있습니다(`auth`·`user`·`media`처럼 여러 기능이 기대는 패키지가 바뀌면 `fastTest` 범위로 돕니다). 개발 중 보조 수단으로 쓰고, MR 전에는 `./gradlew test`를 돌리세요(`fastTest`는 느린 HTTP·WebSocket·로컬 시드 통합 테스트를 빼므로 대신할 수 없습니다).
 - PostgreSQL 설정·연결 확인은 [로컬 DB 안내](docs/다이어리%20저장/로컬%20PostgreSQL.md)를 참고하세요. Swagger는 http://localhost:8080/swagger-ui.html 에서 확인합니다.
 
 ## 폴더 구조

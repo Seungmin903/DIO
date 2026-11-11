@@ -12,12 +12,14 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @org.springframework.boot.test.context.SpringBootTest
 @org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc(addFilters = false)
 @org.springframework.test.context.TestPropertySource(properties = {
-    "spring.datasource.url=jdbc:h2:mem:notificationreadallhttp;MODE=PostgreSQL",
+    "spring.datasource.url=jdbc:h2:mem:notificationfrontend;MODE=PostgreSQL",
     "spring.jpa.hibernate.ddl-auto=none", "spring.sql.init.mode=always",
     "spring.sql.init.schema-locations=classpath:notification-core-h2.sql,classpath:notification-watermark-h2.sql"
 })
 @org.springframework.transaction.annotation.Transactional
+// NotificationFrontendContractTests와 같은 설정·목을 써서 Spring 컨텍스트를 함께 쓴다.
 class NotificationReadAllHttpTests {
+    @org.springframework.test.context.bean.override.mockito.MockitoBean com.f106.DIO.notification.invitation.InvitationLookup lookup;
     @Autowired MockMvc mvc;
     @Autowired JdbcTemplate jdbc;
     @BeforeEach void setup() {

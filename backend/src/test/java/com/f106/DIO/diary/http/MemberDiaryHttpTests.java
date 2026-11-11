@@ -21,8 +21,6 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.context.DynamicPropertyRegistry;
-import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.test.web.servlet.MockMvc;
 import tools.jackson.databind.JsonNode;
@@ -33,16 +31,11 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-@SpringBootTest(properties={"spring.datasource.url=jdbc:h2:mem:member-http;MODE=PostgreSQL"})
+@SpringBootTest(properties={"spring.datasource.url=jdbc:h2:mem:member-diary-http;MODE=PostgreSQL",
+    "dio.auth.jwt-secret=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="}) // 회원 다이어리 HTTP 테스트 3종이 같은 설정을 써서 스프링 컨텍스트 하나를 함께 쓴다
 @AutoConfigureMockMvc @ActiveProfiles("test")
 class MemberDiaryHttpTests {
     static final String PATH="/api/v1/member/diaries";
-    @DynamicPropertySource static void jwtKey(DynamicPropertyRegistry registry) {
-        byte[] bytes = new byte[32];
-        new java.security.SecureRandom().nextBytes(bytes);
-        String key = java.util.Base64.getEncoder().encodeToString(bytes);
-        registry.add("dio.auth.jwt-secret", () -> key);
-    }
     @Autowired MockMvc mvc;
     @Autowired JdbcTemplate jdbc;
     @Autowired ObjectMapper json;
