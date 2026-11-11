@@ -44,7 +44,7 @@ class MemberDiaryTrashTests {
         } else source = new DriverManagerDataSource("jdbc:h2:mem:" + UUID.randomUUID() + ";MODE=PostgreSQL;DB_CLOSE_DELAY=-1;LOCK_TIMEOUT=5000", "sa", "");
         jdbc = new JdbcTemplate(source);
         tx = new TransactionTemplate(new DataSourceTransactionManager(source));
-        jdbc.execute("CREATE TABLE diaries(diary_id UUID PRIMARY KEY, owner_user_id BIGINT,version BIGINT NOT NULL DEFAULT 1, title VARCHAR(100), cover_color VARCHAR(7), cover_style VARCHAR(30), visibility VARCHAR(20), created_at TIMESTAMP WITH TIME ZONE, updated_at TIMESTAMP WITH TIME ZONE, deleted_at TIMESTAMP WITH TIME ZONE)");
+        jdbc.execute("CREATE TABLE diaries(diary_id UUID PRIMARY KEY, owner_user_id BIGINT,version BIGINT NOT NULL DEFAULT 1, title VARCHAR(100), cover_color VARCHAR(7), cover_style VARCHAR(30), visibility VARCHAR(20), created_at TIMESTAMP WITH TIME ZONE, updated_at TIMESTAMP WITH TIME ZONE, deleted_at TIMESTAMP WITH TIME ZONE, template_config_json TEXT)");
         jdbc.execute("CREATE TABLE pages(page_id UUID PRIMARY KEY,diary_id UUID,deleted_at TIMESTAMP WITH TIME ZONE)");
         jdbc.execute("CREATE TABLE diary_members(diary_id UUID,user_id BIGINT,role VARCHAR(20),left_at TIMESTAMP WITH TIME ZONE,PRIMARY KEY(diary_id,user_id))");
         jdbc.execute("CREATE TABLE diary_invites(invite_id BIGINT,diary_id UUID,revoked_at TIMESTAMP WITH TIME ZONE)");

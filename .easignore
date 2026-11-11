@@ -57,5 +57,9 @@ Thumbs.db
 /frontend/modules/dio-handwriting/android/.gradle/
 /frontend/modules/dio-handwriting/android/src/androidTest/assets/
 /frontend/modules/dio-handwriting/android/src/main/assets/dio_handwriting/*.onnx
+# EAS는 저장소 루트의 이 파일만 읽는다(frontend/.easignore는 쓰이지 않음).
+# 손글씨 추론 모델 두 개는 iOS pod 리소스이자 Android 에셋이라 업로드에 넣는다. 빠지면 iOS pod install이 실패한다.
+!/frontend/modules/dio-handwriting/android/src/main/assets/dio_handwriting/encoder.fp32.onnx
+!/frontend/modules/dio-handwriting/android/src/main/assets/dio_handwriting/decoder.fp32.onnx
 /frontend/modules/dio-stylus/android/build/
 /frontend/modules/dio-stylus/android/.gradle/

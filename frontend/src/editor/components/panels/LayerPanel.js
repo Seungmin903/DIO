@@ -38,7 +38,7 @@ const CompactContext = createContext(false)
 
 export default function LayerPanel({ objects, selectedIds, dispatch, onClose, onEmptyTap, width = LAYER_PANEL_WIDTH }) {
   const layers = useMemo(() => objects.filter((o) => !isBackdrop(o) && !o.packingColorRegion && !o.tastingMark).reverse(), [objects])
-  const [drag, setDrag] = useState(null) // { key, from, dy }
+  const [drag, setDrag] = useState(null) // { key, from, dy, viewportTop, scrollStart }
   const [collapsed, setCollapsed] = useState(() => new Set())
   const rows = useMemo(() => buildLayerRows(layers, collapsed), [layers, collapsed])
   const dropIndex = drag ? clamp(drag.from + Math.round(drag.dy / ROW_STEP), 0, rows.length - 1) : null
@@ -89,7 +89,9 @@ export default function LayerPanel({ objects, selectedIds, dispatch, onClose, on
     const dy = effectiveDy(g)
     if (g === gripRef.current || g.mode === 'move') {
       g.dy = dy
-      setDrag({ key: g.key ?? keyOfRow(rows[g.anchor]), from: g.anchor ?? g.from, dy })
+      const from = g.anchor ?? g.from
+      setDrag({ key: g.key ?? keyOfRow(rows[from]), from, dy, scrollStart: g.scrollStart,
+        viewportTop: from * ROW_STEP - g.scrollStart + g.finger })
       return
     }
     const index = clamp(g.anchor + Math.round(dy / ROW_STEP), 0, rows.length - 1)
@@ -106,7 +108,7 @@ export default function LayerPanel({ objects, selectedIds, dispatch, onClose, on
     if (wasSelected && selectedIds.length > ids.length) {
       setMulti(true)
       rangeRef.current = { mode: 'move', anchor: index, startY, dy: 0, ids, captured: false, ...follow(index) }
-      setDrag({ key: keyOfRow(rows[index]), from: index, dy: 0 })
+      followGesture(rangeRef.current)
       setRanging(true)
       startAutoScroll()
       return
@@ -160,7 +162,7 @@ export default function LayerPanel({ objects, selectedIds, dispatch, onClose, on
   rowActionsRef.current = {
     dragStart: (key, index) => {
       gripRef.current = { key, from: index, ...follow(index) }
-      setDrag({ key, from: index, dy: 0 })
+      followGesture(gripRef.current)
       startAutoScroll()
     },
     dragMove: (key, index, dy) => {
@@ -169,12 +171,12 @@ export default function LayerPanel({ objects, selectedIds, dispatch, onClose, on
       g.finger = dy
       followGesture(g)
     },
-    dragEnd: (index) => {
+    dragEnd: (index, cancelled) => {
       const g = gripRef.current
       gripRef.current = null
       stopAutoScroll()
       setDrag(null)
-      if (g) drop(index, clamp(index + Math.round(effectiveDy(g) / ROW_STEP), 0, rows.length - 1))
+      if (g && !cancelled) drop(index, clamp(index + Math.round(effectiveDy(g) / ROW_STEP), 0, rows.length - 1))
     },
     rangeStart: (index, event) => startRange(index, event),
     // 화면 읽기 프로그램의 '위로 · 아래로' 동작: 끌기와 같은 자리 옮기기
@@ -231,6 +233,23 @@ export default function LayerPanel({ objects, selectedIds, dispatch, onClose, on
     dispatch({ type: 'moveLayers', ids: movingIds, anchorId, place })
   }
 
+  const draggedRow = drag ? rows[drag.from] : null
+  const dragCount = draggedRow && selectedIds.length > idsOfRow(draggedRow).length &&
+    idsOfRow(draggedRow).every((id) => selectedIds.includes(id)) ? selectedIds.length : 0
+
+  function renderRow(row, index, common) {
+    const key = keyOfRow(row)
+    if (row.kind === 'group') {
+      const allSelected = row.members.every((o) => selectedIds.includes(o.id))
+      return <GroupRow key={key} {...common} {...rowHandlers(rowActions, key, index)} row={row}
+        selected={allSelected} renamable={allSelected && selectedIds.length === row.members.length}
+        collapsed={collapsed.has(row.groupId)} onToggleCollapsed={() => toggleCollapsed(row.groupId)} />
+    }
+    return <MemoLayerRow key={key} rowKey={key} actions={rowActions} {...common} index={index}
+      object={row.object} nested={row.nested} selected={selectedIds.includes(row.object.id)}
+      renamable={selectedIds.length === 1 && selectedIds[0] === row.object.id} />
+  }
+
   return (
     <View style={[styles.panel, { width }]}>
       <View style={styles.header}>
@@ -265,8 +284,12 @@ export default function LayerPanel({ objects, selectedIds, dispatch, onClose, on
       <View style={styles.listWrap} {...rangeHandlers}>
       <FlatList
         ref={listRef}
-        onScroll={(event) => (scrollOffset.current = event.nativeEvent.contentOffset.y)}
-        scrollEventThrottle={32}
+        onScroll={(event) => {
+          scrollOffset.current = event.nativeEvent.contentOffset.y
+          const gesture = rangeRef.current ?? gripRef.current
+          if (gesture) followGesture(gesture)
+        }}
+        scrollEventThrottle={16}
         onLayout={(event) => (listHeight.current = event.nativeEvent.layout.height)}
         onContentSizeChange={(_, height) => (contentHeight.current = height)}
         style={styles.list}
@@ -276,54 +299,29 @@ export default function LayerPanel({ objects, selectedIds, dispatch, onClose, on
         getItemLayout={(_, index) => ({ length: ROW_STEP, offset: ROW_STEP * index, index })}
         initialNumToRender={12}
         maxToRenderPerBatch={8}
-        windowSize={5}
+        // Keep the responder's original cell mounted as the list auto-scrolls away from it.
+        windowSize={drag ? 5 + 2 * Math.ceil(Math.abs(scrollOffset.current - drag.scrollStart) / Math.max(1, listHeight.current)) : 5}
+        removeClippedSubviews={!drag && !ranging}
         scrollEnabled={!drag && !ranging}
         ListEmptyComponent={<Text style={styles.empty}>표시할 요소 없음</Text>}
         ListFooterComponent={onEmptyTap ? <TapCatcher onTap={onEmptyTap} style={styles.emptyArea} /> : null}
         renderItem={({ item: row, index }) => {
           const key = row.kind === 'group' ? `g-${row.groupId}` : row.object.id
-          const common = {
-            index,
+          return renderRow(row, index, {
             dispatch,
             multi,
-            dragging: drag?.key === key,
-            // 여러 개를 함께 끄는 중이면 끄는 행에 옮기는 개수를 보여 준다 (키노트·굿노트의 겹친 카드 개수처럼)
-            dragCount: drag?.key === key && selectedIds.length > idsOfRow(row).length && idsOfRow(row).every((id) => selectedIds.includes(id)) ? selectedIds.length : 0,
-            // 여러 개를 함께 옮기는 중: 끄는 행 말고 고른 다른 행들은 흐리게 보여 같이 간다는 걸 알린다
-            carried: Boolean(drag && drag.key !== key && selectedIds.length > 1 && idsOfRow(row).every((id) => selectedIds.includes(id))
-              && idsOfRow(rows[drag.from] ?? row).every((id) => selectedIds.includes(id))),
-            dragOffset: drag?.key === key ? drag.dy : 0,
+            placeholder: drag?.key === key,
+            carried: dragCount > 1 && idsOfRow(row).every((id) => selectedIds.includes(id)),
             dropLine: drag && drag.key !== key && dropIndex === index ? (dropIndex < drag.from ? 'before' : 'after') : null,
-          }
-          if (row.kind === 'group') {
-            const allSelected = row.members.every((o) => selectedIds.includes(o.id))
-            return (
-              <GroupRow
-                key={key}
-                {...common}
-                {...rowHandlers(rowActions, key, index)}
-                row={row}
-                selected={allSelected}
-                renamable={allSelected && selectedIds.length === row.members.length}
-                collapsed={collapsed.has(row.groupId)}
-                onToggleCollapsed={() => toggleCollapsed(row.groupId)}
-              />
-            )
-          }
-          return (
-            <MemoLayerRow
-              key={key}
-              rowKey={key}
-              actions={rowActions}
-              {...common}
-              object={row.object}
-              nested={row.nested}
-              selected={selectedIds.includes(row.object.id)}
-              renamable={selectedIds.length === 1 && selectedIds[0] === row.object.id}
-            />
-          )
+          })
         }}
       />
+      {draggedRow && (
+        <View pointerEvents="none" aria-hidden accessibilityElementsHidden importantForAccessibility="no-hide-descendants"
+          style={[styles.dragPreview, { top: drag.viewportTop }]}>
+          {renderRow(draggedRow, drag.from, { dispatch, multi, dragging: true, dragCount })}
+        </View>
+      )}
       </View>
       </CompactContext.Provider>
     </View>
@@ -331,23 +329,16 @@ export default function LayerPanel({ objects, selectedIds, dispatch, onClose, on
 }
 
 function useRowDrag({ onDragStart, onDragMove, onDragEnd }) {
-  const dyRef = useRef(0)
   return usePan({
-    onStart: () => {
-      dyRef.current = 0
-      onDragStart()
-    },
-    onMove: (dx, dy) => {
-      dyRef.current = dy
-      onDragMove(dy)
-    },
-    onEnd: () => onDragEnd(dyRef.current),
+    onStart: onDragStart,
+    onMove: (_, dy) => onDragMove(dy),
+    onEnd: ({ cancelled }) => onDragEnd(cancelled),
   })
 }
 
-function RowShell({ dragging, dragOffset, dropLine, carried, dragCount = 0, children }) {
+function RowShell({ placeholder, dropLine, carried, dragCount = 0, children }) {
   return (
-    <View style={[styles.rowWrap, dragging && { zIndex: 2, transform: [{ translateY: dragOffset }] }, carried && styles.rowCarried]}>
+    <View style={[styles.rowWrap, carried && styles.rowCarried, placeholder && styles.dragPlaceholder]}>
       {dragCount > 1 && <View style={styles.countBadge} pointerEvents="none"><Text style={styles.countText}>{dragCount}</Text></View>}
       {dropLine && <View style={[styles.dropLine, dropLine === 'before' ? styles.dropBefore : styles.dropAfter]} />}
       {children}
@@ -490,7 +481,7 @@ function rowHandlers(actions, key, index) {
   return {
     onDragStart: () => actions.dragStart(key, index),
     onDragMove: (dy) => actions.dragMove(key, index, dy),
-    onDragEnd: (dy) => actions.dragEnd(index, dy),
+    onDragEnd: (cancelled) => actions.dragEnd(index, cancelled),
     onRangeStart: (event) => actions.rangeStart(index, event),
     onToggle: () => actions.toggle(index),
     onPressOut: actions.pressOut,
@@ -635,6 +626,8 @@ export const LAYER_PANEL_COMPACT_WIDTH = 200
 
 const styles = StyleSheet.create({
   rowCarried: { opacity: 0.4 },
+  dragPlaceholder: { opacity: 0 },
+  dragPreview: { position: 'absolute', left: 0, right: 0, zIndex: 2 },
   multiBar: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginRight: 10, paddingVertical: 2, paddingLeft: 12, paddingRight: 4, borderRadius: 10, backgroundColor: colors.surfaceMuted },
   multiText: { fontSize: 13, fontWeight: '700', color: colors.text },
   multiDone: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, backgroundColor: colors.surface },

@@ -6,10 +6,10 @@ import { encodeElement, decodeElement } from '../src/collaboration/canvasElement
 import { tastingElementValue, updateTastingElements } from '../src/editor/templates/tastingElements.js'
 import { createExportSnapshot } from '../src/editor/utils/pageExport.js'
 
-for (const direction of ['portrait', 'landscape']) test(`${direction} 새 속지 채움과 지우기는 협업 요소로 기록된다`, () => {
+for (const assetId of ['remote-tasting-note-portrait', 'remote-tasting-note-landscape', 'remote-tasting-note-v2-portrait', 'remote-tasting-note-v2-landscape']) test(`${assetId} 채움과 지우기는 협업 요소로 기록된다`, () => {
   const pageId = '10000000-0000-4000-8000-000000000001'
   const reduce = (state, action) => collaborationReducer(editorReducer, state, { collaborationId: '30000000-0000-4000-8000-000000000001', ...action })
-  let state = createInitialState({ pages: [{ id: pageId, backgroundAssetId: `remote-tasting-note-${direction}`, templateVersion: '1.0.0', objects: [] }] })
+  let state = createInitialState({ pages: [{ id: pageId, backgroundAssetId: assetId, templateVersion: '1.0.0', objects: [] }] })
   state = reduce(state, { type: 'setPlanner', planner: { fills: { 'star-0': '#123456', 'visit-0': '#654321' } } })
   assert.equal(state.collaborationEdits.length, 1)
   assert.equal(state.collaborationEdits[0].after.length, 2)
