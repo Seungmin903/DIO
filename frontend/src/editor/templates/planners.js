@@ -6,6 +6,7 @@ import * as route from './routePaper.js'
 import { isTastingId } from './tastingGeometry.js'
 import * as tasting from './tastingPaper.js'
 import { inkRecordApi } from './inkRecordPaper.js'
+import { paperFontIdsToLoad } from './paperFont.js'
 
 const orientationOf = id => id.endsWith('portrait') ? 'portrait' : 'landscape'
 
@@ -99,7 +100,14 @@ export function plannerFor(assetId) {
 }
 
 /**
- * 속지가 앱 글꼴로 그리는 글이 있으면 그 글꼴 id 들. 속지의 인쇄 글자는 대부분 글자 윤곽(path)이라 글꼴 파일이 필요 없고(속지 글꼴을 골라도 윤곽 표만 바뀐다),
- * 데일리 플래너가 막대 · 종일 칸에 비추는 글(사용자가 쓴 글)만 <text> 로 마루부리를 쓴다(dayPlanner.js deviceText). 이 글은 속지 글꼴 설정과 상관없다.
+ * 속지를 그리려면 기기에 있어야 하는 글꼴 id 들. 둘이 겹칠 수 있어 하나로 모은다.
+ *  · 데일리 플래너가 막대 · 종일 칸에 비추는 글(사용자가 쓴 글)은 <text> 로 마루부리를 쓴다(dayPlanner.js deviceText).
+ *    이 글은 속지 글꼴 설정과 상관없다.
+ *  · 속지 글꼴을 원본(마루부리)이 아닌 것으로 고르면 인쇄 글자도 <text> 가 되므로 그 글꼴이 있어야 한다
+ *    (paperFont.js swapPaperFont). 원본이면 글자 윤곽이라 글꼴 파일 없이도 그려진다.
  */
-export const paperDeviceFontIds = assetId => day.isDayPlannerId(assetId) ? ['maruburi'] : []
+export const paperDeviceFontIds = (assetId, paperFont = null) => {
+  const ids = day.isDayPlannerId(assetId) ? ['maruburi'] : []
+  for (const id of paperFontIdsToLoad(paperFont)) if (!ids.includes(id)) ids.push(id)
+  return ids
+}

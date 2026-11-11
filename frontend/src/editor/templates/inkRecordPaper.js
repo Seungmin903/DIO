@@ -3,12 +3,11 @@
 // 읽으므로**, 획을 지우면 값도 같이 사라진다(사용자 2026-11-11).
 import { n, TEXT } from './plannerDraw.js'
 import { INK_RECORD_GLYPHS } from './inkRecordGlyphs.js'
-import { inkRecordLayout, isInkRecordId, SIZES } from './inkRecordLayout.js'
+import { inkRecordLayout, isInkRecordId, SIZES, INK_RECORD_FRAME as FRAME } from './inkRecordLayout.js'
 import { inkRecordValue } from './inkRecord.js'
 
 export { isInkRecordId }
 
-const FRAME = '#aeb3b8'
 // 값 글자 크기. 바탕의 '잉크 · 글리터 · 테' 라벨(10)과 나란히 읽히게 같은 크기로 둔다.
 const SIZE = 10
 
@@ -17,17 +16,26 @@ const SIZE = 10
  * 속지 글꼴을 바꾸면 paperFont.js 가 이 글자도 함께 바꿔 끼운다.
  * 스터디 플래너 글자표에는 0-9 · A-F 가 없어 전용 표(inkRecordGlyphs.js)를 쓴다.
  */
-function hexText(text, x, y) {
+function hexText(text, x, y, fit) {
   const k = SIZE / 1000
-  let cursor = x, paths = ''
+  let cursor = x, paths = '', from = null, to = null
   for (const ch of text) {
     const entry = INK_RECORD_GLYPHS.R[ch]
     if (!entry) continue
     const [advance, d] = entry
-    if (d) paths += `<path d="${d}" transform="translate(${n(cursor)} ${n(y)}) scale(${k} ${-k})"/>`
+    if (d) {
+      if (from === null) from = cursor
+      paths += `<path d="${d}" transform="translate(${n(cursor)} ${n(y)}) scale(${k} ${-k})"/>`
+      to = cursor + advance * k
+    }
     cursor += advance * k
   }
-  return paths ? `<g fill="${TEXT}" aria-label="${text}">${paths}</g>` : ''
+  // 글꼴 교체에 쓰는 치수를 적어 둔다(paperFont.js readGroup) — 적어 두면 원본 글꼴 확인표가 없어도 된다.
+  // data-fit(쓸 수 있는 폭)도 함께 적는다. 없으면 원본 폭이 기준이 되어, 마루부리 숫자가 유난히 좁은 탓에
+  // "1" 이 든 값마다 조금 넓은 글꼴에서 줄어들어 옆 값과 크기가 달라진다(코드리뷰 2026-11-11).
+  if (!paths) return ''
+  const adv = n(to - from)
+  return `<g fill="${TEXT}" aria-label="${text}" data-adv="${adv}"${fit > adv ? ` data-fit="${n(fit)}"` : ''}>${paths}</g>`
 }
 
 /**
@@ -53,7 +61,9 @@ export function inkRecordOverlaySvg(assetId, fills) {
         + ` fill="${value}" data-preserve-paint="true" />`
         + `<rect x="${n(chip.x)}" y="${n(chip.y)}" width="${n(chip.w)}" height="${n(chip.h)}"`
         + ` fill="none" stroke="${FRAME}" stroke-width="1" />`
-      body += hexText(value.slice(1), cell.hex[i].x + 2, cell.baselines[i])
+      // 값은 # 뒤 밑줄(hex.w) 위에 쓴다 — 왼쪽 2 를 띄웠으니 쓸 수 있는 폭은 밑줄 끝까지다
+      const hex = cell.hex[i]
+      body += hexText(value.slice(1), hex.x + 2, cell.baselines[i], hex.w - 2)
     })
   })
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${body}</svg>`

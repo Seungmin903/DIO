@@ -8,7 +8,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { execFileSync, spawnSync } from 'node:child_process'
-import { INK_RECORD_SHAPES, inkRecordId, isInkRecordId, inkRecordLayout, cellRegions, SIZES } from '../src/editor/templates/inkRecordLayout.js'
+import { INK_RECORD_SHAPES, inkRecordId, isInkRecordId, inkRecordLayout, cellRegions, SIZES, INK_RECORD_FRAME } from '../src/editor/templates/inkRecordLayout.js'
 import { INK_RECORD_BOTTLES } from '../src/editor/templates/inkRecordBottles.js'
 import { inkRecordFills, inkRecordValue, strokeInkColors } from '../src/editor/templates/inkRecord.js'
 import { inkRecordOverlaySvg, mergeInkRecordOverlay, inkRecordApi } from '../src/editor/templates/inkRecordPaper.js'
@@ -65,6 +65,30 @@ test('병 윤곽은 지금 그리는 병 모양에서 뽑은 것과 같다', asy
   const out = join(await mkdtemp(join(tmpdir(), 'ink-record-')), 'bottles.js')
   execFileSync(process.execPath, [fileURLToPath(new URL('../scripts/generate-ink-record-bottles.mjs', import.meta.url)), out], { stdio: 'pipe' })
   assert.equal(await readFile(out, 'utf8'), await readFile(file, 'utf8'))
+})
+
+test('획 위에 올리는 병 윤곽은 속지에 찍힌 병과 같은 자리 · 같은 굵기다', async () => {
+  // 사용자 2026-11-11: "속지 병 안에 획 그으면 병 윤곽이 내가 그은 획보다 위이게 해줘".
+  // 위에 한 겹 더 올리는 그림(InkRecordFrontLayer)이 속지에 찍힌 병과 **한 치도** 어긋나면
+  // 선이 두 겹으로 보인다. 그림은 높이 1000 으로 떠 있고 칸마다 줄여 쓴다.
+  const { artAt, square, circle, BASE } = await import('../scripts/inkRecord/bottleShape.mjs')
+  const builds = { round: P => circle(P, (P.s * 98) / BASE.s), square }
+  for (const shape of INK_RECORD_SHAPES) {
+    const art = INK_RECORD_BOTTLES[shape]
+    assert.ok(art.draw.parts.length && art.draw.thin.length, `${shape} 그림 조각`)
+    for (const orientation of ['portrait', 'landscape']) {
+      for (const cell of inkRecordLayout(inkRecordId(shape, orientation)).cells) {
+        const k = cell.bottleHeight / art.draw.height
+        // 줄여 앉히면 윤곽을 감싸는 네모가 칠하는 자리(cell.bottle)와 딱 맞는다
+        assert.ok(Math.abs(art.width * art.draw.height * k - cell.bottle.w) < 1e-6, `${shape} 폭`)
+        assert.ok(Math.abs(art.draw.height * k - cell.bottle.h) < 1e-9, `${shape} 높이`)
+        // 굵기도 속지가 그 칸 높이로 그릴 때와 같다(그래야 겹쳐도 한 선으로 보인다)
+        const paper = artAt(builds[shape], cell.bottleHeight)
+        assert.ok(Math.abs(art.draw.sw * k - paper.sw) < 0.02, `${shape} 굵기 ${art.draw.sw * k} vs ${paper.sw}`)
+        assert.ok(Math.abs(art.draw.thinSw * k - paper.thinSw) < 0.02, `${shape} 얇은 굵기`)
+      }
+    }
+  }
 })
 
 test('판정 자리는 네모가 아니라 병 윤곽이다', () => {
@@ -134,8 +158,18 @@ test('값 줄에 손으로 쓰면 그 자리에는 자동 값을 찍지 않는�
 test('덮개는 속지 글꼴을 따라 바뀌고, 내보내기는 바탕 파일 안에 끼워 넣는다', async () => {
   const value = inkRecordValue(PORTRAIT, [stroke([inBottle(layoutOf(PORTRAIT).cells[0])], { penKind: 'glass', color: '#3a6ea5' })])
   const svg = inkRecordOverlaySvg(PORTRAIT, value)
-  assert.match(svg, /<g fill="#292929" aria-label="[0-9A-F]{6}">/)
+  // 글자 윤곽 묶음 + 글꼴 교체에 쓰는 치수(data-adv) · 쓸 수 있는 폭(data-fit = # 뒤 밑줄 끝까지)
+  const group = svg.match(/<g fill="#292929" aria-label="[0-9A-F]{6}" data-adv="([\d.]+)" data-fit="([\d.]+)">/)
+  assert.ok(group, svg)
+  assert.equal(Number(group[2]), layoutOf(PORTRAIT).cells[0].hex[0].w - 2)
+  assert.ok(Number(group[2]) > Number(group[1]))
   assert.notEqual(swapPaperFont(svg, 'nanum-pen'), svg, '속지 글꼴을 바꾸면 HEX 글자도 바뀐다')
+  // 원본보다 조금 넓은 글꼴이라도 밑줄 안에 들어가면 줄이지 않는다 — "1" 이 든 값과 아닌 값의 크기가 같다
+  const sizeOf = color => {
+    const one = inkRecordOverlaySvg(PORTRAIT, inkRecordValue(PORTRAIT, [stroke([inBottle(layoutOf(PORTRAIT).cells[0])], { penKind: 'glass', color })]))
+    return swapPaperFont(one, 'nanum-gothic').match(/<text\b[^>]*font-size="([\d.]+)"/)[1]
+  }
+  assert.equal(sizeOf('#111111'), sizeOf('#3A6EA5'))
   // 빈 장이면 값이 없고, 덮개도 비어 있다
   assert.equal(inkRecordValue(PORTRAIT, []), null)
   assert.ok(inkRecordOverlaySvg(PORTRAIT, null).endsWith('></svg>'))
@@ -190,11 +224,18 @@ test('플래그 0 빌드(서버 행 전)는 고르지 못하게만 막고, 이�
     import assert from 'node:assert/strict'
     import { papersIn, countAssetId, paperById } from ${JSON.stringify(new URL('../src/diary/utils/paperChoice.js', import.meta.url).href)}
     import { reusableTemplates, getTemplate } from ${JSON.stringify(new URL('../src/editor/templates/catalog.js', import.meta.url).href)}
-    import { INK_RECORD_TEMPLATE_SELECTION_ENABLED } from ${JSON.stringify(new URL('../src/editor/templates/serverCatalog.js', import.meta.url).href)}
+    import { INK_RECORD_TEMPLATE_SELECTION_ENABLED, PLANNER_TEMPLATE_SELECTION_ENABLED } from ${JSON.stringify(new URL('../src/editor/templates/serverCatalog.js', import.meta.url).href)}
     assert.equal(INK_RECORD_TEMPLATE_SELECTION_ENABLED, false)
+    assert.equal(PLANNER_TEMPLATE_SELECTION_ENABLED, false)
     // 고르지 못한다
     assert.deepEqual(papersIn('diary').filter(paper => paper.type === 'inkRecord'), [])
     assert.equal(reusableTemplates('portrait').some(item => item.type === 'inkRecord'), false)
+    // 플래너도 마찬가지다. 예전 하루 계획(type 'daily')과 데일리 플래너(type 'day')는 종류가
+    // 달라서 섞이지 않는다 — 전체 목록에서 찾아도 엉뚱한 ID 가 나오지 않는다(코드리뷰 2026-11-11).
+    assert.equal(countAssetId('day', 'landscape'), 'day-planner-landscape')
+    assert.equal(countAssetId('study', 'portrait'), 'study-planner-portrait')
+    assert.equal(countAssetId('route', 'landscape'), 'route-planner-landscape')
+    assert.equal(paperById('daily').id, 'day') // 예전 설정의 'daily' 는 데일리 플래너로 읽는다
     // 그래도 ID 는 나오고 속지도 찾아진다 — 플래그 1 빌드에서 만든 페이지가 열려야 한다
     for (const [id, bottle] of [['ink-record-round', 'round'], ['ink-record-square', 'square']]) {
       assert.equal(paperById(id).bottle, bottle)
@@ -206,7 +247,7 @@ test('플래그 0 빌드(서버 행 전)는 고르지 못하게만 막고, 이�
     }
   `
   const run = spawnSync(process.execPath, ['--input-type=module', '--eval', source],
-    { env: { ...process.env, EXPO_PUBLIC_INK_RECORD_TEMPLATES_ENABLED: '0' }, encoding: 'utf8' })
+    { env: { ...process.env, EXPO_PUBLIC_INK_RECORD_TEMPLATES_ENABLED: '0', EXPO_PUBLIC_PLANNER_TEMPLATES_ENABLED: '0', EXPO_PUBLIC_ROUTE_TEMPLATES_ENABLED: '0' }, encoding: 'utf8' })
   assert.equal(run.status, 0, run.stderr)
 })
 
@@ -252,4 +293,18 @@ test('고른 글리터 색도 팔레트 칸과 같은 반사 색조를 거친다
   assert.notEqual(paint({ inkGlitterColor: '#808080' }).glitter, '#808080')
   // 고르지 않으면 잉크색에서 계산한다
   assert.equal(paint({}).glitter, toHex(glitterColorOf(rgb, {})))
+})
+
+test('병 윤곽 색은 한 곳(INK_RECORD_FRAME)에서 오고, 속지 색 설정을 따른다', async () => {
+  const { paperLayoutColor } = await import('../src/editor/templates/appearance.js')
+  // 속지 팔레트에 있어야 배색을 바꿀 때 획 위 윤곽도 함께 바뀐다 — 빠지면 이 층만 원색으로 남는다
+  assert.notEqual(paperLayoutColor(INK_RECORD_FRAME, { backgroundColor: '#FFFFFF', layoutColor: '#33476B' }).toLowerCase(), INK_RECORD_FRAME)
+  // 속지에 인쇄된 병 선도 같은 색이다
+  const paper = await readFile(new URL(`../assets/templates/2026/SVG/${inkRecordId('round', 'portrait')}.svg`, import.meta.url), 'utf8')
+  assert.ok(paper.includes(INK_RECORD_FRAME))
+  // 색을 따로 적어 두는 코드가 없다(두 벌이면 한쪽만 바뀐다). 팔레트를 설명하는 주석 줄은 빼고 코드만 본다
+  for (const file of ['../src/editor/components/canvas/InkRecordFrontLayer.js', '../src/editor/templates/inkRecordPaper.js', '../scripts/generate-ink-record-paper.mjs']) {
+    const code = (await readFile(new URL(file, import.meta.url), 'utf8')).replace(/^\s*\/\/.*$/gm, '')
+    assert.doesNotMatch(code, /#aeb3b8/i, file)
+  }
 })

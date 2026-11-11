@@ -39,6 +39,7 @@ function renderSurface(snapshot) {
     '../hooks/useStickerPacks': { useStickerPacks: () => 0 },
     '../templates/packingLayout.js': { packingLayout: () => null },
     './canvas/PackingColorLayer': { PackingColorLayer: 'PackingColorLayer', PackingFrontLayer: 'PackingFrontLayer' },
+    './canvas/InkRecordFrontLayer': { InkRecordFrontLayer: 'InkRecordFrontLayer' },
     '../../shared/fontScope': { KeepFont: 'KeepFont' },
   }
   const module = { exports: {} }

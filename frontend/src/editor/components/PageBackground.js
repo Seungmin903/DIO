@@ -149,9 +149,14 @@ export const backgroundKey = (page, printedFont, attempt) => [page.id, page.back
 
 function PageBackground(props) {
   const [attempt, setAttempt] = useState(0)
-  // 데일리 플래너가 비추는 글은 마루부리 글꼴로 그려진다(속지 글꼴을 골라도 같다). 쓰일 때 불러오고, 불러오면 속지를 다시 그린다.
-  const [deviceFont] = paperDeviceFontIds(props.page.backgroundAssetId)
-  const printedFont = fontPhase(useTextFont(deviceFont ?? null, true))
+  // 속지가 앱 글꼴로 그리는 글 — 데일리 플래너가 비추는 글(마루부리)과, 원본이 아닌 속지 글꼴로 바뀐 인쇄 글자.
+  // 쓰일 때 불러오고, 불러오면(아래 key 가 바뀌어) 속지를 다시 그린다. 글꼴은 많아야 둘이라 훅도 둘로 고정한다.
+  const fontIds = paperDeviceFontIds(props.page.backgroundAssetId, normalizePaperAppearance(props.page.paperAppearance).font)
+  // 두 상태 문자열('가족:loaded|가족:loading')을 | 로 이어 fontPhase 가 받는 모양 그대로 넘긴다.
+  // 글꼴이 둘을 넘지 않는다는 것은 tests/paper-font.test.js 가 지킨다. 훅은 개수가 바뀌면 안 되므로
+  // 둘로 고정했고, 셋째부터는 불러오지 않아 대체 글꼴로 그려진다 — 개발 중에는 조용히 지나가지 않게 알린다.
+  if (typeof __DEV__ !== 'undefined' && __DEV__ && fontIds.length > 2) console.warn(`[PageBackground] 속지 글꼴이 ${fontIds.length}개라 셋째부터 불러오지 않아요: ${fontIds.join(', ')}`)
+  const printedFont = fontPhase([useTextFont(fontIds[0] ?? null, true), useTextFont(fontIds[1] ?? null, true)].filter(Boolean).join('|'))
   // 속지 글꼴이 바뀌면 처음부터 다시 불러온다
   const key = backgroundKey(props.page, printedFont, attempt)
   return <Keep><BackgroundAttempt key={key} {...props} onRetry={props.preparedXml == null ? () => setAttempt(value => value + 1) : undefined} /></Keep>

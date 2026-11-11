@@ -9,7 +9,7 @@
 // 되고, 그것들을 다 합치면 병이 덮는 자리다. 조각 하나하나를 닫는 것이라 조각이 늘어도 그대로 된다.
 import { writeFileSync } from 'node:fs'
 import { pathToFileURL } from 'node:url'
-import { square, circle, BASE } from './inkRecord/bottleShape.mjs'
+import { square, circle, BASE, artAt } from './inkRecord/bottleShape.mjs'
 
 const BUILDS = { round: P => circle(P, P.s * 98 / BASE.s), square: P => square(P) }
 const SEG = 16   // 굽은 곳 한 번을 몇 조각으로 펼 것인가
@@ -77,6 +77,22 @@ const flattenPart = (tag) => tag.startsWith('<ellipse')
 
 const r4 = v => Number(v.toFixed(4))
 
+// 윤곽 **그림**(획 위에 한 겹 더 올릴 것). 높이 1000 으로 그려 두고 앱이 병 높이에 맞춰 줄인다 —
+// 그러면 선 굵기도 같은 비율로 줄어 속지에 찍힌 것과 똑같아진다.
+const DRAW_HEIGHT = 1000
+const tagOf = (tag) => {
+  if (tag.startsWith('<ellipse')) {
+    const at = key => Number(tag.match(new RegExp(`${key}="(-?[\\d.]+)"`))[1])
+    return { ellipse: [at('cx'), at('cy'), at('rx'), at('ry')] }
+  }
+  return { d: tag.match(/ d="([^"]*)"/)[1] }
+}
+function shapeDraw(build) {
+  const art = artAt(build, DRAW_HEIGHT)
+  return { height: DRAW_HEIGHT, box: [art.box.x0, art.box.y0], sw: art.sw, thinSw: art.thinSw,
+    parts: art.parts.map(tagOf), thin: art.thin.map(tagOf) }
+}
+
 function shapeOutline(build) {
   const art = build(BASE)
   const { x0, y0, y1 } = art.box
@@ -84,12 +100,13 @@ function shapeOutline(build) {
   const norm = p => [r4((p.x - x0) / h), r4((p.y - y0) / h)]
   // 덮는 자리는 bottleShape.mjs 가 solid 로 내놓는다 — 그리는 조각(parts)과 달리 닫혀 있다.
   const polygons = art.solid.map(flattenPart).filter(pts => pts.length >= 3).map(pts => pts.flatMap(norm))
-  return { width: r4((art.box.x1 - x0) / h), polygons }
+  return { width: r4((art.box.x1 - x0) / h), polygons, draw: shapeDraw(build) }
 }
 
 const out = Object.fromEntries(Object.entries(BUILDS).map(([shape, build]) => [shape, shapeOutline(build)]))
-const body = Object.entries(out).map(([shape, { width, polygons }]) =>
-  `  ${shape}: {\n    width: ${width},\n    polygons: [\n${polygons.map(p => `      [${p.join(',')}],`).join('\n')}\n    ],\n  },`).join('\n')
+const body = Object.entries(out).map(([shape, { width, polygons, draw }]) =>
+  `  ${shape}: {\n    width: ${width},\n    polygons: [\n${polygons.map(p => `      [${p.join(',')}],`).join('\n')}\n    ],\n`
+  + `    draw: ${JSON.stringify(draw)},\n  },`).join('\n')
 
 // 적을 곳을 인자로 받는다 — 검사는 임시 파일에 적어 두고 지금 파일과 견준다(진짜 파일을 덮어쓰지 않게)
 const target = process.argv[2] ? pathToFileURL(process.argv[2]) : new URL('../src/editor/templates/inkRecordBottles.js', import.meta.url)

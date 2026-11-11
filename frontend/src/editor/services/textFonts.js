@@ -86,11 +86,11 @@ export function ensureTextFontsFor(objects, extraIds = []) {
 }
 
 /**
- * 내보내기 직전에 기다릴 글꼴: 글자 요소가 쓰는 글꼴(굵게면 Bold까지)과, 속지가 앱 글꼴로 그리는 글(데일리 플래너가 비추는 글의 마루부리).
+ * 내보내기 직전에 기다릴 글꼴: 글자 요소가 쓰는 글꼴(굵게면 Bold까지)과, 속지가 앱 글꼴로 그리는 글(데일리 플래너가 비추는 글의 마루부리, 원본이 아닌 속지 글꼴로 바뀐 인쇄 글자).
  * snapshot 은 createExportSnapshot 의 결과다(template = { backgroundAssetId, templateVersion } | null).
  */
 export const ensureExportFonts = async snapshot => {
-  const load = () => ensureTextFontsFor(snapshot.objects, snapshot.template ? paperDeviceFontIds(snapshot.template.backgroundAssetId) : [])
+  const load = () => ensureTextFontsFor(snapshot.objects, snapshot.template ? paperDeviceFontIds(snapshot.template.backgroundAssetId, snapshot.paperAppearance?.font) : [])
   const failedRemote = results => results.flat(Infinity).filter(result => result?.remote && !result.ok).map(result => result.family)
   // 원격 글꼴을 받지 못했으면(오프라인 · 저장소 장애) 다시 기다리지 않고 한 번 바로 다시 받는다
   let failed = failedRemote(await load())

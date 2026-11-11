@@ -14,11 +14,13 @@
 //
 // 글자 윤곽은 scripts/dump-maruburi-glyphs.py 가 뽑아 둔 것을 쓴다.
 import { readFileSync, writeFileSync } from 'node:fs'
+import { execFileSync } from 'node:child_process'
+import { fileURLToPath } from 'node:url'
 import { square, circle, artAt, place, BASE } from './inkRecord/bottleShape.mjs'
 // 자리 계산은 앱과 **같은 모듈**을 쓴다 — 두 벌로 두면 자동으로 채우는 값이 엉뚱한 데 찍힌다
-import { SIZES, GRID, MARGIN as M, cellRegions, INK_RECORD_SHAPES, inkRecordId } from '../src/editor/templates/inkRecordLayout.js'
+import { SIZES, GRID, MARGIN as M, cellRegions, INK_RECORD_SHAPES, inkRecordId, INK_RECORD_FRAME as FRAME } from '../src/editor/templates/inkRecordLayout.js'
 
-const STRUCT = '#bfc1c4', FRAME = '#aeb3b8', RULE = '#d7d9dc', INK = '#292929'
+const STRUCT = '#bfc1c4', RULE = '#d7d9dc', INK = '#292929'
 const n = v => Number(v.toFixed(2))
 
 const GLYPHS = JSON.parse(readFileSync(new URL('./out/maruburi-glyphs.json', import.meta.url), 'utf8'))
@@ -34,13 +36,19 @@ function glyphText(text, x, y, size, { weight = 'R', fill = INK, anchor = 'start
   const s = size / 1000
   const width = chars.reduce((sum, ch) => sum + (table[ch]?.[0] ?? 0), 0) * s
   let cursor = anchor === 'end' ? x - width : anchor === 'middle' ? x - width / 2 : x
-  let paths = ''
+  let paths = '', from = null, to = null
   for (const ch of chars) {
     const [advance, d] = table[ch] ?? [0, '']
-    if (ch !== ' ' && d) paths += `<path d="${d}" transform="translate(${n(cursor)} ${n(y)}) scale(${n(s)} ${n(-s)})"/>`
+    if (ch !== ' ' && d) {
+      if (from === null) from = cursor
+      paths += `<path d="${d}" transform="translate(${n(cursor)} ${n(y)}) scale(${n(s)} ${n(-s)})"/>`
+      to = cursor + advance * s
+    }
     cursor += advance * s
   }
-  return `<g fill="${fill}"${extra} aria-label="${text}">${paths}</g>`
+  // 글꼴 교체에 쓰는 치수를 적어 둔다(paperFont.js readGroup) — 적어 두면 원본 글꼴 확인표가 없어도 된다
+  const metrics = from === null ? '' : ` data-adv="${n(to - from)}"${weight === 'B' ? ' data-w="B"' : ''}`
+  return `<g fill="${fill}"${extra} aria-label="${text}"${metrics}>${paths}</g>`
 }
 
 // fill 을 반드시 적는다 — 없으면 검정으로 칠해진다(속지 형식 검사가 지킨다)
@@ -106,3 +114,7 @@ for (const shape of INK_RECORD_SHAPES) for (const orientation of ['portrait', 'l
   writeFileSync(new URL(`${id}.svg`, dir), wrap(orientation, id, NAMES[shape], sheet(orientation, shape)))
   console.log('저장:', id + '.svg')
 }
+// 쓸 수 있는 폭(data-fit) · 맞춘 자리(data-anchor)는 다른 정적 속지와 **같은 식**으로 굽는다.
+// 여기서 따로 셈하면 두 벌이 되어 어긋나고, 안 구우면 글꼴을 바꿀 때 글자가 모두 줄어든다(코드리뷰 2026-11-11).
+// 굽기는 이미 치수가 다 적힌 묶음은 건드리지 않으므로, 방금 만든 속지만 채워진다.
+execFileSync(process.execPath, [fileURLToPath(new URL('./bake-paper-metrics.mjs', import.meta.url))], { stdio: 'inherit' })

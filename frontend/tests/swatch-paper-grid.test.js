@@ -40,7 +40,7 @@ test('796: 표지 색 견본 격자는 폭이 좁아도 7칸 한 줄을 지키�
   assert.doesNotMatch(controls, /useFillGrid/)
 })
 
-test('796 후속: 속지 타일은 3열 고정이 아니라 폭에 들어가는 만큼 놓고 줄마다 수를 고르게 나눈다', () => {
+test('796 후속: 속지 타일은 3열 고정이 아니라 폭에 들어가는 만큼 놓는다 — 분류가 달라도 같은 열 수', () => {
   const thumb = 54
   const { min, max } = paperCellRange(thumb)
   const cases = [
@@ -51,6 +51,8 @@ test('796 후속: 속지 타일은 3열 고정이 아니라 폭에 들어가는 
     [324, 7, [4, 3]], // 편집기 페이지 추가 말풍선(348 - 안쪽 여백 24)
     [320, 7, [4, 3]], // 폰 360 페이지 추가(360 - 16 - 24)
     [791, 2, [2]],
+    // 분류마다 열 수가 같아야 넘길 때 칸이 같은 자리에서 시작한다(사용자 2026-11-11)
+    [324, 4, [4]], [324, 3, [3]], [324, 5, [4, 1]], // 페이지 추가: 노트 · 플래너 · 일기
   ]
   for (const [width, count, expected] of cases) {
     const grid = paperGridMetrics(width, count, thumb)
@@ -64,8 +66,13 @@ test('796 후속: 속지 타일은 3열 고정이 아니라 폭에 들어가는 
   assert.equal(short.rows, 2)
   assert.equal(short.empty, short.columns) // 한 줄 통째로
   assert.equal(paperGridMetrics(380, 7, thumb, { fillTo: 7 }).empty, 0) // 마지막 줄 남는 자리는 채우지 않는다
-  // 칸 크기는 분류(속지 수)와 상관없이 같다
+  // 칸 크기도 **열 수도** 분류(속지 수)와 상관없이 같다 — 격자 폭이 흔들리면 오른쪽이 들쭉날쭉해진다
   assert.equal(paperGridMetrics(380, 2, thumb).cell, paperGridMetrics(380, 7, thumb).cell)
+  for (const width of [324, 380, 791]) {
+    const widths = [2, 3, 4, 5, 7].map(count => paperGridMetrics(width, count, thumb))
+    assert.equal(new Set(widths.map(grid => grid.columns)).size, 1, `${width}: 분류마다 열 수가 다르다`)
+    assert.equal(new Set(widths.map(grid => grid.width)).size, 1, `${width}: 분류마다 격자 폭이 다르다`)
+  }
   assert.equal(PAPER_GRID_GAP, 4)
   assert.ok(min >= 76, '가장 긴 이름이 잘리지 않는 폭')
   // 가로 속지(미리보기 72)도 폰에서 4칸
