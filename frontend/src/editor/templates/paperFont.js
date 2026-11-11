@@ -25,10 +25,13 @@ export const DEFAULT_PAPER_FONT = PAPER_FONTS[0].id
 const TABLES = { 'nanum-gothic': nanumGothic, 'nanum-myeongjo': nanumMyeongjo, 'gowun-batang': gowunBatang, 'gowun-dodum': gowunDodum, 'nanum-pen': nanumPen, 'poor-story': poorStory }
 
 /** 글자가 인쇄되는 속지인가. 빈 종이와 노트(무지 · 줄 · 모눈 · 도트)에는 인쇄 글자가 없어 글꼴을 고를 일이 없다.
- *  여행 노선 속지는 인쇄 글자가 DAY · 지역 · 날짜뿐이라 글꼴 고르기를 두지 않는다(실기 피드백 2026-11-09). */
+ *  여행 노선 속지는 2026-11-09 에 글꼴 고르기를 두지 않았는데(인쇄 글자가 DAY · 지역 · 날짜뿐이라),
+ *  그 글자들(출 · 발 · 방 · 문 · 도 · 착 · DAY)이 글꼴 표에 아예 없어서 바꿔도 안 바뀌던 것이 겹쳐 있었다.
+ *  2026-11-11 에 표를 속지 전체로 넓혀 그 글자들을 채웠고, 노선 속지도 다른 속지와 같이 글꼴을 따른다
+ *  (글자는 plannerDraw.write 가 <g aria-label> + transform 으로 그려 교체 대상이 된다). */
 export function paperPrintsText(assetId) {
   if (assetId == null) return false
-  try { return !['note', 'route'].includes(getTemplate(assetId).type) } catch { return false }
+  try { return getTemplate(assetId).type !== 'note' } catch { return false }
 }
 
 /** 바꿀 수 있는(원본이 아닌) 속지 글꼴 ID 인가 */
