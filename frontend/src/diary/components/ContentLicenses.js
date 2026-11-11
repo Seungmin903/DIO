@@ -21,8 +21,12 @@ const hasVersion = version => typeof version === 'string' && /\d/.test(version);
 const summary = entry => [entry.license, hasVersion(entry.version) ? entry.version : null].filter(Boolean).join(' · ');
 // 대소문자를 가리지 않고 숫자는 크기대로 보는 이름 순(예전엔 데이터 순서라 Zstandard 다음에 libavif 가 왔다).
 // localeCompare(locale · 옵션)는 안드로이드 Hermes 에서 부를 때마다 ICU 를 거쳐 300개 정렬에도 설정이 버벅였다.
-// 그래서 항목마다 비교 키(소문자 · 숫자 묶음은 앞을 0으로 채움)를 한 번 만들고 문자열 비교만 한다
-const sortKey = name => String(name ?? '').toLowerCase().replace(/\d+/g, digits => digits.padStart(12, '0'));
+// 그래서 항목마다 비교 키를 한 번 만들고 문자열 비교만 한다: 소문자로 바꾸고, 숫자 묶음은 앞 0을 떼고 자릿수(4자리)를 앞에 붙인다.
+// 자릿수가 먼저 비교되어 몇 자리 숫자든 크기 순이 된다(lib2 → lib0001 2, lib10 → lib0002 10)
+const sortKey = name => String(name ?? '').toLowerCase().replace(/\d+/g, digits => {
+  const value = digits.replace(/^0+(?=\d)/, '');
+  return String(value.length).padStart(4, '0') + value;
+});
 export function sortByName(entries) {
   return entries.map(entry => [sortKey(entry.name), entry]).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)).map(([, entry]) => entry);
 }

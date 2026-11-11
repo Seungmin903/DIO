@@ -47,6 +47,9 @@ test('라이선스 이름 순은 localeCompare 없이 대소문자 무시 · 숫
   const { sortByName } = loadModule([])
   const names = ['lib10', 'Zstandard', 'lib2', '@expo/cli', 'libavif', 'Pretendard']
   assert.deepEqual(sortByName(names.map(name => ({ name }))).map(e => e.name), ['@expo/cli', 'lib2', 'lib10', 'libavif', 'Pretendard', 'Zstandard'])
+  // 13자리 이상 숫자(날짜 · 해시 등)도 크기 순, 앞 0은 값에 영향을 주지 않는다
+  const long = ['x-20261111000000', 'x-9', 'x-0010', 'x-1234567890123']
+  assert.deepEqual(sortByName(long.map(name => ({ name }))).map(e => e.name), ['x-9', 'x-0010', 'x-1234567890123', 'x-20261111000000'])
   const source = readFileSync(new URL('../src/diary/components/ContentLicenses.js', import.meta.url), 'utf8')
   assert.doesNotMatch(source, /\.localeCompare\(/)
   const info = readFileSync(new URL('../src/diary/components/AppInformation.js', import.meta.url), 'utf8')
