@@ -41,4 +41,17 @@ class DiaryTemplateConfigTests {
         assertThat(all.split("diaryId=d-repeat", -1).length - 1).isEqualTo(1);
         assertThat(all).contains("diaryId=d-other");
     }
+
+    @Test void fullSuppressionMapKeepsSuppressingAndLogsOneSummaryInsteadOfClearing(CapturedOutput output) {
+        int max = DiaryTemplateConfig.maxWarnedForTest();
+        for (int i = 0; i < max; i++) DiaryTemplateConfig.readLenient("{broken", "d-fill-" + i);
+        // 가득 찬 뒤 새 다이어리는 개별 경고 대신 요약 경고를 한 번만 남긴다.
+        for (int i = 0; i < 3; i++) DiaryTemplateConfig.readLenient("{broken", "d-new-" + i);
+        // 이미 기록된 다이어리는 여전히 억제된다(전체 초기화로 억제가 풀리지 않는다).
+        DiaryTemplateConfig.readLenient("{broken", "d-fill-0");
+        String all = output.getAll();
+        assertThat(all).doesNotContain("diaryId=d-new-");
+        assertThat(all.split("for many diaries", -1).length - 1).isEqualTo(1);
+        assertThat(all.split("diaryId=d-fill-0 ", -1).length - 1).isEqualTo(1);
+    }
 }

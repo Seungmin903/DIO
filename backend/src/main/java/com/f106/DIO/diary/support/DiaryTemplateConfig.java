@@ -54,19 +54,34 @@ public final class DiaryTemplateConfig {
     private static final long WARN_INTERVAL_NANOS = java.util.concurrent.TimeUnit.HOURS.toNanos(1);
     private static final int MAX_WARNED = 1024;
     private static final java.util.concurrent.ConcurrentHashMap<String, Long> WARNED = new java.util.concurrent.ConcurrentHashMap<>();
+    /** 억제 기록이 가득 찼다는 요약 경고를 마지막으로 남긴 시각. 아직 없으면 NEVER. */
+    private static final long NEVER = Long.MIN_VALUE;
+    private static final java.util.concurrent.atomic.AtomicLong LAST_OVERFLOW = new java.util.concurrent.atomic.AtomicLong(NEVER);
 
     private static void warnOnce(Object diaryId, String reason, String detail) {
         String key = String.valueOf(diaryId);
         long now = System.nanoTime();
         Long last = WARNED.get(key);
         if (last != null && now - last < WARN_INTERVAL_NANOS) return;
-        if (WARNED.size() >= MAX_WARNED) WARNED.clear(); // 손상 행이 아주 많아도 메모리가 늘지 않게 한다.
+        if (last == null && WARNED.size() >= MAX_WARNED) {
+            // 전체를 비우면 억제가 풀려 경고가 폭증하므로, 한 시간이 지난 항목만 지운다.
+            WARNED.entrySet().removeIf(entry -> now - entry.getValue() >= WARN_INTERVAL_NANOS);
+            if (WARNED.size() >= MAX_WARNED) {
+                // 그래도 가득 차 있으면 새 다이어리는 기록하지 않고, 손상이 많다는 요약 경고만 한 시간에 한 번 남긴다.
+                long overflow = LAST_OVERFLOW.get();
+                if ((overflow == NEVER || now - overflow >= WARN_INTERVAL_NANOS) && LAST_OVERFLOW.compareAndSet(overflow, now))
+                    LOG.warn("Stored diary templateConfig ignored for many diaries: tracked={} further per-diary warnings suppressed for up to 1h", MAX_WARNED);
+                return;
+            }
+        }
         if (last == null ? WARNED.putIfAbsent(key, now) != null : !WARNED.replace(key, last, now)) return;
         LOG.warn("Stored diary templateConfig ignored: diaryId={} reason={} detail={}", key, reason, detail);
     }
 
+    static final int maxWarnedForTest() { return MAX_WARNED; }
+
     /** 테스트용: 경고 억제 기록을 비운다. */
-    static void resetWarnings() { WARNED.clear(); }
+    static void resetWarnings() { WARNED.clear(); LAST_OVERFLOW.set(NEVER); }
 
     private static int depth(JsonNode value, int level) {
         if (level > MAX_DEPTH) return level;
