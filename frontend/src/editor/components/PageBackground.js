@@ -6,6 +6,7 @@ import { loadTemplateAst, peekTemplateAst } from '../templates/loadTemplate'
 import { colorTemplateAst, normalizePaperAppearance } from '../templates/appearance.js'
 import { pageSize } from '../utils/pageGeometry.js'
 import { plannerFor, paperDeviceFontIds } from '../templates/planners.js'
+import { inkRecordValue, isInkRecordId } from '../templates/inkRecord.js'
 import { isTastingId } from '../templates/tastingGeometry.js'
 import { tastingElementValue } from '../templates/tastingElements.js'
 import { subscribeTemplateLoaded } from '../templates/templateLoadedSignal.js'
@@ -94,9 +95,15 @@ function BackgroundAttempt({ page, zoom, preparedXml, onReady, onError, onRetry,
   const plannerApi = useMemo(() => preparedXml == null ? plannerFor(page.backgroundAssetId) : null, [page.backgroundAssetId, preparedXml])
   // 테이스팅 속지만 채움이 요소(page.objects)에 있다. 다른 플래너는 요소가 바뀔 때마다 덮개를 다시 만들지 않는다(끌기 · 편집 매 프레임 파싱 방지, MR !503 리뷰)
   const tastingObjects = isTastingId(page.backgroundAssetId) && !page.tastingDraft ? page.objects : null
-  const planner = useMemo(() => plannerApi ? (tastingObjects ? tastingElementValue(page) : page.planner ?? null) : null, [plannerApi, preparedXml, page.backgroundAssetId, page.planner, tastingObjects]) // eslint-disable-line react-hooks/exhaustive-deps
-  // 테이스팅은 요소가 바뀌면 값 객체가 새로 생기므로 채움 내용(문자열)이 같으면 덮개를 그대로 둔다
-  const plannerKey = tastingObjects ? JSON.stringify(planner) : planner
+  // 발색 기록도 값이 요소에서 나온다 — 병을 칠한 획의 색을 읽는다(page.planner 에 저장하지 않는다)
+  const inkRecordObjects = isInkRecordId(page.backgroundAssetId) ? page.objects : null
+  const objectValue = tastingObjects ?? inkRecordObjects
+  const planner = useMemo(() => !plannerApi ? null
+    : tastingObjects ? tastingElementValue(page)
+    : inkRecordObjects ? inkRecordValue(page.backgroundAssetId, inkRecordObjects)
+    : page.planner ?? null, [plannerApi, preparedXml, page.backgroundAssetId, page.planner, tastingObjects, inkRecordObjects]) // eslint-disable-line react-hooks/exhaustive-deps
+  // 요소에서 나온 값은 요소가 바뀔 때마다 객체가 새로 생기므로, 채움 내용(문자열)이 같으면 덮개를 그대로 둔다
+  const plannerKey = objectValue ? JSON.stringify(planner) : planner
   // 데일리 플래너는 할 일 글(글상자)을 막대 · 종일 칸에 비춰 그리므로, 글이 바뀌면 덮개도 다시 만든다.
   const titles = plannerApi?.titles(page.objects) ?? null, titleKey = titles ? JSON.stringify(titles) : ''
   const startHour = planner ? plannerApi.startHour(planner) : 6

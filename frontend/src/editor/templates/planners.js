@@ -5,6 +5,7 @@ import * as day from './dayPlanner.js'
 import * as route from './routePaper.js'
 import { isTastingId } from './tastingGeometry.js'
 import * as tasting from './tastingPaper.js'
+import { inkRecordApi } from './inkRecordPaper.js'
 
 const orientationOf = id => id.endsWith('portrait') ? 'portrait' : 'landscape'
 
@@ -20,6 +21,9 @@ const orientationOf = id => id.endsWith('portrait') ? 'portrait' : 'landscape'
  *   titleAt(점, 요소들) → 그 점의 할 일 칸에 이미 있는 글상자 | null, autoColor(기록, 요소들) → 색을 채운 새 기록 | null }
  */
 export function plannerFor(assetId) {
+  // 발색 기록: 바탕은 속지 파일 그대로 두고(fileBase) 자동으로 채운 색 값만 덮개로 올린다.
+  const inkRecord = inkRecordApi(assetId)
+  if (inkRecord) return inkRecord
   if (isTastingId(assetId)) {
     const landscape = assetId.endsWith('landscape')
     return {

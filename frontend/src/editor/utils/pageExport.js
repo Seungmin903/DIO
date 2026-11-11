@@ -3,6 +3,7 @@ import { pageSize } from './pageGeometry.js'
 import { fitBackdropToPage } from './backdrop.js'
 import { templateReference } from '../templates/catalog.js'
 import { plannerFor } from '../templates/planners.js'
+import { mergeInkRecordOverlay } from '../templates/inkRecordPaper.js'
 import { normalizeTextLink } from './textFormats.js'
 import { EDITOR_SHAPES, SHAPE_BORDER_STYLES } from './editorShapes.js'
 import { RETIRED_TEXT_FONTS, isKnownTextFontId } from './text.js'
@@ -99,8 +100,11 @@ export async function prepareExportSnapshot(snapshot, resolveImage, resolveTempl
       try {
         if (!resolveTemplate) throw new Error('Missing template resolver')
         const planner = plannerFor(snapshot.template.backgroundAssetId)
-        backgroundXml = planner ? planner.svg(snapshot.planner, snapshot.objects) : await resolveTemplate(snapshot.template)
+        // fileBase 속지(발색 기록)는 바탕이 **파일**이다. 파일을 읽고 덮개만 그 안에 끼워 넣는다 —
+        // svg() 로 갈음하면 바탕이 통째로 사라진다.
+        backgroundXml = planner && !planner.fileBase ? planner.svg(snapshot.planner, snapshot.objects) : await resolveTemplate(snapshot.template)
         if (!backgroundXml) throw new Error('Empty template')
+        if (planner?.fileBase) backgroundXml = mergeInkRecordOverlay(backgroundXml, planner.overlaySvg(snapshot.planner, snapshot.objects))
         backgroundXml = omitFilledAlbumBordersXml(colorTemplateXml(backgroundXml, snapshot.paperAppearance), { backgroundAssetId: snapshot.template.backgroundAssetId, objects: snapshot.objects })
       } catch (error) { throw new PageExportError('EXPORT_TEMPLATE_FAILED', '속지를 준비하지 못했어요. 다시 시도해 주세요.', error) }
     }
