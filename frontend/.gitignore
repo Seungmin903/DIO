@@ -51,4 +51,6 @@ expo-env.d.ts
 
 /modules/dio-stylus/android/build/
 /modules/dio-stylus/android/.gradle/
+/modules/dio-gallery/android/build/
+/modules/dio-gallery/android/.gradle/
 /remote-assets-dist/
