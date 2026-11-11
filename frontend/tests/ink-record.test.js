@@ -168,3 +168,18 @@ test('페이지 추가 · 새 다이어리에서 고를 수 있다 — 카탈로
   assert.equal(countAssetId('plain', 'portrait'), '2026-reusable-note-plain-portrait')
   assert.equal(countAssetId('dots', 'landscape'), '2026-reusable-note-dots-landscape')
 })
+
+test('빠르게 그어 점이 성겨도, 병을 가로지르면 칠한 것으로 본다', () => {
+  // 코드리뷰 2026-11-11: 점만 보면 병 위를 건너뛴 획이 칠하지 않은 것으로 판정된다.
+  const cell = layoutOf(PORTRAIT).cells[0]
+  const midY = cell.bottle.y + cell.bottle.h * 0.7
+  // 병 왼쪽 밖 → 오른쪽 밖. 가운데 점이 하나도 없다.
+  const across = [{ x: cell.bottle.x - 60, y: midY }, { x: cell.bottle.x + cell.bottle.w + 60, y: midY }]
+  for (const point of across) assert.equal(inkRecordFills(PORTRAIT, [stroke([point])])[0], null, '끝점만으로는 병 밖이다')
+  const fill = inkRecordFills(PORTRAIT, [stroke(across, { penKind: 'glass', color: '#3a6ea5' })])[0]
+  assert.ok(fill, '병을 가로지르면 칠한 것이다')
+  assert.equal(fill.ink, '#3A6EA5')
+  // 병을 스치지 않고 위로 지나가면 그대로 칠하지 않은 것이다
+  const above = [{ x: cell.bottle.x - 60, y: cell.bottle.y - 30 }, { x: cell.bottle.x + cell.bottle.w + 60, y: cell.bottle.y - 30 }]
+  assert.equal(inkRecordFills(PORTRAIT, [stroke(above)])[0], null, '병 위를 지나가는 획은 아니다')
+})

@@ -57,15 +57,46 @@ function inPolygon(point, poly) {
   return inside
 }
 
+/** 선분 ab 와 cd 가 서로 지나가나 */
+function segmentsCross(a, b, c, d) {
+  const side = (p, q, r) => Math.sign((q.x - p.x) * (r.y - p.y) - (q.y - p.y) * (r.x - p.x))
+  const d1 = side(a, b, c), d2 = side(a, b, d), d3 = side(c, d, a), d4 = side(c, d, b)
+  if (d1 !== d2 && d3 !== d4) return true
+  // 한 점이 다른 선분 위에 정확히 올라앉은 경우
+  const on = (p, q, r) => side(p, q, r) === 0
+    && r.x >= Math.min(p.x, q.x) && r.x <= Math.max(p.x, q.x)
+    && r.y >= Math.min(p.y, q.y) && r.y <= Math.max(p.y, q.y)
+  return on(a, b, c) || on(a, b, d) || on(c, d, a) || on(c, d, b)
+}
+
+/** 선분 ab 가 다각형의 변 하나라도 지나가나 */
+function segmentCrossesPolygon(a, b, poly) {
+  for (let i = 0, j = poly.length - 2; i < poly.length; j = i, i += 2) {
+    if (segmentsCross(a, b, { x: poly[j], y: poly[j + 1] }, { x: poly[i], y: poly[i + 1] })) return true
+  }
+  return false
+}
+
+/** 선분 ab 를 감싸는 네모가 box 와 겹치나 — 다각형을 보기 전에 거르는 데 쓴다 */
+const segmentNearBox = (a, b, box) => Math.max(a.x, b.x) >= box.x && Math.min(a.x, b.x) <= box.x + box.w
+  && Math.max(a.y, b.y) >= box.y && Math.min(a.y, b.y) <= box.y + box.h
+
 /**
- * 획이 **병 안**에 들어와 있나(한 점이라도). 네모가 아니라 병 윤곽으로 본다
- * (사용자 2026-11-11). 윤곽은 조각 여럿이라 하나에만 들어도 병 안이다.
- * 모양 보정은 하지 않으므로, 삐져나온 칠이 있어도 한 점만 병 안이면 그 잉크로 친다.
+ * 획이 **병 안**에 들어와 있나. 네모가 아니라 병 윤곽으로 본다(사용자 2026-11-11).
+ * 윤곽은 조각 여럿이라 하나에만 들어도 병 안이다.
+ * 모양 보정은 하지 않으므로, 삐져나온 칠이 있어도 조금만 병 안에 들어오면 그 잉크로 친다.
+ *
+ * 점만 보지 않고 **점 사이도** 본다. 빠르게 그으면 점이 성겨서, 병을 가로지르고도 병 안에 찍힌
+ * 점이 하나도 없을 수 있다(코드리뷰 2026-11-11).
  */
 function touchesBottle(points, cell) {
-  for (const point of points) {
-    if (!inBox(point, cell.bottle)) continue           // 감싸는 네모로 먼저 거른다 — 대개 여기서 끝난다
-    if (cell.bottlePolys.some(poly => inPolygon(point, poly))) return true
+  for (let i = 0; i < points.length; i++) {
+    const a = points[i]
+    // 감싸는 네모로 먼저 거른다 — 대개 여기서 끝난다
+    if (inBox(a, cell.bottle) && cell.bottlePolys.some(poly => inPolygon(a, poly))) return true
+    const b = points[i + 1]
+    if (!b || !segmentNearBox(a, b, cell.bottle)) continue
+    if (cell.bottlePolys.some(poly => segmentCrossesPolygon(a, b, poly))) return true
   }
   return false
 }
