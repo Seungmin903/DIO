@@ -67,6 +67,30 @@ test('병 윤곽은 지금 그리는 병 모양에서 뽑은 것과 같다', asy
   assert.equal(await readFile(out, 'utf8'), await readFile(file, 'utf8'))
 })
 
+test('획 위에 올리는 병 윤곽은 속지에 찍힌 병과 같은 자리 · 같은 굵기다', async () => {
+  // 사용자 2026-11-11: "속지 병 안에 획 그으면 병 윤곽이 내가 그은 획보다 위이게 해줘".
+  // 위에 한 겹 더 올리는 그림(InkRecordFrontLayer)이 속지에 찍힌 병과 **한 치도** 어긋나면
+  // 선이 두 겹으로 보인다. 그림은 높이 1000 으로 떠 있고 칸마다 줄여 쓴다.
+  const { artAt, square, circle, BASE } = await import('../scripts/inkRecord/bottleShape.mjs')
+  const builds = { round: P => circle(P, (P.s * 98) / BASE.s), square }
+  for (const shape of INK_RECORD_SHAPES) {
+    const art = INK_RECORD_BOTTLES[shape]
+    assert.ok(art.draw.parts.length && art.draw.thin.length, `${shape} 그림 조각`)
+    for (const orientation of ['portrait', 'landscape']) {
+      for (const cell of inkRecordLayout(inkRecordId(shape, orientation)).cells) {
+        const k = cell.bottleHeight / art.draw.height
+        // 줄여 앉히면 윤곽을 감싸는 네모가 칠하는 자리(cell.bottle)와 딱 맞는다
+        assert.ok(Math.abs(art.width * art.draw.height * k - cell.bottle.w) < 1e-6, `${shape} 폭`)
+        assert.ok(Math.abs(art.draw.height * k - cell.bottle.h) < 1e-9, `${shape} 높이`)
+        // 굵기도 속지가 그 칸 높이로 그릴 때와 같다(그래야 겹쳐도 한 선으로 보인다)
+        const paper = artAt(builds[shape], cell.bottleHeight)
+        assert.ok(Math.abs(art.draw.sw * k - paper.sw) < 0.02, `${shape} 굵기 ${art.draw.sw * k} vs ${paper.sw}`)
+        assert.ok(Math.abs(art.draw.thinSw * k - paper.thinSw) < 0.02, `${shape} 얇은 굵기`)
+      }
+    }
+  }
+})
+
 test('판정 자리는 네모가 아니라 병 윤곽이다', () => {
   for (const shape of INK_RECORD_SHAPES) {
     const id = inkRecordId(shape, 'portrait')
@@ -191,11 +215,18 @@ test('플래그 0 빌드(서버 행 전)는 고르지 못하게만 막고, 이�
     import assert from 'node:assert/strict'
     import { papersIn, countAssetId, paperById } from ${JSON.stringify(new URL('../src/diary/utils/paperChoice.js', import.meta.url).href)}
     import { reusableTemplates, getTemplate } from ${JSON.stringify(new URL('../src/editor/templates/catalog.js', import.meta.url).href)}
-    import { INK_RECORD_TEMPLATE_SELECTION_ENABLED } from ${JSON.stringify(new URL('../src/editor/templates/serverCatalog.js', import.meta.url).href)}
+    import { INK_RECORD_TEMPLATE_SELECTION_ENABLED, PLANNER_TEMPLATE_SELECTION_ENABLED } from ${JSON.stringify(new URL('../src/editor/templates/serverCatalog.js', import.meta.url).href)}
     assert.equal(INK_RECORD_TEMPLATE_SELECTION_ENABLED, false)
+    assert.equal(PLANNER_TEMPLATE_SELECTION_ENABLED, false)
     // 고르지 못한다
     assert.deepEqual(papersIn('diary').filter(paper => paper.type === 'inkRecord'), [])
     assert.equal(reusableTemplates('portrait').some(item => item.type === 'inkRecord'), false)
+    // 플래너도 마찬가지다. 예전 하루 계획(type 'daily')과 데일리 플래너(type 'day')는 종류가
+    // 달라서 섞이지 않는다 — 전체 목록에서 찾아도 엉뚱한 ID 가 나오지 않는다(코드리뷰 2026-11-11).
+    assert.equal(countAssetId('day', 'landscape'), 'day-planner-landscape')
+    assert.equal(countAssetId('study', 'portrait'), 'study-planner-portrait')
+    assert.equal(countAssetId('route', 'landscape'), 'route-planner-landscape')
+    assert.equal(paperById('daily').id, 'day') // 예전 설정의 'daily' 는 데일리 플래너로 읽는다
     // 그래도 ID 는 나오고 속지도 찾아진다 — 플래그 1 빌드에서 만든 페이지가 열려야 한다
     for (const [id, bottle] of [['ink-record-round', 'round'], ['ink-record-square', 'square']]) {
       assert.equal(paperById(id).bottle, bottle)
@@ -207,7 +238,7 @@ test('플래그 0 빌드(서버 행 전)는 고르지 못하게만 막고, 이�
     }
   `
   const run = spawnSync(process.execPath, ['--input-type=module', '--eval', source],
-    { env: { ...process.env, EXPO_PUBLIC_INK_RECORD_TEMPLATES_ENABLED: '0' }, encoding: 'utf8' })
+    { env: { ...process.env, EXPO_PUBLIC_INK_RECORD_TEMPLATES_ENABLED: '0', EXPO_PUBLIC_PLANNER_TEMPLATES_ENABLED: '0', EXPO_PUBLIC_ROUTE_TEMPLATES_ENABLED: '0' }, encoding: 'utf8' })
   assert.equal(run.status, 0, run.stderr)
 })
 

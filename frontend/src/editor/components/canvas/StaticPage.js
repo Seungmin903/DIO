@@ -10,6 +10,7 @@ import WebStrokeCache from './WebStrokeCache'
 import { WebStrokeCacheEnabled } from './WebStrokeCacheContext'
 import { ViewportMotion } from './viewportMotion'
 import { PackingColorLayer, PackingFrontLayer } from './PackingColorLayer'
+import { InkRecordFrontLayer } from './InkRecordFrontLayer'
 import { memoArtOf } from '../../utils/editorShapes'
 import { packingLayout } from '../../templates/packingLayout.js'
 
@@ -93,6 +94,8 @@ const StaticPage = memo(function StaticPage({ qaPageMeasurement = null, page, zo
       </TextMeasureReady.Provider>
       </TextMeasure.Provider>
       {overTop.map(renderOverTop)}
+      {/* 발색 기록 속지의 병 윤곽 — 칠한 잉크가 병 **안**에 들어간 것처럼 보이게 선만 위에 한 겹 더 */}
+      <InkRecordFrontLayer page={page} zoom={zoom} />
     </View>
   )
 }, (previous, next) => (
