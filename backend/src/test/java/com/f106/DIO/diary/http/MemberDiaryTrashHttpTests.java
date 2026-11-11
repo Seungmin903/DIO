@@ -104,17 +104,6 @@ class MemberDiaryTrashHttpTests {
         mvc.perform(get(PATH+"/trash").header("Authorization","Bearer "+owner)).andExpect(jsonPath("$.items.length()").value(0));
         mvc.perform(get(PATH+"/"+id).header("Authorization","Bearer "+owner)).andExpect(status().isOk());
     }
-    @Test void trashRowsCarryDiaryTemplateConfigSoCoversKeepTheirOrientation() throws Exception {
-        String portrait=id(create()),legacy=id(create());
-        jdbc.update("update diaries set template_config_json=? where diary_id=?","{\"orientation\":\"portrait\"}",UUID.fromString(portrait));
-        for(String id:List.of(portrait,legacy)) mvc.perform(delete(PATH+"/"+id).header("Authorization","Bearer "+owner)).andExpect(status().isNoContent());
-        var items=json.readTree(mvc.perform(get(PATH+"/trash").header("Authorization","Bearer "+owner)).andExpect(status().isOk()).andReturn().getResponse().getContentAsByteArray()).get("items");
-        for(var item:items) {
-            if(item.get("diaryId").asString().equals(portrait)) assertThat(item.get("templateConfig").get("orientation").asString()).isEqualTo("portrait");
-            else assertThat(item.get("templateConfig")==null||item.get("templateConfig").isNull()).isTrue();
-        }
-        assertThat(items.size()).isEqualTo(2);
-    }
     @Test void missingForgedExpiredAndRevokedTokensCannotUseAnyTrashEndpoint() throws Exception {
         String id=id(create());
         String expired=jwt.issue(101L,ownerSession.getSessionId(),Instant.now().minusSeconds(600),Instant.now().minusSeconds(60));

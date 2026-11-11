@@ -80,11 +80,8 @@ export function createMemberDiaryApi(transport, { media, hydrateCovers = true } 
         if(!uuid(row.diaryId) || typeof row.diaryTitle!=='string' || !row.diaryTitle.trim() || !/^#[0-9a-f]{6}$/i.test(row.coverColor) || typeof row.coverStyle!=='string'
             || typeof row.version!=='string' || !/^[1-9][0-9]{0,18}$/.test(row.version) || BigInt(row.version)>9223372036854775807n
             || !Number.isFinite(deleted) || !Number.isFinite(expiry) || expiry-deleted!==30*86400000 || typeof row.canRestore!=='boolean' || typeof row.canPermanentlyDelete!=='boolean') throw invalid();
-        // 속지 구성(방향 포함). 예전 서버·예전 다이어리는 없으니 그때는 기기에 남긴 값을 덮지 않도록 키를 싣지 않는다.
-        if(row.templateConfig!=null && (typeof row.templateConfig!=='object' || Array.isArray(row.templateConfig))) throw invalid();
         return {id:row.diaryId,title:row.diaryTitle,color:row.coverColor,coverStyle:row.coverStyle,pattern:row.coverStyle==='PLAIN'?null:row.coverStyle.toLowerCase(),version:row.version,
-          trashedAt:row.deletedAt,expiresAt:row.purgeAt,canRestore:row.canRestore,retentionStatus:row.canRestore?'RESTORABLE':'EXPIRED',canPermanentlyDelete:row.canPermanentlyDelete,
-          ...(row.templateConfig!=null && {templateConfig:row.templateConfig})};
+          trashedAt:row.deletedAt,expiresAt:row.purgeAt,canRestore:row.canRestore,retentionStatus:row.canRestore?'RESTORABLE':'EXPIRED',canPermanentlyDelete:row.canPermanentlyDelete};
       });
       if(new Set(items.map(x=>x.id)).size!==items.length) throw invalid();return {items,hasNext:body.hasNext,nextCursor:body.nextCursor};
     },
