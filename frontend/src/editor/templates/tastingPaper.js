@@ -1,14 +1,15 @@
-import { TASTING_ID, TASTING_LANDSCAPE_ID, tastingLayout, tastingMarks, tastingReferencePoints, segmentDistance, tastingMarksForStroke } from './tastingGeometry.js'
+import { TASTING_ID, TASTING_LANDSCAPE_ID, TASTING_V2_ID, TASTING_V2_LANDSCAPE_ID, tastingLayout, tastingMarks, tastingReferencePoints, segmentDistance, tastingMarksForStroke } from './tastingGeometry.js'
 import { TASTING_PORTRAIT_SVG, TASTING_LANDSCAPE_SVG } from './tastingReferenceSvg.js'
+import { TASTING_V2_PORTRAIT_SVG, TASTING_V2_LANDSCAPE_SVG } from './tastingV2Svg.js'
 
 const safeColor = value => /^#[\da-f]{6}$/i.test(value ?? '') ? value : '#292929'
 const shape = (mark, fill) => {
   if (mark.kind === 'circle') return `<circle data-preserve-paint="true" cx="${mark.x}" cy="${mark.y}" r="${mark.radius}" fill="${fill}" stroke="#767a7f" stroke-width="2.4"/>`
-  const points = mark.radius === 22 ? '0,-22 6.6,-7.7 22,-7 10.3,3.5 13.6,19.5 0,12 -13.6,19.5 -10.3,3.5 -22,-7 -6.6,-7.7' : '0,-26 7.8,-9 26,-8 12,4 16,23 0,14 -16,23 -12,4 -26,-8 -7.8,-9'
+  const points = mark.radius === 16 ? '0,-16 5,-6 16,-5 7,3 10,15 0,9 -10,15 -7,3 -16,-5 -5,-6' : mark.radius === 18 ? '0,-18 5,-6 18,-6 8,3 11,16 0,9 -11,16 -8,3 -18,-6 -5,-6' : mark.radius === 22 ? '0,-22 6.6,-7.7 22,-7 10.3,3.5 13.6,19.5 0,12 -13.6,19.5 -10.3,3.5 -22,-7 -6.6,-7.7' : '0,-26 7.8,-9 26,-8 12,4 16,23 0,14 -16,23 -12,4 -26,-8 -7.8,-9'
   return `<polygon data-preserve-paint="true" points="${points}" transform="translate(${mark.x} ${mark.y})" fill="${fill}" stroke="#767a7f" stroke-width="2.4" stroke-linejoin="round"/>`
 }
 
-export const tastingBaseSvg = (id = TASTING_ID) => id === TASTING_LANDSCAPE_ID ? TASTING_LANDSCAPE_SVG : TASTING_PORTRAIT_SVG
+export const tastingBaseSvg = (id = TASTING_ID) => id === TASTING_V2_ID ? TASTING_V2_PORTRAIT_SVG : id === TASTING_V2_LANDSCAPE_ID ? TASTING_V2_LANDSCAPE_SVG : id === TASTING_LANDSCAPE_ID ? TASTING_LANDSCAPE_SVG : TASTING_PORTRAIT_SVG
 export function tastingOverlaySvg(value, id = TASTING_ID) {
   const L = tastingLayout(id), fills = value?.fills ?? {}
   if (!L) return ''
