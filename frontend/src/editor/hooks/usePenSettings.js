@@ -16,12 +16,14 @@ export function usePenSettings() {
   const change = useCallback(next => {
     // 종류를 바꾸면 지금 종류의 굵기 · 불투명도를 기억해 두고 고른 종류의 마지막 값을 되살린다
     const switched = next.kind !== options.kind
-    const memory = rememberPen(kinds, switched ? options : next)
+    // 나가는 종류를 기억할 때는 색도 함께 담는다(settings 에만 색이 있다 — options 에는 없다)
+    const memory = rememberPen(kinds, switched ? settings : next)
     const resolved = switched ? applyPenKind(memory, next, next.kind) : next
     setKinds(rememberPen(memory, resolved))
     setOptions(resolved)
+    // 종류를 바꾸면 그 종류가 마지막에 쓰던 색으로 돌아간다(사용자 2026-11-10).
     // 기본 색을 다시 고른 경우도 명시적 선택이다. 늦은 복원이 덮지 않게 한다.
-    preference.setColor(next.color).catch(() => console.warn('펜 색상을 저장하지 못했어요.'))
-  }, [options, kinds])
+    preference.setColor(resolved.color).catch(() => console.warn('펜 색상을 저장하지 못했어요.'))
+  }, [options, settings, kinds])
   return [settings, change]
 }

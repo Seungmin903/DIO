@@ -10,14 +10,17 @@ test('공방 도구 · 속지 탭: 견본 줄과 팔레트 편집은 머리줄 �
   assert.match(presets, /paletteFit: \{ width: 318, maxWidth: '100%' \}/)
   // 구분선과 같은 폭 값
   assert.match(presets, /line: \{ width: 318, maxWidth: '100%', height: 1/)
-  assert.match(presets, /<PaletteFit full=\{compact\}><EditablePalette scope=\{group\.scope\} label=\{group\.label\} flushEdit \/><\/PaletteFit>/)
+  // 도구 탭은 '팔레트 편집' 을 묶음 제목 줄로 올렸다(2026-11-10) → 작은 제목 줄을 그리지 않고 편집 상태를 바깥에서 쥔다
+  assert.match(presets, /<PaletteFit full=\{compact\}><EditablePalette scope=\{group\.scope\} label=\{group\.label\} showHeading=\{false\} editing=\{editing\} onEditingChange=\{setEditing\} \/><\/PaletteFit>/)
+  assert.match(presets, /기본 색으로/)
+  assert.match(presets, /headLinks: \{ flexDirection: 'row'/)
   const paper = read('src/diary/components/StudioPaperStyle.js')
   assert.match(paper, /<PaletteFit full=\{compact\}><EditablePalette scope=\{scope\} label=\{label\} value=\{value\} onPick=\{onChange\} flushEdit \/><\/PaletteFit>/)
 })
 
 test('팔레트 편집 글자 오른쪽 끝을 줄 끝에 맞춘다(누르는 자리 여백 6 은 바깥으로) — 공방에서만, 편집기 패널은 그대로', () => {
   const palette = read('src/editor/components/controls/EditablePalette.js')
-  assert.match(palette, /flushEdit = false \}\) \{/)
+  assert.match(palette, /flushEdit = false/)
   assert.match(palette, /style=\{\[s\.edit, flushEdit && s\.editFlush\]\}/)
   assert.match(palette, /edit:\{minHeight:36,justifyContent:'center',paddingHorizontal:6\}/)
   assert.match(palette, /editFlush:\{marginRight:-6\}/)

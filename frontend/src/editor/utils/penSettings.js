@@ -9,22 +9,59 @@ export const PEN_TYPES = [
   { id: 'ball', label: '볼펜' }, { id: 'calligraphy', label: '캘리펜' },
   { id: 'taperBrush', label: '붓펜' }, { id: 'pencil', label: '연필' },
   { id: 'dashed', label: '점선' },
+  // 2026-11-09: 유리펜(글라스 딥펜) — 염료 투과 · 커피링 · 테(쉰) · 운모 글리터. 설계는 `유리펜 설계/` 참고
+  // 맨 끝에 둔다(사용자 2026-11-10) — 옵션이 가장 많아 고르면 패널이 길어진다
+  { id: 'glass', label: '잉크펜' },
 ]
 export const DEFAULT_PEN_SETTINGS = { kind: 'ball', color: '#18224D', width: 2.5 }
+// 유리펜 잉크: 글리터 · 테를 따로 켜고 끈다. 글리터 색은 색상환이 아니라 **운모 코팅 두께(nm)** 하나로 정한다 —
+// 실제 펄 안료가 그렇다(운모판 + TiO2 코팅의 박막 간섭). 계산한 색 순서가 안료 업계 두께표와 일치한다.
+export const GLASS_FILMS = [
+  { id: 55, label: '은' }, { id: 72, label: '금' }, { id: 88, label: '구리' },
+  { id: 103, label: '분홍' }, { id: 125, label: '파랑' }, { id: 145, label: '초록' },
+]
+// 테 색: 비워 두면 펜 색에서 물리식(프레넬)으로 자동 계산한다. 고르면 그 색으로 덮어쓴다
+export const GLASS_SHEENS = [
+  { id: '#C9A227', label: '금' }, { id: '#B06A3B', label: '구리' }, { id: '#3E8E6E', label: '초록' },
+  { id: '#B5447E', label: '자주' }, { id: '#4A6FB5', label: '파랑' }, { id: '#C8CBD2', label: '은' },
+]
+// inkFilm · inkSheenColor 가 null 이면 '맞춤'(펜 색에서 자동 계산). inkGlitterColor 는 직접 고른 색.
+export const DEFAULT_GLASS_INK = { inkGlitter: true, inkSheen: true, inkFilm: null, inkGlitterColor: null, inkAmount: 1, inkSheenColor: null, inkSheenAmount: 1 }
 // 종류를 고를 때 들어가는 기본 불투명도(사용자 2026-11-03: 연필은 기본을 반투명으로, 슬라이더는 100 까지 그대로 —
 // 참고 필기 앱(Notability · 애플 노트) 연필은 순검정이 없고 겹칠수록 진해진다). 없는 종류는 1.
+// 굵기 상한은 종류마다 다르다. 유리펜만 32 까지(사용자 2026-11-10) — 고일수록 테 · 글리터가
+// 살아나는 펜이라, 굵게 쓰는 쓰임(제목 글씨)이 따로 있다. 나머지 펜은 그대로 16.
+export const PEN_WIDTH_MAX = { glass: 32 }
+export const penWidthMax = kind => PEN_WIDTH_MAX[kind] ?? 16
 export const PEN_DEFAULT_OPACITY = { pencil: 0.8 }
 export const penDefaultOpacity = kind => PEN_DEFAULT_OPACITY[kind] ?? 1
 // 펜 종류마다 마지막으로 쓴 굵기 · 불투명도를 기억한다(사용자 2026-11-03: 다른 펜을 오가도 설정이 그대로여야 한다).
 // 처음 쓰는 종류는 지금 굵기를 이어 받고 불투명도만 그 종류의 기본값이다.
 const penPattern = (kind, settings) => isDashedKind(kind) ? dashPattern(kind, settings) : {}
+// 종류 전용 옵션은 그 종류를 고르지 않았을 때 설정에 남아 있으면 안 된다(사용자 2026-11-10:
+// 한 펜에서 고른 옵션이 다른 펜에 영향을 준다). 종류를 바꿀 때 여기 적힌 열쇠를 전부 털고,
+// 새 종류의 것만 기억에서 되살린다.
+const KIND_ONLY_KEYS = ['dashLength', 'dashGap', ...Object.keys(DEFAULT_GLASS_INK)]
+const withoutKindOnly = settings => {
+  const rest = { ...settings }
+  for (const key of KIND_ONLY_KEYS) delete rest[key]
+  return rest
+}
+const penInk = (kind, settings) => kind === 'glass' ? sanitizeGlassInk(settings) : {}
 export const rememberPen = (memory, settings) => ({
   ...memory,
-  [settings.kind]: { width: settings.width, opacity: settings.opacity ?? penDefaultOpacity(settings.kind), ...penPattern(settings.kind, settings) },
+  [settings.kind]: { width: settings.width, opacity: settings.opacity ?? penDefaultOpacity(settings.kind),
+    ...(settings.color ? { color: settings.color } : null),
+    ...penPattern(settings.kind, settings), ...penInk(settings.kind, settings) },
 })
-export function applyPenKind(memory, { dashLength, dashGap, ...settings }, kind) {
+export function applyPenKind(memory, settings, kind) {
   const saved = memory?.[kind]
-  return { ...settings, kind, width: saved?.width ?? settings.width, opacity: saved?.opacity ?? penDefaultOpacity(kind), ...penPattern(kind, saved) }
+  // 색도 종류마다 따로 기억한다(사용자 2026-11-10: 한 펜에서 색을 고르면 다른 펜까지 같이 바뀐다).
+  // 처음 쓰는 종류만 지금 색을 이어받는다 — 굵기와 같은 규칙이다.
+  // 이어받은 굵기가 그 종류의 상한을 넘으면 깎는다(유리펜 32 에서 볼펜으로 넘어올 때)
+  return { ...withoutKindOnly(settings), kind, width: Math.min(penWidthMax(kind), saved?.width ?? settings.width),
+    color: saved?.color ?? settings.color,
+    opacity: saved?.opacity ?? penDefaultOpacity(kind), ...penPattern(kind, saved), ...penInk(kind, saved) }
 }
 // 형광펜: 0.42 로 겹쳐 칠해도 · 속지 종이 색으로 깔아도 뽀얀 톤
 export const HIGHLIGHTER_COLORS = ['#F7DF8A', '#F6C79B', '#F2B4AE', '#D8C5EF', '#C6D0F0', '#BDE4D1', '#E5DDD2']
@@ -41,14 +78,17 @@ const inRange = (value, min, max, fallback) => Number.isFinite(value) ? Math.max
 export function sanitizePenSettings(saved) {
   if (!saved || typeof saved !== 'object') return undefined
   const kind = [...PEN_TYPES, ...DASH_TYPES].some(type => type.id === saved.kind) ? saved.kind : DEFAULT_PEN_SETTINGS.kind
-  return { kind, color: validColor(saved.color, DEFAULT_PEN_SETTINGS.color), width: inRange(saved.width, 1, 16, DEFAULT_PEN_SETTINGS.width), opacity: inRange(saved.opacity, 0.1, 1, penDefaultOpacity(kind)), ...penPattern(kind, saved) }
+  return { kind, color: validColor(saved.color, DEFAULT_PEN_SETTINGS.color), width: inRange(saved.width, 1, penWidthMax(kind), DEFAULT_PEN_SETTINGS.width), opacity: inRange(saved.opacity, 0.1, 1, penDefaultOpacity(kind)),
+    ...penPattern(kind, saved), ...(kind === 'glass' && sanitizeGlassInk(saved)) }
 }
 export function sanitizePenKinds(saved) {
   if (!saved || typeof saved !== 'object') return undefined
   const result = {}
   for (const type of [...PEN_TYPES, ...DASH_TYPES]) {
     const item = saved[type.id]
-    if (item && typeof item === 'object') result[type.id] = { width: inRange(item.width, 1, 16, DEFAULT_PEN_SETTINGS.width), opacity: inRange(item.opacity, 0.1, 1, penDefaultOpacity(type.id)), ...penPattern(type.id, item) }
+    if (item && typeof item === 'object') result[type.id] = { width: inRange(item.width, 1, penWidthMax(type.id), DEFAULT_PEN_SETTINGS.width), opacity: inRange(item.opacity, 0.1, 1, penDefaultOpacity(type.id)),
+      ...(validColor(item.color, null) ? { color: validColor(item.color, null) } : null),
+      ...penPattern(type.id, item), ...penInk(type.id, item) }
   }
   return result
 }
@@ -60,10 +100,12 @@ export function sanitizeHighlighterSettings(saved) {
 // 사용자 2026-11-03: 볼펜 · 캘리펜 · 붓펜 필압 체감이 약하다(힘 0.04 → 0.65 에서 굵기가 볼펜 .9 → 1.25 배, 붓펜은 렌더 상한에 걸려 ±16%)
 // → 코덱스 곡선: 배율 = clamp(lo, hi, base + slope · (힘 / 0.22)^지수). 힘 0.22(평소) 에서 슬라이더 굵기가 거의 그대로(1.03 · 1.05 · .84×몸통 1.25 = 1.05)
 // [base, slope, 지수, lo, hi]. 붓펜 몸통은 렌더에서 1.25 배가 더해져 힘 0.65 에서 약 2.2D(상한 BRUSH_BODY_CAP 2.4)
-const SENSED_WIDTH = { ball: [0.65, 0.38, 0.75, 0.72, 1.52], calligraphy: [0.52, 0.53, 0.85, 0.6, 1.72], taperBrush: [0.27, 0.57, 0.9, 0.38, 1.8] }
+// 유리펜(2026-11-10 사용자: 필압 · 기울기를 펜 정도로): 유리 닙은 금속 닙처럼 휘지 않아
+// 힘으로 선이 굵어지는 폭이 작다. 그래서 볼펜과 같은 은은한 곡선을 쓴다.
+const SENSED_WIDTH = { ball: [0.65, 0.38, 0.75, 0.72, 1.52], calligraphy: [0.52, 0.53, 0.85, 0.6, 1.72], taperBrush: [0.27, 0.57, 0.9, 0.38, 1.8], glass: [0.65, 0.38, 0.75, 0.72, 1.52] }
 // 눕혀 쓸 때 넓어지는 정도. 연필은 점의 기울기 값으로 도장에서 따로 계산한다
 // (코덱스는 힘 곡선이 넓어졌다며 T 를 .05 · .10 · .06 으로 낮추자고 했으나, 기울기 체감을 올리는 게 목표라 기존 값을 유지했다 — 내 판단)
-const TILT_WIDTH = { ball: 0.12, calligraphy: 0.25, taperBrush: 0.35 }
+const TILT_WIDTH = { ball: 0.12, calligraphy: 0.25, taperBrush: 0.35, glass: 0.12 }
 // 기울기(도) → 0~1: 25° 이하 0, 55° 이상 1(코덱스. 예전엔 40°→55° 라 평소 30° 근처에서 반응이 없었다)
 export const tiltAmount = event => Number.isFinite(event?.tiltX) && Number.isFinite(event?.tiltY) ? Math.max(0, Math.min(1, (Math.min(90, Math.hypot(event.tiltX, event.tiltY)) - 25) / 30)) : 0
 // pressure는 센서 원값이 아니라 저장·렌더링용 굵기 배율이다.
@@ -116,5 +158,20 @@ export function createPenPressureSampler(kind, useForce = true, useTilt = true) 
     },
     report() { return { source: samples ? 'force' : 'speed-fallback', samples, min: samples ? min : null, max: samples ? max : null } },
     force() { return lastForce },
+  }
+}
+
+// 유리펜 잉크 설정 검사. 모르는 값은 기본값으로 — 다른 펜에도 그냥 실려 있어도 해가 없다(유리펜일 때만 읽는다)
+export function sanitizeGlassInk(saved) {
+  if (!saved || typeof saved !== 'object') return { ...DEFAULT_GLASS_INK }
+  const film = GLASS_FILMS.some(one => one.id === saved.inkFilm) ? saved.inkFilm : null
+  return {
+    inkGlitter: typeof saved.inkGlitter === 'boolean' ? saved.inkGlitter : DEFAULT_GLASS_INK.inkGlitter,
+    inkSheen: typeof saved.inkSheen === 'boolean' ? saved.inkSheen : DEFAULT_GLASS_INK.inkSheen,
+    inkFilm: film,
+    inkGlitterColor: saved.inkGlitterColor == null ? null : validColor(saved.inkGlitterColor, null),
+    inkAmount: inRange(saved.inkAmount, 0, 1, DEFAULT_GLASS_INK.inkAmount),
+    inkSheenColor: saved.inkSheenColor == null ? null : validColor(saved.inkSheenColor, null),
+    inkSheenAmount: inRange(saved.inkSheenAmount, 0, 1, DEFAULT_GLASS_INK.inkSheenAmount),
   }
 }

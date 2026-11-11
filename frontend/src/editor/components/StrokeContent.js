@@ -12,6 +12,7 @@ import { useSvgId } from '../utils/svgId'
 import { HIGHLIGHTER_OPACITY } from '../utils/penSettings'
 import { packingCheckPath } from '../templates/packingChecks.js'
 import { isDashedKind, dashedObjectContour } from '../utils/dashedStroke'
+import GlassStrokeContent from './canvas/GlassStrokeContent'
 
 export default function StrokeContent({ object, zoom, transform, areaPreview = false, onAssetLoad, showFallbackWhileLoading = false }) {
   const grainId = useSvgId('pencil-grain')
@@ -32,6 +33,10 @@ export default function StrokeContent({ object, zoom, transform, areaPreview = f
   const svg = <Svg width={object.w * zoom} height={object.h * zoom} viewBox={`0 0 ${object.baseWidth} ${object.baseHeight}`} preserveAspectRatio="none" style={{ opacity: pencilBakesOpacity(object) ? object.opacity ?? 1 : undefined, transform }}>
     {object.packingTemplate === 'packing-list' && packingCheckPath(points, object.packingCheckVersion) ? <Path d={packingCheckPath(points, object.packingCheckVersion)} fill={color} />
       : isDashedKind(kind) ? <Path d={dashed} fill={color} />
+      : kind === 'glass' ? <GlassStrokeContent d={path} points={points} width={width} color={color}
+          ink={{ glitter: object.inkGlitter !== false, sheen: object.inkSheen !== false, film: object.inkFilm,
+                 glitterColor: object.inkGlitterColor, amount: object.inkAmount,
+                 sheenColor: object.inkSheenColor, sheenAmount: object.inkSheenAmount }} />
       : isNibKind(kind) ? <NibStrokeContent object={object} color={color} />
       : modern && kind === 'felt' ? <FeltStrokeContent object={object} points={points} width={width} color={color} renderVersion={object.renderVersion} materialSeed={object.materialSeed} />
       : modern && variable ? <InkStrokeContent object={kind === 'ball' ? undefined : object} areaPreview={areaPreview} points={points} width={width} kind={kind} color={color} startDistance={object.inkStartDistance ?? 0} renderVersion={object.renderVersion} />
