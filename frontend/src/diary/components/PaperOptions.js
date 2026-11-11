@@ -396,7 +396,9 @@ const styles = StyleSheet.create({
   tabTextOn: { color: colors.text, fontWeight: '800' },
   tabLine: { alignSelf: 'stretch', height: 2.5, marginBottom: -1, borderRadius: 2, backgroundColor: 'transparent' },
   tabLineOn: { backgroundColor: colors.primaryStrong },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: PAPER_GRID_GAP },
+  // 칸은 최대 폭에서 멈추므로 격자가 패널보다 좁을 수 있다. 왼쪽에 붙이면 오른쪽만 비어 어색하다
+  // — 남는 폭을 양쪽으로 나눈다(사용자 2026-11-11, 일기 분류가 5종이 되며 눈에 띄었다).
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: PAPER_GRID_GAP, alignSelf: 'center' },
   tile: { alignItems: 'center', gap: 5, paddingTop: 8, paddingBottom: 6, borderRadius: 12, borderWidth: 1.5, borderColor: 'transparent' },
   tileOn: { borderColor: colors.primary, backgroundColor: colors.primarySoft },
   tileName: { alignSelf: 'stretch', paddingHorizontal: 2, textAlign: 'center', color: colors.textMuted, fontSize: 11.5, fontWeight: '700' },
