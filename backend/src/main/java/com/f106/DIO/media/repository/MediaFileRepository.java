@@ -36,6 +36,13 @@ public interface MediaFileRepository extends JpaRepository<MediaFile, UUID> {
 
 	Optional<MediaFile> findByMediaFileIdAndOwnerUserIdAndDeletedAtIsNull(UUID mediaFileId, Long ownerUserId);
 	Optional<MediaFile> findByMediaFileIdAndDeletedAtIsNull(UUID mediaFileId);
+	/**
+	 * 본인이 미디어에서 지웠어도(삭제 표시) 내 꾸미기 공방 보관함에 아직 든 이미지. 보관함 API 는 이런 이미지를 그대로 두게 허용하므로,
+	 * 다른 기기 · 재설치 기기가 보관함을 받을 때 파일을 내려받을 수 있어야 한다. 보관함에서 빠지면 다시 찾을 수 없다.
+	 */
+	@Query(value = "select * from media_files where media_file_id = :mediaFileId and owner_user_id = :ownerUserId and status = 'READY' and media_type = 'IMAGE' "
+		+ "and (exists (select 1 from user_sticker_library_media kept where kept.user_id = :ownerUserId and kept.media_file_id = media_files.media_file_id) or exists (select 1 from user_tape_library_media kept where kept.user_id = :ownerUserId and kept.media_file_id = media_files.media_file_id) or exists (select 1 from user_cover_library_media kept where kept.user_id = :ownerUserId and kept.media_file_id = media_files.media_file_id) or exists (select 1 from user_paper_library_media kept where kept.user_id = :ownerUserId and kept.media_file_id = media_files.media_file_id))", nativeQuery = true)
+	Optional<MediaFile> findKeptInPersonalLibrary(@Param("mediaFileId") UUID mediaFileId, @Param("ownerUserId") Long ownerUserId);
 	List<MediaFile> findAllByMediaFileIdInAndDeletedAtIsNull(Collection<UUID> mediaFileIds);
 	boolean existsByMediaFileIdAndOwnerUserId(UUID mediaFileId, Long ownerUserId);
 	@Query(value = EXISTS_IN_RESTORABLE_SHARED_LIBRARY, nativeQuery = true)

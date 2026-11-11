@@ -1,13 +1,15 @@
 import { Segmented, ToolPanelHeader, toolPanelStyles } from './ToolPanel'
 import FadeScroll from './controls/FadeScroll'
 import { useEffect, useState } from 'react'
-import { Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native'
+import { Platform, Pressable, StyleSheet, Text, View } from 'react-native'
 import { colors } from '../../shared/theme'
 import Svg, { Path } from 'react-native-svg'
 import { TEXT_COLORS, textStyleSupport, textStyleReady, textFontChangePatch, italicTransform } from '../utils/text'
 import { useTextFont } from '../hooks/useTextFont'
 import EditablePalette from './controls/EditablePalette'
 import NumberStepper from './controls/NumberStepper'
+import PenSafeTextInput from './controls/PenSafeTextInput'
+import { numberFieldStyles } from './controls/numberFieldStyles'
 import TextFontDropdown from './controls/TextFontDropdown'
 
 
@@ -42,10 +44,14 @@ const VERTICAL_ALIGN_PATHS = {
 const VERTICAL_ALIGNS = [['top','위 정렬'],['middle','세로 가운데 정렬'],['bottom','아래 정렬']]
 
 
-/** 텍스트 서식. 스티커·마테·사진 옵션과 같은 모양(구역 제목·세그먼트 버튼·막대·색 줄)으로 만든다 */
-export default function TextSettings({ settings, onChange, onClose, verticalAlignment = false, sheet = false, dragHandlers }) {
+/** 텍스트 서식(상자를 고른 뒤 선택 바의 `서식`). 스티커·마테·사진 옵션과 같은 모양(구역 제목·세그먼트 버튼·막대·색 줄)으로 만든다.
+ * 항목 순서는 키보드 위 서식 줄(TextFormatStrip)과 같다 — 글꼴 · 크기 → 스타일 → 색 → 자간 · 줄간격 — 그 뒤에 줄에는 없는 정렬 · 세로 정렬(2026-11-10, 같은 기능으로 보이게).
+ * 설명 문구는 굵게 미지원 하나만 둔다(B 가 흐려지는 이유). 글꼴 준비 중 · 불러오기 실패 · 정렬이 보이는 조건 같은 안내는 넣지 않는다(사용자 피드백 2026-11-10) */
+// onOpenColorPicker: 팔레트 끝 점선 + 칸(직접 지정)을 누르면 편집기 위층의 색 창(PresetColorEditor)을 연다 — 펜 · 형광펜과 같다(지라 824)
+export default function TextSettings({ settings, onChange, onClose, verticalAlignment = false, sheet = false, dragHandlers, onOpenColorPicker }) {
 
-  const fontStatus = useTextFont(settings.font)
+  // 글꼴 상태 구독: 글꼴이 늦게 와도 다시 그린다(미리보기 · 굵게 가능 여부). 준비 중 · 실패 문구는 두지 않는다(사용자 피드백 2026-11-10 — 창을 가볍게)
+  useTextFont(settings.font)
   const support = textStyleSupport(settings.font, Platform.OS)
   const styleItems = STYLE_TOGGLES.map(item => ({ ...item, disabled: item.id === 'bold' && (!support.bold || !textStyleReady(settings.font, 'bold')) }))
   const [size, setSize] = useState(String(settings.fontSize))
@@ -63,13 +69,30 @@ export default function TextSettings({ settings, onChange, onClose, verticalAlig
         <View style={{ flex: 1 }}>
           <TextFontDropdown value={settings.font} onChange={(id) => onChange(textFontChangePatch(settings, id, Platform.OS))} />
         </View>
-        <TextInput accessibilityLabel="글자 크기" keyboardType="numeric" value={size} onChangeText={(raw) => { setSize(raw); const value = Number(raw); if (raw.trim() && Number.isFinite(value) && value >= 8 && value <= 96) onChange({ fontSize: value }) }} onEndEditing={(event) => commitSize(event.nativeEvent.text)} onSubmitEditing={(event) => commitSize(event.nativeEvent.text)} selectTextOnFocus style={styles.size} />
+        <View style={[numberFieldStyles.box, styles.size]}>
+          {/* 자간 · 줄간격 숫자 칸과 같이 PenSafeTextInput: S Pen 이 칸 가까이 지나가기만 해도 입력창이 열리지 않게 한다.
+              자릿수는 막지 않는다(붙여넣은 100 이 10 으로 잘려 적용되지 않게) — 범위 밖 값은 commitSize 가 되돌린다 */}
+          <PenSafeTextInput accessibilityLabel="글자 크기" keyboardType="numeric" value={size} onChangeText={(raw) => { setSize(raw); const value = Number(raw); if (raw.trim() && Number.isFinite(value) && value >= 8 && value <= 96) onChange({ fontSize: value }) }} onEndEditing={(event) => commitSize(event.nativeEvent.text)} onSubmitEditing={(event) => commitSize(event.nativeEvent.text)} selectTextOnFocus style={numberFieldStyles.input} />
+        </View>
       </View>
 
 
       <View style={styles.inlineRow}><Text style={styles.inlineLabel}>스타일</Text><View style={styles.fill}><Segmented steadyLabel items={styleItems} selected={(id) => Boolean(settings[id] && (support[id] !== false))} onPress={(id) => { if (!styleItems.find(item => item.id === id)?.disabled) onChange({ [id]: !settings[id] }) }} /></View></View>
       {!support.bold && <Text style={styles.styleNotice}>이 글꼴은 굵게를 지원하지 않아요.</Text>}
-      {fontStatus.includes(':error') ? <Text style={styles.styleNotice}>글꼴 일부를 불러오지 못했어요. 사용할 수 없는 서식은 꺼져 있어요.</Text> : fontStatus.includes(':loading') ? <Text style={styles.styleNotice}>글꼴을 준비하고 있어요.</Text> : null}
+
+      <EditablePalette allowDirect scope="text" label="글자" value={settings.color} onPick={color => onChange({color})} onOpenEditor={onOpenColorPicker} />
+
+      {/* 자간 · 줄간격: 접지 않고 숫자와 좌우 −·+ 로만 바꾼다 (글자 크기 대비 백분율 값, 단위 표시는 뺀다 — % 를 붙여 봤더니 칸 배열이 어긋나고 보기 싫었다, 2026-11-10) */}
+      <View style={styles.spacingRow}>
+        <View style={styles.spacingColumn}>
+          <Text style={toolPanelStyles.label}>자간</Text>
+          <NumberStepper value={settings.letterSpacing} min={-0.1} max={0.5} step={0.01} scale={100} label="자간" minusLabel="자간 좁게" plusLabel="자간 넓게" onChange={(value) => onChange({ letterSpacing: Math.round(value * 100) / 100 })} />
+        </View>
+        <View style={styles.spacingColumn}>
+          <Text style={toolPanelStyles.label}>줄간격</Text>
+          <NumberStepper value={settings.lineSpacing} min={1} max={2.5} step={0.05} scale={100} label="줄간격" minusLabel="줄간격 좁게" plusLabel="줄간격 넓게" onChange={(value) => onChange({ lineSpacing: Math.round(value * 100) / 100 })} />
+        </View>
+      </View>
 
       <View style={styles.inlineRow}><Text style={styles.inlineLabel}>정렬</Text><View style={styles.fill}>
       <Segmented
@@ -82,20 +105,6 @@ export default function TextSettings({ settings, onChange, onClose, verticalAlig
       {verticalAlignment && <>
         <View style={styles.inlineRow}><Text style={styles.inlineLabel}>세로 정렬</Text><View style={styles.fill}><Segmented items={VERTICAL_ALIGNS.map(([id,label])=>({id,a11y:label,icon:<Svg width={20} height={20} viewBox="0 0 24 24"><Path d="M4 3h16M4 21h16" stroke={settings.verticalAlign===id?colors.text:colors.textMuted} strokeWidth={1.8} strokeOpacity={0.35} strokeLinecap="round" /><Path d={VERTICAL_ALIGN_PATHS[id]} stroke={settings.verticalAlign===id?colors.text:colors.textMuted} strokeWidth={1.8} strokeLinecap="round" /></Svg>}))} selected={id=>settings.verticalAlign===id} onPress={id=>onChange({verticalAlign:id})} /></View></View>
       </>}
-
-      <EditablePalette scope="text" label="글자" value={settings.color} onPick={color => onChange({color})} />
-
-      {/* 자간 · 줄간격: 접지 않고 숫자와 좌우 −·+ 로만 바꾼다 (글자 크기 대비 백분율 값, 단위 표시는 뺀다) */}
-      <View style={styles.spacingRow}>
-        <View style={styles.spacingColumn}>
-          <Text style={toolPanelStyles.label}>자간</Text>
-          <NumberStepper value={settings.letterSpacing} min={-0.1} max={0.5} step={0.01} scale={100} label="자간" minusLabel="자간 좁게" plusLabel="자간 넓게" onChange={(value) => onChange({ letterSpacing: Math.round(value * 100) / 100 })} />
-        </View>
-        <View style={styles.spacingColumn}>
-          <Text style={toolPanelStyles.label}>줄간격</Text>
-          <NumberStepper value={settings.lineSpacing} min={1} max={2.5} step={0.05} scale={100} label="줄간격" minusLabel="줄간격 좁게" plusLabel="줄간격 넓게" onChange={(value) => onChange({ lineSpacing: Math.round(value * 100) / 100 })} />
-        </View>
-      </View>
     </FadeScroll>
   </View>
 }
@@ -112,8 +121,8 @@ const styles = StyleSheet.create({
   inlineLabel: { width: 52, color: colors.textMuted, fontSize: 12, fontWeight: '700' },
   fill: { flex: 1 },
   spacingColumn: { flex: 1, minWidth: 0, gap: 6 },
-  // 글자 크기 칸: 자간·줄간격 막대의 숫자 칸과 같은 모양 (숫자 칸은 모두 가운데 정렬)
-  size: { width: 52, height: 40, paddingHorizontal: 6, borderRadius: 10, borderWidth: 1, borderColor: colors.cardBorder, backgroundColor: colors.surface, color: colors.text, fontSize: 13, fontWeight: '700', textAlign: 'center', ...(Platform.OS === 'web' && { outlineStyle: 'none' }) },
+  // 글자 크기 칸: 자간 · 줄간격의 숫자 칸과 같은 모양(numberFieldStyles — 글자 14/700 · 가운데 · border 테두리 · 모서리 9), 폭만 52
+  size: { width: 52 },
   // 한 줄에 같은 간격으로 (양 끝 여백도 같게)
   colors: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   swatch: { width: 30, height: 30, borderRadius: 15, borderWidth: 1, borderColor: colors.cardBorder },

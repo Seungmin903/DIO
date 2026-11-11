@@ -32,6 +32,8 @@ export default function EraserInput({ objects, zoom, dispatch, onPreview, compac
       setCursor(next.point)
       const active = gesture.current
       const now = performance.now()
+      // 속지 채움은 획 조각 미리보기 제한과 별개로 즉시 반영한다.
+      if (active?.plannerShown === false) { active.plannerShown = true; onPlannerPreview?.(active.planner) }
       // 모든 입력을 판정하되 iPad에서는 무거운 조각 표시만 간격을 둔다.
       const previewInterval = eraserPreviewInterval(Platform?.OS, compact)
       if (mode === 'area' && active && now - (active.previewAt ?? -Infinity) < previewInterval) return
@@ -40,7 +42,6 @@ export default function EraserInput({ objects, zoom, dispatch, onPreview, compac
       const fragmentsStarted = measurement?.clock()
       const pieces = mode === 'area' ? gesture.current?.session.replacements?.() ?? null : null
       if (measurement) measurement.record('eraserFragmentsMs', measurement.clock() - fragmentsStarted)
-      if (gesture.current?.plannerShown === false) { gesture.current.plannerShown = true; onPlannerPreview?.(gesture.current.planner) }
       const key = next.ids.join(',')
       if (key === shown.current.key && pieces === shown.current.pieces) return
       shown.current = { key, pieces }

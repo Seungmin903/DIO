@@ -30,7 +30,7 @@ public class NotificationService {
 
 	public NotificationListResponse list(long userId, String encodedCursor, int limit) {
 		if (limit < 1 || limit > 100) {
-			throw new NotificationException(HttpStatus.BAD_REQUEST, "INVALID_NOTIFICATION_LIMIT", "한 번에 1~100개를 조회할 수 있습니다.");
+			throw new NotificationException(HttpStatus.BAD_REQUEST, "INVALID_NOTIFICATION_LIMIT", "한 번에 1~100개를 조회할 수 있어요.");
 		}
 		NotificationCursor cursor = NotificationCursor.decode(encodedCursor, userId);
 		List<NotificationData> rows = repository.list(userId, cursor, limit + 1);

@@ -257,7 +257,8 @@ for (const action of ['withdraw', 'changePassword', 'completePasswordReset', 'lo
     const canceledBeforeDeletion = canceled;
     const currentUserBeforeDeletion = api.getCurrentUserId();
     rejectDelete(new Error('storage error containing a secret must not be logged'));
-    await assert.doesNotReject(operation);
+    if (action === 'logout') assert.deepEqual(await operation, { localCleared: false });
+    else await assert.doesNotReject(operation);
     assert.equal(canceledBeforeDeletion, 1);
     assert.equal(currentUserBeforeDeletion, null);
     assert.equal(api.getSessionKey(), null);

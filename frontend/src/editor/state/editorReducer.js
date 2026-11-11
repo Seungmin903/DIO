@@ -14,6 +14,8 @@ import { assignRouteDays } from '../templates/routePaper.js'
 import { normalizePaperAppearance } from '../templates/appearance.js'
 import { applyPageSettings } from '../../collaboration/pageSettings.js'
 import { packingDropPatch } from '../templates/packingEditing.js'
+import { isTastingId } from '../templates/tastingGeometry.js'
+import { updateTastingElements } from '../templates/tastingElements.js'
 
 const HISTORY_LIMIT = 20
 const PASTE_OFFSET = 24
@@ -275,13 +277,14 @@ export function editorReducer(state, action) {
 
   switch (action.type) {
     case 'hydratePages': return hydratePages(state, action.items, action.done)
-    case 'applyServerPageSettings': return applyPageSettings(state, action.settings)
+    case 'applyServerPageSettings': return applyPageSettings(state, action.settings, action.paperAppearance)
     case 'reconcileServerPages': {
       const settings = (action.settings ?? []).filter(p => {
         const current = state.doc.pages.find(page => page.id === p.id)
         return current && Object.keys(p).some(key => JSON.stringify(current[key]) !== JSON.stringify(p[key]))
       })
-      if (settings.length) state = applyPageSettings(state, settings)
+      const defaultChanged = action.paperAppearance && JSON.stringify(state.doc.paperAppearance) !== JSON.stringify(action.paperAppearance)
+      if (settings.length || defaultChanged) state = applyPageSettings(state, settings, action.paperAppearance)
       const ids=new Set(action.pageIds),existing=new Map(state.doc.pages.map(p=>[p.id,p]))
       for(const p of action.pages)if(!existing.has(p.id))existing.set(p.id,p)
       const removed=state.doc.pages.filter(p=>!ids.has(p.id))
@@ -534,6 +537,10 @@ export function editorReducer(state, action) {
     case 'setPlanner': {
       const base = action.after ? editorReducer(state, action.after) : action.silent ? state : withHistory(state)
       const pageId = action.pageId ?? getCurrentPage(state).id
+      const page = base.doc.pages.find(item => item.id === pageId)
+      if (page && isTastingId(page.backgroundAssetId) && !page.planner?.fills) {
+        return { ...base, doc: { ...base.doc, pages: base.doc.pages.map(item => item.id === pageId ? { ...item, objects: updateTastingElements(item, action.planner) } : item) } }
+      }
       return { ...base, doc: { ...base.doc, pages: base.doc.pages.map((page) => (page.id === pageId ? { ...page, planner: action.planner } : page)) } }
     }
 

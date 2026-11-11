@@ -7,6 +7,7 @@ const pageId='10000000-0000-4000-8000-000000000001',diaryId='10000000-0000-4000-
 const localId='20000000-0000-4000-8000-000000000001',remoteId='30000000-0000-4000-8000-000000000001'
 const photo={id:'40000000-0000-4000-8000-000000000001',type:'photo',x:1,y:2,w:30,h:30,mediaFileId:localId,src:`media:${localId}`}
 function fixture(){
+ const categories=[]
  let rows=[],uploads=0,downloads=0,lost=false,failPrepare=false,pause=false,release
  const committed=new Map(),requests=[]
  const transport=async request=>{
@@ -24,15 +25,15 @@ function fixture(){
  }
  const client=()=>{
   const disk=new Map(),saved=new Set(),storage={getItem:async k=>disk.get(k)??null,setItem:async(k,v)=>disk.set(k,v)}
-  const media=createCanvasMedia({storage,key:'media',files:{upload:async id=>{if(failPrepare)throw failPrepare instanceof Error?failPrepare:Error('offline');return {id}},cached:async id=>saved.has(id),save:async id=>saved.add(id)},request:async(path,options)=>{
-   if(path==='/media'){uploads++;assert.equal(options.body.id,localId);return {mediaFileId:remoteId}}
+  const media=createCanvasMedia({storage,key:'media',files:{upload:async (id,category)=>{if(failPrepare)throw failPrepare instanceof Error?failPrepare:Error('offline');return {id,category}},cached:async id=>saved.has(id),save:async id=>saved.add(id)},request:async(path,options)=>{
+   if(path==='/media'){uploads++;categories.push(options.body.category);assert.equal(options.body.id,localId);return {mediaFileId:remoteId}}
    assert.equal(path,`/media/${remoteId}/file`);downloads++;if(pause)await new Promise(resolve=>release=resolve);return new Uint8Array([1])
   }})
   const api=createCanvasApi(transport,media)
   let n=0;const engine=()=>createCanvasSession({api,storage,key:'journal',pageId,diaryId,createId:()=>`client-${++n}`})
   return {engine,storage,media,saved}
  }
- return {delay:()=>pause=true,resume:()=>{pause=false;release?.()},client,rows:()=>rows,counts:()=>({uploads,downloads}),requests,lose:()=>lost=true,fail:flag=>failPrepare=flag}
+ return {categories,delay:()=>pause=true,resume:()=>{pause=false;release?.()},client,rows:()=>rows,counts:()=>({uploads,downloads}),requests,lose:()=>lost=true,fail:flag=>failPrepare=flag}
 }
 test('사진과 사용자 스티커는 기존 에셋 API로 두 기기 간 추가·이동·삭제·재접속된다',async()=>{
  const f=fixture(),a=f.client(),b=f.client(),first=a.engine(),second=b.engine()
@@ -50,6 +51,24 @@ test('사진과 사용자 스티커는 기존 에셋 API로 두 기기 간 추�
  assert.ok(f.requests.filter(r=>r.method).every(r=>r.path===`/pages/${pageId}/canvas-operations`))
  const restarted=a.engine();await restarted.restore([]);assert.equal((await restarted.synchronize()).objects.length,0)
 })
+test('공유 페이지의 사진 테이프는 멤버 기기에서 이미지와 자른 위치를 복원한다', async () => {
+ const f=fixture(), owner=f.client().engine(), member=f.client()
+ const tape={...photo,type:'tape',crop:{fx:0.25,fy:0.5,zoom:2},pieceRatio:3}
+ await owner.restore([])
+ await owner.synchronize()
+ await owner.enqueue({id:'place-tape',pageId,before:[],after:[tape]})
+ await owner.synchronize()
+ assert.deepEqual(f.categories,['TAPE'])
+ const reader=member.engine()
+ await reader.restore([])
+ const {objects}=await reader.synchronize()
+ assert.equal(objects[0].type,'tape')
+ assert.equal(objects[0].src,`media:${remoteId}`)
+ assert.deepEqual(objects[0].crop,tape.crop)
+ assert.equal(objects[0].pieceRatio,3)
+ assert.ok(member.saved.has(remoteId))
+})
+
 test('업로드와 응답 유실 후 재시도는 저장된 미디어 매핑과 동일 명령을 사용한다',async()=>{
  const f=fixture(),a=f.client(),first=a.engine();await first.restore([]);await first.synchronize()
  await first.enqueue({id:'add',pageId,before:[],after:[photo]});f.lose()
@@ -142,7 +161,7 @@ test('GIF 다운로드: 15MiB 를 넘으면 content-length 가 있든 없든 거
 })
 test('다운로드와 업로드는 시간 제한을 120초로 요청한다',async()=>{
  const calls=[]
- const media=createCanvasMedia({storage:{getItem:async()=>null,setItem:async()=>{}},key:'timeout',files:{upload:async id=>({id}),cached:async()=>false,save:async()=>{}},request:async(path,options)=>{calls.push(options);return options.binary?new Uint8Array([1]):{mediaFileId:remoteId}}})
+ const media=createCanvasMedia({storage:{getItem:async()=>null,setItem:async()=>{}},key:'timeout',files:{upload:async (id,category)=>({id}),cached:async()=>false,save:async()=>{}},request:async(path,options)=>{calls.push(options);return options.binary?new Uint8Array([1]):{mediaFileId:remoteId}}})
  await media.prepare({changes:{creates:[{elementType:'PHOTO',mediaFileId:localId}]}});await media.hydrate([{mediaFileId:'90000000-0000-4000-8000-000000000009'}])
  assert.equal(calls.length,2);assert.ok(calls.every(options=>options.timeoutMs===120000))
 })

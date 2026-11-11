@@ -38,6 +38,15 @@ export function createMemberDiaryApi(transport, { media, hydrateCovers = true } 
   const covers=createSharedCover(media)
   const mapDiary=body=>{
     const result=diary(body)
+    if (body.diary.paperAppearance != null) {
+      if (typeof body.diary.paperAppearance !== 'object' || Array.isArray(body.diary.paperAppearance)) throw invalid()
+      result.paperAppearance = body.diary.paperAppearance
+    }
+    // 다이어리 단위 속지 구성(고른 속지 묶음·날짜 표시 방식·방향). 예전에 만든 다이어리는 없을 수 있다.
+    if (body.diary.templateConfig != null) {
+      if (typeof body.diary.templateConfig !== 'object' || Array.isArray(body.diary.templateConfig)) throw invalid()
+      result.templateConfig = body.diary.templateConfig
+    }
     if(body.diary.cover!=null) {
       if(typeof body.diary.cover!=='object'||Array.isArray(body.diary.cover))throw invalid()
       result.cover=hydrateCovers?covers.hydrate(body.diary.cover):body.diary.cover
@@ -98,11 +107,14 @@ export function createMemberDiaryApi(transport, { media, hydrateCovers = true } 
       try { body = await transport({ ...keyedOptions(options), method: 'POST', path: '/member/diaries', body: {
         diaryTitle: input.title, coverColor: input.color,
         coverStyle: input.coverStyle ?? (input.pattern ? input.pattern.toUpperCase() : 'PLAIN'), initialPages,
+        ...(input.defaultPaperAppearance && { paperAppearance: input.defaultPaperAppearance }),
+        // 예전 앱이 남긴 미확인 생성 요청에는 없다. 같은 키의 본문을 바꾸지 않도록 표시된 요청에만 싣는다.
+        ...(input.diaryTemplateConfig && { templateConfig: input.diaryTemplateConfig }),
       } }) } catch (error) {
         if (idempotencyMessages[error.code]) throw new DiaryApiError(error.code, idempotencyMessages[error.code], error.status)
         throw error
       }
-      const result = diary(body)
+      const result = mapDiary(body)
       if (!Array.isArray(body.pageIds) || body.pageIds.length !== initialPages.length || new Set(body.pageIds).size !== body.pageIds.length
         || !body.pageIds.every(uuid) || body.firstPageId !== body.pageIds[0]) throw invalid()
       return { ...result, firstPageId: body.firstPageId, pageIds: [...body.pageIds] }
@@ -151,10 +163,19 @@ export function createMemberDiaryApi(transport, { media, hydrateCovers = true } 
       if (input.color !== undefined) body.coverColor = input.color
       if (input.coverStyle !== undefined) body.coverStyle = input.coverStyle
       if (input.cover !== undefined) body.cover = await covers.prepare(input.cover)
+      if (input.templateConfig !== undefined) body.templateConfig = input.templateConfig
+      if (input.paperAppearance !== undefined) {
+        body.paperAppearance = input.paperAppearance
+        body.paperAppearanceScope = input.paperAppearanceScope
+      }
       if (Object.keys(body).length === 1) throw new DiaryApiError('INVALID_REQUEST', '수정할 항목을 골라 주세요.', 400)
       const result = mapDiary(await transport({ ...options, method: 'PATCH', path: `/member/diaries/${encodeURIComponent(id)}`, body }))
       if (result.id !== id) throw invalid()
       if(input.cover!==undefined&&!result.cover)throw new DiaryApiError('COVER_NOT_SAVED','서버에 표지가 저장되지 않았어요. 다시 시도해 주세요.')
+      if (input.templateConfig !== undefined && !result.templateConfig)
+        throw new DiaryApiError('TEMPLATE_CONFIG_NOT_SAVED', '서버에 속지 구성을 저장하지 못했어요. 다시 시도해 주세요.')
+      if (input.paperAppearance && !result.paperAppearance)
+        throw new DiaryApiError('PAPER_APPEARANCE_NOT_SAVED', '서버에 속지 설정을 저장하지 못했어요. 다시 시도해 주세요.')
       return result
     },
   }

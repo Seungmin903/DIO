@@ -11,7 +11,7 @@ import { isMultiSelectKey } from '../../utils/modifiers'
 import { coverLayout, photoInnerBox } from '../../utils/objects'
 import { isStripFrame, stripCellAt } from '../../utils/photoStrip'
 import { pageSize } from '../../utils/pageGeometry.js'
-import { placeHorizontal, placeVertical } from '../../utils/popoverPlacement'
+import { paperPanelPlacement, placeHorizontal, placeVertical } from '../../utils/popoverPlacement'
 import { fitTextHeightPatch, textLayoutKey } from '../../utils/text'
 import { eraserPreviewPage } from '../../utils/eraser.js'
 import { createLassoOutline, resolveLassoOutline } from '../../utils/lassoOutline.js'
@@ -39,12 +39,16 @@ import GridOverlay, { DEFAULT_GUIDES, hasGuides } from './GridOverlay'
 import { pageGridGuides } from '../../utils/pageGrid.js'
 import PaperColorSettings from '../PaperColorSettings'
 import { plannerFor } from '../../templates/planners.js'
+import { isTastingId, tastingPhotoBox } from '../../templates/tastingGeometry.js'
+import { tastingElementValue } from '../../templates/tastingElements.js'
 import { routePathOf } from '../../templates/routePaper.js'
 import { createRouteNode, isRouteNode, ROUTE_NODE_SNAP_PX, routeNodeKindLabel } from '../../widgets/routeNode.js'
 import { packingCheckAction, packingPenAction } from '../../templates/packingChecks.js'
 import { packingLayout } from '../../templates/packingLayout.js'
 import { packingSlotPatch, packingDropPatch, packingTapColor } from '../../templates/packingEditing.js'
-import { setDayDate, setDayRow, suggestStart } from '../../templates/dayPlanner.js'
+import { dayAllDayItems, setDayDate, setDayRow, suggestStart } from '../../templates/dayPlanner.js'
+import DayAllDayList, { dayAllDayListSize } from '../DayAllDayList'
+import PlannerColorPopup, { PLANNER_COLOR_POPUP } from '../PlannerColorPopup'
 import DayNowLine from './DayNowLine'
 import DayTimePicker, { DAY_TIME_PICKER, DayPickBackdrop } from '../DayTimePicker'
 import DayDatePicker, { DAY_DATE_PICKER } from '../DayDatePicker'
@@ -54,6 +58,7 @@ import { LinkBadges, ObjectLinkOverlay } from './ObjectLinks'
 import { isBackdrop } from '../../utils/backdrop.js'
 import { shouldCacheCompletedStrokes } from '../../utils/completedStrokePlan.js'
 import { groupResizeBounds, groupResizeStart, groupResizePatches } from '../../utils/groupResize.js'
+import { photoAlbumSlots, photoAlbumSlotAt, photoAlbumSlotOccupied } from '../../templates/photoAlbumSlots.js'
 
 // 렌더링 환경에 requestAnimationFrame이 없으면(Node 테스트 등) 기다리지 않고 바로 실행한다.
 const requestFrame = (callback) => (typeof requestAnimationFrame === 'function' ? requestAnimationFrame(callback) : (callback(), 0))
@@ -79,6 +84,8 @@ const MIN_TARGET_PX = 44
  */
 // 속지 옵션 말풍선에서 플래너 옵션 칸이 차지하는 높이(종류별). 여행 노선은 속지 위(제목 · 범례)에서 설정하므로 속지 색 창에 옵션이 없다
 const PLANNER_OPTION_HEIGHT = { day: 70, study: 250 }
+// 테이스팅 노트 빈 사진 칸의 '사진 추가'(속지 위 안내 글이라 페이지 단위로 확대 · 축소). 축소해도 폭 96 · 높이는 터치 최소(MIN_TARGET_PX) 아래로 줄지 않는다
+const TASTING_PHOTO_BUTTON = { width: 120, minWidth: 96, height: 44, fontSize: 18 }
 
 export default function Canvas({
   onStrokeCommitted,
@@ -94,6 +101,7 @@ export default function Canvas({
   onCompactMenu,
   page,
   zoom,
+  visiblePage,
   selectedIds,
   cropId,
   dispatch,
@@ -120,6 +128,8 @@ export default function Canvas({
   onEditMedia,
   onFillCells,
   onFillSlot,
+  onAlbumPhoto,
+  onTastingPhoto,
   frameTextEdit, // 사진 틀의 인쇄 글자를 그 자리에서 고치는 중 { id, line } (이 페이지 것만)
   onEditFrameText, // (object, line) 고치기 시작 · (null) 끝
   onTextSettings,
@@ -137,6 +147,8 @@ export default function Canvas({
   textSettingsOpen = false, // 텍스트 서식 창이 열려 있음 (선택 바의 '서식' 버튼 표시)
   gridGuides = DEFAULT_GUIDES, // 격자·보조선 표시 (편집 화면에만. 끌 때 뜨는 맞춤선 guides 와 다르다)
   textEditing,
+  textHeld = false, // 글 편집 중 바깥 창(글자 색 직접 고르기)이 떠 있음 — 입력창이 포커스를 잃어도 편집을 끝내지 않는다
+  textCancelRef, // 저장 없이 편집을 끝내는 함수를 TextEditor 가 채운다(글상자 작업 막대의 삭제)
   textBoundary,
   onRevealText, // (dy) 키보드에 가린 글상자가 보이게 화면을 올린다
   textEditingTop = 0,
@@ -159,6 +171,10 @@ export default function Canvas({
   const { width: PAGE_WIDTH, height: PAGE_HEIGHT } = pageSize(page)
   // 스터디 · 데일리 플래너 속지: 형광펜 · 펜 · 지우개 획을 칸 · 일정 기록으로 받는다.
   const planner = readOnly ? null : plannerFor(page.backgroundAssetId)
+  const plannerValue = useMemo(() => isTastingId(page.backgroundAssetId) ? tastingElementValue(page) : page.planner, [page.backgroundAssetId, page.planner, page.objects])
+  const tastingPhotoBoxLayout = isTastingId(page.backgroundAssetId) ? tastingPhotoBox(page.backgroundAssetId) : null
+  const tastingPhotoButtonWidth = Math.max(TASTING_PHOTO_BUTTON.width * zoom, TASTING_PHOTO_BUTTON.minWidth)
+  const tastingPhotoButtonHeight = Math.max(TASTING_PHOTO_BUTTON.height * zoom, MIN_TARGET_PX)
   // 데일리 플래너: 시작 · 진행 · 날짜 칸을 누르면 뜨는 고르는 창. draft 는 고르는 중인 기록이고 닫을 때 한 번에 문서에 반영한다(되돌리기 한 번).
   const [dayPick, setDayPick] = useState(null) // { page, kind: 'time' | 'date', row?, at, draft }
   const dayPickRef = useRef(null)
@@ -189,12 +205,18 @@ export default function Canvas({
       if (colorAction) { dispatch(colorAction); return true }
     }
     if (!planner) return false
-    const result = planner.stroke(page.planner, points, settings, page.objects)
+    const result = planner.stroke(plannerValue, points, settings, page.objects)
     if (!result) return false
     applyPlannerResult(result, points[0])
     return true
   } : undefined
   const plannerErase = planner ? (value, points) => planner.erase(value, points, eraserMode) : undefined
+  // 펜만 그리는 설정에서 손가락으로 속지 칸을 톡 누르면 선택 도구로 누른 것과 같은 입력을 연다(할 일 글 · 체크 · 시간 · 날짜, 지라 828).
+  // 체크 색은 지금 도구(펜 · 형광펜) 색이다. 칸이 아니면 아무 일도 하지 않는다(손가락은 그리지 않는다). 데일리 · 스터디만(텍스트 도구 칸 입력과 같은 범위)
+  const plannerFingerTap = planner?.kind === 'day' || planner?.kind === 'study' ? (point) => {
+    const edit = planner.editTap(page.planner, point, page.objects, (activeTool === 'highlighter' ? highlighterSettings : penSettings)?.color)
+    if (edit) applyPlannerResult(edit, point)
+  } : undefined
   // 고르는 중인 기록에도 색을 미리 채워 막대가 바로 제 색으로 보이게 한다(닫을 때 한 번에 반영되므로 되돌리기도 한 번).
   const withAutoColor = (value) => planner.autoColor(value, page.objects) ?? value
   const closeDayPick = () => {
@@ -218,9 +240,12 @@ export default function Canvas({
   // 지우는 중인 플래너 기록(손을 떼면 문서에 확정). 그동안 속지는 이 기록으로 그린다. 시간 창에서 고르는 중인 일정도 같은 식으로 속지에 바로 보인다.
   const [plannerDraft, setPlannerDraft] = useState(null)
   const shownPlanner = plannerDraft ?? (dayPick?.page === page.id ? dayPick.draft : null)
-  const backgroundPage = useMemo(() => shownPlanner ? { ...page, planner: shownPlanner } : page, [page, shownPlanner])
+  const backgroundPage = useMemo(() => shownPlanner ? { ...page, planner: shownPlanner, tastingDraft: true } : page, [page, shownPlanner])
   // 텍스트 도구로 할 일 · 메모 · 돌아보기 줄을 탭하면 그 줄에 맞춘 글상자(폭 · 글자 크기 · 줄간격 고정)를 만든다.
+  // 데일리 · 스터디는 글을 쓰는 칸이 아닌 칸(완료 · 시간 · 날짜 · 색 · 요일 · 하트 · 일정 막대)을 누르면 선택 도구로 누른 것과 같이 그 칸이 답한다.
   const createText = ({ tap, ...box }) => {
+    const edit = (planner?.kind === 'day' || planner?.kind === 'study') && tap ? planner.editTap(page.planner, tap, page.objects, penSettings.color) : null
+    if (edit && !edit.text) { applyPlannerResult(edit, tap); return }
     const cell = planner && tap ? planner.cellTap(tap) : null
     if (cell) { setDayPick({ page: page.id, ...cell.picker, at: tap, draft: null }); return }
     const slot = planner && tap ? planner.textSlot(tap, page.planner) : null
@@ -348,6 +373,7 @@ export default function Canvas({
   // 빈 곳을 길게 누르면 뜨는 메뉴: 붙여넣기 · 속지 색. { x, y } 는 페이지 좌표, panel: 'paper' 면 그 자리에 속지 색 말풍선
   // 선택 도구는 이 페이지가 터치를 받아 직접 열고, 손바닥 도구는 화면을 옮기는 보는 영역이 길게 누른 자리를 알려 준다(menuRequest).
   const [emptyMenu, setEmptyMenu] = useState(null)
+  const [paperPanelHeight, setPaperPanelHeight] = useState(null)
   const canPageMenu = canSelect || (!readOnly && !textEditing && activeTool === 'hand')
   useEffect(() => {
     const inside = menuRequest && menuRequest.x >= 0 && menuRequest.y >= 0 && menuRequest.x <= PAGE_WIDTH && menuRequest.y <= PAGE_HEIGHT
@@ -421,7 +447,11 @@ export default function Canvas({
       // 여행 노선과 캐리어는 각 속지에 맞는 입력을 우선 처리한다.
       const packingPaper = Boolean(packingLayout(page.backgroundAssetId))
       const near = start && nearestObject(touchSelectable, start, TAP_SLOP_PX / zoom)
-      if (packingPaper && near) {
+      const albumSlot = canSelect && !near && activeTool === 'select' && onAlbumPhoto ? photoAlbumSlotAt(page, start) : -1
+      if (albumSlot >= 0) { onAlbumPhoto(albumSlot); return }
+      // 다른 도구에서도 속지 자체의 입력 칸은 탭할 수 있지만, 읽기 전용·텍스트 편집 중에는 동작을 실행하지 않는다.
+      if (readOnly || textEditing) return
+      if (canSelect && packingPaper && near) {
         dispatch({ type: 'select', ids: selectedIds.includes(near.id) ? [] : [near.id] })
         return
       }
@@ -430,11 +460,13 @@ export default function Canvas({
       const edit = planner && start ? planner.editTap(page.planner, start, page.objects, penSettings.color) : null
       if (edit) { dispatch({ type: 'select', ids: [] }); applyPlannerResult(edit, start); return }
       if (routeAdd && routePath && start) { addRouteNodeAt(start); return }
+      if (!canSelect) return
       dispatch({ type: 'select', ids: near && !selectedIds.includes(near.id) ? [near.id] : [] })
     },
   })
 
-  const pageGuides = pageGridGuides(page, gridGuides)
+  // 페이지에 격자를 켜 두면 pageGridGuides 가 매번 새 값을 만들어, 요소를 하나 넣을 때마다 격자 SVG 를 다시 그렸다(캐리어 떨림과 같은 경우)
+  const pageGuides = useMemo(() => pageGridGuides({ gridVisible: page.gridVisible, gridColor: page.gridColor }, gridGuides), [page.gridVisible, page.gridColor, gridGuides])
   const guideUnderlay = !readOnly && hasGuides(pageGuides) ? <>
     <GridOverlay guides={pageGuides} layer="grid" width={PAGE_WIDTH} height={PAGE_HEIGHT} zoom={zoom} />
     <GridOverlay guides={gridGuides} layer="guides" width={PAGE_WIDTH} height={PAGE_HEIGHT} zoom={zoom} />
@@ -516,13 +548,13 @@ export default function Canvas({
       {!readOnly && ['pen', 'highlighter'].includes(activeTool) && (
         <View style={styles.penClip}>
           {/* 확대·축소 중에 다시 만들지 않는다 (손가락 아래의 입력 영역이 바뀌면 웹에서 터치 끝이 전달되지 않는다) */}
-          <PenInput onStrokeCommitted={onStrokeCommitted} key={`${page.id}-${activeTool}`} zoom={zoom} pageWidth={PAGE_WIDTH} pageHeight={PAGE_HEIGHT} dispatch={dispatch} objectCount={page.objects.length} straightAssist={straightAssist} settings={activeTool === 'highlighter' ? highlighterSettings : penSettings} onPlannerStroke={plannerStroke} />
+          <PenInput onStrokeCommitted={onStrokeCommitted} key={`${page.id}-${activeTool}`} zoom={zoom} pageWidth={PAGE_WIDTH} pageHeight={PAGE_HEIGHT} dispatch={dispatch} objectCount={page.objects.length} straightAssist={straightAssist} settings={activeTool === 'highlighter' ? highlighterSettings : penSettings} onPlannerStroke={plannerStroke} onFingerTap={plannerFingerTap} />
         </View>
       )}
       {!readOnly && activeTool === 'eraser' && <View style={styles.penClip}>
-        <EraserInput key={`${page.id}-${zoom}-${eraserSize}-${eraserMode}-${eraserTarget}`} compact={compact} objects={page.objects} diameter={eraserSize} mode={eraserMode} target={eraserTarget} zoom={zoom} dispatch={dispatch} onPreview={previewErase} planner={page.planner} onPlannerErase={plannerErase} onPlannerPreview={setPlannerDraft} />
+        <EraserInput key={`${page.id}-${zoom}-${eraserSize}-${eraserMode}-${eraserTarget}`} compact={compact} objects={page.objects} diameter={eraserSize} mode={eraserMode} target={eraserTarget} zoom={zoom} dispatch={dispatch} onPreview={previewErase} planner={plannerValue} onPlannerErase={plannerErase} onPlannerPreview={setPlannerDraft} />
       </View>}
-      {planner?.kind === 'day' && dayPick?.page === page.id && <View style={styles.penClip}><DayPickBackdrop onClose={closeDayPick} /></View>}
+      {(planner?.kind === 'day' || planner?.kind === 'study') && dayPick?.page === page.id && <View style={styles.penClip}><DayPickBackdrop onClose={closeDayPick} /></View>}
       {planner?.kind === 'route' && routePick && <View style={styles.penClip}><DayPickBackdrop onClose={() => setRoutePick(null)} /></View>}
       </PalmRejectionArea>
       {/* 창을 닫으려고 누른 터치는 여기서 삼키고 창만 닫는다. 펜·형광펜에 점이 찍히던 문제 */}
@@ -545,6 +577,22 @@ export default function Canvas({
           style={pickerPosition(dayPick.at, zoom, PAGE_WIDTH, PAGE_HEIGHT, DAY_TIME_PICKER)}
         />
       )}
+      {planner?.rowColor && dayPick?.page === page.id && dayPick.kind === 'color' && (
+        // 할 일 줄 색 칸: 형광펜 색 중에서 고르면 바로 칠하고 닫는다(데일리 · 스터디)
+        <PlannerColorPopup key={`${dayPick.page}-color-${dayPick.row}`}
+          value={planner.rowColor(page.planner, dayPick.row)}
+          onPick={(c) => { dispatch({ type: 'setPlanner', planner: planner.setRowColor(page.planner, dayPick.row, c) }); setDayPick(null) }}
+          onClose={closeDayPick}
+          style={pickerPosition(dayPick.at, zoom, PAGE_WIDTH, PAGE_HEIGHT, PLANNER_COLOR_POPUP)} />
+      )}
+      {planner?.kind === 'day' && dayPick?.page === page.id && dayPick.kind === 'allday' && (() => {
+        // 종일 칸 +n: 종일 일정 전체 목록. 줄을 누르면 그 줄의 시간 창으로 바뀐다(지라 827)
+        const items = dayAllDayItems(planner.orientation, page.planner, page.objects)
+        return <DayAllDayList key={`${dayPick.page}-allday`} items={items}
+          onPick={(row) => setDayPick(current => current && { ...current, kind: 'time', row, draft: null })}
+          onClose={closeDayPick}
+          style={pickerPosition(dayPick.at, zoom, PAGE_WIDTH, PAGE_HEIGHT, dayAllDayListSize(items.length))} />
+      })()}
       {planner?.kind === 'day' && dayPick?.page === page.id && dayPick.kind === 'date' && (
         <DayDatePicker
           key={`${dayPick.page}-date`}
@@ -565,13 +613,25 @@ export default function Canvas({
       )}
       {!readOnly && activeTool === 'text' && !textEditing && <TextBoxInput key={`${page.id}-${zoom}`} zoom={zoom} pageWidth={PAGE_WIDTH} pageHeight={PAGE_HEIGHT} onCreate={createText} />}
       {!readOnly && textEditing?.type === 'shape' && <ShapeTextEditor commitRef={textCommitRef} key={textEditing.id} object={textEditing} zoom={zoom} onSave={onSaveText} boundary={textBoundary} onReveal={onRevealText} visibleTop={textEditingTop} onPaletteChange={onTextPaletteChange} paletteBounds={textPaletteBounds} onToast={onToast} />}
-      {!readOnly && textEditing && textEditing.type !== 'shape' && <TextEditor commitRef={textCommitRef} onToast={onToast} onPaletteChange={onTextPaletteChange} paletteBounds={textPaletteBounds} boundary={textBoundary} key={textEditing.id} object={textEditing} zoom={zoom} onSave={onSaveText} onCancel={onCancelText} onReveal={onRevealText} />}
+      {!readOnly && textEditing && textEditing.type !== 'shape' && <TextEditor held={textHeld} commitRef={textCommitRef} cancelRef={textCancelRef} onToast={onToast} onPaletteChange={onTextPaletteChange} paletteBounds={textPaletteBounds} boundary={textBoundary} key={textEditing.id} object={textEditing} zoom={zoom} onSave={onSaveText} onCancel={onCancelText} onReveal={onRevealText} />}
 
       {/* 사진 틀의 빈 자리 + (선택 도구에서만) */}
+      {/* 24px 안내 표시는 터치를 받지 않으며, 빈 사진 칸 전체가 터치 대상이다. */}
+      {canSelect && activeTool === 'select' && !cropping && !interacting && !marquee && onAlbumPhoto && photoAlbumSlots(page.backgroundAssetId).map((box, index) => !photoAlbumSlotOccupied(page, index) && (
+        <View key={index} pointerEvents="none" style={{ position: 'absolute', left: (box.x + box.w / 2) * zoom - 12, top: (box.y + box.h / 2) * zoom - 12, width: 24, height: 24, alignItems: 'center', justifyContent: 'center' }}>
+          <Text style={{ color: colors.textMuted, fontSize: 24 }}>＋</Text>
+        </View>
+      ))}
       {canSelect && !cropping && !interacting && !marquee && onFillSlot && (
         <View pointerEvents="box-none" style={styles.selectionControls}>
           <SlotAddButtons objects={page.objects} zoom={zoom} onFill={onFillSlot} />
         </View>
+      )}
+      {canSelect && tastingPhotoBoxLayout && !page.objects.some(o => o.tastingPhoto) && onTastingPhoto && (
+        <Pressable accessibilityRole="button" accessibilityLabel="사진 추가" onPress={onTastingPhoto}
+          style={{ position: 'absolute', left: (tastingPhotoBoxLayout.x + tastingPhotoBoxLayout.width / 2) * zoom - tastingPhotoButtonWidth / 2, top: (tastingPhotoBoxLayout.y + tastingPhotoBoxLayout.height / 2) * zoom - tastingPhotoButtonHeight / 2, width: tastingPhotoButtonWidth, height: tastingPhotoButtonHeight, alignItems: 'center', justifyContent: 'center' }}>
+          <Text numberOfLines={1} style={{ color: colors.textMuted, fontSize: TASTING_PHOTO_BUTTON.fontSize * zoom }}>＋ 사진 추가</Text>
+        </Pressable>
       )}
       {!readOnly && frameTextObject && !interacting && (
         <View pointerEvents="box-none" style={styles.selectionControls}>
@@ -609,11 +669,13 @@ export default function Canvas({
           appearance={paperAppearance}
           onChange={(appearance, all) => onPaperAppearance?.(appearance, all)}
           onClose={() => setEmptyMenu(null)}
+          onLayout={(event) => setPaperPanelHeight(event.nativeEvent.layout.height)}
           planner={planner && planner.kind !== 'route' ? planner.normalize(page.planner) : null}
           plannerKind={planner?.kind}
           showFont={paperPrintsText(page.backgroundAssetId)}
           onPlannerOptions={changePlannerOptions}
-          style={paperBubblePosition(emptyMenu, zoom, PAGE_WIDTH, PAGE_HEIGHT, (planner ? PLANNER_OPTION_HEIGHT[planner.kind] ?? 0 : 0) + (paperPrintsText(page.backgroundAssetId) ? 96 : 0))}
+          style={paperPanelPlacement({ at: emptyMenu, zoom, pageWidth: PAGE_WIDTH, pageHeight: PAGE_HEIGHT, visible: visiblePage,
+            height: paperPanelHeight ?? (290 + (planner ? PLANNER_OPTION_HEIGHT[planner.kind] ?? 0 : 0) + (paperPrintsText(page.backgroundAssetId) ? 96 : 0)) })}
         />
       )}
       {emptyMenu && !emptyMenu.panel && canPageMenu && (
@@ -703,14 +765,6 @@ export default function Canvas({
 
 // 누른 자리 기준 메뉴도 선택 바와 같은 규칙(utils/popoverPlacement): 누른 자리 위 먼저, 안 되면 아래, 가로는 가운데 맞춤
 const pointBox = (at, zoom) => ({ top: at.y * zoom, bottom: at.y * zoom, handleY: null })
-// 속지 색 말풍선
-const PAPER_BUBBLE = { width: 300, height: 290 }
-function paperBubblePosition(at, zoom, pageWidth, pageHeight, extraHeight = 0) {
-  const left = placeHorizontal(at.x * zoom, PAPER_BUBBLE.width, pageWidth * zoom)
-  // 플래너 옵션이 붙으면 창이 길어진다.
-  const { top } = placeVertical(pointBox(at, zoom), PAPER_BUBBLE.height + extraHeight, pageHeight * zoom)
-  return { position: 'absolute', zIndex: 6, width: PAPER_BUBBLE.width, left, top }
-}
 // 데일리 플래너 고르는 창(시간 · 날짜): 누른 칸 위에 먼저, 안 되면 아래
 function pickerPosition(at, zoom, pageWidth, pageHeight, size) {
   const left = placeHorizontal(at.x * zoom, size.width, pageWidth * zoom)

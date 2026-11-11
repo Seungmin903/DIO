@@ -182,6 +182,13 @@ export default function Viewport({ fingerPan = false, reading = false, readingLi
         if (!latest.current.reading) startHold(event.nativeEvent.pageX, event.nativeEvent.pageY)
       }
     },
+    onResponderStart: (event) => {
+      // 이미 받은 한 손가락에 두 번째가 닿으면, 첫 이동 전에 기준 거리를 잡는다.
+      if (pinch.current || hold.current?.fired || !twoFingers(event)) return
+      tap.current = null
+      cancelHold()
+      startPinch(event)
+    },
     onResponderMove: (event) => {
       if (latest.current.interactionLocked) return
       // 손가락(손바닥)으로 옮기던 중에 펜이 닿으면 옮기던 것을 되돌리고 펜에 맡긴다

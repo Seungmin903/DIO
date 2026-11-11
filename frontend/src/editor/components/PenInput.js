@@ -28,7 +28,8 @@ const atPenTip = (last, before, tip) => ({ ...last, ...tip, inkDistance: (before
 
 // 입력 중에는 문서/이력을 변경하지 않고 손을 뗄 때 한 획으로 확정한다.
 // onPlannerStroke(points, settings): 스터디 플래너 속지가 획을 칸 기록으로 받았으면 true (획을 남기지 않는다)
-export default function PenInput({ zoom, dispatch, pageWidth = PAGE_WIDTH, pageHeight = PAGE_HEIGHT, settings = DEFAULT_PEN_SETTINGS, straightAssist = true, objectCount = 0, onPlannerStroke, onStrokeCommitted }) {
+// onFingerTap(점): 펜만 그리는 설정에서 손가락으로 톡 누른 자리(페이지 좌표). 속지 칸 입력(플래너 할 일 · 체크 · 시간 등)에 쓴다(지라 828)
+export default function PenInput({ zoom, dispatch, pageWidth = PAGE_WIDTH, pageHeight = PAGE_HEIGHT, settings = DEFAULT_PEN_SETTINGS, straightAssist = true, objectCount = 0, onPlannerStroke, onStrokeCommitted, onFingerTap }) {
   const gesture = useRef(null)
   const previewFrame = useRef(null)
   const pendingPreview = useRef(null)
@@ -251,6 +252,7 @@ export default function PenInput({ zoom, dispatch, pageWidth = PAGE_WIDTH, pageH
     onStart: event => { if (!pointer.current.active) input.current.onStart(event) },
     onMove: (...args) => { if (!pointer.current.active) input.current.onMove(...args) },
     onEnd: event => { if (!pointer.current.active) input.current.onEnd(event) },
+    onFingerTap: event => { if (!pointer.current.active) onFingerTap?.({ x: event.locationX / zoom, y: event.locationY / zoom }) },
   })
   return (
     <View ref={inputRef} accessibilityLabel={settings.kind === 'highlighter' ? '형광펜 입력 영역' : '펜 입력 영역'} style={[StyleSheet.absoluteFill, { overflow: 'hidden' }]} {...handlers} {...pointer.current.handlers}>

@@ -1,0 +1,75 @@
+# 꾸미기 공방 내 속지 · 기본 속지 스타일 서버 저장
+
+꾸미기 공방 > 속지 탭의 내 속지 목록(PDF 로 만든 속지 묶음)과 새 다이어리의 기본 속지 스타일(종이 색 · 선 색 · 글꼴)을 계정에 저장해 다른 기기 · 재설치 기기에서도 같게 보이게 한다.
+쪽 그림은 [미디어 API](./media.md)의 `POST /api/v1/media`(`PHOTO`)로 올리고, 이 API 는 속지 목록 · 스타일 문서와 쪽마다 미디어 id 만 저장한다.
+저장 · 충돌 · 동기화 규칙은 [내 표지](./cover-library.md) · [스티커 보관함](./sticker-library.md)과 같고, 여기에는 다른 점만 적는다.
+
+기기 저장소 키는 그대로 `dio:diary:my-papers:v1`(내 속지) · `dio:diary:paper-style-default:v1`(기본 속지 스타일)이며, 로그인한 동안 이 값을 서버와 맞춘다.
+
+## GET / PUT /api/v1/me/paper-library
+
+인증 · `Cache-Control: no-store` · `expectedVersion`(409 `PAPER_LIBRARY_CONFLICT`) 규칙은 내 표지와 같다. 문서는 속지 목록(`papers`)과 기본 속지 스타일(`style`) 한 벌이다.
+
+```json
+{
+  "version": 3,
+  "papers": [
+    { "id": "6a1f…", "name": "플래너", "createdAt": "2026-11-10T01:00:00.000Z", "orientation": "portrait",
+      "pages": [ { "mediaFileId": "f681d27f-…", "aspect": 0.7071, "name": "플래너 1쪽" } ] }
+  ],
+  "style": { "backgroundColor": "#FFF8E7", "layoutColor": "#33476B", "font": "nanum-gothic" }
+}
+```
+
+- PUT 본문은 `{ "expectedVersion": 3, "papers": [ … ], "style": { … } | null }`. 목록 · 스타일을 함께 바꾼다.
+- 저장한 적이 없으면 `version` 0, 빈 `papers`, `style: null`. `style: null`은 '고른 적 없음'이며 앱은 원래 기본값(화이트 · 차콜 · 원본 글꼴)을 쓴다.
+- 쪽의 `src`(`media:<id>`)와 확대용 원본 PDF 연결(`pdfSource`)은 기기 전용이라 보내지 않는다. 다른 기기에서는 쪽 그림만 받고, 확대하면 그 그림을 그대로 키워 보인다.
+- 색은 대문자로 맞춰 저장한다. 빈 `createdAt` · 쪽 `name` · `font`는 `null`로 온다.
+
+### 한도와 형식(넘으면 400 `INVALID_PAPER_LIBRARY`, 문서 전체를 거절)
+
+| 항목 | 규칙 |
+| --- | --- |
+| 속지 수 | 100개 이하(앱은 30개까지 둔다) |
+| `id` | `^[A-Za-z0-9_-]{1,64}$`, 목록 안에서 겹치지 않음 |
+| `name` · 쪽 `name` | 속지 이름 1~40자, 쪽 이름 40자 이하, 제어 문자 불가 |
+| `createdAt` | 있으면 40자 이하 |
+| `orientation` | `portrait` 또는 `landscape` |
+| `pages` | 1~100쪽(앱은 PDF 60쪽까지 만든다), 쪽마다 `mediaFileId`(UUID) · `aspect`(0 초과 100 이하) |
+| `style` | `null` 또는 `backgroundColor` · `layoutColor`(`#RRGGBB`), `font`는 있으면 `^[A-Za-z0-9_-]{1,40}$` |
+
+### 미디어(400 `PAPER_MEDIA_NOT_FOUND`)
+
+쪽의 `mediaFileId`는 본인이 올린 `READY` 상태의 `IMAGE`만 넣을 수 있다. 이미 보관함에 있던 이미지는 미디어에서 지웠어도 그대로 둘 수 있다.
+
+## 저장 구조(V42)
+
+- `user_paper_libraries(user_id PK, version, document_json, updated_at)`, `user_paper_library_media(user_id, media_file_id)`.
+- 미디어 정리(`MediaReferenceSql`)는 `user_paper_library_media`를 참조로 보아 보관함 쪽 그림을 물리 삭제하지 않는다.
+- 미디어에서 지운(삭제 표시) 쪽 그림이라도 내 보관함에 든 동안은 본인이 `GET /api/v1/media/{id}/file`로 받을 수 있다(새 기기 · 재설치 기기가 보관함을 받을 때). 보관함에서 빠지면 404다.
+- 회원 탈퇴는 두 표를 지운 뒤 참조 없는 개인 파일을 기존 정리 경로로 보낸다. 두 표의 `users` 외래 키는 `ON DELETE CASCADE`라 다른 경로로 계정 행을 지워도 막히지 않는다.
+
+## 앱 동기화
+
+`frontend/src/diary/services/paperLibrarySync.js`. `StickerLibrarySyncHost`가 스티커 보관함 · 내 표지 동기화와 함께 띄운다.
+
+- 내 속지는 `useMyLibrary`, 기본 속지 스타일은 `useDefaultPaperStyle`의 모듈 저장소 한 벌을 모든 화면과 동기화가 함께 쓴다.
+- 맞추기 · 합치기 · 기기에만 있는 것 보존 규칙은 내 표지와 같다. 같은 속지는 `id`로 가리고, 양쪽에서 고쳤으면 이 기기 것을 쓴다.
+- 스타일은 이 기기에서 고른 값이 있으면 그것을, 없으면 서버 값을 쓴다. 새 기기 · 재설치 기기는 속지도 스타일도 비어 있으므로 서버 문서를 그대로 받는다.
+- 쪽마다 기기 id ↔ 서버 id 짝을 기록한다. 쪽 하나라도 올리지 못한 속지는 이번에는 빼고 기기에 남긴 뒤 다음 맞추기에서 다시 올린다.
+- 내려받지 못한 쪽 그림의 서버 id 는 `…:missing`에 기억해 두고, 서버 문서가 그대로여도 맞출 때마다(앱을 다시 켜도) 다시 받는다. 서버에 파일이 없으면(404 · 410) 더 받지 않는다. 그사이 목록에서 빠진 속지의 쪽은 잊는다.
+- 올리지 못한 속지 · 받지 못한 쪽 그림 · 연결 오류 · 409 반복은 `paperLibrarySyncStatus.js`로 꾸미기 공방 속지 탭에 문구와 '다시 맞추기'로 보인다(표지 탭과 같은 `DecorSaveNotice`). 로그아웃하면 지운다.
+- 받은 문서에 이 기기에 이미 있던 쪽이 있으면 원본 PDF 연결(`pdfSource`)을 그대로 이어 둔다.
+- 다른 계정이 쓰던 기기에서는 이전 계정의 속지 · 스타일을 올리지 않고 서버 것으로 바꾼다(서버에 스타일이 없으면 기본값). 바꾸기 전 기기 속지 · 스타일은 이전 계정 몫(`…:<계정>:stash`)으로 따로 두고, 그 계정으로 다시 로그인하면 아직 서버에 없던 속지(쪽 그림을 올리지 못한 속지 · 한 번도 맞춘 적 없는 속지)와, 서버에 스타일이 없을 때 그때 고른 스타일을 되살려 다시 올린다. 따로 둔 속지의 쪽 그림 파일은 지우지 않는다(내 표지와 같다). 따로 둔 몫은 30일이 지나면 되살리지 않고, 다른 계정으로 맞출 때 지운다.
+- 회원 탈퇴를 마치면 그 계정의 꾸미기 공방 동기화 기록(스티커 · 테이프 보관함 · 내 표지 · 내 속지의 `…:<서버>:<계정>:…` · 따로 둔 몫)을 이 기기에서 지운다. `forgetLibrarySyncAccount`(`StickerLibrarySyncHost.js`)가 `librarySyncRecords.js` 의 `forgetLibrarySyncRecords` 한 곳에서 지운다. 그 계정과 맞춘 `…:meta` 는 지우지 않고 탈퇴 표식(`{ account: null, withdrawn: true }`)으로 바꿔, 다음에 로그인한 계정이 기기에 남은 속지 · 스타일을 올리지 않고 서버 것을 받게 한다(계정 id 가 없으니 몫도 두지 않는다). 스티커 · 테이프 동기화는 몫을 두지 않으므로 표식을 '다른 계정이 쓰던 기기'로만 처리한다(`sticker-library-sync` · `tape-library-sync` 테스트).
+- 속지 동기화는 내 속지 목록(`subscribeMyPapers`) · 기본 속지 스타일이 바뀔 때만 깨고, 표지 동기화는 내 표지 목록(`subscribeMyCovers`)이 바뀔 때만 깬다(표지를 고쳐도 속지 서버를 다시 읽지 않게).
+- 이전 계정 몫은 계정이 바뀐 뒤 처음 맞출 때 한 번만 쓰고, 그 속지 id 와 그때 스타일을 `meta.stashedIds` · `meta.stashedStyle` 에 둔다. 받는 사이 편집으로 다시 맞출 때는 몫을 덮어쓰지 않고, 그사이 새 계정으로 만든 속지 · 고른 스타일은 새 계정에 남겨 올린다(내 표지 동기화와 같은 보호).
+- 앱도 스타일 색을 대문자로 맞춰 보낸다(정규화를 거치지 않은 소문자 값도 빠지지 않게).
+- `replaceMyPapers` · `replaceDefaultPaperStyle`은 적용한 값을 돌려주고, 동기화는 그 값과 지금 값이 다르면(바꾼 직후 사용자가 고쳤으면) 다시 맞춘다.
+- 맞춘 상태는 `dio:paper-library-sync:v1:<서버>:…`에 다른 보관함과 따로 둔다.
+
+## 검증
+
+- `./gradlew test --tests "com.f106.DIO.paper.*"`: 저장 · 다른 기기에서 읽기, 스타일 기본값 되돌리기, 409, 남의 이미지 · 폰트 거절, 형식 오류, 물리 삭제 제외, 탈퇴 정리.
+- `sharingPostgresTest`의 `UserWithdrawalPostgresTests`: `media_files` 외래 키 목록과 탈퇴 시 보관함 쪽 그림 정리.
+- `node --test tests/paper-library-sync.test.js`: 새 기기 · 재설치 복원, 스타일만 바꾸기 · 지우기 반영, 두 기기 합치기 · 409, 올리지 못한 속지 보존, 다른 계정 기기, 받지 못한 쪽 그림 재다운로드(404 제외 · 앱 재시작 후 이어 받기), 실패 · 연결 오류 알림, 소문자 색 스타일, 계정 전환 몫 30일 기한, 탈퇴 정리, 계정이 바뀐 뒤 다시 맞출 때 몫 보존 · 새 계정 편집 유지, 탈퇴 표식 뒤 다음 계정 로그인.

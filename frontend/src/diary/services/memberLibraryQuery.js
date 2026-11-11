@@ -13,3 +13,13 @@ export function normalizeMemberLibraryQuery({ q = '', sort = 'updated', filter =
   }
   return { q: q.trim(), sort, filter, favorite }
 }
+
+export function scheduleLibraryQuery(store, query) {
+  const run = () => store.queryLibrary(query).catch(() => {})
+  if (!query.q) {
+    run()
+    return
+  }
+  const timer = setTimeout(run, 200)
+  return () => clearTimeout(timer)
+}

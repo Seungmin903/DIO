@@ -363,3 +363,50 @@ test('펜이 이미 닿아 있으면 새로 모르는 터치는 네이티브 시
   stylus.setPenPointerActive(0, true)
   assert.equal(stylus.touchKind({ identifier: 1, timestamp: 500 }), 'unknown')
 })
+
+// 지라 828: 펜만 그릴 때 그리지 않는 손가락의 '톡'은 onFingerTap 으로 알린다(속지 칸 입력). 움직이거나 오래 누르거나 두 손가락 · 펜이 닿으면 톡이 아니다
+function tapSetup() {
+  const { stylus, usePalmRejectingPan } = load('android', 'pen')
+  const taps = [], strokes = []
+  const responder = usePalmRejectingPan({
+    onStart: (event) => strokes.push(['start', event.locationX]),
+    onMove: () => {}, onEnd: () => strokes.push(['end']),
+    onFingerTap: (event) => taps.push([event.locationX, event.locationY]),
+  })
+  const touches = new Map()
+  const event = () => { const list = [...touches.values()]; return { nativeEvent: { ...list[0], touches: list } } }
+  return {
+    stylus, taps, strokes,
+    pointer: (id, pointerType) => stylus.notePointerDown({ nativeEvent: { pointerId: id, pointerType } }),
+    down(id, x, y = 20) { const first = touches.size === 0; touches.set(id, { identifier: id, pageX: x, pageY: y, locationX: x, locationY: y }); if (first) responder.onResponderGrant(event()); else responder.onResponderStart(event()) },
+    move(id, x, y = 20) { touches.set(id, { ...touches.get(id), pageX: x, pageY: y }); responder.onResponderMove(event()) },
+    up(id) { touches.delete(id); if (touches.size) responder.onResponderEnd(event()); else responder.onResponderRelease() },
+  }
+}
+
+test('828: 펜 모드에서 손가락 톡은 그리지 않고 onFingerTap 으로 그 자리를 알린다', () => {
+  const t = tapSetup()
+  t.pointer(0, 'touch')
+  t.down(0, 40, 30)
+  t.move(0, 44, 32) // 조금 흔들린 톡
+  t.up(0)
+  assert.deepEqual(t.taps, [[40, 30]])
+  assert.deepEqual(t.strokes, [], '손가락은 그리지 않는다')
+})
+
+test('828: 손가락으로 끌기 · 오래 누르기 · 두 손가락 · 펜과 함께는 톡이 아니다', () => {
+  const drag = tapSetup(); drag.pointer(0, 'touch'); drag.down(0, 40); drag.move(0, 80); drag.up(0)
+  assert.deepEqual(drag.taps, [])
+  const pinch = tapSetup(); pinch.pointer(0, 'touch'); pinch.pointer(1, 'touch'); pinch.down(0, 40); pinch.down(1, 200); pinch.up(1); pinch.up(0)
+  assert.deepEqual(pinch.taps, [])
+  const pen = tapSetup(); pen.pointer(0, 'touch'); pen.pointer(1, 'pen'); pen.down(0, 40); pen.down(1, 100); pen.up(1); pen.up(0)
+  assert.deepEqual(pen.taps, [], '펜으로 쓰는 동안 얹은 손바닥은 톡이 아니다')
+  assert.deepEqual(pen.strokes.map(s => s[0]), ['start', 'end'])
+  const long = tapSetup(); long.pointer(0, 'touch')
+  const realNow = Date.now
+  try {
+    let now = 1000; Date.now = () => now
+    long.down(0, 40); now += 600; long.up(0)
+  } finally { Date.now = realNow }
+  assert.deepEqual(long.taps, [], '오래 얹은 손바닥은 톡이 아니다')
+})

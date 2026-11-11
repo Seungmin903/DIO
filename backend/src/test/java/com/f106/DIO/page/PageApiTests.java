@@ -353,6 +353,43 @@ class PageApiTests {
 	}
 
 	@Test
+	void paperAppearancePatchPreservesTemplateAndCanApplyToAllPages() throws Exception {
+		String diaryId=createDiary("속지 설정");
+		String first=createPage(diaryId,"{\"templateConfig\":{\"blank\":true,\"datedTemplate\":\"2027-example\"}}");
+		String second=createPage(diaryId,"{\"templateConfig\":{\"blank\":true}}");
+		String appearance="{\"backgroundColor\":\"#FFFFFF\",\"layoutColor\":\"#292929\",\"font\":\"poor-story\"}";
+		mvc.perform(patch("/api/v1/pages/"+first).with(authenticated()).contentType(MediaType.APPLICATION_JSON)
+			.content("{\"paperAppearance\":"+appearance+"}")).andExpect(status().isOk())
+			.andExpect(jsonPath("$.page.templateConfig.datedTemplate").value("2027-example"))
+			.andExpect(jsonPath("$.page.templateConfig.paperAppearance.font").value("poor-story"));
+		mvc.perform(get("/api/v1/pages/"+second).with(authenticated())).andExpect(status().isOk())
+			.andExpect(jsonPath("$.page.templateConfig.paperAppearance").doesNotExist());
+		mvc.perform(patch("/api/v1/pages/"+second).with(authenticated()).contentType(MediaType.APPLICATION_JSON)
+			.content("{\"paperAppearance\":{\"backgroundColor\":\"#EDF3EA\"},\"applyPaperAppearanceToAllPages\":true}"))
+			.andExpect(status().isOk());
+		mvc.perform(get("/api/v1/diaries/"+diaryId+"/pages").with(authenticated())).andExpect(status().isOk())
+			.andExpect(jsonPath("$.paperAppearance.backgroundColor").value("#EDF3EA"))
+			.andExpect(jsonPath("$.items[0].templateConfig.datedTemplate").value("2027-example"))
+			.andExpect(jsonPath("$.items[0].templateConfig.paperAppearance.font").doesNotExist())
+			.andExpect(jsonPath("$.items[1].templateConfig.paperAppearance.backgroundColor").value("#EDF3EA"));
+	}
+
+	@Test
+	void templateConfigPatchRejectsPaperAppearanceOutsideAllowedFontsAndColors() throws Exception {
+		String diaryId=createDiary("속지 설정 검사");
+		String pageId=createPage(diaryId,"{\"templateConfig\":{\"blank\":true}}");
+		for(String appearance:new String[]{"{\"font\":\"unknown\"}","{\"backgroundColor\":\"red\"}","\"poor-story\""})
+			mvc.perform(patch("/api/v1/pages/"+pageId).with(authenticated()).contentType(MediaType.APPLICATION_JSON)
+					.content("{\"templateConfig\":{\"blank\":true,\"paperAppearance\":"+appearance+"}}"))
+				.andExpect(status().isBadRequest());
+		mvc.perform(get("/api/v1/pages/"+pageId).with(authenticated())).andExpect(status().isOk())
+			.andExpect(jsonPath("$.page.templateConfig.paperAppearance").doesNotExist());
+		mvc.perform(patch("/api/v1/pages/"+pageId).with(authenticated()).contentType(MediaType.APPLICATION_JSON)
+				.content("{\"templateConfig\":{\"blank\":true,\"paperAppearance\":{\"font\":\"maruburi\",\"backgroundColor\":\"#FFFFFF\"}}}"))
+			.andExpect(status().isOk()).andExpect(jsonPath("$.page.templateConfig.paperAppearance.font").value("maruburi"));
+	}
+
+	@Test
 	void remoteTemplatePagesNeedAWellFormedRemoteTemplateOnCreateAndUpdate() throws Exception {
 		String diaryId=createDiary("원격 속지 페이지");
 		// 서버는 설정의 templateCode · templateVersion 으로 속지 행을 찾으므로 행이 있어야 한다

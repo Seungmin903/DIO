@@ -6,11 +6,15 @@ import { loadTemplateAst, peekTemplateAst } from '../templates/loadTemplate'
 import { colorTemplateAst, normalizePaperAppearance } from '../templates/appearance.js'
 import { pageSize } from '../utils/pageGeometry.js'
 import { plannerFor, paperDeviceFontIds } from '../templates/planners.js'
+import { isTastingId } from '../templates/tastingGeometry.js'
+import { tastingElementValue } from '../templates/tastingElements.js'
 import { subscribeTemplateLoaded } from '../templates/templateLoadedSignal.js'
 import { swapPaperFont } from '../templates/paperFont.js'
 import { useTextFont } from '../hooks/useTextFont'
 import { colors } from '../../shared/theme'
 import { KeepFont } from '../../shared/fontScope'
+import { omitFilledAlbumBordersAst } from '../templates/photoAlbumAst.js'
+import { visibleAlbumSlotIndices } from '../templates/photoAlbumSlots.js'
 
 // 속지 · 특수 속지 · 캔버스 요소는 정해진 글꼴을 그대로 쓴다(앱 UI 글꼴 Pretendard 를 넣지 않는다). 가짜 모듈인 테스트에서는 Fragment 로 그린다
 const Keep = KeepFont ?? Fragment
@@ -23,7 +27,8 @@ class SvgBoundary extends Component {
 }
 
 function throwSvgError(error) { throw error }
-function RenderedSvg({ xml, ast, width, height, onReady }) {
+// 요소가 바뀌어 BackgroundAttempt 가 다시 그려져도 속지 SVG 는 그대로 둔다(onReady 는 매번 새 함수라 비교에서 뺀다 — 최신 값은 ref 로 부른다)
+const RenderedSvg = memo(function RenderedSvg({ xml, ast, width, height, onReady }) {
   const callback = useRef(onReady)
   callback.current = onReady
   // 렌더링이 성공해 커밋된 다음에만 출력 준비 완료를 알린다.
@@ -32,7 +37,7 @@ function RenderedSvg({ xml, ast, width, height, onReady }) {
   return ast
     ? <SvgAst ast={ast} override={{ width, height }} />
     : <SvgXml xml={xml} width={width} height={height} onError={throwSvgError} />
-}
+}, (previous, next) => previous.xml === next.xml && previous.ast === next.ast && previous.width === next.width && previous.height === next.height)
 
 // 속지 글꼴을 골랐으면 그 글꼴로 바꾼 속지를 불러온다(캐시 키가 다르다)
 const referenceOf = page => { const reference = templateReference(page); return reference ? { ...reference, font: normalizePaperAppearance(page.paperAppearance).font } : null }
@@ -86,15 +91,20 @@ function BackgroundAttempt({ page, zoom, preparedXml, onReady, onError, onRetry,
   const transparentPaper = Boolean(guideUnderlay)
   // 스터디 · 데일리 플래너: 바탕은 캐시한 속지 그대로 두고, 칠한 칸 · 일정 · 체크 · 합계는 작은 덮개 SVG로 위에 겹친다.
   // 기록이 바뀌어도 덮개만 다시 만들어 지우기 · 칠하기가 가볍다. 시간표 시작 시각을 바꾼 페이지만 바탕을 다시 만든다.
-  const plannerApi = preparedXml == null ? plannerFor(page.backgroundAssetId) : null
-  const planner = plannerApi ? page.planner ?? null : null
+  const plannerApi = useMemo(() => preparedXml == null ? plannerFor(page.backgroundAssetId) : null, [page.backgroundAssetId, preparedXml])
+  // 테이스팅 속지만 채움이 요소(page.objects)에 있다. 다른 플래너는 요소가 바뀔 때마다 덮개를 다시 만들지 않는다(끌기 · 편집 매 프레임 파싱 방지, MR !503 리뷰)
+  const tastingObjects = isTastingId(page.backgroundAssetId) && !page.tastingDraft ? page.objects : null
+  const planner = useMemo(() => plannerApi ? (tastingObjects ? tastingElementValue(page) : page.planner ?? null) : null, [plannerApi, preparedXml, page.backgroundAssetId, page.planner, tastingObjects]) // eslint-disable-line react-hooks/exhaustive-deps
+  // 테이스팅은 요소가 바뀌면 값 객체가 새로 생기므로 채움 내용(문자열)이 같으면 덮개를 그대로 둔다
+  const plannerKey = tastingObjects ? JSON.stringify(planner) : planner
   // 데일리 플래너는 할 일 글(글상자)을 막대 · 종일 칸에 비춰 그리므로, 글이 바뀌면 덮개도 다시 만든다.
   const titles = plannerApi?.titles(page.objects) ?? null, titleKey = titles ? JSON.stringify(titles) : ''
   const startHour = planner ? plannerApi.startHour(planner) : 6
-  const shiftedBase = useMemo(() => startHour === 6 ? null : parse(swapPaperFont(plannerApi.baseSvg(startHour), appearance.font)), [page.backgroundAssetId, startHour, appearance.font]) // eslint-disable-line react-hooks/exhaustive-deps
-  const plannerAst = useMemo(() => planner || (titleKey && titleKey !== '{}') ? parse(swapPaperFont(plannerApi.overlaySvg(planner, page.objects), appearance.font)) : null, [page.backgroundAssetId, planner, titleKey, appearance.font]) // eslint-disable-line react-hooks/exhaustive-deps
+  const shiftedBase = useMemo(() => !plannerApi || startHour === 6 ? null : parse(swapPaperFont(plannerApi.baseSvg(startHour), appearance.font)), [plannerApi, preparedXml, startHour, appearance.font])
+  const plannerAst = useMemo(() => !plannerApi || !(planner || (titleKey && titleKey !== '{}')) ? null : parse(swapPaperFont(plannerApi.overlaySvg(planner, page.objects), appearance.font)), [plannerApi, preparedXml, plannerKey, titleKey, appearance.font]) // eslint-disable-line react-hooks/exhaustive-deps
   const baseAst = shiftedBase ?? shown?.ast
-  const styledAst = useMemo(() => baseAst ? colorTemplateAst(baseAst, appearance, { transparentPaper }) : null, [baseAst, appearance.backgroundColor, appearance.layoutColor, transparentPaper])
+  const filledAlbumKey = visibleAlbumSlotIndices(page).join(',')
+  const styledAst = useMemo(() => baseAst ? omitFilledAlbumBordersAst(colorTemplateAst(baseAst, appearance, { transparentPaper }), page) : null, [baseAst, appearance.backgroundColor, appearance.layoutColor, transparentPaper, filledAlbumKey])
   const styledPlanner = useMemo(() => plannerAst ? colorTemplateAst(plannerAst, appearance) : null, [plannerAst, appearance.backgroundColor, appearance.layoutColor])
   if (page.backgroundAssetId == null) return <View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: appearance.backgroundColor }]}>{guideUnderlay}</View>
   return <View style={[StyleSheet.absoluteFill, { backgroundColor: appearance.backgroundColor }]} pointerEvents="box-none">

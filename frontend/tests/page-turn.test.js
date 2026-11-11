@@ -65,12 +65,12 @@ test('두 손가락이 닿는 등 취소되면 많이 넘어갔어도 되돌린�
 })
 
 test('첫·마지막 페이지에서 더 넘기려 하면 안내하고 그 사이는 안내하지 않는다', () => {
-  assert.equal(readingEdgeMessage(-1, 4), '첫 페이지입니다')
-  assert.equal(readingEdgeMessage(4, 4), '마지막 페이지입니다')
+  assert.equal(readingEdgeMessage(-1, 4), '첫 페이지예요')
+  assert.equal(readingEdgeMessage(4, 4), '마지막 페이지예요')
   assert.equal(readingEdgeMessage(0, 4), null)
   assert.equal(readingEdgeMessage(3, 4), null)
   assert.equal(readingEdgeMessage(0, 1), null) // 한 페이지 문서의 유일한 페이지 자체는 안내 대상이 아니다
-  assert.equal(readingEdgeMessage(1, 1), '마지막 페이지입니다')
+  assert.equal(readingEdgeMessage(1, 1), '마지막 페이지예요')
 })
 
 test('읽기 모드를 끄거나 화면을 닫으면 진행 중인 넘김 애니메이션을 멈춘다', () => {

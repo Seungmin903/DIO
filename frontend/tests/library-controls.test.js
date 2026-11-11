@@ -16,6 +16,7 @@ function setup(file, storage = {}, native = {}) {
  const styles=new Proxy({},{get:(_,name)=>name});
  const mocks={'../components/OpenBookShelf':{__esModule:true,default:'OpenBookShelf',preloadOpenBooks:()=>{}},'../utils/useDiaryGrid':{useDiaryGrid:()=>null},'../utils/carouselFollow':{carouselMotion:()=>({card:{},info:{}})},'../utils/railMotion':{markRailMoving:()=>{},useRailMoving:()=>false},'../../editor/services/storage':storage,'../../auth/loginGate':{useLoginEntry:()=>()=>{}},react:hooks,'react-native':{Platform:{OS:'web'},...native,View:'view',Text:'text',Pressable:'press',TextInput:'input',ScrollView:'scroll',FlatList:'list',Animated:{timing:()=>({start(){},stop(){}}),Value,View:'view',Text:'text',createAnimatedComponent:()=> 'list',event:()=>()=>{}},Easing:{cubic:()=>{},out:x=>x}},'../constants':{C:{},FILTERS:[{id:'personal',label:'모든 다이어리'},{id:'favorite',label:'즐겨찾기'}],LIBRARY_SCOPES:[{id:'personal',label:'내 다이어리',tabLabel:'내 다이어리',icon:'book',empty:'내 다이어리가 없어요'},{id:'shared',label:'공유된 다이어리',tabLabel:'공유된 다이어리',icon:'people',empty:'공유된 다이어리가 없어요'}],CAROUSEL_STEP:250,CAROUSEL_ITEM_WIDTH:220,CAROUSEL_GAP:30},'../styles':{styles},'../utils/diarySelection':selectionUtils,'../utils/libraryQuery':query,'../hooks/useLibraryMetadata':{useLibraryMetadata:()=>({a:{pageCount:2},b:{pageCount:5}})}};
  const module={exports:{}};
+ mocks['../components/EmptyState']={__esModule:true,default:'EmptyState',LoadingSpot:'LoadingSpot'};
  new Function('require','module','exports',compile(file))(id=>mocks[id]??(id==='react/jsx-runtime'?require(id):{__esModule:true,default:id}),module,module.exports);
  const render=props=>{cursor=0;refCursor=0;effectCursor=0;return module.exports.default(props)};
  render.unmount=()=>cleanups.forEach(fn=>fn?.());
@@ -63,6 +64,21 @@ test('API 모드의 검색 결과는 서버 순서를 유지하고 로딩·오�
  assert.equal(tree.props.suppressEmpty,true);
  assert.equal(tree.props.historyKey,'mock-history');
  assert.ok(!findControl(tree.props.optionsMenu,'편집'));
+});
+
+test('보관함은 초기 로딩과 조회 실패에도 상단을 유지하고 성공한 빈 목록과 구분한다', () => {
+ const render=setup('../src/diary/screens/LibraryScreen.js');
+ const props={...selectionProps(),diaries:[]};
+ const pending=render({...props,suppressEmpty:true,loading:true});
+ assert.ok(findControl(pending,'보관함 옵션'));
+ assert.equal(nodes(pending).find(n=>n.type==='LoadingSpot').props.label,'다이어리를 불러오고 있어요.');
+ assert.equal(nodes(pending).find(n=>n.type==='LoadingSpot').props.showLabel,true);
+ assert.ok(!nodes(pending).some(n=>n.type==='EmptyState'));
+ const failed=render({...props,suppressEmpty:true,requestNotice:'오류 안내'});
+ assert.ok(findControl(failed,'보관함 옵션'));
+ assert.ok(nodes(failed).some(n=>[n.props.children].flat(Infinity).includes('오류 안내')));
+ assert.ok(!nodes(failed).some(n=>['LoadingSpot','EmptyState'].includes(n.type)));
+ assert.ok(nodes(render(props)).some(n=>n.type==='EmptyState'));
 });
 
 test('검색 중 오류·로딩에는 결과 없음과 0개 성공 문구를 숨긴다', () => {

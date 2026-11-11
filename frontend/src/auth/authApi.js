@@ -3,6 +3,9 @@ import { signupAgreements } from './signupPolicy.js';
 import { developmentAuthorization } from './developmentAccess.js';
 import { SESSION_EXPIRED_MESSAGE } from './sessionExpiry.js';
 
+// 탈퇴 뒤 구글 연결 해제가 끝나기를 다음 구글 로그인이 기다리는 최대 시간. 해제가 멈춰도 로그인은 막지 않는다
+export const GOOGLE_REVOKE_WAIT_MS = 5000;
+
 const authErrorMessages = new Map([
   ['INVALID_CREDENTIALS', '이메일 또는 비밀번호를 확인해 주세요.'],
   ['LOGIN_RATE_LIMITED', '로그인 시도가 너무 많아요. 15분 후 다시 시도해 주세요.'],
@@ -51,7 +54,7 @@ export function authBaseUrl(value) {
 // Access tokens and development-server Basic credentials stay in memory.
 // Only the injected native secure store persists refresh credentials.
 // Never save passwords or tokens in AsyncStorage.
-export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhotoBody, googleSignIn, appleSignIn, now = Date.now, accessTokenHeader = 'Authorization', allowDevelopmentAccess = false, developmentAccessStore = null, presetDevelopmentAccess = null, sessionStore = null }) {
+export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhotoBody, googleSignIn, googleRevoke, appleSignIn, now = Date.now, accessTokenHeader = 'Authorization', allowDevelopmentAccess = false, developmentAccessStore = null, presetDevelopmentAccess = null, sessionStore = null }) {
   if (!['Authorization', 'X-DIO-Access-Token'].includes(accessTokenHeader)) throw new Error('인증 헤더 설정을 확인해 주세요.');
   const base = authBaseUrl(baseUrl);
   const accessOrigin = new URL(base).origin;
@@ -89,6 +92,26 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
   // 지원 제공자와 네이티브 로그인 함수. 화면 문구는 SOCIAL_NAMES를 쓴다.
   const socialSignIns = { google: googleSignIn, apple: appleSignIn };
   const SOCIAL_NAMES = { google: '구글', apple: '애플' };
+  // 탈퇴 뒤 백그라운드로 도는 구글 연결 해제. 끝나기 전에 같은 기기에서 다시 구글로 로그인하면 진행 중인 revokeAccess · signOut 이
+  // 새로 로그인한 SDK 계정에 실행될 수 있어, 구글 로그인은 이것이 끝나기를(최대 GOOGLE_REVOKE_WAIT_MS) 먼저 기다린다.
+  // 그래도 끝나지 않으면 그 해제를 그만두게 한다(ticket.cancelled): 같은 구글 계정으로 다시 가입하는 경우 이메일로는 이전 · 새 세션을
+  // 구분할 수 없어, 늦게 풀린 해제가 새로 로그인한 계정을 끊지 않도록 revokeGoogleAccess 가 단계마다 확인하고 멈춘다.
+  // 그만두게 한 해제는 더 기다리지 않는다: 네이티브 호출이 멈춰 끝나지 않으면 이후 구글 로그인 · 재확인마다 대기 시간을 다시 기다리게 되므로
+  // 그 자리에서 비운다(이미 그만두게 했으면 바로 넘어간다)
+  let googleRevoking = null; // { job, ticket }
+  const waitGoogleRevoke = async () => {
+    const pending = googleRevoking;
+    if (!pending) return;
+    if (pending.ticket.cancelled) { if (googleRevoking === pending) googleRevoking = null; return; }
+    let timer, timedOut = false;
+    try {
+      await Promise.race([pending.job, new Promise(resolve => { timer = setTimeout(() => { timedOut = true; resolve(); }, GOOGLE_REVOKE_WAIT_MS); })]);
+    } finally { clearTimeout(timer); }
+    if (timedOut) {
+      pending.ticket.cancelled = true;
+      if (googleRevoking === pending) googleRevoking = null;
+    }
+  };
   let session = null, draft = null, verification = null, revision = 0, refreshing = null, accessRefreshAt = 0, sessionSequence = 0;
   let restoringSession = null, storageWrites = Promise.resolve();
   let expiredSessionKey = null;
@@ -564,14 +587,56 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
         }
         withdrawn = true;
       } finally {
-        if (withdrawn && session === current) await endLocalSession();
+        if (withdrawn && session === current) {
+          await endLocalSession();
+          // 구글로 로그인한 회원은 DIO 탈퇴가 끝난 뒤 구글 쪽 앱 연결도 끊는다(구글 계정 설정 > 연결된 앱에서 DIO 제거).
+          // 탈퇴한 계정의 이메일을 넘겨, 기기 SDK가 기억한 구글 계정이 그 계정일 때만 끊게 한다(다른 구글 계정의 연결은 그대로).
+          // 탈퇴는 이미 끝났으므로 기다리지 않고, 실패해도 경고만 남긴다. 진행 중인 해제는 다음 구글 로그인이 기다린다(googleRevoking).
+          if (current.provider === 'google' && typeof googleRevoke === 'function') {
+            const ticket = { cancelled: false };
+            const job = Promise.resolve().then(() => googleRevoke({ email: current.user?.email, isCancelled: () => ticket.cancelled }))
+              .catch(error => console.warn('[auth] GOOGLE_REVOKE_FAILED', error?.code ?? ''))
+              .finally(() => { if (googleRevoking?.job === job) googleRevoking = null; });
+            googleRevoking = { job, ticket };
+          }
+        }
       }
+    },
+    // 앱 잠금 4자리를 잊었을 때(지라 799): 지금 로그인한 계정의 주인인지 다시 확인한다. 지금 세션 · 기기 정보는 그대로 둔다.
+    // 이메일 가입은 계정 비밀번호, 구글 · 애플 가입은 그 로그인을 한 번 더 받는다. 확인용으로 서버가 새로 연 세션은 쓰지 않고 바로 끊는다(로그아웃은 그 세션만 끊는다).
+    // 다른 계정(다른 구글 계정 · 가입 안 된 계정)이면 그 세션을 받지 않고 거절한다 — 계정이 바뀌지 않는다.
+    async verifyAccount({ password } = {}) {
+      const current = session;
+      if (!current) throw unauthorized();
+      const provider = current.provider || 'email';
+      const mismatch = () => Object.assign(new Error('지금 로그인한 계정으로 확인해 주세요.'), { code: 'ACCOUNT_MISMATCH' });
+      let result;
+      if (provider === 'email') {
+        if (typeof password !== 'string' || !password) throw Object.assign(new Error('비밀번호를 입력해 주세요.'), { code: 'PASSWORD_REQUIRED' });
+        result = await request('login', { email: normalizeEmail(current.user.email), password });
+      } else {
+        const name = SOCIAL_NAMES[provider], signIn = socialSignIns[provider];
+        if (!name || typeof signIn !== 'function') throw Object.assign(new Error('이 로그인 방식으로는 확인할 수 없어요.'), { code: 'REAUTH_UNAVAILABLE' });
+        if (provider === 'google') await waitGoogleRevoke();
+        const credential = await signIn();
+        if (!credential?.idToken) throw new Error(`${name} 인증 정보를 받지 못했어요.`);
+        try { result = await request(`oauth/${provider}`, { idToken: credential.idToken }); }
+        catch (error) {
+          if (error?.code === 'SOCIAL_SIGNUP_REQUIRED' || error?.code === 'SOCIAL_ACCOUNT_LINK_REQUIRED') throw mismatch();
+          throw error;
+        }
+      }
+      if (typeof result?.accessToken === 'string' && result.accessToken) request('logout', undefined, result.accessToken).catch(() => {});
+      if (result?.user?.userId == null || String(result.user.userId) !== String(current.user.userId)) throw mismatch();
+      return true;
     },
     async social(provider) {
       const name=SOCIAL_NAMES[provider], signIn=socialSignIns[provider];
       if(!name)throw new Error('아직 준비 중인 로그인 방식이에요.');
       if(typeof signIn!=='function')throw new Error(`${name} 로그인 기능이 연결되지 않았어요.`);
       const attempt=++revision;socialDraft=null;
+      if(provider==='google')await waitGoogleRevoke();
+      if(attempt!==revision)throw new Error('로그인 요청이 취소되었어요.');
       const credential=await signIn();
       if(attempt!==revision)throw new Error('로그인 요청이 취소되었어요.');
       if(!credential?.idToken)throw new Error(`${name} 인증 정보를 받지 못했어요.`);
@@ -654,6 +719,7 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
       let current = session;
       const endingRevision = revision;
       let serverRevoked = false;
+      let localCleared;
       if (!current) {
         clearDevelopmentAccess();
         if (!await endLocalSession()) throw incompleteLogout();
@@ -671,12 +737,13 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
       } finally {
         if (session === current || (!session && revision === endingRevision)) {
           clearDevelopmentAccess();
-          const cleared = await endLocalSession();
+          localCleared = await endLocalSession();
           // Only report incomplete logout when neither server revocation nor
           // deletion of the saved credential could be confirmed.
-          if (!cleared && !serverRevoked) throw incompleteLogout();
+          if (!localCleared && !serverRevoked) throw incompleteLogout();
         }
       }
+      if (localCleared === false) return { localCleared };
     },
   };
   api.verificationService = {

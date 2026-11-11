@@ -45,7 +45,14 @@ export default function ExportRunner({ job, onProgress, onFinish }) {
         progress(0)
         const output = await renderPageImage(job.snapshot, { signal })
         owned.push(output)
-        try { return savedMessage(await savePngFile(output, job.snapshot.fileName, { picker: false }), 'PNG') }
+        if (signal.aborted) return
+        try {
+          const message = savedMessage(await savePngFile(output, job.snapshot.fileName, { picker: false }), 'PNG')
+          if (job.snapshot.region && (output.diagnostics?.upscaled || output.diagnostics?.rasterWarnings?.length)) {
+            return `${message} 확대된 글씨나 사진이 흐릴 수 있어요.`
+          }
+          return message
+        }
         catch (error) { throw new Error(pngSaveError(error)) }
       }
       if (job.kind === 'gif') {

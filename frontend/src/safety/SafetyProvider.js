@@ -41,13 +41,19 @@ export default function SafetyProvider({ user, adapter, sharingRuntime, children
   }, []);
   const openBlocks = useCallback(() => setRequest({ kind: 'blocks' }), []);
   const finishWarning = useCallback(async (proceed, dismiss, rows, diary) => {
+    const resolve = pendingWarning.current;
     if (proceed && dismiss) {
-      const saved = await saveJSON(warningKey(accountId, diary.id), rows.map(row => row.id));
-      if (!saved) throw new Error('안내 설정을 저장하지 못했어요. 다시 시도하거나 체크를 해제해 주세요.');
+      const ids = rows.map(row => row.id);
+      if (store.mode === 'server') await service.dismissWarning(diary.sharedDiaryId || diary.id, ids);
+      else if (!await saveJSON(warningKey(accountId, diary.id), ids)) {
+        throw new Error('안내 설정을 저장하지 못했어요. 다시 시도하거나 체크를 해제해 주세요.');
+      }
     }
-    pendingWarning.current?.(proceed); pendingWarning.current = null;
-    if (alive.current) setRequest(null);
-  }, [accountId]);
+    if (!alive.current || !resolve || pendingWarning.current !== resolve) return;
+    pendingWarning.current = null;
+    resolve(proceed);
+    setRequest(null);
+  }, [accountId, service, store]);
   const canOpenDiary = useCallback(async diary => {
     const job = ++guardJob.current;
     pendingWarning.current?.(false); pendingWarning.current = null;
@@ -58,14 +64,16 @@ export default function SafetyProvider({ user, adapter, sharingRuntime, children
     const members = await store.participants(diary.sharedDiaryId || diary.id);
     const rows = store.mode === 'server' ? members.filter(member => member.blockedByMe === true)
       : blockedParticipants(members, store.getSnapshot().blocks);
-    const saved = await loadJSON(warningKey(accountId, diary.id), []);
+    const saved = !rows.length ? [] : store.mode === 'server'
+      ? await service.listWarningDismissals(diary.sharedDiaryId || diary.id).catch(() => [])
+      : await loadJSON(warningKey(accountId, diary.id), []);
     if (!alive.current || job !== guardJob.current) return false;
     if (!rows.length || warningIsDismissed(Array.isArray(saved) ? saved : [], rows)) return true;
     return new Promise(resolve => {
       pendingWarning.current = resolve;
       setRequest({ kind: 'warning', diary, rows });
     });
-  }, [accountId, store]);
+  }, [accountId, service, store]);
   const context = useMemo(() => ({ store, state, openParticipants, openBlocks, canOpenDiary }), [store, state, openParticipants, openBlocks, canOpenDiary]);
   return <Context.Provider value={context}>
     {children}

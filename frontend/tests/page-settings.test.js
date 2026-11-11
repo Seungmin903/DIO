@@ -9,6 +9,27 @@ const diaryId = '10000000-0000-4000-8000-000000000001', pageId = '20000000-0000-
 const page = (patch = {}) => ({ pageId, diaryId, title: '원래 이름', canvasWidth: 1188, canvasHeight: 840,
   templateId: null, templateConfig: { blank: true }, gridVisible: false, gridColor: '#DCE5F1', ...patch })
 
+test('속지 스타일만 PATCH하고 재조회한 다이어리 기본값과 페이지 스타일을 각각 적용한다', async () => {
+  const appearance = { backgroundColor: '#EDF3EA', layoutColor: '#292929', font: 'gowun-dodum' }
+  const defaults = { ...appearance, font: 'poor-story' }
+  const row = page({ templateConfig: { blank: true, paperAppearance: appearance } })
+  const body = { paperAppearance: appearance, applyPaperAppearanceToAllPages: true }
+  const saved = await updateServerPage(async request => {
+    assert.deepEqual(request.body, body)
+    return { page: row }
+  }, diaryId, pageId, body)
+  assert.deepEqual(saved.paperAppearance, appearance)
+  await assert.rejects(updateServerPage(async () => ({ page: page() }), diaryId, pageId, body),
+    { code: 'INVALID_SERVER_PAGES' })
+  const snapshot = await loadServerPageSnapshot(async () => ({ items: [row], paperAppearance: defaults }), diaryId, { knownIds: [pageId] })
+  const objects = [{ id: 'unsaved-ink' }]
+  const initial = createInitialState({ pages: [{ id: pageId, objects }] }, pageId)
+  const next = editorReducer(initial, { type: 'reconcileServerPages', ...snapshot })
+  assert.deepEqual(next.doc.paperAppearance, defaults)
+  assert.deepEqual(next.doc.pages[0].paperAppearance, appearance)
+  assert.equal(next.doc.pages[0].objects, initial.doc.pages[0].objects)
+})
+
 test('누락·잘못된 격자 응답은 폼과 변경 비교에 같은 기본값을 사용한다', async () => {
   for (const fields of [{ gridVisible: undefined, gridColor: undefined }, { gridVisible: null, gridColor: null }, { gridVisible: 'true', gridColor: '#fff' }]) {
     const loaded = await loadPageSettings(async () => ({ page: page(fields) }), diaryId, pageId)

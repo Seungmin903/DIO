@@ -5,8 +5,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.http.HttpStatus;
+import org.springframework.context.ApplicationEventPublisher;
 import com.f106.DIO.diary.detail.*;
 import com.f106.DIO.diary.auth.DiaryRequestIdentity;
+import com.f106.DIO.page.domain.PaperAppearance;
+import com.f106.DIO.page.domain.PageCatalogChanged;
+import com.f106.DIO.page.service.PageService;
 
 /** Keep authorization, version check and DTO enrichment in the same locked transaction. */
 @Service
@@ -16,8 +20,10 @@ public class MemberDiaryContractService {
     private final JdbcTemplate jdbc;
     private final DiaryRequestIdentity identity;
     private final DiaryDetailRepository diaries;
-    public MemberDiaryContractService(DiaryDetailService detail, JdbcTemplate jdbc, DiaryRequestIdentity identity, DiaryDetailRepository diaries) {
-        this.detail=detail; this.jdbc=jdbc; this.identity=identity; this.diaries=diaries;
+    private final PageService pages;
+    private final ApplicationEventPublisher events;
+    public MemberDiaryContractService(DiaryDetailService detail, JdbcTemplate jdbc, DiaryRequestIdentity identity, DiaryDetailRepository diaries, PageService pages, ApplicationEventPublisher events) {
+        this.detail=detail; this.jdbc=jdbc; this.identity=identity; this.diaries=diaries; this.pages=pages; this.events=events;
     }
     public MemberDiaryResponses.Diary get(UUID id) {
         return enrich(id,detail.getAuthorized(id));
@@ -49,18 +55,32 @@ public class MemberDiaryContractService {
         String cover=oldCover;
         if(request.getCover()!=null)try {cover=DiaryCoverDesign.prepare(request.getCover(),DiaryCoverDesign.read(oldCover),user,jdbc);}
         catch(IllegalArgumentException error) {throw new DiaryDetailException(HttpStatus.BAD_REQUEST,"INVALID_DIARY_COVER","표지 자료를 확인해 주세요.");}
-        if(title.equals(previous.diaryTitle()) && color.equals(previous.coverColor()) && style.equals(previous.coverStyle()) && java.util.Objects.equals(cover,oldCover)) return enrich(id,before);
+        String oldAppearance=jdbc.queryForObject("select paper_appearance_json from diaries where diary_id=?",String.class,id);
+        var appearance=MemberDiaryRequests.normalizePaperAppearance(request.getPaperAppearance());
+        String paper=appearance==null?oldAppearance:appearance.toString();
+        String oldTemplate=jdbc.queryForObject("select template_config_json from diaries where diary_id=?",String.class,id);
+        String requestedTemplate=MemberDiaryRequests.serializeTemplateConfig(request.getTemplateConfig());
+        // 같은 구성을 다시 보내면 바뀐 것이 없다. 저장 문자열이 아닌 JSON 값으로 비교한다.
+        String template=requestedTemplate==null||java.util.Objects.equals(com.f106.DIO.diary.support.DiaryTemplateConfig.read(oldTemplate),request.getTemplateConfig())?oldTemplate:requestedTemplate;
+        boolean allPages=appearance!=null&&"all".equals(request.getPaperAppearanceScope());
+        if(title.equals(previous.diaryTitle()) && color.equals(previous.coverColor()) && style.equals(previous.coverStyle())
+            && java.util.Objects.equals(cover,oldCover) && java.util.Objects.equals(paper,oldAppearance) && java.util.Objects.equals(template,oldTemplate) && !allPages) return enrich(id,before);
         if(current==Long.MAX_VALUE) throw new DiaryDetailException(HttpStatus.CONFLICT,"VERSION_EXHAUSTED","다이어리 버전을 더 갱신할 수 없어요.");
         var now=java.time.Instant.now().truncatedTo(java.time.temporal.ChronoUnit.MICROS);
         if(!now.isAfter(previous.updatedAt())) now=previous.updatedAt().plus(1,java.time.temporal.ChronoUnit.MICROS);
-        int changed=jdbc.update("update diaries set title=?,cover_color=?,cover_style=?,cover_json=?,updated_at=?,version=version+1 where diary_id=? and version=? and deleted_at is null",
-            title,color,style,cover,java.sql.Timestamp.from(now),id,current);
+        int changed=jdbc.update("update diaries set title=?,cover_color=?,cover_style=?,cover_json=?,paper_appearance_json=?,template_config_json=?,updated_at=?,version=version+1 where diary_id=? and version=? and deleted_at is null",
+            title,color,style,cover,paper,template,java.sql.Timestamp.from(now),id,current);
         if(changed!=1) throw new DiaryDetailException(HttpStatus.CONFLICT,"DIARY_METADATA_CONFLICT","최신 내용을 확인한 뒤 다시 시도해 주세요.");
+        if(allPages)pages.updatePaperAppearanceForAll(id,appearance);
+        else if(appearance!=null)events.publishEvent(new PageCatalogChanged(id));
         return enrich(id,detail.getAuthorized(id));
     }
     private MemberDiaryResponses.Diary enrich(UUID id,DiaryDetailService.Authorized authorized) {
         long user=identity.requireUserId(DiaryDetailException::unauthorized);
-        return jdbc.queryForObject("select d.version,d.cover_json,m.role,m.is_favorite from diaries d join diary_members m on m.diary_id=d.diary_id and m.user_id=? where d.diary_id=?",
-            (rs,n)->MemberDiaryResponses.Diary.from(authorized.diary(),authorized.canEdit(),Long.toString(rs.getLong("version")),rs.getString("role"),rs.getBoolean("is_favorite")).withCover(DiaryCoverDesign.read(rs.getString("cover_json"))),user,id);
+        return jdbc.queryForObject("select d.version,d.cover_json,d.paper_appearance_json,d.template_config_json,m.role,m.is_favorite from diaries d join diary_members m on m.diary_id=d.diary_id and m.user_id=? where d.diary_id=?",
+            (rs,n)->MemberDiaryResponses.Diary.from(authorized.diary(),authorized.canEdit(),Long.toString(rs.getLong("version")),rs.getString("role"),rs.getBoolean("is_favorite"))
+                .withCover(DiaryCoverDesign.read(rs.getString("cover_json")))
+                .withPaperAppearance(PaperAppearance.read(rs.getString("paper_appearance_json")))
+                .withTemplateConfig(com.f106.DIO.diary.support.DiaryTemplateConfig.read(rs.getString("template_config_json"))),user,id);
     }
 }

@@ -3,6 +3,8 @@
 import * as study from './studyPlanner.js'
 import * as day from './dayPlanner.js'
 import * as route from './routePaper.js'
+import { isTastingId } from './tastingGeometry.js'
+import * as tasting from './tastingPaper.js'
 
 const orientationOf = id => id.endsWith('portrait') ? 'portrait' : 'landscape'
 
@@ -18,6 +20,18 @@ const orientationOf = id => id.endsWith('portrait') ? 'portrait' : 'landscape'
  *   titleAt(점, 요소들) → 그 점의 할 일 칸에 이미 있는 글상자 | null, autoColor(기록, 요소들) → 색을 채운 새 기록 | null }
  */
 export function plannerFor(assetId) {
+  if (isTastingId(assetId)) {
+    const landscape = assetId.endsWith('landscape')
+    return {
+      kind: 'tasting', orientation: landscape ? 'landscape' : 'portrait', startHour: () => 6,
+      normalize: value => value ?? {}, setOptions: value => value ?? {},
+      baseSvg: () => tasting.tastingBaseSvg(assetId), overlaySvg: value => tasting.tastingOverlaySvg(value, assetId), svg: value => tasting.tastingSvg(value, assetId),
+      stroke: (value, points, settings) => { const planner = tasting.applyTastingStroke(value, points, settings, assetId); return planner ? { planner } : null },
+      erase: (value, points) => tasting.eraseTastingStroke(value, points, assetId),
+      titles: () => null, textSlot: () => null, cellTap: () => null, nowLine: () => null,
+      editTap: () => null, titleAt: () => null, autoColor: () => null,
+    }
+  }
   if (study.isStudyPlannerId(assetId)) {
     const o = orientationOf(assetId)
     return {
@@ -25,11 +39,19 @@ export function plannerFor(assetId) {
       startHour: value => study.normalizePlanner(value).options.startHour,
       normalize: study.normalizePlanner, setOptions: study.setPlannerOptions,
       baseSvg: startHour => study.plannerBaseSvg(o, startHour), overlaySvg: value => study.plannerOverlaySvg(o, value), svg: value => study.studyPlannerSvg(o, value),
-      stroke: (value, points, settings) => { const planner = study.applyPlannerStroke(value, o, points, settings); return planner ? { planner } : null },
+      stroke: (value, points, settings, objects) => {
+        // 펜 톡으로 할 일 줄 글 입력(지라 830). 데일리처럼 칸 맞춤(snap)이 켜져 있을 때만 속지 입력으로 받는다
+        if (study.normalizePlanner(value).options.snap) { const text = study.plannerTapText(o, points, settings, objects); if (text) return text }
+        const planner = study.applyPlannerStroke(value, o, points, settings)
+        return planner ? { planner } : null
+      },
       erase: (value, points, mode) => study.erasePlanner(value, o, points, mode),
       textSlot: point => study.plannerTextSlot(o, point),
       titles: () => null, cellTap: () => null, nowLine: () => null, autoColor: () => null,
       editTap: (value, point, objects, markColor) => study.plannerEditTap(o, point, value, markColor),
+      // 색 칸: 지금 색 · 고른 색으로 바꾸기
+      rowColor: (value, row) => study.normalizePlanner(value).bands[row] ?? null,
+      setRowColor: (value, row, c) => study.setPlannerBand(value, row, c),
       titleAt: (point, objects) => study.plannerTitleAt(o, point, objects),
     }
   }
@@ -41,14 +63,17 @@ export function plannerFor(assetId) {
       normalize: day.normalizeDayPlanner, setOptions: day.setDayPlannerOptions,
       baseSvg: () => day.dayPlannerBaseSvg(o), overlaySvg: (value, objects) => day.dayPlannerOverlaySvg(o, value, objects), svg: (value, objects) => day.dayPlannerSvg(o, value, objects),
       titles: objects => day.dayTitles(o, objects),
-      stroke: (value, points, settings, objects) => day.applyDayStroke(value, o, points, settings, objects),
-      erase: (value, points) => day.eraseDayPlanner(value, o, points),
+      // 현재 시각 줄(화면에만 그린다)을 누르거나 따라 칠한 획은 지금 시각으로 본다
+      stroke: (value, points, settings, objects) => day.applyDayStroke(value, o, points, settings, objects, new Date()),
+      erase: (value, points) => day.eraseDayPlanner(value, o, points, new Date()),
       textSlot: point => day.dayTextSlot(o, point),
       cellTap: point => day.dayCellTap(o, point),
       nowLine: (value, now) => day.dayNowLine(o, value, now),
       editTap: (value, point, objects, markColor) => day.dayEditTap(o, point, value, objects, markColor),
       titleAt: (point, objects) => day.dayTitleAt(o, point, objects),
       autoColor: (value, objects) => day.assignDayColors(value, o, objects),
+      rowColor: (value, row) => day.normalizeDayPlanner(value).rows[row]?.color ?? null,
+      setRowColor: (value, row, c) => day.setDayRowColor(value, row, c),
     }
   }
   if (route.isRoutePaperId(assetId)) {

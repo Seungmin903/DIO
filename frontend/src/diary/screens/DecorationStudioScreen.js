@@ -38,8 +38,13 @@ import PhotoCropper from '../../editor/components/panels/PhotoCropper';
 import { COVER_PHOTO_RATIO, coverCropPhoto, coverPhotoWithAspect } from '../utils/coverPhotoCrop';
 import { Segmented } from '../components/FormControls';
 import { TAPE_SIZES } from '../../editor/constants';
+import { useTapeLibrarySyncStatus } from '../../editor/services/tapeLibrarySyncStatus.js';
+import { usePaletteSyncStatus } from '../../editor/services/paletteSyncStatus.js';
 import ConfirmDialog from '../../editor/components/controls/ConfirmDialog';
 import DecorSaveNotice from '../../editor/components/panels/DecorSaveNotice';
+import { useStickerLibrarySyncStatus } from '../../editor/services/stickerLibrarySyncStatus.js';
+import { useCoverLibrarySyncStatus } from '../services/coverLibrarySyncStatus.js';
+import { usePaperLibrarySyncStatus } from '../services/paperLibrarySyncStatus.js';
 import DiaryActionBubble from '../components/DiaryActionBubble';
 import { PdfImportError, coverWithPdfPage, pdfOrientation } from '../utils/pdfImport';
 import { pickPdfPages } from '../utils/pdfPages';
@@ -75,6 +80,9 @@ let lastTab = 'fonts';
 
 export default function DecorationStudioScreen({ compact = false, registerBackHandler }) {
   const custom = useCustomDecor();
+  const stickerSync = useStickerLibrarySyncStatus(); // 계정 동기화 실패(다른 기기에서 안 보임)를 스티커 탭에 알린다
+  const coverSync = useCoverLibrarySyncStatus(); // 내 표지 계정 동기화 실패를 표지 탭에 알린다
+  const paperSync = usePaperLibrarySyncStatus(); // 내 속지 계정 동기화 실패를 속지 탭에 알린다
   const library = useMyLibrary();
   const paperStyle = useDefaultPaperStyle();
   const studio = useSyncExternalStore(subscribeStudio, studioSnapshot, studioSnapshot);
@@ -89,6 +97,8 @@ export default function DecorationStudioScreen({ compact = false, registerBackHa
   const [tapeFolderId, setTapeFolderId] = useState(null), [tapeRename, setTapeRename] = useState(null), [pendingTape, setPendingTape] = useState(null);
   // 테이프 이름 고치기(카드 이름을 누르면 그 자리에서): { id, draft }
   const [tapeNameEdit, setTapeNameEdit] = useState(null);
+  const tapeSync = useTapeLibrarySyncStatus(); // 테이프 계정 동기화 실패를 스티커 탭과 같은 자리 · 모양으로 테이프 탭에 알린다
+  const paletteSync = usePaletteSyncStatus(); // 도구 탭 팔레트 계정 동기화 실패도 같은 모양으로 도구 탭에 알린다
   // 사진으로 표지 만들기의 자르기 창: { photo, ratio, resolve }
   const [coverCrop, setCoverCrop] = useState(null);
   // 내 표지 편집(지라 603): 견본을 누르면 새 다이어리 표지 탭과 같은 편집 화면을 열고, 꾸밈까지 저장한다
@@ -272,8 +282,9 @@ export default function DecorationStudioScreen({ compact = false, registerBackHa
       <DioButton variant="icon" icon="trash" label="스티커 폴더 삭제" onPress={() => setQuestion({ folder })} />
     </> : addTool({ kind: 'sticker', icon: 'sticker', title: '스티커 추가', description: CUTOUT_ENTRANCE ? '스티커 시트 분리 · 사진 속 대상 오리기 · 새 폴더' : '스티커 시트 분리 · 새 폴더', disabled: !custom.loaded, menu: true })}>
     {custom.saveError ? <DecorSaveNotice error={custom.saveError} pending={custom.savePending} onRetry={custom.retrySave} /> : null}
-    {/* 폴더 안 추가: 머리줄 아래 줄에 `스티커 추가`(다른 `○○ 추가` 버튼과 같은 모양). 누르면 이 폴더로 넣는 방법을 말풍선으로 고른다 */}
-    {folder && <View style={s.addRow}>{addTool({ kind: 'stickerIn', icon: 'sticker', title: '스티커 추가', description: '시트에서 분리하기 · 이미지 한 장씩 넣기', menu: true })}</View>}
+    <DecorSaveNotice error={stickerSync.error} pending={stickerSync.pending} onRetry={stickerSync.retry} retryLabel="다시 맞추기" pendingLabel="다시 맞추는 중…" accessibilityLabel="스티커 보관함 계정 동기화 재시도" />
+    {/* 폴더 안 추가: 머리줄 아래 줄 오른쪽에 `스티커 추가`(다른 `○○ 추가` 버튼과 같은 모양 · 머리줄의 추가 버튼과 같은 쪽). 누르면 이 폴더로 넣는 방법을 말풍선으로 고른다 */}
+    {folder && <View style={s.addRow}>{addTool({ kind: 'stickerIn', icon: 'sticker', title: '스티커 추가', description: CUTOUT_ENTRANCE ? '시트에서 분리하기 · 사진 속 대상 오리기 · 이미지 한 장씩 넣기' : '시트에서 분리하기 · 이미지 한 장씩 넣기', menu: true })}</View>}
     {shelfError === 'sticker' && <Text accessibilityRole="alert" style={s.error}>사진을 불러오지 못했어요. 다시 시도해 주세요.</Text>}
     {folder && stickerRename != null && <View style={s.renameRow}>
       <TextInput autoFocus selectTextOnFocus maxLength={FOLDER_NAME_LIMIT} value={stickerRename} onChangeText={setStickerRename} onSubmitEditing={commitStickerRename}
@@ -428,6 +439,7 @@ export default function DecorationStudioScreen({ compact = false, registerBackHa
       <DioButton variant="icon" icon="trash" label="테이프 폴더 삭제" onPress={() => setQuestion({ tapeFolder })} />
     </> : addTool({ kind: 'tape', icon: 'tape', title: '테이프 추가', description: '사진으로 만들기 · 새 폴더', disabled: !custom.loaded, menu: true })}>
     {custom.saveError ? <DecorSaveNotice error={custom.saveError} pending={custom.savePending} onRetry={custom.retrySave} /> : null}
+    <DecorSaveNotice error={tapeSync.error} pending={tapeSync.pending} onRetry={tapeSync.retry} retryLabel="다시 맞추기" pendingLabel="다시 맞추는 중…" accessibilityLabel="테이프 보관함 계정 동기화 재시도" />
     {/* 폴더 안 추가: 스티커 폴더와 같은 자리 · 버튼. 방법이 하나라 말풍선 없이 바로 사진을 고른다 */}
     {tapeFolder && <View style={s.addRow}>{addTool({ kind: 'tapeIn', icon: 'tape', title: '테이프 추가', description: '사진으로 만들기', onPress: () => addTapeFromPhoto(tapeFolder.id) })}</View>}
     {shelfError === 'tape' && <Text accessibilityRole="alert" style={s.error}>사진을 불러오지 못했어요. 다시 시도해 주세요.</Text>}
@@ -470,6 +482,7 @@ export default function DecorationStudioScreen({ compact = false, registerBackHa
   const coverSection = <StudioSection fill={library.ready && !library.covers.length} title="표지" count={library.ready ? count(library.covers) : null}
     right={addTool({ kind: 'cover', icon: 'book', title: addTitle('cover', '표지 추가'), description: 'PDF로 만들기 · 사진으로 만들기', disabled: !library.ready || Boolean(making), menu: true })}>
     {makeAlert('cover')}
+    <DecorSaveNotice error={coverSync.error} pending={coverSync.pending} onRetry={coverSync.retry} retryLabel="다시 맞추기" pendingLabel="다시 맞추는 중…" accessibilityLabel="내 표지 계정 동기화 재시도" />
     {!library.ready ? <Text style={s.empty}>표지를 불러오고 있어요.</Text>
       : !library.covers.length ? <EmptyState compact={compact} art="dio" raised title="아직 저장한 표지가 없어요" />
       : <StudioShelf kind="cover" items={library.covers} onOpen={setCoverEdit} onRemove={cover => setQuestion({ cover })} onRename={(cover, name) => renameItem('cover', cover, name)} />}
@@ -499,6 +512,7 @@ export default function DecorationStudioScreen({ compact = false, registerBackHa
     {papersReady && <View style={[s.divider, s.paperDivider]} />}
     {papersReady && <GroupHead title="내 속지" section line={false} wide count={count(library.papers)} right={paperAdd} />}
     {makeAlert('paper')}
+    <DecorSaveNotice error={paperSync.error} pending={paperSync.pending} onRetry={paperSync.retry} retryLabel="다시 맞추기" pendingLabel="다시 맞추는 중…" accessibilityLabel="내 속지 계정 동기화 재시도" />
     {!papersReady ? <Text style={s.empty}>속지를 불러오고 있어요.</Text>
       : !library.papers.length ? <EmptyState compact={compact} art="dio" raised title="아직 저장한 속지가 없어요" />
       : <StudioShelf kind="paper" items={library.papers} onOpen={paper => setPaperId(paper.id)} onRemove={paper => setQuestion({ paper })} onRename={(paper, name) => renameItem('paper', paper, name)} />}
@@ -506,7 +520,10 @@ export default function DecorationStudioScreen({ compact = false, registerBackHa
     {shelfError === 'paper-rename' && <Text accessibilityRole="alert" style={s.error}>속지 이름을 바꾸지 못했어요. 다시 시도해 주세요.</Text>}
   </StudioSection>;
 
-  const presetSection = <StudioSection title="도구"><StudioPresets compact={compact} /></StudioSection>;
+  const presetSection = <StudioSection title="도구">
+    <StudioPresets compact={compact} />
+    <DecorSaveNotice error={paletteSync.error} pending={paletteSync.pending} onRetry={paletteSync.retry} retryLabel="다시 맞추기" pendingLabel="다시 맞추는 중…" accessibilityLabel="팔레트 계정 동기화 재시도" />
+  </StudioSection>;
 
   const current = { fonts: fontSection, stickers: stickerSection, tapes: tapeSection, covers: coverSection, papers: paperSection, presets: presetSection }[tab] ?? fontSection;
 
@@ -533,6 +550,9 @@ export default function DecorationStudioScreen({ compact = false, registerBackHa
     {addMenu && <DiaryActionBubble visible={!addMenu.closing} onDismiss={() => onAddMenuDismiss(addMenu.token)} anchor={addMenu.anchor} title={addMenu.kind === 'cover' ? '표지 추가' : addMenu.kind === 'tape' ? '테이프 추가' : '스티커 추가'} onClose={closeAddMenu} actions={addMenu.kind === 'stickerIn' ? [
       { id: 'split', label: stickerSplit.available ? '시트에서 분리하기' : `시트에서 분리하기, ${stickerSplit.reason || '이 기기에서는 쓸 수 없어요'}`, text: '시트에서 분리하기', icon: 'grid',
         disabled: !stickerSplit.available, onPress: () => openPickerAfterMenu(() => loginGate('스티커 시트 분리', () => setTool('splitIn'))) }, // 699: 갤러리를 바로 여니 iOS 는 말풍선이 다 닫힌 뒤
+      // 폴더 안에서도 사진 속 대상 오리기(편집기 스티커 보관함 폴더의 + 와 같다). 오린 스티커는 이 폴더에 담긴다(StickerCutoutModal folder)
+      ...(CUTOUT_ENTRANCE ? [{ id: 'cutout', label: '사진 속 대상 오리기', text: '사진 속 대상 오리기', icon: 'scissors',
+        onPress: () => openPickerAfterMenu(() => loginGate('사진 속 대상 오리기', () => setTool('cutout'))) }] : []),
       { id: 'photos', label: '이미지 한 장씩 넣기', text: '이미지 한 장씩 넣기', icon: 'image', onPress: () => openPickerAfterMenu(() => addStickerImages(folder.id)) },
     ] : addMenu.kind === 'tape' ? [
       { id: 'photo', label: '사진으로 만들기', text: '사진으로 만들기', icon: 'image', onPress: () => openPickerAfterMenu(() => addTapeFromPhoto(null)) },
@@ -545,7 +565,7 @@ export default function DecorationStudioScreen({ compact = false, registerBackHa
         disabled: !stickerSplit.available, onPress: () => openPickerAfterMenu(() => loginGate('스티커 시트 분리', () => setTool('split'))) },
       // 사진 속 대상 오리기: 저장이 아직 미리보기 단계라(StickerCutoutModal 확인창) 모든 빌드에서 입구를 감춘다
       ...(CUTOUT_ENTRANCE ? [{ id: 'cutout', label: '사진 속 대상 오리기', text: '사진 속 대상 오리기', icon: 'scissors',
-        onPress: () => { closeAddMenu(); loginGate('사진 속 대상 오리기', () => setTool('cutout')); } }] : []),
+        onPress: () => openPickerAfterMenu(() => loginGate('사진 속 대상 오리기', () => setTool('cutout'))) }] : []),
       { id: 'folder', label: '새 폴더', text: '새 폴더', icon: 'folder', onPress: () => { closeAddMenu(); newStickerFolder(); } },
     ]} />}
     {coverPages && <PdfCoverPagePicker name={coverPages.name} pages={coverPages.pages} limit={coverPages.limit} compact={compact}
@@ -626,7 +646,8 @@ const s = StyleSheet.create({
   tapeNameRow: { minHeight: 32, maxWidth: '100%', flexDirection: 'row', alignItems: 'center', gap: 4 },
   tapeNameText: { flexShrink: 1 },
   tapeNameInput: { minHeight: 32, alignSelf: 'stretch', paddingVertical: 0, paddingHorizontal: 6, borderRadius: 8, borderWidth: 1, borderColor: colors.primary, textAlign: 'center' },
-  addRow: { alignSelf: 'flex-start', marginBottom: 12 },
+  // 폴더 안 `○○ 추가` 버튼 줄: 폴더 밖 머리줄의 추가 버튼과 같은 오른쪽에 둔다
+  addRow: { alignSelf: 'flex-end', marginBottom: 12 },
   renameRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
   renameInput: { flex: 1, minWidth: 0, height: 48, paddingHorizontal: 12, borderRadius: 12, borderWidth: 1, borderColor: colors.primary, color: colors.text, fontSize: 15, fontWeight: '700', backgroundColor: colors.surface },
   stickerRemove: { position: 'absolute', top: -6, right: -6, width: 24, height: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },

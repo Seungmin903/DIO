@@ -72,6 +72,29 @@ function commitItems(next) {
   persistVisible(next)
 }
 
+// 계정 서버 동기화(services/stickerLibrarySync.js · tapeLibrarySync.js)가 쓰는 스티커 · 테이프 폴더 창구. 보관함을 읽은 뒤(cached)에만 쓴다
+/** 지금 스티커 폴더(읽기 전이면 null) */
+export const customDecorFolders = () => cached?.folders ?? null
+/** 지금 테이프 폴더(읽기 전이면 null) */
+export const customDecorTapeFolders = () => cached?.tapeFolders ?? null
+/** 서버에서 받은 테이프 폴더로 바꾼다(테이프 즐겨찾기 · 최근 등 나머지는 그대로) */
+export function replaceTapeFolders(tapeFolders) {
+  if (!cached) return false
+  commitItems({ ...cached, tapeFolders })
+  return true
+}
+/** 보관함 내용이 바뀔 때마다 불린다. 해제 함수를 돌려준다 */
+export function subscribeCustomDecor(listener) {
+  itemListeners.add(listener)
+  return () => itemListeners.delete(listener)
+}
+/** 서버에서 받은 스티커 폴더로 바꾼다(최근 · 즐겨찾기 등 나머지는 그대로) */
+export function replaceStickerFolders(folders) {
+  if (!cached) return false
+  commitItems({ ...cached, folders })
+  return true
+}
+
 /** 사용자가 직접 추가한 스티커·테이프 목록 + 최근 쓴 스티커 */
 export function useCustomDecor() {
   const [items, setLocalItems] = useState(() => cached ?? EMPTY)

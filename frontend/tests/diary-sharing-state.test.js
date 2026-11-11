@@ -314,6 +314,7 @@ test('이메일 초대는 잘못된 입력·연타를 차단하고 실패 후 �
   resolve({ ...diary, emailInvites: [{ id: 'sent', email: 'friend@example.com', status: 'PENDING' }] });
   await tick();
   assert.equal(find(ui.render(), '초대할 이메일').props.value, '');
+  assert.ok(nodes(ui.render()).some(n => n.props?.children === '가입된 이메일이면 초대가 전달돼요.'));
   // 보낸 초대 목록 화면은 없다(노션처럼 칸 + 초대만, 지라 686)
   assert.equal(find(ui.render(), '보낸 초대'), undefined);
   assert.equal(find(ui.render(), 'friend@example.com 초대 취소'), undefined);

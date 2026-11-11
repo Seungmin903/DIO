@@ -15,7 +15,7 @@ const stickerAction = (ui, text) => {
   find(ui.render(), '스티커 추가').props.onPress()
   return nodes(ui.render()).find(n => n.type === '../components/DiaryActionBubble').props.actions.find(action => action.text === text)
 }
-function fixture({ supported = false, failFonts = false, family = null, failRemove = false, libraryReady = true, entries = [], cutout = true, platform = 'web', pickerCalls = [], pickedImage = null, discarded = [] } = {}) {
+function fixture({ supported = false, failFonts = false, family = null, failRemove = false, libraryReady = true, entries = [], cutout = true, platform = 'web', pickerCalls = [], pickedImage = null, discarded = [], tapeSync = { error: null, pending: false, retry() {} }, paletteSync = { error: null, pending: false, retry() {} } } = {}) {
   const states = [], refs = [], deps = [], cleanups = [], saves = [], removals = []
   let si, ri, ei, studio = null, fontLoads = 0, backHandler = null
   const opened = [], draftRemovals = []
@@ -39,6 +39,8 @@ function fixture({ supported = false, failFonts = false, family = null, failRemo
     if (id === 'react') return react
     if (id.endsWith('/aiDisclosure')) return { AI_FONT_LABEL: 'AI 생성 글꼴', isAiHandwritingFont: () => false }
     if (id.endsWith('/featureFlags')) return { CUTOUT_ENTRANCE: cutout }
+    if (id.endsWith('/tapeLibrarySyncStatus.js')) return { useTapeLibrarySyncStatus: () => tapeSync }
+    if (id.endsWith('/paletteSyncStatus.js')) return { usePaletteSyncStatus: () => paletteSync }
     if (id.endsWith('/useMyLibrary')) return { __esModule: true, default: () => library }
     if (id.endsWith('/useDefaultPaperStyle')) return { __esModule: true, default: () => ({ style: {}, ready: true, save: async () => true }) }
     if (id === 'react/jsx-runtime') return require(id)
@@ -58,6 +60,9 @@ function fixture({ supported = false, failFonts = false, family = null, failRemo
     if (id.endsWith('/text')) return {loadedFontFamily:()=>family}
     if (id.endsWith('/stickerLibrary')) return {BASE_GROUPS:[{name:'기본 분류'}]}
     if (id.endsWith('/loginGate')) return { useLoginGate: () => (_feature, action) => action() } // 로그인한 사용자: 그대로 통과(게스트 안내는 login-gate.test.js)
+    if (id.endsWith('/stickerLibrarySyncStatus.js')) return { useStickerLibrarySyncStatus: () => ({ error: null, pending: false, retry() {} }) }
+    if (id.endsWith('/coverLibrarySyncStatus.js')) return { useCoverLibrarySyncStatus: () => ({ error: null, pending: false, retry() {} }) }
+    if (id.endsWith('/paperLibrarySyncStatus.js')) return { usePaperLibrarySyncStatus: () => ({ error: null, pending: false, retry() {} }) }
     if (id.endsWith('/useCustomDecor')) return {useCustomDecor:()=>custom}
     if (id.endsWith('/stickerSplit')) return {stickerSplit:{available:supported,reason:'개발 빌드에서 사용할 수 있어요.'}}
     return { __esModule: true, default: id }
@@ -301,4 +306,37 @@ test('내 표지 · 속지를 읽는 중에는 목록 대신 불러오는 중이
   assert.ok(nodes(tree).some(n => n.props?.children === '속지를 불러오고 있어요.'))
   assert.equal(nodes(tree).some(n => n.type === '../components/StudioShelf'), false)
   ui.unmount()
+})
+
+test('테이프 계정 동기화 실패는 테이프 탭에 스티커와 같은 알림 · 다시 맞추기로 보이고, 정상이면 숨긴다', async () => {
+  let retried = 0
+  const failing = fixture({ tapeSync: { error: '테이프 1개를 계정에 올리지 못했어요. 다른 기기에서는 보이지 않아요.', pending: false, retry: () => { retried++ } } })
+  failing.render(); await tick(); failing.tab('tapes')
+  const notice = find(failing.render(), '테이프 보관함 계정 동기화 재시도')
+  assert.equal(notice.props.error, '테이프 1개를 계정에 올리지 못했어요. 다른 기기에서는 보이지 않아요.')
+  assert.equal(notice.props.retryLabel, '다시 맞추기')
+  assert.equal(notice.props.pendingLabel, '다시 맞추는 중…')
+  notice.props.onRetry()
+  assert.equal(retried, 1)
+  failing.unmount()
+  const fine = fixture()
+  fine.render(); await tick(); fine.tab('tapes')
+  assert.equal(find(fine.render(), '테이프 보관함 계정 동기화 재시도').props.error, null) // DecorSaveNotice 는 error 가 없으면 그리지 않는다
+  fine.unmount()
+})
+
+test('팔레트 계정 동기화 실패는 도구 탭에 같은 알림 · 다시 맞추기로 보이고, 정상이면 숨긴다', async () => {
+  let retried = 0
+  const failing = fixture({ paletteSync: { error: '팔레트를 계정과 맞추지 못했어요. 연결을 확인해 주세요.', pending: false, retry: () => { retried++ } } })
+  failing.render(); await tick(); failing.tab('presets')
+  const notice = find(failing.render(), '팔레트 계정 동기화 재시도')
+  assert.equal(notice.props.error, '팔레트를 계정과 맞추지 못했어요. 연결을 확인해 주세요.')
+  assert.equal(notice.props.retryLabel, '다시 맞추기')
+  notice.props.onRetry()
+  assert.equal(retried, 1)
+  failing.unmount()
+  const fine = fixture()
+  fine.render(); await tick(); fine.tab('presets')
+  assert.equal(find(fine.render(), '팔레트 계정 동기화 재시도').props.error, null)
+  fine.unmount()
 })

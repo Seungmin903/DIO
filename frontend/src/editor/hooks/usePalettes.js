@@ -42,7 +42,7 @@ export function glassColors(entry) {
 /** { ink, glitter, sheen } → 저장 값 */
 export const glassEntry = ({ ink, glitter, sheen }) => `${ink}:${glitter ?? 'auto'}:${sheen ?? 'auto'}`
 
-const normalize = (scope, value) => {
+export const normalizePaletteEntry = (scope, value) => {
   if (typeof value !== 'string') return null
   if (scope === 'glass') {
     const [ink, glitter, sheen] = value.split(':')
@@ -56,9 +56,15 @@ const normalize = (scope, value) => {
 }
 
 const stores = {}
-export function usePalette(scope) {
+/** 도구별 팔레트 저장소(화면 · 계정 동기화가 같은 것을 쓴다) */
+export function paletteStore(scope) {
   if (!DEFAULTS[scope]) throw Error('알 수 없는 팔레트예요.')
-  const store = stores[scope] ??= createPalettePreference(AsyncStorage, keyOf(scope), DEFAULTS[scope], value => normalize(scope, value))
+  return stores[scope] ??= createPalettePreference(AsyncStorage, keyOf(scope), DEFAULTS[scope], value => normalizePaletteEntry(scope, value))
+}
+export const paletteDefaults = scope => DEFAULTS[scope]
+
+export function usePalette(scope) {
+  const store = paletteStore(scope)
   const snapshot = useSyncExternalStore(store.subscribe, store.getSnapshot, store.getSnapshot)
   useEffect(() => { store.load().catch(() => console.warn('팔레트를 불러오지 못했어요. 다시 시도해 주세요.')) }, [store])
   return { ...snapshot, defaults: DEFAULTS[scope], replace: store.replace, reset: store.reset, retry: store.load }

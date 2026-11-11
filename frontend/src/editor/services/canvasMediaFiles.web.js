@@ -2,8 +2,8 @@ import * as repository from '../utils/mediaRepository.web.js'
 import {registerRemoteMediaRetry} from './mediaRetry.js'
 import {mediaRegistry} from './mediaStore'
 import {detectMediaType,checkDimensions} from '../utils/mediaPolicy.js'
-import {needsShareJpeg,SHARE_MAX_BYTES} from '../utils/shareImagePlan.js'
-import {toShareJpeg} from '../utils/shareImage'
+import {needsShareJpeg,needsSharePng,SHARE_MAX_BYTES} from '../utils/shareImagePlan.js'
+import {toShareJpeg,toSharePng} from '../utils/shareImage'
 import {readPdfSource,savePdfSourceBytes} from '../../diary/utils/pdfSourceStore.web.js'
 import {PDF_SHARE_MAX_BYTES} from '../../diary/utils/pdfSource.js'
 import {mediaShareSizeMessage,sharedGifMaxBytes,sharedImageMaxBytes} from '../../shared/mediaLimits.js'
@@ -23,6 +23,8 @@ export const canvasMediaFiles={
   let blob=converted?stored.displayBlob:stored.blob
   // PDF 쪽처럼 5MB 를 넘는 불투명 PNG 는 올리는 순간에만 JPEG 로 낮춘다(기기 원본은 그대로)
   if(needsShareJpeg(media)){const jpeg=await toShareJpeg(blob,{width:media.width,height:media.height,maxBytes:SHARE_MAX_BYTES});media={...media,extension:'jpg',mimeType:'image/jpeg',fileSize:jpeg.size};blob=jpeg.blob}
+  // 투명할 수 있는 큰 PNG(화면 캡처 등)는 PNG 그대로 크기만 줄인다
+  else if(needsSharePng(media)){const png=await toSharePng(blob,{width:media.width,height:media.height,maxBytes:SHARE_MAX_BYTES});media={...media,extension:'png',mimeType:'image/png',fileSize:png.size,width:png.width,height:png.height};blob=png.blob}
   const maxBytes=media.extension==='gif'?sharedGifMaxBytes:sharedImageMaxBytes
   if(media.fileSize>maxBytes)throw Object.assign(Error(mediaShareSizeMessage(media.extension)),{status:413,code:'MEDIA_FILE_TOO_LARGE'})
   if(!['jpg','jpeg','png','webp','gif'].includes(media.extension))throw Object.assign(Error('공유 이미지는 JPEG·PNG·WebP·GIF로 선택해 주세요.'),{status:415,code:'UNSUPPORTED_MEDIA_TYPE'})

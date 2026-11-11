@@ -22,7 +22,7 @@ public class MediaFontFileReader implements FontFileReader {
             return files.read(storageKey);
         } catch (MediaStorageException error) {
             if (error.status() == HttpStatus.NOT_FOUND)
-                throw new DiaryDetailException(HttpStatus.NOT_FOUND,"FONT_NOT_FOUND","폰트를 찾을 수 없습니다.");
+                throw new DiaryDetailException(HttpStatus.NOT_FOUND,"FONT_NOT_FOUND","폰트를 찾을 수 없어요.");
             log.warn("Font storage read failed: {}", error.code());
             throw unavailable();
         } catch (RuntimeException error) {

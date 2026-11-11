@@ -82,9 +82,11 @@ export function normalizeDayPlanner(value) {
   const entries = source => Object.entries(source && typeof source === 'object' ? source : {})
   const keyed = (source, count, read) => Object.fromEntries(entries(source).filter(([k]) => /^\d{1,2}$/.test(k) && +k < count).flatMap(([k, x]) => { const y = read(x); return y ? [[k, y]] : [] }))
   const mark = m => m && Number.isInteger(m.i) && m.i >= 0 && m.i < DAYS.length && color(m.color) ? { i: m.i, color: color(m.color), hl: Boolean(m.hl) } : null
+  const nowColor = color(v.nowColor) // 현재 시각 줄 색(펜 · 형광펜으로 누르거나 줄을 따라 칠해 바꾼 색). 없으면 기본 빨강
   return {
     rows: keyed(v.rows, LIST_ROWS, normalizeRow), checks: keyed(v.checks, LIST_ROWS, color),
     date: normalizeDate(v.date), day: mark(v.day), options: { snap: v.options?.snap !== false },
+    ...(nowColor ? { nowColor } : {}),
   }
 }
 
@@ -99,6 +101,11 @@ export function setDayRow(value, index, row) {
   const planner = normalizeDayPlanner(value), rows = { ...planner.rows }
   if (row) rows[index] = row; else delete rows[index]
   return normalizeDayPlanner({ ...planner, rows })
+}
+/** 줄 색만 바꾼다(색 칸을 눌러 고른 색). 시간 · 종일은 그대로 둔다. */
+export function setDayRowColor(value, index, c) {
+  const planner = normalizeDayPlanner(value)
+  return setDayRow(planner, index, { start: null, dur: null, ...planner.rows[index], color: c })
 }
 /** 날짜를 고른다. null 이면 날짜와 요일 표시를 비운다. */
 export function setDayDate(value, date) {
@@ -248,12 +255,35 @@ export function assignDayColors(value, orientation, objects) {
   return changed ? normalizeDayPlanner({ ...planner, rows }) : null
 }
 
-/** 종일 칸에 올라오는 줄: 진행을 「종일」로 정한 줄과, 할 일만 있고 시간이 없는 줄을 위에서부터 칸 수만큼. more: 칸에 못 올라온 줄 수. */
-function laneItems(L, planner, titles) {
+/** 종일 칸에 올라오는 줄 전체: 진행을 「종일」로 정한 줄과, 할 일만 있고 시간이 없는 줄(목록 순서). */
+function allDayRows(planner, titles) {
   const rows = new Set([...Object.keys(titles).map(Number), ...Object.entries(planner.rows).filter(([, r]) => r.allDay).map(([k]) => +k)])
-  const all = [...rows].sort((a, b) => a - b).filter(r => !isScheduled(planner.rows[r]))
-  return { items: all.slice(0, L.time.laneRows).map(row => ({ row, title: titles[row] ?? '', color: planner.rows[row]?.color ?? null })), more: Math.max(0, all.length - L.time.laneRows) }
+  return [...rows].sort((a, b) => a - b).filter(r => !isScheduled(planner.rows[r])).map(row => ({ row, title: titles[row] ?? '', color: planner.rows[row]?.color ?? null }))
 }
+/** 종일 칸에 올라오는 줄: 위에서부터 칸 수만큼. more: 칸에 못 올라온 줄 수(마지막 줄 오른쪽 끝 +n 알약). */
+function laneItems(L, planner, titles) {
+  const all = allDayRows(planner, titles)
+  return { items: all.slice(0, L.time.laneRows), more: Math.max(0, all.length - L.time.laneRows) }
+}
+/** 종일 일정 전체(종일 목록 창용, 지라 827): [{ row, title, color }] */
+export const dayAllDayItems = (orientation, value, objects) => allDayRows(normalizeDayPlanner(value), dayTitles(orientation, objects))
+// 종일 칸 마지막 줄 끝의 +n 알약 폭(앱 좌표)
+const MORE_W = 30
+function moreChip(L, lane) {
+  if (!lane.more) return null
+  const G = grid(L), i = lane.items.length - 1, right = G.t.x + G.t.w
+  return { x: right - 3 - MORE_W, y: G.t.y + i * G.t.laneRh + 2, w: MORE_W, h: G.t.laneRh - 4 }
+}
+/** 종일 칸을 누른 자리: +n 알약이면 { more: true }, 올라온 줄이면 { row }, 종일 칸 안의 빈 곳이면 { empty: true }, 종일 칸 밖이면 null */
+function laneHit(L, planner, objects, orientation, point) {
+  const G = grid(L)
+  if (point.x < G.laneX || point.x > G.t.x + G.t.w || point.y < G.t.y || point.y >= G.t.y + G.laneH) return null
+  const lane = laneItems(L, planner, dayTitles(orientation, objects)), chip = moreChip(L, lane)
+  if (chip && point.x >= chip.x - 6 && point.y >= chip.y - 2 && point.y <= chip.y + chip.h + 2) return { more: true }
+  const item = lane.items.find((_, i) => point.y >= G.t.y + i * G.t.laneRh && point.y < G.t.y + (i + 1) * G.t.laneRh)
+  return item ? { row: item.row } : { empty: true }
+}
+const laneResult = hit => hit?.more ? { picker: { kind: 'allday' } } : hit?.row != null ? { picker: { kind: 'time', row: hit.row } } : null
 
 /**
  * 시간표의 현재 시각 줄(구글 캘린더 일간 보기의 빨간 줄). 지금이 들어 있는 오전/오후 열 안의 { x, y, w } (앱 좌표).
@@ -264,7 +294,18 @@ export function dayNowLine(orientation, value, now = new Date()) {
   if (date && (date.y !== now.getFullYear() || date.m !== now.getMonth() + 1 || date.d !== now.getDate())) return null
   const g = grid(dayPlannerLayout(orientation)), minute = now.getHours() * 60 + now.getMinutes() + now.getSeconds() / 60
   const half = minute >= NOON ? 1 : 0, { bx, bw } = g.halves[half]
-  return { x: bx, y: g.y0 + (minute - half * NOON) / 60 * g.hh, w: bw, half }
+  return { x: bx, y: g.y0 + (minute - half * NOON) / 60 * g.hh, w: bw, half, color: planner.nowColor ?? NOW_LINE_COLOR }
+}
+// 현재 시각 줄을 누른 것으로 보는 위아래 거리 · 줄을 따라 칠한 것으로 보는 거리
+const NOW_HIT = 6, NOW_ALONG = 10
+/** 획이 현재 시각 줄을 톡 눌렀거나(첫 점이 줄 위아래 6 안: 한 시간 칸이 40~60 이라 6~9분 안쪽, 그 밖의 톡은 한 시간 일정) 줄을 따라 가로로 칠했으면 true */
+function onNowLine(line, points, tap) {
+  if (!line) return false
+  const near = p => Math.abs(p.y - line.y) <= (tap ? NOW_HIT : NOW_ALONG) && p.x >= line.x - NOW_HIT && p.x <= line.x + line.w + NOW_HIT
+  if (tap) return near(points[0])
+  const xs = points.map(p => p.x), ys = points.map(p => p.y)
+  const wide = Math.max(...xs) - Math.min(...xs), tall = Math.max(...ys) - Math.min(...ys)
+  return wide >= 20 && wide >= tall * 2 && points.every(near)
 }
 
 // ---------- 글상자 자리 ----------
@@ -283,14 +324,15 @@ export function dayTextSlot(orientation, point) {
   if (at?.part === 'text') {
     // 글자 크기는 시작 · 진행 칸과 같다(LIST_TEXT). 한 줄짜리 칸이라 줄 높이를 글자에 가깝게(20) 줄여 줄 가운데에 앉힌다. 28 로 두면 입력 중 테두리와 커서가 칸 아래로 튀어나온다.
     const g = listGeo(L), x = g.textX + 10
-    return { x, y: g.t.y + HEAD + at.r * g.rh + (g.rh - TITLE_LINE) / 2, width: g.startX - 8 - x, font: TEXT_FONT, fontSize: LIST_TEXT, lineSpacing: TITLE_LINE / LIST_TEXT }
+    // 할 일 · 메모 줄은 글 쓰는 줄이라 마지막 글자 설정과 상관없이 왼쪽 정렬로 시작한다(오늘의 목표 밑줄 칸만 사용자가 고른 정렬)
+    return { x, y: g.t.y + HEAD + at.r * g.rh + (g.rh - TITLE_LINE) / 2, width: g.startX - 8 - x, font: TEXT_FONT, fontSize: LIST_TEXT, lineSpacing: TITLE_LINE / LIST_TEXT, textAlign: 'left' }
   }
   if (inGoalZone(L, point)) return { x: 124, y: 133 - LINE_PITCH + SIT, width: L.right - 124, ...style } // 글자가 밑줄 위에 앉는다
   const R = L.memo
   if (point.x >= R.x && point.x <= R.x + R.w && point.y >= R.y + 34 && point.y <= R.y + R.h) {
     const lines = Math.max(1, Math.floor((R.h - 8 - 30) / LINE_PITCH))
     const k = Math.max(0, Math.min(lines - 1, Math.floor((point.y - (R.y + 30)) / LINE_PITCH)))
-    return { x: R.x + 12, y: R.y + 30 + k * LINE_PITCH + SIT, width: R.w - 24, ...style }
+    return { x: R.x + 12, y: R.y + 30 + k * LINE_PITCH + SIT, width: R.w - 24, ...style, textAlign: 'left' }
   }
   return null
 }
@@ -304,7 +346,8 @@ export function dayCellTap(orientation, point) {
 
 /**
  * 선택(화살표) 도구로 칸을 톡 눌렀을 때 그 칸의 입력을 연다. 칸이 아니면 null.
- *   완료: 체크를 켜고 끈다(color 로 친다)   할 일 · 오늘의 목표: 글 입력   시작 · 진행 · 시간표 막대 · 종일 칸 막대: 시간 고르기   날짜: 날짜 고르기   색: 받지 않는다
+ *   완료: 체크를 켜고 끈다(color 로 친다)   할 일 · 오늘의 목표: 글 입력(메모는 넓은 빈 곳이라 선택 풀기로 남긴다)   시작 · 진행 · 시간표 막대 · 종일 칸 막대: 시간 고르기
+ *   날짜: 날짜 고르기   색: 색 고르기   요일: 날짜가 없으면 동그라미를 켜고 끄고, 있으면 날짜 고르기(요일은 날짜가 정한다)
  * 결과는 applyDayStroke 와 같다: { planner } | { picker } | { text: 점 }
  */
 export function dayEditTap(orientation, point, value, objects, markColor) {
@@ -317,26 +360,43 @@ export function dayEditTap(orientation, point, value, objects, markColor) {
     }
     if (at.part === 'text') return { text: point }
     if (at.part === 'start' || at.part === 'dur') return { picker: { kind: 'time', row: at.r } }
-    return null
+    return at.part === 'color' ? { picker: { kind: 'color', row: at.r } } : null
   }
   if (inDateZone(L, point)) return { picker: { kind: 'date' } }
   if (inGoalZone(L, point)) return { text: point }
+  const d = hitCircle(days(L), point)
+  if (d >= 0) {
+    if (planner.date) return { picker: { kind: 'date' } }
+    return { planner: { ...planner, day: planner.day?.i === d ? null : { i: d, color: color(markColor) ?? DEFAULT_DAY_MARK.color, hl: false } } }
+  }
   const block = [...blocksOf(L, planner)].reverse().find(b => within(b, point))
   if (block) return { picker: { kind: 'time', row: block.row } } // 막대를 누르면 그 줄의 시간 창
-  const G = grid(L), lane = laneItems(L, planner, dayTitles(orientation, objects))
-  const item = lane.items.find((_, i) => point.x >= G.laneX && point.x <= G.t.x + G.t.w && point.y >= G.t.y + i * G.t.laneRh && point.y < G.t.y + (i + 1) * G.t.laneRh)
-  return item ? { picker: { kind: 'time', row: item.row } } : null // 종일 칸 막대도 그 줄의 시간 창
+  // 종일 칸 막대는 그 줄의 시간 창, +n 알약은 종일 일정 전체 목록(지라 827)
+  return laneResult(laneHit(L, planner, objects, orientation, point))
 }
 
 // ---------- 획 → 기록 ----------
+/**
+ * 같은 색 일정에 겹치거나 맞닿는 형광펜 [from, to] 은 그 일정을 늘린다(지라 829). 여러 개에 닿으면 목록 위쪽 줄 하나만 늘린다(다른 할 일의 시간을 지우지 않게).
+ * 이미 그 일정 안이면 {}(바꿀 것 없음), 닿는 같은 색 일정이 없으면 null.
+ */
+function mergeSameColor(planner, c, from, to) {
+  const hit = Object.entries(planner.rows).filter(([, r]) => isScheduled(r) && r.color === c && r.start <= to && r.start + r.dur >= from).map(([k]) => +k).sort((x, y) => x - y)[0]
+  if (hit == null) return null
+  // 기존 일정의 끝은 자르지 않는다(자정을 넘는 일정이 이어 칠할 때 줄어들지 않게). 새로 칠한 끝만 하루 안이다.
+  const r = planner.rows[hit], start = Math.min(r.start, from), end = Math.max(r.start + r.dur, Math.min(MINUTES, to))
+  if (start === r.start && end === r.start + r.dur) return {}
+  return { planner: setDayRow(planner, hit, { ...r, start, dur: end - start }) }
+}
 /**
  * 펜 · 형광펜 획을 속지 기록으로 바꾼다. 속지 영역에서 시작한 획이 아니면 null(보통 획으로 남긴다).
  * settings: { kind, color } — kind 가 'highlighter' 면 형광펜, 그 밖은 펜.
  * 칸은 글을 쓰는 곳이 아니라 입력 칸이라, 목록 · 날짜 칸에서 시작한 획은 모두 그 칸의 입력으로 받고 잉크는 남기지 않는다.
  * 결과(비어 있는 {} 는 받았지만 바꿀 것이 없음):
  *   { planner } 새 기록 · { picker: { kind: 'time', row } | { kind: 'date' } } 고르는 창 열기 · { text: 점 } 할 일 칸에 글 입력(글상자 만들기 · 고치기)
+ * clockNow: 지금 시각(Date). 주면 현재 시각 줄을 누르거나 따라 칠한 획은 줄 색을 바꾼다. 없으면(테스트 등) 현재 시각 줄을 보지 않는다.
  */
-export function applyDayStroke(value, orientation, points, settings, objects) {
+export function applyDayStroke(value, orientation, points, settings, objects, clockNow = null) {
   const planner = normalizeDayPlanner(value)
   if (!planner.options.snap || !points?.length) return null
   const L = dayPlannerLayout(orientation), first = points[0], last = points[points.length - 1], hl = settings?.kind === 'highlighter', c = color(settings?.color)
@@ -344,27 +404,38 @@ export function applyDayStroke(value, orientation, points, settings, objects) {
   const tap = span(points) < TAP_SPAN, at = rowAt(L, first)
   if (at) {
     if (at.part === 'box') return { planner: { ...planner, checks: { ...planner.checks, [at.r]: c } } }
-    if (at.part === 'text') return { text: first }
+    // 할 일 줄을 형광펜으로 가로질러 쓸면 그 줄 색이 바뀐다(스터디 플래너와 같다). 톡이나 펜은 글 입력
+    if (at.part === 'text' && !(hl && !tap)) return { text: first }
     if (at.part === 'start' || at.part === 'dur') return { picker: { kind: 'time', row: at.r } }
-    // 색 칸을 형광펜으로 쓸면 지나간 줄의 색이 그 색으로 바뀐다(막대 색도 따라 바뀐다). 펜은 받지 않는다.
-    if (!hl) return {}
+    // 색 칸 · 할 일 줄을 형광펜으로 쓸면 지나간 줄의 색이 그 색으로 바뀐다(막대 색도 따라 바뀐다). 펜으로 톡 누르면 색 고르기, 펜으로 긋는 것은 받기만 한다.
+    if (!hl) return tap ? { picker: { kind: 'color', row: at.r } } : {}
     const rows = { ...planner.rows }
     for (const p of sample(points)) { const hit = rowAt(L, p); if (hit && hit.part !== 'box') rows[hit.r] = { start: null, dur: null, ...rows[hit.r], color: c } }
     return { planner: normalizeDayPlanner({ ...planner, rows }) }
   }
   if (inDateZone(L, first)) return { picker: { kind: 'date' } }
+  // 종일 칸은 입력 칸이다: 펜 · 형광펜으로 톡 누르면 선택 도구로 누른 것과 같고(그 줄의 시간 창 · +n 은 종일 목록), 잉크는 남기지 않는다
+  const lane = laneHit(L, planner, objects, orientation, first)
+  if (lane) return (tap && laneResult(lane)) || {}
   // 시간표를 형광펜으로 위아래로 그으면 그 시간만큼 일정이 생기고, 비어 있는 첫 목록 줄(없으면 시간 없는 첫 줄)에 시작 · 진행이 적힌다. 톡 누르면 한 시간.
-  // 색은 할 일을 쓰면 자동으로 붙는다(형광펜 색을 그대로 쓰지 않는다). 오전 열에서 시작해 오후 열로 넘어가도(또는 그 반대) 이어진 일정이 된다.
+  // 일정 색은 그은 형광펜 색이다(할 일을 먼저 써서 색이 정해진 줄은 그 색). 같은 색 일정에 겹치거나 맞닿게 그으면 새 일정을 만들지 않고 그 일정을 늘린다
+  // (종이에 이어 칠하면 한 띠가 되듯, 지라 829). 오전 열에서 시작해 오후 열로 넘어가도(또는 그 반대) 이어진 일정이 된다.
   const g = grid(L), half = gridHalf(g, first)
+  // 현재 시각 줄을 펜 · 형광펜으로 톡 누르거나 줄을 따라 칠하면 줄 색이 그 색으로 바뀐다(잉크 · 새 일정 없이)
+  if (clockNow && half >= 0 && onNowLine(dayNowLine(orientation, planner, clockNow), points, span(points) < GRID_TAP_SPAN)) {
+    return planner.nowColor === c ? {} : { planner: { ...planner, nowColor: c } }
+  }
   if (hl && half >= 0) {
-    const open = Array.from({ length: LIST_ROWS }, (_, i) => i).filter(i => !isScheduled(planner.rows[i])), titled = dayTitles(orientation, objects)
-    const free = open.find(i => !(i in titled) && !planner.rows[i]?.allDay) ?? open[0]
-    if (free == null) return null
     const a = minuteAt(g, half, first.y), b = minuteAt(g, halfOfX(g, last.x), last.y)
     const from = Math.floor(Math.min(a, b) / DRAG_SNAP) * DRAG_SNAP
     const to = span(points) < GRID_TAP_SPAN ? Math.min(MINUTES, from + TAP_DURATION) : Math.min(MINUTES, Math.max(from + DRAG_SNAP, Math.ceil(Math.max(a, b) / DRAG_SNAP) * DRAG_SNAP))
     if (to - from < DURATION_RANGE.min) return null
-    return { planner: setDayRow(planner, free, { color: planner.rows[free]?.color ?? null, start: from % MINUTES, dur: to - from }) }
+    const merged = mergeSameColor(planner, c, from, to)
+    if (merged) return merged
+    const open = Array.from({ length: LIST_ROWS }, (_, i) => i).filter(i => !isScheduled(planner.rows[i])), titled = dayTitles(orientation, objects)
+    const free = open.find(i => !(i in titled) && !planner.rows[i]?.allDay) ?? open[0]
+    if (free == null) return null
+    return { planner: setDayRow(planner, free, { color: planner.rows[free]?.color ?? c, start: from % MINUTES, dur: to - from }) }
   }
   // 요일: 날짜를 골랐으면 요일은 날짜가 정하고 동그라미 색 · 모양만 다시 그어 바꾼다. 날짜가 없으면 톡 눌러 표시한다.
   const circles = days(L), now = effectiveDay(planner)
@@ -385,9 +456,14 @@ export function applyDayStroke(value, orientation, points, settings, objects) {
  * 일정 막대 · 시작 · 진행 칸은 그 줄의 시간을 비우고(색은 남는다), 색 칸은 줄을 통째로 비운다.
  * 체크 · 요일 모양은 닿은 것 하나씩, 날짜 칸은 날짜와 요일 표시를 지운다. 할 일 글자는 보통 글상자라 여기서 건드리지 않는다.
  */
-export function eraseDayPlanner(value, orientation, points) {
+export function eraseDayPlanner(value, orientation, points, clockNow = null) {
   if (!points?.length) return null
   const planner = normalizeDayPlanner(value), L = dayPlannerLayout(orientation), blocks = blocksOf(L, planner)
+  // 현재 시각 줄을 따라 지우면 바꾼 줄 색만 기본 빨강으로 돌린다(밑의 일정은 지우지 않는다)
+  if (clockNow && planner.nowColor && onNowLine(dayNowLine(orientation, planner, clockNow), points, false)) {
+    const { nowColor, ...rest } = planner
+    return normalizeDayPlanner(rest)
+  }
   const rows = { ...planner.rows }, checks = { ...planner.checks }
   let { date, day } = planner, changed = false
   const drop = (map, key) => { if (key in map) { delete map[key]; changed = true } }
@@ -423,6 +499,7 @@ function fitText(s, size, max) {
   return out ? out + '…' : ''
 }
 // 속지 글꼴(마루부리)은 앱이 불러온 글꼴이다. 굵은 글자는 Bold 글꼴 파일을 따로 쓴다(글꼴이 없을 때만 기기 명조로 보인다).
+// 종일 칸 · 일정 막대처럼 11 ~ 12 크기의 작은 글자는 보통 굵기로 쓴다: 굵은 마루부리를 작게 그리면 'ㅇ' · 'ㅁ' 속이 메워져 덩어리로 보였다(지라 826).
 const deviceText = (x, y, s, size, { weight = 400, anchor = 'start' } = {}) => s
   ? `<text x="${n(x)}" y="${n(y)}" font-size="${size}" font-weight="400" font-family="${weight >= 700 ? 'MaruBuriBold' : 'MaruBuri'}, serif" text-anchor="${anchor}" fill="${TEXT}">${esc(s)}</text>` : ''
 // 색이 있으면 그 색(속지 배색에서 제외), 아직 없으면 회색
@@ -502,12 +579,14 @@ function overlayBody(orientation, value, objects) {
   }
 
   // 종일 칸: 시간 없이 할 일만 쓴 줄이 위에서부터 한 줄씩 올라온다. 못 올라온 줄은 마지막 줄 끝에 +n 으로 알린다.
-  const G = grid(L), lane = laneItems(L, p, titles), right = G.t.x + G.t.w
+  const G = grid(L), lane = laneItems(L, p, titles)
   lane.items.forEach((item, i) => {
     const R = { x: G.laneX + 3, y: G.t.y + i * G.t.laneRh + 2, w: G.laneW - 6, h: G.t.laneRh - 4 }, last = i === lane.items.length - 1 && lane.more > 0
-    out.push(barRect(R, item.color, userRect), deviceText(R.x + 7, R.y + R.h / 2 + 4, fitText(item.title, 12, R.w - 14 - (last ? 28 : 0)), 12, { weight: 700 }))
-    if (last) out.push(deviceText(right - 10, R.y + R.h / 2 + 4, `+${lane.more}`, 11, { anchor: 'end' }))
+    out.push(barRect(R, item.color, userRect), deviceText(R.x + 7, R.y + R.h / 2 + 4, fitText(item.title, 12, R.w - 14 - (last ? MORE_W + 6 : 0)), 12))
   })
+  // 못 올라온 줄 수: 마지막 줄 오른쪽 끝의 흰 알약(누르면 종일 일정 전체 목록, 지라 827)
+  const chip = moreChip(L, lane)
+  if (chip) out.push(rect(chip.x, chip.y + 1, chip.w, chip.h - 2, `rx="${n((chip.h - 2) / 2)}" fill="#FFFFFF" stroke="${LINE}" stroke-width="1"`), deviceText(chip.x + chip.w / 2, chip.y + chip.h / 2 + 4, `+${lane.more}`, 11, { anchor: 'middle' }))
 
   // 일정 막대: 할 일 글과 시작 ~ 끝 시각(들어갈 만큼 크면). 색이 아직 없는 일정(할 일이 비었을 때)은 회색 막대.
   for (const b of blocksOf(L, p)) {
@@ -515,7 +594,7 @@ function overlayBody(orientation, value, objects) {
     if (b.h < 14) continue
     const title = titles[b.row], range = `${clock(b.start)} ~ ${clock(b.start + b.dur)}`, max = b.w - 10
     if (title) {
-      out.push(deviceText(b.x + 5, b.y + 11.5, fitText(title, 11, max), 11, { weight: 700 }))
+      out.push(deviceText(b.x + 5, b.y + 11.5, fitText(title, 11, max), 11))
       if (b.head && b.h >= 30 && textWidth(range, 10) <= max) out.push(write(b.x + 5, b.y + 24.5, { s: range, size: 10, fill: TEXT }))
     } else if (b.head && textWidth(range, 10.5) <= max) out.push(write(b.x + 5, b.y + 11.5, { s: range, size: 10.5, fill: TEXT }))
   }

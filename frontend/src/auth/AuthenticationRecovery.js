@@ -1,6 +1,5 @@
-import { Pressable, StyleSheet, Text } from 'react-native';
 import { useLoginEntry } from './loginGate';
-import { colors } from '../shared/theme';
+import DioButton from '../shared/DioButton';
 
 export const needsAuthenticationRecovery = error => error?.status === 401 && error.code !== 'DEVELOPMENT_ACCESS_REQUIRED';
 
@@ -8,13 +7,6 @@ export const needsAuthenticationRecovery = error => error?.status === 401 && err
 export default function AuthenticationRecovery({ error }) {
   const openLogin = useLoginEntry();
   if (!needsAuthenticationRecovery(error)) return null;
-  return <Pressable accessibilityRole="button" accessibilityLabel="다시 로그인" style={styles.button}
-    onPress={() => openLogin({ sessionExpired: error.sessionExpired === true })}>
-    <Text style={styles.text}>다시 로그인</Text>
-  </Pressable>;
+  return <DioButton variant="filled" label="다시 로그인" style={{ alignSelf: 'flex-start' }}
+    onPress={() => openLogin({ sessionExpired: error.sessionExpired === true })} />;
 }
-
-const styles = StyleSheet.create({
-  button: { minHeight: 48, paddingHorizontal: 16, paddingVertical: 12, borderRadius: 12, alignSelf: 'flex-start', justifyContent: 'center', backgroundColor: colors.primaryStrong },
-  text: { color: colors.surface, fontWeight: '600', fontSize: 14 },
-});

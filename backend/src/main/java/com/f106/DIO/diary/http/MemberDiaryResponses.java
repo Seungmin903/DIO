@@ -20,13 +20,24 @@ public final class MemberDiaryResponses {
         @Schema(requiredMode=Schema.RequiredMode.REQUIRED) String myRole,
         @Schema(requiredMode=Schema.RequiredMode.REQUIRED) Membership myMembership,
         @Schema(requiredMode=Schema.RequiredMode.REQUIRED) Permissions permissions,
-        tools.jackson.databind.JsonNode cover
+        tools.jackson.databind.JsonNode cover,
+        @com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)
+        tools.jackson.databind.JsonNode paperAppearance,
+        @com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)
+        @Schema(type="object",description="다이어리 단위 속지 구성. 저장된 값이 없으면 생략")
+        tools.jackson.databind.JsonNode templateConfig
     ) {
         public Diary(String id,String title,String color,String style,String visibility,Instant created,Instant updated,boolean canEdit,String version,String role,Membership membership,Permissions permissions) {
-            this(id,title,color,style,visibility,created,updated,canEdit,version,role,membership,permissions,null);
+            this(id,title,color,style,visibility,created,updated,canEdit,version,role,membership,permissions,null,null,null);
         }
         public Diary withCover(tools.jackson.databind.JsonNode value) {
-            return new Diary(diaryId,diaryTitle,coverColor,coverStyle,visibility,createdAt,updatedAt,canEdit,version,myRole,myMembership,permissions,value);
+            return new Diary(diaryId,diaryTitle,coverColor,coverStyle,visibility,createdAt,updatedAt,canEdit,version,myRole,myMembership,permissions,value,paperAppearance,templateConfig);
+        }
+        public Diary withPaperAppearance(tools.jackson.databind.JsonNode value) {
+            return new Diary(diaryId,diaryTitle,coverColor,coverStyle,visibility,createdAt,updatedAt,canEdit,version,myRole,myMembership,permissions,cover,value,templateConfig);
+        }
+        public Diary withTemplateConfig(tools.jackson.databind.JsonNode value) {
+            return new Diary(diaryId,diaryTitle,coverColor,coverStyle,visibility,createdAt,updatedAt,canEdit,version,myRole,myMembership,permissions,cover,paperAppearance,value);
         }
         public Diary(String id,String title,String color,String style,String visibility,Instant created,Instant updated,boolean canEdit) {
             this(id,title,color,style,visibility,created,updated,canEdit,"1",canEdit?"OWNER":"EDITOR",new Membership(false),new Permissions(canEdit,true,canEdit,false,false));

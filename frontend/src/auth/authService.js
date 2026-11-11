@@ -4,7 +4,7 @@ import { createAuthApi, authBaseUrl } from './authApi';
 import { buildPhotoBody } from './photoUpload';
 import { createDevelopmentAccessStore } from './developmentAccessStore';
 import { legacyAccessKeychain } from './legacyAccessKeychain';
-import { signInWithGoogle } from './googleLogin';
+import { signInWithGoogle, revokeGoogleAccess } from './googleLogin';
 import { signInWithApple } from './appleLogin';
 import { fetch as authFetch } from 'expo/fetch';
 import { isSecureApiBaseUrl } from '../shared/apiBaseUrlPolicy';
@@ -24,6 +24,7 @@ export const authService = createAuthApi({
   sessionStore,
   buildPhotoBody,
   googleSignIn: signInWithGoogle,
+  googleRevoke: revokeGoogleAccess,
   appleSignIn: signInWithApple,
   fetchImpl: authFetch,
   allowDevelopmentAccess: __DEV__,
