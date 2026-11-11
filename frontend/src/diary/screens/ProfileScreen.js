@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Image } from 'expo-image';
-import { Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
 import { styles as s } from '../styles';
 import Header from '../components/Header';
 import BackButton from '../components/BackButton';
@@ -18,7 +18,10 @@ import { appLockRecoveryAction } from '../components/appLockRecovery';
 import { colors } from '../../shared/theme';
 import { confirmAction, notify } from '../../shared/dialogs';
 import DioButton from '../../shared/DioButton';
-import ProfileEditScreen from '../../auth/ProfileEditScreen';
+import WithdrawDialog from '../../auth/WithdrawDialog';
+import { pickProfilePhoto } from '../../auth/profilePhoto';
+import { nicknameError, normalizeNickname } from '../../auth/validation';
+import DiaryActionBubble from '../components/DiaryActionBubble';
 import PasswordResetScreen from '../../auth/PasswordResetScreen';
 import NotificationSettingsScreen from './NotificationSettingsScreen';
 import { NOTIFICATION_SETTINGS_TITLE } from '../../shared/featureFlags';
@@ -29,8 +32,11 @@ import { placesLoginBelow, showsInlineSettings } from '../components/profileNavi
 import BlockedUsersPage from '../../safety/BlockedUsersPage';
 
 // 마이페이지는 프로필·계정, 설정은 알림·보안·편집(그리기 입력)·앱 정보로 분리한다. 두 화면은 잠금·알림 세부 화면만 공통으로 쓴다.
-export default function ProfileScreen({ guestImport = null, section = 'profile', compact = false, onBack = null, previewUser, onEndPreview, onClearSession = onEndPreview, onWithdrawn = onClearSession, onUpdatePreview, registerLeaveGuard, getProfilePhotoSource, accountService, onOpenBlockedUsers, pushIssue = null }) {
-  // home · edit(회원정보 수정) · password(비밀번호 재설정 4단계) · notifications(서버 알림 설정, 회원)
+const PROVIDER_NAMES = { email: '이메일', kakao: '카카오', google: '구글', apple: '애플' };
+
+export default function ProfileScreen({ guestImport = null, section = 'profile', compact = false, onBack = null, previewUser, onEndPreview, onClearSession = onEndPreview, onWithdrawn = onClearSession, onUpdatePreview, registerLeaveGuard, getProfilePhotoSource, accountService, onOpenBlockedUsers, pushIssue = null, photoPicker = pickProfilePhoto }) {
+  // home · password(비밀번호 재설정 4단계) · notifications(서버 알림 설정, 회원) · blocks(태블릿 차단 목록)
+  // 따로 있던 프로필 수정 화면은 없앴다(지라 842): 사진은 프로필 오른쪽 아래 펜, 닉네임은 `수정`을 눌러 그 자리에서 고친다
   const [route, setRoute] = useState('home');
   const [withdrawing, setWithdrawing] = useState(false); // 회원 탈퇴 확인 창(계정 구역 '회원 탈퇴' 줄)
   const settingsPage = section === 'settings';
@@ -38,8 +44,6 @@ export default function ProfileScreen({ guestImport = null, section = 'profile',
   const settingsBody = settingsPage || showsInlineSettings({ compact, section });
   const openLogin = useLoginEntry();
   const windowSize = useWindowDimensions();
-  const editing = route === 'edit';
-  const setEditing = on => setRoute(on ? 'edit' : 'home');
   const [failedPhoto, setFailedPhoto] = useState(null);
   const photoUri = previewUser?.photoUri;
   const photoSource = photoUri
@@ -76,12 +80,27 @@ export default function ProfileScreen({ guestImport = null, section = 'profile',
   const canEnableLock = appLockSupported && authenticatedUser;
   const showLockSetting = authenticatedUser && (canEnableLock || locked || lockReadFailed || (currentLockRead && lockState === null));
   // 결과 알약: 이 기기에만 걸리는 설정이라 '이 기기'를 넣어 알린다(다른 기기에서는 꺼져 보인다)
-  const [settingsNotice, setSettingsNotice] = useState(null);
+  const [settingsNotice, setSettingsNotice] = useState(null); // 결과 알약(앱 잠금 · 프로필 저장 · 이메일 복사)
   useEffect(() => {
     if (!settingsNotice) return undefined;
     const timer = setTimeout(() => setSettingsNotice(current => current === settingsNotice ? null : current), 2000);
     return () => clearTimeout(timer);
   }, [settingsNotice]);
+  // 프로필 그 자리 수정(지라 842). nameDraft 가 문자열이면 닉네임 입력 중
+  const alive = useRef(true);
+  useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
+  const [nameDraft, setNameDraft] = useState(null);
+  const [nameBusy, setNameBusy] = useState(false);
+  const [nameFailure, setNameFailure] = useState('');
+  const [photoBusy, setPhotoBusy] = useState(false);
+  // 사진 말풍선: { anchor, closing }. iOS 는 말풍선 모달이 다 닫힌 뒤 앨범을 연다(공방 추가 메뉴와 같은 이유)
+  const [photoMenu, setPhotoMenu] = useState(null);
+  const penRef = useRef(null), afterPhotoMenu = useRef(null), photoMenuTimer = useRef(null);
+  // 닉네임 · 사진 저장은 서로의 지금 값을 함께 보내므로 한 번에 하나만 한다(앞 저장이 끝나기 전 값이 섞여 되돌아가지 않게)
+  const profileSaving = useRef(false);
+  useEffect(() => () => clearTimeout(photoMenuTimer.current), []);
+  // 계정이 바뀌면 입력 중이던 닉네임은 버린다
+  useEffect(() => { setNameDraft(null); setNameFailure(''); setPhotoMenu(null); }, [previewUser?.userId]);
   // 지금 비밀번호를 잊었을 때: 회원은 계정으로 다시 확인(reauth), 게스트는 저장값 손상일 때만 초기화(읽기 오류는 다시 읽기).
   // 새 비밀번호를 정하는 setup 화면에는 두지 않는다.
   const [reauth, setReauth] = useState(null); // 계정 확인 뒤 할 일: 'off' | 'change'
@@ -115,11 +134,11 @@ export default function ProfileScreen({ guestImport = null, section = 'profile',
     if (!notificationsOpen || !registerLeaveGuard) return undefined;
     return registerLeaveGuard(move => move(), () => setRoute('home'));
   }, [notificationsOpen, registerLeaveGuard]);
-  // 비밀번호 변경 화면: 뒤로 키는 회원정보 수정으로 돌아온다(수정 화면 가드는 이 화면이 열리는 동안 풀려 있다)
+  // 비밀번호 변경 화면: 뒤로 키는 마이페이지 본문으로 돌아온다
   const passwordOpen = route === 'password';
   useEffect(() => {
     if (!passwordOpen || !registerLeaveGuard) return undefined;
-    return registerLeaveGuard(move => move(), () => setRoute('edit'));
+    return registerLeaveGuard(move => move(), () => setRoute('home'));
   }, [passwordOpen, registerLeaveGuard]);
   // 회원 설정은 서버 인증이 끝난 세션이나 게스트만 연다(이전 체험 세션 값은 그리지 않는다)
   if (!authenticatedUser && !guest) return null;
@@ -159,24 +178,113 @@ export default function ProfileScreen({ guestImport = null, section = 'profile',
   }
   const editService = authenticatedUser && accountService ? accountService : null;
   // 비밀번호 변경 · 탈퇴는 서버가 모든 세션을 폐기하므로 로그아웃 요청을 또 보내지 않고 이 기기의 세션만 정리한다(onClearSession)
-  if (editing) return <ProfileEditScreen {...(editService ? { service: editService } : {})} compact={compact} user={previewUser} onClose={() => setEditing(false)} onUpdate={onUpdatePreview} onEndSession={onClearSession} onPasswordReset={authenticatedUser && accountService ? () => setRoute('password') : undefined} getProfilePhotoSource={getProfilePhotoSource} registerLeaveGuard={registerLeaveGuard} />
-  if (route === 'password' && authenticatedUser && accountService) return <PasswordResetScreen change compact={compact} email={previewUser?.email || ''} service={accountService} backLabel="프로필 수정으로 돌아가기" onClose={() => setRoute('edit')} onComplete={onClearSession} />;
+  if (route === 'password' && authenticatedUser && accountService) return <PasswordResetScreen change compact={compact} email={previewUser?.email || ''} service={accountService} backLabel="마이페이지로 돌아가기" onClose={() => setRoute('home')} onComplete={onClearSession} />;
   // 태블릿: 차단한 사용자도 알림 설정처럼 본문 자리 페이지로 연다(모달 아님, 2026-11-09 지라 537). 폰은 전체 화면 차단 목록 그대로
   if (route === 'blocks' && !compact && authenticatedUser && onOpenBlockedUsers) return <BlockedUsersPage onClose={() => setRoute('home')} />;
   if (route === 'notifications' && authenticatedUser) return <NotificationSettingsScreen compact={compact} userId={userId} accountService={accountService} pushIssue={pushIssue} backLabel={settingsPage ? '설정으로 돌아가기' : '마이페이지로 돌아가기'} onClose={() => setRoute('home')} />;
 
-  // 판 오른쪽 끝은 계정 상태의 대표 행동: 게스트는 `로그인 · 회원가입`, 회원은 `프로필 수정` 윤곽 버튼.
+  // 판 오른쪽 끝은 계정 상태의 대표 행동: 게스트는 `로그인 · 회원가입`, 회원은 닉네임 `수정` 윤곽 버튼.
   // 로그인 화면은 지금 화면 위에 덮어 뜨고, 회원가입은 로그인 화면에서 이어 간다
   // 폰도 이름 옆이 기본이고, 좁은 창 · 큰 글자 설정에서 이름이 잘리면 이름 아래 전폭으로 내린다
   const loginBelow = placesLoginBelow({ guest, compact, width: windowSize.width, fontScale: windowSize.fontScale });
   const loginButton = guest ? <DioButton variant="filled" label="로그인 · 회원가입" onPress={openLogin} block={loginBelow} style={loginBelow ? local.loginCompact : compact ? local.loginInline : local.login} /> : null;
-  // 폰: 프로필 줄 전체가 편집 진입(오른쪽 ›) — 버튼을 빼서 닉네임 · 이메일이 줄임 없이 보인다(코덱스 2026-11-03 시안 A)
-  // 게스트는 프로필을 고치지 않는다(사용자 결정 2026-11-05). 회원만 수정 입구가 있다
-  const canEditProfile = !guest && Boolean(previewUser?.accountId || (authenticatedUser && accountService));
-  const rowEdit = compact && canEditProfile;
-  const profileAction = rowEdit || !canEditProfile ? null : (
-    <DioButton variant="ghost" outline label="회원정보 수정" text="프로필 수정" icon="edit" onPress={() => setEditing(true)} style={local.editButton} />
+  // 게스트는 프로필을 고치지 않는다(사용자 결정 2026-11-05). 회원만 사진 펜 · 닉네임 수정이 있다
+  const canEditProfile = !guest && typeof editService?.updateProfile === 'function';
+  const memberPhone = compact && !guest;
+  // 닉네임만 또는 사진만 바꿔도 나머지는 지금 값 그대로 보낸다(서버 회원정보는 닉네임 · 사진만 받는다)
+  const saveProfile = async changes => {
+    const saved = await editService.updateProfile(previewUser, { nickname: previewUser.nickname, photoUri: previewUser.photoUri || null, ...changes });
+    onUpdatePreview?.(saved);
+    return saved;
+  };
+  const editingName = nameDraft !== null;
+  const draftError = editingName && nameDraft ? nicknameError(normalizeNickname(nameDraft)) : '';
+  const profileBusy = nameBusy || photoBusy;
+  const nameReady = editingName && !profileBusy && !!nameDraft && !draftError;
+  const startName = () => { setNameFailure(''); setNameDraft(previewUser?.nickname || ''); };
+  const cancelName = () => { if (!nameBusy) { setNameDraft(null); setNameFailure(''); } };
+  const saveName = async () => {
+    if (!nameReady || profileSaving.current) return;
+    const next = normalizeNickname(nameDraft);
+    if (next === previewUser?.nickname) { setNameDraft(null); return; }
+    profileSaving.current = true;
+    setNameBusy(true); setNameFailure('');
+    try {
+      await saveProfile({ nickname: next });
+      if (!alive.current) return;
+      setNameDraft(null);
+      setSettingsNotice({ message: '닉네임을 바꿨어요' });
+    } catch (error) {
+      if (alive.current) setNameFailure(error?.message || '닉네임을 바꾸지 못했어요. 다시 시도해 주세요.');
+    } finally {
+      profileSaving.current = false;
+      if (alive.current) setNameBusy(false);
+    }
+  };
+  // next: undefined 면 앨범에서 고르고, null 이면 기본 이미지로 되돌린다
+  const changePhoto = async next => {
+    if (profileSaving.current) return;
+    profileSaving.current = true;
+    setPhotoBusy(true);
+    try {
+      const uri = next === undefined ? await photoPicker() : next;
+      if (!alive.current || (next === undefined && !uri)) return; // 앨범을 그냥 닫았다
+      await saveProfile({ photoUri: uri });
+      if (alive.current) setSettingsNotice({ message: uri ?'프로필 사진을 바꿨어요' : '기본 이미지로 바꿨어요' });
+    } catch (error) {
+      if (alive.current) notify('프로필 사진', error?.message || '프로필 사진을 바꾸지 못했어요. 다시 시도해 주세요.');
+    } finally {
+      profileSaving.current = false;
+      if (alive.current) setPhotoBusy(false);
+    }
+  };
+  const openPhotoMenu = () => {
+    if (profileBusy) return;
+    const node = penRef.current;
+    if (node?.measureInWindow) node.measureInWindow((x, y, width, height) => setPhotoMenu({ anchor: { x, y, width, height } }));
+    else setPhotoMenu({ anchor: null });
+  };
+  const closePhotoMenu = () => { clearTimeout(photoMenuTimer.current); afterPhotoMenu.current = null; setPhotoMenu(null); };
+  const runAfterPhotoMenu = action => {
+    if (Platform.OS !== 'ios') { closePhotoMenu(); action(); return; }
+    afterPhotoMenu.current = action;
+    setPhotoMenu(menu => menu && { ...menu, closing: true });
+    // 닫힘 알림이 오지 않으면 그대로 닫는다(사용자가 다시 누를 수 있게)
+    photoMenuTimer.current = setTimeout(closePhotoMenu, 2000);
+  };
+  const photoMenuDismissed = () => {
+    const action = afterPhotoMenu.current;
+    clearTimeout(photoMenuTimer.current);
+    afterPhotoMenu.current = null;
+    setPhotoMenu(null);
+    action?.();
+  };
+  const avatarSize = compact ? (memberPhone ? local.avatarMemberPhone : local.avatarCompact) : null;
+  const nameActions = !canEditProfile ? null : editingName ? (
+    <View style={[local.nameActions, memberPhone && local.nameActionsBelow]}>
+      <DioButton variant="ghost" label="닉네임 수정 취소" text="취소" disabled={nameBusy} onPress={cancelName} style={local.nameButton} />
+      <DioButton variant="filled" label="닉네임 저장" text="저장" disabled={!nameReady} loading={nameBusy} onPress={saveName} style={local.nameButton} />
+    </View>
+  ) : (
+    <DioButton variant="ghost" outline label="닉네임 수정" text="수정" icon="edit" disabled={photoBusy} onPress={startName} style={local.editButton} />
   );
+
+  // 로그인 계정 · 비밀번호 변경은 없앤 프로필 수정 화면에서 옮겨 왔다(지라 842). 비밀번호 변경은 이메일 가입 회원만
+  const providerName = PROVIDER_NAMES[previewUser?.provider] || '소셜';
+  const accountName = previewUser?.provider === 'email' ? previewUser?.email
+    : previewUser?.email ? `${providerName} · ${previewUser.email}` : `${providerName} 계정`;
+  const accountRow = authenticatedUser && accountName ? (
+    <View accessible accessibilityLabel={`로그인 계정: ${accountName}`} style={local.linkRow}>
+      <Text style={local.infoLabel}>로그인 계정</Text>
+      <Text selectable numberOfLines={1} style={local.infoValue}>{accountName}</Text>
+    </View>
+  ) : null;
+  const passwordRow = authenticatedUser && accountService && previewUser?.provider === 'email' ? (
+    <Pressable accessibilityRole="button" accessibilityLabel="비밀번호 변경" onPress={() => setRoute('password')} style={local.linkRow}>
+      <Text style={local.linkLabel}>비밀번호 변경</Text>
+      <AppIcon name="chevron-right" size={18} forText={16} color={colors.textMuted} />
+    </Pressable>
+  ) : null;
 
   // 계정 구역(로그인한 사용자만): 로그아웃 · 회원 탈퇴를 다른 설정과 같은 목록 줄로 둔다(지라 597, 탈퇴는 회원정보 수정에서 옮겨 왔다)
   const canWithdraw = !guest && typeof editService?.withdraw === 'function';
@@ -205,31 +313,43 @@ export default function ProfileScreen({ guestImport = null, section = 'profile',
       <View style={local.column}>
       <Header title={settingsPage ? '설정' : '마이페이지'} icon={settingsPage ? 'settings' : 'person'} compact={compact}
         left={onBack ? <BackButton label="마이페이지로 돌아가기" onPress={onBack} /> : undefined} />
-      {!settingsPage && <View style={[local.identity, compact && local.identityCompact, guest && compact && !loginBelow && local.identityGuestInline, rowEdit && local.identityRowEdit]}>
-        <Pressable accessibilityRole={rowEdit ? 'button' : undefined} accessibilityLabel={rowEdit ? '회원정보 수정' : undefined} disabled={!rowEdit} onPress={() => setEditing(true)} style={[local.identityRow, rowEdit && { gap: 14 }]}>
-          <View style={[local.avatarWrap, compact && (rowEdit ? local.avatarRowEdit : local.avatarCompact)]}>
-            <View style={[local.avatar, compact && (rowEdit ? local.avatarRowEdit : local.avatarCompact)]}>
+      {!settingsPage && <View style={[local.identity, compact && local.identityCompact, guest && compact && !loginBelow && local.identityGuestInline]}>
+        <View style={[local.identityRow, memberPhone && local.identityRowPhone]}>
+          <View style={[local.avatarWrap, avatarSize]}>
+            <View style={[local.avatar, avatarSize, photoBusy && local.avatarBusy]}>
               {photoUri && failedPhoto !== photoIdentity
                 ? <Image source={{ ...photoSource, cacheKey: photoCacheKey }}
                     contentFit="cover" cachePolicy="memory"
                     onError={() => {
                       setFailedPhoto(photoIdentity);
-                    }} accessibilityLabel="프로필 사진" style={[local.photo, compact && (rowEdit ? local.avatarRowEdit : local.avatarCompact)]} />
+                    }} accessibilityLabel="프로필 사진" style={[local.photo, avatarSize]} />
                 // 사진이 없을 때의 기본 프로필: 계정 색 동그라미에 모아의 표정(메뉴 아래 프로필과 같은 그림)
-                : <DefaultAvatar user={previewUser} accessibilityLabel="기본 프로필 사진" style={[local.photo, compact && (rowEdit ? local.avatarRowEdit : local.avatarCompact)]} />}
+                : <DefaultAvatar user={previewUser} accessibilityLabel="기본 프로필 사진" style={[local.photo, avatarSize]} />}
             </View>
+            {/* 오른쪽 아래 펜: 앨범에서 선택 · 기본 이미지로 변경 말풍선 */}
+            {canEditProfile && <Pressable ref={penRef} accessibilityRole="button" accessibilityLabel="프로필 사진 변경" accessibilityState={{ expanded: !!photoMenu, disabled: profileBusy }}
+              disabled={profileBusy} onPress={openPhotoMenu} hitSlop={8} style={local.pen}>
+              <AppIcon name="edit" size={14} forText={12} color={colors.primaryStrong} />
+            </Pressable>}
           </View>
           <View style={local.identityText}>
-            <View style={local.nameRow}>
-              <Text numberOfLines={1} style={[local.name, compact && local.nameCompact, rowEdit && local.nameRowEdit, local.nameShrink]}>{previewUser?.nickname || '나'}</Text>
-            </View>
-            {!guest && <Text numberOfLines={1} style={[local.space, rowEdit && local.spaceRowEdit]}>{previewUser?.bio || (previewUser?.nickname ? `${previewUser.nickname}님의 기록 공간` : '나의 기록 공간')}</Text>}
+            {editingName ? (
+              <TextInput accessibilityLabel="닉네임" value={nameDraft} onChangeText={value => { setNameDraft(value); setNameFailure(''); }}
+                editable={!nameBusy} autoFocus maxLength={12} autoCapitalize="none" autoCorrect={false} autoComplete="off"
+                returnKeyType="done" onSubmitEditing={saveName}
+                style={[local.name, local.nameInput, Platform.OS === 'web' && { outlineStyle: 'none' }]} />
+            ) : (
+              <View style={local.nameRow}>
+                <Text numberOfLines={1} style={[local.name, compact && local.nameCompact, local.nameShrink]}>{previewUser?.nickname || '나'}</Text>
+              </View>
+            )}
+            {editingName && !!(draftError || nameFailure) && <Text accessibilityRole="alert" accessibilityLiveRegion="polite" style={local.nameError}>{draftError || nameFailure}</Text>}
           </View>
-          {profileAction}
-          {rowEdit && <AppIcon name="chevron-right" size={24} forText={15} color={colors.primary} />}
+          {!(memberPhone && editingName) && nameActions}
           {!loginBelow && loginButton}
-        </Pressable>
-        {/* 폰: 이름 줄 아래 판 안에 전폭 한 줄 */}
+        </View>
+        {/* 폰 회원: 입력 중에는 취소 · 저장을 이름 줄 아래 오른쪽에. 폰 게스트: 이름 줄 아래 판 안에 전폭 한 줄 */}
+        {memberPhone && editingName && nameActions}
         {loginBelow && loginButton}
       </View>}
       <View style={local.cards}>
@@ -260,15 +380,19 @@ export default function ProfileScreen({ guestImport = null, section = 'profile',
           </SettingSection>
         </SettingCard>}
         {!settingsPage && logout && <SettingCard compact={compact}>
-          <SettingSection title="계정">{logout}{withdrawRow}</SettingSection>
+          <SettingSection title="계정">{accountRow}{passwordRow}{logout}{withdrawRow}</SettingSection>
         </SettingCard>}
       </View>
       </View>
     </ScrollView>
     {pinScreen}
+    {photoMenu && <DiaryActionBubble visible={!photoMenu.closing} onDismiss={photoMenuDismissed} anchor={photoMenu.anchor} title="프로필 사진" onClose={closePhotoMenu} actions={[
+      { id: 'pick', label: '앨범에서 선택', text: '앨범에서 선택', icon: 'image', onPress: () => runAfterPhotoMenu(() => changePhoto()) },
+      { id: 'default', label: '기본 이미지로 변경', text: '기본 이미지로 변경', icon: 'person', disabled: !photoUri, onPress: () => { closePhotoMenu(); changePhoto(null); } },
+    ]} />}
     {settingsNotice && <ActionToast compact={compact} bottom={24} message={settingsNotice.message} />}
     {/* 탈퇴는 서버가 모든 세션을 폐기하므로 이 기기의 세션만 정리한다(onClearSession) */}
-    {withdrawing && editService && <ProfileEditScreen withdrawOnly service={editService} compact={compact} user={previewUser} onClose={() => setWithdrawing(false)} onEndSession={onWithdrawn} />}
+    {withdrawing && editService && <WithdrawDialog service={editService} user={previewUser} onClose={() => setWithdrawing(false)} onEndSession={onWithdrawn} />}
     </>
   );
 }
@@ -288,13 +412,19 @@ const local = StyleSheet.create({
   avatar: { width: 72, height: 72, alignItems: 'center', justifyContent: 'center', overflow: 'hidden', borderRadius: 36, backgroundColor: colors.primaryStrong }, // 동그라미(메뉴 아래 프로필 그림과 같은 모양)
   photo: { width: 72, height: 72, borderRadius: 36 },
   avatarCompact: { width: 48, height: 48, borderRadius: 24 }, // 폰 게스트: 48(원 페이저 12)
-  identityRowEdit: { minHeight: 128, gap: 0, columnGap: 0, paddingVertical: 18, paddingHorizontal: 16 }, // 폰 회원: 프로필 줄 전체가 편집 진입(코덱스 시안 A)
-  nameRowEdit: { lineHeight: 28 },
-  spaceRowEdit: { fontSize: 13, lineHeight: 20, fontWeight: '500' },
-  avatarRowEdit: { width: 64, height: 64, borderRadius: 32 },
+  identityRowPhone: { gap: 14 },
+  avatarMemberPhone: { width: 64, height: 64, borderRadius: 32 }, // 폰 회원 64
+  avatarBusy: { opacity: 0.6 },
+  // 사진 펜: 아바타 오른쪽 아래에 걸친 흰 동그라미 28(터치는 hitSlop 으로 44)
+  pen: { position: 'absolute', right: -2, bottom: -2, width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.cardBorder },
+  // 닉네임 입력: 글자 크기 · 굵기는 이름 그대로, 아래 2px 선만 둔다
+  nameInput: { paddingVertical: 2, paddingHorizontal: 0, borderBottomWidth: 2, borderBottomColor: colors.primaryStrong },
+  nameError: { marginTop: 4, color: colors.dangerStrong, fontSize: 13, lineHeight: 18, fontWeight: '600' },
+  nameActions: { flexDirection: 'row', gap: 8 },
+  nameButton: { minHeight: 32, minWidth: 72, paddingHorizontal: 12 }, // 수정 버튼과 같은 높이 32, 면은 버튼 종류(고스트 · 채움) 그대로
+  nameActionsBelow: { justifyContent: 'flex-end' },
   name: { color: colors.text, fontSize: 20, lineHeight: 26, fontWeight: '800', letterSpacing: -0.4 },
   nameCompact: { fontSize: 20, lineHeight: 26 },
-  space: { color: colors.primaryStrong, fontSize: 14, fontWeight: '600' },
   // 게스트: 로그인 · 회원가입 채움 48
   nameRow: { flexDirection: 'row', alignItems: 'center' },
   nameShrink: { flexShrink: 1 },
@@ -305,6 +435,8 @@ const local = StyleSheet.create({
   linkRow: { minHeight: 48, paddingVertical: 8, flexDirection: 'row', alignItems: 'center', gap: 16, borderBottomWidth: 1, borderBottomColor: colors.cardBorder },
   linkLabel: { flex: 1, color: colors.text, fontSize: 16, lineHeight: 22, fontWeight: '600' },
   dangerLabel: { color: colors.dangerStrong },
+  infoLabel: { flexShrink: 0, color: colors.text, fontSize: 16, lineHeight: 22, fontWeight: '600' }, // linkLabel 과 같은 글자, 늘어나지 않고 값 칸이 남는 폭을 쓴다
+  infoValue: { flex: 1, textAlign: 'right', color: colors.textMuted, fontSize: 15, lineHeight: 22, fontWeight: '500' },
   cards: { marginTop: 8 },
   column: { width: '100%', maxWidth: 1040, alignSelf: 'center' },
 });

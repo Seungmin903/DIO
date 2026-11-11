@@ -86,6 +86,7 @@ import { preloadTextFonts } from './src/editor/services/textFonts';
 import { loadRemoteCatalog } from './src/shared/remoteAssets/remoteCatalogService';
 import ActionToast, { ACTION_TOAST_MS } from './src/shared/ActionToast';
 import { BULK_TRASH_DONE_MS, bulkTrashNeedsLogin, bulkTrashToastMessage } from './src/diary/utils/bulkTrashToast';
+import { syncFontShareConsent } from './src/handwriting/fontShareConsent';
 
 // 텍스트 글꼴은 쓰일 때 불러온다(textFonts.js). 앱이 켜진 뒤 잠잠해지면 기본 글꼴과 내 폰트 목록만 먼저 준비한다.
 preloadTextFonts();
@@ -515,6 +516,10 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onWithdraw
       onError: onPushError }).then(cleanup => { if (disposed) cleanup(); else stop = cleanup; }).catch(error => { if (!disposed) onPushError(error); });
     return () => { disposed = true; stop(); };
   }, [previewUser.mode, previewUser.userId, sharing.runtime]);
+  // 손글씨 폰트 공유 동의는 계정 단위로 서버에 둔다. 로그인하면 기기에만 있던 예전 답을 서버로 옮기고 값을 받아 둔다.
+  useEffect(() => {
+    if (previewUser.mode === 'authenticated' && previewUser.userId != null) syncFontShareConsent(previewUser.userId);
+  }, [previewUser.mode, previewUser.userId]);
   // 공유는 로그인한 사용자만 쓴다. 게스트는 편집 화면에 함께하는 사람을 띄우지 않고, 공유를 누르면 로그인 안내부터 본다.
   const signedIn = previewUser.mode === 'authenticated';
   const loginGate = useLoginGate();

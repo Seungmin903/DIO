@@ -72,7 +72,7 @@ test('원격 글꼴을 받지 못하면 기본 글꼴로 두고, 잠시 뒤 다�
       downloads.push(asset.path)
       if (!online) throw new RemoteAssetError('offline')
       return 'file:///remote/' + asset.path
-    } }
+    }, isRemoteAssetSaved: () => false, markRemoteAssetSaved: () => {} }
     if (/\.(ttf|otf)$/.test(id)) return id
     return require(id)
   }, module, module.exports)
@@ -101,4 +101,36 @@ test('원격 글꼴을 받지 못하면 기본 글꼴로 두고, 잠시 뒤 다�
   await module.exports.ensureExportFonts(snapshot) // 연결되면 대기 시간 없이 바로 성공한다
   assert.equal(downloads.length - before, 3)
   await module.exports.ensureExportFonts({ objects: [], template: null }) // 번들 글꼴만 쓰면 통과
+})
+
+test('웹은 받아 쓴 원격 에셋을 localStorage 에 기억하고, 불러오지 못하면 기억을 지운다', async () => {
+  const store = new Map()
+  const previous = globalThis.localStorage
+  globalThis.localStorage = { getItem: key => store.get(key) ?? null, setItem: (key, value) => store.set(key, value) }
+  try {
+    const web = await import('../src/shared/remoteAssets/remoteAssetFile.web.js?saved-test')
+    const asset = remoteAsset('fonts/gowundodum/GowunDodum-Regular.ttf')
+    assert.equal(web.isRemoteAssetSaved(asset), false)
+    web.markRemoteAssetSaved(asset)
+    assert.equal(web.isRemoteAssetSaved(asset), true)
+    assert.deepEqual(JSON.parse(store.get('dio:remote-assets-saved:v1')), [asset.key])
+    web.forgetRemoteAssetSaved(asset)
+    assert.equal(web.isRemoteAssetSaved(asset), false)
+    assert.deepEqual(JSON.parse(store.get('dio:remote-assets-saved:v1')), [])
+    assert.equal(web.remoteAssetProgress(asset), undefined, '웹은 진행률을 모른다')
+  } finally { globalThis.localStorage = previous }
+})
+
+test('웹은 받지 못한 글꼴의 @font-face 규칙을 지워, 다시 받기가 실제로 다시 받게 한다', async () => {
+  const rules = ['"MaruBuri"', 'MaruBuriBold', '"NanumGothic"', 'MaruBuri'].map(fontFamily => ({ style: { fontFamily } }))
+  const sheet = { cssRules: rules, deleteRule: index => rules.splice(index, 1) }
+  const previous = globalThis.document
+  globalThis.document = { getElementById: id => id === 'expo-generated-fonts' ? { sheet } : null }
+  try {
+    const web = await import('../src/shared/remoteAssets/remoteAssetFile.web.js?font-face-test')
+    web.discardFailedFontFace('MaruBuri')
+    assert.deepEqual(rules.map(rule => rule.style.fontFamily), ['MaruBuriBold', '"NanumGothic"'], '같은 이름 규칙만 모두 지운다(따옴표 유무 상관없이)')
+    globalThis.document = undefined
+    web.discardFailedFontFace('MaruBuri') // 문서가 없으면(서버 렌더 등) 아무것도 하지 않는다
+  } finally { globalThis.document = previous }
 })

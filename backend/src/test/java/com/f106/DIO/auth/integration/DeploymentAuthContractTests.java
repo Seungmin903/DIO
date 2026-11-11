@@ -205,6 +205,7 @@ class DeploymentAuthContractTests {
             new FileSystemResource(Path.of("../.gitlab-ci.yml"))).get(0);
         assertThat(properties.getProperty("backend-test.script[0]").toString())
             .contains("-v \"$CI_PROJECT_DIR/backend:/workspace/backend\"",
+                "-v \"$CI_PROJECT_DIR/frontend/remote-content:/workspace/frontend/remote-content:ro\"",
                 "-v \"$CI_PROJECT_DIR/infra:/workspace/infra:ro\"",
                 "-v \"$CI_PROJECT_DIR/.gitlab-ci.yml:/workspace/.gitlab-ci.yml:ro\"",
                 "-w /workspace/backend");

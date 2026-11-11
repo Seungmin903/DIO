@@ -13,6 +13,8 @@ import { swapPaperFont } from '../templates/paperFont.js'
 import { useTextFont } from '../hooks/useTextFont'
 import { colors } from '../../shared/theme'
 import { KeepFont } from '../../shared/fontScope'
+import { omitFilledAlbumBordersAst } from '../templates/photoAlbumAst.js'
+import { visibleAlbumSlotIndices } from '../templates/photoAlbumSlots.js'
 
 // 속지 · 특수 속지 · 캔버스 요소는 정해진 글꼴을 그대로 쓴다(앱 UI 글꼴 Pretendard 를 넣지 않는다). 가짜 모듈인 테스트에서는 Fragment 로 그린다
 const Keep = KeepFont ?? Fragment
@@ -25,7 +27,8 @@ class SvgBoundary extends Component {
 }
 
 function throwSvgError(error) { throw error }
-function RenderedSvg({ xml, ast, width, height, onReady }) {
+// 요소가 바뀌어 BackgroundAttempt 가 다시 그려져도 속지 SVG 는 그대로 둔다(onReady 는 매번 새 함수라 비교에서 뺀다 — 최신 값은 ref 로 부른다)
+const RenderedSvg = memo(function RenderedSvg({ xml, ast, width, height, onReady }) {
   const callback = useRef(onReady)
   callback.current = onReady
   // 렌더링이 성공해 커밋된 다음에만 출력 준비 완료를 알린다.
@@ -34,7 +37,7 @@ function RenderedSvg({ xml, ast, width, height, onReady }) {
   return ast
     ? <SvgAst ast={ast} override={{ width, height }} />
     : <SvgXml xml={xml} width={width} height={height} onError={throwSvgError} />
-}
+}, (previous, next) => previous.xml === next.xml && previous.ast === next.ast && previous.width === next.width && previous.height === next.height)
 
 // 속지 글꼴을 골랐으면 그 글꼴로 바꾼 속지를 불러온다(캐시 키가 다르다)
 const referenceOf = page => { const reference = templateReference(page); return reference ? { ...reference, font: normalizePaperAppearance(page.paperAppearance).font } : null }
@@ -100,7 +103,8 @@ function BackgroundAttempt({ page, zoom, preparedXml, onReady, onError, onRetry,
   const shiftedBase = useMemo(() => !plannerApi || startHour === 6 ? null : parse(swapPaperFont(plannerApi.baseSvg(startHour), appearance.font)), [plannerApi, preparedXml, startHour, appearance.font])
   const plannerAst = useMemo(() => !plannerApi || !(planner || (titleKey && titleKey !== '{}')) ? null : parse(swapPaperFont(plannerApi.overlaySvg(planner, page.objects), appearance.font)), [plannerApi, preparedXml, plannerKey, titleKey, appearance.font]) // eslint-disable-line react-hooks/exhaustive-deps
   const baseAst = shiftedBase ?? shown?.ast
-  const styledAst = useMemo(() => baseAst ? colorTemplateAst(baseAst, appearance, { transparentPaper }) : null, [baseAst, appearance.backgroundColor, appearance.layoutColor, transparentPaper])
+  const filledAlbumKey = visibleAlbumSlotIndices(page).join(',')
+  const styledAst = useMemo(() => baseAst ? omitFilledAlbumBordersAst(colorTemplateAst(baseAst, appearance, { transparentPaper }), page) : null, [baseAst, appearance.backgroundColor, appearance.layoutColor, transparentPaper, filledAlbumKey])
   const styledPlanner = useMemo(() => plannerAst ? colorTemplateAst(plannerAst, appearance) : null, [plannerAst, appearance.backgroundColor, appearance.layoutColor])
   if (page.backgroundAssetId == null) return <View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: appearance.backgroundColor }]}>{guideUnderlay}</View>
   return <View style={[StyleSheet.absoluteFill, { backgroundColor: appearance.backgroundColor }]} pointerEvents="box-none">

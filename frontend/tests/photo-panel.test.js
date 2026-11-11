@@ -18,6 +18,12 @@ test('기기 사진 자르기 취소·칸 부족 정리에서도 서버 사진�
  await discardUnusedPhotoImports([server,used],[used],()=>assert.fail('기존 사진만 있으면 파일 삭제 금지'))
  await discardUnusedPhotoImports([server],[],()=>assert.fail('서버 사진 자르기 취소 시 삭제 금지'))
 })
+test('최근 사진 기록 실패는 캔버스 추가를 실패로 만들지 않고 추가 자체의 실패는 알린다',()=>{
+ const {addPhotoAndRecordRecent}=fixture(),image={mediaFileId:'local'},added=[]
+ assert.doesNotThrow(()=>addPhotoAndRecordRecent(image,()=>added.push(image),()=>{throw Error('recent failed')}))
+ assert.deepEqual(added,[image])
+ assert.throws(()=>addPhotoAndRecordRecent(image,()=>{throw Error('add failed')},()=>assert.fail('추가 실패 뒤 기록하면 안 됨')),/add failed/)
+})
 test('읽기 전용에서는 열기·툴바 선택 상태가 켜지지 않으며 권한 복귀 후에도 닫혀 있다',()=>{
  const ui=fixture();ui.render(true).toggle();assert.equal(ui.render(true).visible,false)
  ui.render(false).toggle();assert.equal(ui.render(false).visible,true)

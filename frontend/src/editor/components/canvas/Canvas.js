@@ -58,6 +58,7 @@ import { LinkBadges, ObjectLinkOverlay } from './ObjectLinks'
 import { isBackdrop } from '../../utils/backdrop.js'
 import { shouldCacheCompletedStrokes } from '../../utils/completedStrokePlan.js'
 import { groupResizeBounds, groupResizeStart, groupResizePatches } from '../../utils/groupResize.js'
+import { photoAlbumSlots, photoAlbumSlotAt, photoAlbumSlotOccupied } from '../../templates/photoAlbumSlots.js'
 
 // 렌더링 환경에 requestAnimationFrame이 없으면(Node 테스트 등) 기다리지 않고 바로 실행한다.
 const requestFrame = (callback) => (typeof requestAnimationFrame === 'function' ? requestAnimationFrame(callback) : (callback(), 0))
@@ -127,6 +128,7 @@ export default function Canvas({
   onEditMedia,
   onFillCells,
   onFillSlot,
+  onAlbumPhoto,
   onTastingPhoto,
   frameTextEdit, // 사진 틀의 인쇄 글자를 그 자리에서 고치는 중 { id, line } (이 페이지 것만)
   onEditFrameText, // (object, line) 고치기 시작 · (null) 끝
@@ -445,7 +447,11 @@ export default function Canvas({
       // 여행 노선과 캐리어는 각 속지에 맞는 입력을 우선 처리한다.
       const packingPaper = Boolean(packingLayout(page.backgroundAssetId))
       const near = start && nearestObject(touchSelectable, start, TAP_SLOP_PX / zoom)
-      if (packingPaper && near) {
+      const albumSlot = canSelect && !near && activeTool === 'select' && onAlbumPhoto ? photoAlbumSlotAt(page, start) : -1
+      if (albumSlot >= 0) { onAlbumPhoto(albumSlot); return }
+      // 다른 도구에서도 속지 자체의 입력 칸은 탭할 수 있지만, 읽기 전용·텍스트 편집 중에는 동작을 실행하지 않는다.
+      if (readOnly || textEditing) return
+      if (canSelect && packingPaper && near) {
         dispatch({ type: 'select', ids: selectedIds.includes(near.id) ? [] : [near.id] })
         return
       }
@@ -454,11 +460,13 @@ export default function Canvas({
       const edit = planner && start ? planner.editTap(page.planner, start, page.objects, penSettings.color) : null
       if (edit) { dispatch({ type: 'select', ids: [] }); applyPlannerResult(edit, start); return }
       if (routeAdd && routePath && start) { addRouteNodeAt(start); return }
+      if (!canSelect) return
       dispatch({ type: 'select', ids: near && !selectedIds.includes(near.id) ? [near.id] : [] })
     },
   })
 
-  const pageGuides = pageGridGuides(page, gridGuides)
+  // 페이지에 격자를 켜 두면 pageGridGuides 가 매번 새 값을 만들어, 요소를 하나 넣을 때마다 격자 SVG 를 다시 그렸다(캐리어 떨림과 같은 경우)
+  const pageGuides = useMemo(() => pageGridGuides({ gridVisible: page.gridVisible, gridColor: page.gridColor }, gridGuides), [page.gridVisible, page.gridColor, gridGuides])
   const guideUnderlay = !readOnly && hasGuides(pageGuides) ? <>
     <GridOverlay guides={pageGuides} layer="grid" width={PAGE_WIDTH} height={PAGE_HEIGHT} zoom={zoom} />
     <GridOverlay guides={gridGuides} layer="guides" width={PAGE_WIDTH} height={PAGE_HEIGHT} zoom={zoom} />
@@ -608,6 +616,12 @@ export default function Canvas({
       {!readOnly && textEditing && textEditing.type !== 'shape' && <TextEditor held={textHeld} commitRef={textCommitRef} cancelRef={textCancelRef} onToast={onToast} onPaletteChange={onTextPaletteChange} paletteBounds={textPaletteBounds} boundary={textBoundary} key={textEditing.id} object={textEditing} zoom={zoom} onSave={onSaveText} onCancel={onCancelText} onReveal={onRevealText} />}
 
       {/* 사진 틀의 빈 자리 + (선택 도구에서만) */}
+      {/* 24px 안내 표시는 터치를 받지 않으며, 빈 사진 칸 전체가 터치 대상이다. */}
+      {canSelect && activeTool === 'select' && !cropping && !interacting && !marquee && onAlbumPhoto && photoAlbumSlots(page.backgroundAssetId).map((box, index) => !photoAlbumSlotOccupied(page, index) && (
+        <View key={index} pointerEvents="none" style={{ position: 'absolute', left: (box.x + box.w / 2) * zoom - 12, top: (box.y + box.h / 2) * zoom - 12, width: 24, height: 24, alignItems: 'center', justifyContent: 'center' }}>
+          <Text style={{ color: colors.textMuted, fontSize: 24 }}>＋</Text>
+        </View>
+      ))}
       {canSelect && !cropping && !interacting && !marquee && onFillSlot && (
         <View pointerEvents="box-none" style={styles.selectionControls}>
           <SlotAddButtons objects={page.objects} zoom={zoom} onFill={onFillSlot} />

@@ -30,6 +30,8 @@ function loadComponent(file, platform = 'ios', cacheOverride = null, packing = n
     if (id.endsWith('/packingLayout.js')) return { packingLayout: () => packing }
     if (id === './PackingColorLayer') return { PackingColorLayer: 'packing-color', PackingFrontLayer: 'packing-front' }
     if (id === './WebStrokeCacheContext') return { WebStrokeCacheEnabled: cacheContext }
+    // 잉크병 메모 덧그림 판별용. 이 검사에는 메모가 안 나오므로 늘 아니라고 답한다
+    if (id.endsWith('/utils/editorShapes')) return { memoArtOf: () => null }
     if (id.endsWith('/fontScope')) return { KeepFont: 'keep-font' }
     if (id === './ObjectView') return contexts
     if (id === './viewportMotion') return { ViewportMotion: {} }

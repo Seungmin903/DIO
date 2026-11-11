@@ -2,6 +2,7 @@ import { createId, rotateVector } from './common.js'
 import { isDashedKind, dashedObjectContour, dashedObjectSamples } from './dashedStroke.js'
 import { createStroke, penContour, strokeOutline, samplePenCurve } from './strokes.js'
 import { isNibKind, nibContour, nibCurve, withDistances, withTaper } from './nibStroke.js'
+import { createBoxIndex, queryBoxIndex } from './boxIndex.js'
 
 // 실행 목업의 기본 지름 24. 사용자 크기 설정은 페이지 좌표이며 화면에서는 zoom을 곱한다.
 export const ERASER_RADIUS = 12
@@ -115,13 +116,32 @@ function eraserTarget(object) {
     id: object.id, object, project,
     bounds: { left: box.left - pad, right: box.right + pad, top: box.top - pad, bottom: box.bottom + pad },
     get polygons() {
-      polygons ??= strokePolygons(object).filter((shape) => shape.length >= 3).map((shape) => {
+      polygons ??= shapesOf(object).map((shape) => {
         const points = shape.map(project)
         return { points, bounds: boundsOf(points) }
       })
       return polygons
     },
   }
+}
+
+// 획의 정확한 도형(요소 좌표)은 지우개가 상자에 닿는 **그 순간** 만들어진다. 그런데 제스처가 끝나면
+// 버려져서, 같은 획을 다시 지우려 하면 또 만들었다 — 붓펜 · 만년필처럼 외곽선이 비싼 펜은 그때마다
+// 눈에 띄게 걸린다. 획은 불변이므로 모양은 한 번만 만들면 된다.
+// 열쇠는 **자리(x·y·회전 등)를 뺀 모양 값**이다: 획을 옮기기만 하면 점 배열은 그대로 쓰이므로
+// 옮긴 뒤에도 그대로 쓴다. 자리 바꾸기(project)는 싸서 제스처마다 다시 해도 된다.
+const shapeCache = new WeakMap()
+const shapeKey = (object) => [object.penKind, object.strokeWidth, object.renderVersion, object.lineCap,
+  object.eraserCaps, object.sampled, object.taperBaked, object.inkStartDistance,
+  object.baseWidth, object.baseHeight, object.dashLength, object.dashGap].join('|')
+function shapesOf(object) {
+  const key = shapeKey(object)
+  let entry = shapeCache.get(object.points)
+  if (entry?.key !== key) {
+    entry = { key, shapes: strokePolygons(object).filter((shape) => shape.length >= 3) }
+    shapeCache.set(object.points, entry)
+  }
+  return entry.shapes
 }
 
 // 점 사이가 지우개보다 넓으면 그 사이를 그대로 건너뛰므로, 지우개 반지름의 절반 간격 이하로 점을 채운다.
@@ -157,6 +177,9 @@ function fragmentStroke(source, points, id, caps) {
   const stroke = createStroke(points.map((p) => ({ ...p, x: p.x + source.x, y: p.y + source.y })), {
     id, color: source.color, width: source.strokeWidth, kind: source.penKind, lineCap: source.lineCap,
     renderVersion: source.renderVersion, materialSeed: source.materialSeed,
+  // 유리펜 잉크 설정도 조각에 물려준다 — 안 그러면 지운 조각만 기본값으로 바뀐다
+    inkGlitter: source.inkGlitter, inkSheen: source.inkSheen, inkFilm: source.inkFilm,
+    inkGlitterColor: source.inkGlitterColor, inkAmount: source.inkAmount, inkSheenColor: source.inkSheenColor, inkSheenAmount: source.inkSheenAmount,
   })
   return { ...source, ...stroke, ...ink, ...tail, renderVersion: source.renderVersion, name: source.name,
     ...(grain && { grainOrigin: { ...grain, x: grain.x + source.x - stroke.x, y: grain.y + source.y - stroke.y } }) }
@@ -168,12 +191,15 @@ export function createEraserSession(objects, radius = ERASER_RADIUS, mode = 'str
   objects = objects.filter(object => matchesEraserTarget(object, target))
   if (mode === 'area') return createAreaEraserSession(objects, radius)
   const targets = objects.map(eraserTarget).filter(Boolean), removed = new Set()
+  // 입력 한 번마다 모든 획을 돌면 획 300개짜리 페이지에서 초당 수만 번이 된다 — 지우개가 지나는
+  // 자리에 **닿을 수 있는 것만** 격자 색인으로 고른다. 획은 제스처 동안 바뀌지 않으므로 한 번만 만든다.
+  const index = createBoxIndex(targets, target => target.bounds)
   let finished = false
   return {
     move(from, to = from) {
       if (finished || ![from.x, from.y, to.x, to.y, radius].every(Number.isFinite) || radius < 0) return [...removed]
       const sweep = { left: Math.min(from.x, to.x) - radius, right: Math.max(from.x, to.x) + radius, top: Math.min(from.y, to.y) - radius, bottom: Math.max(from.y, to.y) + radius }
-      for (const target of targets) {
+      for (const target of queryBoxIndex(index, sweep)) {
         if (removed.has(target.id) || !overlaps(sweep, target.bounds)) continue
         if (target.polygons.some(({ points, bounds }) => overlaps(sweep, bounds) && (inside(from, points) || inside(to, points)
           || points.some((p, i) => segmentDistance(from, to, p, points[(i + 1) % points.length]) <= radius)))) removed.add(target.id)

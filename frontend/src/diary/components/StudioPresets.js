@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Icon from '../../editor/components/controls/Icon';
-import DioButton from '../../shared/DioButton';
 import { usePalette } from '../../editor/hooks/usePalettes';
 import { colors } from '../../shared/theme';
-import EditablePalette from '../../editor/components/controls/EditablePalette';
+import { confirmAction } from '../../shared/dialogs';
+import EditablePalette, { paletteLinkStyles } from '../../editor/components/controls/EditablePalette';
 
 // 내 프리셋: 편집기 도구(펜 · 형광펜 · 마스킹 테이프 · 글자)가 한 줄로 보여 주는 색 목록을 여기서 고친다. 편집기 색 줄이 그대로 따른다.
 // 팔레트 편집 모드에서 색을 누르면 공용 색 창이 뜬다. 바꾼 도구에만 '기본 색으로'가 생긴다.
@@ -12,6 +12,7 @@ import EditablePalette from '../../editor/components/controls/EditablePalette';
 // 바꾸는 중인 견본만 primaryText 2px 고리를 두른다(앱 디자인 점검 원 페이저 10). 흰색에 가까운 색만 옅은 테두리를 남겨 흰 면에 묻히지 않게 한다.
 const GROUPS = [
   { scope: 'pen', label: '펜' },
+  { scope: 'glass', label: '잉크펜' },
   { scope: 'highlighter', label: '형광펜' },
   { scope: 'tape', label: '마스킹 테이프' },
   { scope: 'text', label: '글자' },
@@ -27,7 +28,7 @@ function Dot({ bg, fg, active }) {
 }
 
 // 도구 표시: 편집기 도구막대와 같은 앱 아이콘(펜 · 형광펜 · 마스킹테이프 · 텍스트)
-const TOOL_ICON = { pen: 'pen', highlighter: 'highlighter', tape: 'tape', text: 'text' };
+const TOOL_ICON = { pen: 'pen', glass: 'pen', highlighter: 'highlighter', tape: 'tape', text: 'text' };
 
 
 // 견본 한 칸(원 30 · 보이는 칸 36 · 터치 48). active 면 2px primaryText 고리. role 은 고르는 줄(기본 속지 설정)이면 'radio'
@@ -41,14 +42,31 @@ export function Swatch({ label, bg, fg, active, onPress, cellRef, role = 'button
 function Group({ group, compact, width }) {
   const { edited, reset } = usePalette(group.scope)
   const [failed,setFailed] = useState(false)
-  const resetPalette = async () => {
-    setFailed(false)
-    try { await reset(); setFailed(false) }
-    catch { setFailed(true) }
-  }
+  // '팔레트 편집' 을 제목 줄로 올렸으므로(사용자 2026-11-10) 편집 상태를 여기서 쥔다.
+  // 작은 제목('○○ 색상')은 묶음 제목과 겹쳐 보여서 뺐다.
+  const [editing, setEditing] = useState(false)
+  // 되돌리면 직접 고친 색이 한꺼번에 사라진다 → 앱 공용 확인 창으로 한 번 묻는다(사용자 2026-11-10).
+  const resetPalette = () => confirmAction({
+    title: `${group.label} 색을 기본으로 되돌릴까요?`,
+    message: '직접 고친 색이 모두 사라지고 처음 색으로 돌아가요. 되돌릴 수 없어요.',
+    confirmLabel: '기본 색으로',
+    onConfirm: async () => {
+      setFailed(false)
+      try { await reset(); setFailed(false) }
+      catch { setFailed(true) }
+    },
+  })
+  const link = (label, text, onPress, selected) => <Pressable accessibilityRole="button" accessibilityLabel={label}
+    accessibilityState={selected === undefined ? undefined : { selected }} hitSlop={6} onPress={onPress} style={paletteLinkStyles.button}>
+    <Text style={paletteLinkStyles.text}>{text}</Text>
+  </Pressable>
   return <View style={[local.card,{width},compact&&local.cardCompact]}>
-    <GroupHead icon={TOOL_ICON[group.scope]} title={group.label} full={compact} right={edited ? <DioButton variant="ghost" outline label={`${group.label} 기본 색으로`} text="기본 색으로" onPress={resetPalette} style={local.reset} /> : null} />
-    <PaletteFit full={compact}><EditablePalette scope={group.scope} label={group.label} flushEdit /></PaletteFit>
+    <GroupHead icon={TOOL_ICON[group.scope]} title={group.label} full={compact} right={<View style={local.headLinks}>
+      {edited ? link(`${group.label} 기본 색으로`, '기본 색으로', resetPalette) : null}
+      {edited ? <Text style={paletteLinkStyles.text}>·</Text> : null}
+      {link(`${group.label} 팔레트 편집`, editing ? '편집 끝내기' : '팔레트 편집', () => setEditing(!editing), editing)}
+    </View>} />
+    <PaletteFit full={compact}><EditablePalette scope={group.scope} label={group.label} showHeading={false} editing={editing} onEditingChange={setEditing} /></PaletteFit>
     {failed && <Text accessibilityRole="alert" style={local.error}>팔레트를 저장하지 못했어요.</Text>}
   </View>
 }
@@ -122,13 +140,14 @@ const local = StyleSheet.create({
   groupCount: { fontSize: 14, fontWeight: '700', color: colors.textMuted },
   grow: { flex: 1 },
   headRight: { flexShrink: 1, minWidth: 0, marginLeft: 8 },
-  reset: { minHeight: 32, paddingHorizontal: 10 },
   error: { fontSize: 12.5, fontWeight: '600', lineHeight: 19, color: colors.dangerStrong },
   // 이름과 색 사이의 옅은 선(사용자 지시로 다시 넣음). 길이는 색 7개의 첫 원 왼쪽 끝부터 마지막 원 오른쪽 끝까지:
   // 칸 7×36 + 사이 6×12 − 칸 안 여백 3×2 = 318. 좁은 화면에서는 칸 폭을 넘지 않는다
   line: { width: 318, maxWidth: '100%', height: 1, backgroundColor: colors.cardBorder },
   lineFull: { width: '100%' },
   paletteFit: { width: 318, maxWidth: '100%' },
+  // 제목 줄 오른쪽: 기본 색으로 · 팔레트 편집
+  headLinks: { flexDirection: 'row', alignItems: 'center', gap: 2, marginRight: -6 },
   // 칸(36)이 원(30)보다 3씩 넓어, 첫 원의 왼쪽 끝이 제목 왼쪽 끝과 맞도록 줄을 3 당긴다
   row: { width: 324, maxWidth: '100%', flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', columnGap: 12, rowGap: 12, marginLeft: -3 },
   cell: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },

@@ -224,7 +224,7 @@ const styles = StyleSheet.create({
   swatch: { overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(28,28,28,.14)', alignItems: 'center', justifyContent: 'center' },
   custom: { borderStyle: 'dashed', borderColor: colors.textMuted, backgroundColor: colors.surface },
   checkWrap: { ...StyleSheet.absoluteFill, alignItems: 'center', justifyContent: 'center' },
-  autoText: { fontSize: 11, fontWeight: '800', includeFontPadding: false },
+  autoText: { fontSize: 11, fontWeight: '800', textAlign: 'center', includeFontPadding: false },
   picker: { padding: 12, borderRadius: 12, backgroundColor: colors.surfaceSoft },
   element: { borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, overflow: 'hidden' },
   elementOpen: { borderColor: colors.primary },

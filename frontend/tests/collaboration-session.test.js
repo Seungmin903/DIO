@@ -17,6 +17,34 @@ function fixture(){
  const session=active=>createCanvasSession({api,storage,key:'journal',pageId,diaryId,createId:()=>`40000000-0000-4000-8000-${String(++sequence).padStart(12,'0')}`,isActive:active??(()=>true)})
  return {api,disk,calls,operations,session,setRows:value=>{rows=value},rows:()=>rows,lose:()=>{lose=true}}
 }
+test('서버가 동시에 채운 사진을 다른 빈 칸으로 옮기면 새 위치와 안내를 반영한다',async()=>{
+ const f=fixture(),photo={id,type:'photo',x:40,y:120,w:335,h:232.7,albumSlot:0}
+ f.api.apply=async(_page,request)=>{const row=request.changes.creates[0];return {operationId:'1',items:[{...row,pageId,version:1,x:393,propertiesJson:{...row.propertiesJson,albumSlot:1}}]}}
+ const s=f.session();await s.restore([]);await s.enqueue({id:'album-op',pageId,before:[],after:[photo]})
+ const result=await s.synchronize()
+ assert.equal(result.albumRelocated,true);assert.equal(result.objects[0].albumSlot,1);assert.equal(result.objects[0].x,393)
+ assert.equal(result.expectedLocal[0].albumSlot,0)
+})
+test('앨범이 가득 차 거절되면 사진 편집을 기기에 보관하고 뒤 작업을 계속 전송한다',async()=>{
+ const f=fixture(),photo={id,type:'photo',x:40,y:120,w:335,h:232.7,albumSlot:0},next=text('after','50000000-0000-4000-8000-000000000001')
+ const apply=f.api.apply;let first=true
+ f.api.apply=async(...args)=>{if(first){first=false;throw Object.assign(Error('full'),{status:422,code:'PHOTO_ALBUM_FULL'})}return apply(...args)}
+ const s=f.session();await s.restore([]);await s.enqueue({id:'album-op',pageId,before:[],after:[photo]});await s.enqueue({id:'later',pageId,before:[photo],after:[photo,next]})
+ const result=await s.synchronize()
+ assert.equal(result.albumFull,true);assert.equal(result.rejectedCount,1);assert.equal(s.snapshot().rejectedEdits[0].after[0].id,id)
+ assert.equal(s.snapshot().queue.length,0);assert.equal(result.objects.some(o=>o.text==='after'),true)
+ const nextSync=await s.synchronize();assert.equal(nextSync.albumFull,false);assert.equal(nextSync.rejectedCount,0);assert.equal(nextSync.keptRejectedCount,1)
+})
+test('이전 앨범 가득 참 뒤 다른 거절이 생기면 최신 거절 사유를 표시한다',async()=>{
+ const f=fixture(),s=f.session(),other=text('B','50000000-0000-4000-8000-000000000001')
+ await s.restore([]);await s.synchronize()
+ f.api.apply=async()=>{throw Object.assign(Error('full'),{status:422,code:'PHOTO_ALBUM_FULL'})}
+ await s.enqueue({id:'album',pageId,before:[],after:[text()]});assert.equal((await s.synchronize()).albumFull,true)
+ f.api.apply=async()=>{throw Object.assign(Error('invalid'),{status:400,code:'INVALID_CANVAS'})}
+ await s.enqueue({id:'invalid',pageId,before:[],after:[other]});const result=await s.synchronize()
+ assert.equal(result.albumFull,false);assert.equal(result.rejectedCount,1);assert.equal(result.keptRejectedCount,2)
+ const restored=f.session();await restored.restore([]);assert.equal((await restored.synchronize()).albumFull,false)
+})
 test('동일 ID의 다른 서버 요소와 충돌하면 로컬 ID를 바꾸고 후속 편집까지 저장한다',async()=>{
  const f=fixture(),s=f.session();await s.restore([]);await s.synchronize()
  await s.enqueue({id:'mine',pageId,before:[],after:[text('mine')]})
@@ -172,6 +200,8 @@ test('400으로 거절된 작업은 보관하고 다음 편집은 계속 전송�
  const result=await s.synchronize();assert.equal(result.rejectedCount,1);assert.equal(s.snapshot().queue.length,0)
  assert.equal(s.snapshot().rejectedEdits[0].after[0].text,'A');assert.equal(result.objects[0].text,'valid')
  const restored=f.session();await restored.restore([]);assert.equal(restored.snapshot().rejectedEdits[0].id,'bad')
+ // 다음 동기화는 새로 거절된 편집이 없으니 '저장 안 됨'이 아니다(보관한 거절은 keptRejectedCount 로만 남는다)
+ const next=await s.synchronize();assert.equal(next.rejectedCount,0);assert.equal(next.keptRejectedCount,1)
 })
 for(const status of [403,404])test(`${status} 확정 거절은 보관 후 전송을 멈추고 큐 머리는 해제한다`,async()=>{
  const f=fixture(),s=f.session();await s.restore([]);await s.synchronize()

@@ -54,6 +54,11 @@ export const PENCIL_BRUSH = {
   // 식: cc = c^gam × (pw + (1 − pw)·p), a = clamp(cc·gain − th·depth·(1 − 결)·(1 − cc)^g2, 0, 1), a = max(a, fl·cc). 덮임이 적을수록 결이 강하게 파고들고 겹쳐 쌓이면 검게 채워진다.
   shader: { flow: 0.35, gain: 1.2, th: 1.0, g2: 1.0, pw: 0.9, af: 0.85, fl: 0.45, gam: 0.6, depth: 1, maxOpacity: 1, capAlpha: 0.35, capDab: 0.5, capAlphaWide: 0.2, capDabWide: 0.3, sizeK: 1, thThin: 0.7, live: false, maxEdge: 4096 },
   // 22판: 'own' = 지금까지의 자체 식(알갱이 붓 끝 + 종이 결 색 행렬), 'copy' = 시중 프로크리에이트 연필(_Kim Graphite 6B) 엔진 구조를 그대로 따르는 새 경로(copyDabs · strokeSkia copyLayer)
+  // 2026-11-10: shader 경로를 켜 보려다 되돌렸다. 죽던 직접 원인으로 보이는 것은 고쳤지만
+  //   (완성 이미지를 표면과 떼지 않고 그림에 그려 둔 것 — drawShaderStroke 주석),
+  //   이 경로는 불투명도 의미가 다르다: 'own' 만 불투명도를 그림에 구워 겹침이 쌓이게 한다
+  //   (pencilAccumulates · pencilBakesOpacity, 테스트 3개가 이를 지킨다).
+  //   켜려면 그 쪽을 먼저 맞춰야 한다 — 깃발 하나로 될 일이 아니다.
   engine: 'own',  // 2026-11-03 shader 경로: 쓰는 중 프레임마다 GPU 이미지 · 표면이 쌓여 메모리 부족(SIGTRAP) — 해결 전까지 own. 켜려면 'shader'  // 2026-11-03 실기(SM-X510 가로 2304×1440)에서 shader 경로가 필기 시작 직후 MakeOffscreen 에서 SIGTRAP — 원인 확정 전까지 own. 켜려면 'shader'
   // 'copy' 엔진 설정(원본 6B 설정값 → 우리 값): 모양 군집 폭 / 한 변 .955(측정), 필압 → 크기 .508 · 불투명도 1.0(필압 하한 .1 — 8비트), 기울기 → 크기 .183, 간격 0.0(연속) → 한 변의 6%,
   // 23판 보정(참고 Taxe · 6B 스와치에 맞춤, 원값과 다름): 층 최대 불투명도 .668 → .85, 도장 알파 p → .12 + .88·p^.7(약필압 소실 방지), 군집 폭 하한 1.6, 결 깊이 1 → .85(결 구멍이 완전 투명이 되지 않고 15% 남음).

@@ -151,6 +151,54 @@ export function requestTextFonts(ids, { bold = false } = {}) {
   }
 }
 
+// 글꼴 파일이 기기에 있는지(services/textFonts.js 가 등록). face → 'bundled' | 'saved' | 'downloading' | 'remote'(아직 안 받음)
+let fontFileState = null, fontDownloader = null, fontProgress = null, fontProgressSubscribe = null
+export const setTextFontDownloader = ({ fileState, download, progress = null, subscribeProgress = null }) => { fontFileState = fileState; fontDownloader = download; fontProgress = progress; fontProgressSubscribe = subscribeProgress }
+/** 받는 중 진행 변화만 구독한다(진행 막대 전용). 글꼴 상태 구독(subscribeTextFonts)은 진행마다 알리지 않는다 */
+export const subscribeTextFontProgress = (listener) => fontProgressSubscribe?.(listener) ?? (() => {})
+/** 이 서체(family)를 불러오지 못했는가(다시 받기에서 그 서체만 다시 받는다) */
+export const isTextFontFamilyFailed = (family) => failedFamilies.has(family)
+/** 받는 중인 글꼴의 진행률(0~1). 받는 중이 아니거나 알 수 없으면(웹) null */
+export function textFontProgress(id) {
+  const font = getTextFonts().find(f => f.id === resolveFontId(id))
+  return font && fontProgress ? fontProgress(font) : null
+}
+/** 글꼴 상태가 바뀌었다고 알린다. 렌더 중에 불릴 수 있어 다음 차례로 미룬다 */
+export const notifyTextFontState = () => Promise.resolve().then(() => { fontStateRevision++; fontListeners.forEach(listener => listener()) })
+
+/**
+ * 글꼴 고르기 목록에 보일 상태.
+ * ready: 쓸 수 있음 · loading: 앱에 든 글꼴을 읽는 중 · download: 아직 받지 않은 원격 글꼴 · downloading: 받는 중 · error: 받지 못함
+ * 받기 전 · 받음은 본 서체로 정한다(굵은 서체는 굵게를 쓸 때 받는다). 받는 중 · 받지 못함은 굵은 서체도 본다 —
+ * 본 서체만 받고 굵은 서체를 받지 못하면 굵게 켠 글자가 조용히 기본 글꼴로 그려지므로 '받지 못함'으로 보이고 다시 받게 한다(리뷰 S15P31F106-743).
+ */
+export function textFontStatus(id) {
+  const font = getTextFonts().find(f => f.id === resolveFontId(id))
+  if (!font?.family) return 'ready'
+  const faces = font.boldFamily ? [font.family, font.boldFamily] : [font.family]
+  const fileOf = family => fontFileState?.(font, family)
+  if (faces.some(family => fileOf(family) === 'downloading')) return 'downloading'
+  // 다시 받을 수 있는 원격 서체만 '받지 못함'으로 보인다(앱에 든 글꼴은 다시 읽지 않으므로 예전처럼 기본 글꼴로 고를 수 있게 둔다)
+  if (faces.some(family => failedFamilies.has(family) && ['remote', 'saved'].includes(fileOf(family)))) return 'error'
+  if (loadedFamilies.has(font.family) || failedFamilies.has(font.family)) return 'ready'
+  if (fileOf(font.family) === 'remote') return 'download'
+  return 'loading'
+}
+/** 목록에서 받기를 누를 때: 원격 글꼴 파일(굵은 서체까지)을 받아 등록한다. 실패했던 글꼴이면 다시 받는다 */
+export const downloadTextFont = (id) => {
+  const font = getTextFonts().find(f => f.id === resolveFontId(id))
+  return font && fontDownloader ? fontDownloader(font) : Promise.resolve()
+}
+/**
+ * 목록 미리보기 글꼴: 받은(또는 앱에 든) 글꼴은 그 글꼴로, 아직 받지 않은 원격 글꼴은 받지 않고 기본 글꼴로 보여 준다.
+ * (목록을 여는 것만으로 원격 글꼴을 모두 받던 것을, 사용자가 받기를 누를 때만 받도록 바꿨다)
+ */
+// status: 그 항목에서 이미 계산한 textFontStatus(목록이 항목마다 한 번만 계산해 이름 · 표시 · 화면 읽기에 같이 쓴다)
+export function textFontPreviewFamily(id, platform = 'android', status = textFontStatus(id)) {
+  if (status === 'download' || status === 'error') return platform === 'ios' ? 'System' : 'sans-serif'
+  return textStyle({ font: id }, 1, platform).fontFamily
+}
+
 /** 글꼴 id → 지금 쓸 수 있는 fontFamily. 앱 글꼴이 아니거나 아직 불러오기 전이면 null (찾으면서 불러오기도 시작한다) */
 export function loadedFontFamily(id, bold = false) {
   const font = getTextFonts().find((font) => font.id === resolveFontId(id))

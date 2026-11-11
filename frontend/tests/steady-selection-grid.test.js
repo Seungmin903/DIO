@@ -41,7 +41,8 @@ test('팔레트 칸 색 창: 처음 색과 다르면 X 왼쪽에 원래대로, �
   // X 자리에는 글자 버튼(doneLabel, 글자 색 창의 '완료' S15P31F106-482)이 대신 올 수 있다. 그래도 '원래대로'는 그 왼쪽이다
   assert.match(editor, /\{changed && <Pressable accessibilityRole="button" accessibilityLabel=\{`\$\{title\} 원래 색으로 되돌리기`\}[^>]*onPress=\{restore\}[^>]*><Text style=\{s\.restoreText\}>원래대로<\/Text><\/Pressable>\}\n\s*(?:\{doneLabel\n\s*\? <Pressable[^\n]*onPress=\{close\}[^\n]*\n\s*: )?<Pressable accessibilityRole="button" accessibilityLabel=\{`\$\{title\} 창 닫기`\}/)
   assert.match(editor, /onDone\(defaults && same\(latest\.current, defaults\) \? defaultValue : fromList\(latest\.current\)\)/)
-  assert.match(read('../src/editor/components/controls/EditablePalette.js'), /defaultValue: palette\.defaults\?\.\[index\] \?\? null/)
+  // 유리펜 칸은 색 셋이라 한 칸짜리 기본색이 없다 → glass 면 null 을 넘겨 '원래대로'를 띄우지 않는다
+  assert.match(read('../src/editor/components/controls/EditablePalette.js'), /defaultValue: glass \? null : palette\.defaults\?\.\[index\] \?\? null/)
 })
 
 test('팔레트 편집: 고치는 칸은 촘촘한 점선 고리(SVG 6조각), 색 창에서 고치는 동안 그 칸이 바로 바뀐다', () => {
@@ -49,7 +50,9 @@ test('팔레트 편집: 고치는 칸은 촘촘한 점선 고리(SVG 6조각), �
   assert.match(palette, /const RING_R = 12\.5, RING_STEP = \(2 \* Math\.PI \* RING_R\) \/ 6/)
   assert.match(palette, /strokeDasharray=\{`\$\{RING_STEP \* 0\.6\} \$\{RING_STEP \* 0\.4\}`\}/)
   assert.match(palette, /editFocus:\{borderWidth:0\}/)
-  assert.match(palette, /onChange: color => setPreview\(\{ index, color \}\), onClose: \(\) => setPreview\(null\),/)
+  // 유리펜은 color 가 색 셋(배열)이라 칸이 읽는 묶음 문자열로 바꿔 넣는다(안 그러면 고치는 동안 칸이 안 바뀐다)
+  assert.match(palette, /onChange: color => setPreview\(\{ index, color: glass \? glassEntry\(\{ ink: color\[0\], glitter: color\[1\], sheen: color\[2\] \}\) : color \}\),/)
+  assert.match(palette, /onClose: \(\) => setPreview\(null\),/)
   assert.match(palette, /const shown = preview\?\.index === index \? preview\.color : entry/)
   // 편집기 펜 색 창도 닫힐 때 미리보기를 거둔다
   const editor = read('../src/editor/screens/EditorScreen.js')

@@ -1,4 +1,4 @@
-import { usePhotoPanel, discardUnusedPhotoImports } from '../hooks/usePhotoPanel'
+import { usePhotoPanel, discardUnusedPhotoImports, addPhotoAndRecordRecent } from '../hooks/usePhotoPanel'
 import PhotoSourcePicker from '../components/panels/PhotoSourcePicker'
 import { useCustomDecor } from '../hooks/useCustomDecor'
 import { canLeaveForInvitation } from '../../notifications/editorInvitationGuard';
@@ -94,6 +94,7 @@ import { createObjectFromDecor, emptyPhotoSlots, hasPhotoMedia, photoInnerBox, t
 import { isTicketFrame } from '../components/canvas/PhotoFrame'
 import { isStripFrame, photoCell, stripCellBoxes } from '../utils/photoStrip'
 import { startPagePanelMeasurement } from '../utils/pagePanelPerformance.js'
+import { photoAlbumSlots, photoAlbumSlotOccupied, availablePhotoAlbumSlot } from '../templates/photoAlbumSlots.js'
 
 import PageAddPicker, { prefetchPageAddPapers } from '../components/PageAddPicker'
 import { pageSize, pageTemplateOrientation } from '../utils/pageGeometry.js'
@@ -112,7 +113,7 @@ const PHONE_STAGE_PADDING = { top: 24, bottom: 68, side: 12 } // 도구 막대 �
 // 가로는 정밀 편집(왼쪽 화면 막대 + 오른쪽 전체 도구 막대 + 확대·축소). onToggleOrientation이 있으면 세로·가로를 버튼으로 바꾼다.
 /** 여러 칸 틀의 칸 하나를 자르기 창에 넘길 사진 모양 (칸 크기의 사각 사진). 빈 칸이면 null */
 // 비율이 정해진 사진: 여러 칸 틀의 칸 · 티켓 틀(글자 자리가 정해져 있다)
-const fixedAspectOf = (photo) => (photo.tastingPhoto || photo.cell != null ? photo.w / photo.h : isTicketFrame(photo.frame) ? photoInnerBox(photo).width / photoInnerBox(photo).height : undefined)
+const fixedAspectOf = (photo) => (photo.tastingPhoto || photo.cell != null || photo.albumSlot != null ? photo.w / photo.h : isTicketFrame(photo.frame) ? photoInnerBox(photo).width / photoInnerBox(photo).height : undefined)
 
 function cellCropPhoto(strip, index) {
   const cell = strip.cells?.[index]
@@ -139,7 +140,7 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
   const pageNow = useRef(page)
   pageNow.current = page
   useMemberPagePosition({ diary, pageId: page.id, loaded: loaded && saveStatus !== 'load-error' })
-  const textSync = useMemberCanvasCollaboration({ diary, page, state, loaded: loaded && saveStatus !== 'load-error', readOnly: permissionReadOnly, dispatch, onMembersChanged, onCollaborationStateChange })
+  const textSync = useMemberCanvasCollaboration({ diary, page, state, loaded: loaded && saveStatus !== 'load-error', readOnly: permissionReadOnly, dispatch, onMembersChanged, onCollaborationStateChange, onAlbumRelocated: () => showToast('같은 칸에 다른 사진이 먼저 저장되어 빈 칸에 넣었어요.') })
   // 상단 참여자 얼굴에 접속 상태를 얹는다(지금 이 다이어리를 연 사람 = online, 지라 680)
   const onlineUserIds = textSync.onlineUserIds
   // 서버가 접속 목록을 보내기 전(모름)에는 online 을 두지 않아 얼굴이 모두 또렷하다
@@ -636,6 +637,31 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
   // 회원 다이어리의 사진은 서버로 올라간다.
   const photoLimit = textSync.enabled ? { sharedGifMaxBytes: MEDIA_POLICY.sharedGifMaxBytes } : {}
   const { markRecentPhotos } = useCustomDecor()
+  const addAlbumPhoto = async (index) => {
+    if (pickingPhotos.current || photoAlbumSlotOccupied(pageNow.current, index)) return
+    const targetPage = pageNow.current.id
+    const targetAsset = pageNow.current.backgroundAssetId
+    const box = photoAlbumSlots(targetAsset)[index]
+    if (!box) return
+    pickingPhotos.current = true
+    let image
+    try {
+      ;[image] = await pickImages({ ...photoLimit, multiple: false })
+      if (!image) return
+      const photo = createObjectFromDecor({ kind: 'photo', frame: 'none', src: image.src, mediaFileId: image.mediaFileId, poster: image.poster, name: image.name, imageWidth: image.width, imageHeight: image.height }, { x: box.x + box.w / 2, y: box.y + box.h / 2 })
+      const fitted = { ...photo, ...box, albumSlot: index }
+      const cropped = await askCrop(fitted, '사진 자르기')
+      if (!cropped || pageNow.current.id !== targetPage || pageNow.current.backgroundAssetId !== targetAsset) { discardUnused([image]); return }
+      const selected = availablePhotoAlbumSlot(pageNow.current, index)
+      if (selected < 0) { discardUnused([image]); showToast('사진 칸이 모두 차서 추가하지 못했어요. 빈 칸을 만든 뒤 사진을 다시 선택해 주세요.'); return }
+      addPhotoAndRecordRecent(image, () => dispatch({ type: 'addObjects', objects: [{ ...fitted, ...cropped, ...photoAlbumSlots(targetAsset)[selected], albumSlot: selected }] }), diary?.source !== 'member-api' ? markRecentPhotos : null)
+      image = null
+      if (selected !== index) showToast('같은 칸에 다른 사진이 먼저 저장되어 빈 칸에 넣었어요.')
+    } catch (error) {
+      if (image) discardUnused([image])
+      showToast(mediaFailureMessage(error))
+    } finally { pickingPhotos.current = false }
+  }
   const addTastingPhoto = async () => {
     if (pickingPhotos.current) return
     pickingPhotos.current = true
@@ -649,8 +675,8 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
       const fitted = { ...photo, x: box.x, y: box.y, w: box.width, h: box.height, tastingPhoto: true }
       const crop = await askCrop(fitted, '사진 자르기', box.width / box.height)
       if (!crop || pageNow.current.id !== targetPage || !isTastingId(pageNow.current.backgroundAssetId)) { discardUnused([image]); return }
-      dispatch({ type: 'addObjects', objects: [{ ...fitted, ...crop, x: box.x, y: box.y, w: box.width, h: box.height, tastingPhoto: true }] })
-      if (diary?.source !== 'member-api') markRecentPhotos([image])
+      addPhotoAndRecordRecent(image, () => dispatch({ type: 'addObjects', objects: [{ ...fitted, ...crop, x: box.x, y: box.y, w: box.width, h: box.height, tastingPhoto: true }] }), diary?.source !== 'member-api' ? markRecentPhotos : null)
+      image = null
     } catch (error) {
       if (image) discardUnused([image])
       showToast(mediaFailureMessage(error))
@@ -693,12 +719,13 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
 
   // 틀·자르기 설정은 두고 사진만 바꾼다.
   const replacePhoto = async (id) => {
+    const targetPage = pageNow.current.id
     try {
       setImportFailure(null)
       const [image] = await pickImages({ ...photoLimit, multiple: false })
       if (!image) return
       const target = pageNow.current.objects.find((o) => o.id === id)
-      if (!target) { discardUnused([image]); return }
+      if (!target || pageNow.current.id !== targetPage) { discardUnused([image]); return }
       const filling = !hasPhotoMedia(target)
       const media = {
         src: image.src,
@@ -711,7 +738,7 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
         crop: { fx: 0.5, fy: 0.5, zoom: 1 },
       }
       const cropped = await askCrop({ ...target, ...media })
-      if (!cropped) { discardUnused([image]); return }
+      if (!cropped || pageNow.current.id !== targetPage || !pageNow.current.objects.some(o => o.id === id)) { discardUnused([image]); return }
       dispatch({ type: 'updateObject', id, record: true, patch: { ...media, ...cropped } })
       showToast(filling ? '사진을 넣었어요.' : '사진을 바꿨어요.')
     } catch (error) {
@@ -1492,6 +1519,7 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
                 onEditFrameText={(object, line) => setFrameTextEdit(object ? { pageId: page.id, id: object.id, line } : null)}
                 onFillCells={fillCells}
                 onFillSlot={(object, slot) => fillCells(object.id, slot ?? 0)}
+                onAlbumPhoto={addAlbumPhoto}
                 onToast={showToast}
                 contextBarInside={markInside}
                 contextBarFrame={contextBarFrame}

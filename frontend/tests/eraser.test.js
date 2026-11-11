@@ -116,3 +116,20 @@ test('화면 배율 0.5/1/2.5를 페이지 좌표로 환산해 같은 위치의 
     assert.deepEqual(hit(line('a'), { x: screen.x / zoom, y: screen.y / zoom }), ['a'])
   }
 })
+
+test('획 모양 캐시는 점 배열이 같아도 굵기가 다르면 따로 만든다', () => {
+  // 정확한 도형은 지우개가 상자에 닿는 순간 만들어지고, 전에는 제스처가 끝나면 버려져 같은 획을
+  // 다시 지울 때마다 또 만들었다(붓펜 · 만년필은 외곽선이 비싸다). 이제 점 배열에 걸어 두고 다시 쓴다.
+  // 굵기만 바꾸는 수정은 점 배열을 그대로 두고 strokeWidth 만 바꾸므로, 열쇠가 굵기를 안 담으면
+  // **바뀐 획이 옛 도형을 그대로 쓴다** — 그걸 막는다.
+  const thin = line('thin', 100, { width: 2 })
+  const thick = { ...thin, id: 'thick', strokeWidth: 60 }
+  assert.equal(thin.points, thick.points, '수정은 점 배열을 그대로 쓴다')
+  const above = { x: 140, y: 100 - 20 }
+  // 얇은 획은 20 위에서 안 닿고, 굵은 획은 닿는다. 캐시가 섞이면 둘이 같아진다.
+  assert.deepEqual(createEraserSession([thin], 1).move(above), [])
+  assert.deepEqual(createEraserSession([thick], 1).move(above), ['thick'])
+  // 차례를 바꿔도 같다(먼저 만든 쪽이 캐시를 차지하지 않는다)
+  assert.deepEqual(createEraserSession([thick], 1).move(above), ['thick'])
+  assert.deepEqual(createEraserSession([thin], 1).move(above), [])
+})
