@@ -140,6 +140,23 @@ class MemberDiaryTrashHttpTests {
             else assertThat(item.get("templateConfig")==null||item.get("templateConfig").isNull()).isTrue();
         }
     }
+    @Test void corruptStoredTemplateConfigBecomesNullWithoutFailingTheLibraryListOrDetail() throws Exception {
+        String broken=id(create()),array=id(create()),healthy=id(create());
+        jdbc.update("update diaries set template_config_json=? where diary_id=?","{not json",UUID.fromString(broken));
+        jdbc.update("update diaries set template_config_json=? where diary_id=?","[1,2]",UUID.fromString(array));
+        jdbc.update("update diaries set template_config_json=? where diary_id=?","{\"orientation\":\"portrait\"}",UUID.fromString(healthy));
+        // 일반 목록(MemberDiaryListQuery): 깨진 행이 있어도 200이고, 깨진 행만 templateConfig가 null이다.
+        var items=json.readTree(mvc.perform(get(PATH).header("Authorization","Bearer "+owner)).andExpect(status().isOk()).andReturn().getResponse().getContentAsByteArray()).get("items");
+        assertThat(items.size()).isEqualTo(3);
+        for(var item:items) {
+            var diary=item.get("diary");
+            if(diary.get("diaryId").asString().equals(healthy)) assertThat(diary.get("templateConfig").get("orientation").asString()).isEqualTo("portrait");
+            else assertThat(diary.get("templateConfig")==null||diary.get("templateConfig").isNull()).isTrue();
+        }
+        // 상세: 깨진 값은 null, 정상 값은 그대로.
+        for(String id:List.of(broken,array)) mvc.perform(get(PATH+"/"+id).header("Authorization","Bearer "+owner)).andExpect(status().isOk()).andExpect(jsonPath("$.diary.templateConfig").doesNotExist());
+        mvc.perform(get(PATH+"/"+healthy).header("Authorization","Bearer "+owner)).andExpect(status().isOk()).andExpect(jsonPath("$.diary.templateConfig.orientation").value("portrait"));
+    }
     @Test void missingForgedExpiredAndRevokedTokensCannotUseAnyTrashEndpoint() throws Exception {
         String id=id(create());
         String expired=jwt.issue(101L,ownerSession.getSessionId(),Instant.now().minusSeconds(600),Instant.now().minusSeconds(60));
