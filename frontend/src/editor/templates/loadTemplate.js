@@ -28,8 +28,9 @@ const load = createTemplateCache(async key => {
   const [id, font] = key.split('|')
   if (font) { const base = await load(id); const xml = swapPaperFont(base.xml, font); return { xml, ast: parse(xml) } }
   // 스터디 · 데일리 플래너는 파일 없이 바탕을 만든다. 기록은 PageBackground 가 덮개로 겹치고, 내보내기는 기록을 넣어 다시 만든다.
+  // fileBase 속지(발색 기록)는 바탕이 **파일**이라 baseSvg() 가 null 이다 — 아래 파일 경로로 간다.
   const planner = plannerFor(id)
-  if (planner) { const xml = planner.baseSvg(); return { xml, ast: parse(xml) } }
+  if (planner && !planner.fileBase) { const xml = planner.baseSvg(); return { xml, ast: parse(xml) } }
   // 날짜 속지는 같은 양식의 만년형 속지를 불러와 날짜를 얹는다
   const fileId = isDatedId(id) ? datedBaseId(id) : id
   // 원격 속지(앱 배포 없이 추가한 속지)는 목록(catalog.json)의 파일을 받는다. 목록을 못 받았으면 잠시 기다린다

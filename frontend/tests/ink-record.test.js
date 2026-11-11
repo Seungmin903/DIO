@@ -209,3 +209,47 @@ test('플래그 0 빌드(서버 행 전)는 고르지 못하게만 막고, 이�
     { env: { ...process.env, EXPO_PUBLIC_INK_RECORD_TEMPLATES_ENABLED: '0' }, encoding: 'utf8' })
   assert.equal(run.status, 0, run.stderr)
 })
+
+test('바탕이 파일인 속지(fileBase)는 baseSvg 로 바탕을 만들지 않는다', async () => {
+  // 코드리뷰 2026-11-11: loadTemplate 이 planner 가 있으면 baseSvg() 로 바탕을 만드는데,
+  // 발색 기록은 null 이라 parse(null) 로 터지고 속지가 아예 안 열렸다.
+  const api = plannerFor(PORTRAIT)
+  assert.equal(api.fileBase, true)
+  assert.equal(api.baseSvg(), null, 'fileBase 속지는 바탕을 만들지 않는다')
+  // 바탕을 만드는 두 경로가 모두 fileBase 를 걸러야 한다
+  for (const file of ['../src/editor/templates/loadTemplate.js', '../src/editor/utils/pageExport.js']) {
+    const source = await readFile(new URL(file, import.meta.url), 'utf8')
+    assert.match(source, /planner\s*&&\s*!planner\.fileBase/, `${file} 가 fileBase 를 걸러야 한다`)
+  }
+})
+
+test('돌리거나 뒤집은 칠도 병 안으로 센다', () => {
+  // 코드리뷰 2026-11-11: pagePoints 가 rotation · flipX · flipY 를 빠뜨리면 돌린 칠이 병 밖이 된다.
+  const cell = layoutOf(PORTRAIT).cells[0]
+  const centre = { x: cell.bottle.x + cell.bottle.w / 2, y: cell.bottle.y + cell.bottle.h * 0.7 }
+  // 요소 상자를 병 가운데에 두고, 그 안 왼쪽 끝에 점을 찍는다
+  const box = { x: centre.x - 40, y: centre.y - 40, w: 80, h: 80, baseWidth: 80, baseHeight: 80 }
+  const at = (extra) => inkRecordFills(PORTRAIT, [{ type: 'stroke', penKind: 'glass', color: '#3a6ea5',
+    points: [{ x: 4, y: 40 }], ...box, ...extra }])[0]
+  assert.ok(at({}), '안 돌렸으면 병 안이다')
+  for (const extra of [{ rotation: 90 }, { rotation: 180 }, { flipX: true }, { flipY: true }, { rotation: 45, flipX: true }]) {
+    assert.ok(at(extra), `${JSON.stringify(extra)} 여도 병 안이다`)
+  }
+  // 상자를 병에서 멀리 두면 돌려도 병 밖이다
+  assert.equal(inkRecordFills(PORTRAIT, [{ type: 'stroke', penKind: 'glass', color: '#3a6ea5',
+    points: [{ x: 4, y: 40 }], ...box, x: 10, y: 10, rotation: 45 }])[0], null)
+})
+
+test('고른 글리터 색도 팔레트 칸과 같은 반사 색조를 거친다', () => {
+  // 코드리뷰 2026-11-11: 고른 값을 그대로 쓰면 팔레트 칸(glassResolved) · 실제 획과 어긋난다.
+  const cell = layoutOf(PORTRAIT).cells[0]
+  const paint = (extra) => inkRecordFills(PORTRAIT, [stroke([inBottle(cell)], { penKind: 'glass', color: '#3a6ea5', ...extra })])[0]
+  const rgb = [1, 3, 5].map(i => parseInt('#3a6ea5'.slice(i, i + 2), 16) / 255)
+  for (const chosen of ['#808080', '#2b1a0f', '#ffd700']) {
+    assert.equal(paint({ inkGlitterColor: chosen }).glitter, toHex(glitterColorOf(rgb, { glitterColor: chosen })), chosen)
+  }
+  // 색조를 거치므로 고른 값과 달라지는 경우가 실제로 있다
+  assert.notEqual(paint({ inkGlitterColor: '#808080' }).glitter, '#808080')
+  // 고르지 않으면 잉크색에서 계산한다
+  assert.equal(paint({}).glitter, toHex(glitterColorOf(rgb, {})))
+})

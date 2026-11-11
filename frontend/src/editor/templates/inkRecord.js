@@ -29,19 +29,32 @@ export function strokeInkColors(object) {
   const ink = object.color.toUpperCase()
   if (object.penKind !== 'glass') return { ink, glitter: null, sheen: null }
   const rgb = toRgb(ink)
+  // 고른 글리터 색도 **그대로 쓰지 않고** 획과 같은 반사 색조를 거친다 — 팔레트 칸(glassResolved)과
+  // 똑같은 계산이라야 종이에 찍히는 값이 칸 · 실제 획과 어긋나지 않는다(코드리뷰 2026-11-11).
+  const glitter = isHex(object.inkGlitterColor) ? object.inkGlitterColor : undefined
   return {
     ink,
-    glitter: isHex(object.inkGlitterColor) ? object.inkGlitterColor.toUpperCase() : toHex(glitterColorOf(rgb, {})),
+    glitter: toHex(glitterColorOf(rgb, { glitterColor: glitter, film: object.inkFilm })),
     sheen: isHex(object.inkSheenColor) ? object.inkSheenColor.toUpperCase() : toHex(sheenAutoColor(rgb)),
   }
 }
 
 const pointsOf = object => Array.isArray(object?.points) ? object.points : []
-/** 획을 페이지 좌표로 옮긴 점들. 요소 상자(x · y · w · h)와 원래 크기(baseWidth · baseHeight)로 옮긴다. */
+/**
+ * 획을 페이지 좌표로 옮긴 점들. 요소 상자(x · y · w · h) · 원래 크기(baseWidth · baseHeight)에,
+ * **돌린 각(rotation)과 뒤집기(flipX · flipY)까지** 반영한다 — 그리는 쪽과 지우개(utils/eraser.js)가
+ * 쓰는 변환과 같아야 한다. 빠뜨리면 돌리거나 뒤집은 칠이 병 밖으로 판정된다(코드리뷰 2026-11-11).
+ */
 function pagePoints(object) {
   const bw = object.baseWidth || 1, bh = object.baseHeight || 1
   const x = object.x ?? 0, y = object.y ?? 0, w = object.w ?? bw, h = object.h ?? bh
-  return pointsOf(object).map(point => ({ x: x + (point.x / bw) * w, y: y + (point.y / bh) * h }))
+  const angle = ((object.rotation ?? 0) * Math.PI) / 180
+  const cos = Math.cos(angle), sin = Math.sin(angle)
+  return pointsOf(object).map(point => {
+    const dx = (point.x / bw - 0.5) * w * (object.flipX ? -1 : 1)
+    const dy = (point.y / bh - 0.5) * h * (object.flipY ? -1 : 1)
+    return { x: x + w / 2 + dx * cos - dy * sin, y: y + h / 2 + dx * sin + dy * cos }
+  })
 }
 const inBox = (point, box) => point.x >= box.x && point.x <= box.x + box.w && point.y >= box.y && point.y <= box.y + box.h
 const boxEdges = box => [

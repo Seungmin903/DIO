@@ -47,8 +47,12 @@ export function inkRecordOverlaySvg(assetId, fills) {
       // 그 자리에 손으로 쓴 글씨가 있으면 자동 값을 찍지 않는다(사용자가 고친 것이 이긴다)
       if (!value || fill.written[i]) return
       const chip = cell.chips[i]
+      // 칠은 **사용자가 고른 잉크 색**이라 속지 색 설정에 덧칠되면 안 된다(옆의 HEX 글자와 어긋난다).
+      // 테두리는 속지 구조선이라 설정을 따라야 하므로, 칠과 테두리를 따로 그린다.
       body += `<rect x="${n(chip.x)}" y="${n(chip.y)}" width="${n(chip.w)}" height="${n(chip.h)}"`
-        + ` fill="${value}" stroke="${FRAME}" stroke-width="1" />`
+        + ` fill="${value}" data-preserve-paint="true" />`
+        + `<rect x="${n(chip.x)}" y="${n(chip.y)}" width="${n(chip.w)}" height="${n(chip.h)}"`
+        + ` fill="none" stroke="${FRAME}" stroke-width="1" />`
       body += hexText(value.slice(1), cell.hex[i].x + 2, cell.baselines[i])
     })
   })
