@@ -114,16 +114,23 @@ test('자리보다 넓어질 때만, 딱 들어갈 만큼 줄인다', () => {
   assert.equal(size({ ...base, fit: 40, text: [...'데일리 플래너✪'] }, 'nanum-gothic'), full)
 })
 
-test('지금 속지는 어느 글꼴에서도 자리를 넘지 않는다 — 줄이기는 안전망이다', () => {
-  let shrunk = 0, total = 0
-  for (const xml of Object.values(SAMPLES)) for (const font of ALT) {
+test('줄어드는 묶음은 드물고, 줄어들어도 조금만 줄어든다', () => {
+  // 넘치는 것은 거의 없다. 마루부리 숫자 "1" 이 좁아서 나눔고딕 "11" 정도가 시간 칸을 살짝 넘는다.
+  // 크게 줄어들면 옆 글자와 크기가 달라져 눈에 띄므로, 비율에 바닥을 둔다.
+  const FLOOR = 0.85
+  let shrunk = 0, total = 0, worst = 1, worstAt = ''
+  for (const [name, xml] of Object.entries(SAMPLES)) for (const font of ALT) {
     for (const group of outlineGroups(xml)) {
       total++
-      if (Number(textFromGroup(group, font).match(/font-size="([\d.]+)"/)[1]) < group.s * 1000 - 0.002) shrunk++
+      const ratio = Number(textFromGroup(group, font).match(/font-size="([\d.]+)"/)[1]) / (group.s * 1000)
+      if (ratio >= 0.999) continue
+      shrunk++
+      if (ratio < worst) { worst = ratio; worstAt = `${name} ${font} "${group.text.join('')}"` }
     }
   }
   assert.ok(total > 500, `묶음을 못 읽었다(${total}) — 검사가 헛돌고 있다`)
-  assert.equal(shrunk, 0, `${shrunk}/${total} 묶음이 줄어든다 — 속지가 빡빡해졌거나 더 넓은 글꼴이 들어왔다`)
+  assert.ok(shrunk / total < 0.02, `${shrunk}/${total} 묶음이 줄어든다 — 속지가 빡빡해졌거나 더 넓은 글꼴이 들어왔다`)
+  assert.ok(worst >= FLOOR, `${worstAt} 가 ${Math.round(worst * 100)}% 로 줄어든다 — 바닥 ${FLOOR * 100}% 아래다`)
 })
 
 test('앞뒤에 붙은 공백은 쓰지 않는다', () => {
@@ -229,4 +236,21 @@ test('폭을 맞추는 속성(textLength)은 쓰지 않는다 — react-native-s
   assert.doesNotMatch(out, /<tspan\b/)
   // 치수는 윤곽 묶음의 것이라 <text> 로 딸려 가지 않는다
   assert.doesNotMatch(out, /<text[^>]*data-(adv|fit|w)=/)
+})
+
+test('내보내기도 고른 속지 글꼴을 기다린다 — 스냅샷이 그 값을 들고 간다', async () => {
+  // 코드리뷰 2026-11-11: ensureExportFonts 가 snapshot.paperAppearance?.font 를 읽는데,
+  // 그 값이 스냅샷에 실제로 담기는지 확인이 없었다. 없으면 대체 글꼴로 내보내진다.
+  const { createExportSnapshot } = await import('../src/editor/utils/pageExport.js')
+  const page = {
+    id: 'p1', backgroundAssetId: '2026-reusable-daily-portrait', templateVersion: '1.0.0',
+    objects: [], paperAppearance: { font: 'poor-story' },
+  }
+  const snapshot = createExportSnapshot(page)
+  assert.equal(snapshot.paperAppearance.font, 'poor-story', '스냅샷에 고른 글꼴이 담겨야 한다')
+  assert.deepEqual(paperDeviceFontIds(snapshot.template.backgroundAssetId, snapshot.paperAppearance.font), ['poor-story'])
+  // 원본 글꼴이면 윤곽이라 기다릴 것이 없다
+  const plain = createExportSnapshot({ ...page, paperAppearance: {} })
+  assert.equal('font' in plain.paperAppearance, false)
+  assert.deepEqual(paperDeviceFontIds(plain.template.backgroundAssetId, plain.paperAppearance.font), [])
 })

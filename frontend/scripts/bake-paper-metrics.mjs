@@ -1,7 +1,7 @@
 // 속지 SVG 의 글자 묶음에 **글꼴 교체에 쓰는 치수**를 적어 넣는다.
 // 실행: node scripts/bake-paper-metrics.mjs (frontend/). 속지를 새로 넣거나 글자를 고치면 다시 돌린다.
 //
-// 왜: 속지 글꼴을 바꿀 때 묶음이 차지한 폭(textLength)과 굵기(Regular · Bold)를 알아야 하는데,
+// 왜: 속지 글꼴을 바꿀 때 묶음이 차지한 폭 · 굵기(Regular · Bold) · 쓸 수 있는 자리를 알아야 하는데,
 // SVG 에는 글자 윤곽만 있고 그 둘이 적혀 있지 않다. 예전에는 앱이 원본 글꼴 표를 들고 다니며
 // 그때그때 알아냈고, 그래서 **속지에 새 글자가 들어올 때마다 그 표를 다시 뽑아야** 했다.
 // 한 번 구워 넣으면 그 일이 없어진다 — 속지가 자기 치수를 들고 다니고, 앱에는 글꼴 표가 없다
@@ -21,10 +21,11 @@
 // 코드로 그리는 속지(플래너 · 날짜 · 발색 기록 덮개)는 그릴 때 직접 적으므로 여기서 다루지 않는다.
 import { readFileSync, writeFileSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import MARU from './paperMetrics/maruburi.js'
 
 const FORCE = process.argv.includes('--force')
-const ROOT = decodeURIComponent(new URL('../assets/templates/', import.meta.url).pathname).replace(/^\//, '')
+const ROOT = fileURLToPath(new URL('../assets/templates/', import.meta.url))
 const svgFiles = (dir) => readdirSync(dir, { withFileTypes: true }).flatMap(entry => {
   const path = join(dir, entry.name)
   return entry.isDirectory() ? svgFiles(path) : entry.name.endsWith('.svg') ? [path] : []
@@ -97,7 +98,8 @@ function freeWidth(xml, group, pageWidth) {
   let limit = pageWidth - 2
   const narrow = (x) => { if (Number.isFinite(x) && x > group.end - 0.5 && x < limit) limit = x }
   for (const [tag] of xml.matchAll(/<(?:line|rect)\b[^>]*\/?>/g)) {
-    const at = key => Number((tag.match(new RegExp(`\s${key}="([-\d.]+)"`)) ?? [])[1])
+    // 템플릿 리터럴 안에서는 \\s · \\d 로 적어야 한다 — \s 는 그냥 s 가 된다(코드리뷰 2026-11-11)
+    const at = key => Number((tag.match(new RegExp(`\\s${key}="([-\\d.]+)"`)) ?? [])[1])
     if (tag.startsWith('<line')) {
       const x1 = at('x1'), y1 = at('y1'), x2 = at('x2'), y2 = at('y2')
       if ([x1, y1, x2, y2].some(Number.isNaN)) continue
