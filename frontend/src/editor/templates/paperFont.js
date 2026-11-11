@@ -50,7 +50,7 @@ const TRANSFORM = /translate\(\s*([-\d.eE+]+)[\s,]+([-\d.eE+]+)\s*\)\s*scale\(\s
 
 /**
  * 글자 묶음 하나를 읽는다. 읽을 수 없으면(글자 수 · 모양이 맞지 않음) null.
- * end 는 **보이는 마지막 글자가 끝나는 자리**다 — 뒤에 붙은 공백은 폭에 넣지 않는다(textLength 가 보이는 글자의 폭이라).
+ * end 는 **보이는 마지막 글자가 끝나는 자리**다 — 뒤에 붙은 공백은 폭에 넣지 않는다(바꿔 쓰는 <text> 도 앞뒤 공백을 빼고 쓰므로, 견줄 폭도 보이는 글자만이다).
  */
 export function readGroup(match) {
   const [, attrs, body] = match

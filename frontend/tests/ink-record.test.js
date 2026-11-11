@@ -8,7 +8,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { execFileSync, spawnSync } from 'node:child_process'
-import { INK_RECORD_SHAPES, inkRecordId, isInkRecordId, inkRecordLayout, cellRegions, SIZES } from '../src/editor/templates/inkRecordLayout.js'
+import { INK_RECORD_SHAPES, inkRecordId, isInkRecordId, inkRecordLayout, cellRegions, SIZES, INK_RECORD_FRAME } from '../src/editor/templates/inkRecordLayout.js'
 import { INK_RECORD_BOTTLES } from '../src/editor/templates/inkRecordBottles.js'
 import { inkRecordFills, inkRecordValue, strokeInkColors } from '../src/editor/templates/inkRecord.js'
 import { inkRecordOverlaySvg, mergeInkRecordOverlay, inkRecordApi } from '../src/editor/templates/inkRecordPaper.js'
@@ -293,4 +293,18 @@ test('고른 글리터 색도 팔레트 칸과 같은 반사 색조를 거친다
   assert.notEqual(paint({ inkGlitterColor: '#808080' }).glitter, '#808080')
   // 고르지 않으면 잉크색에서 계산한다
   assert.equal(paint({}).glitter, toHex(glitterColorOf(rgb, {})))
+})
+
+test('병 윤곽 색은 한 곳(INK_RECORD_FRAME)에서 오고, 속지 색 설정을 따른다', async () => {
+  const { paperLayoutColor } = await import('../src/editor/templates/appearance.js')
+  // 속지 팔레트에 있어야 배색을 바꿀 때 획 위 윤곽도 함께 바뀐다 — 빠지면 이 층만 원색으로 남는다
+  assert.notEqual(paperLayoutColor(INK_RECORD_FRAME, { backgroundColor: '#FFFFFF', layoutColor: '#33476B' }).toLowerCase(), INK_RECORD_FRAME)
+  // 속지에 인쇄된 병 선도 같은 색이다
+  const paper = await readFile(new URL(`../assets/templates/2026/SVG/${inkRecordId('round', 'portrait')}.svg`, import.meta.url), 'utf8')
+  assert.ok(paper.includes(INK_RECORD_FRAME))
+  // 색을 따로 적어 두는 코드가 없다(두 벌이면 한쪽만 바뀐다). 팔레트를 설명하는 주석 줄은 빼고 코드만 본다
+  for (const file of ['../src/editor/components/canvas/InkRecordFrontLayer.js', '../src/editor/templates/inkRecordPaper.js', '../scripts/generate-ink-record-paper.mjs']) {
+    const code = (await readFile(new URL(file, import.meta.url), 'utf8')).replace(/^\s*\/\/.*$/gm, '')
+    assert.doesNotMatch(code, /#aeb3b8/i, file)
+  }
 })

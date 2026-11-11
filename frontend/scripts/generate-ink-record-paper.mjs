@@ -18,9 +18,9 @@ import { execFileSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { square, circle, artAt, place, BASE } from './inkRecord/bottleShape.mjs'
 // 자리 계산은 앱과 **같은 모듈**을 쓴다 — 두 벌로 두면 자동으로 채우는 값이 엉뚱한 데 찍힌다
-import { SIZES, GRID, MARGIN as M, cellRegions, INK_RECORD_SHAPES, inkRecordId } from '../src/editor/templates/inkRecordLayout.js'
+import { SIZES, GRID, MARGIN as M, cellRegions, INK_RECORD_SHAPES, inkRecordId, INK_RECORD_FRAME as FRAME } from '../src/editor/templates/inkRecordLayout.js'
 
-const STRUCT = '#bfc1c4', FRAME = '#aeb3b8', RULE = '#d7d9dc', INK = '#292929'
+const STRUCT = '#bfc1c4', RULE = '#d7d9dc', INK = '#292929'
 const n = v => Number(v.toFixed(2))
 
 const GLYPHS = JSON.parse(readFileSync(new URL('./out/maruburi-glyphs.json', import.meta.url), 'utf8'))

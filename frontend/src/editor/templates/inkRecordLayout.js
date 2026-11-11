@@ -9,6 +9,12 @@ export const INK_RECORD_SHAPES = ['round', 'square']
 export const inkRecordId = (shape, orientation) => `2026-reusable-ink-record-${shape}-${orientation}`
 export const isInkRecordId = id => typeof id === 'string' && /^2026-reusable-ink-record-(round|square)-(portrait|landscape)$/.test(id)
 
+// 병 · 색 네모 · 라벨이 쓰는 진한 틀 색. 속지를 만드는 스크립트(generate-ink-record-paper.mjs)와
+// 앱(덮개 inkRecordPaper.js · 획 위 병 윤곽 InkRecordFrontLayer.js)이 **같은 값을 여기서** 가져간다.
+// 두 벌이면 한쪽만 바뀌어 획 위 윤곽이 속지에 인쇄된 선과 어긋난다(코드리뷰 2026-11-11).
+// 속지 팔레트(appearance.js)에 있는 색이어야 속지 색 설정이 먹는다 — tests/ink-record.test.js 가 지킨다.
+export const INK_RECORD_FRAME = '#aeb3b8'
+
 export const MARGIN = 56
 // 세로는 2x3, 가로는 3x2 — 어느 쪽이든 한 장에 여섯 칸이다.
 export const SIZES = {

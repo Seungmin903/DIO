@@ -1,12 +1,9 @@
 import { memo } from 'react'
 import Svg, { Ellipse, G, Path } from 'react-native-svg'
 import { INK_RECORD_BOTTLES } from '../../templates/inkRecordBottles.js'
-import { inkRecordLayout } from '../../templates/inkRecordLayout.js'
+import { inkRecordLayout, INK_RECORD_FRAME as FRAME } from '../../templates/inkRecordLayout.js'
 import { normalizePaperAppearance, paperLayoutColor } from '../../templates/appearance.js'
 import { pageSize } from '../../utils/pageGeometry.js'
-
-// 속지가 병을 그릴 때 쓰는 색(scripts/generate-ink-record-paper.mjs 의 FRAME)
-const FRAME = '#aeb3b8'
 
 /**
  * 발색 기록 속지의 **병 윤곽만** 획 위에 한 겹 더 올린다(사용자 2026-11-11:

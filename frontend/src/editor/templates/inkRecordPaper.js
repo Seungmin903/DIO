@@ -3,12 +3,11 @@
 // 읽으므로**, 획을 지우면 값도 같이 사라진다(사용자 2026-11-11).
 import { n, TEXT } from './plannerDraw.js'
 import { INK_RECORD_GLYPHS } from './inkRecordGlyphs.js'
-import { inkRecordLayout, isInkRecordId, SIZES } from './inkRecordLayout.js'
+import { inkRecordLayout, isInkRecordId, SIZES, INK_RECORD_FRAME as FRAME } from './inkRecordLayout.js'
 import { inkRecordValue } from './inkRecord.js'
 
 export { isInkRecordId }
 
-const FRAME = '#aeb3b8'
 // 값 글자 크기. 바탕의 '잉크 · 글리터 · 테' 라벨(10)과 나란히 읽히게 같은 크기로 둔다.
 const SIZE = 10
 

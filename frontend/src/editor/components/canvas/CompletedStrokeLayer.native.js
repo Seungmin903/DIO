@@ -4,7 +4,7 @@ import { BlendMode, Canvas, ClipOp, Group, Image, Picture, Skia } from '@shopify
 import { nowMs, PENCIL_PROFILE, previewPicture, recordProfile, strokesPicture } from '../../skia/strokeSkia.js'
 import { liveStroke } from '../../skia/liveStroke.js'
 import { bakeWindow, coversPage, keepScale, keepWindow, reachOf, reachTouches, sameObjects, stepUpScale } from '../../skia/bakeDelta.js'
-import { TILE, evictTiles, pendingStrokes, planTiles, removedFrom, removedStrokes, reusable, staleImages, tileKey, tilesBounds } from '../../skia/tileGrid.js'
+import { TILE, evictTiles, pixelTileScale, tileScreenRect, pendingStrokes, planTiles, removedFrom, removedStrokes, reusable, staleImages, tileKey, tilesBounds } from '../../skia/tileGrid.js'
 import { ViewportMotion } from './viewportMotion'
 
 const DRAG_OPACITY = 0.5
@@ -207,9 +207,8 @@ const TailRun = memo(function TailRun({ objects, width, height, zoom, fade }) {
   // 축소하면 필요한 배율이 내려가는데, 구워 둔 타일은 그보다 촘촘하니 그대로 쓴다
   // (배율이 달라지면 타일 열쇠가 달라져 전부 다시 구워야 한다).
   const scaleRef = useRef(0)
-  // 타일 한 칸이 **딱 떨어지는 픽셀 수**가 되게 배율을 맞춘다. ¼옥타브 배율(1.189…)을 그대로 쓰면
-  // TILE * scale = 304.4 이고 그림은 올림해서 305픽셀이라, 맨 끝 한 줄이 칸 밖을 가리킨다.
-  const wantScale = Math.round(TILE * bakeScaleOf(screenScale, win.w, win.h)) / TILE
+  // 타일 한 칸이 **딱 떨어지는 픽셀 수**가 되게 배율을 맞춘다(tileGrid.js pixelTileScale)
+  const wantScale = pixelTileScale(bakeScaleOf(screenScale, win.w, win.h))
   const scale = keepScale(scaleRef.current, wantScale) ? scaleRef.current : wantScale
   useEffect(() => { scaleRef.current = scale })
   // 지우개 · 되돌리기처럼 앞쪽 획이 바뀌면 매번 처음부터 굽느라(화면 크기 그림을 그리고 GPU 에서 읽어 오기) 지우개가 느렸다
@@ -324,12 +323,8 @@ const TailRun = memo(function TailRun({ objects, width, height, zoom, fade }) {
       올린 값이 한 번에 다 올린 값보다 옅다(1-(1-a/2)² < a). 그래서 자리를 픽셀에 맞춰 반올림하고,
       가장자리도 부드럽게 하지 않아(antiAlias={false}) 한 줄이 **정확히 한 타일에만** 속하게 한다.
     */}
-    {plan.tiles.map(tile => {
-      const x0 = Math.round(tile.col * TILE * zoom), y0 = Math.round(tile.row * TILE * zoom)
-      const x1 = Math.round((tile.col + 1) * TILE * zoom), y1 = Math.round((tile.row + 1) * TILE * zoom)
-      return <Image key={`${tile.col},${tile.row}`} image={tile.image} antiAlias={false}
-        x={x0} y={y0} width={x1 - x0} height={y1 - y0} fit="fill" />
-    })}
+    {plan.tiles.map(tile => <Image key={`${tile.col},${tile.row}`} image={tile.image} antiAlias={false}
+      {...tileScreenRect(tile, zoom)} fit="fill" />)}
     <Group transform={[{ scale: zoom }]}>
       {patch ? <Picture picture={patch} /> : null}
       {strokes ? <Picture picture={strokes} /> : null}

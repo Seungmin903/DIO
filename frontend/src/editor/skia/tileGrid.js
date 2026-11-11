@@ -16,6 +16,22 @@ import { createBoxIndex, queryBoxIndex } from '../utils/boxIndex.js'
 export const TILE = 256
 
 export const tileBox = (col, row) => ({ x: col * TILE, y: row * TILE, w: TILE, h: TILE })
+
+/**
+ * 타일 한 칸이 **딱 떨어지는 픽셀 수**가 되는 굽기 배율. ¼옥타브 배율(1.189…)을 그대로 쓰면
+ * TILE * scale = 304.4 이고 그림은 올림해서 305픽셀이라, 맨 끝 한 줄이 칸 밖을 가리킨다.
+ */
+export const pixelTileScale = scale => Math.round(TILE * scale) / TILE
+
+/**
+ * 타일을 화면에 놓을 자리. 이웃 타일과 **같은 정수 픽셀**에서 만나게 반올림한다 — 경계 픽셀 하나를
+ * 두 타일이 반씩 덮으면 반투명 잉크가 옅어져 1px 줄이 뜬다(실기 SM-X510 2026-11-11).
+ */
+export function tileScreenRect(tile, zoom) {
+  const x0 = Math.round(tile.col * TILE * zoom), y0 = Math.round(tile.row * TILE * zoom)
+  const x1 = Math.round((tile.col + 1) * TILE * zoom), y1 = Math.round((tile.row + 1) * TILE * zoom)
+  return { x: x0, y: y0, width: x1 - x0, height: y1 - y0 }
+}
 export const tileKey = (col, row, scale) => `${col}|${row}|${scale}`
 
 /** 창을 덮는 타일 좌표들(왼쪽 위부터). 페이지 밖으로는 안 나간다. */
