@@ -87,7 +87,7 @@ class LegalBuildTests(unittest.TestCase):
         expected = {key: version for key, _, _, version in candidate.DOCUMENTS}
         for doc in docs:
             self.assertEqual(doc['termsVersion'], expected[doc['id']])
-            self.assertEqual(doc['effectiveDate'], '2026-11-09')
+            self.assertEqual(doc['effectiveDate'], '2026-11-11')
             self.assertIn('문서 버전: ' + doc['termsVersion'], [b['text'] for b in doc['blocks']])
             self.assertIn(final.EFFECTIVE_LABEL, [b['text'] for b in doc['blocks']])
         repo = LEGAL.parent.parent

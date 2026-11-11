@@ -1,8 +1,8 @@
 # DIO 최종 문안 전달 안내
 
-작성 기준일: 2026년 11월 9일.
+작성 기준일: 2026년 11월 11일.
 
-문안 검토 기준: 원격 develop `7d7590f5`. 별도 기능 브랜치는 아래 배포 의존성으로 구분하며 실행 서버 적용을 뜻하지 않는다. 운영자·개인정보 보호책임자·문의 담당자: 신승민. 공식 연락처: dioapp.official@gmail.com.
+문안 검토 기준: 원격 release/v2.0.0 `247ed916`. 별도 기능 브랜치는 아래 배포 의존성으로 구분하며 실행 서버 적용을 뜻하지 않는다. 운영자·개인정보 보호책임자·문의 담당자: 신승민. 공식 연락처: dioapp.official@gmail.com.
 
 ## 전달 파일
 
@@ -25,7 +25,7 @@
 
 이 폴더는 **현재 받은 정보에 따른 최종 문안 전달본**이며 배포·법적 요건 충족·스토어 심사 완료 인증이 아니다. HTML은 사용자용 문서로 정리하고 개발 메모·미확정 사항은 이 README에 분리했다. JSON의 `publicationReady=false`는 남은 적용 조건을 임의로 완료 처리하지 않기 위한 표시다.
 
-1. 사용자 지정 시행일은 2026년 11월 9일이며 문서 본문·HTML·JSON의 effectiveDate를 일치시켰다. 스토어 심사 승인일과 문서 시행일은 별개다. 테스트 이용자에게도 적용 문서를 제공하고 필요한 동의를 받으며 실제 시각과 버전을 기록한다. 시행일보다 먼저 테스트 가입을 받는 경우 적용 시점을 먼저 맞춘다. 작성자가 이번 리뷰에서 기존 v2 공개·동의 이력이 없음을 확인해 최초 공개 후보의 v2를 유지한다. 이후 공개·동의받은 버전의 내용은 덮어쓰지 않는다. 확인 내용과 최초 공개 해시 기록은 게시 체크리스트를 따른다.
+1. 사용자 지정 시행일은 2026년 11월 11일이며 문서 본문·HTML·JSON의 effectiveDate를 일치시켰다. 스토어 심사 승인일과 문서 시행일은 별개다. 테스트 이용자에게도 적용 문서를 제공하고 필요한 동의를 받으며 실제 시각과 버전을 기록한다. 시행일보다 먼저 테스트 가입을 받는 경우 적용 시점을 먼저 맞춘다. 작성자가 이번 리뷰에서 기존 v2 공개·동의 이력이 없음을 확인해 최초 공개 후보의 v2를 유지한다. 이후 공개·동의받은 버전의 내용은 덮어쓰지 않는다. 확인 내용과 최초 공개 해시 기록은 게시 체크리스트를 따른다.
 2. [게시 체크리스트](../release-checklist.md)의 승인 조건을 모두 충족한 뒤 공개 HTTPS HTML 또는 Google Docs 읽기 전용 주소를 스토어에 등록한다. 저장소·검토 묶음 전체를 게시하지 않는다. 가입 화면은 내장 문서를 읽으므로 본문 열람에 네트워크가 필요 없다. 앱 정보의 공개 링크와 스토어 URL 게시, 실제 배포는 별도 확인한다.
 3. 문안 검토 기준의 코드에는 초대 7일 만료·완료 초대 및 삭제 알림 정리 구현이 존재한다. 이 브랜치 파일이나 실제 배포와 혼동하지 말고, 실행 서버의 버전·배치·삭제 결과를 게시 전에 확인한다. 푸시·미디어·휴지통 정리도 합의한 정책에 맞게 배포하고 확인한다. 꺼진 정리 배치를 문서 작성만으로 켠 것으로 보지 않는다. 계정 삭제 안내의 공식 메일 접수·본인 확인·실제 삭제·결과 통지도 운영한다.
 4. Gmail·Expo는 공식 공개 정책을 조사해 업체·처리 업무·공개된 국외 처리·보유 설명을 반영했다. 공식 자료에 없는 특정 국가·고정 기간이나 DIO의 국외 이전 법적 근거는 임의로 확정하지 않았다. 필요한 구체 고지·근거 검토가 끝나기 전 공개 준비 완료로 간주하지 않는다. 이는 사용자에게 기존 질문을 반복한다는 뜻이 아니다.
@@ -47,9 +47,9 @@
 
 ## 2026년 11월 9일 문안 반영
 
-위 문안 검토 기준에 맞춘 문서 작업이다. 신고·차단, 개인정보 없는 운영자 신고 알림, Google·Apple 소셜 인증의 실제 수집 항목, 보안 저장소 로그인 유지 및 항목별 마케팅 동의 설정을 반영했다. 과거 개인정보 처리방침 원본과 역사 보관 폴더는 변경하지 않았다. 운영자가 기존 문서를 공개·동의 전 초안으로 확인했으므로 SERVICE/PRIVACY v2·선택 항목 v1을 유지한다. 모든 문서의 시행일은 2026-11-09이다. 파일 수정만으로 실제 앱·서버 배포나 공개 승인이 완료된 것은 아니다.
+위 문안 검토 기준에 맞춘 문서 작업이다. 신고·차단, 개인정보 없는 운영자 신고 알림, Google·Apple 소셜 인증의 실제 수집 항목, 보안 저장소 로그인 유지 및 항목별 마케팅 동의 설정을 반영했다. 과거 개인정보 처리방침 원본과 역사 보관 폴더는 변경하지 않았다. 운영자가 기존 문서를 공개·동의 전 초안으로 확인했으므로 SERVICE/PRIVACY v2·선택 항목 v1을 유지한다. 모든 문서의 시행일은 2026-11-11이다(11월 11일 변경). 파일 수정만으로 실제 앱·서버 배포나 공개 승인이 완료된 것은 아니다.
 
-신고 자료는 완료 시각부터 30일 경과 후 정리 대상으로 삼되, 현재 공개 문안은 운영자의 보관 필요성·법적 보존 확인 및 수동 정리를 기준으로 한다. 별도 기능 `feature/be/report-retention-cleanup`에는 `ae000f4a`로 법적 보존 제외·증빙 파싱 실패 시 신고 유지가 보완됐고, `85bf7c6e`로 기본값 false·설정 누락 시 비활성 처리가 반영됐다. 이 별도 구현을 문안 검토 기준 develop에 포함된 것으로 간주하지 않는다. V32·V33 적용, 기능 병합·배포와 실제 저장소 정리를 확인하기 전에는 활성화하지 않는다. [신고 정리 전달서](../report-retention-operations.md)에 따라 운영 승인 후에만 true를 명시하고 그때 공개 문구도 실제 운영과 맞춘다. 수동 정리 담당·주기·실행 결과가 준비되지 않으면 공개 승인할 수 없다. 탈퇴 계정의 차단 관계는 별도 수동 정리 대상이다.
+신고 자료는 완료 시각부터 30일 경과 후 정리 대상으로 삼되, 현재 공개 문안은 운영자의 보관 필요성·법적 보존 확인 및 수동 정리를 기준으로 한다. 별도 기능 `feature/be/report-retention-cleanup`에는 `ae000f4a`로 법적 보존 제외·증빙 파싱 실패 시 신고 유지가 보완됐고, `85bf7c6e`로 기본값 false·설정 누락 시 비활성 처리가 반영됐다. 이 별도 구현을 문안 검토 기준 release에 포함된 것으로 간주하지 않는다. V32·V33 적용, 기능 병합·배포와 실제 저장소 정리를 확인하기 전에는 활성화하지 않는다. [신고 정리 전달서](../report-retention-operations.md)에 따라 운영 승인 후에만 true를 명시하고 그때 공개 문구도 실제 운영과 맞춘다. 수동 정리 담당·주기·실행 결과가 준비되지 않으면 공개 승인할 수 없다. 탈퇴 계정의 차단 관계는 별도 수동 정리 대상이다.
 
 ## Google Docs와 앱 내장본 대조 상태
 
@@ -57,14 +57,16 @@
 
 | 문서 | Google Docs | 본문·링크 | 시행일 |
 | --- | --- | --- | --- |
-| 이용약관 | [열기](https://docs.google.com/document/d/1oO-UqfwevdYKT7BHavo9IgigobribSKQfyrkDx4TLE0) | 일치 | 2026-11-09 |
-| 필수 개인정보 수집·이용 동의 | [열기](https://docs.google.com/document/d/15W_gzA4pnZLHYecMNB3X7niyQInmECKDiLj9MZHUOwM) | 일치 | 2026-11-09 |
-| 개인정보 처리방침 | [열기](https://docs.google.com/document/d/1_eH0yCPmTWtclIvkExkjYwyxCmf5FhPtAN02LIax7uI) | 일치 | 2026-11-09 |
-| 마케팅 개인정보 이용 | [열기](https://docs.google.com/document/d/1zQbDmI6zyEMTTLqenwA1bm3LMF9H2tBL11amDHew2n4) | 일치 | 2026-11-09 |
-| 광고 이메일 | [열기](https://docs.google.com/document/d/1tUTj8En5kW-C7UP1jrOGHJdvF7kfya1COqqz21iMaO4) | 일치 | 2026-11-09 |
-| 광고 푸시 | [열기](https://docs.google.com/document/d/1eayAytEi19rbAq0evV4aVyFTHBGl3E1712ZSVPqpCLU) | 일치 | 2026-11-09 |
-| 야간 광고 푸시 | [열기](https://docs.google.com/document/d/1m1NlzKlZ13tPsBMmiQPOb16zQpak2KElRr2CRTr8NFI) | 일치 | 2026-11-09 |
-| 계정·데이터 삭제 요청 | [열기](https://docs.google.com/document/d/1V25q4R9vXjx7ofu8dRz0obcQbCyE5Cr2zTkjJhzabF8) | 일치 | 2026-11-09 |
+| 이용약관 | [열기](https://docs.google.com/document/d/1oO-UqfwevdYKT7BHavo9IgigobribSKQfyrkDx4TLE0) | 일치 | 2026-11-11 |
+| 필수 개인정보 수집·이용 동의 | [열기](https://docs.google.com/document/d/15W_gzA4pnZLHYecMNB3X7niyQInmECKDiLj9MZHUOwM) | 일치 | 2026-11-11 |
+| 개인정보 처리방침 | [열기](https://docs.google.com/document/d/1_eH0yCPmTWtclIvkExkjYwyxCmf5FhPtAN02LIax7uI) | 일치 | 2026-11-11 |
+| 마케팅 개인정보 이용 | [열기](https://docs.google.com/document/d/1zQbDmI6zyEMTTLqenwA1bm3LMF9H2tBL11amDHew2n4) | 일치 | 2026-11-11 |
+| 광고 이메일 | [열기](https://docs.google.com/document/d/1tUTj8En5kW-C7UP1jrOGHJdvF7kfya1COqqz21iMaO4) | 일치 | 2026-11-11 |
+| 광고 푸시 | [열기](https://docs.google.com/document/d/1eayAytEi19rbAq0evV4aVyFTHBGl3E1712ZSVPqpCLU) | 일치 | 2026-11-11 |
+| 야간 광고 푸시 | [열기](https://docs.google.com/document/d/1m1NlzKlZ13tPsBMmiQPOb16zQpak2KElRr2CRTr8NFI) | 일치 | 2026-11-11 |
+| 계정·데이터 삭제 요청 | [열기](https://docs.google.com/document/d/1V25q4R9vXjx7ofu8dRz0obcQbCyE5Cr2zTkjJhzabF8) | 일치 | 2026-11-11 |
+
+대조 기록: 2026-11-11 09:21(KST). 8개 문서를 txt로 내보내 앱 내장본(`frontend/src/shared/legalContent.json` 7개 문서)과 `account-deletion.md`에 문단 단위로 스크립트 대조했다. 목록 기호·마크다운 기호·줄바꿈만 무시하고 띄어쓰기까지 비교해 차이 0줄이다. 이때 `legalContent.json` sha256 앞 16자리는 `b605efdb78d74c9e`, `app-documents.json`은 `7d99442eef3ff4bc`이다. Google Docs 제목의 시행일 표기도 2026-11-11로 바꿨다.
 
 ## 로그인 유지 기간 변경 반영
 

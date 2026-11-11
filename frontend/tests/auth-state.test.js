@@ -248,7 +248,7 @@ for(const [key,label] of consentRows) test(`앱 내 문서에서 동의하면 �
   find(ui.render(),'회원가입').props.onPress();
   const doc=openConsent(ui,key);
   assert.equal(doc.props.document.id,key);
-  assert.equal(doc.props.document.effectiveDate,'2026-11-05');
+  assert.equal(doc.props.document.effectiveDate,'2026-11-11');
   assert.equal(find(ui.render(),label).props.checked,false);
   doc.props.onAgree();
   assert.equal(reader(ui),undefined);

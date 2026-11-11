@@ -8,8 +8,8 @@
       "title": "DIO 서비스 이용약관",
       "termsType": "SERVICE",
       "termsVersion": "v2",
-      "effectiveDate": "2026-11-09",
-      "sourceSha256": "1bd63c1a30a55c7cad7fbe57d83ed8bbc9aa672218e704ea00416fbae1ca3247",
+      "effectiveDate": "2026-11-11",
+      "sourceSha256": "fc83fcb5aa26dc041421055134e4e7148e3dcdfd283714733f5aaeae04c29cbb",
       "source": "service.md",
       "html": "service.html",
       "blocks": [
@@ -20,7 +20,7 @@
         },
         {
           "type": "paragraph",
-          "text": "시행일: 2026년 11월 9일"
+          "text": "시행일: 2026년 11월 11일"
         },
         {
           "type": "paragraph",
@@ -713,7 +713,7 @@
         },
         {
           "type": "paragraph",
-          "text": "이 약관은 2026년 11월 9일부터 시행합니다."
+          "text": "이 약관은 2026년 11월 11일부터 시행합니다."
         }
       ]
     },
@@ -722,8 +722,8 @@
       "title": "개인정보 수집·이용 동의",
       "termsType": "PRIVACY",
       "termsVersion": "v2",
-      "effectiveDate": "2026-11-09",
-      "sourceSha256": "66c32c1864557fb012a3ac1488722a507e7ad45199a6513dd6d9677d4af50738",
+      "effectiveDate": "2026-11-11",
+      "sourceSha256": "6a659606ddf392529cb8bcb7c3a4b31958bd901cfbdec88973b5c57cede5c66e",
       "source": "privacy-consent.md",
       "html": "privacy-consent.html",
       "blocks": [
@@ -738,7 +738,7 @@
         },
         {
           "type": "paragraph",
-          "text": "시행일: 2026년 11월 9일"
+          "text": "시행일: 2026년 11월 11일"
         },
         {
           "type": "paragraph",
@@ -810,8 +810,8 @@
       "title": "DIO 개인정보 처리방침",
       "termsType": null,
       "termsVersion": "v2",
-      "effectiveDate": "2026-11-09",
-      "sourceSha256": "0e272fc33efdc4515bac6684f308c829418609d82640a7ab3b3bd759f6a6314c",
+      "effectiveDate": "2026-11-11",
+      "sourceSha256": "b7f16afb8f674622061ddaa47714305719dad4e3e38922ad858e5983d2a02595",
       "source": "privacy-policy.md",
       "html": "privacy-policy.html",
       "blocks": [
@@ -826,7 +826,7 @@
         },
         {
           "type": "paragraph",
-          "text": "시행일: 2026년 11월 9일"
+          "text": "시행일: 2026년 11월 11일"
         },
         {
           "type": "paragraph",
@@ -1336,7 +1336,7 @@
         },
         {
           "type": "paragraph",
-          "text": "이 방침은 2026년 11월 9일부터 시행합니다. 방침을 변경하는 경우 변경 내용과 시행일을 사전에 안내합니다. 중요한 처리 목적·항목·제공·국외 이전 등의 변경에 별도 동의가 필요하면 방침 게시와 구분해 동의를 받습니다. 이전 방침과 적용 기간도 확인할 수 있게 관리합니다."
+          "text": "이 방침은 2026년 11월 11일부터 시행합니다. 방침을 변경하는 경우 변경 내용과 시행일을 사전에 안내합니다. 중요한 처리 목적·항목·제공·국외 이전 등의 변경에 별도 동의가 필요하면 방침 게시와 구분해 동의를 받습니다. 이전 방침과 적용 기간도 확인할 수 있게 관리합니다."
         }
       ]
     },
@@ -1345,8 +1345,8 @@
       "title": "[선택] 마케팅 목적 개인정보 수집·이용 동의",
       "termsType": "MARKETING_PRIVACY",
       "termsVersion": "v1",
-      "effectiveDate": "2026-11-09",
-      "sourceSha256": "507f36755a1017103e86c7b559160259366a67f92da56a4787a014f53fff5814",
+      "effectiveDate": "2026-11-11",
+      "sourceSha256": "ade83e5e183e239af07320391962340276e2156105861702a08d42d40cac55d1",
       "source": "marketing-privacy-consent.md",
       "html": "marketing-privacy-consent.html",
       "blocks": [
@@ -1361,7 +1361,7 @@
         },
         {
           "type": "paragraph",
-          "text": "시행일: 2026년 11월 9일"
+          "text": "시행일: 2026년 11월 11일"
         },
         {
           "type": "paragraph",
@@ -1489,8 +1489,8 @@
       "title": "[선택] 광고성 정보 수신 동의 — 이메일",
       "termsType": "AD_EMAIL",
       "termsVersion": "v1",
-      "effectiveDate": "2026-11-09",
-      "sourceSha256": "42700cc9a08128df687504f74956194589b8681e8314c4e588ba25efc61cab0e",
+      "effectiveDate": "2026-11-11",
+      "sourceSha256": "8da1a7597c5700c29a2ad03c974382d73f2988e870111b10deb70773907040d9",
       "source": "ad-email-consent.md",
       "html": "ad-email-consent.html",
       "blocks": [
@@ -1505,7 +1505,7 @@
         },
         {
           "type": "paragraph",
-          "text": "시행일: 2026년 11월 9일"
+          "text": "시행일: 2026년 11월 11일"
         },
         {
           "type": "paragraph",
@@ -1611,8 +1611,8 @@
       "title": "[선택] 광고성 정보 수신 동의 — 광고 푸시",
       "termsType": "AD_PUSH",
       "termsVersion": "v1",
-      "effectiveDate": "2026-11-09",
-      "sourceSha256": "0c3e96753fc641f27f78f2b2ad8d51dea133b94645be21cdf98db8c16e152d4d",
+      "effectiveDate": "2026-11-11",
+      "sourceSha256": "9a3fedc91c4e5a94037f3f0ad08a357a2b8a0ccc4160781ec278f00af710b725",
       "source": "ad-push-consent.md",
       "html": "ad-push-consent.html",
       "blocks": [
@@ -1627,7 +1627,7 @@
         },
         {
           "type": "paragraph",
-          "text": "시행일: 2026년 11월 9일"
+          "text": "시행일: 2026년 11월 11일"
         },
         {
           "type": "paragraph",
@@ -1738,8 +1738,8 @@
       "title": "[선택] 야간 광고 푸시 수신 동의",
       "termsType": "AD_NIGHT_PUSH",
       "termsVersion": "v1",
-      "effectiveDate": "2026-11-09",
-      "sourceSha256": "acfd2803845d13467805b64bb40b0598fb1440ccc87eb7248fd21f5425847433",
+      "effectiveDate": "2026-11-11",
+      "sourceSha256": "df5f697f4776f75984d9d51a9627706b1b0869b5a1b6b72ba5512dfbe479b3e5",
       "source": "ad-night-push-consent.md",
       "html": "ad-night-push-consent.html",
       "blocks": [
@@ -1754,7 +1754,7 @@
         },
         {
           "type": "paragraph",
-          "text": "시행일: 2026년 11월 9일"
+          "text": "시행일: 2026년 11월 11일"
         },
         {
           "type": "paragraph",
@@ -1857,8 +1857,8 @@
       "title": "DIO 계정·데이터 삭제 요청",
       "termsType": null,
       "termsVersion": null,
-      "effectiveDate": "2026-11-09",
-      "sourceSha256": "21d83a518608d047c035847acc210870675d1880af09e9c04048cac1160696f7",
+      "effectiveDate": "2026-11-11",
+      "sourceSha256": "46982614b5c1d33f5f495c034297dd368a63a7c4ab93cb348cd243d36aae3229",
       "source": "account-deletion.md",
       "html": "account-deletion.html",
       "blocks": [
@@ -1869,7 +1869,7 @@
         },
         {
           "type": "paragraph",
-          "text": "시행일: 2026년 11월 9일"
+          "text": "시행일: 2026년 11월 11일"
         },
         {
           "type": "paragraph",
