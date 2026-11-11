@@ -44,6 +44,7 @@ function fixture({ error = null, cached = true } = {}) {
     if (id.endsWith('/templateLoadedSignal.js')) return { subscribeTemplateLoaded: listener => { signal.listener = listener; return () => { signal.listener = null } } }
     if (id.endsWith('/tastingGeometry.js')) return { isTastingId: () => false }
     if (id.endsWith('/tastingElements.js')) return { tastingElementValue: () => null }
+    if (id.endsWith('/inkRecord.js')) return { isInkRecordId: () => false, inkRecordValue: () => null } // 발색 기록 자동 채우기는 ink-record.test.js 가 본다
     if (id === 'react-native') return { Pressable: 'pressable', Text: 'text', View: 'view', StyleSheet: { create: v => v, absoluteFill: {} } }
     if (id === 'react-native-svg') return { SvgAst: 'svg-ast', SvgXml: 'svg-xml', parse: () => null }
     if (id.endsWith('/planners.js')) return { ...planners, plannerFor: assetId => { plannerCalls++; return assetId === 'monthly' ? { titles: () => null, startHour: () => 6, baseSvg: () => '<svg/>', overlaySvg: () => { overlayCalls++; return '<svg/>' } } : planners.plannerFor(assetId) } }
