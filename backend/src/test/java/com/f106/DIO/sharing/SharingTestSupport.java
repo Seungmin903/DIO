@@ -32,12 +32,21 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @org.springframework.test.context.jdbc.Sql(scripts={"classpath:invitation-notification-h2.sql", "classpath:push-session-h2.sql"})
 @SpringBootTest(properties={"spring.datasource.url=jdbc:h2:mem:sharing-tests;MODE=PostgreSQL;DB_CLOSE_DELAY=-1",
     "dio.auth.jwt-secret=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
-    "dio.signup.photos.storage=local", "dio.signup.photos.local-directory=build/test-member-photos",
+    "dio.signup.photos.storage=local", "dio.signup.photos.local-directory=build/test-member-photos/${org.gradle.test.worker:0}",
     "SHARING_INVITE_BASE_URL=https://dio.test/invite/",
-    "SHARING_INVITE_SECRET=BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB=", "spring.datasource.hikari.maximum-pool-size=12"})
+    "SHARING_INVITE_SECRET=BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB=", "spring.datasource.hikari.maximum-pool-size=12",
+    // 공유 · 신고 · 탈퇴 테스트가 따로 두던 값을 모아 모두 같은 스프링 컨텍스트를 쓴다(테스트 데이터는 매번 고유 사용자로 만든다)
+    "dio.media.local-directory=build/test-report-media/${org.gradle.test.worker:0}", "dio.signup.mail-from=notifications@dio.test", "dio.moderation.report-mail.to=ops@dio.test"})
 @AutoConfigureMockMvc @ActiveProfiles("test")
 abstract class SharingTestSupport {
     @Autowired MockMvc mvc;
+    // 프로필 사진이 실제로 저장되는 폴더(병렬 JVM 마다 다르다). 파일이 남았는지 볼 때 이 값을 쓴다
+    @org.springframework.beans.factory.annotation.Value("${dio.signup.photos.local-directory}") String photoDirectory;
+    // 실제 빈을 감싼 스파이(평소에는 그대로 위임). 하위 테스트마다 따로 두면 스프링 컨텍스트가 테스트 클래스마다 새로 뜨므로 여기 모아 둔다
+    @org.springframework.test.context.bean.override.mockito.MockitoSpyBean com.f106.DIO.sharing.infrastructure.storage.SharingPhotoStorage photoStorage; // DiaryProfileTests
+    @org.springframework.test.context.bean.override.mockito.MockitoSpyBean com.f106.DIO.notification.event.InvitationNotificationRepository notificationRepository; // EmailInviteTests
+    @org.springframework.test.context.bean.override.mockito.MockitoSpyBean com.f106.DIO.media.storage.MediaStorage evidenceStorage; // ModerationTests
+    @org.springframework.test.context.bean.override.mockito.MockitoSpyBean com.f106.DIO.user.infrastructure.storage.ProfilePhotoFiles photoFiles; // UserWithdrawalTests
     @Autowired UserRepository users;
     @Autowired EmailAuthProviderRepository accounts;
     @Autowired EmailLoginService login;

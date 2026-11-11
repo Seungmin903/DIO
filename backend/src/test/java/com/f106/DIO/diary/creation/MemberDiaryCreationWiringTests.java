@@ -9,6 +9,7 @@ import com.f106.DIO.diary.dto.DiaryCreateRequest;
 import static org.assertj.core.api.Assertions.*;
 
 @SpringBootTest @ActiveProfiles("test")
+@org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc // DiaryPersistenceTests 등과 컨텍스트를 함께 쓰기 위해 맞춘다.
 class MemberDiaryCreationWiringTests {
 	@Autowired MemberDiaryCreationService service;
 	@Autowired DiaryInitialPages pages;

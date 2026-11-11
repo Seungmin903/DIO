@@ -104,10 +104,10 @@ class CollaborationEfficiencyTests {
     @Test void expiredPendingConnectionIsReleasedWithoutClosingAuthenticatedSocket()throws Exception{
         var access=mock(CollaborationAccess.class);var decoder=mock(JwtDecoder.class);UUID diary=UUID.randomUUID();
         when(decoder.decode("token")).thenReturn(Jwt.withTokenValue("token").header("alg","HS256").subject("42").claim("sid",UUID.randomUUID().toString()).expiresAt(Instant.now().plusSeconds(600)).build());
-        var handler=new CollaborationSocket(access,decoder,JsonMapper.builder().build(),Runnable::run,Runnable::run);
+        var now=new java.util.concurrent.atomic.AtomicLong();var handler=new CollaborationSocket(access,decoder,JsonMapper.builder().build(),Runnable::run,Runnable::run,now::get);
         var pending=pendingSocket("pending",diary,"one");var active=pendingSocket("active",diary,"two");handler.afterConnectionEstablished(pending);handler.afterConnectionEstablished(active);
         handler.handleMessage(active,new TextMessage("{\"type\":\"AUTH\",\"accessToken\":\"token\"}"));
-        Thread.sleep(5100);handler.expirePendingConnections();verify(pending).close(CloseStatus.POLICY_VIOLATION);verify(active,never()).close(any());
+        now.addAndGet(5000);handler.expirePendingConnections();verify(pending).close(CloseStatus.POLICY_VIOLATION);verify(active,never()).close(any());
     }
     @Test void transientInfrastructureAndRevokedAccessUseDifferentCloseCodesAcrossValidationPaths()throws Exception{
         for(String path:List.of("canvas","pages","members","check"))for(boolean sessionFailure:List.of(true,false))for(boolean transientFailure:List.of(true,false)){

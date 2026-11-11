@@ -34,7 +34,8 @@ class LoginReservationServiceTests {
             mock(org.springframework.transaction.PlatformTransactionManager.class),
             mock(com.f106.DIO.auth.support.RefreshRotation.class),
             mock(com.f106.DIO.push.service.PushSessionRevocation.class),
-            new com.f106.DIO.auth.config.AuthPasswordConfig().authPasswordEncoder());
+            com.f106.DIO.auth.config.AuthPasswordConfig.encoder(
+                com.f106.DIO.auth.config.AuthPasswordConfig.DEFAULT_BCRYPT_STRENGTH, false));
     }
     @Test void twentyParallelWrongPasswordsOnlyPerformFiveCredentialChecks() throws Exception {
         var accounts = mock(EmailAuthProviderRepository.class);

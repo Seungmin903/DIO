@@ -7,6 +7,10 @@ dio:
     receipt-cleanup:
       enabled: false
   auth:
+    # 테스트에서만 BCrypt 강도를 최소값으로 낮춰 가입·로그인 반복을 빠르게 한다. 운영 기본값은 12다.
+    # 10 미만은 아래 허용값이 있어야 기동한다(AuthPasswordConfig). 이 파일은 배포 jar 에 들어가지 않는다.
+    bcrypt-strength: 4
+    bcrypt-allow-weak-for-tests: true
     session-cleanup:
       enabled: false
 
