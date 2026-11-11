@@ -1,5 +1,5 @@
 import { configuredPageIds, defaultTemplateConfig, normalizeTemplateConfig, templatePageCount } from '../../editor/templates/creation.js'
-import { normalizeOrientation, reusableTemplates } from '../../editor/templates/catalog.js'
+import { everyReusableTemplate, normalizeOrientation } from '../../editor/templates/catalog.js'
 import { ROUTE_TEMPLATE_SELECTION_ENABLED, INK_RECORD_TEMPLATE_SELECTION_ENABLED } from '../../editor/templates/serverCatalog.js'
 import { datedCalendar, datedCoverId, datedMonthId, datedWeekId } from '../../editor/templates/dated.js'
 import { undatedTemplateId } from '../../editor/templates/undated.js'
@@ -82,8 +82,9 @@ export function countAssetId(paperId, orientation) {
   const direction = normalizeOrientation(orientation)
   if (paper.kind === 'cover') return undatedTemplateId('cover', direction)
   if (paper.remoteTemplate) return remoteTemplateAssetId(paper.remoteTemplate, direction)
-  // 같은 종류 안에서 갈래가 더 있는 속지(노트의 바탕, 발색 기록의 병 모양)는 그 값까지 맞춘다
-  return reusableTemplates(direction).find(item => item.type === paper.type
+  // 같은 종류 안에서 갈래가 더 있는 속지(노트의 바탕, 발색 기록의 병 모양)는 그 값까지 맞춘다.
+  // **고르기 목록이 아니라 전체**에서 찾는다 — 배포 플래그로 가린 속지도 이미 만든 페이지는 열려야 한다.
+  return everyReusableTemplate(direction).find(item => item.type === paper.type
     && (paper.background == null || item.background === paper.background)
     && (paper.bottle == null || item.bottle === paper.bottle)).assetId
 }

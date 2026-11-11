@@ -31,7 +31,17 @@ const reusableItems = INK_RECORD_TEMPLATE_SELECTION_ENABLED ? reusableMenu : reu
 const menuItems = PLANNER_TEMPLATE_SELECTION_ENABLED
   ? [STUDY_PLANNER_MENU_ITEM, DAY_PLANNER_MENU_ITEM, ...routeItems, ...reusableItems.slice(1)]
   : [...reusableItems, ...routeItems]
-export const reusableTemplates = (orientation = 'landscape') => menuItems.map(item => ({ ...item, name: displayName(item), assetId: item.assets.find(asset => asset.orientation === normalizeOrientation(orientation)).assetId }))
+const withAssetId = (orientation) => (item) => ({ ...item, name: displayName(item),
+  assetId: item.assets.find(asset => asset.orientation === normalizeOrientation(orientation)).assetId })
+/** 지금 고를 수 있는 공용 속지(배포 플래그로 가린 것은 빠진다) */
+export const reusableTemplates = (orientation = 'landscape') => menuItems.map(withAssetId(orientation))
+/**
+ * 플래그로 가린 것까지 **전부**. 고르기 목록이 아니라 **ID 를 찾을 때** 쓴다 —
+ * 플래그를 켠 빌드에서 만든 페이지를 플래그 0 빌드가 열 때도 속지 ID 는 나와야 한다
+ * (코드리뷰 2026-11-11: 가려진 속지를 찾다 undefined.assetId 로 터졌다).
+ */
+const everyItem = [STUDY_PLANNER_MENU_ITEM, DAY_PLANNER_MENU_ITEM, ROUTE_PAPER_MENU_ITEM, ...reusableMenu]
+export const everyReusableTemplate = (orientation = 'landscape') => everyItem.map(withAssetId(orientation))
 export const REUSABLE_TEMPLATES = reusableTemplates()
 const assets = new Map(catalog.assets.map(asset => [asset.id, { ...asset, name: displayName(asset) }]))
 for (const asset of [...UNDATED_TEMPLATES, ...STUDY_PLANNER_TEMPLATES, ...DAY_PLANNER_TEMPLATES, ...ROUTE_PAPER_TEMPLATES]) assets.set(asset.id, asset)

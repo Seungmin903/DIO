@@ -7,7 +7,7 @@ import { readFile, mkdtemp } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { execFileSync } from 'node:child_process'
+import { execFileSync, spawnSync } from 'node:child_process'
 import { INK_RECORD_SHAPES, inkRecordId, isInkRecordId, inkRecordLayout, cellRegions, SIZES } from '../src/editor/templates/inkRecordLayout.js'
 import { INK_RECORD_BOTTLES } from '../src/editor/templates/inkRecordBottles.js'
 import { inkRecordFills, inkRecordValue, strokeInkColors } from '../src/editor/templates/inkRecord.js'
@@ -182,4 +182,30 @@ test('빠르게 그어 점이 성겨도, 병을 가로지르면 칠한 것으로
   // 병을 스치지 않고 위로 지나가면 그대로 칠하지 않은 것이다
   const above = [{ x: cell.bottle.x - 60, y: cell.bottle.y - 30 }, { x: cell.bottle.x + cell.bottle.w + 60, y: cell.bottle.y - 30 }]
   assert.equal(inkRecordFills(PORTRAIT, [stroke(above)])[0], null, '병 위를 지나가는 획은 아니다')
+})
+
+test('플래그 0 빌드(서버 행 전)는 고르지 못하게만 막고, 이미 만든 페이지는 열린다', () => {
+  // 코드리뷰 2026-11-11: 고르기 목록에서 가린 속지를 ID 찾기에도 쓰면 undefined.assetId 로 터진다.
+  const source = `
+    import assert from 'node:assert/strict'
+    import { papersIn, countAssetId, paperById } from ${JSON.stringify(new URL('../src/diary/utils/paperChoice.js', import.meta.url).href)}
+    import { reusableTemplates, getTemplate } from ${JSON.stringify(new URL('../src/editor/templates/catalog.js', import.meta.url).href)}
+    import { INK_RECORD_TEMPLATE_SELECTION_ENABLED } from ${JSON.stringify(new URL('../src/editor/templates/serverCatalog.js', import.meta.url).href)}
+    assert.equal(INK_RECORD_TEMPLATE_SELECTION_ENABLED, false)
+    // 고르지 못한다
+    assert.deepEqual(papersIn('diary').filter(paper => paper.type === 'inkRecord'), [])
+    assert.equal(reusableTemplates('portrait').some(item => item.type === 'inkRecord'), false)
+    // 그래도 ID 는 나오고 속지도 찾아진다 — 플래그 1 빌드에서 만든 페이지가 열려야 한다
+    for (const [id, bottle] of [['ink-record-round', 'round'], ['ink-record-square', 'square']]) {
+      assert.equal(paperById(id).bottle, bottle)
+      for (const orientation of ['portrait', 'landscape']) {
+        const assetId = countAssetId(id, orientation)
+        assert.equal(assetId, '2026-reusable-ink-record-' + bottle + '-' + orientation)
+        assert.equal(getTemplate(assetId, '1.0.0').orientation, orientation)
+      }
+    }
+  `
+  const run = spawnSync(process.execPath, ['--input-type=module', '--eval', source],
+    { env: { ...process.env, EXPO_PUBLIC_INK_RECORD_TEMPLATES_ENABLED: '0' }, encoding: 'utf8' })
+  assert.equal(run.status, 0, run.stderr)
 })

@@ -44,8 +44,25 @@ function pagePoints(object) {
   return pointsOf(object).map(point => ({ x: x + (point.x / bw) * w, y: y + (point.y / bh) * h }))
 }
 const inBox = (point, box) => point.x >= box.x && point.x <= box.x + box.w && point.y >= box.y && point.y <= box.y + box.h
-/** 획이 이 네모 안에 **들어와 있나**(한 점이라도). */
-const touches = (points, box) => points.some(point => inBox(point, box))
+const boxEdges = box => [
+  [{ x: box.x, y: box.y }, { x: box.x + box.w, y: box.y }],
+  [{ x: box.x + box.w, y: box.y }, { x: box.x + box.w, y: box.y + box.h }],
+  [{ x: box.x + box.w, y: box.y + box.h }, { x: box.x, y: box.y + box.h }],
+  [{ x: box.x, y: box.y + box.h }, { x: box.x, y: box.y }],
+]
+/**
+ * 획이 이 네모 안에 **들어와 있나**. 점만 보지 않고 **점 사이(선분)도** 본다 —
+ * 빠르게 그으면 점이 성겨서 네모를 가로지르고도 안에 찍힌 점이 없을 수 있다(코드리뷰 2026-11-11).
+ */
+function touches(points, box) {
+  for (let i = 0; i < points.length; i++) {
+    if (inBox(points[i], box)) return true
+    const b = points[i + 1]
+    if (!b || !segmentNearBox(points[i], b, box)) continue
+    if (boxEdges(box).some(([c, d]) => segmentsCross(points[i], b, c, d))) return true
+  }
+  return false
+}
 
 /** 점이 다각형 안인가 — 오른쪽으로 반직선을 쏴 변을 몇 번 지나는지 센다(홀수면 안). */
 function inPolygon(point, poly) {

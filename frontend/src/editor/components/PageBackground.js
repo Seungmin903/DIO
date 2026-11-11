@@ -95,13 +95,23 @@ function BackgroundAttempt({ page, zoom, preparedXml, onReady, onError, onRetry,
   const plannerApi = useMemo(() => preparedXml == null ? plannerFor(page.backgroundAssetId) : null, [page.backgroundAssetId, preparedXml])
   // 테이스팅 속지만 채움이 요소(page.objects)에 있다. 다른 플래너는 요소가 바뀔 때마다 덮개를 다시 만들지 않는다(끌기 · 편집 매 프레임 파싱 방지, MR !503 리뷰)
   const tastingObjects = isTastingId(page.backgroundAssetId) && !page.tastingDraft ? page.objects : null
-  // 발색 기록도 값이 요소에서 나온다 — 병을 칠한 획의 색을 읽는다(page.planner 에 저장하지 않는다)
-  const inkRecordObjects = isInkRecordId(page.backgroundAssetId) ? page.objects : null
-  const objectValue = tastingObjects ?? inkRecordObjects
+  // 발색 기록도 값이 요소에서 나온다 — 병을 칠한 획의 색을 읽는다(page.planner 에 저장하지 않는다).
+  // **획만** 본다. 사진 · 스티커를 끄는 동안에도 page.objects 는 매 프레임 새로 생기는데, 그때마다
+  // 여섯 칸 x 모든 획 x 병 윤곽을 다시 재면 끌기가 끊긴다(코드리뷰 2026-11-11).
+  const strokesRef = useRef([])
+  const inkRecordStrokes = useMemo(() => {
+    if (!isInkRecordId(page.backgroundAssetId)) return null
+    const next = (page.objects ?? []).filter(object => object?.type === 'stroke' && !object.hidden)
+    const previous = strokesRef.current
+    if (previous.length === next.length && previous.every((object, i) => object === next[i])) return previous
+    strokesRef.current = next
+    return next
+  }, [page.backgroundAssetId, page.objects])
+  const objectValue = tastingObjects ?? inkRecordStrokes
   const planner = useMemo(() => !plannerApi ? null
     : tastingObjects ? tastingElementValue(page)
-    : inkRecordObjects ? inkRecordValue(page.backgroundAssetId, inkRecordObjects)
-    : page.planner ?? null, [plannerApi, preparedXml, page.backgroundAssetId, page.planner, tastingObjects, inkRecordObjects]) // eslint-disable-line react-hooks/exhaustive-deps
+    : inkRecordStrokes ? inkRecordValue(page.backgroundAssetId, inkRecordStrokes)
+    : page.planner ?? null, [plannerApi, preparedXml, page.backgroundAssetId, page.planner, tastingObjects, inkRecordStrokes]) // eslint-disable-line react-hooks/exhaustive-deps
   // 요소에서 나온 값은 요소가 바뀔 때마다 객체가 새로 생기므로, 채움 내용(문자열)이 같으면 덮개를 그대로 둔다
   const plannerKey = objectValue ? JSON.stringify(planner) : planner
   // 데일리 플래너는 할 일 글(글상자)을 막대 · 종일 칸에 비춰 그리므로, 글이 바뀌면 덮개도 다시 만든다.

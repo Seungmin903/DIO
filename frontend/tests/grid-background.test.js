@@ -36,15 +36,16 @@ const { code } = expo('@babel/core').transformSync(source + '\nexport { Backgrou
 function fixture({ error = null, cached = true } = {}) {
   const ast = paper(1024, 768)
   const module = { exports: {} }
-  let stateCalls = 0, memoCalls = 0, plannerCalls = 0, overlayCalls = 0
-  const memoValues = [], memoDependencies = []
+  let stateCalls = 0, memoCalls = 0, plannerCalls = 0, overlayCalls = 0, inkRecordCalls = 0
+  const memoValues = [], memoDependencies = [], refs = []
+  let refCalls = 0
   const effects = [], sets = [], cache = { cached }, signal = { listener: null }
   const load = id => {
-    if (id === 'react') return { ...React, useMemo: (fn, deps = []) => { const index = memoCalls++, previous = memoDependencies[index]; if (previous && previous.length === deps.length && previous.every((value, i) => Object.is(value, deps[i]))) return memoValues[index]; memoDependencies[index] = deps; return memoValues[index] = fn() }, useEffect: fn => { effects.push(fn) }, useState: initial => { const index = stateCalls++; const set = value => sets.push([index, value]); if (index === 1 && error) return [error, set]; return [typeof initial === 'function' ? initial() : initial, set] }, useRef: current => ({ current }) }
+    if (id === 'react') return { ...React, useMemo: (fn, deps = []) => { const index = memoCalls++, previous = memoDependencies[index]; if (previous && previous.length === deps.length && previous.every((value, i) => Object.is(value, deps[i]))) return memoValues[index]; memoDependencies[index] = deps; return memoValues[index] = fn() }, useEffect: fn => { effects.push(fn) }, useState: initial => { const index = stateCalls++; const set = value => sets.push([index, value]); if (index === 1 && error) return [error, set]; return [typeof initial === 'function' ? initial() : initial, set] }, useRef: current => { const index = refCalls++; return refs[index] ?? (refs[index] = { current }) } }
     if (id.endsWith('/templateLoadedSignal.js')) return { subscribeTemplateLoaded: listener => { signal.listener = listener; return () => { signal.listener = null } } }
     if (id.endsWith('/tastingGeometry.js')) return { isTastingId: () => false }
     if (id.endsWith('/tastingElements.js')) return { tastingElementValue: () => null }
-    if (id.endsWith('/inkRecord.js')) return { isInkRecordId: () => false, inkRecordValue: () => null } // 발색 기록 자동 채우기는 ink-record.test.js 가 본다
+    if (id.endsWith('/inkRecord.js')) return { isInkRecordId: id => typeof id === 'string' && id.includes('ink-record'), inkRecordValue: (a, strokes) => { inkRecordCalls++; return strokes.length ? { n: strokes.length } : null } }
     if (id === 'react-native') return { Pressable: 'pressable', Text: 'text', View: 'view', StyleSheet: { create: v => v, absoluteFill: {} } }
     if (id === 'react-native-svg') return { SvgAst: 'svg-ast', SvgXml: 'svg-xml', parse: () => null }
     if (id.endsWith('/planners.js')) return { ...planners, plannerFor: assetId => { plannerCalls++; return assetId === 'monthly' ? { titles: () => null, startHour: () => 6, baseSvg: () => '<svg/>', overlaySvg: () => { overlayCalls++; return '<svg/>' } } : planners.plannerFor(assetId) } }
@@ -61,8 +62,8 @@ function fixture({ error = null, cached = true } = {}) {
     return require(id)
   }
   new Function('require', 'module', 'exports', code)(load, module, module.exports)
-  const render = props => { stateCalls = 0; memoCalls = 0; effects.length = 0; return module.exports.BackgroundAttempt(props) }
-  return { render, plannerCalls: () => plannerCalls, overlayCalls: () => overlayCalls, backgroundKey: module.exports.backgroundKey, fontPhase: module.exports.fontPhase, ast, effects, sets, cache, signal }
+  const render = props => { stateCalls = 0; memoCalls = 0; refCalls = 0; effects.length = 0; return module.exports.BackgroundAttempt(props) }
+  return { render, plannerCalls: () => plannerCalls, overlayCalls: () => overlayCalls, inkRecordCalls: () => inkRecordCalls, backgroundKey: module.exports.backgroundKey, fontPhase: module.exports.fontPhase, ast, effects, sets, cache, signal }
 }
 const flat = node => !node || typeof node !== 'object' ? [] : [node, ...[node.props?.children].flat(Infinity).flatMap(flat)]
 
@@ -163,4 +164,22 @@ test('테이스팅이 아닌 플래너는 요소만 바뀌어서는 덮개 SVG �
   assert.equal(f.overlayCalls(), 1, '요소가 바뀌어도 기록 · 할 일 글이 같으면 그대로')
   f.render({ page: { ...page, planner: { fills: { a: '#111111' } } }, zoom: 1 })
   assert.equal(f.overlayCalls(), 2, '기록이 바뀌면 다시 만든다')
+})
+
+test('발색 기록은 **획이 바뀔 때만** 다시 잰다 — 사진 · 스티커를 끌어도 다시 재지 않는다', () => {
+  // 코드리뷰 2026-11-11: page.objects 참조를 그대로 의존성에 두면, 끄는 동안 매 프레임
+  // 여섯 칸 x 모든 획 x 병 윤곽을 다시 잰다.
+  const f = fixture()
+  const stroke = { id: 's1', type: 'stroke' }
+  const sticker = { id: 'k1', type: 'sticker', x: 0 }
+  const page = (objects) => ({ id: 'p', backgroundAssetId: '2026-reusable-ink-record-round-portrait', templateVersion: '1.0.0', objects, planner: null })
+  f.render({ page: page([stroke, sticker]), width: 768, height: 1024, zoom: 1 })
+  const first = f.inkRecordCalls()
+  assert.ok(first > 0, '한 번은 재야 한다')
+  // 스티커만 움직인다: objects 는 새 배열이지만 획은 그대로다
+  f.render({ page: page([stroke, { ...sticker, x: 10 }]), width: 768, height: 1024, zoom: 1 })
+  assert.equal(f.inkRecordCalls(), first, '획이 그대로면 다시 재지 않는다')
+  // 획이 바뀌면 다시 잰다
+  f.render({ page: page([stroke, { id: 's2', type: 'stroke' }, sticker]), width: 768, height: 1024, zoom: 1 })
+  assert.ok(f.inkRecordCalls() > first, '획이 바뀌면 다시 잰다')
 })
