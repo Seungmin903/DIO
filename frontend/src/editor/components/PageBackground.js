@@ -149,9 +149,10 @@ export const backgroundKey = (page, printedFont, attempt) => [page.id, page.back
 
 function PageBackground(props) {
   const [attempt, setAttempt] = useState(0)
-  // 데일리 플래너가 비추는 글은 마루부리 글꼴로 그려진다(속지 글꼴을 골라도 같다). 쓰일 때 불러오고, 불러오면 속지를 다시 그린다.
-  const [deviceFont] = paperDeviceFontIds(props.page.backgroundAssetId)
-  const printedFont = fontPhase(useTextFont(deviceFont ?? null, true))
+  // 속지가 앱 글꼴로 그리는 글 — 데일리 플래너가 비추는 글(마루부리)과, 원본이 아닌 속지 글꼴로 바뀐 인쇄 글자.
+  // 쓰일 때 불러오고, 불러오면(아래 key 가 바뀌어) 속지를 다시 그린다. 글꼴은 많아야 둘이라 훅도 둘로 고정한다.
+  const fontIds = paperDeviceFontIds(props.page.backgroundAssetId, normalizePaperAppearance(props.page.paperAppearance).font)
+  const printedFont = fontPhase(useTextFont(fontIds[0] ?? null, true) + useTextFont(fontIds[1] ?? null, true))
   // 속지 글꼴이 바뀌면 처음부터 다시 불러온다
   const key = backgroundKey(props.page, printedFont, attempt)
   return <Keep><BackgroundAttempt key={key} {...props} onRetry={props.preparedXml == null ? () => setAttempt(value => value + 1) : undefined} /></Keep>
