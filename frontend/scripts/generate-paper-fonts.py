@@ -41,10 +41,23 @@ FALLBACK = 'gowun-dodum'
 DIGITS = '0123456789'
 
 
+def runtime_chars():
+    """속지 SVG 에는 없지만 앱이 **실행 중에** 찍는 글자.
+    목록은 src/editor/templates/paperRuntimeChars.js 하나만 본다 — 여기에 또 적으면 둘이 어긋난다."""
+    source = (TEMPLATES / 'paperRuntimeChars.js').read_text(encoding='utf-8')
+    match = re.search(r"PAPER_RUNTIME_CHARS\s*=\s*\[\.\.\.'([^']*)'\]", source)
+    if not match:
+        raise SystemExit('paperRuntimeChars.js 에서 글자 목록을 읽지 못했습니다')
+    return set(match.group(1))
+
+
 def charset():
-    """속지에 나오는 글자 전부: 속지 SVG 의 aria-label · 날짜 글자표 · 플래너 글자표"""
-    chars = {' '}
-    files = sorted(glob.glob(str(ROOT / 'assets/templates/undated/*.svg'))) + sorted(glob.glob(str(ROOT / 'assets/templates/2026/SVG/2026-reusable-*.svg')))
+    """속지에 나오는 글자 전부: 속지 SVG 의 aria-label · 날짜 글자표 · 플래너 글자표 + 실행 중에 찍는 글자"""
+    chars = {' '} | runtime_chars()
+    # 속지 SVG **전부**를 훑는다. 전에는 undated 와 reusable 만 봐서 먼슬리 · 위클리 · 데일리에만
+    # 나오는 글자 43자가 표에서 빠져 있었고, 속지 글꼴을 바꿔도 그 글자들만 마루부리로 남았다
+    # (2026-11-11 실측: 가·같·게·격·꼭·다·되·또·로·마·맛·먹… 과 h·i·t·w).
+    files = sorted(glob.glob(str(ROOT / 'assets/templates/**/*.svg'), recursive=True))
     for file in files:
         text = Path(file).read_text(encoding='utf-8')
         for match in re.finditer(r'aria-label="([^"]*)"', text):
