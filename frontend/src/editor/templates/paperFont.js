@@ -7,7 +7,8 @@
 // 표를 안 뜬 글꼴이 그대로 남아, 글자나 글꼴을 더할 때마다 표를 다시 뽑아야 했다. 지금은 글꼴 이름만
 // 넘기므로 글자가 늘든 글꼴이 늘든 저절로 따라온다(paperTextFont.js).
 //
-// 묶음이 차지한 폭(textLength)과 굵기(Regular · Bold)는 SVG 에 글자 윤곽만 있어 알 수 없으므로,
+// 묶음이 차지한 폭과 굵기(Regular · Bold), 그리고 오른쪽으로 쓸 수 있는 폭은 SVG 에 글자 윤곽만
+// 있어 알 수 없으므로,
 // **속지가 자기 치수를 들고 다닌다** — <g aria-label="…" data-adv="182.991" data-w="B">.
 // 정적 속지에는 scripts/bake-paper-metrics.mjs 가 한 번 구워 넣고, 코드로 그리는 속지는 그릴 때 적는다
 // (plannerDraw.write · dated.js · inkRecordPaper.js). 그래서 앱에는 글꼴 표가 하나도 없다.
@@ -78,8 +79,9 @@ export function readGroup(match) {
  * 속지 SVG 문자열의 글자 묶음을 fontId 글꼴로 쓴 <text> 로 바꾼 문자열.
  * 원본 글꼴(또는 모르는 글꼴)이면 그대로 돌려준다.
  *
- * 크기(글자 크기) · 기준선(y) · 시작 자리(x) · 색은 원본 그대로이고, 차지하는 폭도 textLength 로 묶어
- * 원본과 같다. 읽을 수 없는 묶음은 손대지 않아 원본 윤곽(MaruBuri)으로 남는다.
+ * 크기(글자 크기) · 기준선(y) · 시작 자리(x) · 색은 원본 그대로다. 고른 글꼴이 그 자리(data-fit)보다
+ * 넓어질 때만 글자 크기를 줄인다 — 좁은 것은 그대로 둔다(paperTextFont.js).
+ * 읽을 수 없는 묶음은 손대지 않아 원본 윤곽(MaruBuri)으로 남는다.
  */
 export function swapPaperFont(xml, fontId) {
   if (!isPaperFontId(fontId) || typeof xml !== 'string' || !xml.includes('aria-label')) return xml

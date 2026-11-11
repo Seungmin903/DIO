@@ -65,7 +65,7 @@ export function naturalWidth(fontId, weight, text) {
  * 묶음 하나 → <text> 한 줄. group 은 paperFont.js 의 readGroup 이 돌려주는 모양이다
  * ({ attrs, text, weight, s, x, y, end }). 그릴 수 없으면 null — 그러면 원본 윤곽을 그대로 둔다.
  *
- * x · y 는 원본 그대로다(y 는 기준선이라 <text> 의 y 와 같은 뜻이다). 폭은 textLength 로 묶는다.
+ * x · y 는 원본 그대로다(y 는 기준선이라 <text> 의 y 와 같은 뜻이다). 폭은 자리를 넘을 때만 글자 크기로 맞춘다.
  */
 export function textFromGroup(group, fontId) {
   const picked = paperFontFamily(fontId, group.weight)
@@ -91,10 +91,6 @@ export function textFromGroup(group, fontId) {
   const stroke = faux && fill ? ` stroke="${fill}" stroke-width="${round3(size * FAUX_BOLD / EM)}" stroke-linejoin="round"` : ''
   // 굵기는 **글꼴 이름**으로 정한다. font-weight 로 맡기면 기기가 굵게 흉내 내어 진짜 Bold 와 겹친다
   // — 데일리 플래너의 할 일 글(dayPlanner.js)이 쓰는 방식과 같게 400 으로 못 박는다.
-  //
-  // textLength · lengthAdjust 는 반드시 **<tspan> 에** 둔다. react-native-svg 는 글자를 TSpan 이
-  // 그리는데, 그 값을 조상이 아니라 **자기 것에서만** 읽는다(android TSpanView.drawWrappedText).
-  // <text> 에 두면 조용히 무시되어 자리가 깨진다. 검사 tests/paper-font.test.js 가 이것을 지킨다.
   return `<text x="${round3(group.x)}" y="${round3(group.y)}"${keep}`
     + (label == null ? '' : ` aria-label="${escapeXml(label)}"`)
     + ` font-family="${picked.family}, serif" font-size="${size}" font-weight="400"${stroke}`
