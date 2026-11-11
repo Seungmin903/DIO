@@ -45,7 +45,7 @@ export const TextMeasureReady = createContext(false)
  * 오브젝트 하나의 생김새. 위치·회전·불투명도는 바깥에서 잡고, 여기서는 zoom 배율로 내용만 그린다.
  * 편집 화면, 페이지 썸네일에서 함께 쓴다.
  */
-function ObjectContent({ object, zoom, areaPreview = false, still: stillRequested = false, onAssetLoad, onAssetError, showFallbackWhileLoading = false }) {
+function ObjectContent({ object, zoom, areaPreview = false, still: stillRequested = false, onAssetLoad, onAssetError, showFallbackWhileLoading = false, linesOnly = false }) {
   const fontStatus = useTextFont(object.type === 'text' ? object.font : null, Boolean(object.bold))
 
   const width = object.w * zoom
@@ -76,7 +76,7 @@ function ObjectContent({ object, zoom, areaPreview = false, still: stillRequeste
       return <TextContent object={object} width={width} height={height} zoom={zoom} onTextMeasure={onTextMeasure} textMeasureReady={textMeasureReady} />
     }
     case 'shape':
-      return <ShapeContent object={object} zoom={zoom} />
+      return <ShapeContent object={object} zoom={zoom} linesOnly={linesOnly} />
     case 'stroke':
       return <StrokeContent areaPreview={areaPreview} object={object} zoom={zoom} transform={flipTransform(object)} onAssetLoad={onAssetLoad} onAssetError={onAssetError} showFallbackWhileLoading={showFallbackWhileLoading} />
     case 'sticker':

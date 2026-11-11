@@ -10,6 +10,7 @@ import WebStrokeCache from './WebStrokeCache'
 import { WebStrokeCacheEnabled } from './WebStrokeCacheContext'
 import { ViewportMotion } from './viewportMotion'
 import { PackingColorLayer, PackingFrontLayer } from './PackingColorLayer'
+import { memoArtOf } from '../../utils/editorShapes'
 import { packingLayout } from '../../templates/packingLayout.js'
 
 const DRAG_OPACITY = 0.5
@@ -56,6 +57,16 @@ const StaticPage = memo(function StaticPage({ qaPageMeasurement = null, page, zo
       still={still || motion.moving || Boolean(fadeIds?.includes(object.id) || stillIds?.includes(object.id)) || offscreen(object, motion.visible)}
       crop={object.id === cropId} />
   }
+  // 잉크병 메모(art.overTop)는 **선만** 한 겹 더 맨 위에 올린다 — 그래야 그 위에 쓴 펜 색이 병 선을 덮지 않고
+  // 잉크가 병 안으로 들어간 것처럼 보인다(사용자 2026-11-10). 종이 · 글은 제자리(아래)에 그대로 있고,
+  // 덧그림은 손가락을 안 받는다(PageObject 의 pointerEvents none).
+  const overTop = renderableObjects.filter(object => !object.hidden && memoArtOf(object.art)?.overTop)
+  const renderOverTop = stored => {
+    const object = fitBackdropToPage(stored, width, height)
+    return <PageObject key={`over-${object.id}`} object={object} zoom={zoom} linesOnly
+      opacity={objectDrawOpacity(object) * (cropId && object.id !== cropId ? 0.45 : 1) * (fadeIds?.includes(object.id) ? DRAG_OPACITY : 1)}
+      still={still || motion.moving} />
+  }
   return (
     <View
       style={[styles.page, { width: width * zoom, height: height * zoom, backgroundColor: background }]}
@@ -81,6 +92,7 @@ const StaticPage = memo(function StaticPage({ qaPageMeasurement = null, page, zo
         : renderableObjects.filter(object => !object.hidden).map(renderObject)}
       </TextMeasureReady.Provider>
       </TextMeasure.Provider>
+      {overTop.map(renderOverTop)}
     </View>
   )
 }, (previous, next) => (
