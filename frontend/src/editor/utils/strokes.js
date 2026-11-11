@@ -15,7 +15,7 @@ const storedPoint = (point, x, y, renderVersion) => {
 }
 
 // opacity: 펜 설정의 불투명도(0.1~1). 1 이 아니면 획의 불투명도(요소 옵션의 불투명도와 같은 값)로 저장한다.
-export function createStroke(points, { id, color = DEFAULT_PEN.color, width = DEFAULT_PEN.width, kind = 'ball', lineCap = 'round', renderVersion = 2, materialSeed, opacity = 1, dashLength, dashGap, inkGlitter, inkSheen, inkFilm, inkAmount, inkSheenColor, inkSheenAmount } = {}) {
+export function createStroke(points, { id, color = DEFAULT_PEN.color, width = DEFAULT_PEN.width, kind = 'ball', lineCap = 'round', renderVersion = 2, materialSeed, opacity = 1, dashLength, dashGap, inkGlitter, inkSheen, inkFilm, inkGlitterColor, inkAmount, inkSheenColor, inkSheenAmount } = {}) {
   if (!points.length) return null
   const dashed = kind === 'dashed' || kind === 'dotted'
   if (dashed) renderVersion = PEN_MATERIAL_RENDER_VERSION
@@ -41,7 +41,12 @@ export function createStroke(points, { id, color = DEFAULT_PEN.color, width = DE
     ...(kind !== 'highlighter' && opacity < 1 && { opacity }),
     // 연필: 요소 좌표에서 페이지 원점 자리 + 획 시드(첫 점 페이지 좌표의 해시). 종이 이빨이 페이지에 붙고, 옮겨도 무늬가 획과 함께 움직인다. 쓰는 중과 같은 값
     // 유리펜 잉크 설정은 획에 박아 둔다(나중에 설정을 바꿔도 이미 그린 획은 그대로)
-    ...(kind === 'glass' && { inkGlitter: inkGlitter !== false, inkSheen: inkSheen !== false, inkFilm: inkFilm ?? 55, inkAmount: inkAmount ?? 1, inkSheenAmount: inkSheenAmount ?? 1, ...(inkSheenColor && { inkSheenColor }) }),
+    // 코팅 두께 · 글리터 색 · 테 색은 **고른 것만** 적는다. 안 적으면 '맞춤'(펜 색에서 자동 계산)이다 —
+    // 예전에는 inkFilm 을 55(은)로 박아 넣어, 맞춤으로 그어도 획은 늘 은빛이었다(2026-11-10).
+    // inkGlitterColor 는 아예 빠져 있어서 **직접 고른 글리터 색이 획에 안 남았다**(쓰는 중에는 보이는데
+    // 손을 떼면 사라짐 — 쓰는 중에는 설정을 그대로 읽기 때문). 견본(inkFilm)만 되던 이유다.
+    ...(kind === 'glass' && { inkGlitter: inkGlitter !== false, inkSheen: inkSheen !== false, inkAmount: inkAmount ?? 1, inkSheenAmount: inkSheenAmount ?? 1,
+      ...(Number.isFinite(inkFilm) && { inkFilm }), ...(inkGlitterColor && { inkGlitterColor }), ...(inkSheenColor && { inkSheenColor }) }),
     ...(kind === 'pencil' && { grainOrigin: { x: -x, y: -y, seed: brushSeed(points[0]) } }),
     points: points.map((p) => storedPoint(p, x, y, renderVersion)),
   }
@@ -148,16 +153,23 @@ export function penContour(points, width, kind) {
   return penSweeps(samplePenCurve(points), width, kind).map(piece => piece.path).join('')
 }
 
+// 획 하나가 이 다각형 수백 개로 나온다(구간마다 사각형 + 꺾임마다 부채꼴). 도장 1500개짜리 획이면
+// 꼭짓점 3000개 - 글자 10만 자가 **매 프레임** 만들어진다(실측 2026-11-10 실기: 쓸기만 15ms).
+// 그래서 여기서는 한 꼭짓점도 헛돌면 안 된다 - 반올림은 한 번만 하고(전에는 넓이용으로 한 벌 만들고
+// 글자로 쓸 때 또 했다), 중간 객체 배열과 join 용 글자 배열을 만들지 않는다. 내는 글자는 그대로다.
 const polygonPath = points => {
-  points = points.map(p => ({ x: Math.round(p.x * 1000) / 1000, y: Math.round(p.y * 1000) / 1000 }))
+  const n = points.length
+  if (!n) return ''
+  const xs = new Float64Array(n), ys = new Float64Array(n)
+  for (let i = 0; i < n; i++) { xs[i] = Math.round(points[i].x * 1000) / 1000; ys[i] = Math.round(points[i].y * 1000) / 1000 }
   let area = 0
-  for (let i = 0; i < points.length; i++) {
-    const a = points[i], b = points[(i + 1) % points.length]
-    area += a.x * b.y - b.x * a.y
-  }
+  for (let i = 0; i < n; i++) { const j = i + 1 === n ? 0 : i + 1; area += xs[i] * ys[j] - xs[j] * ys[i] }
   if (Math.abs(area) < 1e-10) return ''
-  if (area < 0) points.reverse()
-  return points.map((p, i) => `${i ? 'L' : 'M'}${Math.round(p.x * 1000) / 1000} ${Math.round(p.y * 1000) / 1000}`).join('') + 'Z'
+  let d = ''
+  // 넓이가 음수면 뒤집어 그린다(앞의 points.reverse() 와 같은 차례다)
+  if (area < 0) for (let i = n - 1; i >= 0; i--) d += `${i === n - 1 ? 'M' : 'L'}${xs[i]} ${ys[i]}`
+  else for (let i = 0; i < n; i++) d += `${i ? 'L' : 'M'}${xs[i]} ${ys[i]}`
+  return d + 'Z'
 }
 
 // 농도도 화면 x/y가 아닌 실제 누적 이동 거리를 사용한다.

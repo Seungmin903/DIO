@@ -178,6 +178,8 @@ const TIP_SAMPLING = { filter: FilterMode.Linear, mipmap: MipmapMode.Linear }
 // 3-4 개발 전용 소요 시간 훅(기본 꺼짐): PENCIL_PROFILE.on = true 로 바꾸면 Metro 콘솔에 '[pencil] drawDabs n=도장 수 ms=…' 와
 // '[pencil] drawBrushDabs parts=… ms=…' 를 찍는다(쓰는 중 매 프레임 · 획 굽기 때). 릴리스 빌드(__DEV__ 거짓)에선 아무 일도 안 한다.
 export const PENCIL_PROFILE = { on: process.env.EXPO_PUBLIC_PENCIL_PROFILE === '1' }
+// 유리펜 그리기 시간(순환 import 를 피해 전역 깃발로 — 켜면 느린 프레임만 Metro 에 찍는다)
+globalThis.__GLASS_PROFILE__ = PENCIL_PROFILE.on
 const profiling = () => PENCIL_PROFILE.on
 // 화면 라벨용 통계(console.log 는 logcat 에 안 나옴): globalThis.__PENCIL_PROFILE__ = { label: { n, avg, max, last } }
 export const recordProfile = (label, ms) => {
@@ -658,11 +660,21 @@ export function strokesPicture(objects, fadeOf = () => 1, zoom = 1) {
   for (const object of objects) drawStroke(canvas, object, fadeOf(object), zoom)
   return recorder.finishRecordingAsPicture()
 }
+// 쓰는 중인 획을 **모든 펜**이 지나는 한 자리. 유리펜만 따로 보던 [유리펜] 줄과 달리
+// 여기서는 펜 종류 · 점 수와 함께 찍어, 짧은 획을 여러 번 쓸 때(= 글씨) 펜마다 얼마나 드는지 견준다.
 export function previewPicture(preview, zoom = 1) {
   const t0 = profiling() ? nowMs() : 0
   const recorder = Skia.PictureRecorder()
   drawPreview(recorder.beginRecording(), preview, zoom)
   const picture = recorder.finishRecordingAsPicture()
-  if (t0) recordProfile('LIVE', nowMs() - t0)
+  if (t0) {
+    const ms = nowMs() - t0
+    recordProfile('LIVE', ms)
+    if (ms >= 6) {
+      let points = 0
+      for (const part of preview.parts ?? []) points += part.points?.length ?? 0
+      console.log(`[획] ${preview.settings?.kind ?? '?'} ms=${ms.toFixed(1)} 점=${points} 굵기=${preview.settings?.width ?? '?'}`)
+    }
+  }
   return picture
 }

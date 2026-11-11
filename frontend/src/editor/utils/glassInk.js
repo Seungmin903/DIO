@@ -10,7 +10,7 @@
 //   → 셰이더 한 번: 두께 → 불투명도 · 색 깊이
 
 export const GLASS_INK = {
-  version: 27,
+  version: 28,
   T_MAX: 4,            // 마스크 G 채널 1.0 = 두께 4
   spacing: 0.12,       // 표본 간격(굵기 배수)
   // 속도 → 두께: 빠르면 얇게, 느리면 두껍게 (page 단위/ms)
@@ -22,6 +22,7 @@ export const GLASS_INK = {
   poolEnd: 0.25,      // 3판: 0.7 → 0.25
   poolLen: 0.8,        // 고임 길이(굵기 배수) 3판: 1.1 → 0.8
   poolWiden: 0,        // 고임에서 반지름 증가(최대) 3판: 0.32 → 0
+  rSmooth: 0.7,        // 28판: 필압 떨림을 고르는 창(굵기 배수). 닙은 제 크기보다 빨리 굵기가 안 변한다
   // 염료: 불투명도 = 1 − exp(−k·T), 색 깊이 = exp(−deep·max(T − 1, 0))
   k: 1.9,
   deep: 0.16,
@@ -59,6 +60,21 @@ export const GLASS_INK = {
   //   덩이를 잘게 쪼개고 세기를 낮춘다.
   flowAmp: 0.5,        // 변조 폭(fc 곱 비율) 27판: 0.8 → 0.5
   flowScale: 11,       // 얼룩 한 덩이 크기(page px) 27판: 18 → 7 → 11 (사용자: 구름결 좀 더 넓게)
+  // 28판: **가는 획이 밋밋하다**(사용자 2026-11-10). 재 보니 가는 획에는 농담(flow)도 운모 막(veil)도
+  //   아예 닿지 않는다 — 둘 다 `1 − smoothstep(0.25, 0.6, x)` 로 **넓은 면에만** 걸려 있고,
+  //   가는 획은 x ≈ 0.8 이라 0 이 된다(세기를 5배로 올려 렌더해도 변화 없음을 확인).
+  //   남는 건 테(lineRim) 하나인데 그건 획 전체를 고르게 덮어 "다른 색 펜" 처럼 보인다(22판 메모와 같은 증상).
+  //   그래서 가는 획 전용 항을 둔다. 근거(얇은 획 조사.md, FPN LizEF EF 닙 현미경 25~33):
+  //     ① 구간마다 편차가 크다 — 같은 잉크 같은 획인데 30 은 자글자글, 32 는 거의 없다
+  //     ② 쉰은 **띠가 아니라 획 전체의 색 변화**로, 구간마다 떴다 안 떴다 한다(26 vs 27)
+  //     ③ 획 끝(잉크가 고인 곳)이 조금 더 진하다(27)
+  //   → 가는 획에서는 농담 · 테를 **잘게 · 들쭉날쭉하게** 넣는다. 덩이 크기는 획 굵기에 맞춰 줄인다.
+  flowFloor: 0.3,      // 28판: 안 고인 곳에 남기는 얼룩 비율(1 = 27판처럼 고임과 무관)
+  thinFlow: 1.2,       // 가는 획의 농담 폭(0 = 끔). 가는 선은 속이 없어(2px 중 대부분이 안티에일리어스)
+                       //   넓은 면의 flowAmp 0.5 로는 눈에 안 띈다 — 실측 비교로 올렸다
+  thinFlowScale: 0.42, // 가는 획 농담 덩이 크기(flowScale 배수)
+  thinPatch: 0.85,     // 가는 획 테가 끊기는 정도(넓은 면 sheenPatch 0.42 보다 훨씬 들쭉날쭉)
+  thinPatchScale: 0.3, // 가는 획 테 끊김 크기(sheenWScale 배수)
   // 9판: 테(쉰) — 고임 장 등고선. 14판: 기하 재설계 — 사용자 '테가 윤곽처럼 안 뜨네' 피드백.
   //   테 = ① 덮임 윤곽 띠: 블러 장 알파의 0.5 등고선(영역 외곽선에 정확히 붙음. 가는 선은
   //      블러 후 알파 피크 ~0.16 이라 0.5 등고선이 아예 없음 → 자동 배제)
@@ -76,6 +92,19 @@ export const GLASS_INK = {
   //   같은 등고선을 걸면 가는 획의 **양 가장자리**에 테가 돈다(실물 20: 강한 쉰 잉크는 글씨에도 테가 돈다).
   //   넓은 면에서는 꺼서(Ab 로 게이트) 기존 윤곽 테와 겹치지 않게 한다.
   sheenEdge: 0.9,      // 가는 획의 테 세기(0 = 끔) 20판: 0.55 는 티가 안 났다
+  // 28판: 테는 잉크 **위에 앉는 반사**지 잉크를 갈아치우는 게 아니다. 상한이 없어서 필압으로
+  //   얇아진 구간이 테 색으로 통째로 덮여 **회색으로 끊겨 보였다**(사용자 2026-11-10).
+  //   원인은 An = Ab / abLine 이 획의 **기준 굵기**로 재는 값이라, 가늘어진 구간은 "전부 가장자리"로
+  //   읽혀 lineRim 이 1.0 까지 올라간 것이다(sh 0.81 → 잉크색이 거의 사라짐).
+  //   실물도 정면에서는 획 전체가 색이 **조금 변할** 뿐이다(참고 26 vs 27). 그래서 상한을 둔다.
+  sheenMax: 0.45,      // 테가 잉크를 덮을 수 있는 최대 비율
+  //   상한만으로는 모자랐다(실측: 굵기 24 획의 얇아진 끝 채도 0.42 → 0.14, 상한 0.45 를 걸어도 0.14).
+  //   근본 원인은 '가는 획의 테'가 **픽셀의 굵기**로 켜진다는 것이다 — 굵은 펜이 잠깐 얇아진 자리도
+  //   가는 획으로 읽힌다. 하지만 그건 여전히 굵은 펜이고, 그 획의 테는 윤곽 띠(rim)가 맡아야 한다.
+  //   그래서 **펜 굵기**로 켠다: 아래 굵기까지만 가는 획 테를 쓰고 위로 갈수록 끈다.
+  thinRimW0: 5,        // 이 굵기 이하 = 가는 획 테 최대
+  thinRimW1: 12,       // 이 굵기 이상 = 가는 획 테 없음(윤곽 띠만)
+
   // 22판: 테가 "화면 그래픽처럼" 보이던 것(사용자). 실물(참고 02 · 14 · 24)과 견주면 우리 띠는
   //   ① 윤곽을 **빠짐없이** 두르고 ② 폭이 고르고 ③ 중간 스케일(1.5~5px) 변동이 실물의 2~8배라
   //   에어브러시 테두리처럼 보였다. 실물은 접촉선이 고르게 고정되지 않아 **군데군데 끊기고 몰린다**.
@@ -113,10 +142,25 @@ export const GLASS_INK = {
   glVeilLift: 0.3,     // 막의 밝힘량
   glVeilScale: 12,     // 막 결 크기(page px) 27판: 20 → 8 → 12 (사용자: 구름결 좀 더 넓게)
   glAmp: 1,            // 글리터 양(0 = 끔). 앱 "글리터 켜기 + 양"
+  // 28판: 직접 고른 글리터 색이 거의 안 보이던 것(사용자 2026-11-10). 입자색 식은
+  //   mix(잉크, 휘도×운모색, glDesat) + boost×운모색 인데, 운모 간섭색은 가장 밝은 채널이 1 이라
+  //   입자가 잉크보다 밝게 뜬다. 팔레트에서 고른 보통 색(예 #4A6FB5)을 그대로 넣으면
+  //   입자 휘도 0.376 < 잉크 0.388 — **잉크보다 어두워** 반짝이로 안 읽힌다(실측).
+  //   → 고른 색은 **반사 색조**로 바꿔 쓴다: 색조는 그대로 두고 가장 밝은 채널을 1 로 올린 뒤
+  //     흰 쪽으로 조금 끌어올린다(실물 입자는 채도 0.26 으로 꽤 옅다 — 참고 6-1).
+  //   ③ 끌어올리는 양은 **모자란 만큼만**이다. 고정 비율로 흰 쪽에 섞으면 이미 옅은 색
+  //      (예 연분홍)이 흰색이 돼 "고른 색이 안 먹는다"가 된다 — 목표 휘도까지만 올린다.
+  glPickLum: 0.7,      // 고른 글리터 색이 가져야 할 최소 휘도(잉크보다 확실히 밝아야 반짝이로 읽힌다)
   // 15판 배율 환산 실측(참고 02, 사진 선폭 6px = 우리 4.4 screen px 기준):
   //   입자 반지름 0.59~0.93 screen px · 밀도 58.6/1000 screen px² — 즉 "작고 많이".
   //   14판까지는 반지름 0.7~1.4 에 밀도 부족 → 점이 크고 성겨 '소금 뿌린' 느낌이었다.
   glCell: 1.7,         // 입자 셀 크기(page px) — S=1.75 에서 2.98 screen px
+  // 28판: 가는 획에 입자가 거의 안 떨어진다. 입자는 셀 하나에 많아야 하나인데 셀(1.7)이 획보다 넓으면
+  //   그 하나가 획 밖에 떨어져 버려, 면적당 밀도가 아니라 **셀 폭에 눌려** 수가 준다.
+  //   실물은 잉크 안 운모 농도가 같으니 가는 획이라고 면적당 수가 줄 이유가 없다(얇은 획 조사.md:
+  //   획 폭 한 줄 길이당 15~30개 — 오히려 촘촘하다). → 셀을 획 굵기 아래로 내린다.
+  glCellW: 1.0,        // 가는 획의 셀 크기 = min(glCell, max(glCellMin, 굵기 × 이 값))
+  glCellMin: 0.6,      // 셀 크기 바닥(page px) — 더 내리면 화면 픽셀보다 촘촘해진다
   glP: 0.52,           // 셀당 입자 확률 → 1000·P/cell² = 58.5/1000 screen px² (실물 58.6)
   // 20판: 가는 획과 고인 면의 입자 크기를 나눈다. 두 레퍼런스가 배율이 달라 서로 다른 값을 가리킨다 —
   //   참고 02(유리펜 고인 면, 보통 배율): 점 지름 ≈ 선폭의 1/4 → 지금 값이 맞다.
@@ -318,9 +362,23 @@ export function micaAutoFilm(rgb) {
   }
   return best
 }
-// 글리터 색 결정: 직접 고른 색 > 고른 코팅 두께 > 맞춤(테에 맞춘 두께)
+// 직접 고른 글리터 색 → **반사 색조**. 운모 간섭색(micaColor)은 가장 밝은 채널이 1 이라 입자가
+// 잉크보다 밝게 뜨지만, 팔레트에서 고른 보통 색을 그대로 쓰면 입자가 잉크만큼 어두워 반짝이로
+// 안 읽힌다(실측: 고른 파랑 0.376 < 잉크 0.388). 색조는 그대로 두고 밝기만 올린다.
+export function glitterTint(rgb, target = GLASS_INK.glPickLum) {
+  const mx = Math.max(rgb[0], rgb[1], rgb[2], 1e-6)
+  const t = rgb.map(c => c / mx)                                  // 색조 유지: 가장 밝은 채널을 1 로
+  const lum = 0.299 * t[0] + 0.587 * t[1] + 0.114 * t[2]
+  if (lum >= target) return t                                     // 이미 밝으면 고른 색 그대로
+  const w = (target - lum) / (1 - lum)                            // 모자란 만큼만 흰 쪽으로
+  return t.map(c => c + (1 - c) * w)
+}
+// 글리터 색 결정: 직접 고른 색 > 고른 코팅 두께 > 맞춤(테에 맞춘 두께). **늘 0~1 배열을 돌려준다** —
+// 예전에는 고른 색일 때만 '#RRGGBB' 문자열이 나와 SVG 그림(미리보기 · 웹 · 썸네일 · 내보내기)이
+// rgb(NaN, NaN, NaN) 을 칠했다(2026-11-10).
 export function glitterColorOf(rgb, { glitterColor, film } = {}) {
-  if (glitterColor) return glitterColor
+  if (glitterColor) return glitterTint(typeof glitterColor === 'string'
+    ? [1, 3, 5].map(i => parseInt(glitterColor.slice(i, i + 2), 16) / 255) : glitterColor)
   return micaColor(film ?? micaAutoFilm(rgb), 1)
 }
 
@@ -349,6 +407,63 @@ half4 main(float2 p) {
 }
 `
 
+// 글리터 입자만 따로 — **전체 해상도**로 획 위에 덧그린다.
+// 고임 필터 층은 이 기기에서 절반 해상도로 계산된다(가장자리가 네모로 끊기고 입자가 사각형이 된다).
+// 그래서 눈에 띄는 고주파 — 가장자리와 입자 — 는 필터 밖에서 그리고, 필터 안에는 저주파만 남긴다.
+// 색은 하네스와 같은 식이다: col = mix(잉크, 회색화한 잉크 + 밝힘 × 운모색, w) — 알파 w 로 덧칠하면 같다.
+export const GLASS_SPARK_SKSL = `
+uniform float3 base;   // 잉크색(휘도 계산용)
+uniform float3 mica;   // 운모 간섭색
+uniform float cell;
+uniform float dens;
+uniform float rmin;
+uniform float rmax;
+uniform float bmin;
+uniform float bmax;
+uniform float tail;
+uniform float desat;
+uniform float cloud;
+uniform float cloudScl;
+uniform float aa;
+float vhash(float2 q) {
+  float3 p3 = fract(float3(mod(q.x, 256.0), mod(q.y, 256.0), mod(q.x, 256.0)) * float3(0.1031, 0.1030, 0.0973));
+  p3 += dot(p3, p3.yzx + 33.33);
+  return fract((p3.x + p3.y) * p3.z);
+}
+float vnoise(float2 q) {
+  float2 i = floor(q), f = fract(q);
+  float2 u = f * f * (3.0 - 2.0 * f);
+  return mix(mix(vhash(i), vhash(i + float2(1, 0)), u.x),
+             mix(vhash(i + float2(0, 1)), vhash(i + float2(1, 1)), u.x), u.y);
+}
+half4 main(float2 p) {
+  float lum = dot(base, float3(0.299, 0.587, 0.114));
+  float cl = 1.0 + cloud * (vnoise(p / cloudScl) - 0.5) * 2.0;
+  float3 acc = float3(0.0);
+  float aw = 0.0;
+  // 25판: 한 겹이면 격자가 보인다 → 간격비가 무리수인 두 겹을 겹쳐 격자를 깬다
+  for (int layer = 0; layer < 2; layer++) {
+    float lay = float(layer);
+    float cs = cell * mix(1.0, 1.37, lay);
+    float2 cc = floor(p / cs);
+    float2 c = cc + lay * 7.31;
+    if (vhash(c * 1.013 + 0.37) >= 0.5 * dens * cl) continue;
+    float u1 = vhash(c * 2.117 + 1.11), u2 = vhash(c * 3.721 + 2.53);
+    float u3 = vhash(c * 5.313 + 4.19), u4 = vhash(c * 7.919 + 5.87);
+    float2 pos = (cc + 0.18 + 0.64 * float2(u1, u2)) * cs;
+    float r = mix(rmin, rmax, u3);
+    float w = 1.0 - smoothstep(r - aa, r + aa, length(p - pos));
+    if (w <= 0.0) continue;
+    float boost = mix(bmin, bmax, pow(u4, tail));
+    acc += clamp(mix(base, float3(lum) * mica, desat) + boost * mica, 0.0, 1.0) * w;
+    aw += w;
+  }
+  if (aw <= 0.0) return half4(0.0);
+  float a = min(1.0, aw);
+  return half4(half3(acc / aw * a), half(a));
+}
+`
+
 // 펜 색(sRGB 0~1) → 채널별 광학 밀도(감마 2.2 선형 기준). 셰이더 uniform 으로 전달.
 export function inkDensity(ink) {
   return ink.map(c => -Math.log(Math.max(Math.pow(c, 2.2), 1e-4)))
@@ -359,21 +474,30 @@ export function sampleCurve(points, step) {
   const out = []
   if (points.length === 1) return [{ ...points[0], d: 0 }]
   let carry = 0, d = 0
+  const quarter = step / 4
   for (let i = 0; i < points.length - 1; i++) {
     const p0 = points[Math.max(0, i - 1)], p1 = points[i], p2 = points[i + 1], p3 = points[Math.min(points.length - 1, i + 2)]
     const seg = Math.hypot(p2.x - p1.x, p2.y - p1.y)
-    const n = Math.max(2, Math.ceil(seg / (step / 4)))
-    let prev = { x: p1.x, y: p1.y }
+    const n = Math.max(2, Math.ceil(seg / quarter))
+    // 안쪽 고리는 **내는 간격의 네 배로 잘게** 돈다(버리는 표본이 네 개 중 셋이다). 그래서 여기서
+    // 표본마다 클로저(cr)와 객체(q)를 만들면 긴 획에서 그게 프레임을 먹는다 — 도장 1500개짜리 획에서
+    // 도장 찍기만 16ms 였다(실측 2026-11-10, 실기). 카트멀-롬 계수는 **구간마다 한 번만** 구하고,
+    // 버릴 표본은 숫자로만 다루다가 **남길 때만** 객체를 만든다. 식은 그대로라 값은 한 자리도 안 바뀐다.
+    const ax = -p0.x + p2.x, bx = 2 * p0.x - 5 * p1.x + 4 * p2.x - p3.x, cx = -p0.x + 3 * p1.x - 3 * p2.x + p3.x
+    const ay = -p0.y + p2.y, by = 2 * p0.y - 5 * p1.y + 4 * p2.y - p3.y, cy = -p0.y + 3 * p1.y - 3 * p2.y + p3.y
+    const t1 = p1.time, dt = p2.time - p1.time
+    const r1 = p1.pressure ?? 1, dr = (p2.pressure ?? 1) - r1
+    const x1 = p1.x, y1 = p1.y
+    let px = x1, py = y1
     for (let j = i === 0 ? 0 : 1; j <= n; j++) {
       const u = j / n, u2 = u * u, u3 = u2 * u
-      const cr = (a, b, c, e) => 0.5 * (2 * b + (-a + c) * u + (2 * a - 5 * b + 4 * c - e) * u2 + (-a + 3 * b - 3 * c + e) * u3)
-      const q = { x: cr(p0.x, p1.x, p2.x, p3.x), y: cr(p0.y, p1.y, p2.y, p3.y), time: p1.time + (p2.time - p1.time) * u,
-        pressure: (p1.pressure ?? 1) + ((p2.pressure ?? 1) - (p1.pressure ?? 1)) * u }
-      const L = Math.hypot(q.x - prev.x, q.y - prev.y)
-      if (out.length === 0) { out.push({ ...q, d: 0 }); prev = q; continue }
+      const x = 0.5 * (2 * x1 + ax * u + bx * u2 + cx * u3)
+      const y = 0.5 * (2 * y1 + ay * u + by * u2 + cy * u3)
+      const L = Math.hypot(x - px, y - py)
+      px = x; py = y
+      if (out.length === 0) { out.push({ x, y, time: t1 + dt * u, pressure: r1 + dr * u, d: 0 }); continue }
       carry += L; d += L
-      if (carry >= step) { out.push({ ...q, d }); carry = 0 }
-      prev = q
+      if (carry >= step) { out.push({ x, y, time: t1 + dt * u, pressure: r1 + dr * u, d }); carry = 0 }
     }
   }
   const last = points[points.length - 1], tail = out[out.length - 1]
@@ -382,7 +506,20 @@ export function sampleCurve(points, step) {
   return out
 }
 
-const smooth = (arr, r) => arr.map((_, i) => { let s = 0, n = 0; for (let j = Math.max(0, i - r); j <= Math.min(arr.length - 1, i + r); j++) { s += arr[j]; n++ } return s / n })
+// 창 평균(박스 필터). 그대로 더하면 O(n x r) 이라 도장 1500개 - 창 13칸이면 한 획에 2만 번을 더한다.
+// 누적합을 한 번 만들어 두면 칸마다 뺄셈 한 번이다(O(n)). 같은 창의 평균이라 결과는 같다.
+const smooth = (arr, r) => {
+  const n = arr.length
+  if (!n) return []
+  const pre = new Float64Array(n + 1)
+  for (let i = 0; i < n; i++) pre[i + 1] = pre[i] + arr[i]
+  const out = new Array(n)
+  for (let i = 0; i < n; i++) {
+    const j0 = i - r < 0 ? 0 : i - r, j1 = i + r > n - 1 ? n - 1 : i + r
+    out[i] = (pre[j1 + 1] - pre[j0]) / (j1 - j0 + 1)
+  }
+  return out
+}
 
 // 획 하나 → 도장 목록 { x, y, r, t }
 export function glassDabs(points, width, P = GLASS_INK) {
@@ -396,13 +533,19 @@ export function glassDabs(points, width, P = GLASS_INK) {
   })
   const v = smooth(rawV, Math.max(1, Math.round(width / step)))
   const L = P.poolLen * width
+  // 필압 · 기울기(점의 pressure 에 들어 있다)로 굵기를 조절한다 — 볼펜과 같은 폭.
+  // 28판: 힘 센서는 잘게 떨린다. 그 떨림을 그대로 반지름에 넣으면 외곽선이 표본마다 들락거려
+  //   **구슬을 꿴 것처럼 울퉁불퉁**해진다(사용자 2026-11-10 "필압 주는 부분이 끊긴다").
+  //   27판까지는 굵기를 6단계로 뭉개서 이게 안 보였는데, 그 대신 단계마다 계단이 생겼다(28i).
+  //   닙은 제 크기보다 빠르게 굵어졌다 얇아졌다 할 수 없다 → **닙 크기만큼의 창**으로 고른다.
+  const rawR = s.map(q => (width / 2) * (q.pressure ?? 1))
+  const rr = smooth(rawR, Math.max(1, Math.round(P.rSmooth * width / step)))
   return s.map((q, i) => {
     const speedT = P.tFast + (P.tSlow - P.tFast) * Math.exp(-v[i] / P.v0)
     const fromStart = q.d, fromEnd = total - q.d
     const pool = P.poolStart * Math.exp(-((fromStart / L) ** 2)) + P.poolEnd * Math.exp(-((fromEnd / L) ** 2))
     const t = speedT + pool
-    // 필압 · 기울기(점의 pressure 에 이미 들어 있다)로 굵기를 조절한다 — 볼펜과 같은 폭
-    const r = (width / 2) * (q.pressure ?? 1) * (1 + P.poolWiden * Math.min(1, pool))
+    const r = rr[i] * (1 + P.poolWiden * Math.min(1, pool))
     return { x: q.x, y: q.y, r, t }
   })
 }
@@ -429,6 +572,11 @@ uniform float satStart;
 uniform float satMax;
 uniform float flowAmp;
 uniform float flowScl;  // 화면 px
+uniform float flowFloor;  // 안 고인 곳에 남기는 얼룩 비율
+uniform float thinFlow;
+uniform float thinFlowScl;   // flowScl 배수
+uniform float thinPatch;
+uniform float thinPatchScl;  // sheenWScl 배수
 uniform float3 sheenCol;
 uniform float sheenAmp;
 uniform float sheenRimA;
@@ -438,6 +586,7 @@ uniform float sheenGate1;
 uniform float sheenInT;
 uniform float sheenInAmp;
 uniform float sheenEdge;
+uniform float sheenMax;
 uniform float sheenPatch;
 uniform float sheenGrain;
 uniform float abLine;   // 선 하나의 블러 덮임 최대값(정규화 기준)
@@ -452,6 +601,8 @@ uniform float glVeilDesat;
 uniform float glVeilLift;
 uniform float glVeilScl;  // 화면 px
 uniform float glAmp;
+uniform float veilAmp;    // 운모 막(구름결)의 양 — **입자와 따로**. 앱은 입자를 필터 밖에서
+                          //   그리느라 glAmp = 0 을 넣는데, 그러면 막까지 같이 꺼져 버렸다(27판 회귀)
 uniform float glCellPx;   // 화면 px
 uniform float glP;
 uniform float glRThin;
@@ -517,7 +668,16 @@ half4 main(float2 p) {
   float3 fc = max(float3(f), pow(float3(f), 1.0 / (1.0 + satK * dens)));
   // 8판: 농담 흐름 — satK 압축을 피해 fc 에 직접 곱(넓은 면에만, 두 옥타브 값 노이즈)
   float fl = vnoise(p / flowScl) * 0.7 + vnoise(p * 2.3 / flowScl) * 0.3;
-  fc *= 1.0 + flowAmp * (fl - 0.5) * (1.0 - smoothstep(0.25, 0.6, x)) * dq; // 농담 얼룩도 마르면서
+  // 28판: 얼룩을 **고인 만큼만** 건다(24판이 커피링에 쓴 규칙과 같다). 그냥 굵게 그은 획은
+  //   고인 게 아니라 그냥 두꺼운 잉크라 고르게 마른다. 전까지는 고임과 무관하게 걸려서,
+  //   글리터를 끄면 운모 막도 없어 **큰 명암 덩어리만 남아 수채 얼룩처럼** 보였다(사용자 2026-11-10).
+  fc *= 1.0 + flowAmp * (fl - 0.5) * (1.0 - smoothstep(0.25, 0.6, x)) * dq
+             * mix(flowFloor, 1.0, pool01);
+  // 28판: 가는 획의 농담 — 위와 **반대 게이트**(넓은 면 0, 가는 획 1)에 덩이는 더 잘게.
+  //   유리 닙은 홈에 담긴 잉크가 줄면서 선이 옅어졌다 진해졌다 한다(참고 27 · 30 vs 32).
+  float thinScl = max(flowScl * thinFlowScl, 1.0);
+  float flT = vnoise(p / thinScl + 17.3) * 0.65 + vnoise(p * 2.7 / thinScl + 41.9) * 0.35;
+  fc *= 1.0 + thinFlow * (flT - 0.5) * smoothstep(0.25, 0.6, x) * dq;
   fc *= 1.0 + wetDark * (1.0 - dq);                  // 젖은 동안 약간 진함(추정)
   float3 col = pow(exp(-dens * fc), float3(1.0 / 2.2)); // 흰 종이 위 목표색 (f=1 이면 정확히 ink)
   // 19판: 테(쉰) 세기를 먼저 구해 둔다 — 테가 뜬 자리에서는 운모 막을 비킨다(표면 염료막이 판을 덮는다)
@@ -532,20 +692,25 @@ half4 main(float2 p) {
   // 20판: 얇은 획의 테는 가장자리 띠가 아니라 획 전체의 색 변화다(참고 25 · 26, 얇은 획 조사.md).
   // 22판: 다만 **고르게 덮으면 그냥 다른 색 펜으로 쓴 것처럼 뿌옇다**(사용자). 실물은 구간마다 뜨고
   //   안 뜬다 — 띠와 같은 patch · grain 을 걸어 획을 따라 들쭉날쭉하게 한다.
+  // 28판: 가는 획의 끊김은 **획 굵기에 맞게 잘아야** 한다. 넓은 면과 같은 크기(sheenWScl×1.9)로 두면
+  //   가는 획 하나에 덩이 하나가 통째로 올라앉아 획 전체가 고르게 다른 색이 된다(사용자: 밋밋 · 22판 메모).
+  float tpScl = max(sheenWScl * thinPatchScl, 1.0);
+  float patchTn = vnoise(p / (tpScl * 1.9) + 5.1) * 0.62 + vnoise(p / (tpScl * 0.6) + 13.7) * 0.38;
+  float patchThin = mix(1.0, smoothstep(0.30, 0.74, patchTn), thinPatch);
   float lineRim = (0.45 + 0.55 * (1.0 - smoothstep(0.2, 0.9, An + wig * 0.5)))
                 * (1.0 - smoothstep(0.4, 0.8, Ab)) * smoothstep(0.08, 0.35, Tu) * sheenEdge
-                * patch * grain;
+                * patchThin * grain;
   float inp = smoothstep(sheenInT, sheenInT + 0.4, Tb0)
             * smoothstep(0.35, 0.75, vnoise(p / (sheenWScl * 2.3) + 11.3));
-  float sh = min(1.0, rim + sheenInAmp * inp + lineRim) * sheenAmp * dq;
+  float sh = min(sheenMax, rim + sheenInAmp * inp + lineRim) * sheenAmp * dq;
   // 15판 ①: 연속 운모 막 — 고인 면 전체를 덮는 은빛 결(참고 22 · 23). 점이 아니라 결로 읽혀야 한다.
-  if (glAmp > 0.001) {
+  if (veilAmp > 0.001) {
     // 결 = 도메인 워프 노이즈(흐르는 구름 결) + 길게 늘인 좌표(쓸린 자국). 고임이 평평한 안쪽에서도 결이 산다.
     float2 q0 = float2(p.x / (glVeilScl * 1.25), p.y / (glVeilScl * 0.95)) + float2(Tb0 * 0.5, Tb0 * 0.35);
     float2 wrp = float2(vnoise(q0 * 0.8), vnoise(q0 * 0.8 + 5.7)) - 0.5;
     float2 q = q0 + wrp * 1.6;
     float vn = vnoise(q) * 0.5 + vnoise(q * 2.1 + 3.3) * 0.3 + vnoise(q * 4.7 + 7.1) * 0.2;
-    float veil = glVeil * glAmp * smoothstep(0.08, 0.6, Tu) * (0.4 + 0.6 * smoothstep(0.15, 1.0, Tb0))  // 가는 획은 옅게(19판), 넓은 면은 18판과 같게
+    float veil = glVeil * veilAmp * smoothstep(0.08, 0.6, Tu) * (0.4 + 0.6 * smoothstep(0.15, 1.0, Tb0))  // 가는 획은 옅게(19판), 넓은 면은 18판과 같게
                * (0.10 + 0.90 * smoothstep(0.38, 0.86, vn)) * mix(0.5, 1.0, dq) * (1.0 - 0.75 * sh);
     float lum0 = dot(col, float3(0.299, 0.587, 0.114));
     float3 mica = clamp(mix(col, float3(lum0) * micaA, glVeilDesat) + glVeilLift * micaA, 0.0, 1.0);

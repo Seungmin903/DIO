@@ -1,7 +1,14 @@
 import { penContour, strokePath } from './strokes.js'
 import { isDashedKind, dashedPreviewContour } from './dashedStroke.js'
 
-export const PREVIEW_SEGMENT_POINTS = 96
+// 쓰는 중인 획을 **조각**으로 끊는 단위. 끝난 조각은 모양을 다시 만들지 않고 같은 객체를 다시 쓴다.
+// 96 이던 값을 32 로 낮췄다(2026-11-10): 96 이면 59점짜리 **짧은 획은 조각이 하나도 안 닫혀** 캐시가
+// 전혀 안 먹고 매 프레임 획 전체를 다시 만들었다(실기 실측: 만년필 59점 14ms · 볼펜 54점 7ms).
+// 32 로 끊으면 다시 만드는 양이 조각 하나로 묶여, 프레임 값이 **획 길이와 무관**해진다.
+// 조각을 합치는 값은 네이티브 PathBuilder.addPath 라 조각이 늘어도 싸다.
+// 그림은 안 바뀐다 — 조각은 접합부 문맥점을 물고 끊기고, 합쳐서 **한 번에** 채우므로
+// 겹친 자리가 두 번 칠해지지 않는다(형광펜 같은 반투명 잉크도 그대로다).
+export const PREVIEW_SEGMENT_POINTS = 32
 const distance = (a, b) => Math.hypot(b.x - a.x, b.y - a.y)
 
 // 저장 좌표는 건드리지 않는다. 완성 구간은 같은 객체로 재사용하고 꼬리만 복사한다.
