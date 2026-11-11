@@ -7,18 +7,23 @@
 // 한 번 구워 넣으면 그 일이 없어진다 — 속지가 자기 치수를 들고 다니고, 앱에는 글꼴 표가 없다
 // (S15P31F106-848).
 //
-//   <g aria-label="데일리 플래너" data-adv="182.991" data-w="B">…</g>
+//   <g aria-label="데일리 플래너" data-adv="182.991" data-w="B" data-fit="236">…</g>
 //     data-adv: 보이는 글자가 차지하는 폭(속지 좌표) · data-w: 굵은 글씨면 "B"
+//     data-fit: 오른쪽으로 **쓸 수 있는 폭**(다음 선 · 칸 · 글자까지). 고른 글꼴이 이보다 넓어질 때만
+//               앱이 글자 크기를 줄인다. 원래 폭(data-adv)을 기준 삼으면 마루부리 숫자가 유난히 좁아
+//               "1" 이 든 라벨마다 줄어들어 옆 숫자와 크기가 달라진다(2026-11-11 실측 62%).
 //
 // 치수는 원본 글꼴(MaruBuri) 확인표에서 구한다. 그 표는 **빌드 때만 쓰는** 자료라
 // scripts/paperMetrics/ 에 두고 앱에서는 쓰지 않는다(scripts/generate-paper-fonts.py 가 만든다).
-// 이미 적혀 있으면 건드리지 않는다 — 다시 돌려도 결과가 같다.
+// 이미 적혀 있으면 건드리지 않는다 — 다시 돌려도 결과가 같다. --force 면 다 지우고 다시 센다
+// (여유 폭을 재는 식을 고쳤을 때 쓴다).
 //
 // 코드로 그리는 속지(플래너 · 날짜 · 발색 기록 덮개)는 그릴 때 직접 적으므로 여기서 다루지 않는다.
 import { readFileSync, writeFileSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 import MARU from './paperMetrics/maruburi.js'
 
+const FORCE = process.argv.includes('--force')
 const ROOT = decodeURIComponent(new URL('../assets/templates/', import.meta.url).pathname).replace(/^\//, '')
 const svgFiles = (dir) => readdirSync(dir, { withFileTypes: true }).flatMap(entry => {
   const path = join(dir, entry.name)
@@ -52,8 +57,11 @@ function boxOf(path) {
   return Number.isFinite(min[0]) && Number.isFinite(min[1]) ? [max[0] - min[0], max[1] - min[1]] : [0, 0]
 }
 
-/** 묶음 하나 → { adv, weight }. 글자 묶음이 아니거나 치수를 못 구하면 null. */
-function metricsOf(attrs, body) {
+/**
+ * 묶음 하나 → { adv, weight, x, y, s, end }. 글자 묶음이 아니거나 치수를 못 구하면 null.
+ * quiet 면 못 구한 까닭을 알리지 않는다(여유 폭을 재느라 이웃을 훑을 때 쓴다).
+ */
+function metricsOf(attrs, body, quiet = false) {
   const label = attr(attrs, 'aria-label')
   if (label == null) return null                     // 글자 묶음이 아니다(그림 조각)
   const shown = [...unescapeXml(label)].filter(ch => ch !== ' ')
@@ -62,7 +70,7 @@ function metricsOf(attrs, body) {
     return d && t ? { d, x: Number(t[1]), y: Number(t[2]), s: Number(t[3]) } : null
   })
   if (!shown.length || paths.length !== shown.length || paths.some(path => !path)) return null
-  if (shown.some(ch => !MARU[ch])) return { missing: shown.filter(ch => !MARU[ch]).join('') }
+  if (shown.some(ch => !MARU[ch])) return quiet ? null : { missing: shown.filter(ch => !MARU[ch]).join('') }
   const s = paths[0].s
   if (!(s > 0) || paths.some(path => path.s !== s || path.y !== paths[0].y)) return null
   // 굵기: 글자 윤곽 상자 크기가 Regular 와 Bold 중 어느 쪽에 맞는지(묶음 전체의 합)
@@ -71,10 +79,47 @@ function metricsOf(attrs, body) {
     const [width, height] = boxOf(path.d), ref = MARU[shown[i]]
     regular += Math.abs(width - ref[1]) + Math.abs(height - ref[2]); bold += Math.abs(width - ref[4]) + Math.abs(height - ref[5])
   })
-  if (Math.min(regular, bold) > BOX_TOLERANCE * paths.length) return { missing: `굵기를 못 가름(${label})` }
+  if (Math.min(regular, bold) > BOX_TOLERANCE * paths.length) return quiet ? null : { missing: `굵기를 못 가름(${label})` }
   const weight = regular <= bold ? 'R' : 'B'
   const last = paths[paths.length - 1]
-  return { adv: n(last.x + MARU[shown[shown.length - 1]][weight === 'R' ? 0 : 3] * s - paths[0].x), weight }
+  const end = last.x + MARU[shown[shown.length - 1]][weight === 'R' ? 0 : 3] * s
+  return { adv: n(end - paths[0].x), weight, x: paths[0].x, y: paths[0].y, s, end }
+}
+
+/**
+ * 묶음 오른쪽으로 **쓸 수 있는 폭**. 같은 높이 띠에서 오른쪽에 처음 나오는 것(세로선 · 네모 테두리 ·
+ * 다른 글자 묶음)까지다. 아무것도 없으면 종이 오른쪽 끝까지. 원래 폭보다 작아지지는 않는다.
+ * 글자는 기준선 위로 올라가므로 띠는 기준선에서 글자 크기만큼 위, 조금 아래로 잡는다.
+ */
+function freeWidth(xml, group, pageWidth) {
+  const size = group.s * 1000
+  const top = group.y - size * 0.86, bottom = group.y + size * 0.22
+  let limit = pageWidth - 2
+  const narrow = (x) => { if (Number.isFinite(x) && x > group.end - 0.5 && x < limit) limit = x }
+  for (const [tag] of xml.matchAll(/<(?:line|rect)\b[^>]*\/?>/g)) {
+    const at = key => Number((tag.match(new RegExp(`\s${key}="([-\d.]+)"`)) ?? [])[1])
+    if (tag.startsWith('<line')) {
+      const x1 = at('x1'), y1 = at('y1'), x2 = at('x2'), y2 = at('y2')
+      if ([x1, y1, x2, y2].some(Number.isNaN)) continue
+      if (Math.abs(x1 - x2) > 0.5) continue                      // 가로선은 글자를 막지 않는다
+      if (Math.max(y1, y2) < top || Math.min(y1, y2) > bottom) continue
+      narrow(x1)
+    } else {
+      const x = at('x'), y = at('y'), w = at('width'), h = at('height')
+      if ([x, y, w, h].some(Number.isNaN)) continue
+      if (y + h < top || y > bottom) continue
+      narrow(x)                                                  // 네모는 왼쪽 변이 막는다
+      if (x <= group.x) narrow(x + w)                            // 묶음을 품은 네모는 오른쪽 변이 막는다
+    }
+  }
+  for (const match of xml.matchAll(GROUP)) {
+    if (match.index === group.index) continue
+    const other = metricsOf(match[1].replace(/\s+data-(adv|w|fit)="[^"]*"/g, ''), match[2], true)
+    if (!other) continue
+    if (other.y < top || other.y > bottom) continue
+    narrow(other.x)
+  }
+  return Math.max(group.end - group.x, limit - group.x)
 }
 
 let files = 0, added = 0, already = 0
@@ -83,14 +128,18 @@ for (const file of svgFiles(ROOT)) {
   const xml = readFileSync(file, 'utf8')
   if (!xml.includes('aria-label')) continue
   let out = '', at = 0, touched = 0
+  const page = xml.includes('viewBox="0 0 1024 768"') ? 1024 : 768
   for (const match of xml.matchAll(GROUP)) {
     const [whole, attrs, body] = match
-    if (/\sdata-adv="/.test(attrs)) { already++; continue }
-    const metrics = metricsOf(attrs, body)
+    if (!FORCE && /\sdata-adv="/.test(attrs) && /\sdata-fit="/.test(attrs)) { already++; continue }
+    // 이미 적힌 값은 걷어내고 다시 센다 — 다시 돌려도 결과가 같게
+    const clean = attrs.replace(/\s+data-(adv|w|fit)="[^"]*"/g, '')
+    const metrics = metricsOf(clean, body)
     if (!metrics) continue
     if (metrics.missing) { trouble.push(`${file.split(/[\\/]/).pop()} ${metrics.missing}`); continue }
-    out += xml.slice(at, match.index) + whole.replace(/^<g\b([^>]*)>/,
-      `<g$1 data-adv="${metrics.adv}"${metrics.weight === 'B' ? ' data-w="B"' : ''}>`)
+    const fit = n(freeWidth(xml, { ...metrics, index: match.index }, page))
+    out += xml.slice(at, match.index) + whole.replace(/^<g\b[^>]*>/, () =>
+      `<g${clean} data-adv="${metrics.adv}"${metrics.weight === 'B' ? ' data-w="B"' : ''} data-fit="${fit}">`)
     at = match.index + whole.length
     touched++
   }

@@ -61,11 +61,15 @@ test('확인표를 만드는 스크립트가 속지 SVG 전부와 실행 중 글
   assert.match(script, /RUNTIME_CHARS/, '실행 중에 찍는 글자도 넣어야 한다')
 })
 
-test('앱에는 글꼴 표가 하나도 없다 — 치수는 속지가 들고 다닌다', () => {
-  // 글꼴마다 떠 두던 윤곽 표(1.87MB)도, 원본 글꼴 확인표도 앱에서 쓰지 않는다.
-  // 확인표는 속지에 치수를 구워 넣을 때만 쓰는 빌드 전용 자료라 scripts/ 아래에 둔다.
-  assert.equal(existsSync(new URL('../src/editor/templates/paperFonts/', import.meta.url)), false, 'src 에 글꼴 표 폴더가 남아 있다')
+test('앱에는 글자 윤곽 표가 없다 — 남은 것은 글자 폭 숫자뿐이다', () => {
+  // 글꼴마다 떠 두던 윤곽 표(1.87MB)는 없앴다. 원본 글꼴 확인표도 속지에 치수를 구워 넣을 때만
+  // 쓰므로 빌드 전용으로 scripts/ 아래에 둔다.
+  assert.equal(existsSync(new URL('../src/editor/templates/paperFonts/', import.meta.url)), false, 'src 에 글꼴 윤곽 표 폴더가 남아 있다')
   assert.ok(existsSync(new URL('../scripts/paperMetrics/maruburi.js', import.meta.url)), '빌드용 확인표가 있어야 한다')
-  const source = readFileSync(new URL('../src/editor/templates/paperFont.js', import.meta.url), 'utf8')
-  assert.doesNotMatch(source, /paperFonts|paperMetrics/, '앱이 글꼴 표를 읽으면 안 된다')
+  assert.doesNotMatch(readFileSync(new URL('../src/editor/templates/paperFont.js', import.meta.url), 'utf8'),
+    /paperFonts|paperMetrics/, '앱이 윤곽 표를 읽으면 안 된다')
+  // 앱이 쓰는 글자 폭 표는 숫자뿐이라 작다. 윤곽이 다시 섞여 들어오면 여기서 걸린다.
+  const widths = readFileSync(new URL('../src/editor/templates/paperFontWidths.js', import.meta.url), 'utf8')
+  assert.ok(widths.length < 40 * 1024, `글자 폭 표가 너무 크다(${Math.round(widths.length / 1024)}KB) — 윤곽이 섞였나`)
+  assert.doesNotMatch(widths, /"[MLQCHVZ][\s\d]/, '글자 폭 표에 윤곽(path)이 들어 있다')
 })

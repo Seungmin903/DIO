@@ -35,6 +35,12 @@ OUT = ROOT / 'scripts/paperMetrics'
 
 FONTS = {
     'maruburi': {'label': '마루부리', 'R': 'assets/fonts/maruburi/MaruBuri-Regular.ttf', 'B': 'assets/fonts/maruburi/MaruBuri-Bold.ttf'},
+    'nanum-gothic': {'label': '나눔고딕', 'R': 'node_modules/@expo-google-fonts/nanum-gothic/400Regular/NanumGothic_400Regular.ttf', 'B': 'node_modules/@expo-google-fonts/nanum-gothic/700Bold/NanumGothic_700Bold.ttf'},
+    'nanum-myeongjo': {'label': '나눔명조', 'R': 'node_modules/@expo-google-fonts/nanum-myeongjo/400Regular/NanumMyeongjo_400Regular.ttf', 'B': 'node_modules/@expo-google-fonts/nanum-myeongjo/700Bold/NanumMyeongjo_700Bold.ttf'},
+    'gowun-batang': {'label': '고운바탕', 'R': 'assets/fonts/gowunbatang/GowunBatang-Regular.ttf', 'B': 'assets/fonts/gowunbatang/GowunBatang-Bold.ttf'},
+    'gowun-dodum': {'label': '고운돋움', 'R': 'assets/fonts/gowundodum/GowunDodum-Regular.ttf'},
+    'nanum-pen': {'label': '나눔손글씨 펜', 'R': 'node_modules/@expo-google-fonts/nanum-pen-script/400Regular/NanumPenScript_400Regular.ttf'},
+    'poor-story': {'label': '푸어스토리', 'R': 'node_modules/@expo-google-fonts/poor-story/400Regular/PoorStory_400Regular.ttf'},
 }
 
 
@@ -99,6 +105,9 @@ class Face:
         self.glyphs = self.font.getGlyphSet()
         self.k = 1000 / self.font['head'].unitsPerEm
 
+    def has(self, ch):
+        return ord(ch) in self.cmap
+
     def glyph(self, ch):
         """[폭, path] — 1000 단위, y 위쪽이 +. 숫자 모양은 원본 SVG 와 같게 둔다(803.0 처럼)."""
         glyph = self.glyphs[self.cmap[ord(ch)]]
@@ -126,6 +135,27 @@ def main():
         f'export default {json.dumps(reference, ensure_ascii=False, separators=(",", ":"))}\n', encoding='utf-8', newline='\n')
 
     print('maruburi 확인표', (OUT / 'maruburi.js').stat().st_size // 1024, 'KB', '글자', len(chars))
+
+    # 2) 바꿀 글꼴의 **글자 폭**(윤곽이 아니라 숫자만). 앱이 쓴다 — 고른 글꼴로 썼을 때 원래 자리보다
+    #    넓어지는 묶음만 글자 크기를 줄여 넣기 위해서다(src/editor/templates/paperTextFont.js).
+    #    폭을 모르는 글자는 줄이지 않고 그대로 둔다(그 글꼴 자연 폭).
+    HEADER = ('// 자동 생성 파일 — frontend/scripts/generate-paper-fonts.py 로 다시 만든다. 직접 고치지 않는다.\n'
+              '// 속지 글꼴의 **글자 폭**(1000 단위). 윤곽이 아니라 숫자뿐이다 — 고른 글꼴로 썼을 때 원래 자리보다\n'
+              '// 넓어지는 묶음만 글자 크기를 줄이는 데 쓴다(paperTextFont.js). 폭을 모르는 글자가 섞이면\n'
+              '// 그 묶음은 줄이지 않는다(그 글꼴 자연 폭 그대로). OFL\n')
+    widths = {}
+    for font_id, spec in FONTS.items():
+        if font_id == 'maruburi':
+            continue
+        entry = {}
+        for weight in ('R', 'B'):
+            face = faces[font_id].get(weight)
+            entry[weight] = {ch: face.glyph(ch)[0] for ch in chars if face.has(ch)} if face else None
+        widths[font_id] = entry
+    (TEMPLATES / 'paperFontWidths.js').write_text(
+        HEADER + 'export default ' + json.dumps(widths, ensure_ascii=False, separators=(",", ":")) + '\n',
+        encoding='utf-8', newline='\n')
+    print('글자 폭 표', (TEMPLATES / 'paperFontWidths.js').stat().st_size // 1024, 'KB', '글꼴', len(widths))
 
 
 if __name__ == '__main__':

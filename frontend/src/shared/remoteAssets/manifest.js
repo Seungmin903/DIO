@@ -27,1313 +27,1313 @@ export const REMOTE_ASSET_MANIFEST = {
     "sha256": "254abb4c131316e10a55e04495211f1df8cf68c9f58929375311a41af77c4b9b"
   },
   "templates/2026/SVG/2026-cover-landscape.svg": {
-    "key": "templates/2026/SVG/2026-cover-landscape.dca3ff8ff9a2ad3b.svg",
-    "size": 15825,
-    "sha256": "dca3ff8ff9a2ad3bfb3282f90602f49c78f92cde4a88c528620da0cca3b1601c"
+    "key": "templates/2026/SVG/2026-cover-landscape.daa687e8b61f32dd.svg",
+    "size": 15885,
+    "sha256": "daa687e8b61f32dd437a6efb0703b3a2eb0ec9398132159872377b79240c478a"
   },
   "templates/2026/SVG/2026-cover-portrait.svg": {
-    "key": "templates/2026/SVG/2026-cover-portrait.92a0360d93b1d462.svg",
-    "size": 15835,
-    "sha256": "92a0360d93b1d4625faf1132de30510b8bc20cd6f68c4f9cef817aa1a26ae4a2"
+    "key": "templates/2026/SVG/2026-cover-portrait.5a0528286fcd400c.svg",
+    "size": 15899,
+    "sha256": "5a0528286fcd400c0f9d0575c636a4e07dc8671c47bab4ebb9a045abc7a8e236"
   },
   "templates/2026/SVG/2026-divider-01-landscape.svg": {
-    "key": "templates/2026/SVG/2026-divider-01-landscape.89760c72de9782e1.svg",
-    "size": 4124,
-    "sha256": "89760c72de9782e184fa942c6f93366e8f5226844b9e59ea7f431ef801114913"
+    "key": "templates/2026/SVG/2026-divider-01-landscape.28e046e7b36700a4.svg",
+    "size": 4139,
+    "sha256": "28e046e7b36700a4754437f832b062e9415970a6b200b115c535fed007065507"
   },
   "templates/2026/SVG/2026-divider-01-portrait.svg": {
-    "key": "templates/2026/SVG/2026-divider-01-portrait.3966f91cfd4253b9.svg",
-    "size": 4125,
-    "sha256": "3966f91cfd4253b9a6270264d988c248efa6ac32815c68744b207f6f1de517eb"
+    "key": "templates/2026/SVG/2026-divider-01-portrait.a6d9cc023ea0d1e6.svg",
+    "size": 4144,
+    "sha256": "a6d9cc023ea0d1e6ce71a97d9739cc3fcc5740f1cb0395d61bb49eea6edd1faa"
   },
   "templates/2026/SVG/2026-divider-02-landscape.svg": {
-    "key": "templates/2026/SVG/2026-divider-02-landscape.22a13045f8f4e9eb.svg",
-    "size": 4465,
-    "sha256": "22a13045f8f4e9ebff37fc34b0219c18b38f915433a34040f77a43f48f2f923a"
+    "key": "templates/2026/SVG/2026-divider-02-landscape.41d6fe89e30f142a.svg",
+    "size": 4480,
+    "sha256": "41d6fe89e30f142a7144d35a393c65466406269cefb9541c3fcfea90fbe7a457"
   },
   "templates/2026/SVG/2026-divider-02-portrait.svg": {
-    "key": "templates/2026/SVG/2026-divider-02-portrait.872bef696c7a40f7.svg",
-    "size": 4466,
-    "sha256": "872bef696c7a40f7dd53b0b607b5fe443c91c8c43faffa877af0490517e4cb36"
+    "key": "templates/2026/SVG/2026-divider-02-portrait.9b27166c31bfc4e1.svg",
+    "size": 4485,
+    "sha256": "9b27166c31bfc4e15cb6bd0c1d39096c73efc7e3a9836738c1d17a0e6a8b9efb"
   },
   "templates/2026/SVG/2026-divider-03-landscape.svg": {
-    "key": "templates/2026/SVG/2026-divider-03-landscape.07162ac63613b5bc.svg",
-    "size": 4884,
-    "sha256": "07162ac63613b5bc1e88ef2f8fb80b6983083c2ba2a220f6f1a4e575eeac0de8"
+    "key": "templates/2026/SVG/2026-divider-03-landscape.711e6dc70c985409.svg",
+    "size": 4899,
+    "sha256": "711e6dc70c98540971892e6fa7e3eeea8de66a2b3fb64e4013d6b732960e6400"
   },
   "templates/2026/SVG/2026-divider-03-portrait.svg": {
-    "key": "templates/2026/SVG/2026-divider-03-portrait.3d2a524be40af641.svg",
-    "size": 4885,
-    "sha256": "3d2a524be40af641efe7bc932512eb7a1695ae3f8afc6760cec371e48afd6839"
+    "key": "templates/2026/SVG/2026-divider-03-portrait.b315982caa687f43.svg",
+    "size": 4904,
+    "sha256": "b315982caa687f43578b3fe2b33a05088d9c2a376a61e87af8400b369a02bb4b"
   },
   "templates/2026/SVG/2026-divider-04-landscape.svg": {
-    "key": "templates/2026/SVG/2026-divider-04-landscape.6e79d02193f949de.svg",
-    "size": 4214,
-    "sha256": "6e79d02193f949de2e629cde67591289425c60c47736ddec6ea3ca574cb9cf83"
+    "key": "templates/2026/SVG/2026-divider-04-landscape.1173782da3453f60.svg",
+    "size": 4229,
+    "sha256": "1173782da3453f6014a15095157e54f2f25f9e05830e3c6f19d0ef52b9b57442"
   },
   "templates/2026/SVG/2026-divider-04-portrait.svg": {
-    "key": "templates/2026/SVG/2026-divider-04-portrait.def6246f0210c90e.svg",
-    "size": 4215,
-    "sha256": "def6246f0210c90e0baa044f17caad86b108219ba7053c473679767911e9876c"
+    "key": "templates/2026/SVG/2026-divider-04-portrait.94c9e8e54a20e217.svg",
+    "size": 4234,
+    "sha256": "94c9e8e54a20e217f5a692c1252f7dda30910cfa5df0dbda6e13749856cacfb1"
   },
   "templates/2026/SVG/2026-divider-05-landscape.svg": {
-    "key": "templates/2026/SVG/2026-divider-05-landscape.224996551f3525b1.svg",
-    "size": 4361,
-    "sha256": "224996551f3525b1da99f0709b2ef56843379a038896b6a34f3a20baaf19e727"
+    "key": "templates/2026/SVG/2026-divider-05-landscape.366ceee1d3218941.svg",
+    "size": 4376,
+    "sha256": "366ceee1d32189413738295d7413ea65aef162ef9cb37829bee12c2b171d3cac"
   },
   "templates/2026/SVG/2026-divider-05-portrait.svg": {
-    "key": "templates/2026/SVG/2026-divider-05-portrait.1da8f12c1b9b812d.svg",
-    "size": 4362,
-    "sha256": "1da8f12c1b9b812d5126d983bb7169431e5bfea370af13ddda01070fec38d0a8"
+    "key": "templates/2026/SVG/2026-divider-05-portrait.fb664396438ebb72.svg",
+    "size": 4381,
+    "sha256": "fb664396438ebb7249e1270b6d4c4d9fe1733d5e1daee39150c435ec61817a7a"
   },
   "templates/2026/SVG/2026-divider-06-landscape.svg": {
-    "key": "templates/2026/SVG/2026-divider-06-landscape.bda561c673b9375d.svg",
-    "size": 4248,
-    "sha256": "bda561c673b9375d57f4291a4c2d6cccee8aa25aa4274102fab26c35879f8e5c"
+    "key": "templates/2026/SVG/2026-divider-06-landscape.4864a4b0c869b4d8.svg",
+    "size": 4263,
+    "sha256": "4864a4b0c869b4d868a92f29a8f19ddd0de11d7e1a9b28104d0c5f8f6e46439a"
   },
   "templates/2026/SVG/2026-divider-06-portrait.svg": {
-    "key": "templates/2026/SVG/2026-divider-06-portrait.e8609dc50371aa88.svg",
-    "size": 4249,
-    "sha256": "e8609dc50371aa8827c47f98a7a8decfb61aa5c066eb235bc3428e5bea9ec5bc"
+    "key": "templates/2026/SVG/2026-divider-06-portrait.2d691834e8b8b8fe.svg",
+    "size": 4268,
+    "sha256": "2d691834e8b8b8fefb9fda64d8809b09b69970713c07d6a30abf6c4f29beddfe"
   },
   "templates/2026/SVG/2026-divider-07-landscape.svg": {
-    "key": "templates/2026/SVG/2026-divider-07-landscape.73f62aca90d70f4a.svg",
-    "size": 3999,
-    "sha256": "73f62aca90d70f4acfa7c9745f6ceacfea923cb381c30eabb1ff7df186105544"
+    "key": "templates/2026/SVG/2026-divider-07-landscape.03e8cf76b6f1b3b2.svg",
+    "size": 4014,
+    "sha256": "03e8cf76b6f1b3b261f70827fd20f8292e0e0aa83adee3d1b02f3940b1abf553"
   },
   "templates/2026/SVG/2026-divider-07-portrait.svg": {
-    "key": "templates/2026/SVG/2026-divider-07-portrait.e756d1bca9ce5e05.svg",
-    "size": 4000,
-    "sha256": "e756d1bca9ce5e05f6450a4edc341cf1df987a0a5987049ea15202fdd5b3f3ea"
+    "key": "templates/2026/SVG/2026-divider-07-portrait.18edecef22d7f8d4.svg",
+    "size": 4019,
+    "sha256": "18edecef22d7f8d4a26b4f2babac659ade58d2913d56025253c73c081f11e226"
   },
   "templates/2026/SVG/2026-divider-08-landscape.svg": {
-    "key": "templates/2026/SVG/2026-divider-08-landscape.2f1b5290bc4be8b6.svg",
-    "size": 4547,
-    "sha256": "2f1b5290bc4be8b662b2c577bb5b041cc36044bf4e4c0b4e95168349282c1552"
+    "key": "templates/2026/SVG/2026-divider-08-landscape.291573bdf09738e0.svg",
+    "size": 4562,
+    "sha256": "291573bdf09738e01ae0b9e05eb69dea7ee5b659e641e4df8b4404392d9900de"
   },
   "templates/2026/SVG/2026-divider-08-portrait.svg": {
-    "key": "templates/2026/SVG/2026-divider-08-portrait.fdc4d0aa9115406e.svg",
-    "size": 4548,
-    "sha256": "fdc4d0aa9115406ead86a71dc006189f4f3c94c88f2ebd6ed920b15a55645f71"
+    "key": "templates/2026/SVG/2026-divider-08-portrait.a0e38305129780f6.svg",
+    "size": 4567,
+    "sha256": "a0e38305129780f69539a9529b8b472183b4b6efa679d9c79bde06a2c14d4287"
   },
   "templates/2026/SVG/2026-divider-09-landscape.svg": {
-    "key": "templates/2026/SVG/2026-divider-09-landscape.249192b8195384bd.svg",
-    "size": 4283,
-    "sha256": "249192b8195384bd2095edc986517d8f09835b3e037857ec90ec7177a07d26ea"
+    "key": "templates/2026/SVG/2026-divider-09-landscape.753052a46a66d277.svg",
+    "size": 4298,
+    "sha256": "753052a46a66d27740879b28eb359b98a1db30b1ad6458a1042d104c7e42b7ac"
   },
   "templates/2026/SVG/2026-divider-09-portrait.svg": {
-    "key": "templates/2026/SVG/2026-divider-09-portrait.cb21044a5c93aa10.svg",
-    "size": 4284,
-    "sha256": "cb21044a5c93aa10a2432567dc4df30d430f6121de705fe21386049ecb7dd184"
+    "key": "templates/2026/SVG/2026-divider-09-portrait.159e41adb8de9764.svg",
+    "size": 4303,
+    "sha256": "159e41adb8de97641093873a3c630e08350913a4b7d12e0de169f57be74c902c"
   },
   "templates/2026/SVG/2026-divider-10-landscape.svg": {
-    "key": "templates/2026/SVG/2026-divider-10-landscape.da2a20a53b65706b.svg",
-    "size": 4664,
-    "sha256": "da2a20a53b65706b89563f755b34bca718a1d3ce229ef0994d8e308764ba8695"
+    "key": "templates/2026/SVG/2026-divider-10-landscape.232ad17451047632.svg",
+    "size": 4679,
+    "sha256": "232ad17451047632464aca1cc7b1160e320cda61ae91a3ca4c53dc0eb095bf5e"
   },
   "templates/2026/SVG/2026-divider-10-portrait.svg": {
-    "key": "templates/2026/SVG/2026-divider-10-portrait.40d1f68cd2003404.svg",
-    "size": 4666,
-    "sha256": "40d1f68cd2003404d87e26eb70d6fdc95277536255074e4cc3bbbbd10e065213"
+    "key": "templates/2026/SVG/2026-divider-10-portrait.c512b79399f56dd4.svg",
+    "size": 4684,
+    "sha256": "c512b79399f56dd45d20d766ba91e0c09835b7d7aec00cda53ec6a0c391d5275"
   },
   "templates/2026/SVG/2026-divider-11-landscape.svg": {
-    "key": "templates/2026/SVG/2026-divider-11-landscape.34e905273543e7d3.svg",
-    "size": 4679,
-    "sha256": "34e905273543e7d39908f43748b41105b5980fa3c68f85ed49e9a340a377cb2b"
+    "key": "templates/2026/SVG/2026-divider-11-landscape.29650ff85b6c9035.svg",
+    "size": 4694,
+    "sha256": "29650ff85b6c903551c2f73ce87ed5bea6c3ccea51d6169cf1f69cf7234fcbd6"
   },
   "templates/2026/SVG/2026-divider-11-portrait.svg": {
-    "key": "templates/2026/SVG/2026-divider-11-portrait.744817aa15eabc81.svg",
-    "size": 4681,
-    "sha256": "744817aa15eabc818f5f048caa80b65a53994fcf9fa4c5d3b16424d755781aa9"
+    "key": "templates/2026/SVG/2026-divider-11-portrait.7bd87262d7bfe12a.svg",
+    "size": 4696,
+    "sha256": "7bd87262d7bfe12a0aa9c68dc8e424b803a48a62773cbefe13dff40f0642ba15"
   },
   "templates/2026/SVG/2026-divider-12-landscape.svg": {
-    "key": "templates/2026/SVG/2026-divider-12-landscape.d36ad565f1f9c3e1.svg",
-    "size": 5020,
-    "sha256": "d36ad565f1f9c3e1a9e73e285374c486192f4aa4653da9286230c7695137e80c"
+    "key": "templates/2026/SVG/2026-divider-12-landscape.3a1c74b855baf87a.svg",
+    "size": 5035,
+    "sha256": "3a1c74b855baf87a77d5db26bc9a00486785949844d33f3abeaab2f8505c7446"
   },
   "templates/2026/SVG/2026-divider-12-portrait.svg": {
-    "key": "templates/2026/SVG/2026-divider-12-portrait.5a28c5edbd473529.svg",
-    "size": 5022,
-    "sha256": "5a28c5edbd473529a00f8fdfb3322034c428bbf3d9499577314c8817d76a251f"
+    "key": "templates/2026/SVG/2026-divider-12-portrait.53abaa3dff4ba93b.svg",
+    "size": 5041,
+    "sha256": "53abaa3dff4ba93ba0ed2f294ce34804bc6248ecbe366dc680c4a8e8c686a1e2"
   },
   "templates/2026/SVG/2026-monthly-01-landscape.svg": {
-    "key": "templates/2026/SVG/2026-monthly-01-landscape.44e6137314f96de2.svg",
-    "size": 73262,
-    "sha256": "44e6137314f96de21beb1ce4f734e04ff0803090f4f042aa3fc7b8994a2a9c17"
+    "key": "templates/2026/SVG/2026-monthly-01-landscape.d0213da1ed0c478b.svg",
+    "size": 74090,
+    "sha256": "d0213da1ed0c478b8815d33c73a9552f9e9eedcbcb7eac80999ba9f495ad32a9"
   },
   "templates/2026/SVG/2026-monthly-01-portrait.svg": {
-    "key": "templates/2026/SVG/2026-monthly-01-portrait.d6f983cf6d5f1ea0.svg",
-    "size": 73259,
-    "sha256": "d6f983cf6d5f1ea097762237fd143646931d61dcae1bc9ff0f788f2b77e90e40"
+    "key": "templates/2026/SVG/2026-monthly-01-portrait.5f931e21afc9e7d8.svg",
+    "size": 74049,
+    "sha256": "5f931e21afc9e7d883b919bfd14b0884cedc22b548b7b0ce1e867cba6ec440e7"
   },
   "templates/2026/SVG/2026-monthly-02-landscape.svg": {
-    "key": "templates/2026/SVG/2026-monthly-02-landscape.f3513ebe87916b1b.svg",
-    "size": 60156,
-    "sha256": "f3513ebe87916b1b51dad764c1372ec15dbff0e310f654fb20777b7d04f5b4d8"
+    "key": "templates/2026/SVG/2026-monthly-02-landscape.bb3dc9092a340287.svg",
+    "size": 60851,
+    "sha256": "bb3dc9092a340287ab943a8fb0c7d57b4a7a5c5f5a48a7a8471e727e9981f616"
   },
   "templates/2026/SVG/2026-monthly-02-portrait.svg": {
-    "key": "templates/2026/SVG/2026-monthly-02-portrait.66ba4c9976939548.svg",
-    "size": 60153,
-    "sha256": "66ba4c9976939548cad7fb8bd09087b9cdb273195f5bcc430ef33e2ac9001fde"
+    "key": "templates/2026/SVG/2026-monthly-02-portrait.83e6ef39cc2d9c0f.svg",
+    "size": 60816,
+    "sha256": "83e6ef39cc2d9c0f61280ca6de3dfe2cb9a59af58d9d714bc0fdd2fcc797230c"
   },
   "templates/2026/SVG/2026-monthly-03-landscape.svg": {
-    "key": "templates/2026/SVG/2026-monthly-03-landscape.59ff4a26d6769fde.svg",
-    "size": 69958,
-    "sha256": "59ff4a26d6769fde412b41981c8b2bcc7655adc36da81c250964ed7dde26a580"
+    "key": "templates/2026/SVG/2026-monthly-03-landscape.2b153f9c7305c6cd.svg",
+    "size": 70786,
+    "sha256": "2b153f9c7305c6cd9aa5593021f00812b9060aea0455e99317d68fbad1bcaaec"
   },
   "templates/2026/SVG/2026-monthly-03-portrait.svg": {
-    "key": "templates/2026/SVG/2026-monthly-03-portrait.bd2e70710004c22a.svg",
-    "size": 69955,
-    "sha256": "bd2e70710004c22a3e387f42f7e954017d2880b8d0c8bf4c4c50e20f04eb7159"
+    "key": "templates/2026/SVG/2026-monthly-03-portrait.9787be61df6768fc.svg",
+    "size": 70745,
+    "sha256": "9787be61df6768fcd3cc833f6a247db84f3040beae85346290722a38606b14bd"
   },
   "templates/2026/SVG/2026-monthly-04-landscape.svg": {
-    "key": "templates/2026/SVG/2026-monthly-04-landscape.5d462876f1268481.svg",
-    "size": 70928,
-    "sha256": "5d462876f1268481937dd2449c1ed8e4f402e8714d3cda9fd29db29837de456f"
+    "key": "templates/2026/SVG/2026-monthly-04-landscape.6d0d0976f79cd0df.svg",
+    "size": 71756,
+    "sha256": "6d0d0976f79cd0df72d6edeeee3f8505dc344ba8d3cffd1684866a731b37b120"
   },
   "templates/2026/SVG/2026-monthly-04-portrait.svg": {
-    "key": "templates/2026/SVG/2026-monthly-04-portrait.b49822e3b4544cfc.svg",
-    "size": 70925,
-    "sha256": "b49822e3b4544cfcb5d4ffb56c7fb8549d727af6df0bf8c7b210a93c45072273"
+    "key": "templates/2026/SVG/2026-monthly-04-portrait.c08f932d41d5b44d.svg",
+    "size": 71715,
+    "sha256": "c08f932d41d5b44d6d8797f3d0c377366b006e1d7502168b90efd9b3f1dff95e"
   },
   "templates/2026/SVG/2026-monthly-05-landscape.svg": {
-    "key": "templates/2026/SVG/2026-monthly-05-landscape.a66ed01b913fd721.svg",
-    "size": 74981,
-    "sha256": "a66ed01b913fd721a35cf00015143f87a62fb798bdec1384cf4b4337f72628da"
+    "key": "templates/2026/SVG/2026-monthly-05-landscape.44a7f6e38e6cff8a.svg",
+    "size": 75824,
+    "sha256": "44a7f6e38e6cff8aa258b6f55fdbf8b2a6a1e6d97924a4081b1540810f699665"
   },
   "templates/2026/SVG/2026-monthly-05-portrait.svg": {
-    "key": "templates/2026/SVG/2026-monthly-05-portrait.115313495a4653dd.svg",
-    "size": 74978,
-    "sha256": "115313495a4653dd9d6881012cfe5fb8344db8119cda139eecd666c335a806ce"
+    "key": "templates/2026/SVG/2026-monthly-05-portrait.9b5a5b67acaf1011.svg",
+    "size": 75783,
+    "sha256": "9b5a5b67acaf1011a24e1b8c88e8659206bfa2aaa6d6bc0f6d954b4a0d988f32"
   },
   "templates/2026/SVG/2026-monthly-06-landscape.svg": {
-    "key": "templates/2026/SVG/2026-monthly-06-landscape.ddc5ff79de9d4f6a.svg",
-    "size": 69189,
-    "sha256": "ddc5ff79de9d4f6a2a5d5a366e8b9893e0989476e8c01b84350d0f5fd680c09e"
+    "key": "templates/2026/SVG/2026-monthly-06-landscape.4933d603e76385bb.svg",
+    "size": 70017,
+    "sha256": "4933d603e76385bb97583067d92e2a4766134f24a565a36f45b6a64e54ea5532"
   },
   "templates/2026/SVG/2026-monthly-06-portrait.svg": {
-    "key": "templates/2026/SVG/2026-monthly-06-portrait.5184fcd556bc862a.svg",
-    "size": 69186,
-    "sha256": "5184fcd556bc862a3c8746143fb20e07efe92881ce81f2d2817ae3eb6675d8a7"
+    "key": "templates/2026/SVG/2026-monthly-06-portrait.d2bdf73970bdc4e7.svg",
+    "size": 69976,
+    "sha256": "d2bdf73970bdc4e7c6104c3020e01b2cb4a9e60f47e000a326b11d781c3134fe"
   },
   "templates/2026/SVG/2026-monthly-07-landscape.svg": {
-    "key": "templates/2026/SVG/2026-monthly-07-landscape.15941e9efd33091d.svg",
-    "size": 71928,
-    "sha256": "15941e9efd33091d9e0ed9b7e15a27483ceeeb5e9268dc4a8e27d522e362d672"
+    "key": "templates/2026/SVG/2026-monthly-07-landscape.7cd76fb7ba74d363.svg",
+    "size": 72756,
+    "sha256": "7cd76fb7ba74d363ee3947fa4665d16c6d5d855dddbb21f4f5c6bf08fbc07c11"
   },
   "templates/2026/SVG/2026-monthly-07-portrait.svg": {
-    "key": "templates/2026/SVG/2026-monthly-07-portrait.4d9bb1bbc71dc895.svg",
-    "size": 71925,
-    "sha256": "4d9bb1bbc71dc89525a01d265e619a2dacc59965c50857db725f6d0017a713e1"
+    "key": "templates/2026/SVG/2026-monthly-07-portrait.1abde3d6c85c4893.svg",
+    "size": 72715,
+    "sha256": "1abde3d6c85c48933a601f5e7e33be6f28b143cd0784e3fdad6394cd2bd246c3"
   },
   "templates/2026/SVG/2026-monthly-08-landscape.svg": {
-    "key": "templates/2026/SVG/2026-monthly-08-landscape.8270fb99cfc4aff5.svg",
-    "size": 77173,
-    "sha256": "8270fb99cfc4aff5e4d73f0f2dfe02a306e3519a73aa0a5b37769496bcf9a235"
+    "key": "templates/2026/SVG/2026-monthly-08-landscape.25134c0ade4d61b8.svg",
+    "size": 78039,
+    "sha256": "25134c0ade4d61b8e9ef7541614d6b01a2cd26c41e4f4dedc69577288718268d"
   },
   "templates/2026/SVG/2026-monthly-08-portrait.svg": {
-    "key": "templates/2026/SVG/2026-monthly-08-portrait.85a223a9f8a1de15.svg",
-    "size": 77170,
-    "sha256": "85a223a9f8a1de1517fc0e1ef3bf769933deb7252d15e812a552159a9bcf32c2"
+    "key": "templates/2026/SVG/2026-monthly-08-portrait.7a2337a67dcd31d2.svg",
+    "size": 77997,
+    "sha256": "7a2337a67dcd31d28eeff2aa53230cf675221074d68c032972a478aaff5427b4"
   },
   "templates/2026/SVG/2026-monthly-09-landscape.svg": {
-    "key": "templates/2026/SVG/2026-monthly-09-landscape.db7340c9e079f5f4.svg",
-    "size": 70503,
-    "sha256": "db7340c9e079f5f4802910ed0855c868869375b5ef63f9e0e3fe31f63fcb5522"
+    "key": "templates/2026/SVG/2026-monthly-09-landscape.0887bf1d31d8c334.svg",
+    "size": 71331,
+    "sha256": "0887bf1d31d8c334efbf70855e79d8ca2630565c77f737c47581bff759b18f8b"
   },
   "templates/2026/SVG/2026-monthly-09-portrait.svg": {
-    "key": "templates/2026/SVG/2026-monthly-09-portrait.2e699d30457a24d8.svg",
-    "size": 70500,
-    "sha256": "2e699d30457a24d88aea34acb67aea23b616497b225e104d28b81e6ee299140e"
+    "key": "templates/2026/SVG/2026-monthly-09-portrait.467cab0723528ce0.svg",
+    "size": 71290,
+    "sha256": "467cab0723528ce055fcb99683c0092bde286ea7238720c683e77283b8834286"
   },
   "templates/2026/SVG/2026-monthly-10-landscape.svg": {
-    "key": "templates/2026/SVG/2026-monthly-10-landscape.6e3d2b4479b3082e.svg",
-    "size": 73301,
-    "sha256": "6e3d2b4479b3082ec2b74bb2b85a4d2cc46f3a68149279a91aca735d8aa03694"
+    "key": "templates/2026/SVG/2026-monthly-10-landscape.feb45dd93fe981ab.svg",
+    "size": 74129,
+    "sha256": "feb45dd93fe981ab64e705d30edd3d1e3a7f4fb2e70194876784ce1e3e2032ef"
   },
   "templates/2026/SVG/2026-monthly-10-portrait.svg": {
-    "key": "templates/2026/SVG/2026-monthly-10-portrait.4a778b4239f447f9.svg",
-    "size": 73298,
-    "sha256": "4a778b4239f447f99520b3758a5da1eda8f3ea5c88fe67edfaf5ac76495ade8c"
+    "key": "templates/2026/SVG/2026-monthly-10-portrait.209925f12b9d4d25.svg",
+    "size": 74088,
+    "sha256": "209925f12b9d4d25d91538db792b6e41c7f2373daeca8d4d3e007b90b6e45a0f"
   },
   "templates/2026/SVG/2026-monthly-11-landscape.svg": {
-    "key": "templates/2026/SVG/2026-monthly-11-landscape.189060cdd72044dc.svg",
-    "size": 68765,
-    "sha256": "189060cdd72044dca80bf15e713be088363c3129ca76b2ea13d6ba0f9986b2b6"
+    "key": "templates/2026/SVG/2026-monthly-11-landscape.8da1cd655538e884.svg",
+    "size": 69593,
+    "sha256": "8da1cd655538e8849ef9254f8dd8c27ccb83c71b82940ead13b794bf3c6219df"
   },
   "templates/2026/SVG/2026-monthly-11-portrait.svg": {
-    "key": "templates/2026/SVG/2026-monthly-11-portrait.f242afa04d8fd81a.svg",
-    "size": 68762,
-    "sha256": "f242afa04d8fd81a75214810c0032cc4ec80d98d6f2b11bb517db6166f99d563"
+    "key": "templates/2026/SVG/2026-monthly-11-portrait.da4d5ce4bac077a8.svg",
+    "size": 69552,
+    "sha256": "da4d5ce4bac077a8382f31ac5ec1639ebd6eec45609fd1a877d90c134330822f"
   },
   "templates/2026/SVG/2026-monthly-12-landscape.svg": {
-    "key": "templates/2026/SVG/2026-monthly-12-landscape.de3f6408c1fe605b.svg",
-    "size": 71865,
-    "sha256": "de3f6408c1fe605b50075a39b3e98461eaf7bbd682a3c633f2bc2332f5a9f878"
+    "key": "templates/2026/SVG/2026-monthly-12-landscape.3475ef4cd8042501.svg",
+    "size": 72693,
+    "sha256": "3475ef4cd8042501aa5fc83fd80710247b490d828c92eca790b704f9cfbe215a"
   },
   "templates/2026/SVG/2026-monthly-12-portrait.svg": {
-    "key": "templates/2026/SVG/2026-monthly-12-portrait.87267a479469a228.svg",
-    "size": 71862,
-    "sha256": "87267a479469a2286043637f3454875e2e9910c0a6f8be0e973cceab1c4193b7"
+    "key": "templates/2026/SVG/2026-monthly-12-portrait.a6b686749a8ed830.svg",
+    "size": 72652,
+    "sha256": "a6b686749a8ed830acfa534650153eb145e32d572e047215fdeaacea2e622c5f"
   },
   "templates/2026/SVG/2026-weekly-blocks-2025-12-29-landscape.svg": {
-    "key": "templates/2026/SVG/2026-weekly-blocks-2025-12-29-landscape.826154f82816d889.svg",
-    "size": 83286,
-    "sha256": "826154f82816d8893e20b88186f503c6815ebdca9fe3fa19f2d31e39e7c29c5c"
+    "key": "templates/2026/SVG/2026-weekly-blocks-2025-12-29-landscape.b3f4eed961de9a24.svg",
+    "size": 83601,
+    "sha256": "b3f4eed961de9a2460fd2a3a2e5fae7c2404872c87a2c872aaddc3b9616f13d5"
   },
   "templates/2026/SVG/2026-weekly-blocks-2025-12-29-portrait.svg": {
-    "key": "templates/2026/SVG/2026-weekly-blocks-2025-12-29-portrait.4994c5fd618ba89e.svg",
-    "size": 85788,
-    "sha256": "4994c5fd618ba89e1fb06a82f6eb82ed1d21a70c72ccf49a9e24c9379b6767b2"
+    "key": "templates/2026/SVG/2026-weekly-blocks-2025-12-29-portrait.d65037fb408ec826.svg",
+    "size": 86102,
+    "sha256": "d65037fb408ec826968dcada0b13d96276bdc38e5524ca2b404490e530b27259"
   },
   "templates/2026/SVG/2026-weekly-blocks-2026-01-05-landscape.svg": {
-    "key": "templates/2026/SVG/2026-weekly-blocks-2026-01-05-landscape.f85c4259721346b9.svg",
-    "size": 66400,
-    "sha256": "f85c4259721346b968d73e3eaf15dcadda40cb78674daab1b75c75d3282e2437"
+    "key": "templates/2026/SVG/2026-weekly-blocks-2026-01-05-landscape.1a6a2effc0de2746.svg",
+    "size": 66716,
+    "sha256": "1a6a2effc0de274615d7e2a92fdb6e5be231ffdebc7c15f335694e1a05b983e0"
   },
   "templates/2026/SVG/2026-weekly-blocks-2026-01-05-portrait.svg": {
-    "key": "templates/2026/SVG/2026-weekly-blocks-2026-01-05-portrait.037953cae1e77c64.svg",
-    "size": 68902,
-    "sha256": "037953cae1e77c6414452a5cd4f15c77ec4676909dc4bb282e9d1a6279743008"
+    "key": "templates/2026/SVG/2026-weekly-blocks-2026-01-05-portrait.8484ecca4dad4a68.svg",
+    "size": 69217,
+    "sha256": "8484ecca4dad4a68ce51065ed0ee8166262e8a357c1b06c1a0a5a4e207ea9fd8"
   },
   "templates/2026/SVG/2026-weekly-blocks-2026-01-12-landscape.svg": {
-    "key": "templates/2026/SVG/2026-weekly-blocks-2026-01-12-landscape.b84ddc1b89b8ead2.svg",
-    "size": 71073,
-    "sha256": "b84ddc1b89b8ead24aa26492aecfe8f26be0a69f47ac902daef1a4ba7cb37626"
+    "key": "templates/2026/SVG/2026-weekly-blocks-2026-01-12-landscape.787a3e9607ebac14.svg",
+    "size": 71390,
+    "sha256": "787a3e9607ebac14e2976334e4ad8d05600744461df658caf527cb76be7e8a38"
   },
   "templates/2026/SVG/2026-weekly-blocks-2026-01-12-portrait.svg": {
-    "key": "templates/2026/SVG/2026-weekly-blocks-2026-01-12-portrait.cc9b988b2f41272a.svg",
-    "size": 73575,
-    "sha256": "cc9b988b2f41272a70d2a1bf4b981e3079ec02532ba58da044691196238ebc0d"
+    "key": "templates/2026/SVG/2026-weekly-blocks-2026-01-12-portrait.6df9a30bb8b34cb8.svg",
+    "size": 73891,
+    "sha256": "6df9a30bb8b34cb858e5de5506c8506c97c6b8856dcd1366764326569ad710a5"
   },
   "templates/2026/SVG/2026-weekly-blocks-2026-01-19-landscape.svg": {
-    "key": "templates/2026/SVG/2026-weekly-blocks-2026-01-19-landscape.89ba3198a75bd5f9.svg",
-    "size": 72290,
-    "sha256": "89ba3198a75bd5f9c416db15657c85522c145426bb4bcf9264420bc38523a0f0"
+    "key": "templates/2026/SVG/2026-weekly-blocks-2026-01-19-landscape.9b2c44bc17f107a7.svg",
+    "size": 72606,
+    "sha256": "9b2c44bc17f107a7757cb175ab7b1205c6d634d21ead9075595b0cd31d13c2b7"
   },
   "templates/2026/SVG/2026-weekly-blocks-2026-01-19-portrait.svg": {
-    "key": "templates/2026/SVG/2026-weekly-blocks-2026-01-19-portrait.ca47a58d233a6daa.svg",
-    "size": 74792,
-    "sha256": "ca47a58d233a6daa600779e374045e269ad551bb8e5b6a287cfb494510b03f41"
+    "key": "templates/2026/SVG/2026-weekly-blocks-2026-01-19-portrait.b57ff10eeb6e7892.svg",
+    "size": 75107,
+    "sha256": "b57ff10eeb6e7892f92c0f8e7abe5cae5fd4324d8f67fd0b9d29738b3fd5e735"
   },
   "templates/2026/SVG/2026-weekly-blocks-2026-01-26-landscape.svg": {
-    "key": "templates/2026/SVG/2026-weekly-blocks-2026-01-26-landscape.21aac968377836b9.svg",
-    "size": 81306,
-    "sha256": "21aac968377836b9cd7d593d5decb0c8feecc49b2bce69bd5a3b0e48df000d6d"
+    "key": "templates/2026/SVG/2026-weekly-blocks-2026-01-26-landscape.135ed7db55067b96.svg",
+    "size": 81623,
+    "sha256": "135ed7db55067b96d9af0d5691ca2c52d2684873bbd7f1613c69765414f17833"
   },
   "templates/2026/SVG/2026-weekly-blocks-2026-01-26-portrait.svg": {
-    "key": "templates/2026/SVG/2026-weekly-blocks-2026-01-26-portrait.38ed6cc9714a4e34.svg",
-    "size": 83808,
-    "sha256": "38ed6cc9714a4e344545556c218f4717575417c51e9ba3286bd48aba1d2a2276"
+    "key": "templates/2026/SVG/2026-weekly-blocks-2026-01-26-portrait.f45157922eb3ba86.svg",
+    "size": 84124,
+    "sha256": "f45157922eb3ba8657b1820510a972b223e7c0a764467fe53c67e5ea36f617b1"
   },
   "templates/2026/SVG/2026-weekly-blocks-2026-02-02-landscape.svg": {
-    "key": "templates/2026/SVG/2026-weekly-blocks-2026-02-02-landscape.ccbeb51e46fa5d9e.svg",
-    "size": 67877,
-    "sha256": "ccbeb51e46fa5d9e8508681fbb976725912ff2e1cd433cc4c1fa03bb5bf66509"
+    "key": "templates/2026/SVG/2026-weekly-blocks-2026-02-02-landscape.c81912fd7a102686.svg",
+    "size": 68194,
+    "sha256": "c81912fd7a102686a8f68a7d34b8a86b14e27e1273d05c50e5ed47fb70c15f17"
   },
   "templates/2026/SVG/2026-weekly-blocks-2026-02-02-portrait.svg": {
-    "key": "templates/2026/SVG/2026-weekly-blocks-2026-02-02-portrait.1c9ca65e1c77391d.svg",
-    "size": 70379,
-    "sha256": "1c9ca65e1c77391dbebb11b0ab73f873d7c77a3ac6cdf6df439720e43bca141d"
+    "key": "templates/2026/SVG/2026-weekly-blocks-2026-02-02-portrait.3469226849f6a4d2.svg",
+    "size": 70695,
+    "sha256": "3469226849f6a4d215e4bfd0ea63cf370a80c28b37491e084d875b40523ec647"
   },
   "templates/2026/SVG/2026-weekly-blocks-2026-02-09-landscape.svg": {
-    "key": "templates/2026/SVG/2026-weekly-blocks-2026-02-09-landscape.cff334a8a3d9b8e2.svg",
-    "size": 71090,
-    "sha256": "cff334a8a3d9b8e251ee6e323a3d36a28450f7ed97e6a7bcd819d3565d7abf04"
+    "key": "templates/2026/SVG/2026-weekly-blocks-2026-02-09-landscape.d22eb08778ec54cf.svg",
+    "size": 71407,
+    "sha256": "d22eb08778ec54cf0a9b5e551d81e196cab9eae652fa51fcbd9e6378c17e20e5"
   },
   "templates/2026/SVG/2026-weekly-blocks-2026-02-09-portrait.svg": {
-    "key": "templates/2026/SVG/2026-weekly-blocks-2026-02-09-portrait.48a2ea4a086b8bd2.svg",
-    "size": 73592,
-    "sha256": "48a2ea4a086b8bd25bea51f0c0ff10e9595171d8c38d94f041cead7a80318f9b"
+    "key": "templates/2026/SVG/2026-weekly-blocks-2026-02-09-portrait.d0932a32e77b6afd.svg",
+    "size": 73908,
+    "sha256": "d0932a32e77b6afdd096f2e5ac09331c5798beeed6278751f48d75214b842589"
   },
   "templates/2026/SVG/2026-weekly-blocks-2026-02-16-landscape.svg": {
-    "key": "templates/2026/SVG/2026-weekly-blocks-2026-02-16-landscape.adcf18853987ac33.svg",
-    "size": 71559,
-    "sha256": "adcf18853987ac337d5a8bd4cf9926c78c39c18f4b4b01a25528ffbb8dbe1697"
+    "key": "templates/2026/SVG/2026-weekly-blocks-2026-02-16-landscape.b3c25dc5b9b8ddbf.svg",
+    "size": 71876,
+    "sha256": "b3c25dc5b9b8ddbf12055712cd8d3c99905fca9551d292684a92ed7488b6b621"
   },
   "templates/2026/SVG/2026-weekly-blocks-2026-02-16-portrait.svg": {
-    "key": "templates/2026/SVG/2026-weekly-blocks-2026-02-16-portrait.f78b5f2fd3efa209.svg",
-    "size": 74061,
-    "sha256": "f78b5f2fd3efa20973d73a02c80cf67176bc9cfd8d49151545d3761379ac9f05"
+    "key": "templates/2026/SVG/2026-weekly-blocks-2026-02-16-portrait.737a96f29d841e3a.svg",
+    "size": 74377,
+    "sha256": "737a96f29d841e3ac5518c3e8392ac5d94fff6ef35a3bd29f3688a1a20e369bb"
   },
   "templates/2026/SVG/2026-weekly-blocks-2026-02-23-landscape.svg": {
-    "key": "templates/2026/SVG/2026-weekly-blocks-2026-02-23-landscape.d6da45f690484e7f.svg",
-    "size": 83168,
-    "sha256": "d6da45f690484e7f3e10003ad196a772f0d92f1a011784eaa47415e0ca55eb66"
+    "key": "templates/2026/SVG/2026-weekly-blocks-2026-02-23-landscape.c8cdf4b6261b1ef6.svg",
+    "size": 83485,
+    "sha256": "c8cdf4b6261b1ef65e182c27b887c03f488f8fe0f81c8a6c6b13c928e2882e6e"
   },
   "templates/2026/SVG/2026-weekly-blocks-2026-02-23-portrait.svg": {
-    "key": "templates/2026/SVG/2026-weekly-blocks-2026-02-23-portrait.8cf5029a425687a6.svg",
-    "size": 85670,
-    "sha256": "8cf5029a425687a6e52ddb6aa4890b5e2066ccf983c383f66ae0ba245459a713"
+    "key": "templates/2026/SVG/2026-weekly-blocks-2026-02-23-portrait.e4439529c51bff21.svg",
+    "size": 85986,
+    "sha256": "e4439529c51bff210f02c7771ab9f5b3ac1878975d2e778462b46055ee07b61b"
   },
   "templates/2026/SVG/2026-weekly-blocks-2026-03-02-landscape.svg": {
-    "key": "templates/2026/SVG/2026-weekly-blocks-2026-03-02-landscape.2ea6c28e5a333bc3.svg",
-    "size": 69004,
-    "sha256": "2ea6c28e5a333bc369b1230c17e78852b4e844fd2b7dee12f9014124551b83cf"
+    "key": "templates/2026/SVG/2026-weekly-blocks-2026-03-02-landscape.300b35a5bacb65b1.svg",
+    "size": 69321,
+    "sha256": "300b35a5bacb65b18be9062ad487a410dda638bab272b1010d45591ebcae2e9a"
   },
   "templates/2026/SVG/2026-weekly-blocks-2026-03-02-portrait.svg": {
-    "key": "templates/2026/SVG/2026-weekly-blocks-2026-03-02-portrait.4d72cec46f59c6f3.svg",
-    "size": 71506,
-    "sha256": "4d72cec46f59c6f30d9617c4c0cbf28657363aed7b7608b0ad47d8bf049d002b"
+    "key": "templates/2026/SVG/2026-weekly-blocks-2026-03-02-portrait.23557664bb8fe8d1.svg",
+    "size": 71822,
+    "sha256": "23557664bb8fe8d119c36ff446979fca5bdf911ae0c0e34f9aba129e775b71b1"
   },
   "templates/2026/SVG/2026-weekly-blocks-2026-03-09-landscape.svg": {
-    "key": "templates/2026/SVG/2026-weekly-blocks-2026-03-09-landscape.52768e608827b6d3.svg",
-    "size": 72217,
-    "sha256": "52768e608827b6d359149eeb463c096c8bc4f846cac3ff9507820f8cd06c4fc9"
+    "key": "templates/2026/SVG/2026-weekly-blocks-2026-03-09-landscape.22673f648c8dced9.svg",
+    "size": 72534,
+    "sha256": "22673f648c8dced97313b6485a8fd0894fa10653bde3e7a906ca28690c2cfea8"
   },
   "templates/2026/SVG/2026-weekly-blocks-2026-03-09-portrait.svg": {
-    "key": "templates/2026/SVG/2026-weekly-blocks-2026-03-09-portrait.e01b36ef943e4143.svg",
-    "size": 74719,
-    "sha256": "e01b36ef943e4143b008d7beb4d2b4ce940ce3ce0e2b2a056853dcd77f44d132"
+    "key": "templates/2026/SVG/2026-weekly-blocks-2026-03-09-portrait.eaa1fb697fb15d50.svg",
+    "size": 75035,
+    "sha256": "eaa1fb697fb15d5055db03a06787c778d58231e4f09728c69bf1583b75fcfabd"
   },
   "templates/2026/SVG/2026-weekly-blocks-2026-03-16-landscape.svg": {
-    "key": "templates/2026/SVG/2026-weekly-blocks-2026-03-16-landscape.3b9375855cab85b0.svg",
-    "size": 72686,
-    "sha256": "3b9375855cab85b02bd5ef0aab08f1df10270cbf91f0179d1f394878c67dbe04"
+    "key": "templates/2026/SVG/2026-weekly-blocks-2026-03-16-landscape.81d9d993944311ee.svg",
+    "size": 73003,
+    "sha256": "81d9d993944311ee4d8e384e6092accb52ca7c1dd0bda30c417501db7c38861e"
   },
   "templates/2026/SVG/2026-weekly-blocks-2026-03-16-portrait.svg": {
-    "key": "templates/2026/SVG/2026-weekly-blocks-2026-03-16-portrait.96f343bbfbeb126b.svg",
-    "size": 75188,
-    "sha256": "96f343bbfbeb126b97570153950ef0a43b11e342e240bac70837290e77c3e86c"
+    "key": "templates/2026/SVG/2026-weekly-blocks-2026-03-16-portrait.4a6c8c991a56ab15.svg",
+    "size": 75504,
+    "sha256": "4a6c8c991a56ab15ccc01a3f25a4374f321e42ed01ba7f6babc356910a7e790b"
   },
   "templates/2026/SVG/2026-weekly-blocks-2026-03-23-landscape.svg": {
-    "key": "templates/2026/SVG/2026-weekly-blocks-2026-03-23-landscape.3f77aeca4f4a31de.svg",
-    "size": 75594,
-    "sha256": "3f77aeca4f4a31de36d09c2649cf8e610258d05e2d86e43049ed80115a075e4d"
+    "key": "templates/2026/SVG/2026-weekly-blocks-2026-03-23-landscape.e5f0144f9824a0fc.svg",
+    "size": 75910,
+    "sha256": "e5f0144f9824a0fccd59642f4c246aa280ef553d2a79511c03a645a20c548125"
   },
   "templates/2026/SVG/2026-weekly-blocks-2026-03-23-portrait.svg": {
-    "key": "templates/2026/SVG/2026-weekly-blocks-2026-03-23-portrait.db30468f1e33b4ba.svg",
-    "size": 78096,
-    "sha256": "db30468f1e33b4ba6d87d94e01dc565c6eb4e5a5dcb7b5c072c65659a7d16be8"
+    "key": "templates/2026/SVG/2026-weekly-blocks-2026-03-23-portrait.a1bb5bedb5083b70.svg",
+    "size": 78411,
+    "sha256": "a1bb5bedb5083b703e10a7e535e2ca5237ef219581356cb569823a4a4b99cc77"
   },
   "templates/2026/SVG/2026-weekly-blocks-2026-03-30-landscape.svg": {
-    "key": "templates/2026/SVG/2026-weekly-blocks-2026-03-30-landscape.a8f87e358b7f7ff4.svg",
-    "size": 79767,
-    "sha256": "a8f87e358b7f7ff40c406acbc3c4915274b91f12f9055c7c14b102be7eba06ee"
+    "key": "templates/2026/SVG/2026-weekly-blocks-2026-03-30-landscape.bb8fc93da4631f16.svg",
+    "size": 80084,
+    "sha256": "bb8fc93da4631f165ebe6f0784216e4a61aaed637c6bd70ceba03e4ca0d967c1"
   },
   "templates/2026/SVG/2026-weekly-blocks-2026-03-30-portrait.svg": {
-    "key": "templates/2026/SVG/2026-weekly-blocks-2026-03-30-portrait.bf07a80994e4e99a.svg",
-    "size": 82269,
-    "sha256": "bf07a80994e4e99aa5536a4015312181b93347d80ebba5f002aac12b7da08b42"
+    "key": "templates/2026/SVG/2026-weekly-blocks-2026-03-30-portrait.f51160e69daa3465.svg",
+    "size": 82585,
+    "sha256": "f51160e69daa346581e449eaddc361d424da2717c13330732197a7e5984302b6"
   },
   "templates/2026/SVG/2026-weekly-blocks-2026-04-06-landscape.svg": {
-    "key": "templates/2026/SVG/2026-weekly-blocks-2026-04-06-landscape.904952d5288e83bb.svg",
-    "size": 67458,
-    "sha256": "904952d5288e83bbb40ab82cc4f584c0a20eeec538e01bd088d659415a49dd62"
+    "key": "templates/2026/SVG/2026-weekly-blocks-2026-04-06-landscape.9278d2b24a3512b7.svg",
+    "size": 67775,
+    "sha256": "9278d2b24a3512b7984977c66f9bf2c5771baaefe3ab1258ccaf3b2ff6623693"
   },
   "templates/2026/SVG/2026-weekly-blocks-2026-04-06-portrait.svg": {
-    "key": "templates/2026/SVG/2026-weekly-blocks-2026-04-06-portrait.2e0ae8e37ff4cdc2.svg",
-    "size": 69960,
-    "sha256": "2e0ae8e37ff4cdc2a876e691d60115ee384483280d3b20c9bbd0ba8ce4d59caf"
+    "key": "templates/2026/SVG/2026-weekly-blocks-2026-04-06-portrait.d35eb4607585e0a3.svg",
+    "size": 70276,
+    "sha256": "d35eb4607585e0a3928c461aa55b63099b34a4bc7c513834a2bdcd080fcdbe8d"
   },
   "templates/2026/SVG/2026-weekly-blocks-2026-04-13-landscape.svg": {
-    "key": "templates/2026/SVG/2026-weekly-blocks-2026-04-13-landscape.eca3f2abfe1985fb.svg",
-    "size": 71112,
-    "sha256": "eca3f2abfe1985fb26a5c1ef58df601b34641c94571496734432c1a927167342"
+    "key": "templates/2026/SVG/2026-weekly-blocks-2026-04-13-landscape.d88e7502994a7346.svg",
+    "size": 71429,
+    "sha256": "d88e7502994a7346374ac89fee64c6fbbace929308f77f5fd869cb8dd0cbdbb2"
   },
   "templates/2026/SVG/2026-weekly-blocks-2026-04-13-portrait.svg": {
-    "key": "templates/2026/SVG/2026-weekly-blocks-2026-04-13-portrait.fb4b16c217050c92.svg",
-    "size": 73614,
-    "sha256": "fb4b16c217050c9294a59b555bea825c0728a13feec485e0f941acb438595934"
+    "key": "templates/2026/SVG/2026-weekly-blocks-2026-04-13-portrait.486c0d8eb0484ef4.svg",
+    "size": 73930,
+    "sha256": "486c0d8eb0484ef482660086eeee0e04447cd1f0060fcb2fa2a13861cd772d00"
   },
   "templates/2026/SVG/2026-weekly-blocks-2026-04-20-landscape.svg": {
-    "key": "templates/2026/SVG/2026-weekly-blocks-2026-04-20-landscape.34a4be8d4966434c.svg",
-    "size": 72765,
-    "sha256": "34a4be8d4966434c1557e3060f728dc506960718dd559bcca9021c648bcfac4c"
+    "key": "templates/2026/SVG/2026-weekly-blocks-2026-04-20-landscape.c6030b7e3df70b88.svg",
+    "size": 73082,
+    "sha256": "c6030b7e3df70b88a4129ab65778e03d4a34b609434298b354723c6bf0a7544b"
   },
   "templates/2026/SVG/2026-weekly-blocks-2026-04-20-portrait.svg": {
-    "key": "templates/2026/SVG/2026-weekly-blocks-2026-04-20-portrait.4dd71ba84972a1bd.svg",
-    "size": 75267,
-    "sha256": "4dd71ba84972a1bdf303d6c0c26147ebc8a915d8247bc1653115eced6ee37f44"
+    "key": "templates/2026/SVG/2026-weekly-blocks-2026-04-20-portrait.2b32beabcad742d0.svg",
+    "size": 75583,
+    "sha256": "2b32beabcad742d0ea2c464cf42d6f2a25ead22078d161ae7c5728028c230ead"
   },
   "templates/2026/SVG/2026-weekly-blocks-2026-04-27-landscape.svg": {
-    "key": "templates/2026/SVG/2026-weekly-blocks-2026-04-27-landscape.cb3d059c8bd7669e.svg",
-    "size": 80285,
-    "sha256": "cb3d059c8bd7669eeff4b5d4cb370e374262c97ec325733572a4a03aecb01a45"
+    "key": "templates/2026/SVG/2026-weekly-blocks-2026-04-27-landscape.2500f4f43f7b9fc6.svg",
+    "size": 80602,
+    "sha256": "2500f4f43f7b9fc6bb195ee854da0863c1d785c6b15e9ed5030dac6d0aeae998"
   },
   "templates/2026/SVG/2026-weekly-blocks-2026-04-27-portrait.svg": {
-    "key": "templates/2026/SVG/2026-weekly-blocks-2026-04-27-portrait.d49d8cf1c66f738d.svg",
-    "size": 82787,
-    "sha256": "d49d8cf1c66f738d90a8f237399595e74378e6cb0a05f307fbb6a135cf0ae39f"
+    "key": "templates/2026/SVG/2026-weekly-blocks-2026-04-27-portrait.b02896486e479108.svg",
+    "size": 83103,
+    "sha256": "b02896486e4791087cf6392c387797b85c92f987e0e39f89e637046fc7d7bada"
   },
   "templates/2026/SVG/2026-weekly-blocks-2026-05-04-landscape.svg": {
-    "key": "templates/2026/SVG/2026-weekly-blocks-2026-05-04-landscape.358260a4408d9042.svg",
-    "size": 66608,
-    "sha256": "358260a4408d90429eb879916346488873d9ba4d1b36a31cf63712dd44154ff8"
+    "key": "templates/2026/SVG/2026-weekly-blocks-2026-05-04-landscape.329327f9401bfa6d.svg",
+    "size": 66925,
+    "sha256": "329327f9401bfa6df0bf909c5a3d39416021b0edf50d950171e4e6a0bf28c624"
   },
   "templates/2026/SVG/2026-weekly-blocks-2026-05-04-portrait.svg": {
-    "key": "templates/2026/SVG/2026-weekly-blocks-2026-05-04-portrait.ca9a9874e3468784.svg",
-    "size": 69110,
-    "sha256": "ca9a9874e3468784cc1c5ac69a9c6014f50077d2d667c1b377a34e5d775c1ea7"
+    "key": "templates/2026/SVG/2026-weekly-blocks-2026-05-04-portrait.98d7ea80179dacd9.svg",
+    "size": 69426,
+    "sha256": "98d7ea80179dacd96a7e3bb1fe123e7b7c667ed3c523f8f91a15d0cc903ea0bc"
   },
   "templates/2026/SVG/2026-weekly-blocks-2026-05-11-landscape.svg": {
-    "key": "templates/2026/SVG/2026-weekly-blocks-2026-05-11-landscape.7f9f33d4bfc33f8e.svg",
-    "size": 70594,
-    "sha256": "7f9f33d4bfc33f8e69102b6d54220282f49466ead59cc45f333865b9686927ca"
+    "key": "templates/2026/SVG/2026-weekly-blocks-2026-05-11-landscape.7c079c25e891a283.svg",
+    "size": 70910,
+    "sha256": "7c079c25e891a28358d61c3aa90efa53e57dc8c9741524a4166624abc77da563"
   },
   "templates/2026/SVG/2026-weekly-blocks-2026-05-11-portrait.svg": {
-    "key": "templates/2026/SVG/2026-weekly-blocks-2026-05-11-portrait.54d108307707835d.svg",
-    "size": 73096,
-    "sha256": "54d108307707835df1300f7b43c98b9fb1e95cfd6157c05ef175d2ea1e9c7920"
+    "key": "templates/2026/SVG/2026-weekly-blocks-2026-05-11-portrait.9e2c34c5c1eb31cd.svg",
+    "size": 73411,
+    "sha256": "9e2c34c5c1eb31cda234651ecbb4a621370e84bd51d946ed938df5755030bbf0"
   },
   "templates/2026/SVG/2026-weekly-blocks-2026-05-18-landscape.svg": {
-    "key": "templates/2026/SVG/2026-weekly-blocks-2026-05-18-landscape.0d1811026886cc76.svg",
-    "size": 72967,
-    "sha256": "0d1811026886cc76daf0c236f2d6863723f369575406c03c3c39cd22176bf58d"
+    "key": "templates/2026/SVG/2026-weekly-blocks-2026-05-18-landscape.f3766cca9913e905.svg",
+    "size": 73283,
+    "sha256": "f3766cca9913e9053adf0207f5c741e487031c0e23011dd3996da1e64d33f435"
   },
   "templates/2026/SVG/2026-weekly-blocks-2026-05-18-portrait.svg": {
-    "key": "templates/2026/SVG/2026-weekly-blocks-2026-05-18-portrait.319bd2188a2fc895.svg",
-    "size": 75469,
-    "sha256": "319bd2188a2fc89579de4cbd48f5d1671b4f9e603acca566ecf60b258950930d"
+    "key": "templates/2026/SVG/2026-weekly-blocks-2026-05-18-portrait.e6cecc95004809c0.svg",
+    "size": 75784,
+    "sha256": "e6cecc95004809c0ef5b199fae51324d239b5e7813dfceef0839f7a8ba0d05e1"
   },
   "templates/2026/SVG/2026-weekly-blocks-2026-05-25-landscape.svg": {
-    "key": "templates/2026/SVG/2026-weekly-blocks-2026-05-25-landscape.426167451d069a52.svg",
-    "size": 74153,
-    "sha256": "426167451d069a52d459edc2e86234c2a8918b6805fdb566cffa2dd253d462cd"
+    "key": "templates/2026/SVG/2026-weekly-blocks-2026-05-25-landscape.0bc910b09a9f4a73.svg",
+    "size": 74470,
+    "sha256": "0bc910b09a9f4a735ad2ab291d7954916fc97a5285fffdbd80aaafc3a133b04b"
   },
   "templates/2026/SVG/2026-weekly-blocks-2026-05-25-portrait.svg": {
-    "key": "templates/2026/SVG/2026-weekly-blocks-2026-05-25-portrait.d2560f0f5c703042.svg",
-    "size": 76655,
-    "sha256": "d2560f0f5c703042b742d74b6c65fae6e59ce163b47b0b602000d589d22ccacc"
+    "key": "templates/2026/SVG/2026-weekly-blocks-2026-05-25-portrait.94ea7ac7646c8ed0.svg",
+    "size": 76971,
+    "sha256": "94ea7ac7646c8ed017eca51113b7d4c545cbaa4b2d83ee2a410be1fe0f819ce6"
   },
   "templates/2026/SVG/2026-weekly-blocks-2026-06-01-landscape.svg": {
-    "key": "templates/2026/SVG/2026-weekly-blocks-2026-06-01-landscape.feabcbd526a4feeb.svg",
-    "size": 65941,
-    "sha256": "feabcbd526a4feeb0d0561bd6633b33f667b07639f1bb8e6557b57e8eb8c4f08"
+    "key": "templates/2026/SVG/2026-weekly-blocks-2026-06-01-landscape.64a19d90ee058ea1.svg",
+    "size": 66256,
+    "sha256": "64a19d90ee058ea17d767919d871c79fe20f93e8b771c07d84246d502fac9cb0"
   },
   "templates/2026/SVG/2026-weekly-blocks-2026-06-01-portrait.svg": {
-    "key": "templates/2026/SVG/2026-weekly-blocks-2026-06-01-portrait.a9287ce2f7f41773.svg",
-    "size": 68443,
-    "sha256": "a9287ce2f7f41773e878fbef3655c87e00a8e926cd00c9856f36e987fb98b186"
+    "key": "templates/2026/SVG/2026-weekly-blocks-2026-06-01-portrait.258af2ad5c41d5fb.svg",
+    "size": 68757,
+    "sha256": "258af2ad5c41d5fb87492d1e8bb9ada4c3630d6e54a71658ada2ca8fbfe0df16"
   },
   "templates/2026/SVG/2026-weekly-blocks-2026-06-08-landscape.svg": {
-    "key": "templates/2026/SVG/2026-weekly-blocks-2026-06-08-landscape.834a7bc793e99cf6.svg",
-    "size": 70018,
-    "sha256": "834a7bc793e99cf60073a1deed04fbb9f617f1802dabcd94d4fb02ca75a1c6db"
+    "key": "templates/2026/SVG/2026-weekly-blocks-2026-06-08-landscape.2bceee7b155a0457.svg",
+    "size": 70335,
+    "sha256": "2bceee7b155a04579a5da08e248eca02ac225e71ef90c45e8fd5c0b4ceb5a817"
   },
   "templates/2026/SVG/2026-weekly-blocks-2026-06-08-portrait.svg": {
-    "key": "templates/2026/SVG/2026-weekly-blocks-2026-06-08-portrait.19848fd14cf58ea1.svg",
-    "size": 72520,
-    "sha256": "19848fd14cf58ea17e5c692f5dfe3e8e398dee5bbd8a3e67e3f953120cc52436"
+    "key": "templates/2026/SVG/2026-weekly-blocks-2026-06-08-portrait.3a382c711aee5d1d.svg",
+    "size": 72836,
+    "sha256": "3a382c711aee5d1d3657baa6f1966403addd01c571e4903edaf0b76491ef8439"
   },
   "templates/2026/SVG/2026-weekly-blocks-2026-06-15-landscape.svg": {
-    "key": "templates/2026/SVG/2026-weekly-blocks-2026-06-15-landscape.92de3f9787fc0fe0.svg",
-    "size": 71319,
-    "sha256": "92de3f9787fc0fe0fd7500145a04c73e675ef46dea8a2d4292ba21b8a4bb863e"
+    "key": "templates/2026/SVG/2026-weekly-blocks-2026-06-15-landscape.13cc69672249099e.svg",
+    "size": 71636,
+    "sha256": "13cc69672249099eec597c00c3f2bdd2c22ad4834547b57cc53fb7c33e25d344"
   },
   "templates/2026/SVG/2026-weekly-blocks-2026-06-15-portrait.svg": {
-    "key": "templates/2026/SVG/2026-weekly-blocks-2026-06-15-portrait.3b6accd9a712f884.svg",
-    "size": 73821,
-    "sha256": "3b6accd9a712f8844ab987136098264dc508f57defb919e4792398c3bef490b9"
+    "key": "templates/2026/SVG/2026-weekly-blocks-2026-06-15-portrait.67e8d2196cec5665.svg",
+    "size": 74137,
+    "sha256": "67e8d2196cec5665965ef53c885694ac87070efabb23b938cfd225f00988e042"
   },
   "templates/2026/SVG/2026-weekly-blocks-2026-06-22-landscape.svg": {
-    "key": "templates/2026/SVG/2026-weekly-blocks-2026-06-22-landscape.b0bd52b36e4da8b0.svg",
-    "size": 74214,
-    "sha256": "b0bd52b36e4da8b03b592adad17ed058f82e731623918c2c0932dfa996ce9f24"
+    "key": "templates/2026/SVG/2026-weekly-blocks-2026-06-22-landscape.e263f4c27ed1c479.svg",
+    "size": 74531,
+    "sha256": "e263f4c27ed1c4793f820080a15a22f968789ccd6e4cb2bcc457d72280f3598a"
   },
   "templates/2026/SVG/2026-weekly-blocks-2026-06-22-portrait.svg": {
-    "key": "templates/2026/SVG/2026-weekly-blocks-2026-06-22-portrait.bd00b5d943dd1bb1.svg",
-    "size": 76716,
-    "sha256": "bd00b5d943dd1bb1d865d3c8150b84e5f6591f98a97f7e5f7e914e519a701792"
+    "key": "templates/2026/SVG/2026-weekly-blocks-2026-06-22-portrait.9adacd05b98af887.svg",
+    "size": 77032,
+    "sha256": "9adacd05b98af88713f283ef0e5b60fc6a0e50f115b64aaaf3583f5a47c3003e"
   },
   "templates/2026/SVG/2026-weekly-blocks-2026-06-29-landscape.svg": {
-    "key": "templates/2026/SVG/2026-weekly-blocks-2026-06-29-landscape.6b57df9189f35f5b.svg",
-    "size": 78161,
-    "sha256": "6b57df9189f35f5b090c677663146183b7b0231a015f63333b42da66476e2df0"
+    "key": "templates/2026/SVG/2026-weekly-blocks-2026-06-29-landscape.7b3eca2552d129e0.svg",
+    "size": 78478,
+    "sha256": "7b3eca2552d129e09b7324c49e50506d957203080c0423a9ee211ad65476e92a"
   },
   "templates/2026/SVG/2026-weekly-blocks-2026-06-29-portrait.svg": {
-    "key": "templates/2026/SVG/2026-weekly-blocks-2026-06-29-portrait.3f19f9a0ba0bc3f8.svg",
-    "size": 80663,
-    "sha256": "3f19f9a0ba0bc3f8524cd78e8b7d206818989cfd83aa8b7dd6d8eb488b706daf"
+    "key": "templates/2026/SVG/2026-weekly-blocks-2026-06-29-portrait.dbeb35355c73a874.svg",
+    "size": 80979,
+    "sha256": "dbeb35355c73a8740a77167d3b7035c8a23c5e8ea90094c3c646c779e67b710a"
   },
   "templates/2026/SVG/2026-weekly-blocks-2026-07-06-landscape.svg": {
-    "key": "templates/2026/SVG/2026-weekly-blocks-2026-07-06-landscape.1e483d265808d9a2.svg",
-    "size": 66937,
-    "sha256": "1e483d265808d9a2a9f2b39316f8aafeb39c03f3736a98dcdf8325ec767bdce3"
+    "key": "templates/2026/SVG/2026-weekly-blocks-2026-07-06-landscape.a5f35c7d3d9c103e.svg",
+    "size": 67254,
+    "sha256": "a5f35c7d3d9c103e4b0ee0325d4c92efddd756cdfa34559a783814beddeef0ed"
   },
   "templates/2026/SVG/2026-weekly-blocks-2026-07-06-portrait.svg": {
-    "key": "templates/2026/SVG/2026-weekly-blocks-2026-07-06-portrait.8766e7ea5cf84e42.svg",
-    "size": 69439,
-    "sha256": "8766e7ea5cf84e4271d7e89a4e9f79dba68a222fbb0c1971f6c50ddac75a1930"
+    "key": "templates/2026/SVG/2026-weekly-blocks-2026-07-06-portrait.bd358b5b864b1e15.svg",
+    "size": 69755,
+    "sha256": "bd358b5b864b1e1598196c5f106e1faeac74b0300c93f8026911aee991d37030"
   },
   "templates/2026/SVG/2026-weekly-blocks-2026-07-13-landscape.svg": {
-    "key": "templates/2026/SVG/2026-weekly-blocks-2026-07-13-landscape.e66d29d1e64b1577.svg",
-    "size": 70591,
-    "sha256": "e66d29d1e64b1577008749594bd02b4d963171f153f429f56969db1c65fdb8cf"
+    "key": "templates/2026/SVG/2026-weekly-blocks-2026-07-13-landscape.46b039aea296de2e.svg",
+    "size": 70908,
+    "sha256": "46b039aea296de2e7a6f867102eec74088c5097284b087a36c85b977d8a1dfc7"
   },
   "templates/2026/SVG/2026-weekly-blocks-2026-07-13-portrait.svg": {
-    "key": "templates/2026/SVG/2026-weekly-blocks-2026-07-13-portrait.c1abd57729d24291.svg",
-    "size": 73093,
-    "sha256": "c1abd57729d2429147c893f251db894ef324c4b07a30ae6ccd2977bf765e5710"
+    "key": "templates/2026/SVG/2026-weekly-blocks-2026-07-13-portrait.ac18f57c522ea58b.svg",
+    "size": 73409,
+    "sha256": "ac18f57c522ea58b50c169f58f3175e1abf5e135d95a3e2d2ae139021b5bb28d"
   },
   "templates/2026/SVG/2026-weekly-blocks-2026-07-20-landscape.svg": {
-    "key": "templates/2026/SVG/2026-weekly-blocks-2026-07-20-landscape.9247c1cc594ff691.svg",
-    "size": 72243,
-    "sha256": "9247c1cc594ff6913e0e5c36d2d7d69f1805824897192905f239df349ed1656d"
+    "key": "templates/2026/SVG/2026-weekly-blocks-2026-07-20-landscape.7076223f51a04b2c.svg",
+    "size": 72560,
+    "sha256": "7076223f51a04b2c1d3302620862a6e544d6db94f4eba1dca14c1a2dc2640e7d"
   },
   "templates/2026/SVG/2026-weekly-blocks-2026-07-20-portrait.svg": {
-    "key": "templates/2026/SVG/2026-weekly-blocks-2026-07-20-portrait.f326ed10ed4aef22.svg",
-    "size": 74745,
-    "sha256": "f326ed10ed4aef220899cd65b7323c10274ed97de6d849cc6d7677f4ebafe691"
+    "key": "templates/2026/SVG/2026-weekly-blocks-2026-07-20-portrait.02b02ea63697d290.svg",
+    "size": 75061,
+    "sha256": "02b02ea63697d290710bfcda3e1f4da7d04ed32efe08a0633de6f7913a051916"
   },
   "templates/2026/SVG/2026-weekly-blocks-2026-07-27-landscape.svg": {
-    "key": "templates/2026/SVG/2026-weekly-blocks-2026-07-27-landscape.225ce8ac75be25b3.svg",
-    "size": 80491,
-    "sha256": "225ce8ac75be25b3fa9cc512c0f12356a65ab37a549248c3ac44558d9f5168ba"
+    "key": "templates/2026/SVG/2026-weekly-blocks-2026-07-27-landscape.ab9b1cd8a25276c9.svg",
+    "size": 80808,
+    "sha256": "ab9b1cd8a25276c9b8cc7ad2389ac1ec1f59dcb5adffb8ccda75736a0268e0e9"
   },
   "templates/2026/SVG/2026-weekly-blocks-2026-07-27-portrait.svg": {
-    "key": "templates/2026/SVG/2026-weekly-blocks-2026-07-27-portrait.2d783a52b679ff01.svg",
-    "size": 82993,
-    "sha256": "2d783a52b679ff01bd6e9e0afbfb430d904eb35a4e5f2311c62aa61114a66b7e"
+    "key": "templates/2026/SVG/2026-weekly-blocks-2026-07-27-portrait.f284a6814376365c.svg",
+    "size": 83309,
+    "sha256": "f284a6814376365c85fe5942cad9e34064692ceabb4a7203c41cec01500464eb"
   },
   "templates/2026/SVG/2026-weekly-blocks-2026-08-03-landscape.svg": {
-    "key": "templates/2026/SVG/2026-weekly-blocks-2026-08-03-landscape.4a7a918689a9f487.svg",
-    "size": 68354,
-    "sha256": "4a7a918689a9f487671ea1a53293322021112fa7de51215a0aed1adb996c6a90"
+    "key": "templates/2026/SVG/2026-weekly-blocks-2026-08-03-landscape.202f40f560e9a09a.svg",
+    "size": 68671,
+    "sha256": "202f40f560e9a09a21ce106b044350fc0ba31f82e708c9332a1aaa36e55d0f89"
   },
   "templates/2026/SVG/2026-weekly-blocks-2026-08-03-portrait.svg": {
-    "key": "templates/2026/SVG/2026-weekly-blocks-2026-08-03-portrait.7c50905cfa449c05.svg",
-    "size": 70856,
-    "sha256": "7c50905cfa449c05721fc7e2c625a55296cf344eced3dd6476f3f8cff6c8db39"
+    "key": "templates/2026/SVG/2026-weekly-blocks-2026-08-03-portrait.a1ff335095f146b4.svg",
+    "size": 71172,
+    "sha256": "a1ff335095f146b4078b09640b359bf82d43cebdbd69103f518398b6b0e831a5"
   },
   "templates/2026/SVG/2026-weekly-blocks-2026-08-10-landscape.svg": {
-    "key": "templates/2026/SVG/2026-weekly-blocks-2026-08-10-landscape.eb014427ee400621.svg",
-    "size": 71825,
-    "sha256": "eb014427ee4006211499cdcdf3a689c264620d0fcc5d02f61dfe3610b7d596fb"
+    "key": "templates/2026/SVG/2026-weekly-blocks-2026-08-10-landscape.660fe078534146d5.svg",
+    "size": 72142,
+    "sha256": "660fe078534146d5d7ba51372046d84b68d7b8b4dc191fcc3105e34793ae9a21"
   },
   "templates/2026/SVG/2026-weekly-blocks-2026-08-10-portrait.svg": {
-    "key": "templates/2026/SVG/2026-weekly-blocks-2026-08-10-portrait.9e7179dd99d83cc4.svg",
-    "size": 74327,
-    "sha256": "9e7179dd99d83cc446c2cb85e40282bc3676cccfdd6a0e430421a92f38473036"
+    "key": "templates/2026/SVG/2026-weekly-blocks-2026-08-10-portrait.d57d55c4d04f267d.svg",
+    "size": 74643,
+    "sha256": "d57d55c4d04f267d04b06b2ed823ff8f739f27d186056b7e1d929816f9def6dc"
   },
   "templates/2026/SVG/2026-weekly-blocks-2026-08-17-landscape.svg": {
-    "key": "templates/2026/SVG/2026-weekly-blocks-2026-08-17-landscape.3d5aefd4832cdc89.svg",
-    "size": 72944,
-    "sha256": "3d5aefd4832cdc899cc9d3aa568214dd9ca806dcb413a7839fb5c399b8db1ee3"
+    "key": "templates/2026/SVG/2026-weekly-blocks-2026-08-17-landscape.efdae58c36e04348.svg",
+    "size": 73261,
+    "sha256": "efdae58c36e043482debc63d5eb46c9c8a7266cabc75d740b7724c8204322bd7"
   },
   "templates/2026/SVG/2026-weekly-blocks-2026-08-17-portrait.svg": {
-    "key": "templates/2026/SVG/2026-weekly-blocks-2026-08-17-portrait.a9836a5ce72c530d.svg",
-    "size": 75446,
-    "sha256": "a9836a5ce72c530dda014bd9db7270b6ad1836a1a38541707fdacffbb69209e0"
+    "key": "templates/2026/SVG/2026-weekly-blocks-2026-08-17-portrait.628577f0a2f67ec3.svg",
+    "size": 75762,
+    "sha256": "628577f0a2f67ec34e7f399ded106c8bdde05618d4c9eafd327de45233ee2d11"
   },
   "templates/2026/SVG/2026-weekly-blocks-2026-08-24-landscape.svg": {
-    "key": "templates/2026/SVG/2026-weekly-blocks-2026-08-24-landscape.3a071f71687d65d1.svg",
-    "size": 74113,
-    "sha256": "3a071f71687d65d178c7a89da4f59ed0b430dcd2b4f2225d093a822159b75417"
+    "key": "templates/2026/SVG/2026-weekly-blocks-2026-08-24-landscape.47cc1a8e8a84d2e1.svg",
+    "size": 74430,
+    "sha256": "47cc1a8e8a84d2e18fdb83ee2a47e060014643e83fc902fc8286a06631411bcf"
   },
   "templates/2026/SVG/2026-weekly-blocks-2026-08-24-portrait.svg": {
-    "key": "templates/2026/SVG/2026-weekly-blocks-2026-08-24-portrait.1516a431a262c27e.svg",
-    "size": 76615,
-    "sha256": "1516a431a262c27e08e1e8ce0c890acd61f52d1628357fdf750cd612625f105b"
+    "key": "templates/2026/SVG/2026-weekly-blocks-2026-08-24-portrait.7515134a03a48c14.svg",
+    "size": 76931,
+    "sha256": "7515134a03a48c1428c41aad24115d249d92ffc8357cb4c7425493044e65ae7c"
   },
   "templates/2026/SVG/2026-weekly-blocks-2026-08-31-landscape.svg": {
-    "key": "templates/2026/SVG/2026-weekly-blocks-2026-08-31-landscape.19e84dbc1ad42972.svg",
-    "size": 78402,
-    "sha256": "19e84dbc1ad429726bd26bbc9596d4c77212c26ea812fc996e281a630584da30"
+    "key": "templates/2026/SVG/2026-weekly-blocks-2026-08-31-landscape.bbdac4a4b81751b9.svg",
+    "size": 78719,
+    "sha256": "bbdac4a4b81751b92698049b969649697851020e95b77bce975bd102bb1b7b90"
   },
   "templates/2026/SVG/2026-weekly-blocks-2026-08-31-portrait.svg": {
-    "key": "templates/2026/SVG/2026-weekly-blocks-2026-08-31-portrait.56e4842a57c7d035.svg",
-    "size": 80904,
-    "sha256": "56e4842a57c7d035b743c1b316e8d7202bc3045af472ce3d3a8d110ea4d28a1b"
+    "key": "templates/2026/SVG/2026-weekly-blocks-2026-08-31-portrait.5cc3faa5116a85cd.svg",
+    "size": 81220,
+    "sha256": "5cc3faa5116a85cd9212cab84547a017dc815040868535e762179083337651b2"
   },
   "templates/2026/SVG/2026-weekly-blocks-2026-09-07-landscape.svg": {
-    "key": "templates/2026/SVG/2026-weekly-blocks-2026-09-07-landscape.dc7afc96675370c1.svg",
-    "size": 69189,
-    "sha256": "dc7afc96675370c186a4e859b04f403cb85b3d6e963b48689f54bc70b880d83e"
+    "key": "templates/2026/SVG/2026-weekly-blocks-2026-09-07-landscape.4f65302c222d6d8b.svg",
+    "size": 69506,
+    "sha256": "4f65302c222d6d8b0fa3c0eb0009502c381e0618ae92498448173a1d6af04aff"
   },
   "templates/2026/SVG/2026-weekly-blocks-2026-09-07-portrait.svg": {
-    "key": "templates/2026/SVG/2026-weekly-blocks-2026-09-07-portrait.f0c457b43c218c42.svg",
-    "size": 71691,
-    "sha256": "f0c457b43c218c42d740ca4dc11ff445a3ed53bf4048da1fafebd86904333836"
+    "key": "templates/2026/SVG/2026-weekly-blocks-2026-09-07-portrait.6c82bb433ed3a363.svg",
+    "size": 72007,
+    "sha256": "6c82bb433ed3a36319bacc46d211e7218924884f839e9ddfb137765134d4411b"
   },
   "templates/2026/SVG/2026-weekly-blocks-2026-09-14-landscape.svg": {
-    "key": "templates/2026/SVG/2026-weekly-blocks-2026-09-14-landscape.6a7ec5fd19254347.svg",
-    "size": 70770,
-    "sha256": "6a7ec5fd192543475504f538a9de088a524303ca13ff0476316aba387a71809f"
+    "key": "templates/2026/SVG/2026-weekly-blocks-2026-09-14-landscape.a9899a2b5b313125.svg",
+    "size": 71087,
+    "sha256": "a9899a2b5b313125cdf1eb6781bd7c73a9d8c09af3ac907b4f37abb9f6eb3cd8"
   },
   "templates/2026/SVG/2026-weekly-blocks-2026-09-14-portrait.svg": {
-    "key": "templates/2026/SVG/2026-weekly-blocks-2026-09-14-portrait.a1e3a10e721388bb.svg",
-    "size": 73272,
-    "sha256": "a1e3a10e721388bb51a7cd9a488efbe974a508c0e548098a23a767d0518d948d"
+    "key": "templates/2026/SVG/2026-weekly-blocks-2026-09-14-portrait.6107bb8fcd9949d2.svg",
+    "size": 73588,
+    "sha256": "6107bb8fcd9949d2d1c946a338370690383dadc0618191ebafb606ec81c05536"
   },
   "templates/2026/SVG/2026-weekly-blocks-2026-09-21-landscape.svg": {
-    "key": "templates/2026/SVG/2026-weekly-blocks-2026-09-21-landscape.3ff36aabb1c0f68d.svg",
-    "size": 72762,
-    "sha256": "3ff36aabb1c0f68d9bab1ddd2e011447974ec775d507a5f9afb0237c72cdb131"
+    "key": "templates/2026/SVG/2026-weekly-blocks-2026-09-21-landscape.d69dd2173ef2598f.svg",
+    "size": 73079,
+    "sha256": "d69dd2173ef2598f3239841acce2dd08eb55595e6e6bb1179350383908835c05"
   },
   "templates/2026/SVG/2026-weekly-blocks-2026-09-21-portrait.svg": {
-    "key": "templates/2026/SVG/2026-weekly-blocks-2026-09-21-portrait.5f0f141f5e6fa58c.svg",
-    "size": 75264,
-    "sha256": "5f0f141f5e6fa58cc98407c077d2f10a081dcacd17f5443030bab7eb698a8ed6"
+    "key": "templates/2026/SVG/2026-weekly-blocks-2026-09-21-portrait.16ac909a4fa00da8.svg",
+    "size": 75580,
+    "sha256": "16ac909a4fa00da8b482a72bb045457934d54e020e5a680c0c2f823e6cc64d45"
   },
   "templates/2026/SVG/2026-weekly-blocks-2026-09-28-landscape.svg": {
-    "key": "templates/2026/SVG/2026-weekly-blocks-2026-09-28-landscape.10404c98a4b9d126.svg",
-    "size": 79946,
-    "sha256": "10404c98a4b9d12651b97c435499c86729241550ac17bd7e239c4cc6377915ca"
+    "key": "templates/2026/SVG/2026-weekly-blocks-2026-09-28-landscape.d2e8d7098a6fb1e2.svg",
+    "size": 80263,
+    "sha256": "d2e8d7098a6fb1e2c5b29958d04efa48f50af936419b8dcd98077b4602f8fdcc"
   },
   "templates/2026/SVG/2026-weekly-blocks-2026-09-28-portrait.svg": {
-    "key": "templates/2026/SVG/2026-weekly-blocks-2026-09-28-portrait.08615aa48f6ccca5.svg",
-    "size": 82448,
-    "sha256": "08615aa48f6ccca583c699641e9e6ee311c2f3ae21ff992a6d6a7ccdfb1622e0"
+    "key": "templates/2026/SVG/2026-weekly-blocks-2026-09-28-portrait.f92bc5bd0199106b.svg",
+    "size": 82764,
+    "sha256": "f92bc5bd0199106b03472b815a199667e2087373444da666d749b110f8c4443e"
   },
   "templates/2026/SVG/2026-weekly-blocks-2026-10-05-landscape.svg": {
-    "key": "templates/2026/SVG/2026-weekly-blocks-2026-10-05-landscape.372d29d227c875c0.svg",
-    "size": 66940,
-    "sha256": "372d29d227c875c0e13ab762d9d2797d3af45ec689206bc8792af345a86df901"
+    "key": "templates/2026/SVG/2026-weekly-blocks-2026-10-05-landscape.191b594e40957ed2.svg",
+    "size": 67256,
+    "sha256": "191b594e40957ed298d23a49638988beef6fe65f50d513ae126c9008fc7caaac"
   },
   "templates/2026/SVG/2026-weekly-blocks-2026-10-05-portrait.svg": {
-    "key": "templates/2026/SVG/2026-weekly-blocks-2026-10-05-portrait.b84d75581273d6d4.svg",
-    "size": 69442,
-    "sha256": "b84d75581273d6d477d4be6c4c56e9061e72e846049c34eaadc83a8a1c6c28db"
+    "key": "templates/2026/SVG/2026-weekly-blocks-2026-10-05-portrait.9c07cba0148c056b.svg",
+    "size": 69757,
+    "sha256": "9c07cba0148c056b8cb031910f42424f40aba12469c361c10802e1e6f68dedc7"
   },
   "templates/2026/SVG/2026-weekly-blocks-2026-10-12-landscape.svg": {
-    "key": "templates/2026/SVG/2026-weekly-blocks-2026-10-12-landscape.b07e3abb51a7d06f.svg",
-    "size": 71611,
-    "sha256": "b07e3abb51a7d06fc2d59d689a5403ef35f72104157713440da143142aeea54b"
+    "key": "templates/2026/SVG/2026-weekly-blocks-2026-10-12-landscape.38c0c2c35ae92613.svg",
+    "size": 71928,
+    "sha256": "38c0c2c35ae92613d632d7c9f987b47a8d71ac185627a8c6d0d79ce7d2b37259"
   },
   "templates/2026/SVG/2026-weekly-blocks-2026-10-12-portrait.svg": {
-    "key": "templates/2026/SVG/2026-weekly-blocks-2026-10-12-portrait.1f6e7519b358019a.svg",
-    "size": 74113,
-    "sha256": "1f6e7519b358019a4ded68c87487dc763cb751784dd59021fe6e81dc9248f7c1"
+    "key": "templates/2026/SVG/2026-weekly-blocks-2026-10-12-portrait.cce920622c09e44f.svg",
+    "size": 74429,
+    "sha256": "cce920622c09e44f799b2912f845b386ea15137988f646c1a20a72a87d5ac17b"
   },
   "templates/2026/SVG/2026-weekly-blocks-2026-10-19-landscape.svg": {
-    "key": "templates/2026/SVG/2026-weekly-blocks-2026-10-19-landscape.8cb185fc0a9dc40a.svg",
-    "size": 72830,
-    "sha256": "8cb185fc0a9dc40a805deb8d90c5094bce2fac64f304b830505f283a8729ba5f"
+    "key": "templates/2026/SVG/2026-weekly-blocks-2026-10-19-landscape.bbaece23a6390b7b.svg",
+    "size": 73147,
+    "sha256": "bbaece23a6390b7b2ce01185ef80f6c1acaed6311479fbca19a6154593425cac"
   },
   "templates/2026/SVG/2026-weekly-blocks-2026-10-19-portrait.svg": {
-    "key": "templates/2026/SVG/2026-weekly-blocks-2026-10-19-portrait.335f6870326480df.svg",
-    "size": 75332,
-    "sha256": "335f6870326480df540ce1144e14d10ad02628de9741de96bdde2b848f5a0c17"
+    "key": "templates/2026/SVG/2026-weekly-blocks-2026-10-19-portrait.35c729bc3a640841.svg",
+    "size": 75648,
+    "sha256": "35c729bc3a640841052f226aedd2f396b5a4732d852d48bc2f3c3ebf1726f5a2"
   },
   "templates/2026/SVG/2026-weekly-blocks-2026-10-26-landscape.svg": {
-    "key": "templates/2026/SVG/2026-weekly-blocks-2026-10-26-landscape.be44d682ec4696eb.svg",
-    "size": 81670,
-    "sha256": "be44d682ec4696ebff64ec95dd53b2ecc7c1dfd1ce887232f03f82d717e37690"
+    "key": "templates/2026/SVG/2026-weekly-blocks-2026-10-26-landscape.436d5663c8e8fd68.svg",
+    "size": 81987,
+    "sha256": "436d5663c8e8fd68e20adeea42731a99b55d977bbbc1c1433c712c2960492e5c"
   },
   "templates/2026/SVG/2026-weekly-blocks-2026-10-26-portrait.svg": {
-    "key": "templates/2026/SVG/2026-weekly-blocks-2026-10-26-portrait.75c37876ede8c96a.svg",
-    "size": 84172,
-    "sha256": "75c37876ede8c96a2570d0fefb54761961964ea59bd04cb3ff3dbac9e6f0db49"
+    "key": "templates/2026/SVG/2026-weekly-blocks-2026-10-26-portrait.84ea3774ab583f1f.svg",
+    "size": 84488,
+    "sha256": "84ea3774ab583f1f57dd7011e8485ab4b924e6a0e5b805217c87021bd989b55c"
   },
   "templates/2026/SVG/2026-weekly-blocks-2026-11-02-landscape.svg": {
-    "key": "templates/2026/SVG/2026-weekly-blocks-2026-11-02-landscape.ee06016dcad4ec3d.svg",
-    "size": 67311,
-    "sha256": "ee06016dcad4ec3dbf1f05840f094609757d708d7518142aae46b997d0f09bd1"
+    "key": "templates/2026/SVG/2026-weekly-blocks-2026-11-02-landscape.74d93e763c7dc79a.svg",
+    "size": 67628,
+    "sha256": "74d93e763c7dc79a62b59cf09e04db54300b853a1e5ac51c6bba63d5ac1691ab"
   },
   "templates/2026/SVG/2026-weekly-blocks-2026-11-02-portrait.svg": {
-    "key": "templates/2026/SVG/2026-weekly-blocks-2026-11-02-portrait.da7e717a48553901.svg",
-    "size": 69813,
-    "sha256": "da7e717a485539010798473e5f92743890ff474a219bfdf164f7c25a61079d72"
+    "key": "templates/2026/SVG/2026-weekly-blocks-2026-11-02-portrait.74c7df699fb7f580.svg",
+    "size": 70129,
+    "sha256": "74c7df699fb7f580f31b269fb0c9867c05b8a93f19b983947057c00e4c3ed94a"
   },
   "templates/2026/SVG/2026-weekly-blocks-2026-11-09-landscape.svg": {
-    "key": "templates/2026/SVG/2026-weekly-blocks-2026-11-09-landscape.d113f5f4dd9793d3.svg",
-    "size": 70524,
-    "sha256": "d113f5f4dd9793d3e5490385a003af6bcafb4bec222c3d7fa3af4a835414f15b"
+    "key": "templates/2026/SVG/2026-weekly-blocks-2026-11-09-landscape.e8f211a72e0867fb.svg",
+    "size": 70841,
+    "sha256": "e8f211a72e0867fbeb108e712f0400d196687588b6a8ce7738decfec9e6c4e47"
   },
   "templates/2026/SVG/2026-weekly-blocks-2026-11-09-portrait.svg": {
-    "key": "templates/2026/SVG/2026-weekly-blocks-2026-11-09-portrait.5abbfe95a913f186.svg",
-    "size": 73026,
-    "sha256": "5abbfe95a913f186addb2e0a1604ea9f281171a6fa96b25d7633734c768b9973"
+    "key": "templates/2026/SVG/2026-weekly-blocks-2026-11-09-portrait.87afd2cbfa9cdbc5.svg",
+    "size": 73342,
+    "sha256": "87afd2cbfa9cdbc5e9bab1ec69e0331601a4a7147658c9c1c4b64845f6dfe277"
   },
   "templates/2026/SVG/2026-weekly-blocks-2026-11-16-landscape.svg": {
-    "key": "templates/2026/SVG/2026-weekly-blocks-2026-11-16-landscape.4faa79a97beed212.svg",
-    "size": 70993,
-    "sha256": "4faa79a97beed2122895b844f1a98708ba4f5b96e32ad6d9c00cb2aaa6f163ef"
+    "key": "templates/2026/SVG/2026-weekly-blocks-2026-11-16-landscape.668e53cd0becec42.svg",
+    "size": 71310,
+    "sha256": "668e53cd0becec42bcb43f972652eb0801a8f85e888863b9b96834bba8407f52"
   },
   "templates/2026/SVG/2026-weekly-blocks-2026-11-16-portrait.svg": {
-    "key": "templates/2026/SVG/2026-weekly-blocks-2026-11-16-portrait.5cb5f9be9096149c.svg",
-    "size": 73495,
-    "sha256": "5cb5f9be9096149c563438ee31f5f0ee8672b36ea93d0412e3a351becfe16f99"
+    "key": "templates/2026/SVG/2026-weekly-blocks-2026-11-16-portrait.319e69845947f809.svg",
+    "size": 73811,
+    "sha256": "319e69845947f809ea0035237c46804c9ae7adcaca4566327b2750428cb8e45e"
   },
   "templates/2026/SVG/2026-weekly-blocks-2026-11-23-landscape.svg": {
-    "key": "templates/2026/SVG/2026-weekly-blocks-2026-11-23-landscape.d790ae7c88c30ddd.svg",
-    "size": 73901,
-    "sha256": "d790ae7c88c30ddd280eac0d928fb07a0c08232ab2a77d9c979c2eae0a7ca20b"
+    "key": "templates/2026/SVG/2026-weekly-blocks-2026-11-23-landscape.e8880db38ab1b1af.svg",
+    "size": 74218,
+    "sha256": "e8880db38ab1b1afbf26c2f3f6e798dec6fdbcc0e541f0a68acdaf6770af4cfb"
   },
   "templates/2026/SVG/2026-weekly-blocks-2026-11-23-portrait.svg": {
-    "key": "templates/2026/SVG/2026-weekly-blocks-2026-11-23-portrait.51577d77e7fa6388.svg",
-    "size": 76403,
-    "sha256": "51577d77e7fa63888f8242e9858a9a46155f16401677d1ea5be86ecd9c8939c1"
+    "key": "templates/2026/SVG/2026-weekly-blocks-2026-11-23-portrait.ae5b131b6da3549d.svg",
+    "size": 76719,
+    "sha256": "ae5b131b6da3549dceed04174668716886f8fbe79c794459e73d1a7db50a9ed8"
   },
   "templates/2026/SVG/2026-weekly-blocks-2026-11-30-landscape.svg": {
-    "key": "templates/2026/SVG/2026-weekly-blocks-2026-11-30-landscape.2ddc00f19ab6c13a.svg",
-    "size": 78645,
-    "sha256": "2ddc00f19ab6c13a4923177e0e9c73248172f540dffbf1a5bf540732c386e5b1"
+    "key": "templates/2026/SVG/2026-weekly-blocks-2026-11-30-landscape.4f3dd9a38894c14e.svg",
+    "size": 78962,
+    "sha256": "4f3dd9a38894c14ee2f90d365a0d8463fbb24969e557219325329a95fac44df9"
   },
   "templates/2026/SVG/2026-weekly-blocks-2026-11-30-portrait.svg": {
-    "key": "templates/2026/SVG/2026-weekly-blocks-2026-11-30-portrait.cafe86c129eb3aa6.svg",
-    "size": 81147,
-    "sha256": "cafe86c129eb3aa623ead342b79ea9cdc8bfc72b830e3039705459e510150203"
+    "key": "templates/2026/SVG/2026-weekly-blocks-2026-11-30-portrait.d10920b61f3fa280.svg",
+    "size": 81463,
+    "sha256": "d10920b61f3fa280a3da331963c4069a63f657df69af51df7dfa456c84937925"
   },
   "templates/2026/SVG/2026-weekly-blocks-2026-12-07-landscape.svg": {
-    "key": "templates/2026/SVG/2026-weekly-blocks-2026-12-07-landscape.33ac7007abe90790.svg",
-    "size": 69786,
-    "sha256": "33ac7007abe907904c446c4715d7071f8c148c03d80ac930007cc74821c255d2"
+    "key": "templates/2026/SVG/2026-weekly-blocks-2026-12-07-landscape.a2efa3bff01c0257.svg",
+    "size": 70102,
+    "sha256": "a2efa3bff01c02572fd800f6d077176f90e9e5d98870e5fdb60494efa7068a0a"
   },
   "templates/2026/SVG/2026-weekly-blocks-2026-12-07-portrait.svg": {
-    "key": "templates/2026/SVG/2026-weekly-blocks-2026-12-07-portrait.0c2b545b5f794e16.svg",
-    "size": 72288,
-    "sha256": "0c2b545b5f794e165462d4fbdd31d3002f3016841b825854f04e92cc376ebd46"
+    "key": "templates/2026/SVG/2026-weekly-blocks-2026-12-07-portrait.3899b00c8896f3d0.svg",
+    "size": 72603,
+    "sha256": "3899b00c8896f3d0c1ce727f8d5c1d3bc420d381e95eb228aa6fd05643b70cb4"
   },
   "templates/2026/SVG/2026-weekly-blocks-2026-12-14-landscape.svg": {
-    "key": "templates/2026/SVG/2026-weekly-blocks-2026-12-14-landscape.03f7c7dc2a2cca0a.svg",
-    "size": 71366,
-    "sha256": "03f7c7dc2a2cca0a31201f2b4d079b7804064580256bf58aa1c3b49d51a4dce5"
+    "key": "templates/2026/SVG/2026-weekly-blocks-2026-12-14-landscape.0f214908dd992165.svg",
+    "size": 71683,
+    "sha256": "0f214908dd992165ab513df7e01976723f44dc98e038bc7fc30ecc87f48c6f7a"
   },
   "templates/2026/SVG/2026-weekly-blocks-2026-12-14-portrait.svg": {
-    "key": "templates/2026/SVG/2026-weekly-blocks-2026-12-14-portrait.1add147cf4290b18.svg",
-    "size": 73868,
-    "sha256": "1add147cf4290b18d74659e024dbd25ab3f6a7e5fd7a38b2f110717ed8d39c29"
+    "key": "templates/2026/SVG/2026-weekly-blocks-2026-12-14-portrait.de8f0290f8b7b9ce.svg",
+    "size": 74184,
+    "sha256": "de8f0290f8b7b9ce2fd9d8c92d763ccd694e2e04d23bc754c7406a856dc1084f"
   },
   "templates/2026/SVG/2026-weekly-blocks-2026-12-21-landscape.svg": {
-    "key": "templates/2026/SVG/2026-weekly-blocks-2026-12-21-landscape.9bea3745d7b2cac0.svg",
-    "size": 73360,
-    "sha256": "9bea3745d7b2cac0200f1b4c10a6147502f302d4f791dcb05f9357110d99590e"
+    "key": "templates/2026/SVG/2026-weekly-blocks-2026-12-21-landscape.319774d132eee165.svg",
+    "size": 73677,
+    "sha256": "319774d132eee165e8fecea63114960193ae429f81b6b991895cc26e307316d2"
   },
   "templates/2026/SVG/2026-weekly-blocks-2026-12-21-portrait.svg": {
-    "key": "templates/2026/SVG/2026-weekly-blocks-2026-12-21-portrait.c0b3caf88f523303.svg",
-    "size": 75862,
-    "sha256": "c0b3caf88f523303acf7db35c3cc62269e9752aec442d029af81e5e761713b73"
+    "key": "templates/2026/SVG/2026-weekly-blocks-2026-12-21-portrait.b2ee5f9fe16c781c.svg",
+    "size": 76178,
+    "sha256": "b2ee5f9fe16c781c0b1af86ebf6df88aa8dcf926ad9413d6bf398e0392b8325f"
   },
   "templates/2026/SVG/2026-weekly-blocks-2026-12-28-landscape.svg": {
-    "key": "templates/2026/SVG/2026-weekly-blocks-2026-12-28-landscape.4b3e079322b3a346.svg",
-    "size": 84912,
-    "sha256": "4b3e079322b3a346739066b403f1793ac4c73e1ff90c9e7245983d33963b0965"
+    "key": "templates/2026/SVG/2026-weekly-blocks-2026-12-28-landscape.5ac3e20d9d0df2e5.svg",
+    "size": 85229,
+    "sha256": "5ac3e20d9d0df2e5cfc295f0efa1869b2eae348be8dedf0aba9a01c272135111"
   },
   "templates/2026/SVG/2026-weekly-blocks-2026-12-28-portrait.svg": {
-    "key": "templates/2026/SVG/2026-weekly-blocks-2026-12-28-portrait.4f951fc210b7c29e.svg",
-    "size": 87414,
-    "sha256": "4f951fc210b7c29eeb09bd3ede9782b5e1ee22a09357224ad75d40b2dffc3994"
+    "key": "templates/2026/SVG/2026-weekly-blocks-2026-12-28-portrait.d8a47b71792e6e27.svg",
+    "size": 87730,
+    "sha256": "d8a47b71792e6e27ca9a65545d540b03fdb30cd28cbc7c854edfdd0c119fc7f8"
   },
   "templates/2026/SVG/2026-weekly-journal-2025-12-29-landscape.svg": {
-    "key": "templates/2026/SVG/2026-weekly-journal-2025-12-29-landscape.fef1f7c41ff5f635.svg",
-    "size": 78352,
-    "sha256": "fef1f7c41ff5f6357a08ec26c7e00ce8fd48ca0a1ff9a809a898087e9d062598"
+    "key": "templates/2026/SVG/2026-weekly-journal-2025-12-29-landscape.b254fd219c8105de.svg",
+    "size": 78668,
+    "sha256": "b254fd219c8105deb74f75f1bd5ecdd163fee7f64c8f6507e1d93046a04a31f1"
   },
   "templates/2026/SVG/2026-weekly-journal-2025-12-29-portrait.svg": {
-    "key": "templates/2026/SVG/2026-weekly-journal-2025-12-29-portrait.96917fae26011aca.svg",
-    "size": 78958,
-    "sha256": "96917fae26011aca3e93fa2892e22686e305ae2e2aeb9f36096434de0905ee0b"
+    "key": "templates/2026/SVG/2026-weekly-journal-2025-12-29-portrait.979a53c974c1a562.svg",
+    "size": 79274,
+    "sha256": "979a53c974c1a562affd47edba6178fe22aa4a7add0c955c6580fa970b307afb"
   },
   "templates/2026/SVG/2026-weekly-journal-2026-01-05-landscape.svg": {
-    "key": "templates/2026/SVG/2026-weekly-journal-2026-01-05-landscape.bbe1c4e122cf0de2.svg",
-    "size": 61465,
-    "sha256": "bbe1c4e122cf0de25a296b4b261d2cce0bc9d77760dc751cd8ec5a08e55fbb08"
+    "key": "templates/2026/SVG/2026-weekly-journal-2026-01-05-landscape.07a2ed3008d29144.svg",
+    "size": 61783,
+    "sha256": "07a2ed3008d291443977afad8842157a50f8fc1e685c980527a82ad1e9b1fa12"
   },
   "templates/2026/SVG/2026-weekly-journal-2026-01-05-portrait.svg": {
-    "key": "templates/2026/SVG/2026-weekly-journal-2026-01-05-portrait.046adc5aa8e3740d.svg",
-    "size": 62071,
-    "sha256": "046adc5aa8e3740dd8940c6327c8a3347cc628ecaf6071c11aa4268a074ebf65"
+    "key": "templates/2026/SVG/2026-weekly-journal-2026-01-05-portrait.6804a7c034332e8e.svg",
+    "size": 62389,
+    "sha256": "6804a7c034332e8e02d0251d9d0c328372a4e829ec14de8e6a92ff2f5de18e77"
   },
   "templates/2026/SVG/2026-weekly-journal-2026-01-12-landscape.svg": {
-    "key": "templates/2026/SVG/2026-weekly-journal-2026-01-12-landscape.cc5b4fc6c3c1087b.svg",
-    "size": 66133,
-    "sha256": "cc5b4fc6c3c1087bd79de639171f4dfe5bd22ff5b251ffbc435c7ec55480b6b6"
+    "key": "templates/2026/SVG/2026-weekly-journal-2026-01-12-landscape.39185c13d6861699.svg",
+    "size": 66452,
+    "sha256": "39185c13d6861699906e264e134836d3a9bf2d8c3b637804694dbdfbeb490c5a"
   },
   "templates/2026/SVG/2026-weekly-journal-2026-01-12-portrait.svg": {
-    "key": "templates/2026/SVG/2026-weekly-journal-2026-01-12-portrait.8c4233b9cad28344.svg",
-    "size": 66739,
-    "sha256": "8c4233b9cad28344dfdac8acac517617ef73bfd50f4ef8783bb4a4fee5bc6d52"
+    "key": "templates/2026/SVG/2026-weekly-journal-2026-01-12-portrait.b184ae7112cb03f6.svg",
+    "size": 67058,
+    "sha256": "b184ae7112cb03f628a89bb73822fab29349c6a77af13b45735d3291a74aa50e"
   },
   "templates/2026/SVG/2026-weekly-journal-2026-01-19-landscape.svg": {
-    "key": "templates/2026/SVG/2026-weekly-journal-2026-01-19-landscape.9d1b3343ddac64be.svg",
-    "size": 67350,
-    "sha256": "9d1b3343ddac64be59462b1a3cb555ef0c74f92f8a7b5a28ced2bc6455d0a91b"
+    "key": "templates/2026/SVG/2026-weekly-journal-2026-01-19-landscape.3f3b3203a454a67b.svg",
+    "size": 67668,
+    "sha256": "3f3b3203a454a67b2bbd8a6784164c011ffc2954eade58d6f783b4b7e4f4df5e"
   },
   "templates/2026/SVG/2026-weekly-journal-2026-01-19-portrait.svg": {
-    "key": "templates/2026/SVG/2026-weekly-journal-2026-01-19-portrait.8201364be198c051.svg",
-    "size": 67956,
-    "sha256": "8201364be198c051910897cde5e1e9c41baf92da95195497557b75eac7324449"
+    "key": "templates/2026/SVG/2026-weekly-journal-2026-01-19-portrait.f72184cd8214fd58.svg",
+    "size": 68274,
+    "sha256": "f72184cd8214fd58e87b4f963f3b81efe5a3dbac3c814d782665ede5d918b858"
   },
   "templates/2026/SVG/2026-weekly-journal-2026-01-26-landscape.svg": {
-    "key": "templates/2026/SVG/2026-weekly-journal-2026-01-26-landscape.eda5d3fb4aa000db.svg",
-    "size": 76369,
-    "sha256": "eda5d3fb4aa000db510a34a6362f3ac2bdee9506a8804c6b41fd4b07a567ffaa"
+    "key": "templates/2026/SVG/2026-weekly-journal-2026-01-26-landscape.5493d982d23f2d5e.svg",
+    "size": 76688,
+    "sha256": "5493d982d23f2d5ea8decd291ae418b0d42876026b891237f2220ffcecf9a32a"
   },
   "templates/2026/SVG/2026-weekly-journal-2026-01-26-portrait.svg": {
-    "key": "templates/2026/SVG/2026-weekly-journal-2026-01-26-portrait.61603747fd5620cf.svg",
-    "size": 76975,
-    "sha256": "61603747fd5620cff17d5044d982b1df97708b5d9f0a7213ba5370317feb7ea9"
+    "key": "templates/2026/SVG/2026-weekly-journal-2026-01-26-portrait.0e15ff7bcfdd269d.svg",
+    "size": 77294,
+    "sha256": "0e15ff7bcfdd269d52b58e530753867d07117fe8ef0687080c3660b89b294624"
   },
   "templates/2026/SVG/2026-weekly-journal-2026-02-02-landscape.svg": {
-    "key": "templates/2026/SVG/2026-weekly-journal-2026-02-02-landscape.e5ae07a554f9c4d6.svg",
-    "size": 62945,
-    "sha256": "e5ae07a554f9c4d633bb34f37077749ffe8d8a01f11fe928b07baa20298c59f0"
+    "key": "templates/2026/SVG/2026-weekly-journal-2026-02-02-landscape.08ef7987b6886471.svg",
+    "size": 63264,
+    "sha256": "08ef7987b68864712e6e10ed3581579fd9bd03a61c23181e916ea76932adc8ea"
   },
   "templates/2026/SVG/2026-weekly-journal-2026-02-02-portrait.svg": {
-    "key": "templates/2026/SVG/2026-weekly-journal-2026-02-02-portrait.9ccdee334c94739d.svg",
-    "size": 63551,
-    "sha256": "9ccdee334c94739df3e750c677d50b102eabdab1eeeaa27b71bbc6c9d0cfd139"
+    "key": "templates/2026/SVG/2026-weekly-journal-2026-02-02-portrait.fef7bfdf6a0cb736.svg",
+    "size": 63870,
+    "sha256": "fef7bfdf6a0cb736b6656110c190975f9ba4f2cf1bf28984dbbfcd5bf0776843"
   },
   "templates/2026/SVG/2026-weekly-journal-2026-02-09-landscape.svg": {
-    "key": "templates/2026/SVG/2026-weekly-journal-2026-02-09-landscape.5f28058fe296d728.svg",
-    "size": 66150,
-    "sha256": "5f28058fe296d728255d6a2188317908a4638c48655e15a741ccee30c6e0c182"
+    "key": "templates/2026/SVG/2026-weekly-journal-2026-02-09-landscape.fe4abf7618edc56b.svg",
+    "size": 66469,
+    "sha256": "fe4abf7618edc56bc25f689725c811a331c7131a351f1c93ae19d876398c15e8"
   },
   "templates/2026/SVG/2026-weekly-journal-2026-02-09-portrait.svg": {
-    "key": "templates/2026/SVG/2026-weekly-journal-2026-02-09-portrait.6cb3c1e294a24337.svg",
-    "size": 66756,
-    "sha256": "6cb3c1e294a243371a043b40b8b754efc2f88e2a95303e68f327a1df31a72957"
+    "key": "templates/2026/SVG/2026-weekly-journal-2026-02-09-portrait.a4ed78e468437341.svg",
+    "size": 67075,
+    "sha256": "a4ed78e46843734116d3f7d29dea5cc95dadf5e11f799511459f07027fd1f8d9"
   },
   "templates/2026/SVG/2026-weekly-journal-2026-02-16-landscape.svg": {
-    "key": "templates/2026/SVG/2026-weekly-journal-2026-02-16-landscape.51a183d46d7b1b69.svg",
-    "size": 66619,
-    "sha256": "51a183d46d7b1b69437ba05ba664313fb643c8dd72f2e465372a2447a2de8654"
+    "key": "templates/2026/SVG/2026-weekly-journal-2026-02-16-landscape.adc11448fe2e0402.svg",
+    "size": 66938,
+    "sha256": "adc11448fe2e0402fb02db9f02333f9ea72308fc459823f3b390cfe4b0051cd4"
   },
   "templates/2026/SVG/2026-weekly-journal-2026-02-16-portrait.svg": {
-    "key": "templates/2026/SVG/2026-weekly-journal-2026-02-16-portrait.8a2d4b5daed9c44c.svg",
-    "size": 67225,
-    "sha256": "8a2d4b5daed9c44c79c94ad5394cbe3e61dae55303ebb36a8441af374d58a4a3"
+    "key": "templates/2026/SVG/2026-weekly-journal-2026-02-16-portrait.c9e50370748f602a.svg",
+    "size": 67544,
+    "sha256": "c9e50370748f602ac0a08cd07eb34c5cedd57a5e880a00ee63e56935e087234b"
   },
   "templates/2026/SVG/2026-weekly-journal-2026-02-23-landscape.svg": {
-    "key": "templates/2026/SVG/2026-weekly-journal-2026-02-23-landscape.49bc94022a77b9f1.svg",
-    "size": 78231,
-    "sha256": "49bc94022a77b9f1db89ebb9521c7af0313ccbf55489b3fa9b7337ccd765f9d2"
+    "key": "templates/2026/SVG/2026-weekly-journal-2026-02-23-landscape.4cd471a01af5dc0b.svg",
+    "size": 78550,
+    "sha256": "4cd471a01af5dc0bd2af4752783b7e3fd657400186edd9321e9206173e932757"
   },
   "templates/2026/SVG/2026-weekly-journal-2026-02-23-portrait.svg": {
-    "key": "templates/2026/SVG/2026-weekly-journal-2026-02-23-portrait.36d81974a3d2f12d.svg",
-    "size": 78837,
-    "sha256": "36d81974a3d2f12db39656500d3abd14bc4e33a5cf9bc453ddb23f635c9940e8"
+    "key": "templates/2026/SVG/2026-weekly-journal-2026-02-23-portrait.8a0ad50bd9d17c88.svg",
+    "size": 79156,
+    "sha256": "8a0ad50bd9d17c88cbdf10ab26a6240883c364671d1c77319e3e2dc9d7e970ee"
   },
   "templates/2026/SVG/2026-weekly-journal-2026-03-02-landscape.svg": {
-    "key": "templates/2026/SVG/2026-weekly-journal-2026-03-02-landscape.ad86758f6ff8e536.svg",
-    "size": 64072,
-    "sha256": "ad86758f6ff8e536451916a4756115558990bdcc1a94bbbaefec285423acd4e0"
+    "key": "templates/2026/SVG/2026-weekly-journal-2026-03-02-landscape.d14cb579d688bde4.svg",
+    "size": 64391,
+    "sha256": "d14cb579d688bde478f9180b7421ebf37d60645c9656707e31f2f66f928c8b10"
   },
   "templates/2026/SVG/2026-weekly-journal-2026-03-02-portrait.svg": {
-    "key": "templates/2026/SVG/2026-weekly-journal-2026-03-02-portrait.f8c6fb5dfe8f7769.svg",
-    "size": 64678,
-    "sha256": "f8c6fb5dfe8f7769e43e8d8853a7eb2fe5ac6bbee01fe2386bef40a2d9619716"
+    "key": "templates/2026/SVG/2026-weekly-journal-2026-03-02-portrait.c10b7df687e2051b.svg",
+    "size": 64997,
+    "sha256": "c10b7df687e2051b2719244abc614fc241404f4b561432319acacb283010f21a"
   },
   "templates/2026/SVG/2026-weekly-journal-2026-03-09-landscape.svg": {
-    "key": "templates/2026/SVG/2026-weekly-journal-2026-03-09-landscape.7d1f405af891edb5.svg",
-    "size": 67277,
-    "sha256": "7d1f405af891edb574adc98a812de7af44426a30065536161ab5e57dc5106bec"
+    "key": "templates/2026/SVG/2026-weekly-journal-2026-03-09-landscape.e3a9624627d24922.svg",
+    "size": 67596,
+    "sha256": "e3a9624627d249223fa1d3f6f4086ea841ba781fc7f9cea60e48fd2771f8e9eb"
   },
   "templates/2026/SVG/2026-weekly-journal-2026-03-09-portrait.svg": {
-    "key": "templates/2026/SVG/2026-weekly-journal-2026-03-09-portrait.4e2ed9524761d05b.svg",
-    "size": 67883,
-    "sha256": "4e2ed9524761d05b6ec9238259a436ef4f8519a3595838b0d00e633daaf7f18c"
+    "key": "templates/2026/SVG/2026-weekly-journal-2026-03-09-portrait.6be66eb20d5dbeec.svg",
+    "size": 68202,
+    "sha256": "6be66eb20d5dbeec105d5ab4ff05b4045069c99fa1ebb811a7101b54334a59be"
   },
   "templates/2026/SVG/2026-weekly-journal-2026-03-16-landscape.svg": {
-    "key": "templates/2026/SVG/2026-weekly-journal-2026-03-16-landscape.b77a910a0c138183.svg",
-    "size": 67746,
-    "sha256": "b77a910a0c138183f11e3587245207895c8dddb4549043b7ef4e3b4bd6cd1fa3"
+    "key": "templates/2026/SVG/2026-weekly-journal-2026-03-16-landscape.5739cb9152fa4ebb.svg",
+    "size": 68065,
+    "sha256": "5739cb9152fa4ebb8fe3f5ff656b58d589441fd08c2abc1bcc30b3fb67cb0fb9"
   },
   "templates/2026/SVG/2026-weekly-journal-2026-03-16-portrait.svg": {
-    "key": "templates/2026/SVG/2026-weekly-journal-2026-03-16-portrait.8bc5c82b0de1aab1.svg",
-    "size": 68352,
-    "sha256": "8bc5c82b0de1aab12688011a727f88f7c953c0b02254936831776975d554dd15"
+    "key": "templates/2026/SVG/2026-weekly-journal-2026-03-16-portrait.10a3b3b4080f1194.svg",
+    "size": 68671,
+    "sha256": "10a3b3b4080f1194532764b630809868d7da76fc99955fd4844428cd5ee3a038"
   },
   "templates/2026/SVG/2026-weekly-journal-2026-03-23-landscape.svg": {
-    "key": "templates/2026/SVG/2026-weekly-journal-2026-03-23-landscape.21158f2f5eaf3af5.svg",
-    "size": 70654,
-    "sha256": "21158f2f5eaf3af52b9d2bec4ed0b05e47da8f352f13337a98555041f6a73359"
+    "key": "templates/2026/SVG/2026-weekly-journal-2026-03-23-landscape.cc32880d7e7c7748.svg",
+    "size": 70972,
+    "sha256": "cc32880d7e7c7748d617a8efa822c99f72ad136da6cf1ce4fd99062e0f0fe474"
   },
   "templates/2026/SVG/2026-weekly-journal-2026-03-23-portrait.svg": {
-    "key": "templates/2026/SVG/2026-weekly-journal-2026-03-23-portrait.b61486cf91527947.svg",
-    "size": 71260,
-    "sha256": "b61486cf91527947381e77bf21ca2d180a6f8154bbe3a0deead775190ae743c9"
+    "key": "templates/2026/SVG/2026-weekly-journal-2026-03-23-portrait.25d3f4267016d1aa.svg",
+    "size": 71578,
+    "sha256": "25d3f4267016d1aa9ef634af0536b756c1af87ff7ef26f4b91229b2a0ef8318e"
   },
   "templates/2026/SVG/2026-weekly-journal-2026-03-30-landscape.svg": {
-    "key": "templates/2026/SVG/2026-weekly-journal-2026-03-30-landscape.c14e373ad41c98fc.svg",
-    "size": 74834,
-    "sha256": "c14e373ad41c98fcdb6b9b1d437108dc7f5deaa0399d8e52a9ae6b1b8b7915ab"
+    "key": "templates/2026/SVG/2026-weekly-journal-2026-03-30-landscape.982c4b9390ddda41.svg",
+    "size": 75152,
+    "sha256": "982c4b9390ddda41899f761cb84dce99bd9dc8cbc652353c5cd375b9f7aec14b"
   },
   "templates/2026/SVG/2026-weekly-journal-2026-03-30-portrait.svg": {
-    "key": "templates/2026/SVG/2026-weekly-journal-2026-03-30-portrait.1993033e99b85c03.svg",
-    "size": 75440,
-    "sha256": "1993033e99b85c031b61ba94d2d4e50fc0ec14ce7d7238b06d1ccda9a6ed23d3"
+    "key": "templates/2026/SVG/2026-weekly-journal-2026-03-30-portrait.c5d78aaab7487ae4.svg",
+    "size": 75758,
+    "sha256": "c5d78aaab7487ae48be58de551548edc63eeff7d422d001264fc7aabac1a7cc7"
   },
   "templates/2026/SVG/2026-weekly-journal-2026-04-06-landscape.svg": {
-    "key": "templates/2026/SVG/2026-weekly-journal-2026-04-06-landscape.27b6dbc1575a9e26.svg",
-    "size": 62524,
-    "sha256": "27b6dbc1575a9e26e3f655c7c336b26ff67a756b1273e7c453edf2e8db0ba456"
+    "key": "templates/2026/SVG/2026-weekly-journal-2026-04-06-landscape.0e23fa92f5f5dadf.svg",
+    "size": 62843,
+    "sha256": "0e23fa92f5f5dadf38f41fa7e31b1403f0b365e27575d6dd245c7c8eedda1f27"
   },
   "templates/2026/SVG/2026-weekly-journal-2026-04-06-portrait.svg": {
-    "key": "templates/2026/SVG/2026-weekly-journal-2026-04-06-portrait.e97dd34e1016c458.svg",
-    "size": 63130,
-    "sha256": "e97dd34e1016c458e9d387547a2b80199c9b1ed508638532cd6aeb7b4b823017"
+    "key": "templates/2026/SVG/2026-weekly-journal-2026-04-06-portrait.5f970e47b3d8d323.svg",
+    "size": 63449,
+    "sha256": "5f970e47b3d8d323beb2bab0e1bd7eb252ae347068e1e7e546856cab80d7a574"
   },
   "templates/2026/SVG/2026-weekly-journal-2026-04-13-landscape.svg": {
-    "key": "templates/2026/SVG/2026-weekly-journal-2026-04-13-landscape.fd530485e6d31fec.svg",
-    "size": 66172,
-    "sha256": "fd530485e6d31fec695a5086d460d365e52b27eb3b4796927b410c3d4c981291"
+    "key": "templates/2026/SVG/2026-weekly-journal-2026-04-13-landscape.a05b3efbef6b5dfa.svg",
+    "size": 66491,
+    "sha256": "a05b3efbef6b5dfab8ca186409d879d9645aae668bee8bde8a7c13d5d3614c5a"
   },
   "templates/2026/SVG/2026-weekly-journal-2026-04-13-portrait.svg": {
-    "key": "templates/2026/SVG/2026-weekly-journal-2026-04-13-portrait.0f0fd398bf81dd35.svg",
-    "size": 66778,
-    "sha256": "0f0fd398bf81dd35f0fa09365be5aaa521a5e231dfd7edcb49ad2f123c1fa301"
+    "key": "templates/2026/SVG/2026-weekly-journal-2026-04-13-portrait.fabc8b0b618971c7.svg",
+    "size": 67097,
+    "sha256": "fabc8b0b618971c710bcd2b13734e69a5dd7c12baab86bc213271833ebce0066"
   },
   "templates/2026/SVG/2026-weekly-journal-2026-04-20-landscape.svg": {
-    "key": "templates/2026/SVG/2026-weekly-journal-2026-04-20-landscape.92b231df29dc037f.svg",
-    "size": 67825,
-    "sha256": "92b231df29dc037faca13d2044e5b0bca439d5628442afbebe46cc390e51324c"
+    "key": "templates/2026/SVG/2026-weekly-journal-2026-04-20-landscape.82fbef8a223d2737.svg",
+    "size": 68144,
+    "sha256": "82fbef8a223d2737f7c14c5e775daee54bf3b2ecd4dc369d56200de5e2a75e57"
   },
   "templates/2026/SVG/2026-weekly-journal-2026-04-20-portrait.svg": {
-    "key": "templates/2026/SVG/2026-weekly-journal-2026-04-20-portrait.5135d3711e95b15e.svg",
-    "size": 68431,
-    "sha256": "5135d3711e95b15e0ac6a4ac06ae001ac8a17d7386a150105a5ad86192557226"
+    "key": "templates/2026/SVG/2026-weekly-journal-2026-04-20-portrait.fb68f7dec44b2082.svg",
+    "size": 68750,
+    "sha256": "fb68f7dec44b2082d87a67482fe88105da641402ef0b9c17d421069b099caaaa"
   },
   "templates/2026/SVG/2026-weekly-journal-2026-04-27-landscape.svg": {
-    "key": "templates/2026/SVG/2026-weekly-journal-2026-04-27-landscape.74744f95f98c0180.svg",
-    "size": 75349,
-    "sha256": "74744f95f98c018071185ad9374d284acdbc821ba2d1582d079fd1c22daa901d"
+    "key": "templates/2026/SVG/2026-weekly-journal-2026-04-27-landscape.b08e9134a44a75a5.svg",
+    "size": 75667,
+    "sha256": "b08e9134a44a75a513adc581854202161e33f4be1a5ba71f31b9bb676e3cb475"
   },
   "templates/2026/SVG/2026-weekly-journal-2026-04-27-portrait.svg": {
-    "key": "templates/2026/SVG/2026-weekly-journal-2026-04-27-portrait.2fa0af01be69ba8a.svg",
-    "size": 75955,
-    "sha256": "2fa0af01be69ba8a33a7eb121366849f1738fdb5dd2796ea30bdccca7d39dd42"
+    "key": "templates/2026/SVG/2026-weekly-journal-2026-04-27-portrait.62898c6814157c88.svg",
+    "size": 76273,
+    "sha256": "62898c6814157c88d37e3df21134bd2fabad38fba07bb53c4bb0f732bccbff18"
   },
   "templates/2026/SVG/2026-weekly-journal-2026-05-04-landscape.svg": {
-    "key": "templates/2026/SVG/2026-weekly-journal-2026-05-04-landscape.e420f72910436e68.svg",
-    "size": 61674,
-    "sha256": "e420f72910436e68405ba160165364a36f63acd0ae4d1e035c39c7f750a9574b"
+    "key": "templates/2026/SVG/2026-weekly-journal-2026-05-04-landscape.e7c5b6070373f34e.svg",
+    "size": 61993,
+    "sha256": "e7c5b6070373f34ee32fc67e8fb7102f6f10fe537cc32c486a1a1a8c4197588d"
   },
   "templates/2026/SVG/2026-weekly-journal-2026-05-04-portrait.svg": {
-    "key": "templates/2026/SVG/2026-weekly-journal-2026-05-04-portrait.fc7d3f624e1770fe.svg",
-    "size": 62280,
-    "sha256": "fc7d3f624e1770fe1c42672752e1f4b87ab6df9991d2e327d382cf4f1fe03542"
+    "key": "templates/2026/SVG/2026-weekly-journal-2026-05-04-portrait.69779c87de024786.svg",
+    "size": 62599,
+    "sha256": "69779c87de024786163563b2ed47bf9f95de24de5cb7df907e25885b788cb19a"
   },
   "templates/2026/SVG/2026-weekly-journal-2026-05-11-landscape.svg": {
-    "key": "templates/2026/SVG/2026-weekly-journal-2026-05-11-landscape.55c421162588a3d4.svg",
-    "size": 65654,
-    "sha256": "55c421162588a3d40890525218dd4e67bd0f2fc147b8732303f63a35c7cba05a"
+    "key": "templates/2026/SVG/2026-weekly-journal-2026-05-11-landscape.9a525abf02aabc51.svg",
+    "size": 65972,
+    "sha256": "9a525abf02aabc51d1c32cfd2dc69bae02c79f9f39f6a9958a3c71d61ee364b8"
   },
   "templates/2026/SVG/2026-weekly-journal-2026-05-11-portrait.svg": {
-    "key": "templates/2026/SVG/2026-weekly-journal-2026-05-11-portrait.e7e8dbf7eca2b84a.svg",
-    "size": 66260,
-    "sha256": "e7e8dbf7eca2b84ae2cdd26bd7655a23ff27caa4e682bbc0f6d5ca86a312ec0b"
+    "key": "templates/2026/SVG/2026-weekly-journal-2026-05-11-portrait.305720e436f6dc66.svg",
+    "size": 66578,
+    "sha256": "305720e436f6dc668f68bae947d76ffb804d96c2a9bf5306283b5903b12d124e"
   },
   "templates/2026/SVG/2026-weekly-journal-2026-05-18-landscape.svg": {
-    "key": "templates/2026/SVG/2026-weekly-journal-2026-05-18-landscape.92cc8cd839a62428.svg",
-    "size": 68027,
-    "sha256": "92cc8cd839a624280d9976914f42c2677870c3621568c15f7b59a5155d43a18d"
+    "key": "templates/2026/SVG/2026-weekly-journal-2026-05-18-landscape.21c0f557385d396e.svg",
+    "size": 68345,
+    "sha256": "21c0f557385d396e85392d6b13fc056e4ba26e0b554a7249c9dc494163e4e2e5"
   },
   "templates/2026/SVG/2026-weekly-journal-2026-05-18-portrait.svg": {
-    "key": "templates/2026/SVG/2026-weekly-journal-2026-05-18-portrait.85aabf10706b7fe2.svg",
-    "size": 68633,
-    "sha256": "85aabf10706b7fe206bf40e89084d233da6cdc3fcfa19d25696806c5909f125d"
+    "key": "templates/2026/SVG/2026-weekly-journal-2026-05-18-portrait.a0fe1e62e083981c.svg",
+    "size": 68951,
+    "sha256": "a0fe1e62e083981c9f923b8630e6563320344392e82086e101ffc20b81e51a30"
   },
   "templates/2026/SVG/2026-weekly-journal-2026-05-25-landscape.svg": {
-    "key": "templates/2026/SVG/2026-weekly-journal-2026-05-25-landscape.e6b61b92d75d232c.svg",
-    "size": 69213,
-    "sha256": "e6b61b92d75d232c19da5ee2c7671f0c3f8547dab8276bcb02408a8c9e5f4de6"
+    "key": "templates/2026/SVG/2026-weekly-journal-2026-05-25-landscape.a05f935f4fce811c.svg",
+    "size": 69532,
+    "sha256": "a05f935f4fce811c522444ccfc52c5c0f960723bb8593bedbba5e2da52998ec2"
   },
   "templates/2026/SVG/2026-weekly-journal-2026-05-25-portrait.svg": {
-    "key": "templates/2026/SVG/2026-weekly-journal-2026-05-25-portrait.e197ffc5c7e125ab.svg",
-    "size": 69819,
-    "sha256": "e197ffc5c7e125ab2fc1e9e51f836d0ae4dc3fc12b64d46e91b4dc3ef94aa0de"
+    "key": "templates/2026/SVG/2026-weekly-journal-2026-05-25-portrait.626333d30e0a8d2e.svg",
+    "size": 70138,
+    "sha256": "626333d30e0a8d2eecaa0312972487d30309f5ef67a7acb872c9644bd5169bef"
   },
   "templates/2026/SVG/2026-weekly-journal-2026-06-01-landscape.svg": {
-    "key": "templates/2026/SVG/2026-weekly-journal-2026-06-01-landscape.22c66b9901ebf3c3.svg",
-    "size": 61011,
-    "sha256": "22c66b9901ebf3c370cf499ce9f3f79205a003ec5ddce6c11b2132f2b26d2b3d"
+    "key": "templates/2026/SVG/2026-weekly-journal-2026-06-01-landscape.8b8a275b91dd66c0.svg",
+    "size": 61328,
+    "sha256": "8b8a275b91dd66c0f8d225b8c8a004aca2f701ed17e68f18a2bc6f2d448a631e"
   },
   "templates/2026/SVG/2026-weekly-journal-2026-06-01-portrait.svg": {
-    "key": "templates/2026/SVG/2026-weekly-journal-2026-06-01-portrait.b5c8c5ee77d2e2ad.svg",
-    "size": 61617,
-    "sha256": "b5c8c5ee77d2e2ad0bd2bb5e4d4619abab1518002cb6fda60f6568a2e97dd9d9"
+    "key": "templates/2026/SVG/2026-weekly-journal-2026-06-01-portrait.f61e815e513361dd.svg",
+    "size": 61934,
+    "sha256": "f61e815e513361dd0996fe7ef22ebc67eebd958b4bbb6d86a9cae3c6281eeb85"
   },
   "templates/2026/SVG/2026-weekly-journal-2026-06-08-landscape.svg": {
-    "key": "templates/2026/SVG/2026-weekly-journal-2026-06-08-landscape.6299a64b59a769a9.svg",
-    "size": 65080,
-    "sha256": "6299a64b59a769a93fb99ded129cbd59d2f76e8083500a8124be73b9b11a771e"
+    "key": "templates/2026/SVG/2026-weekly-journal-2026-06-08-landscape.a575f2796cbe517f.svg",
+    "size": 65399,
+    "sha256": "a575f2796cbe517f4fc24a724312ca8c24771e57bc01e727a18c8ef8a7c7516e"
   },
   "templates/2026/SVG/2026-weekly-journal-2026-06-08-portrait.svg": {
-    "key": "templates/2026/SVG/2026-weekly-journal-2026-06-08-portrait.b3438c5da6b5473b.svg",
-    "size": 65686,
-    "sha256": "b3438c5da6b5473b9ab895e38c91be10ee698622f1592e69a0f4d90684774209"
+    "key": "templates/2026/SVG/2026-weekly-journal-2026-06-08-portrait.253ece3cd0bc3355.svg",
+    "size": 66005,
+    "sha256": "253ece3cd0bc3355f3646386b6d4d592ea34b2a49f7879c570c4f756c5deba06"
   },
   "templates/2026/SVG/2026-weekly-journal-2026-06-15-landscape.svg": {
-    "key": "templates/2026/SVG/2026-weekly-journal-2026-06-15-landscape.d9605b49d5b3fdac.svg",
-    "size": 66379,
-    "sha256": "d9605b49d5b3fdac2b5113a8a3feea4a2632f7a6735a42dddcfea696416fb2d5"
+    "key": "templates/2026/SVG/2026-weekly-journal-2026-06-15-landscape.a09d73fddfdcc853.svg",
+    "size": 66698,
+    "sha256": "a09d73fddfdcc853088e4c2d8fb86601c95c09571f6f381d10b918a043990dc1"
   },
   "templates/2026/SVG/2026-weekly-journal-2026-06-15-portrait.svg": {
-    "key": "templates/2026/SVG/2026-weekly-journal-2026-06-15-portrait.948440a817dc6071.svg",
-    "size": 66985,
-    "sha256": "948440a817dc6071ae2baf9e3d5d6ec5af5bcb412e5de5b6ffa6f7d7783d490c"
+    "key": "templates/2026/SVG/2026-weekly-journal-2026-06-15-portrait.90c59cc9ef1ee6d9.svg",
+    "size": 67304,
+    "sha256": "90c59cc9ef1ee6d9b8fae69f099f1c877ec6dc88381f2b2ae1dbd97b512d1b7c"
   },
   "templates/2026/SVG/2026-weekly-journal-2026-06-22-landscape.svg": {
-    "key": "templates/2026/SVG/2026-weekly-journal-2026-06-22-landscape.8291557aea5295ce.svg",
-    "size": 69274,
-    "sha256": "8291557aea5295ce386042e42c20f8683e53fa202b1ee1aea73eaf421fe4ce88"
+    "key": "templates/2026/SVG/2026-weekly-journal-2026-06-22-landscape.af6cd77ceed50e30.svg",
+    "size": 69593,
+    "sha256": "af6cd77ceed50e30597c48427f1ca58d62b9b3efe7dc29c2c5edc31953e899e7"
   },
   "templates/2026/SVG/2026-weekly-journal-2026-06-22-portrait.svg": {
-    "key": "templates/2026/SVG/2026-weekly-journal-2026-06-22-portrait.8c9d2c7a6f8de16a.svg",
-    "size": 69880,
-    "sha256": "8c9d2c7a6f8de16a4b1134482ed8db9305fc7f0d080028bac1661c52a476d337"
+    "key": "templates/2026/SVG/2026-weekly-journal-2026-06-22-portrait.0b55c5f5371008f8.svg",
+    "size": 70199,
+    "sha256": "0b55c5f5371008f854515f7a0dffebc2a067781ec34ea13acd77a1dcf52237cb"
   },
   "templates/2026/SVG/2026-weekly-journal-2026-06-29-landscape.svg": {
-    "key": "templates/2026/SVG/2026-weekly-journal-2026-06-29-landscape.9f54cd281d02c69e.svg",
-    "size": 73228,
-    "sha256": "9f54cd281d02c69e38fcac936e9d801962f6ba4ab3fa3abe85b5fe16cefc7a02"
+    "key": "templates/2026/SVG/2026-weekly-journal-2026-06-29-landscape.ab032835cb47f504.svg",
+    "size": 73545,
+    "sha256": "ab032835cb47f50421e9047bd93ffd298c5e630b60eab442aabcddc3a338a966"
   },
   "templates/2026/SVG/2026-weekly-journal-2026-06-29-portrait.svg": {
-    "key": "templates/2026/SVG/2026-weekly-journal-2026-06-29-portrait.b8d81da27df339b1.svg",
-    "size": 73834,
-    "sha256": "b8d81da27df339b105137f2c4de410d155c19f8beea9d38e79a634ebeb6957e8"
+    "key": "templates/2026/SVG/2026-weekly-journal-2026-06-29-portrait.35f6ab3e946bee40.svg",
+    "size": 74151,
+    "sha256": "35f6ab3e946bee4088dc72fbd4b2dd05b9359ae0e1b5890e7b5d82f72ff02c9e"
   },
   "templates/2026/SVG/2026-weekly-journal-2026-07-06-landscape.svg": {
-    "key": "templates/2026/SVG/2026-weekly-journal-2026-07-06-landscape.7ca96a333a29e460.svg",
-    "size": 62003,
-    "sha256": "7ca96a333a29e46021020c5e731c4607c004b09e225fd7dadab04ae9f45edc5a"
+    "key": "templates/2026/SVG/2026-weekly-journal-2026-07-06-landscape.72fb89d14905ff0a.svg",
+    "size": 62322,
+    "sha256": "72fb89d14905ff0a3614038e80b6143f0ba817c27b33080086b79437dcdd0a9b"
   },
   "templates/2026/SVG/2026-weekly-journal-2026-07-06-portrait.svg": {
-    "key": "templates/2026/SVG/2026-weekly-journal-2026-07-06-portrait.bd1a005237d6b5cc.svg",
-    "size": 62609,
-    "sha256": "bd1a005237d6b5ccde13b441c8d1063788442b424c921d2de26c61ff266a6210"
+    "key": "templates/2026/SVG/2026-weekly-journal-2026-07-06-portrait.4cce5ea9dbe7d7a7.svg",
+    "size": 62928,
+    "sha256": "4cce5ea9dbe7d7a7bf37bf864f028c6c5010e007b2dbcf461c746033d143095d"
   },
   "templates/2026/SVG/2026-weekly-journal-2026-07-13-landscape.svg": {
-    "key": "templates/2026/SVG/2026-weekly-journal-2026-07-13-landscape.47f336a334edba64.svg",
-    "size": 65651,
-    "sha256": "47f336a334edba644088483c2c765f673e58eeb8446457be02608966eae94333"
+    "key": "templates/2026/SVG/2026-weekly-journal-2026-07-13-landscape.67662ccb120a2be0.svg",
+    "size": 65970,
+    "sha256": "67662ccb120a2be0b649432b93478604e0060faccc74aa33b4690fc9035b1872"
   },
   "templates/2026/SVG/2026-weekly-journal-2026-07-13-portrait.svg": {
-    "key": "templates/2026/SVG/2026-weekly-journal-2026-07-13-portrait.33e673c4d13d8585.svg",
-    "size": 66257,
-    "sha256": "33e673c4d13d8585e628a1be5030f6647fb416c2e7cbdb3386c51516e9559e27"
+    "key": "templates/2026/SVG/2026-weekly-journal-2026-07-13-portrait.846d9bb6e1145c07.svg",
+    "size": 66576,
+    "sha256": "846d9bb6e1145c07afaa6e76d09b5f3031650addfbbd828ca1d0359df1105c3e"
   },
   "templates/2026/SVG/2026-weekly-journal-2026-07-20-landscape.svg": {
-    "key": "templates/2026/SVG/2026-weekly-journal-2026-07-20-landscape.a27b24adb3f89c7b.svg",
-    "size": 67303,
-    "sha256": "a27b24adb3f89c7b261c541919d16357ee4894724a481946a4e55764e0eaaafe"
+    "key": "templates/2026/SVG/2026-weekly-journal-2026-07-20-landscape.8317332ebcfaf763.svg",
+    "size": 67622,
+    "sha256": "8317332ebcfaf763a40a677df9a2bd236957d17c0e737cac6b40f2286ac8e424"
   },
   "templates/2026/SVG/2026-weekly-journal-2026-07-20-portrait.svg": {
-    "key": "templates/2026/SVG/2026-weekly-journal-2026-07-20-portrait.a7b1b34f7b6bebe6.svg",
-    "size": 67909,
-    "sha256": "a7b1b34f7b6bebe68eb0a865ef8af6a05c5037147e708bc412c57895e16e9aa6"
+    "key": "templates/2026/SVG/2026-weekly-journal-2026-07-20-portrait.cc572ef635e8e703.svg",
+    "size": 68228,
+    "sha256": "cc572ef635e8e703352fffc08e12c62f3506bcd391ef2dcb1a70d92642e7f622"
   },
   "templates/2026/SVG/2026-weekly-journal-2026-07-27-landscape.svg": {
-    "key": "templates/2026/SVG/2026-weekly-journal-2026-07-27-landscape.a86d71160e35baf4.svg",
-    "size": 75556,
-    "sha256": "a86d71160e35baf4738e879fe8ccd7951f9d2d1bce9732dae5354abb0271f3eb"
+    "key": "templates/2026/SVG/2026-weekly-journal-2026-07-27-landscape.dee08f2cd9ead0eb.svg",
+    "size": 75874,
+    "sha256": "dee08f2cd9ead0ebc5fee66b419c3f3c7ba831403c7b5ec3c51c35174e5031ce"
   },
   "templates/2026/SVG/2026-weekly-journal-2026-07-27-portrait.svg": {
-    "key": "templates/2026/SVG/2026-weekly-journal-2026-07-27-portrait.0d877a9d0fed5eb6.svg",
-    "size": 76162,
-    "sha256": "0d877a9d0fed5eb65cdc2e77d532f49a75e3b4785f3db553b084f8bccc5d5b9d"
+    "key": "templates/2026/SVG/2026-weekly-journal-2026-07-27-portrait.ab06b5a76cc61ecc.svg",
+    "size": 76480,
+    "sha256": "ab06b5a76cc61ecc5ec10c34b5e56073c1d0a81c7f982c1a63ce4f90a94f25e6"
   },
   "templates/2026/SVG/2026-weekly-journal-2026-08-03-landscape.svg": {
-    "key": "templates/2026/SVG/2026-weekly-journal-2026-08-03-landscape.f4de1c0c2e9fe082.svg",
-    "size": 63420,
-    "sha256": "f4de1c0c2e9fe082b00481fa18717633897aa2e3479c2b80c2857234045af634"
+    "key": "templates/2026/SVG/2026-weekly-journal-2026-08-03-landscape.edc8a905255a6c17.svg",
+    "size": 63739,
+    "sha256": "edc8a905255a6c170ddeaf34886e6a469cf7bb99a2922871131a17be95639030"
   },
   "templates/2026/SVG/2026-weekly-journal-2026-08-03-portrait.svg": {
-    "key": "templates/2026/SVG/2026-weekly-journal-2026-08-03-portrait.bc808520018a42f8.svg",
-    "size": 64026,
-    "sha256": "bc808520018a42f80208ff1eb340572c91ad479a4deb2341588e1658dc75384c"
+    "key": "templates/2026/SVG/2026-weekly-journal-2026-08-03-portrait.94cde4b3d7a7748c.svg",
+    "size": 64345,
+    "sha256": "94cde4b3d7a7748c2446c5f44a944cae57593e808036e85ecc773a264f6a5e98"
   },
   "templates/2026/SVG/2026-weekly-journal-2026-08-10-landscape.svg": {
-    "key": "templates/2026/SVG/2026-weekly-journal-2026-08-10-landscape.dc3d62c1652c414c.svg",
-    "size": 66885,
-    "sha256": "dc3d62c1652c414c8e51a0578fd89457eb0216c5f89fd3cfb25dfe56f8e9c572"
+    "key": "templates/2026/SVG/2026-weekly-journal-2026-08-10-landscape.3df9696ed32b7b25.svg",
+    "size": 67204,
+    "sha256": "3df9696ed32b7b2575a7a0b527814b0e5e52fbd4dce458b53529ac1a222d6a48"
   },
   "templates/2026/SVG/2026-weekly-journal-2026-08-10-portrait.svg": {
-    "key": "templates/2026/SVG/2026-weekly-journal-2026-08-10-portrait.c8e99c8026ce87a0.svg",
-    "size": 67491,
-    "sha256": "c8e99c8026ce87a028f9877b03046d3230038fb5aacdbad0fa9155827aaf648c"
+    "key": "templates/2026/SVG/2026-weekly-journal-2026-08-10-portrait.ceed46637011a569.svg",
+    "size": 67810,
+    "sha256": "ceed46637011a5695aabea9ecb94c4c0af64bdac10034b968cb5dc8c56d2e60b"
   },
   "templates/2026/SVG/2026-weekly-journal-2026-08-17-landscape.svg": {
-    "key": "templates/2026/SVG/2026-weekly-journal-2026-08-17-landscape.48c2b79a93c9c114.svg",
-    "size": 68004,
-    "sha256": "48c2b79a93c9c11417a9c4f7b7387691f2416e47b623cdd88ce33dfb7c31d8b9"
+    "key": "templates/2026/SVG/2026-weekly-journal-2026-08-17-landscape.d9e32dadc63b5c3c.svg",
+    "size": 68323,
+    "sha256": "d9e32dadc63b5c3c11464ca7b19ce78b1d9e85ec62678e0b151d0e28ab051352"
   },
   "templates/2026/SVG/2026-weekly-journal-2026-08-17-portrait.svg": {
-    "key": "templates/2026/SVG/2026-weekly-journal-2026-08-17-portrait.19ef4d1138b96039.svg",
-    "size": 68610,
-    "sha256": "19ef4d1138b9603943287866aae19b603353f20101103f7c443d348d0fca0864"
+    "key": "templates/2026/SVG/2026-weekly-journal-2026-08-17-portrait.5a75d9d6036a474b.svg",
+    "size": 68929,
+    "sha256": "5a75d9d6036a474b6549636e970a1d7ec6df52d9fc7655f83b8b6a959c116e14"
   },
   "templates/2026/SVG/2026-weekly-journal-2026-08-24-landscape.svg": {
-    "key": "templates/2026/SVG/2026-weekly-journal-2026-08-24-landscape.df8340a548265547.svg",
-    "size": 69173,
-    "sha256": "df8340a5482655479e5246802c218a16188d08718251d1f575a77551e897ab51"
+    "key": "templates/2026/SVG/2026-weekly-journal-2026-08-24-landscape.34f1ab4abcf68068.svg",
+    "size": 69492,
+    "sha256": "34f1ab4abcf68068725166f2e21ee2e14067b3f619bf72e3e0827736aa05bac9"
   },
   "templates/2026/SVG/2026-weekly-journal-2026-08-24-portrait.svg": {
-    "key": "templates/2026/SVG/2026-weekly-journal-2026-08-24-portrait.38868fc29395e22b.svg",
-    "size": 69779,
-    "sha256": "38868fc29395e22b20d9ec98e0a5baf5df908b1cbd06c3995b99502475b3a4c6"
+    "key": "templates/2026/SVG/2026-weekly-journal-2026-08-24-portrait.984877ee510b813b.svg",
+    "size": 70098,
+    "sha256": "984877ee510b813b26104289f5ec27034a0f2b194bc7418c05a0e5914c53768e"
   },
   "templates/2026/SVG/2026-weekly-journal-2026-08-31-landscape.svg": {
-    "key": "templates/2026/SVG/2026-weekly-journal-2026-08-31-landscape.e040409a6882f4ee.svg",
-    "size": 73470,
-    "sha256": "e040409a6882f4ee3483c6ff42d105044afd4c7e79a02de1626d74d8d92ea45b"
+    "key": "templates/2026/SVG/2026-weekly-journal-2026-08-31-landscape.7cfcd8032d470e7f.svg",
+    "size": 73789,
+    "sha256": "7cfcd8032d470e7fd27fe2d41ccf1f92a6510fdf15498b49fc1ec73e3ceaa0b7"
   },
   "templates/2026/SVG/2026-weekly-journal-2026-08-31-portrait.svg": {
-    "key": "templates/2026/SVG/2026-weekly-journal-2026-08-31-portrait.2737a93a736d8324.svg",
-    "size": 74076,
-    "sha256": "2737a93a736d83249f190a5da87dfeaa1d53ba76ecff7149b09c84112fa7ddec"
+    "key": "templates/2026/SVG/2026-weekly-journal-2026-08-31-portrait.bac84ef3343390f4.svg",
+    "size": 74395,
+    "sha256": "bac84ef3343390f4be3b435d65356643bd8ad9ba6ffcba78b7d6c54e4a933009"
   },
   "templates/2026/SVG/2026-weekly-journal-2026-09-07-landscape.svg": {
-    "key": "templates/2026/SVG/2026-weekly-journal-2026-09-07-landscape.282bdd4510b7c16c.svg",
-    "size": 64254,
-    "sha256": "282bdd4510b7c16cda487c46cfb1a370dc2ccb1193ad1d4299a4d0776590a442"
+    "key": "templates/2026/SVG/2026-weekly-journal-2026-09-07-landscape.8e6658de864291d1.svg",
+    "size": 64573,
+    "sha256": "8e6658de864291d17c91bd96160c2754224935115b1712502831784146e8df9d"
   },
   "templates/2026/SVG/2026-weekly-journal-2026-09-07-portrait.svg": {
-    "key": "templates/2026/SVG/2026-weekly-journal-2026-09-07-portrait.e1620b7dc1dfc233.svg",
-    "size": 64860,
-    "sha256": "e1620b7dc1dfc2334a242a42de3e4c01ba949d2836d22852a9a6c0217acc535d"
+    "key": "templates/2026/SVG/2026-weekly-journal-2026-09-07-portrait.991a76d51a65d10f.svg",
+    "size": 65179,
+    "sha256": "991a76d51a65d10f92734cccbe1f5b931f56cc40086a31bccf69711a07f840de"
   },
   "templates/2026/SVG/2026-weekly-journal-2026-09-14-landscape.svg": {
-    "key": "templates/2026/SVG/2026-weekly-journal-2026-09-14-landscape.d243f53372bf66e3.svg",
-    "size": 65830,
-    "sha256": "d243f53372bf66e37968f73288499ac9682e627ad5ed5539af8dc94040e4882d"
+    "key": "templates/2026/SVG/2026-weekly-journal-2026-09-14-landscape.93a8c3d856bf94b0.svg",
+    "size": 66149,
+    "sha256": "93a8c3d856bf94b020253f282a4ea719ab44a0579da5e31338604db70bc553b4"
   },
   "templates/2026/SVG/2026-weekly-journal-2026-09-14-portrait.svg": {
-    "key": "templates/2026/SVG/2026-weekly-journal-2026-09-14-portrait.20e472ccd6f4a109.svg",
-    "size": 66436,
-    "sha256": "20e472ccd6f4a109fa301a26fcdf06b2b83961333c4ea4f32b4940f66822e1b6"
+    "key": "templates/2026/SVG/2026-weekly-journal-2026-09-14-portrait.5291803ad33e63f9.svg",
+    "size": 66755,
+    "sha256": "5291803ad33e63f9892941e4385aef3eb688f0a3f992eb843406984091c37c3d"
   },
   "templates/2026/SVG/2026-weekly-journal-2026-09-21-landscape.svg": {
-    "key": "templates/2026/SVG/2026-weekly-journal-2026-09-21-landscape.c6a41700936a0485.svg",
-    "size": 67822,
-    "sha256": "c6a41700936a0485e3b16e9f6f59c7fbada7cdd3d1e5d75fc154e1c276c9aa6f"
+    "key": "templates/2026/SVG/2026-weekly-journal-2026-09-21-landscape.5342d6aa8bdb0def.svg",
+    "size": 68141,
+    "sha256": "5342d6aa8bdb0def1cc832b1d6b1da23670f2497b6d5834aa664470aef84c1e5"
   },
   "templates/2026/SVG/2026-weekly-journal-2026-09-21-portrait.svg": {
-    "key": "templates/2026/SVG/2026-weekly-journal-2026-09-21-portrait.3254406c5b77210f.svg",
-    "size": 68428,
-    "sha256": "3254406c5b77210ff399752be8dbb25a5e14a03258f9f65473d80b33142b5619"
+    "key": "templates/2026/SVG/2026-weekly-journal-2026-09-21-portrait.00382d7df9988f71.svg",
+    "size": 68747,
+    "sha256": "00382d7df9988f713646cc651f8a893ee8e4cd022408c12602a9baae0f4c08fb"
   },
   "templates/2026/SVG/2026-weekly-journal-2026-09-28-landscape.svg": {
-    "key": "templates/2026/SVG/2026-weekly-journal-2026-09-28-landscape.925d16c5b057745d.svg",
-    "size": 75012,
-    "sha256": "925d16c5b057745d2fdc5502d660e06ae9851a35d45df9e48c8246881f7df9f6"
+    "key": "templates/2026/SVG/2026-weekly-journal-2026-09-28-landscape.8cbf2fcd7a65f560.svg",
+    "size": 75329,
+    "sha256": "8cbf2fcd7a65f560a0e230ca89b7394f66e7b5acd24d1730a4f6eccd0eba5393"
   },
   "templates/2026/SVG/2026-weekly-journal-2026-09-28-portrait.svg": {
-    "key": "templates/2026/SVG/2026-weekly-journal-2026-09-28-portrait.ab768195bc8ec8c6.svg",
-    "size": 75618,
-    "sha256": "ab768195bc8ec8c6a57ee88e47cd2721390ec992c327f6865e7f83a3b1517866"
+    "key": "templates/2026/SVG/2026-weekly-journal-2026-09-28-portrait.56270601143f8edc.svg",
+    "size": 75935,
+    "sha256": "56270601143f8edc3c125f404c715fd8142792607012a4be18c84568b963ba77"
   },
   "templates/2026/SVG/2026-weekly-journal-2026-10-05-landscape.svg": {
-    "key": "templates/2026/SVG/2026-weekly-journal-2026-10-05-landscape.d7d7397c244ee236.svg",
-    "size": 62005,
-    "sha256": "d7d7397c244ee2362b2a36d4bcf65731a5523e34d1ab626e255fadd40eae723a"
+    "key": "templates/2026/SVG/2026-weekly-journal-2026-10-05-landscape.64e551d1a86ce4be.svg",
+    "size": 62323,
+    "sha256": "64e551d1a86ce4bee279cf39e250c639230f169fd6d045134fdc5399002f9f1d"
   },
   "templates/2026/SVG/2026-weekly-journal-2026-10-05-portrait.svg": {
-    "key": "templates/2026/SVG/2026-weekly-journal-2026-10-05-portrait.cf8414cb5b16c3bb.svg",
-    "size": 62611,
-    "sha256": "cf8414cb5b16c3bbe9735b40d0d0b8780a6801279a0f4d669f82b7036425c469"
+    "key": "templates/2026/SVG/2026-weekly-journal-2026-10-05-portrait.8e9da792a8630f4d.svg",
+    "size": 62929,
+    "sha256": "8e9da792a8630f4dfdaa387f923334f5ced8e8203d218dcc79593c0521eb9c0d"
   },
   "templates/2026/SVG/2026-weekly-journal-2026-10-12-landscape.svg": {
-    "key": "templates/2026/SVG/2026-weekly-journal-2026-10-12-landscape.87bfbbac03251507.svg",
-    "size": 66671,
-    "sha256": "87bfbbac03251507b9c914cc541f9d9ad4345e09f0a63b482c7b36189fe5ecd6"
+    "key": "templates/2026/SVG/2026-weekly-journal-2026-10-12-landscape.07f98a124b382b63.svg",
+    "size": 66990,
+    "sha256": "07f98a124b382b63ae96553cc6f57c9a06de9bf07b51bec430043da0da99e8ff"
   },
   "templates/2026/SVG/2026-weekly-journal-2026-10-12-portrait.svg": {
-    "key": "templates/2026/SVG/2026-weekly-journal-2026-10-12-portrait.cd2dba556af62912.svg",
-    "size": 67277,
-    "sha256": "cd2dba556af6291216e16bf7f0facfd5b7109dc54dd7a8923681a880add2685c"
+    "key": "templates/2026/SVG/2026-weekly-journal-2026-10-12-portrait.cc69071c8cf7b47d.svg",
+    "size": 67596,
+    "sha256": "cc69071c8cf7b47dc051210799679e5607588a89ed53b295913a16ff85f41ee0"
   },
   "templates/2026/SVG/2026-weekly-journal-2026-10-19-landscape.svg": {
-    "key": "templates/2026/SVG/2026-weekly-journal-2026-10-19-landscape.0c8635288014b774.svg",
-    "size": 67890,
-    "sha256": "0c8635288014b7747a079122118433ef2f9a761e0c1687e78e4fe69d9ec27c30"
+    "key": "templates/2026/SVG/2026-weekly-journal-2026-10-19-landscape.fc270ac7371be736.svg",
+    "size": 68209,
+    "sha256": "fc270ac7371be736daa65fb3acbe13841616b9f001e972dfdf613b734f8dfe98"
   },
   "templates/2026/SVG/2026-weekly-journal-2026-10-19-portrait.svg": {
-    "key": "templates/2026/SVG/2026-weekly-journal-2026-10-19-portrait.4fbab1e88e530901.svg",
-    "size": 68496,
-    "sha256": "4fbab1e88e530901f79b1f4308507676c5c5eaf533f50d7cfda0fc2cafbe6ea9"
+    "key": "templates/2026/SVG/2026-weekly-journal-2026-10-19-portrait.b2678b04ad10888e.svg",
+    "size": 68815,
+    "sha256": "b2678b04ad10888ec78298c927186f88965239f7c76faf56f13ca5fc14d5b3c2"
   },
   "templates/2026/SVG/2026-weekly-journal-2026-10-26-landscape.svg": {
-    "key": "templates/2026/SVG/2026-weekly-journal-2026-10-26-landscape.9e77dfe7b69708be.svg",
-    "size": 76733,
-    "sha256": "9e77dfe7b69708be224f7705788f2c9842e4b4b5c65ce2e9bebf72c3b7d08d1e"
+    "key": "templates/2026/SVG/2026-weekly-journal-2026-10-26-landscape.02db907c46fdf8ef.svg",
+    "size": 77052,
+    "sha256": "02db907c46fdf8ef5ca6b746217332ed61d16869e9bf41e1036ea393324ec011"
   },
   "templates/2026/SVG/2026-weekly-journal-2026-10-26-portrait.svg": {
-    "key": "templates/2026/SVG/2026-weekly-journal-2026-10-26-portrait.cd8d89d64661a608.svg",
-    "size": 77339,
-    "sha256": "cd8d89d64661a6081b19497278f2dca6d807fc03d23c4d6db3a513610d79b815"
+    "key": "templates/2026/SVG/2026-weekly-journal-2026-10-26-portrait.4e0cfd1e638d7454.svg",
+    "size": 77658,
+    "sha256": "4e0cfd1e638d74542d1814860dc3adeb8c7b5ae60380980431248dc68f0628a6"
   },
   "templates/2026/SVG/2026-weekly-journal-2026-11-02-landscape.svg": {
-    "key": "templates/2026/SVG/2026-weekly-journal-2026-11-02-landscape.75a20681ccbbe6c8.svg",
-    "size": 62379,
-    "sha256": "75a20681ccbbe6c8072208d4cdefef72ee1be392937ced5043162165249fb297"
+    "key": "templates/2026/SVG/2026-weekly-journal-2026-11-02-landscape.c9d1197c6e44a7bd.svg",
+    "size": 62698,
+    "sha256": "c9d1197c6e44a7bdb357441a24524091a14d9f9b6554893c15017aafb698db5d"
   },
   "templates/2026/SVG/2026-weekly-journal-2026-11-02-portrait.svg": {
-    "key": "templates/2026/SVG/2026-weekly-journal-2026-11-02-portrait.93cfb5f19b6ac35b.svg",
-    "size": 62985,
-    "sha256": "93cfb5f19b6ac35b45c7cafa115ac01a4bd3ae6672c27d18bf47e2f787dec6d7"
+    "key": "templates/2026/SVG/2026-weekly-journal-2026-11-02-portrait.758416af1de261e6.svg",
+    "size": 63304,
+    "sha256": "758416af1de261e6e725192cb572002b544e2a1f5e4b97eeafe3094604b737a9"
   },
   "templates/2026/SVG/2026-weekly-journal-2026-11-09-landscape.svg": {
-    "key": "templates/2026/SVG/2026-weekly-journal-2026-11-09-landscape.1c6c0bf7c1d278e2.svg",
-    "size": 65584,
-    "sha256": "1c6c0bf7c1d278e2ca6463a44af51848817b83f61817af6465c8d3ce83efced9"
+    "key": "templates/2026/SVG/2026-weekly-journal-2026-11-09-landscape.556acdfecd95cf2e.svg",
+    "size": 65903,
+    "sha256": "556acdfecd95cf2e90af8dbc8b8b44be58550db7f7b1c69287e8ea2960ac286c"
   },
   "templates/2026/SVG/2026-weekly-journal-2026-11-09-portrait.svg": {
-    "key": "templates/2026/SVG/2026-weekly-journal-2026-11-09-portrait.ab5542e932f30782.svg",
-    "size": 66190,
-    "sha256": "ab5542e932f307821374c7a0e83eab18243cfc4729f998090ea4ab0c6f194ee0"
+    "key": "templates/2026/SVG/2026-weekly-journal-2026-11-09-portrait.0b2bbabd5b278b95.svg",
+    "size": 66509,
+    "sha256": "0b2bbabd5b278b95299ddd8faa94de39ca91a4060f1920849d85ce2a64a39c54"
   },
   "templates/2026/SVG/2026-weekly-journal-2026-11-16-landscape.svg": {
-    "key": "templates/2026/SVG/2026-weekly-journal-2026-11-16-landscape.06a6f16056ccb3e4.svg",
-    "size": 66053,
-    "sha256": "06a6f16056ccb3e40d2143f72e84e3fb5300d9c4f485cfcd5e9c18f1b8f30480"
+    "key": "templates/2026/SVG/2026-weekly-journal-2026-11-16-landscape.ab0e7fb13c82fb67.svg",
+    "size": 66372,
+    "sha256": "ab0e7fb13c82fb67907309fb037800bacfc2cf453e2e3dafe0ac48c2d6ade22c"
   },
   "templates/2026/SVG/2026-weekly-journal-2026-11-16-portrait.svg": {
-    "key": "templates/2026/SVG/2026-weekly-journal-2026-11-16-portrait.acc17f66d1a19462.svg",
-    "size": 66659,
-    "sha256": "acc17f66d1a19462e64bd1f608d7cf17268da23f3c36b2ae37f8b75991121c6c"
+    "key": "templates/2026/SVG/2026-weekly-journal-2026-11-16-portrait.cab791d497d7ced0.svg",
+    "size": 66978,
+    "sha256": "cab791d497d7ced0faea52775b46672c49193c8271d16c1caaf953f5299c9b2c"
   },
   "templates/2026/SVG/2026-weekly-journal-2026-11-23-landscape.svg": {
-    "key": "templates/2026/SVG/2026-weekly-journal-2026-11-23-landscape.acca49e3a5bc2b2a.svg",
-    "size": 68961,
-    "sha256": "acca49e3a5bc2b2a9e95ef49fc1bca400527311237b9dcd71616020a6bf3a3c2"
+    "key": "templates/2026/SVG/2026-weekly-journal-2026-11-23-landscape.5f96070f585b608c.svg",
+    "size": 69280,
+    "sha256": "5f96070f585b608c694c5abacde8ddd4e88d8bd609f6e3ad1c9c661a9ad361ff"
   },
   "templates/2026/SVG/2026-weekly-journal-2026-11-23-portrait.svg": {
-    "key": "templates/2026/SVG/2026-weekly-journal-2026-11-23-portrait.2da678afcc592d32.svg",
-    "size": 69567,
-    "sha256": "2da678afcc592d32047b2893cd67430a8c059d95e293a653ccbdad0685b662f6"
+    "key": "templates/2026/SVG/2026-weekly-journal-2026-11-23-portrait.e6c97ed14736a2ff.svg",
+    "size": 69886,
+    "sha256": "e6c97ed14736a2ff95e93c0169bfc50797fe9c5b3ca600721f75b6935684cb57"
   },
   "templates/2026/SVG/2026-weekly-journal-2026-11-30-landscape.svg": {
-    "key": "templates/2026/SVG/2026-weekly-journal-2026-11-30-landscape.008826d46f7a61f0.svg",
-    "size": 73713,
-    "sha256": "008826d46f7a61f0a6d658874889473775b7e254b71fca97cb0f3c332a6ad5dd"
+    "key": "templates/2026/SVG/2026-weekly-journal-2026-11-30-landscape.1ac79d42286b7883.svg",
+    "size": 74031,
+    "sha256": "1ac79d42286b7883a809766d8800759a0597bb26ba0effdfb623eaa06e716a60"
   },
   "templates/2026/SVG/2026-weekly-journal-2026-11-30-portrait.svg": {
-    "key": "templates/2026/SVG/2026-weekly-journal-2026-11-30-portrait.e89e26034895600a.svg",
-    "size": 74319,
-    "sha256": "e89e26034895600a031299aab1ab6f1b5794d02cb717601711ed0306568452f9"
+    "key": "templates/2026/SVG/2026-weekly-journal-2026-11-30-portrait.0254c57026cf8339.svg",
+    "size": 74637,
+    "sha256": "0254c57026cf83396655ca1506b6651d26a2ee1b486d85ab62b72ca86ad316eb"
   },
   "templates/2026/SVG/2026-weekly-journal-2026-12-07-landscape.svg": {
-    "key": "templates/2026/SVG/2026-weekly-journal-2026-12-07-landscape.3d23a4a4d31d1622.svg",
-    "size": 64851,
-    "sha256": "3d23a4a4d31d1622adf0d8a0ed4d86950f1128ba5bcfcda1cfacf26be3283102"
+    "key": "templates/2026/SVG/2026-weekly-journal-2026-12-07-landscape.1c62f09a3fe587a4.svg",
+    "size": 65169,
+    "sha256": "1c62f09a3fe587a484e515bbb07bd26e4e2bf7a30dbf8f224fa8d784805f4355"
   },
   "templates/2026/SVG/2026-weekly-journal-2026-12-07-portrait.svg": {
-    "key": "templates/2026/SVG/2026-weekly-journal-2026-12-07-portrait.8d210bf9a77d35dc.svg",
-    "size": 65457,
-    "sha256": "8d210bf9a77d35dcffcf77e1e071b4d7287fa5aa823b6419a7c83b37fb1d8337"
+    "key": "templates/2026/SVG/2026-weekly-journal-2026-12-07-portrait.0c68f0a12af8dafb.svg",
+    "size": 65775,
+    "sha256": "0c68f0a12af8dafb7139e9ea78233b4233aff8f56ad189ad0b972a4bb83e7de1"
   },
   "templates/2026/SVG/2026-weekly-journal-2026-12-14-landscape.svg": {
-    "key": "templates/2026/SVG/2026-weekly-journal-2026-12-14-landscape.a4e806b95f52502f.svg",
-    "size": 66426,
-    "sha256": "a4e806b95f52502f560514edfed4b57f71869eb07723843b59f878e82479f525"
+    "key": "templates/2026/SVG/2026-weekly-journal-2026-12-14-landscape.636702cbac187bf6.svg",
+    "size": 66745,
+    "sha256": "636702cbac187bf6f948380a614491a07af33fa62504d317a23f085b770fe30c"
   },
   "templates/2026/SVG/2026-weekly-journal-2026-12-14-portrait.svg": {
-    "key": "templates/2026/SVG/2026-weekly-journal-2026-12-14-portrait.53de51bc82ab81c9.svg",
-    "size": 67032,
-    "sha256": "53de51bc82ab81c978f52c2ab62a93f384fff3e1b400c58d9dc006a47bd7088a"
+    "key": "templates/2026/SVG/2026-weekly-journal-2026-12-14-portrait.47c8bcd2f085032a.svg",
+    "size": 67351,
+    "sha256": "47c8bcd2f085032a6fefe1556f0be06f47dd81bfbd61f60781ab859bcb978373"
   },
   "templates/2026/SVG/2026-weekly-journal-2026-12-21-landscape.svg": {
-    "key": "templates/2026/SVG/2026-weekly-journal-2026-12-21-landscape.8aacc2091ea8f564.svg",
-    "size": 68420,
-    "sha256": "8aacc2091ea8f564dd90c2559ad2c0ceb2eeb90760830c4d21e9d27fb818eefc"
+    "key": "templates/2026/SVG/2026-weekly-journal-2026-12-21-landscape.3c7e31487be68ae2.svg",
+    "size": 68739,
+    "sha256": "3c7e31487be68ae24581c7f6b7a345ac6f35e10f193a6c85ec421be244e1abb7"
   },
   "templates/2026/SVG/2026-weekly-journal-2026-12-21-portrait.svg": {
-    "key": "templates/2026/SVG/2026-weekly-journal-2026-12-21-portrait.8ac0b0409b09aa1b.svg",
-    "size": 69026,
-    "sha256": "8ac0b0409b09aa1b94aa4cbf56e5f9845725be9809b83b96b451b1b9aebc2a33"
+    "key": "templates/2026/SVG/2026-weekly-journal-2026-12-21-portrait.3364640b59c800a2.svg",
+    "size": 69345,
+    "sha256": "3364640b59c800a225d81f843b2cd06d8c2376aca1c869afdb33ddcb11d5ca5b"
   },
   "templates/2026/SVG/2026-weekly-journal-2026-12-28-landscape.svg": {
-    "key": "templates/2026/SVG/2026-weekly-journal-2026-12-28-landscape.b2f370915bb3fd2a.svg",
-    "size": 79976,
-    "sha256": "b2f370915bb3fd2a3112ac299362f612f0b0aa5b2406d0a9b831ea3d2666bf40"
+    "key": "templates/2026/SVG/2026-weekly-journal-2026-12-28-landscape.d6a903ee1b86df61.svg",
+    "size": 80294,
+    "sha256": "d6a903ee1b86df614c8c70f6740b045a38d79dc324a98bb95127f20f466408c6"
   },
   "templates/2026/SVG/2026-weekly-journal-2026-12-28-portrait.svg": {
-    "key": "templates/2026/SVG/2026-weekly-journal-2026-12-28-portrait.96bb5efecb7b8fb5.svg",
-    "size": 80582,
-    "sha256": "96bb5efecb7b8fb5165c08194dd3b694ac54d4931124bac277f9b9d3fb4e60ca"
+    "key": "templates/2026/SVG/2026-weekly-journal-2026-12-28-portrait.f05e82c656c162f3.svg",
+    "size": 80900,
+    "sha256": "f05e82c656c162f3a4f16953eb547af8704982e02265c81089cb04d1402b8280"
   }
 }

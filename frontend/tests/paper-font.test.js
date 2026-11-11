@@ -1,12 +1,13 @@
 // 속지 글꼴. 원본(마루부리)은 글자 윤곽(path) 그대로 두고, 다른 글꼴을 고르면 **진짜 글꼴로 쓴 <text>** 가 된다.
-// 자리가 깨지지 않는 근거는 textLength: 원본 묶음이 차지한 폭을 그대로 넘기므로 글꼴마다 글자 폭이
-// 달라도 차지하는 자리가 같다(S15P31F106-848).
+// 자리가 깨지지 않는 근거: 고른 글꼴이 그 자리(오른쪽으로 쓸 수 있는 폭)보다 넓어질 때만 글자 크기를
+// 줄인다. 좁은 것은 그대로 둔다(사용자 2026-11-11 "좁은 건 괜찮아"). textLength 는 react-native-svg 가
+// 아직 적용하지 않아 쓰지 않는다 — 2026-11-11 실기 측정으로 확인했다(S15P31F106-848).
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync, readdirSync } from 'node:fs'
 import { colorTemplateXml, normalizePaperAppearance } from '../src/editor/templates/appearance.js'
 import { PAPER_FONTS, DEFAULT_PAPER_FONT, isPaperFontId, paperPrintsText, swapPaperFont, readGroup, paperFontIdsToLoad } from '../src/editor/templates/paperFont.js'
-import { paperFontFamily, textFromGroup } from '../src/editor/templates/paperTextFont.js'
+import { paperFontFamily, textFromGroup, naturalWidth } from '../src/editor/templates/paperTextFont.js'
 import { TEXT_FONTS } from '../src/editor/utils/text.js'
 import { datedSvg } from '../src/editor/templates/dated.js'
 import { plannerBaseSvg } from '../src/editor/templates/studyPlanner.js'
@@ -24,16 +25,14 @@ const SAMPLES = {
 /** 원본 글자 묶음(<g aria-label> + path) */
 const GROUP = /<g\b([^>]*)>((?:\s*<path\b[^>]*\/>)+)\s*<\/g>/g
 const outlineGroups = xml => [...xml.matchAll(GROUP)].map(readGroup).filter(Boolean)
-/** 바뀐 뒤의 <text> 들. 글자와 폭은 안쪽 <tspan> 에 있다(react-native-svg 가 거기서만 읽는다). */
-const texts = xml => [...xml.matchAll(/<text\b([^>]*)>\s*<tspan\b([^>]*)>([^<]*)<\/tspan>\s*<\/text>/g)].map(match => ({
-  attrs: match[1], span: match[2], body: match[3],
+/** 바뀐 뒤의 <text> 들 */
+const texts = xml => [...xml.matchAll(/<text\b([^>]*)>([^<]*)<\/text>/g)].map(match => ({
+  attrs: match[1], body: match[2],
   label: match[1].match(/aria-label="([^"]*)"/)?.[1].replace(/&amp;/g, '&') ?? null,
   x: Number(match[1].match(/\sx="([-\d.]+)"/)[1]), y: Number(match[1].match(/\sy="([-\d.]+)"/)[1]),
   size: Number(match[1].match(/font-size="([\d.]+)"/)[1]),
-  length: Number(match[2].match(/textLength="([\d.]+)"/)[1]),
   family: match[1].match(/font-family="([^",]+)/)[1],
 }))
-
 test('속지 글꼴 설정은 고른 때만 저장되고 기존 설정의 모양은 그대로다', () => {
   assert.deepEqual(normalizePaperAppearance(undefined), { backgroundColor: '#FFFFFF', layoutColor: '#292929' })
   assert.deepEqual(normalizePaperAppearance({ backgroundColor: '#fff8e7', layoutColor: '#33476B' }), { backgroundColor: '#FFF8E7', layoutColor: '#33476B' })
@@ -86,27 +85,52 @@ test('인쇄 글자가 있는 모든 속지가 글꼴마다 글자 · 자리 · 
   }
 })
 
-test('차지하는 폭(textLength)이 원본과 같다 — 글꼴이 달라도 줄바꿈 · 넘침이 없다', () => {
+test('자리에 들어가면 글자 크기를 건드리지 않는다 — 좁은 것은 그대로 둔다', () => {
   for (const [name, xml] of Object.entries(SAMPLES)) {
     const before = outlineGroups(xml)
     for (const font of ALT) {
       texts(swapPaperFont(xml, font)).forEach((next, i) => {
-        assert.ok(Math.abs(next.length - (before[i].end - before[i].x)) < 0.002, `${name} ${font} "${next.label}" 폭`)
+        assert.ok(next.size <= before[i].s * 1000 + 0.002, `${name} ${font} "${next.label}" 는 커지면 안 된다`)
       })
-      // 폭을 글자까지 늘려 맞춘다 — 글자 사이만 늘리면 폭이 많이 다를 때 글자가 겹친다
-      assert.match(swapPaperFont(xml, font), /lengthAdjust="spacingAndGlyphs"/)
     }
   }
 })
 
-test('앞뒤에 붙은 공백은 쓰지도 폭에 넣지도 않는다 — textLength 는 보이는 글자의 폭이다', () => {
-  // 속지가 적어 주는 치수(data-adv)는 **보이는 글자**의 폭이다(plannerDraw.write 등이 그렇게 센다).
-  // 쓰는 글자도 앞뒤 공백을 뺀 것이어야 둘이 맞는다.
+test('자리보다 넓어질 때만, 딱 들어갈 만큼 줄인다', () => {
+  const base = outlineGroups(SAMPLES.daily).find(group => group.text.join('') === '데일리 플래너')
+  const full = base.s * 1000
+  const size = (group, font) => Number(textFromGroup(group, font).match(/font-size="([\d.]+)"/)[1])
+  // 자리가 넉넉하면(지금 속지가 다 그렇다) 그대로
+  assert.equal(size(base, 'nanum-gothic'), full)
+  // 자리를 좁히면 줄어든다. 줄인 크기로 쓴 폭이 그 자리에 딱 맞는다
+  for (const room of [40, 90, 150]) {
+    const shrunk = size({ ...base, fit: room }, 'nanum-gothic')
+    assert.ok(shrunk < full, `자리 ${room} 이면 줄어야 한다`)
+    const used = naturalWidth('nanum-gothic', base.weight, '데일리 플래너') * shrunk / 1000
+    assert.ok(Math.abs(used - room) < 0.05, `자리 ${room} 에 딱 맞아야 한다(쓴 폭 ${used})`)
+  }
+  // 폭을 모르는 글자가 섞이면 줄이지 않는다(그 글꼴 자연 폭 그대로)
+  assert.equal(naturalWidth('nanum-gothic', 'R', '데일리 플래너✪'), null)
+  assert.equal(size({ ...base, fit: 40, text: [...'데일리 플래너✪'] }, 'nanum-gothic'), full)
+})
+
+test('지금 속지는 어느 글꼴에서도 자리를 넘지 않는다 — 줄이기는 안전망이다', () => {
+  let shrunk = 0, total = 0
+  for (const xml of Object.values(SAMPLES)) for (const font of ALT) {
+    for (const group of outlineGroups(xml)) {
+      total++
+      if (Number(textFromGroup(group, font).match(/font-size="([\d.]+)"/)[1]) < group.s * 1000 - 0.002) shrunk++
+    }
+  }
+  assert.ok(total > 500, `묶음을 못 읽었다(${total}) — 검사가 헛돌고 있다`)
+  assert.equal(shrunk, 0, `${shrunk}/${total} 묶음이 줄어든다 — 속지가 빡빡해졌거나 더 넓은 글꼴이 들어왔다`)
+})
+
+test('앞뒤에 붙은 공백은 쓰지 않는다', () => {
   const base = outlineGroups(SAMPLES.daily)[0]
   for (const label of [' 가운데 ', '가운데 ', ' 가운데']) {
     const out = textFromGroup({ ...base, text: [...label] }, 'gowun-dodum')
-    assert.equal(out.match(/>([^<]*)<\/tspan>/)[1], '가운데', label)
-    assert.equal(Number(out.match(/textLength="([\d.]+)"/)[1]), Number((base.end - base.x).toFixed(3)), label)
+    assert.equal(out.match(/>([^<]*)<\/text>/)[1], '가운데', label)
   }
   // 공백뿐인 묶음은 그릴 것이 없다
   assert.equal(textFromGroup({ ...base, text: [' ', ' '] }, 'gowun-dodum'), null)
@@ -195,15 +219,14 @@ test('글자가 인쇄되는 속지에만 글꼴을 고른다', () => {
   assert.equal(paperPrintsText('없는-속지'), false)
 })
 
-test('폭을 맞추는 속성은 <text> 가 아니라 <tspan> 에 있다 — react-native-svg 가 거기서만 읽는다', () => {
-  // 글자를 그리는 것은 TSpan 이고 textLength 를 **자기 것에서만** 읽는다
-  // (android TSpanView.drawWrappedText). <text> 에 두면 조용히 무시되어 자리가 깨진다.
+test('폭을 맞추는 속성(textLength)은 쓰지 않는다 — react-native-svg 가 아직 적용하지 않는다', () => {
+  // android TextLayoutAlgorithm.java 에 "TODO Apply 'textLength' attribute" 가 그대로 있고,
+  // 2026-11-11 실기 측정에서 다섯 라벨 모두 자연 폭으로 그려졌다. 나중에 지원되면 조용히 모양이
+  // 바뀌므로 아예 쓰지 않고, 넘치는 묶음만 글자 크기로 맞춘다.
   const out = swapPaperFont(SAMPLES.daily, 'nanum-pen')
-  assert.ok(out.includes('<tspan textLength='), '<tspan> 에 폭이 있어야 한다')
-  for (const open of out.match(/<text\b[^>]*>/g)) {
-    assert.doesNotMatch(open, /textLength=/, '<text> 에 두면 무시된다')
-    assert.doesNotMatch(open, /lengthAdjust=/, '<text> 에 두면 무시된다')
-  }
-  // <text> 하나에 <tspan> 하나 — 여러 개로 쪼개면 폭이 묶음마다 다시 계산된다
-  assert.equal((out.match(/<tspan\b/g) ?? []).length, (out.match(/<text\b/g) ?? []).length)
+  assert.doesNotMatch(out, /textLength=/)
+  assert.doesNotMatch(out, /lengthAdjust=/)
+  assert.doesNotMatch(out, /<tspan\b/)
+  // 치수는 윤곽 묶음의 것이라 <text> 로 딸려 가지 않는다
+  assert.doesNotMatch(out, /<text[^>]*data-(adv|fit|w)=/)
 })
