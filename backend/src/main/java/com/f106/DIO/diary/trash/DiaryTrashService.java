@@ -51,7 +51,8 @@ public class DiaryTrashService {
         return new DiaryTrashResponse.Item(rs.getString("diary_id"), rs.getString("title"),
             rs.getString("cover_color"), rs.getString("cover_style"), rs.getString("visibility"),
             rs.getTimestamp("created_at").toInstant(), rs.getTimestamp("updated_at").toInstant(),
-            deletedAt, purgeAt, purgeAt != null && now.isBefore(purgeAt),Long.toString(rs.getLong("version")),true);
+            deletedAt, purgeAt, purgeAt != null && now.isBefore(purgeAt),Long.toString(rs.getLong("version")),true,
+            com.f106.DIO.diary.support.DiaryTemplateConfig.read(rs.getString("template_config_json")));
     }
 
     // PostgreSQL uses FOR SHARE: concurrent readers coexist while account deactivation waits.
