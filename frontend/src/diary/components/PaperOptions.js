@@ -146,7 +146,7 @@ export function PaperGrid({ papers, selected, onSelect, orientation, appearance,
         onPress={() => onSelect(paper.id)} style={({ pressed }) => [styles.tile, on && styles.tileOn, pressed && styles.pressed]}>
         <TemplatePreview assetId={paperPreviewId(paper.id, orientation, period)} width={thumb} appearance={appearance} sketch />
         {/* 칸이 좁거나 글자 크기를 키운 기기에서는 이름이 두 줄로 내려간다. 낱말 가운데에서 끊지 않는다(안드로이드 keepKoreanWords · iOS hangul-word) */}
-        <Text numberOfLines={2} lineBreakStrategyIOS="hangul-word" accessibilityLabel={paper.name} style={[styles.tileName, on && styles.tileNameOn]}>{keepKoreanWords(paper.name, Platform.OS)}</Text>
+        <Text numberOfLines={2} lineBreakStrategyIOS="hangul-word" accessibilityLabel={paper.name} style={[styles.tileName, on && styles.tileNameOn]}>{keepKoreanWords(paper.tileName ?? paper.name, Platform.OS)}</Text>
       </Pressable></View>
     })}
     {Array.from({ length: grid.empty }, (_, i) => <View key={`empty-${i}`} pointerEvents="none" style={cell}>
@@ -396,12 +396,12 @@ const styles = StyleSheet.create({
   tabTextOn: { color: colors.text, fontWeight: '800' },
   tabLine: { alignSelf: 'stretch', height: 2.5, marginBottom: -1, borderRadius: 2, backgroundColor: 'transparent' },
   tabLineOn: { backgroundColor: colors.primaryStrong },
-  // 칸은 최대 폭에서 멈추므로 격자가 패널보다 좁을 수 있다. 왼쪽에 붙이면 오른쪽만 비어 어색하다
-  // — 남는 폭을 양쪽으로 나눈다(사용자 2026-11-11, 일기 분류가 5종이 되며 눈에 띄었다).
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: PAPER_GRID_GAP, alignSelf: 'center' },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: PAPER_GRID_GAP },
   tile: { alignItems: 'center', gap: 5, paddingTop: 8, paddingBottom: 6, borderRadius: 12, borderWidth: 1.5, borderColor: 'transparent' },
   tileOn: { borderColor: colors.primary, backgroundColor: colors.primarySoft },
-  tileName: { alignSelf: 'stretch', paddingHorizontal: 2, textAlign: 'center', color: colors.textMuted, fontSize: 11.5, fontWeight: '700' },
+  // 이름 자리는 늘 두 줄을 잡는다. 한 줄짜리와 두 줄짜리가 섞이면 칸 높이가 달라지고,
+  // 분류를 넘길 때 말풍선이 들썩인다(사용자 2026-11-11, 일기 분류에 두 줄 이름이 생기며 드러났다).
+  tileName: { alignSelf: 'stretch', paddingHorizontal: 2, textAlign: 'center', color: colors.textMuted, fontSize: 11.5, fontWeight: '700', lineHeight: 16, height: 34 },
   tileNameOn: { color: colors.text, fontWeight: '800' },
   context: { padding: 12, borderRadius: 12, backgroundColor: colors.surfaceSoft },
   // 시작(해 · 달) 두 칸은 위 '날짜 있음 · 날짜 없이'(Segmented)와 같은 반반 폭 · 사이 6 · 높이 40 · cardBorder 테두리(2026-11-08)

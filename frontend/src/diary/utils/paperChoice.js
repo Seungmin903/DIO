@@ -15,6 +15,7 @@ export const PAPER_GROUPS = [
 
 // kind: 'period' 는 기간으로 장수가 정해지는 날짜 속지(every 마다 한 장), 'cover' 는 묶음 앞 한 장,
 //       'count' 는 장수를 직접 고르는 속지. type: 장수형의 공용 속지 종류 (catalog 의 reusable type · note background)
+// tileName 은 고르기 칸에서만 쓰는 이름(줄바꿈 가능). 없으면 name 을 쓴다.
 export const PAPERS = [
   { id: 'plain', group: 'note', name: '무지', kind: 'count', type: 'note', background: 'plain' },
   { id: 'ruled', group: 'note', name: '줄', kind: 'count', type: 'note', background: 'ruled' },
@@ -32,8 +33,9 @@ export const PAPERS = [
   { id: 'diary', group: 'diary', name: '하루 일기', kind: 'count', type: 'diary' },
   { id: 'scrap', group: 'diary', name: '사진 · 스크랩', kind: 'count', type: 'scrap' },
   // 발색 기록: 잉크병 모양만 다른 두 벌. 병을 칠하면 색 값이 저절로 찬다(editor/templates/inkRecord.js)
-  { id: 'ink-record-round', group: 'diary', name: '발색 기록 · 둥근 병', kind: 'count', type: 'inkRecord', bottle: 'round' },
-  { id: 'ink-record-square', group: 'diary', name: '발색 기록 · 각진 병', kind: 'count', type: 'inkRecord', bottle: 'square' },
+  // tileName: 고르기 칸에만 쓰는 이름. name 은 '하루 일기 3장 → …' 같은 한 줄 요약에도 쓰여 줄바꿈을 넣을 수 없다
+  { id: 'ink-record-round', group: 'diary', name: '발색 기록 · 둥근 병', tileName: '발색 기록\n(둥근 병)', kind: 'count', type: 'inkRecord', bottle: 'round' },
+  { id: 'ink-record-square', group: 'diary', name: '발색 기록 · 각진 병', tileName: '발색 기록\n(각진 병)', kind: 'count', type: 'inkRecord', bottle: 'square' },
 ]
 // 예전에 저장한 다이어리 요약에만 쓰는 이름
 const LEGACY_NAMES = { year: '1년 플래너' }
