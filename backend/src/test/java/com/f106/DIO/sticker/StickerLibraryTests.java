@@ -25,7 +25,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest(properties = {
     "spring.datasource.url=jdbc:h2:mem:sticker-library;MODE=PostgreSQL;DB_CLOSE_DELAY=-1",
     "dio.auth.jwt-secret=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
-    "dio.signup.photos.storage=local", "dio.signup.photos.local-directory=build/test-sticker-photos",
+    "dio.signup.photos.storage=local", "dio.signup.photos.local-directory=build/test-sticker-photos/${org.gradle.test.worker:0}",
     "SHARING_INVITE_SECRET=BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB=",
     "SHARING_INVITE_BASE_URL=https://dio.test/invite/"})
 @AutoConfigureMockMvc @ActiveProfiles("test")

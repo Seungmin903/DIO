@@ -26,7 +26,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class DiaryProfileTests extends SharingTestSupport {
     @Autowired ProfilePhotoRepository accountPhotos;
     @Autowired SharingProfileMediaRepository profileMedia;
-    @MockitoSpyBean SharingPhotoStorage photoStorage;
     byte[] png() throws Exception {var out=new ByteArrayOutputStream();ImageIO.write(new BufferedImage(6,4,BufferedImage.TYPE_INT_RGB),"png",out);return out.toByteArray();}
     DiaryProfileResponse upload(UUID diary,Actor actor) throws Exception {return profiles.update(diary,actor.id(),new DiaryProfileUpdateRequest(),new MockMultipartFile("photo","photo.png","image/png",png()));}
     @Test void duplicateNicknamesAreAllowedAndNullRestoresAccountNickname() throws Exception {
@@ -100,7 +99,7 @@ class DiaryProfileTests extends SharingTestSupport {
             membership.remove(id,owner.id(),editor.id());return pending;
         }).when(photoStorage).upload(any(),any());
         assertThatThrownBy(()->upload(id,editor)).isInstanceOf(SharingException.class);
-        assertThat(java.nio.file.Files.exists(java.nio.file.Path.of("build/test-member-photos").resolve(location.get().key()))).isFalse();
+        assertThat(java.nio.file.Files.exists(java.nio.file.Path.of(photoDirectory).resolve(location.get().key()))).isFalse();
         assertThat(members.findById(new DiaryMemberId(id,editor.id())).orElseThrow().getMemberProfilePhotoId()).isNull();
     }
     @Test void invalidNicknamesAreRejectedAndLegacyMutationRoutesAreNotExposed() throws Exception {

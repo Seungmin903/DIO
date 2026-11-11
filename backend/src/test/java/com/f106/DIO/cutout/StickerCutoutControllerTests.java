@@ -28,25 +28,21 @@ import com.f106.DIO.cutout.service.StickerCutoutService;
 import com.f106.DIO.cutout.support.CutoutException;
 import com.f106.DIO.media.dto.MediaFileResponse;
 
-@SpringBootTest
-@AutoConfigureMockMvc
-class StickerCutoutControllerTests {
+class StickerCutoutControllerTests extends com.f106.DIO.support.MockedMediaServicesWebTestSupport {
 	private static final String TAP = "{\"points\":[{\"x\":0.5,\"y\":0.5,\"label\":1}]}";
-	@Autowired MockMvc mvc;
-	@MockitoBean StickerCutoutService service;
 
 	@Test
 	void guestsMustLogIn() throws Exception {
 		mvc.perform(multipart("/api/v1/sticker-cutouts").file(photo())).andExpect(status().isUnauthorized());
 		mvc.perform(post("/api/v1/sticker-cutouts/" + UUID.randomUUID() + "/segment").contentType(MediaType.APPLICATION_JSON).content(TAP))
 			.andExpect(status().isUnauthorized());
-		verifyNoInteractions(service);
+		verifyNoInteractions(stickerCutoutService);
 	}
 
 	@Test
 	void uploadReturnsCutoutId() throws Exception {
 		UUID cutoutId = UUID.randomUUID();
-		when(service.open(any(), eq(7L))).thenReturn(new CutoutCreatedResponse(cutoutId, 800, 600, Instant.parse("2026-11-01T00:30:00Z")));
+		when(stickerCutoutService.open(any(), eq(7L))).thenReturn(new CutoutCreatedResponse(cutoutId, 800, 600, Instant.parse("2026-11-01T00:30:00Z")));
 
 		mvc.perform(multipart("/api/v1/sticker-cutouts").file(photo()).with(user()))
 			.andExpect(status().isCreated())
@@ -57,7 +53,7 @@ class StickerCutoutControllerTests {
 	@Test
 	void segmentReturnsPreview() throws Exception {
 		UUID cutoutId = UUID.randomUUID();
-		when(service.segment(eq(cutoutId), any(), eq(7L))).thenReturn(new CutoutPreviewResponse("data:image/png;base64,AA", 120));
+		when(stickerCutoutService.segment(eq(cutoutId), any(), eq(7L))).thenReturn(new CutoutPreviewResponse("data:image/png;base64,AA", 120));
 
 		mvc.perform(post("/api/v1/sticker-cutouts/" + cutoutId + "/segment").with(user()).contentType(MediaType.APPLICATION_JSON).content(TAP))
 			.andExpect(status().isOk())
@@ -68,7 +64,7 @@ class StickerCutoutControllerTests {
 	void renderReturnsPng() throws Exception {
 		UUID cutoutId = UUID.randomUUID();
 		byte[] png = {(byte) 0x89, 'P', 'N', 'G'};
-		when(service.render(eq(cutoutId), any(), eq(7L))).thenReturn(png);
+		when(stickerCutoutService.render(eq(cutoutId), any(), eq(7L))).thenReturn(png);
 
 		mvc.perform(post("/api/v1/sticker-cutouts/" + cutoutId + "/render").with(user()).contentType(MediaType.APPLICATION_JSON).content(TAP))
 			.andExpect(status().isOk())
@@ -79,7 +75,7 @@ class StickerCutoutControllerTests {
 	@Test
 	void saveCreatesStickerMedia() throws Exception {
 		UUID cutoutId = UUID.randomUUID(); UUID mediaFileId = UUID.randomUUID();
-		when(service.save(eq(cutoutId), any(), eq(7L))).thenReturn(new MediaFileResponse(mediaFileId, "IMAGE", "AI_RESULT", "STICKER",
+		when(stickerCutoutService.save(eq(cutoutId), any(), eq(7L))).thenReturn(new MediaFileResponse(mediaFileId, "IMAGE", "AI_RESULT", "STICKER",
 			null, "image/png", 100, "0".repeat(64), Instant.parse("2026-11-01T00:00:00Z")));
 
 		mvc.perform(post("/api/v1/sticker-cutouts/" + cutoutId + "/save").with(user()).contentType(MediaType.APPLICATION_JSON).content(TAP))
@@ -97,18 +93,18 @@ class StickerCutoutControllerTests {
 				.andExpect(status().isBadRequest())
 				.andExpect(jsonPath("$.code").value("CUTOUT_INVALID_SELECTION"));
 		}
-		verifyNoInteractions(service);
+		verifyNoInteractions(stickerCutoutService);
 	}
 
 	@Test
 	void cutoutErrorsUseProblemDetailWithCode() throws Exception {
 		UUID cutoutId = UUID.randomUUID();
-		when(service.segment(eq(cutoutId), any(), eq(7L))).thenThrow(CutoutException.expired());
+		when(stickerCutoutService.segment(eq(cutoutId), any(), eq(7L))).thenThrow(CutoutException.expired());
 		mvc.perform(post("/api/v1/sticker-cutouts/" + cutoutId + "/segment").with(user()).contentType(MediaType.APPLICATION_JSON).content(TAP))
 			.andExpect(status().isNotFound())
 			.andExpect(jsonPath("$.code").value("CUTOUT_EXPIRED"));
 
-		when(service.open(any(), eq(7L))).thenThrow(CutoutException.busy());
+		when(stickerCutoutService.open(any(), eq(7L))).thenThrow(CutoutException.busy());
 		mvc.perform(multipart("/api/v1/sticker-cutouts").file(photo()).with(user()))
 			.andExpect(status().isServiceUnavailable())
 			.andExpect(header().string("Retry-After", "2"));
@@ -121,7 +117,7 @@ class StickerCutoutControllerTests {
 				.header("Access-Control-Request-Headers", "authorization,content-type"))
 			.andExpect(status().isOk())
 			.andExpect(header().string("Access-Control-Allow-Origin", "http://localhost:8081"));
-		verifyNoInteractions(service);
+		verifyNoInteractions(stickerCutoutService);
 	}
 
 	private static MockMultipartFile photo() { return new MockMultipartFile("file", "photo.jpg", "image/jpeg", new byte[] {(byte) 0xFF, (byte) 0xD8, (byte) 0xFF}); }

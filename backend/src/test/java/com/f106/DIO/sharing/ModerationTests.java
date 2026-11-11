@@ -18,11 +18,9 @@ import static org.assertj.core.api.Assertions.*;
 import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
-@TestPropertySource(properties={"spring.datasource.url=jdbc:h2:mem:moderation-tests;MODE=PostgreSQL;DB_CLOSE_DELAY=-1","dio.media.local-directory=build/test-report-media","dio.signup.mail-from=notifications@dio.test","dio.moderation.report-mail.to=ops@dio.test"})
 class ModerationTests extends SharingTestSupport {
  @Autowired BlockService blocks;@Autowired ReportService reports;@Autowired UserReportRepository reportRows;
  @Autowired UserBlockRepository blockRows;@Autowired EmailInviteService emails;@Autowired ReportMailDelivery delivery;
- @org.springframework.test.context.bean.override.mockito.MockitoSpyBean MediaStorage evidenceStorage;
  record Pair(Actor a,Actor b,UUID diary){}
  Pair pair(){var a=actor();var b=actor();var diary=diary(a);links.accept(links.create(diary,a.id()).token(),b.id());return new Pair(a,b,diary);}
  ReportRequest request(Pair p){return new ReportRequest(p.b.id(),p.diary,ReportReason.HARASSMENT,"설명",UUID.randomUUID());}
