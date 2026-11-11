@@ -24,27 +24,49 @@ public final class DiaryTemplateConfig {
         return text;
     }
 
-    /**
-     * 응답에 실을 값. 저장 값이 없거나 깨졌거나 객체가 아니면 null(예전 다이어리와 같게)로 본다.
-     * 목록·휴지통 행 매퍼에서 쓰므로, 다이어리 한 건의 손상된 값 때문에 목록 전체가 실패하지 않게 한다.
-     * 앱도 객체가 아닌 값은 응답 오류로 보므로 객체만 내보낸다.
-     * 손상은 운영에서 알 수 있게 사유만 warn으로 남긴다(다이어리 ID·저장 값은 남기지 않는다).
-     */
+    /** 저장 값을 그대로 읽는다. 깨진 값은 예외(JacksonException)를 던진다. 손상을 드러내야 하는 곳에서 쓴다. */
     public static JsonNode read(String value) {
+        return value == null ? null : JSON.readTree(value);
+    }
+
+    /**
+     * 응답·비교용 관용 읽기. 저장 값이 없거나 깨졌거나 객체가 아니면 null(예전 다이어리와 같게)로 본다.
+     * 목록·상세·휴지통 행 매퍼에서 써서 다이어리 한 건의 손상된 값 때문에 목록 전체가 실패하지 않게 한다.
+     * 앱도 객체가 아닌 값은 응답 오류로 보므로 객체만 내보낸다. 결과를 다시 저장하는 데 쓰지 않는다.
+     * 손상은 다이어리 ID와 사유만 warn으로 남기고(저장 값은 남기지 않는다), 같은 다이어리는 한 시간에 한 번만 남긴다.
+     */
+    public static JsonNode readLenient(String value, Object diaryId) {
         if (value == null) return null;
         JsonNode node;
         try {
             node = JSON.readTree(value);
         } catch (tools.jackson.core.JacksonException e) {
-            LOG.warn("Stored diary templateConfig ignored: reason=PARSE_FAILED errorType={}", e.getClass().getSimpleName());
+            warnOnce(diaryId, "PARSE_FAILED", e.getClass().getSimpleName());
             return null;
         }
         if (node == null || !node.isObject()) {
-            LOG.warn("Stored diary templateConfig ignored: reason=NOT_OBJECT nodeType={}", node == null ? "NONE" : node.getNodeType());
+            warnOnce(diaryId, "NOT_OBJECT", node == null ? "NONE" : String.valueOf(node.getNodeType()));
             return null;
         }
         return node;
     }
+
+    private static final long WARN_INTERVAL_NANOS = java.util.concurrent.TimeUnit.HOURS.toNanos(1);
+    private static final int MAX_WARNED = 1024;
+    private static final java.util.concurrent.ConcurrentHashMap<String, Long> WARNED = new java.util.concurrent.ConcurrentHashMap<>();
+
+    private static void warnOnce(Object diaryId, String reason, String detail) {
+        String key = String.valueOf(diaryId);
+        long now = System.nanoTime();
+        Long last = WARNED.get(key);
+        if (last != null && now - last < WARN_INTERVAL_NANOS) return;
+        if (WARNED.size() >= MAX_WARNED) WARNED.clear(); // 손상 행이 아주 많아도 메모리가 늘지 않게 한다.
+        if (last == null ? WARNED.putIfAbsent(key, now) != null : !WARNED.replace(key, last, now)) return;
+        LOG.warn("Stored diary templateConfig ignored: diaryId={} reason={} detail={}", key, reason, detail);
+    }
+
+    /** 테스트용: 경고 억제 기록을 비운다. */
+    static void resetWarnings() { WARNED.clear(); }
 
     private static int depth(JsonNode value, int level) {
         if (level > MAX_DEPTH) return level;

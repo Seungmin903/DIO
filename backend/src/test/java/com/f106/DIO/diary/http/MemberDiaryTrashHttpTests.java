@@ -115,6 +115,18 @@ class MemberDiaryTrashHttpTests {
         }
         assertThat(items.size()).isEqualTo(2);
     }
+    @Test void corruptStoredTemplateConfigIsReplacedOnlyByAValidatedRequestValue() throws Exception {
+        String id=id(create());var uuid=UUID.fromString(id);
+        jdbc.update("update diaries set template_config_json=? where diary_id=?","{not json",uuid);
+        // 제목만 바꾸면 깨진 저장 값은 손대지 않는다(정상 값처럼 다시 쓰지 않는다).
+        mvc.perform(patch(PATH+"/"+id).header("Authorization","Bearer "+owner).contentType(MediaType.APPLICATION_JSON).content("{\"diaryTitle\":\"renamed\",\"expectedVersion\":\"1\"}"))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.diary.templateConfig").doesNotExist());
+        assertThat(jdbc.queryForObject("select template_config_json from diaries where diary_id=?",String.class,uuid)).isEqualTo("{not json");
+        // 구성을 보내면 검증된 요청 값으로 바뀐다.
+        mvc.perform(patch(PATH+"/"+id).header("Authorization","Bearer "+owner).contentType(MediaType.APPLICATION_JSON).content("{\"templateConfig\":{\"orientation\":\"portrait\"},\"expectedVersion\":\"2\"}"))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.diary.templateConfig.orientation").value("portrait"));
+        assertThat(json.readTree(jdbc.queryForObject("select template_config_json from diaries where diary_id=?",String.class,uuid)).get("orientation").asString()).isEqualTo("portrait");
+    }
     @Test void corruptStoredTemplateConfigBecomesNullWithoutFailingTheTrashList() throws Exception {
         String broken=id(create()),array=id(create()),healthy=id(create());
         jdbc.update("update diaries set template_config_json=? where diary_id=?","{not json",UUID.fromString(broken));
