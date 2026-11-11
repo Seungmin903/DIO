@@ -20,8 +20,10 @@ export const tileBox = (col, row) => ({ x: col * TILE, y: row * TILE, w: TILE, h
 /**
  * 타일 한 칸이 **딱 떨어지는 픽셀 수**가 되는 굽기 배율. ¼옥타브 배율(1.189…)을 그대로 쓰면
  * TILE * scale = 304.4 이고 그림은 올림해서 305픽셀이라, 맨 끝 한 줄이 칸 밖을 가리킨다.
+ * 한 칸은 적어도 1픽셀이다 — 배율이 0.5/TILE 아래면 0 이 되어 타일 크기 · 열쇠가 깨진다(코드리뷰 2026-11-11).
+ * 지금 굽기 배율(bakeScaleOf)은 그만큼 작아지지 않지만, 이 함수만 보고도 0 이 안 나오게 둔다.
  */
-export const pixelTileScale = scale => Math.round(TILE * scale) / TILE
+export const pixelTileScale = scale => Math.max(1, Math.round(TILE * scale)) / TILE
 
 /**
  * 타일을 화면에 놓을 자리. 이웃 타일과 **같은 정수 픽셀**에서 만나게 반올림한다 — 경계 픽셀 하나를

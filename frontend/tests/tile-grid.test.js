@@ -171,6 +171,8 @@ test('타일 굽기 배율은 한 칸이 정수 픽셀이 되게 맞추고, 화�
     assert.ok(Math.abs(px - Math.round(px)) < 1e-9, `${scale}: ${px}`)
     assert.ok(Math.abs(pixelTileScale(scale) - scale) <= 0.5 / TILE)
   }
+  // 아주 작은 배율에서도 0 이 되지 않는다(한 칸 1픽셀)
+  for (const scale of [0, 0.001, 0.5 / TILE - 1e-6]) assert.equal(pixelTileScale(scale), 1 / TILE, String(scale))
   // 경계 픽셀을 두 타일이 반씩 덮으면 반투명 잉크가 옅어져 1px 줄이 뜬다(실기 SM-X510 2026-11-11)
   for (const zoom of [0.37, 0.5, 1, 1.189, 2.3]) {
     for (let col = 0; col < 4; col++) for (let row = 0; row < 3; row++) {
