@@ -2,7 +2,8 @@ import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native'
 import Svg, { Circle, Path } from 'react-native-svg'
 import { colors, shadow } from '../../shared/theme'
-import { TEXT_COLORS, fontLabel, getPickableTextFonts, getTextFonts, italicTransform, resolveFontId, subscribeTextFonts, textFontChangePatch, textFontStateSnapshot, textStyle, textStyleReady, textStyleSupport } from '../utils/text'
+import { TEXT_COLORS, downloadTextFont, fontLabel, getPickableTextFonts, getTextFonts, italicTransform, resolveFontId, subscribeTextFonts, textFontChangePatch, textFontPreviewFamily, textFontStateSnapshot, textFontStatus, textStyleReady, textStyleSupport } from '../utils/text'
+import FontStatusMark, { FONT_PENDING_TEXT, fontNeedsDownload, fontStatusA11y } from './controls/FontStatusMark'
 import { usePalette } from '../hooks/usePalettes'
 import { useColorWindow } from '../../diary/components/PresetColorEditor'
 import { paperColorRow } from '../utils/paperColorRow.js'
@@ -20,7 +21,7 @@ const RAINBOW = ['#E9573F', '#F6B93B', '#4F9D69', '#3B82C4', '#7C5CBF', '#D4559A
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value))
 const round = (value, digits) => Math.round(value * 10 ** digits) / 10 ** digits
 // 글꼴 이름을 그 글꼴로 보여 준다(아직 불러오지 못한 앱 글꼴은 기본 글꼴) — TextFontDropdown 과 같다
-const previewFont = (id) => ({ fontFamily: textStyle({ font: id }, 1, Platform.OS).fontFamily })
+const previewFont = (id, status) => ({ fontFamily: textFontPreviewFamily(id, Platform.OS, status) })
 
 /**
  * 글을 고치는 동안 키보드 바로 위(웹은 작업창 아래 끝)에 늘 떠 있는 **상자 전체** 서식 줄(S15P31F106-482). 켜고 끄는 버튼은 없다(자동으로 열리니 끄기만 남아 쓸모가 없었다, 2026-11-10).
@@ -70,10 +71,13 @@ export default function TextFormatStrip({ settings, onChange, onHold = () => {},
           <FadeScroll horizontal scrollRef={fontScroll} style={styles.scroll} keyboardShouldPersistTaps="always" contentContainerStyle={styles.content}>
             {getPickableTextFonts().map(font => {
               const on = font.id === currentFont?.id
-              return <Pressable key={font.id} accessibilityRole="button" accessibilityLabel={`글꼴 ${fontLabel(font, Platform.OS)}`} accessibilityState={{ selected: on }} {...keepFocus}
+              // 받지 않은 원격 글꼴: 흐린 이름 + 받기 표시. 누르면 받기만 하고 줄은 열어 둔다(받은 뒤 다시 눌러 고른다)
+              const status = textFontStatus(font.id), pending = fontNeedsDownload(status)
+              return <Pressable key={font.id} accessibilityRole="button" accessibilityLabel={`글꼴 ${fontLabel(font, Platform.OS)}${fontStatusA11y(status)}`} accessibilityState={{ selected: on, busy: status === 'downloading' }} {...keepFocus}
                 onLayout={on ? (event) => fontScroll.current?.scrollTo?.({ x: Math.max(0, event.nativeEvent.layout.x - 48), animated: false }) : undefined}
-                onPress={() => { onChange(textFontChangePatch(settings, font.id, Platform.OS)); setPanel(null) }} style={[styles.chip, on && styles.active]}>
-                <Text style={[styles.chipText, previewFont(font.id)]} numberOfLines={1}>{fontLabel(font, Platform.OS)}</Text>
+                onPress={() => { if (status === 'downloading') return; if (pending) { downloadTextFont(font.id); return } onChange(textFontChangePatch(settings, font.id, Platform.OS)); setPanel(null) }} style={[styles.chip, on && styles.active]}>
+                <Text style={[styles.chipText, previewFont(font.id, status), pending && FONT_PENDING_TEXT]} numberOfLines={1}>{fontLabel(font, Platform.OS)}</Text>
+                <FontStatusMark status={status} id={font.id} size={14} />
               </Pressable>
             })}
           </FadeScroll>
@@ -180,8 +184,8 @@ const styles = StyleSheet.create({
   content: { alignItems: 'center', gap: 1, paddingHorizontal: 6 },
   fontButton: { height: 36, minWidth: 84, maxWidth: 128, flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, borderRadius: 9 },
   fontText: { flexShrink: 1, fontSize: 13.5, color: colors.text },
-  chip: { height: 36, paddingHorizontal: 12, borderRadius: 9, justifyContent: 'center', maxWidth: 160 },
-  chipText: { fontSize: 13.5, color: colors.text },
+  chip: { height: 36, paddingHorizontal: 12, borderRadius: 9, flexDirection: 'row', alignItems: 'center', gap: 5, maxWidth: 160 },
+  chipText: { flexShrink: 1, fontSize: 13.5, color: colors.text },
   stepper: { flexDirection: 'row', alignItems: 'center', gap: 2, marginHorizontal: 1 },
   stepperLabel: { fontSize: 11.5, fontWeight: '700', color: colors.textMuted, marginRight: 2 },
   stepButton: { width: 28, height: 36, borderRadius: 9, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surfaceMuted },

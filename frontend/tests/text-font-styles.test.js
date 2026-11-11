@@ -24,7 +24,7 @@ function loadFontModule({ autoResolve = false } = {}) {
     if (id === '../../handwriting/library.js') return { refreshPersonalFonts: async () => [] }
     if (id === '../../shared/remoteAssets/remoteAssets.js') return remoteAssets
     // 원격 글꼴은 내려받은 위치(여기서는 원본 경로를 붙인 가짜 주소)로 등록한다
-    if (id === '../../shared/remoteAssets/remoteAssetFile') return { fetchRemoteAsset: async asset => 'file:///remote/' + asset.path }
+    if (id === '../../shared/remoteAssets/remoteAssetFile') return { fetchRemoteAsset: async asset => 'file:///remote/' + asset.path, isRemoteAssetSaved: () => false, markRemoteAssetSaved: () => {} }
     if (/\.(ttf|otf)$/.test(id)) return id
     return require(id)
   }, module, module.exports)
