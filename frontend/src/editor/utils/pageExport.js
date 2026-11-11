@@ -8,6 +8,7 @@ import { EDITOR_SHAPES, SHAPE_BORDER_STYLES } from './editorShapes.js'
 import { RETIRED_TEXT_FONTS, isKnownTextFontId } from './text.js'
 import { stripCellBoxes } from './photoStrip.js'
 import { packingLayout } from '../templates/packingLayout.js'
+import { omitFilledAlbumBordersXml } from '../templates/photoAlbumSlots.js'
 import { isTastingId } from '../templates/tastingGeometry.js'
 import { tastingElementValue } from '../templates/tastingElements.js'
 
@@ -100,7 +101,7 @@ export async function prepareExportSnapshot(snapshot, resolveImage, resolveTempl
         const planner = plannerFor(snapshot.template.backgroundAssetId)
         backgroundXml = planner ? planner.svg(snapshot.planner, snapshot.objects) : await resolveTemplate(snapshot.template)
         if (!backgroundXml) throw new Error('Empty template')
-        backgroundXml = colorTemplateXml(backgroundXml, snapshot.paperAppearance)
+        backgroundXml = omitFilledAlbumBordersXml(colorTemplateXml(backgroundXml, snapshot.paperAppearance), { backgroundAssetId: snapshot.template.backgroundAssetId, objects: snapshot.objects })
       } catch (error) { throw new PageExportError('EXPORT_TEMPLATE_FAILED', '속지를 준비하지 못했어요. 다시 시도해 주세요.', error) }
     }
     const objects = []
