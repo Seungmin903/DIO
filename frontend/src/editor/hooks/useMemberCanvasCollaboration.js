@@ -16,7 +16,7 @@ import { createCanvasMedia, createMediaRequest } from '../../collaboration/canva
 import { canvasMediaFiles } from '../services/canvasMediaFiles'
 import { createDiaryFonts, withDiaryFonts } from '../../collaboration/diaryFonts.js'
 import { claimSharedFonts, releaseSharedFonts, sharedFontFiles, sharedFontLibrary } from '../../handwriting/sharedFonts.js'
-import { askFontShareConsent, fontShareConsent } from '../../handwriting/fontShareConsent.js'
+import { askFontShareConsent, fontShareConsentBeforeShare } from '../../handwriting/fontShareConsent.js'
 import { connectCollaboration } from '../../collaboration/collaborationSocket.js'
 import { createCanvasHttpFetch } from '../../collaboration/canvasFetch.js'
 import { setPdfSourceFetcher } from '../services/pdfSourceRemote.js'
@@ -68,7 +68,7 @@ export function useMemberCanvasCollaboration({diary,page,state,loaded,readOnly,d
     const fontOwner=`${diary.memberAccountId}@${apiBaseUrl}`
     const fonts=createDiaryFonts({diaryId:diary.id,transport,request:mediaRequest,files:sharedFontFiles,library:sharedFontLibrary,storage:AsyncStorage,
       key:`dio:member:v1:${diary.memberAccountId}:font-uploads:v1:${encodeURIComponent(apiBaseUrl)}`,isActive:active,ready:claimSharedFonts(fontOwner),
-      consent:{status:()=>fontShareConsent(diary.memberAccountId),ask:()=>askFontShareConsent(diary.memberAccountId)}})
+      consent:{status:()=>fontShareConsentBeforeShare(diary.memberAccountId),ask:()=>askFontShareConsent(diary.memberAccountId)}})
     fonts.sync().catch(()=>{})
     const sessionMedia=withDiaryFonts(media,fonts)
     const api=createCanvasWriteApi(transport,sessionMedia,diary.id)

@@ -62,6 +62,11 @@ export function syncFontShareConsent(accountId) {
   return fontShareConsent(accountId, { fresh: true }).catch(() => 'unavailable')
 }
 
+/** 폰트를 공유 다이어리에 올리기 직전: 기억한 값 대신 서버 값을 읽는다(다른 기기에서 철회한 동의를 바로 따른다. 못 읽으면 'unavailable'이라 올리지 않는다) */
+export function fontShareConsentBeforeShare(accountId) {
+  return fontShareConsent(accountId, { fresh: true })
+}
+
 export async function setFontShareConsent(accountId, value) {
   if (value !== 'granted' && value !== 'denied') throw Error('폰트 공유 설정 값을 확인해 주세요.')
   const account = accountOf(accountId)
@@ -85,7 +90,8 @@ export function askFontShareConsent(accountId) {
   const account = accountOf(accountId)
   if (asking.has(account)) return asking.get(account)
   const job = (async () => {
-    const current = await fontShareConsent(account)
+    // 묻기 전에도 서버 값을 새로 읽는다(다른 기기에서 이미 답했으면 다시 묻지 않고 그 답을 따른다)
+    const current = await fontShareConsent(account, { fresh: true })
     if (current) return current === 'granted'
     // 고르지 않았는데 창이 닫히면(앱 창 호스트가 사라짐 · 시스템이 닫음) 답을 저장하지 않는다: '아직 묻지 않음'으로 남아 다음에 다시 묻는다
     const answer = await new Promise(resolve => confirmAction({ ...FONT_SHARE_PROMPT, danger: false,

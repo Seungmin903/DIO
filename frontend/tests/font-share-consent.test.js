@@ -146,9 +146,12 @@ test('답을 서버에 저장하지 못하면 이번에는 다시 묻지 않고,
   await tick()
   consent.prompts[0].onConfirm()
   assert.equal(await asked, true)
-  assert.equal(await consent.askFontShareConsent('14'), true)
-  assert.equal(consent.prompts.length, 1)
   assert.equal(server.accounts.has('14'), false)
+  assert.equal(consent.disk.get(keyOf(14)), 'granted')
+  // 서버를 읽지 못하는 동안에는 다시 묻지 않는다(남긴 답은 그대로)
+  server.failLoads = 1
+  assert.equal(await consent.askFontShareConsent('14'), false)
+  assert.equal(consent.prompts.length, 1)
   assert.equal(consent.disk.get(keyOf(14)), 'granted')
   const next = load({ server, disk: consent.disk })
   assert.equal(await next.syncFontShareConsent('14'), 'granted')
@@ -275,4 +278,23 @@ test('설정 훅은 열 때 서버 값을 새로 읽어 보여 주고, 다른 �
   await module.exports.setFontShareConsent('4', 'granted')
   await tick()
   assert.equal(state.value, 'denied')
+})
+
+test('다른 기기에서 철회하면 올리기 직전 확인과 묻기는 기억한 값 대신 서버 값을 따른다', async () => {
+  const server = createServer()
+  const deviceA = load({ server }), deviceB = load({ server })
+  await deviceA.setFontShareConsent('21', 'granted')
+  assert.equal(await deviceA.fontShareConsent('21'), 'granted')
+  await deviceB.setFontShareConsent('21', 'denied')
+  // 5분 안이라 기억한 값은 아직 granted 지만, 올리기 직전 확인은 서버를 다시 읽는다
+  assert.equal(await deviceA.fontShareConsent('21'), 'granted')
+  assert.equal(await deviceA.fontShareConsentBeforeShare('21'), 'denied')
+  await deviceB.setFontShareConsent('21', 'granted')
+  assert.equal(await deviceA.askFontShareConsent('21'), true)
+  await deviceB.setFontShareConsent('21', 'denied')
+  assert.equal(await deviceA.askFontShareConsent('21'), false)
+  assert.equal(deviceA.prompts.length, 0)
+  // 서버를 읽지 못하면 올리지 않는다
+  server.failLoads = 1
+  assert.equal(await deviceA.fontShareConsentBeforeShare('21'), 'unavailable')
 })
