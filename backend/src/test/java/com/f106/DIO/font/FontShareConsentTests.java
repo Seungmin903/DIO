@@ -22,11 +22,13 @@ import static org.assertj.core.api.Assertions.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
+// 새 테스트 컨텍스트를 만들지 않도록 CoverLibraryTests 와 설정을 똑같이 맞춰 그 컨텍스트를 함께 쓴다.
+// (CI는 한 JVM에서 돌고 컨텍스트 캐시가 16개라, 컨텍스트가 하나 늘면 기본 testdb 를 쓰는 컨텍스트가 밀려나며 create-drop 으로 표를 지운다)
 @org.springframework.test.context.jdbc.Sql("/push-session-h2.sql")
 @SpringBootTest(properties = {
-    "spring.datasource.url=jdbc:h2:mem:font-share-consent;MODE=PostgreSQL;DB_CLOSE_DELAY=-1",
+    "spring.datasource.url=jdbc:h2:mem:cover-library;MODE=PostgreSQL;DB_CLOSE_DELAY=-1",
     "dio.auth.jwt-secret=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
-    "dio.signup.photos.storage=local", "dio.signup.photos.local-directory=build/test-font-consent-photos",
+    "dio.signup.photos.storage=local", "dio.signup.photos.local-directory=build/test-cover-photos",
     "SHARING_INVITE_SECRET=BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB=",
     "SHARING_INVITE_BASE_URL=https://dio.test/invite/"})
 @AutoConfigureMockMvc @ActiveProfiles("test")
