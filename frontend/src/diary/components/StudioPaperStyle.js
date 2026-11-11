@@ -26,7 +26,8 @@ export default function StudioPaperStyle({ style, save, compact = false }) {
           value={style.layoutColor} onChange={layoutColor => change({ ...style, layoutColor })} />,
         <View key="font" style={groupStyle(width, compact)}>
           <GroupHead icon="text" title="글꼴" full={compact} />
-          <PaperFontDropdown value={style.font ?? DEFAULT_PAPER_FONT} onChange={font => change({ ...style, font: font === DEFAULT_PAPER_FONT ? undefined : font })} />
+          {/* 공방에서는 고른 글꼴을 받지 않았으면 바로 받는다(편집 화면 · 새 다이어리 속지 설정은 받기 버튼으로만) */}
+          <PaperFontDropdown autoDownload value={style.font ?? DEFAULT_PAPER_FONT} onChange={font => change({ ...style, font: font === DEFAULT_PAPER_FONT ? undefined : font })} />
         </View>,
       ]}</GroupGrid>
       {failed ? <Text accessibilityRole="alert" style={local.error}>저장하지 못했어요. 다시 시도해 주세요.</Text> : null}

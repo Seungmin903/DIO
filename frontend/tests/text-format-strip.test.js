@@ -15,9 +15,9 @@ const { code } = fromExpo('@babel/core').transformSync(readFileSync(new URL('../
 
 const FONTS = [{ id: 'system', label: '기본' }, { id: 'nanum-gothic', label: '나눔고딕' }, { id: 'maruburi', label: '마루부리' }]
 // 실제 JSX 를 그려 항목 구성 · 적용 패치를 본다. 팔레트 · 글꼴 목록 · 글꼴 상태는 대역으로 둔다
-function load({ recent = [] } = {}) {
+function load({ recent = [], fontStatus = {} } = {}) {
   const module = { exports: {} }
-  const pressed = [], opened = [], recorded = []
+  const pressed = [], opened = [], recorded = [], downloaded = []
   const native = {
     Platform: { OS: 'ios' },
     StyleSheet: { create: (styles) => styles },
@@ -33,7 +33,9 @@ function load({ recent = [] } = {}) {
       TEXT_COLORS: ['#111111', '#222222'], italicTransform: () => [], textStyleReady: () => true, textStyleSupport: () => ({ bold: true }),
       textFontChangePatch: (settings, id) => ({ font: id }), fontLabel: (font) => font.label, getTextFonts: () => FONTS, getPickableTextFonts: () => FONTS.slice(0, 2),
       resolveFontId: (id) => id ?? 'system', subscribeTextFonts: () => () => {}, textFontStateSnapshot: () => '', textStyle: () => ({ fontFamily: 'x' }),
+      textFontPreviewFamily: () => 'x', textFontStatus: (id) => fontStatus[id] ?? 'ready', downloadTextFont: async (id) => { downloaded.push(id) },
     }
+    if (name === './controls/FontStatusMark') return { __esModule: true, default: ({ status }) => React.createElement('i', { 'data-font-status': status }), FONT_PENDING_TEXT: {}, fontNeedsDownload: (status) => ['download', 'downloading', 'error'].includes(status), fontStatusA11y: (status) => status === 'ready' ? '' : `, ${status}` }
     if (name === '../hooks/usePalettes') return { usePalette: () => null }
     if (name === '../../diary/components/PresetColorEditor') return { useColorWindow: () => ({ open: (ref, props) => { opened.push(props) }, element: null, isOpen: false }) }
     if (name === '../hooks/usePaperColorRecents.js') return { usePaperColorRecents: () => recent, recordPaperColor: (...args) => recorded.push(args) }
@@ -45,7 +47,7 @@ function load({ recent = [] } = {}) {
     return require(name)
   }
   new Function('require', 'module', 'exports', code)(loader, module, module.exports)
-  return { Strip: module.exports.default, pressed, opened, recorded }
+  return { Strip: module.exports.default, pressed, opened, recorded, downloaded }
 }
 const labels = (html) => [...html.matchAll(/aria-label="([^"]+)"/g)].map(([, label]) => label)
 const base = { ...DEFAULT_TEXT_SETTINGS, font: 'nanum-gothic', fontSize: 28, color: '#222222', textAlign: 'center', bold: true, letterSpacing: 0, lineSpacing: 1.3 }
@@ -126,4 +128,28 @@ test('S15P31F106-482: 색 창은 색 줄 밖에 그려 두고, 서식 줄이 사
   const colorRow = source.slice(source.indexOf("{panel === 'color' && ("), source.indexOf('{/* 색 창은 색 줄 밖에'))
   assert.doesNotMatch(colorRow, /colorWindow\.element/, '색 줄을 닫으면 창도 사라졌다')
   assert.match(source, /\{colorWindow\.element\}/)
+})
+
+test('S15P31F106-743: 받지 않은 글꼴 칩은 받기 표시를 달고, 누르면 글꼴을 바꾸지 않고 받기만 하며 줄은 열어 둔다. 받는 중에는 눌러도 아무 일 없다', () => {
+  const { Strip, pressed, downloaded } = load({ fontStatus: { system: 'download' } })
+  const patches = []
+  const html = renderToStaticMarkup(React.createElement(Strip, { settings: base, onChange: (patch) => patches.push(patch), defaultPanel: 'font' }))
+  assert.match(html, /data-font-status="download"/, '받기 아이콘을 단다')
+  assert.ok(labels(html).includes('글꼴 기본, download'), '화면 읽기에 받기 상태를 덧붙인다')
+  pressed.find(([name]) => name === '글꼴 기본, download')[1]()
+  assert.deepEqual(patches, [], '받기 전 글꼴은 고르지 않는다')
+  assert.deepEqual(downloaded, ['system'])
+  pressed.find(([name]) => name === '글꼴 나눔고딕')[1]()
+  assert.deepEqual(patches, [{ font: 'nanum-gothic' }], '받은 글꼴은 그대로 고른다')
+
+  const { Strip: Busy, pressed: busyPressed, downloaded: busyDownloaded } = load({ fontStatus: { system: 'downloading' } })
+  const busyPatches = []
+  renderToStaticMarkup(React.createElement(Busy, { settings: base, onChange: (patch) => busyPatches.push(patch), defaultPanel: 'font' }))
+  busyPressed.find(([name]) => name === '글꼴 기본, downloading')[1]()
+  assert.deepEqual([busyPatches, busyDownloaded], [[], []], '받는 중에는 고르지도, 다시 받지도 않는다')
+
+  const { Strip: Failed, pressed: failedPressed, downloaded: failedDownloaded } = load({ fontStatus: { system: 'error' } })
+  renderToStaticMarkup(React.createElement(Failed, { settings: base, onChange() {}, defaultPanel: 'font' }))
+  failedPressed.find(([name]) => name === '글꼴 기본, error')[1]()
+  assert.deepEqual(failedDownloaded, ['system'], '받지 못한 글꼴은 다시 받는다')
 })
