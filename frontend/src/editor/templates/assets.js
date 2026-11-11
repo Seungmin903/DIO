@@ -140,6 +140,8 @@ export const TEMPLATE_ASSETS = {
   "2026-reusable-note-ruled-portrait": require("../../../assets/templates/2026/SVG/2026-reusable-note-ruled-portrait.svg"),
   "2026-reusable-note-grid-portrait": require("../../../assets/templates/2026/SVG/2026-reusable-note-grid-portrait.svg"),
   "2026-reusable-note-dots-portrait": require("../../../assets/templates/2026/SVG/2026-reusable-note-dots-portrait.svg"),
+  "2026-reusable-ink-record-round-portrait": require("../../../assets/templates/2026/SVG/2026-reusable-ink-record-round-portrait.svg"),
+  "2026-reusable-ink-record-square-portrait": require("../../../assets/templates/2026/SVG/2026-reusable-ink-record-square-portrait.svg"),
   "2026-cover-landscape": remoteAsset("templates/2026/SVG/2026-cover-landscape.svg"),
   "2026-divider-01-landscape": remoteAsset("templates/2026/SVG/2026-divider-01-landscape.svg"),
   "2026-monthly-01-landscape": remoteAsset("templates/2026/SVG/2026-monthly-01-landscape.svg"),
@@ -278,4 +280,6 @@ export const TEMPLATE_ASSETS = {
   "2026-reusable-note-ruled-landscape": require("../../../assets/templates/2026/SVG/2026-reusable-note-ruled-landscape.svg"),
   "2026-reusable-note-grid-landscape": require("../../../assets/templates/2026/SVG/2026-reusable-note-grid-landscape.svg"),
   "2026-reusable-note-dots-landscape": require("../../../assets/templates/2026/SVG/2026-reusable-note-dots-landscape.svg"),
+  "2026-reusable-ink-record-round-landscape": require("../../../assets/templates/2026/SVG/2026-reusable-ink-record-round-landscape.svg"),
+  "2026-reusable-ink-record-square-landscape": require("../../../assets/templates/2026/SVG/2026-reusable-ink-record-square-landscape.svg"),
 }

@@ -35,6 +35,12 @@ export function normalizePaperAppearance(value) {
   return { backgroundColor: hex(value?.backgroundColor, '#FFFFFF'), layoutColor: hex(value?.layoutColor, '#292929'), ...(isPaperFontId(value?.font) ? { font: value.font } : {}) }
 }
 const rgb = value => [1, 3, 5].map(index => parseInt(value.slice(index, index + 2), 16))
+/**
+ * 속지 팔레트 색 하나를 고른 배색으로 옮긴다. 속지 SVG 안의 색은 colorTemplateAst 가 알아서 옮기지만,
+ * 속지 바깥에서 **같은 그림을 한 겹 더** 그리는 층(잉크병 윤곽, InkRecordFrontLayer)은 직접 옮겨야
+ * 속지에 찍힌 선과 색이 어긋나지 않는다.
+ */
+export const paperLayoutColor = (value, appearance) => layoutPaint(value, normalizePaperAppearance(appearance))
 function layoutPaint(value, appearance) {
   if (typeof value !== 'string' || !palette.has(value.toLowerCase())) return value
   const source = rgb(value), paper = rgb(appearance.backgroundColor), ink = rgb(appearance.layoutColor)

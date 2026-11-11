@@ -29,6 +29,7 @@ function loadComponent(file, platform = 'ios', cacheOverride = null, packing = n
     if (id.endsWith('/backdrop.js')) return { fitBackdropToPage: object => object }
     if (id.endsWith('/packingLayout.js')) return { packingLayout: () => packing }
     if (id === './PackingColorLayer') return { PackingColorLayer: 'packing-color', PackingFrontLayer: 'packing-front' }
+    if (id === './InkRecordFrontLayer') return { InkRecordFrontLayer: 'ink-record-front' }
     if (id === './WebStrokeCacheContext') return { WebStrokeCacheEnabled: cacheContext }
     // 잉크병 메모 덧그림 판별용. 이 검사에는 메모가 안 나오므로 늘 아니라고 답한다
     if (id.endsWith('/utils/editorShapes')) return { memoArtOf: () => null }
@@ -77,6 +78,16 @@ test('네이티브 페이지를 단계별로 표시해도 이미 완성된 획 �
   const later = component.render({ ...options, objects: [...objects, ...more] })
   assert.equal(later[0].props.batch, first[0].props.batch)
   assert.deepEqual(later.flatMap(layer => layer.props.batch.objects), [...objects, ...more])
+})
+
+test('발색 기록 속지의 병 윤곽은 획 층보다 **뒤**에 — 즉 획 위에 — 그려진다', () => {
+  // 사용자 2026-11-11: "속지 병 안에 획 그으면 병 윤곽이 내가 그은 획보다 위이게 해줘"
+  const component = loadComponent('StaticPage')
+  const children = component.render({ page, zoom: 1, cacheStrokes: true }).props.children
+  const front = children.findIndex(child => child?.type === 'ink-record-front')
+  const strokes = children.findIndex(child => child?.type === contexts.TextMeasure.Provider)
+  assert.ok(front > strokes, `윤곽(${front}) 이 획(${strokes}) 보다 뒤여야 한다`)
+  assert.equal(children[front].props.page, page)
 })
 
 test('필기에서만 캐시를 사용하고 일반 표시·사진 자르기·내보내기는 원본 표시를 유지한다', () => {

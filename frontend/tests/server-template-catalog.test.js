@@ -10,6 +10,7 @@ import { catalogContract, seedMigration, catalogResource, migrationResource, V9_
 
 const remoteMigrationResource = new URL('../../backend/src/main/resources/db/migration/V34__add_remote_page_templates.sql', import.meta.url)
 const routeMigrationResource = new URL('../../backend/src/main/resources/db/migration/V36__add_travel_route_templates.sql', import.meta.url)
+const inkRecordMigrationResource = new URL('../../backend/src/main/resources/db/migration/V45__add_ink_record_templates.sql', import.meta.url)
 
 test('V34 원격 속지 시드는 프런트 원격 행과 같은 코드·규격·기본 설정을 쓴다', async () => {
   const sql = await readFile(remoteMigrationResource, 'utf8')
@@ -53,9 +54,9 @@ test('전체 속지·플래너·빈 속지가 독립된 서버 코드로 매핑�
     { id: `day-planner-${orientation}`, templateVersion: '1.0.0', orientation, type: 'day' },
     { id: `route-planner-${orientation}`, templateVersion: '1.0.0', orientation, type: 'route' },
   ])
-  // V9 288 + V27 플래너 4 + V34 원격 속지 2 + V36 여행 노선 2
-  assert.equal(SERVER_TEMPLATE_CATALOG.length, 296)
-  assert.equal(new Set(SERVER_TEMPLATE_CATALOG.map(t => `${t.templateCode}\0${t.templateVersion}`)).size, 296)
+  // V9 288 + V27 플래너 4 + V34 원격 속지 2 + V36 여행 노선 2 + V45 발색 기록 4
+  assert.equal(SERVER_TEMPLATE_CATALOG.length, 300)
+  assert.equal(new Set(SERVER_TEMPLATE_CATALOG.map(t => `${t.templateCode}\0${t.templateVersion}`)).size, 300)
   for (const asset of [...catalog.assets, ...UNDATED_TEMPLATES, ...plannerAssets]) {
     const before = structuredClone(asset)
     const ref = serverTemplateReference(asset.id, asset.templateVersion, asset.orientation)
@@ -185,4 +186,14 @@ test('V36 여행 노선 시드는 프런트 노선 속지 행과 같은 코드·
     assert.ok(sql.includes(seed), `missing V36 seed: ${row.templateCode}`)
   })
   assert.equal(catalogContract().templates.some(t => /^route-planner-/.test(t.templateCode)), false, 'V9 고정 계약에는 들어가지 않는다')
+})
+
+test('V45 발색 기록 시드는 프런트 행과 같은 코드·규격·기본 설정을 쓴다', async () => {
+  const sql = await readFile(inkRecordMigrationResource, 'utf8')
+  const rows = SERVER_TEMPLATE_CATALOG.filter(row => row.category === 'INKRECORD')
+  assert.equal(rows.length, 4)
+  for (const row of rows) {
+    const seed = `('${row.templateCode}', '${row.templateVersion}', '${row.name}', '${row.category}', '${row.orientation}', ${row.canvasWidth}, ${row.canvasHeight}, '${JSON.stringify(row.defaultConfig)}'::jsonb`
+    assert.ok(sql.includes(seed), `missing V45 seed: ${row.templateCode}`)
+  }
 })

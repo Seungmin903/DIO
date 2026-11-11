@@ -19,6 +19,7 @@
         "EXPO_PUBLIC_ASSET_BASE_URL": "https://d1ztiesifzfjld.cloudfront.net",
         "EXPO_PUBLIC_PLANNER_TEMPLATES_ENABLED": "0",
         "EXPO_PUBLIC_ROUTE_TEMPLATES_ENABLED": "0",
+        "EXPO_PUBLIC_INK_RECORD_TEMPLATES_ENABLED": "0",
         "EXPO_PUBLIC_PUSH_ENABLED": "true",
         "ORG_GRADLE_PROJECT_reactNativeArchitectures": "armeabi-v7a,arm64-v8a"
       },
@@ -33,6 +34,7 @@
         "EXPO_PUBLIC_ASSET_BASE_URL": "https://d2hvhno2v5g650.cloudfront.net",
         "EXPO_PUBLIC_PLANNER_TEMPLATES_ENABLED": "0",
         "EXPO_PUBLIC_ROUTE_TEMPLATES_ENABLED": "0",
+        "EXPO_PUBLIC_INK_RECORD_TEMPLATES_ENABLED": "0",
         "EXPO_PUBLIC_PUSH_ENABLED": "true",
         "ORG_GRADLE_PROJECT_reactNativeArchitectures": "armeabi-v7a,arm64-v8a"
       },

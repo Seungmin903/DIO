@@ -16,7 +16,7 @@ test('앱 속지(2026 · 만년형) 전부가 DIO 속지 형식 검사를 통과
       count++
     }
   }
-  assert.equal(count, 286)
+  assert.equal(count, 290)
 })
 
 test('형식에 맞는 원격 속지는 통과하고, 색 · 요소 · 크기 · 종이가 어긋나면 이유를 알려 준다', () => {
