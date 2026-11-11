@@ -115,6 +115,19 @@ class MemberDiaryTrashHttpTests {
         }
         assertThat(items.size()).isEqualTo(2);
     }
+    @Test void corruptStoredTemplateConfigBecomesNullWithoutFailingTheTrashList() throws Exception {
+        String broken=id(create()),array=id(create()),healthy=id(create());
+        jdbc.update("update diaries set template_config_json=? where diary_id=?","{not json",UUID.fromString(broken));
+        jdbc.update("update diaries set template_config_json=? where diary_id=?","[1,2]",UUID.fromString(array));
+        jdbc.update("update diaries set template_config_json=? where diary_id=?","{\"orientation\":\"portrait\"}",UUID.fromString(healthy));
+        for(String id:List.of(broken,array,healthy)) mvc.perform(delete(PATH+"/"+id).header("Authorization","Bearer "+owner)).andExpect(status().isNoContent());
+        var items=json.readTree(mvc.perform(get(PATH+"/trash").header("Authorization","Bearer "+owner)).andExpect(status().isOk()).andReturn().getResponse().getContentAsByteArray()).get("items");
+        assertThat(items.size()).isEqualTo(3);
+        for(var item:items) {
+            if(item.get("diaryId").asString().equals(healthy)) assertThat(item.get("templateConfig").get("orientation").asString()).isEqualTo("portrait");
+            else assertThat(item.get("templateConfig")==null||item.get("templateConfig").isNull()).isTrue();
+        }
+    }
     @Test void missingForgedExpiredAndRevokedTokensCannotUseAnyTrashEndpoint() throws Exception {
         String id=id(create());
         String expired=jwt.issue(101L,ownerSession.getSessionId(),Instant.now().minusSeconds(600),Instant.now().minusSeconds(60));

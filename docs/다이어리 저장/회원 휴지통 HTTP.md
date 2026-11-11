@@ -27,7 +27,7 @@
 | `GET /api/v1/member/diaries/trash?q=여행&limit=20&cursor=...` | 본인 휴지통 `{items,nextCursor,hasNext}`. 기본 20, 1~100. 제목 대소문자 무시 부분 검색(공백 제거 후 최대 100자), `%`·`_`·`!`는 문자 그대로. 삭제 시각/UUID 내림차순, 커서는 현재 회원·검색어에 연결 |
 | `POST /api/v1/member/diaries/{UUID}/restore` | 본문 없음. `{diary:...}` 200, canEdit=true. 고정 30일 직전까지 복원, 정확히 만료 시각부터 410/DIARY_RESTORE_EXPIRED. 이미 활성인 자료 재요청은 updated_at을 다시 바꾸지 않음 |
 
-휴지통 항목은 diaryId/diaryTitle/coverColor/coverStyle/visibility/createdAt/updatedAt/deletedAt/purgeAt/canRestore를 포함한다. 만료 후 물리 정리 전 항목도 canRestore=false로 반환하며 조회 자체는 삭제하지 않는다. 빈·끝 페이지는 nextCursor=null/hasNext=false다. 잘못된 조건·커서는 400/INVALID_DIARY_TRASH_QUERY, 잘못된 UUID는 400이다. 모든 응답에 Cache-Control: no-store를 적용한다. 회원 API CORS에 DELETE를 추가한다.
+휴지통 항목은 diaryId/diaryTitle/coverColor/coverStyle/visibility/createdAt/updatedAt/deletedAt/purgeAt/canRestore를 포함한다. 선택 필드 templateConfig(object 또는 null)는 다이어리 단위 속지 구성(고른 속지 묶음·날짜 표시 방식·방향)으로, 앱이 휴지통 표지를 원래 방향으로 그리는 데 쓴다. 구성을 저장하지 않은 예전 다이어리나 저장 값이 깨졌거나 객체가 아니면 null이며, 이 경우 앱은 기기에 남긴 방향을 그대로 쓴다. 만료 후 물리 정리 전 항목도 canRestore=false로 반환하며 조회 자체는 삭제하지 않는다. 빈·끝 페이지는 nextCursor=null/hasNext=false다. 잘못된 조건·커서는 400/INVALID_DIARY_TRASH_QUERY, 잘못된 UUID는 400이다. 모든 응답에 Cache-Control: no-store를 적용한다. 회원 API CORS에 DELETE를 추가한다.
 
 보관 기간은 삭제 시각부터 정확히 30일로 고정한다. `DiaryTrashService`의 단일 `RETENTION` 상수를 조회의 `purgeAt`과 복원 만료 판정에 함께 사용한다. 보관 기간 설정 주입과 생성자 `days` 인자는 제거했으며, 기존 `dio.diary.trash.retention-days` 설정은 더 이상 읽지 않는다. 별도 설정 없이 기동하고 정확한 만료 시각부터 복원을 거부한다. 서버 시각은 마이크로초 단위이며 updated_at은 기존 값보다 단조 증가해 !166의 수정 기준 토큰과 호환된다.
 
