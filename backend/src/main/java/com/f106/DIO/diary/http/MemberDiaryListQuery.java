@@ -87,7 +87,7 @@ public class MemberDiaryListQuery {
             String value=switch(sort){case "title"->rs.getString("title_key");case "pages"->Long.toString(rs.getLong("page_count"));default->rs.getTimestamp(column).toInstant().toString();};
             var enriched=diary.withCover(DiaryCoverDesign.read(rs.getString("cover_json")))
                 .withPaperAppearance(com.f106.DIO.page.domain.PaperAppearance.read(rs.getString("paper_appearance_json")))
-                .withTemplateConfig(com.f106.DIO.diary.support.DiaryTemplateConfig.read(rs.getString("template_config_json")));
+                .withTemplateConfig(com.f106.DIO.diary.support.DiaryTemplateConfig.readLenient(rs.getString("template_config_json"),rs.getString("diary_id")));
             return new Row(new Item(enriched,rs.getLong("page_count"),rs.getLong("member_count")>1),value);
         },args.toArray());
         boolean more=rows.size()>limit;var selected=rows.subList(0,Math.min(limit,rows.size()));String next=null;

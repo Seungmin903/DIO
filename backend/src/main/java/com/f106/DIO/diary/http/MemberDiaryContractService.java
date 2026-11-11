@@ -61,7 +61,8 @@ public class MemberDiaryContractService {
         String oldTemplate=jdbc.queryForObject("select template_config_json from diaries where diary_id=?",String.class,id);
         String requestedTemplate=MemberDiaryRequests.serializeTemplateConfig(request.getTemplateConfig());
         // 같은 구성을 다시 보내면 바뀐 것이 없다. 저장 문자열이 아닌 JSON 값으로 비교한다.
-        String template=requestedTemplate==null||java.util.Objects.equals(com.f106.DIO.diary.support.DiaryTemplateConfig.read(oldTemplate),request.getTemplateConfig())?oldTemplate:requestedTemplate;
+        // 저장 값이 깨졌으면 null로 읽혀 요청과 다르다고 보고, 검증을 거친 요청 값(requestedTemplate)으로 바꾼다. 읽은 값을 다시 저장하지 않는다.
+        String template=requestedTemplate==null||java.util.Objects.equals(com.f106.DIO.diary.support.DiaryTemplateConfig.readLenient(oldTemplate,id),request.getTemplateConfig())?oldTemplate:requestedTemplate;
         boolean allPages=appearance!=null&&"all".equals(request.getPaperAppearanceScope());
         if(title.equals(previous.diaryTitle()) && color.equals(previous.coverColor()) && style.equals(previous.coverStyle())
             && java.util.Objects.equals(cover,oldCover) && java.util.Objects.equals(paper,oldAppearance) && java.util.Objects.equals(template,oldTemplate) && !allPages) return enrich(id,before);
@@ -81,6 +82,6 @@ public class MemberDiaryContractService {
             (rs,n)->MemberDiaryResponses.Diary.from(authorized.diary(),authorized.canEdit(),Long.toString(rs.getLong("version")),rs.getString("role"),rs.getBoolean("is_favorite"))
                 .withCover(DiaryCoverDesign.read(rs.getString("cover_json")))
                 .withPaperAppearance(PaperAppearance.read(rs.getString("paper_appearance_json")))
-                .withTemplateConfig(com.f106.DIO.diary.support.DiaryTemplateConfig.read(rs.getString("template_config_json"))),user,id);
+                .withTemplateConfig(com.f106.DIO.diary.support.DiaryTemplateConfig.readLenient(rs.getString("template_config_json"),id)),user,id);
     }
 }

@@ -39,7 +39,14 @@ test('계정 종료 후 지연 응답은 기존 캐시와 문서를 변경하지
 test('실제 Spring 휴지통·복원 응답의 문자열 version·기한과 본문 없는 쓰기를 소비한다',async()=>{
  const source=JSON.parse(await readFile(new URL('../../backend/build/contracts/member-diary-trash-http.json',import.meta.url),'utf8')),calls=[];const api=createMemberDiaryApi(async req=>{calls.push(req);if(req.method==='DELETE')return null;if(req.method==='POST')return source.restored;return source.trash});
  const listed=await api.trashList();assert.equal(listed.items[0].version,'2');assert.equal(listed.items[0].canPermanentlyDelete,true);const target=listed.items[0].id;await api.trash(target);const restored=await api.restore(target);assert.equal(restored.version,'3');assert.equal(calls[1].body,undefined);assert.equal(calls[2].body,undefined);assert.equal(calls[1].query,undefined);
- for(const bad of [{...source.trash,items:[{...source.trash.items[0],version:2}]},{...source.trash,items:[{...source.trash.items[0],purgeAt:'2026-01-01T00:00:00Z'}]}])await assert.rejects(createMemberDiaryApi(async()=>bad).trashList(),{code:'INVALID_RESPONSE'});
+ for(const bad of [{...source.trash,items:[{...source.trash.items[0],version:2}]},{...source.trash,items:[{...source.trash.items[0],purgeAt:'2026-01-01T00:00:00Z'}]},{...source.trash,items:[{...source.trash.items[0],templateConfig:[]}]}])await assert.rejects(createMemberDiaryApi(async()=>bad).trashList(),{code:'INVALID_RESPONSE'});
+});
+test('휴지통 응답의 속지 구성(방향)을 받고, 없으면 키를 싣지 않아 기기 값을 덮지 않는다',async()=>{
+ const source=JSON.parse(await readFile(new URL('../../backend/build/contracts/member-diary-trash-http.json',import.meta.url),'utf8')),base=source.trash.items[0];
+ const withConfig=await createMemberDiaryApi(async()=>({...source.trash,items:[{...base,templateConfig:{orientation:'portrait'}}]})).trashList();
+ assert.deepEqual(withConfig.items[0].templateConfig,{orientation:'portrait'});
+ const legacy=await createMemberDiaryApi(async()=>({...source.trash,items:[{...base,templateConfig:null}]})).trashList();
+ assert.equal(Object.hasOwn(legacy.items[0],'templateConfig'),false);
 });
 
 
