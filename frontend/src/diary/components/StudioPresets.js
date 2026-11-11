@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Icon from '../../editor/components/controls/Icon';
 import { usePalette } from '../../editor/hooks/usePalettes';
 import { colors } from '../../shared/theme';
+import { confirmAction } from '../../shared/dialogs';
 import EditablePalette, { paletteLinkStyles } from '../../editor/components/controls/EditablePalette';
 
 // 내 프리셋: 편집기 도구(펜 · 형광펜 · 마스킹 테이프 · 글자)가 한 줄로 보여 주는 색 목록을 여기서 고친다. 편집기 색 줄이 그대로 따른다.
@@ -44,11 +45,17 @@ function Group({ group, compact, width }) {
   // '팔레트 편집' 을 제목 줄로 올렸으므로(사용자 2026-11-10) 편집 상태를 여기서 쥔다.
   // 작은 제목('○○ 색상')은 묶음 제목과 겹쳐 보여서 뺐다.
   const [editing, setEditing] = useState(false)
-  const resetPalette = async () => {
-    setFailed(false)
-    try { await reset(); setFailed(false) }
-    catch { setFailed(true) }
-  }
+  // 되돌리면 직접 고친 색이 한꺼번에 사라진다 → 앱 공용 확인 창으로 한 번 묻는다(사용자 2026-11-10).
+  const resetPalette = () => confirmAction({
+    title: `${group.label} 색을 기본으로 되돌릴까요?`,
+    message: '직접 고친 색이 모두 사라지고 처음 색으로 돌아가요. 되돌릴 수 없어요.',
+    confirmLabel: '기본 색으로',
+    onConfirm: async () => {
+      setFailed(false)
+      try { await reset(); setFailed(false) }
+      catch { setFailed(true) }
+    },
+  })
   const link = (label, text, onPress, selected) => <Pressable accessibilityRole="button" accessibilityLabel={label}
     accessibilityState={selected === undefined ? undefined : { selected }} hitSlop={6} onPress={onPress} style={paletteLinkStyles.button}>
     <Text style={paletteLinkStyles.text}>{text}</Text>

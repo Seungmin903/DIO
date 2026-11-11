@@ -17,7 +17,7 @@
 //   고임은 띠 폭으로만 들어간다. 되살리려면 saveLayer + Plus 경로를 따로 확인해야 한다.
 import { PaintStyle, Skia, StrokeCap, StrokeJoin } from '@shopify/react-native-skia'
 import { drawGlassPooled, glassPooledFailed } from './glassPooled.js'
-import { GLASS_INK, GLASS_LIVE_SKSL, GLASS_RIM_SKSL, glassBand, glassDabs, glassPool, inkDensity, micaAutoFilm, micaColor, sheenAutoColor } from '../utils/glassInk.js'
+import { GLASS_INK, GLASS_LIVE_SKSL, GLASS_RIM_SKSL, glassBand, glassDabs, glassPool, glitterColorOf, inkDensity, micaAutoFilm, micaColor, sheenAutoColor } from '../utils/glassInk.js'
 
 // 27판 경로를 쓸지. 끄면 26판(경로 + 테 띠 폭)으로 돌아간다 — 비교용 스위치.
 // (아래 broken 은 한 번 실패하면 계속 평범한 선으로 떨어진다 — 새로고침해야 풀린다)
@@ -43,7 +43,7 @@ function bodyPaint(color, ink, P, width = 2.5) {
   bodyEffect ??= Skia.RuntimeEffect.Make(GLASS_LIVE_SKSL)
   if (!bodyEffect) throw new Error('RuntimeEffect.Make(body) 실패')
   const amount = ink.glitter === false ? 0 : (ink.amount ?? 1) * P.glAmp
-  const mica = ink.glitterColor ? hex3(ink.glitterColor) : micaColor(ink.film ?? micaAutoFilm(hex3(color)), 1)
+  const mica = glitterColorOf(hex3(color), ink)   // 고른 색은 반사 색조로(28판)
   // 입자 크기: 현미경 레퍼런스(참고 25 · 28 · 29)는 획 폭의 1~4%. 다만 그대로 두면 화면에서
   // 반 픽셀도 안 돼 사라지므로 바닥값을 둔다. 바닥값을 낮출수록 더 고운 가루가 된다.
   const r = Math.max(P.glRMinLive, width * 0.025)
@@ -95,8 +95,12 @@ function patch1(d, scale) {
 
 // 획 하나를 그린다. 쓰는 중과 손을 뗀 뒤가 같은 함수를 쓴다(그림이 같다).
 export function drawGlassStroke(canvas, points, width, color, _zoom = 1, ink = {}) {
-  if (broken || !points?.length) return false
+  if (broken || !points?.length || typeof color !== 'string') return false
   const P = GLASS_INK
+  // 실패해도 **캔버스 저장 깊이는 들어올 때 그대로** 돌려놔야 한다. 안 그러면 남은 층 · 배율 위로
+  // 뒤 획들이 그려져 그림이 네모로 망가진다(지우개 · 되돌리기의 '네모난 흰 선', 2026-11-10).
+  // save() 가 돌려주는 값이 되돌릴 깊이다(이 바인딩에 getSaveCount 는 없다).
+  const depth = canvas.save()
   try {
     // 27판: 고임 장을 픽셀마다 읽는 경로를 먼저 쓴다(웅덩이 안쪽 등고선 테 · 커피링 · 농담 흐름).
     // 셰이더가 안 되는 기기에서는 스스로 꺼지고, 아래 26판 경로(테 띠 폭)로 떨어진다.
@@ -143,5 +147,7 @@ export function drawGlassStroke(canvas, points, width, color, _zoom = 1, ink = {
     broken = true
     console.warn('[유리펜] 경로 그리기 실패 — 평범한 선으로 전환:', error?.message ?? error)
     return false
+  } finally {
+    canvas.restoreToCount(depth)
   }
 }

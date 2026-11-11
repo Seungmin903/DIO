@@ -21,7 +21,9 @@ export const glassResolved = (entry) => {
   const { ink, glitter, sheen } = glassColors(entry)
   const rgb = [1, 3, 5].map(i => parseInt(ink.slice(i, i + 2), 16) / 255)
   const hex = v => '#' + v.map(c => Math.round(Math.min(1, Math.max(0, c)) * 255).toString(16).padStart(2, '0').toUpperCase()).join('')
-  return { ink, glitter: glitter ?? hex(glitterColorOf(rgb)), sheen: sheen ?? hex(sheenAutoColor(rgb)) }
+  // 칸은 실제 획을 예고해야 하므로 고른 글리터 색도 획과 같은 반사 색조로 보여 준다(28판).
+  // 고치는 쪽(glassSlots)은 저장된 색 그대로여야 하니 거기서는 손대지 않는다.
+  return { ink, glitter: hex(glitterColorOf(rgb, { glitterColor: glitter })), sheen: sheen ?? hex(sheenAutoColor(rgb)) }
 }
 // 칸 안의 유리펜 미리보기: 바깥 고리가 테, 안쪽 면이 잉크, 그 위에 글리터 몇 점.
 // 자리는 고정이라 어느 칸이든 같은 모양으로 비교된다.
@@ -73,7 +75,10 @@ export default function EditablePalette({ scope, label, value, onPick, onOpenEdi
       ...(glass && { slots: ['잉크색', '글리터색', '테색'] }),
       value: glass ? glassSlots(entry) : entry,
       defaultValue: glass ? null : palette.defaults?.[index] ?? null,
-      onChange: color => setPreview({ index, color }), onClose: () => setPreview(null),
+      // 유리펜은 color 가 색 셋(배열)이다. 칸은 '잉크:글리터:테' 묶음 문자열만 읽으므로 여기서 묶는다
+      // (안 묶으면 고치는 동안 칸 안 동그라미가 새 잉크색으로 안 바뀐다 — 사용자 2026-11-10).
+      onChange: color => setPreview({ index, color: glass ? glassEntry({ ink: color[0], glitter: color[1], sheen: color[2] }) : color }),
+      onClose: () => setPreview(null),
       onDone: async color => {
         const saved = glass ? glassEntry({ ink: color[0], glitter: color[1], sheen: color[2] }) : color
         await palette.replace(index, saved); setPreview(null); onPick?.(saved)
@@ -94,6 +99,10 @@ export default function EditablePalette({ scope, label, value, onPick, onOpenEdi
           : scope === 'glass' ? (({ ink, sheen }) => ({ bg: sheen ?? ink, fg: null }))(glassResolved(shown))
           : { bg: shown }
         const glassLook = scope === 'glass' ? glassResolved(shown) : null
+        // 칸 테두리 두께(포커스 칸은 0 — 점선 고리를 따로 그린다). GlassDot 은 테두리 **안쪽** 기준으로
+        // 배치되므로 실제 두께를 그대로 넘겨야 어느 상태에서나 같은 자리에 온다(사용자 2026-11-10).
+        const focused = editing && (editIndex ?? palette.colors.indexOf(value)) === index
+        const dotBorder = editing ? (focused ? 0 : 1) : (value === entry ? 3 : 1)
         return <Pressable key={index} ref={node => { refs.current[index] = node }} collapsable={false}
           onLayout={() => refs.current[index]?.measureInWindow?.((x,y,width,height) => {
             if ([x,y,width,height].every(Number.isFinite) && width > 0 && height > 0) anchors.current[index] = {x,y,width,height}
@@ -102,7 +111,7 @@ export default function EditablePalette({ scope, label, value, onPick, onOpenEdi
           accessibilityState={{ selected: value === entry, disabled: editing && !palette.loaded }} disabled={editing && !palette.loaded}
           hitSlop={1} onPress={() => editing ? open(index) : onPick?.(entry)} style={paletteSwatchStyles.cell}>
           {/* key: 안드로이드는 점선 → 실선으로 borderStyle 을 되돌리면 다시 그리지 않아, 편집을 끝내도 점선이 남았다(지라 604). 상태가 바뀌면 새로 그린다 */}
-          <View key={editing ? 'edit' : 'pick'} style={[paletteSwatchStyles.dot, {backgroundColor:bg}, editing ? [s.editing, (editIndex ?? palette.colors.indexOf(value)) === index && s.editFocus] : [s.solid, value === entry && paletteSwatchStyles.chosen]]}>{fg && <View style={[s.inner,{backgroundColor:fg}]} />}{glassLook && <GlassDot look={glassLook} border={!editing && value === entry ? 3 : 1} />}{editing && (editIndex ?? palette.colors.indexOf(value)) === index && <FocusRing />}</View>
+          <View key={editing ? 'edit' : 'pick'} style={[paletteSwatchStyles.dot, {backgroundColor:bg}, editing ? [s.editing, focused && s.editFocus] : [s.solid, value === entry && paletteSwatchStyles.chosen]]}>{fg && <View style={[s.inner,{backgroundColor:fg}]} />}{glassLook && <GlassDot look={glassLook} border={dotBorder} />}{focused && <FocusRing />}</View>
         </Pressable>
       })}
       {allowDirect && <Pressable accessibilityRole="button" accessibilityLabel={`${label} 색 직접 지정`} hitSlop={1} onPress={openDirect} style={paletteSwatchStyles.cell}>

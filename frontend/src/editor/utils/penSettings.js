@@ -29,6 +29,10 @@ export const GLASS_SHEENS = [
 export const DEFAULT_GLASS_INK = { inkGlitter: true, inkSheen: true, inkFilm: null, inkGlitterColor: null, inkAmount: 1, inkSheenColor: null, inkSheenAmount: 1 }
 // 종류를 고를 때 들어가는 기본 불투명도(사용자 2026-11-03: 연필은 기본을 반투명으로, 슬라이더는 100 까지 그대로 —
 // 참고 필기 앱(Notability · 애플 노트) 연필은 순검정이 없고 겹칠수록 진해진다). 없는 종류는 1.
+// 굵기 상한은 종류마다 다르다. 유리펜만 32 까지(사용자 2026-11-10) — 고일수록 테 · 글리터가
+// 살아나는 펜이라, 굵게 쓰는 쓰임(제목 글씨)이 따로 있다. 나머지 펜은 그대로 16.
+export const PEN_WIDTH_MAX = { glass: 32 }
+export const penWidthMax = kind => PEN_WIDTH_MAX[kind] ?? 16
 export const PEN_DEFAULT_OPACITY = { pencil: 0.8 }
 export const penDefaultOpacity = kind => PEN_DEFAULT_OPACITY[kind] ?? 1
 // 펜 종류마다 마지막으로 쓴 굵기 · 불투명도를 기억한다(사용자 2026-11-03: 다른 펜을 오가도 설정이 그대로여야 한다).
@@ -54,7 +58,8 @@ export function applyPenKind(memory, settings, kind) {
   const saved = memory?.[kind]
   // 색도 종류마다 따로 기억한다(사용자 2026-11-10: 한 펜에서 색을 고르면 다른 펜까지 같이 바뀐다).
   // 처음 쓰는 종류만 지금 색을 이어받는다 — 굵기와 같은 규칙이다.
-  return { ...withoutKindOnly(settings), kind, width: saved?.width ?? settings.width,
+  // 이어받은 굵기가 그 종류의 상한을 넘으면 깎는다(유리펜 32 에서 볼펜으로 넘어올 때)
+  return { ...withoutKindOnly(settings), kind, width: Math.min(penWidthMax(kind), saved?.width ?? settings.width),
     color: saved?.color ?? settings.color,
     opacity: saved?.opacity ?? penDefaultOpacity(kind), ...penPattern(kind, saved), ...penInk(kind, saved) }
 }
@@ -73,7 +78,7 @@ const inRange = (value, min, max, fallback) => Number.isFinite(value) ? Math.max
 export function sanitizePenSettings(saved) {
   if (!saved || typeof saved !== 'object') return undefined
   const kind = [...PEN_TYPES, ...DASH_TYPES].some(type => type.id === saved.kind) ? saved.kind : DEFAULT_PEN_SETTINGS.kind
-  return { kind, color: validColor(saved.color, DEFAULT_PEN_SETTINGS.color), width: inRange(saved.width, 1, 16, DEFAULT_PEN_SETTINGS.width), opacity: inRange(saved.opacity, 0.1, 1, penDefaultOpacity(kind)),
+  return { kind, color: validColor(saved.color, DEFAULT_PEN_SETTINGS.color), width: inRange(saved.width, 1, penWidthMax(kind), DEFAULT_PEN_SETTINGS.width), opacity: inRange(saved.opacity, 0.1, 1, penDefaultOpacity(kind)),
     ...penPattern(kind, saved), ...(kind === 'glass' && sanitizeGlassInk(saved)) }
 }
 export function sanitizePenKinds(saved) {
@@ -81,7 +86,7 @@ export function sanitizePenKinds(saved) {
   const result = {}
   for (const type of [...PEN_TYPES, ...DASH_TYPES]) {
     const item = saved[type.id]
-    if (item && typeof item === 'object') result[type.id] = { width: inRange(item.width, 1, 16, DEFAULT_PEN_SETTINGS.width), opacity: inRange(item.opacity, 0.1, 1, penDefaultOpacity(type.id)),
+    if (item && typeof item === 'object') result[type.id] = { width: inRange(item.width, 1, penWidthMax(type.id), DEFAULT_PEN_SETTINGS.width), opacity: inRange(item.opacity, 0.1, 1, penDefaultOpacity(type.id)),
       ...(validColor(item.color, null) ? { color: validColor(item.color, null) } : null),
       ...penPattern(type.id, item), ...penInk(type.id, item) }
   }

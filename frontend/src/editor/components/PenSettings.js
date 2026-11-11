@@ -9,7 +9,7 @@ import { glassColors, glassEntry } from '../hooks/usePalettes'
 import EditablePalette, { GlassDot, glassResolved, paletteSwatchStyles } from './controls/EditablePalette'
 import Slider from './controls/Slider'
 import Icon from './controls/Icon'
-import { GLASS_FILMS, GLASS_SHEENS, PEN_TYPES, penDefaultOpacity } from '../utils/penSettings'
+import { GLASS_FILMS, GLASS_SHEENS, PEN_TYPES, penDefaultOpacity, penWidthMax } from '../utils/penSettings'
 import { glitterColorOf, micaColor, sheenAutoColor } from '../utils/glassInk'
 import { DASH_TYPES, DASH_LENGTH_RANGE, DASH_GAP_RANGE, dashPattern, isDashedKind } from '../utils/dashedStroke'
 import { useRecentPenColors } from '../hooks/useRecentPenColors'
@@ -63,8 +63,9 @@ function InkColorRow({ label, autoColor, autoOn, onAuto, items, customOn, custom
         accessibilityState={{ selected: one.on }} hitSlop={1} onPress={one.onPress} style={paletteSwatchStyles.cell}>
         <View style={[paletteSwatchStyles.dot, { backgroundColor: one.css }, one.on && paletteSwatchStyles.chosen]} />
       </Pressable>)}
+      {/* 직접 고르기 칸은 팔레트의 '+' 와 같은 모양이다 — 고르기 전에는 점선 테두리(사용자 2026-11-10) */}
       <Pressable accessibilityRole="button" accessibilityLabel={`${label} 직접 고르기`} hitSlop={1} onPress={onCustom} style={paletteSwatchStyles.cell}>
-        <View style={[paletteSwatchStyles.dot, { backgroundColor: customOn ? customCss : colors.surface, alignItems: 'center', justifyContent: 'center' }, customOn && paletteSwatchStyles.chosen]}>
+        <View style={[paletteSwatchStyles.dot, { backgroundColor: customOn ? customCss : colors.surface, alignItems: 'center', justifyContent: 'center' }, customOn ? paletteSwatchStyles.chosen : styles.customDot]}>
           {!customOn && <Icon name="plus" size={17} color={colors.primaryText} />}
         </View>
       </Pressable>
@@ -138,7 +139,7 @@ export default function PenSettings({ settings, onChange, onClose, straightAssis
         </Pressable>)}
       </View>
       </>}
-      <Slider name="굵기" label={highlighter ? '형광펜 굵기' : '펜 굵기'} minusLabel={`${label} 가늘게`} plusLabel={`${label} 굵게`} min={highlighter ? 8 : 1} max={highlighter ? 40 : 16} step={0.5} value={settings.width} onChange={(width) => onChange({ ...settings, width: Math.round(width * 2) / 2 })} />
+      <Slider name="굵기" label={highlighter ? '형광펜 굵기' : '펜 굵기'} minusLabel={`${label} 가늘게`} plusLabel={`${label} 굵게`} min={highlighter ? 8 : 1} max={highlighter ? 40 : penWidthMax(selectedKind)} step={0.5} value={settings.width} onChange={(width) => onChange({ ...settings, width: Math.round(width * 2) / 2 })} />
       {/* 펜만: 굵기처럼 불투명도를 정한다(10~100%). 형광펜은 정해진 뽀얀 농도를 쓴다 */}
       {!highlighter && <>
         <Slider name="불투명도" label="펜 불투명도" minusLabel="펜 더 투명하게" plusLabel="펜 더 진하게" min={10} max={100} step={5} value={Math.round((settings.opacity ?? 1) * 100)}
@@ -211,4 +212,6 @@ const styles = StyleSheet.create({
   // '맞춤' 글자: 다이어리 표지 색 줄과 같은 규칙. includeFontPadding 을 끄지 않으면
   // 안드로이드에서 글꼴 여백 때문에 글자가 칸 가운데보다 위로 붙는다.
   autoText: { fontSize: 11, fontWeight: '800', textAlign: 'center', includeFontPadding: false },
+  // 직접 고르기 '+' 칸: 팔레트(EditablePalette 의 s.direct)와 같은 점선 테두리
+  customDot: { borderStyle: 'dashed' },
 })

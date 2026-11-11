@@ -3,6 +3,7 @@
 import { strict as assert } from 'node:assert'
 import test from 'node:test'
 import { applyPenKind, DEFAULT_GLASS_INK, penDefaultOpacity, rememberPen, sanitizePenKinds } from '../src/editor/utils/penSettings.js'
+import { createStroke } from '../src/editor/utils/strokes.js'
 
 const base = { kind: 'ball', color: '#18224D', width: 2.5, opacity: 1 }
 
@@ -54,4 +55,23 @@ test('저장된 기억을 읽을 때도 종류 전용 옵션을 검사한다', (
   const saved = sanitizePenKinds({ glass: { width: 8, opacity: 1, inkFilm: 9999, inkAmount: 5 } })
   assert.equal(saved.glass.inkFilm, DEFAULT_GLASS_INK.inkFilm)
   assert.equal(saved.glass.inkAmount, 1)
+})
+
+// 2026-11-10: 직접 고른 글리터 색이 획에 안 남아, 쓰는 중에만 보이고 손을 떼면 견본 색으로 돌아갔다.
+// createStroke 가 inkGlitterColor 를 아예 안 받고 있었고, 코팅 두께는 '맞춤'이어도 55(은)로 박혔다.
+test('유리펜 획은 고른 글리터 색을 그대로 들고 간다', () => {
+  const points = [{ x: 0, y: 0 }, { x: 20, y: 10 }]
+  const picked = createStroke(points, { id: 'a', kind: 'glass', color: '#18224D', width: 4, inkGlitterColor: '#F3D4D4' })
+  assert.equal(picked.inkGlitterColor, '#F3D4D4')
+  // 견본(코팅 두께)을 고른 경우
+  const film = createStroke(points, { id: 'b', kind: 'glass', color: '#18224D', width: 4, inkFilm: 125 })
+  assert.equal(film.inkFilm, 125)
+  assert.equal(film.inkGlitterColor, undefined)
+  // '맞춤'은 아무것도 안 적는다 → 그릴 때 펜 색에서 자동으로 고른다(55 로 박으면 늘 은빛이 된다)
+  const auto = createStroke(points, { id: 'c', kind: 'glass', color: '#18224D', width: 4 })
+  assert.equal(auto.inkFilm, undefined)
+  assert.equal(auto.inkGlitterColor, undefined)
+  // 유리펜이 아니면 잉크 설정은 아예 안 붙는다
+  const ball = createStroke(points, { id: 'd', kind: 'ball', color: '#18224D', width: 4, inkGlitterColor: '#F3D4D4' })
+  assert.equal(ball.inkGlitterColor, undefined)
 })
