@@ -401,7 +401,8 @@ const styles = StyleSheet.create({
   tileOn: { borderColor: colors.primary, backgroundColor: colors.primarySoft },
   // 이름 자리는 늘 두 줄을 잡는다. 한 줄짜리와 두 줄짜리가 섞이면 칸 높이가 달라지고,
   // 분류를 넘길 때 말풍선이 들썩인다(사용자 2026-11-11, 일기 분류에 두 줄 이름이 생기며 드러났다).
-  tileName: { alignSelf: 'stretch', paddingHorizontal: 2, textAlign: 'center', color: colors.textMuted, fontSize: 11.5, fontWeight: '700', lineHeight: 16, height: 34 },
+  // height 가 아니라 minHeight 다 — 시스템 글자 크기를 키우면 lineHeight 도 커져 두 줄이 34 안에 안 들어가 잘린다(코드리뷰 2026-11-11).
+  tileName: { alignSelf: 'stretch', paddingHorizontal: 2, textAlign: 'center', color: colors.textMuted, fontSize: 11.5, fontWeight: '700', lineHeight: 16, minHeight: 34 },
   tileNameOn: { color: colors.text, fontWeight: '800' },
   context: { padding: 12, borderRadius: 12, backgroundColor: colors.surfaceSoft },
   // 시작(해 · 달) 두 칸은 위 '날짜 있음 · 날짜 없이'(Segmented)와 같은 반반 폭 · 사이 6 · 높이 40 · cardBorder 테두리(2026-11-08)

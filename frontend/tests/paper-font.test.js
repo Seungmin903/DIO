@@ -179,6 +179,37 @@ test('날짜 속지 · 스터디 플래너 · 데일리 플래너의 만든 글�
   }
 })
 
+test('날짜 속지가 그릴 때 적는 치수에도 맞춘 자리(data-anchor)와 쓸 수 있는 폭(data-fit)이 있다', () => {
+  // 코드리뷰 2026-11-11: dated.js 는 bake-paper-metrics.mjs 를 거치지 않아, 가운데 · 오른쪽 맞춤이 좁은 글꼴에서
+  // 왼쪽으로 쏠리고 원본보다 조금만 넓어도 모두 줄어들었다
+  const weekly = datedSvg('dated-weekly-journal-2027-03-01-portrait', read('undated/undated-weekly-journal-portrait.svg'))
+  const groups = outlineGroups(weekly)
+  const header = groups.find(group => group.text.join('').startsWith('3월'))
+  const range = groups.find(group => group.text.join('').startsWith('2027.'))
+  assert.equal(header.anchor, 'middle')
+  assert.equal(range.anchor, 'end')
+  // 날짜 숫자는 글이 차지한 폭보다 넓은 자리를 쓸 수 있다
+  const days = groups.filter(one => /^\d+$/.test(one.text.join('')))
+  assert.equal(days.length, 7)
+  for (const group of days) assert.ok(group.fit > group.end - group.x, group.text.join(''))
+  for (const font of ALT) {
+    const out = texts(swapPaperFont(weekly, font))
+    const head = out.find(one => one.label?.startsWith('3월'))
+    assert.equal(head.anchor, 'middle', font)
+    assert.ok(Math.abs(head.x - (header.x + header.end) / 2) < 0.01, `${font} 가운데 자리`)
+    const tail = out.find(one => one.label?.startsWith('2027.'))
+    assert.equal(tail.anchor, 'end', font)
+    assert.ok(Math.abs(tail.x - range.end) < 0.01, `${font} 오른쪽 자리`)
+  }
+  // 달력 날짜는 칸 안(칸 폭 - 양쪽 여백)까지 쓸 수 있어, 원본보다 조금 넓은 글꼴에서도 크기가 같다
+  const monthly = datedSvg('dated-monthly-2027-03-portrait', SAMPLES.monthly)
+  const dates = outlineGroups(monthly).filter(group => /^\d+$/.test(group.text.join('')))
+  assert.ok(dates.length >= 28)
+  for (const group of dates) assert.ok(Math.abs(group.fit - (688 / 7 - 24)) < 0.01, group.text.join(''))
+  const sizes = new Set(texts(swapPaperFont(monthly, 'nanum-gothic')).filter(one => /^\d+$/.test(one.body)).map(one => one.size))
+  assert.equal(sizes.size, 1, `달력 날짜 크기가 제각각이다: ${[...sizes]}`)
+})
+
 test('속지 전부가 어느 글꼴에서도 묶음을 하나도 남기지 않는다 — 예전 표 방식이 글자를 빠뜨리던 자리다', () => {
   const dir = new URL('../assets/templates/2026/SVG/', import.meta.url)
   let groups = 0

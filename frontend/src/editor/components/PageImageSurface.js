@@ -101,9 +101,10 @@ export default function PageImageSurface({ job }) {
       })}
       {packing && <View pointerEvents="none" style={{ position: 'absolute', ...exportObjectPosition({ x: 0, y: 0 }, snapshot, scale), width: packingPage.canvasWidth * scale, height: packingPage.canvasHeight * scale }}><PackingFrontLayer page={packingPage} zoom={scale} /></View>}
       {ordinary.map(o => renderObject(o))}
-      {/* 발색 기록 속지의 병 윤곽은 획 **위**다(StaticPage 와 같은 차례) — 내보낸 그림도 화면과 같아야 한다 */}
+      {/* 발색 기록 속지의 병 윤곽은 획 **위**다(StaticPage 와 같은 차례) — 내보낸 그림도 화면과 같아야 한다.
+          snapshot.template 에는 배색이 없어 paperAppearance 를 따로 넘긴다(안 넘기면 바꾼 배색이 기본색으로 나온다) */}
       {snapshot.template && <View pointerEvents="none" style={{ position: 'absolute', ...exportObjectPosition({ x: 0, y: 0 }, snapshot, scale), width: (snapshot.pageWidth ?? snapshot.width) * scale, height: (snapshot.pageHeight ?? snapshot.height) * scale }}>
-        <InkRecordFrontLayer page={{ ...snapshot.template, canvasWidth: snapshot.pageWidth ?? snapshot.width, canvasHeight: snapshot.pageHeight ?? snapshot.height }} zoom={scale} />
+        <InkRecordFrontLayer page={{ ...snapshot.template, paperAppearance: snapshot.paperAppearance, canvasWidth: snapshot.pageWidth ?? snapshot.width, canvasHeight: snapshot.pageHeight ?? snapshot.height }} zoom={scale} />
       </View>}
       </SkiaPencilScale.Provider>
     </View>}
