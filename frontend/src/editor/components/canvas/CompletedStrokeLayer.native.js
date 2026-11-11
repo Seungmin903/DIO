@@ -179,6 +179,8 @@ const WIDE_MAX_PX = 3e6
 // 한 장은 반드시 굽고, 예산이 남아 있는 동안만 더 굽는다.
 const TILE_PASS_BUDGET_MS = 24
 const TILE_PASS_MS = 60
+// 타일 굽기가 이만큼 잇달아 실패하면 이어 굽기를 멈춘다(MR !534 리뷰)
+const MAX_BAKE_FAILS = 3
 // 타일 곳간 상한(픽셀). 기기 메모리가 모자라 앱이 죽은 적이 있다(2026-11-10, 7.83GB 중 5.87GB 사용).
 // 2400만 px ≈ RGBA 96MB — 업계 구현들이 4GB 안드로이드에 쓰는 예산과 같은 자리다.
 const TILE_BUDGET_PX = 24e6
@@ -203,7 +205,7 @@ const TailRun = memo(function TailRun({ objects, width, height, zoom, fade }) {
   // plan 의 의존성에는 넣지 않는다 — 넣으면 쓰는 매 프레임 plan 과 rest 그림이 다시 만들어진다.
   const liveRef = useRef(false)
   liveRef.current = Boolean(live)
-  // 굽기만 상한을 건다. 쓰는 중인 획 · 아직 안 구운 획은 늘 화면 배율 그대로 또렷하게 그린다.
+  // 굽기만 상한을 건다. 쓰는 중인 획은 늘 화면 배율 그대로 또렷하게 그린다(아직 안 구운 획은 굽는 배율 — 아래 strokes).
   // 축소하면 필요한 배율이 내려가는데, 구워 둔 타일은 그보다 촘촘하니 그대로 쓴다
   // (배율이 달라지면 타일 열쇠가 달라져 전부 다시 구워야 한다).
   const scaleRef = useRef(0)
@@ -225,6 +227,8 @@ const TailRun = memo(function TailRun({ objects, width, height, zoom, fade }) {
   const tiles = useRef(new Map())
   const clock = useRef(0)
   const more = useRef(false)
+  const bakeFails = useRef(0)
+  const failsFor = useRef({ objects: null, scale: 0 })
   const plan = useMemo(() => {
     const isSettle = settled !== settledSeen.current
     const t0 = PENCIL_PROFILE.on ? nowMs() : 0
@@ -240,6 +244,7 @@ const TailRun = memo(function TailRun({ objects, width, height, zoom, fade }) {
       wideRef.current = made && { ...made, objects }
     }
     if (!objects.length) { more.current = false; return { tiles: [], rest: objects } }
+    if (failsFor.current.objects !== objects || failsFor.current.scale !== scale) { failsFor.current = { objects, scale }; bakeFails.current = 0 }
     // 끌어 옮기는 중인 획은 매 프레임 자리가 바뀌므로 타일에 넣지 않는다 — 벡터로 그린다
     const movers = fade ? objects.filter(object => fade.includes(object.id)) : null
     const settled0 = movers ? objects.filter(object => !fade.includes(object.id)) : objects
@@ -252,7 +257,8 @@ const TailRun = memo(function TailRun({ objects, width, height, zoom, fade }) {
       for (const entry of stale) {
         if (made.length && nowMs() - passStart >= TILE_PASS_BUDGET_MS) break
         const tile = bakeTile(entry, scale, ++clock.current)
-        if (!tile) break
+        if (!tile) { bakeFails.current++; break }
+        bakeFails.current = 0
         retire(tiles.current.get(tileKey(entry.col, entry.row, scale)))
         tiles.current.set(tileKey(entry.col, entry.row, scale), tile)
         made.push(tile)
@@ -269,7 +275,9 @@ const TailRun = memo(function TailRun({ objects, width, height, zoom, fade }) {
     const show = [...fresh, ...made, ...staleImages(left)]
     const rest = pendingStrokes(settled0, left)
     const cut = removedStrokes(left)
-    more.current = left.length > 0
+    // 굽기가 거듭 실패하면(오프스크린 표면을 못 만듦 등) 이어 굽기를 멈추고 벡터로만 그린다.
+    // 멈추지 않으면 60ms 마다 표면 만들기를 다시 시도한다. 획이 바뀌거나 배율이 바뀌면 다시 시도한다.
+    more.current = left.length > 0 && bakeFails.current < MAX_BAKE_FAILS
     if (more.current) unsettled.current = true
     return { tiles: show, rest: movers ? [...rest, ...movers] : rest, cut: cut.length ? cut : null }
     }
@@ -296,14 +304,19 @@ const TailRun = memo(function TailRun({ objects, width, height, zoom, fade }) {
     tiles.current.clear() }, [])
   // 굽는 층이 다 사라지면 굽는 표면(최대 96MB)도 놓는다
   useEffect(() => holdBakeSurface(), [])
-  const patch = useMemo(() => plan.cut ? patchPicture(plan.cut, objects, screenScale) : null, [plan, objects, screenScale])
+  // 아직 못 구운 획 · 지운 자리 덮개는 **굽는 배율**로 그린다. 유리펜 · 연필은 배율이 그림 열쇠에 들어가는데,
+  // 화면 배율(screenScale)로 그리면 같은 획을 타일은 굽는 배율로, 여기서는 화면 배율로 번갈아 녹화한다
+  // (구운 칸과 못 구운 칸에 걸친 획이 이어 굽는 60ms 마다 두 번씩. 유리펜은 획당 약 4ms, MR !534 리뷰).
+  // 굽는 배율은 화면 배율을 올림한 값이라 덜 또렷해지지 않고(MAX_BAKE_PX 상한에 걸린 창만 예외 — 그때는 타일도 같다),
+  // 다 구운 뒤 타일과도 픽셀이 같다.
+  const patch = useMemo(() => plan.cut ? patchPicture(plan.cut, objects, scale) : null, [plan, objects, scale])
   const strokes = useMemo(() => {
     if (!plan.rest.length) return null
     const t0 = PENCIL_PROFILE.on ? nowMs() : 0
-    const picture = strokesPicture(plan.rest, object => fade?.includes(object.id) ? DRAG_OPACITY : 1, screenScale)
+    const picture = strokesPicture(plan.rest, object => fade?.includes(object.id) ? DRAG_OPACITY : 1, scale)
     if (t0) recordProfile('REST', nowMs() - t0)
     return picture
-  }, [plan, fade, screenScale])
+  }, [plan, fade, scale])
   const wide = wideRef.current
   // 바탕은 **타일이 덮는 네모** 밖에만 깐다. 창(160 격자)으로 자르면 타일(256 칸)이 창 밖으로
   // 뻗은 띠에서 바탕과 타일이 겹쳐 반투명 잉크가 두 번 그려진다.
