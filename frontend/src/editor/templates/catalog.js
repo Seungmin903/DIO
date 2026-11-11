@@ -4,7 +4,7 @@ import { STUDY_PLANNER_MENU_ITEM, STUDY_PLANNER_TEMPLATES } from './studyPlanner
 import { DAY_PLANNER_MENU_ITEM, DAY_PLANNER_TEMPLATES } from './dayPlanner.js'
 import { ROUTE_PAPER_MENU_ITEM, ROUTE_PAPER_TEMPLATES } from './routePaper.js'
 import { datedTemplate } from './dated.js'
-import { PLANNER_TEMPLATE_SELECTION_ENABLED, ROUTE_TEMPLATE_SELECTION_ENABLED } from './serverCatalog.js'
+import { PLANNER_TEMPLATE_SELECTION_ENABLED, ROUTE_TEMPLATE_SELECTION_ENABLED, INK_RECORD_TEMPLATE_SELECTION_ENABLED } from './serverCatalog.js'
 import { remoteTemplateAsset } from './remoteTemplates.js'
 
 export const TEMPLATE_VERSION = catalog.templateVersion
@@ -26,9 +26,11 @@ function displayName(item) {
 // V27 전(플래너 선택 꺼짐)에는 DB에 플래너가 없으므로 예전 하루 계획을 그대로 고르게 둔다. 이렇게 만든 페이지는 V27이 데일리 플래너로 옮긴다.
 // 여행 노선 속지도 서버 행(V36)이 들어가기 전에는 고르지 못하게 둔다(ROUTE_TEMPLATE_SELECTION_ENABLED). 플래너 뒤, 공용 속지 앞에 둔다.
 const routeItems = ROUTE_TEMPLATE_SELECTION_ENABLED ? [ROUTE_PAPER_MENU_ITEM] : []
+// 발색 기록 속지도 서버 행(V45)이 들어가기 전에는 고르지 못하게 둔다. 공용 속지 목록 안에 있어 걸러낸다.
+const reusableItems = INK_RECORD_TEMPLATE_SELECTION_ENABLED ? reusableMenu : reusableMenu.filter(item => item.type !== 'inkRecord')
 const menuItems = PLANNER_TEMPLATE_SELECTION_ENABLED
-  ? [STUDY_PLANNER_MENU_ITEM, DAY_PLANNER_MENU_ITEM, ...routeItems, ...reusableMenu.slice(1)]
-  : [...reusableMenu, ...routeItems]
+  ? [STUDY_PLANNER_MENU_ITEM, DAY_PLANNER_MENU_ITEM, ...routeItems, ...reusableItems.slice(1)]
+  : [...reusableItems, ...routeItems]
 export const reusableTemplates = (orientation = 'landscape') => menuItems.map(item => ({ ...item, name: displayName(item), assetId: item.assets.find(asset => asset.orientation === normalizeOrientation(orientation)).assetId }))
 export const REUSABLE_TEMPLATES = reusableTemplates()
 const assets = new Map(catalog.assets.map(asset => [asset.id, { ...asset, name: displayName(asset) }]))

@@ -16,6 +16,7 @@ const datedBase = id => { try { return isDatedId(id) ? datedBaseId(id) : null } 
 const paper = Object.freeze({ backgroundColor: '#FFFFFF', layoutColor: '#292929' })
 const plannerCode = code => /^(study|day)-planner-(landscape|portrait)$/.test(code)
 const routeCode = code => /^route-planner-(landscape|portrait)$/.test(code)
+const inkRecordCode = code => /^2026-reusable-ink-record-(round|square)-(landscape|portrait)$/.test(code)
 
 // 첫 번째 프런트 배포는 새 속지를 읽고 그릴 수만 있어야 한다. V27이 적용되기
 // 전에는 이 값을 0으로 빌드해 선택/생성 요청만 막고, 이미 저장된 플래너 페이지의
@@ -25,6 +26,8 @@ export const plannerTemplatesEnabled = value => value !== '0'
 export const PLANNER_TEMPLATE_SELECTION_ENABLED = plannerTemplatesEnabled(process.env.EXPO_PUBLIC_PLANNER_TEMPLATES_ENABLED)
 // 여행 노선 속지(V36)도 같은 순서로 배포한다: 그릴 수만 있는 빌드(0) → 마이그레이션 → 선택 켜기. 플래너 플래그와 따로 둔다.
 export const ROUTE_TEMPLATE_SELECTION_ENABLED = plannerTemplatesEnabled(process.env.EXPO_PUBLIC_ROUTE_TEMPLATES_ENABLED)
+// 발색 기록 속지(V45)도 같은 순서로 배포한다: 그릴 수만 있는 빌드(0) → 마이그레이션 → 선택 켜기.
+export const INK_RECORD_TEMPLATE_SELECTION_ENABLED = plannerTemplatesEnabled(process.env.EXPO_PUBLIC_INK_RECORD_TEMPLATES_ENABLED)
 const entry = (asset, blank = false) => {
   const size = catalog.coordinateSystems[asset.orientation]
   return Object.freeze({
@@ -50,7 +53,7 @@ export const SERVER_TEMPLATE_CATALOG = Object.freeze([
 const byCode = new Map(SERVER_TEMPLATE_CATALOG.map(row => [`${row.templateCode}\0${row.templateVersion}`, row]))
 if (byCode.size !== SERVER_TEMPLATE_CATALOG.length) throw new Error('중복된 서버 속지 코드가 있어요.')
 const failure = () => new Error('서버에 연결할 속지와 버전을 확인해 주세요.')
-export const serverTemplateSelectable = row => Boolean(row) && (PLANNER_TEMPLATE_SELECTION_ENABLED || !plannerCode(row.templateCode)) && (ROUTE_TEMPLATE_SELECTION_ENABLED || !routeCode(row.templateCode))
+export const serverTemplateSelectable = row => Boolean(row) && (PLANNER_TEMPLATE_SELECTION_ENABLED || !plannerCode(row.templateCode)) && (ROUTE_TEMPLATE_SELECTION_ENABLED || !routeCode(row.templateCode)) && (INK_RECORD_TEMPLATE_SELECTION_ENABLED || !inkRecordCode(row.templateCode))
 
 /** 서버 페이지 설정(templateConfig)에 더할 값. 원격 속지면 { remoteTemplate: <id> }, 아니면 빈 객체 */
 export function serverTemplateConfigFor(assetId) {
