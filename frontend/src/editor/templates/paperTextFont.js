@@ -40,7 +40,7 @@ const round3 = value => Math.round(value * 1000) / 1000
 const escapeXml = text => text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 // 원본 묶음에서 그대로 가져갈 속성(색 · 투명도 · 속지가 쓰는 data-*). 글자 자리를 정하는 것은 우리가
 // 다시 쓰고, 치수(data-adv · data-w · data-fit)는 윤곽 묶음의 것이라 가져가지 않는다.
-const METRICS = new Set(['data-adv', 'data-w', 'data-fit'])
+const METRICS = new Set(['data-adv', 'data-w', 'data-fit', 'data-anchor'])
 const KEEP = /\s(fill|fill-opacity|opacity|data-[\w-]+)="[^"]*"/g
 const attrOf = (text, name) => text.match(new RegExp(`(?:^|\\s)${name}="([^"]*)"`))?.[1] ?? null
 
@@ -91,8 +91,13 @@ export function textFromGroup(group, fontId) {
   const stroke = faux && fill ? ` stroke="${fill}" stroke-width="${round3(size * FAUX_BOLD / EM)}" stroke-linejoin="round"` : ''
   // 굵기는 **글꼴 이름**으로 정한다. font-weight 로 맡기면 기기가 굵게 흉내 내어 진짜 Bold 와 겹친다
   // — 데일리 플래너의 할 일 글(dayPlanner.js)이 쓰는 방식과 같게 400 으로 못 박는다.
-  return `<text x="${round3(group.x)}" y="${round3(group.y)}"${keep}`
-    + (label == null ? '' : ` aria-label="${escapeXml(label)}"`)
+  // 맞춰 놓은 자리(data-anchor)를 지킨다. 글꼴이 좁아지면 시작만 맞추는 꼴이 되어 가운데 · 오른쪽
+  // 맞춤이 왼쪽으로 쏠린다(코드리뷰 2026-11-11).
+  const anchor = group.anchor === 'middle' || group.anchor === 'end' ? group.anchor : 'start'
+  const at = anchor === 'end' ? group.end : anchor === 'middle' ? (group.x + group.end) / 2 : group.x
+  return `<text x="${round3(at)}" y="${round3(group.y)}"${keep}`
+    + (anchor === 'start' ? '' : ` text-anchor="${anchor}"`)
+    + (label == null ? '' : ` aria-label="${label}"`)
     + ` font-family="${picked.family}, serif" font-size="${size}" font-weight="400"${stroke}`
     + ` xml:space="preserve">${escapeXml(shown)}</text>`
 }

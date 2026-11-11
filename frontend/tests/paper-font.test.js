@@ -32,6 +32,7 @@ const texts = xml => [...xml.matchAll(/<text\b([^>]*)>([^<]*)<\/text>/g)].map(ma
   x: Number(match[1].match(/\sx="([-\d.]+)"/)[1]), y: Number(match[1].match(/\sy="([-\d.]+)"/)[1]),
   size: Number(match[1].match(/font-size="([\d.]+)"/)[1]),
   family: match[1].match(/font-family="([^",]+)/)[1],
+  anchor: match[1].match(/text-anchor="([^"]+)"/)?.[1] ?? 'start',
 }))
 test('속지 글꼴 설정은 고른 때만 저장되고 기존 설정의 모양은 그대로다', () => {
   assert.deepEqual(normalizePaperAppearance(undefined), { backgroundColor: '#FFFFFF', layoutColor: '#292929' })
@@ -75,7 +76,10 @@ test('인쇄 글자가 있는 모든 속지가 글꼴마다 글자 · 자리 · 
         const next = after[i]
         assert.equal(next.label, group.text.join(''), `${name} ${font} 글자`)
         assert.equal(next.body, group.text.join('').trim(), `${name} ${font} 쓰는 글자(앞뒤 공백은 뺀다)`)
-        assert.ok(Math.abs(next.x - group.x) < 0.002, `${name} ${font} 시작 자리`)
+        // 맞춰 놓은 자리를 지킨다 — 시작 맞춤이면 x, 가운데면 가운데, 끝 맞춤이면 끝
+        const kept = next.anchor === 'end' ? group.end : next.anchor === 'middle' ? (group.x + group.end) / 2 : group.x
+        assert.equal(next.anchor, group.anchor, `${name} ${font} "${next.label}" 기준점`)
+        assert.ok(Math.abs(next.x - kept) < 0.002, `${name} ${font} "${next.label}" 맞춘 자리`)
         assert.ok(Math.abs(next.y - group.y) < 0.002, `${name} ${font} 기준선`)
         assert.ok(Math.abs(next.size - group.s * 1000) < 0.002, `${name} ${font} 글자 크기`)
         const fill = group.attrs.match(/fill="[^"]*"/)
@@ -253,4 +257,22 @@ test('내보내기도 고른 속지 글꼴을 기다린다 — 스냅샷이 그 
   const plain = createExportSnapshot({ ...page, paperAppearance: {} })
   assert.equal('font' in plain.paperAppearance, false)
   assert.deepEqual(paperDeviceFontIds(plain.template.backgroundAssetId, plain.paperAppearance.font), [])
+})
+
+test('맞춰 놓은 자리(기준점)를 글꼴이 바뀌어도 지킨다', () => {
+  // 코드리뷰 2026-11-11: 첫 글자 x 만 지키면 가운데 · 오른쪽 맞춤이 좁은 글꼴에서 왼쪽으로 쏠린다.
+  const weekly = outlineGroups(read('undated/undated-weekly-blocks-portrait.svg'))
+  const mon = weekly.find(group => group.text.join('') === 'MON')
+  assert.equal(mon.anchor, 'end', '요일 이름은 오른쪽 끝을 칸에 맞춘다')
+  for (const font of ALT) {
+    const out = textFromGroup(mon, font)
+    assert.match(out, /text-anchor="end"/)
+    assert.equal(Number(out.match(/\sx="([\d.]+)"/)[1]), Number(mon.end.toFixed(3)), font)
+  }
+  // 시작 맞춤은 text-anchor 를 적지 않는다
+  const title = outlineGroups(SAMPLES.daily).find(group => group.text.join('') === '데일리 플래너')
+  assert.equal(title.anchor, 'start')
+  assert.doesNotMatch(textFromGroup(title, 'nanum-pen'), /text-anchor=/)
+  // 치수 속성은 <text> 로 새어 나가지 않는다
+  assert.doesNotMatch(swapPaperFont(SAMPLES.weekly, 'nanum-pen'), /<text[^>]*data-(adv|fit|w|anchor)=/)
 })

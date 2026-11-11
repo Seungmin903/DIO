@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import { readFileSync, readdirSync, existsSync } from 'node:fs'
 import { join } from 'node:path'
 import MARU from '../scripts/paperMetrics/maruburi.js'
+import PAPER_FONT_WIDTHS from '../src/editor/templates/paperFontWidths.js'
 import { PAPER_RUNTIME_CHARS } from '../src/editor/templates/paperRuntimeChars.js'
 
 // 속지의 인쇄 글자는 원본(마루부리) 글자 윤곽(path)이다. 속지 설정에서 다른 글꼴을 고르면
@@ -72,4 +73,18 @@ test('앱에는 글자 윤곽 표가 없다 — 남은 것은 글자 폭 숫자�
   const widths = readFileSync(new URL('../src/editor/templates/paperFontWidths.js', import.meta.url), 'utf8')
   assert.ok(widths.length < 40 * 1024, `글자 폭 표가 너무 크다(${Math.round(widths.length / 1024)}KB) — 윤곽이 섞였나`)
   assert.doesNotMatch(widths, /"[MLQCHVZ][\s\d]/, '글자 폭 표에 윤곽(path)이 들어 있다')
+})
+
+test('글자 폭 표에도 속지 글자가 모두 있다 — 빠지면 넘쳐도 줄이지 않고 지나간다', () => {
+  // 폭을 모르는 글자가 하나라도 섞이면 그 묶음은 줄이지 않는다(paperTextFont.js naturalWidth).
+  // 넓은 글꼴에서 칸을 넘어도 조용히 지나가므로 여기서 막는다(코드리뷰 2026-11-11).
+  const chars = [...new Set([...paperChars(), ...PAPER_RUNTIME_CHARS])].filter(ch => ch !== ' ').sort()
+  for (const [font, table] of Object.entries(PAPER_FONT_WIDTHS)) {
+    for (const [weight, widths] of Object.entries(table)) {
+      if (!widths) continue
+      const missing = chars.filter(ch => widths[ch] == null)
+      assert.deepEqual(missing, [], `${font} ${weight} 폭 표에 없는 글자: ${missing.join('')}
+${HOWTO}`)
+    }
+  }
 })

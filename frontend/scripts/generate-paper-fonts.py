@@ -150,7 +150,14 @@ def main():
         entry = {}
         for weight in ('R', 'B'):
             face = faces[font_id].get(weight)
-            entry[weight] = {ch: face.glyph(ch)[0] for ch in chars if face.has(ch)} if face else None
+            if face is None:
+                entry[weight] = None
+                continue
+            # 그 글꼴에 없는 글자(나눔펜의 · — 등)는 **원본 글꼴 폭**으로 채운다. 비워 두면 앱이
+            # 폭을 몰라 그 묶음을 아예 안 줄이고, 넓은 글꼴에서 칸을 넘어도 지나간다.
+            # 실제로는 기기 대체 글꼴로 그려지므로 원본 폭이 가장 무난한 어림이다.
+            entry[weight] = {ch: (face.glyph(ch)[0] if face.has(ch) else faces['maruburi'][weight].glyph(ch)[0])
+                             for ch in chars}
         widths[font_id] = entry
     (TEMPLATES / 'paperFontWidths.js').write_text(
         HEADER + 'export default ' + json.dumps(widths, ensure_ascii=False, separators=(",", ":")) + '\n',

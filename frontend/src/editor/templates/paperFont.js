@@ -71,8 +71,11 @@ export function readGroup(match) {
   // data-fit: 오른쪽으로 쓸 수 있는 폭. 고른 글꼴이 이보다 넓어질 때만 글자 크기를 줄인다.
   const fitAttr = Number(attr(attrs, 'data-fit'))
   const fit = Number.isFinite(fitAttr) && fitAttr >= adv ? fitAttr : adv
+  // data-anchor: 자리를 맞춘 기준점. 글꼴이 바뀌어 폭이 달라져도 이 자리는 지켜야 한다
+  const anchorAttr = attr(attrs, 'data-anchor')
+  const anchor = anchorAttr === 'middle' || anchorAttr === 'end' ? anchorAttr : 'start'
   return { index: match.index, length: match[0].length, attrs, text, s, x: paths[0].x, y: paths[0].y,
-    weight: attr(attrs, 'data-w') === 'B' ? 'B' : 'R', end: paths[0].x + adv, fit }
+    weight: attr(attrs, 'data-w') === 'B' ? 'B' : 'R', end: paths[0].x + adv, fit, anchor }
 }
 
 /**

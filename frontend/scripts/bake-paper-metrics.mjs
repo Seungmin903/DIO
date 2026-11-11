@@ -9,6 +9,7 @@
 //
 //   <g aria-label="데일리 플래너" data-adv="182.991" data-w="B" data-fit="236">…</g>
 //     data-adv: 보이는 글자가 차지하는 폭(속지 좌표) · data-w: 굵은 글씨면 "B"
+//     data-anchor: 자리를 맞춘 기준점(middle · end). 시작 맞춤이면 적지 않는다
 //     data-fit: 오른쪽으로 **쓸 수 있는 폭**(다음 선 · 칸 · 글자까지). 고른 글꼴이 이보다 넓어질 때만
 //               앱이 글자 크기를 줄인다. 원래 폭(data-adv)을 기준 삼으면 마루부리 숫자가 유난히 좁아
 //               "1" 이 든 라벨마다 줄어들어 옆 숫자와 크기가 달라진다(2026-11-11 실측 62%).
@@ -124,6 +125,27 @@ function freeWidth(xml, group, pageWidth) {
   return Math.max(group.end - group.x, limit - group.x)
 }
 
+// 기준점 판정에 쓰는 값 — 자리가 0.5 단위에 떨어지면 그 기준으로 맞춘 것으로 본다
+const ROUND = 0.06
+const ANCHORS = ['start', 'middle', 'end']
+const edgeOf = (group, type) => type === 'start' ? group.x : type === 'end' ? group.end : (group.x + group.end) / 2
+const onGrid = value => Math.abs(value * 2 - Math.round(value * 2)) / 2 <= ROUND
+
+/**
+ * 이 묶음이 **어느 자리에 맞춰** 놓였나. 시작 · 가운데 · 끝 중, 같은 기준선 · 같은 크기의 이웃까지
+ * 합쳐 0.5 단위에 떨어지는 일이 가장 많은 것을 고른다(요일 이름처럼 오른쪽 끝을 칸에 맞춘 줄은
+ * 이웃 모두 끝이 떨어지고, 가운데가 떨어지는 건 우연이다). 비기면 시작 → 가운데 → 끝 순.
+ *
+ * 글꼴을 바꾸면 폭이 달라지므로 이 기준점을 지켜야 가운데 · 오른쪽 맞춤이 왼쪽으로 쏠리지 않는다
+ * (코드리뷰 2026-11-11). 예전 윤곽 교체가 줄마다 하던 일을 굽기 때 한 번만 해 둔다.
+ */
+function anchorOf(group, siblings) {
+  const row = siblings.filter(other => Math.abs(other.y - group.y) < 0.02 && other.s === group.s)
+  const votes = ANCHORS.map(type => row.filter(other => onGrid(edgeOf(other, type))).length)
+  const best = votes.indexOf(Math.max(...votes))
+  return votes[best] > 0 ? ANCHORS[best] : 'start'
+}
+
 let files = 0, added = 0, already = 0
 const trouble = []
 for (const file of svgFiles(ROOT)) {
@@ -131,17 +153,23 @@ for (const file of svgFiles(ROOT)) {
   if (!xml.includes('aria-label')) continue
   let out = '', at = 0, touched = 0
   const page = xml.includes('viewBox="0 0 1024 768"') ? 1024 : 768
+  // 기준점은 이웃을 봐야 정해지므로 이 장의 묶음을 먼저 다 읽어 둔다
+  const siblings = [...xml.matchAll(GROUP)]
+    .map(one => metricsOf(one[1].replace(/\s+data-(adv|w|fit|anchor)="[^"]*"/g, ''), one[2], true))
+    .filter(Boolean)
   for (const match of xml.matchAll(GROUP)) {
     const [whole, attrs, body] = match
     if (!FORCE && /\sdata-adv="/.test(attrs) && /\sdata-fit="/.test(attrs)) { already++; continue }
     // 이미 적힌 값은 걷어내고 다시 센다 — 다시 돌려도 결과가 같게
-    const clean = attrs.replace(/\s+data-(adv|w|fit)="[^"]*"/g, '')
+    const clean = attrs.replace(/\s+data-(adv|w|fit|anchor)="[^"]*"/g, '')
     const metrics = metricsOf(clean, body)
     if (!metrics) continue
     if (metrics.missing) { trouble.push(`${file.split(/[\\/]/).pop()} ${metrics.missing}`); continue }
     const fit = n(freeWidth(xml, { ...metrics, index: match.index }, page))
+    const anchor = anchorOf(metrics, siblings)
     out += xml.slice(at, match.index) + whole.replace(/^<g\b[^>]*>/, () =>
-      `<g${clean} data-adv="${metrics.adv}"${metrics.weight === 'B' ? ' data-w="B"' : ''} data-fit="${fit}">`)
+      `<g${clean} data-adv="${metrics.adv}"${metrics.weight === 'B' ? ' data-w="B"' : ''}`
+      + `${anchor === 'start' ? '' : ` data-anchor="${anchor}"`} data-fit="${fit}">`)
     at = match.index + whole.length
     touched++
   }
