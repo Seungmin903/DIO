@@ -10,7 +10,8 @@
 //   <g aria-label="데일리 플래너" data-adv="182.991" data-w="B" data-fit="236">…</g>
 //     data-adv: 보이는 글자가 차지하는 폭(속지 좌표) · data-w: 굵은 글씨면 "B"
 //     data-anchor: 자리를 맞춘 기준점(middle · end). 시작 맞춤이면 적지 않는다
-//     data-fit: 오른쪽으로 **쓸 수 있는 폭**(다음 선 · 칸 · 글자까지). 고른 글꼴이 이보다 넓어질 때만
+//     data-fit: 기준점 둘레로 **쓸 수 있는 전체 폭**(시작 맞춤은 오른쪽, 끝 맞춤은 왼쪽, 가운데 맞춤은
+//               양쪽 — 다음 선 · 칸 · 글자까지, freeWidth). 고른 글꼴이 이보다 넓어질 때만
 //               앱이 글자 크기를 줄인다. 원래 폭(data-adv)을 기준 삼으면 마루부리 숫자가 유난히 좁아
 //               "1" 이 든 라벨마다 줄어들어 옆 숫자와 크기가 달라진다(2026-11-11 실측 62%).
 //
@@ -89,15 +90,26 @@ function metricsOf(attrs, body, quiet = false) {
 }
 
 /**
- * 묶음 오른쪽으로 **쓸 수 있는 폭**. 같은 높이 띠에서 오른쪽에 처음 나오는 것(세로선 · 네모 테두리 ·
- * 다른 글자 묶음)까지다. 아무것도 없으면 종이 오른쪽 끝까지. 원래 폭보다 작아지지는 않는다.
+ * 묶음이 **기준점 둘레로 쓸 수 있는 전체 폭**(data-fit). 글꼴이 바뀌면 글자는 기준점에서 자란다 —
+ * 시작 맞춤은 오른쪽으로, 끝 맞춤은 왼쪽으로, 가운데 맞춤은 양쪽으로 반씩. 그래서
+ *   start: 오른쪽 한계 - 시작 x · end: 끝 x - 왼쪽 한계 · middle: 2 x min(가운데 - 왼쪽 한계, 오른쪽 한계 - 가운데)
+ * 코드로 그리는 속지(dated.js 의 fit)도 같은 뜻이다. 예전에는 기준점과 상관없이 늘 시작 x 에서 오른쪽
+ * 폭만 재어, 가운데 · 오른쪽 맞춤의 줄이기 판정이 실제 여유와 어긋났다(코드리뷰 2026-11-11).
+ *
+ * 한계는 같은 높이 띠에서 그쪽으로 처음 나오는 것(세로선 · 네모 테두리 · 다른 글자 묶음)이다.
+ * 아무것도 없으면 종이 끝(양쪽 2 띄움)까지. 원래 폭보다 작아지지는 않는다.
  * 글자는 기준선 위로 올라가므로 띠는 기준선에서 글자 크기만큼 위, 조금 아래로 잡는다.
  */
-function freeWidth(xml, group, pageWidth) {
+function freeWidth(xml, group, pageWidth, anchor = 'start') {
   const size = group.s * 1000
   const top = group.y - size * 0.86, bottom = group.y + size * 0.22
-  let limit = pageWidth - 2
-  const narrow = (x) => { if (Number.isFinite(x) && x > group.end - 0.5 && x < limit) limit = x }
+  let limit = pageWidth - 2, left = 2
+  const narrowLeft = (x) => { if (Number.isFinite(x) && x < group.x + 0.5 && x > left) left = x }
+  const narrow = (x) => {
+    if (!Number.isFinite(x)) return
+    if (x > group.end - 0.5 && x < limit) limit = x
+    else narrowLeft(x)
+  }
   for (const [tag] of xml.matchAll(/<(?:line|rect)\b[^>]*\/?>/g)) {
     // 템플릿 리터럴 안에서는 \\s · \\d 로 적어야 한다 — \s 는 그냥 s 가 된다(코드리뷰 2026-11-11)
     const at = key => Number((tag.match(new RegExp(`\\s${key}="([-\\d.]+)"`)) ?? [])[1])
@@ -111,18 +123,25 @@ function freeWidth(xml, group, pageWidth) {
       const x = at('x'), y = at('y'), w = at('width'), h = at('height')
       if ([x, y, w, h].some(Number.isNaN)) continue
       if (y + h < top || y > bottom) continue
-      narrow(x)                                                  // 네모는 왼쪽 변이 막는다
-      if (x <= group.x) narrow(x + w)                            // 묶음을 품은 네모는 오른쪽 변이 막는다
+      narrow(x)                                                  // 네모의 왼쪽 변(오른쪽에 있으면 오른쪽 한계, 묶음을 품으면 왼쪽 한계)
+      narrow(x + w)                                              // 네모의 오른쪽 변(묶음을 품으면 오른쪽 한계, 왼쪽에 있으면 왼쪽 한계)
     }
   }
   for (const match of xml.matchAll(GROUP)) {
     if (match.index === group.index) continue
-    const other = metricsOf(match[1].replace(/\s+data-(adv|w|fit)="[^"]*"/g, ''), match[2], true)
+    const other = metricsOf(match[1].replace(/\s+data-(adv|w|fit|anchor)="[^"]*"/g, ''), match[2], true)
     if (!other) continue
     if (other.y < top || other.y > bottom) continue
-    narrow(other.x)
+    if (other.x > group.end - 0.5) narrow(other.x)               // 오른쪽 이웃은 시작이 막는다
+    else narrowLeft(other.end)                                   // 왼쪽 이웃은 끝이 막는다
   }
-  return Math.max(group.end - group.x, limit - group.x)
+  const adv = group.end - group.x
+  if (anchor === 'end') return Math.max(adv, group.end - left)
+  if (anchor === 'middle') {
+    const center = (group.x + group.end) / 2
+    return Math.max(adv, 2 * Math.min(center - left, limit - center))
+  }
+  return Math.max(adv, limit - group.x)
 }
 
 // 기준점 판정에 쓰는 값 — 자리가 0.5 단위에 떨어지면 그 기준으로 맞춘 것으로 본다
@@ -141,9 +160,28 @@ const onGrid = value => Math.abs(value * 2 - Math.round(value * 2)) / 2 <= ROUND
  */
 function anchorOf(group, siblings) {
   const row = siblings.filter(other => Math.abs(other.y - group.y) < 0.02 && other.s === group.s)
-  const votes = ANCHORS.map(type => row.filter(other => onGrid(edgeOf(other, type))).length)
+  // 먼저 **일정한 간격**을 본다. 달력처럼 칸 폭이 134.857 같은 값이면 칸에 맞춘 가장자리도 0.5 단위에
+  // 안 떨어지고, 오히려 글자 폭 때문에 우연히 떨어진 끝이 표를 더 얻었다(가로 월간 달력의 앞달 날짜가
+  // 끝 맞춤으로 읽혔다 — 코드리뷰 2026-11-11). 칸에 맞춘 가장자리는 이웃끼리 칸 폭의 정수배만큼 떨어진다.
+  const steady = ANCHORS.map(type => latticeScore(row.map(other => edgeOf(other, type))))
+  // 다음은 **세로 정렬**이다 — 같은 크기의 다른 줄 묶음과 그 가장자리가 같은 x 에 놓이는가. 둘만 있는
+  // 줄(달력 여섯째 주를 반 칸에 나눠 넣은 날짜)은 간격으로 가를 수 없어, 위 칸 날짜와 시작이 맞는 것을 본다.
+  const column = ANCHORS.map(type => siblings.filter(other => other !== group && other.s === group.s
+    && Math.abs(other.y - group.y) >= 0.02 && Math.abs(edgeOf(other, type) - edgeOf(group, type)) < 0.02).length)
+  const votes = ANCHORS.map((type, i) => steady[i] * 1000 + Math.min(column[i], 99) * 10 + row.filter(other => onGrid(edgeOf(other, type))).length)
   const best = votes.indexOf(Math.max(...votes))
   return votes[best] > 0 ? ANCHORS[best] : 'start'
+}
+
+/** 가장자리들이 한 간격의 정수배로 떨어져 있는 이음 수(셋 이상일 때만 센다 — 둘은 늘 맞는다) */
+function latticeScore(edges) {
+  if (edges.length < 3) return 0
+  const sorted = [...edges].sort((a, b) => a - b)
+  const gaps = sorted.slice(1).map((value, i) => value - sorted[i]).filter(gap => gap > 1)
+  if (gaps.length < 2) return 0
+  const base = Math.min(...gaps)
+  const fits = gaps.filter(gap => Math.abs(gap / base - Math.round(gap / base)) * base < 0.02).length
+  return fits === gaps.length ? fits : 0
 }
 
 let files = 0, added = 0, already = 0
@@ -178,8 +216,8 @@ for (const file of svgFiles(ROOT)) {
     const metrics = metricsOf(clean, body)
     if (!metrics) continue
     if (metrics.missing) { trouble.push(`${file.split(/[\\/]/).pop()} ${metrics.missing}`); continue }
-    const fit = n(freeWidth(xml, { ...metrics, index: match.index }, page))
     const anchor = anchorOf(metrics, siblings)
+    const fit = n(freeWidth(xml, { ...metrics, index: match.index }, page, anchor))
     out += xml.slice(at, match.index) + whole.replace(/^<g\b[^>]*>/, () =>
       `<g${clean} data-adv="${metrics.adv}"${metrics.weight === 'B' ? ' data-w="B"' : ''}`
       + `${anchor === 'start' ? '' : ` data-anchor="${anchor}"`} data-fit="${fit}">`)

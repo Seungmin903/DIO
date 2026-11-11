@@ -75,7 +75,8 @@ export function textFromGroup(group, fontId) {
   const width = round3(group.end - group.x)
   if (!shown || !(width > 0)) return null
   // 넘칠 때만 글자 크기를 줄인다. 좁은 것은 그대로 둔다.
-  // 견주는 자리는 **원래 글자 폭이 아니라 오른쪽으로 쓸 수 있는 폭**(data-fit)이다. 원래 폭을 기준
+  // 견주는 자리는 **원래 글자 폭이 아니라 기준점 둘레로 쓸 수 있는 폭**(data-fit — 시작 맞춤은 오른쪽,
+  // 끝 맞춤은 왼쪽, 가운데 맞춤은 양쪽)이다. 아래에서 그 기준점에 맞춰 놓으므로 같은 쪽으로 자란다. 원래 폭을 기준
   // 삼으면 마루부리 숫자가 유난히 좁아 "1" 이 든 라벨마다 줄어들고, 옆 숫자와 크기가 달라진다
   // (2026-11-11 실측: 나눔고딕에서 4,984 중 3,116 묶음이 줄어들었다).
   const room = group.fit ?? width

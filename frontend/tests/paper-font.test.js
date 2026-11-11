@@ -330,3 +330,38 @@ test('맞춰 놓은 자리(기준점)를 글꼴이 바뀌어도 지킨다', () =
   // 치수 속성은 <text> 로 새어 나가지 않는다
   assert.doesNotMatch(swapPaperFont(SAMPLES.weekly, 'nanum-pen'), /<text[^>]*data-(adv|fit|w|anchor)=/)
 })
+
+test('쓸 수 있는 폭(data-fit)은 기준점 둘레로 잰다 — 굽는 속지와 코드로 그리는 속지가 같은 뜻이다', () => {
+  // 코드리뷰 2026-11-11: 굽기가 기준점과 상관없이 시작 x 에서 오른쪽 폭만 재어, 가운데 맞춤은 너무 엄격하고
+  // 끝 맞춤은 엉뚱한 쪽(오른쪽) 여유로 판정됐다
+  const group = (file, label) => outlineGroups(read(file)).find(one => one.text.join('') === label)
+  // 가운데 맞춤 간지 제목: 막는 것이 없으면 종이 양쪽(2 띄움)까지 고르게 — 가운데가 종이 가운데라 거의 종이 폭이다
+  const divider = group('2026/SVG/2026-divider-01-portrait.svg', '1월')
+  assert.equal(divider.anchor, 'middle')
+  const center = (divider.x + divider.end) / 2
+  assert.ok(Math.abs(divider.fit - 2 * Math.min(center - 2, 766 - center)) < 0.01, `${divider.fit}`)
+  // 끝 맞춤 요일 이름: 왼쪽으로 잰다(오른쪽은 칸 끝에 붙어 있어 오른쪽으로 재면 원래 폭과 거의 같다)
+  const mon = group('undated/undated-weekly-blocks-portrait.svg', 'MON')
+  assert.equal(mon.anchor, 'end')
+  assert.ok(mon.fit > (mon.end - mon.x) * 3, `${mon.fit}`)
+  // 코드로 그리는 날짜 속지도 같은 뜻 — 오른쪽 맞춤 기간은 왼쪽 여백(40)까지, 가운데 맞춤 제목은 종이 가운데 둘레의 글 칸 폭
+  const weekly = outlineGroups(datedSvg('dated-weekly-journal-2027-03-01-portrait', read('undated/undated-weekly-journal-portrait.svg')))
+  const range = weekly.find(one => one.text.join('').startsWith('2027.'))
+  assert.ok(Math.abs(range.fit - (range.end - 40)) < 0.1, `${range.fit}`)
+  const header = weekly.find(one => one.text.join('').startsWith('3월'))
+  assert.ok(Math.abs(header.fit - 688) < 0.01)
+  // 가로 월간 달력의 날짜는 칸 시작(+12)에 맞춘 시작 맞춤이다. 칸 폭이 134.857 이라 시작 x 가 0.5 단위에 안 떨어져도
+  // 이웃 칸과의 간격 · 위아래 칸과의 세로 정렬로 가른다(앞달 회색 날짜가 끝 · 가운데로 읽히던 것)
+  for (const file of ['2026/SVG/2026-monthly-01-landscape.svg', '2026/SVG/2026-monthly-08-landscape.svg']) {
+    const dates = outlineGroups(read(file)).filter(one => /calendar-date/.test(one.attrs))
+    assert.ok(dates.length >= 35, file)
+    assert.deepEqual([...new Set(dates.map(one => one.anchor))], ['start'], file)
+  }
+  // 데일리 속지 시간 숫자는 가운데가 한 x 에 맞춰져 있다
+  const hours = outlineGroups(SAMPLES.daily).filter(one => /^\d\d$/.test(one.text.join('')))
+  assert.ok(hours.length >= 24)
+  const middles = new Set(hours.filter(one => one.anchor === 'middle').map(one => ((one.x + one.end) / 2).toFixed(1)))
+  assert.ok(middles.size >= 1 && hours.every(one => one.anchor === 'middle'), [...new Set(hours.map(one => one.anchor))].join())
+  // 바꿔 쓴 뒤에도 그 가운데를 지킨다
+  for (const text of texts(swapPaperFont(SAMPLES.daily, 'nanum-gothic')).filter(one => /^\d\d$/.test(one.body))) assert.equal(text.anchor, 'middle')
+})

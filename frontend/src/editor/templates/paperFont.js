@@ -7,7 +7,7 @@
 // 표를 안 뜬 글꼴이 그대로 남아, 글자나 글꼴을 더할 때마다 표를 다시 뽑아야 했다. 지금은 글꼴 이름만
 // 넘기므로 글자가 늘든 글꼴이 늘든 저절로 따라온다(paperTextFont.js).
 //
-// 묶음이 차지한 폭과 굵기(Regular · Bold), 그리고 오른쪽으로 쓸 수 있는 폭은 SVG 에 글자 윤곽만
+// 묶음이 차지한 폭과 굵기(Regular · Bold), 맞춘 기준점, 그리고 그 둘레로 쓸 수 있는 폭은 SVG 에 글자 윤곽만
 // 있어 알 수 없으므로,
 // **속지가 자기 치수를 들고 다닌다** — <g aria-label="…" data-adv="182.991" data-w="B">.
 // 정적 속지에는 scripts/bake-paper-metrics.mjs 가 한 번 구워 넣고, 코드로 그리는 속지는 그릴 때 적는다
@@ -69,7 +69,8 @@ export function readGroup(match) {
   // 치수가 적혀 있지 않으면 폭을 알 수 없으므로 손대지 않는다(원본 글꼴로 남는다)
   const adv = Number(attr(attrs, 'data-adv'))
   if (!Number.isFinite(adv) || !(adv > 0)) return null
-  // data-fit: 오른쪽으로 쓸 수 있는 폭. 고른 글꼴이 이보다 넓어질 때만 글자 크기를 줄인다.
+  // data-fit: 기준점(data-anchor) 둘레로 쓸 수 있는 전체 폭 — 시작 맞춤은 오른쪽, 끝 맞춤은 왼쪽,
+  // 가운데 맞춤은 양쪽 반씩. 고른 글꼴이 이보다 넓어질 때만 글자 크기를 줄인다(scripts/bake-paper-metrics.mjs freeWidth).
   const fitAttr = Number(attr(attrs, 'data-fit'))
   const fit = Number.isFinite(fitAttr) && fitAttr >= adv ? fitAttr : adv
   // data-anchor: 자리를 맞춘 기준점. 글꼴이 바뀌어 폭이 달라져도 이 자리는 지켜야 한다
