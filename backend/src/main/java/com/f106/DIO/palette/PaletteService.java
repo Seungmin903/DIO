@@ -11,7 +11,7 @@ import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
- * 꾸미기 공방 도구 탭 팔레트(펜 · 형광펜 · 테이프 · 글자 · 종이 · 줄 색의 고정 칸)를 계정에 저장한다.
+ * 꾸미기 공방 도구 탭 팔레트(펜 · 유리펜 · 형광펜 · 테이프 · 글자 · 종이 · 줄 색의 고정 칸)를 계정에 저장한다.
  * 문서 전체를 한 번에 바꾸며, 기기가 마지막으로 본 version(expectedVersion)이 지금과 다르면 409 로 막아 다른 기기의 변경을 덮지 않는다.
  * 도구 이름은 앱이 정한다(새 도구가 생겨도 서버를 바꾸지 않게 이름 형식만 본다). 문서에 없는 도구는 앱 기본 색이다.
  */
@@ -22,10 +22,12 @@ public class PaletteService {
 
     static final int MAX_SCOPES = 32, MAX_SLOTS = 64;
     private static final Pattern SCOPE = Pattern.compile("^[A-Za-z][A-Za-z0-9]{0,31}$");
-    // 테이프는 기본 색 id('pink') · 사용자 색('custom:#바탕:#무늬'), 그 밖의 도구는 '#RRGGBB'만(앱 normalizePaletteEntry 와 같은 규칙)
-    static final String TAPE = "tape";
+    // 테이프는 기본 색 id('pink') · 사용자 색('custom:#바탕:#무늬'),
+    // 유리펜은 '#잉크:글리터:테'(글리터 · 테는 '#RRGGBB' 또는 잉크에서 앱이 계산하는 'auto'), 그 밖의 도구는 '#RRGGBB'만(앱 normalizePaletteEntry 와 같은 규칙)
+    static final String TAPE = "tape", GLASS = "glass";
     private static final Pattern COLOR = Pattern.compile("^#[0-9A-Fa-f]{6}$");
     private static final Pattern TAPE_ENTRY = Pattern.compile("^([a-z][a-z0-9_-]{0,31}|custom:#[0-9A-Fa-f]{6}:#[0-9A-Fa-f]{6})$");
+    private static final Pattern GLASS_ENTRY = Pattern.compile("^#[0-9A-Fa-f]{6}:(#[0-9A-Fa-f]{6}|auto):(#[0-9A-Fa-f]{6}|auto)$");
     private static final TypeReference<Map<String, List<String>>> PALETTES = new TypeReference<>() {};
     private final JdbcTemplate jdbc;
     private final JsonMapper json = JsonMapper.builder().build();
@@ -66,7 +68,7 @@ public class PaletteService {
             List<String> colors = entry.getValue();
             if (scope == null || !SCOPE.matcher(scope).matches()) throw PaletteException.invalid("팔레트 이름을 확인해 주세요.");
             if (colors == null || colors.isEmpty() || colors.size() > MAX_SLOTS) throw PaletteException.invalid("팔레트 칸은 1~" + MAX_SLOTS + "개입니다.");
-            Pattern entryFormat = TAPE.equals(scope) ? TAPE_ENTRY : COLOR;
+            Pattern entryFormat = TAPE.equals(scope) ? TAPE_ENTRY : GLASS.equals(scope) ? GLASS_ENTRY : COLOR;
             for (String color : colors) if (color == null || !entryFormat.matcher(color).matches()) throw PaletteException.invalid("팔레트 색을 확인해 주세요.");
             clean.put(scope, List.copyOf(colors));
         }
