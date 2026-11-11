@@ -79,6 +79,27 @@ class PaletteTests {
             .andExpect(jsonPath("palettes.paperLine[0]").value("#292929"));
     }
 
+    @Test void glassPaletteKeepsInkGlitterAndSheen() throws Exception {
+        var actor = actor();
+        put(actor, body(0, "{\"glass\":[\"#18224D:auto:auto\",\"#A33C4B:#F2B4AE:auto\",\"#917019:#FFD700:#C0C0C0\",\"#18224D:auto:#c0c0c0\","
+            + "\"#18224D:auto:auto\",\"#18224D:auto:auto\",\"#18224D:auto:auto\"],\"pen\":[\"#111111\"]}"))
+            .andExpect(status().isOk()).andExpect(jsonPath("version").value(1));
+        read(otherDevice(actor)).andExpect(status().isOk())
+            .andExpect(jsonPath("palettes.glass.length()").value(7))
+            .andExpect(jsonPath("palettes.glass[0]").value("#18224D:auto:auto"))
+            .andExpect(jsonPath("palettes.glass[1]").value("#A33C4B:#F2B4AE:auto"))
+            .andExpect(jsonPath("palettes.glass[2]").value("#917019:#FFD700:#C0C0C0"))
+            .andExpect(jsonPath("palettes.glass[3]").value("#18224D:auto:#c0c0c0"))
+            .andExpect(jsonPath("palettes.pen[0]").value("#111111"));
+    }
+
+    @Test void documentWithoutGlassStillReads() throws Exception {
+        var actor = actor();
+        put(actor, body(0, "{\"pen\":[\"#111111\"]}")).andExpect(status().isOk());
+        read(actor).andExpect(status().isOk()).andExpect(jsonPath("palettes.pen[0]").value("#111111"))
+            .andExpect(jsonPath("palettes.glass").doesNotExist());
+    }
+
     @Test void staleVersionIsRejectedSoAnotherDevicesChangeIsNotOverwritten() throws Exception {
         var actor = actor();
         put(actor, body(0, "{\"pen\":[\"#111111\"]}")).andExpect(status().isOk());
@@ -103,6 +124,14 @@ class PaletteTests {
             "{\"highlighter\":[\"custom:#FFFFFF:#000000\"]}", // 테이프가 아닌 도구에 테이프 사용자 색
             "{\"pen\":[null]}",
             "{\"tape\":[\"custom:#FFFFFF\"]}", // 테이프 사용자 색 형식
+            "{\"glass\":[\"#18224D\"]}", // 유리펜 색 하나만
+            "{\"glass\":[\"#18224D:auto\"]}", // 유리펜 색 둘만
+            "{\"glass\":[\"#18224D:auto:auto:x\"]}", // 유리펜 색 넷
+            "{\"glass\":[\"nope:auto:auto\"]}", // 유리펜 잉크가 hex 아님
+            "{\"glass\":[\"auto:auto:auto\"]}", // 유리펜 잉크는 자동 불가
+            "{\"glass\":[\"#18224D:AUTO:auto\"]}", // 'auto' 는 소문자만
+            "{\"pen\":[\"#18224D:auto:auto\"]}", // 유리펜이 아닌 도구에 유리펜 색
+            "{\"tape\":[\"#18224D:auto:auto\"]}",
             "{\"../x\":[\"#FFFFFF\"]}", // 도구 이름
             "{\"pen\":[" + "\"#FFFFFF\",".repeat(64) + "\"#FFFFFF\"]}", // 65칸
         }) put(actor, body(0, palettes)).andExpect(status().isBadRequest()).andExpect(jsonPath("code").value("INVALID_PALETTE"));

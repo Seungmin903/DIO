@@ -11,7 +11,7 @@ const files = []
 const walk = dir => { for (const name of readdirSync(dir)) { const path = join(dir, name); statSync(path).isDirectory() ? walk(path) : /\.js$/.test(name) && files.push(path) } }
 walk(root)
 const callers = files.map(path => [relative(root, path).replaceAll('\\', '/'), readFileSync(path, 'utf8')])
-  .filter(([name, source]) => name !== 'editor/utils/text.js' && /\b(textStyle|loadedFontFamily|textStyleReady)\(/.test(source))
+  .filter(([name, source]) => name !== 'editor/utils/text.js' && /\b(textStyle|loadedFontFamily|textStyleReady|textFontPreviewFamily)\(/.test(source))
 
 // 글꼴 상태를 구독해야 하는 파일(그리면서 글꼴을 찾는다)
 const SUBSCRIBES = new Set([

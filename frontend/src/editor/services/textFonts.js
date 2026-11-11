@@ -1,9 +1,9 @@
 import { loadAsync } from 'expo-font'
-import { markTextFontLoaded, markTextFontFailed, resolveFontId, setTextFontRequester, DEFAULT_TEXT_SETTINGS, getTextFonts } from '../utils/text'
+import { isTextFontFamilyFailed, markTextFontLoaded, markTextFontFailed, notifyTextFontState, resolveFontId, setTextFontDownloader, setTextFontRequester, DEFAULT_TEXT_SETTINGS, getTextFonts } from '../utils/text'
 import { refreshPersonalFonts } from '../../handwriting/library.js'
 import { paperDeviceFontIds } from '../templates/planners.js'
 import { isRemoteAsset, remoteAsset } from '../../shared/remoteAssets/remoteAssets.js'
-import { fetchRemoteAsset } from '../../shared/remoteAssets/remoteAssetFile'
+import { discardFailedFontFace, fetchRemoteAsset, forgetRemoteAssetSaved, isRemoteAssetSaved, markRemoteAssetSaved, remoteAssetProgress, subscribeRemoteAssetProgress } from '../../shared/remoteAssets/remoteAssetFile'
 
 // 글꼴 파일. 패키지 index 를 쓰면 모든 굵기 파일이 함께 묶이므로 쓰는 굵기 파일만 직접 가져온다.
 // remoteAsset 은 번들에 넣지 않고 처음 쓸 때 에셋 저장소에서 내려받는다(src/shared/remoteAssets).
@@ -28,6 +28,8 @@ const FONT_FILES = {
 // (렌더마다 요청이 오므로 실패하자마자 지우면 오프라인에서 끝없이 다시 받는다).
 export const REMOTE_RETRY_MS = 30000
 const loads = new Map()
+// 받는 중인 원격 글꼴 face(목록에 받는 중 표시)
+const downloading = new Set()
 // 앱 글꼴은 FONT_FILES, 원격 목록(catalog.json)의 글꼴은 목록 항목의 files 에 face 별 파일이 있다
 const fileOf = (font, family) => FONT_FILES[family] ?? font?.files?.[family]
 // 결과는 { family, remote, ok }. 실패해도 거절하지 않는다(화면은 기본 글꼴로 그린다). 내보내기는 ok 를 보고 알린다(ensureExportFonts)
@@ -37,8 +39,13 @@ function loadFamily(family, font) {
   if (!file) return Promise.resolve(OK) // 내 폰트 등 파일이 따로 관리되는 글꼴
   if (!loads.has(family)) {
     const remote = isRemoteAsset(file)
-    const job = remote ? fetchRemoteAsset(file).then(uri => loadAsync({ [family]: uri })) : loadAsync({ [family]: file })
-    const entry = job.then(() => { markTextFontLoaded(family); return { family, remote, ok: true } }).catch(() => {
+    if (remote) { downloading.add(family); notifyTextFontState() }
+    const job = remote ? fetchRemoteAsset(file).then(uri => loadAsync({ [family]: uri })).then(() => markRemoteAssetSaved(file)) : loadAsync({ [family]: file })
+    const entry = job.finally(() => downloading.delete(family)).then(() => { markTextFontLoaded(family); return { family, remote, ok: true } }).catch(() => {
+      if (remote) {
+        forgetRemoteAssetSaved?.(file) // 받은 것으로 기억했는데 못 불러왔으면(웹 캐시가 지워진 채 오프라인 등) 다음부터 받기 표시
+        discardFailedFontFace?.(family) // 웹: 실패한 @font-face 를 지워야 다시 받기가 실제로 다시 받는다
+      }
       markTextFontFailed(family)
       // 그 사이 내보내기가 다시 받기 시작했으면 그 항목은 지우지 않는다
       if (remote) setTimeout(() => { if (loads.get(family) === entry) loads.delete(family) }, REMOTE_RETRY_MS)
@@ -62,6 +69,41 @@ const needsLoad = (font, family) => fileOf(font, family) !== undefined && !loads
 setTextFontRequester((font, bold) => {
   if (needsLoad(font, font.family)) loadFamily(font.family, font)
   if (bold && font.boldFamily && needsLoad(font, font.boldFamily)) loadFamily(font.boldFamily, font)
+})
+
+// 글꼴 고르기 목록이 받았는지 · 받는 중인지를 보여 주고, 받기를 누르면 받는다(text.js textFontStatus · downloadTextFont)
+setTextFontDownloader({
+  // 받는 중 진행(1% 단위)은 글꼴 상태 알림(notifyTextFontState)과 따로 알린다. 상태 알림을 쓰면 글꼴을 쓰는
+  // 캔버스 글자 · 목록 전체가 진행마다 다시 그려진다(리뷰 S15P31F106-743). 진행 막대(FontStatusMark)만 이것을 구독한다
+  subscribeProgress: listener => subscribeRemoteAssetProgress?.(listener) ?? (() => {}),
+  fileState: (font, family) => {
+    const file = fileOf(font, family)
+    if (!isRemoteAsset(file)) return 'bundled'
+    if (downloading.has(family)) return 'downloading'
+    return isRemoteAssetSaved(file) ? 'saved' : 'remote'
+  },
+  // 받는 중 진행률(0~1). 본 서체와 굵은 서체를 함께 받으므로 둘의 바이트를 더한다. 알 수 없으면(웹) null
+  progress: font => {
+    let total = 0, written = 0, known = false
+    for (const family of [font.family, font.boldFamily]) {
+      const file = family && fileOf(font, family)
+      if (!isRemoteAsset(file)) continue
+      total += file.size
+      const now = remoteAssetProgress(file)
+      if (now !== undefined) { written += now; known = true }
+      // 다 받아 저장한 face 는 등록(loadAsync)이 끝날 때까지 꽉 찬 것으로 센다(막대가 도는 표시로 바뀌지 않게)
+      else if (isRemoteAssetSaved(file)) { written += file.size; known = true }
+      else if (!downloading.has(family)) written += file.size
+    }
+    return known && total ? Math.min(1, written / total) : null
+  },
+  download: font => {
+    // 받지 못했던 원격 서체(본 · 굵은 서체 각각)는 다시 기다리지 않고 바로 다시 받는다. 받은 서체는 그대로 둔다
+    for (const family of [font.family, font.boldFamily]) {
+      if (family && isRemoteAsset(fileOf(font, family)) && isTextFontFamilyFailed(family)) loads.delete(family)
+    }
+    return loadFont(font, true)
+  },
 })
 
 /** 글꼴 id 들의 파일을 불러오고 끝날 때까지 기다린다. bold 면 굵은 서체도 함께 */
