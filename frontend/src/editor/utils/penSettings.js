@@ -11,7 +11,7 @@ export const PEN_TYPES = [
   { id: 'dashed', label: '점선' },
   // 2026-11-09: 유리펜(글라스 딥펜) — 염료 투과 · 커피링 · 테(쉰) · 운모 글리터. 설계는 `유리펜 설계/` 참고
   // 맨 끝에 둔다(사용자 2026-11-10) — 옵션이 가장 많아 고르면 패널이 길어진다
-  { id: 'glass', label: '유리펜' },
+  { id: 'glass', label: '잉크펜' },
 ]
 export const DEFAULT_PEN_SETTINGS = { kind: 'ball', color: '#18224D', width: 2.5 }
 // 유리펜 잉크: 글리터 · 테를 따로 켜고 끈다. 글리터 색은 색상환이 아니라 **운모 코팅 두께(nm)** 하나로 정한다 —

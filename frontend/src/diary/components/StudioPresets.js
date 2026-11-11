@@ -12,7 +12,7 @@ import EditablePalette, { paletteLinkStyles } from '../../editor/components/cont
 // 바꾸는 중인 견본만 primaryText 2px 고리를 두른다(앱 디자인 점검 원 페이저 10). 흰색에 가까운 색만 옅은 테두리를 남겨 흰 면에 묻히지 않게 한다.
 const GROUPS = [
   { scope: 'pen', label: '펜' },
-  { scope: 'glass', label: '유리펜' },
+  { scope: 'glass', label: '잉크펜' },
   { scope: 'highlighter', label: '형광펜' },
   { scope: 'tape', label: '마스킹 테이프' },
   { scope: 'text', label: '글자' },
