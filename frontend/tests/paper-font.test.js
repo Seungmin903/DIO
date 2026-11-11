@@ -235,6 +235,29 @@ test('고른 글꼴은 기기에 불러와야 한다 — 원본이면 윤곽이�
   assert.deepEqual(paperDeviceFontIds('day-planner-portrait'), ['maruburi'])
   assert.deepEqual(paperDeviceFontIds('day-planner-portrait', 'maruburi'), ['maruburi'])
   assert.deepEqual(paperDeviceFontIds('day-planner-portrait', 'nanum-pen'), ['maruburi', 'nanum-pen'])
+  // PageBackground 는 글꼴 훅을 둘로 고정해 두었다 — 셋째 글꼴이 생기면 불러오지 않고 조용히 버린다
+  for (const asset of ['day-planner-portrait', 'day-planner-landscape', 'study-planner-portrait', '2026-reusable-daily-portrait', 'dated-monthly-2027-03-portrait', null]) {
+    for (const font of [null, ...PAPER_FONTS.map(one => one.id)]) assert.ok(paperDeviceFontIds(asset, font).length <= 2, `${asset} ${font}`)
+  }
+})
+
+test('정적 속지의 글자 묶음은 모두 쓸 수 있는 폭(data-fit)까지 구워져 있다', () => {
+  // 없으면 원본 폭이 기준이 되어 조금 넓은 글꼴에서도 모두 줄어든다. 속지를 새로 만들고 굽기
+  // (scripts/bake-paper-metrics.mjs)를 빠뜨리면 여기서 걸린다(코드리뷰 2026-11-11).
+  const root = new URL('../assets/templates/', import.meta.url)
+  const files = readdirSync(root, { recursive: true }).filter(name => String(name).endsWith('.svg'))
+  let groups = 0
+  const missing = []
+  for (const name of files) {
+    for (const match of readFileSync(new URL(String(name).replace(/\\/g, '/'), root), 'utf8').matchAll(GROUP)) {
+      // 글자 묶음만 본다 — aria-label 이 없는 path 묶음은 병 그림 같은 장식이다
+      if (!/\saria-label="/.test(match[1])) continue
+      groups++
+      if (!/\sdata-adv="/.test(match[1]) || !/\sdata-fit="/.test(match[1])) missing.push(`${name} ${match[1].match(/aria-label="([^"]*)"/)?.[1]}`)
+    }
+  }
+  assert.ok(groups > 1000, `묶음을 못 읽었다(${groups})`)
+  assert.deepEqual(missing.slice(0, 10), [], `치수가 빠진 묶음 ${missing.length}개 → frontend 에서 node scripts/bake-paper-metrics.mjs`)
 })
 
 test('내보내기용 colorTemplateXml 은 글꼴을 먼저 바꾸고 배색을 입힌다', () => {

@@ -158,9 +158,18 @@ test('값 줄에 손으로 쓰면 그 자리에는 자동 값을 찍지 않는�
 test('덮개는 속지 글꼴을 따라 바뀌고, 내보내기는 바탕 파일 안에 끼워 넣는다', async () => {
   const value = inkRecordValue(PORTRAIT, [stroke([inBottle(layoutOf(PORTRAIT).cells[0])], { penKind: 'glass', color: '#3a6ea5' })])
   const svg = inkRecordOverlaySvg(PORTRAIT, value)
-  // 글자 윤곽 묶음 + 글꼴 교체에 쓰는 치수(data-adv)
-  assert.match(svg, /<g fill="#292929" aria-label="[0-9A-F]{6}" data-adv="[\d.]+">/)
+  // 글자 윤곽 묶음 + 글꼴 교체에 쓰는 치수(data-adv) · 쓸 수 있는 폭(data-fit = # 뒤 밑줄 끝까지)
+  const group = svg.match(/<g fill="#292929" aria-label="[0-9A-F]{6}" data-adv="([\d.]+)" data-fit="([\d.]+)">/)
+  assert.ok(group, svg)
+  assert.equal(Number(group[2]), layoutOf(PORTRAIT).cells[0].hex[0].w - 2)
+  assert.ok(Number(group[2]) > Number(group[1]))
   assert.notEqual(swapPaperFont(svg, 'nanum-pen'), svg, '속지 글꼴을 바꾸면 HEX 글자도 바뀐다')
+  // 원본보다 조금 넓은 글꼴이라도 밑줄 안에 들어가면 줄이지 않는다 — "1" 이 든 값과 아닌 값의 크기가 같다
+  const sizeOf = color => {
+    const one = inkRecordOverlaySvg(PORTRAIT, inkRecordValue(PORTRAIT, [stroke([inBottle(layoutOf(PORTRAIT).cells[0])], { penKind: 'glass', color })]))
+    return swapPaperFont(one, 'nanum-gothic').match(/<text\b[^>]*font-size="([\d.]+)"/)[1]
+  }
+  assert.equal(sizeOf('#111111'), sizeOf('#3A6EA5'))
   // 빈 장이면 값이 없고, 덮개도 비어 있다
   assert.equal(inkRecordValue(PORTRAIT, []), null)
   assert.ok(inkRecordOverlaySvg(PORTRAIT, null).endsWith('></svg>'))

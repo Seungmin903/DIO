@@ -152,7 +152,9 @@ function PageBackground(props) {
   // 속지가 앱 글꼴로 그리는 글 — 데일리 플래너가 비추는 글(마루부리)과, 원본이 아닌 속지 글꼴로 바뀐 인쇄 글자.
   // 쓰일 때 불러오고, 불러오면(아래 key 가 바뀌어) 속지를 다시 그린다. 글꼴은 많아야 둘이라 훅도 둘로 고정한다.
   const fontIds = paperDeviceFontIds(props.page.backgroundAssetId, normalizePaperAppearance(props.page.paperAppearance).font)
-  const printedFont = fontPhase(useTextFont(fontIds[0] ?? null, true) + useTextFont(fontIds[1] ?? null, true))
+  // 두 상태 문자열('가족:loaded|가족:loading')을 | 로 이어 fontPhase 가 받는 모양 그대로 넘긴다.
+  // 글꼴이 둘을 넘지 않는다는 것은 tests/paper-font.test.js 가 지킨다(셋째부터는 불러오지 않게 된다).
+  const printedFont = fontPhase([useTextFont(fontIds[0] ?? null, true), useTextFont(fontIds[1] ?? null, true)].filter(Boolean).join('|'))
   // 속지 글꼴이 바뀌면 처음부터 다시 불러온다
   const key = backgroundKey(props.page, printedFont, attempt)
   return <Keep><BackgroundAttempt key={key} {...props} onRetry={props.preparedXml == null ? () => setAttempt(value => value + 1) : undefined} /></Keep>

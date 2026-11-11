@@ -14,6 +14,8 @@
 //
 // 글자 윤곽은 scripts/dump-maruburi-glyphs.py 가 뽑아 둔 것을 쓴다.
 import { readFileSync, writeFileSync } from 'node:fs'
+import { execFileSync } from 'node:child_process'
+import { fileURLToPath } from 'node:url'
 import { square, circle, artAt, place, BASE } from './inkRecord/bottleShape.mjs'
 // 자리 계산은 앱과 **같은 모듈**을 쓴다 — 두 벌로 두면 자동으로 채우는 값이 엉뚱한 데 찍힌다
 import { SIZES, GRID, MARGIN as M, cellRegions, INK_RECORD_SHAPES, inkRecordId } from '../src/editor/templates/inkRecordLayout.js'
@@ -112,3 +114,7 @@ for (const shape of INK_RECORD_SHAPES) for (const orientation of ['portrait', 'l
   writeFileSync(new URL(`${id}.svg`, dir), wrap(orientation, id, NAMES[shape], sheet(orientation, shape)))
   console.log('저장:', id + '.svg')
 }
+// 쓸 수 있는 폭(data-fit) · 맞춘 자리(data-anchor)는 다른 정적 속지와 **같은 식**으로 굽는다.
+// 여기서 따로 셈하면 두 벌이 되어 어긋나고, 안 구우면 글꼴을 바꿀 때 글자가 모두 줄어든다(코드리뷰 2026-11-11).
+// 굽기는 이미 치수가 다 적힌 묶음은 건드리지 않으므로, 방금 만든 속지만 채워진다.
+execFileSync(process.execPath, [fileURLToPath(new URL('./bake-paper-metrics.mjs', import.meta.url))], { stdio: 'inherit' })
