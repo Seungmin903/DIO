@@ -1,6 +1,6 @@
 import { configuredPageIds, defaultTemplateConfig, normalizeTemplateConfig, templatePageCount } from '../../editor/templates/creation.js'
 import { normalizeOrientation, reusableTemplates } from '../../editor/templates/catalog.js'
-import { ROUTE_TEMPLATE_SELECTION_ENABLED } from '../../editor/templates/serverCatalog.js'
+import { ROUTE_TEMPLATE_SELECTION_ENABLED, INK_RECORD_TEMPLATE_SELECTION_ENABLED } from '../../editor/templates/serverCatalog.js'
 import { datedCalendar, datedCoverId, datedMonthId, datedWeekId } from '../../editor/templates/dated.js'
 import { undatedTemplateId } from '../../editor/templates/undated.js'
 import { remoteTemplateAssetId, remoteTemplateGroups, remoteTemplateList, remoteTemplateOf } from '../../editor/templates/remoteTemplates.js'
@@ -31,6 +31,9 @@ export const PAPERS = [
   { id: 'route', group: 'planner', name: '여행 노선', kind: 'count', type: 'route', defaultCount: 3, countSteps: [[2, '1박 2일'], [3, '2박 3일'], [4, '3박 4일'], [5, '4박 5일'], [7, '1주'], [14, '2주'], [30, '한 달']] },
   { id: 'diary', group: 'diary', name: '하루 일기', kind: 'count', type: 'diary' },
   { id: 'scrap', group: 'diary', name: '사진 · 스크랩', kind: 'count', type: 'scrap' },
+  // 발색 기록: 잉크병 모양만 다른 두 벌. 병을 칠하면 색 값이 저절로 찬다(editor/templates/inkRecord.js)
+  { id: 'ink-record-round', group: 'diary', name: '발색 기록 · 둥근 병', kind: 'count', type: 'inkRecord', bottle: 'round' },
+  { id: 'ink-record-square', group: 'diary', name: '발색 기록 · 각진 병', kind: 'count', type: 'inkRecord', bottle: 'square' },
 ]
 // 예전에 저장한 다이어리 요약에만 쓰는 이름
 const LEGACY_NAMES = { year: '1년 플래너' }
@@ -66,8 +69,10 @@ export const paperById = id => {
   if (remote) return remotePaper(remote[1], remoteTemplateOf(remote[1]))
   return PAPERS.find(paper => paper.id === (REPLACED_PAPERS[id] ?? id)) ?? (LEGACY_NAMES[id] ? { id, name: LEGACY_NAMES[id], kind: 'period' } : PAPERS[0])
 }
-// 여행 노선은 서버 행(V36)이 들어가기 전 빌드(플래그 0)에서는 고르지 못한다(catalog.js 의 페이지 추가 메뉴와 같은 기준). 이미 만든 노선 다이어리는 paperById 로 그대로 읽는다.
-const selectable = paper => paper.type !== 'route' || ROUTE_TEMPLATE_SELECTION_ENABLED
+// 여행 노선(V36) · 발색 기록(V45)은 서버 행이 들어가기 전 빌드(플래그 0)에서는 고르지 못한다
+// (catalog.js 의 페이지 추가 메뉴와 같은 기준). 이미 만든 다이어리는 paperById 로 그대로 읽는다.
+const selectable = paper => (paper.type !== 'route' || ROUTE_TEMPLATE_SELECTION_ENABLED)
+  && (paper.type !== 'inkRecord' || INK_RECORD_TEMPLATE_SELECTION_ENABLED)
 /** 탭의 속지들: 앱 속지 + 원격 속지(숨긴 것 빼고). 원격 목록이 바뀌면 다시 불러야 한다(useRemoteTemplates) */
 export const papersIn = group => [...PAPERS, ...remotePapers()].filter(paper => paper.group === group && selectable(paper))
 
@@ -77,7 +82,10 @@ export function countAssetId(paperId, orientation) {
   const direction = normalizeOrientation(orientation)
   if (paper.kind === 'cover') return undatedTemplateId('cover', direction)
   if (paper.remoteTemplate) return remoteTemplateAssetId(paper.remoteTemplate, direction)
-  return reusableTemplates(direction).find(item => item.type === paper.type && (paper.type !== 'note' || item.background === paper.background)).assetId
+  // 같은 종류 안에서 갈래가 더 있는 속지(노트의 바탕, 발색 기록의 병 모양)는 그 값까지 맞춘다
+  return reusableTemplates(direction).find(item => item.type === paper.type
+    && (paper.background == null || item.background === paper.background)
+    && (paper.bottle == null || item.bottle === paper.bottle)).assetId
 }
 
 /** 속지 타일 미리보기 ID. 날짜 속지는 묶음의 기간(없으면 올해 1월) 첫 장으로 보인다. */

@@ -151,3 +151,20 @@ test('덮개는 속지 글꼴을 따라 바뀌고, 내보내기는 바탕 파일
   assert.equal(mergeInkRecordOverlay(base, ''), base)
   assert.equal(inkRecordApi('2026-reusable-note-dots-portrait'), null)
 })
+
+test('페이지 추가 · 새 다이어리에서 고를 수 있다 — 카탈로그에만 있고 목록에 없으면 못 고른다', async () => {
+  const { papersIn, countAssetId, paperById } = await import('../src/diary/utils/paperChoice.js')
+  const papers = papersIn('diary').filter(paper => paper.type === 'inkRecord')
+  assert.deepEqual(papers.map(paper => paper.bottle), INK_RECORD_SHAPES)
+  for (const paper of papers) for (const orientation of ['portrait', 'landscape']) {
+    const assetId = countAssetId(paper.id, orientation)
+    assert.equal(assetId, inkRecordId(paper.bottle, orientation), paper.id + ' ' + orientation)
+    assert.ok(isInkRecordId(assetId))
+  }
+  // 병 모양이 다른 두 벌이 서로 다른 속지로 간다(갈래를 안 가리면 둘 다 첫 벌이 된다)
+  assert.notEqual(countAssetId('ink-record-round', 'portrait'), countAssetId('ink-record-square', 'portrait'))
+  assert.equal(paperById('ink-record-square').bottle, 'square')
+  // 다른 속지의 갈래 고르기는 그대로다
+  assert.equal(countAssetId('plain', 'portrait'), '2026-reusable-note-plain-portrait')
+  assert.equal(countAssetId('dots', 'landscape'), '2026-reusable-note-dots-landscape')
+})
