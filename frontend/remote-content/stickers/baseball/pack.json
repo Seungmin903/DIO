@@ -1,0 +1,341 @@
+{
+  "name": "야구",
+  "order": 90,
+  "stickers": [
+    {
+      "id": "baseball-1-1",
+      "name": "응원 도장 1",
+      "image": "baseball-1-1.png"
+    },
+    {
+      "id": "baseball-1-2",
+      "name": "응원 도장 2",
+      "image": "baseball-1-2.png"
+    },
+    {
+      "id": "baseball-1-3",
+      "name": "응원 도장 3",
+      "image": "baseball-1-3.png"
+    },
+    {
+      "id": "baseball-1-4",
+      "name": "응원 도장 4",
+      "image": "baseball-1-4.png"
+    },
+    {
+      "id": "baseball-1-5",
+      "name": "응원 도장 5",
+      "image": "baseball-1-5.png"
+    },
+    {
+      "id": "baseball-1-6",
+      "name": "응원 도장 6",
+      "image": "baseball-1-6.png"
+    },
+    {
+      "id": "baseball-1-7",
+      "name": "응원 도장 7",
+      "image": "baseball-1-7.png"
+    },
+    {
+      "id": "baseball-1-8",
+      "name": "응원 도장 8",
+      "image": "baseball-1-8.png"
+    },
+    {
+      "id": "baseball-1-9",
+      "name": "응원 도장 9",
+      "image": "baseball-1-9.png"
+    },
+    {
+      "id": "baseball-1-10",
+      "name": "응원 도장 10",
+      "image": "baseball-1-10.png"
+    },
+    {
+      "id": "baseball-1-11",
+      "name": "응원 도장 11",
+      "image": "baseball-1-11.png"
+    },
+    {
+      "id": "baseball-1-12",
+      "name": "응원 도장 12",
+      "image": "baseball-1-12.png"
+    },
+    {
+      "id": "baseball-2-1",
+      "name": "야구 소품 1",
+      "image": "baseball-2-1.png"
+    },
+    {
+      "id": "baseball-2-2",
+      "name": "야구 소품 2",
+      "image": "baseball-2-2.png"
+    },
+    {
+      "id": "baseball-2-3",
+      "name": "야구 소품 3",
+      "image": "baseball-2-3.png"
+    },
+    {
+      "id": "baseball-2-4",
+      "name": "야구 소품 4",
+      "image": "baseball-2-4.png"
+    },
+    {
+      "id": "baseball-2-5",
+      "name": "야구 소품 5",
+      "image": "baseball-2-5.png"
+    },
+    {
+      "id": "baseball-2-6",
+      "name": "야구 소품 6",
+      "image": "baseball-2-6.png"
+    },
+    {
+      "id": "baseball-2-7",
+      "name": "야구 소품 7",
+      "image": "baseball-2-7.png"
+    },
+    {
+      "id": "baseball-2-8",
+      "name": "야구 소품 8",
+      "image": "baseball-2-8.png"
+    },
+    {
+      "id": "baseball-2-9",
+      "name": "야구 소품 9",
+      "image": "baseball-2-9.png"
+    },
+    {
+      "id": "baseball-2-10",
+      "name": "야구 소품 10",
+      "image": "baseball-2-10.png"
+    },
+    {
+      "id": "baseball-2-11",
+      "name": "야구 소품 11",
+      "image": "baseball-2-11.png"
+    },
+    {
+      "id": "baseball-3-1",
+      "name": "야구 선수 1",
+      "image": "baseball-3-1.png"
+    },
+    {
+      "id": "baseball-3-2",
+      "name": "야구 선수 2",
+      "image": "baseball-3-2.png"
+    },
+    {
+      "id": "baseball-3-3",
+      "name": "야구 선수 3",
+      "image": "baseball-3-3.png"
+    },
+    {
+      "id": "baseball-3-4",
+      "name": "야구 선수 4",
+      "image": "baseball-3-4.png"
+    },
+    {
+      "id": "baseball-3-5",
+      "name": "야구 선수 5",
+      "image": "baseball-3-5.png"
+    },
+    {
+      "id": "baseball-3-6",
+      "name": "야구 선수 6",
+      "image": "baseball-3-6.png"
+    },
+    {
+      "id": "baseball-3-7",
+      "name": "야구 선수 7",
+      "image": "baseball-3-7.png"
+    },
+    {
+      "id": "baseball-3-8",
+      "name": "야구 선수 8",
+      "image": "baseball-3-8.png"
+    },
+    {
+      "id": "baseball-3-9",
+      "name": "야구 선수 9",
+      "image": "baseball-3-9.png"
+    },
+    {
+      "id": "cheering-fan",
+      "name": "야구 응원 부채",
+      "image": "cheering-fan.png"
+    },
+    {
+      "id": "baseball-cap",
+      "name": "야구 모자",
+      "image": "baseball-cap.png"
+    },
+    {
+      "id": "baseball-5-1",
+      "name": "야구 테이프 1",
+      "image": "baseball-5-1.png"
+    },
+    {
+      "id": "baseball-5-2",
+      "name": "야구 테이프 2",
+      "image": "baseball-5-2.png"
+    },
+    {
+      "id": "baseball-5-3",
+      "name": "야구 테이프 3",
+      "image": "baseball-5-3.png"
+    },
+    {
+      "id": "baseball-5-4",
+      "name": "야구 테이프 4",
+      "image": "baseball-5-4.png"
+    },
+    {
+      "id": "baseball-5-5",
+      "name": "야구 테이프 5",
+      "image": "baseball-5-5.png"
+    },
+    {
+      "id": "baseball-5-6",
+      "name": "야구 테이프 6",
+      "image": "baseball-5-6.png"
+    },
+    {
+      "id": "baseball-6-1",
+      "name": "디오 야구 응원 1",
+      "image": "baseball-6-1.png"
+    },
+    {
+      "id": "baseball-6-4",
+      "name": "디오 야구 응원 4",
+      "image": "baseball-6-4.png"
+    },
+    {
+      "id": "baseball-6-7",
+      "name": "디오 야구 응원 7",
+      "image": "baseball-6-7.png"
+    },
+    {
+      "id": "baseball-6-2",
+      "name": "디오 야구 응원 2",
+      "image": "baseball-6-2.png"
+    },
+    {
+      "id": "baseball-6-5",
+      "name": "디오 야구 응원 5",
+      "image": "baseball-6-5.png"
+    },
+    {
+      "id": "baseball-6-8",
+      "name": "디오 야구 응원 8",
+      "image": "baseball-6-8.png"
+    },
+    {
+      "id": "baseball-6-3",
+      "name": "디오 야구 응원 3",
+      "image": "baseball-6-3.png"
+    },
+    {
+      "id": "baseball-6-6",
+      "name": "디오 야구 응원 6",
+      "image": "baseball-6-6.png"
+    },
+    {
+      "id": "baseball-6-9",
+      "name": "디오 야구 응원 9",
+      "image": "baseball-6-9.png"
+    },
+    {
+      "id": "baseball-7-1",
+      "name": "모아 야구 응원 1",
+      "image": "baseball-7-1.png"
+    },
+    {
+      "id": "baseball-7-2",
+      "name": "모아 야구 응원 2",
+      "image": "baseball-7-2.png"
+    },
+    {
+      "id": "baseball-7-3",
+      "name": "모아 야구 응원 3",
+      "image": "baseball-7-3.png"
+    },
+    {
+      "id": "baseball-7-4",
+      "name": "모아 야구 응원 4",
+      "image": "baseball-7-4.png"
+    },
+    {
+      "id": "baseball-7-5",
+      "name": "모아 야구 응원 5",
+      "image": "baseball-7-5.png"
+    },
+    {
+      "id": "baseball-7-6",
+      "name": "모아 야구 응원 6",
+      "image": "baseball-7-6.png"
+    },
+    {
+      "id": "baseball-7-7",
+      "name": "모아 야구 응원 7",
+      "image": "baseball-7-7.png"
+    },
+    {
+      "id": "baseball-7-8",
+      "name": "모아 야구 응원 8",
+      "image": "baseball-7-8.png"
+    },
+    {
+      "id": "baseball-7-9",
+      "name": "모아 야구 응원 9",
+      "image": "baseball-7-9.png"
+    },
+    {
+      "id": "baseball-8-1",
+      "name": "모아 야구 소품 1",
+      "image": "baseball-8-1.png"
+    },
+    {
+      "id": "baseball-8-2",
+      "name": "모아 야구 소품 2",
+      "image": "baseball-8-2.png"
+    },
+    {
+      "id": "baseball-8-3",
+      "name": "모아 야구 소품 3",
+      "image": "baseball-8-3.png"
+    },
+    {
+      "id": "baseball-8-4",
+      "name": "모아 야구 소품 4",
+      "image": "baseball-8-4.png"
+    },
+    {
+      "id": "baseball-8-5",
+      "name": "모아 야구 소품 5",
+      "image": "baseball-8-5.png"
+    },
+    {
+      "id": "baseball-8-6",
+      "name": "모아 야구 소품 6",
+      "image": "baseball-8-6.png"
+    },
+    {
+      "id": "baseball-8-7",
+      "name": "모아 야구 소품 7",
+      "image": "baseball-8-7.png"
+    },
+    {
+      "id": "baseball-8-8",
+      "name": "모아 야구 소품 8",
+      "image": "baseball-8-8.png"
+    },
+    {
+      "id": "baseball-8-9",
+      "name": "모아 야구 소품 9",
+      "image": "baseball-8-9.png"
+    }
+  ]
+}
