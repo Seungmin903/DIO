@@ -9,7 +9,7 @@ import { glassColors, glassEntry } from '../hooks/usePalettes'
 import EditablePalette, { GlassDot, glassResolved, paletteSwatchStyles } from './controls/EditablePalette'
 import Slider from './controls/Slider'
 import Icon from './controls/Icon'
-import { GLASS_FILMS, GLASS_SHEENS, PEN_TYPES, penDefaultOpacity, penWidthMax } from '../utils/penSettings'
+import { GLASS_FILMS, GLASS_SHEENS, PEN_TYPES, penWidthMax } from '../utils/penSettings'
 import { glitterColorOf, micaColor, sheenAutoColor } from '../utils/glassInk'
 import { DASH_TYPES, DASH_LENGTH_RANGE, DASH_GAP_RANGE, dashPattern, isDashedKind } from '../utils/dashedStroke'
 import { useRecentPenColors } from '../hooks/useRecentPenColors'
@@ -56,7 +56,7 @@ function InkColorRow({ label, autoColor, autoOn, onAuto, items, customOn, custom
       <Pressable accessibilityRole="button" accessibilityLabel={`${label} 맞춤`} accessibilityState={{ selected: autoOn }}
         hitSlop={1} onPress={onAuto} style={paletteSwatchStyles.cell}>
         <View style={[paletteSwatchStyles.dot, { backgroundColor: autoColor, alignItems: 'center', justifyContent: 'center' }, autoOn && paletteSwatchStyles.chosen]}>
-          <Text allowFontScaling={false} numberOfLines={1} style={[styles.autoText, { color: darkCss(autoColor) ? '#FFFFFF' : colors.text }]}>맞춤</Text>
+          <Text allowFontScaling={false} numberOfLines={1} style={[styles.autoText, { color: darkCss(autoColor) ? colors.surface : colors.text }]}>맞춤</Text>
         </View>
       </Pressable>
       {items.map(one => <Pressable key={one.key} accessibilityRole="button" accessibilityLabel={`${label} ${one.label}`}

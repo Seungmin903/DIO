@@ -4,7 +4,7 @@ import { BlendMode, Canvas, ClipOp, Group, Image, Picture, Skia } from '@shopify
 import { nowMs, PENCIL_PROFILE, previewPicture, recordProfile, strokesPicture } from '../../skia/strokeSkia.js'
 import { liveStroke } from '../../skia/liveStroke.js'
 import { bakeWindow, coversPage, keepScale, keepWindow, reachOf, reachTouches, sameObjects, stepUpScale } from '../../skia/bakeDelta.js'
-import { TILE, evictTiles, pendingStrokes, planTiles, removedFrom, removedStrokes, reusable, staleImages, tileKey } from '../../skia/tileGrid.js'
+import { TILE, evictTiles, pendingStrokes, planTiles, removedFrom, removedStrokes, reusable, staleImages, tileKey, tilesBounds } from '../../skia/tileGrid.js'
 import { ViewportMotion } from './viewportMotion'
 
 const DRAG_OPACITY = 0.5
@@ -261,7 +261,10 @@ const TailRun = memo(function TailRun({ objects, width, height, zoom, fade }) {
     const done = new Set(made.map(tile => `${tile.col},${tile.row}`))
     const left = stale.filter(entry => !done.has(`${entry.col},${entry.row}`))
     for (const tile of fresh) tile.used = ++clock.current
-    evictTiles(tiles.current, TILE_BUDGET_PX, tile => retire(tile))
+    // 이번 렌더에 그리는 타일은 **퇴출하지 않는다**. 예산을 넘겨 밀려나면 retire → 1초 뒤 dispose 인데
+    // 그 그림을 아직 화면에 그리고 있어 빈 자리가 생긴다(화면 타일만으로 예산을 넘을 수 있다).
+    const inUse = new Set([...fresh, ...made].map(tile => tileKey(tile.col, tile.row, tile.scale)))
+    evictTiles(tiles.current, TILE_BUDGET_PX, tile => retire(tile), inUse)
     // 아직 못 구운 칸: 지난 그림을 깔고 거기 없던 획만 벡터로 얹는다(다 얹으면 두 번 그려진다)
     const show = [...fresh, ...made, ...staleImages(left)]
     const rest = pendingStrokes(settled0, left)
@@ -302,11 +305,14 @@ const TailRun = memo(function TailRun({ objects, width, height, zoom, fade }) {
     return picture
   }, [plan, fade, screenScale])
   const wide = wideRef.current
+  // 바탕은 **타일이 덮는 네모** 밖에만 깐다. 창(160 격자)으로 자르면 타일(256 칸)이 창 밖으로
+  // 뻗은 띠에서 바탕과 타일이 겹쳐 반투명 잉크가 두 번 그려진다.
+  const covered = useMemo(() => tilesBounds(win, width, height), [win, width, height])
   return <>
   <Canvas pointerEvents="none" style={{ position: 'absolute', left: 0, top: 0, width: width * zoom, height: height * zoom }}>
     {/* 구운 그림은 화면 픽셀 1:1 로(올림한 크기를 페이지 크기로 늘리면 살짝 흐려져 쓰는 중 획과 달라 보였다) */}
     {/* 창 밖 바탕(흐릿) — 또렷한 그림이 덮는 창 안쪽은 잘라 낸다. 겹쳐 그리면 반투명 잉크가 두 번 곱해져 진해진다 */}
-    {wide && plan.tiles.length ? <Group clip={Skia.XYWHRect(win.x * zoom, win.y * zoom, win.w * zoom, win.h * zoom)} invertClip>
+    {wide && plan.tiles.length && covered ? <Group clip={Skia.XYWHRect(covered.x * zoom, covered.y * zoom, covered.w * zoom, covered.h * zoom)} invertClip>
       <Image image={wide.image} x={0} y={0} width={width * zoom} height={height * zoom} fit="fill" />
     </Group> : null}
     {plan.tiles.map(tile => <Image key={`${tile.col},${tile.row}`} image={tile.image}

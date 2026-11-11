@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { TILE, evictTiles, hitsTile, pendingStrokes, planTiles, removedFrom, removedStrokes, reusable, showsHad, staleImages, strokesInTile, tileBox, tileKey, tilesFor } from '../src/editor/skia/tileGrid.js'
+import { TILE, evictTiles, hitsTile, pendingStrokes, planTiles, removedFrom, tilesBounds, removedStrokes, reusable, showsHad, staleImages, strokesInTile, tileBox, tileKey, tilesFor } from '../src/editor/skia/tileGrid.js'
 
 // 획 하나: 왼쪽 위 (x, y) 에 w x h. reachOf 가 대각선 반지름 + 번짐 여유 8 을 붙인다.
 const at = (id, x, y, w = 10, h = 10) => ({ id, x, y, w, h })
@@ -136,4 +136,30 @@ test('격자 색인으로 고른 결과가 전수 조사와 글자 하나까지 
   // 칸이 하나뿐이면 색인을 안 쓰는데, 그때도 같아야 한다
   const one = planTiles(objects, { x: 0, y: 0, w: 256, h: 256 }, 2000, 2000, 2, new Map())
   assert.deepEqual(one.stale[0].objects.map(o => o.id), strokesInTile(objects, tileBox(0, 0)).map(o => o.id))
+})
+
+test('타일이 덮는 네모는 창보다 넓다 — 창으로 자르면 그 띠에서 바탕과 겹친다', () => {
+  // 창은 160 격자, 타일은 256 칸이라 타일이 창 밖으로 최대 255 더 뻗는다.
+  const win = { x: 640, y: 800, w: 800, h: 1120 }
+  const covered = tilesBounds(win, 4000, 4000)
+  assert.deepEqual(covered, { x: 512, y: 768, w: 1024, h: 1280 })
+  assert.ok(covered.x <= win.x && covered.y <= win.y, '창을 다 품어야 한다')
+  assert.ok(covered.x + covered.w >= win.x + win.w && covered.y + covered.h >= win.y + win.h)
+  // 페이지 밖으로는 안 나가고, 덮을 칸이 없으면 null
+  assert.deepEqual(tilesBounds({ x: 0, y: 0, w: 100, h: 100 }, 4000, 4000), { x: 0, y: 0, w: 256, h: 256 })
+  assert.equal(tilesBounds({ x: 5000, y: 5000, w: 10, h: 10 }, 4000, 4000), null)
+})
+
+test('이번 렌더에 쓰는 타일은 예산을 넘겨도 버리지 않는다', () => {
+  // 버리면 1초 뒤 그림이 풀리는데 아직 화면에 그리고 있어 빈 자리가 생긴다.
+  const cache = new Map()
+  for (let i = 0; i < 4; i++) cache.set(`t${i}`, { px: 10, used: i, image: {} })
+  const dropped = []
+  // 예산 10 이면 셋을 버려야 하지만, 오래된 둘이 화면에 쓰이는 중이면 건너뛴다
+  evictTiles(cache, 10, tile => dropped.push(tile.used), new Set(['t0', 't1']))
+  assert.deepEqual(dropped, [2, 3])
+  assert.deepEqual([...cache.keys()], ['t0', 't1'])
+  // 화면 타일만으로 예산을 넘으면 넘긴 채로 둔다(그리는 것이 먼저다)
+  const only = new Map([['a', { px: 100, used: 1, image: {} }]])
+  assert.equal(evictTiles(only, 10, () => { throw new Error('버리면 안 된다') }, new Set(['a'])), 0)
 })

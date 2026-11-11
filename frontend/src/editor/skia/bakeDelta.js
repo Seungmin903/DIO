@@ -38,16 +38,6 @@ export function bakeWindow(visible, width, height) {
   const y1 = Math.min(height, snapUp(visible.y + visible.height + padY))
   return { x, y, w: Math.max(1, x1 - x), h: Math.max(1, y1 - y) }
 }
-export const sameWin = (a, b) => Boolean(a && b && a.x === b.x && a.y === b.y && a.w === b.w && a.h === b.h)
-// 획이 칠한 범위(reachOf)가 창 **안에 온전히** 들어오면 굽고, 창 **테두리에 걸치면** 벡터로 그린다.
-// 걸친 획을 굽기까지 하면 같은 획이 두 번 그려져 겹친 자리가 진해진다 - 둘 중 하나만 한다.
-// 창에 아예 안 닿는 획은 화면 밖이라 그리지 않는다(창은 보이는 범위보다 넓다).
-export const insideWin = (a, w) => a.x - a.r >= w.x && a.y - a.r >= w.y && a.x + a.r <= w.x + w.w && a.y + a.r <= w.y + w.h
-export const touchesWin = (a, w) => a.x + a.r > w.x && a.y + a.r > w.y && a.x - a.r < w.x + w.w && a.y - a.r < w.y + w.h
-export const bakedIn = (objects, win) => objects.filter(object => insideWin(reachOf(object), win))
-export const atEdge = (objects, win) => objects.filter(object => { const a = reachOf(object); return touchesWin(a, win) && !insideWin(a, win) })
-// 지난 창(old)에 안 구워졌으면서 지금 창(now)에는 보이는 획 - 창이 바뀐 직후 빈자리를 벡터로 메운다
-export const notBaked = (objects, old, now) => objects.filter(object => { const a = reachOf(object); return !insideWin(a, old) && touchesWin(a, now) })
 // 창이 페이지를 다 덮으면(화면에 맞춤 등) 창 밖이 없다 - 창 밖 바탕을 굽지 않는다
 export const coversPage = (win, width, height) => win.x <= 0 && win.y <= 0 && win.w >= width && win.h >= height
 

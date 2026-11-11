@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
-import { atEdge, bakeWindow, coversPage, keepWindow, stepUpScale, bakedIn, notBaked, reachOf, reachTouches, removedBetween, sameObjects, sameWin } from '../src/editor/skia/bakeDelta.js'
+import { bakeWindow, coversPage, keepWindow, reachOf, reachTouches, removedBetween, sameObjects, stepUpScale } from '../src/editor/skia/bakeDelta.js'
 
 const o = id => ({ id, x: 0, y: 0, w: 10, h: 10 })
 
@@ -31,7 +31,7 @@ test('같은 참조의 목록만 같다고 본다', () => {
   assert.equal(sameObjects([a], [a, b]), false)
 })
 
-test('굽는 창은 보이는 범위에 여유를 두고 격자에 맞추며, 창에 걸친 획은 굽지 않고 벡터로 돌린다', () => {
+test('굽는 창은 보이는 범위에 여유를 두고 격자에 맞추며, 조금 밀어서는 안 바뀐다', () => {
   const page = { width: 2000, height: 3000 }
   // 보이는 범위가 없으면(썸네일 · 내보내기) 페이지 전체
   assert.deepEqual(bakeWindow(null, page.width, page.height), { x: 0, y: 0, w: 2000, h: 3000 })
@@ -39,21 +39,11 @@ test('굽는 창은 보이는 범위에 여유를 두고 격자에 맞추며, �
   const win = bakeWindow({ x: 800, y: 1000, width: 400, height: 600 }, page.width, page.height)
   assert.deepEqual(win, { x: 640, y: 800, w: 800, h: 1120 })   // 680→640 · 1320→1440 · 820→800 · 1780→1920
   // 살짝 밀어도 같은 창이다 — 밀 때마다 다시 굽지 않는다
-  assert.ok(sameWin(win, bakeWindow({ x: 820, y: 1010, width: 400, height: 600 }, page.width, page.height)))
+  assert.deepEqual(bakeWindow({ x: 820, y: 1010, width: 400, height: 600 }, page.width, page.height), win)
   // 많이 밀면 창이 바뀐다
-  assert.ok(!sameWin(win, bakeWindow({ x: 1200, y: 1010, width: 400, height: 600 }, page.width, page.height)))
+  assert.notDeepEqual(bakeWindow({ x: 1200, y: 1010, width: 400, height: 600 }, page.width, page.height), win)
   // 페이지 밖으로는 안 나간다
   assert.deepEqual(bakeWindow({ x: -50, y: -50, width: 400, height: 600 }, page.width, page.height), { x: 0, y: 0, w: 480, h: 800 })
-
-  // 안에 온전히 들어온 획만 굽는다. 걸친 획은 벡터(atEdge), 아예 밖은 어느 쪽도 아니다
-  const at = (x, y) => ({ id: `${x},${y}`, x, y, w: 40, h: 40 })
-  const inside = at(900, 1100), edge = at(win.x - 10, 1100), outside = at(100, 100)
-  const objects = [inside, edge, outside]
-  assert.deepEqual(bakedIn(objects, win).map((o) => o.id), [inside.id])
-  assert.deepEqual(atEdge(objects, win).map((o) => o.id), [edge.id])
-  // 창이 바뀌면 지난 창에 안 구워졌고 새 창에는 보이는 획을 벡터로 메운다
-  const moved = bakeWindow({ x: 300, y: 1000, width: 400, height: 600 }, page.width, page.height)
-  assert.deepEqual(notBaked(objects, win, moved).map((o) => o.id), [edge.id])
 })
 
 test('창이 페이지를 다 덮으면 창 밖 바탕을 굽지 않고, 확대해 창이 좁아지면 바탕을 깐다', () => {
@@ -67,10 +57,14 @@ test('창이 페이지를 다 덮으면 창 밖 바탕을 굽지 않고, 확대�
 test('창 밖 바탕은 또렷한 그림 아래에 깔고 창 안쪽은 잘라 낸다', () => {
   // 겹쳐 그리면 반투명 잉크(형광펜)가 두 번 곱해져 그 자리만 진해진다 - 창 안쪽은 잘라 내야 한다.
   const src = readFileSync(new URL('../src/editor/components/canvas/CompletedStrokeLayer.native.js', import.meta.url), 'utf8')
-  const backdrop = src.indexOf('wide && plan.tiles.length ?')
+  const backdrop = src.indexOf('wide && plan.tiles.length && covered ?')
   const sharp = src.indexOf('plan.tiles.map(tile =>')
   assert.ok(backdrop > 0 && sharp > backdrop, '바탕은 또렷한 그림보다 먼저(아래에) 그려야 한다')
-  assert.match(src.slice(backdrop, sharp), /invertClip/, '창 안쪽을 잘라 내야 한다')
+  assert.match(src.slice(backdrop, sharp), /invertClip/, '덮이는 쪽을 잘라 내야 한다')
+  // 창(160 격자)이 아니라 **타일이 덮는 네모**로 잘라야 한다. 타일은 256 칸이라 창 밖으로 최대 255
+  // 더 뻗고, 창으로 자르면 그 띠에서 바탕과 타일이 둘 다 그려져 반투명 잉크가 진해진다.
+  assert.match(src.slice(backdrop, sharp), /covered\.x \* zoom, covered\.y \* zoom, covered\.w \* zoom, covered\.h \* zoom/)
+  assert.match(src, /tilesBounds\(win, width, height\)/)
   // 바탕 배율은 페이지 크기만 따른다 - 확대율이 들어가면 확대할 때마다 다시 구워진다
   assert.match(src, /const wideScale = Math\.sqrt\(WIDE_MAX_PX \/ Math\.max\(1, width \* height\)\)/)
 })

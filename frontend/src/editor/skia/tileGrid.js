@@ -28,6 +28,25 @@ export function tilesFor(win, width, height) {
   return out
 }
 
+/**
+ * 창을 덮는 타일들이 **실제로 차지하는** 네모(페이지 좌표).
+ * 창은 160 격자, 타일은 256 칸이라 타일이 창 밖으로 최대 255 더 뻗는다. 창 밖 바탕을 자를 때
+ * 창 기준으로 자르면 그 띠에서 바탕과 타일이 **둘 다** 그려져, 반투명 잉크(형광펜)가 진해진다.
+ */
+export function tilesBounds(win, width, height) {
+  const cells = tilesFor(win, width, height)
+  if (!cells.length) return null
+  let c0 = Infinity, c1 = -Infinity, r0 = Infinity, r1 = -Infinity
+  for (const { col, row } of cells) {
+    if (col < c0) c0 = col
+    if (col > c1) c1 = col
+    if (row < r0) r0 = row
+    if (row > r1) r1 = row
+  }
+  const x = c0 * TILE, y = r0 * TILE
+  return { x, y, w: (c1 + 1) * TILE - x, h: (r1 + 1) * TILE - y }
+}
+
 /** 획이 칠한 범위가 타일 칸에 닿나 */
 /** 획이 칠한 범위를 상자로 — 격자 색인이 쓰는 모양 */
 const boundsOfReach = (object) => { const a = reachOf(object); return { left: a.x - a.r, right: a.x + a.r, top: a.y - a.r, bottom: a.y + a.r } }
@@ -116,7 +135,7 @@ export const staleImages = stale => stale.filter(showsHad).map(tile => tile.had)
  * 버린 타일은 따로 보관하지 않는다 — 필요하면 벡터에서 다시 굽는다.
  * 기기 메모리가 모자라 앱이 죽은 적이 있어서(2026-11-10, 7.83GB 중 5.87GB 사용) 상한은 꼭 있어야 한다.
  */
-export function evictTiles(cache, budgetPx, dispose) {
+export function evictTiles(cache, budgetPx, dispose, inUse) {
   let used = 0
   for (const tile of cache.values()) used += tile.px ?? 0
   if (used <= budgetPx) return 0
@@ -124,6 +143,9 @@ export function evictTiles(cache, budgetPx, dispose) {
   let dropped = 0
   for (const [key, tile] of order) {
     if (used <= budgetPx) break
+    // 이번 렌더에 그리는 타일은 건너뛴다 — 버리면 1초 뒤 그림이 풀려 화면에 빈 자리가 생긴다.
+    // 화면 타일만으로 예산을 넘으면 예산을 넘긴 채로 둔다(그리는 것이 먼저다).
+    if (inUse?.has(key)) continue
     cache.delete(key)
     used -= tile.px ?? 0
     dropped++

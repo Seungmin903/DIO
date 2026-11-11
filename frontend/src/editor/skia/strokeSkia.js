@@ -621,10 +621,17 @@ const contentKey = object => [object.penKind, object.strokeWidth, object.color, 
 const PENCIL_ZOOM_STEPS = 8
 const pencilZoom = zoom => Math.pow(2, Math.round(Math.log2(Math.max(0.05, zoom)) * PENCIL_ZOOM_STEPS) / PENCIL_ZOOM_STEPS)
 function contentPicture(object, zoom = 1) {
-  const pencil = skiaKind(object.penKind) === 'pencil'
+  const kind = skiaKind(object.penKind)
+  const pencil = kind === 'pencil', glass = kind === 'glass'
   const drawZoom = pencil ? pencilZoom(zoom) : zoom
+  // 유리펜도 **배율이 그림에 박힌다**: drawGlassPooled 는 pxPerUnit(zoom) 을 캔버스 배율 · 도장과
+  // 외곽선 좌표 · 셰이더 uniform · 블러 시그마에 모두 반영한다(런타임 셰이더가 화면 픽셀 밀도를
+  // 모르기 때문에 화면 픽셀 공간에서 그린다). 열쇠에 배율이 없으면 확대한 뒤에도 옛 배율로 녹화한
+  // 그림을 다시 써서 무늬 · 가장자리가 뭉개진다. 타일은 배율마다 따로 구우므로 더 잘 드러난다.
+  // 연필처럼 묶지 않고 **그대로** 넣는다 — 굽는 배율은 이미 ¼옥타브로 묶여 있어 값이 몇 개뿐이고,
+  // 유리펜은 필터 1픽셀 = 화면 1픽셀이 어긋나면 바로 보인다.
   const key = contentKey(object) + (pencil ? `|${drawZoom}|${PENCIL_BRUSH.engine}|${object.opacity ?? 1}` : '')
-    + (skiaKind(object.penKind) === 'glass' ? glassKey(object) : ''), cached = contents.get(object.points)
+    + (glass ? `|${drawZoom}${glassKey(object)}` : ''), cached = contents.get(object.points)
   if (cached?.key === key) return cached.picture
   const recorder = Skia.PictureRecorder()
   drawObjectContent(recorder.beginRecording(), object, drawZoom)
