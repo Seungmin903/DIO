@@ -1,0 +1,331 @@
+{
+  "name": "일본",
+  "order": 20,
+  "stickers": [
+    {
+      "id": "dango",
+      "name": "당고",
+      "image": "dango.png"
+    },
+    {
+      "id": "daruma",
+      "name": "다루마",
+      "image": "daruma.png"
+    },
+    {
+      "id": "dorayaki",
+      "name": "도라야키",
+      "image": "dorayaki.png"
+    },
+    {
+      "id": "ema",
+      "name": "에마 소원패",
+      "image": "ema.png"
+    },
+    {
+      "id": "enoden",
+      "name": "에노덴 전차",
+      "image": "enoden.png"
+    },
+    {
+      "id": "fuji",
+      "name": "후지산",
+      "image": "fuji.png"
+    },
+    {
+      "id": "furin",
+      "name": "풍경",
+      "image": "furin.png"
+    },
+    {
+      "id": "furoshiki-ochre",
+      "name": "황토색 보자기",
+      "image": "furoshiki-ochre.png"
+    },
+    {
+      "id": "furoshiki-plum",
+      "name": "자주색 보자기",
+      "image": "furoshiki-plum.png"
+    },
+    {
+      "id": "furoshiki-rose",
+      "name": "장미색 보자기",
+      "image": "furoshiki-rose.png"
+    },
+    {
+      "id": "furoshiki-sage",
+      "name": "연녹색 보자기",
+      "image": "furoshiki-sage.png"
+    },
+    {
+      "id": "furoshiki-teal",
+      "name": "청록색 보자기",
+      "image": "furoshiki-teal.png"
+    },
+    {
+      "id": "furoshiki",
+      "name": "보자기",
+      "image": "furoshiki.png"
+    },
+    {
+      "id": "fushimi-inari",
+      "name": "후시미 이나리",
+      "image": "fushimi-inari.png"
+    },
+    {
+      "id": "geta",
+      "name": "게다",
+      "image": "geta.png"
+    },
+    {
+      "id": "himeji-castle",
+      "name": "히메지성",
+      "image": "himeji-castle.png"
+    },
+    {
+      "id": "hokkaido-lavender",
+      "name": "홋카이도 라벤더",
+      "image": "hokkaido-lavender.png"
+    },
+    {
+      "id": "kinkakuji",
+      "name": "금각사",
+      "image": "kinkakuji.png"
+    },
+    {
+      "id": "kitsune-udon",
+      "name": "유부 우동",
+      "image": "kitsune-udon.png"
+    },
+    {
+      "id": "koinobori",
+      "name": "고이노보리",
+      "image": "koinobori.png"
+    },
+    {
+      "id": "kokeshi",
+      "name": "고케시 인형",
+      "image": "kokeshi.png"
+    },
+    {
+      "id": "maneki-neko",
+      "name": "마네키네코",
+      "image": "maneki-neko.png"
+    },
+    {
+      "id": "matcha",
+      "name": "말차",
+      "image": "matcha.png"
+    },
+    {
+      "id": "melon-pan",
+      "name": "멜론빵",
+      "image": "melon-pan.png"
+    },
+    {
+      "id": "miyajima",
+      "name": "미야지마",
+      "image": "miyajima.png"
+    },
+    {
+      "id": "momiji",
+      "name": "단풍",
+      "image": "momiji.png"
+    },
+    {
+      "id": "nara-deer",
+      "name": "나라 사슴",
+      "image": "nara-deer.png"
+    },
+    {
+      "id": "okinawa-shisa",
+      "name": "오키나와 시사",
+      "image": "okinawa-shisa.png"
+    },
+    {
+      "id": "okonomiyaki",
+      "name": "오코노미야키",
+      "image": "okonomiyaki.png"
+    },
+    {
+      "id": "omamori",
+      "name": "오마모리",
+      "image": "omamori.png"
+    },
+    {
+      "id": "onsen",
+      "name": "온천",
+      "image": "onsen.png"
+    },
+    {
+      "id": "origami-crane",
+      "name": "종이학",
+      "image": "origami-crane.png"
+    },
+    {
+      "id": "osaka-castle",
+      "name": "오사카성",
+      "image": "osaka-castle.png"
+    },
+    {
+      "id": "ramune",
+      "name": "라무네",
+      "image": "ramune.png"
+    },
+    {
+      "id": "rickshaw",
+      "name": "인력거",
+      "image": "rickshaw.png"
+    },
+    {
+      "id": "sakura",
+      "name": "벚꽃",
+      "image": "sakura.png"
+    },
+    {
+      "id": "shinkansen",
+      "name": "신칸센",
+      "image": "shinkansen.png"
+    },
+    {
+      "id": "shirakawago",
+      "name": "시라카와고",
+      "image": "shirakawago.png"
+    },
+    {
+      "id": "skytree",
+      "name": "도쿄 스카이트리",
+      "image": "skytree.png"
+    },
+    {
+      "id": "takoyaki",
+      "name": "타코야키",
+      "image": "takoyaki.png"
+    },
+    {
+      "id": "tamago-sushi",
+      "name": "달걀초밥",
+      "image": "tamago-sushi.png"
+    },
+    {
+      "id": "temari",
+      "name": "테마리 공",
+      "image": "temari.png"
+    },
+    {
+      "id": "tempura",
+      "name": "튀김",
+      "image": "tempura.png"
+    },
+    {
+      "id": "tokyo-tower",
+      "name": "도쿄타워",
+      "image": "tokyo-tower.png"
+    },
+    {
+      "id": "yukata",
+      "name": "유카타",
+      "image": "yukata.png"
+    },
+    {
+      "id": "amabie",
+      "name": "아마비에",
+      "image": "amabie.png"
+    },
+    {
+      "id": "castella",
+      "name": "카스텔라",
+      "image": "castella.png"
+    },
+    {
+      "id": "chopstick-rest",
+      "name": "젓가락 받침",
+      "image": "chopstick-rest.png"
+    },
+    {
+      "id": "gassho-hearth",
+      "name": "갓쇼즈쿠리 화로",
+      "image": "gassho-hearth.png"
+    },
+    {
+      "id": "goldfish-bag",
+      "name": "금붕어 봉지",
+      "image": "goldfish-bag.png"
+    },
+    {
+      "id": "hagoita",
+      "name": "하고이타",
+      "image": "hagoita.png"
+    },
+    {
+      "id": "hakone-ship",
+      "name": "하코네 유람선",
+      "image": "hakone-ship.png"
+    },
+    {
+      "id": "izakaya-lantern",
+      "name": "이자카야 등불",
+      "image": "izakaya-lantern.png"
+    },
+    {
+      "id": "kanazawa-umbrella",
+      "name": "가나자와 우산",
+      "image": "kanazawa-umbrella.png"
+    },
+    {
+      "id": "kintsugi-bowl",
+      "name": "금이음 그릇",
+      "image": "kintsugi-bowl.png"
+    },
+    {
+      "id": "momiji-manju",
+      "name": "단풍 만주",
+      "image": "momiji-manju.png"
+    },
+    {
+      "id": "nagasaki-tram",
+      "name": "나가사키 노면전차",
+      "image": "nagasaki-tram.png"
+    },
+    {
+      "id": "omurice",
+      "name": "오므라이스",
+      "image": "omurice.png"
+    },
+    {
+      "id": "sensoji",
+      "name": "센소지",
+      "image": "sensoji.png"
+    },
+    {
+      "id": "shamisen",
+      "name": "샤미센",
+      "image": "shamisen.png"
+    },
+    {
+      "id": "shibuya-crossing",
+      "name": "시부야 횡단보도",
+      "image": "shibuya-crossing.png"
+    },
+    {
+      "id": "soba",
+      "name": "소바",
+      "image": "soba.png"
+    },
+    {
+      "id": "taiyaki-azuki",
+      "name": "팥 도미빵",
+      "image": "taiyaki-azuki.png"
+    },
+    {
+      "id": "tsutenkaku",
+      "name": "쓰텐카쿠",
+      "image": "tsutenkaku.png"
+    },
+    {
+      "id": "uchiwa",
+      "name": "일본 부채",
+      "image": "uchiwa.png"
+    }
+  ]
+}
