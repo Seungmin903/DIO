@@ -1,0 +1,316 @@
+{
+  "name": "한국",
+  "order": 30,
+  "stickers": [
+    {
+      "id": "banana-milk",
+      "name": "바나나 우유",
+      "image": "banana-milk.png"
+    },
+    {
+      "id": "bibimbap",
+      "name": "비빔밥",
+      "image": "bibimbap.png"
+    },
+    {
+      "id": "bokjumeoni",
+      "name": "복주머니",
+      "image": "bokjumeoni.png"
+    },
+    {
+      "id": "bungeoppang",
+      "name": "붕어빵",
+      "image": "bungeoppang.png"
+    },
+    {
+      "id": "busan-cable-train",
+      "name": "부산 해변열차",
+      "image": "busan-cable-train.png"
+    },
+    {
+      "id": "celadon",
+      "name": "청자",
+      "image": "celadon.png"
+    },
+    {
+      "id": "cheongsachorong",
+      "name": "청사초롱",
+      "image": "cheongsachorong.png"
+    },
+    {
+      "id": "dol-hareubang",
+      "name": "돌하르방",
+      "image": "dol-hareubang.png"
+    },
+    {
+      "id": "fishcake",
+      "name": "어묵",
+      "image": "fishcake.png"
+    },
+    {
+      "id": "gat",
+      "name": "갓",
+      "image": "gat.png"
+    },
+    {
+      "id": "gimbap",
+      "name": "김밥",
+      "image": "gimbap.png"
+    },
+    {
+      "id": "gwanghwamun",
+      "name": "광화문",
+      "image": "gwanghwamun.png"
+    },
+    {
+      "id": "hanbok",
+      "name": "한복",
+      "image": "hanbok.png"
+    },
+    {
+      "id": "hanok",
+      "name": "한옥",
+      "image": "hanok.png"
+    },
+    {
+      "id": "hotteok",
+      "name": "호떡",
+      "image": "hotteok.png"
+    },
+    {
+      "id": "janggu",
+      "name": "장구",
+      "image": "janggu.png"
+    },
+    {
+      "id": "jangseung",
+      "name": "장승",
+      "image": "jangseung.png"
+    },
+    {
+      "id": "jegichagi",
+      "name": "제기",
+      "image": "jegichagi.png"
+    },
+    {
+      "id": "jeju-tangerine",
+      "name": "제주 감귤",
+      "image": "jeju-tangerine.png"
+    },
+    {
+      "id": "jogakbo",
+      "name": "조각보",
+      "image": "jogakbo.png"
+    },
+    {
+      "id": "namsan-tower",
+      "name": "남산타워",
+      "image": "namsan-tower.png"
+    },
+    {
+      "id": "norigae",
+      "name": "노리개",
+      "image": "norigae.png"
+    },
+    {
+      "id": "pojangmacha",
+      "name": "포장마차",
+      "image": "pojangmacha.png"
+    },
+    {
+      "id": "saekdong-pouch",
+      "name": "색동 주머니",
+      "image": "saekdong-pouch.png"
+    },
+    {
+      "id": "seongsan",
+      "name": "성산일출봉",
+      "image": "seongsan.png"
+    },
+    {
+      "id": "sotdae",
+      "name": "솟대",
+      "image": "sotdae.png"
+    },
+    {
+      "id": "tal",
+      "name": "탈",
+      "image": "tal.png"
+    },
+    {
+      "id": "tteokbokki-cup",
+      "name": "컵 떡볶이",
+      "image": "tteokbokki-cup.png"
+    },
+    {
+      "id": "yakgwa",
+      "name": "약과",
+      "image": "yakgwa.png"
+    },
+    {
+      "id": "yut",
+      "name": "윷",
+      "image": "yut.png"
+    },
+    {
+      "id": "baekja",
+      "name": "백자",
+      "image": "baekja.png"
+    },
+    {
+      "id": "bingsu",
+      "name": "빙수",
+      "image": "bingsu.png"
+    },
+    {
+      "id": "binyeo",
+      "name": "비녀",
+      "image": "binyeo.png"
+    },
+    {
+      "id": "bukho",
+      "name": "투호",
+      "image": "bukho.png"
+    },
+    {
+      "id": "cheomseongdae",
+      "name": "첨성대",
+      "image": "cheomseongdae.png"
+    },
+    {
+      "id": "dabotap",
+      "name": "다보탑",
+      "image": "dabotap.png"
+    },
+    {
+      "id": "dalgona",
+      "name": "달고나",
+      "image": "dalgona.png"
+    },
+    {
+      "id": "ddakji",
+      "name": "딱지",
+      "image": "ddakji.png"
+    },
+    {
+      "id": "ddp",
+      "name": "동대문디자인플라자",
+      "image": "ddp.png"
+    },
+    {
+      "id": "donggung-wolji",
+      "name": "동궁과 월지",
+      "image": "donggung-wolji.png"
+    },
+    {
+      "id": "earthenware-jjigae",
+      "name": "뚝배기 찌개",
+      "image": "earthenware-jjigae.png"
+    },
+    {
+      "id": "haenyeo",
+      "name": "해녀",
+      "image": "haenyeo.png"
+    },
+    {
+      "id": "hangang-bike",
+      "name": "한강 자전거",
+      "image": "hangang-bike.png"
+    },
+    {
+      "id": "injeolmi",
+      "name": "인절미",
+      "image": "injeolmi.png"
+    },
+    {
+      "id": "jeju-stone-wall",
+      "name": "제주 돌담",
+      "image": "jeju-stone-wall.png"
+    },
+    {
+      "id": "kkotsin",
+      "name": "꽃신",
+      "image": "kkotsin.png"
+    },
+    {
+      "id": "korean-fan",
+      "name": "전통 부채",
+      "image": "korean-fan.png"
+    },
+    {
+      "id": "korean-fried-chicken-drumstick",
+      "name": "치킨 다리",
+      "image": "korean-fried-chicken-drumstick.png"
+    },
+    {
+      "id": "korean-fried-chicken-wing",
+      "name": "치킨 날개",
+      "image": "korean-fried-chicken-wing.png"
+    },
+    {
+      "id": "korean-fried-chicken",
+      "name": "프라이드치킨",
+      "image": "korean-fried-chicken.png"
+    },
+    {
+      "id": "korean-ramyeon",
+      "name": "라면",
+      "image": "korean-ramyeon.png"
+    },
+    {
+      "id": "maedeup",
+      "name": "전통 매듭",
+      "image": "maedeup.png"
+    },
+    {
+      "id": "mandu",
+      "name": "만두",
+      "image": "mandu.png"
+    },
+    {
+      "id": "naengmyeon",
+      "name": "냉면",
+      "image": "naengmyeon.png"
+    },
+    {
+      "id": "najeon-box",
+      "name": "나전함",
+      "image": "najeon-box.png"
+    },
+    {
+      "id": "odongdo-camellia",
+      "name": "오동도 동백",
+      "image": "odongdo-camellia.png"
+    },
+    {
+      "id": "onggi",
+      "name": "옹기",
+      "image": "onggi.png"
+    },
+    {
+      "id": "paeng-i",
+      "name": "팽이",
+      "image": "paeng-i.png"
+    },
+    {
+      "id": "sikhye",
+      "name": "식혜",
+      "image": "sikhye.png"
+    },
+    {
+      "id": "songpyeon",
+      "name": "송편",
+      "image": "songpyeon.png"
+    },
+    {
+      "id": "suwon-hwaseong",
+      "name": "수원화성",
+      "image": "suwon-hwaseong.png"
+    },
+    {
+      "id": "ulsanbawi",
+      "name": "울산바위",
+      "image": "ulsanbawi.png"
+    }
+  ]
+}
