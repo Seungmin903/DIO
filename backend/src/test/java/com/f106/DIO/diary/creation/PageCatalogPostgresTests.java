@@ -282,13 +282,35 @@ class PageCatalogPostgresTests {
         assertThat(jdbc.queryForObject("select name from page_templates where code='route-planner-landscape'",String.class)).isEqualTo("여행 노선");
     }
 
-    @Test void V45RegistersOneInkRecordTemplatePerBottleAndOrientationAndIsRepeatable() {
+    @Test void V45RegistersOneInkRecordTemplatePerBottleAndOrientation() {
         flyway("latest").migrate();
         assertThat(jdbc.queryForList("select code||':'||category||':'||orientation||':'||canvas_width::int||'x'||canvas_height::int from page_templates where code like '2026-reusable-ink-record-%' order by code",String.class))
             .containsExactly("2026-reusable-ink-record-round-landscape:INKRECORD:LANDSCAPE:1024x768","2026-reusable-ink-record-round-portrait:INKRECORD:PORTRAIT:768x1024",
                 "2026-reusable-ink-record-square-landscape:INKRECORD:LANDSCAPE:1024x768","2026-reusable-ink-record-square-portrait:INKRECORD:PORTRAIT:768x1024");
         assertThat(jdbc.queryForObject("select default_config->>'blank' from page_templates where code='2026-reusable-ink-record-round-portrait'",String.class)).isEqualTo("false");
         assertThat(jdbc.queryForObject("select name from page_templates where code='2026-reusable-ink-record-square-landscape'",String.class)).isEqualTo("발색 기록 · 각진 병");
+    }
+
+    @Test void V45SkipsARowThatAlreadyExistsWithTheSameGeometry() {
+        flyway("44").migrate();
+        // 운영자가 미리 넣어 둔(또는 앞선 배포가 남긴) 같은 코드 · 버전 · 규격의 행은 그대로 두고 그 병만 건너뛴다
+        jdbc.update("insert into page_templates(code,template_version,name,category,orientation,canvas_width,canvas_height,default_config,is_active,display_order)"
+            + " values('2026-reusable-ink-record-round-portrait','1.0.0','미리 넣은 발색 기록','INKRECORD','PORTRAIT',768,1024,'{}'::jsonb,true,999)");
+        flyway("latest").migrate();
+        assertThat(jdbc.queryForObject("select count(*) from page_templates where code='2026-reusable-ink-record-round-portrait'",Long.class)).isEqualTo(1L);
+        assertThat(jdbc.queryForObject("select name from page_templates where code='2026-reusable-ink-record-round-portrait'",String.class)).isEqualTo("미리 넣은 발색 기록");
+        assertThat(jdbc.queryForObject("select count(*) from page_templates where code like '2026-reusable-ink-record-%'",Long.class)).isEqualTo(4L);
+        assertThat(jdbc.queryForObject("select count(*) from page_templates",Long.class)).isEqualTo(300);
+    }
+
+    @Test void V45RejectsAnExistingRowWithConflictingGeometryAndLeavesNothingBehind() {
+        flyway("44").migrate();
+        jdbc.update("insert into page_templates(code,template_version,name,category,orientation,canvas_width,canvas_height,default_config,is_active,display_order)"
+            + " values('2026-reusable-ink-record-round-portrait','1.0.0','wrong size','INKRECORD','PORTRAIT',999,1024,'{}'::jsonb,true,999)");
+        assertThatThrownBy(() -> flyway("latest").migrate()).isInstanceOf(org.flywaydb.core.api.FlywayException.class).hasMessageContaining("Conflicting page template geometry");
+        assertThat(jdbc.queryForObject("select count(*) from flyway_schema_history where version='45' and success",Long.class)).isZero();
+        // DO 블록은 한 트랜잭션이라 나머지 세 병도 들어가지 않는다
+        assertThat(jdbc.queryForObject("select count(*) from page_templates where code like '2026-reusable-ink-record-%'",Long.class)).isEqualTo(1L);
     }
 
     @Test void V27RejectsPageTemplateGeometryThatDoesNotMatchTheReplacement() throws Exception {
