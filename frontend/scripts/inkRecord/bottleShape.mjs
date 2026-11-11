@@ -45,19 +45,24 @@ function capStack(cx, yC, P) {
   const capBot = n(neckTop - capRy * Math.sqrt(Math.max(0, 1 - (neckRx / capRx) ** 2)))
   const capTop = n(capBot - capH)
   // 목: 세로 두 선 + 앞쪽 반 타원
-  parts.push(`<path d="M ${n(cx - neckRx)} ${neckTop} L ${n(cx - neckRx)} ${neckBot}` +
-    ` A ${neckRx} ${neckRy} 0 0 0 ${n(cx + neckRx)} ${neckBot} L ${n(cx + neckRx)} ${neckTop}"/>`)
+  const neckD = `M ${n(cx - neckRx)} ${neckTop} L ${n(cx - neckRx)} ${neckBot}` +
+    ` A ${neckRx} ${neckRy} 0 0 0 ${n(cx + neckRx)} ${neckBot} L ${n(cx + neckRx)} ${neckTop}`
+  parts.push(`<path d="${neckD}"/>`)
   // 뚜껑: 윗면 타원 + 옆선 + 앞쪽 반 타원
-  parts.push(`<ellipse cx="${n(cx)}" cy="${capTop}" rx="${capRx}" ry="${capRy}"/>`)
-  parts.push(`<path d="M ${n(cx - capRx)} ${capTop} L ${n(cx - capRx)} ${capBot}` +
-    ` A ${capRx} ${capRy} 0 0 0 ${n(cx + capRx)} ${capBot} L ${n(cx + capRx)} ${capTop}"/>`)
+  const capTopE = `<ellipse cx="${n(cx)}" cy="${capTop}" rx="${capRx}" ry="${capRy}"/>`
+  const capSideD = `M ${n(cx - capRx)} ${capTop} L ${n(cx - capRx)} ${capBot}` +
+    ` A ${capRx} ${capRy} 0 0 0 ${n(cx + capRx)} ${capBot} L ${n(cx + capRx)} ${capTop}`
+  parts.push(capTopE)
+  parts.push(`<path d="${capSideD}"/>`)
+  // 뚜껑·목이 **덮는 자리**. 선이 아니라 면이라 끝을 Z 로 닫는다 — 병 안을 칠했는지 볼 때 쓴다.
+  const solid = [capTopE, `<path d="${capSideD} Z"/>`, `<path d="${neckD} Z"/>`]
   // 가는 세로 홈 — 위아래 모두 뚜껑 테두리 타원을 따라간다
   for (let i = 1; i <= ribs; i++) {
     const px = -capRx + (2 * capRx) * i / (ribs + 1)
     const dy = capRy * Math.sqrt(Math.max(0, 1 - (px / capRx) ** 2))
     thin.push(`<path d="M ${n(cx + px)} ${n(capTop + dy + 1)} L ${n(cx + px)} ${n(capBot + dy - 1)}"/>`)
   }
-  return { parts, thin, top: n(capTop - capRy), capRx }
+  return { parts, thin, solid, top: n(capTop - capRy), capRx }
 }
 
 // ── 네모 병 ──────────────────────────────────────────────────
@@ -89,7 +94,8 @@ export function square(P = BASE) {
   const bR = bend(Rb, R, B, R0)          // 오른쪽 위: 세로 → 뒤 변
   const bF = bend(L, F, R, R0)           // 앞 위(세 선)
   // ── 바깥 실루엣 한 획: 뒤 변 → 왼 세로 → 바닥 → 오른 세로 → 뒤 변 ──
-  parts.push(`<path d="M ${gL.x} ${gL.y} ${bL.d} ${bLb.d} ${bFb.d} ${bRb.d} ${bR.d} L ${gR.x} ${gR.y}"/>`)
+  const bodyD = `M ${gL.x} ${gL.y} ${bL.d} ${bLb.d} ${bFb.d} ${bRb.d} ${bR.d} L ${gR.x} ${gR.y}`
+  parts.push(`<path d="${bodyD}"/>`)
   // ── 윗면 앞 두 변: 좌우 호의 한가운데에서 출발해 앞 꼭짓점에서 둥글게 꺾인다 ──
   parts.push(`<path d="M ${bL.mid.x} ${bL.mid.y} ${bF.d} L ${bR.mid.x} ${bR.mid.y}"/>`)
   // ── 앞 세로 모서리: 위아래 호의 한가운데를 잇는다 ──
@@ -99,7 +105,9 @@ export function square(P = BASE) {
   // 글이 모서리에 안 걸리는 가장 넓은 자리 = **앞면** 안쪽. 앞면은 세로변이 수직이고 위·아래 변이 같은 기울기라
   // 가로는 L.x~F.x, 세로는 (제일 낮은 위 변 = F) ~ (제일 높은 아래 변 = Lb) 사이가 전부 앞면 안이다.
   const inner = { x0: L.x, x1: F.x, y0: F.y, y1: Lb.y }
-  return { parts: [...parts, ...cap.parts], thin: cap.thin, box, inner }
+  // 몸통을 닫으면 윗면(앞 두 변 안쪽)까지 다 들어온다 — 세로 모서리는 면이 없어 뺀다.
+  return { parts: [...parts, ...cap.parts], thin: cap.thin, box, inner,
+    solid: [`<path d="${bodyD} Z"/>`, ...cap.solid] }
 }
 
 // ── 동그란 병 ────────────────────────────────────────────────
@@ -121,12 +129,15 @@ export function circle(P = BASE, D = null) {
   parts.push(`<path d="M ${n(cx - rx)} ${yC} A ${rx} ${ry} 0 0 1 ${n(cx - gx)} ${by(-gx)}"/>`)
   parts.push(`<path d="M ${n(cx + gx)} ${by(gx)} A ${rx} ${ry} 0 0 1 ${n(cx + rx)} ${yC}"/>`)
   // 옆선 + 바닥 앞 반원
-  parts.push(`<path d="M ${n(cx - rx)} ${yC} L ${n(cx - rx)} ${n(yC + H)}` +
-    ` A ${rx} ${ry} 0 0 0 ${n(cx + rx)} ${n(yC + H)} L ${n(cx + rx)} ${yC}"/>`)
+  const bodyD = `M ${n(cx - rx)} ${yC} L ${n(cx - rx)} ${n(yC + H)}` +
+    ` A ${rx} ${ry} 0 0 0 ${n(cx + rx)} ${n(yC + H)} L ${n(cx + rx)} ${yC}`
+  parts.push(`<path d="${bodyD}"/>`)
   const box = { x0: 0, x1: n(Dw), y0: cap.top, y1: n(yC + H + ry) }
   // 몸통 안: 위는 앞쪽 타원이 제일 처지는 가운데(yC+ry), 아래는 바닥 타원이 제일 높은 양 끝(yC+H)
   const inner = { x0: 0, x1: n(Dw), y0: n(yC + ry), y1: n(yC + H) }
-  return { parts: [...parts, ...cap.parts], thin: cap.thin, box, inner }
+  // 윗면은 셋으로 **나뉘어** 그려지므로(뚜껑에 가리는 구간) 덮는 자리는 타원 하나로 따로 준다.
+  return { parts: [...parts, ...cap.parts], thin: cap.thin, box, inner,
+    solid: [`<ellipse cx="${n(cx)}" cy="${yC}" rx="${rx}" ry="${ry}"/>`, `<path d="${bodyD} Z"/>`, ...cap.solid] }
 }
 
 // ── viewBox 140 에 맞춰 키우고 가운데로 ──────────────────────
