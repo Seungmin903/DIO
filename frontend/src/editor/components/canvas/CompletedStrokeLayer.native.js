@@ -269,10 +269,11 @@ const TailRun = memo(function TailRun({ objects, width, height, zoom, fade }) {
     for (const tile of fresh) tile.used = ++clock.current
     // 이번 렌더에 그리는 타일은 **퇴출하지 않는다**. 예산을 넘겨 밀려나면 retire → 1초 뒤 dispose 인데
     // 그 그림을 아직 화면에 그리고 있어 빈 자리가 생긴다(화면 타일만으로 예산을 넘을 수 있다).
-    const inUse = new Set([...fresh, ...made].map(tile => tileKey(tile.col, tile.row, tile.scale)))
-    evictTiles(tiles.current, TILE_BUDGET_PX, tile => retire(tile), inUse)
     // 아직 못 구운 칸: 지난 그림을 깔고 거기 없던 획만 벡터로 얹는다(다 얹으면 두 번 그려진다)
+    // — 이 지난 그림도 화면에 그리므로 퇴출에서 뺀다(MR !534 리뷰)
     const show = [...fresh, ...made, ...staleImages(left)]
+    const inUse = new Set(show.map(tile => tileKey(tile.col, tile.row, tile.scale)))
+    evictTiles(tiles.current, TILE_BUDGET_PX, tile => retire(tile), inUse)
     const rest = pendingStrokes(settled0, left)
     const cut = removedStrokes(left)
     // 굽기가 거듭 실패하면(오프스크린 표면을 못 만듦 등) 이어 굽기를 멈추고 벡터로만 그린다.

@@ -70,7 +70,7 @@ test('팔레트 불러오기 실패 후 재시도가 성공하면 이전 오류�
  const state=[];let cursor=0,fail=true
  const palette={colors:['#123456'],loaded:false,async retry(){if(fail)throw Error('read failed');this.loaded=true}}
  const Component=load('editor/components/controls/EditablePalette.js',{
-  react:{useRef:value=>({current:value}),useState:initial=>{
+  react:{useRef:value=>({current:value}),useEffect(){},useState:initial=>{
    const index=cursor++;if(!(index in state))state[index]=initial
    return [state[index],next=>{state[index]=typeof next==='function'?next(state[index]):next}]
   }},

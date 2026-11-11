@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 import Svg, { Circle } from 'react-native-svg'
 import { colors } from '../../../shared/theme'
@@ -51,7 +51,10 @@ export default function EditablePalette({ scope, label, value, onPick, onOpenEdi
   const [editIndex, setEditIndex] = useState(null)
   // 색 창에서 고치는 동안 그 칸을 바로 바꿔 보여 준다({ index, color }). 저장하거나 닫으면 저장된 색으로 돌아간다
   const [preview, setPreview] = useState(null)
-  const toggleEditing = () => { setEditing(!editing); setEditIndex(null) }
+  // 편집을 켜고 끌 때마다 고치던 칸을 잊는다. 부모가 편집 상태를 쥐면(onEditingChange) 아래 toggleEditing 을
+  // 거치지 않으므로 editing 값으로 맞춘다 — 안 그러면 다시 '팔레트 편집'을 눌렀을 때 지난 칸에 점선이 남는다(MR !534 리뷰)
+  useEffect(() => { setEditIndex(null) }, [editing])
+  const toggleEditing = () => setEditing(!editing)
   const refs = useRef({}), anchors = useRef({})
   const openDirect = () => {
     // 유리펜의 value 는 '잉크:글리터:테' 묶음이라 색 창에는 잉크색만 넘긴다(고른 색도 잉크색으로 돌려준다)

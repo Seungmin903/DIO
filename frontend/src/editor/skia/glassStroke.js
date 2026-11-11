@@ -20,9 +20,13 @@ import { drawGlassPooled, glassPooledFailed } from './glassPooled.js'
 import { GLASS_INK, GLASS_LIVE_SKSL, GLASS_RIM_SKSL, glassBand, glassDabs, glassPool, glitterColorOf, inkDensity, micaAutoFilm, micaColor, sheenAutoColor } from '../utils/glassInk.js'
 
 // 27판 경로를 쓸지. 끄면 26판(경로 + 테 띠 폭)으로 돌아간다 — 비교용 스위치.
-// (아래 broken 은 한 번 실패하면 계속 평범한 선으로 떨어진다 — 새로고침해야 풀린다)
+// (아래 broken 은 잇달아 BROKEN_AFTER 번 실패해야 켜지고, 켜지면 새로고침할 때까지 평범한 선으로 떨어진다)
 const POOLED = true
-let bodyEffect = null, rimEffect = null, broken = false
+let bodyEffect = null, rimEffect = null, broken = false, failures = 0
+// 획 하나의 이상한 좌표 · 일시적 Skia 오류로 한 번 던졌다고 세션 내내 모든 잉크펜 획(저장된 획 포함)을
+// 평범한 선으로 떨어뜨리지 않는다. 실패한 획만 평범한 선으로 그리고, 잇달아 실패할 때만 끈다(MR !534 리뷰).
+// 셰이더 컴파일 실패처럼 늘 실패하는 원인은 glassPooled 의 failed 가 따로 끈다.
+const BROKEN_AFTER = 5
 export const glassBroken = () => broken
 export function endGlassLive() {}           // 표면을 안 쓰므로 치울 것이 없다
 
@@ -104,7 +108,7 @@ export function drawGlassStroke(canvas, points, width, color, _zoom = 1, ink = {
   try {
     // 27판: 고임 장을 픽셀마다 읽는 경로를 먼저 쓴다(웅덩이 안쪽 등고선 테 · 커피링 · 농담 흐름).
     // 셰이더가 안 되는 기기에서는 스스로 꺼지고, 아래 26판 경로(테 띠 폭)로 떨어진다.
-    if (POOLED && !glassPooledFailed() && drawGlassPooled(canvas, points, width, color, _zoom, ink)) return true
+    if (POOLED && !glassPooledFailed() && drawGlassPooled(canvas, points, width, color, _zoom, ink)) { failures = 0; return true }
     // 표본 수 상한: 아주 긴 획(되돌아오는 스크리블)은 길이가 수만 px 이라 간격을 그대로 두면
     // 표본이 수만 개가 되고 고임 계산이 프레임을 먹는다(실측 260ms). 길이에 맞춰 간격을 벌린다.
     let len = 0
@@ -133,6 +137,7 @@ export function drawGlassStroke(canvas, points, width, color, _zoom = 1, ink = {
       maxBand = Math.max(maxBand, bands[i])
     }
     const widthAt = lv => 2 * dabs[0].r - 2 * (lv / (LEVELS - 1)) * maxBand
+    failures = 0
     if (maxBand <= 0.001) { canvas.drawPath(centerPath(dabs, 0, dabs.length - 1), strokeStyle(body, 2 * dabs[0].r)); return true }
     for (let i = 0; i < dabs.length; i++) {
       const lv = Math.min(LEVELS - 1, Math.round(bands[i] / maxBand * (LEVELS - 1)))
@@ -144,8 +149,9 @@ export function drawGlassStroke(canvas, points, width, color, _zoom = 1, ink = {
     canvas.drawPath(centerPath(dabs, from, dabs.length - 1), strokeStyle(body, widthAt(level)))
     return true
   } catch (error) {
-    broken = true
-    console.warn('[유리펜] 경로 그리기 실패 — 평범한 선으로 전환:', error?.message ?? error)
+    // 이 획만 평범한 선으로 그린다. 잇달아 실패하면 그때 끈다
+    broken = ++failures >= BROKEN_AFTER
+    console.warn(`[유리펜] 경로 그리기 실패(${failures}번째) — ${broken ? '이후 모든 획을' : '이 획만'} 평범한 선으로:`, error?.message ?? error)
     return false
   } finally {
     canvas.restoreToCount(depth)

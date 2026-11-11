@@ -16,7 +16,6 @@
 // 좌표계: 이미지 필터의 런타임 셰이더는 **캔버스 지역 좌표**(= 페이지 좌표)로 돈다.
 //   자식도 같은 좌표로 읽으므로 org = 0, ppu = 1 로 둔다(셰이더의 q = p 가 된다).
 //   덕분에 무늬가 페이지에 붙어 있어 확대해도 그대로다.
-import { PixelRatio } from 'react-native'
 import { BlendMode, PaintStyle, Skia, StrokeCap, StrokeJoin, TileMode } from '@shopify/react-native-skia'
 import { ballSweepPath } from '../utils/nibStroke.js'
 import { GLASS_INK, GLASS_INK_SKSL, GLASS_SPARK_SKSL, abLineOf, glassDabs, glitterColorOf, glitterTint, inkDensity, micaAutoFilm, micaColor, sheenAutoColor } from '../utils/glassInk.js'
@@ -36,8 +35,12 @@ const MASK_SPACING = 0.18
 const MASK_MAX_DABS = 3000
 // 페이지 1단위가 화면 몇 px 인가. 눈대중으로 두면 입자 가장자리(aa)와 도장 여유(fringe)가
 // 실제 픽셀보다 커져 그대로 뭉개진다 — 기기 배율 × 확대율로 정확히 구한다.
+// 넘겨받는 zoom 이 **이미** 기기 배율 × 확대율이다(strokesPicture · previewPicture 를 부르는 쪽이 모두
+// zoom * PixelRatio.get() 이나 그 굽는 배율을 넘긴다. 연필의 surfaceSize 도 같은 값을 그대로 쓴다).
+// 여기서 PixelRatio 를 또 곱하면 S 가 기기 배율의 제곱이 되어 필터 1px 이 화면 0.5px(2배 기기)이 되고
+// 굽는 픽셀이 네 배가 된다(MR !534 리뷰).
 const smooth01 = x => { const t = Math.max(0, Math.min(1, x)); return t * t * (3 - 2 * t) }
-const pxPerUnit = zoom => Math.max(0.2, PixelRatio.get() * Math.max(0.05, zoom))
+const pxPerUnit = scale => Math.max(0.2, Math.max(0.05, scale))
 // 필터 층은 진짜 가장자리보다 이만큼(화면 px) 넓게 그린 뒤 마지막에 깎는다 — 필터 쪽 네모난 끊김을
 // 획 밖으로 밀어내기 위해서다. 그래서 **필터가 보는 획은 실제보다 2·margin 만큼 굵다**.
 const MARGIN = 3
