@@ -147,12 +147,25 @@ function anchorOf(group, siblings) {
 }
 
 let files = 0, added = 0, already = 0
-const trouble = []
+const trouble = [], noPage = []
+/**
+ * 종이 폭 = 맨 바깥 <svg> 의 viewBox 셋째 값(없으면 width). 읽지 못하면 null.
+ * 예전에는 'viewBox="0 0 1024 768"' 문자열이 있으면 1024, 아니면 768 로 보았다 — 그 두 크기가 아닌
+ * 속지가 들어오면 오른쪽 한계(data-fit)가 조용히 어긋난다(코드리뷰 2026-11-11).
+ */
+function pageWidthOf(xml) {
+  const root = xml.match(/<svg\b[^>]*>/)?.[0]
+  if (!root) return null
+  const box = attr(root, 'viewBox')?.trim().split(/[\s,]+/).map(Number)
+  const width = box?.length === 4 ? box[2] : Number(attr(root, 'width'))
+  return Number.isFinite(width) && width > 0 ? width : null
+}
 for (const file of svgFiles(ROOT)) {
   const xml = readFileSync(file, 'utf8')
   if (!xml.includes('aria-label')) continue
   let out = '', at = 0, touched = 0
-  const page = xml.includes('viewBox="0 0 1024 768"') ? 1024 : 768
+  const page = pageWidthOf(xml)
+  if (page == null) { noPage.push(file.split(/[\\/]/).pop()); continue }
   // 기준점은 이웃을 봐야 정해지므로 이 장의 묶음을 먼저 다 읽어 둔다
   const siblings = [...xml.matchAll(GROUP)]
     .map(one => metricsOf(one[1].replace(/\s+data-(adv|w|fit|anchor)="[^"]*"/g, ''), one[2], true))
@@ -181,5 +194,10 @@ console.log('속지', files, '장 ·', added, '묶음에 치수를 적었다 · 
 if (trouble.length) {
   console.log('치수를 못 구한 묶음', trouble.length, '—', trouble.slice(0, 5).join(' / '))
   console.log('→ python scripts/generate-paper-fonts.py 로 원본 글꼴 확인표를 다시 뽑고 이 스크립트를 다시 돌리세요.')
+  process.exitCode = 1
+}
+if (noPage.length) {
+  console.log('종이 폭(viewBox)을 못 읽어 굽지 않은 속지', noPage.length, '—', noPage.slice(0, 5).join(' / '))
+  console.log('→ 속지의 <svg> 에 viewBox="0 0 폭 높이" 를 적고 다시 돌리세요.')
   process.exitCode = 1
 }
