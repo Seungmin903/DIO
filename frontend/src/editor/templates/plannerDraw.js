@@ -29,13 +29,20 @@ export function write(x, y, runs, anchor = 'start') {
   let cx = anchor === 'end' ? x - width : anchor === 'middle' ? x - width / 2 : x
   return list.map(({ s, size, weight = 'R', fill = LABEL }) => {
     const k = size / 1000
-    let paths = ''
+    let paths = '', from = null, to = null
     for (const ch of String(s)) {
       const [adv, d] = glyph(ch, weight)
-      if (d) paths += `<path d="${d}" transform="translate(${n(cx)} ${n(y)}) scale(${k} ${-k})"/>`
+      if (d) {
+        if (from === null) from = cx
+        paths += `<path d="${d}" transform="translate(${n(cx)} ${n(y)}) scale(${k} ${-k})"/>`
+        to = cx + adv * k
+      }
       cx += adv * k
     }
-    return `<g fill="${fill}" aria-label="${esc(s)}">${paths}</g>`
+    // 글꼴을 바꿀 때 쓰는 치수를 묶음에 적어 둔다 — 적어 두면 원본 글꼴 확인표가 없어도 된다
+    // (paperFont.js readGroup). data-adv 는 보이는 글자가 차지하는 폭, data-w 는 굵은 글씨 표시.
+    const metrics = from === null ? '' : ` data-adv="${n(to - from)}"${weight === 'B' ? ' data-w="B"' : ''}`
+    return `<g fill="${fill}" aria-label="${esc(s)}"${metrics}>${paths}</g>`
   }).join('')
 }
 export const label = (x, y, s, size = 14) => write(x, y, { s, size })

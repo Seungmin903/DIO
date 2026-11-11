@@ -14,17 +14,17 @@ import { createPageImageRenderer } from '../src/editor/utils/pageImageRenderer.j
 import { readSvg } from '../src/editor/templates/readSvg.web.js'
 import { REGION_PRESETS, fitRegionPreset, validRegion } from '../src/editor/utils/regionGeometry.js'
 
-test('가로·세로 SVG 각 138개가 원본 ID·방향별 좌표로 모두 매핑된다(공용 속지만 번들, 나머지는 원격)', async () => {
+test('가로·세로 SVG 각 140개가 원본 ID·방향별 좌표로 모두 매핑된다(공용 속지만 번들, 나머지는 원격)', async () => {
   const directory = new URL('../assets/templates/2026/SVG/', import.meta.url)
   const files = await readdir(directory)
-  assert.equal(files.length, 276)
-  assert.equal(catalog.assets.length, 276)
-  for (const orientation of ['landscape', 'portrait']) assert.equal(catalog.assets.filter(asset => asset.orientation === orientation).length, 138)
+  assert.equal(files.length, 280)
+  assert.equal(catalog.assets.length, 280)
+  for (const orientation of ['landscape', 'portrait']) assert.equal(catalog.assets.filter(asset => asset.orientation === orientation).length, 140)
   const mapping = await readFile(new URL('../src/editor/templates/assets.js', import.meta.url), 'utf8')
   const bundled = [...mapping.matchAll(/require\("\.\.\/\.\.\/\.\.\/assets\/templates\/2026\/SVG\/([^"]+)"\)/g)].map(match => match[1])
   const remote = [...mapping.matchAll(/remoteAsset\("templates\/2026\/SVG\/([^"]+)"\)/g)].map(match => match[1])
-  assert.equal(bundled.length + remote.length, 276)
-  assert.equal(bundled.length, 14)
+  assert.equal(bundled.length + remote.length, 280)
+  assert.equal(bundled.length, 18)
   assert.ok(bundled.every(name => name.startsWith('2026-reusable-')))
   assert.ok(remote.every(name => !name.startsWith('2026-reusable-')))
   for (const asset of catalog.assets) {
@@ -56,7 +56,7 @@ test('세로형 연간 순서·공용 속지 추가·빈 페이지 크기를 유
   assert.equal(new Set(doc.pages.map(page => page.id)).size, 78)
   for (const page of doc.pages) assert.deepEqual(pageSize(page), { width: 768, height: 1024 })
   const menu = reusableTemplates('portrait')
-  assert.equal(menu.length, 9)
+  assert.equal(menu.length, 11)
   for (const item of menu) {
     const state = editorReducer(createInitialState(doc), { type: 'addPage', backgroundAssetId: item.assetId })
     assert.equal(getTemplate(getCurrentPage(state).backgroundAssetId).orientation, 'portrait')
@@ -114,7 +114,7 @@ test('내용 없는 이전 연간 문서와 편집한 문서를 모두 그대로
 })
 
 test('공용 속지 9종(스터디 · 데일리 플래너 · 여행 노선 포함)은 현재 페이지 다음에 추가되며 취소 이력·재실행·JSON 복원이 유지된다', () => {
-  assert.equal(REUSABLE_TEMPLATES.length, 9)
+  assert.equal(REUSABLE_TEMPLATES.length, 11)
   for (const item of REUSABLE_TEMPLATES) {
     const doc = createDefaultDoc()
     let state = createInitialState(doc)

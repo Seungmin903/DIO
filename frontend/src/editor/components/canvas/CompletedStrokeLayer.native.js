@@ -4,7 +4,7 @@ import { BlendMode, Canvas, ClipOp, Group, Image, Picture, Skia } from '@shopify
 import { nowMs, PENCIL_PROFILE, previewPicture, recordProfile, strokesPicture } from '../../skia/strokeSkia.js'
 import { liveStroke } from '../../skia/liveStroke.js'
 import { bakeWindow, coversPage, keepScale, keepWindow, reachOf, reachTouches, sameObjects, stepUpScale } from '../../skia/bakeDelta.js'
-import { TILE, evictTiles, pendingStrokes, planTiles, removedFrom, removedStrokes, reusable, staleImages, tileKey, tilesBounds } from '../../skia/tileGrid.js'
+import { TILE, evictTiles, pixelTileScale, tileScreenRect, pendingStrokes, planTiles, removedFrom, removedStrokes, reusable, staleImages, tileKey, tilesBounds } from '../../skia/tileGrid.js'
 import { ViewportMotion } from './viewportMotion'
 
 const DRAG_OPACITY = 0.5
@@ -209,7 +209,8 @@ const TailRun = memo(function TailRun({ objects, width, height, zoom, fade }) {
   // 축소하면 필요한 배율이 내려가는데, 구워 둔 타일은 그보다 촘촘하니 그대로 쓴다
   // (배율이 달라지면 타일 열쇠가 달라져 전부 다시 구워야 한다).
   const scaleRef = useRef(0)
-  const wantScale = bakeScaleOf(screenScale, win.w, win.h)
+  // 타일 한 칸이 **딱 떨어지는 픽셀 수**가 되게 배율을 맞춘다(tileGrid.js pixelTileScale)
+  const wantScale = pixelTileScale(bakeScaleOf(screenScale, win.w, win.h))
   const scale = keepScale(scaleRef.current, wantScale) ? scaleRef.current : wantScale
   useEffect(() => { scaleRef.current = scale })
   // 지우개 · 되돌리기처럼 앞쪽 획이 바뀌면 매번 처음부터 굽느라(화면 크기 그림을 그리고 GPU 에서 읽어 오기) 지우개가 느렸다
@@ -329,9 +330,15 @@ const TailRun = memo(function TailRun({ objects, width, height, zoom, fade }) {
     {wide && plan.tiles.length && covered ? <Group clip={Skia.XYWHRect(covered.x * zoom, covered.y * zoom, covered.w * zoom, covered.h * zoom)} invertClip>
       <Image image={wide.image} x={0} y={0} width={width * zoom} height={height * zoom} fit="fill" />
     </Group> : null}
-    {plan.tiles.map(tile => <Image key={`${tile.col},${tile.row}`} image={tile.image}
-      x={tile.col * TILE * zoom} y={tile.row * TILE * zoom}
-      width={TILE * zoom} height={TILE * zoom} fit="fill" />)}
+    {/*
+      타일 경계에 **1px 옅은 줄**이 떴다(실기 SM-X510 2026-11-11, 잉크 위로 세로 줄 — 배율에 따라
+      보였다 안 보였다 했다. 타일을 256→192 로 바꾸니 줄도 같이 옮겨가 타일 경계임을 확인했다).
+      경계에 걸친 화면 픽셀 하나를 두 타일이 **반씩** 덮는 것이 원인이다. 반투명 잉크는 반쯤 두 번
+      올린 값이 한 번에 다 올린 값보다 옅다(1-(1-a/2)² < a). 그래서 자리를 픽셀에 맞춰 반올림하고,
+      가장자리도 부드럽게 하지 않아(antiAlias={false}) 한 줄이 **정확히 한 타일에만** 속하게 한다.
+    */}
+    {plan.tiles.map(tile => <Image key={`${tile.col},${tile.row}`} image={tile.image} antiAlias={false}
+      {...tileScreenRect(tile, zoom)} fit="fill" />)}
     <Group transform={[{ scale: zoom }]}>
       {patch ? <Picture picture={patch} /> : null}
       {strokes ? <Picture picture={strokes} /> : null}

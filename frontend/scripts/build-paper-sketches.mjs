@@ -12,6 +12,12 @@ const load = file => fs.readFileSync(path.join(templates, file), 'utf8')
 const day = await import(pathToFileURL(path.join(root, 'src/editor/templates/dayPlanner.js')))
 const study = await import(pathToFileURL(path.join(root, 'src/editor/templates/studyPlanner.js')))
 const route = await import(pathToFileURL(path.join(root, 'src/editor/templates/routePaper.js')))
+const inkRecord = await import(pathToFileURL(path.join(root, 'src/editor/templates/inkRecordLayout.js')))
+
+const withBottles = (xml, orientation, shape) => xml.replace('</svg>',
+  inkRecord.inkRecordLayout(inkRecord.inkRecordId(shape, orientation)).cells
+    .map(cell => `<rect x="${cell.bottle.x}" y="${cell.bottle.y}" width="${cell.bottle.w}" height="${cell.bottle.h}" fill="none" stroke="#bfc1c4" />`)
+    .join('') + '</svg>')
 
 const SOURCES = {
   cover: o => load(`undated/undated-cover-${o}.svg`),
@@ -24,6 +30,10 @@ const SOURCES = {
   route: o => route.routePaperSketchSvg(o),
   diary: o => load(`2026/SVG/2026-reusable-diary-${o}.svg`),
   scrap: o => load(`2026/SVG/2026-reusable-scrap-${o}.svg`),
+  // 잉크병은 윤곽(path · ellipse)이라 아래 extract 가 못 읽는다. 칸마다 병이 앉는 자리를 네모로 덧붙여
+  // 대표 그림에 '칸마다 병 하나'가 드러나게 한다(이 크기에서는 둥근 · 각진 차이는 어차피 안 보인다).
+  'ink-record-round': o => withBottles(load(`2026/SVG/2026-reusable-ink-record-round-${o}.svg`), o, 'round'),
+  'ink-record-square': o => withBottles(load(`2026/SVG/2026-reusable-ink-record-square-${o}.svg`), o, 'square'),
 }
 // 선 색 → 굵기 단계. f 옅은 선(줄 · 모눈) · b 기본 선 · s 진한 틀 · i 글자색(체크 상자)
 const TONE = { '#e8e9eb': 'f', '#d7d9dc': 'b', '#bfc1c4': 'b', '#aeb3b8': 's', '#666666': 'i', '#292929': 'i' }

@@ -119,19 +119,30 @@ function text(value, slot, extra = '') {
   })
   const total = steps.reduce((sum, step) => sum + step, 0) * scale
   let x = slot.anchor === 'middle' ? slot.x - total / 2 : slot.anchor === 'end' ? slot.x - total : slot.x
+  let from = null, to = null
   const paths = chars.map((ch, i) => {
     const d = table[ch][1]
     const path = d ? `<path d="${d}" transform="translate(${x.toFixed(6)} ${slot.y.toFixed(6)}) scale(${scale.toFixed(9)} -${scale.toFixed(9)})" />` : ''
+    if (d) { if (from === null) from = x; to = x + table[ch][0] * scale }
     x += steps[i] * scale
     return path
   }).join('')
-  return `<g fill="${slot.fill}" aria-label="${value.replace(/&/g, '&amp;')}"${extra}>${paths}</g>`
+  // 글꼴 교체에 쓰는 치수를 적어 둔다(paperFont.js readGroup) — 적어 두면 원본 글꼴 확인표가 없어도 된다.
+  // 정적 속지에 bake-paper-metrics.mjs 가 굽는 것과 같은 묶음이다: 맞춘 기준점(data-anchor)을 적지 않으면
+  // 좁은 글꼴에서 가운데 · 오른쪽 맞춤이 왼쪽으로 쏠리고, 쓸 수 있는 폭(data-fit)을 적지 않으면 원본보다
+  // 조금만 넓어도 모두 줄어든다(코드리뷰 2026-11-11).
+  const adv = from === null ? 0 : Number((to - from).toFixed(3))
+  const anchor = slot.anchor === 'middle' || slot.anchor === 'end' ? ` data-anchor="${slot.anchor}"` : ''
+  const fit = Number.isFinite(slot.fit) && slot.fit > adv ? ` data-fit="${Number(slot.fit.toFixed(3))}"` : ''
+  const metrics = from === null ? '' : ` data-adv="${adv}"${slot.weight === 'B' ? ' data-w="B"' : ''}${anchor}${fit}`
+  return `<g fill="${slot.fill}" aria-label="${value.replace(/&/g, '&amp;')}"${extra}${metrics}>${paths}</g>`
 }
 
 // 원본과 같이 달력은 5줄까지. 여섯째 주 날짜는 다섯째 줄 같은 칸의 아래쪽 반에 짧은 선으로 나눠 넣는다.
 // 앞달 날짜는 흐리게 채우고, 뒷달 날짜는 줄이 남을 때(여섯째 주가 없을 때)만 채운다.
 function monthlyBody(layout, year, month) {
-  const { calendar: cal, date, title } = layout
+  const { calendar: cal, date } = layout
+  const title = { ...layout.title, fit: cal.width }
   const offset = day(year, month, 1).getUTCDay() // 일요일 시작 달력
   const weeks = Math.ceil((offset + daysIn(year, month)) / 7)
   const rows = Math.min(weeks, 5)
@@ -148,20 +159,27 @@ function monthlyBody(layout, year, month) {
     const top = cal.y + cellH * Math.min(row, rows - 1) + (split ? cellH / 2 : 0)
     if (split) body += line(cal.x + cellW * col, cal.y + cellH * (rows - 1) + cellH / 2, cal.x + cellW * (col + 1), ` data-week-split="true" data-split-column="${col}"`)
     const style = inMonth ? date.in : date.out
-    body += text(String(current.date), { ...style, size: date.size, anchor: 'start', x: cal.x + cellW * col + date.dx, y: top + date.dy },
+    body += text(String(current.date), { ...style, size: date.size, anchor: 'start', fit: cellW - date.dx * 2, x: cal.x + cellW * col + date.dx, y: top + date.dy },
       ` data-calendar-date="${current.year}-${pad(current.month)}-${pad(current.date)}" data-in-month="${inMonth}"`)
   }
   return { rows, body }
 }
 
-function weeklyBody(layout, year, month, date, faint) {
+// 주간 날짜가 쓸 수 있는 폭(data-fit). 시작 맞춤 칸(블록)은 이웃 칸까지에서 양쪽 안쪽 여백을 빼고,
+// 가운데 맞춤 칸(저널)은 왼쪽 여백까지 거리의 두 배를 쓴다.
+function dayFit(days, slot, margin) {
+  if (slot.anchor === 'middle') return (slot.x - margin) * 2
+  return days[1].x - days[0].x - (days[0].x - margin) * 2
+}
+
+function weeklyBody(layout, year, month, date, faint, content, margin) {
   const monday = day(year, month, date), sunday = addDays(monday, 6)
   const end = parts(sunday)
   const header = end.month === month ? `${month}월 ${weekOfMonth(monday)}주차` : `${month}월 ${weekOfMonth(monday)}주차 & ${end.month}월 1주차`
   const range = `${year}.${pad(month)}.${pad(date)} — ${end.year !== year ? `${end.year}.` : ''}${pad(end.month)}.${pad(end.date)}`
   const dim = i => i < faint.before || i >= 7 - faint.after
-  const days = layout.days.map((slot, i) => text(String(parts(addDays(monday, i)).date), dim(i) ? { ...slot, fill: FAINT } : slot)).join('')
-  return text(header, layout.header) + text(range, layout.range) + days
+  const days = layout.days.map((slot, i) => text(String(parts(addDays(monday, i)).date), { ...slot, fit: dayFit(layout.days, slot, margin), ...(dim(i) ? { fill: FAINT } : {}) })).join('')
+  return text(header, { ...layout.header, fit: content }) + text(range, { ...layout.range, fit: content }) + days
 }
 
 /**
@@ -174,19 +192,25 @@ export function datedSvg(id, baseXml) {
   const layouts = DATED_LAYOUTS[asset.orientation]
   let xml = baseXml.replace(/<line x1="[^"]*" x2="[^"]*" y1="[^"]*" y2="[^"]*"[^>]*\/>/g, '')
     .replace(/id="undated-[^"]*"/, `id="${id}"`)
+  // 한 장짜리 글(표지 · 간지 · 제목 · 기간)이 쓸 수 있는 폭과 왼쪽 여백은 달력 자리와 같다(세로 688 · 가로 944, 여백 40)
+  const content = layouts.monthly.calendar.width, margin = layouts.monthly.calendar.x
   let body
-  if (asset.type === 'cover') body = text(asset.endYear !== asset.year ? `${asset.year} — ${asset.endYear}` : String(asset.year), layouts.cover)
-  else if (asset.type === 'divider') body = text(`${asset.month}월`, layouts.divider)
+  if (asset.type === 'cover') body = text(asset.endYear !== asset.year ? `${asset.year} — ${asset.endYear}` : String(asset.year), { ...layouts.cover, fit: content })
+  else if (asset.type === 'divider') body = text(`${asset.month}월`, { ...layouts.divider, fit: content })
   else if (asset.type === 'monthly') {
     const { rows, body: monthBody } = monthlyBody(layouts.monthly, asset.year, asset.month)
     xml = xml.replace(/data-rows="\d+" data-weeks="\d+"/, `data-rows="${rows}" data-weeks="${rows}"`)
     body = monthBody
   } else {
-    // 기간 밖 날은 요일 이름(만년형에 있는 글자)도 흐리게
+    // 기간 밖 날은 요일 이름(만년형에 있는 글자)도 흐리게.
+    // 묶음에 치수(data-adv) 같은 다른 속성이 붙어 있어도 되게 fill 만 바꾼다 — 태그를 통째로
+    // 갈아 끼우면 속성이 하나만 늘어도 조용히 안 바뀐다(2026-11-11 실측).
     WEEKDAY_LABELS.forEach((label, i) => {
-      if (i < asset.faint.before || i >= 7 - asset.faint.after) xml = xml.replace(`<g fill="#666666" aria-label="${label}">`, `<g fill="${FAINT}" aria-label="${label}">`)
+      if (i < asset.faint.before || i >= 7 - asset.faint.after) {
+        xml = xml.replace(new RegExp(`<g fill="#666666"([^>]*aria-label="${label}")`), `<g fill="${FAINT}"$1`)
+      }
     })
-    body = weeklyBody(layouts[`weekly-${asset.style}`], asset.year, asset.month, asset.date, asset.faint)
+    body = weeklyBody(layouts[`weekly-${asset.style}`], asset.year, asset.month, asset.date, asset.faint, content, margin)
   }
   return xml.replace(/<\/svg>\s*$/, `${body}</svg>`)
 }

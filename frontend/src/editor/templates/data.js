@@ -1742,6 +1742,28 @@ export const catalog = {
       "png": "PNG/2026-reusable-note-dots-portrait.png"
     },
     {
+      "id": "2026-reusable-ink-record-round-portrait",
+      "name": "발색 기록 · 둥근 병",
+      "templateVersion": "1.0.0",
+      "year": 2026,
+      "orientation": "portrait",
+      "type": "inkRecord",
+      "bottle": "round",
+      "svg": "SVG/2026-reusable-ink-record-round-portrait.svg",
+      "png": "PNG/2026-reusable-ink-record-round-portrait.png"
+    },
+    {
+      "id": "2026-reusable-ink-record-square-portrait",
+      "name": "발색 기록 · 각진 병",
+      "templateVersion": "1.0.0",
+      "year": 2026,
+      "orientation": "portrait",
+      "type": "inkRecord",
+      "bottle": "square",
+      "svg": "SVG/2026-reusable-ink-record-square-portrait.svg",
+      "png": "PNG/2026-reusable-ink-record-square-portrait.png"
+    },
+    {
       "id": "2026-cover-landscape",
       "name": "2026 표지",
       "templateVersion": "1.0.0",
@@ -3466,6 +3488,28 @@ export const catalog = {
       "background": "dots",
       "svg": "SVG/2026-reusable-note-dots-landscape.svg",
       "png": "PNG/2026-reusable-note-dots-landscape.png"
+    },
+    {
+      "id": "2026-reusable-ink-record-round-landscape",
+      "name": "발색 기록 · 둥근 병",
+      "templateVersion": "1.0.0",
+      "year": 2026,
+      "orientation": "landscape",
+      "type": "inkRecord",
+      "bottle": "round",
+      "svg": "SVG/2026-reusable-ink-record-round-landscape.svg",
+      "png": "PNG/2026-reusable-ink-record-round-landscape.png"
+    },
+    {
+      "id": "2026-reusable-ink-record-square-landscape",
+      "name": "발색 기록 · 각진 병",
+      "templateVersion": "1.0.0",
+      "year": 2026,
+      "orientation": "landscape",
+      "type": "inkRecord",
+      "bottle": "square",
+      "svg": "SVG/2026-reusable-ink-record-square-landscape.svg",
+      "png": "PNG/2026-reusable-ink-record-square-landscape.png"
     }
   ]
 }
@@ -3749,6 +3793,24 @@ export const reusableMenu = [
         "orientation": "landscape",
         "assetId": "2026-reusable-note-dots-landscape"
       }
+    ]
+  },
+  {
+    "type": "inkRecord",
+    "bottle": "round",
+    "name": "발색 기록 · 둥근 병",
+    "assets": [
+      { "orientation": "portrait", "assetId": "2026-reusable-ink-record-round-portrait" },
+      { "orientation": "landscape", "assetId": "2026-reusable-ink-record-round-landscape" }
+    ]
+  },
+  {
+    "type": "inkRecord",
+    "bottle": "square",
+    "name": "발색 기록 · 각진 병",
+    "assets": [
+      { "orientation": "portrait", "assetId": "2026-reusable-ink-record-square-portrait" },
+      { "orientation": "landscape", "assetId": "2026-reusable-ink-record-square-landscape" }
     ]
   }
 ]

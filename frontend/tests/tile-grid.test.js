@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { TILE, evictTiles, hitsTile, pendingStrokes, planTiles, removedFrom, tilesBounds, removedStrokes, reusable, showsHad, staleImages, strokesInTile, tileBox, tileKey, tilesFor } from '../src/editor/skia/tileGrid.js'
+import { TILE, evictTiles, hitsTile, pendingStrokes, planTiles, removedFrom, tilesBounds, removedStrokes, reusable, showsHad, staleImages, strokesInTile, tileBox, tileKey, tilesFor, pixelTileScale, tileScreenRect } from '../src/editor/skia/tileGrid.js'
 
 // 획 하나: 왼쪽 위 (x, y) 에 w x h. reachOf 가 대각선 반지름 + 번짐 여유 8 을 붙인다.
 const at = (id, x, y, w = 10, h = 10) => ({ id, x, y, w, h })
@@ -162,4 +162,24 @@ test('이번 렌더에 쓰는 타일은 예산을 넘겨도 버리지 않는다'
   // 화면 타일만으로 예산을 넘으면 넘긴 채로 둔다(그리는 것이 먼저다)
   const only = new Map([['a', { px: 100, used: 1, image: {} }]])
   assert.equal(evictTiles(only, 10, () => { throw new Error('버리면 안 된다') }, new Set(['a'])), 0)
+})
+
+test('타일 굽기 배율은 한 칸이 정수 픽셀이 되게 맞추고, 화면 자리는 이웃과 같은 정수 픽셀에서 만난다', () => {
+  // ¼옥타브 배율 그대로면 256 x 1.189 = 304.4 픽셀이라 그림이 칸 밖 한 줄을 가리킨다
+  for (const scale of [1, 2 ** 0.25, 2 ** 0.5, 2 ** 0.75, 1.7, 3]) {
+    const px = TILE * pixelTileScale(scale)
+    assert.ok(Math.abs(px - Math.round(px)) < 1e-9, `${scale}: ${px}`)
+    assert.ok(Math.abs(pixelTileScale(scale) - scale) <= 0.5 / TILE)
+  }
+  // 아주 작은 배율에서도 0 이 되지 않는다(한 칸 1픽셀)
+  for (const scale of [0, 0.001, 0.5 / TILE - 1e-6]) assert.equal(pixelTileScale(scale), 1 / TILE, String(scale))
+  // 경계 픽셀을 두 타일이 반씩 덮으면 반투명 잉크가 옅어져 1px 줄이 뜬다(실기 SM-X510 2026-11-11)
+  for (const zoom of [0.37, 0.5, 1, 1.189, 2.3]) {
+    for (let col = 0; col < 4; col++) for (let row = 0; row < 3; row++) {
+      const here = tileScreenRect({ col, row }, zoom), right = tileScreenRect({ col: col + 1, row }, zoom), below = tileScreenRect({ col, row: row + 1 }, zoom)
+      for (const value of Object.values(here)) assert.ok(Number.isInteger(value), `${zoom} ${col},${row}`)
+      assert.equal(here.x + here.width, right.x, `${zoom} 가로 이음매`)
+      assert.equal(here.y + here.height, below.y, `${zoom} 세로 이음매`)
+    }
+  }
 })

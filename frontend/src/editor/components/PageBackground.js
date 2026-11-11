@@ -6,6 +6,7 @@ import { loadTemplateAst, peekTemplateAst } from '../templates/loadTemplate'
 import { colorTemplateAst, normalizePaperAppearance } from '../templates/appearance.js'
 import { pageSize } from '../utils/pageGeometry.js'
 import { plannerFor, paperDeviceFontIds } from '../templates/planners.js'
+import { inkRecordValue, isInkRecordId } from '../templates/inkRecord.js'
 import { isTastingId } from '../templates/tastingGeometry.js'
 import { tastingElementValue } from '../templates/tastingElements.js'
 import { subscribeTemplateLoaded } from '../templates/templateLoadedSignal.js'
@@ -94,9 +95,25 @@ function BackgroundAttempt({ page, zoom, preparedXml, onReady, onError, onRetry,
   const plannerApi = useMemo(() => preparedXml == null ? plannerFor(page.backgroundAssetId) : null, [page.backgroundAssetId, preparedXml])
   // 테이스팅 속지만 채움이 요소(page.objects)에 있다. 다른 플래너는 요소가 바뀔 때마다 덮개를 다시 만들지 않는다(끌기 · 편집 매 프레임 파싱 방지, MR !503 리뷰)
   const tastingObjects = isTastingId(page.backgroundAssetId) && !page.tastingDraft ? page.objects : null
-  const planner = useMemo(() => plannerApi ? (tastingObjects ? tastingElementValue(page) : page.planner ?? null) : null, [plannerApi, preparedXml, page.backgroundAssetId, page.planner, tastingObjects]) // eslint-disable-line react-hooks/exhaustive-deps
-  // 테이스팅은 요소가 바뀌면 값 객체가 새로 생기므로 채움 내용(문자열)이 같으면 덮개를 그대로 둔다
-  const plannerKey = tastingObjects ? JSON.stringify(planner) : planner
+  // 발색 기록도 값이 요소에서 나온다 — 병을 칠한 획의 색을 읽는다(page.planner 에 저장하지 않는다).
+  // **획만** 본다. 사진 · 스티커를 끄는 동안에도 page.objects 는 매 프레임 새로 생기는데, 그때마다
+  // 여섯 칸 x 모든 획 x 병 윤곽을 다시 재면 끌기가 끊긴다(코드리뷰 2026-11-11).
+  const strokesRef = useRef([])
+  const inkRecordStrokes = useMemo(() => {
+    if (!isInkRecordId(page.backgroundAssetId)) return null
+    const next = (page.objects ?? []).filter(object => object?.type === 'stroke' && !object.hidden)
+    const previous = strokesRef.current
+    if (previous.length === next.length && previous.every((object, i) => object === next[i])) return previous
+    strokesRef.current = next
+    return next
+  }, [page.backgroundAssetId, page.objects])
+  const objectValue = tastingObjects ?? inkRecordStrokes
+  const planner = useMemo(() => !plannerApi ? null
+    : tastingObjects ? tastingElementValue(page)
+    : inkRecordStrokes ? inkRecordValue(page.backgroundAssetId, inkRecordStrokes)
+    : page.planner ?? null, [plannerApi, preparedXml, page.backgroundAssetId, page.planner, tastingObjects, inkRecordStrokes]) // eslint-disable-line react-hooks/exhaustive-deps
+  // 요소에서 나온 값은 요소가 바뀔 때마다 객체가 새로 생기므로, 채움 내용(문자열)이 같으면 덮개를 그대로 둔다
+  const plannerKey = objectValue ? JSON.stringify(planner) : planner
   // 데일리 플래너는 할 일 글(글상자)을 막대 · 종일 칸에 비춰 그리므로, 글이 바뀌면 덮개도 다시 만든다.
   const titles = plannerApi?.titles(page.objects) ?? null, titleKey = titles ? JSON.stringify(titles) : ''
   const startHour = planner ? plannerApi.startHour(planner) : 6
@@ -132,9 +149,14 @@ export const backgroundKey = (page, printedFont, attempt) => [page.id, page.back
 
 function PageBackground(props) {
   const [attempt, setAttempt] = useState(0)
-  // 데일리 플래너가 비추는 글은 마루부리 글꼴로 그려진다(속지 글꼴을 골라도 같다). 쓰일 때 불러오고, 불러오면 속지를 다시 그린다.
-  const [deviceFont] = paperDeviceFontIds(props.page.backgroundAssetId)
-  const printedFont = fontPhase(useTextFont(deviceFont ?? null, true))
+  // 속지가 앱 글꼴로 그리는 글 — 데일리 플래너가 비추는 글(마루부리)과, 원본이 아닌 속지 글꼴로 바뀐 인쇄 글자.
+  // 쓰일 때 불러오고, 불러오면(아래 key 가 바뀌어) 속지를 다시 그린다. 글꼴은 많아야 둘이라 훅도 둘로 고정한다.
+  const fontIds = paperDeviceFontIds(props.page.backgroundAssetId, normalizePaperAppearance(props.page.paperAppearance).font)
+  // 두 상태 문자열('가족:loaded|가족:loading')을 | 로 이어 fontPhase 가 받는 모양 그대로 넘긴다.
+  // 글꼴이 둘을 넘지 않는다는 것은 tests/paper-font.test.js 가 지킨다. 훅은 개수가 바뀌면 안 되므로
+  // 둘로 고정했고, 셋째부터는 불러오지 않아 대체 글꼴로 그려진다 — 개발 중에는 조용히 지나가지 않게 알린다.
+  if (typeof __DEV__ !== 'undefined' && __DEV__ && fontIds.length > 2) console.warn(`[PageBackground] 속지 글꼴이 ${fontIds.length}개라 셋째부터 불러오지 않아요: ${fontIds.join(', ')}`)
+  const printedFont = fontPhase([useTextFont(fontIds[0] ?? null, true), useTextFont(fontIds[1] ?? null, true)].filter(Boolean).join('|'))
   // 속지 글꼴이 바뀌면 처음부터 다시 불러온다
   const key = backgroundKey(props.page, printedFont, attempt)
   return <Keep><BackgroundAttempt key={key} {...props} onRetry={props.preparedXml == null ? () => setAttempt(value => value + 1) : undefined} /></Keep>

@@ -148,7 +148,7 @@ test('플래그 0 빌드는 여행 노선 선택·생성을 막고 이미 저장
       assert.equal(reusableTemplates(orientation).some(item => item.type === 'route'), false, '페이지 추가 메뉴에서 빠진다')
     }
     // 플래너 메뉴는 그대로(스터디 · 데일리 + 공용 속지)
-    assert.equal(reusableTemplates('landscape').length, 8)
+    assert.equal(reusableTemplates('landscape').length, 10)
   `
   const result = spawnSync(process.execPath, ['--input-type=module', '-e', source], { env: { ...process.env, EXPO_PUBLIC_ROUTE_TEMPLATES_ENABLED: '0' }, encoding: 'utf8' })
   assert.equal(result.status, 0, result.stderr)
@@ -168,10 +168,15 @@ test('노선 속지 페이지는 만들 때 DAY 1 · 2 · 3 으로 번호를 받
   assert.equal(editorReducer(state, { type: 'addPage', backgroundAssetId: '2026-reusable-note-plain-landscape' }).doc.pages.filter(p => p.planner).length, 3, '다른 속지는 기록을 만들지 않는다')
 })
 
-test('노선 속지의 장수는 여행 기간으로 고르고 기본 2박 3일, 글꼴 고르기는 두지 않는다', () => {
+test('노선 속지의 장수는 여행 기간으로 고르고 기본 2박 3일, 글꼴도 다른 속지처럼 따른다', () => {
   assert.deepEqual(countStepsOf(PAPERS.find(p => p.id === 'route')).map(([n]) => n), [2, 3, 4, 5, 7, 14, 30])
   assert.deepEqual(countStepsOf(PAPERS.find(p => p.id === 'plain')), [10, 30, 50, 100], '다른 속지는 공통 장수')
   assert.equal(appendPaper([], 'route')[0].rows[0].count, 3)
   assert.equal(appendPaper([], 'plain')[0].rows[0].count, 10)
-  assert.equal(paperPrintsText('route-planner-landscape'), false); assert.equal(paperPrintsText('study-planner-landscape'), true)
+  // 2026-11-09 에는 글꼴 고르기를 두지 않았다. 그때는 노선 속지 글자(출 · 발 · 방 · 문 · 도 · 착 · DAY)가
+  // 글꼴 표에 아예 없어 바꿔도 안 바뀌었다. 2026-11-11 에 표를 속지 전체로 넓혀 채웠으므로 이제 따른다
+  // (글자는 plannerDraw.write 가 <g aria-label> + transform 으로 그려 교체 대상이 된다).
+  assert.equal(paperPrintsText('route-planner-landscape'), true)
+  assert.equal(paperPrintsText('study-planner-landscape'), true)
+  assert.equal(paperPrintsText('2026-reusable-note-plain-portrait'), false, '인쇄 글자가 없는 노트는 그대로 둔다')
 })

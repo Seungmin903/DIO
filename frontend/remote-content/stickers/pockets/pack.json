@@ -1,0 +1,21 @@
+{
+  "name": "포켓",
+  "order": 50,
+  "stickers": [
+    {
+      "id": "pocket-1",
+      "name": "가로 포켓",
+      "image": "pocket-1.png"
+    },
+    {
+      "id": "pocket-2",
+      "name": "세로 포켓",
+      "image": "pocket-2.png"
+    },
+    {
+      "id": "pocket-3",
+      "name": "넓은 포켓",
+      "image": "pocket-3.png"
+    }
+  ]
+}
