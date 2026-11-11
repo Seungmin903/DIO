@@ -78,7 +78,8 @@ export default function AppInformation({ onCopyNotice }) {
         <AppIcon name="chevron-right" size={18} forText={16} color={C.muted} />
       </Pressable>
       {policyOpen && <LegalDocumentScreen document={getSignupDocument('policy')} onClose={() => setPolicyOpen(false)} />}
-      <ContentLicenses visible={licensesOpen} onClose={() => setLicensesOpen(false)} />
+      {/* 열 때만 마운트한다: 닫힌 채로 두면 설정 화면에 들어올 때마다 라이선스 목록(안드로이드 약 300개)을 정렬해 설정이 버벅였다 */}
+      {licensesOpen && <ContentLicenses visible onClose={() => setLicensesOpen(false)} />}
     </SettingSection>
   );
 }
