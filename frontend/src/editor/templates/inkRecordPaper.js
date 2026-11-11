@@ -19,15 +19,20 @@ const SIZE = 10
  */
 function hexText(text, x, y) {
   const k = SIZE / 1000
-  let cursor = x, paths = ''
+  let cursor = x, paths = '', from = null, to = null
   for (const ch of text) {
     const entry = INK_RECORD_GLYPHS.R[ch]
     if (!entry) continue
     const [advance, d] = entry
-    if (d) paths += `<path d="${d}" transform="translate(${n(cursor)} ${n(y)}) scale(${k} ${-k})"/>`
+    if (d) {
+      if (from === null) from = cursor
+      paths += `<path d="${d}" transform="translate(${n(cursor)} ${n(y)}) scale(${k} ${-k})"/>`
+      to = cursor + advance * k
+    }
     cursor += advance * k
   }
-  return paths ? `<g fill="${TEXT}" aria-label="${text}">${paths}</g>` : ''
+  // 글꼴 교체에 쓰는 치수를 적어 둔다(paperFont.js readGroup) — 적어 두면 원본 글꼴 확인표가 없어도 된다
+  return paths ? `<g fill="${TEXT}" aria-label="${text}" data-adv="${n(to - from)}">${paths}</g>` : ''
 }
 
 /**

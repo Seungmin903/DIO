@@ -119,13 +119,17 @@ function text(value, slot, extra = '') {
   })
   const total = steps.reduce((sum, step) => sum + step, 0) * scale
   let x = slot.anchor === 'middle' ? slot.x - total / 2 : slot.anchor === 'end' ? slot.x - total : slot.x
+  let from = null, to = null
   const paths = chars.map((ch, i) => {
     const d = table[ch][1]
     const path = d ? `<path d="${d}" transform="translate(${x.toFixed(6)} ${slot.y.toFixed(6)}) scale(${scale.toFixed(9)} -${scale.toFixed(9)})" />` : ''
+    if (d) { if (from === null) from = x; to = x + table[ch][0] * scale }
     x += steps[i] * scale
     return path
   }).join('')
-  return `<g fill="${slot.fill}" aria-label="${value.replace(/&/g, '&amp;')}"${extra}>${paths}</g>`
+  // 글꼴 교체에 쓰는 치수를 적어 둔다(paperFont.js readGroup) — 적어 두면 원본 글꼴 확인표가 없어도 된다
+  const metrics = from === null ? '' : ` data-adv="${Number((to - from).toFixed(3))}"${slot.weight === 'B' ? ' data-w="B"' : ''}`
+  return `<g fill="${slot.fill}" aria-label="${value.replace(/&/g, '&amp;')}"${extra}${metrics}>${paths}</g>`
 }
 
 // 원본과 같이 달력은 5줄까지. 여섯째 주 날짜는 다섯째 줄 같은 칸의 아래쪽 반에 짧은 선으로 나눠 넣는다.
@@ -182,9 +186,13 @@ export function datedSvg(id, baseXml) {
     xml = xml.replace(/data-rows="\d+" data-weeks="\d+"/, `data-rows="${rows}" data-weeks="${rows}"`)
     body = monthBody
   } else {
-    // 기간 밖 날은 요일 이름(만년형에 있는 글자)도 흐리게
+    // 기간 밖 날은 요일 이름(만년형에 있는 글자)도 흐리게.
+    // 묶음에 치수(data-adv) 같은 다른 속성이 붙어 있어도 되게 fill 만 바꾼다 — 태그를 통째로
+    // 갈아 끼우면 속성이 하나만 늘어도 조용히 안 바뀐다(2026-11-11 실측).
     WEEKDAY_LABELS.forEach((label, i) => {
-      if (i < asset.faint.before || i >= 7 - asset.faint.after) xml = xml.replace(`<g fill="#666666" aria-label="${label}">`, `<g fill="${FAINT}" aria-label="${label}">`)
+      if (i < asset.faint.before || i >= 7 - asset.faint.after) {
+        xml = xml.replace(new RegExp(`<g fill="#666666"([^>]*aria-label="${label}")`), `<g fill="${FAINT}"$1`)
+      }
     })
     body = weeklyBody(layouts[`weekly-${asset.style}`], asset.year, asset.month, asset.date, asset.faint)
   }

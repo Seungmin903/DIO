@@ -1,10 +1,12 @@
-"""속지 원본 글꼴(MaruBuri) 확인표 → frontend/src/editor/templates/paperFonts/maruburi.js
+"""속지 원본 글꼴(MaruBuri) 확인표 → frontend/scripts/paperMetrics/maruburi.js
 
 속지(날짜 · 월간 · 주간 · 하루 계획 · 일기 · 스크랩 · 스터디 / 데일리 플래너 · 발색 기록)의 인쇄 글자는
 모두 MaruBuri 글자 윤곽(path)이다. 속지 설정에서 다른 글꼴을 고르면 앱이 그 묶음(<g aria-label>)을
 **진짜 글꼴로 쓴 <text>** 로 바꾼다(src/editor/templates/paperFont.js · paperTextFont.js).
 
-그때 알아야 하는 것이 두 가지인데, SVG 에는 글자 윤곽만 있고 적혀 있지 않다.
+그 치수는 **속지 SVG 안에** data-adv · data-w 로 구워 넣는다(scripts/bake-paper-metrics.mjs).
+이 확인표는 그 굽는 일에만 쓰는 **빌드 전용** 자료라 앱에는 들어가지 않는다.
+알아야 하는 것이 두 가지인데, SVG 에는 글자 윤곽만 있고 적혀 있지 않다.
   · 그 묶음이 Regular 인지 Bold 인지 (원본 윤곽은 모양이 같고 시작점 · 순서만 달라 path 문자열로는 못 가른다)
   · 묶음이 차지한 폭 (글자 폭은 윤곽에 없다)
 그래서 글자마다 [Regular 폭, 윤곽 가로, 윤곽 세로, Bold 폭, 윤곽 가로, 윤곽 세로] 를 적어 둔다.
@@ -29,7 +31,7 @@ from fontTools.ttLib import TTFont
 
 ROOT = Path(__file__).resolve().parents[1]
 TEMPLATES = ROOT / 'src/editor/templates'
-OUT = TEMPLATES / 'paperFonts'
+OUT = ROOT / 'scripts/paperMetrics'
 
 FONTS = {
     'maruburi': {'label': '마루부리', 'R': 'assets/fonts/maruburi/MaruBuri-Regular.ttf', 'B': 'assets/fonts/maruburi/MaruBuri-Bold.ttf'},

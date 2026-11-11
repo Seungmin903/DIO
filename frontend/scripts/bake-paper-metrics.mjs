@@ -1,0 +1,106 @@
+// 속지 SVG 의 글자 묶음에 **글꼴 교체에 쓰는 치수**를 적어 넣는다.
+// 실행: node scripts/bake-paper-metrics.mjs (frontend/). 속지를 새로 넣거나 글자를 고치면 다시 돌린다.
+//
+// 왜: 속지 글꼴을 바꿀 때 묶음이 차지한 폭(textLength)과 굵기(Regular · Bold)를 알아야 하는데,
+// SVG 에는 글자 윤곽만 있고 그 둘이 적혀 있지 않다. 예전에는 앱이 원본 글꼴 표를 들고 다니며
+// 그때그때 알아냈고, 그래서 **속지에 새 글자가 들어올 때마다 그 표를 다시 뽑아야** 했다.
+// 한 번 구워 넣으면 그 일이 없어진다 — 속지가 자기 치수를 들고 다니고, 앱에는 글꼴 표가 없다
+// (S15P31F106-848).
+//
+//   <g aria-label="데일리 플래너" data-adv="182.991" data-w="B">…</g>
+//     data-adv: 보이는 글자가 차지하는 폭(속지 좌표) · data-w: 굵은 글씨면 "B"
+//
+// 치수는 원본 글꼴(MaruBuri) 확인표에서 구한다. 그 표는 **빌드 때만 쓰는** 자료라
+// scripts/paperMetrics/ 에 두고 앱에서는 쓰지 않는다(scripts/generate-paper-fonts.py 가 만든다).
+// 이미 적혀 있으면 건드리지 않는다 — 다시 돌려도 결과가 같다.
+//
+// 코드로 그리는 속지(플래너 · 날짜 · 발색 기록 덮개)는 그릴 때 직접 적으므로 여기서 다루지 않는다.
+import { readFileSync, writeFileSync, readdirSync } from 'node:fs'
+import { join } from 'node:path'
+import MARU from './paperMetrics/maruburi.js'
+
+const ROOT = decodeURIComponent(new URL('../assets/templates/', import.meta.url).pathname).replace(/^\//, '')
+const svgFiles = (dir) => readdirSync(dir, { withFileTypes: true }).flatMap(entry => {
+  const path = join(dir, entry.name)
+  return entry.isDirectory() ? svgFiles(path) : entry.name.endsWith('.svg') ? [path] : []
+})
+
+const GROUP = /<g\b([^>]*)>((?:\s*<path\b[^>]*\/>)+)\s*<\/g>/g
+const PATH = /<path\b([^>]*)\/>/g
+const TRANSFORM = /translate\(\s*([-\d.eE+]+)[\s,]+([-\d.eE+]+)\s*\)\s*scale\(\s*([-\d.eE+]+)/
+const attr = (text, name) => text.match(new RegExp(`(?:^|\\s)${name}="([^"]*)"`))?.[1] ?? null
+const unescapeXml = text => text.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&amp;/g, '&')
+const n = value => Number(value.toFixed(3))
+
+// 원본 윤곽과 확인표 윤곽 상자의 허용 차이(글자 하나당, 1000 단위)
+const BOX_TOLERANCE = 3
+// path(절대 좌표 M L Q C H V Z)의 점 · 조절점이 이루는 상자의 [가로, 세로]
+const TOKEN = /([MLQCHVZ])|(-?\d+(?:\.\d+)?)/g
+const ARGS = { M: 2, L: 2, Q: 4, C: 6, H: 1, V: 1 }
+function boxOf(path) {
+  const tokens = [...path.matchAll(TOKEN)]
+  let min = [Infinity, Infinity], max = [-Infinity, -Infinity], command = null
+  for (let i = 0; i < tokens.length;) {
+    if (tokens[i][1]) { command = tokens[i][1]; i++; continue }
+    const count = ARGS[command]
+    for (let k = 0; k < count; k++) {
+      const value = Number(tokens[i + k][2]), axis = command === 'H' ? 0 : command === 'V' ? 1 : k % 2
+      min[axis] = Math.min(min[axis], value); max[axis] = Math.max(max[axis], value)
+    }
+    i += count
+  }
+  return Number.isFinite(min[0]) && Number.isFinite(min[1]) ? [max[0] - min[0], max[1] - min[1]] : [0, 0]
+}
+
+/** 묶음 하나 → { adv, weight }. 글자 묶음이 아니거나 치수를 못 구하면 null. */
+function metricsOf(attrs, body) {
+  const label = attr(attrs, 'aria-label')
+  if (label == null) return null                     // 글자 묶음이 아니다(그림 조각)
+  const shown = [...unescapeXml(label)].filter(ch => ch !== ' ')
+  const paths = [...body.matchAll(PATH)].map(item => {
+    const d = attr(item[1], 'd'), t = attr(item[1], 'transform')?.match(TRANSFORM)
+    return d && t ? { d, x: Number(t[1]), y: Number(t[2]), s: Number(t[3]) } : null
+  })
+  if (!shown.length || paths.length !== shown.length || paths.some(path => !path)) return null
+  if (shown.some(ch => !MARU[ch])) return { missing: shown.filter(ch => !MARU[ch]).join('') }
+  const s = paths[0].s
+  if (!(s > 0) || paths.some(path => path.s !== s || path.y !== paths[0].y)) return null
+  // 굵기: 글자 윤곽 상자 크기가 Regular 와 Bold 중 어느 쪽에 맞는지(묶음 전체의 합)
+  let regular = 0, bold = 0
+  paths.forEach((path, i) => {
+    const [width, height] = boxOf(path.d), ref = MARU[shown[i]]
+    regular += Math.abs(width - ref[1]) + Math.abs(height - ref[2]); bold += Math.abs(width - ref[4]) + Math.abs(height - ref[5])
+  })
+  if (Math.min(regular, bold) > BOX_TOLERANCE * paths.length) return { missing: `굵기를 못 가름(${label})` }
+  const weight = regular <= bold ? 'R' : 'B'
+  const last = paths[paths.length - 1]
+  return { adv: n(last.x + MARU[shown[shown.length - 1]][weight === 'R' ? 0 : 3] * s - paths[0].x), weight }
+}
+
+let files = 0, added = 0, already = 0
+const trouble = []
+for (const file of svgFiles(ROOT)) {
+  const xml = readFileSync(file, 'utf8')
+  if (!xml.includes('aria-label')) continue
+  let out = '', at = 0, touched = 0
+  for (const match of xml.matchAll(GROUP)) {
+    const [whole, attrs, body] = match
+    if (/\sdata-adv="/.test(attrs)) { already++; continue }
+    const metrics = metricsOf(attrs, body)
+    if (!metrics) continue
+    if (metrics.missing) { trouble.push(`${file.split(/[\\/]/).pop()} ${metrics.missing}`); continue }
+    out += xml.slice(at, match.index) + whole.replace(/^<g\b([^>]*)>/,
+      `<g$1 data-adv="${metrics.adv}"${metrics.weight === 'B' ? ' data-w="B"' : ''}>`)
+    at = match.index + whole.length
+    touched++
+  }
+  if (!touched) continue
+  writeFileSync(file, out + xml.slice(at))
+  files++; added += touched
+}
+console.log('속지', files, '장 ·', added, '묶음에 치수를 적었다 · 이미 있던 것', already)
+if (trouble.length) {
+  console.log('치수를 못 구한 묶음', trouble.length, '—', trouble.slice(0, 5).join(' / '))
+  console.log('→ python scripts/generate-paper-fonts.py 로 원본 글꼴 확인표를 다시 뽑고 이 스크립트를 다시 돌리세요.')
+  process.exitCode = 1
+}

@@ -34,13 +34,19 @@ function glyphText(text, x, y, size, { weight = 'R', fill = INK, anchor = 'start
   const s = size / 1000
   const width = chars.reduce((sum, ch) => sum + (table[ch]?.[0] ?? 0), 0) * s
   let cursor = anchor === 'end' ? x - width : anchor === 'middle' ? x - width / 2 : x
-  let paths = ''
+  let paths = '', from = null, to = null
   for (const ch of chars) {
     const [advance, d] = table[ch] ?? [0, '']
-    if (ch !== ' ' && d) paths += `<path d="${d}" transform="translate(${n(cursor)} ${n(y)}) scale(${n(s)} ${n(-s)})"/>`
+    if (ch !== ' ' && d) {
+      if (from === null) from = cursor
+      paths += `<path d="${d}" transform="translate(${n(cursor)} ${n(y)}) scale(${n(s)} ${n(-s)})"/>`
+      to = cursor + advance * s
+    }
     cursor += advance * s
   }
-  return `<g fill="${fill}"${extra} aria-label="${text}">${paths}</g>`
+  // 글꼴 교체에 쓰는 치수를 적어 둔다(paperFont.js readGroup) — 적어 두면 원본 글꼴 확인표가 없어도 된다
+  const metrics = from === null ? '' : ` data-adv="${n(to - from)}"${weight === 'B' ? ' data-w="B"' : ''}`
+  return `<g fill="${fill}"${extra} aria-label="${text}"${metrics}>${paths}</g>`
 }
 
 // fill 을 반드시 적는다 — 없으면 검정으로 칠해진다(속지 형식 검사가 지킨다)
