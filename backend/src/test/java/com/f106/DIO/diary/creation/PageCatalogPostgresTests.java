@@ -303,6 +303,16 @@ class PageCatalogPostgresTests {
         assertThat(jdbc.queryForObject("select count(*) from page_templates",Long.class)).isEqualTo(300);
     }
 
+    @Test void V45StopsWhenAMatchingRowIsInactiveSoPageAddCannotSilentlyBreak() {
+        flyway("44").migrate();
+        // 비활성 행만 있으면 건너뛰어도 활성 행이 0개가 되어 페이지 추가가 400 이 된다. 조용히 넘어가지 않는다.
+        jdbc.update("insert into page_templates(code,template_version,name,category,orientation,canvas_width,canvas_height,default_config,is_active,display_order)"
+            + " values('2026-reusable-ink-record-round-portrait','1.0.0','내려 둔 발색 기록','INKRECORD','PORTRAIT',768,1024,'{}'::jsonb,false,999)");
+        assertThatThrownBy(() -> flyway("latest").migrate()).isInstanceOf(org.flywaydb.core.api.FlywayException.class).hasMessageContaining("Inactive page template");
+        assertThat(jdbc.queryForObject("select count(*) from flyway_schema_history where version='45' and success",Long.class)).isZero();
+        assertThat(jdbc.queryForObject("select count(*) from page_templates where code like '2026-reusable-ink-record-%'",Long.class)).isEqualTo(1L);
+    }
+
     @Test void V45RejectsAnExistingRowWithConflictingGeometryAndLeavesNothingBehind() {
         flyway("44").migrate();
         jdbc.update("insert into page_templates(code,template_version,name,category,orientation,canvas_width,canvas_height,default_config,is_active,display_order)"

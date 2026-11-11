@@ -35,6 +35,14 @@ BEGIN
         ) THEN
             RAISE EXCEPTION 'Conflicting page template geometry: % / %', seed.code, seed.template_version;
         END IF;
+        -- 이미 있는 행이 비활성이면 건너뛰어도 활성 행이 0개가 되어, 마이그레이션은 성공해도
+        -- 페이지 추가가 400 UNKNOWN_PAGE_TEMPLATE 으로 막힌다. 조용히 넘어가지 않고 멈춘다.
+        IF EXISTS (
+            SELECT 1 FROM page_templates
+            WHERE code = seed.code AND template_version = seed.template_version AND NOT is_active
+        ) THEN
+            RAISE EXCEPTION 'Inactive page template would stay inactive: % / %', seed.code, seed.template_version;
+        END IF;
 
         INSERT INTO page_templates(code, template_version, name, category, orientation, canvas_width, canvas_height, default_config, display_order)
         SELECT seed.code, seed.template_version, seed.name, seed.category, seed.orientation, seed.width, seed.height, seed.config, base_order + seed.display_order_offset
