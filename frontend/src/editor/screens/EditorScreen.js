@@ -87,7 +87,8 @@ import { clamp, createId, unionBounds } from '../utils/common'
 import { OPTIONS_TOP, OPTIONS_TOP_PHONE, OPTIONS_WIDTH, optionsPlacement, tabletToolPopover } from '../utils/toolPanelPlacement'
 import { automaticPageTurn, centeredOffset, clampOffset as clampViewportOffset, isFitView, panView } from '../utils/viewport.js'
 import { pickImages } from '../services/image'
-import { tastingPhotoBox, isTastingId } from '../templates/tastingGeometry.js'
+import { tastingPhotoBox } from '../templates/tastingGeometry.js'
+import { tastingPhotoInterruption } from '../templates/tastingPhotoGuard.js'
 import { MEDIA_POLICY } from '../utils/mediaPolicy.js'
 import { discardGeneratedMedia } from '../services/mediaStore'
 import { createObjectFromDecor, emptyPhotoSlots, hasPhotoMedia, photoInnerBox, tapePieceRatio } from '../utils/objects'
@@ -666,16 +667,23 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
     if (pickingPhotos.current) return
     pickingPhotos.current = true
     const targetPage = pageNow.current.id
+    const targetAsset = pageNow.current.backgroundAssetId
     let image
     try {
       ;[image] = await pickImages({ ...photoLimit, multiple: false })
       if (!image) return
-      const box = tastingPhotoBox(pageNow.current.backgroundAssetId)
+      const box = tastingPhotoBox(targetAsset)
       const photo = createObjectFromDecor({ kind: 'photo', frame: 'none', src: image.src, mediaFileId: image.mediaFileId, poster: image.poster, name: image.name, imageWidth: image.width, imageHeight: image.height }, { x: box.x + box.width / 2, y: box.y + box.height / 2 })
       const fitted = { ...photo, x: box.x, y: box.y, w: box.width, h: box.height, tastingPhoto: true }
       const crop = await askCrop(fitted, '사진 자르기', box.width / box.height)
-      if (!crop || pageNow.current.id !== targetPage || !isTastingId(pageNow.current.backgroundAssetId)) { discardUnused([image]); return }
-      addPhotoAndRecordRecent(image, () => dispatch({ type: 'addObjects', objects: [{ ...fitted, ...crop, x: box.x, y: box.y, w: box.width, h: box.height, tastingPhoto: true }] }), diary?.source !== 'member-api' ? markRecentPhotos : null)
+      const interruption = tastingPhotoInterruption(crop, pageNow.current, targetPage, targetAsset)
+      if (interruption) {
+        discardUnused([image]); image = null
+        if (interruption.message) showToast(interruption.message)
+        return
+      }
+      const result = { ...fitted, ...crop, x: box.x, y: box.y, w: box.width, h: box.height, tastingPhoto: true }
+      addPhotoAndRecordRecent(image, () => dispatch({ type: 'addObjects', objects: [result] }), diary?.source !== 'member-api' ? markRecentPhotos : null)
       image = null
     } catch (error) {
       if (image) discardUnused([image])
