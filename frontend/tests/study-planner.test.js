@@ -2,8 +2,9 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
   applyPlannerStroke, erasePlanner, plannerEditTap, plannerTitleAt, normalizePlanner, plannerBaseSvg, plannerLayout, plannerOverlaySvg, plannerStrokeCells, plannerTextSlot, plannerTotals, setPlannerOptions,
-  studyPlannerSvg, studyPlannerId, wholePercents,
+  setPlannerBand, studyPlannerSvg, studyPlannerId, wholePercents,
 } from '../src/editor/templates/studyPlanner.js'
+import { plannerFor } from '../src/editor/templates/planners.js'
 import { getTemplate, reusableTemplates } from '../src/editor/templates/catalog.js'
 import { editorReducer, createInitialState } from '../src/editor/state/editorReducer.js'
 
@@ -302,7 +303,12 @@ test('선택 도구로 칸을 누르면 완료 · 할 일 · 오늘의 목표 ·
     assert.deepEqual(plannerEditTap(o, { x: 300, y: 125 }, null), { text: { x: 300, y: 125 } })
     assert.ok(plannerEditTap(o, { x: L.date.x + 2, y: 66 }, null).text)
     assert.ok(plannerEditTap(o, { x: L.dday.line[1] - 2, y: 66 }, null).text)
-    assert.equal(plannerEditTap(o, { x: T.x + T.w - 10, y: todoY(2, o) }, null), null) // 색 칸
+    assert.deepEqual(plannerEditTap(o, { x: T.x + T.w - 10, y: todoY(2, o) }, null), { picker: { kind: 'color', row: 2 } }) // 색 칸 → 색 고르기
+    assert.equal(normalizePlanner(setPlannerBand(null, 2, '#BDE4D1')).bands[2], '#BDE4D1')
+    // 펜으로 색 칸을 톡 → 색 고르기, 긋기 → 받기만(잉크 없음)
+    const study = plannerFor(`study-planner-${o}`)
+    assert.deepEqual(study.stroke(null, [{ x: T.x + T.w - 10, y: todoY(2, o) }], { kind: 'fountain', color: '#222222' }, []), { picker: { kind: 'color', row: 2 } })
+    assert.deepEqual(study.stroke(null, [{ x: T.x + T.w - 10, y: todoY(2, o) }, { x: T.x + T.w - 10, y: todoY(5, o) }], { kind: 'fountain', color: '#222222' }, []), {})
     assert.equal(plannerEditTap(o, { x: (L.memo ?? L.review).x + 50, y: (L.memo ?? L.review).y + 80 }, null), null) // 메모 · 돌아보기는 넓은 빈 곳이라 글상자를 만들지 않는다
     assert.equal(plannerEditTap(o, cell(3, 2, o), null), null) // 시간표는 형광펜으로 칠한다
     const day = plannerEditTap(o, { x: L.week.x + 2 * 26, y: L.week.cy }, null, '#3366FF')
@@ -319,4 +325,36 @@ test('선택 도구로 칸을 누르면 완료 · 할 일 · 오늘의 목표 ·
     const goal = { id: 'g', type: 'text', text: '합격', x: 200, y: 110, w: 100, h: 20 }
     assert.equal(plannerTitleAt(o, { x: 500, y: 125 }, [goal]), goal)
   }
+})
+
+test('830: 스터디 플래너도 펜으로 할 일 줄을 톡 누르면 글 입력(데일리와 같다), 그 줄에 손글씨가 있으면 톡은 글씨의 점', async () => {
+
+  const PENS = { kind: 'fountain', color: '#222222' }
+  for (const o of ['landscape', 'portrait']) {
+    const planner = plannerFor(`study-planner-${o}`)
+    assert.equal(planner?.kind, 'study')
+    const T = plannerLayout(o).todo, x = T.x + T.w / 2, y = todoY(2, o)
+    assert.deepEqual(planner.stroke(null, [{ x, y }], PENS, []), { text: { x, y } })
+    // 손글씨가 있는 줄: 톡은 글 입력이 아니다(점으로 남는다)
+    const ink = { id: 's1', type: 'stroke', x: x - 30, y: y - 6, w: 60, h: 12 }
+    assert.equal(planner.stroke(null, [{ x, y }], PENS, [ink]), null)
+    // 다른 줄의 손글씨는 상관없다
+    assert.deepEqual(planner.stroke(null, [{ x, y }], PENS, [{ ...ink, y: todoY(5, o) - 6 }]), { text: { x, y } })
+    // 길게 쓴 획 · 형광펜 · 칸 맞춤을 끈 경우는 글 입력이 아니다
+    assert.equal(planner.stroke(null, [{ x, y }, { x: x + 80, y }], PENS, []), null)
+    assert.notDeepEqual(planner.stroke(null, [{ x, y }], { kind: 'highlighter', color: '#F7DF8A' }, []), { text: { x, y } })
+    assert.equal(planner.stroke({ options: { snap: false } }, [{ x, y }], PENS, []), null)
+  }
+})
+
+test('835: 좁은 D-day 칸 글상자는 입력 안내 글을 두지 않는다(두 줄로 접혀 잘리지 않게), 넓은 칸 · 늘어나는 상자는 그대로', async () => {
+  const { textPlaceholder, TEXT_PLACEHOLDER } = await import('../src/editor/utils/text.js')
+  for (const o of ['landscape', 'portrait']) {
+    const L = plannerLayout(o)
+    const dday = plannerTextSlot(o, { x: L.dday.line[0] + 10, y: 64 })
+    assert.equal(textPlaceholder(dday.width * 1.7, dday.fontSize * 1.7), '')
+    const date = plannerTextSlot(o, { x: L.date.line[0] + 10, y: 64 })
+    assert.equal(textPlaceholder(date.width, date.fontSize), TEXT_PLACEHOLDER)
+  }
+  assert.equal(textPlaceholder(60, 18, true), TEXT_PLACEHOLDER)
 })

@@ -21,14 +21,16 @@ export const remoteServerOrientation = code => (typeof code === 'string' ? SERVE
 
 // id → { id, name, group, hidden, files: { landscape, portrait } }
 let templates = new Map()
+// 테이스팅 노트는 앱에 든 속지라 서버 목록을 기다리지 않는다. SVG 는 파일이 아니라 플래너(planners.js)가 만들어 files 가 없다(loadTemplate 은 plannerFor 를 먼저 본다)
+const TASTING = Object.freeze({ id: 'tasting-note', name: '테이스팅 노트', group: 'diary', hidden: false })
 // 목록이 더한 속지 탭 [{ id, name, hidden }] (앱 탭 노트 · 플래너 · 일기 뒤에 붙는다, diary/utils/paperChoice.js)
 let groups = []
 let revision = 0
 const listeners = new Set()
 export const subscribeRemoteTemplates = listener => { listeners.add(listener); return () => listeners.delete(listener) }
 export const remoteTemplatesSnapshot = () => revision
-export const remoteTemplateList = () => [...templates.values()]
-export const remoteTemplateOf = id => templates.get(id) ?? null
+export const remoteTemplateList = () => [TASTING, ...[...templates.values()].filter(item => item.id !== TASTING.id)]
+export const remoteTemplateOf = id => id === TASTING.id ? TASTING : templates.get(id) ?? null
 export const remoteTemplateGroups = () => groups
 
 export function registerRemoteTemplates(list, groupList = []) {
@@ -42,7 +44,7 @@ export function registerRemoteTemplates(list, groupList = []) {
 export function remoteTemplateAsset(assetId) {
   const parsed = parseRemoteTemplateAssetId(assetId)
   if (!parsed) return null
-  const item = templates.get(parsed.id)
+  const item = remoteTemplateOf(parsed.id)
   return { id: assetId, name: item?.name ?? '추가 속지', type: 'remote', remoteId: parsed.id, orientation: parsed.orientation, templateVersion: REMOTE_TEMPLATE_VERSION }
 }
 

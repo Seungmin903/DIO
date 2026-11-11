@@ -46,6 +46,9 @@ public class Diary {
 	@Column(columnDefinition = "text")
 	private String paperAppearanceJson;
 
+	@Column(columnDefinition = "text")
+	private String templateConfigJson;
+
 	public void updatePaperAppearance(String appearance) {
 		this.paperAppearanceJson = appearance;
 		this.updatedAt = Instant.now().truncatedTo(ChronoUnit.MICROS);

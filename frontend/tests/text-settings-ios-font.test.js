@@ -13,7 +13,9 @@ const { code } = expo('@babel/core').transformSync(readFileSync(new URL('../src/
   plugins: [[expo.resolve('@babel/plugin-transform-react-jsx'), { runtime: 'automatic' }], expo.resolve('@babel/plugin-transform-modules-commonjs')],
 })
 
-function render(platform, settings, onStepper = () => {}) {
+const FIELD = { box: { id: 'field-box' }, input: { id: 'field-input' } }
+
+function render(platform, settings, onStepper = () => {}, onSizeField = () => {}) {
   let styleControls
   const presses = [], changes = []
   const container = ({ children }) => React.createElement('div', null, children)
@@ -41,6 +43,8 @@ function render(platform, settings, onStepper = () => {}) {
       ToolPanelHeader: () => null, toolPanelStyles: {},
     }
     if (id === './controls/NumberStepper') return { __esModule: true, default: props => { onStepper(props); return null } }
+    if (id === './controls/numberFieldStyles') return { numberFieldStyles: FIELD }
+    if (id === './controls/PenSafeTextInput') return { __esModule: true, default: props => { onSizeField(props); return null } }
     if (id === './controls/EditablePalette' || id === './controls/Slider') return { __esModule: true, default: () => null }
     // 글꼴 칸은 공용 드롭다운(TextFontDropdown): 지금 글꼴 이름만 그린다
     if (id === './controls/TextFontDropdown') return { __esModule: true, default: props => React.createElement('div', null, text.getTextFonts().find(font => font.id === text.resolveFontId(props.value))?.label) }
@@ -73,11 +77,37 @@ test('기울임은 굵게와 달리 글꼴이 바뀌어도 늘 선택할 수 있
   assert.doesNotMatch(result.html, /기울임을 지원하지 않아요/)
 })
 
-test('자간 · 줄간격은 접지 않고 한 줄 2단으로 보이며 숫자와 −·+ 로만 바꾼다', () => {
+test('자간 · 줄간격은 접지 않고 한 줄 2단으로 보이며 숫자와 −·+ 로만 바꾼다(단위 글자는 붙이지 않는다)', () => {
   const steppers = []
   const result = render('android', { font: 'nanum-gothic' }, props => steppers.push(props))
   assert.deepEqual(steppers.map(item => item.label), ['자간', '줄간격'])
+  assert.ok(steppers.every(item => item.unit == null), '% 를 붙여 봤더니 칸 배열이 어긋났다(2026-11-10)')
   assert.equal(result.presses.some(item => item.label === '간격'), false)
   steppers[0].onChange(0.123); steppers[1].onChange(1.456)
   assert.deepEqual(result.changes, [{ letterSpacing: 0.12 }, { lineSpacing: 1.46 }])
+})
+
+test('S15P31F106-482: 서식 창 순서는 키보드 위 서식 줄과 같고(글꼴 · 크기 → 스타일 → 색 → 자간 · 줄간격 → 정렬), 덧붙이는 안내 문구는 두지 않는다', () => {
+  const source = readFileSync(new URL('../src/editor/components/TextSettings.js', import.meta.url), 'utf8')
+  const at = (needle) => { const index = source.indexOf(needle); assert.ok(index >= 0, needle); return index }
+  assert.ok(at('<TextFontDropdown') < at('>스타일</Text>'), '글꼴 · 크기가 먼저')
+  assert.ok(at('>스타일</Text>') < at('<EditablePalette'), '스타일 다음 색')
+  assert.ok(at('<EditablePalette') < at('styles.spacingRow'), '색 다음 자간 · 줄간격')
+  assert.ok(at('styles.spacingRow') < at('>정렬</Text>'), '정렬은 맨 뒤(서식 줄에는 없다)')
+  assert.ok(at('>정렬</Text>') < at('>세로 정렬</Text>'), '세로 정렬은 정렬 뒤')
+  const result = render('ios', { font: 'nanum-gothic' })
+  assert.doesNotMatch(result.html, /보여요|%|준비하고 있어요|불러오지 못했어요/, '정렬 안내 · 단위 글자 · 글꼴 준비 중 · 실패 문구는 두지 않는다')
+})
+
+test('글자 크기 칸은 자간 · 줄간격 숫자 칸과 같은 칸(공용 numberFieldStyles · PenSafeTextInput)이고 자릿수로 자르지 않는다', () => {
+  const fields = []
+  const result = render('android', { font: 'nanum-gothic', fontSize: 18 }, () => {}, props => fields.push(props))
+  assert.equal(fields.length, 1)
+  const field = fields[0]
+  assert.equal(field.accessibilityLabel, '글자 크기')
+  assert.equal(field.style, FIELD.input)
+  assert.equal(field.maxLength, undefined) // 붙여넣은 100 이 10 으로 잘려 적용되면 안 된다
+  field.onChangeText('100')
+  field.onChangeText('24')
+  assert.deepEqual(result.changes, [{ fontSize: 24 }])
 })

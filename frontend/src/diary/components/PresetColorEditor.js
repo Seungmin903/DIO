@@ -11,7 +11,8 @@ import PopoverMenu from './PopoverMenu'
 
 // All color entry points share this UI. Normal close commits; rotation dismisses.
 // defaultValue: 팔레트 칸의 처음 색. 지금 색이 그와 다르면 제목 줄 닫기(X) 왼쪽에 '원래대로'를 두고, 누르면 처음 색으로 되돌린다(닫을 때 저장)
-export default function PresetColorEditor({ title, tape = false, slots = null, anchor = null, value, original = value, defaultValue = null, onDone, onClose, onChange, onEyedropper }) {
+// doneLabel: 닫기(X) 대신 글자 버튼으로 확정을 보여 줄 때(예: '완료'). 누르면 닫기와 같다(바꾼 색을 저장하고 닫는다)
+export default function PresetColorEditor({ title, tape = false, slots = null, anchor = null, value, original = value, defaultValue = null, onDone, onClose, onChange, onEyedropper, doneLabel = null }) {
   const window = useWindowDimensions()
   const [keyboardTop,setKeyboardTop] = useState(null)
   useEffect(() => {
@@ -68,7 +69,9 @@ export default function PresetColorEditor({ title, tape = false, slots = null, a
     <View style={s.head}>
       <Text accessibilityRole="header" style={s.title} numberOfLines={1}>{title}</Text>
       {changed && <Pressable accessibilityRole="button" accessibilityLabel={`${title} 원래 색으로 되돌리기`} disabled={saving} onPress={restore} style={s.restore}><Text style={s.restoreText}>원래대로</Text></Pressable>}
-      <Pressable accessibilityRole="button" accessibilityLabel={`${title} 창 닫기`} disabled={saving} onPress={close} style={s.close}><Icon name="close" size={18} color={colors.primaryText} /></Pressable>
+      {doneLabel
+        ? <Pressable accessibilityRole="button" accessibilityLabel={`${title} ${doneLabel}`} disabled={saving} onPress={close} style={s.restore}><Text style={s.restoreText}>{doneLabel}</Text></Pressable>
+        : <Pressable accessibilityRole="button" accessibilityLabel={`${title} 창 닫기`} disabled={saving} onPress={close} style={s.close}><Icon name="close" size={18} color={colors.primaryText} /></Pressable>}
     </View>
     <ScrollView pointerEvents={saving ? 'none' : 'auto'} keyboardShouldPersistTaps="handled" style={{maxHeight:height-50}} contentContainerStyle={s.body}>
       {names && <View style={s.slots} accessibilityRole="radiogroup">{names.map((name,i) => <Pressable key={name} accessibilityRole="radio" accessibilityLabel={`${name} 바꾸기`} accessibilityState={{checked:slot===i}} onPress={() => setSlot(i)} style={[s.slot,slot===i&&s.slotOn]}>

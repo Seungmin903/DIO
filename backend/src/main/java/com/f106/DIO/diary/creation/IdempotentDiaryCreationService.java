@@ -26,10 +26,16 @@ public class IdempotentDiaryCreationService {
     }
     @Transactional
     public Result create(String key,DiaryCreateRequest metadata,List<DiaryInitialPages.Selection> pages,tools.jackson.databind.JsonNode paperAppearance) {
+        return create(key,metadata,pages,paperAppearance,null);
+    }
+    /** templateConfig: 다이어리 단위 속지 구성. 지문에 넣되 없으면 예전 본문과 같은 지문이다(앱 업데이트 전 미확인 생성 재시도). */
+    @Transactional
+    public Result create(String key,DiaryCreateRequest metadata,List<DiaryInitialPages.Selection> pages,tools.jackson.databind.JsonNode paperAppearance,
+            tools.jackson.databind.JsonNode templateConfig) {
         if(!TransactionSynchronizationManager.isActualTransactionActive()) throw new IllegalStateException("Idempotent creation requires a transaction");
         long user=identity.requireUserId();
         if(user<=0 || users.lockActiveUserColor(user).isEmpty()) throw DiaryCreationException.unauthorized();
-        String keyHash=DiaryCreationFingerprint.key(key), requestHash=DiaryCreationFingerprint.request(metadata,pages,paperAppearance);
+        String keyHash=DiaryCreationFingerprint.key(key), requestHash=DiaryCreationFingerprint.request(metadata,pages,paperAppearance,templateConfig);
         var claim=receipts.claim(user,keyHash,requestHash);
         boolean fresh=claim.fresh();
         var receipt=claim.receipt();
@@ -47,6 +53,7 @@ public class IdempotentDiaryCreationService {
         }
         var result=creation.create(metadata,pages);
         if(paperAppearance!=null)users.setInitialPaperAppearance(UUID.fromString(result.diary().diaryId()),paperAppearance.toString());
+        if(templateConfig!=null)users.setInitialTemplateConfig(UUID.fromString(result.diary().diaryId()),com.f106.DIO.diary.support.DiaryTemplateConfig.serialize(templateConfig));
         receipts.complete(user,keyHash,UUID.fromString(result.diary().diaryId()),json.writeValueAsString(result));
         return new Result(result,false);
     }

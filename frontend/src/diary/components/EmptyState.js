@@ -21,14 +21,14 @@ const ART = {
 };
 
 /**
- * 처음 불러오는 동안: 빈 화면(EmptyState)이 놓일 자리 · 높이에 스피너만 둔다(글자 줄 없음, 알림 창과 같다 — 지라 590).
- * 예전엔 목록 위 왼쪽에 스피너 + '다이어리를 불러오고 있어요' 작은 글자 줄이 떴다. 화면 읽기 프로그램에는 label 을 읽어 준다.
+ * 기본은 빈 화면 자리에 스피너만 둔다. 보관함 본문처럼 바깥에서 위치를 잡는 곳은 설명도 함께 표시할 수 있다.
  */
-export function LoadingSpot({ label, compact = false, art = 'moa', centered = false }) {
+export function LoadingSpot({ label, compact = false, art = 'moa', centered = false, showLabel = false }) {
   return (
     <View accessible accessibilityRole="progressbar" accessibilityLabel={label} accessibilityState={{ busy: true }} accessibilityLiveRegion="polite"
-      style={[s.empty, compact && s.emptyCompact, !centered && (compact ? s.emptyRaisedCompact : art === 'dio' ? s.emptyRaisedTrash : s.emptyRaised)]}>
+      style={showLabel ? s.loadingWithLabel : [s.empty, compact && s.emptyCompact, !centered && (compact ? s.emptyRaisedCompact : art === 'dio' ? s.emptyRaisedTrash : s.emptyRaised)]}>
       <ActivityIndicator accessible={false} color={C.blue} />
+      {showLabel && <Text accessible={false} style={s.emptyCopy}>{label}</Text>}
     </View>
   );
 }

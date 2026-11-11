@@ -40,7 +40,10 @@ Jira: S15P31F106-350~355. 커서는 이번 범위에서 제외한다.
 }
 ```
 
-`changes`는 기존 batch의 creates/updates/deleteElementIds/restoreElementIds를 사용한다. update에는 현재 `version`, delete/restore에는 `expectedVersions: {"요소 UUID": 현재 버전}`이 필요하다. 생성 요소 UUID는 클라이언트가 먼저 만든다. 기존 batch의 항목 수·본문 크기·미디어 검증 제한을 그대로 적용한다.
+`changes`는 기존 batch의 creates/updates/deleteElementIds/restoreElementIds를 사용한다. update에는 현재 `version`, delete/restore에는 `expectedVersions: {"요소 UUID": 현재 버전}`이 필요하다. 생성 요소 UUID는 클라이언트가 먼저 만든다. 같은 요청에서 한 요소 ID에 두 작업을 지정할 수 없으므로 생성 직후 수정·삭제하려면 별도 요청을 사용한다. 서로 다른 요소의 생성과 수정·삭제·복원은 함께 요청할 수 있다. `groupId`는 그룹 요소의 ID를 참조하는 외래 키가 아니라 같은 페이지 요소들을 묶는 식별자다. 기존 batch의 항목 수·본문 크기·미디어 검증 제한을 그대로 적용한다.
+
+사진 앨범 속지의 사진 생성은 다이어리 잠금 안에서 칸을 확인한다. 같은 칸에 먼저 저장된 사진이 있으면 새 사진을 순서상 첫 빈 칸으로 옮기고, 응답의 좌표와 `albumSlot`에 실제 위치를 반환한다. 사진마다 별도 이력이 남는다. 빈 칸이 없으면 `422 PHOTO_ALBUM_FULL`로 거절하고 기기에서 거절된 편집을 보관한다. 단건 또는 batch 수정으로 사진을 점유된 칸으로 옮기거나, 단건·batch 복원, 되돌리기 또는 다시 실행으로 점유된 칸을 복원하려고 하면 `409 CANVAS_HISTORY_CONFLICT`로 거절한다. 이미 겹친 사진이라도 칸 위치를 바꾸지 않는 수정과 빈 칸으로 이동하는 수정은 허용한다. 칸 점유 검사는 사진 앨범 속지에서 칸 좌표와 일치하는 사진에 적용된다.
+테이스팅 표시 SHAPE는 페이지와 표시 키로 결정한 element ID를 사용한다. 같은 표시를 두 클라이언트가 동시에 `creates`로 보내 이미 활성 요소가 있으면, 서버는 타입·위치·크기·잠금/숨김·표시 메타데이터가 일치하고 `fill`만 다른 요청에 한해 해당 `create`를 현재 버전의 `update`로 바꿔 기록한다. `sortKey`는 기기별 요소 순서 차이로 달라질 수 있어 병합 판정에서 제외하며, 기존 서버 순서를 유지한다. 이 경우에도 요청한 회원의 독립 Undo 이력을 만든다. 표시 ID가 다른 요소에 이미 사용 중이거나 조건이 맞지 않으면 일반 ID 충돌로 거절하며 기존 요소를 덮어쓰지 않는다.
 
 응답은 `operationId`, 원래 작업의 `clientOperationId`, `status`, `revision`, `replayed`, 현재 페이지의 살아 있는 요소 목록 `items`다. Long 작업 ID는 문자열로 반환한다. 동일 페이지·사용자·clientOperationId와 동일 본문을 재전송하면 중복 저장하지 않는다. 본문이 다르면 409다. 재전송 응답의 `items`는 최초 응답 복사본이 아니라 **현재 서버 상태**다.
 

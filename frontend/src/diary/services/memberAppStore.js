@@ -83,6 +83,9 @@ export function createMemberAppStore({ accountId, api, storage, makeRequestId, s
       active(); emit({ diaries, error: null }); return diary
     })
   }
+  // 예전 릴리스는 다이어리 단위 속지 구성(templateConfig)도 만든 기기에만 두었다(속지 요약·첫 속지 미리보기·기본 표지 날짜 표시).
+  // 표지와 같이 주인이 열 때(목록에서 찾았을 때 포함) 서버에 없고 이 기기에만 있으면 올린다.
+  const needsTemplateSync = (item, local) => !item.templateConfig && isMetaObject(local?.templateConfig)
   // 예전 릴리스는 꾸민 표지를 만든 기기에만 두었고, 그 다이어리를 이 기기에서 다시 열어야만(refreshDiary) 서버로 올렸다.
   // 그래서 다시 열지 않은 다이어리는 다른 기기(로그인한 아이폰 등)에서 사진 표지가 안 보였다(지라 623).
   // 목록을 받을 때 내 다이어리 중 서버에 표지가 없고 이 기기에만 있는 것을 하나씩 뒤에서 올린다(세션마다 다이어리당 한 번).
@@ -93,7 +96,8 @@ export function createMemberAppStore({ accountId, api, storage, makeRequestId, s
   const syncLocalCovers = (serverItems, merged) => {
     const local = new Map(merged.map(row => [row.id, row]))
     for (const item of serverItems) {
-      if (item.cover || item.myRole !== 'OWNER' || !local.get(item.id)?.cover || coverSyncTried.has(item.id) || (coverSyncFails.get(item.id) ?? 0) >= 3) continue
+      const row = local.get(item.id)
+      if (item.myRole !== 'OWNER' || !((!item.cover && row?.cover) || needsTemplateSync(item, row)) || coverSyncTried.has(item.id) || (coverSyncFails.get(item.id) ?? 0) >= 3) continue
       coverSyncTried.add(item.id)
       coverSync = coverSync.then(() => (disposed ? null : refreshDiary(item.id, false, { quiet: true })))
         .catch(() => { coverSyncFails.set(item.id, (coverSyncFails.get(item.id) ?? 0) + 1); coverSyncTried.delete(item.id) })
@@ -116,11 +120,20 @@ export function createMemberAppStore({ accountId, api, storage, makeRequestId, s
         else emit({metadataError:failure('COVER_SYNC_FAILED','이 기기의 표지를 공유하지 못했어요. 표지를 다시 저장해 주세요.')})
       }
     }
+    if(result.myRole==='OWNER'&&needsTemplateSync(result,previous)) {
+      try { result=await api.update(id,{templateConfig:previous.templateConfig,expectedVersion:result.version});active() }
+      catch(error) {
+        active()
+        // 화면에는 이 기기 값이 그대로 보이므로 안내하지 않는다. 다음에 열 때 다시 올린다.
+        if(error.status===409) { result=await api.get(id);active() }
+        else if(quiet) throw error
+      }
+    }
     if (!previous && !allowUnlisted) throw failure('UNKNOWN_MEMBER_DIARY', '이 기기에 저장된 회원 다이어리를 확인해 주세요.')
     return publish(entry({ ...result, ...(allowUnlisted && result.myRole === 'EDITOR' ? { isShared: true } : {}) }, previous), detailRequest)
   }
   const createDocument = (result, input) => {
-    const diary = entry({ ...result, title: result.title, templateConfig: input.templateConfig, pageSize: input.pageSize,
+    const diary = entry({ ...result, title: result.title, templateConfig: result.templateConfig ?? input.templateConfig, pageSize: input.pageSize,
       paperAppearance: result.paperAppearance ?? input.paperAppearance, favorite: false, pageCount: result.pageIds.length, ...(result.cover || input.cover ? { cover: result.cover ?? input.cover } : {}) })
     const doc = createDefaultDoc(diary)
     doc.memberAccountId = accountId
@@ -266,12 +279,11 @@ export function createMemberAppStore({ accountId, api, storage, makeRequestId, s
         if (!Array.isArray(diaries) || diaries.some(d => d.source !== 'member-api' || d.memberAccountId !== accountId || !d.id)) throw failure('INVALID_LOCAL_CACHE', '회원 목록을 확인하지 못했어요.')
         if (pending && (pending.accountId !== accountId || !pending.input || !pending.requestId)) throw failure('INVALID_PENDING_CREATION', '이전 생성 요청을 확인하지 못했어요.')
         active(); writable = true; emit({ diaries, loaded: true, pending: pending ? { ...pending, uncertain: true } : null, error: null })
-        await this.reload()
       } catch (error) {
-        // 서버 목록 조회 실패는 library.error 로 이미 알린다(MemberLibraryNotice 의 '다시 불러오기'). 같은 실패를 error 에도 두면
-        // MemberRequestNotice 가 '회원 목록 다시 확인'을 한 번 더 그려 안내가 겹쳤다(S15P31F106-722). 기기 캐시 오류 등 그 밖의 실패만 error 에 둔다.
-        emit({ loaded: true, ...(serverLibrary && state.library.error === error ? {} : { error }) }); throw error
+        emit({ loaded: true, error }); throw error
       }
+      // 조회 오류는 reload가 관리한다. 새 조건으로 대체된 조회는 초기 캐시 오류로 기록하지 않는다.
+      await this.reload()
     },
     reload() {
       if (serverLibrary) return this.queryLibrary(state.library.criteria, { force: true })
@@ -442,9 +454,12 @@ export function createMemberAppStore({ accountId, api, storage, makeRequestId, s
       if (!state.loaded || !writable) throw failure('NOT_READY', '목록 저장 자료를 먼저 확인해 주세요.')
       const selected = diaryCreateInput(form)
       // Pending requests created by older apps must keep their exact wire body and idempotency key.
+      // 속지 구성(diaryTemplateConfig)을 싣기 전 앱의 요청도 같은 본문으로 다시 보낸다. 그 다이어리의 구성은 주인이 열 때 올라간다.
       const input = state.pending && !state.pending.input.defaultPaperAppearance
         ? serverDiaryCreateInput(selected)
-        : { ...selected, defaultPaperAppearance: selected.paperAppearance }
+        : state.pending && !state.pending.input.diaryTemplateConfig
+          ? { ...selected, defaultPaperAppearance: selected.paperAppearance }
+          : { ...selected, defaultPaperAppearance: selected.paperAppearance, diaryTemplateConfig: selected.templateConfig }
       if (state.pending && JSON.stringify(state.pending.input) !== JSON.stringify(input)) throw failure('PENDING_CREATION', '이전 생성 요청을 먼저 확인해 주세요. 창을 닫고 이전 생성 확인을 눌러 주세요.')
       if (!state.pending) {
         const pending = { accountId, requestId: makeRequestId(), input: clone(input), uncertain: false }

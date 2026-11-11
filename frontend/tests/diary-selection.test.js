@@ -21,7 +21,9 @@ function loadCard() {
     if (id === 'react') return {
       memo: (fn) => fn,
       useRef: (initial) => ({ current: initial }),
-      useState: (initial) => { const i = hookCursor++; if (!(i in hookStates)) hookStates[i] = initial; return [hookStates[i], (value) => { hookStates[i] = typeof value === 'function' ? value(hookStates[i]) : value; }]; },
+      useCallback: (fn) => fn,
+      // React 처럼 함수로 준 처음 값은 불러서 쓴다
+      useState: (initial) => { const i = hookCursor++; if (!(i in hookStates)) hookStates[i] = typeof initial === 'function' ? initial() : initial; return [hookStates[i], (value) => { hookStates[i] = typeof value === 'function' ? value(hookStates[i]) : value; }]; },
     };
     if (id === '../../shared/FavoriteStar') return { __esModule: true, default: 'star' };
     if (id === './DiaryActionBubble') return { __esModule: true, default: 'sheet' };

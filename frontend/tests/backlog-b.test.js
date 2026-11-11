@@ -6,17 +6,16 @@ import { justifiedParagraph, justifyBreaks, paragraphLabel } from '../src/shared
 const read = file => readFileSync(new URL(`../${file}`, import.meta.url), 'utf8').replaceAll(String.fromCharCode(13, 10), String.fromCharCode(10));
 
 test('지라 651: 회원 탈퇴 확인창은 공용 확인창 틀(오른쪽 위 X 없음, 취소 글자 + dangerStrong 채움)', () => {
-  const screen = read('src/auth/ProfileEditScreen.js');
+  const screen = read('src/auth/WithdrawDialog.js');
   const styles = read('src/auth/profileStyles.js');
-  assert.match(screen, /const withdrawDialog = dialog === 'withdraw'/);
-  assert.match(screen, /\{!discardDialog && !withdrawDialog && \(\s*<Pressable[\s\S]*?확인 창 닫기/);
+  assert.doesNotMatch(screen, /확인 창 닫기/);
   assert.match(screen, /s\.confirmDialog/);
   assert.match(screen, /탈퇴하기/);
   assert.match(styles, /confirmDialog: \{ width: 320, maxWidth: '100%', borderRadius: 12, padding: 20/);
   assert.match(styles, /confirmDanger: \{ backgroundColor: c\.dangerStrong \}/);
   assert.match(styles, /confirmActions: \{[^}]*justifyContent: 'flex-end'/);
   // 확인 문구 입력은 유지한다
-  assert.match(screen, /withdrawText !== WITHDRAW_TEXT/);
+  assert.match(screen, /text === WITHDRAW_TEXT/);
 });
 
 test('지라 665: 옮기기 확인 · 완료 창은 확인창 버튼(취소 글자 + 채움, 완료는 확인 하나)', () => {
@@ -30,7 +29,7 @@ test('지라 665: 옮기기 확인 · 완료 창은 확인창 버튼(취소 글�
 test('지라 670: 탈퇴 완료 토스트는 앱 맨 위에서 띄운다', () => {
   const app = read('App.js');
   const profile = read('src/diary/screens/ProfileScreen.js');
-  assert.match(app, /const withdrawSession = \(\) => \{ clearSession\(\); setAccountToast\(/);
+  assert.match(app, /const withdrawSession = \(\) => \{[^}]*?clearSession\(\); setAccountToast\(/);
   assert.match(app, /회원 탈퇴가 완료됐어요\./);
   assert.match(app, /onWithdrawn=\{withdrawSession\}/);
   assert.match(app, /<AccountToast key=\{accountToast\.key\}/);
@@ -47,7 +46,7 @@ test('지라 654: 설정 · 알림 설정 · 회원정보 수정의 태블릿 �
   assert.match(notify, /scroll: \{[^}]*paddingHorizontal: 30/);
   assert.match(profile, /column: \{ width: '100%', maxWidth: 1040/);
   // 제목(머리줄)도 같은 칸 안에 있다
-  assert.match(notify, /<View style=\{styles\.list\}>\s*<Header title="알림 설정"/);
+  assert.match(notify, /<View style=\{styles\.list\}>\s*<Header title=\{NOTIFICATION_SETTINGS_TITLE\}/);
 });
 
 test('개인정보 처리방침 등 법률 문서 화면은 상태 표시줄 영역까지 흰색 상단 바', () => {

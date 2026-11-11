@@ -9,8 +9,8 @@ const compile = path => babel.transformSync(readFileSync(new URL(path, import.me
 const calls = [];
 const mod = { exports: {} };
 new Function('require', 'module', 'exports', compile('../src/auth/AuthenticationRecovery.js'))(id => ({
-  'react-native': { Pressable: 'Pressable', Text: 'Text', StyleSheet: { create: value => value } },
-  './loginGate': { useLoginEntry: () => request => calls.push(request) }, '../shared/theme': { colors: {} },
+  '../shared/DioButton': { __esModule: true, default: 'DioButton' },
+  './loginGate': { useLoginEntry: () => request => calls.push(request) },
 }[id] || require(id)), mod, mod.exports);
 const Recovery = mod.exports.default;
 
@@ -18,7 +18,8 @@ test('인증 거절은 재로그인 버튼으로 연결하고 실제 세션 만�
   calls.length = 0;
   for (const sessionExpired of [false, true]) {
     const button = Recovery({ error: { status: 401, sessionExpired } });
-    assert.equal(button.props.accessibilityLabel, '다시 로그인');
+    assert.equal(button.type, 'DioButton');
+    assert.equal(button.props.label, '다시 로그인');
     button.props.onPress();
   }
   assert.deepEqual(calls, [{ sessionExpired: false }, { sessionExpired: true }]);
