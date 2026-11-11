@@ -75,6 +75,13 @@ test('앱에는 글자 윤곽 표가 없다 — 남은 것은 글자 폭 숫자�
   assert.doesNotMatch(widths, /"[MLQCHVZ][\s\d]/, '글자 폭 표에 윤곽(path)이 들어 있다')
 })
 
+test('고를 수 있는 속지 글꼴마다 글자 폭 표가 있다 — 없으면 그 글꼴은 넘쳐도 줄이지 않는다', async () => {
+  // 앱 글꼴 목록에 넣기만 하면 속지에서 고를 수 있지만, 폭 표를 다시 뽑지 않으면 줄이기가 조용히 빠진다
+  const { PAPER_FONTS, DEFAULT_PAPER_FONT } = await import('../src/editor/templates/paperFont.js')
+  const missing = PAPER_FONTS.map(font => font.id).filter(id => id !== DEFAULT_PAPER_FONT && !PAPER_FONT_WIDTHS[id]?.R)
+  assert.deepEqual(missing, [], `글자 폭 표가 없는 속지 글꼴: ${missing.join(', ')}\n${HOWTO}`)
+})
+
 test('글자 폭 표에도 속지 글자가 모두 있다 — 빠지면 넘쳐도 줄이지 않고 지나간다', () => {
   // 폭을 모르는 글자가 하나라도 섞이면 그 묶음은 줄이지 않는다(paperTextFont.js naturalWidth).
   // 넓은 글꼴에서 칸을 넘어도 조용히 지나가므로 여기서 막는다(코드리뷰 2026-11-11).

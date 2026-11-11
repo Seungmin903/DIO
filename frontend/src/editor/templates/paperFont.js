@@ -11,7 +11,8 @@
 // 있어 알 수 없으므로,
 // **속지가 자기 치수를 들고 다닌다** — <g aria-label="…" data-adv="182.991" data-w="B">.
 // 정적 속지에는 scripts/bake-paper-metrics.mjs 가 한 번 구워 넣고, 코드로 그리는 속지는 그릴 때 적는다
-// (plannerDraw.write · dated.js · inkRecordPaper.js). 그래서 앱에는 글꼴 표가 하나도 없다.
+// (plannerDraw.write · dated.js · inkRecordPaper.js). 그래서 앱에는 글자 윤곽 표가 없다
+// (넘칠 때 줄일지 판단하는 글자 폭 표 paperFontWidths.js 만 남는다 — 글꼴 · 글자를 더하면 다시 뽑는다).
 // 치수가 없는 묶음은 손대지 않아 원본 글꼴(MaruBuri)로 남는다.
 import { getTemplate } from './catalog.js'
 import { textFromGroup, paperFontFamily } from './paperTextFont.js'
