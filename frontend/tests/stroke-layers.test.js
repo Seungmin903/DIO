@@ -4,6 +4,7 @@ import { createRequire } from 'node:module'
 import { readFileSync } from 'node:fs'
 import { createStroke } from '../src/editor/utils/strokes.js'
 import { createEraserSession } from '../src/editor/utils/eraser.js'
+import { createExportSnapshot } from '../src/editor/utils/pageExport.js'
 import * as planner from '../src/editor/utils/completedStrokePlan.js'
 import * as geometry from '../src/editor/utils/pageGeometry.js'
 
@@ -201,6 +202,18 @@ test('두 번 그려도 캐시 층에 넘어가는 목록이 **같은 객체들*
   assert.notEqual(a, b, '배열 자체는 새것이다(그래도 괜찮다)')
   assert.equal(a.length, b.length)
   a.forEach((object, i) => assert.equal(b[i], object, `${i} 번째가 같은 객체여야 한다`))
+})
+
+test('내보내기도 숨긴 요소를 빼고 같은 자리에 병 윤곽을 넣는다', () => {
+  // 화면과 내보내기가 다른 규칙을 쓰면 내보낸 그림이 화면과 달라진다(코드리뷰 2026-11-13).
+  const src = readFileSync(new URL('../src/editor/components/PageImageSurface.js', import.meta.url), 'utf8')
+  assert.match(src, /findIndex\(o => !o\.hidden && o\.type !== 'stroke'\)/, '숨긴 요소는 차례를 가르지 않는다')
+  assert.match(src, /ordinary\.slice\(0, inkFrontAt\)/, '윤곽 앞 · 뒤로 나눠 그린다')
+  assert.match(src, /ordinary\.slice\(inkFrontAt\)/)
+  // 내보내기 목록 자체에도 숨긴 요소가 안 들어온다
+  const hidden = { id: 'ghost', type: 'sticker', hidden: true, x: 0, y: 0, w: 10, h: 10, h0: 0 }
+  const snapshot = createExportSnapshot({ objects: [...objects, hidden] }, { scale: 1 })
+  assert.equal(snapshot.objects.some(object => object.id === 'ghost'), false)
 })
 
 test('웹 캐시 층은 type · x · w 가 없는 자리표를 그대로 renderObject 에 넘긴다', () => {

@@ -82,8 +82,11 @@ export default function PageImageSurface({ job }) {
   const packingPage = packing && { ...snapshot.template, objects: snapshot.objects, canvasWidth: snapshot.pageWidth ?? snapshot.width, canvasHeight: snapshot.pageHeight ?? snapshot.height }
   const packed = packing ? snapshot.objects.filter(o => o.packingSlot === 0 || o.packingSlot === 1) : []
   const ordinary = packing ? snapshot.objects.filter(o => !o.packingColorRegion && o.packingSlot !== 0 && o.packingSlot !== 1) : snapshot.objects
-  // 병 윤곽이 들어갈 자리: 처음 만나는 비(非)획 요소 바로 앞(없으면 맨 뒤)
-  const firstNonStroke = ordinary.findIndex(o => o.type !== 'stroke')
+  // 병 윤곽이 들어갈 자리: 처음 만나는 **보이는** 비(非)획 요소 바로 앞(없으면 맨 뒤).
+  // 화면(StaticPage)과 같은 규칙이어야 내보낸 그림이 화면과 같다 — 숨긴 요소는 차례를 가르지
+  // 않는다. createExportSnapshot 이 이미 숨긴 것을 걸러 내지만(pageExport.js), 두 쪽 규칙이
+  // 글로 같아야 나중에 거르는 조건이 달라져도 어긋나지 않는다(코드리뷰 2026-11-13).
+  const firstNonStroke = ordinary.findIndex(o => !o.hidden && o.type !== 'stroke')
   const inkFrontAt = firstNonStroke < 0 ? ordinary.length : firstNonStroke
   const renderObject = (object, pageCoordinates = false) => <View key={object.id} needsOffscreenAlphaCompositing={snapshot.isolateObjectOpacity ? objectDrawOpacity(object) < 1 : undefined} style={{ position: 'absolute', ...(pageCoordinates ? { left: object.x * scale, top: object.y * scale } : exportObjectPosition(object, snapshot, scale)), width: object.w * scale, height: object.h * scale, transform: [{ rotate: `${object.rotation ?? 0}deg` }], opacity: objectDrawOpacity(object) }}>
     <KeepFont>

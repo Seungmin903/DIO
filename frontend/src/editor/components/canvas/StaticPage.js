@@ -89,6 +89,8 @@ const StaticPage = memo(function StaticPage({ qaPageMeasurement = null, page, zo
   // 그때까지 그은 획은 덮어 잉크가 병 안에 든 것처럼 보이고, 뒤에 붙인 것에는 덮인다.
   // 자리표는 **한 번만** 만들어 둔 것을 쓴다 — 렌더마다 새 객체면 획 묶음 캐시가 참조로
   // 견주는 자리에서 괜히 달라 보인다(코드리뷰 2026-11-13).
+  // 속지가 아니면 자리표를 아예 만들지 않는다 — InkRecordFrontLayer 자신도 같은 판정으로
+  // null 을 돌려주지만(그 파일 첫 줄), 자리표가 끼면 그 자리에서 획 묶음이 공연히 끊긴다.
   const pending = inkRecordLayout(page.backgroundAssetId) ? [INK_RECORD_FRONT] : []
   for (const object of renderableObjects) {
     // **숨긴 요소는 차례를 가르지 않는다.** 그리는 쪽은 숨긴 것을 빼고 그리므로, 숨긴 스티커 ·
