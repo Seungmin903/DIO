@@ -278,6 +278,7 @@ export default function DecorDrawer({ tab, onAdd, onTapeInserted, onToast, onClo
     try {
       // 테이프는 한 장씩 골라 테이프 틀에 들어갈 부분을 먼저 정한 뒤 추가한다.
       if (kind === 'tapes') {
+        custom.checkTapeCapacity()
         const [image] = await pickImages({ ...photoLimit, multiple: false, usage: 'tape' })
         if (image) setPendingTape({ image, folderId })
         return
@@ -295,7 +296,7 @@ export default function DecorDrawer({ tab, onAdd, onTapeInserted, onToast, onClo
         catch (error) { await discardGeneratedMedia(images).catch(() => {}); throw error }
       }
     } catch (error) {
-      if (error?.code === 'CUSTOM_STICKER_LIMIT') onToast(error.message)
+      if (['CUSTOM_STICKER_LIMIT', 'STORAGE_LIMIT_REACHED'].includes(error?.code)) onToast(error.message)
       else onToast(mediaFailureMessage(error), () => addCustom(kind, folderId))
     } finally {
       setBusy(false)
@@ -709,7 +710,12 @@ export default function DecorDrawer({ tab, onAdd, onTapeInserted, onToast, onClo
           onCancel={() => { discardGeneratedMedia([pendingTape.image]).catch(() => {}); setPendingTape(null) }}
           onConfirm={({ crop, size, ratio }) => {
             const { src, mediaFileId, poster, name, width, height } = pendingTape.image
-            custom.setTapeCategory(`folder:${custom.addTape(pendingTape.folderId, { src, mediaFileId, poster, name, imageWidth: width, imageHeight: height, crop, size, pieceRatio: ratio })}`)
+            try {
+              custom.setTapeCategory(`folder:${custom.addTape(pendingTape.folderId, { src, mediaFileId, poster, name, imageWidth: width, imageHeight: height, crop, size, pieceRatio: ratio })}`)
+            } catch (error) {
+              discardGeneratedMedia([pendingTape.image]).catch(() => {})
+              onToast(error.message)
+            }
             setPendingTape(null)
           }}
         />

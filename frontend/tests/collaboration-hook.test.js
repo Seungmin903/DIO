@@ -76,6 +76,7 @@ function fixture(failure=null,shared=false,sourceDiaryId=diaryId){
   if(name.endsWith('/authService'))return {authService:{getSessionKey:()=>key,getAccessToken:async()=>'token'},apiBaseUrl:'https://qa.test/api/v1',accessTokenHeader:'Authorization'}
   if(name.endsWith('/memberTransport.js'))return {createAuthenticatedMemberTransport:()=>transport}
   if(name.endsWith('/memberStorage.js'))return memberStorage
+  if(name.endsWith('/freeTierLimits.js'))return require('../src/shared/freeTierLimits.js')
   if(name.endsWith('/serverPages.js'))return pagesModule
   if(name.endsWith('/canvasFetch.js'))return canvasFetchModule
   if(name.endsWith('/pdfSourceRemote.js'))return pdfSourceRemoteModule

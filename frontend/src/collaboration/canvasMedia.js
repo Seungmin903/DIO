@@ -1,4 +1,5 @@
 import {sharedGifMaxBytes} from '../shared/mediaLimits.js'
+import { checkStorageLimit } from '../shared/freeTierLimits.js'
 // Existing /media API adapter. All platform file I/O is injected for testing.
 const uuid=id=>typeof id==='string'&&/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)
 const clone=v=>JSON.parse(JSON.stringify(v))
@@ -19,7 +20,7 @@ export function createCanvasMedia({request,files,storage,key,isActive=()=>true,n
    const saved=await storage.getItem(`${key}:${id}`);active()
    if(saved&&uuid(saved)){remote.add(saved);return saved}
    const input=await files.upload(id,category);active()
-   const body=await request('/media',{method:'POST',body:input,timeoutMs:120000});active()
+   const body=await request('/media',{method:'POST',body:input,timeoutMs:120000,category});active()
    if(!uuid(body?.mediaFileId))throw Error('이미지 업로드 응답을 확인하지 못했어요.')
    await storage.setItem(`${key}:${id}`,body.mediaFileId);active()
    remote.add(body.mediaFileId);return body.mediaFileId
@@ -113,10 +114,10 @@ export function createCanvasMedia({request,files,storage,key,isActive=()=>true,n
 
 export function createMediaRequest({auth,accountId,sessionKey,baseUrl,fetchImpl}){
  const active=()=>{if(auth.getSessionKey()!==sessionKey)throw Error('로그인 상태가 변경됐어요.')}
- return async(path,{method='GET',body,binary=false,maxBytes=sharedGifMaxBytes,timeoutMs=30000}={})=>{
-  // 미디어 업로드 · 원본 · 썸네일과 공유 다이어리 폰트 파일만 받는다.
+ const sendRequest=async(path,{method='GET',body,binary=false,maxBytes=sharedGifMaxBytes,timeoutMs=30000,query}={})=>{
+  // 미디어 업로드 · 파일과 공유 다이어리 폰트 파일(collaboration/diaryFonts.js)만 받는다
   if(!/^\/media(?:\/[0-9a-f-]+\/(?:file|thumbnail))?$/i.test(path)&&!/^\/diaries\/[0-9a-f-]{36}\/fonts\/[0-9a-f-]{36}\/file$/i.test(path))throw Error('미디어 API 경로를 확인해 주세요.')
-  const url=baseUrl.replace(/\/$/,'')+path
+  const url=baseUrl.replace(/\/$/,'')+path+(query ? `?${query}` : '')
   const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),timeoutMs)
   try{
   const send=async(forceRefresh=false)=>{
@@ -138,4 +139,33 @@ export function createMediaRequest({auth,accountId,sessionKey,baseUrl,fetchImpl}
   return bytes
   }finally{clearTimeout(timer)}
  }
+ let photoUploads = Promise.resolve()
+ const checkPhotoCapacity = async (adding = 1) => {
+   const photoIds = new Set(), cursors = new Set()
+   let cursor
+   do {
+    const query = new URLSearchParams({ limit: '100' })
+    if (cursor) query.set('cursor', cursor)
+    const page = await sendRequest('/media', { query })
+    if (!Array.isArray(page?.mediaFiles)) throw Error('사진 보관함을 확인하지 못했어요.')
+    for (const item of page.mediaFiles) {
+     if (item.libraryCategory === 'PHOTO') photoIds.add(item.mediaFileId)
+    }
+    checkStorageLimit('photo', photoIds.size + adding)
+    cursor = page.nextCursor
+    if (cursor && cursors.has(cursor)) throw Error('사진 보관함을 확인하지 못했어요.')
+    cursors.add(cursor)
+   } while (cursor)
+ }
+ const request = (path, options) => {
+  if (path !== '/media' || options?.method !== 'POST' || options.category !== 'PHOTO') return sendRequest(path, options)
+  const upload = photoUploads.then(async () => {
+   await checkPhotoCapacity()
+   return sendRequest(path, options)
+  })
+  photoUploads = upload.catch(() => {})
+  return upload
+ }
+ request.checkPhotoCapacity = checkPhotoCapacity
+ return request
 }

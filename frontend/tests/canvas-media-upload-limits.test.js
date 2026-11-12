@@ -2,6 +2,34 @@ import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import test from 'node:test'
 import assert from 'node:assert/strict'
+import { createMediaRequest } from '../src/collaboration/canvasMedia.js'
+
+test('사진 보관함의 마지막 자리까지만 새 업로드를 허용한다', async () => {
+  let count = 199
+  const request = createMediaRequest({
+    accountId: '1', sessionKey: 'session', baseUrl: 'https://example.test',
+    auth: {
+      getSessionKey: () => 'session',
+      getAccessToken: async () => 'token',
+      getConnectionOptions: () => ({ getAuthHeaders: () => ({}) }),
+    },
+    fetchImpl: async (url, { method }) => {
+      if (method === 'POST') {
+        count++
+        return { ok: true, json: async () => ({}) }
+      }
+      const offset = new URL(url).searchParams.has('cursor') ? 100 : 0
+      const mediaFiles = Array.from({ length: Math.min(count - offset, 100) }, (_, i) => ({
+        mediaFileId: String(offset + i), libraryCategory: 'PHOTO',
+      }))
+      return { ok: true, json: async () => ({ mediaFiles, nextCursor: offset ? null : 'next' }) }
+    },
+  })
+  const options = { method: 'POST', category: 'PHOTO' }
+  await request('/media', options)
+  await assert.rejects(request('/media', options), { code: 'STORAGE_LIMIT_REACHED', message: '사진 저장 한도는 200장이에요.' })
+  assert.equal(count, 200)
+})
 
 const require = createRequire(import.meta.url), expo = createRequire(require.resolve('expo/package.json'))
 const babel = expo('@babel/core')

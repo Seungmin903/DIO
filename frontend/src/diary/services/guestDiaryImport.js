@@ -19,6 +19,7 @@ import { FALLBACK_COVER_COLOR } from '../constants.js'
 import { memberKeys } from './memberStorage.js'
 import { serverPaperAppearance } from './serverPaperFont.js'
 import { createGuestImportJournalStore } from './guestImportJournal.js'
+import { PERSONAL_DIARY_LIMIT } from '../../shared/freeTierLimits.js'
 
 const copy = value => JSON.parse(JSON.stringify(value))
 const uuid = value => typeof value === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)
@@ -287,6 +288,13 @@ export function createGuestDiaryImporter({ accountId, storage, api, transport, c
   }
   const persist = () => journalStore.save(journal)
 
+  async function availableSlots() {
+    assertActive()
+    const { items } = await api.list({ filter: 'personal', limit: PERSONAL_DIARY_LIMIT })
+    assertActive()
+    return Math.max(0, PERSONAL_DIARY_LIMIT - items.length)
+  }
+
   async function prepareRows(media, rows) {
     // 요소마다 따로 올린다: 한 장이 실패해도(너무 큰 GIF · 지운 사진) 나머지는 옮긴다.
     const prepared = [], skipped = []
@@ -341,6 +349,9 @@ export function createGuestDiaryImporter({ accountId, storage, api, transport, c
     if (!entry) {
       const doc = await loadGuestDoc(diary)
       assertActive()
+      if (!await availableSlots()) {
+        throw failure('PERSONAL_DIARY_LIMIT_REACHED', '개인 다이어리 자리를 비운 뒤 다시 옮겨 주세요. 원본은 이 기기에 남아 있어요.')
+      }
       const plan = planGuestDiary(diary, doc, { createId })
       entry = journal.diaries[diary.id] = { requestId: createId(), plan, diaryId: null, pageIds: null, settingsDone: [], batchesDone: [], favoriteDone: false, skipped: [...plan.skipped], startedAt: now(), contentStamp: guestContentStamp(diary, doc) }
     }
@@ -463,6 +474,7 @@ export function createGuestDiaryImporter({ accountId, storage, api, transport, c
   }
 
   return {
+    availableSlots,
     /** 진행 중이던(앱이 꺼져 끝나지 않은) 가져오기가 있는 게스트 다이어리 id */
     async pendingIds() { return journal ? Object.keys(journal.diaries) : journalStore.pendingIds() },
     /**

@@ -53,6 +53,7 @@ import { newDiaryCover } from '../utils/coverDesign';
 import { pickImages } from '../../editor/services/image';
 import { discardGeneratedMedia } from '../../editor/services/mediaStore';
 import { mediaFailureMessage } from '../../editor/utils/mediaRecovery.js';
+import { notify } from '../../shared/dialogs';
 
 const STICKER_REMOVE_MESSAGE = '편집기 스티커 보관함에서도 사라져요. 다이어리에 이미 붙인 내용은 유지돼요.';
 // 테이프 이름 최대 글자 수: 보관함 칸(정사각 64, 이름 12px)에 한글 5자까지 한 줄로 보이고, 자동 이름 '테이프 10' 도 고칠 수 있게 6
@@ -274,9 +275,16 @@ export default function DecorationStudioScreen({ compact = false, registerBackHa
       if (images.length) {
         try {
           await custom.addToFolder(targetId, images.map(image => ({ src: image.src, mediaFileId: image.mediaFileId, poster: image.poster, name: image.name, aspect: image.width / image.height })));
-        } catch (error) { await discardGeneratedMedia(images).catch(() => {}); throw error; }
+        } catch (error) {
+          await discardGeneratedMedia(images).catch(() => {});
+          throw error;
+        }
       }
-    } catch (error) { if (alive.current) setShelfError(error?.code === 'CUSTOM_STICKER_LIMIT' ? { stickerLimit: error.message } : 'sticker'); }
+    } catch (error) {
+      if (!alive.current) return;
+      if (['CUSTOM_STICKER_LIMIT', 'STORAGE_LIMIT_REACHED'].includes(error.code)) notify('스티커 저장 한도', error.message);
+      else setShelfError('sticker');
+    }
   };
 
   const stickerSection = <StudioSection fill={custom.loaded && (folder ? !folder.items.length : !custom.items.folders.length)} title={folder ? folder.name : '스티커'} count={custom.loaded ? (folder ? count(folder.items) : count(custom.items.folders)) : null}
@@ -418,9 +426,10 @@ export default function DecorationStudioScreen({ compact = false, registerBackHa
   const addTapeFromPhoto = async targetId => {
     setShelfError(null);
     try {
+      custom.checkTapeCapacity();
       const [image] = await pickImages({ multiple: false, usage: 'tape' });
       if (image && alive.current) setPendingTape({ image, folderId: targetId });
-    } catch { if (alive.current) setShelfError('tape'); }
+    } catch (error) { if (alive.current) setShelfError(error.code === 'STORAGE_LIMIT_REACHED' ? { kind: 'tape', message: error.message } : 'tape'); }
   };
   const newTapeFolder = () => { const id = custom.addTapeFolder('새 폴더'); setTapeFolderId(id); setTapeRename('새 폴더'); };
   const commitTapeRename = () => {
@@ -448,6 +457,7 @@ export default function DecorationStudioScreen({ compact = false, registerBackHa
     {/* 폴더 안 추가: 스티커 폴더와 같은 자리 · 버튼. 방법이 하나라 말풍선 없이 바로 사진을 고른다 */}
     {tapeFolder && <View style={s.addRow}>{addTool({ kind: 'tapeIn', icon: 'tape', title: '테이프 추가', description: '사진으로 만들기', onPress: () => addTapeFromPhoto(tapeFolder.id) })}</View>}
     {shelfError === 'tape' && <Text accessibilityRole="alert" style={s.error}>사진을 불러오지 못했어요. 다시 시도해 주세요.</Text>}
+    {shelfError?.kind === 'tape' && <Text accessibilityRole="alert" style={s.error}>{shelfError.message}</Text>}
     {tapeFolder && tapeRename != null && <View style={s.renameRow}>
       <TextInput autoFocus selectTextOnFocus maxLength={FOLDER_NAME_LIMIT} value={tapeRename} onChangeText={setTapeRename} onSubmitEditing={commitTapeRename}
         returnKeyType="done" accessibilityLabel="테이프 폴더 이름" style={s.renameInput} />
@@ -590,7 +600,12 @@ export default function DecorationStudioScreen({ compact = false, registerBackHa
     {pendingTape && <TapeCropper image={pendingTape.image} onCancel={() => { discardGeneratedMedia([pendingTape.image]).catch(() => {}); setPendingTape(null); }} onConfirm={({ crop, size, ratio }) => {
       const { src, mediaFileId, poster, name, width, height } = pendingTape.image;
       // 사진으로 만든 테이프는 고른 폴더(없으면 첫 폴더 · '내 테이프')에 담고 그 폴더를 연다
-      setTapeFolderId(custom.addTape(pendingTape.folderId, { src, mediaFileId, poster, name, imageWidth: width, imageHeight: height, crop, size, pieceRatio: ratio }));
+      try {
+        setTapeFolderId(custom.addTape(pendingTape.folderId, { src, mediaFileId, poster, name, imageWidth: width, imageHeight: height, crop, size, pieceRatio: ratio }));
+      } catch (error) {
+        discardGeneratedMedia([pendingTape.image]).catch(() => {});
+        setShelfError({ kind: 'tape', message: error.message });
+      }
       setPendingTape(null);
     }} />}
     <ConfirmDialog open={Boolean(question)} title={asking.title} message={asking.message}

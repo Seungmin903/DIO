@@ -110,14 +110,26 @@ function fakeServer({ serverId = ids() } = {}) {
   return { transport, files, mediaRequest, diaries, pages, ops, media, calls, failNext: fn => { failOnce = fn } }
 }
 
-function importer(server, storage, { createId = ids(), isActive = () => true, removeOriginal } = {}) {
+function importer(server, storage, { createId = ids(), isActive = () => true, removeOriginal, personalCount = 0 } = {}) {
   const api = createMemberDiaryApi(server.transport,{media:createCanvasMedia({request:server.mediaRequest,files:server.files,storage,key:'cover-uploads'})})
   const canvas = createCanvasApi(server.transport)
   const mediaFor = diaryId => createCanvasMedia({ request: server.mediaRequest, files: server.files, storage, key: `dio:member:v1:${accountId}:doc:${diaryId}:media-uploads:v1:test` })
-  return createGuestDiaryImporter({ accountId, storage, api, transport: server.transport, canvas, mediaFor, createId, isActive, removeOriginal,
+  return createGuestDiaryImporter({ accountId, storage, api: { ...api, list: async () => ({ items: Array(personalCount + server.diaries.size).fill(null) }) }, transport: server.transport, canvas, mediaFor, createId, isActive, removeOriginal,
     loadGuestDoc: async diary => JSON.parse(await storage.getItem(`${STORAGE_KEYS.doc}:${diary.id}`) ?? 'null'), now: () => '2026-11-02T01:00:00.000Z' })
 }
 const guestStorage = () => memoryStorage({ [STORAGE_KEYS.diaries]: JSON.stringify([guestDiary, { id: 'diary-2', title: '버린 것', trashedAt: '2026-10-01T00:00:00Z' }]), [`${STORAGE_KEYS.doc}:diary-1`]: JSON.stringify(guestDoc()) })
+
+test('회원 개인 다이어리가 다섯 권이면 옮기지 않고 원본을 보존한다', async () => {
+  const server = fakeServer(), storage = guestStorage()
+  const runner = importer(server, storage, { personalCount: 5 })
+  assert.equal(await runner.availableSlots(), 0)
+  const result = await runner.run([guestDiary])
+  assert.equal(result.imported.length, 0)
+  assert.equal(result.failed[0].error.code, 'PERSONAL_DIARY_LIMIT_REACHED')
+  assert.equal(server.diaries.size, 0)
+  assert.deepEqual(await runner.pendingIds(), [])
+  assert.ok(await storage.getItem(`${STORAGE_KEYS.doc}:${guestDiary.id}`))
+})
 
 test('계획: 속지는 서버 카탈로그로, 날짜 속지는 만년형 행 + 날짜 ID, 글꼴 · 날짜 · 크기 · 이름 · 격자는 만든 뒤 PATCH 로 보낸다', () => {
   const plan = planGuestDiary(guestDiary, guestDoc(), { createId: ids() })

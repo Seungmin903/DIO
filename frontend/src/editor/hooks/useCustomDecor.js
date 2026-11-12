@@ -4,6 +4,7 @@ import { hydrateMedia } from '../services/mediaStore'
 import { mediaId } from '../utils/mediaReferences.js'
 import { CUSTOM_STICKER_LIMIT, ownedStickerKeys, stickerLimitError } from '../utils/customStickerLimit.js'
 import { loadJSON, saveJSON, STORAGE_KEYS } from '../services/storage'
+import { checkStorageLimit } from '../../shared/freeTierLimits.js'
 
 // folders: 사용자가 만든 스티커 폴더 [{ id, name, items: [스티커 정보] }] (보관함 분류 칩 옆에 보인다)
 // tapeFolders: 내 테이프 폴더 [{ id, name, items: [테이프 정보] }]. 꾸미기 공방 '테이프' 탭과 편집기 보관함 테이프 칸(스티커 칸과 같은 칩 · 목록 편집)에서 관리한다.
@@ -170,8 +171,14 @@ export function useCustomDecor() {
   }, [])
 
   const add = useCallback((kind, item) => {
-    setItems((prev) => ({ ...prev, [kind]: [{ ...item, id: createId() }, ...prev[kind]] }))
-  }, [])
+    const entries = Array.isArray(item) ? item : [item]
+    if (!entries.length) return
+    setItems(prev => {
+      const next = { ...prev, [kind]: [...entries.map(entry => ({ ...entry, id: createId() })).reverse(), ...prev[kind]] }
+      if (kind === 'stickers') checkStickerLimit(prev, next)
+      return next
+    })
+  }, [items])
 
   const remove = useCallback((kind, id) => {
     setItems((prev) => ({ ...prev, [kind]: prev[kind].filter((item) => item.id !== id) }))
@@ -265,7 +272,12 @@ export function useCustomDecor() {
   }, [])
   // 새 테이프는 폴더 맨 앞에 담는다. 폴더를 주지 않았거나 없어졌으면 첫 폴더, 폴더가 하나도 없으면 '내 테이프' 폴더를 만든다.
   // 실제로 담은 폴더 id 를 돌려준다.
+  const checkTapeCapacity = useCallback(() => {
+    const current = cached ?? items
+    checkStorageLimit('tape', current.tapes.length + current.tapeFolders.reduce((sum, folder) => sum + folder.items.length, 0) + 1)
+  }, [items])
   const addTape = useCallback((folderId, tape) => {
+    checkTapeCapacity()
     const current = cached ?? items
     const target = current.tapeFolders.find((f) => f.id === folderId) ?? current.tapeFolders[0]
     const id = target?.id ?? createId()
@@ -281,7 +293,7 @@ export function useCustomDecor() {
       }
     })
     return id
-  }, [items])
+  }, [checkTapeCapacity, items])
   const removeTape = useCallback((folderId, tapeId) => {
     setItems((prev) => ({
       ...prev,
@@ -397,6 +409,7 @@ export function useCustomDecor() {
     renameTapeFolder,
     removeTapeFolder,
     addTape,
+    checkTapeCapacity,
     removeTape,
     renameTape,
     markRecentTape,

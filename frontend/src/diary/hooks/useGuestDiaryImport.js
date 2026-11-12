@@ -14,12 +14,29 @@ import { STORAGE_KEYS } from '../../editor/utils/storageContract.js'
 import { createId } from '../../editor/utils/common.js'
 import { notify } from '../../shared/dialogs'
 
+function importSelection(candidates, pendingIds, slots) {
+  const pending = new Set(pendingIds)
+  const newDiaries = candidates.filter(diary => !pending.has(diary.id))
+  return {
+    slots, pending,
+    selected: new Set(candidates.filter(diary => pending.has(diary.id) || newDiaries.length <= slots).map(diary => diary.id)),
+    capacityError: null,
+  }
+}
+
+const capacityFailure = () => ({
+  slots: null, pending: new Set(), selected: new Set(),
+  capacityError: '옮길 수 있는 개수를 확인하지 못했어요. 다시 시도해 주세요.',
+})
+
 /**
  * 로그인 직후 이 기기의 게스트 다이어리를 회원 보관함으로 옮길지 묻고 옮긴다.
  * phase: null(물을 것 없음) · 'ask' · 'running' · 'done'. 실패한 다이어리는 done 에서 다시 시도할 수 있다.
  */
 export function useGuestDiaryImport(accountId, { enabled = true, onImported } = {}) {
   const [state, setState] = useState({ phase: null, candidates: [], waiting: [], progress: null, imported: [], failed: [] })
+  const latestState = useRef(state)
+  latestState.current = state
   const [lookupAttempt, setLookupAttempt] = useState(0)
   const sessionKey = authService.getSessionKey()
   const context = useMemo(() => ({ active: true, checked: false }), [accountId, sessionKey])
@@ -66,7 +83,10 @@ export function useGuestDiaryImport(accountId, { enabled = true, onImported } = 
       // 나중에를 고른 계정에는 다시 묻지 않는다. 끝나지 않은 옮기기만 이어서 묻는다.
       const unfinished = diaries.filter(diary => pending.includes(diary.id))
       if (!unasked.length && !unfinished.length) return
-      setState(current => current.phase ? current : { ...current, phase: 'ask', candidates: unasked.length ? diaries : unfinished })
+      const candidates = unasked.length ? diaries : unfinished
+      const selection = await readCapacity(candidates, pending)
+      if (cancelled || !active()) return
+      setState(current => current.phase ? current : { ...current, phase: 'ask', candidates, ...selection })
     })().catch(error => {
       if (cancelled || !active()) return
       context.checked = true
@@ -76,6 +96,17 @@ export function useGuestDiaryImport(accountId, { enabled = true, onImported } = 
     })
     return () => { cancelled = true }
   }, [accountId, enabled, importer, lookupAttempt])
+
+  async function readCapacity(candidates, pendingIds) {
+    try { return importSelection(candidates, pendingIds, await importer.availableSlots()) }
+    catch { return capacityFailure() }
+  }
+
+  async function refreshCapacity(candidates) {
+    const selection = await importer.pendingIds().then(ids => readCapacity(candidates, ids), capacityFailure)
+    if (!active()) return
+    setState(current => current.phase === 'ask' && current.candidates === candidates ? { ...current, ...selection } : current)
+  }
 
   const run = useCallback(async targets => {
     if (!enabled || running.current || !active() || !targets.length) return
@@ -98,7 +129,22 @@ export function useGuestDiaryImport(accountId, { enabled = true, onImported } = 
   return {
     ...state,
     phase: enabled && active() ? state.phase : null,
-    start: () => run(state.candidates),
+    start: () => {
+      if (state.phase !== 'ask' || state.slots == null) return
+      return run(state.candidates.filter(diary => state.selected.has(diary.id)))
+    },
+    toggle: id => setState(current => {
+      if (current.phase !== 'ask' || current.slots == null || !current.candidates.some(diary => diary.id === id)) return current
+      const selected = new Set(current.selected)
+      if (selected.has(id)) selected.delete(id)
+      else {
+        const newCount = [...selected].filter(value => !current.pending.has(value)).length
+        if (!current.pending.has(id) && newCount >= current.slots) return current
+        selected.add(id)
+      }
+      return { ...current, selected }
+    }),
+    retryCapacity: () => refreshCapacity(state.candidates),
     retry: () => {
       if (state.failed.some(row => row.lookup)) {
         if (!enabled || !active()) return
@@ -110,8 +156,11 @@ export function useGuestDiaryImport(accountId, { enabled = true, onImported } = 
       return run(state.failed.map(row => row.diary).filter(Boolean))
     },
     open: () => {
-      if (!enabled || !active() || running.current) return
-      setState(current => current.phase || !current.waiting.length ? current : { ...current, phase: 'ask', candidates: current.waiting, imported: [], failed: [] })
+      const current = latestState.current
+      if (!enabled || !active() || running.current || current.phase || !current.waiting.length) return
+      const candidates = current.waiting
+      setState(current => ({ ...current, phase: 'ask', candidates, slots: null, capacityError: null, selected: new Set(), imported: [], failed: [] }))
+      return refreshCapacity(candidates)
     },
     later: async () => {
       if (!enabled || !active() || running.current || context.dismissing) return

@@ -16,6 +16,7 @@ function fixture(overrides = {}) {
     async getAccessToken(context) { assert.deepEqual(context, { userId: 10, sessionKey: 'session-1' }); if (!available) throw Object.assign(new Error('로그인 필요'), { status: 401 }); return 'test-token'; },
   };
   const fetchImpl = async (url, init) => {
+    if (url.includes('/member/diaries?filter=shared')) return reply({ items: overrides.sharedDiaries ?? [] });
     calls.push({ url, ...init });
     if (url.includes('/auth/profile-photos/')) assert.equal(init.headers['X-DIO-Access-Token'], undefined);
     else assert.equal(init.headers['X-DIO-Access-Token'], 'test-token');
@@ -33,6 +34,14 @@ function fixture(overrides = {}) {
     ...overrides.runtimeOptions });
   return { runtime, calls, uploaded, logout() { available = false; } };
 }
+
+test('공유 다이어리가 두 개면 세 번째 초대 수락과 링크 생성을 막는다', async () => {
+  const f = fixture({ sharedDiaries: ['one', 'two'].map(diaryId => ({ diary: { diaryId } })) });
+  await assert.rejects(f.runtime.checkSharedDiaryCapacity(diaryId), { code: 'SHARED_DIARY_LIMIT_REACHED' });
+  await assert.rejects(f.runtime.accept('123', '하루'), { code: 'SHARED_DIARY_LIMIT_REACHED' });
+  await assert.rejects(f.runtime.createLink(diaryId), { code: 'SHARED_DIARY_LIMIT_REACHED' });
+  assert.equal(f.calls.some(call => call.method === 'POST'), false);
+});
 
 test('멤버 차단 상태는 내 방향 blockedByMe만 UI로 전달한다', async () => {
   const f = fixture({ fetch: async url => url.endsWith('/members') ? reply({ members: [

@@ -188,6 +188,7 @@ async function decorHarness(storage, failWrite = false) {
         if (failWrite || storage.fail) return false
         storage.value = structuredClone(value); return true
       } }
+    if (id.endsWith('/freeTierLimits.js')) return require('../src/shared/freeTierLimits.js')
     throw new Error(`unexpected import ${id}`)
   }, m, m.exports)
   function mount() {
@@ -205,6 +206,29 @@ async function decorHarness(storage, failWrite = false) {
   await new Promise(resolve => setImmediate(resolve))
   return { api: render(), render, unmount, mount }
 }
+
+test('스티커 초과 묶음을 거절한 뒤 남은 자리 내에서 다시 추가할 수 있다', async () => {
+  const stickers = Array.from({ length: 193 }, (_, index) => ({ src: `saved-${index}` }))
+  const selected = Array.from({ length: 10 }, (_, index) => ({ src: `new-${index}` }))
+  const h = await decorHarness({ value: { folders: [{ id: 'stickers', items: stickers }] } })
+  assert.throws(() => h.api.addToFolder('stickers', selected), { code: 'CUSTOM_STICKER_LIMIT' })
+  assert.equal(h.render().items.folders[0].items.length, 193)
+  h.api.addToFolder('stickers', selected.slice(0, 3))
+  assert.equal(h.render().items.folders[0].items.length, 196)
+  h.unmount()
+})
+
+test('스티커 200개와 테이프 5개까지 저장하고 그 다음 추가는 거부한다', async () => {
+  const stickers = Array.from({ length: 199 }, (_, index) => ({ src: `sticker-${index}` }))
+  const tapes = Array.from({ length: 4 }, (_, index) => ({ id: `tape-${index}` }))
+  const h = await decorHarness({ value: { folders: [{ id: 'stickers', items: stickers }], tapeFolders: [{ id: 'tapes', items: tapes }] } })
+  h.api.addToFolder('stickers', [{ src: 'last' }])
+  assert.throws(() => h.api.addToFolder('stickers', [{ src: 'over' }]), { code: 'CUSTOM_STICKER_LIMIT' })
+  await assert.rejects(h.api.saveGenerated('stickers', '스티커', [{ src: 'generated' }]), { code: 'CUSTOM_STICKER_LIMIT' })
+  h.api.addTape('tapes', { src: 'last-tape' })
+  assert.throws(() => h.api.addTape('tapes', { src: 'over-tape' }), { code: 'STORAGE_LIMIT_REACHED' })
+  h.unmount()
+})
 
 test('보관함 두 인스턴스가 저장된 목록을 공유하고 늦게 끝난 로드가 최신 변경을 덮지 않는다', async () => {
   const pendingReads = []

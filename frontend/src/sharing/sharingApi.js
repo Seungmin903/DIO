@@ -1,5 +1,6 @@
 import { normalizeSharingNickname, sharingNicknameError, normalizeInviteEmail, inviteEmailError, SharingError } from './sharingContracts.js';
 import { AUTHENTICATION_FAILED_MESSAGE } from '../auth/sessionExpiry.js';
+import { SHARED_DIARY_LIMIT } from '../shared/freeTierLimits.js';
 
 export const isSharingDiaryId = id => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id || '');
 const INVITE_COVER_CACHE_TTL_MS = 30_000;
@@ -15,6 +16,13 @@ export function createSharingApi({ user, auth, fetchImpl = globalThis.fetch, bui
   const diaries = new Map(), invitations = new Map(), listeners = new Set(), watchedDiaries = new Map(), memberRefreshes = new Map(), realtimeDiaries = new Set(), photoCache = new Map();
   let active = true, watchingActive = true, generation = 0, snapshot = { diaries: [], joined: [], library: [] };
   const fail = (code, message) => { throw new SharingError(code, message); };
+  async function checkSharedDiaryCapacity(id) {
+    const response = await request(`/member/diaries?filter=shared&limit=${SHARED_DIARY_LIMIT + 1}`);
+    if (!Array.isArray(response?.items)) fail('INVALID_DIARY_LIST', '공유 다이어리 목록을 확인하지 못했어요.');
+    if (!response.items.some(item => item.diary?.diaryId === id) && response.items.length >= SHARED_DIARY_LIMIT) {
+      fail('SHARED_DIARY_LIMIT_REACHED', `공유 다이어리는 최대 ${SHARED_DIARY_LIMIT}개까지 이용할 수 있어요.`);
+    }
+  }
   const publish = () => {
     snapshot = { diaries: [...diaries.values()], joined: [...diaries.values()].filter(d => d.members.some(m => m.id === self.id && m.role === 'EDITOR')), library: [] };
     listeners.forEach(fn => fn());
@@ -408,11 +416,13 @@ export function createSharingApi({ user, auth, fetchImpl = globalThis.fetch, bui
     setAccountProfile(value) { self.nickname = value.nickname; self.photoUri = value.photoUri || null; for (const key of photoCache.keys()) if (key.startsWith('account:')) photoCache.delete(key); },
     registerDiary(source) { ensureServerId(source.sharedDiaryId || source.id); return diaries.get(source.sharedDiaryId || source.id) || { ...source, members: [] }; },
     getSharing, refreshMembers, watchDiary, loadMoreEmailInvites, checkProfileNickname: checkNickname, checkNickname, updateProfile,
+    checkSharedDiaryCapacity,
     hasMembership(id) { return diaries.get(invitations.get(id)?.diary.diaryId)?.members.some(m => m.id === self.id) === true; },
     async sendEmailInvite(id, email) {
       ensureServerId(id);
       const error = inviteEmailError(email);
       if (error) fail('INVALID_EMAIL', error);
+      await checkSharedDiaryCapacity(id);
       await request(`${path(id)}/invites/email`, { method: 'POST', body: { email: normalizeInviteEmail(email) } });
       return refreshChanged(id);
     },
@@ -434,7 +444,12 @@ export function createSharingApi({ user, auth, fetchImpl = globalThis.fetch, bui
       }
       return refreshChanged(id);
     },
-    async createLink(id) { await request(`${path(id)}/invites`, { method: 'POST' }); return getSharing(id); },
+    async createLink(id) {
+      const diaryPath = path(id);
+      await checkSharedDiaryCapacity(id);
+      await request(`${diaryPath}/invites`, { method: 'POST' });
+      return getSharing(id);
+    },
     async resolveLink(value) {
       let url;
       try {
@@ -459,6 +474,8 @@ export function createSharingApi({ user, auth, fetchImpl = globalThis.fetch, bui
     async accept(id, nickname, { photoUri = self.photoUri, acknowledgeBlockedMembers = false } = {}) {
       await checkNickname(id, nickname);
       const row = invitations.get(id) || await invitation(id);
+      const targetId = row.diaryId ?? row.diary?.id;
+      if (targetId && row.status === 'PENDING') await checkSharedDiaryCapacity(targetId);
       const result = await request(`/invites/${encodeURIComponent(row.token)}/accept`, { method: 'POST',
         ...(acknowledgeBlockedMembers === true ? { body: { acknowledgeBlockedMembers: true } } : {}) });
       ensureServerId(result.diaryId);

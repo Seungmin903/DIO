@@ -4,6 +4,7 @@ import { colors } from '../../../shared/theme'
 import { objectTypeLabel } from '../../constants'
 import { stickerSource } from '../../stickerAssets'
 import { useMediaUri } from '../../hooks/useMediaUri'
+import MediaImage from '../canvas/MediaImage'
 import { usePan } from '../../hooks/usePan'
 import { clamp } from '../../utils/common'
 import { isMultiSelectKey } from '../../utils/modifiers'
@@ -590,7 +591,7 @@ const LayerThumb = memo(function LayerThumb({ object }) {
   } else if (object.type === 'photo' && (isStripFrame(object.frame) || !hasPhotoMedia(object))) {
     content = <ObjectContent object={object} zoom={Math.min(30 / object.w, 30 / object.h)} still />
   } else if (object.type === 'photo') {
-    content = <Image source={uri ? { uri } : null} style={styles.thumbPhoto} resizeMode="cover" />
+    content = <MediaImage source={uri ? { uri } : null} style={styles.thumbPhoto} resizeMode="cover" thumbnail />
   } else {
     // 테이프는 기울이지 않고 가로로. 실제 테이프의 가로:세로 비율을 썸네일 폭에 맞춘다.
     const tapeW = 34

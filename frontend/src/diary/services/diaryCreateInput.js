@@ -2,6 +2,7 @@ import { configuredPageIds, normalizeTemplateConfig } from '../../editor/templat
 import { getTemplate, templateCanvasSize, TEMPLATE_VERSION } from '../../editor/templates/catalog.js';
 import { normalizePaperAppearance } from '../../editor/templates/appearance.js';
 import { serverTemplateConfigFor, serverTemplateReference } from '../../editor/templates/serverCatalog.js';
+import { DIARY_PAGE_LIMIT, DIARY_PAGE_LIMIT_MESSAGE } from '../../shared/freeTierLimits.js';
 
 // 실제 생성 UI 값 → 생성 입력. 에셋 ID/버전을 안정적인 서버 코드로 매핑하며 숫자 PK를 추정하지 않는다.
 // 편집 문서·로컬 ID·파일은 만들지 않는다.
@@ -11,6 +12,8 @@ export function diaryCreateInput(form) {
   const templateConfig = normalizeTemplateConfig(form.templateConfig, form.pageSize);
   const paperAppearance = normalizePaperAppearance(form.paperAppearance);
   const ids = configuredPageIds(templateConfig);
+  const importedPages = Array.isArray(form.importedPages) && form.importedPages.length ? form.importedPages : null;
+  if ((importedPages?.length ?? ids.length) > DIARY_PAGE_LIMIT) throw new Error(DIARY_PAGE_LIMIT_MESSAGE);
   const initialPages = ids.map(id => {
     const template = getTemplate(id);
     const dimensions = templateCanvasSize(template.orientation);
@@ -18,7 +21,6 @@ export function diaryCreateInput(form) {
       templateConfig: { ...dimensions, ...serverTemplateConfigFor(template.id), paperAppearance: { ...paperAppearance } } };
   });
   // PDF 쪽은 서버에 쪽마다 빈 페이지를 만든 뒤(쪽 크기는 만든 다음 맞춘다) 그 위에 쪽 그림을 깐다. 서버 속지 목록에는 PDF 가 없다.
-  const importedPages = Array.isArray(form.importedPages) && form.importedPages.length ? form.importedPages : null;
   if (importedPages) {
     const blank = { templateId: null, ...serverTemplateReference(null, TEMPLATE_VERSION, templateConfig.orientation),
       templateConfig: { ...templateCanvasSize(templateConfig.orientation), paperAppearance: { ...paperAppearance, backgroundColor: '#FFFFFF' }, blank: true } };

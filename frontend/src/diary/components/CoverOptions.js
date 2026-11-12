@@ -13,6 +13,7 @@ import { discardGeneratedMedia } from '../../editor/services/mediaStore'
 import { mediaFailureMessage } from '../../editor/utils/mediaRecovery.js'
 import { createId } from '../../editor/utils/common'
 import { colors } from '../../shared/theme'
+import { authService } from '../../auth/authService'
 import useFillGrid from '../../shared/useFillGrid'
 import PhotoCropper from '../../editor/components/panels/PhotoCropper'
 import { COVER_PHOTO_RATIO, coverCropPhoto } from '../utils/coverPhotoCrop'
@@ -112,7 +113,7 @@ function PhotoOptions({ cover, ratio, onChange, onNotice, pickNow, onPickHandled
     if (busy) return
     setBusy(true)
     try {
-      const [item] = await pickImages({ multiple: false, usage: 'photo' })
+      const [item] = await pickImages({ multiple: false, usage: 'photo', guestPhoto: !authService.getSessionKey() })
       if (item) setCropping({ src: item.src, mediaFileId: item.mediaFileId, aspect: item.aspect, width: item.width, height: item.height, fresh: true })
     } catch (error) { onNotice?.(mediaFailureMessage(error)) } finally { setBusy(false) }
   }

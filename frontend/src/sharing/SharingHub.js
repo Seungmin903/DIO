@@ -1115,7 +1115,14 @@ export default function SharingHub({
                           <Button label="상세 초대 삭제" text="삭제" secondary style={[s.cancelParticipation, s.detailDelete]}
                             disabled={busy} onPress={() => setQuestion({ kind: 'decline', inviteId: invite.inviteId, title: invite.diary.title })} />
                           <Button label="참여 프로필 설정" text="수락" style={s.acceptParticipation} disabled={busy}
-                            onPress={() => run(() => runtime.invitationGateway.get(invite.inviteId), value => {
+                            onPress={() => run(async () => {
+                              const value = await runtime.invitationGateway.get(invite.inviteId);
+                              if (value.status === 'PENDING' && !isInviteFull(value)) {
+                                const diaryId = value.diaryId ?? value.diary?.id;
+                                if (diaryId) await runtime.checkSharedDiaryCapacity?.(diaryId);
+                              }
+                              return value;
+                            }, value => {
                               setInvite(value);
                               if (value.status !== 'PENDING' || isInviteFull(value)) return;
                               prepareNickname(value);
