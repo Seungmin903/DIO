@@ -20,6 +20,7 @@ function render(object, { status, uriFor, still = false }) {
     '../../hooks/useMediaUri': {
       useMediaEntry: () => (status ? { status } : undefined),
       useMediaUri: (item, options) => { requests.push(options.still); return uriFor(options.still) },
+      useSvgImageUri: () => null,
     },
     '../../hooks/useTextFont': { __esModule: true, default: () => 'ready', useTextFont: () => 'ready' },
     '../../utils/mediaReferences.js': { mediaId: (item) => item?.mediaFileId ?? null },

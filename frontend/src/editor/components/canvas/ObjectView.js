@@ -16,7 +16,7 @@ import { reportMediaDisplayError } from '../../services/mediaStore'
 import { colors } from '../../../shared/theme'
 import { mediaId } from '../../utils/mediaReferences.js'
 import { isBackdrop } from '../../utils/backdrop.js'
-import { useMediaEntry, useMediaUri } from '../../hooks/useMediaUri'
+import { useMediaEntry, useMediaUri, useSvgImageUri } from '../../hooks/useMediaUri'
 import { coverLayout, hasPhotoMedia, photoInnerBox, tapePieceRatio, tapeUnitH } from '../../utils/objects'
 import { shapePath } from '../../utils/shapes'
 import { useSvgId } from '../../utils/svgId'
@@ -95,6 +95,7 @@ function ObjectContent({ object, zoom, areaPreview = false, still: stillRequeste
             pieceRatio={tapePieceRatio(object)}
             src={object.src}
             mediaFileId={object.mediaFileId}
+            poster={object.poster}
             crop={object.crop}
             imageWidth={object.imageWidth}
             imageHeight={object.imageHeight}
@@ -369,6 +370,9 @@ const emojiText = (height) => ({ fontSize: height * 0.72, lineHeight: height })
 export function PhotoContent({ photo, zoom, still = false, onAssetLoad, onAssetError }) {
   const uri = useMediaUri(photo, { still })
   const animated = !still && isAnimatedMedia(photo)
+  // 하트 · 별 같은 모양 틀은 SVG 이미지로 자른다 — SVG 이미지에는 GIF 를 넘기면 안 된다(useSvgImageUri)
+  const pathShaped = photo.frame === 'shape' && VIEW_CLIP_SHAPES[photo.shape] == null
+  const svgUri = useSvgImageUri(pathShaped ? photo : null)
   const clipInstance = useSvgId('photo-clip')
   const clipId = `${clipInstance}-${photo.shape ?? 'rect'}`
   const inner = photoInnerBox(photo)
@@ -413,7 +417,7 @@ export function PhotoContent({ photo, zoom, still = false, onAssetLoad, onAssetE
         </Defs>
         <SvgImage
           onLoad={onAssetLoad} onError={() => { reportMediaDisplayError(photo); onAssetError?.() }}
-          href={uri ? { uri } : undefined}
+          href={svgUri ? { uri: svgUri } : undefined}
           x={layout.left}
           y={layout.top}
           width={layout.width}

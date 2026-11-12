@@ -26,7 +26,7 @@ function loadPhotoOptions() {
   const objects = load('../src/editor/utils/objects.js', { '../constants': constants, './photoStrip': strip, './common': load('../src/editor/utils/common.js') })
   const frame = load('../src/editor/components/canvas/PhotoFrame.js', { '../../constants': constants })
   const view = load('../src/editor/components/canvas/ObjectView.js', {
-    '../../hooks/useMediaUri': { useMediaUri: () => 'file:///original.jpg' },
+    '../../hooks/useMediaUri': { useMediaUri: () => 'file:///original.jpg', useSvgImageUri: () => 'file:///original.jpg' },
     '../../stickerAssets': { isAnimatedMedia: () => false },
     '../../utils/objects': objects,
     '../../utils/photoStrip': strip,
@@ -43,6 +43,25 @@ function loadPhotoOptions() {
   }).default
   return { constants, strip, objects, view, options }
 }
+
+test('하트 · 별 모양 GIF 사진은 SVG 이미지에 GIF 대신 정지 그림을 넘긴다 (Android 에서 GIF 를 넘기면 앱이 죽는다)', () => {
+  const svgItems = []
+  const constants = load('../src/editor/constants.js', { '../shared/layout': { TABLET_WIDTH: 1280, TABLET_HEIGHT: 800 } })
+  const strip = load('../src/editor/utils/photoStrip.js')
+  const objects = load('../src/editor/utils/objects.js', { '../constants': constants, './photoStrip': strip, './common': load('../src/editor/utils/common.js') })
+  const view = load('../src/editor/components/canvas/ObjectView.js', {
+    '../../hooks/useMediaUri': { useMediaUri: () => 'file:///animated.gif', useSvgImageUri: (item) => { svgItems.push(item); return item ? 'file:///poster.png' : null } },
+    '../../stickerAssets': { isAnimatedMedia: () => true },
+    '../../utils/objects': objects, '../../utils/photoStrip': strip,
+  })
+  const photo = { id: 'p', type: 'photo', frame: 'shape', shape: 'heart', w: 100, h: 100, imageWidth: 100, imageHeight: 100, mediaFileId: 'gif', poster: 'media:poster', crop: { zoom: 1, fx: 0.5, fy: 0.5 } }
+  const image = nodes(view.PhotoContent({ photo, zoom: 1 })).find(n => n.type === 'Image')
+  assert.deepEqual(image.props.href, { uri: 'file:///poster.png' })
+  assert.equal(svgItems.at(-1), photo)
+  // 사각 · 원형처럼 View 로 자르는 모양은 SVG 이미지를 쓰지 않아 정지 그림을 구독하지 않는다(GIF 가 그대로 움직인다)
+  view.PhotoContent({ photo: { ...photo, shape: 'circle' }, zoom: 1 })
+  assert.equal(svgItems.at(-1), null)
+})
 
 test('사진 모양끼리 모든 전환 조합에서 선택 상태·렌더링·원본·중심을 유지한다', () => {
   const { constants, view, options } = loadPhotoOptions()
@@ -258,7 +277,7 @@ test('하트·별 전환은 SVG와 클립 식별자를 함께 교체하고 인�
   let instance = 'photo-main'
   const view = load('../src/editor/components/canvas/ObjectView.js', {
     '../../utils/svgId': { useSvgId: () => instance },
-    '../../hooks/useMediaUri': { useMediaUri: () => 'file:///photo.jpg' },
+    '../../hooks/useMediaUri': { useMediaUri: () => 'file:///photo.jpg', useSvgImageUri: () => 'file:///photo.jpg' },
     '../../stickerAssets': { isAnimatedMedia: () => false },
     '../../utils/objects': { hasPhotoMedia: () => true, photoInnerBox: p => ({ left: 0, top: 0, width: p.w, height: p.h }), coverLayout: (_p,w,h) => ({ left: 0, top: 0, width: w, height: h }) },
   })
@@ -303,7 +322,7 @@ test('안쪽 그림자는 모양 안에 클리핑하고 비활성 상태에서�
 test('사진 렌더러는 하트·별·우표에 그림자 경로를 연결하고 다른 사진은 기존 방식을 유지한다', () => {
   const frame = load('../src/editor/components/canvas/PhotoFrame.js')
   const view = load('../src/editor/components/canvas/ObjectView.js', {
-    '../../hooks/useMediaUri': { useMediaUri: () => 'data:image/png;base64,fixture' },
+    '../../hooks/useMediaUri': { useMediaUri: () => 'data:image/png;base64,fixture', useSvgImageUri: () => 'data:image/png;base64,fixture' },
     '../../stickerAssets': { isAnimatedMedia: () => false },
     '../../utils/objects': { hasPhotoMedia: () => true, photoInnerBox: p => ({ left: 0, top: 0, width: p.w, height: p.h }), coverLayout: (_p,w,h) => ({ left: 0, top: 0, width: w, height: h }) },
     './PhotoFrame': { ...frame, __esModule: true, default: 'FrameBackdrop' },

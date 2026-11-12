@@ -62,7 +62,7 @@ const TAPE_REMOVE_MESSAGE = '편집기 내 테이프에서도 사라져요. 다�
 const sizeRatio = sizeId => { const size = TAPE_SIZES.find(item => item.id === sizeId) ?? TAPE_SIZES[1]; return size.w / size.h; };
 const TapePreview = ({ tape, width, minH, maxH }) => {
   const box = tapePreviewBox(tape, width, minH, maxH, sizeRatio(tape.size));
-  return <TapeView src={tape.src} mediaFileId={tape.mediaFileId} crop={tape.crop} imageWidth={tape.imageWidth} imageHeight={tape.imageHeight}
+  return <TapeView src={tape.src} mediaFileId={tape.mediaFileId} poster={tape.poster} crop={tape.crop} imageWidth={tape.imageWidth} imageHeight={tape.imageHeight}
     edge="straight" width={box.width} height={box.height} segmentShare={box.segmentShare} pieceRatio={box.pieceRatio} crisp />;
 };
 

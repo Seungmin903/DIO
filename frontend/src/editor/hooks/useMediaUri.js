@@ -11,6 +11,18 @@ export function useMediaEntry(id) {
   return useSyncExternalStore(mediaRegistry.subscribe, getSnapshot, getSnapshot)
 }
 
+/**
+ * react-native-svg 의 <Image> 에 넘길 주소. SVG 이미지는 정지 그림만 그리고, Android 에서 움직이는 GIF 를 넘기면
+ * Fresco 가 비트맵 없이 결과를 돌려줘 앱이 죽는다(ImageView.onNewResultImpl 의 Bitmap.getWidth NPE).
+ * 그래서 늘 첫 장면(poster)을 쓰고, poster 가 없는 GIF 는 그리지 않는다. item 이 null 이면 아무것도 구독하지 않는다.
+ */
+export function useSvgImageUri(item) {
+  const uri = useMediaUri(item, { still: true })
+  const original = useMediaEntry(item && !item.poster ? mediaId(item) : null)
+  if (!item || (!item.poster && original?.media?.extension === 'gif')) return null
+  return uri
+}
+
 /** 화면 구독 수로 표시 URL 수명을 관리한다. 원본 파일은 삭제하지 않는다. */
 export function useMediaUri(item, { still = false } = {}) {
   const source = still && item?.poster ? item.poster : item

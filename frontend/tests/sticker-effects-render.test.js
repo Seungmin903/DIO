@@ -19,7 +19,7 @@ function render({ platform = 'ios', still = false, outline = true, shadow = true
     '../../utils/effects': effects,
     '../../stickerAssets': { isAnimatedMedia: () => true, stickerSource: (_object, isStill) => ({ uri: isStill ? 'poster' : 'original.gif' }) },
     '../../builtinStickers': { builtinStickerOf: () => null },
-    '../../hooks/useMediaUri': { useMediaUri: () => undefined },
+    '../../hooks/useMediaUri': { useMediaUri: () => undefined, useSvgImageUri: () => undefined },
     '../../hooks/useStickerPacks': { useStickerPacks: () => 0 },
     '../../../shared/remoteAssets/useRemoteAssetUri': { useRemoteAssetUri: () => null },
     '../../utils/backdrop.js': { isBackdrop: () => false },

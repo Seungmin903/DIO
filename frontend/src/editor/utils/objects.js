@@ -75,6 +75,7 @@ export function createTape(item, center) {
       pieceRatio,
       src: item.src,
       mediaFileId: item.mediaFileId,
+      poster: item.poster,
       name: item.name,
       imageWidth: item.imageWidth,
       imageHeight: item.imageHeight,

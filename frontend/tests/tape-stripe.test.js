@@ -11,7 +11,7 @@ const { code } = expo('@babel/core').transformSync(readFileSync(new URL('../src/
 const svg = { __esModule: true, default: 'Svg' }
 for (const id of ['Circle', 'ClipPath', 'Defs', 'G', 'Image', 'Line', 'Path', 'Pattern', 'Polygon', 'Rect']) svg[id] = id
 const mocks = { react: { cloneElement: (el, props) => ({ ...el, props: { ...el.props, ...props } }) }, 'react-native-svg': svg,
-  '../../hooks/useMediaUri': { useMediaUri: () => null }, '../../utils/objects': { coverLayout: () => null }, '../../constants': constants,
+  '../../hooks/useMediaUri': { useMediaUri: () => null, useSvgImageUri: () => null }, '../../utils/objects': { coverLayout: () => null }, '../../constants': constants,
   '../../utils/svgId': { useSvgId: () => 'tape' }, './laceTapes': { LACE_HEIGHT, LACE_TILES },
   '../../../shared/pixelSnap': { snapScale: v => v, snapToPixel: v => v } }
 const mod = { exports: {} }
