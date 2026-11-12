@@ -134,7 +134,7 @@ function StickerImage({ item }) {
   const remoteUri = useRemoteAssetUri(builtin?.image ?? null)
   const source = builtin?.image ? (remoteUri ? { uri: remoteUri } : null) : stickerSource(item, true, uri)
   if (builtin && !builtin.image) return <BuiltinStickerArt sticker={builtin} canvas width="100%" height="100%" />
-  return source ? <Image source={source} style={styles.stickerImage} resizeMode="contain" /> : null
+  return source ? <Image source={source} style={styles.stickerImage} resizeMode="contain" resizeMethod="scale" /> : null
 }
 
 /**
