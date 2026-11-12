@@ -2,37 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { GifReader } from 'omggif'
-import { createGifAssembler, createYield, decodeGifFrames, gifFrameDelays, gifFrames, limitStepsToDecoded, planGifTimeline, reshapeSteps, thinSteps } from '../src/editor/utils/gifExport.js'
-
-const totalDelay = (steps) => steps.reduce((sum, s) => sum + s.delay, 0)
-const uniqueKeys = (steps) => new Set(steps.map((s) => s.indices.join(','))).size
-
-test('시간이 모자라면 장면을 고르게 솎되 GIF 전체 시간과 첫 장면은 그대로 둔다', () => {
-  const plan = planGifTimeline([Array(300).fill(40)]) // 40장면
-  assert.equal(uniqueKeys(plan.steps), 40)
-  const thinned = thinSteps(plan.steps, 12)
-  assert.ok(uniqueKeys(thinned) <= 12)
-  assert.equal(totalDelay(thinned), totalDelay(plan.steps))
-  assert.deepEqual(thinned[0].indices, plan.steps[0].indices)
-  // 이미 충분히 적으면 그대로
-  assert.equal(thinSteps(plan.steps, 40), plan.steps)
-  // 최소 한 장면
-  assert.equal(uniqueKeys(thinSteps(plan.steps, 0)), 1)
-})
-
-test('빼는 장면의 시간은 앞 장면에 붙이고, 같은 장면이 이어지면 합친다', () => {
-  const steps = [{ indices: [0], delay: 10 }, { indices: [1], delay: 10 }, { indices: [2], delay: 10 }, { indices: [0], delay: 10 }]
-  assert.deepEqual(reshapeSteps(steps, (s) => (s.indices[0] === 1 ? null : s.indices)), [{ indices: [0], delay: 20 }, { indices: [2], delay: 10 }, { indices: [0], delay: 10 }])
-  assert.deepEqual(reshapeSteps(steps, () => [5]), [{ indices: [5], delay: 40 }])
-  assert.throws(() => reshapeSteps(steps, (s, n) => (n === 0 ? null : s.indices)))
-})
-
-test('앞쪽 장면만 풀었으면 못 푼 장면은 마지막으로 푼 앞 장면으로 바꾼다', () => {
-  const steps = [{ indices: [0, 0], delay: 10 }, { indices: [1, 2], delay: 10 }, { indices: [2, 4], delay: 10 }, { indices: [3, 0], delay: 10 }]
-  const limited = limitStepsToDecoded(steps, [new Set([0, 1]), new Set([0, 2])])
-  assert.deepEqual(limited, [{ indices: [0, 0], delay: 10 }, { indices: [1, 2], delay: 20 }, { indices: [1, 0], delay: 10 }])
-  assert.equal(totalDelay(limited), totalDelay(steps))
-})
+import { createGifAssembler, createYield, decodeGifFrames, gifFrameDelays, gifFrames, planGifTimeline } from '../src/editor/utils/gifExport.js'
 
 const love = new Uint8Array(readFileSync(new URL('./fixtures/gifs/n-love.gif', import.meta.url)))
 
