@@ -20,6 +20,7 @@ import com.f106.DIO.media.dto.MediaFileResponse;
 import com.f106.DIO.media.support.MediaRequestException;
 import com.f106.DIO.media.storage.MediaFiles;
 import com.f106.DIO.media.storage.MediaStorageKeys;
+import com.f106.DIO.media.storage.MediaStorageException;
 import com.f106.DIO.sharing.service.DiaryInviteService.AuthorizedCoverImage;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -36,6 +37,9 @@ public class MediaService {
 	private final MediaStorageDeletionQueueService deletionQueue;
 	private final GuardedMediaOperations guarded;
 	private final MediaUploadAdmission admission;
+	private final java.util.concurrent.locks.ReentrantLock[] thumbnailLocks = java.util.stream.IntStream.range(0, 64)
+		.mapToObj(i -> new java.util.concurrent.locks.ReentrantLock()).toArray(java.util.concurrent.locks.ReentrantLock[]::new);
+	private final MediaThumbnailFailures thumbnailFailures = new MediaThumbnailFailures();
 	public MediaService(MediaFiles files, MediaFileTransactionService transactions, MediaStorageDeletionQueueService deletionQueue, GuardedMediaOperations guarded, MediaUploadAdmission admission) {
 		this.files = files; this.transactions = transactions; this.deletionQueue = deletionQueue; this.guarded = guarded; this.admission = admission;
 	}
@@ -84,6 +88,44 @@ public class MediaService {
 	public DownloadedMedia file(UUID mediaFileId, Long userId) {
 		MediaFileTransactionService.StorageReference reference = transactions.storageReference(mediaFileId, userId);
 		return new DownloadedMedia(reference.mimeType(), downloadName(reference), files.read(reference.storageKey()));
+	}
+
+	public DownloadedMedia thumbnail(UUID mediaFileId, Long userId) {
+		// Check current owner/member access even when a persisted derivative already exists.
+		var reference = transactions.storageReference(mediaFileId, userId);
+		if (!reference.mimeType().startsWith("image/")) throw MediaRequestException.thumbnailUnsupported();
+		String key = MediaStorageKeys.thumbnail(reference.storageKey());
+		thumbnailFailures.check(key);
+		try { return new DownloadedMedia("image/png", null, files.read(key)); }
+		catch (MediaStorageException error) {
+			if (!"MEDIA_FILE_CONTENT_NOT_FOUND".equals(error.code())) throw error;
+		}
+		// Existing images are generated lazily, without a DB backfill or schema migration.
+		var lock = thumbnailLocks[Math.floorMod(mediaFileId.hashCode(), thumbnailLocks.length)];
+		try {
+			if (!lock.tryLock(250, java.util.concurrent.TimeUnit.MILLISECONDS)) throw MediaRequestException.uploadBusy();
+		} catch (InterruptedException error) {
+			Thread.currentThread().interrupt(); throw MediaRequestException.uploadBusy();
+		}
+		try {
+			thumbnailFailures.check(key);
+			try { return new DownloadedMedia("image/png", null, files.read(key)); }
+			catch (MediaStorageException error) {
+				if (!"MEDIA_FILE_CONTENT_NOT_FOUND".equals(error.code())) throw error;
+			}
+			try (var permit = admission.acquire(MAX_GIF_SIZE)) {
+				byte[] original = files.read(reference.storageKey());
+				byte[] bytes;
+				try { bytes = MediaThumbnailImages.create(original); }
+				catch (MediaRequestException error) {
+					if ("INVALID_MEDIA_FILE".equals(error.code())) thumbnailFailures.remember(key);
+					throw error;
+			}
+				transactions.storageReference(mediaFileId, userId);
+				guarded.storeThumbnail(mediaFileId, reference.storageKey(), bytes);
+				return new DownloadedMedia("image/png", null, bytes);
+				}
+		} finally { lock.unlock(); }
 	}
 
 	public void delete(UUID mediaFileId, Long userId) {

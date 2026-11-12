@@ -9,9 +9,10 @@ test('목록·상세·파일은 실제 계약 경로와 응답을 사용한다',
  const api=createMediaLibraryApi({transport:async r=>{calls.push(r);return r.path==='/media'?{mediaFiles:[row()],nextCursor:'opaque'}:row()},fileRequest:async(path,options)=>{files.push({path,options});return new Uint8Array([1])}})
  assert.equal((await api.list({cursor:'previous'})).nextCursor,'opaque')
  assert.deepEqual(calls[0].query,{limit:30,cursor:'previous'})
- await api.get(id);await api.file(id)
+ await api.get(id);await api.file(id);await api.thumbnail(id)
  assert.equal(calls[1].path,`/media/${id}`)
  assert.equal(files[0].path,`/media/${id}/file`);assert.equal(files[0].options.binary,true)
+ assert.equal(files[1].path,`/media/${id}/thumbnail`);assert.equal(files[1].options.binary,true);assert.equal(files[1].options.maxBytes,512*1024)
 })
 test('잘못된 목록·중복 ID·반복 커서·다른 상세 ID를 성공으로 표시하지 않는다',async()=>{
  for(const body of [{},{mediaFiles:[row(),row()],nextCursor:null},{mediaFiles:[row()],nextCursor:3},{mediaFiles:[row()],nextCursor:'same'},{mediaFiles:[{...row(),fileSize:-1}],nextCursor:null}]){

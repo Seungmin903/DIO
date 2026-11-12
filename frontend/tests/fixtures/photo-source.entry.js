@@ -10,7 +10,7 @@ import {View,Text} from 'react-native'
 import PhotoSourcePicker from '../../src/editor/components/panels/PhotoSourcePicker'
 import DioButton from '../../src/shared/DioButton'
 const row=n=>({mediaFileId:`10000000-0000-4000-8000-${String(n).padStart(12,'0')}`,mediaType:n===2?'DOCUMENT':'IMAGE',originalFilename:`사진 ${n}`,mimeType:'image/png',fileSize:n===4?6*1024*1024:1024})
-const runtime={list:async({cursor}={})=>({items:cursor?[row(3)]:[row(1),row(2),row(4)],nextCursor:cursor?null:'next'}),previewCached:async()=>false,selectPhoto:async row=>row}
+const runtime={list:async({cursor}={})=>({items:cursor?[row(3)]:[row(1),row(2),row(4)],nextCursor:cursor?null:'next'}),previewThumbnail:async()=> 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/l9sAAAAASUVORK5CYII=',selectPhoto:async row=>row}
 const editorDiary={id:'photo-panel-layout-qa',title:'사진 패널 배치',firstPage:'blank'}
 rememberEditorDoc(editorDocKey(editorDiary),createDefaultDoc(editorDiary))
 function App(){

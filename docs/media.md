@@ -8,7 +8,48 @@
 | 보관함 목록 | `GET /api/v1/media?limit=30&cursor={nextCursor}` | `200 OK` |
 | 메타데이터 | `GET /api/v1/media/{mediaFileId}` | `200 OK` |
 | 원본 파일 | `GET /api/v1/media/{mediaFileId}/file` | `200 OK` |
+| 미디어 썸네일 조회 | `GET /api/v1/media/{mediaFileId}/thumbnail` | `200 OK`, `image/png` |
 | 삭제 | `DELETE /api/v1/media/{mediaFileId}` | `204 No Content` |
+
+## 미디어 썸네일 조회
+
+`GET /api/v1/media/{mediaFileId}/thumbnail`은 원본 파일과 같은 소유자·현재 공유 보관함/캔버스 접근 권한을 확인한다. 인증 없이는 401, 존재하지 않거나 읽을 수 없는 파일은 404, 이미지 외 파일은 `415 MEDIA_THUMBNAIL_UNSUPPORTED`다. 손상되거나 가로·세로 12,000px / 6,400만 화소 제한을 넘는 이미지는 `400 INVALID_MEDIA_FILE`이다.
+
+- JPEG·PNG·WebP·GIF에서 긴 변 최대 320px, 비율·투명도를 유지한 정지 PNG를 반환한다. JPEG EXIF 방향을 반영하고 GIF는 첫 장면만 사용한다. 선택·편집에는 기존 `/file` 원본을 사용한다.
+- 최초 조회 시 생성하고 기존 원본 키 뒤에 `.thumbnail-v1.png`를 붙여 같은 저장소(S3 또는 로컬)에 보관한다. 이후 요청은 저장한 파생 파일을 읽지만 접근 권한은 매번 확인한다. 과거 업로드도 최초 조회 때 생성하므로 DB 뷰·별도 테이블·마이그레이션·일괄 백필은 필요 없다.
+- 원본을 바꾸지 않으며, 썸네일을 `media_files` 목록에 별도 사진으로 추가하지 않는다. 원본 물리 삭제/업로드 복구의 저장소 정리에서 썸네일도 함께 삭제한다. 파생 파일 저장은 원본 행 잠금으로 물리 삭제와 직렬화한다.
+- 서버 생성은 기존 미디어 메모리 예산에서 건당 3 units를 차지한다(기본값 6 units에서 최대 2건). 같은 프로세스의 동일 파일 생성은 잠금 후 저장된 파일을 다시 확인하여 중복 작업을 줄인다.
+- 손상·픽셀 제한 등 디코딩의 `INVALID_MEDIA_FILE` 실패는 원본 저장소 키별로 2분간 기억한다(인스턴스당 최대 1,024건). 반복 요청에서도 권한은 먼저 확인하며 실패 캐시가 유효하면 원본 읽기·디코딩·permit 획득을 생략한다. 만료 또는 항목 밀림 후에는 다시 시도한다. 네트워크·저장소 장애와 admission의 503은 실패 캐시에 넣지 않는다. Redis·DB 스키마·인프라 설정 추가는 없다.
+- 응답은 `Cache-Control: private, no-store`, `X-Content-Type-Options: nosniff`다. 앱의 명시적 캐시는 서버 주소·계정별로 분리해 24시간 보관하며, 네이티브는 계정별 100장, 웹 IndexedDB는 전용 저장소 전체 100장을 기준으로 정리한다. 표시 중인 네이티브 파일은 아래 참조 보호 정책에 따라 일시적으로 상한을 초과할 수 있다. 기기 캐시가 사라지거나 만료되면 API에서 다시 받는다.
+- 화면에 보이는 `PhotoRow`가 참조를 얻고, 화면 밖으로 나가거나 언마운트되면 반환한다. 메모리 LRU는 참조 중인 URI를 해제하지 않으며 네이티브 파일 정리도 같은 파일의 모든 참조가 반환될 때까지 보호한다. 같은 사진을 여러 행/런타임에서 보여도 첫 행의 종료만으로 해제하지 않는다. 표시 중인 항목만으로 100개를 넘으면 잠시 보존하고 참조 반환 시 정리한다. 웹에서는 디스크 Blob 삭제와 표시 URL 수명을 분리한다. 로그아웃·세션 종료의 전체 삭제는 참조 유무와 관계없이 실행한다.
+- 행이 다시 보이면 미리보기를 새로 조회하며, 화면 밖의 행은 이전 URI를 이미지 컴포넌트에 계속 넘기지 않는다. 이미지 표시 오류는 디스크를 유지한 채 한 번 다시 읽는다. 같은 네이티브 URI도 이미지 인스턴스를 새로 만들며 이전 시도의 늦은 오류는 무시한다. 두 번째 표시 오류에만 해당 URI의 디스크 캐시를 삭제한다. 재조회 네트워크 오류로는 삭제하지 않으며, 이전 URI의 오류가 새 URI를 삭제하지 않도록 예상 URI를 비교한다.
+- 로그아웃·명시적 토큰 만료·계정 삭제·비밀번호 변경으로 세션이 종료되면 썸네일 전용 캐시 전체를 삭제한다(웹 IndexedDB의 모든 계정 Blob과 생성한 표시 URL / 네이티브 썸네일 캐시 폴더). 원본 미디어와 서버 S3 파일은 삭제하지 않는다. 진행 중 저장은 세대 검사와 저장소 작업 순서로 차단해 삭제 후 늦은 응답이 다시 저장되지 않게 한다.
+- 디코딩 범위의 `RuntimeException`도 `INVALID_MEDIA_FILE`로 변환해 같은 실패 캐시에 포함한다. JVM `Error`는 변환하지 않는다. 생성 락은 사진 id 해시로 고르는 64개 락이라 서로 다른 사진이 같은 락을 함께 쓸 수 있다(앱은 패널마다 동시 2개만 요청하고, 503이면 0.4·1·2초 뒤 3번 다시 시도한다). 락은 최대 250ms 대기하며 락 안에서 저장된 썸네일·실패 캐시를 재확인한 뒤 실제 생성할 때만 admission permit을 얻는다. 대기자는 이미지 처리 예산을 점유하지 않는다.
+- S3의 기존 제한은 연결·소켓·시도별 5초 / API 호출 전체 20초다. 원본 행 잠금과 썸네일 저장의 직렬화는 유지한다. 저장 실패 시 트랜잭션 롤백·다른 트랜잭션의 행 잠금 획득·커넥션 반환은 별도 H2/저장소 장애 대체 테스트로 검증하며, 실제 S3·PostgreSQL 장애 검증과 구분한다.
+- 썸네일 `put` 동안 DB 커넥션·원본 행 잠금을 유지하되, 같은 프로세스의 생성/저장은 admission 안에서만 실행한다. 64개 stripe는 전역 동시성 상한이 아니다. 기본 6 units에서 썸네일은 최대 2건, 최소 2 units를 쓰는 일반 업로드까지 고려한 미디어 저장 최대 동시성은 3건이며 Hikari 기본 풀은 10개다. `MEDIA_UPLOAD_MAX_IN_FLIGHT_UNITS`(이전 `MEDIA_UPLOAD_MAX_CONCURRENT` 포함)를 높이거나 `spring.datasource.hikari.maximum-pool-size`를 줄일 때에는 `floor(units/2) + 일반 API 여유 <= 풀 크기`를 확인해야 한다. 테스트의 여유 기준은 최소 2개다. 이는 미디어 쓰기 점유에 대한 기준이며 다른 API·정리 작업까지 포함한 운영 부하 보장은 아니다.
+- `MediaThumbnailPoolTests`는 저장을 latch로 지연시킨 채 실제 Hikari 풀의 활성 커넥션 수, 초과 요청의 503, 같은 풀을 쓰는 일반 SELECT의 완료를 검사한다. 기본 6 units/풀 4개에서 썸네일 2건, 변경 설정 12 units/풀 8개에서 4건이 저장 중이어도 SELECT가 완료되어야 한다. `GuardedThumbnailFailureTests`는 실패 시 락·커넥션 반환을 별도로 확인한다. 실제 S3 대신 지연 저장소를 사용하며, 기본 H2와 명시적인 일회용 PostgreSQL에서 같은 풀 계약을 실행한다.
+- 네이티브는 `.saved-at` 파일에 저장 시각을 기록해 `modificationTime` 누락과 무관하게 TTL을 유지한다. 저장 시각이 없는 이전 캐시는 첫 확인 시각부터 TTL을 시작한다. 이미지 정리 시 저장 시각 파일도 함께 지우고, 100장 상한에는 PNG만 센다. 100장을 넘겨 지울 때도 TTL과 같은 기준(`.saved-at` → `modificationTime`)의 저장 시각이 오래된 것부터 지우고, 저장 시각을 알 수 없는 이전 캐시를 먼저 지운다.
+- 웹에서 IndexedDB가 차단되거나 저장 용량이 부족하면 받은 Blob을 메모리 object URL로 표시하고 영속 저장을 건너뛴다. 해당 URL도 종료·로그아웃 때 해제한다. 세션 무효화 오류는 폴백으로 복구하지 않는다.
+
+WebP 디코딩에는 [TwelveMonkeys ImageIO](https://github.com/haraldk/TwelveMonkeys) 3.15.0의 `imageio-webp`를 사용한다. 서버 저장소 재사용과 앱 캐시는 별개이며, 목록 페이지 크기(기본 30)는 변경하지 않는다.
+
+테스트 기본 DB URL은 테스트 전용 `FixedTestDatabaseInitializer`가 컨텍스트 초기화 시 한 번 생성해 고정한다. 이후 Environment 재조회와 데이터소스 바인딩에서 같은 URL을 사용하며, 다른 컨텍스트는 다른 이름을 쓴다. 테스트에서 명시한 H2/PostgreSQL URL은 덮어쓰지 않는다. `${random.uuid}`를 URL에서 직접 평가하지 않으며 운영 설정·배포 JAR에는 이 초기화기가 포함되지 않는다.
+
+```powershell
+# backend/에서 기본 H2 검증
+.\gradlew.bat test --tests 'com.f106.DIO.testinfra.FixedTestDatabaseInitializerTests' --tests 'com.f106.DIO.media.service.MediaThumbnailPoolTests' --tests 'com.f106.DIO.media.service.GuardedThumbnailFailureTests'
+# 공유 DB가 아닌 일회용 loopback PostgreSQL DB dio_thumbnail_pool_qa를 먼저 준비한다.
+$env:DIO_THUMBNAIL_POOL_POSTGRES_QA='true'
+$env:DIO_THUMBNAIL_POOL_POSTGRES_URL='jdbc:postgresql://127.0.0.1:포트/dio_thumbnail_pool_qa'
+$env:DIO_THUMBNAIL_POOL_POSTGRES_PASSWORD='일회용 DB 비밀번호'
+.\gradlew.bat test --tests 'com.f106.DIO.media.service.MediaThumbnailPoolTests'
+```
+
+프론트 회귀는 `frontend/`에서 `node --test tests/media-thumbnail-*.test.js tests/media-library-runtime.test.js tests/photo-source-runtime-lifecycle.test.js`로 실행한다. `media-thumbnail-lifetime.test.js`는 150장 이후 표시 URI 보호, 다중 참조·해제, 180장 조회 후 첫 행 재진입, 늦은 오류와 1회 재시도를 검사한다. 네이티브 정리 테스트는 실제 Expo 파일 API 대체 객체로 보관 파일 보호를 검증한다(실기기 실행과 구분).
+
+`qa/thumbnail-scroll-browser.cjs`는 전용 Expo 서버(`pnpm exec expo start --web --port 18081 --localhost`) 및 설치된 Chrome 경로(`PLAYWRIGHT_EXECUTABLE_PATH`)와 `EXPO_QA_PORT=18081`을 지정해 실행한다. 합성 사진 180개를 실제 `PhotoSourcePicker`·Blob·IndexedDB로 표시해 100개 넘게 스크롤하고 첫 행 복귀·패널 재열기를 검증한다. 원본/사용자 계정/운영 API를 사용하지 않는다.
+
+2026-11-12 URI 수명 검증: 관련 테스트 30건 통과. Chrome 1280×800에서 177장, 390×844에서 173장 조회 후 첫 사진 복귀·패널 재열기 성공, `미리보기 실패`/디스크 무효화 0건. 웹 export 성공. 전체 프론트 회귀는 3,512건 중 3,494건 통과·17건 실패·1건 제외였으며, 동일한 실패 17건을 수정 전 `0f62d241` 사본에서도 재현했다. 실패는 색 창, 선택/도구/읽기 화면의 테스트 대체 객체·소스 기대값, 알림 계약 파일 사전 조건 등이며 이번 썸네일 수명 변경에 섞어 수정하지 않는다. 이후 계정 검사 테스트 1건을 추가해 관련 30건을 다시 실행했다. 네이티브 실기기 QA는 수행하지 않았다.
 
 서버는 파일 시그니처를 직접 검사하여 `mediaType`과 MIME을 저장한다. 지원 형식은 JPEG, PNG, WebP, GIF 및 MP3, M4A/M4B, WAV, OGG, TTF/OTF, PDF다. GIF는 최대 15MiB, 그 밖의 이미지·오디오는 최대 5MiB, 폰트와 PDF 원본은 최대 25MiB다. PDF는 첫 1,024바이트 안의 `%PDF-` 헤더가 있어야 하며 `DOCUMENT`·`application/pdf`로 저장한다. PDF 암호화 여부나 페이지 내용은 서버에서 해석하지 않는다. GIF는 `IMAGE`로 저장되고 `mimeType=image/gif`로 구분한다. ISO BMFF 오디오는 `ftyp` major brand가 `M4A ` 또는 `M4B `인 파일만 받는다. `mp42`·`isom`은 영상과 안전하게 구별할 수 없어 거절한다. WebM도 오디오·비디오를 안전하게 구별하는 EBML 트랙 파서를 추가하기 전까지 업로드하지 않는다.
 

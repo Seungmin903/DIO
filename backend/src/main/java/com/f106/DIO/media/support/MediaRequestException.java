@@ -43,5 +43,8 @@ public class MediaRequestException extends RuntimeException {
 	}
 	public static MediaRequestException canvasReference() { return new MediaRequestException(HttpStatus.CONFLICT,"MEDIA_FILE_IN_CANVAS","캔버스에서 사용 중인 이미지 원본은 삭제할 수 없어요."); }
 	public HttpStatus status() { return status; }
+	public static MediaRequestException thumbnailUnsupported() {
+		return new MediaRequestException(HttpStatus.UNSUPPORTED_MEDIA_TYPE, "MEDIA_THUMBNAIL_UNSUPPORTED", "이미지만 미리보기를 조회할 수 있어요.");
+	}
 	public String code() { return code; }
 }
