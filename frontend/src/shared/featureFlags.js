@@ -7,3 +7,6 @@ export const DEVICE_TOGGLES_ENABLED = false;
 // 알림 설정(회원)의 서비스 알림 구역: 서버 설정에 연결되지 않음
 export const SERVICE_SECTION_ENABLED = false;
 export const NOTIFICATION_SETTINGS_TITLE = SERVICE_SECTION_ENABLED ? '알림 설정' : '마케팅 수신 설정';
+// 잉크펜(유리펜 · 펜 종류 'glass'): v2.0.0 에서는 펜 종류 · 내 프리셋에서 고를 수 없다. 이미 그린 잉크펜 획은 그대로 그린다.
+// 저장된 펜 설정이 잉크펜이면 볼펜으로 되돌린다(penSettings.js sanitizePenSettings).
+export const INK_PEN_ENABLED = false;

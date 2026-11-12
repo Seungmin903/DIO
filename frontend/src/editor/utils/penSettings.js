@@ -3,7 +3,8 @@
 // 기본 프리셋 색(코덱스 2026-10-31): DIO 성격(차분 · 따뜻)에 맞춘 한 세트 — 채도 · 명도를 맞춰 따뜻 · 차가움 · 무채를 고르게, 패널 한 줄에 들어가는 7색. 펜 · 글자는 흰 바탕 4.5:1 이상
 export const EDITOR_COLORS = ['#18224D', '#A33C4B', '#917019', '#397A5B', '#34769F', '#7653A6', '#626878']
 import { DASH_TYPES, dashPattern, isDashedKind } from './dashedStroke.js'
-export const PEN_TYPES = [
+import { INK_PEN_ENABLED } from '../../shared/featureFlags.js'
+const ALL_PEN_TYPES = [
   // 2026-11-02: 만년필 · 펠트펜 · 붓펜이 불투명도 100 단색에서 거의 같아 볼펜(굵기 고정) · 캘리펜(평촉) · 붓펜(테이퍼)으로 바꿨다(코덱스).
   // 예전 식별자(fountain · felt · brush)는 고를 수 없을 뿐 이미 그린 획은 그대로 그린다. 새 붓펜은 식별자가 다르다.
   { id: 'ball', label: '볼펜' }, { id: 'calligraphy', label: '캘리펜' },
@@ -13,6 +14,8 @@ export const PEN_TYPES = [
   // 맨 끝에 둔다(사용자 2026-11-10) — 옵션이 가장 많아 고르면 패널이 길어진다
   { id: 'glass', label: '잉크펜' },
 ]
+// 잉크펜을 끈 빌드(shared/featureFlags.js)에서는 고를 수 없다. 이미 그린 획은 penKind 로 그대로 그린다
+export const PEN_TYPES = INK_PEN_ENABLED ? ALL_PEN_TYPES : ALL_PEN_TYPES.filter(type => type.id !== 'glass')
 export const DEFAULT_PEN_SETTINGS = { kind: 'ball', color: '#18224D', width: 2.5 }
 // 유리펜 잉크: 글리터 · 테를 따로 켜고 끈다. 글리터 색은 색상환이 아니라 **운모 코팅 두께(nm)** 하나로 정한다 —
 // 실제 펄 안료가 그렇다(운모판 + TiO2 코팅의 박막 간섭). 계산한 색 순서가 안료 업계 두께표와 일치한다.
@@ -84,7 +87,8 @@ export function sanitizePenSettings(saved) {
 export function sanitizePenKinds(saved) {
   if (!saved || typeof saved !== 'object') return undefined
   const result = {}
-  for (const type of [...PEN_TYPES, ...DASH_TYPES]) {
+  // 기억은 끈 종류(잉크펜)도 남긴다 — 다시 켜면 그대로 되살아난다
+  for (const type of [...ALL_PEN_TYPES, ...DASH_TYPES]) {
     const item = saved[type.id]
     if (item && typeof item === 'object') result[type.id] = { width: inRange(item.width, 1, penWidthMax(type.id), DEFAULT_PEN_SETTINGS.width), opacity: inRange(item.opacity, 0.1, 1, penDefaultOpacity(type.id)),
       ...(validColor(item.color, null) ? { color: validColor(item.color, null) } : null),

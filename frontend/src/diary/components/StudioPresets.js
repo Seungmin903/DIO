@@ -5,18 +5,21 @@ import { usePalette } from '../../editor/hooks/usePalettes';
 import { colors } from '../../shared/theme';
 import { confirmAction } from '../../shared/dialogs';
 import EditablePalette, { paletteLinkStyles } from '../../editor/components/controls/EditablePalette';
+import { INK_PEN_ENABLED } from '../../shared/featureFlags';
 
 // 내 프리셋: 편집기 도구(펜 · 형광펜 · 마스킹 테이프 · 글자)가 한 줄로 보여 주는 색 목록을 여기서 고친다. 편집기 색 줄이 그대로 따른다.
 // 팔레트 편집 모드에서 색을 누르면 공용 색 창이 뜬다. 바꾼 도구에만 '기본 색으로'가 생긴다.
 // 견본은 모두 원(30, 편집기 · 속지 견본과 같은 크기, 테두리 없음): 테이프는 바탕 원 안에 무늬색 작은 원을 겹친다(편집기 색 고르기와 같은 모양).
 // 바꾸는 중인 견본만 primaryText 2px 고리를 두른다(앱 디자인 점검 원 페이저 10). 흰색에 가까운 색만 옅은 테두리를 남겨 흰 면에 묻히지 않게 한다.
-const GROUPS = [
+const ALL_GROUPS = [
   { scope: 'pen', label: '펜' },
   { scope: 'glass', label: '잉크펜' },
   { scope: 'highlighter', label: '형광펜' },
   { scope: 'tape', label: '마스킹 테이프' },
   { scope: 'text', label: '글자' },
 ];
+// 잉크펜을 끈 빌드에서는 잉크펜 색 줄도 숨긴다
+const GROUPS = INK_PEN_ENABLED ? ALL_GROUPS : ALL_GROUPS.filter(group => group.scope !== 'glass');
 
 // 바탕과 잘 안 갈리는 옅은 색(세 채널 모두 E0 이상: 흰색 · 종이 색 견본)만 옅은 테두리를 둔다(코덱스 2026-11-02)
 const nearWhite = hex => /^#[0-9a-f]{6}$/i.test(hex) && [1, 3, 5].every(i => parseInt(hex.slice(i, i + 2), 16) >= 0xE0);
