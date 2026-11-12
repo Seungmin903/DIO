@@ -62,6 +62,18 @@ export async function createPageGif(snapshot, { renderFrame, onProgress, signal,
       gifs.push({ ...group, bytes, delays: gifFrameDelays(bytes) })
     }
     const plan = planGifTimeline(gifs.map((g) => g.delays))
+    const prepared = await preparePageExport(snapshot)
+    disposers.push(() => prepared.dispose())
+    check()
+    const { pixelWidth: width, pixelHeight: height } = snapshot
+    // 층 합성 계획. 층은 페이지 크기 RGBA 로 들고 있으므로(Skia 는 한 장 더 올린다) 장면을 줄여 둘 메모리 상한에서 먼저 뺀다
+    const gifIndex = new Map()
+    gifs.forEach((gif, g) => gif.ids.forEach((id) => gifIndex.set(id, g)))
+    const segments = !packingLayout(prepared.template?.backgroundAssetId) && !prepared.region
+      && planLayers(prepared.objects, (o) => gifIndex.has(o.id), { hasFrontLayer: Boolean(prepared.template) })
+    const layerBytes = segments ? segments.filter((s) => s.kind === 'layer' && s.capture).length * width * height * 4 * (skia ? 2 : 1) : 0
+    // 층이 상한 대부분을 차지해도 장면이 알아볼 수 없을 만큼 줄지 않게 4분의 1 은 남긴다
+    const frameBudget = Math.max(pixelBudget / 4, pixelBudget - layerBytes)
     // GIF 마다 필요한 장면만, 페이지에 보이는 크기(출력 픽셀 기준, 자르기 확대 포함)로 줄여 둔다.
     // 장면 하나 푸는 일이 JS 스레드를 오래 잡으므로, 쉬어 가며 진행률을 알린다
     // (안 쉬면 큰 GIF 에서 화면이 굳고 진행률이 0% 에 멈춰 보인다). 장면마다가 아니라 일한 지 50ms 가 지났을 때만 쉰다:
@@ -69,7 +81,7 @@ export async function createPageGif(snapshot, { renderFrame, onProgress, signal,
     const pause = createYield()
     const decodeTotal = plan.needed.reduce((sum, set) => sum + set.size, 0)
     let decoded = 0
-    // 줄여 둘 크기: 보이는 크기. 다 합쳐 pixelBudget 바이트를 넘으면(페이지를 덮는 GIF 가 장면이 많을 때 수백 MB) 같은 비율로 더 줄여
+    // 줄여 둘 크기: 보이는 크기. 다 합쳐 frameBudget 바이트를 넘으면(페이지를 덮는 GIF 가 장면이 많을 때 수백 MB) 같은 비율로 더 줄여
     // 메모리 부족으로 앱이 죽지 않게 한다 (GIF 는 256색이라 이때 조금 흐려지는 정도다)
     let kept = 0
     for (const [g, gif] of gifs.entries()) {
@@ -82,8 +94,8 @@ export async function createPageGif(snapshot, { renderFrame, onProgress, signal,
       gif.target = { width: Math.max(1, Math.ceil(width * scale)), height: Math.max(1, Math.ceil(height * scale)) }
       kept += plan.needed[g].size * gif.target.width * gif.target.height * 4
     }
-    if (kept > pixelBudget) {
-      const shrink = Math.sqrt(pixelBudget / kept)
+    if (kept > frameBudget) {
+      const shrink = Math.sqrt(frameBudget / kept)
       for (const gif of gifs) gif.target = { width: Math.max(1, Math.floor(gif.target.width * shrink)), height: Math.max(1, Math.floor(gif.target.height * shrink)) }
     }
     for (const [g, gif] of gifs.entries()) {
@@ -99,14 +111,15 @@ export async function createPageGif(snapshot, { renderFrame, onProgress, signal,
       gif.bytes = null
     }
     const steps = plan.steps
-    const prepared = await preparePageExport(snapshot)
-    disposers.push(() => prepared.dispose())
     // 첫 장면만 페이지 전체를 만들고, 그다음은 움직이는 요소가 있는 사각형만 만든다 (다룰 픽셀이 크게 준다).
     // 움직이는 곳이 페이지 대부분이면 rect 가 없고 장면마다 전체를 만든다.
     const rect = animatedRegion(snapshot.objects.filter((o) => gifs.some((gif) => gif.ids.includes(o.id))), snapshot)
-    const { pixelWidth: width, pixelHeight: height } = snapshot
     const keyOfStep = (step) => step.indices.join(',')
     const keys = steps.map(keyOfStep), unique = [...new Set(keys)]
+    // 'capture' 진행률은 층 찍기와 장면 만들기를 한 줄로 센다: 앞서 찍은 층 수(captured)만큼 밀어서 알려 되돌아가지 않게 한다
+    const sceneSteps = rect ? unique.length + 1 : unique.length
+    let captured = 0
+    const captureProgress = (done, total) => onProgress?.({ phase: 'capture', done: captured + done, total: captured + total })
     const capture = async (frame) => {
       const result = await renderFrame(frame, { signal })
       try { return await captureRgba(result) } finally { result.dispose() }
@@ -120,7 +133,7 @@ export async function createPageGif(snapshot, { renderFrame, onProgress, signal,
     const assemble = async ({ makeRegion, makeFull }) => {
       const assembler = createGifAssembler(width, height)
       if (rect) {
-        onProgress?.({ phase: 'capture', done: 0, total: unique.length + 1 })
+        captureProgress(0, sceneSteps)
         const base = await makeFull(keys[0])
         check()
         const crops = new Map()
@@ -129,7 +142,7 @@ export async function createPageGif(snapshot, { renderFrame, onProgress, signal,
           if (crops.has(key)) continue
           crops.set(key, await makeRegion(key))
           check()
-          onProgress?.({ phase: 'capture', done: crops.size + 1, total: unique.length + 1 })
+          captureProgress(crops.size + 1, sceneSteps)
           await pause()
         }
         onProgress?.({ phase: 'encode', done: 0, total: 1 })
@@ -148,7 +161,7 @@ export async function createPageGif(snapshot, { renderFrame, onProgress, signal,
         const key = unique[n]
         if (made.has(key)) continue
         check()
-        onProgress?.({ phase: 'capture', done: made.size, total: unique.length })
+        captureProgress(made.size, sceneSteps)
         assembler.addColors(await makeFull(key))
         made.add(key)
         await pause()
@@ -164,11 +177,7 @@ export async function createPageGif(snapshot, { renderFrame, onProgress, signal,
       return finish(assembler)
     }
 
-    // 1) 층 합성
-    const gifIndex = new Map()
-    gifs.forEach((gif, g) => gif.ids.forEach((id) => gifIndex.set(id, g)))
-    const segments = !packingLayout(prepared.template?.backgroundAssetId) && !prepared.region
-      && planLayers(prepared.objects, (o) => gifIndex.has(o.id), { hasFrontLayer: Boolean(prepared.template) })
+    // 1) 층 합성 (계획은 장면을 풀기 전에 세웠다)
     if (segments) {
       try {
         const layerSegments = segments.filter((s) => s.kind === 'layer')
@@ -176,8 +185,9 @@ export async function createPageGif(snapshot, { renderFrame, onProgress, signal,
         const layers = []
         for (const layer of layerSegments) {
           if (!layer.capture) { layers.push(null); continue }
-          onProgress?.({ phase: 'capture', done: layers.filter(Boolean).length, total: toCapture + unique.length })
+          onProgress?.({ phase: 'capture', done: captured, total: toCapture + sceneSteps })
           const pixels = await capture({ ...prepared, objects: layer.objects, layer: layer.role })
+          captured++
           check()
           // 사이 · 맨 위 층은 투명 바탕이어야 GIF 가 비친다. 기기가 알파를 버려 통째로 불투명하게 찍히면 GIF 를 덮으므로 예전 방식으로 만든다
           if (layer.role !== 'base' && !hasTransparency(pixels)) throw new Error('GIF layer captured without transparency')

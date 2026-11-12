@@ -109,12 +109,34 @@ test('장면 풀기: 줄여 둔 장면들이 메모리 상한을 넘으면 같�
   const renderFrame = async (frame) => shot(frame)
   await createPageGif(snapshot, { renderFrame })
   const normal = kept.splice(0).reduce((sum, n) => sum + n, 0)
-  const pixelBudget = Math.floor(normal / 4)
-  const output = await createPageGif(snapshot, { renderFrame, pixelBudget })
+  // 층 합성은 바탕 층(100×100 RGBA) 하나를 들고 있으므로 그만큼은 상한에서 먼저 빠진다
+  const layerBytes = 100 * 100 * 4, frameBudget = Math.floor(normal / 4)
+  const output = await createPageGif(snapshot, { renderFrame, pixelBudget: frameBudget + layerBytes })
   const squeezed = kept.reduce((sum, n) => sum + n, 0)
-  assert.ok(squeezed <= pixelBudget, `${squeezed} > ${pixelBudget}`)
-  assert.ok(squeezed > pixelBudget / 2, '필요한 만큼만 줄인다')
+  assert.ok(squeezed <= frameBudget, `${squeezed} > ${frameBudget}`)
+  assert.ok(squeezed > frameBudget / 2, '필요한 만큼만 줄인다')
   assert.equal(output.frames, full.steps.length)
+})
+
+test('진행률: 층 찍기에서 장면 만들기로 넘어가도, 층 합성이 실패해 예전 방식으로 가도 찍기 진행률이 되돌아가지 않는다', async () => {
+  const note = { id: 'note', type: 'text', text: '안녕', x: 10, y: 10, w: 50, h: 20, baseWidth: 50 }
+  const gif = { id: 'gif', type: 'sticker', mediaFileId: 'm1', x: 0, y: 0, w: 100, h: 100 }
+  const monotonic = (events) => {
+    const capture = events.filter((e) => e.phase === 'capture')
+    assert.ok(capture.length > 2)
+    capture.forEach((e, i) => {
+      assert.ok(e.done <= e.total, `${e.done}/${e.total}`)
+      if (i) assert.ok(e.done / e.total >= capture[i - 1].done / capture[i - 1].total, `${capture[i - 1].done}/${capture[i - 1].total} → ${e.done}/${e.total}`)
+    })
+  }
+  for (const topShade of [0, 255]) { // 0: 층 합성으로 끝까지, 255: 맨 위 층이 불투명해 예전 방식으로
+    const { createPageGif, snapshot } = load({ objects: [gif, note] })
+    const events = [], warn = console.warn
+    console.warn = () => {}
+    try { await createPageGif(snapshot, { renderFrame: async (frame) => shot(frame, frame.layer === 'top' ? topShade : 255), onProgress: (e) => events.push(e) }) }
+    finally { console.warn = warn }
+    monotonic(events)
+  }
 })
 
 const skiaRuntime = await loadCanvasKitSkia()
