@@ -139,9 +139,14 @@ function eraserTarget(object) {
 // 열쇠는 **자리(x·y·회전 등)를 뺀 모양 값**이다: 획을 옮기기만 하면 점 배열은 그대로 쓰이므로
 // 옮긴 뒤에도 그대로 쓴다. 자리 바꾸기(project)는 싸서 제스처마다 다시 해도 된다.
 const shapeCache = new WeakMap()
+// 유리펜만 **지금 크기**(w · h)에 걸린다 — 번진 자리를 요소 좌표로 되돌릴 때 크기로 나누기
+// 때문이다(strokePolygons). 열쇠에 없으면 늘린 획이 옛 여유를 그대로 써서, 4배로 늘린 획이
+// 1.5 가 아니라 6 단위 밖에서도 지워진다(코드리뷰 2026-11-13). 다른 펜은 크기와 무관하므로
+// 넣지 않는다 — 넣으면 크기만 바꿔도 모든 펜의 도형을 다시 만든다.
 const shapeKey = (object) => [object.penKind, object.strokeWidth, object.renderVersion, object.lineCap,
   object.eraserCaps, object.sampled, object.taperBaked, object.inkStartDistance,
-  object.baseWidth, object.baseHeight, object.dashLength, object.dashGap].join('|')
+  object.baseWidth, object.baseHeight, object.dashLength, object.dashGap,
+  object.penKind === 'glass' ? `${object.w}|${object.h}` : ''].join('|')
 function shapesOf(object) {
   const key = shapeKey(object)
   let entry = shapeCache.get(object.points)
@@ -181,7 +186,12 @@ function fragmentStroke(source, points, id, caps) {
   const plain = !source.rotation && !source.flipX && !source.flipY && source.w === source.baseWidth && source.h === source.baseHeight
   // 연필 결은 원래 획의 첫 점에 맞춰져 있다(PencilStrokeContent). 조각도 같은 자리에 맞춰 결이 움직이지 않게 한다.
   const grain = source.penKind === 'pencil' ? source.grainOrigin ?? source.points[0] : null
-  if (!plain) return { ...source, ...ink, ...tail, id, points, ...(grain && { grainOrigin: grain }) }
+  // 돌리거나 늘인 획은 상자를 그대로 쓴다. 그래도 **옛 획**은 밀어주기를 적어 줘야 한다 —
+  // 조각은 점 배열이 새것이라 glassOrigin 의 대신 값을 새로 잡고, 원본을 옮긴 뒤였다면
+  // 그 자리가 기준이 되어 무늬가 튄다(코드리뷰 2026-11-13).
+  if (!plain) return { ...source, ...ink, ...tail, id, points,
+    ...(source.penKind === 'glass' && { inkOrigin: glassOrigin(source) }),
+    ...(grain && { grainOrigin: grain }) }
   const stroke = createStroke(points.map((p) => ({ ...p, x: p.x + source.x, y: p.y + source.y })), {
     id, color: source.color, width: source.strokeWidth, kind: source.penKind, lineCap: source.lineCap,
     renderVersion: source.renderVersion, materialSeed: source.materialSeed,

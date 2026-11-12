@@ -137,3 +137,35 @@ test('옛 획(적어 둔 자리 없음)을 잘라도 조각끼리 · 자르기 �
       `조각 ${piece.id}: ${piece.inkOrigin.x - piece.x} vs ${want}`)
   }
 })
+
+test('늘렸다 줄여도 번진 자리 여유가 그때 크기를 따른다 — 도형 곳간이 묵지 않는다', () => {
+  // 도형은 점 배열을 열쇠로 캐시한다. 열쇠에 지금 크기가 없으면 늘린 뒤에도 옛 여유를 써서
+  // 4배로 늘린 획이 1.5 가 아니라 6 단위 밖에서도 지워진다(코드리뷰 2026-11-13).
+  const base = glass()
+  const far = y => createEraserSession([base], 1, 'stroke').move({ x: 200, y })
+  const edgeSmall = 100 + base.strokeWidth / 2
+  assert.deepEqual(far(edgeSmall + GLASS_BLEED - 0.3), ['g'], '먼저 작은 크기로 한 번 재 둔다')
+  // 같은 점 배열 그대로 4배로 늘린다 → 여유도 그때 크기 기준이어야 한다
+  const big = { ...base, w: base.w * 4, h: base.h * 4 }
+  const edgeBig = big.y + big.h / 2 + 4 * (base.strokeWidth / 2)
+  const hit = y => createEraserSession([big], 1, 'stroke').move({ x: big.x + big.w / 2, y })
+  assert.deepEqual(hit(edgeBig + GLASS_BLEED - 0.3), ['g'], '번진 자리 안은 지워진다')
+  assert.deepEqual(hit(edgeBig + GLASS_BLEED * 3), [], '옛 여유가 4배로 남아 있으면 안 된다')
+})
+
+test('돌린 · 늘인 옛 획을 잘라도 무늬가 그대로다', () => {
+  // 돌리거나 늘인 획은 상자를 그대로 쓰는 가지(non-plain)로 간다 — 거기서도 밀어주기를 적어야 한다.
+  const base = glass()
+  const source = { ...base, rotation: 20, x: base.x + 300, y: base.y + 120 }
+  delete source.inkOrigin
+  const want = glassOrigin(source)
+  const session = createEraserSession([source], 8, 'area')
+  session.move({ x: source.x + source.w / 2, y: source.y + source.h / 2 })
+  const action = session.finish()
+  const pieces = action?.replacements?.g ?? []
+  assert.ok(pieces.length >= 1, '조각이 나와야 한다')
+  for (const piece of pieces) {
+    assert.ok(piece.inkOrigin, `조각 ${piece.id} 에 밀어주기를 적어 줘야 한다`)
+    assert.deepEqual(piece.inkOrigin, want, '상자를 그대로 쓰므로 밀어주기도 그대로다')
+  }
+})
