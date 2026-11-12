@@ -227,3 +227,22 @@ test('벡터 획을 자를 자리: 못 구운 칸 + 타일이 덮지 않는 바�
   // 넘겨준 것이 없어도 터지지 않는다
   assert.deepEqual(restClipRects(null, null, W, H), [])
 })
+
+test('벡터로 얹을 획이 있으면 자를 자리도 반드시 있다', () => {
+  // 자를 자리가 비면 클립을 걸지 않는데(CompletedStrokeLayer), 그때 rest 가 남아 있으면 이미 구운
+  // 타일에 같은 획이 또 그려져 반투명 잉크가 두 번 올라간다. 그 짝이 생길 수 없음을 못 박는다
+  // (코드리뷰 2026-11-13).
+  const objects = [
+    { id: 'a', x: 0, y: 0, w: 100, h: 100 },
+    { id: 'b', x: 600, y: 600, w: 100, h: 100 },
+  ]
+  // 못 구운 칸이 없으면 얹을 획도 없다
+  assert.deepEqual(pendingStrokes(objects, []), [])
+  // 못 구운 칸이 있으면 그 칸의 자리(w · h 가 TILE)가 자를 자리로 들어간다
+  const stale = [{ col: 0, row: 0, box: tileBox(0, 0), objects: [objects[0]], had: null }]
+  const rest = pendingStrokes(objects, stale)
+  assert.ok(rest.length > 0, '얹을 획이 있다')
+  const rects = restClipRects(stale.map(entry => entry.box), { x: 0, y: 0, w: 2000, h: 2000 }, 2000, 2000)
+  assert.ok(rects.length > 0, '얹을 획이 있으면 자를 자리도 있다 — 페이지를 다 덮었어도 못 구운 칸이 남는다')
+  assert.deepEqual(rects[0], tileBox(0, 0))
+})

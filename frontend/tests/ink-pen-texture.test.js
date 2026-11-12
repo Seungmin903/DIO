@@ -5,6 +5,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { createStroke, glassOrigin, GLASS_BLEED, penSweeps } from '../src/editor/utils/strokes.js'
 import { createEraserSession } from '../src/editor/utils/eraser.js'
+import { createInitialState, editorReducer, getCurrentPage } from '../src/editor/state/editorReducer.js'
 
 const points = [{ x: 100, y: 100 }, { x: 300, y: 100 }]
 const glass = (over = {}) => createStroke(points, { id: 'g', width: 4, kind: 'glass', ...over })
@@ -197,4 +198,22 @@ test('inkOrigin 은 저장 · 동기화를 타고 그대로 살아남는다', ()
   // 옮긴 뒤 저장해도 **적어 둔 값**이 이긴다 — 무늬가 획을 따라간다
   const moved = JSON.parse(JSON.stringify({ ...one, x: one.x + 300, y: one.y + 200 }))
   assert.deepEqual(glassOrigin(moved), one.inkOrigin)
+})
+
+test('옛 획을 고치면 무늬 기준을 **고치기 전 자리**로 한 번 적어 둔다', () => {
+  // 적어 두지 않으면 기기 · 세션마다 기준이 따로 잡혀 같은 획이 다른 무늬로 보인다(코드리뷰 2026-11-13).
+  const legacy = glass()
+  delete legacy.inkOrigin
+  const before = { x: legacy.x, y: legacy.y }
+  const doc = { id: 'doc', pages: [{ id: 'page', objects: [legacy] }] }
+  let state = createInitialState(doc)
+  assert.equal(getCurrentPage(state).objects[0].inkOrigin, undefined, '불러온 그대로는 아직 없다')
+  // 아무 고침이나 한 번 — 여기서는 다른 획을 하나 더해 목록만 건드린다
+  state = editorReducer(state, { type: 'addObjects', objects: [ball({ id: 'new' })], select: false })
+  const after = getCurrentPage(state).objects.find(one => one.id === 'g')
+  assert.ok(after, '획이 남아 있다')
+  assert.deepEqual(after.inkOrigin, before, '고치기 전 자리로 적힌다')
+  assert.deepEqual(glassOrigin(after), before, '그 값이 무늬 기준이 된다')
+  // 저장 · 동기화를 타도 그대로 — 이제 기기가 달라도 같은 무늬다
+  assert.deepEqual(JSON.parse(JSON.stringify(after)).inkOrigin, before)
 })

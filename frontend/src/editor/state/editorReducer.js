@@ -90,6 +90,26 @@ export function namePhotos(existing, added) {
   return added.map((o) => (o.type === 'photo' && !o.name ? { ...o, name: `사진 ${++last}` } : o))
 }
 
+/**
+ * 옛 유리펜 획에 무늬 기준(inkOrigin)을 **고치기 직전 자리로** 한 번 적어 둔다.
+ *
+ * 적어 둔 값이 없으면 그릴 때 그때 자리를 기준으로 삼는데(utils/strokes.js 의 glassOrigin),
+ * 그 기억은 기기 · 세션마다 따로 잡힌다. 공유 다이어리에서 한 사람이 옛 획을 옮긴 뒤 다른
+ * 기기가 처음 열면 같은 획이 서로 다른 무늬로 보인다(코드리뷰 2026-11-13).
+ * 여기서 적어 두면 그 뒤로는 문서에 실려 다녀 어느 기기에서도 같다.
+ *
+ * **고치기 전**에 적는 것이 핵심이다 — 옮기고 나서 적으면 옮겨진 자리가 기준이 되어 무늬가 튄다.
+ */
+function pinInkOrigin(objects) {
+  let changed = false
+  const next = objects.map(object => {
+    if (object?.type !== 'stroke' || object.penKind !== 'glass' || object.inkOrigin) return object
+    changed = true
+    return { ...object, inkOrigin: { x: object.x ?? 0, y: object.y ?? 0 } }
+  })
+  return changed ? next : objects
+}
+
 function updateObjects(state, updater) {
   const currentPage = getCurrentPage(state)
   const pageId = currentPage.id
@@ -99,7 +119,7 @@ function updateObjects(state, updater) {
       ...state.doc,
       pages: state.doc.pages.map((page) => {
         if (page.id !== pageId) return page
-        const objects = keepBackdropBottom(updater(page.objects))
+        const objects = keepBackdropBottom(updater(pinInkOrigin(page.objects)))
         if (!page.backgroundAssetId?.startsWith('remote-packing-list')) return { ...page, objects }
         return { ...page, objects: objects.map(object => {
           const patch = packingDropPatch(page.backgroundAssetId, object)

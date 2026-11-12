@@ -940,8 +940,15 @@ half4 main(float2 p) {
     float gy = pool.eval(q + e2).g - pool.eval(q - e2).g;
     float gl = length(float2(gx, gy));
     float2 tdir = gl > 1e-6 ? float2(-gy, gx) / gl : float2(1.0, 0.0);
+    // 49b: 결의 방향은 **축**이지 화살표가 아니다. 고임 기울기는 획 중심선을 넘으면 부호가 뒤집혀
+    //   tdir 도 뒤집히는데, 그대로 두면 ① 중심선에서 무늬가 끊겨 이음선이 생기고 ② tdir 이
+    //   (-1,0) 쪽일 때 고정 축과 섞으면 **영벡터**가 되어 normalize 가 NaN 을 낸다
+    //   (align 0.5 부근). 한쪽 반평면으로 몰아 두 문제를 한 번에 없앤다(코드리뷰 2026-11-13).
+    if (tdir.x < 0.0) tdir = -tdir;
     float align = glVeilAlign * smoothstep(0.0, 0.003, gl);
-    float2 ax = normalize(mix(float2(1.0, 0.0), tdir, align));
+    float2 mixed = mix(float2(1.0, 0.0), tdir, align);
+    float ml = length(mixed);
+    float2 ax = ml > 1e-6 ? mixed / ml : float2(1.0, 0.0);
     float2 ay = float2(-ax.y, ax.x);
     float2 pr = float2(dot(p, ax), dot(p, ay));
     float2 q0 = float2(pr.x / (glVeilScl * glVeilLong), pr.y / (glVeilScl * glVeilCross)) + float2(Tb0 * 0.5, Tb0 * 0.35);
