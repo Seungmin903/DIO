@@ -212,7 +212,9 @@ export default function DecorationStudioScreen({ compact = false, registerBackHa
 
   // 폰트 목록은 이 탭이 직접 보여 준다: 만들던 폰트 · 생성 중인 폰트(손글씨 공방의 항목)와 가져온 폰트를 한 줄 목록으로 모으고,
   // '새로 만들기'는 손글씨 공방의 자체 목록을 거치지 않고 바로 새 폰트 입력으로, 항목을 누르면 그 폰트 화면으로 바로 간다.
-  const entries = made.loaded ? made.entries : [];
+  // 폰트 만들기를 끈 빌드에서는 생성 대기 · 중 · 일시 정지 · 실패 항목을 이어 가거나 정리할 화면이 없으니 숨긴다(저장된 항목은 그대로라 다시 켜면 보인다).
+  // 완성된 폰트와 지울 수 있는 작성 중 항목만 남긴다
+  const entries = !made.loaded ? [] : HANDWRITING_FONT_CREATION_ENABLED ? made.entries : made.entries.filter(entry => entry.status === 'ready' || entry.status === 'draft');
   const loose = fonts.filter(font => !entries.some(entry => entry.fontId === font.id));
   const fontTotal = entries.length + loose.length;
   const fontReady = fontState === 'ready' && made.loaded;

@@ -51,7 +51,12 @@ test('폰트 만들기를 끄면 모델 없이 빌드되게 EAS · iOS · Androi
   const eas = JSON.parse(read('eas.json'))
   for (const profile of ['development', 'preview', 'production']) assert.equal(eas.build[profile].env.DIO_REQUIRE_IOS_HANDWRITING, undefined)
   const rootIgnore = readFileSync(new URL('../../.easignore', import.meta.url), 'utf8')
-  for (const ignore of [read('.easignore'), rootIgnore, read('.gitignore')]) assert(!/^!.*.onnx$/m.test(ignore))
+  for (const ignore of [read('.easignore'), rootIgnore, read('.gitignore')]) assert(!/^\s*!.*\.onnx\s*$/m.test(ignore))
+  // iOS: 모델 리소스는 DIO_REQUIRE_IOS_HANDWRITING=1 일 때만 pod 리소스에 들어가고, 그 값을 주는 EAS 프로필이 없다
+  const spec = read('modules/dio-handwriting/DioHandwriting.podspec')
+  assert.match(spec, /model_files = ENV\['DIO_REQUIRE_IOS_HANDWRITING'\] == '1' \? \["#\{models\}\/\*\.onnx"\] : \[\]/)
+  assert.match(spec, /'DioHandwritingModels' => model_files \+/)
+  assert(!/\.onnx/.test(read('modules/dio-handwriting/expo-module.config.json')))
   assert(!/dependsOn verifyDebugHandwritingModels/.test(read('modules/dio-handwriting/android/build.gradle')))
 })
 

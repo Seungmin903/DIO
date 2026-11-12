@@ -2,7 +2,7 @@
 
 관련 태스크: [S15P31F106-396](https://ssafy.atlassian.net/browse/S15P31F106-396)
 
-> **v2.0.0 릴리스: 폰트 만들기 꺼짐.** DM-Font 모델(`encoder/decoder.fp32.onnx`)을 앱에서 뺐다. 공방 폰트 탭에 `폰트 추가`가 없고 목록 항목을 눌러도 폰트 화면을 열지 않는다. 이미 만든 폰트 · 공유받은 폰트는 그대로 쓰고, 작성 중인 폰트는 지울 수 있다. 스위치는 `frontend/src/shared/featureFlags.js`의 `HANDWRITING_FONT_CREATION_ENABLED`이며, 다시 켤 때 되돌릴 빌드 설정도 그 주석에 적었다.
+> **v2.0.0 릴리스: 폰트 만들기 꺼짐.** DM-Font 모델(`encoder/decoder.fp32.onnx`)을 앱에서 뺐다. 공방 폰트 탭에 `폰트 추가`가 없고 목록 항목을 눌러도 폰트 화면을 열지 않는다. 이미 만든 폰트 · 공유받은 폰트는 그대로 쓰고, 작성 중인 폰트는 지울 수 있다. 생성 대기 · 중 · 일시 정지 · 실패 항목은 이어 갈 수 없어 목록에서 숨긴다(저장은 유지). 폰트 화면(HandwritingStudio)도 스위치가 꺼져 있으면 어느 입구에서든 열리지 않고, iOS pod 리소스에도 모델을 넣지 않는다. 스위치는 `frontend/src/shared/featureFlags.js`의 `HANDWRITING_FONT_CREATION_ENABLED`이며, 다시 켤 때 되돌릴 빌드 설정도 그 주석에 적었다.
 
 ## 화면과 입력
 

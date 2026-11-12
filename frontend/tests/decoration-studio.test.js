@@ -219,10 +219,12 @@ test('공방 폰트 목록은 만들던 · 생성 중인 폰트도 보여 주고
   ui.unmount();
 });
 test('폰트 만들기를 끄면 폰트 추가 버튼이 없고 목록 항목을 눌러도 공방을 열지 않는다(만든 폰트 미리보기 · 작성 중 삭제는 유지)', async () => {
-  const entries=[{id:'e1',name:'내 글씨 1',status:'draft'},{id:'e2',name:'내 글씨 2',status:'processing'},{id:'e3',name:'내 글씨 3',status:'ready',fontId:'font'}];
+  const entries=[{id:'e1',name:'내 글씨 1',status:'draft'},{id:'e2',name:'내 글씨 2',status:'processing'},{id:'e3',name:'내 글씨 3',status:'ready',fontId:'font'},{id:'e4',name:'내 글씨 4',status:'failed'}];
   const ui=fixture({fontCreation:false,family:'MyFont',entries}); ui.render(); await tick();
   const tree=ui.render();
   assert.equal(find(tree,'폰트 추가'),undefined);
+  // 이어 가거나 정리할 화면이 없는 생성 중 · 실패 항목은 숨긴다
+  assert.equal(nodes(tree).some(n=>n.props?.children==='내 글씨 2'||n.props?.children==='내 글씨 4'),false);
   const ready=find(tree,'내 글씨 3 생성 완료');
   assert.equal(ready.props.disabled,true);
   assert.notEqual(ready.props.accessibilityRole,'button');

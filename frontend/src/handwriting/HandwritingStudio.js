@@ -23,6 +23,7 @@ import { refreshPersonalFonts } from './library.js'
 import { FONT_SPACING_VERSION } from './fontSpacing.js'
 import { AI_FONT_INPUT_NOTICE, AI_FONT_LABEL, AI_FONT_EXPORT_NOTICE, isAiHandwritingFont } from './aiDisclosure.js'
 import { closeFontStudio, setStudioCloseGuard, studioSnapshot, subscribeStudio } from './studioBus.js'
+import { HANDWRITING_FONT_CREATION_ENABLED } from '../shared/featureFlags.js'
 
 // 제작 화면 문법: 버튼은 DioButton(높이 48). primary 는 채움, 나머지는 토널. chip 은 고르기 칩(높이 36, 고르면 옅은 면 + 체크).
 export function Button({ children, onPress, disabled, primary, label, chip = false, icon = null, variant }) {
@@ -50,8 +51,11 @@ export default function HandwritingStudio() {
   const options = useSyncExternalStore(subscribeStudio, studioSnapshot, studioSnapshot)
   // This host stays mounted even when the studio modal closes.
   useEffect(() => { initializeFontWorkflow() }, [])
-  return <EditorModal visible={Boolean(options)} animationType="none" onRequestClose={closeFontStudio} presentationStyle="fullScreen" supportedOrientations={['portrait', 'landscape']}>
-    {options ? <StudioContent options={options} /> : null}
+  // 폰트 만들기를 끈 빌드(shared/featureFlags.js)에서는 어느 입구에서 열려고 해도 화면을 띄우지 않는다.
+  // 목록 불러오기(initializeFontWorkflow)는 만든 폰트를 보여 주려고 그대로 둔다 — 모델이 없으면 support.available 이 false 라 작업을 이어 돌리지 않는다
+  const open = HANDWRITING_FONT_CREATION_ENABLED && Boolean(options)
+  return <EditorModal visible={open} animationType="none" onRequestClose={closeFontStudio} presentationStyle="fullScreen" supportedOrientations={['portrait', 'landscape']}>
+    {open ? <StudioContent options={options} /> : null}
   </EditorModal>
 }
 

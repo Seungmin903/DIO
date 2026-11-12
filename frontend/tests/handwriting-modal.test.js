@@ -19,6 +19,7 @@ test('폰트 제작기 실제 EditorModal은 전체 화면·슬라이드·방향
     if(id==='react')return {useEffect(){},useSyncExternalStore:(_subscribe,snapshot)=>snapshot()};
     if(id.endsWith('/EditorModal'))return {__esModule:true,default:Modal};
     if(id.endsWith('/studioBus.js'))return bus;
+    if(id.endsWith('/featureFlags.js'))return {HANDWRITING_FONT_CREATION_ENABLED:true};
     if(id.endsWith('/theme'))return {colors:{},radius:{md:12,lg:20}};
     if(id.endsWith('/useFillGrid'))return {__esModule:true,default:({ cell, gap }) => ({ onLayout() {}, columns: 1, cellWidth: cell, spreadGap: gap })};
     return {};
@@ -41,4 +42,24 @@ test('폰트 제작기 실제 EditorModal은 전체 화면·슬라이드·방향
     assert.equal(bus.studioSnapshot(),null);
     assert.equal(Studio().props.visible,false);
   } finally {unregister();await bus.closeFontStudio();}
+});
+
+test('폰트 만들기를 끄면 폰트 화면을 열려고 해도 띄우지 않는다', async () => {
+  const Modal=load('../src/editor/components/controls/EditorModal.js',id=>id==='react-native'?{Modal:'native-modal'}:{});
+  const Studio=load('../src/handwriting/HandwritingStudio.js',id=>{
+    if(id==='react-native')return {StyleSheet:{create:value=>value},Platform:{OS:"android"}};
+    if(id==='react')return {useEffect(){},useSyncExternalStore:(_subscribe,snapshot)=>snapshot()};
+    if(id.endsWith('/EditorModal'))return {__esModule:true,default:Modal};
+    if(id.endsWith('/studioBus.js'))return bus;
+    if(id.endsWith('/featureFlags.js'))return {HANDWRITING_FONT_CREATION_ENABLED:false};
+    if(id.endsWith('/theme'))return {colors:{},radius:{md:12,lg:20}};
+    if(id.endsWith('/useFillGrid'))return {__esModule:true,default:({ cell, gap }) => ({ onLayout() {}, columns: 1, cellWidth: cell, spreadGap: gap })};
+    return {};
+  });
+  bus.openFontStudio({ create: true });
+  try {
+    const rendered=Studio();
+    assert.equal(rendered.props.visible,false);
+    assert.equal(rendered.props.children,null);
+  } finally { await bus.closeFontStudio(); }
 });

@@ -27,8 +27,11 @@ Pod::Spec.new do |s|
   s.dependency 'ExpoModulesCore'
   s.dependency 'onnxruntime-objc', '1.23.0'
   s.source_files = 'ios/*.swift'
+  # 모델(*.onnx)은 DIO_REQUIRE_IOS_HANDWRITING=1 로 검증한 빌드에서만 넣는다. 폰트 만들기를 끈 빌드(frontend/src/shared/featureFlags.js)는
+  # 모델 없이 고지 · manifest 만 담고, Swift(HandwritingModel.assets == nil)가 capabilities.available=false 를 돌려준다.
+  model_files = ENV['DIO_REQUIRE_IOS_HANDWRITING'] == '1' ? ["#{models}/*.onnx"] : []
   s.resource_bundles = {
-    'DioHandwritingModels' => ["#{models}/*.onnx", "#{models}/manifest.json", "#{models}/LICENSE",
-                               "#{models}/NOTICE", 'ios/ONNXRuntime-LICENSE.txt']
+    'DioHandwritingModels' => model_files + ["#{models}/manifest.json", "#{models}/LICENSE",
+                                             "#{models}/NOTICE", 'ios/ONNXRuntime-LICENSE.txt']
   }
 end
