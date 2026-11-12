@@ -30,7 +30,8 @@ const stills = createStillCache({
  * 보이는 모습은 같다.
  * item: uri 를 얻은 항목(useMediaUri 에 넘긴 것과 같은 것: still 이면 poster), uri: useMediaUri 결과,
  * enabled: 실제로 SVG 이미지로 그릴 때만 true (아니면 변환하지 않는다)
- * 반환 { uri, failed }: failed 면 첫 장면을 만들지 못했다(호출한 쪽이 오류를 알린다)
+ * 반환 { uri, failed }: 첫 장면을 만들지 못했으면 failed 는 그 항목의 키(문자열), 아니면 false.
+ * 호출한 쪽은 failed 가 바뀔 때마다 오류를 알린다(실패한 A 에서 실패한 B 로 바뀌어도 B 를 따로 알릴 수 있게 키를 준다)
  */
 export function useSvgImageUri(item, uri, { enabled = true } = {}) {
   const id = mediaId(item)
@@ -39,5 +40,5 @@ export function useSvgImageUri(item, uri, { enabled = true } = {}) {
   useEffect(() => (key ? stills.retain(key, { id, uri }) : undefined), [key]) // eslint-disable-line react-hooks/exhaustive-deps
   const snapshot = useSyncExternalStore(stills.subscribe, () => (key ? stills.get(key) : undefined), () => undefined)
   if (!key) return { uri, failed: false }
-  return { uri: snapshot?.status === 'ready' ? snapshot.uri : null, failed: snapshot?.status === 'failed' }
+  return { uri: snapshot?.status === 'ready' ? snapshot.uri : null, failed: snapshot?.status === 'failed' ? key : false }
 }

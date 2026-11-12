@@ -531,7 +531,8 @@ export default function TapeView({ pattern, palette, segmentShare, pieceRatio, s
   // 사진 테이프는 SVG 이미지로 그린다. 기기에서 GIF 를 넘기면 앱이 죽어 첫 장면 PNG 로 바꿔 넘긴다
   const image = useSvgImageUri({ src, mediaFileId }, useMediaUri({ src, mediaFileId }), { enabled: hasImage })
   const uri = image.uri
-  // 첫 장면을 만들지 못하면 그릴 이미지가 없어 onAssetLoad 가 오지 않는다. 대신 오류를 알린다
+  // 첫 장면을 만들지 못하면 그릴 이미지가 없어 onAssetLoad 가 오지 않는다. 대신 오류를 알린다.
+  // failed 는 실패한 항목의 키라, 실패한 다른 GIF 로 바뀌어도 다시 알린다
   useEffect(() => {
     if (!image.failed) return
     reportMediaDisplayError({ src, mediaFileId })

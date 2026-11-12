@@ -375,7 +375,8 @@ export function PhotoContent({ photo, zoom, still = false, onAssetLoad, onAssetE
   const svgPhoto = photo.frame === 'shape' && VIEW_CLIP_SHAPES[photo.shape] == null
   const svgImage = useSvgImageUri(still && photo.poster ? photo.poster : photo, uri, { enabled: svgPhoto })
   const svgUri = svgImage.uri
-  // 첫 장면을 만들지 못하면 SvgImage 에 주소가 없어 onLoad·onError 가 오지 않는다. 대신 오류를 알린다
+  // 첫 장면을 만들지 못하면 SvgImage 에 주소가 없어 onLoad·onError 가 오지 않는다. 대신 오류를 알린다.
+  // failed 는 실패한 항목의 키라, 실패한 다른 GIF 로 바뀌어도 다시 알린다
   useEffect(() => {
     if (!svgImage.failed) return
     reportMediaDisplayError(photo)

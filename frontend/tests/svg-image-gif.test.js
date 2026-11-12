@@ -153,9 +153,23 @@ test('훅: 웹이나 GIF 가 아니면 주소를 그대로, 기기의 GIF 는 �
   assert.deepEqual(native.useSvgImageUri({ mediaFileId: 'hook1' }, 'file:///hook1.gif', { enabled: false }), { uri: 'file:///hook1.gif', failed: false })
 })
 
-test('훅: 첫 장면을 만들지 못하면 failed 를 알린다', async () => {
+test('훅: 첫 장면을 만들지 못하면 failed 로 그 항목의 키를 알린다(항목마다 다른 값)', async () => {
   const native = loadHook({ platform: 'android', make: async () => { throw new Error('broken') } })
   native.useSvgImageUri({ mediaFileId: 'hook-bad' }, 'file:///bad.gif')
+  native.useSvgImageUri({ mediaFileId: 'hook-bad2' }, 'file:///bad2.gif')
   await flush()
-  assert.deepEqual(native.useSvgImageUri({ mediaFileId: 'hook-bad' }, 'file:///bad.gif'), { uri: null, failed: true })
+  const first = native.useSvgImageUri({ mediaFileId: 'hook-bad' }, 'file:///bad.gif')
+  const second = native.useSvgImageUri({ mediaFileId: 'hook-bad2' }, 'file:///bad2.gif')
+  assert.equal(first.uri, null)
+  assert.equal(typeof first.failed, 'string')
+  assert.equal(typeof second.failed, 'string')
+  // 실패한 A 에서 실패한 B 로 바뀌면 failed 값이 달라져, 알림 effect 가 B 도 다시 알린다
+  assert.notEqual(first.failed, second.failed)
+})
+
+test('실패 알림 effect 는 실패한 항목의 키(failed)에 반응한다', () => {
+  for (const [file, name] of [['TapeView.js', 'image'], ['ObjectView.js', 'svgImage']]) {
+    const source = readFileSync(new URL(`../src/editor/components/canvas/${file}`, import.meta.url), 'utf8')
+    assert.match(source, new RegExp(`\\}, \\[${name}\\.failed\\]\\)`), file)
+  }
 })
