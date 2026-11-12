@@ -1,6 +1,26 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { createText, textPatch, textLayoutKey, fitTextHeightPatch } from '../src/editor/utils/text.js'
+import { createText, textPatch, textLayoutKey, fitTextHeightPatch, textInputHeight, textLinesHeight } from '../src/editor/utils/text.js'
+
+test('S15P31F106-482: 줄 배치(onTextLayout)에서 글 전체 높이를 잰다 — 마지막 줄 아래, 줄이 없으면 null', () => {
+  assert.equal(textLinesHeight([{ y: 0, height: 27 }, { y: 27, height: 27 }, { y: 54, height: 27 }]), 81)
+  assert.equal(textLinesHeight([{ y: 0, height: 27 }]), 27)
+  assert.equal(textLinesHeight([]), null); assert.equal(textLinesHeight(undefined), null)
+  // 입력창 높이는 잰 값으로 늘고 글자 한 줄 아래로는 줄지 않는다
+  const fresh = { w: 240, h: 180, fontSize: 18, lineSpacing: 1.5 }
+  assert.equal(textInputHeight(fresh, 1, textLinesHeight([{ y: 0, height: 27 }, { y: 27, height: 27 }])), 54)
+  assert.equal(textInputHeight(fresh, 1, textLinesHeight([])), 27)
+})
+
+test('새 입력창은 고정 40px 대신 글꼴·배율을 따르고 기존 수동 높이는 보존한다', () => {
+  const fresh = { w: 240, h: 180, fontSize: 18, lineSpacing: 1.5 }
+  assert.equal(textInputHeight(fresh, 1), 27)
+  assert.equal(textInputHeight(fresh, 0.5), 13.5)
+  assert.equal(textInputHeight(fresh, 2), 54)
+  assert.equal(textInputHeight(fresh, 1, 81), 81)
+  assert.equal(textInputHeight({ ...fresh, existing: true }, 0.5, 13.5), 90)
+  assert.equal(textInputHeight({ ...fresh, baseWidth: 120, styleRanges: [{ fontSize: 30 }] }, 1), 90)
+})
 import { createExportSnapshot } from '../src/editor/utils/pageExport.js'
 
 test('실측 높이 보정은 사용자 여백을 보존하고 내용 부족만 보완한다', () => {

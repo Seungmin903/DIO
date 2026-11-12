@@ -1,0 +1,4899 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DIO 앱 감성 리뉴얼 — 조사와 제안</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+<style>
+:root { --ink:#0B1766; --text:#1D1D1F; --muted:#6B7280; --line:#E1E6F0; --bg:#FFFFFF; --soft:#F3F5FA; --accent:#606BB2; --accent-soft:#EEF0FA; --cream:#FEF0BF; --lilac:#DBDCF9; --danger:#E5484D; --danger-soft:#FDECEC; --ok:#1E9E6A; --ok-soft:#E7F6EF; --warn-soft:#FFF6DB; }
+* { box-sizing:border-box; }
+html { scroll-behavior:smooth; }
+body { margin:0; background:var(--bg); color:var(--text); font:15px/1.65 "Pretendard","Nanum Gothic","Malgun Gothic","Noto Sans KR",sans-serif; word-break:keep-all; }
+a { color:var(--accent); text-decoration:none; } a:hover { text-decoration:underline; }
+.wrap { display:grid; grid-template-columns:240px minmax(0,1fr); min-height:100vh; }
+nav { position:sticky; top:0; height:100vh; overflow:auto; padding:24px 16px; border-right:1px solid var(--line); background:var(--soft); }
+nav .brand { font-weight:800; font-size:13px; letter-spacing:.06em; color:var(--muted); margin-bottom:12px; }
+nav ol { list-style:none; margin:0; padding:0; } nav li { margin:0 0 4px; }
+nav a { display:block; padding:7px 10px; border-radius:8px; color:var(--text); font-size:13.5px; line-height:1.35; }
+nav a:hover, nav a.on { background:var(--accent-soft); color:var(--accent); text-decoration:none; }
+nav .hint { margin-top:20px; font-size:12px; color:var(--muted); line-height:1.5; }
+main { padding:32px 48px 96px; max-width:1280px; }
+.doc { padding-bottom:40px; margin-bottom:40px; border-bottom:2px solid var(--line); } .doc:last-child { border-bottom:0; }
+h1 { font-size:27px; margin:8px 0 16px; line-height:1.3; color:var(--ink); } h2 { font-size:20px; margin:40px 0 12px; padding-top:8px; border-top:1px solid var(--line); color:var(--ink); } h3 { font-size:16px; margin:28px 0 8px; color:var(--ink); } h4 { font-size:14px; margin:18px 0 6px; }
+blockquote { margin:0 0 20px; padding:12px 16px; background:var(--accent-soft); border-left:4px solid var(--accent); border-radius:0 8px 8px 0; font-size:13.5px; color:#374151; } blockquote p { margin:0; }
+table { border-collapse:collapse; width:100%; margin:12px 0 20px; font-size:13px; line-height:1.5; display:block; overflow-x:auto; }
+thead th { background:var(--soft); text-align:left; font-weight:700; }
+th, td { border:1px solid var(--line); padding:7px 9px; vertical-align:top; }
+tbody tr:nth-child(even) td { background:#FAFBFD; }
+td:first-child, th:first-child { white-space:nowrap; }
+table.wrapcol td:first-child, table.wrapcol th:first-child { white-space:normal; }
+img { max-width:100%; height:auto; border:1px solid var(--line); border-radius:6px; box-shadow:0 1px 4px rgba(0,0,0,.06); }
+code { font:12.5px/1.4 ui-monospace,Consolas,monospace; background:var(--soft); padding:1px 5px; border-radius:4px; }
+pre { background:var(--soft); padding:10px 14px; border-radius:8px; overflow:auto; font-size:12px; } pre code { background:none; padding:0; }
+li { margin:3px 0; } hr { border:0; border-top:1px solid var(--line); margin:28px 0; } strong { font-weight:800; }
+figure { margin:0; } figcaption { margin-top:6px; font-size:12.5px; line-height:1.45; color:#374151; }
+/* 스크린샷 · 이미지 묶음 */
+.shots { display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:18px 20px; margin:14px 0 18px; }
+.shots img { width:100%; display:block; max-height:520px; object-fit:cover; object-position:top; }
+.shots.three { grid-template-columns:repeat(3, minmax(0,1fr)); } .shots.three img { max-height:400px; }
+.shots.profile img { max-height:none; object-fit:contain; }
+.shots.four { grid-template-columns:repeat(4, minmax(0,1fr)); } .shots.four img { max-height:none; object-fit:contain; }
+.wide img { width:100%; display:block; }
+.grid { display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:18px 20px; margin:14px 0 18px; }
+.grid.two { grid-template-columns:repeat(2, minmax(0,1fr)); } .grid.four { grid-template-columns:repeat(4, minmax(0,1fr)); } .grid.five { grid-template-columns:repeat(5, minmax(0,1fr)); }
+.grid img { width:100%; display:block; background:#fff; }
+.grid figcaption { font-size:12.5px; }
+.note { font-size:12.5px; color:var(--muted); }
+.xtl { display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:14px; margin:14px 0 18px; }
+.xp { border:1px solid var(--line); border-radius:14px; padding:12px 14px; background:#fff; break-inside:avoid; font-size:13.5px; line-height:1.5; }
+.xh { display:flex; gap:8px; align-items:center; } .xh .av { width:34px; height:34px; border-radius:50%; object-fit:cover; flex:none; } .xh b { font-size:13.5px; } .xh span { color:var(--muted); font-size:11.5px; display:block; } .xh i { margin-left:auto; font-style:normal; font-size:11px; background:var(--accent-soft); color:var(--ink); border-radius:8px; padding:1px 7px; white-space:nowrap; }
+.xp p { margin:8px 0; } .xi { width:100%; border-radius:10px; border:1px solid var(--line); display:block; max-height:300px; object-fit:contain; background:var(--soft); }
+.xr { margin-top:6px; padding:5px 9px; border-radius:8px; font-size:12px; background:var(--soft); } .xr.a { background:var(--accent-soft); margin-left:14px; }
+.xn { margin-top:8px; font-size:11.5px; color:var(--muted); border-top:1px dashed var(--line); padding-top:6px; }
+.kpi { display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:12px; margin:12px 0 20px; }
+.kpi div { border:1px solid var(--line); border-radius:10px; padding:12px 14px; background:var(--soft); }
+.kpi b { display:block; font-size:22px; line-height:1.2; margin-bottom:4px; color:var(--ink); } .kpi span { font-size:12px; color:var(--muted); line-height:1.4; display:block; }
+/* 강조 상자 */
+.warn, .ok, .info, .stop { border-radius:10px; padding:12px 16px; margin:14px 0 18px; font-size:13.5px; line-height:1.6; }
+.warn { background:var(--warn-soft); border:1px solid #F0D98A; } .ok { background:var(--ok-soft); border:1px solid #B9E3D0; } .info { background:var(--accent-soft); border:1px solid #CBD9F0; } .stop { background:var(--danger-soft); border:1px solid #F5C2C4; }
+.warn p, .ok p, .info p, .stop p { margin:4px 0; } .warn ul, .ok ul, .info ul, .stop ul { margin:4px 0; padding-left:20px; }
+.tag { display:inline-block; padding:0 7px; border-radius:999px; font-size:11.5px; font-weight:800; line-height:1.6; white-space:nowrap; }
+.tag.hi { background:#FDECEC; color:#B3262B; } .tag.mid { background:#FFF1C9; color:#8A5A00; } .tag.lo { background:#E7F6EF; color:#157A52; } .tag.ref { background:#EAF0FA; color:#2F4E8E; }
+@media (max-width:900px) { .wrap { grid-template-columns:1fr; } nav { position:static; height:auto; border-right:0; border-bottom:1px solid var(--line); } main { padding:20px 16px 60px; } .grid, .shots, .shots.three, .kpi { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+@media print {
+  @page { size:A4 landscape; margin:11mm 12mm 13mm; }
+  body { font-size:11px; } .wrap { display:block; } nav { display:none; } main { padding:0; max-width:none; }
+  .doc { break-before:page; border:0; margin:0; padding:0; } .doc:first-child { break-before:auto; }
+  h1 { font-size:22px; } h2 { font-size:16px; break-after:avoid; margin-top:6mm; } h3 { font-size:13px; break-after:avoid; }
+  table { display:table; font-size:9.3px; } tr { break-inside:avoid; } thead { display:table-header-group; }
+  img { box-shadow:none; }
+  .sec2, .sec3 { break-inside:auto; } h2 + p, h3 + p { break-after:avoid; }
+  .grid { grid-template-columns:repeat(3, minmax(0,1fr)) !important; gap:4mm 5mm; margin:3mm 0 4mm; } .grid.two { grid-template-columns:repeat(2, minmax(0,1fr)) !important; } .grid.four { grid-template-columns:repeat(4, minmax(0,1fr)) !important; } .grid.five { grid-template-columns:repeat(5, minmax(0,1fr)) !important; }
+  .grid figure { break-inside:avoid; } .grid figcaption { font-size:9px; margin-top:1.5mm; }
+  .shots { grid-template-columns:repeat(2, minmax(0,1fr)) !important; gap:4mm 5mm; margin:3mm 0 4mm; } .shots.three { grid-template-columns:repeat(3, minmax(0,1fr)) !important; } .shots.four { grid-template-columns:repeat(4, minmax(0,1fr)) !important; }
+  .shots img { max-height:118mm; } .shots.three img { max-height:92mm; } .shots.profile img, .shots.four img { max-height:none; } .shots figcaption { font-size:9px; } .shots figure { break-inside:avoid; }
+  .wide { break-inside:avoid; } .wide img { width:auto; max-width:100%; max-height:104mm; margin:0 auto; display:block; } .wide figcaption { font-size:9px; text-align:center; }
+  .kpi { grid-template-columns:repeat(4, minmax(0,1fr)) !important; gap:3mm; } .kpi b { font-size:16px; } .kpi span { font-size:9px; }
+  .warn, .ok, .info, .stop { font-size:10px; break-inside:avoid; padding:2.5mm 4mm; }
+  a { color:var(--text); }
+  blockquote, thead th, tbody tr:nth-child(even) td, .kpi div, .warn, .ok, .info, .stop, .tag { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+<nav>
+<div class="brand">DIO · 앱 감성 리뉴얼</div>
+<ol>
+<li><a href="#doc-idx">DIO 앱 감성 리뉴얼 — 조사와 제안 (1020 여성 · 로그인 · 홈 · 꾸미기 공방 · 내 공간 · 휴지통)</a></li>
+<li><a href="#doc-00">00 조사 계획 — 무엇을 조사해서 어떻게 제안안까지 가는가</a></li>
+<li><a href="#doc-01">01 현재 화면 진단 — 어디가, 왜 감성적으로 느껴지지 않는가</a></li>
+<li><a href="#doc-02">02 타깃 조사 — 10~20대 여성에게 &#x27;감성&#x27;은 무엇을 뜻하나</a></li>
+<li><a href="#doc-03">03 레퍼런스 앱 — 감성 앱은 5개 화면을 어떻게 만드나</a></li>
+<li><a href="#doc-04">04 원리와 트렌드 — 감성은 무엇으로 만들고, 우리 제약 안에서 무엇이 되나</a></li>
+<li><a href="#doc-05">05 마케팅과 포지셔닝 — 감성은 어떻게 말하고 보여 주나</a></li>
+<li><a href="#doc-06">06 감성 방향 3안 — 색 규칙을 먼저 정하고, 그 안에서 방향 (개정 2판)</a></li>
+<li><a href="#doc-07">07 로그인 · 회원가입 — 폼은 그대로 두고 카드의 온도만</a></li>
+<li><a href="#doc-08">08 다이어리 홈 — 표지가 주인공, 도구는 가장자리로</a></li>
+<li><a href="#doc-09">09 꾸미기 공방 — 기능 카드 대신 결과물 한 장이 먼저</a></li>
+<li><a href="#doc-10">10 내 공간 — 로그인 유도 배너 대신 &#x27;나의 기록&#x27;이 보이게</a></li>
+<li><a href="#doc-11">11 휴지통 — 되살릴 수 있다는 신호는 물성으로, 영구 삭제는 분명하게</a></li>
+<li><a href="#doc-12">12 공통 시스템과 가이드 변경 — 색 체계 · 값 · 모션 · 접근성 · 바꿔야 할 가이드 항목</a></li>
+<li><a href="#doc-13">13 마케팅 정합 제안 — UI가 약속한 감성을 문구와 스토어에서도 같은 말로</a></li>
+<li><a href="#doc-14">14 로드맵과 결정 — 무엇부터 하고, 무엇을 팀이 정해야 하나</a></li>
+</ol>
+<div class="hint">원본은 같은 폴더의 md 파일. 이 html · pdf는 빌드.py로 다시 만든다. 시안은 스크립트/렌더.py(목업/화면.html).</div>
+</nav>
+<main>
+<section class="doc" id="doc-idx" data-title="DIO 앱 감성 리뉴얼 — 조사와 제안 (1020 여성 · 로그인 · 홈 · 꾸미기 공방 · 내 공간 · 휴지통)">
+<h1 id="dio-앱-감성-리뉴얼-조사와-제안-1020-여성-로그인-홈-꾸미기-공방-내-공간-휴지통">DIO 앱 감성 리뉴얼 — 조사와 제안 (1020 여성 · 로그인 · 홈 · 꾸미기 공방 · 내 공간 · 휴지통)</h1>
+<blockquote>
+<p>작성일: 2026-10-31 · 담당: 황민희 · 기준: <a href="../디자인%20가이드.md">디자인 가이드</a>, <code>feature/fe/layer-2</code><br>
+요청: "포지셔닝이나 마케팅이나 다 감성 쪽으로 하고 싶은데 앱 UI가 감성적이지는 않은 것 같아서 전반적으로 손보고 싶다. 코덱스랑 협업해서 다이어리 · 꾸미기 공방 · 내 공간 · 휴지통 · 로그인 및 회원가입 화면을 지금의 BI · CI를 해치지 않으면서 1020 여성들에게 감성적으로 어필하게. 조사 철저하게, 어떤 영역을 조사해야 하는지부터 계획부터 설계해서 제안안을."<br>
+<strong>PDF 한 파일</strong>: <a href="앱%20감성%20리뉴얼.pdf">앱 감성 리뉴얼.pdf</a> (A4 가로) · md가 원본이며 <code>python "docs/앱 감성 리뉴얼/빌드.py"</code>로 다시 만든다.<br>
+보는 법: 모든 시안은 <strong>태블릿 1280 × 800 · 폰 390 × 844</strong> 화면 그대로이고, 비교 그림은 왼쪽 위부터 <strong>지금 · A · B · C</strong>(또는 지금 · 혼합안)다. 색 · 모양 · 그림자 · 불투명도 <strong>수치는 코덱스</strong>, 조사 취합 · 시안 구현 · 검증은 클로드가 했다. 웹에서 그린 시안이라 실제 구현과 조금 다를 수 있다.<br>
+상태: <strong>검토안(2판)</strong> — 디자인 가이드와 코드는 바꾸지 않았다. 결정은 <a href="#doc-14">14</a>의 결정 칸.<br>
+<strong>2판 개정(2026-10-31)</strong>: 팀이 <strong>"색은 다이어리 캐릭터의 노랑과 우리 UI의 색상 계열(HUE)을 벗어나지 않고, 메인은 무조건 UI 색"</strong> 이라는 조건을 걸었다. 1판의 핑크 · 민트 · 웜 오프화이트 보조색과 적색 임박 표시는 폐기하고, 색 체계 · 시안 · 06~14 문서를 새로 만들었다. 색 규칙은 <a href="#doc-06">06 §1.1</a>, 현황은 <a href="#doc-01">01</a>의 색 현황, 조합 근거는 <a href="#doc-04">04 §3.1</a>.</p>
+</blockquote>
+<div class="sec2"><h2 id="한-줄-결론">한 줄 결론</h2>
+<p><strong>(2판) 색은 UI 색상 계열이 메인, 캐릭터 노랑이 작은 포인트다.</strong> 지금 UI는 이미 UI 색상 계열이 99% 이상이고 캐릭터 노랑은 UI에 0%였다 — 새 제안은 메인 색을 흔들지 않고 노랑으로 캐릭터와 UI를 잇는다. 권장은 B 포토부스 콜라주를 주안으로 한 혼합안이다.</p>
+<p><strong>지금 UI는 '정돈된 생산성 앱'으로는 성공했고, 감성은 홈과 표지에만 있다.</strong> 조사 결과 1020 여성에게 '감성'은 연출이 아니라 <em>내 손으로 만든 흔적 · 가까운 사람과 꾸밈없이 나누는 일 · 소장 감각</em>이고, 감성 앱은 모든 화면을 일러스트로 채우지 않고 <strong>네 곳(홈의 장면 · 꾸미기 보관함 · 첫 장면과 빈 순간 · 프로필 모아 보기)에 몰고 나머지를 절제한다.</strong> 그래서 추천은 <strong>혼합안</strong>(A 햇살 드로어리를 기본으로, 공방은 B의 결과 보드, 내 공간은 A + B) — <strong>BI · CI를 하나도 바꾸지 않고</strong>, 필수 가이드 변경 없이 값만 바꿔 시작할 수 있다. 마케팅은 같은 한 문장("한 장의 사진 위에, 친구와 함께 붙여 가요")으로 가되 앱이 지금 지키는 약속만 말한다.</p>
+<div class="wide"><figure><img src="이미지/비교/폰 5화면 혼합.jpg"><figcaption>폰 5화면 — 위 지금, 아래 추천 혼합안</figcaption></figure></div>
+
+</div><div class="sec2"><h2 id="문서">문서</h2>
+<table>
+<thead>
+<tr>
+<th>문서</th>
+<th>내용</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="#doc-00">00 조사 계획</a></td>
+<td><strong>먼저 읽기</strong> — 풀 문제 · 조사 영역 A~K(코덱스가 H~K를 더함) · 근거 규칙 · 협업 분담 · 진행 단계 · 가드레일 초안 · <strong>계획 대비 결과</strong></td>
+</tr>
+<tr>
+<td><a href="#doc-01">01 현재 화면 진단</a></td>
+<td>화면 14장(+밤 홈) · 화면별 관찰 + 코덱스 진단 · 감성 수단별 현황 · 우리 자산(모아 · 디오는 앱에 없음)</td>
+</tr>
+<tr>
+<td><a href="#doc-02">02 타깃 조사</a></td>
+<td>10~20대 여성의 '감성' 5흐름 · 10대 vs 20대 · 거부감과 피하는 법 · <strong>찾지 못한 것</strong></td>
+</tr>
+<tr>
+<td><a href="#doc-03">03 레퍼런스 앱</a></td>
+<td>앱 20개 · 스크린샷 156장 → 패턴 10개 · 화면별 18장</td>
+</tr>
+<tr>
+<td><a href="#doc-04">04 원리와 트렌드</a></td>
+<td>3겹 모델 · peak-end · 트렌드 선별 · <strong>접근성 부채 4곳</strong> · 제목 서체 득실 · 모션 · 정서 문구</td>
+</tr>
+<tr>
+<td><a href="#doc-05">05 마케팅과 포지셔닝</a></td>
+<td>사례 21건 · 스토어 첫 5장 · 채널 · 카피 톤 · 포지셔닝 지도와 빈 칸 · 리스크</td>
+</tr>
+<tr>
+<td><a href="#doc-06">06 감성 방향 3안</a></td>
+<td><strong>가드레일(불변 · 조건부 · 자유)</strong> · <strong>색 규칙 v2 + 색 토큰(색상각 · 대비)</strong> · A · B · C · 코덱스 검수 · <strong>혼합안(B 주안 + A 빛)</strong> · 코덱스 값 중 채택하지 않은 것</td>
+</tr>
+<tr>
+<td><a href="#doc-07">07 로그인 가입</a> · <a href="#doc-08">08 다이어리 홈</a> · <a href="#doc-09">09 꾸미기 공방</a> · <a href="#doc-10">10 내 공간</a> · <a href="#doc-11">11 휴지통</a></td>
+<td>화면별 지금 / A / B / C 비교 · 바뀌는 것 표 · 근거 · 접근성 · 구현 · 하지 않는 것 · 결정 칸</td>
+</tr>
+<tr>
+<td><a href="#doc-12">12 공통 시스템과 가이드 변경</a></td>
+<td>공통 토큰 · 클로드의 구현 보정 21건 · 접근성 부채(색 규칙 안의 해법) · 모션 · <strong>가이드 변경 16항목(채택 · 보류 · 반려)</strong> · RN 구현 메모</td>
+</tr>
+<tr>
+<td><a href="#doc-13">13 마케팅 정합 제안</a></td>
+<td>포지셔닝 후보 P1~P3 · 약속과 기능 일치 점검 · 스토어 첫 5장 구성(렌더 예시) · 말투 · 채널</td>
+</tr>
+<tr>
+<td><a href="#doc-14">14 로드맵과 결정</a></td>
+<td>혼합안 지금과 나란히 · 1 · 2 · 3단계 · 검증 지표 · 가설 반증 결과 · <strong>결정 칸 16개</strong>(색 규칙 · danger 범위 · 표지 색상표 확장 포함)</td>
+</tr>
+</tbody>
+</table>
+</div><div class="sec2"><h2 id="폴더">폴더</h2>
+<pre><code>앱 감성 리뉴얼/
+├── 앱 감성 리뉴얼.pdf · .html        ← 결과물 (빌드.py)
+├── 색인.md · 00~14 md                 ← 원본
+├── 빌드.py                            md → html → pdf (크롬 헤드리스)
+├── 조사 원자료/                       에이전트 4명의 조사 원문(출처표 포함) · 스크린샷
+│   ├── A 타깃 조사.md · B 레퍼런스 앱.md · C 감성 원리와 트렌드.md · D 마케팅과 포지셔닝.md
+│   ├── 레퍼런스 스크린샷/&lt;앱&gt;/        앱스토어 마케팅 이미지(사내 레퍼런스 용도)
+│   └── 스토어 스크린샷/&lt;앱&gt;/          〃
+├── 이미지/
+│   ├── 현재/                          지금 앱 화면(웹, 게스트, 오후 3시 고정)
+│   ├── 시안/                          장면별 렌더(지금 · A · B · C · 혼합, 색 규칙 v2)
+│   ├── 비교/                          한 장 비교표(이름표만 그림에)
+│   └── 스토어/                        스토어 첫 5장 구성 예시
+├── 목업/                              화면.html#&lt;화면&gt;|&lt;안&gt;|&lt;기기&gt; 로 여는 시안 원본
+│   ├── 기본.css · 안.css              토큰 · 안별 덮어쓰기
+│   ├── 소품.js · 화면.js · 안.js · 혼합.js    아이콘 · 표지 · 지금 화면 · A/B/C · 혼합안
+│   ├── 스토어.html                    스토어 구성 예시
+│   └── 소재/ · 에셋/                  모아 · 디오 최종 시안 SVG · 편집기 스티커 · 책상 소품 PNG
+└── 스크립트/                         현재 화면 찍기.cjs · 렌더.py · 비교표.py · **색 검수.py**(시안 색이 규칙 안인지) · **색 면적.py**(렌더의 UI 계열 · 노랑 면적 %)
+</code></pre>
+<p>다시 만들기(이 폴더에서): <code>pnpm web</code>(frontend, 8081) → <code>NODE_PATH=&lt;frontend&gt;/node_modules node 스크립트/현재\ 화면\ 찍기.cjs &lt;결과 폴더&gt;</code> → <code>python 스크립트/렌더.py</code>(시안) → <code>python 스크립트/렌더.py 스토어</code> → <code>python 스크립트/비교표.py</code> → <code>python 빌드.py</code>.</p>
+</div><div class="sec2"><h2 id="이-작업의-근거-규칙">이 작업의 근거 규칙</h2>
+<ul>
+<li>2025~2026 자료 우선, 사실 주장마다 출처 번호와 <strong>확인 방식</strong>(원문 직접 열람 / 검색 요약만), 수치는 원문에서 확인한 것만, 못 찾은 것은 "찾지 못함", 추정은 "추정", 해석은 "해석".</li>
+<li>스크린샷은 앱스토어 마케팅 이미지이며 실제 화면과 다를 수 있고 사내 디자인 레퍼런스 용도다. 외부 배포 · 재게시 · 서비스 화면 사용 금지.</li>
+</ul></div>
+</section><section class="doc" id="doc-00" data-title="00 조사 계획 — 무엇을 조사해서 어떻게 제안안까지 가는가">
+<h1 id="00-조사-계획-무엇을-조사해서-어떻게-제안안까지-가는가">00 조사 계획 — 무엇을 조사해서 어떻게 제안안까지 가는가</h1>
+<blockquote>
+<p>이 문서는 조사를 시작하기 전에 세운 계획이다. 조사가 끝난 뒤 실제로 어떻게 됐는지는 맨 아래 "계획 대비 결과"에 적는다. <strong>2판(2026-10-31)</strong>: 팀이 "색은 캐릭터의 노랑과 UI의 색상 계열을 벗어나지 않고 메인은 UI 색"이라는 조건을 걸어, 아래 §8 가드레일에 '색 규칙'이 불변으로 올라갔고 시안 · 06~14 문서를 새로 만들었다.</p>
+</blockquote>
+<div class="sec2"><h2 id="1-요청과-풀어야-할-문제">1. 요청과 풀어야 할 문제</h2>
+<blockquote>
+<p>"포지셔닝이나 마케팅이나 다 감성 쪽으로 하고 싶은데 앱 UI가 감성적이지는 않은 것 같다. 다이어리 · 꾸미기 공방 · 내 공간 · 휴지통 · 로그인 및 회원가입 화면을 지금의 BI · CI를 해치지 않으면서 1020 여성에게 감성적으로 어필하게 하려면?"</p>
+</blockquote>
+<p>문제를 세 줄로 줄이면 이렇다.</p>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>문제</th>
+<th>풀이의 모양</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>지금 UI는 <strong>어디가, 왜</strong> 감성적이지 않은가</td>
+<td>화면 5개를 시각 요소(색 면적 · 질감 · 모서리 · 그림자 · 위계 · 여백 · 일러스트 · 빈 상태)로 진단</td>
+</tr>
+<tr>
+<td>2</td>
+<td>1020 여성에게 <strong>'감성'은 구체적으로 무엇</strong>인가</td>
+<td>시각 코드 · 행동 코드 · 거부감(유치함 · 오글거림)을 출처와 함께 정리</td>
+</tr>
+<tr>
+<td>3</td>
+<td><strong>BI · CI를 지키면서</strong> 어디까지 바꿀 수 있는가</td>
+<td>불변 · 조건부 · 자유 3단계 가드레일을 먼저 정하고, 그 안에서 방향 3안을 만든다</td>
+</tr>
+</tbody>
+</table>
+<p>"감성적이다"를 취향 말이 아니라 <strong>바꿀 수 있는 수단</strong>(색 · 질감 · 서체 · 모양 · 빛 · 캐릭터 · 모션 · 문구 · 빈 상태)으로 쪼개서 조사하고, 화면마다 어떤 수단을 얼마나 쓰는지를 정하는 것이 이 작업의 뼈대다.</p>
+</div><div class="sec2"><h2 id="2-이미-있는-것-다시-조사하지-않는다">2. 이미 있는 것 (다시 조사하지 않는다)</h2>
+<table>
+<thead>
+<tr>
+<th>문서</th>
+<th>이미 답한 것</th>
+<th>이번에 쓰는 법</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="../속지%20에셋%20아이디어/01%20트렌드%20조사.md">속지 에셋 아이디어 / 01 트렌드 조사</a></td>
+<td>10~20대 여성 다꾸 트렌드 · 시장 수치 · 디지털 다꾸의 빈자리</td>
+<td>타깃 조사의 출발점으로 인용</td>
+</tr>
+<tr>
+<td><a href="../캐릭터%20디자인/01%20레퍼런스%20조사.md">캐릭터 디자인 / 01 레퍼런스 조사</a></td>
+<td>마스코트 · 그림체 · 아이콘 레퍼런스</td>
+<td>앱은 '화면 층위'만 새로 본다</td>
+</tr>
+<tr>
+<td><a href="../다이어리%20홈%20책상%20감성/색인.md">다이어리 홈 책상 감성</a> · <a href="../다이어리%20홈%20햇살%20책상/색인.md">햇살 책상</a></td>
+<td>홈의 책상 감성 9원칙 · 4안 · 3차 시안</td>
+<td>홈은 이 흐름을 <strong>이어받고</strong>, 충돌하는 제안은 하지 않는다</td>
+</tr>
+<tr>
+<td><a href="../디자인%20가이드.md">디자인 가이드</a></td>
+<td>BI · CI · 토큰 · 글쓰기 · 컴포넌트</td>
+<td>가드레일의 원본</td>
+</tr>
+</tbody>
+</table>
+</div><div class="sec2"><h2 id="3-조사-영역">3. 조사 영역</h2>
+<p>처음 세운 A~G에 코덱스 점검에서 <strong>H~K</strong> 네 영역이 더해졌다. 우선순위는 코덱스 의견을 따랐고, 코덱스가 "트렌드 수집이 목적이 되기 쉽다"고 짚은 C는 A · E · G의 검증 도구로 낮췄다.</p>
+<table>
+<thead>
+<tr>
+<th>영역</th>
+<th style="text-align: center;">우선</th>
+<th>핵심 질문</th>
+<th>반증하려는 가설</th>
+<th>방법 · 담당</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>A 타깃 이해</strong></td>
+<td style="text-align: center;">상</td>
+<td>10대와 20대는 '감성'을 어떤 행동으로 소비하나? 귀여움의 허용선은?</td>
+<td>"1020 여성은 캐릭터가 많을수록 좋아한다"</td>
+<td>웹 조사 2026 자료 우선 · 에이전트A → <a href="조사%20원자료/A%20타깃%20조사.md">조사 원자료/A</a></td>
+</tr>
+<tr>
+<td><strong>B 레퍼런스 앱 UI</strong></td>
+<td style="text-align: center;">상</td>
+<td>실제 서비스는 로그인 · 홈 · 상점 · 프로필 · 삭제에서 감성을 어떻게 절제하나?</td>
+<td>"감성 앱은 모든 화면을 일러스트로 채운다"</td>
+<td>앱스토어 스크린샷을 받아 눈으로 확인 · 에이전트B → <a href="조사%20원자료/B%20레퍼런스%20앱.md">조사 원자료/B</a></td>
+</tr>
+<tr>
+<td><strong>C 감성 원리 · 트렌드</strong></td>
+<td style="text-align: center;">중</td>
+<td>촉각성 · 유리 효과 · 모션 중 DIO에 오래 가는 것은? 제목 서체는 허용할 만한가?</td>
+<td>"Liquid Glass 같은 유행 효과가 감성의 핵심이다"</td>
+<td>공식 문서 · 서체 라이선스 원문 · 에이전트C → <a href="조사%20원자료/C%20감성%20원리와%20트렌드.md">조사 원자료/C</a></td>
+</tr>
+<tr>
+<td><strong>D 마케팅 · 포지셔닝</strong></td>
+<td style="text-align: center;">상</td>
+<td>첫인상과 SNS에서 반복할 한 문장 · 한 장면은?</td>
+<td>"UI만 바꾸면 포지셔닝이 바뀐다"</td>
+<td>스토어 페이지 · 태그라인 원문 · 에이전트D → <a href="조사%20원자료/D%20마케팅과%20포지셔닝.md">조사 원자료/D</a></td>
+</tr>
+<tr>
+<td><strong>E 우리 자산</strong></td>
+<td style="text-align: center;">상</td>
+<td>로고 · 모아/디오 · 햇살 책상 중 차별 자산은?</td>
+<td>"새 비주얼 세계관이 필요하다"</td>
+<td>저장소 · 현재 화면 캡처 · 클로드 → <a href="#doc-01">01 현재 화면 진단</a></td>
+</tr>
+<tr>
+<td><strong>F 화면별 감성 접점</strong></td>
+<td style="text-align: center;">상</td>
+<td>기록 전 · 중 · 후, 실패 · 삭제의 순간에 어떤 정서가 필요한가?</td>
+<td>"홈만 바꾸면 전체가 감성적으로 느껴진다"</td>
+<td>화면 5개 × 접점 표 → 07~11</td>
+</tr>
+<tr>
+<td><strong>G 구현 제약</strong></td>
+<td style="text-align: center;">상</td>
+<td>저사양 · 접근성 · 모션 줄이기에서 지킬 표현은?</td>
+<td>"질감과 모션은 성능 · 접근성과 양립이 어렵다"</td>
+<td><code>package.json</code> · 가이드 · 에이전트C → 12</td>
+</tr>
+<tr>
+<td><strong>H 공동 기록 관계 UX</strong> ★</td>
+<td style="text-align: center;">상</td>
+<td>친구의 흔적 · 동시 편집 · 초대가 친밀감이 되는 조건은? 부담이 되는 조건은?</td>
+<td>"공유는 초대 버튼만 눈에 띄면 된다"</td>
+<td>에이전트A · B 중 관련 항목 + 코덱스</td>
+</tr>
+<tr>
+<td><strong>I 사진 · 개인정보 안전감</strong> ★</td>
+<td style="text-align: center;">상</td>
+<td>공개 범위 · 삭제 · 복구를 얼마나 선명하게 보여야 하나?</td>
+<td>"감성 톤이면 위험 안내도 부드럽게 흐려도 된다"</td>
+<td>가이드 §7 · 휴지통 · 가입 약관 화면 → 11 · 07</td>
+</tr>
+<tr>
+<td><strong>J 콘텐츠 · 에셋 운영</strong> ★</td>
+<td style="text-align: center;">중</td>
+<td>시즌 속지 · 스티커는 누가 어떤 주기로 만들고 검수하나?</td>
+<td>"초기 에셋만 충분하면 감성이 유지된다"</td>
+<td>기존 속지 · 에셋 문서 → 14</td>
+</tr>
+<tr>
+<td><strong>K 측정 · 실험 설계</strong> ★</td>
+<td style="text-align: center;">중</td>
+<td>가입 완료율 · 첫 방 만들기 · 첫 꾸미기 · 7일 재방문 중 무엇을 목표로 두나?</td>
+<td>"예쁘다는 정성 평가만으로 방향을 정할 수 있다"</td>
+<td>지표 표 → 14</td>
+</tr>
+</tbody>
+</table>
+<p>★ = 코덱스 점검에서 추가된 영역.</p>
+</div><div class="sec2"><h2 id="4-근거-규칙">4. 근거 규칙</h2>
+<p>모든 조사 문서가 같은 규칙을 따른다.</p>
+<ul>
+<li>2025~2026년 자료를 우선하고 <strong>발행일</strong>을 적는다(조사일 2026-10-30).</li>
+<li>사실 주장마다 <code>[출처번호]</code>를 붙이고 문서 끝 출처표에 제목 · 발행처 · 발행일 · URL · <strong>확인 방식</strong>(원문 열람 / 검색 결과 요약만)을 적는다.</li>
+<li>수치는 원문에서 확인한 것만 쓴다. 못 찾은 것은 "찾지 못함", 추정은 "추정", 해석은 "해석"이라고 적는다.</li>
+<li>서로 충돌하는 자료는 둘 다 적는다.</li>
+<li>스크린샷은 사내 디자인 레퍼런스 용도다. 앱스토어 마케팅 이미지는 실제 화면과 다를 수 있다고 적는다.</li>
+</ul>
+</div><div class="sec2"><h2 id="5-협업-방식-누가-무엇을-하나">5. 협업 방식 — 누가 무엇을 하나</h2>
+<table>
+<thead>
+<tr>
+<th>맡은 일</th>
+<th>클로드</th>
+<th>코덱스</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>조사 취합 · 출처 확인 · 문서 구조</td>
+<td>◎</td>
+<td></td>
+</tr>
+<tr>
+<td>현재 화면 캡처 · 코드 · 구현 가능성 · 안드로이드/iOS 동작 · 접근성 검증</td>
+<td>◎</td>
+<td></td>
+</tr>
+<tr>
+<td>화면 진단의 눈(무엇이 왜 감성적이지 않은가)</td>
+<td>○ 관찰</td>
+<td>◎ 독립 진단 → <a href="#doc-01">01</a></td>
+</tr>
+<tr>
+<td>조사 영역 점검 · 가설</td>
+<td>○ 초안</td>
+<td>◎ H~K 추가 · 우선순위</td>
+</tr>
+<tr>
+<td>감성 방향 · 색 · 모양 · 그림자 · 불투명도 <strong>수치</strong></td>
+<td>✕ 임의로 정하지 않음</td>
+<td>◎</td>
+</tr>
+<tr>
+<td>HTML 목업 구현 · 렌더 · PDF</td>
+<td>◎</td>
+<td></td>
+</tr>
+<tr>
+<td>렌더된 시안의 미감 검수</td>
+<td></td>
+<td>◎ 이미지 보고 지적</td>
+</tr>
+<tr>
+<td>래스터 그림(질감 · 빛)이 필요할 때</td>
+<td>프롬프트 정리</td>
+<td>◎ 생성 (캐릭터 · 소품은 최종 시안 벡터를 그대로 씀)</td>
+</tr>
+</tbody>
+</table>
+<p>클로드가 값을 바꿀 때는 숨기지 않고 "내 판단"이라고 적는다.</p>
+</div><div class="sec2"><h2 id="6-진행-단계">6. 진행 단계</h2>
+<table>
+<thead>
+<tr>
+<th>단계</th>
+<th>내용</th>
+<th>산출</th>
+<th>상태</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>0</td>
+<td>docs 정리 · 폴더 · 현재 화면 14장 캡처</td>
+<td><code>이미지/현재/</code></td>
+<td>완료</td>
+</tr>
+<tr>
+<td>1</td>
+<td>코덱스 독립 진단 · 영역 점검</td>
+<td>이 문서 · 01</td>
+<td>완료</td>
+</tr>
+<tr>
+<td>2</td>
+<td>영역 A · B · C · D 병렬 조사</td>
+<td><code>조사 원자료/</code></td>
+<td>완료</td>
+</tr>
+<tr>
+<td>3</td>
+<td>조사 종합 → 가드레일 · 방향 3안</td>
+<td>02~06</td>
+<td>완료</td>
+</tr>
+<tr>
+<td>4</td>
+<td>코덱스에게 수치 의뢰 → 화면별 시안(지금/시안 × 태블릿 · 폰)</td>
+<td>07~11 · 목업</td>
+<td>완료</td>
+</tr>
+<tr>
+<td>5</td>
+<td>코덱스 시안 검수 → 보정(혼합안)</td>
+<td>06 §4</td>
+<td>완료</td>
+</tr>
+<tr>
+<td>6</td>
+<td>공통 시스템 · 가이드 변경 · 마케팅 정합 · 로드맵 · 결정 칸</td>
+<td>12~14</td>
+<td>완료</td>
+</tr>
+<tr>
+<td>7</td>
+<td>PDF 한 파일 · 색인</td>
+<td><code>앱 감성 리뉴얼.pdf</code></td>
+<td>완료</td>
+</tr>
+</tbody>
+</table>
+</div><div class="sec2"><h2 id="7-제안안이-갖출-것">7. 제안안이 갖출 것</h2>
+<ul>
+<li>화면 5개마다 <strong>지금 / 시안</strong>을 같은 크기로 나란히(태블릿 1280 × 800, 폰 390 × 844). 바뀌는 곳에 번호.</li>
+<li>방향 3안 중 추천 하나와 그 근거, 안마다 BI · CI에서 <strong>가져오는 것 / 버리는 것</strong>.</li>
+<li>가이드를 바꿔야 하는 항목은 따로 모아 "채택 · 보류 · 반려" 결정 칸을 둔다(디자인 가이드: 새 규칙은 가이드를 같은 커밋에서 고친다).</li>
+<li>이 문서에서 가이드는 <strong>아직 고치지 않는다.</strong> 결정 뒤에 고친다.</li>
+<li>구현 난이도(기존 라이브러리로 가능 / 추가 필요), 접근성 · 성능 위험, 안드로이드 · iOS 차이.</li>
+<li>마케팅 정합: 한 줄 소개 · 스토어 첫 5장 구성 · 말투 후보. UI와 같은 방향을 말해야 한다.</li>
+</ul>
+</div><div class="sec2"><h2 id="8-지킬-선가드레일-초안">8. 지킬 선(가드레일) 초안</h2>
+<p>조사 결과를 보기 전에 정한 초안이며, 06에서 근거와 함께 확정한다.</p>
+<table>
+<thead>
+<tr>
+<th>단계</th>
+<th>대상</th>
+<th>기준</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>불변</strong></td>
+<td>D 심볼 먹색 <code>#242424</code> · 우상단 원 <code>#ABB1D8</code> · 로고 비율</td>
+<td>색 · 비율 · 둥근 마감을 바꾸지 않는다</td>
+</tr>
+<tr>
+<td><strong>불변</strong></td>
+<td>핵심 토큰(페리윙클 · 네이비) · 다크 모드 없음 · 시스템 서체 · 선 아이콘 1.8 둥근 끝</td>
+<td>인지 · 가독성 · 구현 일관성</td>
+</tr>
+<tr>
+<td><strong>불변</strong></td>
+<td>"화면은 조용하게, 꾸민 내용이 주인공"</td>
+<td>콘텐츠 밖 장식은 한 화면에 국소 요소 1~2개까지</td>
+</tr>
+<tr>
+<td><strong>불변</strong></td>
+<td>안내 멘트 금지 · 해요체</td>
+<td>가이드 §8</td>
+</tr>
+<tr>
+<td><strong>조건부</strong></td>
+<td>카드 모서리 · 그림자 · 표면 질감</td>
+<td>시안에서 읽기 · 선호가 확인될 때</td>
+</tr>
+<tr>
+<td><strong>조건부</strong></td>
+<td>모아 · 디오 노출량</td>
+<td>유치함 반응이 없을 때만 확대</td>
+</tr>
+<tr>
+<td><strong>조건부</strong></td>
+<td>모션 · 햅틱</td>
+<td>모션 줄이기 대응 · 60fps · 비차단</td>
+</tr>
+<tr>
+<td><strong>조건부</strong>(1판) → <strong>불변</strong>(2판)</td>
+<td>보조색</td>
+<td>1판 초안: 버터 옐로 등 보조색을 본문 글자 · 위험 상태에 쓰지 않고 4.5:1을 통과할 때. <strong>2판: 팀의 색 규칙으로 확정 — 메인은 UI 색상 계열, 보조는 캐릭터 노랑 하나, 그 밖의 색상 계열 금지</strong>(<a href="#doc-06">06</a> §1.1)</td>
+</tr>
+<tr>
+<td><strong>자유</strong></td>
+<td>다이어리 표지 · 속지 · 스티커 · 사진 프레임</td>
+<td>사용자 콘텐츠 영역</td>
+</tr>
+<tr>
+<td><strong>자유</strong></td>
+<td>빈 상태의 작은 오브젝트 · 시즌 에셋</td>
+<td>기능 이해를 방해하지 않을 때</td>
+</tr>
+</tbody>
+</table>
+</div><div class="sec2"><h2 id="9-한계-미리-적어-둔다">9. 한계 (미리 적어 둔다)</h2>
+<ul>
+<li>10대와 20대의 선호 차이는 공개 자료로 말할 수 있는 만큼만 말한다. 우리 사용자 인터뷰가 아니다.</li>
+<li>시안은 웹에서 그린 것이라 실제 React Native 구현과 조금 다를 수 있다.</li>
+<li>앱스토어 스크린샷은 마케팅용 이미지다.</li>
+<li>감성의 '세기'는 숫자로 정답이 없다. 3안을 만들고 팀이 고르는 구조로 간다.</li>
+</ul>
+</div><div class="sec2"><h2 id="계획-대비-결과">계획 대비 결과</h2>
+<p><strong>계획대로 진행됐고, 계획이 바뀐 곳은 네 군데다.</strong></p>
+<ol>
+<li><strong>영역 H~K는 코덱스 점검에서 더해졌다</strong>(공동 기록 관계 · 사진 안전감 · 에셋 운영 · 측정). H · I는 레퍼런스 조사(B)와 휴지통 · 로그인 시안에서 다뤘고, J · K는 <a href="#doc-14">14</a>에서 결정 칸과 지표로 정리했다.</li>
+<li><strong>반증하려던 가설 11개 중 대부분이 반증됐다</strong>(요약: <a href="#doc-14">14 §4</a>). 특히 "Liquid Glass 같은 유행 효과가 핵심" · "감성 앱은 모든 화면을 일러스트로 채운다" · "UI만 바꾸면 포지셔닝이 바뀐다"는 근거 쪽에서 틀렸다.</li>
+<li>
+<p><strong>코덱스 최종 권고 중 BI 색을 바꾸는 두 값(페리윙클 <code>#6674C5</code> · 네이비 <code>#0B1D70</code>)은 채택하지 않았다.</strong> "BI · CI 불변"이 의뢰의 전제였기 때문이고, 팀이 따로 검토할 사안으로 <a href="#doc-14">결정 칸</a>에 남겼다.</p>
+</li>
+<li>
+<p><strong>(2판) 색 규칙이 뒤늦게 들어와 방향 · 시안 · 문서를 다시 만들었다.</strong> 1판의 핑크 · 민트 · 웜 오프화이트 보조색은 폐기됐고, 코덱스가 색 체계를 새로 설계한 뒤(2회) 렌더 검수로 세 안을 <strong>B 주안 + A 보조의 2안화</strong>로 줄였다. 이 과정에서 코덱스 값 중 버튼색 교체(<code>#525FAD</code>) · 알림 점 색(<code>#D69A1E</code>, 흰색 위 2.47:1)을 채택하지 않거나 보정했다. 라벤더 + 버터 조합의 근거는 코덱스의 웹 검색이 실패해 클로드가 직접 확인했으나 약하다(<a href="#doc-04">04</a> §3.1).</p>
+</li>
+</ol>
+<p>못 찾은 것(한계)은 각 조사 문서 끝과 <a href="#doc-14">14 §6</a>에 모았다. 가장 큰 것은 <strong>10~20대 여성만 집계한 '감성' 설문 · 한국 1020 선호 색 · 서체 · '유치함 · 오글거림' 직접 근거가 공개 자료에 없다</strong>는 점이다.</p></div>
+</section><section class="doc" id="doc-01" data-title="01 현재 화면 진단 — 어디가, 왜 감성적으로 느껴지지 않는가">
+<h1 id="01-현재-화면-진단-어디가-왜-감성적으로-느껴지지-않는가">01 현재 화면 진단 — 어디가, 왜 감성적으로 느껴지지 않는가</h1>
+<blockquote>
+<p>기준: <code>feature/fe/layer-2</code> 웹 빌드(<code>pnpm web</code>)를 게스트 모드로 찍은 화면. 태블릿 1280 × 800 · 폰 390 × 844. 홈 책상 빛이 '실시간'이라 <strong>오후 3시로 고정</strong>해서 찍었다(밤 10시 화면은 따로 찍어 비교).
+진단은 두 갈래다. <strong>관찰</strong>은 화면에서 보이는 사실이고, <strong>코덱스 진단</strong>은 같은 화면을 코덱스가 독립적으로 본 의견이다. 둘이 다르면 그대로 적는다.
+다시 찍기: <code>NODE_PATH=frontend/node_modules node "docs/앱 감성 리뉴얼/스크립트/현재 화면 찍기.cjs" "&lt;결과 폴더&gt;"</code> (<code>pnpm web</code> 실행 중)</p>
+</blockquote>
+<div class="sec2"><h2 id="한-줄-결론">한 줄 결론</h2>
+<p><strong>지금 UI는 '정돈된 생산성 앱'으로는 성공했고, 감성은 홈의 책상과 다이어리 표지에만 있다.</strong> 나머지 네 화면(공방 · 내 공간 · 휴지통 · 로그인)은 흰 카드 · 얇은 테두리 · 네이비 글자의 같은 틀이라 설정 앱처럼 읽힌다. 그리고 DIO의 가장 감성적인 자산인 <strong>모아 · 디오는 앱 화면 어디에도 나오지 않는다.</strong></p>
+</div><div class="sec2"><h2 id="지금-화면">지금 화면</h2>
+<div class="grid two">
+<figure><img src="이미지/현재/로그인 태블릿.jpg"><figcaption>로그인 · 태블릿</figcaption></figure>
+<figure><img src="이미지/현재/회원가입 태블릿.jpg"><figcaption>회원가입 · 태블릿</figcaption></figure>
+<figure><img src="이미지/현재/홈 스와이프 태블릿.jpg"><figcaption>홈 스와이프 · 태블릿(오후 3시)</figcaption></figure>
+<figure><img src="이미지/현재/홈 스와이프 태블릿 밤.jpg"><figcaption>홈 스와이프 · 태블릿(밤 10시)</figcaption></figure>
+<figure><img src="이미지/현재/꾸미기 공방 태블릿.jpg"><figcaption>꾸미기 공방 · 태블릿</figcaption></figure>
+<figure><img src="이미지/현재/내 공간 태블릿.jpg"><figcaption>내 공간 · 태블릿</figcaption></figure>
+<figure><img src="이미지/현재/휴지통 태블릿.jpg"><figcaption>휴지통 · 태블릿</figcaption></figure>
+<figure><img src="이미지/현재/홈 한눈에 태블릿.jpg"><figcaption>홈 한눈에 보기 · 태블릿</figcaption></figure>
+</div>
+
+<div class="grid five">
+<figure><img src="이미지/현재/회원가입 폰.jpg"><figcaption>회원가입 · 폰</figcaption></figure>
+<figure><img src="이미지/현재/홈 스와이프 폰.jpg"><figcaption>홈 · 폰</figcaption></figure>
+<figure><img src="이미지/현재/꾸미기 공방 폰.jpg"><figcaption>공방 · 폰</figcaption></figure>
+<figure><img src="이미지/현재/내 공간 폰.jpg"><figcaption>내 공간 · 폰</figcaption></figure>
+<figure><img src="이미지/현재/휴지통 폰.jpg"><figcaption>휴지통 · 폰</figcaption></figure>
+</div>
+
+<ul>
+<li><strong>로그인 · 가입</strong> — 중앙 흰 카드 한 장에 로고 · 제목 · 입력칸 · 간편 로그인. 배경은 단색 <code>#F3F3F7</code>. 간편 로그인 세 개(카카오 노랑 · 구글 · 애플 검정)가 화면에서 유일하게 원색이다.</li>
+<li><strong>홈</strong> — 햇살 책상 위에 표지가 놓인 가로 스와이프. 가운데 카드에 별 · 편집 · 삭제 버튼이 표지 위에 항상 얹혀 있다. 낮에는 바닥이 거의 흰 라벤더로 옅고, 밤에는 회색 보라로 가라앉아 창틀 십자 그림자만 도드라진다.</li>
+<li><strong>꾸미기 공방</strong> — 큰 흰 카드 3장(내 폰트 만들기 · 스티커 시트 분리 · 사진 속 대상 오리기)과 "내 폰트 · 내 스티커" 빈 줄. 비활성 카드에는 "개발 빌드에서 사용 가능", "미리보기 · AI 분리·저장 미연결"이 적혀 있다.</li>
+<li><strong>내 공간</strong> — 화면에서 가장 무거운 면이 진한 네이비 배너("방문자님의 기록 공간" + <code>D</code> 글자 아바타 + 로그인·회원가입). 그 아래는 통계 카드 · 환경 설정 · 앱 정보가 같은 흰 박스로 이어진다.</li>
+<li><strong>휴지통</strong> — 제목과 <code>선택</code> 칩, 표지 격자, <code>n일 후 영구 삭제</code>(3일 이하 <code>danger</code>). 격자 밖은 전부 빈 바탕이다.</li>
+</ul>
+</div><div class="sec2"><h2 id="화면별-진단">화면별 진단</h2>
+<table>
+<thead>
+<tr>
+<th>화면</th>
+<th>관찰 — 감성이 약한 이유</th>
+<th>코덱스 진단</th>
+<th>지킬 것</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>로그인 · 가입</strong></td>
+<td>로고 외에 이 앱이 무엇인지 알려 주는 그림이 없다. 화면의 90%가 흰 면과 테두리 입력칸이다. 소셜 원색이 브랜드 색 흐름을 끊는다. 부제 "함께 기록하고, 추억을 나눠 보세요."가 가장 감성적인 문장인데 작고 연하다.</td>
+<td>"호텔 예약 · 금융 폼처럼 보임. 함께 꾸미는 기록의 단서가 로고 밖에 없음. 태블릿 카드 아래쪽이 비어 보임."</td>
+<td>로고의 독립성, 가독성, 넉넉한 터치 영역, 폰의 정보 밀도</td>
+</tr>
+<tr>
+<td><strong>다이어리 홈</strong></td>
+<td>감성 장치(책상 · 빛 · 표지)는 충분한데 <strong>UI 도구가 표지 위에 상시 얹혀</strong> 있다. 제목 "모든 다이어리"와 칩 4개가 똑같이 굵은 네이비라 관리 화면 위계다. 낮에는 바닥이 옅고 밤에는 가라앉아 '따뜻한 햇살'로 읽히는 시간이 짧다.</td>
+<td>"책상은 좋지만 화면 전체의 흐린 막이 표지 · 창빛 · 질감을 탁하게 만듦(밤 화면 기준). 카드가 기능 카드처럼 균등 배치. 폰에서 다음 다이어리가 잘려 의도인지 모호."</td>
+<td>햇살 책상, 실물 같은 표지, 가로 스와이프 레일, 선택 카드의 편집 · 삭제 도구</td>
+</tr>
+<tr>
+<td><strong>꾸미기 공방</strong></td>
+<td>카드 3장이 같은 크기 · 같은 모양이라 '재료를 고르는' 재미가 없다. 결과물(내 글꼴로 쓴 글씨, 스티커 모음)이 보이지 않고 기능 이름만 있다. 개발 단계 문구가 사용자에게 그대로 노출된다. 빈 줄은 한 문장뿐이라 쌓이는 느낌이 없다.</td>
+<td>"SaaS 대시보드처럼 보임. 종이 · 잉크 · 스티커 같은 촉각 단서 없음. 비활성 카드가 같은 비중으로 커 보임."</td>
+<td>'공방' 정보 구조, '내 폰트 · 내 스티커' 분리, 카드형 진입, 선 아이콘</td>
+</tr>
+<tr>
+<td><strong>내 공간</strong></td>
+<td>네이비 배너가 프로필보다 '로그인 유도 광고'처럼 읽힌다. 사용자의 취향 · 기록 흔적이 숫자 두 개(6 · 0)뿐이다. 환경 설정과 앱 정보가 같은 흰 박스 규칙이라 설정 앱 인상이 강하다.</td>
+<td>"시스템 배너처럼 느껴짐. 취향이나 기록 흔적을 보여 주는 시각 요소 없음."</td>
+<td>로그인 전 · 후 상태 구분, 통계와 설정 분리, 태블릿의 안정감</td>
+</tr>
+<tr>
+<td><strong>휴지통</strong></td>
+<td>삭제 대기라는 민감한 순간인데 <strong>되살릴 수 있다는 신호</strong>가 날짜 글자 하나뿐이다. 격자 밖이 너무 비어 상품 목록처럼 보인다. 빈 휴지통 화면은 이번 캡처에 없다.</td>
+<td>"문서 보관함처럼 보임. 회복 가능성 · 시간성의 시각 신호 부족."</td>
+<td>표지가 주인공인 점, <code>danger</code> 색으로 위험 구분, 선택 모드 진입</td>
+</tr>
+</tbody>
+</table>
+</div><div class="sec2"><h2 id="감성-수단별-현황">감성 수단별 현황</h2>
+<p>정지 화면에서 보이는 것만 센다. 모션 · 햅틱은 이 캡처로는 평가할 수 없어 뺀다. ●●● 강 · ●● 중 · ● 약 · ○ 없음. 클로드 관찰이며 숫자 판단이 아니라 <strong>어디가 비었는지</strong> 보는 표다.</p>
+<table>
+<thead>
+<tr>
+<th>수단</th>
+<th style="text-align: center;">로그인 · 가입</th>
+<th style="text-align: center;">홈</th>
+<th style="text-align: center;">공방</th>
+<th style="text-align: center;">내 공간</th>
+<th style="text-align: center;">휴지통</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>바닥 · 빛 (공간감)</td>
+<td style="text-align: center;">○</td>
+<td style="text-align: center;">●●●</td>
+<td style="text-align: center;">○</td>
+<td style="text-align: center;">○</td>
+<td style="text-align: center;">○</td>
+</tr>
+<tr>
+<td>질감 (종이 · 나무 · 결)</td>
+<td style="text-align: center;">○</td>
+<td style="text-align: center;">●●</td>
+<td style="text-align: center;">○</td>
+<td style="text-align: center;">○</td>
+<td style="text-align: center;">○</td>
+</tr>
+<tr>
+<td>색 면적 (파스텔 · 포인트)</td>
+<td style="text-align: center;">●</td>
+<td style="text-align: center;">●●●</td>
+<td style="text-align: center;">●</td>
+<td style="text-align: center;">●●</td>
+<td style="text-align: center;">●●</td>
+</tr>
+<tr>
+<td>서체 개성</td>
+<td style="text-align: center;">○</td>
+<td style="text-align: center;">○</td>
+<td style="text-align: center;">○</td>
+<td style="text-align: center;">○</td>
+<td style="text-align: center;">○</td>
+</tr>
+<tr>
+<td>일러스트 · 캐릭터</td>
+<td style="text-align: center;">○</td>
+<td style="text-align: center;">○</td>
+<td style="text-align: center;">○</td>
+<td style="text-align: center;">○</td>
+<td style="text-align: center;">○</td>
+</tr>
+<tr>
+<td>사용자 흔적(내 표지 · 사진 · 글꼴)</td>
+<td style="text-align: center;">○</td>
+<td style="text-align: center;">●●●</td>
+<td style="text-align: center;">○</td>
+<td style="text-align: center;">●</td>
+<td style="text-align: center;">●●</td>
+</tr>
+<tr>
+<td>정서 문구</td>
+<td style="text-align: center;">●</td>
+<td style="text-align: center;">○</td>
+<td style="text-align: center;">●</td>
+<td style="text-align: center;">●</td>
+<td style="text-align: center;">●</td>
+</tr>
+<tr>
+<td>빈 상태</td>
+<td style="text-align: center;">–</td>
+<td style="text-align: center;">–</td>
+<td style="text-align: center;">●</td>
+<td style="text-align: center;">–</td>
+<td style="text-align: center;">–</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>감성 수단은 <strong>홈과 표지에 몰려</strong> 있다. 홈 밖 네 화면은 '색 면적'(대부분 흰색)과 '문구'가 전부다.</li>
+<li><strong>서체 개성 · 일러스트 · 캐릭터는 전 화면이 ○</strong>이다. 가이드(UI 글자는 시스템 서체, 안내 멘트 금지)가 만든 조용함이고, 동시에 감성이 들어갈 가장 큰 빈자리다.</li>
+<li>'사용자 흔적'이 보이는 화면(홈 · 휴지통)은 나머지보다 확실히 감성적이다 — 코덱스도 "더 귀엽게가 아니라 사용자가 꾸민 것을 더 만지고 싶게"를 핵심 결론으로 냈다.</li>
+</ul>
+</div><div class="sec2"><h2 id="색-현황-지금-ui는-이미-한-색상-계열이다">색 현황 — 지금 UI는 이미 한 색상 계열이다</h2>
+<blockquote>
+<p>이 절은 <strong>색 규칙</strong>(<a href="#doc-06">06</a> §1)의 출발점이다. 팀이 "색은 다이어리 캐릭터의 노랑과 우리 UI의 색상 계열(HUE)을 벗어나지 않고, 메인은 UI 색"이라는 조건을 걸었고, 먼저 지금 화면이 그 조건에서 어디에 서 있는지 쟀다. 색상각(H)은 색의 종류를 각도(0~360°)로 나타낸 값이다.</p>
+</blockquote>
+<table>
+<thead>
+<tr>
+<th>구분</th>
+<th>색</th>
+<th style="text-align: right;">색상각</th>
+<th>어디에</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>UI 계열(메인)</strong></td>
+<td><code>primary #818AC3</code> · <code>primaryStrong #606BB2</code> · <code>secondary #ABB1D8</code> · <code>text #0B1766</code> · <code>surfaceMuted #F0F1F9</code></td>
+<td style="text-align: right;">232~233°</td>
+<td>버튼 · 글자 · 선택 · 로고 원</td>
+</tr>
+<tr>
+<td>UI 계열 바탕</td>
+<td><code>surfaceSoft #F3F3F7</code></td>
+<td style="text-align: right;">240°</td>
+<td>앱 바탕</td>
+</tr>
+<tr>
+<td><strong>캐릭터 노랑</strong></td>
+<td>모아 몸 <code>#FEF0BF</code></td>
+<td style="text-align: right;">47°</td>
+<td><strong>앱 UI에는 없다</strong>(캐릭터 최종 시안에만)</td>
+</tr>
+<tr>
+<td>캐릭터 라벤더</td>
+<td>디오 목도리 <code>#DBDCF9</code> · 몸 <code>#F7F7FC</code></td>
+<td style="text-align: right;">238° · 240°</td>
+<td>앱 UI에는 없다</td>
+</tr>
+<tr>
+<td>표지 색상표(사용자 콘텐츠)</td>
+<td>스카이 <code>#BDC2E1</code> · 차콜 <code>#474D57</code>(거의 무채)</td>
+<td style="text-align: right;">232° · 218°</td>
+<td>UI 계열 안</td>
+</tr>
+<tr>
+<td>표지 색상표(사용자 콘텐츠)</td>
+<td>크림 <code>#EEE6D6</code> · 라떼 <code>#D6C2A6</code></td>
+<td style="text-align: right;">40° · 35°</td>
+<td>캐릭터 노랑 쪽(저채도)</td>
+</tr>
+<tr>
+<td>계열 밖</td>
+<td>표지 색상표의 더스티 로즈 <code>#E2B9B6</code> · 세이지 <code>#AABDA4</code></td>
+<td style="text-align: right;">4° · 106°</td>
+<td><strong>사용자 콘텐츠</strong>(표지 6색 중 2색)</td>
+</tr>
+<tr>
+<td>계열 밖</td>
+<td><code>danger #E04D6F</code></td>
+<td style="text-align: right;">346°</td>
+<td>알림 점 · 삭제 아이콘 · 임박 글자</td>
+</tr>
+<tr>
+<td>계열 밖</td>
+<td>카카오 <code>#FEE500</code> · 구글 · 애플</td>
+<td style="text-align: right;">–</td>
+<td>간편 로그인 버튼(외부 브랜드 규정색)</td>
+</tr>
+</tbody>
+</table>
+<p>캐릭터 최종 시안(<code>docs/캐릭터 디자인/최종시안 svg 변경본.svg</code> · <code>모아 최종.svg</code>)의 채움색은 <strong>버터 노랑 <code>#FEF0BF</code> · 라벤더 <code>#DBDCF9</code>/<code>#E0E3F7</code> · 흰색 · 먹선 <code>#010101</code></strong> 넷뿐이다. 캐릭터 자체가 이미 'UI 색상 계열 + 노랑' 두 계열이다. 캐릭터 시안 초기 문서(<code>04 캐릭터 시안.md</code>)는 모아 색으로 머스터드 <code>#EBC56F</code>를 추천했는데, 최종 시안 SVG의 실제 채움색은 더 옅은 <code>#FEF0BF</code>다(채움색 실측). 이 조사는 <strong>최종 SVG의 값</strong>을 캐릭터 노랑으로 삼는다. 표지 색상표(앱의 기본 표지 6색) 안에서 '머스터드 <code>#EBC56F</code>'는 코드에 없다.</p>
+<table>
+<thead>
+<tr>
+<th>화면(태블릿, 실제 앱)</th>
+<th style="text-align: right;">UI 계열</th>
+<th style="text-align: right;">옅은 색 · 무채</th>
+<th style="text-align: right;">캐릭터 노랑</th>
+<th style="text-align: right;">그 밖</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>로그인</td>
+<td style="text-align: right;">3.6</td>
+<td style="text-align: right;">96.1</td>
+<td style="text-align: right;">0.3</td>
+<td style="text-align: right;">0.0</td>
+</tr>
+<tr>
+<td>꾸미기 공방</td>
+<td style="text-align: right;">2.2</td>
+<td style="text-align: right;">97.8</td>
+<td style="text-align: right;">0.0</td>
+<td style="text-align: right;">0.0</td>
+</tr>
+<tr>
+<td>내 공간</td>
+<td style="text-align: right;">15.3</td>
+<td style="text-align: right;">84.7</td>
+<td style="text-align: right;">0.0</td>
+<td style="text-align: right;">0.0</td>
+</tr>
+<tr>
+<td>휴지통</td>
+<td style="text-align: right;">0.9</td>
+<td style="text-align: right;">93.9</td>
+<td style="text-align: right;">0.0</td>
+<td style="text-align: right;">5.1</td>
+</tr>
+<tr>
+<td>홈 스와이프(오후 3시)</td>
+<td style="text-align: right;">41.6</td>
+<td style="text-align: right;">46.7</td>
+<td style="text-align: right;">0.0</td>
+<td style="text-align: right;">11.8</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>단위는 화면 면적 %다(<code>스크립트/색 면적.py</code>). <strong>'그 밖'은 모두 표지 · 소셜 버튼 같은 사용자 콘텐츠와 외부 색이고, UI 층만 보면 지금 앱은 이미 UI 색상 계열이 99% 이상이다.</strong> 로그인 '노랑' 0.3%는 카카오 버튼이다. 즉 "메인은 UI 색"은 이미 지켜지고 있고, 새 제안은 이를 <strong>깨지 않는 것</strong>이 조건이다.</li>
+<li>표지 색상표는 가이드와 코드가 다르다. 가이드 §2.4는 8색(페리윙클 <code>#A9AFD7</code>(기본) · 머스터드 <code>#EBC56F</code> · 라벤더 <code>#C3AEDD</code> · 로즈 <code>#F0B0AA</code> · 세이지 · 카멜 · 차콜 · 크림)이고, 위 표는 <strong>코드(<code>diary/constants.js</code>의 <code>COLORS</code> 6색)</strong> 를 기준으로 했다. 시안의 표지 샘플 색은 가이드 8색과 앱 게스트 시드를 따랐다. 어느 쪽이 맞는지는 팀이 확인한다(<a href="#doc-12">12</a> §1).</li>
+<li>반대로 <strong>캐릭터 노랑이 UI에 0%</strong> 라는 점이 빈자리다. 캐릭터의 색이 앱의 색이 아니라서 모아 · 디오가 화면에 나와도 따로 논다. 새 제안은 노랑을 작은 면(테이프 · 칩 · 점 · 고리)에만 얹어 캐릭터와 UI를 이어 준다.</li>
+<li>픽셀 측정은 JPEG 압축 · 그림자 때문에 색상각이 흔들려 설계 값(228~242°)보다 ±15° 넓게 본다. 아주 옅은 색(R·G·B 차이 10 이하)은 '옅은 색 · 무채'로 따로 센다. 라벤더 틴트 바탕이 여기 들어가므로 메인 색 점검은 'UI 계열 + 옅은 색 · 무채'의 합으로 본다.</li>
+</ul>
+</div><div class="sec2"><h2 id="우리-자산-영역-e">우리 자산 (영역 E)</h2>
+<table>
+<thead>
+<tr>
+<th>자산</th>
+<th>지금 앱에서</th>
+<th>판단</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>로고(D + 원)</td>
+<td>레일 · 인증 화면</td>
+<td>불변. 앱 안에서 이미 충분히 쓰임</td>
+</tr>
+<tr>
+<td>페리윙클 <code>#818AC3</code> · 네이비 <code>#0B1766</code></td>
+<td>버튼 · 선택 · 글자</td>
+<td>불변. 감성은 이 색을 <strong>지우지 않고 그 위에 얹는</strong> 방식으로</td>
+</tr>
+<tr>
+<td>다이어리 표지(깅엄 · 체크 · 도트 · 스트라이프 · 린넨)</td>
+<td>홈 · 휴지통 · 편집기</td>
+<td><strong>가장 감성적인 자산.</strong> 다른 화면에도 나오면 이어진다</td>
+</tr>
+<tr>
+<td>햇살 책상(바닥 · 창빛 · 소품 <code>assets/desk/props</code>)</td>
+<td>홈만</td>
+<td>진행 중인 별도 작업(<a href="../다이어리%20홈%20햇살%20책상/색인.md">햇살 책상</a>). 이번 제안은 이를 <strong>다시 하지 않는다</strong></td>
+</tr>
+<tr>
+<td>모아 · 디오(최종 시안 벡터)</td>
+<td><strong>앱 코드 · 에셋에서 찾지 못함</strong> (<code>assets/brand</code>에는 <code>dio-logo.svg</code>뿐)</td>
+<td>가장 큰 미사용 자산. 다만 '유치함' 위험이 있어 노출량을 조건부로 둔다(<a href="#doc-06">06</a>)</td>
+</tr>
+<tr>
+<td>선 아이콘(1.8 · 둥근 끝)</td>
+<td>전 화면</td>
+<td>불변. 한 벌로 통일된 것은 감성의 바탕이 된다</td>
+</tr>
+</tbody>
+</table>
+</div><div class="sec2"><h2 id="이-진단에서-조사로-넘기는-질문">이 진단에서 조사로 넘기는 질문</h2>
+<ol>
+<li>홈 밖 네 화면에 <strong>무엇을 얼마나</strong> 얹어야 홈의 감성과 이어지나? → 영역 B · C</li>
+<li>서체 · 캐릭터가 전부 ○인 것을 1020 여성이 어떻게 받아들이나(차분함인가, 밋밋함인가)? → 영역 A</li>
+<li>삭제 · 로그인처럼 신뢰가 먼저인 화면에서 감성을 어디까지 얹어도 안전한가? → 영역 C · I</li>
+<li>개발 단계 문구("개발 빌드에서 사용 가능" 등)는 감성 이전에 정리해야 한다 → <a href="#doc-09">09 꾸미기 공방</a>에서 다룬다</li>
+</ol></div>
+</section><section class="doc" id="doc-02" data-title="02 타깃 조사 — 10~20대 여성에게 &#x27;감성&#x27;은 무엇을 뜻하나">
+<h1 id="02-타깃-조사-1020대-여성에게-감성은-무엇을-뜻하나">02 타깃 조사 — 10~20대 여성에게 '감성'은 무엇을 뜻하나</h1>
+<blockquote>
+<p>원자료: <a href="조사%20원자료/A%20타깃%20조사.md">조사 원자료/A 타깃 조사</a> (웹 검색 약 55회, 2025~2026 한국 자료 우선, 출처 37건 + 기존 조사 4건). 아래 <code>A[숫자]</code>는 그 문서 §5 출처표의 번호다.
+<strong>한계를 먼저</strong>: 10~20대 <strong>여성만</strong> 따로 집계한 '감성' 설문은 공개 자료에서 찾지 못했다. 수치는 Z세대 전체 · 10대 전체 · 기사 사례이고, 성별이 나뉜 곳만 따로 적었다. 이 문서의 '시사점'은 모두 <strong>해석</strong>이다.</p>
+</blockquote>
+<div class="sec2"><h2 id="한-줄-결론">한 줄 결론</h2>
+<p><strong>2026년 10~20대가 말하는 '감성'은 분위기를 잘 연출한 화면이 아니라, 내 감정을 돌보는 일 · 가까운 사람과 꾸밈없이 나누는 일 · 내 손으로 만든 흔적이다.</strong> 연출(보정 · 전시)은 줄이고 손맛(꾸미기 · 소장)은 늘린다 — 그리고 DIO의 구조(날것의 사진 한 장 + 그 위를 함께 꾸미는 층)가 이 두 흐름의 교차점에 있다.</p>
+</div><div class="sec2"><h2 id="1-확인된-흐름-다섯-가지">1. 확인된 흐름 다섯 가지</h2>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>흐름</th>
+<th>확인된 것</th>
+<th>출처</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td><strong>날것과 손맛이 함께 오른다</strong></td>
+<td>편집 · 보정 없는 2초 영상을 12명 안에서만 나누는 '셋로그'가 2026-04-30 양대 스토어 1위, 이용자 93%가 10~20대(10대 55% · 20대 38%). 같은 해 여름 '젤꾸'(신발 꾸미기)는 젤리슈즈 검색량 +341%. AI 보정에 질린 Z세대가 디지털카메라로 이동(2025 디카 출하액 55억 달러, 2020년의 2배 이상)</td>
+<td>A[12][14][22][17]</td>
+</tr>
+<tr>
+<td>2</td>
+<td><strong>감성이 '감정 관리 · 다정함'으로 옮겨 갔다</strong></td>
+<td>대학내일20대연구소 2026 키워드 = 메타센싱 · 다정함 · 적시소비. KT Y트렌드북 2026 = 밸런쉼. 10대 여성이 미래 불안이 가장 높은 집단</td>
+<td>A[1][2][7][6]</td>
+</tr>
+<tr>
+<td>3</td>
+<td><strong>'같은 방'은 실재하되 작다</strong></td>
+<td>셋로그 2~12명, 로켓 친구 20명, 중 · 고생의 주 메신저는 인스타 DM(중 57.3% · 고 64.4%). 교환일기 앱은 있으나 규모가 작다</td>
+<td>A[14][15][9][29]</td>
+</tr>
+<tr>
+<td>4</td>
+<td><strong>아날로그는 '소장 · 선물'로 소비된다</strong></td>
+<td>LP 2026 상반기 937,173장(2025 연간의 1.7배), 친구끼리 생일 선물. 대왕네컷은 "소장 욕구". 옛 디카의 '불완전함'이 차별 가치</td>
+<td>A[20][24][18]</td>
+</tr>
+<tr>
+<td>5</td>
+<td><strong>캐릭터는 서사가 있어야 오래 간다</strong></td>
+<td>라부부 검색지수 100(7월) → 4(11월), 리셀가 약 88% 하락, 전문가는 "서사와 정체성"을 요구</td>
+<td>A[35]</td>
+</tr>
+</tbody>
+</table>
+</div><div class="sec2"><h2 id="2-10대와-20대">2. 10대와 20대</h2>
+<table>
+<thead>
+<tr>
+<th>항목</th>
+<th>10대</th>
+<th>20대</th>
+<th>출처</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>앱 쓰는 방식</td>
+<td>앱마다 <strong>단일 목적</strong></td>
+<td>종합 플랫폼으로 확장</td>
+<td>A[6]</td>
+</tr>
+<tr>
+<td>상위 앱</td>
+<td>학습 · 게임 · 디자인키보드(추정: 키보드 꾸미기)</td>
+<td>에브리타임 · 포스타입</td>
+<td>A[8]</td>
+</tr>
+<tr>
+<td>정서</td>
+<td>미래 불안 높음(10대 여성 최고)</td>
+<td>절약 성향</td>
+<td>A[6]</td>
+</tr>
+<tr>
+<td>소셜</td>
+<td>인스타 DM이 중심</td>
+<td>셋로그 이용자 38%</td>
+<td>A[9][12]</td>
+</tr>
+<tr>
+<td>들어오는 길</td>
+<td>캐릭터 · 포카 · 공부 플래너 · 친구 선물</td>
+<td>텍스트힙 · 카페 다꾸</td>
+<td>기존 조사</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>그러나 <strong>연령보다 라이프스타일이 같은 트렌드를 만든다</strong>는 응답이 91.7%(캐릿 205명 설문)다 A[4]. <strong>10대 여성과 20대 여성의 선호 색 · 캐릭터를 비교한 자료는 찾지 못했다.</strong></li>
+</ul>
+</div><div class="sec2"><h2 id="3-예쁨이-설치-유지에-주는-영향">3. '예쁨'이 설치 · 유지에 주는 영향</h2>
+<ul>
+<li><strong>한국 1020이 "디자인이 예뻐서 설치 · 유지했다"는 정량 자료는 찾지 못했다.</strong></li>
+<li>정성(2021): 1020 자문단은 앱 설치 직후 설정부터 보고 취향대로 바꾸길 원하며, UI가 불편해지면 곧바로 지운다 A[30]. 교환일기 앱 리뷰의 칭찬은 "아기자기 · 귀여운 디자인 · 가독성" A[29].</li>
+<li>해외(구글 표현형 디자인 연구): 18~24세 선호가 최대 87%, 단 <strong>차분한 디자인을 고른 소수도 뚜렷</strong>했고 낯선 디자인은 일부 실험에서 사용성이 낮았다. 미국 중심 표본이라 그대로 옮기지 않는다 A[32][33].</li>
+<li><strong>해석</strong>: 예쁨은 '선택의 결정타'라기보다 '꾸미는 도구로서의 수요'와 묶여 있다. 감성 리뉴얼의 성공 기준은 "예쁘다"가 아니라 <strong>"내 것을 더 만들고 싶다 · 친구와 더 나누고 싶다"</strong>로 두는 편이 안전하다.</li>
+</ul>
+</div><div class="sec2"><h2 id="4-거부감-요소와-피하는-법">4. 거부감 요소와 피하는 법</h2>
+<table>
+<thead>
+<tr>
+<th>거부감 요소</th>
+<th>근거</th>
+<th>피하는 법 (해석)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>전시 · 과시, 좋아요 평가</td>
+<td>'전시하는 삶' 피로가 셋로그 이동의 배경 A[11][12]</td>
+<td>수치(좋아요 수 등)를 전면에 두지 않는다. 방 안 사람에게만 보이게</td>
+</tr>
+<tr>
+<td>정기 인증 · 기록 압박</td>
+<td>"1시간마다 인증하듯 촬영해야 한다는 압박감이 생기면 오히려 피곤" A[11]</td>
+<td><strong>연속 기록 · 밀린 기록 표시를 하지 않는다.</strong> 쉬는 날을 허용</td>
+</tr>
+<tr>
+<td>과한 보정 · 완벽한 연출</td>
+<td>AI 보정에 질려 디카로 이동 A[17], '대충 찍은 듯한' 캠페인의 조회수 10배(한국 기사 1건) A[5]</td>
+<td>사진은 있는 그대로, 장식은 위에 얹는 층으로 분리</td>
+</tr>
+<tr>
+<td>서사 없는 캐릭터 소비</td>
+<td>라부부 지수 100 → 4 A[35]</td>
+<td>남의 IP를 따라가지 않고 <strong>우리 캐릭터에 이야기를 붙인다</strong></td>
+</tr>
+<tr>
+<td>익숙한 습관을 깨는 UI 변경</td>
+<td>업데이트 금지 · '빛삭'(2021, 정성) A[30]</td>
+<td>기존 동선 유지, 꾸밈은 옵션으로</td>
+</tr>
+<tr>
+<td>감시 · 프라이버시</td>
+<td>사생활 침해 우려가 확산 제한 요소 A[11]</td>
+<td>누가 언제 봤는지 노출 최소화</td>
+</tr>
+<tr>
+<td>초대 마찰</td>
+<td>초대장 구조의 한계로 쇠퇴한 선례 A[12]</td>
+<td>초대 링크는 인스타 DM으로 보내기 쉽게</td>
+</tr>
+</tbody>
+</table>
+</div><div class="sec2"><h2 id="5-찾지-못한-것-가설로만-쓴다">5. 찾지 못한 것 — 가설로만 쓴다</h2>
+<table>
+<thead>
+<tr>
+<th>항목</th>
+<th>상태</th>
+<th>이 제안에서의 처리</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>'오글거림 · 유치함 · 과한 안내 멘트'가 실제로 거부되는가</td>
+<td><strong>직접 근거 없음</strong> (간접: 서사 없는 캐릭터의 빠른 식음)</td>
+<td>노출량을 조건부로 두고 검증 항목(<a href="#doc-14">14</a>)에 넣는다</td>
+</tr>
+<tr>
+<td>키치 · 몽글 · 청키 · 코지 · Y2K · 갓생</td>
+<td>2025~2026 한국 1차 자료를 못 찾음</td>
+<td><strong>이 단어들로 방향을 정하지 않는다.</strong> 확인된 코드(불완전함 · 손맛 · 소장)로만 정한다</td>
+</tr>
+<tr>
+<td>한국 1020 여성의 선호 색 · 서체</td>
+<td>데이터 없음</td>
+<td>색 · 서체는 취향 판단이므로 코덱스가 정하고, 3안으로 나눠 팀이 고른다</td>
+</tr>
+<tr>
+<td>'앱이 예뻐서' 설치 · 유지 수치</td>
+<td>없음</td>
+<td>성공 기준을 행동 지표로(<a href="#doc-14">14</a>)</td>
+</tr>
+<tr>
+<td>셋로그 규모</td>
+<td>기사마다 다름(4.5만 vs 194만)</td>
+<td>이 제안에서 규모 수치를 근거로 쓰지 않는다</td>
+</tr>
+</tbody>
+</table>
+</div><div class="sec2"><h2 id="6-dio에-주는-시사점-해석">6. DIO에 주는 시사점 (해석)</h2>
+<ol>
+<li><strong>사진은 날것으로 두고 그 위에 얹는 층을 주인공으로.</strong> DIO의 구조가 이미 이 흐름과 맞다. UI는 조용하게, 꾸민 흔적이 보이게.</li>
+<li><strong>감성의 중심을 '더 귀엽게'가 아니라 '내가 만든 것을 더 만지고 싶게'에 둔다.</strong> 표지 · 스티커 · 글꼴이 UI의 앞자리에.</li>
+<li><strong>'소장 · 선물' 감각</strong> — 다이어리 한 장이 벽에 거는 물건처럼 보이는 내보내기 · 표지.</li>
+<li><strong>'다정함'은 숫자가 아니라 얼굴 · 이름 · 한마디로.</strong> 친구가 남긴 흔적의 자리를 만든다.</li>
+<li><strong>압박 장치를 넣지 않는다.</strong> 연속 기록 · 밀린 알림 · 인증 시각을 만들지 않는다.</li>
+<li><strong>캐릭터를 쓰되 서사와 함께.</strong> 모아 · 디오의 이야기(<a href="../캐릭터%20디자인/색인.md">캐릭터 디자인</a>)를 화면의 순간(첫 장면 · 빈 상태 · 완료)에 나눠 쓴다.</li>
+<li><strong>기존 동선은 건드리지 않는다.</strong> 감성은 바탕 · 표면 · 장식 층에서, 버튼 자리 · 내비게이션은 그대로.</li>
+<li><strong>10대 / 20대를 가르는 근거는 약하다.</strong> 한 벌의 안으로 가되 캐릭터 노출량으로만 조절 가능하게 둔다.</li>
+</ol></div>
+</section><section class="doc" id="doc-03" data-title="03 레퍼런스 앱 — 감성 앱은 5개 화면을 어떻게 만드나">
+<h1 id="03-레퍼런스-앱-감성-앱은-5개-화면을-어떻게-만드나">03 레퍼런스 앱 — 감성 앱은 5개 화면을 어떻게 만드나</h1>
+<blockquote>
+<p>원자료: <a href="조사%20원자료/B%20레퍼런스%20앱.md">조사 원자료/B 레퍼런스 앱</a> (앱 20개 · 스크린샷 156장을 전부 눈으로 확인, 앱당 4~6장을 <code>조사 원자료/레퍼런스 스크린샷/</code>에 저장). 이 문서에는 화면별로 가장 말해 주는 18장만 싣는다.
+<strong>스크린샷은 Apple 앱스토어의 마케팅 이미지</strong>다. 개발사가 가장 잘 나온 장면을 골라 만든 것이라 실제 화면과 다를 수 있고, 모션 · 사운드 · 햅틱은 정지 이미지로 알 수 없다. 사내 디자인 레퍼런스 용도로만 쓴다.
+마스코트 · 그림체는 <a href="../캐릭터%20디자인/01%20레퍼런스%20조사.md">캐릭터 디자인 / 01 레퍼런스 조사</a>, 홈의 책상 감성은 <a href="../다이어리%20홈%20책상%20감성/색인.md">다이어리 홈 책상 감성</a>이 다뤘으므로 여기서는 <strong>화면 층위</strong>만 본다.</p>
+</blockquote>
+<div class="sec2"><h2 id="한-줄-결론">한 줄 결론</h2>
+<p><strong>감성 앱은 모든 화면을 일러스트로 채우지 않는다.</strong> 감성은 ① 홈의 '장면' ② 꾸미기 보관함 ③ 첫 시작 · 축하 · 빈 순간 ④ 프로필 모아 보기 — 네 곳에 몰리고, 기록하는 화면과 목록은 한 톤 물든 바탕 위의 흰 카드와 작은 아이콘으로 절제한다. 그리고 <strong>로그인 폼을 꾸민 앱은 하나도 없다</strong>(156장 중 이메일 · 소셜 로그인 화면 0장).</p>
+</div><div class="sec2"><h2 id="핵심-패턴-10개">핵심 패턴 10개</h2>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>패턴</th>
+<th>근거 앱</th>
+<th>DIO에 닿는 곳</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>감성은 4곳에 몰고 나머지는 절제 — 캐릭터 · 일러스트는 장면이 바뀌는 순간에만</td>
+<td>Finch · 하루콩 · Daylio · Day One · Tiimo</td>
+<td>전 화면 (진단의 처방은 '전부 채우기'가 아니라 <strong>'순간 고르기'</strong>)</td>
+</tr>
+<tr>
+<td>2</td>
+<td>흰색이 아니라 <strong>한 톤 물든 오프화이트 바탕</strong> — <code>#F3F2ED</code> 하루콩 · <code>#F0F0E8</code> MOODA · <code>#FFF9F3</code> 다욜 · <code>#FAF6F7</code> 디데이 위젯 · <code>#F8F7FF</code> Tiimo (스크린샷 배경 샘플)</td>
+<td>위 5개</td>
+<td>전 화면 바탕 (흰 카드는 두고 바탕만)</td>
+</tr>
+<tr>
+<td>3</td>
+<td>홈은 '물건이 놓인 방/책장' — 소품이 기능의 입구</td>
+<td>MOODA · 다욜 · Widgetable</td>
+<td>다이어리 홈</td>
+</tr>
+<tr>
+<td>4</td>
+<td>기록 한 건이 캐릭터/아이콘 한 칸 — 달력이 모자이크가 됨</td>
+<td>하루콩 · MOODA · Daylio</td>
+<td>홈 한눈에 · 내 공간</td>
+</tr>
+<tr>
+<td>5</td>
+<td>상점 · 보관함은 한 문법 — 큰 결과 미리보기 + 작은 정사각 격자 + 탭 · 해시태그 칩</td>
+<td>ZEPETO · Goodnotes · Color Widgets · 포토이즘 · SNOW</td>
+<td>꾸미기 공방</td>
+</tr>
+<tr>
+<td>6</td>
+<td>친구 공유는 규모와 지표를 구조로 줄임 — 20명 제한 · 반응 미집계 · 친한 친구 별 하나</td>
+<td>Locket · BeReal · Instagram</td>
+<td>공유 방 · 초대</td>
+</tr>
+<tr>
+<td>7</td>
+<td>기다림을 물성으로 — 현상 중인 잠긴 사진 격자, 둘레 진행 호</td>
+<td>Lapse · Tiimo · 하루콩</td>
+<td>휴지통 · 빈 상태</td>
+</tr>
+<tr>
+<td>8</td>
+<td>프로필은 숫자 대신 '모아 보기' 시각물</td>
+<td>BeReal · Widgetable · 카카오톡 · 하루콩</td>
+<td>내 공간</td>
+</tr>
+<tr>
+<td>9</td>
+<td>감성 서체 · 색 블록은 <strong>마케팅 이미지에서 크게, 앱 안에서는 작게</strong></td>
+<td>MOODA · 다욜 · Daylio</td>
+<td>서체 규칙 충돌을 피하는 길</td>
+</tr>
+<tr>
+<td>10</td>
+<td>로그인은 폼이 아니라 <strong>'첫 장면'과 '안전감 사물'</strong>에 투자</td>
+<td>Finch · 하루콩 · 다욜 · Day One</td>
+<td>로그인 · 가입</td>
+</tr>
+</tbody>
+</table>
+</div><div class="sec2"><h2 id="로그인-가입-폼은-그대로-첫-장면과-안전감-사물">로그인 · 가입 — 폼은 그대로, 첫 장면과 안전감 사물</h2>
+<div class="grid four">
+<figure><img src="조사 원자료/레퍼런스 스크린샷/Finch/01.jpg"><figcaption>Finch · 첫 장면</figcaption></figure>
+<figure><img src="조사 원자료/레퍼런스 스크린샷/하루콩/05.jpg"><figcaption>하루콩 · 책 + 자물쇠</figcaption></figure>
+<figure><img src="조사 원자료/레퍼런스 스크린샷/Day One/02.jpg"><figcaption>Day One · 잠금</figcaption></figure>
+<figure><img src="조사 원자료/레퍼런스 스크린샷/Daylio/06.jpg"><figcaption>Daylio · 잠금</figcaption></figure>
+</div>
+
+<ul>
+<li><strong>Finch</strong> — 가입 흐름이 알 고르기 → 부화 축하 → 이름 짓기로 이어지는 '첫 장면'이다. 폼 자체가 아니라 폼 앞의 장면에 감성이 있다.</li>
+<li><strong>하루콩</strong> — 책 + 자물쇠 그림과 "○○의 일기장 #1234" 식별자. 안전감을 <strong>문장이 아니라 사물</strong>로 보여 준다.</li>
+<li><strong>Day One · Daylio</strong> — Face ID 아이콘 하나, PIN 번호판 하나. 잠금 화면은 오히려 가장 절제돼 있다.</li>
+<li><strong>다욜</strong>은 "로그인 없이 바로 시작"을 내세운다(스토어 설명). DIO에는 이미 게스트 시작이 있다.</li>
+<li><strong>→ DIO</strong> — 폼은 건드리지 않고, 카드 위 한 곳에 모아 한 컷 + 자물쇠 달린 책 같은 사물을 둔다. 소개 문구를 앱 안으로 가져오지 않는다(안내 멘트 금지).</li>
+</ul>
+</div><div class="sec2"><h2 id="다이어리-홈-방-모자이크-도구는-장면-바깥">다이어리 홈 — 방, 모자이크, 도구는 장면 바깥</h2>
+<div class="grid four">
+<figure><img src="조사 원자료/레퍼런스 스크린샷/MOODA/01.jpg"><figcaption>MOODA · 방 홈</figcaption></figure>
+<figure><img src="조사 원자료/레퍼런스 스크린샷/다욜/01.jpg"><figcaption>다욜 · 표지 carousel</figcaption></figure>
+<figure><img src="조사 원자료/레퍼런스 스크린샷/하루콩/04.jpg"><figcaption>하루콩 · 테마 달력</figcaption></figure>
+<figure><img src="조사 원자료/레퍼런스 스크린샷/MOODA/02.jpg"><figcaption>MOODA · 무드볼 격자</figcaption></figure>
+</div>
+
+<ul>
+<li><strong>MOODA</strong> 홈은 벽 사진 · 창 · 가챠 · 램프 · 바닥의 책으로 이뤄진 방이고, 도구는 위쪽 선 아이콘 줄뿐이다. <strong>다욜</strong>은 가운데 표지 + 양옆 색 표지가 걸치는 carousel(DIO와 같은 구조)이며 표지 아래 "제목 · 쪽수" 두 줄, + 버튼 하나와 하단 탭이 전부다.</li>
+<li><strong>도구가 표지 위에 얹히지 않는다.</strong> 지금 DIO 홈의 별 · 편집 · 삭제가 표지에 상시 얹힌 것과 정반대다.</li>
+<li>한 달을 칸마다 얼굴 · 콩으로 채우는 모자이크(하루콩 · MOODA · Daylio)는 DIO의 '한눈에 보기'에서 <strong>표지 색 칩 모자이크</strong>로 번역할 수 있다.</li>
+<li><strong>충돌 주의</strong> — MOODA는 정면 시점이라 '위에서 본 시점' 규칙과 다르다. 손글씨 제목은 UI 서체 규칙, 캐릭터 얼굴을 로고 자리에 두는 것(다욜)은 로고 독립성 규칙과 부딪힌다.</li>
+</ul>
+</div><div class="sec2"><h2 id="꾸미기-공방-결과물을-크게-재료는-격자">꾸미기 공방 — 결과물을 크게, 재료는 격자</h2>
+<div class="grid four">
+<figure><img src="조사 원자료/레퍼런스 스크린샷/ZEPETO/02.jpg"><figcaption>ZEPETO · 옷장</figcaption></figure>
+<figure><img src="조사 원자료/레퍼런스 스크린샷/Color Widgets/04.jpg"><figcaption>Color Widgets · 편집 4행</figcaption></figure>
+<figure><img src="조사 원자료/레퍼런스 스크린샷/포토이즘/05.jpg"><figcaption>포토이즘 · 프레임 탐색</figcaption></figure>
+<figure><img src="조사 원자료/레퍼런스 스크린샷/Dazz/02.jpg"><figcaption>Dazz · 사물로 고르기</figcaption></figure>
+</div>
+
+<ul>
+<li><strong>ZEPETO 옷장</strong>은 위에 큰 미리보기, 아래에 탭과 정사각 타일 격자다. DIO 공방의 "결과물이 안 보이고 기능 이름만 있다"는 진단에 대한 직접 답이다. 선택 타일 규칙(<code>primarySoft</code> + 테두리 2)은 DIO에 이미 같은 결이 있다.</li>
+<li><strong>Color Widgets</strong>의 편집은 배경 · 테마 · 서체 · 크기 4행 + 적용 버튼. 설정이 길어지지 않게 하는 근거다.</li>
+<li><strong>Dazz · 포토이즘</strong>은 재료를 <strong>사물</strong>(카메라 아이콘, 프레임 카드)로 고르게 한다 — 공방의 제작 카드 3장이 같은 모양인 문제를 재료별 사물로 풀 단서다.</li>
+<li><strong>가져오지 않는다</strong> — 가격 · 재화 · 랜덤박스 · 구독. 3D 아이콘은 보관함 썸네일 안(콘텐츠)에서만.</li>
+</ul>
+</div><div class="sec2"><h2 id="내-공간-숫자-대신-모아-보기">내 공간 — 숫자 대신 모아 보기</h2>
+<div class="grid four">
+<figure><img src="조사 원자료/레퍼런스 스크린샷/카카오톡/03.jpg"><figcaption>카카오톡 · 프로필</figcaption></figure>
+<figure><img src="조사 원자료/레퍼런스 스크린샷/BeReal/06.jpg"><figcaption>BeReal · Memories</figcaption></figure>
+<figure><img src="조사 원자료/레퍼런스 스크린샷/Widgetable/04.jpg"><figcaption>Widgetable · 병 속 구슬</figcaption></figure>
+<figure><img src="조사 원자료/레퍼런스 스크린샷/하루콩/06.jpg"><figcaption>하루콩 · 쪽지 도착</figcaption></figure>
+</div>
+
+<ul>
+<li><strong>카카오톡 프로필</strong>은 풀블리드 사진 + 스티커 + 이름이다. DIO의 진한 네이비 배너("로그인 유도 광고처럼 읽힘")를 <strong>표지/사진 배경 + 스티커 한두 개 + 이름</strong>으로 바꿀 근거다. 공방에서 만든 스티커가 내 공간을 꾸미는 고리도 생긴다.</li>
+<li><strong>BeReal Memories(월 사진 달력) · Widgetable(병 속 구슬)</strong>은 통계를 숫자가 아니라 <strong>쌓이는 모양</strong>으로 보인다. 지금 DIO 통계는 숫자 두 개(6 · 0)다.</li>
+<li>설정 · 앱 정보는 Day One · Goodnotes처럼 <strong>흰 목록으로 절제</strong>해도 된다. 문제는 설정이 설정 앱 같다는 것이 아니라 <strong>프로필 영역에 감성이 없다</strong>는 것이다.</li>
+</ul>
+</div><div class="sec2"><h2 id="휴지통-빈-상태-남은-시간을-물성으로">휴지통 · 빈 상태 — 남은 시간을 물성으로</h2>
+<div class="grid four">
+<figure><img src="조사 원자료/레퍼런스 스크린샷/Day One/05.jpg"><figcaption>Day One · Trash 한 줄</figcaption></figure>
+<figure><img src="조사 원자료/레퍼런스 스크린샷/Lapse/03.jpg"><figcaption>Lapse · 현상 대기</figcaption></figure>
+<figure><img src="조사 원자료/레퍼런스 스크린샷/Tiimo/05.jpg"><figcaption>Tiimo · 사물 + 둘레 호</figcaption></figure>
+<figure><img src="조사 원자료/레퍼런스 스크린샷/하루콩/06.jpg"><figcaption>하루콩 · 빈 순간의 사물</figcaption></figure>
+</div>
+
+<ul>
+<li><strong>Day One</strong>은 휴지통을 목록 맨 아래 조용한 한 줄로 둔다(삭제 항목이 있을 때만). 다만 Day One · Goodnotes는 자동 만료가 없다. <strong>DIO의 30일 보관은 소수 사례</strong>라, '남은 시간'을 보여 주는 장치가 DIO만의 필요다.</li>
+<li><strong>Lapse</strong>는 현상 대기를 잠긴 사진 격자로, <strong>Tiimo</strong>는 사물 + 둘레 진행 호로 시간을 보여 준다. 지금의 <code>n일 후 영구 삭제</code> 글자 하나를 문구를 늘리지 않고 <strong>물성(카드 모서리의 작은 호 등)</strong>으로 보강할 수 있다.</li>
+<li>빈 상태는 <strong>사물 한 점 + 제목 한 줄</strong>(하루콩 포춘쿠키).</li>
+<li><strong>영구 삭제는 귀여운 문구로 흐리지 않는다.</strong> 되돌릴 수 없는 동작이다. "감성 톤이면 위험 안내도 부드럽게 흐려도 된다"는 가설은 이 조사에서 반증되는 쪽이다.</li>
+</ul>
+</div><div class="sec2"><h2 id="친구-흔적-공개-범위-영역-h-i">친구 흔적 · 공개 범위 (영역 H · I)</h2>
+<ul>
+<li><strong>숫자는 줄이고 얼굴 · 이름으로 남긴다</strong>: Locket은 20명 제한 · 반응 미집계, BeReal은 반응이 친구 얼굴 원형으로 날아오고, Goodnotes는 이름표 포스트잇이다.</li>
+<li><strong>공개 범위는 문장 대신 색 + 아이콘 하나</strong>: 인스타 '친한 친구'의 초록 별 하나, Day One "100% 비공개", 다욜 기기 저장.</li>
+</ul>
+</div><div class="sec2"><h2 id="한계">한계</h2>
+<ol>
+<li>마케팅 이미지이며 앱을 직접 설치해 확인하지 않았다.</li>
+<li>로그인 · 가입 · 삭제 화면은 거의 없다(이메일 · 소셜 로그인 폼 0장, 휴지통은 Day One 1장). 소셜 로그인 버튼 스타일 · 빈 상태 일러스트는 확인하지 못했다.</li>
+<li>모션 · 사운드 · 햅틱은 못 봤다.</li>
+<li><strong>1020 여성 소비 근거가 약하다.</strong> 확인된 것은 평점 · 순위 · 기사 속 정성 증언 정도이고, 제페토 "10대 80%"는 2022 기사, Lapse "79% 24세 미만"은 원문 확인 실패, 위젯 앱들의 "6000만"은 마케팅 문구라 모두 미검증이다. Finch는 사용자 76%가 여성이지만 주 연령이 25~35세다.</li>
+<li>샘플 색은 마케팅 배경값이지 앱의 실제 토큰이 아니다. 어떤 색이 DIO에 어울리는지는 미감 판단이라 코덱스가 정한다(<a href="#doc-06">06</a>).</li>
+</ol></div>
+</section><section class="doc" id="doc-04" data-title="04 원리와 트렌드 — 감성은 무엇으로 만들고, 우리 제약 안에서 무엇이 되나">
+<h1 id="04-원리와-트렌드-감성은-무엇으로-만들고-우리-제약-안에서-무엇이-되나">04 원리와 트렌드 — 감성은 무엇으로 만들고, 우리 제약 안에서 무엇이 되나</h1>
+<blockquote>
+<p>원자료: <a href="조사%20원자료/C%20감성%20원리와%20트렌드.md">조사 원자료/C 감성 원리와 트렌드</a> (검색 39회 · 원문 열람 약 60건, 출처 66개). 아래 <code>C[숫자]</code>는 그 문서 §5 출처표 번호다. <strong>(내 계산)</strong>은 대비 비율처럼 조사자가 직접 계산한 값, <strong>추정</strong>은 근거 없이 짐작한 것이다.
+계획의 반증 대상이던 가설 "Liquid Glass 같은 유행 효과가 감성의 핵심이다"는 <strong>반증</strong>됐다.</p>
+</blockquote>
+<div class="sec2"><h2 id="한-줄-결론">한 줄 결론</h2>
+<p><strong>감성은 한 겹이 아니라 첫인상(본능) · 조작감(행동) · 기억(반성) 세 겹으로 쌓이고, 우리 앱에서 효과가 가장 큰 자리는 '첫 화면 · 끝맺는 순간(완료 · 삭제 · 복원) · 제목 서체 한 곳'이다.</strong> 유행 효과(유리 · 뉴모피즘)는 근거가 오히려 부정적이고, <strong>질감 · 스티커 · 캐릭터 · 틴트 그림자 · 짧은 스프링 모션</strong>이 우리 제약 안에서 오래 간다.</p>
+</div><div class="sec2"><h2 id="1-원리-네-가지와-우리-화면의-자리">1. 원리 네 가지와 우리 화면의 자리</h2>
+<table>
+<thead>
+<tr>
+<th>원리</th>
+<th>요지</th>
+<th>우리 화면에서</th>
+<th>확인 정도</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Norman 3수준</strong></td>
+<td>본능(첫인상) · 행동(사용 경험) · 반성(사용 뒤 떠올리는 이미지)이 쌓여 감성이 된다</td>
+<td>행동(조작감)은 이미 공들였고 <strong>본능(홈 · 로그인)과 반성(끝맺는 순간)이 비어 있다</strong></td>
+<td>이론 C[1][2] / 우리 진단은 <strong>추정</strong></td>
+</tr>
+<tr>
+<td><strong>Peak-end</strong></td>
+<td>경험은 가장 강한 순간(정점)과 끝으로 기억된다</td>
+<td>정점 = 다이어리를 여는 순간 · 스티커를 붙이는 순간. 끝 = 저장 · 내보내기 완료, 삭제 · 복원, 로그아웃</td>
+<td>C[6] / 자리 지정은 <strong>추정</strong></td>
+</tr>
+<tr>
+<td><strong>예쁨은 작은 결함만 용서한다</strong></td>
+<td>매력적인 UI는 더 쓰기 쉽다고 지각되지만 큰 문제는 용서받지 못한다(NN/g 2024)</td>
+<td><strong>폼 · 삭제 흐름은 감성을 입혀도 명확성이 먼저</strong></td>
+<td>C[3]</td>
+</tr>
+<tr>
+<td><strong>귀여움(baby schema)</strong></td>
+<td>큰 머리 · 둥근 얼굴이 귀엽다는 지각과 돌봄 동기를 높임(n=122). 귀여운 이미지를 본 뒤 손재주 과제 향상 43.9% vs 11.9%(n=48)</td>
+<td><strong>캐릭터를 쓰는 근거</strong>일 뿐 UI 전반의 귀여움 처방이 아님(대학생 표본 · 사진 자극)</td>
+<td>C[7][8]</td>
+</tr>
+</tbody>
+</table>
+</div><div class="sec2"><h2 id="2-트렌드-선별-차분한-유틸리티-앱을-감성적으로-만드는-데-무엇이-유효한가">2. 트렌드 선별 — 차분한 유틸리티 앱을 감성적으로 만드는 데 무엇이 유효한가</h2>
+<table>
+<thead>
+<tr>
+<th>수단</th>
+<th>판정</th>
+<th>이유</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>질감 · 종이결 · 그레인</strong>(큰 면, 저불투명도)</td>
+<td>유효</td>
+<td>촉각 · 아날로그. 단 글자 뒤에는 쓰지 않고, 질감 자체의 접근성 연구는 못 찾음</td>
+</tr>
+<tr>
+<td><strong>스티커 · 콜라주 · 테이프</strong></td>
+<td>유효</td>
+<td>DIO의 정체성과 겹침. 사용자 콘텐츠 영역에서 자유</td>
+</tr>
+<tr>
+<td><strong>캐릭터 · 일러스트</strong>(빈 상태 · 첫 장면 · 완료)</td>
+<td>유효</td>
+<td>정서의 대부분을 문구가 아니라 그림이 담당</td>
+</tr>
+<tr>
+<td><strong>틴트 그림자</strong>(네이비 → 면의 hue)</td>
+<td>유효</td>
+<td>회색 그림자는 따뜻한 면에서 탁함. 우리 그림자는 이미 네이비 틴트</td>
+</tr>
+<tr>
+<td><strong>절제된 모션</strong>(눌림 스프링 · 진입 ≤ 500ms)</td>
+<td>유효</td>
+<td>NN/g 100~500ms, ease-out 기본. 가이드 §10의 240~260ms와 일치</td>
+</tr>
+<tr>
+<td>큰 곡률 · 알약</td>
+<td>조건부</td>
+<td>baby schema 연상. 터치 영역 44는 유지</td>
+</tr>
+<tr>
+<td>은은한 그라데이션 면</td>
+<td>조건부</td>
+<td>밴딩. <code>expo-linear-gradient</code> 추가 필요</td>
+</tr>
+<tr>
+<td><strong>Liquid Glass · 블러 유리 패널</strong></td>
+<td><strong>비추천</strong></td>
+<td>NN/g가 대비 · 가독성을 비판했고 Apple도 커스텀 컨트롤에는 "sparingly"라 함. Android는 구형 성능 저하</td>
+</tr>
+<tr>
+<td><strong>뉴모피즘</strong></td>
+<td><strong>비추천</strong></td>
+<td>클릭 신호가 약한 화면은 과업 시간이 22% 늘었다는 NN/g 결과(뉴모피즘 자체를 잰 연구는 아니라 적용은 추정), 비텍스트 3:1 미달 위험</td>
+</tr>
+<tr>
+<td>Material 3 Expressive</td>
+<td>참고만</td>
+<td>연구 근거(18~24세 선호 최대 87%)가 있지만 스스로 "명확성을 이기는 표현은 없다"고 경고</td>
+</tr>
+<tr>
+<td>효과음</td>
+<td>보류</td>
+<td>무음 모드 존중, 소리만으로 전달 금지. 라이브러리 미조사</td>
+</tr>
+</tbody>
+</table>
+</div><div class="sec2"><h2 id="3-지금-토큰에-있는-접근성-부채-감성과-별개로-보정-대상">3. 지금 토큰에 있는 접근성 부채 (감성과 별개로 보정 대상)</h2>
+<p>감성 작업을 하든 안 하든 아래 네 곳은 WCAG 2.2 AA에 못 미친다(내 계산, 알파는 흰색 또는 <code>surfaceSoft</code> 위에 합성). <strong>BI인 <code>text</code>(네이비) 계열은 건드리지 않는다.</strong></p>
+<table>
+<thead>
+<tr>
+<th>조합</th>
+<th>대비</th>
+<th>판정</th>
+<th>어디에 영향</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>primaryStrong</code> 글자 / <code>surfaceSoft</code>(앱 배경)</td>
+<td><strong>4.47</strong></td>
+<td>일반 글자 4.5 미달</td>
+<td>앱 배경 위 파란 글자</td>
+</tr>
+<tr>
+<td><code>danger</code> 글자 / 흰색</td>
+<td><strong>3.85</strong></td>
+<td>일반 글자 미달(13px/700은 큰 글자 아님)</td>
+<td>"n일 후 영구 삭제" 같은 작은 위험 글자</td>
+</tr>
+<tr>
+<td><code>border</code> / 흰색 · <code>surfaceSoft</code></td>
+<td><strong>1.39 · 1.38</strong></td>
+<td>비텍스트 3:1 미달</td>
+<td>입력칸 경계가 유일한 단서일 때</td>
+</tr>
+<tr>
+<td><code>primary</code> 선 / <code>surfaceSoft</code></td>
+<td><strong>2.98</strong></td>
+<td>비텍스트 3:1 미달</td>
+<td>앱 배경 위 선택 테두리(색 + 두께로 보완 중)</td>
+</tr>
+<tr>
+<td>(참고) <code>text</code> / 흰색 · <code>surfaceSoft</code> · <code>surfaceMuted</code></td>
+<td>15.81 · 14.28 · 14.04</td>
+<td>통과</td>
+<td></td>
+</tr>
+<tr>
+<td>(참고) 흰 글자 / <code>primaryStrong</code></td>
+<td>4.95</td>
+<td>통과</td>
+<td>채운 버튼</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>면 색을 파스텔로 넓혀도 안전하다.</strong> 후보 면 7종(버터 · 블러시 · 피치 · 민트 · 크림 · 라벤더 · 웜 화이트) 위의 <code>text</code> 대비는 11.97~14.91, <code>textMuted</code>는 5.17~5.71로 모두 4.5 이상이다(hex는 검증용 예시값이고 <strong>색 선택은 코덱스 몫</strong>). 위험은 면이 아니라 <strong>그 위에 얹는 <code>primary</code> · <code>danger</code> · 흰 글자</strong>다.</li>
+<li><strong>현재 팔레트는 색상 232°의 단색조</strong>다. 따뜻한 색은 표지 · 테이프 · 소품 같은 콘텐츠 색에만 있다. 감정 연상 연구(Valdez &amp; Mehrabian 1994 / Wilms &amp; Oberfeld 2018)는 밝기와 각성의 방향이 서로 달라 <strong>"파스텔 = 차분"이라고 단정할 수 없고</strong>, UI 화면 연구도 아니다.</li>
+<li>조사 당시에는 <strong>웜 오프화이트 바탕과 따뜻한 보조 면이 대비 면에서 가능</strong>하다고 봤고, <code>secondary #ABB1D8</code>은 "넓게 쓰지 않음" 규칙이 있어 면적을 키우지 않는다고 적었다. <strong>이 중 '따뜻한 보조 면 7종'은 이후 팀의 색 규칙(UI 색상 계열 + 캐릭터 노랑만)으로 버터 하나로 좁혀졌다</strong>(<a href="#doc-06">06</a> §1.1). 대비 계산은 그대로 유효하다(버터 <code>#FEF0BF</code> 위 네이비 13.9:1).</li>
+</ul>
+<div class="sec3"><h3 id="31-색-조합-근거-라벤더-계열-메인-버터-노랑-보조-2026-10-31-추가-검색-4회">3.1 색 조합 근거 — 라벤더 계열 메인 + 버터 노랑 보조 (2026-10-31 추가, 검색 4회)</h3>
+<p>팀이 "캐릭터 노랑과 UI 색상 계열만 쓰고 메인은 UI 색"으로 색을 고정한 뒤, 이 조합이 감성 면에서 무리가 없는지 공개 자료로 확인했다. <strong>직접 근거는 약하다</strong> — 두 색을 짝지은 앱 · 브랜드 사례와 10~20대 여성의 반응 자료는 찾지 못했다.</p>
+<table>
+<thead>
+<tr>
+<th>확인한 것</th>
+<th>내용</th>
+<th>출처 · 확인 방식</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>버터 노랑은 <strong>지금 검색이 오르는 색</strong></td>
+<td>'butter yellow' 전 세계 검색이 2024/25년 2~5월 전년 대비 <strong>+324%</strong>. 'soft, pastel yellow with medium undertones', 불확실한 시기의 위안 · 낙관 · 향수와 연결, 어두운 글자와 짝지으라는 권고</td>
+<td>WGSN 블로그 <code>wgsn.com/en/blogs/butter-yellow-pulse</code> — <strong>원문 열람</strong></td>
+</tr>
+<tr>
+<td>색 유행은 <strong>주기가 있다</strong></td>
+<td>SCMP는 2026년 여름을 '버터 옐로 → 터콰이즈'로 쓴 것으로 검색 결과에 나온다(원문은 403으로 <strong>열람 못 함</strong>, 제목 · 요약 기준). 같은 계열 기사는 버터 노랑이 더 따뜻한 색으로 이어질 것이라는 디자이너 예측도 전한다</td>
+<td>검색 결과 요약만</td>
+</tr>
+<tr>
+<td>'Pantone 2026 올해의 색'은 흰색 <code>Cloud Dancer</code></td>
+<td>소란한 세상의 차분함 · 새 출발을 말한다. <strong>옅고 조용한 바탕 + 작은 색 포인트</strong>라는 우리 방향과 같은 결</td>
+<td>Pantone 발표를 다룬 다수 기사(검색 결과) — 원문 미열람</td>
+</tr>
+<tr>
+<td>보색 관계의 두 색은 <strong>한쪽을 조연으로</strong></td>
+<td>노랑 · 보라는 색상환 반대편이라 강하게 튀므로 60-30-10 비율로 나누고, 옅은 보라 · 무채색이 대부분을 맡고 노랑은 포인트로 쓰라는 설명</td>
+<td><code>uxplanet.org</code> 등 검색 결과(원문 403, <strong>열람 못 함</strong>) · <code>cieden.com/book/sub-atomic/color/60-30-10-rule</code> <strong>열람</strong>: 60% 기본(보통 무채 · 저채도) · 30% 보조 · 10% 포인트, "엄격한 공식이 아니다", 포인트는 아껴 쓴다</td>
+</tr>
+<tr>
+<td>색이 같은 방향의 따뜻함 · 차가움일 때만 어울린다는 반론</td>
+<td>"차가운 보라와 따뜻한 노랑은 불협일 수 있고, 둘 다 차갑게 기운 쪽이 어울린다"는 <strong>단일 저권위 출처</strong>. 우리 버터는 연한 색이라 이 위험이 작다고 <strong>추정</strong>하지만 시안으로 확인할 일이다</td>
+<td>검색 결과 요약만</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>DIO에 주는 뜻(해석).</strong> ① 노랑을 <strong>큰 면이 아니라 포인트</strong>로 쓰는 것은 60-30-10의 포인트 몫(10%)보다 더 좁게(화면 UI 면의 2~5%) 잡은 것이라 안전한 쪽이다. ② 노랑이 유행색이어서 주기가 있다는 위험은, DIO의 노랑이 <strong>유행색이 아니라 캐릭터(모아)의 몸 색</strong>이라는 점에서 줄어든다. 캐릭터 색은 유행이 지나도 바꾸지 않는다. ③ 노랑 위에는 항상 네이비 글자를 얹는다(WGSN의 "어두운 글자와 짝" 권고와 일치, 흰 글자는 1.14:1이라 불가).</li>
+<li><strong>한계.</strong> 라벤더 + 버터 노랑을 쓰는 한국 앱 · 브랜드, 이 조합의 감성(차분함 · 따뜻함)을 직접 잰 연구는 <strong>찾지 못했다.</strong> 따라서 이 조합이 10~20대 여성에게 감성적으로 읽히는지는 가설이고 <a href="#doc-14">14</a>의 검증 항목에 넣었다.</li>
+</ul>
+</div></div><div class="sec2"><h2 id="4-제목-서체-한-곳-허용할-만한가">4. 제목 서체 한 곳 — 허용할 만한가</h2>
+<p>현행 가이드 §3.1은 "UI 글자는 시스템 서체만"이다.</p>
+<table>
+<thead>
+<tr>
+<th>서체</th>
+<th>OFL 1.1 원문 확인</th>
+<th>앱 현황</th>
+<th>메모</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>고운돋움</td>
+<td>확인</td>
+<td><strong>이미 번들 · 시작 때 preload</strong> (7.2MB)</td>
+<td><strong>Regular 한 벌뿐</strong>이라 800 제목은 합성되거나 무시될 수 있음(추정)</td>
+</tr>
+<tr>
+<td>고운바탕</td>
+<td>확인</td>
+<td><strong>이미 번들 · preload</strong> (Regular 8.4MB / Bold 8.2MB)</td>
+<td>Bold 실파일이 있어 굵은 제목 가능</td>
+</tr>
+<tr>
+<td>나눔손글씨 펜</td>
+<td>확인</td>
+<td>이미 번들(@expo-google-fonts)</td>
+<td>예약 이름(RFN) 때문에 수정본에 같은 이름 금지</td>
+</tr>
+<tr>
+<td>Pretendard · 동글 · 하이멜로디</td>
+<td>확인</td>
+<td>미사용</td>
+<td>동글은 굵기마다 약 4.4MB, 하이멜로디 12.6MB(제목 한 줄치고 무거움)</td>
+</tr>
+<tr>
+<td>마루부리 · 온글잎</td>
+<td><strong>미확인</strong>(배포처 접속 차단 · 공식 원문 못 열람)</td>
+<td>미사용</td>
+<td>사용 전 원문 확인 필요</td>
+</tr>
+</tbody>
+</table>
+<table>
+<thead>
+<tr>
+<th>항목</th>
+<th>득</th>
+<th>실 / 위험</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>첫인상</td>
+<td>홈 · 로그인 제목에 손글씨 · 둥근 인상</td>
+<td>가이드의 시스템 서체 일관성이 깨짐</td>
+</tr>
+<tr>
+<td>용량</td>
+<td>고운돋움 · 고운바탕은 <strong>추가 0</strong></td>
+<td>새 서체는 +3~13MB. 서브셋은 Expo 기본 도구가 없어 별도 작업(추정)</td>
+</tr>
+<tr>
+<td>로딩</td>
+<td>지금도 앱 시작 때 불러옴</td>
+<td>첫 프레임에 못 불러오면 기본 서체로 깜빡임</td>
+</tr>
+<tr>
+<td>굵기</td>
+<td>고운바탕은 Bold 있음</td>
+<td>고운돋움은 Regular만, iOS는 선언한 weight를 무시 → 실기기 확인 필요</td>
+</tr>
+<tr>
+<td>대안(규칙 변경 없이)</td>
+<td>자간(-0.6 적용 중) · 굵기 · 크기 대비로 정돈된 인상</td>
+<td>손글씨의 따뜻함은 못 만듦</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>참고로 가이드 §3.1의 사용자 글자 서체 목록에는 고운돋움 · 고운바탕이 없어 코드(<code>textFonts.js</code>)와 이미 어긋나 있다.</li>
+<li>조사 B의 패턴 9("손글씨 제목은 마케팅 이미지에서 크게, 앱 안에서는 작게")도 같은 방향이다. <strong>결론은 가이드 변경 결정 칸(<a href="#doc-12">12</a>)으로 넘기고</strong>, 서체 없이 가는 대안안도 모든 화면 시안에 둔다.</li>
+</ul>
+</div><div class="sec2"><h2 id="5-모션-햅틱-사운드">5. 모션 · 햅틱 · 사운드</h2>
+<ul>
+<li><strong>길이와 이징</strong>: 100~500ms, 대부분 100~400ms, ease-out이 기본(NN/g). 가이드 §10의 240~260ms와 일치한다 C[42].</li>
+<li><strong>햅틱 · 사운드는 보완용이고 끌 수 있어야 한다</strong>(Apple). 소리만으로 전달하지 않는다 C[38][39].</li>
+<li><strong>동작 줄이기</strong>: 코드에서 reduce-motion 처리는 <code>ToolGuideAnimation.js</code> 한 파일뿐이다. 새 모션을 넣는다면 <strong>필수 대응</strong>이 먼저다.</li>
+<li><strong>도구 현황</strong>: <code>package.json</code>에 Reanimated · Lottie · Skia · expo-haptics · expo-linear-gradient · expo-blur가 <strong>하나도 없다</strong>. 대부분 Expo Go에 포함되나 최종은 개발 빌드로 확인해야 한다(Android 실기기 · iOS 모두).</li>
+<li><strong>몰아줄 자리</strong>(peak-end): 다이어리 여는 순간 · 스티커 붙이는 순간 · 저장 · 내보내기 완료 · 삭제 · 복원.</li>
+</ul>
+</div><div class="sec2"><h2 id="6-마이크로카피-감성-톤-친절한-안내-멘트">6. 마이크로카피 — 감성 톤 ≠ 친절한 안내 멘트</h2>
+<ul>
+<li>토스 · Apple · Mailchimp 모두 <strong>명확성이 먼저</strong>이고 톤은 상황에 맞춘다. "oops!" 같은 감탄사는 불성실하게 들린다는 지적이 있다 C[41][56][58].</li>
+<li><strong>우리 규칙(가이드 §8)과 양립하는 '정서 문구'</strong>는 인사 한 줄 · 계절감 · 빈 상태의 사실형 한 줄이다. 사용법 · 결과 예고 · 다음 할 일 안내는 여전히 금지다.</li>
+<li><strong>정서의 대부분은 문구가 아니라 그림과 모션이 맡는 편이 안전하다.</strong> 반복되면 닳고, 오글거림 위험이 있다(직접 근거는 없음, <a href="#doc-02">02</a> §5).</li>
+<li>삭제 · 이별 순간의 감성 문구 사례는 공식 자료에서 못 찾았다. 영구 삭제는 <strong>되돌릴 수 없으므로 귀여운 문구로 흐리지 않는다.</strong></li>
+<li><strong>폼 감성화의 선</strong>: 입력 폼은 신뢰 · 속도가 우선이다. 가입 폼에 일러스트를 얹으면 전환이 떨어졌다는 보고가 있으나 2차 출처 · 수치 없음이라 약한 증거다. 조사 B에서도 로그인 폼을 꾸민 앱은 0곳이었다.</li>
+</ul>
+</div><div class="sec2"><h2 id="7-수단-카탈로그-요약">7. 수단 카탈로그 (요약)</h2>
+<p>원자료 §2의 20개 중 이번 시안에서 쓰는 것만 추렸다. <strong>기존</strong> = 현재 <code>package.json</code>으로 가능, <strong>추가</strong> = 새 설치 필요.</p>
+<table>
+<thead>
+<tr>
+<th>수단</th>
+<th>만드는 감성</th>
+<th>RN 난이도</th>
+<th>주의</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>따뜻한 면 색(웜 오프화이트 · 파스텔 보조 면)</td>
+<td>포근함</td>
+<td>기존</td>
+<td>가이드 §2.2 보조값 확장 필요</td>
+</tr>
+<tr>
+<td>틴트 그림자</td>
+<td>부드러운 깊이</td>
+<td>기존</td>
+<td>Android 28 미만은 색 무시</td>
+</tr>
+<tr>
+<td>큰 곡률 · 알약</td>
+<td>귀여움</td>
+<td>기존</td>
+<td>터치 영역 44 유지</td>
+</tr>
+<tr>
+<td>종이결 · 그레인</td>
+<td>촉각 · 아날로그</td>
+<td>기존(PNG 타일) / 추가(Skia)</td>
+<td>이미지 메모리, 글자 뒤 제외</td>
+</tr>
+<tr>
+<td>캐릭터 · 일러스트</td>
+<td>귀여움 · 정서</td>
+<td>기존(<code>react-native-svg</code> · <code>expo-image</code>)</td>
+<td>대체 텍스트, 큰 이미지 메모리</td>
+</tr>
+<tr>
+<td>제목 서체 1곳</td>
+<td>손글씨의 따뜻함</td>
+<td>기존(<code>expo-font</code>)</td>
+<td><strong>가이드 §3.1 충돌</strong></td>
+</tr>
+<tr>
+<td>눌림 스프링</td>
+<td>쫀득한 조작감</td>
+<td>기존 <code>Animated.spring</code></td>
+<td>동작 줄이기 시 즉시</td>
+</tr>
+<tr>
+<td>삭제 · 복원 이동 모션</td>
+<td>안심 · 부드러운 이별</td>
+<td>기존 / Reanimated</td>
+<td>동작 줄이기 시 점프</td>
+</tr>
+<tr>
+<td>홈 진입 연출</td>
+<td>첫 정점</td>
+<td>Reanimated 권장</td>
+<td>500ms 이내</td>
+</tr>
+<tr>
+<td>햅틱(스티커 · 삭제 · 복원)</td>
+<td>확실한 손맛</td>
+<td><strong>추가</strong> <code>expo-haptics</code></td>
+<td>끌 수 있게</td>
+</tr>
+<tr>
+<td>정서 문구</td>
+<td>다정함</td>
+<td>기존</td>
+<td>가이드 §8 범위 명문화</td>
+</tr>
+<tr>
+<td>블러 유리 · 뉴모피즘 · 효과음</td>
+<td>—</td>
+<td>—</td>
+<td><strong>비추천 · 보류</strong></td>
+</tr>
+</tbody>
+</table>
+</div><div class="sec2"><h2 id="8-한계">8. 한계</h2>
+<ul>
+<li>마루부리 · 온글잎 라이선스, 당근 · 카카오의 공개 UX 라이팅 원문, 삭제 · 이별 순간의 감성 문구 사례, 빈 상태 일러스트의 효과 측정, 가입 폼 감성화의 전환 영향, 그레인 질감의 접근성 연구는 <strong>찾지 못했다.</strong></li>
+<li>귀여움 · 색 연구는 대학생 표본이고 성별 근거가 없다. 10~20대 여성에 한정된 연구는 없다.</li>
+<li>대비 수치는 조사자 계산이다. 구현 때 실제 렌더 색으로 다시 확인한다.</li>
+</ul></div>
+</section><section class="doc" id="doc-05" data-title="05 마케팅과 포지셔닝 — 감성은 어떻게 말하고 보여 주나">
+<h1 id="05-마케팅과-포지셔닝-감성은-어떻게-말하고-보여-주나">05 마케팅과 포지셔닝 — 감성은 어떻게 말하고 보여 주나</h1>
+<blockquote>
+<p>원자료: <a href="조사%20원자료/D%20마케팅과%20포지셔닝.md">조사 원자료/D 마케팅과 포지셔닝</a> (웹 검색 29회 · 스토어 · 기사 본문 40여 건 · 앱 17개 스토어 스크린샷 85장). 아래 <code>D[숫자]</code>는 그 문서 §8 출처표 번호다.
+<strong>스토어 스크린샷은 Apple App Store에 게시된 각 제작사의 마케팅 이미지</strong>로, 저작권은 제작사에 있고 사내 디자인 레퍼런스 용도로만 쓴다(외부 배포 · 재게시 · 서비스 화면 사용 금지).
+이미 있는 조사는 반복하지 않는다: <a href="../속지%20에셋%20아이디어/색인.md">속지 에셋 아이디어</a>(다꾸 트렌드). <strong>해석</strong>은 조사자의 판단이다.</p>
+</blockquote>
+<div class="sec2"><h2 id="한-줄-결론">한 줄 결론</h2>
+<p><strong>감성 앱은 부제를 기능 문장으로 쓰고, 감정은 스크린샷의 그림(손글씨 · 스티커 · 캐릭터)으로 보여 준다.</strong> 그리고 지금 DIO의 한 줄 소개 "함께 기록하고, 추억을 나눠 보세요."는 포화된 두 낱말('기록' 6곳 · '추억' 3곳)에 겹친다. 한편 <strong>"한 장의 사진을 여럿이 함께 꾸며 완성한다"는 약속은 열람한 21곳에 없다</strong> — 이 빈 칸이 DIO가 감성을 말할 자리다(해석).</p>
+</div><div class="sec2"><h2 id="1-사례-21건-요약">1. 사례 21건 요약</h2>
+<table>
+<thead>
+<tr>
+<th>유형</th>
+<th>서비스</th>
+<th>읽은 것</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>감정형 7</strong></td>
+<td>MOODA · Finch · Journey · BeReal · setlog · Charlie · ZEPETO</td>
+<td>부제에서 감정을 말하는 곳은 MOODA · Journey · BeReal · ZEPETO뿐</td>
+</tr>
+<tr>
+<td><strong>기능형 10</strong></td>
+<td>하루콩 · Day One · Locket · 꼬박일기 · CHAKK · SNOW · B612 · Goodnotes · Notion · 토스</td>
+<td>일기 · 꾸미기 앱 대부분이 "~해 보세요" 기능 문구 + 감성 그림</td>
+</tr>
+<tr>
+<td><strong>혼합 4</strong></td>
+<td>TheDayBefore · 크레페 · 당근 · 인생네컷 앱</td>
+<td>부제와 그림 · 첫 줄이 갈림</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>'감성'이라는 단어는 거의 안 쓴다.</strong> 첫 6문장 범위에서 직접 쓴 곳은 CHAKK("감성 스티커"), 인생네컷 앱("나만의 감성을") 둘뿐이다. 나머지는 아늑한 · 가까운 · 소중한 · 따뜻한 같은 <strong>감각어</strong>를 쓴다 D[6][14][21][24][25].</li>
+<li><strong>가장 가까운 성공 사례는 setlog</strong>: "같은 하루, 더 가까운 우리", 낙서 스티커 · 홀로그램 테이프 스크린샷(다꾸 문법), 이용자 10대 55% · 20대 38%, 확산은 X · 인스타 이용자 영상이고 초기 광고 전략은 없었다. 다만 스토어 평점은 3.95(958개)로 MOODA 4.59 · 하루콩 4.83보다 낮다 D[14][28][29][27].</li>
+<li><strong>여성이 다수여도 '여성용'이라 부르지 않는다.</strong> 하루콩 사용자는 90% 이상 여성 · 15~25세 60% 이상(2022-12 기사)인데 스토어 문구에는 성별 지정이 없다 D[32][7].</li>
+</ul>
+</div><div class="sec2"><h2 id="2-스토어-첫-5장-감성은-이렇게-보인다">2. 스토어 첫 5장 — 감성은 이렇게 보인다</h2>
+<div class="grid four">
+<figure><img src="조사 원자료/스토어 스크린샷/setlog/01.jpg"><figcaption>setlog · 낙서 스티커 + 테이프</figcaption></figure>
+<figure><img src="조사 원자료/스토어 스크린샷/MOODA/01.jpg"><figcaption>MOODA · 손글씨 + 폴라로이드</figcaption></figure>
+<figure><img src="조사 원자료/스토어 스크린샷/하루콩/02.jpg"><figcaption>하루콩 · 2단 문구</figcaption></figure>
+<figure><img src="조사 원자료/스토어 스크린샷/꼬박일기/01.jpg"><figcaption>꼬박일기 · 거의 흰 바탕</figcaption></figure>
+</div>
+
+<ul>
+<li><strong>문구 구조</strong>: 큰 문구 한 줄(또는 두 줄) + 작은 보조 한 줄. 하루콩 · 크레페 · ZEPETO · 꼬박일기가 이 2단 구조다.</li>
+<li><strong>바탕색은 용도로 갈린다</strong>: 일기 · 꾸미기는 <strong>아이보리 · 파스텔</strong>(MOODA · setlog · 꼬박일기 · 하루콩 2~5장), 카메라 · 캐릭터는 장마다 단색(SNOW · Finch · Journey), 소셜 · 사진 앱은 검정(BeReal · Locket · CHAKK).</li>
+<li><strong>첫 장의 역할</strong>은 사회적 증거(Day One · 하루콩) · 세계관 캐릭터(Finch · 당근) · 문구 하나(MOODA · 꼬박일기) 세 가지다.</li>
+<li><strong>손글씨는 소수</strong> — 17곳 중 MOODA · setlog · Charlie 3곳만 손글씨 글꼴을 쓰고, 이 셋이 모두 <strong>해요체 · 명사형 문구에 폴라로이드 · 테이프 · 낙서 스티커를 함께</strong> 쓴다. DIO의 스티커 · 테이프 정체성과 가장 가까운 문법이다(관찰).</li>
+<li><strong>기기 틀</strong>은 윤곽만 있는 단순한 틀이 다수다. 프리뷰 영상 구성은 확인하지 못했다.</li>
+<li><strong>현지화 편차</strong>: Finch는 한국 스토어에서도 영어 캡션, Locket은 합쇼체 번역투, BeReal은 띄어쓰기 오류가 있다. 감성 약속인데 번역투이면 약속이 약해진다(해석).</li>
+</ul>
+</div><div class="sec2"><h2 id="3-어디서-퍼졌나">3. 어디서 퍼졌나</h2>
+<table>
+<thead>
+<tr>
+<th>채널</th>
+<th>형식</th>
+<th>사례</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>TikTok</td>
+<td>이용자가 만든 튜토리얼 영상</td>
+<td>Locket — 이용자 영상 하루 500만 회, 창업자 "유료 인플루언서 · 유료 광고 없음" D[30]</td>
+</tr>
+<tr>
+<td>X · 인스타</td>
+<td>이용자 클립 · 활용</td>
+<td>setlog — 공식 계정 운영이 원인이라는 서술은 없음 D[28][29]</td>
+</tr>
+<tr>
+<td>스토어</td>
+<td>에디토리얼 추천 · 시상 배지</td>
+<td>MOODA 구 앱 22일 만에 유료 1위(Apple 추천), 하루콩 "오늘의 앱" D[1][7]</td>
+</tr>
+<tr>
+<td>YouTube</td>
+<td><strong>느린 과정 영상</strong>, ASMR 다꾸</td>
+<td>2026-08 기사: 힘은 구매 목록이 아니라 "낮은 속도로 전하는 과정". ASMR 다꾸 채널 구독 42만 · 조회 4,000만 D[39][38]</td>
+</tr>
+<tr>
+<td>인스타 · 오프라인</td>
+<td>협업 프레임</td>
+<td>인생네컷 × 넷플릭스 &lt;지옥&gt;(2021) D[41]</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>퍼짐의 엔진은 <strong>이용자 장면</strong>이었다. POV · '내 추구미' · ASMR을 <strong>앱이 직접 쓴 사례는 확인하지 못했다.</strong></li>
+<li>IP 협업: 하루콩 × 디즈니코리아(2024-12), 하루콩 백일장(1,300명+ 응모, 굿즈) D[33][34]. MOODA · Finch · setlog · CHAKK의 협업 사례는 확인하지 못했다.</li>
+</ul>
+</div><div class="sec2"><h2 id="4-카피-톤">4. 카피 톤</h2>
+<table>
+<thead>
+<tr>
+<th>말투</th>
+<th>쓰는 곳</th>
+<th>비고</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>해요체</td>
+<td>MOODA · 꼬박일기 · TheDayBefore · 하루콩 · 크레페 · 당근 · Journey</td>
+<td>가장 많음</td>
+</tr>
+<tr>
+<td>명사형 제목</td>
+<td>하루콩 · setlog · 당근 · SNOW</td>
+<td>"쉽고 간단하게 남기는 하루" · "딱 2초씩 기록"</td>
+</tr>
+<tr>
+<td>합쇼체 · 번역투</td>
+<td>Locket · Goodnotes · Day One</td>
+<td>감성 약속이 약해짐</td>
+</tr>
+<tr>
+<td>느낌표</td>
+<td>setlog · CHAKK · 인생네컷 앱 · 당근</td>
+<td>기능 · 재미 카피에서. 일기 · 감정 문구(MOODA · 꼬박일기 · 하루콩)는 거의 안 씀</td>
+</tr>
+<tr>
+<td>반말</td>
+<td><strong>17곳 0건</strong></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>해요체는 포화됐다</strong>: "너무 많은 서비스가 '~해요'를 사용하다 보니 그것만으로는 개성을 드러내기 어려워졌습니다." 차별은 어미가 아니라 <strong>뉘앙스의 통일감</strong>에서 나온다 D[45]. 토스는 "일관된 보이스톤"을 확인하고 클릭을 위한 과장을 하지 않는다 D[46].</li>
+<li><strong>MOODA · 하루콩 · 꼬박일기는 문구에 이모지 없이 그림 · 글꼴이 감정을 싣는다.</strong></li>
+<li><strong>우리 규칙(가이드 §8)은 UI 문구 대상이다.</strong> 스토어 · SNS 카피에 같은 범위를 적용할지는 문서에 없다 — 팀이 정할 일이다(<a href="#doc-14">14</a> 결정 칸).</li>
+</ul>
+</div><div class="sec2"><h2 id="5-포지셔닝-지도와-빈-칸-해석">5. 포지셔닝 지도와 빈 칸 (해석)</h2>
+<p>기능 약속 ↔ 감정 약속(세로) × 혼자 ↔ 함께(가로)에 조사자가 놓은 것이며 정량 측정이 아니다.</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th><strong>혼자 쓰는</strong></th>
+<th><strong>친구와 쓰는</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>감정 약속</strong></td>
+<td>MOODA(일기) · Journey · Finch · Charlie · ZEPETO</td>
+<td>setlog(2초 영상) · BeReal(2분 동시) · Locket(위젯) · MOODA(친구 공유) · <strong>? ← 비어 있음</strong></td>
+</tr>
+<tr>
+<td><strong>기능 약속</strong></td>
+<td>하루콩 · 꼬박일기 · Day One · Goodnotes · Notion · SNOW · CHAKK</td>
+<td>당근 · 인생네컷 앱 · 크레페</td>
+</tr>
+</tbody>
+</table>
+<p><strong>비어 있는 곳 세 가지</strong></p>
+<ol>
+<li><strong>'함께 + 감정 + 꾸밈'</strong> — 친구와 나누는 감정 칸의 세 앱은 모두 <strong>'지금 찍어 올리는' 순간 공유</strong>(2초 · 2분 · 라이브)다. 꾸밈 도구는 setlog(영상 위 장식)와 CHAKK(혼자 꾸미기)에 있다. <strong>한 장의 사진을 여럿이 꾸며 완성하는 약속은 21곳에 없다.</strong></li>
+<li><strong>'느리게 모으는 하루'</strong> — 성공한 공유 앱은 시간 압박(2초 · 2분 · 12명 폐쇄)을 쓰고, 다꾸 콘텐츠는 반대로 "낮은 속도"를 판다. 둘 사이의 '천천히, 나중에, 같이' 칸이 비어 있다.</li>
+<li><strong>'디지털 다꾸의 감정 포지션'</strong> — 한국 Goodnotes 첫 5장에서 다꾸 · 스티커 장면이 사라지고 AI 필기가 전면에 있다. 다꾸 수요는 <a href="../속지%20에셋%20아이디어/01%20트렌드%20조사.md">속지 에셋 아이디어</a>에 있으나 앱 쪽 감정 약속은 비어 보인다.</li>
+</ol>
+<p><strong>이미 선점된 말 (피할 것)</strong></p>
+<table>
+<thead>
+<tr>
+<th>말</th>
+<th>선점한 곳</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>"같은 하루", "더 가까운 우리", "시시콜콜한 일상"</td>
+<td>setlog</td>
+</tr>
+<tr>
+<td>"아늑한 방", "기록 공간", "나만의 소소한 일상과 추억"</td>
+<td>MOODA</td>
+</tr>
+<tr>
+<td>"내 이야기를 들어주는 친구"</td>
+<td>Journey</td>
+</tr>
+<tr>
+<td>"베스트 프렌드", "라이브 사진"</td>
+<td>Locket</td>
+</tr>
+<tr>
+<td>"진짜", "그저 또 다른 소셜네트워크가 아닙니다"</td>
+<td>BeReal</td>
+</tr>
+<tr>
+<td>"~ 완성!"(스꾸 완성 · 하루를 영상으로 완성 · 완성작)</td>
+<td>CHAKK · setlog · 크레페</td>
+</tr>
+</tbody>
+</table>
+<p><strong>DIO가 쓸 수 있는 말의 후보 (검증하지 않은 키워드)</strong></p>
+<table>
+<thead>
+<tr>
+<th>키워드</th>
+<th>근거</th>
+<th>쓰임의 조건</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>한 장</strong></td>
+<td>열람한 17곳 스토어 문구에 '한 장' 약속이 없음(BeReal은 '하루 한 번', setlog는 '2초')</td>
+<td>DIO의 사진 한 장 구조와 일치할 때만</td>
+</tr>
+<tr>
+<td><strong>같은 사진 위에 · 얹다 · 붙이다</strong></td>
+<td>같은 사진에 여럿이 올리는 약속은 없음. 스티커 · 테이프 어휘는 시각으로만 쓰임</td>
+<td>마스코트 · 스티커 문법과 함께</td>
+</tr>
+<tr>
+<td><strong>함께 꾸민</strong></td>
+<td>'꾸미다'는 MOODA · CHAKK · 꼬박일기에 있으나 '함께 꾸미다'는 못 찾음</td>
+<td>'완성'과 같이 쓰면 setlog · CHAKK와 겹침 → 완성의 대상(한 장)으로 차별</td>
+</tr>
+<tr>
+<td><strong>손글씨 · 스티커 · 테이프</strong></td>
+<td>시각으로만 쓰이고 문구로 직접 말한 곳은 적음</td>
+<td></td>
+</tr>
+<tr>
+<td><strong>우리 방 · 같은 방</strong></td>
+<td>MOODA '나만의 아늑한 방'은 혼자의 방</td>
+<td>MOODA와 혼동되지 않게 '같이'를 앞세움</td>
+</tr>
+<tr>
+<td><strong>천천히 · 나중에</strong></td>
+<td>느린 과정이 다꾸 콘텐츠의 힘, 공유 앱은 즉시성</td>
+<td>앱 동작(실시간이 아님)과 일치할 때만</td>
+</tr>
+</tbody>
+</table>
+</div><div class="sec2"><h2 id="6-리스크">6. 리스크</h2>
+<table>
+<thead>
+<tr>
+<th>유형</th>
+<th>근거</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>약속과 실제의 불일치 — 수익화</strong></td>
+<td>MOODA 신규 앱 부제는 "내 안의 나와 마주하는 시간"인데 2026-09~10 리뷰는 "일기 쓸 때마다 광고" · 유료 재결제 불만 D[6][37]</td>
+</tr>
+<tr>
+<td><strong>강제 · 압박</strong></td>
+<td>Lapse: 가입 시 친구 5명 초대 강제 → 1위 뒤 일 다운로드 정점 대비 −70%. BeReal: Android 활성 설치 중 매일 여는 비율 9%(2022-10) D[1]</td>
+</tr>
+<tr>
+<td><strong>약속 vs 일의 무게</strong></td>
+<td>Finch "lightweight": 일부 리뷰는 몇 주 뒤 '의무'로 변하고 못 들어가면 죄책감이라 평가(의견 갈림) D[8][4][53]</td>
+</tr>
+<tr>
+<td><strong>번역 · 현지화 불일치</strong></td>
+<td>Locket 번역투, Finch 영어 캡션</td>
+</tr>
+<tr>
+<td><strong>단순 여성화</strong></td>
+<td>Bic for Her(2012) 조롱 리뷰, 한국 '핑크택스' 논의(반대 의견도 병존) D[50][51]</td>
+</tr>
+<tr>
+<td><strong>젠더 해석 사고</strong></td>
+<td>유행어 · 손 모양 · 성별 한정 쿠폰이 사과 · 징계로 이어짐 D[2]</td>
+</tr>
+<tr>
+<td><strong>감성 과잉</strong></td>
+<td><strong>감성 과잉으로 외면받은 한국 앱은 확인하지 못했다.</strong> 가장 가까운 것은 Duolingo의 귀여운 인격 vs 실제 회사 행동 D[49]</td>
+</tr>
+</tbody>
+</table>
+<p><strong>해석</strong>: 열람한 감성 앱의 실패는 문구가 너무 감성적이어서가 아니라 <strong>감정 약속을 해 놓고 광고 · 유료 · 강제 초대 · 번역투로 약속을 깨는 순간</strong>에 나왔다. 감성 표현을 세게 할수록 이 어긋남의 비용이 커진다. 따라서 <strong>UI에서 약속한 감성은 기능(초대 · 공유 · 삭제 · 복원)에서 지켜야 한다.</strong></p>
+</div><div class="sec2"><h2 id="7-한계">7. 한계</h2>
+<ul>
+<li>프리뷰 영상 구성, 앱이 직접 만든 POV · ASMR 사례, 폴라리스 · 굿노트 한국 캠페인, 토스 · 당근의 '감성 캠페인 카피'는 확인하지 못했다.</li>
+<li>같은 약속의 수치가 기사마다 다르다(setlog 인원 10명 vs 12명, Locket 한도 5명 → 20명).</li>
+<li>인생네컷 앱 평점은 2.63인데 같은 이름의 부스 브랜드는 Z세대 놀이 문화다 — 브랜드 감성과 앱 경험이 따로 노는 예다(해석).</li>
+<li>포지셔닝 지도는 정량이 아니라 조사자의 배치다.</li>
+</ul></div>
+</section><section class="doc" id="doc-06" data-title="06 감성 방향 3안 — 색 규칙을 먼저 정하고, 그 안에서 방향 (개정 2판)">
+<h1 id="06-감성-방향-3안-색-규칙을-먼저-정하고-그-안에서-방향-개정-2판">06 감성 방향 3안 — 색 규칙을 먼저 정하고, 그 안에서 방향 (개정 2판)</h1>
+<blockquote>
+<p>조사 02~05와 팀의 색 조건을 코덱스에게 넘겨 색 체계와 방향을 받았고(2026-10-31), 시안은 클로드가 HTML 목업으로 구현해 코덱스가 렌더를 눈으로 다시 검수했다. <strong>색 · 모양 · 그림자 · 불투명도 수치는 코덱스 값</strong>이다. 클로드가 바꾼 곳은 <a href="#doc-12">12</a>의 "구현 보정" 표에 모두 적었다.
+<strong>개정 이유</strong>: 1판은 핑크 · 민트 · 웜 오프화이트 같은 보조색으로 세 안을 구별했다. 팀이 <strong>"색은 다이어리 캐릭터의 노랑과 우리 UI의 색상 계열(HUE)을 벗어나지 않고, 메인은 무조건 UI 색"</strong> 이라고 조건을 걸어 색 체계를 처음부터 다시 짰고, 렌더 · 검수 · 문서를 모두 새로 만들었다.</p>
+</blockquote>
+<div class="sec2"><h2 id="한-줄-결론">한 줄 결론</h2>
+<p><strong>권장은 혼합안이다 — B 포토부스 콜라주(사진 · 테이프 · 프레임)를 주안으로, A의 로그인 빛과 종이결만 섞은 2안화.</strong> 색이 UI 계열과 캐릭터 노랑으로 고정되자 세 안을 가르는 것은 색이 아니라 <strong>구조 · 질감 · 캐릭터 노출</strong>이 됐고, 코덱스는 렌더를 보고 "C는 독립안으로 너무 무표정하고 A와 구별되지 않아 B의 보조 언어로 흡수하는 편이 낫다"고 판단했다. 1판의 결론("A 기본 + B 일부")에서 무게가 B 쪽으로 옮겨 갔고, 구체 구성(로그인 · 홈 · 공방 · 내 공간 · 휴지통)은 실질적으로 같으며 <strong>홈 선택 표지의 프레임과 <code>⋯</code> 버튼, 휴지통 표지의 원색 유지</strong>가 달라졌다. 혼합안은 BI · CI를 바꾸지 않고, 색은 새 색상 계열을 하나도 들이지 않는다(검사 결과는 §1.1).</p>
+</div><div class="sec2"><h2 id="1-지킬-선-가드레일">1. 지킬 선 (가드레일)</h2>
+<p><a href="#doc-00">00 조사 계획</a> §8의 초안을 조사 결과와 팀의 색 조건으로 확정했다. <strong>어떤 안도 이 표를 넘지 않는다.</strong></p>
+<table>
+<thead>
+<tr>
+<th>단계</th>
+<th>대상</th>
+<th>기준</th>
+<th>근거</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>불변</strong></td>
+<td><strong>색 규칙 v2</strong>(§1.1)</td>
+<td>메인 = UI 색상 계열(H 228~242°), 보조 = 캐릭터 노랑(H 40~52°) <strong>하나</strong>, 그 밖의 색상 계열은 UI 층(바탕 · 카드 · 칩 · 타일 · 장식 · 그림자 · 소품)에서 쓰지 않는다</td>
+<td>팀 결정(2026-10-31)</td>
+</tr>
+<tr>
+<td><strong>불변</strong></td>
+<td>노랑 면적 · 위 글자</td>
+<td>노랑은 작은 면 · 칩 · 테이프 · 점 · 고리에만, <strong>큰 면(바탕 · 카드 · 배너 · 타일 전체) 금지</strong>. 노랑 위 글자는 항상 네이비 <code>#0B1766</code></td>
+<td>코덱스, 흰 글자는 1.14:1</td>
+</tr>
+<tr>
+<td><strong>불변</strong></td>
+<td>D 심볼 먹색 <code>#242424</code> · 우상단 원 <code>#ABB1D8</code> · 로고 비율 · 높이 25% 여백</td>
+<td>색 · 비율 · 둥근 마감을 바꾸지 않고, 소품 · 캐릭터 · 빛이 여백을 침범하지 않는다</td>
+<td>디자인 가이드 §1.2</td>
+</tr>
+<tr>
+<td><strong>불변</strong></td>
+<td>핵심 토큰(페리윙클 <code>#818AC3</code>/<code>#606BB2</code> · 네이비 <code>#0B1766</code>) · 다크 모드 없음 · 선 아이콘 1.8 둥근 끝</td>
+<td>인지 · 가독성 · 구현 일관성</td>
+<td>가이드 §2, §6</td>
+</tr>
+<tr>
+<td><strong>불변</strong></td>
+<td>"화면은 조용하게, 꾸민 내용이 주인공"</td>
+<td>콘텐츠 밖 장식은 <strong>한 화면 국소 요소 1~2개</strong>까지</td>
+<td>가이드 §1.1, 조사 B 패턴 1</td>
+</tr>
+<tr>
+<td><strong>불변</strong></td>
+<td><strong>안내 멘트 금지 · 해요체</strong></td>
+<td>정서 문구는 아래 §3의 좁은 범위만, 안내 · 예고 문구는 그대로 금지</td>
+<td>가이드 §8, 조사 C §6</td>
+</tr>
+<tr>
+<td><strong>불변</strong></td>
+<td><strong>영구 삭제는 귀엽게 흐리지 않는다</strong></td>
+<td>확인문은 기능적으로("영구 삭제할까요?"), 날짜 표현에서 '영구'를 지우지 않는다</td>
+<td>조사 B §3.5, C 2번 발견</td>
+</tr>
+<tr>
+<td><strong>불변</strong></td>
+<td><strong>압박 장치를 넣지 않는다</strong></td>
+<td>연속 기록 · 밀린 알림 · 좋아요 수 · 친구 기여도 같은 수치를 전면에 두지 않는다</td>
+<td>조사 A §3</td>
+</tr>
+<tr>
+<td><strong>조건부</strong></td>
+<td>카드 모서리 · 그림자 · 표면 질감</td>
+<td>시안에서 읽기 · 선호가 확인될 때 적용</td>
+<td>코덱스</td>
+</tr>
+<tr>
+<td><strong>조건부</strong></td>
+<td>모아 · 디오 노출량</td>
+<td>'유치함' 반응이 없을 때만 확대. 지금 시안은 <strong>빈 상태에만</strong>, 로그인 폼 안에는 넣지 않는다</td>
+<td>조사 A §5(직접 근거 없음 → 가설)</td>
+</tr>
+<tr>
+<td><strong>조건부</strong></td>
+<td>모션 · 햅틱</td>
+<td><strong>동작 줄이기 대응이 먼저</strong>, 60fps, 비차단, 끌 수 있게</td>
+<td>조사 C §5</td>
+</tr>
+<tr>
+<td><strong>조건부</strong></td>
+<td>제목 서체 1곳</td>
+<td>가이드 §3.1 변경이 필요한 사안 — 결정 칸(<a href="#doc-12">12</a>). 어떤 안도 서체 없이 완성된다</td>
+<td>조사 C §4</td>
+</tr>
+<tr>
+<td><strong>자유</strong></td>
+<td>다이어리 표지 · 속지 · 스티커 · 사진 프레임</td>
+<td>사용자 콘텐츠 영역 — 색 규칙의 예외</td>
+<td>가이드 §2.4</td>
+</tr>
+<tr>
+<td><strong>자유</strong></td>
+<td>빈 상태의 작은 오브젝트 · 시즌 에셋</td>
+<td>기능 이해를 방해하지 않을 때(색은 규칙 안에서)</td>
+<td></td>
+</tr>
+<tr>
+<td><strong>비추천</strong></td>
+<td>블러 유리(Liquid Glass풍) · 뉴모피즘 · 3D 입체 오브젝트 · 효과음</td>
+<td>대비 · 가독성 · 성능 · 규칙 충돌</td>
+<td>조사 C §2</td>
+</tr>
+</tbody>
+</table>
+<div class="sec3"><h3 id="11-색-규칙-v2">1.1 색 규칙 v2</h3>
+<p><strong>규칙은 이렇다.</strong> 색상각(H)은 색의 종류를 0~360°로 나타낸 값이다. 캐릭터 최종 시안의 채움색이 이미 버터 노랑 · 라벤더 · 흰색 · 먹선 둘(UI 계열 + 노랑)뿐이라(<a href="#doc-01">01</a> 색 현황), 이 두 계열을 UI 전체의 색 어휘로 삼았다.</p>
+<table>
+<thead>
+<tr>
+<th>구분</th>
+<th>허용</th>
+<th>쓰는 곳</th>
+<th>쓰지 않는 곳</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>UI 계열(메인)</strong></td>
+<td>H 228~242°</td>
+<td>바탕 · 카드 · 선 · 글자 · 칩 · 버튼 · 그림자 · 라벤더 테이프</td>
+<td>—</td>
+</tr>
+<tr>
+<td><strong>캐릭터 노랑(보조 하나)</strong></td>
+<td>H 40~52°</td>
+<td>마스킹테이프 · 작은 상태 칩 · 점 · 고리 · 별 · 캐릭터 · 아이콘 배경</td>
+<td>페이지 바탕 · 대형 배너 · 타일 · 카드 전체 · 메인 버튼 · 큰 빈 상태 면</td>
+</tr>
+<tr>
+<td>무채색</td>
+<td>채도 8% 이하(흰색 · 아주 옅은 회색)</td>
+<td>카드 · 입력</td>
+<td>—</td>
+</tr>
+<tr>
+<td><strong>면적 상한(코덱스)</strong></td>
+<td>UI 계열 + 흰색</td>
+<td>로그인 · 내 공간 · 휴지통 98% 이상 · 홈 97% 이상(표지 제외)</td>
+<td>노랑은 각각 2% · 3% 이하, 공방은 5% 이하</td>
+</tr>
+<tr>
+<td><strong>예외</strong></td>
+<td>① 표지 · 사진 · 사용자 스티커(사용자 콘텐츠) ② 카카오 · 구글 · 애플 간편 로그인(외부 브랜드 규정색) ③ <code>danger</code>는 <strong>영구 삭제 확인 단계 한 곳</strong>의 기능 색 ④ <strong>알림 점(읽지 않음)의 쿨톤 핑크 <code>#B63F7C</code> 하나</strong> — 팀(사용자)이 "알림 동그라미는 쿨톤 핑크"로 직접 지시한 예외</td>
+<td></td>
+<td>알림 점 · 삭제 아이콘 · 임박 글자의 적색은 쓰지 않는다. 핑크는 알림 점에만 쓴다</td>
+</tr>
+</tbody>
+</table>
+<p><strong>채택한 색 토큰.</strong> 코덱스 토큰 표에서 채택한 것이고, 색상각과 대비는 클로드가 <code>스크립트/색 검수.py 표</code>로 다시 계산했다(코덱스의 계산과 같았다).</p>
+<table>
+<thead>
+<tr>
+<th>토큰</th>
+<th>hex</th>
+<th style="text-align: right;">H°</th>
+<th>구분</th>
+<th style="text-align: right;">네이비 글자 대비</th>
+<th style="text-align: right;">흰 글자 대비</th>
+<th>용도</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>page-bg</code></td>
+<td><code>#F3F3F7</code></td>
+<td style="text-align: right;">240</td>
+<td>UI 계열</td>
+<td style="text-align: right;">14.3</td>
+<td style="text-align: right;">1.1</td>
+<td>앱 바탕(지금 값 그대로)</td>
+</tr>
+<tr>
+<td><code>card-bg</code></td>
+<td><code>#FFFFFF</code></td>
+<td style="text-align: right;">–</td>
+<td>무채색</td>
+<td style="text-align: right;">15.8</td>
+<td style="text-align: right;">1.0</td>
+<td>카드 · 입력</td>
+</tr>
+<tr>
+<td><code>lavender-50</code></td>
+<td><code>#F0F1F9</code></td>
+<td style="text-align: right;">233</td>
+<td>UI 계열</td>
+<td style="text-align: right;">14.0</td>
+<td style="text-align: right;">1.1</td>
+<td>가장 연한 카드 틴트 · 보드</td>
+</tr>
+<tr>
+<td><code>lavender-100</code></td>
+<td><code>#DBDCF9</code></td>
+<td style="text-align: right;">238</td>
+<td>UI 계열</td>
+<td style="text-align: right;">11.8</td>
+<td style="text-align: right;">1.3</td>
+<td>보조 카드 · 라벤더 테이프 · 디오 목도리</td>
+</tr>
+<tr>
+<td><code>lavender-200</code></td>
+<td><code>#ABB1D8</code></td>
+<td style="text-align: right;">232</td>
+<td>UI 계열</td>
+<td style="text-align: right;">7.5</td>
+<td style="text-align: right;">2.1</td>
+<td>아바타 원 · 규칙선 · 로고 원</td>
+</tr>
+<tr>
+<td><code>primary</code></td>
+<td><code>#818AC3</code></td>
+<td style="text-align: right;">232</td>
+<td>UI 계열</td>
+<td style="text-align: right;">4.8</td>
+<td style="text-align: right;">3.3</td>
+<td>핵심 토큰(<strong>불변</strong>)</td>
+</tr>
+<tr>
+<td><code>primaryStrong</code></td>
+<td><code>#606BB2</code></td>
+<td style="text-align: right;">232</td>
+<td>UI 계열</td>
+<td style="text-align: right;">3.2</td>
+<td style="text-align: right;">4.9</td>
+<td>채운 버튼 · FAB(<strong>불변</strong>)</td>
+</tr>
+<tr>
+<td><code>navy</code></td>
+<td><code>#0B1766</code></td>
+<td style="text-align: right;">232</td>
+<td>UI 계열</td>
+<td style="text-align: right;">1.0</td>
+<td style="text-align: right;">15.8</td>
+<td>글자 · 선택 칩(<strong>불변</strong>)</td>
+</tr>
+<tr>
+<td><code>card-border</code></td>
+<td><code>#D9DCEF</code></td>
+<td style="text-align: right;">232</td>
+<td>UI 계열</td>
+<td style="text-align: right;">11.6</td>
+<td style="text-align: right;">1.4</td>
+<td>카드 · 필드 구분선 · 프레임(장식)</td>
+</tr>
+<tr>
+<td><code>accent-butter</code></td>
+<td><code>#FEF0BF</code></td>
+<td style="text-align: right;">47</td>
+<td>캐릭터 노랑</td>
+<td style="text-align: right;">13.9</td>
+<td style="text-align: right;">1.1</td>
+<td>작은 면 · 상태 칩 · 모아 몸</td>
+</tr>
+<tr>
+<td><code>butter-tape</code></td>
+<td><code>#FBE5A3</code></td>
+<td style="text-align: right;">45</td>
+<td>캐릭터 노랑</td>
+<td style="text-align: right;">12.7</td>
+<td style="text-align: right;">1.2</td>
+<td>마스킹테이프</td>
+</tr>
+<tr>
+<td><code>butter-strong</code></td>
+<td><code>#B98208</code></td>
+<td style="text-align: right;">41</td>
+<td>캐릭터 노랑</td>
+<td style="text-align: right;">4.7</td>
+<td style="text-align: right;">3.4</td>
+<td>점 · 짧은 선 · 만료 고리</td>
+</tr>
+<tr>
+<td><code>danger-confirm</code></td>
+<td><code>#B52E52</code></td>
+<td style="text-align: right;">344</td>
+<td>기능 예외</td>
+<td style="text-align: right;">2.6</td>
+<td style="text-align: right;">6.0</td>
+<td>영구 삭제 확인 단계 한 곳</td>
+</tr>
+<tr>
+<td><code>notify-pink</code></td>
+<td><code>#B63F7C</code></td>
+<td style="text-align: right;">329</td>
+<td><strong>색 규칙의 예외</strong>(사용자 지시)</td>
+<td style="text-align: right;">2.8</td>
+<td style="text-align: right;">5.3</td>
+<td>알림 점 전용 쿨톤 핑크(앱 바탕 위 4.75:1). 코덱스 후보 3개(<code>#A9467E</code> · <code>#B63F7C</code> · <code>#D04F9A</code>) 중 추천값</td>
+</tr>
+</tbody>
+</table>
+<p><strong>코덱스 값을 그대로 쓰지 않은 곳</strong>(숨기지 않는다):</p>
+<table>
+<thead>
+<tr>
+<th>코덱스 값</th>
+<th>클로드의 판단</th>
+<th>이유</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>action-accessible #525FAD</code>(버튼 · FAB의 <code>#606BB2</code> 교체)</td>
+<td><strong>채택 안 함</strong>, 버튼색 불변</td>
+<td>흰 글자 / <code>#606BB2</code>가 이미 <strong>4.95:1</strong>이라 고칠 점이 없고, 버튼색은 BI 핵심 토큰이다. <code>#525FAD</code>는 '회색 바탕 위 <code>primaryStrong</code> 글자(4.47:1)'를 고치는 <strong>글자색 후보</strong>로만 둔다(<a href="#doc-12">12</a> §3)</td>
+</tr>
+<tr>
+<td><code>text-muted #49538F</code></td>
+<td>채택 안 함</td>
+<td>지금 <code>textMuted</code>(<code>rgba(11,23,102,.68)</code>)가 라벤더 면 위에서 이미 5.2 이상이다</td>
+</tr>
+<tr>
+<td>알림 점 · 고리 <code>#D69A1E</code>(검수 후 제안)</td>
+<td><strong><code>#B98208</code>로 보정</strong>(내 판단)</td>
+<td><code>#D69A1E</code>는 흰색 위 <strong>2.47:1</strong>로 비텍스트 3:1에 못 미친다. 같은 색상각(41°)에서 3:1을 넘는 가장 밝은 값이 <code>#B98208</code>(3.35:1)이다. 처음 코덱스 값 <code>#A87612</code>(3.99:1)는 탁한 갈색으로 읽혀 이 값으로 올렸다</td>
+</tr>
+<tr>
+<td>카드 경계 <code>#D9DAE7</code>(1차) · <code>#D9DCEF</code>(검수)</td>
+<td><code>#D9DCEF</code> 하나로 통일</td>
+<td>두 값이 거의 같아 토큰이 늘 이유가 없다</td>
+</tr>
+</tbody>
+</table>
+<p><strong>점검 결과</strong>(재현: <code>스크립트/색 검수.py</code> · <code>스크립트/색 면적.py</code>).</p>
+<ul>
+<li>시안 코드(<code>안.css</code> · <code>안.js</code> · <code>혼합.js</code>)의 색 190개(고유 20개)를 색상각으로 검사했다 — <strong>UI 계열 11 · 캐릭터 노랑 4 · 무채색 4 · 이탈 1(휴지통 샘플 표지 청록 <code>#9FC2C9</code>, 사용자 콘텐츠 예외)</strong>. 1판의 핑크 · 민트 · 적색 · 웜 오프화이트는 하나도 남지 않았다.</li>
+<li>렌더 화면 면적(태블릿, 표지 없는 화면 기준, %):</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>화면</th>
+<th style="text-align: right;">지금: UI 계열 + 옅은 색</th>
+<th style="text-align: right;">지금: 노랑</th>
+<th style="text-align: right;">혼합안: UI 계열 + 옅은 색</th>
+<th style="text-align: right;">혼합안: 노랑</th>
+<th style="text-align: right;">혼합안: 그 밖</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>로그인</td>
+<td style="text-align: right;">99.6</td>
+<td style="text-align: right;">0.3</td>
+<td style="text-align: right;">99.7</td>
+<td style="text-align: right;">0.3</td>
+<td style="text-align: right;">0.0</td>
+</tr>
+<tr>
+<td>꾸미기 공방</td>
+<td style="text-align: right;">100.0</td>
+<td style="text-align: right;">0.0</td>
+<td style="text-align: right;">99.2</td>
+<td style="text-align: right;">0.6</td>
+<td style="text-align: right;">0.1</td>
+</tr>
+<tr>
+<td>내 공간</td>
+<td style="text-align: right;">99.9</td>
+<td style="text-align: right;">0.0</td>
+<td style="text-align: right;">98.9</td>
+<td style="text-align: right;">0.0</td>
+<td style="text-align: right;">1.0</td>
+</tr>
+<tr>
+<td>휴지통(표지 2권)</td>
+<td style="text-align: right;">94.7</td>
+<td style="text-align: right;">0.0</td>
+<td style="text-align: right;">93.8</td>
+<td style="text-align: right;">0.2</td>
+<td style="text-align: right;">6.0</td>
+</tr>
+<tr>
+<td>홈(표지 3권)</td>
+<td style="text-align: right;">86.4</td>
+<td style="text-align: right;">0.0</td>
+<td style="text-align: right;">86.1</td>
+<td style="text-align: right;">0.0</td>
+<td style="text-align: right;">13.9</td>
+</tr>
+<tr>
+<td>빈 홈</td>
+<td style="text-align: right;">–</td>
+<td style="text-align: right;">–</td>
+<td style="text-align: right;">99.2</td>
+<td style="text-align: right;">0.8</td>
+<td style="text-align: right;">0.0</td>
+</tr>
+<tr>
+<td>빈 휴지통</td>
+<td style="text-align: right;">–</td>
+<td style="text-align: right;">–</td>
+<td style="text-align: right;">100.0</td>
+<td style="text-align: right;">0.0</td>
+<td style="text-align: right;">0.0</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>노랑은 어느 화면에서도 1% 안쪽이고(카카오 버튼 0.3%가 노랑 구간에 들어가는 로그인 포함), <strong>'그 밖'은 모두 사용자 표지</strong>다(홈 · 휴지통). 지금과 비교하면 UI 계열 + 옅은 색의 비중은 같다 — 혼합안이 메인 색을 흔들지 않는다. 이 측정은 노랑 면적 상한(2~5%)이 지켜짐을 보여 줄 뿐 '예쁜가'를 말해 주지는 않는다.</li>
+<li>근거 자료와 한계(라벤더 + 버터 조합을 직접 다룬 앱 · 연구는 찾지 못함)는 <a href="#doc-04">04</a> §3.1.</li>
+</ul>
+</div></div><div class="sec2"><h2 id="2-세-방향">2. 세 방향</h2>
+<p>색이 같아져서 안을 가르는 축은 <strong>구조 · 질감 · 노랑 쓰임 · 캐릭터 노출</strong>이다. 이름은 유지했다.</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th><strong>A 햇살 드로어리</strong></th>
+<th><strong>B 포토부스 콜라주</strong> ★</th>
+<th><strong>C 조용한 문구점</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>한 줄</td>
+<td>여백이 큰 종이 위에 아침빛과 얇은 테이프만 남긴 일기장</td>
+<td>흰 보드 위에 폴라로이드 · 라벨 · 테이프를 얹는 공동 기록 벽</td>
+<td>규칙선 · 라벨 · 정돈된 진열의 조용한 도구 상자</td>
+</tr>
+<tr>
+<td>키워드</td>
+<td>종이결 · 흰 대각광 · 버터 테이프</td>
+<td>폴라로이드 · 테이프 · 사진 프레임</td>
+<td>규칙선 · 라벨 · 보관함</td>
+</tr>
+<tr>
+<td>바탕</td>
+<td><code>#F3F3F7</code> + 흰색 대각광 <code>linear-gradient(135deg,#FFFFFF,#F3F3F7 68%)</code></td>
+<td><code>#F3F3F7</code> + 라벤더 번짐 <code>rgba(219,220,249,.34)</code></td>
+<td><code>#F3F3F7</code> 평면</td>
+</tr>
+<tr>
+<td>카드 모서리 · 그림자</td>
+<td>22 · <code>0 8px 20px</code> .09</td>
+<td>26 · <code>0 10px 24px</code> .11</td>
+<td>16 · <code>0 4px 12px</code> .07</td>
+</tr>
+<tr>
+<td>노랑 쓰임</td>
+<td>상단 테이프 · 작은 점만</td>
+<td>사진 고정 테이프 · 별 클립 · 상태 점</td>
+<td>밑줄 같은 미세 포인트만</td>
+</tr>
+<tr>
+<td>라벤더 단계</td>
+<td><code>50</code> 중심, <code>100</code>은 레이어</td>
+<td><code>50 / 100 / 200</code> 레이어가 가장 분명</td>
+<td><code>50</code> 면, <code>200</code>은 아이콘 배경만</td>
+</tr>
+<tr>
+<td>캐릭터 노출</td>
+<td>빈 상태(둘이 + 테이프)</td>
+<td>빈 상태(둘이 + 폴라로이드 틀)</td>
+<td>빈 상태(디오 + 규칙선)</td>
+</tr>
+<tr>
+<td>감성 세기</td>
+<td>중간</td>
+<td>높음</td>
+<td>낮음</td>
+</tr>
+<tr>
+<td>유치함 위험</td>
+<td>낮음</td>
+<td>중간</td>
+<td>매우 낮음</td>
+</tr>
+<tr>
+<td>조사와 이어지는 곳</td>
+<td>날것의 사진 + 위에 얹는 층, 소장 감각</td>
+<td><strong>'함께 + 감정 + 꾸밈'</strong> 빈 칸, 낙서 스티커 · 테이프 문법, 숫자 대신 얼굴</td>
+<td>로그인 폼은 건드리지 않는 감성 앱의 공통점, 압박 없는 정돈</td>
+</tr>
+<tr>
+<td>구현 단계(<a href="#doc-14">14</a>)</td>
+<td>1~2단계(값 + 기존 소품 PNG)</td>
+<td>2~3단계(프레임 · 아바타 · 결과 미리보기)</td>
+<td>1단계(값만)</td>
+</tr>
+</tbody>
+</table>
+<div class="sec3"><h3 id="화면마다-어떻게-보이나">화면마다 어떻게 보이나</h3>
+<table>
+<thead>
+<tr>
+<th>화면</th>
+<th>A</th>
+<th>B</th>
+<th>C</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>로그인 · 가입</strong></td>
+<td>흰 대각광과 종이결 위의 로그인 카드, 장식은 카드 윗변의 버터 테이프 한 조각</td>
+<td>카드는 깨끗한 인화지, 카드 바깥 좌상단에 사진 한 장 + 라벤더 테이프</td>
+<td>문구점 새 노트처럼 흰 카드와 정교한 선만</td>
+</tr>
+<tr>
+<td><strong>홈</strong></td>
+<td>표지가 주인공, 도구는 가장자리로</td>
+<td>모든 표지가 얇은 프레임, 선택 표지만 흰 3px 프레임 + 그림자</td>
+<td>진열대처럼 균일한 간격</td>
+</tr>
+<tr>
+<td><strong>꾸미기 공방</strong></td>
+<td>첫 카드가 '오늘 만들 결과물' 한 장, 아래는 서랍 같은 내 폰트 · 스티커</td>
+<td>사진 위 결과물 보드 + 정사각 타일(명도로 구별)</td>
+<td>문구 서랍의 분류표(규칙선)</td>
+</tr>
+<tr>
+<td><strong>내 공간</strong></td>
+<td>네이비 배너 대신 라벤더 50 이름표 카드</td>
+<td>사진 두 장 + 로고 카드의 작은 콜라주 배너</td>
+<td>차분한 회원 카드, 라벤더 200 상단 띠</td>
+</tr>
+<tr>
+<td><strong>휴지통</strong></td>
+<td>잠시 접어 둔 선반, 저채도 표지</td>
+<td>사진 하단 날짜 스탬프 + 임박 칩</td>
+<td>보관 기한이 있는 문서함</td>
+</tr>
+</tbody>
+</table>
+</div></div><div class="sec2"><h2 id="3-정서-문구-허용-범위">3. 정서 문구 — 허용 범위</h2>
+<p>코덱스 원칙: <strong>로그인 첫 화면 · 빈 상태 · 완료 토스트에만, 한 화면 1개, 12자 이내, 기능 설명 · 행동 지시는 금지.</strong></p>
+<table>
+<thead>
+<tr>
+<th>위치</th>
+<th>허용 예시</th>
+<th>금지 예</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>로그인</td>
+<td>"오늘의 한 장을"</td>
+<td>"친구들과 소중한 추억을 기록해요"</td>
+</tr>
+<tr>
+<td>빈 상태</td>
+<td>"아직 비어 있어요"</td>
+<td>"+ 버튼을 눌러 다이어리를 만들어 보세요"</td>
+</tr>
+<tr>
+<td>휴지통</td>
+<td>"잠시 여기 있어요"</td>
+<td>"걱정 마세요! 귀여운 일기는 안전해요"</td>
+</tr>
+<tr>
+<td>완료 토스트</td>
+<td>"붙였어요" · "저장했어요"</td>
+<td>"완벽하게 완성되었어요!"</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>휴지통의 영구 삭제 확인문은 정서 문구 없이 "영구 삭제할까요?"처럼 기능적으로 쓴다.</li>
+<li><strong>이 시안 렌더에는 정서 문구를 넣지 않았다.</strong> 로그인 부제도 지웠다(옛 부제 "함께 기록하고, 추억을 나눠 보세요."는 '기록' · '추억'이 포화된 낱말이기도 하다, <a href="#doc-05">05</a>). 정서 문구를 허용할지는 <strong>팀이 정할 일</strong>이다(결정 칸). 클로드 · 코덱스는 '허용 범위'만 정리했고, 기본값은 지금처럼 <strong>없음</strong>이다.</li>
+</ul>
+</div><div class="sec2"><h2 id="4-코덱스-검수와-최종-권고">4. 코덱스 검수와 최종 권고</h2>
+<p>세 안 × 화면의 렌더를 코덱스가 눈으로 검수했다(2026-10-31, 색 규칙 반영 후). <code>[구현]</code>은 의미 · 발견성 · 상태 표현 문제, <code>[취향]</code>은 밀도와 조형 판단이다. 보정 hex는 모두 허용 색상각 안이다.</p>
+<table>
+<thead>
+<tr>
+<th>화면 · 안</th>
+<th>코덱스가 짚은 것</th>
+<th>보정</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>로그인 · A</td>
+<td><code>[취향]</code> 테이프가 카드 상단에 너무 붙으면 카드 장식처럼 보임</td>
+<td>테이프를 작게, 카드 상단에서 -7px, <code>#FBE5A3</code> opacity .72</td>
+</tr>
+<tr>
+<td>로그인 · B</td>
+<td><code>[취향]</code> B의 정체성이 거의 안 드러남. 로그인에 콜라주를 억지로 넣는 것은 더 나쁨</td>
+<td>장식 추가 안 함, 로그인은 A의 질감으로 통일</td>
+</tr>
+<tr>
+<td>로그인 · C</td>
+<td><code>[취향]</code> B와 사실상 구별 안 됨</td>
+<td>소셜 위 구분선만 <code>1px #D9DCEF</code></td>
+</tr>
+<tr>
+<td>홈 · A</td>
+<td><code>[취향]</code> 안정적이나 A만의 기억점이 약함</td>
+<td>장식 추가 없이 배경광만의 안으로 한정</td>
+</tr>
+<tr>
+<td>홈 · B</td>
+<td><code>[구현]</code> 모든 표지에 흰 테두리가 상시 보이면 선택 상태가 모호</td>
+<td>기본 <code>2px #D9DCEF</code> .7, 선택 때만 <code>3px #FFFFFF</code> + <code>0 8px 16px</code> .12</td>
+</tr>
+<tr>
+<td>홈 · C</td>
+<td><code>[취향]</code> A와 구분되는 조형 언어가 거의 없음</td>
+<td>탭 아래에만 <code>1px #D9DCEF</code> 규칙선</td>
+</tr>
+<tr>
+<td>공방 · A</td>
+<td><code>[취향]</code> 장식 한 개로는 '만드는 곳' 정체성이 약함</td>
+<td>첫 카드에만 작은 사진 1장 · 테이프 1장 이내</td>
+</tr>
+<tr>
+<td>공방 · B</td>
+<td><code>[취향/한도 초과]</code> 사진 2 · 하트 · 별 · 테이프 2가 한 영역에 몰림</td>
+<td><strong>사진 2 + 테이프 1만</strong>, 하트 · 별 제거. 보드 높이 태블릿 176 · 폰 132</td>
+</tr>
+<tr>
+<td>공방 · C</td>
+<td><code>[구현]</code> 1 · 2 · 3단 규칙선이 비활성 스켈레톤이나 입력 줄처럼 읽힘</td>
+<td>2 · 3번째 선 제거, 카드 좌상단 한 줄만</td>
+</tr>
+<tr>
+<td>내 공간 · A</td>
+<td><code>[취향]</code> 연필(북마크)이 떠 보임, 배너와 통계 위계 약함</td>
+<td>연필 삭제, 통계 카드 간격 14</td>
+</tr>
+<tr>
+<td>내 공간 · B</td>
+<td><code>[취향]</code> 사진 세 장 + 테이프가 작은 배너에서 복잡</td>
+<td>사진 2장 + 로고 카드, 테이프 1, 사진 폭 54 이하</td>
+</tr>
+<tr>
+<td>내 공간 · C</td>
+<td><code>[취향]</code> 6px 띠는 파일철 · 시스템 바처럼 읽힘</td>
+<td>상단 띠 <code>4px #D9DCEF</code> opacity .9</td>
+</tr>
+<tr>
+<td>휴지통 · A</td>
+<td><code>[구현]</code> 표지 위 삭제 아이콘이 일반 상태에서 너무 직접적</td>
+<td>아이콘 제거, 선택 모드에서만 체크박스 24</td>
+</tr>
+<tr>
+<td>휴지통 · B</td>
+<td><code>[취향]</code> 표지를 회색화하면 사용자 콘텐츠를 비활성화한 인상</td>
+<td>표지 원색 유지, 필요하면 <code>saturate(.78)</code> 이하만</td>
+</tr>
+<tr>
+<td>휴지통 · C</td>
+<td><code>[구현]</code> 비선택 상태의 빈 체크 사각형이 로딩 실패처럼 보임</td>
+<td>평상시 숨김, <code>선택</code> 진입 후만 24</td>
+</tr>
+<tr>
+<td>빈 홈 · A / B</td>
+<td><code>[취향/구현]</code> 캐릭터 군이 작음 · 세부가 뭉개짐</td>
+<td>군 최소 폭 태블릿 132 / 148, 폰 104 / 112</td>
+</tr>
+<tr>
+<td>빈 휴지통 · C</td>
+<td><code>[취향]</code> 중심 오브젝트가 너무 작아 화면이 비어 보임</td>
+<td>디오 높이 태블릿 54 · 폰 44 이상</td>
+</tr>
+<tr>
+<td>홈 폰 · A B C</td>
+<td><code>[취향]</code> 표지가 시선을 독점해 'UI 메인 색' 인상이 약해짐</td>
+<td>표지 기본 프레임 <code>2px #D9DCEF</code> .7, 선택 때만 흰 프레임</td>
+</tr>
+<tr>
+<td>공방 폰 · A B C</td>
+<td><code>[취향]</code> C 규칙선 카드와 B 장식 밀도가 극단으로 갈림</td>
+<td>B 장식 축소 · C 단일 규칙선</td>
+</tr>
+<tr>
+<td>내 공간 폰 · A B C</td>
+<td><code>[취향]</code> A는 배너 · 통계 · 정보 카드가 비슷한 흰 상자</td>
+<td>A는 통계 카드만 <code>#F0F1F9</code></td>
+</tr>
+</tbody>
+</table>
+<p><strong>색 규칙 눈 점검</strong></p>
+<table>
+<thead>
+<tr>
+<th>항목</th>
+<th>판정</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>메인이 UI 색으로 읽히는가</td>
+<td>로그인 · 공방 · 내 공간 · 휴지통은 그렇다. <strong>홈은 다색 표지가 시각적 주인공이라 수치로는 통과해도 체감은 경계선이다.</strong> 표지는 사용자 콘텐츠로 두고 머리 · 탭 · FAB · 선택 프레임을 UI 색으로 고정한다(표지 색을 억제하지 않는다).</td>
+</tr>
+<tr>
+<td>노랑 면적</td>
+<td>상한을 넘는 화면은 없다. B 공방만 테이프 · 별 · 하트가 겹쳐 '노랑 · 장식 남용'으로 보임 → 사진 2 + 테이프 1로 축소</td>
+</tr>
+<tr>
+<td>노랑 부족</td>
+<td>C의 빈 홈 · 빈 휴지통은 캐릭터와 UI의 연결이 약함 → 노랑 면을 늘리지 말고 캐릭터 옆 테이프 1장만</td>
+</tr>
+<tr>
+<td>알림 점</td>
+<td>검수 때 코덱스 <code>#D69A1E</code>(흰색 위 2.47:1)를 <code>#B98208</code>로 보정했으나, <strong>이후 사용자가 알림 점은 쿨톤 핑크로 하자고 해 <code>#B63F7C</code>로 확정</strong>(§1.1 예외 ④)</td>
+</tr>
+<tr>
+<td>임박 칩</td>
+<td>버터 <code>#FEF0BF</code> + 네이비 글자 + 금색 고리가 적절</td>
+</tr>
+</tbody>
+</table>
+<p><strong>세 안의 거리.</strong> A와 C는 지금 너무 비슷하다(둘 다 "흰 카드 + 라벤더 면 + 거의 없는 장식"). A는 로그인 외 화면에서 약하고, C는 별도 방향으로 밀기엔 너무 시스템적이다. B는 가장 차별되지만 공방 · 내 공간의 장식 밀도를 줄여야 한다. → <strong>3안 유지보다 B 주안 + A 보조의 2안화</strong>를 권한다.</p>
+<div class="sec3"><h3 id="권장-혼합안-이-문서의-추천">권장 혼합안 (이 문서의 추천)</h3>
+<div class="wide"><figure><img src="이미지/비교/폰 5화면 혼합.jpg"><figcaption>혼합안 · 폰 5화면 — 위 지금, 아래 혼합안</figcaption></figure></div>
+
+<table>
+<thead>
+<tr>
+<th>화면</th>
+<th>채택</th>
+<th>가져올 요소</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>로그인</td>
+<td>A</td>
+<td>흰 대각광 · 종이결 · 버터 테이프 1장, 단정한 폼(B · C)</td>
+</tr>
+<tr>
+<td>홈</td>
+<td>B</td>
+<td>선택 표지의 흰 프레임 · 표지 중심 레이아웃, A 수준의 비장식 배경, <strong>선택 표지에 <code>⋯</code> 한 개 상시</strong></td>
+</tr>
+<tr>
+<td>공방</td>
+<td>B</td>
+<td>사진 보드 + 보관함 구도(사진 2 · 테이프 1)</td>
+</tr>
+<tr>
+<td>내 공간</td>
+<td>B + C</td>
+<td>B의 사진 + 로고 카드 배너, C의 <code>4px</code> 라벤더 상단 띠</td>
+</tr>
+<tr>
+<td>휴지통</td>
+<td>C + B</td>
+<td>C의 절제된 상태 표현 + B의 임박 칩만(표지 원색 유지, 삭제 배지 없음)</td>
+</tr>
+<tr>
+<td>빈 상태</td>
+<td>홈 B · 휴지통 A/C</td>
+<td>홈은 둘이 + 폴라로이드 틀, 휴지통은 디오 단독</td>
+</tr>
+</tbody>
+</table>
+<p><strong>공통 토큰</strong>(코덱스 확정, 일부는 클로드가 보정 — 상세는 <a href="#doc-12">12</a>).</p>
+<table>
+<thead>
+<tr>
+<th>토큰</th>
+<th>값</th>
+<th>비고</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>page-bg</code></td>
+<td><code>#F3F3F7</code></td>
+<td>지금 값 그대로</td>
+</tr>
+<tr>
+<td><code>card-bg</code></td>
+<td><code>#FFFFFF</code></td>
+<td></td>
+</tr>
+<tr>
+<td>모서리</td>
+<td>카드 태블릿 18 · 폰 16 · 컨트롤 12 · FAB 18</td>
+<td>1판(폰 20 · 태블릿 16)과 다르다 — 검수에서 새로 확정</td>
+</tr>
+<tr>
+<td>그림자</td>
+<td>카드 <code>0 4px 12px rgba(11,23,102,.08)</code> · 선택 표지 <code>0 8px 16px rgba(11,23,102,.12)</code></td>
+<td>그림자 색은 BI 네이비</td>
+</tr>
+<tr>
+<td>선택 칩</td>
+<td>배경 <code>#0B1766</code> · 글자 <code>#FFFFFF</code></td>
+<td>지금은 흰 칩 + 네이비 글자</td>
+</tr>
+<tr>
+<td>임박 칩</td>
+<td>배경 <code>#FEF0BF</code> · 글자 <code>#0B1766</code> · 고리 <code>#B98208</code></td>
+<td>코덱스 고리 <code>#D69A1E</code>를 보정</td>
+</tr>
+<tr>
+<td>노랑 쓰임</td>
+<td>캐릭터 · 테이프 · 임박 상태만, 한 국소 영역 테이프는 최대 1장</td>
+<td>알림 점은 사용자 지시로 쿨톤 핑크(예외 ④)</td>
+</tr>
+<tr>
+<td>버튼 · FAB</td>
+<td><code>#606BB2</code>, 흰 글자</td>
+<td>불변(코덱스 <code>#525FAD</code> 제안은 채택 안 함)</td>
+</tr>
+</tbody>
+</table>
+<p><strong>BI · CI 점검(코덱스).</strong> <code>#818AC3</code> · <code>#606BB2</code> · <code>#0B1766</code>의 역할은 흔들리지 않는다. 노랑 테이프 · 사진은 로고에서 24px 이상 떨어뜨린다. B 공방 보드 · B 내 공간 배너는 1차 렌더에서 장식 한도(1~2개)를 넘었고 혼합안에서 사진 2장 · 테이프 1장으로 줄였다(사진은 콘텐츠성 장식으로 본다). 로고 크기는 지금 앱 값(높이 53) 그대로이며, 코덱스가 말한 '로고 폭 32~36px'은 지금 값을 작게 읽은 것이라 따르지 않았다.</p>
+<p><strong>발견성 문제와 대안.</strong> 홈에서 별 · 편집 · 삭제가 표지 위에서 빠진 것은 발견성 문제다. 코덱스 대안은 <strong>선택 표지 우상단에 상시 <code>32px</code> 흰 원형 <code>⋯</code> 버튼 하나</strong>를 두고, 탭하면 별 · 편집 · 삭제를 바텀시트로 여는 방식이다(혼합안 렌더에 반영). 폰에서는 길게 누르기만으로 숨기지 않는 편이 안전하다.</p></div></div>
+</section><section class="doc" id="doc-07" data-title="07 로그인 · 회원가입 — 폼은 그대로 두고 카드의 온도만">
+<h1 id="07-로그인-회원가입-폼은-그대로-두고-카드의-온도만">07 로그인 · 회원가입 — 폼은 그대로 두고 카드의 온도만</h1>
+<blockquote>
+<p>시안: 태블릿 1280 × 800 · 폰 390 × 844, 왼쪽 위부터 지금 · A · B · C. 수치는 코덱스 명세이고, 좌표는 지금 앱 여백에 맞춰 클로드가 보정했다(<a href="#doc-12">12</a> 구현 보정 표).</p>
+</blockquote>
+<div class="sec2"><h2 id="한-줄-결론">한 줄 결론</h2>
+<p><strong>로그인 폼 안에는 캐릭터 · 사진 · 스티커를 크게 넣지 않는다.</strong> 조사한 감성 앱 156장 중 이메일 · 소셜 로그인 화면을 꾸민 곳은 0장이었고, 감성은 가입 직전의 '첫 장면'과 안전감 있는 사물에 들어갔다(<a href="#doc-03">03</a>). 그래서 세 안 모두 <strong>바탕 · 카드 · 장식 한 점</strong>만 바꾼다. 예쁨은 작은 결함만 용서하므로 전환이 걸린 폼은 명확성이 먼저다(<a href="#doc-04">04</a>).</p>
+<div class="wide"><figure><img src="이미지/비교/로그인 태블릿.jpg"><figcaption>로그인 · 태블릿 — 지금 / A / B / C</figcaption></figure></div>
+
+<div class="wide"><figure><img src="이미지/비교/로그인 폰.jpg"><figcaption>로그인 · 폰</figcaption></figure></div>
+
+<div class="wide"><figure><img src="이미지/비교/회원가입 폰.jpg"><figcaption>회원가입 · 폰</figcaption></figure></div>
+
+</div><div class="sec2"><h2 id="바뀌는-것">바뀌는 것</h2>
+<p>색은 모두 <a href="#doc-06">색 규칙 v2</a>(UI 색상 계열 + 캐릭터 노랑)다. 세 안의 바탕이 같은 <code>#F3F3F7</code>이 되어 <strong>바탕 색으로는 구별되지 않고</strong>, 빛 · 번짐 · 테이프 같은 '물성'으로 구별한다.</p>
+<table>
+<thead>
+<tr>
+<th>요소</th>
+<th>지금</th>
+<th>A 햇살 드로어리</th>
+<th>B 포토부스 콜라주</th>
+<th>C 조용한 문구점</th>
+<th><strong>혼합안</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>바탕</td>
+<td><code>#F3F3F7</code> 단색</td>
+<td><code>#F3F3F7</code> + 좌상→우하 흰색 대각광 <code>linear-gradient(135deg,#FFFFFF 0%,#F3F3F7 68%)</code> + 종이결 .035</td>
+<td><code>#F3F3F7</code> + 좌상단 라벤더 번짐 <code>radial-gradient(circle at 28% 10%,rgba(219,220,249,.34),transparent 28%)</code></td>
+<td><code>#F3F3F7</code> 단색</td>
+<td>A와 같음(흰 대각광 + 종이결)</td>
+</tr>
+<tr>
+<td>카드(태블릿)</td>
+<td>520 × 711, 모서리 22</td>
+<td>528 × 696, 모서리 22, 그림자 <code>0 10px 26px</code> .10</td>
+<td>528 × 696, 모서리 26, 그림자 <code>0 10px 24px</code> .11</td>
+<td>500 × 680, 모서리 16, 그림자 <code>0 4px 12px</code> .07</td>
+<td>528 × 696, <strong>모서리 18</strong>, 그림자 <code>0 4px 12px</code> .08</td>
+</tr>
+<tr>
+<td>카드(폰)</td>
+<td>모서리 22</td>
+<td>모서리 28</td>
+<td>모서리 26</td>
+<td>모서리 16</td>
+<td><strong>모서리 16</strong></td>
+</tr>
+<tr>
+<td>로고</td>
+<td>그대로</td>
+<td>그대로(주변 장식 없음)</td>
+<td>그대로</td>
+<td>그대로</td>
+<td>그대로</td>
+</tr>
+<tr>
+<td>부제</td>
+<td>"함께 기록하고, 추억을 나눠 보세요."</td>
+<td><strong>삭제</strong></td>
+<td>삭제</td>
+<td>삭제</td>
+<td>삭제</td>
+</tr>
+<tr>
+<td>입력칸</td>
+<td>높이 49</td>
+<td><strong>56</strong>, 라벨–칸 10, 칸 사이 24</td>
+<td>56</td>
+<td>54, 모서리 12, 테두리 <code>rgba(11,23,102,.22)</code></td>
+<td>56, 모서리 12</td>
+</tr>
+<tr>
+<td>소셜</td>
+<td>원형 56, 색 그대로</td>
+<td>56 + 외곽선 <code>.16</code>, 라벨 14/700</td>
+<td>58, 간격 28</td>
+<td>52, 라벨 14/700</td>
+<td>A와 같음(<strong>외부 브랜드 색은 그대로</strong>)</td>
+</tr>
+<tr>
+<td>장식</td>
+<td>없음</td>
+<td><code>tape-butter</code> 한 조각(카드 윗변에 걸침, 불투명도 .7)</td>
+<td><code>polaroid-sky</code> + <code>tape-lavender</code>(카드 좌상단 바깥, 불투명도 .55~.62)</td>
+<td><strong>없음</strong></td>
+<td><code>tape-butter</code> 한 조각, 보이는 폭 약 40px, 윗변에서 -14px, .72</td>
+</tr>
+<tr>
+<td>캐릭터</td>
+<td>없음</td>
+<td>노출 안 함</td>
+<td>노출 안 함</td>
+<td>노출 안 함</td>
+<td>노출 안 함</td>
+</tr>
+</tbody>
+</table>
+<p>'혼합안'이 A를 따르는 이유 — 코덱스 검수가 "B의 정체성은 로그인에서 거의 드러나지 않고 로그인에 콜라주를 억지로 넣는 것은 더 나쁘다", "C는 B와 사실상 구별되지 않는다"고 했다. 로그인은 <strong>A의 빛 · 질감 + 단정한 폼</strong>이 맞다. 테이프는 코덱스가 28 × 8로 적었으나 에셋의 투명 여백 때문에 같은 값으로 그리면 훨씬 작아져, 보이는 폭 약 40px(이전 검수 38~44px)에 맞췄다(<a href="#doc-12">12</a> 보정 표).</p>
+</div><div class="sec2"><h2 id="근거와-연결">근거와 연결</h2>
+<ul>
+<li><strong>감성은 폼 앞에</strong> — Finch는 알 고르기 → 부화 장면, 하루콩은 책 + 자물쇠 사물과 식별자, Day One · Daylio는 Face ID · PIN 아이콘 하나뿐이다. DIO는 카드 위 장식 한 점으로 같은 문법을 따른다.</li>
+<li><strong>부제를 지운 이유</strong> — '기록'(6곳) · '추억'(3곳)이 포화된 낱말이라는 조사 D의 관찰, 그리고 "로그인에 정서 문구를 중복하지 않는다"는 코덱스 판단. 정서 문구를 쓰고 싶다면 한 줄 12자 이내가 한도다(<a href="#doc-06">06</a> §3).</li>
+<li><strong>로그인 없이 시작</strong>(다욜)이 가장 감성적인 선택지라는 조사 B 패턴에 비춰, DIO의 '게스트로 시작하기'는 지금 구분선 없는 작은 링크다. 이번 시안은 건드리지 않았다(위치 · 모양으로 격을 올릴 수는 있으나 가이드는 구분선만 금지).</li>
+<li><strong>소셜 원색</strong> — 카카오 노랑 · 구글 · 애플은 외부 브랜드 규정색이라 색 규칙의 예외다(가이드: 카카오 노랑은 소셜 진입 버튼에만). 안에서는 외곽선만 정리하고 색은 건드리지 않았다. 화면에서 계열 밖 색은 이 세 버튼뿐이다.</li>
+</ul>
+</div><div class="sec2"><h2 id="접근성-구현">접근성 · 구현</h2>
+<ul>
+<li><strong>입력칸 경계 대비</strong> — <code>border</code>는 흰색 위 1.39:1이라 입력칸 경계가 유일한 단서면 비텍스트 3:1에 못 미친다(<a href="#doc-04">04</a> §3). C는 <code>.22</code>로 올렸지만 3:1에는 아직 못 미친다. <strong>UI 색상 계열 안의 해법</strong>은 입력칸 경계를 <code>primary #818AC3</code>(흰색 위 3.30:1)로 두는 것이다. 시안에는 적용하지 않았고(감성과 별개의 부채), <a href="#doc-12">12</a> §3에 모았다.</li>
+<li><strong>종이결은 A · 혼합안 바탕에만</strong>, 글자 · 입력칸 · 카드 위에는 쓰지 않는다. 저사양 Android에서 SVG 필터 비용을 검증해야 한다(코덱스도 '선택' 항목).</li>
+<li><strong>장식은 카드 바깥</strong>이라 키보드가 올라올 때 가려지거나 폼과 겹치지 않는다. 폰에서는 장식이 입력 영역과 닿지 않는지 실기기에서 확인한다.</li>
+<li>필요한 에셋은 기존 <code>assets/desk/props</code>의 PNG뿐이다(새 설치 없음).</li>
+</ul>
+</div><div class="sec2"><h2 id="하지-않는-것">하지 않는 것</h2>
+<ul>
+<li>폼 안에 캐릭터 · 사진 · 스티커를 크게 넣지 않는다.</li>
+<li>폼 카드 안에서 입력칸 모양을 바꿔 인식을 흐리지 않는다(C는 오히려 경계를 또렷하게).</li>
+<li>가입 단계마다 일러스트를 얹지 않는다(가입 폼에 일러스트를 얹으면 전환이 떨어졌다는 보고는 있으나 약한 증거 — 그래서 보수적으로).</li>
+</ul>
+</div><div class="sec2"><h2 id="결정">결정</h2>
+<table>
+<thead>
+<tr>
+<th>항목</th>
+<th style="text-align: center;">채택</th>
+<th style="text-align: center;">보류</th>
+<th style="text-align: center;">반려</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>안 선택 — A · B · C · 혼합</td>
+<td style="text-align: center;">☐</td>
+<td style="text-align: center;">☐</td>
+<td style="text-align: center;">☐</td>
+</tr>
+<tr>
+<td>부제 삭제</td>
+<td style="text-align: center;">☐</td>
+<td style="text-align: center;">☐</td>
+<td style="text-align: center;">☐</td>
+</tr>
+<tr>
+<td>정서 문구 허용(로그인 한 줄)</td>
+<td style="text-align: center;">☐</td>
+<td style="text-align: center;">☐</td>
+<td style="text-align: center;">☐</td>
+</tr>
+<tr>
+<td>장식 한 점(테이프 · 폴라로이드)</td>
+<td style="text-align: center;">☐</td>
+<td style="text-align: center;">☐</td>
+<td style="text-align: center;">☐</td>
+</tr>
+</tbody>
+</table></div>
+</section><section class="doc" id="doc-08" data-title="08 다이어리 홈 — 표지가 주인공, 도구는 가장자리로">
+<h1 id="08-다이어리-홈-표지가-주인공-도구는-가장자리로">08 다이어리 홈 — 표지가 주인공, 도구는 가장자리로</h1>
+<blockquote>
+<p>홈의 <strong>바닥 · 창빛 · 소품(햇살 책상)은 별도 작업</strong>(<a href="../다이어리%20홈%20햇살%20책상/색인.md">다이어리 홈 햇살 책상</a>)이라 여기서 다시 설계하지 않는다. 이 문서는 그 위의 머리 · 칩 · 표지 · 라벨 · 버튼 · 빈 책상만 다룬다. 시안의 책상 바닥은 앱 에셋(<code>desk-wood.jpg</code> · <code>window-light.png</code>)을 CSS로 근사한 것이다.</p>
+</blockquote>
+<div class="sec2"><h2 id="한-줄-결론">한 줄 결론</h2>
+<p><strong>표지 위에 상시 얹힌 별 · 편집 · 삭제를 걷어내고, 표지 아래 정보를 키운다.</strong> 감성 앱은 도구를 장면 바깥에 둔다(MOODA: 위쪽 선 아이콘 줄뿐, 다욜: + 버튼 하나와 하단 탭, <a href="#doc-03">03</a>). 지금 DIO는 가장 감성적인 자산인 표지를 UI 도구가 덮고 있다. 도구는 <strong>길게 누르면</strong> 표지 바깥에 나타난다(C는 탭 후 하단 시트). 코덱스 검수는 발견성 문제를 짚어 혼합안에서는 <strong>선택 표지에 <code>⋯</code> 한 개를 상시</strong> 두고 탭하면 별 · 편집 · 삭제를 시트로 여는 방식을 권했다. 색은 <a href="#doc-06">색 규칙 v2</a>(UI 색상 계열 + 캐릭터 노랑)다 — 다색 표지는 사용자 콘텐츠라 건드리지 않고, <strong>머리 · 칩 · 레일 · 탭 · FAB · 선택 프레임 · 그림자를 UI 색으로 고정</strong>해 장면의 지배색이 페리윙클로 읽히게 한다.</p>
+<div class="wide"><figure><img src="이미지/비교/홈 태블릿.jpg"><figcaption>홈 스와이프 · 태블릿 — 지금 / A / B / C</figcaption></figure></div>
+
+<div class="wide"><figure><img src="이미지/비교/홈 폰.jpg"><figcaption>홈 스와이프 · 폰</figcaption></figure></div>
+
+</div><div class="sec2"><h2 id="바뀌는-것">바뀌는 것</h2>
+<table>
+<thead>
+<tr>
+<th>요소</th>
+<th>지금</th>
+<th>A 햇살 드로어리</th>
+<th>B 포토부스 콜라주</th>
+<th>C 조용한 문구점</th>
+<th><strong>혼합안</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>표지 위 별 · 편집 · 삭제</td>
+<td>가운데 카드에 <strong>상시</strong></td>
+<td><strong>기본 숨김.</strong> 길게 누름(또는 키보드 포커스) 시 44 × 44 도구 두 개가 표지 우상단 <strong>바깥 8px</strong>에</td>
+<td>A와 같음</td>
+<td>표지를 탭한 뒤 <strong>하단 액션 시트</strong>에서만</td>
+<td><strong>선택 표지 우상단 <code>⋯</code> 32px 흰 원형 상시</strong>, 탭하면 시트(별 · 편집 · 삭제). 삭제 아이콘에 적색 없음(네이비)</td>
+</tr>
+<tr>
+<td>표지 크기(태블릿)</td>
+<td>250 / 198</td>
+<td><strong>248 / 214</strong> (중앙 강조 약하게)</td>
+<td><strong>260 / 220</strong> + 프레임</td>
+<td>세 권 모두 <strong>212</strong></td>
+<td>선택 표지 약 1.12×(240 / 214)</td>
+</tr>
+<tr>
+<td>표지 프레임</td>
+<td>없음</td>
+<td>없음</td>
+<td>모든 표지 흰 테두리 6px · 모서리 20</td>
+<td>없음</td>
+<td><strong>기본 <code>2px #D9DCEF</code> .7, 선택만 <code>3px #FFFFFF</code> + <code>0 8px 16px</code> .12</strong>, 모서리 18</td>
+</tr>
+<tr>
+<td>표지 그림자</td>
+<td>강한 공중 그림자</td>
+<td>UI 네이비 틴트 <code>0 10px 18px</code> .14, 중앙만 <code>0 14px 24px</code> .16</td>
+<td><code>0 12px 22px</code> .16</td>
+<td><code>0 8px 14px</code> .10</td>
+<td>선택 표지에만(위 프레임 그림자)</td>
+</tr>
+<tr>
+<td>표지 라벨 띠</td>
+<td>웜 오프화이트 <code>#F3F1EC</code></td>
+<td>흰색 <code>#FFFFFF</code></td>
+<td>흰색 + <code>#D9DCEF</code> 경계</td>
+<td><code>#F0F1F9</code></td>
+<td>흰색(선택 · 비선택 모두)</td>
+</tr>
+<tr>
+<td>표지 아래 정보</td>
+<td>제목 14/700 · 쪽수 12</td>
+<td><strong>제목 18/800 · 쪽수 14/600</strong>(폰 20 · 15)</td>
+<td>같음</td>
+<td>제목 17/800</td>
+<td>A와 같음</td>
+</tr>
+<tr>
+<td>칩 줄</td>
+<td>긴 흰 레일, 선택 칩 흰색</td>
+<td>높이 48 · 모서리 16 · 배경 <code>rgba(255,255,255,.88)</code></td>
+<td>같음</td>
+<td>높이 44 · 모서리 12</td>
+<td><strong>선택 칩 <code>#0B1766</code> + 흰 글자</strong>(세 안 · 혼합안 공통), 높이 48</td>
+</tr>
+<tr>
+<td>검색 · 더보기</td>
+<td>44</td>
+<td>52 (표지와 분리)</td>
+<td>52</td>
+<td>48</td>
+<td>52</td>
+</tr>
+<tr>
+<td>+ 버튼</td>
+<td>60</td>
+<td>64 · 모서리 20 · <code>#606BB2</code></td>
+<td>64</td>
+<td>60 · 모서리 16</td>
+<td><strong>64 · 모서리 18 · <code>#606BB2</code>(불변), 흰 +</strong></td>
+</tr>
+<tr>
+<td>사이드 레일 · 알림 점</td>
+<td>흰색, 알림 점 <code>danger</code> 적색</td>
+<td>배경 <code>#FFFFFF</code>, 경계 <code>#D9DCEF</code>, 알림 점 시안 렌더는 <code>#B98208</code>(옛 값)</td>
+<td>같음</td>
+<td>같음</td>
+<td><strong>앱에는 쿨톤 핑크 <code>#B63F7C</code></strong>(사용자 지시, 색 규칙의 예외)</td>
+</tr>
+<tr>
+<td>폰 하단 탭</td>
+<td>모서리 24</td>
+<td>모서리 28</td>
+<td>모서리 28</td>
+<td>모서리 28</td>
+<td>모서리 28</td>
+</tr>
+<tr>
+<td>친구의 흔적</td>
+<td>없음(별 아이콘만)</td>
+<td>—</td>
+<td><strong>표지 좌하단에 24px 원형 아바타 최대 3개</strong>(<code>#DBDCF9</code> · <code>#FEF0BF</code> · <code>#ABB1D8</code>), 8px 겹침 — 숫자 대신 사람</td>
+<td>—</td>
+<td>넣지 않음(B의 선택 항목 — 결정 칸)</td>
+</tr>
+<tr>
+<td>장식</td>
+<td>—</td>
+<td>—</td>
+<td>중앙 표지 윗변에 <code>tape-lavender</code> 1개</td>
+<td>—</td>
+<td>없음(프레임이 B의 물성을 맡는다)</td>
+</tr>
+</tbody>
+</table>
+<div class="grid two">
+<figure><img src="이미지/시안/홈 혼합 태블릿.jpg"><figcaption>혼합안 · 태블릿 — 선택 표지 프레임 + ⋯</figcaption></figure>
+<figure><img src="이미지/비교/홈빈 태블릿.jpg"><figcaption>빈 책상 — A / B / C / 혼합안</figcaption></figure>
+</div>
+
+<ul>
+<li><strong>선택 표지 프레임(혼합안)</strong> — 모든 표지에 흰 테두리를 상시 두면 선택 상태가 모호하다는 코덱스 지적에 따라, 비선택은 얇은 라벤더 프레임, 선택만 흰 프레임 + 그림자다.</li>
+<li><strong>빈 책상</strong> — 캐릭터가 색 규칙에 가장 자연스러운 그림이라 세 안 모두 캐릭터를 둔다. A는 <code>둘이</code>(모아 + 디오) + 버터 테이프 1개, B는 <code>둘이</code> + 폴라로이드 틀 + 라벤더 테이프(<strong>혼합안이 쓰는 구도</strong>), C는 디오 + 규칙선 한 줄. "다이어리가 없어요"는 가이드의 빈 화면 문구 그대로이고 정서 문구는 넣지 않았다. 모아 · 디오의 노출은 <strong>빈 상태에만</strong> 한정했다(<a href="#doc-06">06</a> 가드레일 '조건부').</li>
+</ul>
+</div><div class="sec2"><h2 id="근거와-연결">근거와 연결</h2>
+<ul>
+<li><strong>도구는 장면 바깥</strong> — 조사 B 패턴 3 · 홈 3.2. 지금의 "선택 카드의 별 · 편집 · 삭제가 표지 위에 상시 얹힘"과 직접 대비된다.</li>
+<li><strong>표지 아래 2단 정보(제목 + 쪽수)</strong> — 다욜 "My Journal / 7Page"와 같은 구조(DIO는 이미 이 구조).</li>
+<li><strong>친구의 흔적은 숫자가 아니라 얼굴로</strong> — Locket 20명 · 반응 미집계, BeReal 얼굴 반응, 조사 A의 '전시 · 평가 피로'(<a href="#doc-02">02</a> §4). B의 아바타 3개는 이 방향이다. 단 B는 '유치함 위험'이 중간이라 A · C의 도구 숨김과 <strong>조합</strong>하는 쪽을 권한다.</li>
+<li><strong>한눈에 보기</strong>는 표지 색 칩 모자이크로 감성 장치를 삼을 수 있다(하루콩 · MOODA · Daylio) — 이번 시안 범위 밖, 후속 과제.</li>
+</ul>
+</div><div class="sec2"><h2 id="접근성-구현">접근성 · 구현</h2>
+<ul>
+<li><strong>길게 누르기는 발견성이 낮다.</strong> 도구를 숨기면 편집 · 삭제 위치를 모르는 사용자가 생긴다. 안내 멘트는 쓸 수 없으니 코덱스는 <strong>선택 표지에 <code>⋯</code> 한 개를 상시</strong> 두는 방식을 권했고 혼합안에 반영했다. 폰에서는 길게 누르기만으로 숨기지 않는다. 접근성(키보드 포커스 · 스크린 리더 이름은 유지)과 첫 사용 학습은 실제 기기에서 검증해야 한다.</li>
+<li><strong>표지 라벨 띠 · 그림자 변경은 표지 렌더를 건드린다.</strong> 표지는 사용자 콘텐츠라 색 규칙의 예외인데, 라벨 띠의 웜 오프화이트(<code>#F3F1EC</code>)를 흰색으로 바꾸는 것은 <code>Cover.js</code> 렌더 변경이다. 코덱스가 권한 선택 사항이며 결정 칸에 별도로 둔다.</li>
+<li><strong>표지 색상표에 UI 계열 + 버터를 추가</strong>하는 안(<a href="#doc-12">12</a> §5)은 홈의 체감 지배색을 UI 색으로 끌어오는 가장 직접적인 방법이다(사용자 선택지 확장, 기존 표지는 그대로).</li>
+<li>표지 모서리 · 그림자 값 변경은 <code>Cover.js</code>와 홈 카드 스타일만 건드리는 <strong>1단계</strong>다. 아바타 · 테이프는 2단계다.</li>
+<li>큰 블러 · 오버레이는 쓰지 않는다. 책상 위 UI 뒤 흐린 막은 두지 않는다(햇살 책상 원본 그대로).</li>
+</ul>
+</div><div class="sec2"><h2 id="하지-않는-것">하지 않는 것</h2>
+<ul>
+<li>표지 위에 편집 · 삭제 · 즐겨찾기를 상시 노출하지 않는다.</li>
+<li>소품 · 테이프를 표지마다 붙이지 않는다(중앙 표지 1개 한도).</li>
+<li>표지가 다색이라는 이유로 레일 · 라벨 · 그림자까지 다색화하지 않는다.</li>
+<li>좋아요 수 · 친구 기여도 같은 수치를 홈에 두지 않는다.</li>
+</ul>
+</div><div class="sec2"><h2 id="결정">결정</h2>
+<table>
+<thead>
+<tr>
+<th>항목</th>
+<th style="text-align: center;">채택</th>
+<th style="text-align: center;">보류</th>
+<th style="text-align: center;">반려</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>표지 위 도구 기본 숨김(길게 누르기)</td>
+<td style="text-align: center;">☐</td>
+<td style="text-align: center;">☐</td>
+<td style="text-align: center;">☐</td>
+</tr>
+<tr>
+<td>표지 아래 정보 확대(18/800 · 14/600)</td>
+<td style="text-align: center;">☐</td>
+<td style="text-align: center;">☐</td>
+<td style="text-align: center;">☐</td>
+</tr>
+<tr>
+<td>표지 그림자 값 변경</td>
+<td style="text-align: center;">☐</td>
+<td style="text-align: center;">☐</td>
+<td style="text-align: center;">☐</td>
+</tr>
+<tr>
+<td>선택 표지 <code>⋯</code> 상시 버튼</td>
+<td style="text-align: center;">☐</td>
+<td style="text-align: center;">☐</td>
+<td style="text-align: center;">☐</td>
+</tr>
+<tr>
+<td>표지 라벨 띠 · 그림자 렌더 변경(선택)</td>
+<td style="text-align: center;">☐</td>
+<td style="text-align: center;">☐</td>
+<td style="text-align: center;">☐</td>
+</tr>
+<tr>
+<td>친구 아바타(B)</td>
+<td style="text-align: center;">☐</td>
+<td style="text-align: center;">☐</td>
+<td style="text-align: center;">☐</td>
+</tr>
+<tr>
+<td>빈 책상 소품</td>
+<td style="text-align: center;">☐</td>
+<td style="text-align: center;">☐</td>
+<td style="text-align: center;">☐</td>
+</tr>
+</tbody>
+</table></div>
+</section><section class="doc" id="doc-09" data-title="09 꾸미기 공방 — 기능 카드 대신 결과물 한 장이 먼저">
+<h1 id="09-꾸미기-공방-기능-카드-대신-결과물-한-장이-먼저">09 꾸미기 공방 — 기능 카드 대신 결과물 한 장이 먼저</h1>
+<blockquote>
+<p><strong>후속(사용자 지시, 2026-10-31)</strong>: 아래 안의 결과 보드(폴라로이드 + 테이프)는 앱에서 <strong>삭제</strong>했다. 공방은 장식 카드 없이 <strong>내 폰트 · 내 스티커 · 내 표지 · 내 속지 · 내 프리셋</strong> 다섯 구역으로만 구성한다(<a href="#doc-14">14 §7</a>, 디자인 가이드 '꾸미기 공방'). 아래 시안 이미지는 이 지시 전의 비교안이다.</p>
+<p>시안: 태블릿 1280 × 800 · 폰 390 × 844, 왼쪽 위부터 지금 · A · B · C. 수치는 코덱스 명세다.</p>
+</blockquote>
+<div class="sec2"><h2 id="한-줄-결론">한 줄 결론</h2>
+<p><strong>공방은 '기능을 고르는 곳'이 아니라 '재료를 만지는 곳'으로 보여야 한다.</strong> 지금은 같은 모양의 흰 카드 3장에 기능 이름만 있어 결과물이 보이지 않는다. 조사한 꾸미기 앱은 모두 <strong>큰 결과 미리보기 → 아래 정사각 재료 격자</strong>의 한 문법을 쓴다(ZEPETO 옷장 · Color Widgets · 포토이즘, <a href="#doc-03">03</a>). 그리고 지금 비활성 카드에 그대로 노출되는 <strong>개발 문구("개발 빌드에서 사용 가능", "미리보기 · AI 분리·저장 미연결")는 감성 이전에 정리해야 한다.</strong></p>
+<div class="wide"><figure><img src="이미지/비교/공방 태블릿.jpg"><figcaption>꾸미기 공방 · 태블릿 — 지금 / A / B / C</figcaption></figure></div>
+
+<div class="wide"><figure><img src="이미지/비교/공방 폰.jpg"><figcaption>꾸미기 공방 · 폰</figcaption></figure></div>
+
+</div><div class="sec2"><h2 id="바뀌는-것">바뀌는 것</h2>
+<p>색은 <a href="#doc-06">색 규칙 v2</a>다. 타일 세 장은 색상각 하나로는 구별되지 않으므로 <strong>명도 단계(라벤더 50 / 100 / 흰색) · 아이콘 면 · 규칙선 수</strong>로 구별한다.</p>
+<table>
+<thead>
+<tr>
+<th>요소</th>
+<th>지금</th>
+<th>A 햇살 드로어리</th>
+<th>B 포토부스 콜라주</th>
+<th>C 조용한 문구점</th>
+<th><strong>혼합안</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>카드 구성</td>
+<td>같은 크기 3장</td>
+<td><strong>첫 카드가 2배 비중</strong>(내 폰트), 나머지 둘은 그 절반</td>
+<td>상단 <strong>전폭 결과 보드</strong> + 정사각 타일 3개(214 × 214)</td>
+<td>3등분 유지(각 320 × 220)</td>
+<td>B와 같음, 보드 높이 <strong>태블릿 176 · 폰 132</strong></td>
+</tr>
+<tr>
+<td>결과 미리보기</td>
+<td>없음</td>
+<td>첫 카드 오른쪽 148 × 148 — <code>polaroid-picnic</code> 위에 <code>sticker-heart</code>, <code>tape-butter</code></td>
+<td>보드 안에 폴라로이드 2장 · 하트 · 테이프 2 · 클립 콜라주(1차 렌더)</td>
+<td>카드마다 96 × 96 견본 — 폰트 "Aa", 스티커 <code>sticker-heart</code> · <code>star-clip</code> · 테이프 2 × 2, 사진은 잘린 프레임</td>
+<td><strong>폴라로이드 2장 + <code>tape-lavender</code> 1개만</strong></td>
+</tr>
+<tr>
+<td>카드 바탕</td>
+<td>흰색</td>
+<td>첫 카드 흰색 + 아이콘 면 <code>#F0F1F9</code>, 나머지 흰색(아이콘 면 <code>#DBDCF9</code> / <code>#F0F1F9</code>)</td>
+<td>폰트 <code>#F0F1F9</code> · 스티커 <code>#DBDCF9</code> · 사진 분리 <strong>흰색 + 아이콘 면 버터 <code>#FEF0BF</code></strong></td>
+<td>전부 흰색, 헤더에 라벤더 200 규칙선</td>
+<td>B와 같음</td>
+</tr>
+<tr>
+<td>카드 제목 · 설명</td>
+<td>제목 19/800 · 설명 12.5</td>
+<td>제목 22/800 · 설명 15/600 한 줄</td>
+<td>제목 17~18/800</td>
+<td>제목 19/800</td>
+<td>B와 같음</td>
+</tr>
+<tr>
+<td><strong>개발 문구</strong></td>
+<td>그대로 노출</td>
+<td><strong>삭제.</strong> 비활성은 <code>opacity .48</code> + "준비 중" 14/700</td>
+<td>삭제. <code>opacity .52</code> + 우상단 "준비 중"</td>
+<td>삭제. <code>opacity .44</code> + "준비 중"</td>
+<td>삭제. <code>opacity .52</code> + "준비 중"</td>
+</tr>
+<tr>
+<td>내 폰트 · 내 스티커</td>
+<td>한 줄 빈 문장</td>
+<td>섹션 카드(높이 112~132), <code>bookmark</code> 42 · <code>sticker-heart</code> 38 + 제목만</td>
+<td>72 × 72 썸네일 4칸, 비면 <code>polaroid-sky</code> 52 한 개</td>
+<td>1px 구분선 + 64 × 64 타일 격자</td>
+<td>오른쪽 섹션 카드 2개(높이 80), 비면 <code>polaroid-sky</code> 52</td>
+</tr>
+<tr>
+<td>장식</td>
+<td>없음</td>
+<td><code>tape-butter</code> 한 조각(첫 카드 윗변)</td>
+<td>보드에 사진 2 · <code>tape-lavender</code> · <code>tape-butter</code> · <code>sticker-heart</code> · <code>star-clip</code>(<strong>1차 렌더는 장식 한도 초과</strong>)</td>
+<td><code>binder-clip</code> 한 점(<strong>1 · 2 · 3단 규칙선은 비활성 스켈레톤으로 읽혀 한 줄로 줄이라는 검수</strong>)</td>
+<td>사진 2 + 테이프 1(한도 3개 이하)</td>
+</tr>
+</tbody>
+</table>
+<div class="wide"><figure><img src="이미지/비교/공방 혼합 태블릿.jpg"><figcaption>혼합안 · 태블릿 — 지금 / 혼합안</figcaption></figure></div>
+
+</div><div class="sec2"><h2 id="근거와-연결">근거와 연결</h2>
+<ul>
+<li><strong>결과물을 크게 먼저, 재료는 격자</strong> — ZEPETO 옷장은 위 큰 미리보기 + 아래 탭 · 정사각 타일. DIO 공방의 "결과물이 안 보이고 기능 이름만 있다"는 진단에 대한 직접 답이다. 선택 타일 규칙(<code>primarySoft</code> + 테두리 2)은 DIO에 이미 같은 결이 있다.</li>
+<li><strong>재료를 사물로 고른다</strong> — Dazz는 카메라 아이콘 + 이름, 포토이즘은 프레임 카드. C의 견본(Aa · 스티커 2 × 2 · 잘린 프레임)이 이 방향이다.</li>
+<li><strong>설정은 4행으로 얇게</strong> — Color Widgets. 폰트 · 스티커 설정이 길어질 때의 기준.</li>
+<li><strong>가져오지 않는다</strong> — 가격 · 재화 · 랜덤박스 · 구독. 3D 아이콘은 보관함 썸네일(콘텐츠) 안에서만.</li>
+</ul>
+</div><div class="sec2"><h2 id="접근성-구현">접근성 · 구현</h2>
+<ul>
+<li><strong>'준비 중' 처리</strong> — 개발 문구는 사용자에게 내부 상태를 보여 주는 것이라 삭제하고, 기능 상태는 <strong>"준비 중" 한 단어</strong>로 정직하게 말한다. 비활성 투명도(.44~.52)는 가이드의 <code>DISABLED_OPACITY .4</code>와 같은 결이나 값이 다르다 — 구현 때 <code>.4</code>로 맞출지 정한다.</li>
+<li><strong>결과 미리보기는 정적 이미지</strong>로 시작할 수 있다(1단계). 실제 스티커 · 테이프 조합이 실시간으로 반영되는 미리보기는 3단계 인터랙션이다.</li>
+<li><strong>새 에셋은 없다.</strong> 기존 소품 PNG(폴라로이드 · 테이프 · <code>sticker-heart</code> · <code>star-clip</code>)만 쓴다. 편집기의 다색 3D 스티커(하트 · 별 · 고양이 · 곰 · 무지개 등)는 <strong>UI 장식에 쓰지 않는다</strong> — 색 규칙(UI 색상 계열 + 노랑) 밖이기 때문이다. 이 스티커 라이브러리는 사용자 콘텐츠이므로 그대로 둔다. UI 장식용 단색 스티커 세트가 필요해지면 코덱스가 낸 생성 프롬프트(<code>Flat hand-drawn diary sticker set, transparent background, limited palette only: butter yellow #FEF0BF, tape yellow #FBE5A3, periwinkle #DBDCF9, navy #0B1766, white #FFFFFF and black outline #010101 …, no gradients, no gloss, no 3D</code>)로 만든다(지금은 필요 없다).</li>
+<li>비활성 카드 3개의 문구 · 구성은 팀원 영역(공방 화면) 코드와 맞닿으므로 구현 전에 담당자와 조율한다.</li>
+</ul>
+</div><div class="sec2"><h2 id="하지-않는-것">하지 않는 것</h2>
+<ul>
+<li>가격 · 재화 · 랜덤박스 · 구독 같은 상점 문법을 가져오지 않는다.</li>
+<li>카드마다 장식을 붙이지 않는다(첫 카드 · 보드 한 곳).</li>
+<li>노랑으로 타일 전체를 채우지 않는다(아이콘 면 · 테이프만).</li>
+<li>설명 문장을 늘리지 않는다(가이드 §8).</li>
+</ul>
+</div><div class="sec2"><h2 id="결정">결정</h2>
+<table>
+<thead>
+<tr>
+<th>항목</th>
+<th style="text-align: center;">채택</th>
+<th style="text-align: center;">보류</th>
+<th style="text-align: center;">반려</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>개발 문구 삭제 + "준비 중"</td>
+<td style="text-align: center;">☐</td>
+<td style="text-align: center;">☐</td>
+<td style="text-align: center;">☐</td>
+</tr>
+<tr>
+<td>결과 미리보기 도입(정적)</td>
+<td style="text-align: center;">☐</td>
+<td style="text-align: center;">☐</td>
+<td style="text-align: center;">☐</td>
+</tr>
+<tr>
+<td>카드 비중 차등(A) / 보드 + 타일(B) / 균등 견본(C)</td>
+<td style="text-align: center;">☐</td>
+<td style="text-align: center;">☐</td>
+<td style="text-align: center;">☐</td>
+</tr>
+<tr>
+<td>비활성 투명도 <code>.4</code> 통일</td>
+<td style="text-align: center;">☐</td>
+<td style="text-align: center;">☐</td>
+<td style="text-align: center;">☐</td>
+</tr>
+</tbody>
+</table></div>
+</section><section class="doc" id="doc-10" data-title="10 내 공간 — 로그인 유도 배너 대신 &#x27;나의 기록&#x27;이 보이게">
+<h1 id="10-내-공간-로그인-유도-배너-대신-나의-기록이-보이게">10 내 공간 — 로그인 유도 배너 대신 '나의 기록'이 보이게</h1>
+<blockquote>
+<p>시안: 태블릿 1280 × 800 · 폰 390 × 844, 왼쪽 위부터 지금 · A · B · C. 수치는 코덱스 명세다. 환경 설정 · 앱 정보 목록은 세 안 모두 기능 그대로 두고 카드 모양만 바꿨다(설정은 감성화하지 않는다).</p>
+</blockquote>
+<div class="sec2"><h2 id="한-줄-결론">한 줄 결론</h2>
+<p><strong>진한 네이비 배너가 화면에서 가장 무거운 면이고, 프로필보다 '로그인 유도 광고'처럼 읽힌다.</strong> 사용자의 취향 · 기록 흔적은 숫자 두 개(6 · 0)뿐이다. 감성 앱의 프로필은 <strong>풀블리드 사진 + 스티커 + 이름</strong>(카카오톡) 또는 <strong>숫자 대신 '모아 보기' 시각물</strong>(BeReal 사진 달력 · Widgetable 병 속 구슬 · 하루콩 월간 콩 달력)이다(<a href="#doc-03">03</a>). 세 안은 이 방향을 다른 세기로 번역한다.</p>
+<div class="wide"><figure><img src="이미지/비교/내공간 태블릿.jpg"><figcaption>내 공간 · 태블릿 — 지금 / A / B / C</figcaption></figure></div>
+
+<div class="wide"><figure><img src="이미지/비교/내공간 폰.jpg"><figcaption>내 공간 · 폰</figcaption></figure></div>
+
+</div><div class="sec2"><h2 id="바뀌는-것">바뀌는 것</h2>
+<p>배너의 큰 면은 모두 UI 색상 계열이다(<a href="#doc-06">색 규칙 v2</a>). 1판의 버터 <code>#FFF9EA</code> 큰 배너는 '노랑은 큰 면 금지'에 어긋나 폐기했고, 메인 면은 라벤더 50 · 흰색이다.</p>
+<table>
+<thead>
+<tr>
+<th>요소</th>
+<th>지금</th>
+<th>A 햇살 드로어리</th>
+<th>B 포토부스 콜라주</th>
+<th>C 조용한 문구점</th>
+<th><strong>혼합안</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>상단 배너</td>
+<td>진한 네이비 1142 × 120</td>
+<td><strong><code>#F0F1F9</code> 카드</strong>(높이 132, 모서리 22, 1px 테두리)</td>
+<td>흰 카드(높이 190, 모서리 26), 왼쪽에 <strong>폴라로이드 + 로고 카드 겹침</strong></td>
+<td><code>#F0F1F9</code> 카드(높이 118, 모서리 16) + <strong>라벤더 200 6px 띠</strong>(검수: 4px <code>#D9DCEF</code>로)</td>
+<td><code>#F0F1F9</code> 카드(높이 120, <strong>모서리 18</strong>) + <strong>4px <code>#D9DCEF</code> 상단 띠</strong></td>
+</tr>
+<tr>
+<td>프로필</td>
+<td><code>D</code> 큰 글자 아바타</td>
+<td>64 × 64 <strong><code>#ABB1D8</code> 아바타</strong>, 이름 24/800</td>
+<td>가운데 폴라로이드(<code>#DBDCF9</code>)에 <code>D</code> 아바타, 양옆은 사진</td>
+<td>56 × 56 아바타, 이름 22/800</td>
+<td>가운데 로고 카드(<code>#DBDCF9</code> 면에 <code>D</code>), <strong>사진 두 장은 폭 54 이하</strong>, 이름 24/800</td>
+</tr>
+<tr>
+<td>로그인 버튼</td>
+<td>흰 버튼</td>
+<td><code>#606BB2</code> 156 × 48 흰 글자</td>
+<td><code>#606BB2</code></td>
+<td><code>#606BB2</code> 144 × 44</td>
+<td><code>#606BB2</code> 156 × 48(불변)</td>
+</tr>
+<tr>
+<td><strong>통계</strong></td>
+<td>숫자 2개(6 · 0)</td>
+<td><strong>작은 표지 두 권</strong>(72 × 96) + "만든 다이어리 6", "즐겨찾기 0" — 숫자를 시각물로</td>
+<td>배너 하단 <strong>칩 2개</strong>("다이어리 6" <code>#DBDCF9</code> · "즐겨찾기 0" <code>#F0F1F9</code>, 높이 32)</td>
+<td>2열 + 구분선, 숫자 32 → <strong>24/800</strong>, 라벨 14/600</td>
+<td>A와 같음(작은 표지 두 권)</td>
+</tr>
+<tr>
+<td>환경 설정 · 앱 정보</td>
+<td>큰 흰 카드</td>
+<td>섹션별 분리 카드(모서리 18), 행 높이 64, 구분선 1px</td>
+<td>A와 같은 목록 카드</td>
+<td>모서리 16, 행 60, 좌우 24</td>
+<td>A와 같음</td>
+</tr>
+<tr>
+<td>장식</td>
+<td>없음</td>
+<td><code>bookmark</code> 한 점(<strong>검수: 배너 위에 떠 보여 삭제</strong>)</td>
+<td>사진 2 · 로고 카드 · <code>tape-lavender</code> 1(<strong>1차는 사진 3장이라 복잡 — 2장으로</strong>)</td>
+<td><strong>없음</strong></td>
+<td>사진 2 + 가운데 <code>tape-lavender</code> 1</td>
+</tr>
+</tbody>
+</table>
+<div class="wide"><figure><img src="이미지/비교/내공간 혼합 태블릿.jpg"><figcaption>혼합안 · 태블릿 — 지금 / 혼합안</figcaption></figure></div>
+
+</div><div class="sec2"><h2 id="근거와-연결">근거와 연결</h2>
+<ul>
+<li><strong>프로필 배경에 사진 · 스티커</strong> — 카카오톡 프로필은 구름 배경 사진 + 스티커 + 이름이다. DIO도 <strong>공방에서 만든 스티커가 내 공간을 꾸미는 고리</strong>를 만들 수 있다(이번 시안은 한 점만).</li>
+<li><strong>숫자 대신 모아 보기</strong> — "쌓이는 모양"이 감성을 만든다. A의 표지 두 권, B의 폴라로이드 겹침이 이 방향이다. 월별 표지 사진 달력 · 병 속 스티커처럼 더 쌓이는 형태는 후속 과제다.</li>
+<li><strong>설정은 설정답게</strong> — Day One · Goodnotes는 설정을 흰 목록으로 절제한다. 문제는 설정이 설정 앱 같다는 것이 아니라 <strong>프로필 영역에 감성이 없다</strong>는 것이므로, 목록은 기능 그대로 두었다.</li>
+<li><strong>압박 수치를 키우지 않는다</strong> — 조사 A: 전시 · 평가 · 연속 기록 압박은 거부감 요인이다. 그래서 통계는 줄이는 방향(B 칩, C 축소)이 있고, A는 숫자를 시각물에 붙여 위계를 낮춘다. <strong>'즐겨찾기 0'</strong> 같은 빈 수치가 '부족함'으로 읽히지 않는지는 확인할 항목이다.</li>
+</ul>
+</div><div class="sec2"><h2 id="접근성-구현">접근성 · 구현</h2>
+<ul>
+<li><strong>로그인 버튼 색</strong> — <code>#606BB2</code> 위 흰 글자 대비는 4.95:1(통과)이나 코덱스가 "작은 글자는 16px/700 이상 또는 별도 검증"을 요구했다. 시안은 14/800이다. 구현 때 확인한다.</li>
+<li><strong>게스트 / 회원 상태</strong> — 시안은 게스트(로그인 유도) 상태만 그렸다. 로그인 후에는 이름 · 사진 · 프로필 편집 진입이 바뀐다. 회원 상태 시안은 후속 과제다.</li>
+<li>통계의 작은 표지 두 권은 실제 데이터(가장 최근 다이어리 · 가장 최근 즐겨찾기 표지)를 쓰는 구현이어야 하고, <strong>데이터가 없으면 <code>bookmark</code> · <code>sticker-heart</code> 같은 빈 상태</strong>가 필요하다(2단계).</li>
+<li>환경 설정 · 앱 정보는 기존 컴포넌트 모양만 바꾼다(1단계).</li>
+<li>통계 카드의 작은 표지 두 권은 사용자 표지라 색 규칙의 예외다. 표지 색상표에 UI 계열 + 버터를 추가하면(<a href="#doc-12">12</a> §5) 이 화면의 체감 색도 더 UI 쪽으로 모인다.</li>
+</ul>
+</div><div class="sec2"><h2 id="하지-않는-것">하지 않는 것</h2>
+<ul>
+<li>네이비 배너를 다른 진한 면으로 바꾸지 않는다(가장 무거운 색 면을 걷어내는 것이 목적).</li>
+<li><strong>버터 노랑으로 배너를 채우지 않는다</strong>(노랑은 큰 면 금지 — 포인트만). 빈 영역을 색으로 메우지 않는다.</li>
+<li>통계에 순위 · 연속 일수 · 좋아요 같은 압박 수치를 더하지 않는다.</li>
+<li>설정 · 앱 정보 목록에 장식을 넣지 않는다.</li>
+</ul>
+</div><div class="sec2"><h2 id="결정">결정</h2>
+<table>
+<thead>
+<tr>
+<th>항목</th>
+<th style="text-align: center;">채택</th>
+<th style="text-align: center;">보류</th>
+<th style="text-align: center;">반려</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>네이비 배너 → 밝은 프로필 카드</td>
+<td style="text-align: center;">☐</td>
+<td style="text-align: center;">☐</td>
+<td style="text-align: center;">☐</td>
+</tr>
+<tr>
+<td>통계를 표지 · 칩 · 축소 숫자 중 어느 것으로</td>
+<td style="text-align: center;">☐</td>
+<td style="text-align: center;">☐</td>
+<td style="text-align: center;">☐</td>
+</tr>
+<tr>
+<td>프로필 장식 한 점(북마크 · 폴라로이드)</td>
+<td style="text-align: center;">☐</td>
+<td style="text-align: center;">☐</td>
+<td style="text-align: center;">☐</td>
+</tr>
+<tr>
+<td>회원 상태 시안 후속 진행</td>
+<td style="text-align: center;">☐</td>
+<td style="text-align: center;">☐</td>
+<td style="text-align: center;">☐</td>
+</tr>
+</tbody>
+</table>
+</div><div class="sec2"><h2 id="코드에-반영된-설계-2026-10-31-위-시안과-다르다">코드에 반영된 설계 (2026-10-31, 위 시안과 다르다)</h2>
+<p>사용자가 "꼭 현안처럼 가져갈 필요 없다, 처음부터 다시 검토해 달라"고 해서 코덱스가 위 시안(혼합안)을 <strong>전제하지 않고 다시 설계</strong>했고, 그 안이 앱 코드에 들어갔다. 위 표의 배너 · 폴라로이드 묶음 안과 다른 점은 다음과 같다.</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>위 시안(혼합안)</th>
+<th>코드에 반영된 설계</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>프로필</td>
+<td><code>#F0F1F9</code> 배너 + 폴라로이드 두 장 + 로고 카드</td>
+<td><strong>흰 카드</strong>(경계 <code>#D9DCEF</code>) + 사진 또는 <code>D</code> 아바타 60×60 + <strong>사진 윗변 테이프 한 조각</strong>(장식은 이것뿐)</td>
+</tr>
+<tr>
+<td>통계</td>
+<td>작은 표지 두 권(카드 안)</td>
+<td>표지 한 권 · 책갈피 한 개 <strong>소품 + 라벨 + 숫자</strong>(압박 수치 없음)</td>
+</tr>
+<tr>
+<td>폰트 만들기 카드</td>
+<td>시안에 있음</td>
+<td><strong>삭제</strong>(꾸미기 공방이 단일 진입점)</td>
+</tr>
+<tr>
+<td>환경 설정 · 앱 정보</td>
+<td>세로 목록</td>
+<td>태블릿 <strong>2열</strong>(앱 정보 / 환경 설정 + 로그아웃), 폰 한 열(환경 설정 없음)</td>
+</tr>
+<tr>
+<td>로그아웃</td>
+<td>목록 아래 단독</td>
+<td>오른쪽 열의 흰 카드 한 칸(폰은 앱 정보 아래)</td>
+</tr>
+<tr>
+<td>캐릭터 · 정서 문구</td>
+<td>없음</td>
+<td>없음(내 공간의 주인공은 사용자의 사진과 기록 — 코덱스 판단)</td>
+</tr>
+</tbody>
+</table>
+<p>코덱스가 낸 치수 중 <code>프로필 카드 136</code>, 폰 <code>y116</code> 같은 절대 좌표는 RN의 흐름 배치(패딩 · 간격)로 바꿔 구현했다. 새 문구는 0개다. 상세 규칙은 디자인 가이드 "내 공간 (2026-10 감성 리뉴얼)".</p></div>
+</section><section class="doc" id="doc-11" data-title="11 휴지통 — 되살릴 수 있다는 신호는 물성으로, 영구 삭제는 분명하게">
+<h1 id="11-휴지통-되살릴-수-있다는-신호는-물성으로-영구-삭제는-분명하게">11 휴지통 — 되살릴 수 있다는 신호는 물성으로, 영구 삭제는 분명하게</h1>
+<blockquote>
+<p>시안: 태블릿 1280 × 800 · 폰 390 × 844, 왼쪽 위부터 지금 · A · B · C. 수치는 코덱스 명세다. 시안의 "29일 / 3일"은 예시 값이다.</p>
+</blockquote>
+<div class="sec2"><h2 id="한-줄-결론">한 줄 결론</h2>
+<p><strong>삭제 대기라는 민감한 순간인데 '되살릴 수 있다'는 신호가 날짜 글자 하나뿐이다.</strong> DIO의 30일 자동 만료는 소수 사례다(Day One · Goodnotes는 자동 만료가 없다) — 그래서 <strong>남은 시간을 보여 주는 장치가 DIO만의 필요</strong>다. 조사한 앱은 시간을 물성으로 보여 준다(Lapse의 잠긴 사진 격자, Tiimo의 사물 + 둘레 진행 호, <a href="#doc-03">03</a>). 1차 렌더의 세 안은 <strong>표지를 저채도로 낮춰 목록과 구별</strong>했으나, 코덱스 검수는 "표지를 회색화하면 사용자 콘텐츠까지 비활성화한 인상"이라고 짚어 <strong>혼합안은 표지 원색을 거의 유지(<code>saturate(.78)</code>)</strong> 하고 남은 시간만 칩 · 고리로 보강한다. 남은 시간은 문구를 늘리지 않는다. <strong>되돌릴 수 없는 동작은 귀여운 문구로 흐리지 않는다</strong>(Opal의 "Past you was right"는 오히려 대비 사례).</p>
+<div class="wide"><figure><img src="이미지/비교/휴지통 태블릿.jpg"><figcaption>휴지통 · 태블릿 — 지금 / A / B / C</figcaption></figure></div>
+
+<div class="wide"><figure><img src="이미지/비교/휴지통 폰.jpg"><figcaption>휴지통 · 폰</figcaption></figure></div>
+
+<div class="wide"><figure><img src="이미지/비교/휴지통빈 태블릿.jpg"><figcaption>빈 휴지통 — A / B / C / 혼합안</figcaption></figure></div>
+
+</div><div class="sec2"><h2 id="바뀌는-것">바뀌는 것</h2>
+<p>임박(3일 이하) 표시에 <strong>적색 계열을 쓰지 않는다</strong> — 색 규칙(<a href="#doc-06">06</a> §1.1)에서 <code>danger</code>는 영구 삭제 확인 한 곳으로 한정했다. 대신 <strong>버터 칩 <code>#FEF0BF</code> + 네이비 글자 + 금색 고리 <code>#B98208</code></strong>로 형태 · 문구 · 고리가 긴급도를 말한다(네이비 글자 / 버터 13.9:1).</p>
+<table>
+<thead>
+<tr>
+<th>요소</th>
+<th>지금</th>
+<th>A 햇살 드로어리</th>
+<th>B 포토부스 콜라주</th>
+<th>C 조용한 문구점</th>
+<th><strong>혼합안</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>표지</td>
+<td>원래 색 그대로</td>
+<td><code>saturate(.38) brightness(1.05)</code> · 불투명도 .82, 우상단 28 × 28 회색 종이 라벨(휴지통 아이콘) — <strong>검수: 삭제 아이콘이 일반 상태에서 너무 직접적 → 제거</strong></td>
+<td><code>grayscale(.72) saturate(.38)</code> + <strong>흰 테두리 5px</strong> — <strong>검수: 사용자 콘텐츠를 비활성처럼 보이게 함 → 원색 유지</strong></td>
+<td><code>grayscale(.85) opacity(.74)</code> · 그림자 제거 · 1px 테두리</td>
+<td><strong><code>saturate(.78)</code>만</strong>, 불투명도 1, 삭제 아이콘 없음</td>
+</tr>
+<tr>
+<td>표지 크기(태블릿)</td>
+<td>160</td>
+<td>172</td>
+<td>176</td>
+<td>170</td>
+<td>172</td>
+</tr>
+<tr>
+<td>남은 날짜</td>
+<td>글자만(<code>n일 후 영구 삭제</code>)</td>
+<td>14/700 · 앞에 <strong>8~10px 진행 고리</strong>, 7일 이하는 <strong>버터 칩 + 금색 고리</strong></td>
+<td>표지 하단 <strong>날짜 스탬프</strong>(높이 24), 7일 이하 <strong>버터 스탬프</strong></td>
+<td>표지 아래 14/700, 7일 이하 <strong>버터 칩</strong>, 진행 고리 포함</td>
+<td><strong>11px 진행 고리 + 글자, 3일 이하 버터 칩</strong>(<code>#FEF0BF</code> · 네이비 · 고리 <code>#B98208</code>)</td>
+</tr>
+<tr>
+<td>선택 모드</td>
+<td>우상단 <code>선택</code></td>
+<td><code>선택</code> 88 × 48. 선택하면 상단에 "2개 선택됨", <strong>하단 고정 액션 "복원 / 영구 삭제"</strong></td>
+<td>선택 시 표지 좌상단 28px 체크 원</td>
+<td>28px <strong>사각 체크박스</strong>(<strong>검수: 평상시에는 숨김</strong>)</td>
+<td>선택 진입 후에만 24px 체크박스</td>
+</tr>
+<tr>
+<td>빈 휴지통</td>
+<td>없음(미캡처)</td>
+<td><strong>디오</strong> 84 + <code>#F0F1F9</code> 면 180 × 130, "휴지통이 비어 있어요"</td>
+<td><strong>둘이</strong> 170 + 버터 테이프 52, 제목만</td>
+<td><strong>디오</strong> 84 + 규칙선 100, 제목만</td>
+<td>A의 디오 + 라벤더 50 면</td>
+</tr>
+<tr>
+<td>장식</td>
+<td>없음</td>
+<td>빈 상태에만</td>
+<td><strong>테이프 · 스티커 사용 안 함</strong>(빈 상태의 작은 테이프만)</td>
+<td>없음</td>
+<td>빈 상태에만</td>
+</tr>
+</tbody>
+</table>
+<div class="wide"><figure><img src="이미지/비교/휴지통 혼합 태블릿.jpg"><figcaption>혼합안 · 태블릿 — 지금 / 혼합안 (표지는 사용자 콘텐츠 샘플)</figcaption></figure></div>
+
+</div><div class="sec2"><h2 id="근거와-연결">근거와 연결</h2>
+<ul>
+<li><strong>시간을 물성으로</strong> — Lapse는 현상 대기를 잠긴 사진 격자로, Tiimo는 사물 + 둘레 진행 호로 시간을 보여 준다. 지금 <code>n일 후 영구 삭제</code> 글자 하나를 <strong>문구를 늘리지 않고</strong> 고리 · 스탬프로 보강한다. 3일 이하는 적색 대신 <strong>버터 칩</strong>으로 구별한다(색 규칙).</li>
+<li><strong>빈 상태는 사물 한 점 + 제목</strong> — 하루콩의 포춘쿠키 쪽지처럼 사물 일러스트 한 점으로 기다림을 채우고 제목만 둔다. 이번 판은 사물 대신 <strong>디오 · 둘이</strong>를 둔다(캐릭터가 색 규칙에 가장 자연스럽고, 코덱스도 휴지통의 정적 분위기에 디오 단독이 맞는다고 봤다). 문구는 가이드의 빈 화면 형식("… 없어요")을 지킨다.</li>
+<li><strong>영구 삭제를 귀엽게 포장하지 않는다</strong> — 조사 C 10번 발견(톤 ≠ 안내 멘트), 조사 B §3.5. 그래서 B의 코덱스 원안 "3일 후 삭제"는 <strong>"3일 후 영구 삭제"로 되돌렸다</strong>(클로드 보정: '영구'가 지워지면 되돌릴 수 없다는 뜻이 흐려진다).</li>
+<li><strong>복원은 모달이 아니라 토스트</strong> — Finch식 축하 모달은 과하다. 가이드의 완료 토스트로 충분하다(추정).</li>
+</ul>
+</div><div class="sec2"><h2 id="접근성-구현">접근성 · 구현</h2>
+<ul>
+<li><strong>작은 위험 글자 대비</strong> — <code>danger</code> 글자는 흰색 위 3.85:1이라 일반 글자 4.5에 못 미친다(<a href="#doc-04">04</a> §3). <strong>이번 판은 이 문제를 색을 바꾸지 않고 풀었다</strong> — 임박 표시에서 적색 글자를 빼고 버터 칩 위 네이비 글자(13.9:1)로 대체했다. 금색 고리 <code>#B98208</code>은 비텍스트 3:1을 넘지만(흰색 위 3.35, 버터 위 2.94) 글자가 항상 같이 있어 색만으로 의미를 전하지 않는다. <code>danger</code>는 영구 삭제 확인 단계에만 <code>#B52E52</code>(흰색 위 6.0:1)로 남긴다.</li>
+<li><strong>진행 고리는 색만으로 의미를 전하지 않는다</strong> — 고리 옆에 <code>n일 후 영구 삭제</code> 글자가 항상 같이 있다. 7일 이하 위험색도 글자와 고리를 함께 바꾼다.</li>
+<li><strong>저채도 처리</strong> — 표지를 회색조로 낮추면 어떤 다이어리인지 알아보기 어렵고, 코덱스 검수는 사용자 콘텐츠를 비활성화한 인상을 짚었다. 혼합안은 <code>saturate(.78)</code>로 줄였고 라벨 글자가 그대로 읽히는지 실기기에서 확인한다. C(채도 .85 감소 + 불투명 .74)가 가장 알아보기 어렵다.</li>
+<li>표지 <code>filter</code>는 RN에서 <strong>그대로 되지 않는다</strong>(웹 CSS). 구현은 표지 뒤에 회색 막 겹치기 · <code>tintColor</code> · 회색조 에셋 등이 필요하고 안드로이드 · iOS에서 방법이 다르다 — <strong>2단계</strong>로 보고 방법을 따로 정한다.</li>
+<li>하단 고정 액션(복원 / 영구 삭제)과 선택 개수 표시는 가이드 §5.6의 선택 바와 겹친다. 이 부분은 새 인터랙션이 아니라 <strong>기존 선택 바의 배치 정리</strong>로 보는 것이 맞다(구현 전 확인).</li>
+</ul>
+</div><div class="sec2"><h2 id="하지-않는-것">하지 않는 것</h2>
+<ul>
+<li>영구 삭제 확인문과 날짜 표현에서 '영구'를 지우거나 정서 문구로 흐리지 않는다.</li>
+<li>삭제 화면에 테이프 · 스티커를 붙이지 않는다(B는 특히 금지).</li>
+<li>삭제 아이콘 · 일반 경고에 적색을 쓰지 않는다(<code>danger</code>는 영구 삭제 확인 한 곳).</li>
+<li>복원 완료에 캐릭터 모달을 쓰지 않는다.</li>
+</ul>
+</div><div class="sec2"><h2 id="결정">결정</h2>
+<table>
+<thead>
+<tr>
+<th>항목</th>
+<th style="text-align: center;">채택</th>
+<th style="text-align: center;">보류</th>
+<th style="text-align: center;">반려</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>삭제 표지 처리(원색 유지 <code>saturate(.78)</code> / 저채도)</td>
+<td style="text-align: center;">☐</td>
+<td style="text-align: center;">☐</td>
+<td style="text-align: center;">☐</td>
+</tr>
+<tr>
+<td>임박 표시를 적색 대신 버터 칩으로</td>
+<td style="text-align: center;">☐</td>
+<td style="text-align: center;">☐</td>
+<td style="text-align: center;">☐</td>
+</tr>
+<tr>
+<td>남은 시간 진행 고리 / 스탬프</td>
+<td style="text-align: center;">☐</td>
+<td style="text-align: center;">☐</td>
+<td style="text-align: center;">☐</td>
+</tr>
+<tr>
+<td>선택 모드 하단 고정 액션</td>
+<td style="text-align: center;">☐</td>
+<td style="text-align: center;">☐</td>
+<td style="text-align: center;">☐</td>
+</tr>
+<tr>
+<td>빈 휴지통 소품</td>
+<td style="text-align: center;">☐</td>
+<td style="text-align: center;">☐</td>
+<td style="text-align: center;">☐</td>
+</tr>
+</tbody>
+</table></div>
+</section><section class="doc" id="doc-12" data-title="12 공통 시스템과 가이드 변경 — 색 체계 · 값 · 모션 · 접근성 · 바꿔야 할 가이드 항목">
+<h1 id="12-공통-시스템과-가이드-변경-색-체계-값-모션-접근성-바꿔야-할-가이드-항목">12 공통 시스템과 가이드 변경 — 색 체계 · 값 · 모션 · 접근성 · 바꿔야 할 가이드 항목</h1>
+<blockquote>
+<p>디자인 가이드는 <strong>아직 고치지 않았다.</strong> 이 문서의 "가이드 변경" 표를 팀이 정한 뒤, 채택한 항목만 가이드를 먼저 고치고 같은 커밋에서 코드에 반영한다(가이드 §0). 이 판은 팀의 <strong>색 규칙 v2</strong>(UI 색상 계열 + 캐릭터 노랑만, 메인은 UI 색 — <a href="#doc-06">06</a> §1.1)를 반영한 2판이다.</p>
+</blockquote>
+<div class="sec2"><h2 id="한-줄-결론">한 줄 결론</h2>
+<p><strong>추천 혼합안은 새 색상 계열을 하나도 들이지 않고, 시스템 서체 · BI 토큰 · 선 아이콘도 그대로 둔다.</strong> 필요한 가이드 변경은 §2.2에 <strong>토큰 몇 개를 더하는 것</strong>(라벤더 100 · 경계 · 노랑 3종 · 확인용 danger)과 색 쓰는 규칙(§2.3)에 한 줄을 보태는 것이다. 서체 변경은 가이드 변경이 필요한 사안이고, 코덱스도 "앱 UI는 시스템 800 유지"를 권장했다. 그리고 감성과 별개로 <strong>접근성 부채 네 곳</strong>은 어느 안을 고르든 보정해야 하며, 이번에는 이 네 곳을 <strong>색상 계열을 넓히지 않고 같은 계열 안의 값으로</strong> 푸는 방법을 찾았다(§3).</p>
+</div><div class="sec2"><h2 id="1-공통-토큰">1. 공통 토큰</h2>
+<table>
+<thead>
+<tr>
+<th>토큰</th>
+<th>지금</th>
+<th>혼합안(추천)</th>
+<th>A</th>
+<th>B</th>
+<th>C</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--page-bg</code>(앱 바탕, <code>surfaceSoft</code>)</td>
+<td><code>#F3F3F7</code></td>
+<td><code>#F3F3F7</code>(그대로)</td>
+<td><code>#F3F3F7</code> + 흰 대각광</td>
+<td><code>#F3F3F7</code> + 라벤더 번짐</td>
+<td><code>#F3F3F7</code></td>
+</tr>
+<tr>
+<td><code>--card-bg</code></td>
+<td><code>#FFFFFF</code></td>
+<td><code>#FFFFFF</code></td>
+<td><code>#FFFFFF</code></td>
+<td><code>#FFFFFF</code></td>
+<td><code>#FFFFFF</code></td>
+</tr>
+<tr>
+<td>카드 테두리</td>
+<td><code>rgba(11,23,102,.16)</code></td>
+<td><code>#D9DCEF</code> 1px</td>
+<td><code>#D9DCEF</code></td>
+<td><code>#D9DCEF</code></td>
+<td><code>rgba(11,23,102,.18)</code></td>
+</tr>
+<tr>
+<td>카드 모서리</td>
+<td>22</td>
+<td><strong>태블릿 18 · 폰 16</strong></td>
+<td>22</td>
+<td>26</td>
+<td>16</td>
+</tr>
+<tr>
+<td>카드 그림자</td>
+<td>가이드 <code>shadow.card</code></td>
+<td><code>0 4px 12px rgba(11,23,102,.08)</code></td>
+<td><code>0 8px 20px</code> .09</td>
+<td><code>0 10px 24px</code> .11</td>
+<td><code>0 4px 12px</code> .07</td>
+</tr>
+<tr>
+<td>버튼 · 입력 모서리</td>
+<td>18</td>
+<td><strong>12</strong>(FAB 18)</td>
+<td>16</td>
+<td>20</td>
+<td>12</td>
+</tr>
+<tr>
+<td>큰 제목</td>
+<td>29 / 800 (폰 30)</td>
+<td>같은 크기, <strong>자간 -.4px</strong></td>
+<td>-.8</td>
+<td>-1</td>
+<td>-.6</td>
+</tr>
+<tr>
+<td>선택 칩</td>
+<td>흰 칩 + 네이비 글자</td>
+<td><strong><code>#0B1766</code> + 흰 글자</strong></td>
+<td>같음</td>
+<td>같음</td>
+<td>같음</td>
+</tr>
+<tr>
+<td>색(UI 계열)</td>
+<td><code>surfaceSoft</code> · <code>surfaceMuted #F0F1F9</code> · <code>secondary #ABB1D8</code></td>
+<td>+ 라벤더 100 <code>#DBDCF9</code> · 경계 <code>#D9DCEF</code></td>
+<td>같음</td>
+<td>같음</td>
+<td>같음</td>
+</tr>
+<tr>
+<td>색(캐릭터 노랑)</td>
+<td>없음</td>
+<td><code>#FEF0BF</code>(면 · 칩) · <code>#FBE5A3</code>(테이프) · <code>#B98208</code>(점 · 고리)</td>
+<td>테이프 · 점</td>
+<td>테이프 · 별</td>
+<td>미세 포인트</td>
+</tr>
+<tr>
+<td>종이결</td>
+<td>없음</td>
+<td>page-bg에만 <code>.035</code></td>
+<td>page-bg에만 <code>.035</code></td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr>
+<td><strong>불변</strong></td>
+<td>페리윙클 <code>#818AC3</code> · <code>#606BB2</code> · 네이비 <code>#0B1766</code> · 로고 두 색</td>
+<td>그대로</td>
+<td>그대로</td>
+<td>그대로</td>
+<td>그대로</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>새 토큰은 다섯 종류뿐이다.</strong> 라벤더 50 = 기존 <code>surfaceMuted</code>, 라벤더 200 = 기존 <code>secondary</code>이므로 새로 만들 값은 라벤더 100 <code>#DBDCF9</code> · 경계 <code>#D9DCEF</code> · 노랑 3종 · 확인용 <code>danger-confirm #B52E52</code>이다. 색상각 · 대비는 <a href="#doc-06">06</a> §1.1 표(색 검수 스크립트로 계산).</li>
+<li>보조색의 네이비 글자 대비는 버터 13.9 · 테이프 12.7 · 라벤더 100 11.8로 모두 4.5를 크게 넘는다. 위험은 면이 아니라 그 위에 얹는 <strong>흰 글자 · <code>primary</code> 선 · 금색</strong>이다(노랑 위 흰 글자 1.14:1은 불가).</li>
+<li>종이결은 SVG <code>feTurbulence</code>(새 래스터 없음)를 <code>opacity .025~.035</code>로 <strong>바탕에만</strong> 쓰고 글자 · 입력칸 · 표지 · 카드 위에는 쓰지 않는다. 새 래스터가 필요하면 <code>Seamless subtle warm off-white uncoated paper grain texture, flat 2D, no objects, no shadows, no text, very low contrast, 2048x2048</code> 프롬프트로 만든다(필수 아님; 색 규칙상 'warm'은 질감 색이 아니라 무채색 종이결을 뜻한다).</li>
+<li><strong>가이드와 코드가 다른 곳 하나.</strong> 가이드 §2.4는 표지 색을 8색(세이지 <code>#A9BFA6</code> · 로즈 <code>#F0B0AA</code> · 페리윙클 <code>#A9AFD7</code>(기본) · 머스터드 <code>#EBC56F</code> · 라벤더 <code>#C3AEDD</code> · 차콜 · 카멜 · 크림)으로 적지만, 코드(<code>diary/constants.js</code>의 <code>COLORS</code>)는 6색(크림 · 라떼 · 더스티 로즈 · 세이지 · 스카이 · 차콜)이다. 이 조사는 <strong>코드 값</strong>을 현황으로 쓰고(<a href="#doc-01">01</a>), 시안의 표지 샘플은 가이드 8색과 앱 게스트 시드를 따랐다. 어느 쪽이 맞는지 팀이 확인한다.</li>
+</ul>
+</div><div class="sec2"><h2 id="2-구현-보정-클로드가-코덱스-명세에서-바꾼-곳">2. 구현 보정 — 클로드가 코덱스 명세에서 바꾼 곳</h2>
+<p>미감 값은 코덱스를 그대로 따랐다. 코덱스가 '지금' 값을 크게 읽었거나 구현 규칙 · 대비 계산과 어긋난 곳만 고쳤고, 코덱스 검수에도 이 목록을 보여 주었다. <strong>1~11은 1차(색 규칙 이전) 라운드, 12~21은 색 규칙 v2 라운드</strong>다.</p>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>코덱스 원안</th>
+<th>보정</th>
+<th>이유</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>큰 제목 폰 40~42 · 태블릿 32</td>
+<td><strong>크기는 가이드 값(폰 30 · 태블릿 29) 유지</strong>, 자간만 반영</td>
+<td>코덱스가 '지금'을 42로 읽었다(실제 30). 크기를 올리면 의도(약한 조정)와 반대</td>
+</tr>
+<tr>
+<td>2</td>
+<td>표지 214 × 300 등</td>
+<td><strong>폭만 따르고 높이는 앱 표지 비율(185 : 246)대로</strong></td>
+<td>원안 비율이 앱 표지와 달라 표지가 일그러짐</td>
+</tr>
+<tr>
+<td>3</td>
+<td>오른쪽 여백이 어긋난 좌표</td>
+<td>지금 앱 여백 30에 맞춤</td>
+<td>가장자리 정렬 유지</td>
+</tr>
+<tr>
+<td>4</td>
+<td>로고 72 / 64</td>
+<td><strong>로고 크기 그대로(53)</strong></td>
+<td>코덱스가 지금 값을 크게 읽음. BI 불변. 2차 라운드의 '로고 폭 32~36px'도 같은 이유로 따르지 않음</td>
+</tr>
+<tr>
+<td>5</td>
+<td>A 로그인 부제 삭제</td>
+<td>B · C에도 삭제 적용</td>
+<td>정서 문구 기본값은 '없음'</td>
+</tr>
+<tr>
+<td>6</td>
+<td>테이프 w 68</td>
+<td>w 88로 키움(1차). 2차 혼합안은 <strong>보이는 폭 약 40px</strong>(w 56)</td>
+<td>에셋 투명 여백 때문에 같은 w로 그리면 훨씬 작게 보임. 2차 코덱스 값 <code>28 × 8</code>은 에셋 비율을 무시한 값이라 보이는 폭 기준으로 환산</td>
+</tr>
+<tr>
+<td>7</td>
+<td>휴지통 B "3일 후 삭제"</td>
+<td><strong>"3일 후 영구 삭제" 유지</strong></td>
+<td>'영구'가 지워지면 되돌릴 수 없다는 뜻이 흐려짐(코덱스도 검수에서 동의)</td>
+</tr>
+<tr>
+<td>8</td>
+<td>공방 B '미리보기 안 우측 타일'과 '미리보기 아래 타일'이 겹침</td>
+<td>보드 / 아래 타일 3개 / 오른쪽 내 폰트 · 스티커로 나눔</td>
+<td>명세 충돌 정리</td>
+</tr>
+<tr>
+<td>9</td>
+<td>1차 최종 토큰 <code>ink #0B1D70</code> · <code>primary #6674C5</code></td>
+<td><strong>채택 안 함</strong>, BI 값 유지</td>
+<td>가드레일(불변) 위반</td>
+</tr>
+<tr>
+<td>10</td>
+<td>그림자 <code>rgba(14,26,78,.10)</code></td>
+<td><code>rgba(11,23,102,.10)</code></td>
+<td>BI 네이비를 그림자 색에도 일관되게</td>
+</tr>
+<tr>
+<td>11</td>
+<td>(1차) 혼합안 큰 배너 <code>#FFF9EA</code></td>
+<td><strong>폐기</strong> — 2차에서 라벤더 50 <code>#F0F1F9</code></td>
+<td>버터 큰 면은 색 규칙(노랑 큰 면 금지) 위반</td>
+</tr>
+<tr>
+<td>12</td>
+<td><strong><code>action-accessible #525FAD</code></strong> (흰 글자 버튼 · FAB의 <code>#606BB2</code> 교체)</td>
+<td><strong>채택 안 함</strong>, 버튼색 <code>#606BB2</code> 불변</td>
+<td>흰 글자 / <code>#606BB2</code>가 이미 <strong>4.95:1</strong>이라 고칠 점이 없고 버튼색은 BI 핵심 토큰. <code>#525FAD</code>는 '회색 바탕 위 <code>primaryStrong</code> 글자'(4.47:1 → <strong>5.27:1</strong>) 보정용 <strong>글자색 후보</strong>로만 둔다(§3)</td>
+</tr>
+<tr>
+<td>13</td>
+<td><code>text-muted #49538F</code></td>
+<td>채택 안 함</td>
+<td>지금 <code>textMuted</code>가 라벤더 면 위에서 이미 5.2 이상</td>
+</tr>
+<tr>
+<td>14</td>
+<td>알림 점 · 고리 <code>#A87612</code> → 검수 후 <code>#D69A1E</code></td>
+<td><strong><code>#B98208</code></strong>(고리는 그대로, <strong>알림 점은 이후 사용자 지시로 쿨톤 핑크 <code>#B63F7C</code>로 바뀜</strong> — 보정 #22)</td>
+<td><code>#A87612</code>(3.99:1)는 탁한 갈색, <code>#D69A1E</code>는 흰색 위 <strong>2.47:1</strong>로 비텍스트 3:1 미달. 같은 색상각(41°)에서 3:1을 넘는 가장 밝은 값이 <code>#B98208</code>(흰색 3.35 · 앱 바탕 3.03 · 버터 2.94)</td>
+</tr>
+<tr>
+<td>15</td>
+<td>카드 경계 <code>#D9DAE7</code>(1차) / <code>#D9DCEF</code>(검수)</td>
+<td><code>#D9DCEF</code> 하나로 통일</td>
+<td>두 값이 거의 같아 토큰이 늘 이유가 없음</td>
+</tr>
+<tr>
+<td>16</td>
+<td>알림 점 색(명세 없음)</td>
+<td><code>#B98208</code> → <strong><code>#B63F7C</code></strong>(보정 #22)</td>
+<td>"danger는 영구 삭제 확인에만" 원칙의 적용(내 판단)이었으나 아래 #22로 대체</td>
+</tr>
+<tr>
+<td>22</td>
+<td>(사용자 지시) 알림 동그라미는 쿨톤 핑크</td>
+<td>코덱스에게 후보 3개(<code>#A9467E</code> · <code>#B63F7C</code> · <code>#D04F9A</code>)를 받아 <strong><code>#B63F7C</code></strong>(H329°, 흰색 5.26 · 앱 바탕 4.75:1)로 확정. <strong>색 규칙의 유일한 예외</strong>로 <code>notifyPink</code> 토큰에만 둔다</td>
+<td>색 규칙 v2는 UI 색상 계열 + 캐릭터 노랑이었으나 사용자가 알림 점만큼은 핑크를 원했다. 위험색(<code>#B52E52</code>, H344°)과 15° 떨어져 있어 쓰는 곳을 나눠 쓴다</td>
+</tr>
+<tr>
+<td>17</td>
+<td>공방 C '1 · 2 · 3단 규칙선'</td>
+<td>구현은 라벤더 200 가로선 1 · 2 · 3줄 → 검수 후 혼합안에서는 쓰지 않음</td>
+<td>비활성 스켈레톤으로 읽힘(코덱스 검수)</td>
+</tr>
+<tr>
+<td>18</td>
+<td>내 공간 C '네이비 라벨'</td>
+<td>라벤더 200 6px 띠로 구현(내 판단) → 검수 후 혼합안은 <code>#D9DCEF</code> 4px</td>
+<td>네이비 띠는 무거움. 코덱스가 6px도 시스템 바로 읽힌다고 하여 4px로</td>
+</tr>
+<tr>
+<td>19</td>
+<td>(1차 휴지통 B) 표지 <code>grayscale(.72)</code></td>
+<td><strong>혼합안은 <code>saturate(.78)</code></strong> — 1차 권고와 반대</td>
+<td>2차 검수가 "사용자 콘텐츠를 비활성처럼 보이게 한다"고 짚음. 최신 판단을 따름</td>
+</tr>
+<tr>
+<td>20</td>
+<td>다색 3D 스티커 PNG(달 · 리본 · 하트 · 별 · 고양이 · 곰 · 무지개 등) '단색 재제작'</td>
+<td><strong>새로 만들지 않고 UI 장식에서 뺌</strong></td>
+<td>혼합안은 폴라로이드 · 테이프 · <code>sticker-heart</code> · <code>star-clip</code>(이미 UI 계열)만 쓴다. 편집기 스티커 라이브러리는 사용자 콘텐츠라 그대로. 필요해지면 코덱스의 생성 프롬프트(색 hex 지정, 그라데이션 · 3D 금지)로 만든다</td>
+</tr>
+<tr>
+<td>21</td>
+<td>표지 라벨 띠 흰색 · 표지 그림자 네이비 틴트</td>
+<td>시안에 적용하되 <strong>'선택 사항'</strong>으로 표시</td>
+<td>표지 렌더(<code>Cover.js</code>) 변경이라 사용자 콘텐츠 영역을 건드린다</td>
+</tr>
+</tbody>
+</table>
+</div><div class="sec2"><h2 id="3-접근성-부채-안과-무관하게-보정-색-규칙-안의-해법">3. 접근성 부채 — 안과 무관하게 보정 (색 규칙 안의 해법)</h2>
+<table>
+<thead>
+<tr>
+<th>조합</th>
+<th>대비</th>
+<th>기준</th>
+<th>영향</th>
+<th>보정 방향(후보 · 모두 UI 색상 계열 안)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>primaryStrong</code> 글자 / <code>surfaceSoft</code></td>
+<td>4.47</td>
+<td>4.5</td>
+<td>앱 배경 위 파란 글자</td>
+<td>그 글자를 <strong><code>#525FAD</code>(5.27:1)</strong>로 — 같은 색상각(231°)의 한 단계 진한 값. 또는 <code>text</code>/<code>textMuted</code>로 대체</td>
+</tr>
+<tr>
+<td><code>danger</code> 글자 / 흰색</td>
+<td>3.85</td>
+<td>4.5</td>
+<td>작은 위험 글자("n일 후 영구 삭제")</td>
+<td><strong>글자를 위험색으로 칠하지 않는다</strong> — 버터 칩 + 네이비 글자(13.9:1) + 금색 고리. 영구 삭제 확인에만 <code>#B52E52</code>(흰색 위 6.0:1)</td>
+</tr>
+<tr>
+<td><code>border</code> / 흰색</td>
+<td>1.39</td>
+<td>비텍스트 3:1</td>
+<td>입력칸 경계가 유일한 단서일 때</td>
+<td><strong>입력칸 경계만 <code>primary #818AC3</code></strong>(흰색 위 3.30:1). 카드 경계는 장식이라 <code>#D9DCEF</code> 유지</td>
+</tr>
+<tr>
+<td><code>primary</code> 선 / <code>surfaceSoft</code></td>
+<td>2.98</td>
+<td>비텍스트 3:1</td>
+<td>앱 배경 위 선택 테두리</td>
+<td>선택 테두리는 <strong><code>primaryStrong #606BB2</code>(4.47:1)</strong> 2px로, <code>primary</code>는 비활성 장식에만</td>
+</tr>
+</tbody>
+</table>
+<p>값은 조사자 계산이다(<code>스크립트/색 검수.py</code>의 대비 함수). 구현 때 실제 렌더 색으로 다시 잰다. <strong>BI인 <code>text</code>(네이비) 계열은 건드리지 않는다.</strong> 금색 점 · 고리 <code>#B98208</code>은 비텍스트 3:1을 넘지만(흰색 3.35 · 앱 바탕 3.03) 버터 위에서는 2.94라 고리는 항상 글자와 함께 쓴다. 이 보정이 시안에 적용된 것은 임박 표시와 알림 점뿐이고 나머지 셋은 구현 때 반영할 후보다.</p>
+</div><div class="sec2"><h2 id="4-모션-햅틱-사운드-코덱스">4. 모션 · 햅틱 · 사운드 (코덱스)</h2>
+<table>
+<thead>
+<tr>
+<th>장면</th>
+<th>동작</th>
+<th>동작 줄이기 대안</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>홈 진입</td>
+<td>표지 3권이 아래에서 12px 올라오며 <code>280ms ease-out</code>, 순차 지연 40ms</td>
+<td>이동 없이 <code>opacity 0→1, 120ms</code></td>
+</tr>
+<tr>
+<td>표지 길게 누르기</td>
+<td>표지 <code>scale(.98) 100ms</code>, 도구 <code>opacity 0→1 / translateY(4→0), 160ms ease-out</code>, 가벼운 선택 햅틱 1회</td>
+<td>도구 즉시 표시, 햅틱 없음</td>
+</tr>
+<tr>
+<td>공방 미리보기</td>
+<td>스티커 <code>scale(.82→1) 180ms cubic-bezier(.2,.8,.2,1)</code>, 성공 햅틱 1회</td>
+<td>정적 교체</td>
+</tr>
+<tr>
+<td>복원</td>
+<td>표지가 8px 위로 이동 후 페이드아웃 <code>240ms ease-out</code>, 성공 햅틱 1회</td>
+<td>즉시 목록 제거</td>
+</tr>
+<tr>
+<td>영구 삭제</td>
+<td>확인 후 카드 <code>opacity 1→0, 180ms</code>, 경고 햅틱 1회</td>
+<td>즉시 목록 제거</td>
+</tr>
+<tr>
+<td>사운드</td>
+<td><strong>기본 미사용</strong></td>
+<td>사용하지 않음</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>모두 가이드 §10의 240~260ms · ease-out과 같은 범위다. 모션은 1차 라운드의 코덱스 명세이고 색 규칙과 무관하게 유효하다.</li>
+<li><strong>동작 줄이기 대응이 먼저다.</strong> 지금 코드에서 reduce-motion 처리는 <code>ToolGuideAnimation.js</code> 한 파일뿐이다.</li>
+<li><code>package.json</code>에 Reanimated · Lottie · Skia · expo-haptics · expo-linear-gradient가 <strong>없다.</strong> 눌림 스프링 · 삭제 모션은 지금의 <code>Animated</code>로 가능하나 홈 진입 연출과 스티커 붙이는 순간은 Reanimated를 권장한다(추정). 햅틱은 <code>expo-haptics</code> 추가가 필요하다.</li>
+</ul>
+</div><div class="sec2"><h2 id="5-가이드-변경이-필요한-항목">5. 가이드 변경이 필요한 항목</h2>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>위치</th>
+<th>변경 내용</th>
+<th>득</th>
+<th>실 · 위험</th>
+<th>변경 없이 가는 대안</th>
+<th>채택 · 보류 · 반려</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>§3.1 서체</td>
+<td>UI 글자 "시스템 서체만" → 제목 1종 허용</td>
+<td>마케팅 이미지와 이어지는 손글씨 인상</td>
+<td>로딩 깜빡임, 굵기 합성(고운돋움은 Regular만), 일관성 약화</td>
+<td><strong>시스템 800 + 자간만(코덱스 권장)</strong></td>
+<td>☐ ☐ ☐</td>
+</tr>
+<tr>
+<td>2</td>
+<td><strong>§2.2 · §2.3 색 쓰는 규칙</strong></td>
+<td><strong>색 규칙 v2 명문화</strong>: 색상군은 UI 계열 · 캐릭터 노랑 · 기능 <code>danger</code>만, 노랑은 큰 면 금지(UI 면적 2~5% 이하), 노랑 위 글자는 네이비. §2.2에 라벤더 100 · 경계 <code>#D9DCEF</code> · 노랑 3종 · <code>danger-confirm</code> 토큰 추가</td>
+<td>감성과 BI가 같은 문장으로 묶인다. 이후 새 화면이 색을 늘리지 않는다</td>
+<td>값이 늘수록 관리 부담, 노랑 과용 위험</td>
+<td><code>#F3F3F7</code> 유지 + 장식만(색 토큰 추가 없이 시안 값으로 관리)</td>
+<td>☐ ☐ ☐</td>
+</tr>
+<tr>
+<td>3</td>
+<td>§2.3 <code>danger</code> 범위</td>
+<td>"빨강은 지우기 · 영구 삭제 · 오류에만" → <strong>영구 삭제 확인 단계로 축소</strong>, 알림 점 · 삭제 아이콘 · 임박 글자는 UI 색 · 금색</td>
+<td>색 규칙 준수, 적색이 한 곳에만 남아 무게가 실림</td>
+<td>삭제 아이콘의 위험 인지가 약해짐, <strong>오류 안내를 어떻게 칠할지가 비어 있음</strong>(결정 필요)</td>
+<td>현행 유지(적색은 기능 색 예외로 폭넓게 허용)</td>
+<td>☐ ☐ ☐</td>
+</tr>
+<tr>
+<td>4</td>
+<td>§2.4 표지 색</td>
+<td><strong>기본 표지 색상표에 UI 계열 + 버터 추가</strong> — 페리윙클 <code>#818AC3</code> · 라벤더 200 <code>#ABB1D8</code> · 버터 <code>#FEF0BF</code>(표지 선택지 확장, 기존 표지는 그대로). 가이드 8색 · 코드 6색 불일치도 정리</td>
+<td>홈의 체감 지배색이 UI 색으로 모임, 캐릭터 노랑이 표지에서도 이어짐</td>
+<td>사용자 콘텐츠 영역이라 팀 합의 필요, 선택지 증가</td>
+<td>표지는 현행(사용자 몫)</td>
+<td>☐ ☐ ☐</td>
+</tr>
+<tr>
+<td>5</td>
+<td>§2.3 접근성</td>
+<td>접근성 부채 네 곳 보정(§3)</td>
+<td>AA 충족(감성과 무관)</td>
+<td>색이 미세하게 바뀜</td>
+<td>큰 글자 기준으로 키움</td>
+<td>☐ ☐ ☐</td>
+</tr>
+<tr>
+<td>6</td>
+<td>§4.3 모서리</td>
+<td>카드 태블릿 18 · 폰 16 · 컨트롤 12 · FAB 18</td>
+<td>화면별 무드 일관</td>
+<td>토큰 수 증가</td>
+<td>기존 22 유지</td>
+<td>☐ ☐ ☐</td>
+</tr>
+<tr>
+<td>7</td>
+<td>§4.4 그림자</td>
+<td>혼합안 <code>0 4px 12px rgba(11,23,102,.08)</code> · 선택 표지 <code>0 8px 16px</code> .12</td>
+<td>바닥 위 얹힘</td>
+<td>Android 28 미만은 색 무시</td>
+<td>현행</td>
+<td>☐ ☐ ☐</td>
+</tr>
+<tr>
+<td>8</td>
+<td>선택 칩 · 탭</td>
+<td>선택 상태를 <strong>네이비 채움 + 흰 글자</strong>로(현재 흰 칩 + 네이비 글자)</td>
+<td>선택이 분명하고 UI 색이 강해짐</td>
+<td>네이비가 무거울 수 있음, 가이드 §2.3 "선택은 테두리 · 그림자 병행" 확인</td>
+<td>현행</td>
+<td>☐ ☐ ☐</td>
+</tr>
+<tr>
+<td>9</td>
+<td>§10 움직임</td>
+<td>눌림 스프링 · 진입 연출 · 삭제/복원 모션 · <strong>동작 줄이기 필수</strong> · 햅틱(끌 수 있게)</td>
+<td>조작감 · 정점</td>
+<td>구현량, 의존성 증가</td>
+<td>현행 + 짧은 값</td>
+<td>☐ ☐ ☐</td>
+</tr>
+<tr>
+<td>10</td>
+<td>§8 글쓰기</td>
+<td>'정서 문구' 허용 범위(로그인 · 빈 상태 · 완료 토스트, 1개 · 12자)</td>
+<td>안내 금지와 충돌 없이 다정함</td>
+<td>모호하면 안내 멘트가 되살아남, 반복 닳음</td>
+<td>문구 그대로, 정서는 그림이 담당</td>
+<td>☐ ☐ ☐</td>
+</tr>
+<tr>
+<td>11</td>
+<td>§9 공용 컴포넌트</td>
+<td>빈 상태(캐릭터 + 한 줄) 컴포넌트</td>
+<td>빈 화면 일관</td>
+<td>에셋 의존, 모아 · 디오 노출량 결정 필요</td>
+<td>현행 텍스트만</td>
+<td>☐ ☐ ☐</td>
+</tr>
+<tr>
+<td>12</td>
+<td>신규 장</td>
+<td>질감 · 장식 규정(종이결 상한, 글자 뒤 금지, 장식 1~2개 한도, 소품 PNG 허용 자리, <strong>다색 3D 스티커는 UI 장식 금지</strong>)</td>
+<td>질감이 크롬으로 번지는 것 방지</td>
+<td>규정 작성 부담</td>
+<td>시안 단위 관리</td>
+<td>☐ ☐ ☐</td>
+</tr>
+<tr>
+<td>13</td>
+<td>로그인 · 가입 부록</td>
+<td>입력칸 경계 3:1(<code>#818AC3</code>), 장식은 폼 영역 밖, 키보드 열림 처리</td>
+<td>폼 신뢰 · 접근성</td>
+<td>장식 자유도 감소</td>
+<td>현행</td>
+<td>☐ ☐ ☐</td>
+</tr>
+<tr>
+<td>14</td>
+<td>§1.2 로고</td>
+<td>소품 · 빛 · 캐릭터 · <strong>노랑 테이프</strong>가 높이 25% 여백과 로고 색을 침범하지 않는다는 확인 문구(로고에서 24px 이상)</td>
+<td>BI 보호</td>
+<td>없음</td>
+<td>—</td>
+<td>☐ ☐ ☐</td>
+</tr>
+<tr>
+<td>15</td>
+<td>§5.6 휴지통</td>
+<td>표지 <code>saturate(.78)</code> · 진행 고리 · 임박 버터 칩 · 선택 바 정리</td>
+<td>남은 시간의 물성</td>
+<td>RN에서 <code>filter</code> 미지원 → 방법 별도</td>
+<td>현행</td>
+<td>☐ ☐ ☐</td>
+</tr>
+<tr>
+<td>16</td>
+<td>§5.5 홈</td>
+<td>표지 위 도구 기본 숨김 + <strong>선택 표지 <code>⋯</code> 상시</strong>, 표지 아래 정보 18/800 · 14/600, 선택 표지 프레임</td>
+<td>표지가 주인공 · 발견성</td>
+<td>발견성은 <code>⋯</code>로 보완, 프레임 구현량</td>
+<td>현행</td>
+<td>☐ ☐ ☐</td>
+</tr>
+</tbody>
+</table>
+<p>BI · CI를 지키는 선 — 로고 색 · 비율 · 여백 · 그림자 금지, <code>text #0B1766</code> · <code>primary</code> 계열의 역할, 앱 아이콘 · 스플래시(<code>#D4D7ED</code>) 규칙은 어떤 안도 건드리지 않는다. <code>secondary #ABB1D8</code>은 "넓게 쓰지 않음" 규칙이 있어 면적을 키우지 않는다(아바타 원 · 규칙선 · 작은 띠에만). 가이드 §2.4가 꾸미기 팔레트를 <strong>"사용자 콘텐츠용 — UI 색으로 쓰지 않음"</strong>으로 못박고 있어 표지 · 사진 · 사용자 스티커를 색 규칙의 예외로 두는 해석은 가이드와 맞는다.</p>
+</div><div class="sec2"><h2 id="6-react-native-구현-메모">6. React Native 구현 메모</h2>
+<table>
+<thead>
+<tr>
+<th>항목</th>
+<th>웹 시안</th>
+<th>RN에서</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>표지 저채도(<code>filter</code>)</td>
+<td>CSS <code>filter</code></td>
+<td>그대로 안 됨 → 표지 위 회색 막 겹치기 · 회색조 에셋 · <code>tintColor</code> 중 택일, 안드로이드 · iOS 각각 확인</td>
+</tr>
+<tr>
+<td>종이결</td>
+<td>SVG <code>feTurbulence</code></td>
+<td>PNG 타일 + <code>expo-image</code>, 또는 Skia(추가). 글자 · 입력칸 위 금지</td>
+</tr>
+<tr>
+<td>그림자 색</td>
+<td><code>box-shadow</code></td>
+<td><code>shadowColor</code>는 Android 28 이상에서만 색이 먹음</td>
+</tr>
+<tr>
+<td>소품 · 테이프</td>
+<td><code>&lt;img&gt;</code> 겹치기</td>
+<td><code>expo-image</code> 투명 PNG + <code>transform</code>, 이미 <code>assets/desk/props</code>에 있음</td>
+</tr>
+<tr>
+<td>캐릭터(빈 상태)</td>
+<td>SVG 그대로</td>
+<td>최종 시안 벡터를 <code>react-native-svg</code> 또는 PNG 에셋으로(앱에 에셋이 아직 없다 — <a href="#doc-01">01</a>)</td>
+</tr>
+<tr>
+<td>보조색 · 바탕</td>
+<td>CSS 변수</td>
+<td><code>theme.js</code> 토큰 추가</td>
+</tr>
+<tr>
+<td>그라데이션</td>
+<td>CSS</td>
+<td><code>expo-linear-gradient</code> 추가 필요(A 로그인 흰 대각광 · B 로그인 라벤더 번짐). <strong>색상 번짐이 약해 정적 PNG 배경으로 대체해도 된다</strong>(추정)</td>
+</tr>
+<tr>
+<td>선택 표지 프레임</td>
+<td><code>div</code> 패딩 + 배경</td>
+<td><code>View</code> 패딩 + <code>backgroundColor</code>, 그림자는 <code>elevation</code>(Android) · <code>shadow*</code>(iOS) 각각</td>
+</tr>
+<tr>
+<td>길게 누르기 · <code>⋯</code></td>
+<td>—</td>
+<td><code>Pressable onLongPress</code> + 접근성 대체 동작, <code>⋯</code>는 탭 시 시트</td>
+</tr>
+</tbody>
+</table>
+<p>웹에서 그린 시안이라 실제 구현과 조금 다를 수 있다. <strong>터치 · 응답자 · SVG · 그림자처럼 플랫폼마다 다른 부분은 안드로이드 · iOS 양쪽 동작 방식을 따져 구현한다</strong>(웹 검증은 참고용).</p></div>
+</section><section class="doc" id="doc-13" data-title="13 마케팅 정합 제안 — UI가 약속한 감성을 문구와 스토어에서도 같은 말로">
+<h1 id="13-마케팅-정합-제안-ui가-약속한-감성을-문구와-스토어에서도-같은-말로">13 마케팅 정합 제안 — UI가 약속한 감성을 문구와 스토어에서도 같은 말로</h1>
+<blockquote>
+<p>근거: <a href="#doc-05">05 마케팅과 포지셔닝</a>(사례 21건 · 스토어 85장)과 이미 정해 둔 트위터 마케팅 계정 컨셉(화자 · 말투 · 단계별 허용 문장). <strong>이 문서는 제안이고 검증된 효과가 아니다.</strong> 키워드 · 문장은 모두 해석에서 나온 후보다.</p>
+</blockquote>
+<div class="sec2"><h2 id="한-줄-결론">한 줄 결론</h2>
+<p><strong>UI가 "한 장의 사진 위에 친구들과 함께 붙여 가는 감성"을 말하게 했으니, 마케팅도 같은 한 문장으로 가고, 그 약속은 앱이 지금 지키는 것만 말한다.</strong> 감성 앱의 실패는 문구가 너무 감성적이어서가 아니라 감정을 약속해 놓고 광고 · 유료 · 강제 초대 · 번역투로 깨는 순간에 나왔다(<a href="#doc-05">05</a> §6). 그래서 이 제안은 문구보다 <strong>'약속과 기능의 일치'</strong>를 먼저 점검한다.</p>
+</div><div class="sec2"><h2 id="1-지금-문구의-문제-두-가지">1. 지금 문구의 문제 두 가지</h2>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>지금</th>
+<th>문제</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>앱 안 한 줄 소개</td>
+<td>"함께 기록하고, 추억을 나눠 보세요."</td>
+<td><strong>'기록'(6곳) · '추억'(3곳)이 포화된 낱말.</strong> 행동 권유형(기능 약속)이라 감정 약속이 아님</td>
+</tr>
+<tr>
+<td>정체성 문장(트위터 05)</td>
+<td>"하루 한 장의 사진 위에 친구들과 같이 꾸미는 다이어리, DIO"</td>
+<td>방향은 맞다. 단 기존 판단대로 <strong>'하루 한 장'을 DIO의 전용어처럼 쓰지 않는다</strong>(다른 앱이 이미 씀). 비어 있는 것은 '한 장'이 아니라 <strong>'같은 사진 위에 함께 붙인다'</strong>는 약속이다</td>
+</tr>
+</tbody>
+</table>
+</div><div class="sec2"><h2 id="2-포지셔닝-후보-3-해석">2. 포지셔닝 후보 3 (해석)</h2>
+<p>모두 해요체이고 이미 선점된 말("같은 하루" · "아늑한 방" · "완성!")을 피했다(<a href="#doc-05">05</a> §5.2).</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>후보 문장</th>
+<th>쓰는 키워드</th>
+<th>앱이 지켜야 할 약속</th>
+<th>겹치는 말 · 위험</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>P1 ★</strong></td>
+<td><strong>한 장의 사진 위에, 친구와 함께 붙여 가요</strong></td>
+<td>같은 사진 위에 · 붙이다 · 함께</td>
+<td>한 사진을 여럿이 꾸미는 기능이 <strong>실제로 되는 단계</strong>일 때만(공유 · 초대가 예시 화면 단계면 쓰지 않음)</td>
+<td>겹치는 약속이 열람한 21곳에 없음. '완성'을 쓰지 않아 CHAKK · setlog와 구별</td>
+</tr>
+<tr>
+<td>P2</td>
+<td>같은 방 친구와 함께 꾸민 한 장</td>
+<td>같은 방 · 함께 꾸민 · 한 장</td>
+<td>방(공유) 기능 · 초대</td>
+<td>MOODA는 '혼자의 아늑한 방'이라 구별되나 setlog "같은 하루"와 한 글자 거리</td>
+</tr>
+<tr>
+<td>P3</td>
+<td>손글씨와 스티커로 쌓는 우리의 한 장</td>
+<td>손글씨 · 스티커 · 쌓다</td>
+<td>공방(내 폰트 · 스티커)이 지금 되는 범위</td>
+<td>손글씨 · 스티커는 이미 시각으로 널리 쓰임. 문구로는 차별이 약함</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>추천은 P1</strong>: 가장 비어 있는 칸이고 DIO의 구조와 일치하며, 혼합안의 이미지(사진 + 테이프 + 스티커)와 같은 말이다.</li>
+<li><strong>'천천히 · 나중에'는 쓰지 않는다.</strong> 빈 칸이긴 하지만 앱에는 실시간 공동 편집 연결이 있어(<a href="../canvas-collaboration.md">캔버스 공동 편집</a>) 약속이 어긋난다.</li>
+<li><strong>앱스토어 부제(30자 안쪽) 후보</strong>: "한 장의 사진 위에 함께 꾸며요"(14자).</li>
+<li>앱 안 한 줄 소개 문구를 바꿀지는 <a href="#doc-06">06</a> §3의 정서 문구 결정과 같이 정한다.</li>
+</ul>
+</div><div class="sec2"><h2 id="3-약속과-기능의-일치-점검-출시-전">3. 약속과 기능의 일치 점검 (출시 전)</h2>
+<p>감정 약속을 하는 순간 아래가 어긋나면 리뷰로 바로 돌아온다(MOODA · Lapse · BeReal 사례).</p>
+<table>
+<thead>
+<tr>
+<th>약속</th>
+<th>점검</th>
+<th>어긋났을 때의 사례</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>"함께 붙여 가요"</td>
+<td>공유 · 초대 · 동시 편집이 <strong>지금 되는가</strong>(예시 화면이 아닌가)</td>
+<td>BeReal "또 다른 소셜네트워크가 아닙니다" 후 이용 감소</td>
+</tr>
+<tr>
+<td>"내 기록" 안전감</td>
+<td>공개 범위 · 삭제 · 복구가 선명한가(<a href="#doc-11">11</a>)</td>
+<td>—</td>
+</tr>
+<tr>
+<td>광고 · 유료</td>
+<td>감성 문구 옆에 광고 · 유료 전환이 끼어들지 않는가</td>
+<td>MOODA 신규 앱 "일기 쓸 때마다 광고"</td>
+</tr>
+<tr>
+<td>초대</td>
+<td>가입 시 친구 초대를 강제하지 않는가</td>
+<td>Lapse 5명 강제 → 일 다운로드 −70%</td>
+</tr>
+<tr>
+<td>번역 · 맞춤법</td>
+<td>해요체로 일관, 번역투 · 띄어쓰기 오류가 없는가</td>
+<td>Locket 합쇼체 번역투, BeReal 띄어쓰기</td>
+</tr>
+</tbody>
+</table>
+</div><div class="sec2"><h2 id="4-스토어-첫-5장-구성안-예시">4. 스토어 첫 5장 구성안 (예시)</h2>
+<p>스토어 패턴(<a href="#doc-05">05</a> §2): <strong>큰 문구 한 줄 + 작은 보조 한 줄의 2단, 아이보리 · 파스텔 바탕, 윤곽 틀, 손글씨 · 스티커 · 테이프로 감정을 싣는다.</strong> 레퍼런스 앱은 아이보리 · 파스텔 바탕이 흔하지만, DIO는 색 규칙 때문에 <strong>바탕을 UI 색상 계열(<code>#F3F3F7</code> · <code>#F0F1F9</code> · <code>#DBDCF9</code>)로만</strong> 고르고 노랑은 캐릭터와 테이프에 둔다 — 1판의 버터 · 아이보리 바탕 카드는 노랑 큰 면이라 폐기했다. 혼합안 렌더를 틀에 넣은 예시다.</p>
+<div class="wide"><figure><img src="이미지/스토어/스토어 5장.jpg"><figcaption>스토어 첫 5장 구성(예시)</figcaption></figure></div>
+
+<table>
+<thead>
+<tr>
+<th>장</th>
+<th>작은 줄 / 큰 줄</th>
+<th>보여 줄 화면</th>
+<th>역할</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>한 장의 사진 위에 / <strong>친구와 함께 붙여 가요</strong></td>
+<td>홈(혼합안) + <strong>모아 · 디오(<code>둘이</code>)</strong> · 폴라로이드 · 버터 테이프</td>
+<td>약속(첫 장은 문구 하나 + 세계관 캐릭터). 바탕 <code>#F3F3F7</code></td>
+</tr>
+<tr>
+<td>2</td>
+<td>손글씨도, 스티커도 / <strong>내 글꼴로 꾸며요</strong></td>
+<td>꾸미기 공방(혼합안, 결과 보드)</td>
+<td>꾸미는 재미. 바탕 <code>#F0F1F9</code></td>
+</tr>
+<tr>
+<td>3</td>
+<td>같은 방 친구와만 / <strong>작은 흔적이 쌓여요</strong></td>
+<td>홈(B의 친구 아바타 — 혼합안에는 넣지 않은 항목)</td>
+<td>함께 · 다정함(숫자 대신 사람). 바탕 <code>#DBDCF9</code></td>
+</tr>
+<tr>
+<td>4</td>
+<td>표지부터 / <strong>내 취향대로 고르세요</strong></td>
+<td>홈 책상 + 표지(기본 표지 색상표 확장 시 UI 계열 · 버터 표지로)</td>
+<td>취향 표현. 바탕 <code>#F3F3F7</code></td>
+</tr>
+<tr>
+<td>5</td>
+<td>내가 쌓은 기록은 / <strong>내 공간에 모여요</strong></td>
+<td>내 공간(혼합안)</td>
+<td>소장 · 쌓임. 바탕 <code>#F0F1F9</code></td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>3장의 '친구' 화면은 <strong>공유 기능이 실제로 되는 단계의 화면</strong>으로 바꿔야 한다. 지금 렌더는 홈의 아바타 표현(B 시안)이고, 혼합안 홈에는 아바타가 없다.</li>
+<li><strong>캐릭터 노랑이 1장의 주인공이다.</strong> 색 규칙 덕에 스토어 카드의 노랑은 모아의 몸 · 테이프 · 작은 아이콘 면에만 있어, 카드 전체가 UI 색상 계열(라벤더 바탕)로 묶이고 캐릭터가 포인트로 떠오른다. 노랑 큰 면을 쓰는 아이보리 바탕 카드는 쓰지 않는다.</li>
+<li>시안의 손글씨 서체는 쓰지 않았다(가이드는 UI 대상이라 스토어 이미지에 손글씨를 쓸지는 팀이 정한다 — 손글씨는 17곳 중 3곳만 쓰고 그 셋이 모두 폴라로이드 · 테이프 · 낙서 스티커를 같이 쓴다).</li>
+<li>4장의 "고르세요"처럼 권유형 어미를 쓰는 문구는 <strong>스토어 카피에 같은 '안내 멘트 금지'를 적용할지</strong> 팀이 정한 뒤 고친다.</li>
+</ul>
+</div><div class="sec2"><h2 id="5-말투와-채널">5. 말투와 채널</h2>
+<ul>
+<li><strong>말투</strong>: 해요체 + 짧은 문장 + 감각어(함께 · 가까운 · 붙이다). 느낌표는 소량, <strong>반말 · 유행어 · 이모지 없음</strong>(반말은 17곳 0건, 유행어는 젠더 해석 사고 이력). <strong>'여성용'이라 부르지 않는다</strong>(여성 이용자가 다수여도 하루콩 · MOODA · setlog는 성별을 한정하지 않는다). 해요체는 포화돼서 차별은 어미가 아니라 <strong>뉘앙스의 통일감</strong>에서 나온다 — 말투는 재능이 아니라 문서로.</li>
+<li><strong>화자</strong>: 이미 정한 대로 모아가 한 문장, 디오는 그림으로만, 공지 · 사과 · 응대는 [DIO팀] (근거: 트위터 마케팅 05).</li>
+<li><strong>채널</strong>: 퍼짐의 엔진은 이용자 장면이었다(Locket · setlog). 그래서 <strong>'함께 꾸민 한 장'을 내보내는 결과물</strong>이 공유될 때 예쁘게 보이는 것이 가장 큰 마케팅이다. 소장 · 선물 감각(대왕네컷 · LP, <a href="#doc-02">02</a>)과 이어진다. 느린 과정 영상(다꾸 타임랩스 · ASMR)은 다꾸 채널에서 확인된 형식이고, 앱이 직접 쓴 POV · ASMR 사례는 확인하지 못했다.</li>
+<li><strong>하지 않는다</strong>: 성별 한정 쿠폰 · 유행어 차용 · 서사 없는 남의 IP 따라가기 · 감성 문구 옆의 강제 초대 · 효과 있는 것처럼 쓴 수치 · <strong>'버터 옐로 유행'을 마케팅 문구로 끌어오기</strong>(노랑은 유행이 아니라 모아의 몸 색이다 — <a href="#doc-04">04</a> §3.1).</li>
+</ul>
+</div><div class="sec2"><h2 id="6-한계">6. 한계</h2>
+<ul>
+<li>포지셔닝 후보와 스토어 구성안은 검증된 효과가 아니라 <strong>해석</strong>이다. 문구는 사용자 인터뷰 · A/B(스토어 제품 페이지 최적화)로 확인해야 한다.</li>
+<li>프리뷰 영상 구성, 앱이 직접 만든 POV · ASMR, 폴라리스 · 굿노트 한국 캠페인, 토스 · 당근의 감성 캠페인 카피는 확인하지 못했다.</li>
+<li>스토어 구성안의 화면은 웹 목업이고 실제 앱 화면이 아니다. 출시용 이미지는 실제 빌드 캡처로 다시 만든다.</li>
+</ul></div>
+</section><section class="doc" id="doc-14" data-title="14 로드맵과 결정 — 무엇부터 하고, 무엇을 팀이 정해야 하나">
+<h1 id="14-로드맵과-결정-무엇부터-하고-무엇을-팀이-정해야-하나">14 로드맵과 결정 — 무엇부터 하고, 무엇을 팀이 정해야 하나</h1>
+<div class="sec2"><h2 id="한-줄-결론">한 줄 결론</h2>
+<p><strong>1단계(값만 바꿔서 되는 것)로 먼저 체감 변화를 만들고, 새 라이브러리가 필요한 것은 뒤로 미룬다.</strong> 추천은 <strong>혼합안</strong> — B 포토부스 콜라주를 주안으로 A의 로그인 빛만 섞은 2안화(로그인 A · 홈 B 프레임 · 공방 B 보드 · 내 공간 B + C 띠 · 휴지통 C + B 칩). 색은 팀의 <strong>색 규칙 v2</strong>(UI 색상 계열 메인 + 캐릭터 노랑 보조)를 지킨다. 이 제안은 구현이 아니라 <strong>결정을 위한 자료</strong>이고, 아래 결정 칸을 팀이 채운 뒤 가이드를 먼저 고치고 구현한다.</p>
+</div><div class="sec2"><h2 id="1-추천-혼합안-지금과-나란히">1. 추천 혼합안 — 지금과 나란히</h2>
+<p>로그인 · 홈 · 공방 · 내 공간 · 휴지통(태블릿). 폰 5화면은 <a href="#doc-06">06 §4</a>에 있다. 아래 화면의 색은 모두 UI 색상 계열과 캐릭터 노랑이고, 표지 · 사진 · 외부 로그인 버튼만 예외다.</p>
+<div class="wide"><figure><img src="이미지/비교/로그인 혼합 태블릿.jpg"><figcaption>로그인 — 지금 / 혼합안</figcaption></figure></div>
+<div class="wide"><figure><img src="이미지/비교/홈 혼합 태블릿.jpg"><figcaption>홈 — 지금 / 혼합안</figcaption></figure></div>
+<div class="wide"><figure><img src="이미지/비교/공방 혼합 태블릿.jpg"><figcaption>꾸미기 공방 — 지금 / 혼합안</figcaption></figure></div>
+<div class="wide"><figure><img src="이미지/비교/내공간 혼합 태블릿.jpg"><figcaption>내 공간 — 지금 / 혼합안</figcaption></figure></div>
+<div class="wide"><figure><img src="이미지/비교/휴지통 혼합 태블릿.jpg"><figcaption>휴지통 — 지금 / 혼합안</figcaption></figure></div>
+<div class="wide"><figure><img src="이미지/비교/홈빈 태블릿.jpg"><figcaption>빈 책상 — A / B / C / 혼합안</figcaption></figure></div>
+
+<ul>
+<li>혼합안은 <strong>BI · CI를 하나도 바꾸지 않는다.</strong> 로고 · 페리윙클 · 네이비 · 시스템 서체 · 선 아이콘 · 안내 멘트 금지 · 해요체가 그대로다. 버튼 · FAB 색 <code>#606BB2</code>도 그대로다(코덱스의 <code>#525FAD</code> 교체 제안은 채택하지 않았다, <a href="#doc-12">12</a> 보정 #12).</li>
+<li><strong>색 규칙 v2 검사 결과</strong> — 시안 색 190개 모두 UI 계열 · 캐릭터 노랑 · 무채색이고(이탈은 사용자 표지 샘플 1개), 표지 없는 화면에서 노랑은 1% 안쪽이다(<a href="#doc-06">06</a> §1.1).</li>
+<li>장식은 화면마다 국소 요소 3개 이하이고, 로그인 폼 안 · 휴지통 · 설정에는 장식이 없다(휴지통은 빈 상태에만). 홈 선택 표지의 프레임과 <code>⋯</code> 버튼이 B의 물성을 맡는다.</li>
+<li>모아 · 디오는 이번 판에서 <strong>빈 상태(빈 홈 · 빈 휴지통)에 처음 등장</strong>한다 — 캐릭터 자체가 버터 노랑 + 라벤더라 색 규칙에 가장 자연스러운 그림이기 때문이다. 로그인 폼 안에는 넣지 않았고(조사: 156장 중 0곳), 코덱스의 이전 판단은 "첫 다이어리 생성 완료 장면에 80~96px"도 있다. 노출량은 조건부로 두고 아래 검증 항목에 넣었다.</li>
+</ul>
+</div><div class="sec2"><h2 id="2-단계">2. 단계</h2>
+<table>
+<thead>
+<tr>
+<th>단계</th>
+<th>항목</th>
+<th>화면</th>
+<th>필요한 것</th>
+<th>비고</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>1 · 값만</strong></td>
+<td>바탕 <code>#F3F3F7</code>(그대로) · 카드 모서리 18/16 · 그림자 <code>0 4px 12px</code> .08 · 제목 자간 -.4 · 선택 칩 네이비 채움 · 라벤더 100 · 경계 <code>#D9DCEF</code> · 노랑 3종 토큰</td>
+<td>전체</td>
+<td><code>theme.js</code> 토큰 값</td>
+<td>가이드 §2.2 · §2.3 · §4.3 · §4.4 변경 결정 후. <strong>새 색상 계열은 없다</strong></td>
+</tr>
+<tr>
+<td></td>
+<td>홈 표지 위 도구 기본 숨김 · 표지 아래 정보 18/800 · 14/600 · 중앙 표지 1.12×</td>
+<td>홈</td>
+<td>홈 카드 스타일</td>
+<td>숨김은 3단계(길게 누르기)와 함께 가야 함</td>
+</tr>
+<tr>
+<td></td>
+<td>공방 개발 문구 삭제 → "준비 중"</td>
+<td>공방</td>
+<td>문구만</td>
+<td><strong>감성과 무관하게 먼저 정리할 가치</strong></td>
+</tr>
+<tr>
+<td></td>
+<td>내 공간 네이비 배너 → 밝은 프로필 카드</td>
+<td>내 공간</td>
+<td>스타일</td>
+<td></td>
+</tr>
+<tr>
+<td></td>
+<td>휴지통 임박 표시를 적색 글자 → <strong>버터 칩 + 네이비 글자 + 금색 고리</strong> · 알림 점(쿨톤 핑크 <code>#B63F7C</code>) · 폰 홈 보기 전환 아이콘만</td>
+<td>휴지통 · 홈</td>
+<td>스타일</td>
+<td>접근성 부채 보정과 같이</td>
+</tr>
+<tr>
+<td></td>
+<td>접근성 부채 4곳 보정(색 규칙 안의 값: <code>#525FAD</code> 글자 · 입력칸 경계 <code>#818AC3</code> · <code>#606BB2</code> 선택 테두리)</td>
+<td>전체</td>
+<td>색 값</td>
+<td>안과 무관(<a href="#doc-12">12</a> §3)</td>
+</tr>
+<tr>
+<td></td>
+<td><strong>기본 표지 색상표에 UI 계열 + 버터 추가</strong>(<code>#818AC3</code> · <code>#ABB1D8</code> · <code>#FEF0BF</code>)</td>
+<td>홈 · 새 다이어리</td>
+<td><code>diary/constants.js</code> 값</td>
+<td>사용자 콘텐츠 선택지 확장, 팀 합의</td>
+</tr>
+<tr>
+<td><strong>2 · 작은 에셋</strong></td>
+<td>공방 결과 미리보기(정적) · 보드</td>
+<td>공방</td>
+<td>기존 소품 PNG + 편집기 스티커</td>
+<td></td>
+</tr>
+<tr>
+<td></td>
+<td>홈 · 휴지통 빈 상태 <strong>캐릭터 + 문구</strong></td>
+<td>홈 · 휴지통</td>
+<td>모아 · 디오 최종 SVG(앱 에셋 없음 → 추가), 빈 상태 컴포넌트(가이드 §9)</td>
+<td>노출량 조건부</td>
+</tr>
+<tr>
+<td></td>
+<td>내 공간 통계의 작은 표지 · 프로필 사진 두 장 + 로고 카드</td>
+<td>내 공간</td>
+<td>실제 표지 데이터 + 빈 상태</td>
+<td></td>
+</tr>
+<tr>
+<td></td>
+<td>휴지통 삭제 표지 <code>saturate(.78)</code> · 진행 고리</td>
+<td>휴지통</td>
+<td>RN용 방법(필터 미지원)</td>
+<td>안드로이드 · iOS 별도 확인</td>
+</tr>
+<tr>
+<td></td>
+<td>로그인 카드 위 테이프 · 종이결 · 흰 대각광</td>
+<td>로그인</td>
+<td>PNG, <code>expo-linear-gradient</code> 또는 정적 배경 PNG, 선택적 SVG/PNG 타일</td>
+<td>저사양 검증</td>
+</tr>
+<tr>
+<td></td>
+<td>캐릭터 한 컷(첫 다이어리 생성 완료)</td>
+<td>새 다이어리</td>
+<td>모아 · 디오 최종 시안 SVG</td>
+<td>노출량 조건부</td>
+</tr>
+<tr>
+<td><strong>3 · 새 인터랙션</strong></td>
+<td>홈 선택 표지 <code>⋯</code> 시트 · 길게 누르기 → 도구 · 선택 표지 프레임</td>
+<td>홈</td>
+<td><code>Pressable</code> + 접근성 대체, 발견성 검증</td>
+<td></td>
+</tr>
+<tr>
+<td></td>
+<td>공방 결과 미리보기 실시간 반영</td>
+<td>공방</td>
+<td>편집기 연동</td>
+<td></td>
+</tr>
+<tr>
+<td></td>
+<td>휴지통 선택 모드 하단 고정 액션</td>
+<td>휴지통</td>
+<td>기존 선택 바 배치 정리</td>
+<td></td>
+</tr>
+<tr>
+<td></td>
+<td>모션(진입 · 눌림 · 삭제/복원) · 햅틱 · <strong>동작 줄이기 전 화면</strong></td>
+<td>전체</td>
+<td>Reanimated(추정) · expo-haptics</td>
+<td>reduce-motion이 먼저</td>
+</tr>
+</tbody>
+</table>
+<p>효과 대비 비용 순서는 위 표 순서다. <strong>공방 개발 문구 정리 · 접근성 부채 · 홈 도구 정리</strong>는 감성 리뉴얼을 하지 않더라도 하는 편이 낫다.</p>
+<p><strong>팀 분담 주의</strong> — 이 문서는 시안 제안이며 코드를 바꾸지 않았다. 홈 · 보관함 · 공방 · 내 공간 · 로그인은 편집기 담당 영역 밖이라, 구현은 해당 화면 담당자와 조율해 정한다.</p>
+</div><div class="sec2"><h2 id="3-검증-감성은-숫자로-정답이-없다-영역-j-k">3. 검증 — 감성은 숫자로 정답이 없다 (영역 J · K)</h2>
+<p><strong>성공 기준은 "예쁘다"가 아니라 행동이다</strong>(<a href="#doc-02">02</a> §3: 예쁨이 설치 · 유지에 주는 영향의 한국 수치는 없다).</p>
+<table>
+<thead>
+<tr>
+<th>지표</th>
+<th>무엇을 보나</th>
+<th>비고</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>가입 완료율</td>
+<td>로그인 · 가입 카드 변경 전후</td>
+<td>입력칸 경계 · 장식이 전환을 떨어뜨리지 않는지</td>
+</tr>
+<tr>
+<td>색 인상(질문 1개씩)</td>
+<td>"이 앱의 대표 색은 무엇인가" / "노란색이 어디에 쓰였나"</td>
+<td>메인이 UI 색으로 읽히는지, 노랑이 캐릭터와 이어지는지(홈은 표지가 다색이라 특히)</td>
+</tr>
+<tr>
+<td>첫 다이어리 만들기</td>
+<td>홈 빈 책상 → 만들기 진입</td>
+<td>빈 책상 소품이 +를 가리지 않는지</td>
+</tr>
+<tr>
+<td>첫 꾸미기(스티커 · 테이프 붙임)</td>
+<td>공방 미리보기 → 편집기 진입</td>
+<td></td>
+</tr>
+<tr>
+<td>7일 재방문</td>
+<td>전체</td>
+<td>압박 장치 없이 얻은 재방문인지</td>
+</tr>
+<tr>
+<td>휴지통 복원률 · 오삭제</td>
+<td>도구 숨김(길게 누르기) 후 편집 · 삭제 접근 실패</td>
+<td>발견성 저하 확인</td>
+</tr>
+</tbody>
+</table>
+<p><strong>검증 항목(근거가 없어 가설로만 둔 것)</strong></p>
+<table>
+<thead>
+<tr>
+<th>가설</th>
+<th>방법</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>'유치함 · 오글거림'이 정서 문구 · 캐릭터 노출로 생기는가</td>
+<td>10대 · 20대 각 5~7명 인터뷰 + 2방향 무드보드 선호</td>
+</tr>
+<tr>
+<td>모아 · 디오 적정 노출량</td>
+<td>"친근함 / 유치함 / 브랜드 기억" 3문항 A/B</td>
+</tr>
+<tr>
+<td>햇살 책상 · 종이결의 성능 · 가독성</td>
+<td>저사양 Android 포함 3기종, 밝은 / 어두운 사진 대비</td>
+</tr>
+<tr>
+<td>모션 시간 · 에셋 용량</td>
+<td>RN 실기기 성능 측정</td>
+</tr>
+<tr>
+<td>도구 숨김 후 편집 · 삭제 발견성(<code>⋯</code> 포함)</td>
+<td>첫 사용 관찰</td>
+</tr>
+<tr>
+<td><strong>라벤더 + 버터 노랑 조합이 감성적으로 읽히는가</strong>(직접 근거 없음, <a href="#doc-04">04</a> §3.1)</td>
+<td>10대 · 20대 각 5~7명에게 현재 UI와 혼합안 화면 비교 + 오글거림 · 따뜻함 · 차분함 3문항</td>
+</tr>
+<tr>
+<td>버터 노랑의 주기 위험(검색 결과상 유행색)</td>
+<td>캐릭터 색이라 영향이 작다고 추정 — 시즌 에셋 운영과 같이 점검</td>
+</tr>
+</tbody>
+</table>
+<p><strong>에셋 운영(영역 J)</strong> — 코덱스의 질문: "초기 에셋만 충분하면 감성이 유지된다"는 가설은 반증 대상이다. 감성의 적시소비 흐름(조사 A: 제철 · 시즌 한정)을 보면 시즌 속지 · 스티커 · 프레임의 <strong>제작 · 검수 주기를 누가 맡는지</strong>가 정해져야 한다. 이 제안은 속지 · 에셋 아이디어(<a href="../속지%20에셋%20아이디어/색인.md">속지 에셋 아이디어</a>)의 4분류 카탈로그와 이어서 정한다.</p>
+</div><div class="sec2"><h2 id="4-계획-대비-반증하려던-가설은-어떻게-됐나">4. 계획 대비 — 반증하려던 가설은 어떻게 됐나</h2>
+<table>
+<thead>
+<tr>
+<th>영역</th>
+<th>가설</th>
+<th>결과</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A 타깃</td>
+<td>"1020 여성은 캐릭터가 많을수록 좋아한다"</td>
+<td><strong>반증 쪽.</strong> 서사 없는 캐릭터는 빨리 식는다(라부부 100 → 4). 다만 '오글거림 · 유치함'을 직접 잰 자료는 없음 → 가설 유지</td>
+</tr>
+<tr>
+<td>B 레퍼런스</td>
+<td>"감성 앱은 모든 화면을 일러스트로 채운다"</td>
+<td><strong>반증.</strong> 감성은 4곳에 몰리고 로그인 폼을 꾸민 앱은 0곳</td>
+</tr>
+<tr>
+<td>C 원리</td>
+<td>"Liquid Glass 같은 유행 효과가 감성의 핵심"</td>
+<td><strong>반증.</strong> 유리 · 뉴모피즘 비추천, 질감 · 스티커 · 캐릭터 · 틴트 그림자가 유효</td>
+</tr>
+<tr>
+<td>D 마케팅</td>
+<td>"UI만 바꾸면 포지셔닝이 바뀐다"</td>
+<td><strong>반증.</strong> 약속과 기능의 일치가 먼저(§3 <a href="#doc-13">13</a>)</td>
+</tr>
+<tr>
+<td>E 자산</td>
+<td>"새 비주얼 세계관이 필요하다"</td>
+<td><strong>반증.</strong> 필요한 것은 새 세계관이 아니라 이미 있는 표지 · 책상 · 캐릭터를 화면에 나눠 쓰는 것</td>
+</tr>
+<tr>
+<td>F 접점</td>
+<td>"홈만 바꾸면 전체가 감성적으로 느껴진다"</td>
+<td><strong>반증.</strong> 홈 밖 네 화면이 같은 틀이라 설정 앱처럼 읽힘</td>
+</tr>
+<tr>
+<td>G 제약</td>
+<td>"질감과 모션은 성능 · 접근성과 양립이 어렵다"</td>
+<td><strong>조건부 반증.</strong> 큰 면 · 저불투명도 · 동작 줄이기 대응 전제로 양립. 저사양 실측은 필요</td>
+</tr>
+<tr>
+<td>H 공동 기록</td>
+<td>"공유는 초대 버튼만 눈에 띄면 된다"</td>
+<td><strong>반증.</strong> 숫자 대신 얼굴 · 이름 · 한마디로 남기는 것이 방향</td>
+</tr>
+<tr>
+<td>I 안전감</td>
+<td>"감성 톤이면 위험 안내도 부드럽게 흐려도 된다"</td>
+<td><strong>반증.</strong> 영구 삭제는 귀엽게 흐리지 않는다</td>
+</tr>
+<tr>
+<td>J 에셋 운영</td>
+<td>"초기 에셋만 충분하면 감성이 유지된다"</td>
+<td><strong>결론 못 냄</strong> — 운영 주기 결정 필요</td>
+</tr>
+<tr>
+<td>K 측정</td>
+<td>"정성 평가만으로 방향을 정할 수 있다"</td>
+<td><strong>반증(제안).</strong> 행동 지표를 함께 둔다(§3)</td>
+</tr>
+</tbody>
+</table>
+</div><div class="sec2"><h2 id="5-결정-칸-팀이-정할-것">5. 결정 칸 — 팀이 정할 것</h2>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>결정</th>
+<th>선택지</th>
+<th>권고</th>
+<th>결정</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>방향</td>
+<td>혼합(B 주안 + A 로그인 빛) / A / B / C</td>
+<td><strong>혼합</strong></td>
+<td>☐</td>
+</tr>
+<tr>
+<td>1-1</td>
+<td><strong>색 규칙 v2 확정</strong>(메인 = UI 색상 계열, 보조 = 캐릭터 노랑 하나, 노랑 큰 면 금지)</td>
+<td>확정 / 조정</td>
+<td><strong>확정</strong>(팀이 건 조건을 그대로 명문화)</td>
+<td>☐</td>
+</tr>
+<tr>
+<td>1-2</td>
+<td><code>danger</code> 적색의 범위</td>
+<td>영구 삭제 확인 한 곳(코덱스) / 오류 · 삭제 아이콘도 유지(현행)</td>
+<td><strong>확인 한 곳 + 오류 안내 색을 따로 정함</strong>(비어 있는 칸)</td>
+<td>☐</td>
+</tr>
+<tr>
+<td>1-3</td>
+<td>기본 표지 색상표에 UI 계열 + 버터 추가(+ 가이드 8색 · 코드 6색 불일치 정리)</td>
+<td>추가 / 현행</td>
+<td><strong>추가</strong>(기존 표지는 그대로)</td>
+<td>☐</td>
+</tr>
+<tr>
+<td>1-4</td>
+<td>표지 라벨 띠 · 그림자 렌더 변경(선택, <code>Cover.js</code>)</td>
+<td>적용 / 보류</td>
+<td><strong>보류</strong>(사용자 콘텐츠 영역)</td>
+<td>☐</td>
+</tr>
+<tr>
+<td>2</td>
+<td>제목 서체</td>
+<td>시스템 800 유지 / 번들 서체 1종 허용</td>
+<td><strong>시스템 유지</strong>(코덱스 · 조사 C 공통)</td>
+<td>☐</td>
+</tr>
+<tr>
+<td>3</td>
+<td>코덱스가 제안한 브랜드 색 조정(1차: 페리윙클 <code>#6674C5</code> · 네이비 <code>#0B1D70</code>, 2차: 버튼색 <code>#525FAD</code>)</td>
+<td>반려 / 팀이 별도 검토</td>
+<td><strong>반려</strong>(BI 불변이 전제, <code>#606BB2</code>가 이미 4.95:1)</td>
+<td>☐</td>
+</tr>
+<tr>
+<td>4</td>
+<td>정서 문구(로그인 한 줄 · 빈 상태 · 완료 토스트)</td>
+<td>허용 / 불허</td>
+<td><strong>불허가 기본</strong>, 허용해도 12자 이내 · 1개</td>
+<td>☐</td>
+</tr>
+<tr>
+<td>5</td>
+<td>모아 · 디오 노출</td>
+<td>현행(앱에 없음) / <strong>빈 상태 · 첫 다이어리 생성 완료 한정</strong> / 확대</td>
+<td><strong>한정</strong>, 검증 후 확대</td>
+<td>☐</td>
+</tr>
+<tr>
+<td>6</td>
+<td>홈 표지 위 도구</td>
+<td>상시 / 길게 누르기 / 탭 후 시트 / <strong>선택 표지 <code>⋯</code> 상시 + 시트</strong></td>
+<td><strong><code>⋯</code> 상시 + 시트</strong>(코덱스 검수, 발견성 검증 후)</td>
+<td>☐</td>
+</tr>
+<tr>
+<td>7</td>
+<td>접근성 부채 4곳 보정</td>
+<td>지금 / 후속</td>
+<td><strong>지금</strong>(감성과 무관)</td>
+<td>☐</td>
+</tr>
+<tr>
+<td>8</td>
+<td>가이드 변경</td>
+<td><a href="#doc-12">12 §5</a> 16개 항목 각각</td>
+<td>값 · 색 규칙 항목(#2 · #3 · #4 · #5)만 우선</td>
+<td>☐</td>
+</tr>
+<tr>
+<td>9</td>
+<td>스토어 · SNS 카피에 '안내 멘트 금지' 적용</td>
+<td>적용 / 비적용</td>
+<td>팀 결정</td>
+<td>☐</td>
+</tr>
+<tr>
+<td>10</td>
+<td>포지셔닝 문장</td>
+<td>P1 ★ / P2 / P3 / 현행</td>
+<td><strong>P1</strong>, 공유 · 초대 단계 확인 뒤</td>
+<td>☐</td>
+</tr>
+<tr>
+<td>11</td>
+<td>시즌 에셋 운영 주체 · 주기</td>
+<td>—</td>
+<td>별도 결정</td>
+<td>☐</td>
+</tr>
+<tr>
+<td>12</td>
+<td>공방 개발 문구 정리</td>
+<td>지금 / 후속</td>
+<td><strong>지금</strong>(감성과 무관)</td>
+<td>☐</td>
+</tr>
+</tbody>
+</table>
+</div><div class="sec2"><h2 id="6-이-제안이-하지-않는-것-한계">6. 이 제안이 하지 않는 것 · 한계</h2>
+<ul>
+<li><strong>코드를 바꾸지 않았고 디자인 가이드도 고치지 않았다.</strong> 결정이 난 뒤 가이드를 먼저 고친다.</li>
+<li>시안은 웹에서 그린 HTML이라 실제 React Native 구현과 다를 수 있다. 특히 <code>filter</code> · 종이결 · 그림자 색 · 길게 누르기는 구현 방법을 따로 정해야 한다. 안드로이드 태블릿(Expo Go)과 iOS에서 모두 동작해야 한다.</li>
+<li>시안의 홈 책상 바닥은 앱 에셋 근사다(진행 중인 햇살 책상을 대체하지 않는다). 바닥은 옅은 라벤더 틴트라 색상각이 UI 계열(232°)보다 약간 보라 쪽(HTML 근사 렌더 약 250° · 실제 앱 캡처 약 240~249°, 픽셀 측정이라 오차 ±10° 안팎)일 수 있다. 별도 작업에서 확인할 일이다.</li>
+<li><strong>색 조합 근거가 약하다.</strong> 라벤더 + 버터 노랑을 짝지은 앱 · 브랜드 사례와 그 감성을 직접 잰 자료는 찾지 못했다(검색 4회, <a href="#doc-04">04</a> §3.1). 버터 노랑은 2025~2026년 유행색이라 주기가 있다는 보도가 있으나 DIO의 노랑은 캐릭터 색이다. 홈은 사용자 표지가 다색이라 수치로는 UI 색이 메인이어도 체감이 경계선이다(코덱스 검수) — 표지 색상표 확장(결정 1-3)이 가장 직접적인 보완이다.</li>
+<li>코덱스는 이번 라운드에서 웹 검색 실행기가 시작되지 않아 조사 항목을 수행하지 못했고, 해당 조사는 클로드가 직접 했다.</li>
+<li>10대와 20대의 선호 차이, '유치함'의 허용선, 색 · 서체 선호는 근거가 없어 <strong>검증 항목</strong>으로 남겼다.</li>
+<li>로그인 후 내 공간(회원 상태), 새 다이어리 · 편집기 · 알림 화면은 이번 범위가 아니다.</li>
+</ul>
+</div><div class="sec2"><h2 id="7-코드-반영-현황-2026-10-31-사용자-요청으로-바로-적용">7. 코드 반영 현황 (2026-10-31, 사용자 요청으로 바로 적용)</h2>
+<p>결정 칸을 기다리지 않고 사용자가 "이런 느낌을 지금 바로 반영하자 · 캐릭터 아래 줄은 빼자 · 접근성도 같이 · 마이페이지는 처음부터 다시"라고 요청해 <strong>혼합안의 1단계 값과 일부 2단계 에셋</strong>을 앱 코드에 반영했다. 커밋은 하지 않았다(작업 트리에만 있음). 디자인 가이드는 같은 작업에서 고쳤다(§2.2 · §2.3 · §5.5 · §5.7 · 내 공간 · 꾸미기 공방).</p>
+<table>
+<thead>
+<tr>
+<th>화면</th>
+<th>반영한 것</th>
+<th>파일</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>토큰</td>
+<td><code>lavender100</code> · <code>cardBorder</code> · <code>primaryText</code> · <code>butter</code> · <code>butterTape</code> · <code>butterStrong</code> · <code>dangerStrong</code> 추가(BI 토큰은 그대로)</td>
+<td><code>shared/theme.js</code> · <code>diary/constants.js</code></td>
+</tr>
+<tr>
+<td>홈</td>
+<td>필터 고른 칩 네이비 채움 + 흰 글자, 스와이프 표지 프레임(고른 표지 흰 3px + 그림자, 옆 표지 라벤더 2px), <strong>표지 <code>⋯</code> 동작 시트</strong>(즐겨찾기 · 수정 · 휴지통으로 이동, 후속 반영), <strong>알림 점 쿨톤 핑크 <code>#B63F7C</code></strong>(사용자 지시 · 색 규칙의 예외, 후속 반영), 빈 보관함에 <code>둘이</code> 캐릭터(선 없음)</td>
+<td><code>styles.js</code> · <code>DiaryCard.js</code> · <code>DiaryActionSheet.js</code> · <code>LibraryScreen.js</code> · <code>EmptyState.js</code></td>
+</tr>
+<tr>
+<td>스와이프 잘림 수정</td>
+<td>안드로이드는 카드를 한 장으로 합쳐 그리며(<code>renderToHardwareTextureAndroid</code>) 카드 경계에서 효과를 자른다. 가로 다이어리 표지는 카드 폭을 가득 채워 프레임 · 해 방향 그림자가 <strong>좌우에서 잘렸다</strong>(그림자는 원래부터 잘렸다). 카드 둘레에 효과 여백(좌우 48 · 위 28 · 아래 36)을 두고 음수 마진으로 자리를 지켰다. 웹에는 이 레이어가 없어 DOM 여백 측정으로만 확인했다(<strong>안드로이드 실기기 확인 필요</strong>)</td>
+<td><code>DiaryCard.js</code> · <code>styles.js</code></td>
+</tr>
+<tr>
+<td>꾸미기 공방</td>
+<td>결과 보드(사진 2 + 테이프 1), 타일 명도 구별(라벤더 50 / 100 / 흰색 + 버터 아이콘 면), 개발 문구를 <code>준비 중</code> · <code>미리보기</code>로 → <strong>후속(사용자 지시): 결과 보드 삭제, 화면을 내 폰트 · 내 스티커 · 내 표지 · 내 속지 · 내 프리셋 다섯 구역으로 재구성</strong>(만들기 도구는 구역 안 줄, 프리셋은 펜 · 형광펜 · 마스킹 테이프 · 글자의 기본 색 + 저장한 색). <code>WorkshopBoard.js</code>는 지웠다</td>
+<td><code>DecorationStudioScreen.js</code> · <code>StudioSection.js</code> · <code>StudioTool.js</code> · <code>StudioShelf.js</code> · <code>StudioPresets.js</code></td>
+</tr>
+<tr>
+<td>내 공간</td>
+<td><strong>처음부터 다시 설계</strong>(코덱스): 프로필 카드 + 소품 통계 + 앱 정보 / 환경 설정 2열 + 로그아웃, 폰트 카드 삭제(공방과 중복), 네이비 배너 삭제</td>
+<td><code>ProfileScreen.js</code> · <code>ProfileStats.js</code> · <code>AppInformation.js</code> · <code>DeskLightSetting.js</code></td>
+</tr>
+<tr>
+<td>휴지통</td>
+<td>남은 기간 진행 고리 + 3일 이하 버터 칩(적색 글자 삭제), 카드 접근성 이름에 남은 기간 포함, 빈 휴지통에 <code>디오</code>(선 없음), 영구 삭제 <code>dangerStrong</code></td>
+<td><code>TrashScreen.js</code> · <code>ProgressRing.js</code> · <code>styles.js</code></td>
+</tr>
+<tr>
+<td>로그인 · 가입</td>
+<td>입력칸 경계 <code>primary</code>(3.30:1), 오류 글자 <code>dangerStrong</code></td>
+<td><code>auth/styles.js</code> · <code>auth/profileStyles.js</code></td>
+</tr>
+<tr>
+<td>공통 접근성</td>
+<td>선택 테두리 <code>primary</code> → <code>primaryStrong</code>, 위험 버튼 흰 글자 대비 3.85 → 6.0, 휴지통 이동 버튼 네이비(적색은 영구 삭제만), 휴지통 날짜 글자 10.5 → 12, 화면 제목에 제목 역할, 알림 점 노랑</td>
+<td><code>styles.js</code> · <code>Header.js</code> · <code>sharing/styles.js</code> · <code>NotificationPanel.js</code></td>
+</tr>
+<tr>
+<td>에셋</td>
+<td>캐릭터 투명 PNG 3종(<code>assets/characters/moa-dio.png</code> · <code>dio.png</code> · <code>moa.png</code>, 최종 시안 SVG에서 변환)</td>
+<td><code>frontend/assets/characters/</code></td>
+</tr>
+</tbody>
+</table>
+<p><strong>후속 반영(같은 날)</strong>: 홈 표지 <code>⋯</code> 동작 시트를 넣었다. 카드 버튼 이름을 직접 누르던 <code>diary-selection</code> 단위 테스트(HEAD부터 모킹이 깨져 파일 전체가 실패하던 것을 고쳐 8개 통과)와 브라우저 QA(<code>qa/member-trash-browser</code> · <code>qa/mock-library-browser</code> · <code>qa/mock-library-review-regression</code> · <code>tests/shared-library-browser</code>)를 <code>더보기</code> 경유로 고쳤다. <strong>브라우저 QA는 미리 만든 웹 내보내기가 필요해 이번에는 돌리지 못했다.</strong></p>
+<p><strong>아직 반영하지 않은 것(이유)</strong>
+- 기본 표지 색상표 확장 · 표지 라벨 흰색: 사용자 콘텐츠 영역이라 팀 결정 대기(결정 1-3 · 1-4).
+- 친구 아바타(B) · 정서 문구 · 제목 서체 · 로그인 장식: 결정 칸 대기.</p>
+<p><strong>검증</strong>: 관련 단위 테스트 76개 통과(<code>decoration-studio</code> · <code>design-theme</code> · <code>auth-state</code> · <code>profile-password-change</code> · <code>trash-*</code> · <code>diary-library</code> 등), 새 토큰 대비 테스트 추가(<code>design-theme.test.js</code>). 전체 <code>node --test tests/*.test.js</code>는 1484개 중 1474개 통과, 실패 10개는 모두 <strong>HEAD에서도 같은 실패</strong>(<code>diary-selection</code> · <code>library-controls</code> 3개 · <code>last-viewed-page</code> 1개는 HEAD 워크트리에서 직접 대조, <code>diary-renewal</code> 띠지 · <code>member-diary-spring-contract</code> · <code>spring-notification-contract</code>는 이전 세션에서 확인한 기존 실패 목록). 웹(<code>pnpm web</code>)에서 태블릿 · 폰 화면을 눌러 보며 확인했고, <strong>안드로이드 · iOS 실기기 확인은 하지 않았다</strong>.</p></div>
+</section>
+</main>
+</div>
+<script>
+const links=[...document.querySelectorAll('nav a')],secs=[...document.querySelectorAll('.doc')];
+const io=new IntersectionObserver(es=>{es.forEach(e=>{if(e.isIntersecting){links.forEach(l=>l.classList.toggle('on',l.getAttribute('href')==='#'+e.target.id));}})},{rootMargin:'-20% 0px -70% 0px'});
+secs.forEach(s=>io.observe(s));
+</script>
+</body>
+</html>

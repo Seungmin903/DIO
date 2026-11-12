@@ -39,11 +39,12 @@ export default function TextBoxInput({ zoom, onCreate, pageWidth: PAGE_WIDTH = D
         const width = Math.min(TAP_BOX_WIDTH, PAGE_WIDTH)
         const x = clamp(tapAt.x, 0, PAGE_WIDTH - width)
         // autoWidth: 입력하는 동안 글자만큼 넓어지고, maxWidth(페이지 오른쪽 끝까지)에서 줄을 바꾼다
-        onCreate({ x, y: tapAt.y, width, h: 38, w: width, baseWidth: width, autoWidth: true, maxWidth: Math.max(width, PAGE_WIDTH - x - 8) })
+        // tap: 실제로 누른 자리(상자 x 는 페이지 안으로 당겨질 수 있다). 속지 칸 맞춤이 쓴다.
+        onCreate({ x, y: tapAt.y, width, h: 38, w: width, baseWidth: width, autoWidth: true, maxWidth: Math.max(width, PAGE_WIDTH - x - 8), tap: tapAt })
       }
     },
   })
   return <View accessibilityLabel="드래그하여 텍스트 상자 만들기" style={StyleSheet.absoluteFill} {...handlers}>
-    {box && <View pointerEvents="none" style={{ position: 'absolute', left: box.x * zoom, top: box.y * zoom, width: box.width * zoom, height: box.h * zoom, borderWidth: 1, borderColor: '#6F9FC6', backgroundColor: 'rgba(146,204,250,0.12)' }} />}
+    {box && <View pointerEvents="none" style={{ position: 'absolute', left: box.x * zoom, top: box.y * zoom, width: box.width * zoom, height: box.h * zoom, borderWidth: 1, borderColor: '#817DB9', backgroundColor: 'rgba(129,125,185,0.12)' }} />}
   </View>
 }

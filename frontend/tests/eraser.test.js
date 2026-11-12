@@ -1,11 +1,21 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { createEraserSession, ERASER_RADIUS } from '../src/editor/utils/eraser.js'
+import { createEraserSession, eraserPreviewPage, ERASER_RADIUS } from '../src/editor/utils/eraser.js'
 import { createStroke } from '../src/editor/utils/strokes.js'
 import { createInitialState, editorReducer, getCurrentPage } from '../src/editor/state/editorReducer.js'
 
 const line = (id, y = 100, settings = {}) => createStroke([{ x: 40, y }, { x: 240, y }], { id, width: 4, ...settings })
 const hit = (object, point, radius = ERASER_RADIUS) => createEraserSession([object], radius).move(point)
+
+test('미리보기는 편집 중 텍스트를 숨기고 획 조각을 제자리에 넣으며 원본을 보존한다', () => {
+  const a = { id: 'a' }, text = { id: 'text' }, stroke = { id: 'stroke' }, b = { id: 'b' }
+  const pieces = [{ id: 'piece-1' }, { id: 'piece-2' }]
+  const page = { id: 'page', objects: [a, text, stroke, b] }
+  assert.deepEqual(eraserPreviewPage(page, ['text', 'stroke'], { stroke: pieces }).objects, [a, ...pieces, b])
+  assert.deepEqual(page.objects, [a, text, stroke, b])
+  assert.equal(eraserPreviewPage(page, [], null), page)
+  assert.deepEqual(eraserPreviewPage(page, ['stroke'], null).objects, [a, text, b])
+})
 
 test('샘플 점 사이에 닿아도 획 전체를 지우고 큰 경계 상자 안의 빈 곳은 지우지 않는다', () => {
   const stroke = line('line'), original = structuredClone(stroke)
@@ -105,4 +115,21 @@ test('화면 배율 0.5/1/2.5를 페이지 좌표로 환산해 같은 위치의 
     const screen = { x: 140 * zoom, y: 100 * zoom }
     assert.deepEqual(hit(line('a'), { x: screen.x / zoom, y: screen.y / zoom }), ['a'])
   }
+})
+
+test('획 모양 캐시는 점 배열이 같아도 굵기가 다르면 따로 만든다', () => {
+  // 정확한 도형은 지우개가 상자에 닿는 순간 만들어지고, 전에는 제스처가 끝나면 버려져 같은 획을
+  // 다시 지울 때마다 또 만들었다(붓펜 · 만년필은 외곽선이 비싸다). 이제 점 배열에 걸어 두고 다시 쓴다.
+  // 굵기만 바꾸는 수정은 점 배열을 그대로 두고 strokeWidth 만 바꾸므로, 열쇠가 굵기를 안 담으면
+  // **바뀐 획이 옛 도형을 그대로 쓴다** — 그걸 막는다.
+  const thin = line('thin', 100, { width: 2 })
+  const thick = { ...thin, id: 'thick', strokeWidth: 60 }
+  assert.equal(thin.points, thick.points, '수정은 점 배열을 그대로 쓴다')
+  const above = { x: 140, y: 100 - 20 }
+  // 얇은 획은 20 위에서 안 닿고, 굵은 획은 닿는다. 캐시가 섞이면 둘이 같아진다.
+  assert.deepEqual(createEraserSession([thin], 1).move(above), [])
+  assert.deepEqual(createEraserSession([thick], 1).move(above), ['thick'])
+  // 차례를 바꿔도 같다(먼저 만든 쪽이 캐시를 차지하지 않는다)
+  assert.deepEqual(createEraserSession([thick], 1).move(above), ['thick'])
+  assert.deepEqual(createEraserSession([thin], 1).move(above), [])
 })

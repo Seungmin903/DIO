@@ -8,7 +8,7 @@ export async function savePngFile(result, fileName) {
   if (!source.exists || !source.size) throw new Error('PNG output unavailable')
   const reader = source.open(FileMode.ReadOnly)
   try {
-    const header = reader.readBytes(8)
+    const header = await reader.readBytes(8)
     if (![137,80,78,71,13,10,26,10].every((value, index) => header[index] === value)) throw new Error('Invalid PNG output')
   } finally { reader.close() }
 

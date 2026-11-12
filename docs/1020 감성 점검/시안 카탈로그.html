@@ -1,0 +1,306 @@
+<title>DIO 1020 시안 카탈로그</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gowun+Dodum&family=IBM+Plex+Sans+KR:wght@400;500;700&family=Nanum+Pen+Script&family=Noto+Sans+KR:wght@400;500;700;800&display=swap">
+<style>
+/* 레이아웃: 문방구 진열장처럼 칸(서랍) 단위로 시안을 늘어놓는다. 앱이 밝은 화면만 쓰므로 카탈로그도 밝은 한 가지 모습으로 둔다 */
+:root {
+  --bg: #F0F1F9; --paper: #FFFFFF; --ink: #0B1766; --ink-soft: #525FAD; --line: #D9DCEF;
+  --peri: #818AC3; --peri-strong: #606BB2; --lav: #DBDCF9; --lav2: #E7E8F8; --peri-light: #C9CDEE; --sec: #ABB1D8;
+  --butter: #FEF0BF; --tape: #FBE5A3; --butter-strong: #B98208; --receipt: #F7F8FD;
+  --f-body: "Noto Sans KR", "Malgun Gothic", sans-serif;
+  --f-title: "Gowun Dodum", "Noto Sans KR", sans-serif;
+  --f-b: "IBM Plex Sans KR", "Noto Sans KR", sans-serif;
+  --f-hand: "Nanum Pen Script", cursive;
+  color-scheme: light;
+}
+body { background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 15px; line-height: 1.6; }
+.wrap { max-width: 1180px; margin: 0 auto; padding-block: 40px 72px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: grid; gap: 56px; }
+header { display: grid; gap: 10px; }
+.status { justify-self: start; background: var(--butter); padding: 3px 12px; border-radius: 6px; font-size: 13px; font-weight: 700; }
+h1 { font-family: var(--f-title); font-size: clamp(30px, 5vw, 44px); line-height: 1.2; margin: 0; text-wrap: balance; }
+.lead { margin: 0; max-width: 64ch; color: var(--ink-soft); font-weight: 500; }
+.rules { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 0; padding: 0; list-style: none; }
+.rules li { background: var(--paper); border: 1px solid var(--line); border-radius: 6px; padding: 4px 10px; font-size: 13px; font-weight: 700; }
+section { display: grid; gap: 18px; }
+.sec-head { display: grid; gap: 4px; }
+.sec-head h2 { font-family: var(--f-title); font-size: 26px; margin: 0; }
+.sec-head p { margin: 0; color: var(--ink-soft); max-width: 70ch; }
+.label { justify-self: start; display: inline-block; background: var(--lav); border-radius: 6px; padding: 2px 10px; font-size: 12px; font-weight: 800; letter-spacing: .02em; }
+.label.pick { background: var(--butter); }
+.grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); }
+.drawer { background: var(--paper); border: 1px solid var(--line); border-radius: 16px; padding: 20px; display: grid; gap: 12px; align-content: start; min-width: 0; }
+.drawer h3 { margin: 0; font-size: 17px; }
+.spec { margin: 0; color: var(--ink-soft); font-size: 13px; font-weight: 500; }
+.perf { border: 0; border-top: 1.5px dashed var(--line); margin: 0; }
+
+/* 인덱스 탭 견본 */
+.tabs-demo { overflow-x: auto; padding-top: 14px; }
+.tabs-demo svg { display: block; }
+.tabs-demo .hit { cursor: pointer; }
+.tabs-demo .hit:focus-visible { outline: 2px solid var(--peri-strong); outline-offset: 2px; }
+.tab-panel { border-radius: 0 0 12px 12px; padding: 16px; min-height: 64px; font-size: 14px; font-weight: 500; color: var(--ink-soft); }
+
+/* 방향 비교: 같은 화면 조각을 세 문법으로 */
+.mock { border-radius: 14px; padding: 18px; display: grid; gap: 14px; background: var(--paper); border: 1px solid var(--line); min-width: 0; }
+.mock .t { font-size: 24px; line-height: 1.25; }
+.mock .chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.mock .chip { padding: 6px 12px; font-size: 13px; }
+.mock .cover { position: relative; height: 112px; display: grid; place-items: center; }
+.mock .cover b { font-size: 17px; }
+.mock .row { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 52px; border-bottom: 1px solid var(--line); font-size: 15px; }
+.mock .btn { justify-self: start; padding: 11px 18px; font-size: 15px; color: #fff; background: var(--peri-strong); }
+/* 지금 */
+.now { font-family: var(--f-body); }
+.now .t { font-weight: 800; }
+.now .chip { border-radius: 10px; background: var(--bg); font-weight: 700; color: var(--ink-soft); }
+.now .chip.on { background: var(--ink); color: #fff; }
+.now .cover { border-radius: 14px; background: var(--sec); }
+.now .cover b { background: #F2F1EE; padding: 8px 22px; font-weight: 800; }
+.now .row span { font-weight: 700; }
+.now .seg { display: flex; padding: 3px; gap: 3px; border-radius: 12px; background: var(--bg); font-size: 12px; font-weight: 800; }
+.now .seg i { font-style: normal; padding: 6px 14px; border-radius: 9px; color: var(--ink-soft); }
+.now .seg i.on { background: var(--peri-strong); color: #fff; }
+.now .btn { border-radius: 16px; font-weight: 800; border-bottom: 2px solid var(--ink-soft); }
+/* A 문방구 서랍 */
+.a .t { font-family: var(--f-title); font-weight: 400; }
+.a .chip { border-radius: 6px; background: var(--bg); font-weight: 500; color: var(--ink-soft); }
+.a .chip.on { background: var(--lav); color: var(--ink); font-weight: 700; }
+.a .cover { border-radius: 16px; background: var(--sec); box-shadow: 0 8px 20px rgba(11,23,102,.08); }
+.a .cover b { font-family: var(--f-title); font-weight: 400; font-size: 19px; }
+.a .cover .lab { position: absolute; left: 10px; top: 10px; background: var(--butter); border-radius: 6px; padding: 1px 8px; font-size: 12px; font-weight: 700; }
+.a .cover .tp { position: absolute; right: 22px; top: -8px; width: 48px; height: 18px; background: var(--tape); transform: rotate(-3deg); opacity: .92; clip-path: polygon(0 10%, 8% 0, 16% 10%, 84% 10%, 92% 0, 100% 10%, 100% 90%, 92% 100%, 84% 90%, 16% 90%, 8% 100%, 0 90%); }
+.a .row span { font-weight: 500; }
+.a .btn { border-radius: 12px; font-weight: 700; }
+/* B 사진부 아카이브 */
+.b { font-family: var(--f-b); background: var(--receipt); }
+.b .t { font-weight: 700; }
+.b .chip { border-radius: 10px; background: var(--paper); border: 1px solid var(--line); font-weight: 500; color: var(--ink-soft); }
+.b .chip.on { border-color: var(--peri-strong); color: var(--ink); font-weight: 700; }
+.b .cover { border-radius: 12px; background: var(--sec); box-shadow: 0 6px 16px rgba(11,23,102,.06); }
+.b .cover b { font-family: var(--f-title); font-weight: 400; color: #fff; font-size: 19px; }
+.b .row span { font-weight: 500; }
+.b .btn { border-radius: 10px; font-weight: 700; }
+/* 스위치(A · B 공통): 52×32, 상태는 위치와 면으로 고정 표시 */
+.sw { width: 52px; height: 32px; border-radius: 16px; background: var(--peri-strong); position: relative; flex: none; }
+.sw::after { content: ""; position: absolute; top: 4px; right: 4px; width: 24px; height: 24px; border-radius: 12px; background: #fff; }
+
+/* 글씨 굵기 */
+.weights { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); }
+.wsample { display: grid; gap: 4px; }
+.w-now h4 { font-size: 22px; font-weight: 800; margin: 0; } .w-now p { margin: 0; font-weight: 700; } .w-now small { font-weight: 700; color: var(--ink-soft); }
+.w-new h4 { font-family: var(--f-title); font-size: 22px; font-weight: 400; margin: 0; } .w-new p { margin: 0; font-weight: 400; } .w-new small { font-weight: 500; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+
+/* 소품 */
+.props { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 250px), 1fr)); }
+.prop { background: var(--paper); border: 1px solid var(--line); border-radius: 14px; padding: 16px; display: grid; gap: 8px; align-content: start; min-height: 190px; }
+.prop h3 { margin: 0; font-size: 15px; }
+.prop .art { min-height: 100px; display: flex; align-items: center; }
+
+/* 말투 */
+.copy { display: grid; gap: 0; background: var(--paper); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
+.copy div { display: grid; grid-template-columns: 1fr 24px 1fr; gap: 8px; padding: 12px 16px; border-bottom: 1.5px dashed var(--line); align-items: center; }
+.copy div:last-child { border-bottom: 0; }
+.copy s { color: var(--ink-soft); text-decoration-color: var(--sec); }
+.copy b { font-weight: 700; }
+
+/* 점검 */
+.audit { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr)); }
+.shot { background: var(--paper); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; display: grid; min-width: 0; }
+.shot img { width: 100%; display: block; border-bottom: 1px solid var(--line); }
+.shot .body { padding: 14px 16px; display: grid; gap: 6px; }
+.shot ul { margin: 0; padding-left: 18px; font-size: 14px; }
+.sev { justify-self: start; font-size: 12px; font-weight: 800; padding: 1px 8px; border-radius: 6px; background: var(--lav); }
+.note { font-size: 13px; color: var(--ink-soft); }
+
+/* 결정 */
+.decide { display: grid; gap: 10px; counter-reset: q; }
+.decide li { list-style: none; background: var(--paper); border: 1px solid var(--line); border-radius: 12px; padding: 12px 16px; display: grid; gap: 2px; }
+.decide { padding: 0; margin: 0; }
+.decide li b { font-size: 15px; }
+.decide li span { color: var(--ink-soft); font-size: 14px; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <span class="status">제안 · 아직 구현 전</span>
+    <h1>DIO 1020 시안 카탈로그</h1>
+    <p class="lead">앱 전체 화면 45장과 웹 조사 두 갈래(검색 67회)를 코덱스가 함께 보고 낸 시안입니다. 탭 견본은 눌러서 바꿔 볼 수 있습니다. 글꼴은 웹에서 쓸 수 있는 것으로 대신 보여 줍니다(Pretendard → Noto Sans KR, SUIT → IBM Plex Sans KR).</p>
+    <ul class="rules"><li>UI 색: 페리윙클 계열 + 버터 노랑만</li><li>눌림 효과 없음</li><li>가운데 모달 지양</li></ul>
+  </header>
+
+  <section>
+    <div class="sec-head"><span class="label">서랍 1</span><h2>꾸미기 공방 인덱스 탭</h2><p>탭을 눌러 고른 칸을 바꿔 보세요. 고른 탭이 아래 면과 어떻게 이어지는지가 시안마다 다릅니다.</p></div>
+    <div class="grid" id="tabGrid"></div>
+  </section>
+
+  <section>
+    <div class="sec-head"><span class="label">서랍 2</span><h2>전체 방향: 같은 화면 조각을 세 문법으로</h2><p>제목 · 필터 · 다이어리 표지 · 설정 한 줄 · 버튼을 지금, A안, B안으로 그렸습니다.</p></div>
+    <div class="grid">
+      <div class="drawer"><span class="label">지금</span>
+        <div class="mock now">
+          <div class="t">다이어리</div>
+          <div class="chips"><span class="chip on">모든 다이어리</span><span class="chip">즐겨찾기</span><span class="chip">공유 다이어리</span></div>
+          <div class="cover"><b>여름 방학 일기</b></div>
+          <div class="row"><span>매일 기록 알림</span><span class="seg"><i class="on">켬</i><i>끔</i></span></div>
+          <span class="btn">새 다이어리</span>
+        </div>
+        <p class="spec">굵은 글씨(700~800)가 대부분이고, 칩 · 세그먼트 · 버튼이 모두 같은 둥근 부품입니다.</p>
+      </div>
+      <div class="drawer"><span class="label pick">A 문방구 서랍 · 코덱스 추천</span>
+        <div class="mock a">
+          <div class="t">다이어리</div>
+          <div class="chips"><span class="chip on">전체</span><span class="chip">즐겨찾기</span><span class="chip">함께 쓰는 기록</span></div>
+          <div class="cover"><span class="lab">최근 편집</span><span class="tp"></span><b>여름 방학 일기</b></div>
+          <div class="row"><span>매일 기록 알림</span><span class="sw" role="img" aria-label="켜짐"></span></div>
+          <span class="btn">새 다이어리</span>
+        </div>
+        <p class="spec">제목 Gowun Dodum, 본문 400~500. 라벨 6 · 버튼 12 · 카드 16으로 역할마다 모서리가 다르고, 표지에 견출지와 테이프를 하나씩 둡니다.</p>
+      </div>
+      <div class="drawer"><span class="label">B 사진부 아카이브</span>
+        <div class="mock b">
+          <div class="t">다이어리</div>
+          <div class="chips"><span class="chip on">전체 기록</span><span class="chip">자주 보는 기록</span><span class="chip">함께 쓰는 기록</span></div>
+          <div class="cover"><b>여름 방학 일기</b></div>
+          <div class="row"><span>매일 기록 알림</span><span class="sw" role="img" aria-label="켜짐"></span></div>
+          <span class="btn">새 다이어리</span>
+        </div>
+        <p class="spec">옅은 페리윙클 종이(#F7F8FD) 바탕, 소품 없이 테두리와 굵기로만 구분합니다. 유행을 덜 타지만 꾸밀 맛은 약해집니다.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head"><span class="label">서랍 3</span><h2>글씨 굵기 단계</h2><p>코덱스가 효과가 가장 크다고 본 변경입니다. 제목만 굵게, 본문은 400~500, 숫자는 자릿수를 맞춥니다.</p></div>
+    <div class="weights">
+      <div class="drawer wsample w-now"><span class="label">지금</span><h4>내 공간</h4><p>방문자님의 기록 공간</p><small>2페이지 · 2026.10.31</small></div>
+      <div class="drawer wsample w-new"><span class="label pick">바꾼 뒤</span><h4>내 공간</h4><p>방문자님의 기록 공간</p><small>2페이지 · 2026.10.31</small></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head"><span class="label">서랍 4</span><h2>문방구 소품 견본</h2><p>한 화면에 UI 소품은 최대 2개, 노랑은 한 곳만 씁니다. 버튼 · 입력칸 위에는 얹지 않고, 사용자가 붙인 스티커와 섞이지 않게 평면 단색으로 둡니다.</p></div>
+    <div class="props" id="props"></div>
+  </section>
+
+  <section>
+    <div class="sec-head"><span class="label">서랍 5</span><h2>말투</h2><p>짧게, 한 문장 한 메시지. 쿨한 척하는 유행어는 쓰지 않습니다(NN/g 18~25세 연구).</p></div>
+    <div class="copy">
+      <div><s>DIO에 오신 걸 환영해요</s><span>→</span><b>오늘의 한 장을 시작해요</b></div>
+      <div><s>게스트로 시작하기</s><span>→</span><b>먼저 둘러보기</b></div>
+      <div><s>아직 만든 폰트가 없어요</s><span>→</span><b>만든 글씨가 아직 없어요</b></div>
+      <div><s>휴지통이 비어 있어요</s><span>→</span><b>지운 기록이 없어요</b></div>
+      <div><s>공유 다이어리</s><span>→</span><b>함께 쓰는 기록</b></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head"><span class="label">서랍 6</span><h2>지금 화면에서 고칠 곳</h2><p>코덱스가 찾은 63곳 가운데 심각도 '상'을 화면별로 묶었습니다. 회색 글은 Claude가 화면과 지난 지시를 대조한 메모입니다.</p></div>
+    <div class="audit">
+      <div class="shot"><img src="지금%20화면/tab%2002%20홈.png" alt="태블릿 홈 지금 화면" loading="lazy"><div class="body"><span class="sev">홈</span><ul><li>카드가 가운데 떠 있어 빈 공간이 더 큼 → 제목 아래로 당기기</li><li>표지가 다 비슷해 템플릿 목록 같음 → 최근 편집 · 공유 중 견출지</li></ul></div></div>
+      <div class="shot"><img src="지금%20화면/tab%2009%20공방%20프리셋.png" alt="태블릿 꾸미기 공방 지금 화면" loading="lazy"><div class="body"><span class="sev">꾸미기 공방</span><ul><li>사다리꼴 반복이 무거움 → 서랍 1</li><li>프리셋 색 점이 체계 없이 나열 → 내 조합 · 최근 · 기본</li></ul><p class="note">프리셋 동그라미는 지난번에 되살린 모양이라 바꾸기 전에 다시 여쭙니다.</p></div></div>
+      <div class="shot"><img src="지금%20화면/tab%2011%20내%20공간.png" alt="태블릿 내 공간 지금 화면" loading="lazy"><div class="body"><span class="sev">내 공간</span><ul><li>운영체제 설정 화면 같음 → 2분절 대신 스위치, 프로필 도장 · 한 줄 소개</li></ul><p class="note">"알림 · 보안 접기, 앱 정보 별도 화면"은 정해 주신 한 단 구조와 부딪혀 보류했습니다.</p></div></div>
+      <div class="shot"><img src="지금%20화면/tab%2022%20편집기%20텍스트.png" alt="태블릿 편집기 글자 패널 지금 화면" loading="lazy"><div class="body"><span class="sev">편집기</span><ul><li>위 · 도구 · 아래 바가 모두 떠 있는 흰 카드 → 위는 얇은 바, 도구만 필통 바</li><li>글자 패널이 길어 캔버스를 덮음 → 글꼴 · 크기 · 색 · 정렬만 먼저</li></ul><p class="note">코덱스는 "가운데 팝업"으로 읽었지만 실제로는 도구 아래 붙는 패널입니다.</p></div></div>
+      <div class="shot"><img src="지금%20화면/phone%2013%20편집기.png" alt="폰 편집기 지금 화면" loading="lazy"><div class="body"><span class="sev">편집기(폰)</span><ul><li>도구가 빽빽하고 캔버스가 작음 → 자주 쓰는 5개 + 더보기 서랍</li></ul></div></div>
+      <div class="shot"><img src="지금%20화면/phone%2002%20홈.png" alt="폰 홈 지금 화면" loading="lazy"><div class="body"><span class="sev">홈(폰)</span><ul><li>아래 탭과 떠 있는 + 가 같은 자리에서 경쟁 → 만들기 진입 하나로</li></ul></div></div>
+    </div>
+    <p class="note">빈 화면에 "30일 보관" 같은 설명을 더하자는 제안과 첫 진입 스와이프 힌트는 안내 멘트 금지 지시와 부딪혀 넣지 않았습니다.</p>
+  </section>
+
+  <section>
+    <div class="sec-head"><span class="label pick">정해 주실 것</span><h2>고르시면 그 순서로 만들겠습니다</h2></div>
+    <ol class="decide">
+      <li><b>전체 방향</b><span>A 문방구 서랍(추천) · B 사진부 아카이브 · 섞기</span></li>
+      <li><b>공방 인덱스 탭</b><span>A 바인더 등 라벨형(추천) · B · C, 그리고 탭마다 색을 남길지</span></li>
+      <li><b>글꼴</b><span>굵기 단계만 먼저 · Pretendard와 Gowun Dodum 교체까지(글꼴 파일만큼 앱이 커짐)</span></li>
+      <li><b>결과 연출</b><span>스티커 착지 · 도장 찍힘 같은 짧은 연출과 진동이 눌림 효과 금지 범위 안인지</span></li>
+      <li><b>범위</b><span>팀원 담당인 홈 · 편집기 · 알림까지 할지, 공방 · 내 공간부터 할지</span></li>
+    </ol>
+  </section>
+</div>
+
+<script>
+const C = { surface:'#FFFFFF', muted:'#F0F1F9', lav:'#DBDCF9', border:'#D9DCEF', ptext:'#525FAD', text:'#0B1766', butter:'#FEF0BF', tape:'#FBE5A3', peri:'#C9CDEE', lav2:'#E7E8F8', sec:'#ABB1D8', strong:'#606BB2' };
+const LABELS = ['폰트','스티커','표지','속지','프리셋'];
+const PANEL_TEXT = { 폰트:'내 폰트 만들기 · 만든 글씨 목록', 스티커:'사진 속 대상 오리기 · 스티커 폴더', 표지:'저장한 표지 선반', 속지:'기본 속지 설정 · 저장한 속지', 프리셋:'펜 · 형광펜 · 테이프 · 글자 색' };
+const order = sel => LABELS.map((_, i) => i).sort((a, b) => (a === sel ? 1 : b === sel ? -1 : b - a));
+const txt = (x, y, s, w, fill, size = 15) => `<text x="${x}" y="${y}" text-anchor="middle" font-family="Noto Sans KR, sans-serif" font-size="${size}" font-weight="${w}" fill="${fill}">${s}</text>`;
+const hit = (i, x, w, h, top) => `<rect class="hit" data-i="${i}" tabindex="0" role="tab" aria-label="${LABELS[i]}" x="${x}" y="${top - h}" width="${w}" height="${h}" fill="transparent"/>`;
+
+const VARIANTS = [
+  { id:'now', name:'지금', spec:'사다리꼴 · 폭 128 · 높이 42/50 · 14 겹침 · 탭마다 다른 색 · 아래 6 띠', panel: sel => [C.lav, C.butter, C.peri, C.tape, C.lav2][sel],
+    draw(sel) { const tones=[C.lav,C.butter,C.peri,C.tape,C.lav2], W=128, SL=12, CO=8, OV=14, top=58; let p=[], hits=[];
+      for (const i of order(sel)) { const h=i===sel?50:42, x0=i*(W-OV), y0=top-h;
+        p.push(`<path d="M${x0} ${top} L${x0+SL} ${y0+CO} Q${x0+SL+1.5} ${y0} ${x0+SL+CO} ${y0} L${x0+W-SL-CO} ${y0} Q${x0+W-SL-1.5} ${y0} ${x0+W-SL} ${y0+CO} L${x0+W} ${top} Z" fill="${tones[i]}"/>`+txt(x0+W/2, top-h/2+6, LABELS[i], i===sel?800:700, C.text));
+        hits.push(hit(i, x0+SL, W-2*SL, h, top)); }
+      p.push(`<rect x="0" y="${top}" width="${4*(W-OV)+W}" height="6" fill="${tones[sel]}"/>`); return { w: 4*(W-OV)+W, svg: p.join('')+hits.join('') }; } },
+  { id:'a', name:'A 바인더 등 라벨형', pick:true, spec:'위 모서리 10 · 수직 옆면 · 폭 108/116 · 높이 42/50 · 8 겹침 · 고른 탭은 흰 면과 한 장(오목 플레어 6) · 버터는 스티커 한 칸', panel: () => C.surface,
+    draw(sel) { const top=58, R=10, F=6, OV=8; let xs=[], x=F; LABELS.forEach((_, i) => { const w=i===sel?116:108; xs.push([x,w]); x+=w-OV; }); const total=x+OV+F;
+      const faces=[C.muted,C.tape,C.muted,C.muted,C.muted]; let p=[`<line x1="0" y1="${top+.5}" x2="${total}" y2="${top+.5}" stroke="${C.border}"/>`], hits=[];
+      for (const i of order(sel)) { const [x0,w]=xs[i], s=i===sel, h=s?50:42, y0=top-h;
+        if (s) { const d=`M${x0-F} ${top} Q${x0} ${top} ${x0} ${top-F} L${x0} ${y0+R} Q${x0} ${y0} ${x0+R} ${y0} L${x0+w-R} ${y0} Q${x0+w} ${y0} ${x0+w} ${y0+R} L${x0+w} ${top-F} Q${x0+w} ${top} ${x0+w+F} ${top}`;
+          p.push(`<path d="${d} L${x0+w+F} ${top+2} L${x0-F} ${top+2} Z" fill="${C.surface}"/><path d="${d}" fill="none" stroke="${C.border}"/>`); }
+        else p.push(`<path d="M${x0} ${top} L${x0} ${y0+R} Q${x0} ${y0} ${x0+R} ${y0} L${x0+w-R} ${y0} Q${x0+w} ${y0} ${x0+w} ${y0+R} L${x0+w} ${top} Z" fill="${faces[i]}" stroke="${C.border}"/>`);
+        p.push(txt(x0+w/2, top-h/2+6, LABELS[i], 700, s?C.text:C.ptext)); hits.push(hit(i, x0, w, h, top)); }
+      return { w: total, svg: p.join('')+hits.join('') }; } },
+  { id:'b', name:'B 개선한 사다리꼴', spec:'위가 양쪽 5씩 좁음 · 위 모서리 8 · 폭 112/122 · 12 겹침 · 고른 탭이 라벤더 면으로 4 겹쳐 들어감 · "내 것" 라벨', panel: () => C.lav,
+    draw(sel) { const top=58, SL=5, CO=8, OV=12; let xs=[], x=0; LABELS.forEach((_, i) => { const w=i===sel?122:112; xs.push([x,w]); x+=w-OV; }); const total=x+OV;
+      let p=[`<rect x="0" y="${top}" width="${total}" height="4" fill="${C.lav}"/>`], hits=[];
+      for (const i of order(sel)) { const [x0,w]=xs[i], s=i===sel, h=s?50:42, y0=top-h, bot=s?top+4:top;
+        p.push(`<path d="M${x0} ${bot} L${x0+SL} ${y0+CO} Q${x0+SL+1} ${y0} ${x0+SL+CO} ${y0} L${x0+w-SL-CO} ${y0} Q${x0+w-SL-1} ${y0} ${x0+w-SL} ${y0+CO} L${x0+w} ${bot} Z" fill="${s?C.lav:C.lav2}" stroke="${s?'none':C.border}"/>`+txt(x0+w/2, top-h/2+6, LABELS[i], s?800:700, s?C.text:C.ptext));
+        if (s) p.push(`<rect x="${x0+w-36}" y="${y0-9}" width="32" height="18" rx="4" fill="${C.butter}"/>`+txt(x0+w-20, y0+4, '내 것', 800, C.text, 11));
+        hits.push(hit(i, x0, w, h, top)); }
+      return { w: total, svg: p.join('')+hits.join('') }; } },
+  { id:'c', name:'C 견출지 스택형', spec:'위 모서리 8 직사각 · 폭 104 · 높이 40/48 · 6 간격(겹침 없음) · 고른 탭만 2 내려와 선을 덮음 · NEW 견출지', panel: () => C.surface,
+    draw(sel) { const top=58, R=8, W=104, G=6, total=5*W+4*G; let p=[`<line x1="0" y1="${top+.5}" x2="${total}" y2="${top+.5}" stroke="${C.border}"/>`], hits=[];
+      LABELS.forEach((l, i) => { const s=i===sel, h=s?48:40, x0=i*(W+G), y0=top-h, bot=s?top+2:top;
+        p.push(`<path d="M${x0} ${bot} L${x0} ${y0+R} Q${x0} ${y0} ${x0+R} ${y0} L${x0+W-R} ${y0} Q${x0+W} ${y0} ${x0+W} ${y0+R} L${x0+W} ${bot} Z" fill="${s?C.lav:C.muted}"/>`+txt(x0+W/2, top-h/2+6, l, 700, s?C.text:C.ptext, 14));
+        if (i===4) p.push(`<rect x="${x0+W-32}" y="${y0-9}" width="30" height="18" rx="3" fill="${C.butter}"/>`+txt(x0+W-17, y0+4, 'NEW', 800, C.text, 10));
+        hits.push(hit(i, x0, W, h, top)); });
+      return { w: total, svg: p.join('')+hits.join('') }; } },
+];
+
+const grid = document.getElementById('tabGrid');
+grid.style.gridTemplateColumns = 'minmax(0, 1fr)';
+for (const v of VARIANTS) {
+  const box = document.createElement('div');
+  box.className = 'drawer';
+  box.innerHTML = `<span class="label${v.pick ? ' pick' : ''}">${v.name}${v.pick ? ' · 코덱스 추천' : ''}</span><p class="spec">${v.spec}</p><div class="tabs-demo" role="tablist" aria-label="${v.name} 견본"></div><div class="tab-panel"></div>`;
+  grid.appendChild(box);
+  const demo = box.querySelector('.tabs-demo'), panel = box.querySelector('.tab-panel');
+  let sel = 1;
+  const render = () => {
+    const { w, svg } = v.draw(sel);
+    demo.innerHTML = `<svg width="${w}" height="66" viewBox="0 -8 ${w} 66" aria-hidden="false">${svg}</svg>`;
+    panel.style.background = v.panel(sel);
+    panel.style.border = v.panel(sel) === C.surface ? `1px solid ${C.border}` : 'none';
+    panel.style.borderTop = 'none';
+    panel.textContent = PANEL_TEXT[LABELS[sel]];
+    demo.querySelectorAll('.hit').forEach(el => {
+      const pick = () => { sel = +el.dataset.i; render(); demo.querySelector(`.hit[data-i="${sel}"]`)?.focus(); };
+      el.addEventListener('click', pick);
+      el.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pick(); } });
+      el.setAttribute('aria-selected', String(+el.dataset.i === sel));
+    });
+  };
+  render();
+}
+
+const tapeEdge = (w, h, c, r) => `<svg width="${w}" height="${h}" style="transform:rotate(${r}deg)" aria-hidden="true"><path d="M0 2 L4 0 L8 2 L12 0 L16 2 L${w-16} 2 L${w-12} 0 L${w-8} 2 L${w-4} 0 L${w} 2 L${w} ${h-2} L${w-4} ${h} L${w-8} ${h-2} L${w-12} ${h} L${w-16} ${h-2} L16 ${h-2} L12 ${h} L8 ${h-2} L4 ${h} L0 ${h-2} Z" fill="${c}" opacity=".92"/></svg>`;
+const PROPS = [
+  ['견출지 라벨', '다이어리 카드 상태. 높이 24 · 반경 6', `<span style="display:flex;gap:8px"><span style="background:${C.lav};padding:3px 10px;border-radius:6px;font-size:12px;font-weight:700">최근 편집</span><span style="background:${C.butter};padding:3px 10px;border-radius:6px;font-size:12px;font-weight:700">공유 중</span></span>`],
+  ['마스킹 테이프', '사진 · 표지 미리보기 고정. 48×18 · ±3°', `<span style="position:relative;display:block;width:150px;height:92px;background:${C.muted};border-radius:6px"><span style="position:absolute;left:51px;top:-9px">${tapeEdge(48,18,C.tape,-3)}</span></span>`],
+  ['포스트잇', '빈 화면 한 줄. 144×92 · -2°', `<span style="width:144px;height:92px;background:${C.butter};border-radius:4px;transform:rotate(-2deg);display:grid;place-items:center;font-weight:700;font-size:14px;box-shadow:0 6px 14px rgba(11,23,102,.08)">지운 기록이 없어요</span>`],
+  ['영수증', '저장 · 내보내기 완료 알림(가운데 모달 아님). 폭 220 · 톱니 6', `<svg width="220" height="76" style="max-width:100%" role="img" aria-label="영수증 견본"><path d="M0 6 ${Array.from({length:22},(_,k)=>`L${k*10+5} 0 L${k*10+10} 6`).join(' ')} L220 70 ${Array.from({length:22},(_,k)=>`L${215-k*10} 76 L${210-k*10} 70`).join(' ')} Z" fill="#F7F8FD" stroke="${C.sec}"/><text x="110" y="34" text-anchor="middle" font-size="14" font-weight="800" fill="${C.text}">PNG 3장 저장</text><text x="110" y="54" text-anchor="middle" font-size="12" font-weight="500" fill="${C.ptext}">2026.10.31 · 여름 방학 일기</text></svg>`],
+  ['도장', '초대 수락 · 완료 표시. 튀는 연출 없음', `<svg width="72" height="72" role="img" aria-label="도장 견본"><circle cx="36" cy="36" r="30" fill="none" stroke="${C.strong}" stroke-width="2.5" stroke-dasharray="58 3 20 2"/><circle cx="36" cy="36" r="24" fill="none" stroke="${C.strong}"/><text x="36" y="41" text-anchor="middle" font-size="13" font-weight="800" fill="${C.strong}">함께해요</text></svg>`],
+  ['절취선', '공방 구역 · 지난 초대 구분. 점 3 · 간격 4', `<span style="display:grid;gap:10px;width:100%"><span style="border-top:1.5px dashed ${C.border}"></span><span style="font-size:13px;color:${C.ptext};font-weight:700">지난 초대</span></span>`],
+  ['바인더 링', '페이지 목록 가장자리. 지름 12 · 3개 이하', `<span style="position:relative;display:block;width:150px;height:92px;background:#fff;border:1px solid ${C.border};border-radius:8px">${[18,40,62].map(y=>`<span style="position:absolute;left:10px;top:${y}px;width:12px;height:12px;border-radius:6px;background:${C.muted};border:1px solid ${C.sec}"></span>`).join('')}</span>`],
+  ['OPP 봉투', '스티커 폴더. 96×72 · 겹친 면 2장 · 접착 띠', `<span style="position:relative;display:block;width:96px;height:72px"><span style="position:absolute;inset:0;background:${C.muted};border:1px solid ${C.sec};border-radius:6px"></span><span style="position:absolute;left:0;right:0;top:0;height:12px;background:#fff;border:1px solid ${C.sec};border-radius:6px 6px 0 0"></span><span style="position:absolute;left:32px;top:24px;font-size:24px">🌼</span></span>`],
+  ['사진 모서리', '홈 첫 표지 · 초대 썸네일. 18 삼각 2개', `<span style="position:relative;display:block;width:150px;height:92px;background:${C.peri};border-radius:4px"><svg width="18" height="18" style="position:absolute;left:-3px;top:-3px" aria-hidden="true"><path d="M0 0 L18 0 L0 18 Z" fill="${C.lav}" stroke="${C.sec}"/></svg><svg width="18" height="18" style="position:absolute;right:-3px;bottom:-3px" aria-hidden="true"><path d="M18 18 L0 18 L18 0 Z" fill="${C.lav}" stroke="${C.sec}"/></svg></span>`],
+  ['책갈피', '페이지 목록 · 즐겨찾기. 12×20 리본, 터치 48', `<svg width="40" height="40" role="img" aria-label="책갈피 견본"><path d="M14 4 L26 4 L26 28 L20 23 L14 28 Z" fill="${C.strong}"/></svg>`],
+  ['종이 클립', 'PDF로 시작한 다이어리 · 첨부 표시', `<svg width="40" height="40" fill="none" stroke="${C.ptext}" stroke-width="1.8" stroke-linecap="round" role="img" aria-label="종이 클립 견본"><path d="M24 12 L24 28 Q24 33 19 33 Q14 33 14 28 L14 10 Q14 6 18 6 Q22 6 22 10 L22 26"/></svg>`],
+  ['이름표 손글씨', '사용자 표지 · 짧은 라벨에만(본문 금지)', `<span style="font-family:var(--f-hand);font-size:34px;line-height:1;color:${C.text}">여름 방학 일기</span>`],
+];
+document.getElementById('props').innerHTML = PROPS.map(([t, n, art]) => `<div class="prop"><h3>${t}</h3><p class="spec">${n}</p><div class="art">${art}</div></div>`).join('');
+</script>

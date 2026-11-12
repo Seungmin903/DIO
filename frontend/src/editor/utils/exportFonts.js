@@ -5,7 +5,7 @@ import { PageExportError } from './pageExport.js'
 export async function waitForExportFonts(objects, fonts) {
   if (!fonts) return // 네이티브 face는 앱의 preloadTextFonts에서 준비한다.
   try {
-    const requests = objects.filter(o => o.type === 'text' && o.text).map(o => {
+    const requests = objects.filter(o => ['text','shape'].includes(o.type) && o.text).map(o => {
       const s = textStyle(o, 1, 'web')
       return fonts.load(`${s.fontStyle} ${s.fontWeight} ${s.fontSize}px ${s.fontFamily}`, o.text)
     })

@@ -1,0 +1,27 @@
+services:
+  nginx-dev:
+    image: ${NGINX_DEV_IMAGE:?NGINX_DEV_IMAGE is required}
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "7"
+        compress: "true"
+    ports:
+      - "8443:443"
+    volumes:
+      - dio-certbot-etc:/etc/letsencrypt:ro
+      - /home/gitlab-runner/dio-env/nginx-dev.htpasswd:/etc/nginx/conf.d/nginx-dev.htpasswd:ro
+    networks:
+      - proxy
+
+networks:
+  proxy:
+    external: true
+    name: dio-proxy
+
+volumes:
+  dio-certbot-etc:
+    external: true
+    name: dio-certbot-etc

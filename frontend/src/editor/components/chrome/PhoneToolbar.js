@@ -1,7 +1,9 @@
-import { Fragment } from 'react'
+import { Fragment, useState } from 'react'
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native'
+import FadeScroll, { EdgeFade } from '../controls/FadeScroll'
 import { colors, shadow } from '../../../shared/theme'
 import Icon from '../controls/Icon'
+import SharingEntry from '../../../sharing/SharingEntry'
 
 // 폰 편집기의 도구 막대. 도구 상태는 태블릿 리본(Ribbon)과 같이 EditorScreen이 소유한다.
 // 세로(간편 편집): 모든 도구를 상단 가로 스크롤 막대에 둔다.
@@ -21,12 +23,13 @@ const FULL_TOOLS = [
   ],
   [
     { tab: 'sticker', icon: 'sticker', label: '스티커' },
+    { tab: 'widget', icon: 'widget', label: '위젯' },
     { tab: 'tape', icon: 'tape', label: '마스킹테이프' },
     { tab: 'photo', icon: 'image', label: '사진·GIF' },
   ],
 ]
 
-const GUIDE_TOOL = { action: 'guides', icon: 'grid', label: '격자 가이드' }
+const GUIDE_TOOL = { action: 'guides', icon: 'guides', label: '격자 가이드' }
 
 // 가로 배치에서 양옆에 세운 막대의 폭 (버튼 44 + 막대 안쪽 여백·테두리 10 + 바깥 여백 8)
 export const PHONE_TOOLBAR_RAIL = 62
@@ -35,7 +38,14 @@ const isActive = (item, activeTool, drawerTab, guidesActive) => (
   item.action === 'guides' ? guidesActive : item.tab ? drawerTab === item.tab : Boolean(item.tool && !drawerTab && activeTool === item.tool)
 )
 
-export default function PhoneToolbar({ vertical, bottomInset = 0, activeTool, drawerTab, guidesActive, penColor, highlighterColor, onSelectTool, onOpenDrawer, onOpenGuides, ...touch }) {
+// 스크롤되는 막대의 끝에 얹는 옅은 흰 그라데이션은 앱 공통 부품(controls/FadeScroll)을 쓴다
+const ScrollFade = EdgeFade
+
+export default function PhoneToolbar({ sharingMembers = [], onOpenSharing, invitationCount = 0, vertical, bottomInset = 0, activeTool, drawerTab, guidesActive, penColor, highlighterColor, onSelectTool, onOpenDrawer, onOpenGuides, ...touch }) {
+  // 가로 배치의 오른쪽 막대: 위 · 아래로 더 스크롤할 수 있는지 (끝에 옅은 흰 그라데이션을 얹는다)
+  const [scroll, setScroll] = useState({ y: 0, view: 0, content: 0 })
+  const hasAbove = scroll.y > 4
+  const hasBelow = scroll.content > scroll.view + 4 && scroll.y + scroll.view < scroll.content - 4
   const colorOf = (tool) => (tool === 'pen' ? penColor : tool === 'highlighter' ? highlighterColor : undefined)
   const press = (item) => {
     if (item.tab) onOpenDrawer(item.tab)
@@ -52,7 +62,11 @@ export default function PhoneToolbar({ vertical, bottomInset = 0, activeTool, dr
     // 키가 낮은 기기에서는 넘칠 수 있어 스크롤되게 한다.
     return (
       <View style={[styles.rail, styles.railRight, { bottom: Math.max(bottomInset, 8) }]} {...touch}>
-        <ScrollView style={styles.railBar} contentContainerStyle={styles.railColumn} showsVerticalScrollIndicator={false}>
+        <ScrollView style={styles.railBar} contentContainerStyle={styles.railColumn} showsVerticalScrollIndicator={false} scrollEventThrottle={16}
+          onLayout={(event) => { const view = event.nativeEvent.layout.height; setScroll((prev) => ({ ...prev, view })) }}
+          onContentSizeChange={(_, content) => setScroll((prev) => ({ ...prev, content }))}
+          onScroll={(event) => { const y = event.nativeEvent.contentOffset.y; setScroll((prev) => (Math.abs(prev.y - y) < 1 ? prev : { ...prev, y })) }}>
+          {onOpenSharing && <SharingEntry members={sharingMembers} compact count={invitationCount} onPress={onOpenSharing}/>}
           {toolGroups.map((group, index) => (
             <Fragment key={index}>
               {index > 0 && <View style={styles.railDivider} />}
@@ -60,6 +74,8 @@ export default function PhoneToolbar({ vertical, bottomInset = 0, activeTool, dr
             </Fragment>
           ))}
         </ScrollView>
+        {hasAbove && <ScrollFade edge="top" />}
+        {hasBelow && <ScrollFade edge="bottom" />}
       </View>
     )
   }
@@ -67,27 +83,27 @@ export default function PhoneToolbar({ vertical, bottomInset = 0, activeTool, dr
   return (
     <View style={[styles.wrap, { paddingBottom: Math.max(bottomInset, 8) }]} {...touch}>
       <View style={[styles.bar, styles.barViewport]}>
-        <ScrollView
+        <FadeScroll
           horizontal
-          showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.barRow}
           accessibilityLabel="편집 도구"
           keyboardShouldPersistTaps="handled"
         >
+          {/* 공유 버튼은 상단 바에 있다(폰 세로) */}
           {toolGroups.map((group, index) => (
             <Fragment key={index}>
               {index > 0 && <View style={styles.rowDivider} />}
               {group.map(renderTool)}
             </Fragment>
           ))}
-        </ScrollView>
+        </FadeScroll>
       </View>
     </View>
   )
 }
 
 /** 폰 가로 배치의 왼쪽 막대: 홈·페이지 목록 / 세로 전환·레이어·내보내기·집중 편집 */
-export function PhoneEditorRail({ pagesOpen, layersOpen, readOnly, onHome, onTogglePages, onToggleOrientation, onToggleLayers, onExport, onFocus, exportEnabled = true, ...touch }) {
+export function PhoneEditorRail({ sharingMembers = [], pagesOpen, layersOpen, readOnly, onHome, onTogglePages, onToggleOrientation, onToggleLayers, onExport, onFocus, exportEnabled = true, onOpenSharing, invitationCount = 0, ...touch }) {
   return (
     <View style={[styles.rail, styles.railLeft]} {...touch}>
       <ScrollView style={styles.railBar} contentContainerStyle={[styles.railColumn, styles.railSpread]} showsVerticalScrollIndicator={false}>
@@ -98,6 +114,7 @@ export function PhoneEditorRail({ pagesOpen, layersOpen, readOnly, onHome, onTog
         <View style={styles.railGroup}>
           {onToggleOrientation && <Tool icon="rotate" label="세로 간편 편집으로 전환" onPress={onToggleOrientation} />}
           {!readOnly && <Tool icon="layers" label="레이어" active={layersOpen} onPress={onToggleLayers} />}
+          {onOpenSharing && <SharingEntry vertical members={sharingMembers} compact count={invitationCount} onPress={onOpenSharing}/>}
           {exportEnabled && <Tool icon="share" label="내보내기" onPress={onExport} />}
           <Tool icon="focus" label="집중 편집" onPress={onFocus} />
         </View>
@@ -114,6 +131,7 @@ function Tool({ icon, label, active, onPress, color }) {
       accessibilityLabel={label}
       accessibilityState={{ selected: Boolean(active) }}
       aria-pressed={Boolean(active)}
+      hitSlop={2}
       style={({ pressed }) => [styles.tool, active && styles.toolActive, pressed && styles.toolPressed]}
     >
       <Icon name={icon} size={21} />
@@ -124,32 +142,38 @@ function Tool({ icon, label, active, onPress, color }) {
 
 const card = {
   padding: 4,
-  borderRadius: 20,
+  borderRadius: 16,
   borderWidth: 1,
-  borderColor: 'rgba(110,146,198,0.2)',
+  borderColor: 'rgba(129,125,185,0.2)',
   backgroundColor: 'rgba(255,255,255,0.97)',
   ...shadow.card,
 }
 
 const styles = StyleSheet.create({
-  wrap: { paddingHorizontal: 8, paddingTop: 6 },
-  bar: card,
+  // 세로(간편 편집)의 도구 막대는 떠 있는 카드가 아니라 상단 바처럼 화면 폭을 꽉 채운 한 영역이다(사용자 결정 2026-11-03)
+  wrap: {},
+  // 상단 바와의 경계선은 이 막대 위쪽 한 줄만 둔다(상단 바에는 아래선이 없다)
+  bar: { backgroundColor: colors.surface, borderTopWidth: 1, borderTopColor: colors.border, borderBottomWidth: 1, borderBottomColor: colors.border, paddingVertical: 4 },
   barViewport: { overflow: 'hidden' },
-  barRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 2 },
-  rowDivider: { width: 1, height: 28, marginHorizontal: 5, backgroundColor: 'rgba(11,25,87,0.12)' },
+  barRow: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 12 },
+  rowDivider: { width: 1, height: 28, marginHorizontal: 5, backgroundColor: 'rgba(28,28,28,0.12)' },
   // 가로 배치의 양옆 막대
   rail: { position: 'absolute', top: 8, width: PHONE_TOOLBAR_RAIL - 8 },
   railLeft: { left: 8, bottom: 8 },
   railRight: { right: 8 },
   // 막대는 위아래 끝까지 세우고, 도구가 많으면 안에서 스크롤한다.
   railBar: { ...card, flex: 1 },
-  railColumn: { alignItems: 'center', gap: 2 },
+  railColumn: { alignItems: 'center', gap: 4 },
   railSpread: { flexGrow: 1, justifyContent: 'space-between' },
-  railGroup: { alignItems: 'center', gap: 2 },
-  railDivider: { width: 28, height: 1, marginVertical: 5, backgroundColor: 'rgba(11,25,87,0.12)' },
+  railGroup: { alignItems: 'center', gap: 4 },
+  // 스크롤 막대 끝의 그라데이션: 막대 안쪽(테두리 1 + 안쪽 여백 4)에 맞추고 모서리 둥글기를 따른다
+  fade: { position: 'absolute', left: 1, right: 1, height: 30 },
+  fadeTop: { top: 1, borderTopLeftRadius: 15, borderTopRightRadius: 15, overflow: 'hidden' },
+  fadeBottom: { bottom: 1, borderBottomLeftRadius: 15, borderBottomRightRadius: 15, overflow: 'hidden' },
+  railDivider: { width: 28, height: 1, marginVertical: 5, backgroundColor: 'rgba(28,28,28,0.12)' },
   // iOS HIG 최소 터치 영역 44pt
-  tool: { width: 44, height: 44, borderRadius: 12, borderWidth: 1, borderColor: 'transparent', alignItems: 'center', justifyContent: 'center' },
-  toolActive: { backgroundColor: colors.surfaceSoft, borderColor: colors.primary },
-  toolPressed: { backgroundColor: colors.primarySoft },
+  tool: { width: 44, height: 44, borderRadius: 10, borderWidth: 2, borderColor: 'transparent', alignItems: 'center', justifyContent: 'center' },
+  toolActive: { backgroundColor: colors.surface, borderColor: colors.primary }, // 선택: 흰 면 + 테두리 2px
+  toolPressed: {}, // 눌림 효과 없음(사용자 지시)
   colorLine: { position: 'absolute', bottom: 5, width: 16, height: 3, borderRadius: 2 },
 })

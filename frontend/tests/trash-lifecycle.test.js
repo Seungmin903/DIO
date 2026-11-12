@@ -14,7 +14,7 @@ const keys = { diaries: 'diaries', doc: 'doc', customDecor: 'decor' };
 const base = Date.parse('2026-10-21T03:00:00Z');
 const item = (id, age) => ({ id, title: id, trashedAt: age === null ? null : new Date(base - age).toISOString() });
 
-function fixture(t, initial, { failedRead = false, failedDelete = false } = {}) {
+function fixture(t, initial, { failedRead = false, failedDelete = false, failedWrite = false } = {}) {
   let now = base;
   t.mock.method(Date, 'now', () => now);
   class Clock extends Date { constructor(...args) { super(...(args.length ? args : [now])); } static now() { return now; } }
@@ -43,11 +43,15 @@ function fixture(t, initial, { failedRead = false, failedDelete = false } = {}) 
   const load = id => {
     if (id === 'react') return react;
     if (id === 'react-native') return { AppState: appState };
-    if (id === '@react-native-async-storage/async-storage') return { __esModule: true, default: storage };
-    if (id.endsWith('/storage')) return { STORAGE_KEYS: keys, saveJSON: async (k, v) => { await storage.setItem(k, JSON.stringify(v)); return true; } };
+    if (id.endsWith('/documentStorage')) return { __esModule: true, default: storage };
+    if (id.endsWith('/storage')) return { STORAGE_KEYS: keys, saveJSON: async (k, v) => { if (failedWrite) return false; await storage.setItem(k, JSON.stringify(v)); return true; } };
     if (id.endsWith('/editorDocs')) return { forgetEditorDoc() {} };
+    if (id.endsWith('/editorViewState')) return { forgetViewedPage: async () => true };
     if (id.endsWith('/mediaReferences')) return { collectMediaIds };
     if (id.endsWith('/mediaRepository')) return { remove: async () => {} };
+    if (id.endsWith('/pdfSource')) return { collectPdfSourceIds: () => [] };
+    if (id.endsWith('/pdfSourceStore')) return { removePdfSource: async () => {} };
+    if (id.endsWith('/pdfImportRegistry')) return { sweepPdfImports: async () => null };
     if (id.endsWith('/diaryLibrary')) return library;
     if (id.endsWith('/trashRetention')) return retention;
     throw Error(id);
@@ -59,7 +63,7 @@ function fixture(t, initial, { failedRead = false, failedDelete = false } = {}) 
   async function flush() { for (let i = 0; i < 12; i++) { if (dirty) render(); await new Promise(resolve => setImmediate(resolve)); } if (dirty) render(); }
   render();
   t.after(() => slots.forEach(slot => slot?.cleanup?.()));
-  return { data, flush, get hook() { return value; }, setNow: n => { now = n; }, resume() { listeners.forEach(fn => fn('active')); }, tick() { intervals.forEach(fn => fn()); } };
+  return { data, flush, get hook() { return value; }, allowReads() { failedRead = false; }, setNow: n => { now = n; }, resume() { listeners.forEach(fn => fn('active')); }, tick() { intervals.forEach(fn => fn()); } };
 }
 
 test('시작 시 30일 만료 항목만 삭제하고 1ms 남은 항목은 앱 복귀 시 정리한다', async t => {
@@ -96,8 +100,24 @@ test('자동 삭제 실패는 휴지통에 남기고 오류를 안내하며 삭�
 test('읽기 실패 시 기존 목록과 편집 문서를 덮어쓰거나 자동 삭제하지 않는다', async t => {
   const f = fixture(t, [item('a', retention.TRASH_RETENTION_MS)], { failedRead: true });
   const original = f.data.get('diaries'); await f.flush();
+  assert.equal(f.hook.loaded, true);
+  assert.equal(f.hook.libraryReadFailed, true);
   assert.equal(f.data.get('diaries'), original);
   assert.equal(f.data.has('doc:a'), true);
+});
+
+test('기기 목록 읽기를 다시 시도해 성공하면 실패 상태를 지우고 저장을 재개한다', async t => {
+  const f = fixture(t, [item('saved', null)], { failedRead: true });
+  assert.equal(f.hook.loaded, false);
+  await f.flush();
+  assert.equal(await f.hook.addDiary(item('new', null)), false);
+  f.allowReads();
+  f.hook.retryLibraryRead();
+  await f.flush();
+  assert.equal(f.hook.loaded, true);
+  assert.equal(f.hook.libraryReadFailed, false);
+  assert.deepEqual(f.hook.diaries.map(d => d.id), ['saved']);
+  assert.equal(await f.hook.addDiary(item('new', null)), true);
 });
 
 test('자동 정리와 새 다이어리 저장은 같은 큐를 사용해 서로의 목록 변경을 보존한다', async t => {
@@ -116,4 +136,37 @@ test('기한 전에 복원한 다이어리는 이전 만료 시각이 지나도 
   f.setNow(base + retention.TRASH_RETENTION_MS); f.resume(); f.tick(); await f.flush();
   assert.equal(f.hook.diaries[0].trashedAt, null);
   assert.equal(f.data.has('doc:a'), true);
+});
+
+test('여러 다이어리를 한 번에 휴지통으로 옮기면 고른 항목만 같은 삭제 시각으로 저장하고 30일 정리를 따른다', async t => {
+  const f = fixture(t, [item('a', null), item('b', null), item('c', null), item('old', 1000)]); await f.flush();
+  const oldTrashedAt = f.hook.diaries.find(d => d.id === 'old').trashedAt;
+  assert.equal(await f.hook.moveManyToTrash(['a', 'c', 'old', 'missing']), true); await f.flush();
+  const byId = Object.fromEntries(f.hook.diaries.map(d => [d.id, d.trashedAt]));
+  assert.equal(byId.a, new Date(base).toISOString());
+  assert.equal(byId.c, byId.a);
+  assert.equal(byId.b, null);
+  assert.equal(byId.old, oldTrashedAt, '이미 휴지통에 있던 항목은 기한을 늘리지 않는다');
+  assert.deepEqual(JSON.parse(f.data.get('diaries')).filter(d => d.trashedAt).map(d => d.id).sort(), ['a', 'c', 'old']);
+  assert.ok(f.data.has('doc:a') && f.data.has('doc:b') && f.data.has('doc:c'), '휴지통 이동은 편집 문서를 지우지 않는다');
+  assert.equal(f.hook.restoreFromTrash('a'), true); await f.flush();
+  f.setNow(base + retention.TRASH_RETENTION_MS); f.tick(); await f.flush();
+  assert.deepEqual(f.hook.diaries.map(d => d.id).sort(), ['a', 'b']);
+  assert.equal(f.data.has('doc:c'), false);
+});
+
+test('일괄 이동 저장에 실패하면 목록을 바꾸지 않고 실패를 알린다', async t => {
+  const f = fixture(t, [item('a', null), item('b', null)], { failedWrite: true }); await f.flush();
+  const before = f.data.get('diaries');
+  assert.equal(await f.hook.moveManyToTrash(['a']), false); await f.flush();
+  assert.deepEqual(f.hook.diaries.map(d => d.trashedAt), [null, null]);
+  assert.equal(f.data.get('diaries'), before);
+  assert.equal(await f.hook.moveManyToTrash([]), false);
+});
+
+test('저장소를 읽지 못한 실행에서는 일괄 이동을 저장하지 않는다', async t => {
+  const f = fixture(t, [item('a', null)], { failedRead: true }); await f.flush();
+  const before = f.data.get('diaries');
+  assert.equal(await f.hook.moveManyToTrash(['a']), false);
+  assert.equal(f.data.get('diaries'), before);
 });

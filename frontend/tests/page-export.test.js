@@ -127,7 +127,7 @@ test('네이티브는 전용 영역을 지정한 PNG 픽셀 크기로 캡처하�
     captureRef: async (node, options) => { captured = { node, options }; return 'file:///export.png' },
     releaseCapture: (uri) => { released = uri },
     Platform: { OS:'ios' }, PixelRatio: {get:()=>2}, FileMode: {ReadOnly:'r'},
-    File: class {open(){return {readBytes:()=>header,close:()=>{closed=true}}}},
+    File: class {open(){return {readBytes:async()=>{await Promise.resolve();assert.equal(closed,false);return header},close:()=>{closed=true}}}},
   }
   const sources = {
     'react-native-view-shot':'export const {captureRef,releaseCapture}=globalThis.__exportNative',
@@ -146,4 +146,21 @@ test('네이티브는 전용 영역을 지정한 PNG 픽셀 크기로 캡처하�
   assert.equal(output.width,1188);assert.equal(output.height,840);assert.equal(closed,true)
   output.dispose()
   assert.equal(released, 'file:///export.png')
+})
+
+test('인생네컷·필름 4컷은 칸마다 원본을 칸 크기로 준비하고 빈 칸은 그대로 둔다', async () => {
+  const cell = (id) => ({ mediaFileId: id, poster: `${id}-thumb`, imageWidth: 400, imageHeight: 300, crop: { fx: 0.5, fy: 0.5, zoom: 1 } })
+  const strip = { id: 'strip', type: 'photo', frame: 'fourcut', x: 10, y: 10, w: 116, h: 357, rotation: 0, cells: [cell('a'), null, cell('b'), cell('a')] }
+  const page = { objects: [strip] }
+  const before = JSON.stringify(page)
+  const seen = []
+  const prepared = await prepareExportSnapshot(createExportSnapshot(page), async (o, usages) => {
+    seen.push([o.mediaFileId, usages.map((u) => Math.round(u.w))])
+    return { uri: `blob:${o.mediaFileId}` }
+  })
+  assert.deepEqual(seen, [['a', [100, 100]], ['b', [100]]], '칸 너비(100)로 해상도를 고르고 같은 원본은 한 번만 읽는다')
+  const cells = prepared.objects[0].cells
+  assert.deepEqual(cells.map((c) => c?.src ?? null), ['blob:a', null, 'blob:b', 'blob:a'])
+  assert.ok(cells.filter(Boolean).every((c) => !c.mediaFileId && !c.poster && c.imageWidth === 400))
+  assert.equal(JSON.stringify(page), before)
 })

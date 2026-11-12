@@ -2,20 +2,19 @@
   "expo": {
     "name": "DIO",
     "slug": "dio",
+    "scheme": "dio",
     "owner": "choihans-team",
-    "version": "1.0.0",
+    "version": "2.0.0",
     "orientation": "default",
     "userInterfaceStyle": "light",
-    "backgroundColor": "#FFFFFF",
-    "androidStatusBar": {
-      "hidden": true,
-      "translucent": true
-    },
+    "backgroundColor": "#F0ECFD",
     "experiments": {
       "reactCompiler": true
     },
     "ios": {
       "bundleIdentifier": "com.f106.DIO",
+      "associatedDomains": ["applinks:k15f106.p.ssafy.io"],
+      "usesAppleSignIn": true,
       "supportsTablet": true,
       "requireFullScreen": true,
       "config": {
@@ -26,13 +25,15 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "다이어리에 사진을 붙이기 위해 사진 보관함에 접근해요."
+          "photosPermission": false,
+          "cameraPermission": false,
+          "microphonePermission": false
         }
       ],
       [
         "expo-media-library",
         {
-          "photosPermission": "다이어리에 사진을 붙이기 위해 사진 보관함에 접근해요.",
+          "photosPermission": false,
           "savePhotosPermission": "완성한 다이어리를 사진첩에 저장하기 위해 사진 추가 권한이 필요해요.",
           "granularPermissions": [],
           "isAccessMediaLocationEnabled": false
@@ -46,6 +47,8 @@
         }
       ],
       "./plugins/withPointerEvents",
+      "./plugins/withHandwritingAndroid",
+      "./plugins/withHandwritingIos",
       "expo-image",
       [
         "expo-navigation-bar",
@@ -53,13 +56,28 @@
           "hidden": true
         }
       ],
+      "./plugins/withSplashWindowBackground",
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/splash-icon.png",
-          "imageWidth": 160,
-          "resizeMode": "contain",
-          "backgroundColor": "#CED9EE"
+          "backgroundColor": "#F0ECFD"
+        }
+      ],
+      "expo-asset",
+      "expo-font",
+      [
+        "expo-status-bar",
+        {
+          "hidden": true
+        }
+      ],
+      "expo-secure-store",
+      "expo-notifications",
+      "expo-apple-authentication",
+      [
+        "@react-native-google-signin/google-signin",
+        {
+          "iosUrlScheme": "com.googleusercontent.apps.180873138469-94fobh49akflvnq8lof6o8da5hj06dh8"
         }
       ]
     ],
@@ -70,9 +88,27 @@
     },
     "android": {
       "package": "com.f106.DIO",
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [{ "scheme": "https", "host": "k15f106.p.ssafy.io", "pathPrefix": "/invite/" }],
+          "category": ["BROWSABLE", "DEFAULT"]
+        }
+      ],
+      "googleServicesFile": "./google-services.json",
+      "permissions": [
+        "android.permission.POST_NOTIFICATIONS"
+      ],
+      "blockedPermissions": [
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.READ_MEDIA_VISUAL_USER_SELECTED",
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO"
+      ],
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
-        "backgroundColor": "#FFFFFF"
+        "backgroundColor": "#F0ECFD"
       }
     },
     "icon": "./assets/images/icon.png",

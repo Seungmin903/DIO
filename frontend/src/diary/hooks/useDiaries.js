@@ -1,12 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import documentStorage from '../../editor/services/documentStorage';
 import { saveJSON, STORAGE_KEYS } from '../../editor/services/storage';
 import { forgetEditorDoc } from '../../editor/services/editorDocs';
+import { forgetViewedPage } from '../../editor/services/editorViewState';
 import { collectMediaIds } from '../../editor/utils/mediaReferences';
 import * as mediaRepository from '../../editor/utils/mediaRepository';
+import { collectPdfSourceIds } from '../utils/pdfSource';
+import { removePdfSource } from '../utils/pdfSourceStore';
+import { sweepPdfImports } from '../utils/pdfImportRegistry';
 import { normalizeDiaries, recoverOrphanDiaries, sortByCreated } from '../utils/diaryLibrary';
-import { isTrashExpired, purgeTrashedDiary } from '../utils/trashRetention';
+import { isTrashExpired, markTrashed, purgeTrashedDiary } from '../utils/trashRetention';
 
 /** 다이어리 목록 + 기기 저장소 자동 저장. 편집 문서만 남은 다이어리는 목록에 되살린다. */
 export function useDiaries() {
@@ -28,7 +32,13 @@ export function useDiaries() {
     return result;
   }, []);
   const [loaded, setLoaded] = useState(false);
-  // 저장소를 읽지 못했으면 기존 목록을 빈 목록으로 덮어쓰지 않도록 이번 실행 동안 저장하지 않는다.
+  const [libraryReadFailed, setLibraryReadFailed] = useState(false);
+  const [loadAttempt, setLoadAttempt] = useState(0);
+  const retryLibraryRead = useCallback(() => {
+    setLoaded(false);
+    setLoadAttempt(attempt => attempt + 1);
+  }, []);
+  // 목록 읽기에 성공한 뒤에만 저장해 기존 목록을 빈 목록으로 덮어쓰지 않는다.
   const [writable, setWritable] = useState(false);
 
   useEffect(() => {
@@ -37,7 +47,7 @@ export function useDiaries() {
       let saved = [];
       let readable = true;
       try {
-        const raw = await AsyncStorage.getItem(STORAGE_KEYS.diaries);
+        const raw = await documentStorage.getItem(STORAGE_KEYS.diaries);
         try { saved = normalizeDiaries(raw ? JSON.parse(raw) : []); } catch { saved = []; }
       } catch {
         readable = false;
@@ -46,8 +56,14 @@ export function useDiaries() {
       try {
         const prefix = `${STORAGE_KEYS.doc}:`;
         const known = new Set(saved.map((diary) => `${prefix}${diary.id}`));
-        const keys = (await AsyncStorage.getAllKeys()).filter((key) => key.startsWith(prefix) && !known.has(key));
-        if (keys.length) entries = await AsyncStorage.multiGet(keys);
+        const keys = (await documentStorage.getAllKeys()).filter((key) => key.startsWith(prefix) && !known.has(key));
+        // 복구에는 문서 정보만 필요하므로 페이지 내용은 읽지 않는다. 옮기지 않은 옛 행은 그대로 읽는다.
+        for (const key of keys) {
+          try {
+            const outline = await documentStorage.loadOutline(key);
+            entries.push([key, outline ? JSON.stringify(outline) : await documentStorage.getItem(key)]);
+          } catch { /* 읽지 못한 문서만 건너뛴다. */ }
+        }
       } catch {
         // 복구 실패는 목록 표시를 막지 않는다.
       }
@@ -58,11 +74,12 @@ export function useDiaries() {
         const ids = new Set(restored.map((diary) => diary.id));
         return sortByCreated([...restored, ...current.filter((diary) => !ids.has(diary.id))]);
       });
+      setLibraryReadFailed(!readable);
       setWritable(readable);
       setLoaded(true);
     })();
     return () => { cancelled = true; };
-  }, [setDiaries]);
+  }, [loadAttempt, setDiaries]);
 
   useEffect(() => {
     if (writable) enqueue(() => saveJSON(STORAGE_KEYS.diaries, currentDiaries.current));
@@ -73,6 +90,16 @@ export function useDiaries() {
     const trashedAt = new Date().toISOString();
     setDiaries((current) => current.map((diary) => (diary.id === id && !diary.trashedAt ? { ...diary, trashedAt } : diary)));
   }, [setDiaries]);
+
+  // 여러 개를 한 번에 옮길 때는 저장 성공을 확인한 뒤에만 화면에 반영해 실패를 알릴 수 있게 한다.
+  const moveManyToTrash = useCallback((ids) => enqueue(async () => {
+    if (!writable || !ids.length) return false;
+    const trashedAt = new Date().toISOString();
+    if (!await saveJSON(STORAGE_KEYS.diaries, markTrashed(currentDiaries.current, ids, trashedAt))) return false;
+    setTrashNow(Date.now());
+    setDiaries(current => markTrashed(current, ids, trashedAt));
+    return true;
+  }), [enqueue, setDiaries, writable]);
 
   const restoreFromTrash = useCallback((id) => {
     const target = currentDiaries.current.find(diary => diary.id === id);
@@ -99,9 +126,10 @@ export function useDiaries() {
     deleting.current.add(id);
     try {
       return await enqueue(() => purgeTrashedDiary({
-        id, storage: AsyncStorage, keys: STORAGE_KEYS,
+        id, storage: documentStorage, keys: STORAGE_KEYS,
         getDiaries: () => currentDiaries.current, updateDiaries: setDiaries,
-        forgetDoc: forgetEditorDoc, collectMediaIds, removeMedia: mediaRepository.remove,
+        forgetDoc: forgetEditorDoc, forgetView: forgetViewedPage, collectMediaIds, removeMedia: mediaRepository.remove,
+        collectSourceIds: collectPdfSourceIds, removeSource: removePdfSource,
       }));
     } finally { deleting.current.delete(id); }
   }, [enqueue, setDiaries, writable]);
@@ -128,12 +156,22 @@ export function useDiaries() {
     return () => { clearInterval(timer); subscription.remove(); };
   }, [loaded, writable, cleanupTrash]);
 
+  // 앱을 켠 뒤 한 번, 휴지통 정리가 끝날 즈음에 어디에도 안 쓰는 불러온 PDF 의 쪽 그림 · 원본(고아 파일)을 지운다. 하루 안에 불러온 것은 건드리지 않는다.
+  useEffect(() => {
+    if (!loaded || !writable) return undefined;
+    const timer = setTimeout(() => { sweepPdfImports().catch(() => {}); }, 10000);
+    return () => clearTimeout(timer);
+  }, [loaded, writable]);
+
   return {
     diaries,
     setDiaries,
     addDiary,
     loaded,
+    libraryReadFailed,
+    retryLibraryRead,
     moveToTrash,
+    moveManyToTrash,
     restoreFromTrash,
     deletePermanently,
     renameDiary,

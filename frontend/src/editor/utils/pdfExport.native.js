@@ -11,7 +11,7 @@ export const readPdfImage = async (result) => {
 export const createPdfResult = async (bytes) => {
   const file = new File(Paths.cache, `dio-pdf-${randomUUID()}.pdf`)
   const dispose = () => { if (file.exists) file.delete() }
-  try { file.create(); file.write(bytes); return { uri: file.uri, dispose } }
+  try { file.create(); await file.write(bytes); return { uri: file.uri, dispose } }
   catch (error) { dispose(); throw error }
 }
 export const generatePdf = (snapshot, options) => generate(snapshot, { ...options, readImage: readPdfImage, createResult: createPdfResult })

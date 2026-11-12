@@ -1,0 +1,551 @@
+{
+  "date": "2026-10-27",
+  "revision": "safari-cache-preparation-v4",
+  "qaCase": 300,
+  "fixedZoom": 0.6,
+  "userVisualFeedback": "부분 준비에서 정밀 복원 후 빈틈·잔상 없음",
+  "cases": [
+    {
+      "mode": "cold",
+      "windowUTC": [
+        "2026-10-27T11:11:55.043Z",
+        "2026-10-27T11:12:26.556Z"
+      ],
+      "eraserGestures": [
+        {
+          "sequence": 1,
+          "cancelled": false,
+          "affectedObjects": 13,
+          "visibleCachesAtDown": 0,
+          "previewToLayout": {
+            "count": 14,
+            "p50": 6,
+            "p95": 15,
+            "max": 66
+          },
+          "finalizeToLayout": {
+            "count": 1,
+            "p50": 11,
+            "p95": 11,
+            "max": 11
+          },
+          "maxFrameGapMs": 134.99999999999818
+        },
+        {
+          "sequence": 2,
+          "cancelled": false,
+          "affectedObjects": 12,
+          "visibleCachesAtDown": 0,
+          "previewToLayout": {
+            "count": 6,
+            "p50": 16,
+            "p95": 75.00000000000182,
+            "max": 82
+          },
+          "finalizeToLayout": {
+            "count": 1,
+            "p50": 14,
+            "p95": 14,
+            "max": 14
+          },
+          "maxFrameGapMs": 126
+        },
+        {
+          "sequence": 3,
+          "cancelled": false,
+          "affectedObjects": 12,
+          "visibleCachesAtDown": 0,
+          "previewToLayout": {
+            "count": 5,
+            "p50": 12,
+            "p95": 13,
+            "max": 64
+          },
+          "finalizeToLayout": {
+            "count": 1,
+            "p50": 13,
+            "p95": 13,
+            "max": 13
+          },
+          "maxFrameGapMs": 124
+        },
+        {
+          "sequence": 4,
+          "cancelled": false,
+          "affectedObjects": 6,
+          "visibleCachesAtDown": 0,
+          "previewToLayout": {
+            "count": 6,
+            "p50": 8.000000000003638,
+            "p95": 9.999999999996362,
+            "max": 11
+          },
+          "finalizeToLayout": {
+            "count": 1,
+            "p50": 9,
+            "p95": 9,
+            "max": 9
+          },
+          "maxFrameGapMs": 118
+        },
+        {
+          "sequence": 5,
+          "cancelled": false,
+          "affectedObjects": 16,
+          "visibleCachesAtDown": 0,
+          "previewToLayout": {
+            "count": 11,
+            "p50": 19,
+            "p95": 71,
+            "max": 73
+          },
+          "finalizeToLayout": {
+            "count": 1,
+            "p50": 17.000000000003638,
+            "p95": 17.000000000003638,
+            "max": 17.000000000003638
+          },
+          "maxFrameGapMs": 117
+        }
+      ],
+      "checkpoints": [
+        {
+          "phase": "erased",
+          "objectCount": 305,
+          "beforeMatch": false,
+          "erasedMatch": true,
+          "readyCaches": 0,
+          "gate": {
+            "limit": 0,
+            "completed": 0,
+            "released": false
+          },
+          "history": null
+        },
+        {
+          "phase": "erased",
+          "objectCount": 313,
+          "beforeMatch": false,
+          "erasedMatch": true,
+          "readyCaches": 0,
+          "gate": {
+            "limit": 0,
+            "completed": 0,
+            "released": false
+          },
+          "history": null
+        },
+        {
+          "phase": "erased",
+          "objectCount": 318,
+          "beforeMatch": false,
+          "erasedMatch": true,
+          "readyCaches": 0,
+          "gate": {
+            "limit": 0,
+            "completed": 0,
+            "released": false
+          },
+          "history": null
+        },
+        {
+          "phase": "erased",
+          "objectCount": 319,
+          "beforeMatch": false,
+          "erasedMatch": true,
+          "readyCaches": 0,
+          "gate": {
+            "limit": 0,
+            "completed": 0,
+            "released": false
+          },
+          "history": null
+        },
+        {
+          "phase": "erased",
+          "objectCount": 323,
+          "beforeMatch": false,
+          "erasedMatch": true,
+          "readyCaches": 0,
+          "gate": {
+            "limit": 0,
+            "completed": 0,
+            "released": false
+          },
+          "history": null
+        },
+        {
+          "phase": "undo",
+          "objectCount": 319,
+          "beforeMatch": true,
+          "erasedMatch": false,
+          "readyCaches": 0,
+          "gate": {
+            "limit": 0,
+            "completed": 0,
+            "released": false
+          },
+          "history": {
+            "requestId": "mvql5kls-history-7",
+            "executions": 1,
+            "oneStep": true,
+            "beforePast": 5,
+            "beforeFuture": 0,
+            "afterPast": 4,
+            "afterFuture": 1,
+            "observedEditorCommit": true
+          }
+        },
+        {
+          "phase": "redo",
+          "objectCount": 323,
+          "beforeMatch": false,
+          "erasedMatch": true,
+          "readyCaches": 0,
+          "gate": {
+            "limit": 0,
+            "completed": 0,
+            "released": false
+          },
+          "history": {
+            "requestId": "mvql5kls-history-9",
+            "executions": 2,
+            "oneStep": true,
+            "beforePast": 4,
+            "beforeFuture": 1,
+            "afterPast": 5,
+            "afterFuture": 0,
+            "observedEditorCommit": true
+          }
+        }
+      ],
+      "historyExecutions": [
+        {
+          "phase": "undo",
+          "execution": 1,
+          "past": 5,
+          "future": 0
+        },
+        {
+          "phase": "redo",
+          "execution": 2,
+          "past": 4,
+          "future": 1
+        }
+      ],
+      "restoredOriginal": 0,
+      "restoredFragments": 0,
+      "errors": 0
+    },
+    {
+      "mode": "partial",
+      "windowUTC": [
+        "2026-10-27T11:14:41.703Z",
+        "2026-10-27T11:16:09.719Z"
+      ],
+      "eraserGestures": [
+        {
+          "sequence": 1,
+          "cancelled": false,
+          "affectedObjects": 29,
+          "visibleCachesAtDown": 12,
+          "previewToLayout": {
+            "count": 54,
+            "p50": 5,
+            "p95": 9.999999999992724,
+            "max": 14
+          },
+          "finalizeToLayout": {
+            "count": 1,
+            "p50": 15,
+            "p95": 15,
+            "max": 15
+          },
+          "maxFrameGapMs": 109.00000000000728
+        },
+        {
+          "sequence": 2,
+          "cancelled": false,
+          "affectedObjects": 14,
+          "visibleCachesAtDown": 12,
+          "previewToLayout": {
+            "count": 4,
+            "p50": 10,
+            "p95": 13,
+            "max": 14
+          },
+          "finalizeToLayout": {
+            "count": 1,
+            "p50": 15,
+            "p95": 15,
+            "max": 15
+          },
+          "maxFrameGapMs": 104
+        },
+        {
+          "sequence": 3,
+          "cancelled": false,
+          "affectedObjects": 17,
+          "visibleCachesAtDown": 12,
+          "previewToLayout": {
+            "count": 4,
+            "p50": 12,
+            "p95": 14,
+            "max": 14
+          },
+          "finalizeToLayout": {
+            "count": 1,
+            "p50": 17,
+            "p95": 17,
+            "max": 17
+          },
+          "maxFrameGapMs": 104.99999999999272
+        },
+        {
+          "sequence": 4,
+          "cancelled": false,
+          "affectedObjects": 12,
+          "visibleCachesAtDown": 12,
+          "previewToLayout": {
+            "count": 4,
+            "p50": 53.999999999992724,
+            "p95": 55,
+            "max": 69.00000000000728
+          },
+          "finalizeToLayout": {
+            "count": 1,
+            "p50": 13,
+            "p95": 13,
+            "max": 13
+          },
+          "maxFrameGapMs": 104
+        },
+        {
+          "sequence": 5,
+          "cancelled": false,
+          "affectedObjects": 17,
+          "visibleCachesAtDown": 12,
+          "previewToLayout": {
+            "count": 12,
+            "p50": 6,
+            "p95": 10.000000000007276,
+            "max": 13.999999999992724
+          },
+          "finalizeToLayout": {
+            "count": 1,
+            "p50": 9,
+            "p95": 9,
+            "max": 9
+          },
+          "maxFrameGapMs": 83
+        },
+        {
+          "sequence": 6,
+          "cancelled": false,
+          "affectedObjects": 21,
+          "visibleCachesAtDown": 12,
+          "previewToLayout": {
+            "count": 8,
+            "p50": 13,
+            "p95": 18.000000000014552,
+            "max": 20
+          },
+          "finalizeToLayout": {
+            "count": 1,
+            "p50": 10,
+            "p95": 10,
+            "max": 10
+          },
+          "maxFrameGapMs": 86
+        }
+      ],
+      "checkpoints": [
+        {
+          "phase": "erased",
+          "objectCount": 303,
+          "beforeMatch": false,
+          "erasedMatch": true,
+          "readyCaches": 12,
+          "gate": {
+            "limit": 12,
+            "completed": 12,
+            "released": false
+          },
+          "history": null
+        },
+        {
+          "phase": "before",
+          "objectCount": 303,
+          "beforeMatch": true,
+          "erasedMatch": true,
+          "readyCaches": 12,
+          "gate": {
+            "limit": 12,
+            "completed": 12,
+            "released": false
+          },
+          "history": null
+        },
+        {
+          "phase": "erased",
+          "objectCount": 303,
+          "beforeMatch": false,
+          "erasedMatch": true,
+          "readyCaches": 12,
+          "gate": {
+            "limit": 12,
+            "completed": 12,
+            "released": false
+          },
+          "history": null
+        },
+        {
+          "phase": "erased",
+          "objectCount": 306,
+          "beforeMatch": true,
+          "erasedMatch": true,
+          "readyCaches": 12,
+          "gate": {
+            "limit": 12,
+            "completed": 12,
+            "released": false
+          },
+          "history": null
+        },
+        {
+          "phase": "erased",
+          "objectCount": 309,
+          "beforeMatch": false,
+          "erasedMatch": true,
+          "readyCaches": 12,
+          "gate": {
+            "limit": 12,
+            "completed": 12,
+            "released": false
+          },
+          "history": null
+        },
+        {
+          "phase": "erased",
+          "objectCount": 324,
+          "beforeMatch": false,
+          "erasedMatch": true,
+          "readyCaches": 12,
+          "gate": {
+            "limit": 12,
+            "completed": 12,
+            "released": false
+          },
+          "history": null
+        },
+        {
+          "phase": "erased",
+          "objectCount": 333,
+          "beforeMatch": false,
+          "erasedMatch": true,
+          "readyCaches": 8,
+          "gate": {
+            "limit": 12,
+            "completed": 12,
+            "released": false
+          },
+          "history": null
+        },
+        {
+          "phase": "release",
+          "objectCount": 333,
+          "beforeMatch": false,
+          "erasedMatch": true,
+          "readyCaches": 8,
+          "gate": {
+            "limit": 12,
+            "completed": 12,
+            "released": true
+          },
+          "history": null
+        },
+        {
+          "phase": "restored",
+          "objectCount": 333,
+          "beforeMatch": false,
+          "erasedMatch": true,
+          "readyCaches": 97,
+          "gate": {
+            "limit": 12,
+            "completed": 101,
+            "released": true
+          },
+          "history": null
+        },
+        {
+          "phase": "undo",
+          "objectCount": 324,
+          "beforeMatch": true,
+          "erasedMatch": false,
+          "readyCaches": 65,
+          "gate": {
+            "limit": 12,
+            "completed": 101,
+            "released": true
+          },
+          "history": {
+            "requestId": "mvql91ml-history-12",
+            "executions": 1,
+            "oneStep": true,
+            "beforePast": 6,
+            "beforeFuture": 0,
+            "afterPast": 5,
+            "afterFuture": 1,
+            "observedEditorCommit": true
+          }
+        },
+        {
+          "phase": "redo",
+          "objectCount": 333,
+          "beforeMatch": false,
+          "erasedMatch": true,
+          "readyCaches": 65,
+          "gate": {
+            "limit": 12,
+            "completed": 133,
+            "released": true
+          },
+          "history": {
+            "requestId": "mvql91ml-history-14",
+            "executions": 2,
+            "oneStep": true,
+            "beforePast": 5,
+            "beforeFuture": 1,
+            "afterPast": 6,
+            "afterFuture": 0,
+            "observedEditorCommit": true
+          }
+        }
+      ],
+      "historyExecutions": [
+        {
+          "phase": "undo",
+          "execution": 1,
+          "past": 6,
+          "future": 0
+        },
+        {
+          "phase": "redo",
+          "execution": 2,
+          "past": 5,
+          "future": 1
+        }
+      ],
+      "restoredOriginal": 319,
+      "restoredFragments": 225,
+      "errors": 0
+    }
+  ],
+  "limits": [
+    "미준비 v4는 캐시 해제/정밀 복원 없이 단일 이력을 검증; 미준비 복원은 앞선 회차와 구분",
+    "레이아웃 commit은 실제 픽셀 표시 시각이 아님",
+    "사용자 육안 확인이며 자동 픽셀 동등성 검사가 아님",
+    "정밀 복원 처리 수에는 반복 객체 포함",
+    "순간 지연 잔존; 실패/예산 초과 강제 Safari 및 네이티브/장시간 검증 미완료"
+  ]
+}

@@ -8,20 +8,66 @@
 
 import { clamp, createId, rotatedBounds, unionBounds } from '../utils/common.js'
 import { pageSize } from '../utils/pageGeometry.js'
+import { isBackdrop, keepBackdropBottom } from '../utils/backdrop.js'
 import { createBlankPage, createTemplatePage } from './defaultDoc.js'
+import { assignRouteDays } from '../templates/routePaper.js'
 import { normalizePaperAppearance } from '../templates/appearance.js'
+import { applyPageSettings } from '../../collaboration/pageSettings.js'
+import { packingDropPatch } from '../templates/packingEditing.js'
+import { isTastingId } from '../templates/tastingGeometry.js'
+import { updateTastingElements } from '../templates/tastingElements.js'
 
-const HISTORY_LIMIT = 80
+const HISTORY_LIMIT = 20
 const PASTE_OFFSET = 24
 
-export function createInitialState(doc) {
+export function createInitialState(doc, viewedPageId) {
   return {
     doc,
     past: [],
     future: [],
     pendingCheckpoint: null,
-    pageId: doc.pages[0].id,
+    pageId: (doc.pages.find((page) => page.id === viewedPageId) ?? doc.pages[0]).id,
     selectedIds: [],
+    ...(doc.pages.some((page) => page.unloaded) ? { pagesLoading: true } : {}),
+  }
+}
+
+// 페이지 내용을 뒤에서 읽는 동안(pagesLoading) 막는 동작.
+// 내용을 모르는 페이지를 복제 · 삭제하면 복사본이 비거나, 되돌렸을 때 지워진 파일을 찾게 된다.
+const NEEDS_ALL_PAGES = new Set(['duplicatePage', 'removePage', 'removePages', 'resetDiary'])
+// 지금 페이지의 내용을 읽기 전에는 그 페이지의 요소를 바꾸지 않는다.
+const NEEDS_CURRENT_PAGE = new Set([
+  'addObjects', 'updateObject', 'updateMany', 'replaceObjects', 'removeObjects', 'duplicateObjects', 'pasteObjects',
+  'align', 'reorder', 'moveLayer', 'group', 'moveLayers', 'ungroup', 'setPlanner', 'checkpoint',
+])
+
+/** 읽어 온 내용을 지금 문서와 되돌리기 기록의 같은 페이지에 채운다. 기록에 넣지 않는다. */
+function hydratePages(state, items, done) {
+  const objectsById = new Map(items.map((item) => [item.id, item.objects]))
+  const fill = (doc) => {
+    let changed = false
+    const pages = doc.pages.map((page) => {
+      if (!page.unloaded || !objectsById.has(page.id)) return page
+      changed = true
+      const { unloaded, ...loaded } = page
+      return { ...loaded, objects: objectsById.get(page.id) }
+    })
+    return changed ? { ...doc, pages } : doc
+  }
+  const { pagesLoading, ...rest } = state
+  const doc = fill(state.doc)
+  return {
+    ...rest,
+    doc,
+    hydratedDoc: doc,
+    past: state.past.map(fill),
+    future: state.future.map(fill),
+    pendingCheckpoint: state.pendingCheckpoint ? {
+      doc: fill(state.pendingCheckpoint.doc),
+      past: state.pendingCheckpoint.past.map(fill),
+      future: state.pendingCheckpoint.future.map(fill),
+    } : null,
+    ...(done ? {} : { pagesLoading }),
   }
 }
 
@@ -36,13 +82,30 @@ const withHistory = (state) => ({
   pendingCheckpoint: null,
 })
 
+const PHOTO_NUMBER = /^사진 (\d+)$/
+/** 이름 없는 사진에 그 페이지의 다음 번호(지금 있는 '사진 n' 중 가장 큰 n + 1)를 붙인다. 이름 있는 것 · 사진 아닌 것은 그대로 */
+export function namePhotos(existing, added) {
+  let last = 0
+  for (const o of existing) { const m = typeof o.name === 'string' && o.name.match(PHOTO_NUMBER); if (m) last = Math.max(last, Number(m[1])) }
+  return added.map((o) => (o.type === 'photo' && !o.name ? { ...o, name: `사진 ${++last}` } : o))
+}
+
 function updateObjects(state, updater) {
-  const pageId = getCurrentPage(state).id
+  const currentPage = getCurrentPage(state)
+  const pageId = currentPage.id
   return {
     ...state,
     doc: {
       ...state.doc,
-      pages: state.doc.pages.map((page) => (page.id === pageId ? { ...page, objects: updater(page.objects) } : page)),
+      pages: state.doc.pages.map((page) => {
+        if (page.id !== pageId) return page
+        const objects = keepBackdropBottom(updater(page.objects))
+        if (!page.backgroundAssetId?.startsWith('remote-packing-list')) return { ...page, objects }
+        return { ...page, objects: objects.map(object => {
+          const patch = packingDropPatch(page.backgroundAssetId, object)
+          return patch ? { ...object, ...patch } : object
+        }) }
+      }),
     },
   }
 }
@@ -115,15 +178,17 @@ function cloneObjects(objects, offset) {
 
 /**
  * 페이지 복제본은 원본과 같은 소재(mediaFileId)는 참조하되, 편집 대상인
- * 페이지·요소·그룹 ID는 모두 새로 만든다. 따라서 한쪽 페이지의 요소를
+ * 속지·배색·플래너 기록 등 페이지 내용을 깊게 복사하고 페이지·요소·그룹 ID는
+ * 모두 새로 만든다. 따라서 한쪽 페이지의 요소를
  * 이동·삭제·수정해도 다른 페이지에는 영향을 주지 않는다.
  */
 function clonePage(page) {
+  const copyPage = JSON.parse(JSON.stringify(page))
   const groupMap = new Map()
   return {
+    ...copyPage,
     id: createId(),
-    objects: page.objects.map((object) => {
-      const copy = JSON.parse(JSON.stringify(object))
+    objects: copyPage.objects.map((copy) => {
       let groupId = copy.groupId
       if (groupId) {
         if (!groupMap.has(groupId)) groupMap.set(groupId, createId())
@@ -204,22 +269,64 @@ function normalizeSelection(state) {
   }
 }
 
+const sameIds = (a, b) => a.length === b.length && a.every((id, index) => id === b[index])
 export function editorReducer(state, action) {
+  if (action.type === 'revertToCheckpoint' && action.checkpointOwner && state.pendingCheckpoint?.owner !== action.checkpointOwner) return state
   const objects = getCurrentPage(state).objects
+  if (state.pagesLoading && (NEEDS_ALL_PAGES.has(action.type) || (NEEDS_CURRENT_PAGE.has(action.type) && getCurrentPage(state).unloaded))) return state
 
   switch (action.type) {
+    case 'hydratePages': return hydratePages(state, action.items, action.done)
+    case 'applyServerPageSettings': return applyPageSettings(state, action.settings, action.paperAppearance)
+    case 'reconcileServerPages': {
+      const settings = (action.settings ?? []).filter(p => {
+        const current = state.doc.pages.find(page => page.id === p.id)
+        return current && Object.keys(p).some(key => JSON.stringify(current[key]) !== JSON.stringify(p[key]))
+      })
+      const defaultChanged = action.paperAppearance && JSON.stringify(state.doc.paperAppearance) !== JSON.stringify(action.paperAppearance)
+      if (settings.length || defaultChanged) state = applyPageSettings(state, settings, action.paperAppearance)
+      const ids=new Set(action.pageIds),existing=new Map(state.doc.pages.map(p=>[p.id,p]))
+      for(const p of action.pages)if(!existing.has(p.id))existing.set(p.id,p)
+      const removed=state.doc.pages.filter(p=>!ids.has(p.id))
+      if(!state.serverPagesEmpty&&!removed.length&&!action.pages.length&&action.pageIds.length===state.doc.pages.length&&action.pageIds.every((id,i)=>state.doc.pages[i].id===id))return state
+      const recovery=[...(state.doc.pageRecovery??[])]
+      for(const page of removed)if(!recovery.some(r=>r.page.id===page.id))recovery.push({page,reason:'NOT_IN_SERVER_PAGE_LIST'})
+      const pages=action.pageIds.map(id=>existing.get(id)).filter(Boolean)
+      // The editor always needs a visible page. If the server is empty, keep a
+      // read-only recovery view rather than inventing a new server page UUID.
+      if(!pages.length)return {...state,serverPagesEmpty:true,externalDirty:true,doc:{...state.doc,pageRecovery:recovery},collaborationEdits:[]}
+      const selected=ids.has(state.pageId)?state.pageId:pages[0].id
+      const adapt=doc=>({...doc,pages:pages.map(p=>doc.pages.find(old=>old.id===p.id)??p)})
+      return {...state,serverPagesEmpty:false,externalDirty:true,
+        doc:{...state.doc,pages,...(removed.length?{pageRecovery:recovery}:{})},pageId:selected,
+        selectedIds:selected===state.pageId?state.selectedIds:[],
+        past:state.past.map(adapt),future:state.future.map(adapt),
+        pendingCheckpoint:state.pendingCheckpoint?{...state.pendingCheckpoint,doc:adapt(state.pendingCheckpoint.doc)}:null,
+        collaborationGesture:state.collaborationGesture&&ids.has(state.collaborationGesture.pageId)?state.collaborationGesture:null,
+        collaborationEdits:(state.collaborationEdits??[]).filter(e=>ids.has(e.pageId))}
+    }
+    case 'importServerPages': {
+      const known=new Set(state.doc.pages.map(p=>p.id)),added=action.pages.filter(p=>!known.has(p.id))
+      if(!added.length&&!action.selectId)return state
+      const pages=[...state.doc.pages,...added]
+      return {...state,externalDirty:true,doc:{...state.doc,pages},
+        ...(action.selectId&&pages.some(p=>p.id===action.selectId)?{pageId:action.selectId,selectedIds:[]}: {})}
+    }
+    case 'commitCheckpoint': return state
     case 'checkpoint':
       return {
         ...withHistory(state),
         // 취소한 드래그는 새 편집이 아니므로 이전 Redo와 이력 상한 이전의 Past도 복원한다.
-        pendingCheckpoint: { doc: state.doc, past: state.past, future: state.future },
+        pendingCheckpoint: { doc: state.doc, past: state.past, future: state.future, ...(action.checkpointOwner ? { owner: action.checkpointOwner } : {}) },
       }
 
     // 자르기 취소처럼 checkpoint 이후의 변경을 버리고 그 시점으로 돌아간다.
     case 'revertToCheckpoint': {
       if (state.pendingCheckpoint) return normalizeSelection({
         ...state,
-        ...state.pendingCheckpoint,
+        doc: state.pendingCheckpoint.doc,
+        past: state.pendingCheckpoint.past,
+        future: state.pendingCheckpoint.future,
         pendingCheckpoint: null,
       })
       if (!state.past.length) return state
@@ -239,12 +346,12 @@ export function editorReducer(state, action) {
     case 'selectAll':
       return {
         ...state,
-        selectedIds: objects.filter((o) => !o.hidden).map((o) => o.id),
+        selectedIds: objects.filter((o) => !o.hidden && !isBackdrop(o)).map((o) => o.id),
       }
 
     // 그룹을 펼치지 않고 그대로 선택 (그룹 안 요소 하나만 고칠 때)
     case 'selectExact':
-      return { ...state, selectedIds: action.ids }
+      return sameIds(state.selectedIds, action.ids) ? state : { ...state, selectedIds: action.ids }
 
     case 'toggleSelect': {
       const target = action.exact ? [action.id] : expandGroups(objects, [action.id])
@@ -265,8 +372,10 @@ export function editorReducer(state, action) {
       return { ...state, pageId: action.id, selectedIds: [] }
 
     case 'addObjects': {
-      const next = updateObjects(withHistory(state), (list) => [...list, ...action.objects])
-      return { ...next, selectedIds: action.objects.map((o) => o.id) }
+      // 파일 이름이 없는(뜻 없는) 사진은 그 페이지 안에서 '사진 1', '사진 2'… 로 이름 짓는다(이름을 저장하므로 다른 사진을 지워도 바뀌지 않는다)
+      const next = updateObjects(withHistory(state), (list) => [...list, ...namePhotos(list, action.objects)])
+      // select:false — 새 요소를 선택하지 않고 기존 선택만 푼다(펜 획)
+      return { ...next, selectedIds: action.select === false ? (state.selectedIds.length ? [] : state.selectedIds) : action.objects.map((o) => o.id) }
     }
 
     case 'updateObject':
@@ -364,16 +473,27 @@ export function editorReducer(state, action) {
         list.map((o) => (action.ids.includes(o.id) ? { ...o, groupId: undefined } : o)),
       )
 
+    // count 장을 position(after: 지금 페이지 뒤 · before: 앞 · end: 맨 끝)에 넣고 첫 새 페이지로 간다.
+    // paperAppearance 를 주면 새 페이지만 그 색으로 칠한다. (없으면 문서 기본 색)
     case 'addPage': {
-      const created = action.backgroundAssetId ? createTemplatePage(action.backgroundAssetId, state.doc.paperAppearance) : createBlankPage(state.doc.orientation)
-      const page = state.doc.paperAppearance ? { ...created, paperAppearance: state.doc.paperAppearance } : created
+      const appearance = action.paperAppearance ? normalizePaperAppearance(action.paperAppearance) : state.doc.paperAppearance
+      // assetIds: 여러 속지를 섞어 넣을 때 순서대로. 없으면 backgroundAssetId 를 count 장
+      const count = Math.max(1, Math.min(50, Math.floor(action.count ?? 1)))
+      const ids = Array.isArray(action.assetIds) && action.assetIds.length ? action.assetIds.slice(0, 200) : Array.from({ length: count }, () => action.backgroundAssetId ?? null)
+      // pages: 미리 만든 페이지(내 속지 PDF 쪽처럼 바탕 그림 · 크기가 정해진 것)는 그대로 넣는다
+      // 여행 노선 속지는 문서에 이미 있는 노선 페이지 다음 번호(DAY n)를 받는다
+      const added = assignRouteDays(Array.isArray(action.pages) && action.pages.length ? action.pages.slice(0, 200) : ids.map((id) => {
+        const created = id ? createTemplatePage(id, appearance) : createBlankPage(state.doc.orientation)
+        return appearance ? { ...created, paperAppearance: appearance } : created
+      }), state.doc.pages)
       const index = state.doc.pages.findIndex((p) => p.id === getCurrentPage(state).id)
+      const at = action.position === 'end' ? state.doc.pages.length : action.position === 'before' ? index : index + 1
       const pages = [...state.doc.pages]
-      pages.splice(index + 1, 0, page)
+      pages.splice(at, 0, ...added)
       return {
         ...withHistory(state),
         doc: { ...state.doc, pages },
-        pageId: page.id,
+        pageId: added[0].id,
         selectedIds: [],
       }
     }
@@ -412,6 +532,18 @@ export function editorReducer(state, action) {
     // 페이지 목록에서 썸네일을 끌어 순서를 바꾼다. (지금 보던 페이지는 그대로)
     // 여러 페이지를 순서 그대로 anchorId 페이지 앞(before)이나 뒤(after)로 함께 옮긴다. 되돌리기 한 번.
     // 속지 색: all 이면 모든 페이지와 문서 기본값(새로 추가할 페이지)에, 아니면 지금 페이지에만. 되돌리기 한 번.
+    // 스터디 · 데일리 플래너 기록(칠한 칸 · 일정 · 체크 · 옵션). after: 같은 되돌리기 단위로 먼저 적용할 동작(지우개가 획과 칸을 함께 지울 때)
+    // silent: 되돌리기 단위를 만들지 않는다(글자를 쓴 뒤 일정 색이 저절로 채워질 때. 되돌리기가 색만 떼어 내다 다시 채워지는 일을 막는다)
+    case 'setPlanner': {
+      const base = action.after ? editorReducer(state, action.after) : action.silent ? state : withHistory(state)
+      const pageId = action.pageId ?? getCurrentPage(state).id
+      const page = base.doc.pages.find(item => item.id === pageId)
+      if (page && isTastingId(page.backgroundAssetId) && !page.planner?.fills) {
+        return { ...base, doc: { ...base.doc, pages: base.doc.pages.map(item => item.id === pageId ? { ...item, objects: updateTastingElements(item, action.planner) } : item) } }
+      }
+      return { ...base, doc: { ...base.doc, pages: base.doc.pages.map((page) => (page.id === pageId ? { ...page, planner: action.planner } : page)) } }
+    }
+
     case 'setPaperAppearance': {
       const pageId = getCurrentPage(state).id
       const appearance = normalizePaperAppearance(action.appearance)
@@ -440,16 +572,23 @@ export function editorReducer(state, action) {
       return { ...withHistory(state), doc: { ...state.doc, pages } }
     }
 
-    case 'removePage': {
-      if (state.doc.pages.length <= 1) return state
-      const index = state.doc.pages.findIndex((p) => p.id === action.id)
-      const pages = state.doc.pages.filter((p) => p.id !== action.id)
-      const pageId = state.pageId === action.id ? pages[Math.max(0, index - 1)].id : state.pageId
-      return normalizeSelection({
-        ...withHistory(state),
-        doc: { ...state.doc, pages },
-        pageId,
-      })
+    case 'resetDiary': {
+      const size = pageSize(getCurrentPage(state))
+      const page = { ...createBlankPage(state.doc.orientation), canvasWidth: size.width, canvasHeight: size.height,
+        ...(state.doc.paperAppearance ? { paperAppearance: state.doc.paperAppearance } : {}) }
+      return { ...withHistory(state), doc: { ...state.doc, pages: [page] }, pageId: page.id, selectedIds: [] }
+    }
+
+    case 'removePage':
+    case 'removePages': {
+      const removing = new Set(action.type === 'removePage' ? [action.id] : action.ids)
+      const pages = state.doc.pages.filter((p) => !removing.has(p.id))
+      // Keep at least one page; stale/empty requests do not create undo entries.
+      if (!pages.length || pages.length === state.doc.pages.length) return state
+      const index = state.doc.pages.findIndex((p) => p.id === state.pageId)
+      const previous = state.doc.pages.slice(0, index).filter((p) => !removing.has(p.id)).at(-1)
+      const pageId = removing.has(state.pageId) ? (previous ?? pages[0]).id : state.pageId
+      return normalizeSelection({ ...withHistory(state), doc: { ...state.doc, pages }, pageId })
     }
 
     case 'undo':
@@ -472,8 +611,25 @@ export function editorReducer(state, action) {
         pendingCheckpoint: null,
       })
 
+    // Server import/recovery never replaces other objects or newer local edits.
+    // Keep this outside Undo history so it cannot erase already-made edits.
+    case 'importPageTexts': {
+      const page = state.doc.pages.find(p => p.id === action.pageId)
+      if (!page || page.objects !== action.expectedObjects) return state
+      const incoming = new Map(action.objects.map(o => [o.id, o]))
+      const objects = page.objects.flatMap(o => {
+        if (o.type !== 'text') return [o]
+        const next = incoming.get(o.id)
+        incoming.delete(o.id)
+        return next ? [next] : []
+      }).concat([...incoming.values()])
+      const currentTexts = page.objects.filter(o => o.type === 'text')
+      const nextTexts = objects.filter(o => o.type === 'text')
+      if (JSON.stringify(currentTexts) === JSON.stringify(nextTexts)) return state
+      return { ...state, externalDirty: true, doc: { ...state.doc, pages: state.doc.pages.map(p => p === page ? { ...p, objects } : p) } }
+    }
     case 'load':
-      return createInitialState(action.doc)
+      return createInitialState(action.doc, action.pageId)
 
     default:
       throw new Error(`Unknown editor action: ${action.type}`)

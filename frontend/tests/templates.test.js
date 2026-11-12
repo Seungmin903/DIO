@@ -14,14 +14,19 @@ import { createPageImageRenderer } from '../src/editor/utils/pageImageRenderer.j
 import { readSvg } from '../src/editor/templates/readSvg.web.js'
 import { REGION_PRESETS, fitRegionPreset, validRegion } from '../src/editor/utils/regionGeometry.js'
 
-test('가로·세로 SVG 각 138개가 원본 ID·방향별 좌표로 모두 번들 매핑된다', async () => {
+test('가로·세로 SVG 각 140개가 원본 ID·방향별 좌표로 모두 매핑된다(공용 속지만 번들, 나머지는 원격)', async () => {
   const directory = new URL('../assets/templates/2026/SVG/', import.meta.url)
   const files = await readdir(directory)
-  assert.equal(files.length, 276)
-  assert.equal(catalog.assets.length, 276)
-  for (const orientation of ['landscape', 'portrait']) assert.equal(catalog.assets.filter(asset => asset.orientation === orientation).length, 138)
+  assert.equal(files.length, 280)
+  assert.equal(catalog.assets.length, 280)
+  for (const orientation of ['landscape', 'portrait']) assert.equal(catalog.assets.filter(asset => asset.orientation === orientation).length, 140)
   const mapping = await readFile(new URL('../src/editor/templates/assets.js', import.meta.url), 'utf8')
-  assert.equal((mapping.match(/require\(/g) ?? []).length, 276)
+  const bundled = [...mapping.matchAll(/require\("\.\.\/\.\.\/\.\.\/assets\/templates\/2026\/SVG\/([^"]+)"\)/g)].map(match => match[1])
+  const remote = [...mapping.matchAll(/remoteAsset\("templates\/2026\/SVG\/([^"]+)"\)/g)].map(match => match[1])
+  assert.equal(bundled.length + remote.length, 280)
+  assert.equal(bundled.length, 18)
+  assert.ok(bundled.every(name => name.startsWith('2026-reusable-')))
+  assert.ok(remote.every(name => !name.startsWith('2026-reusable-')))
   for (const asset of catalog.assets) {
     assert.ok(['landscape', 'portrait'].includes(asset.orientation))
     assert.ok(mapping.includes(JSON.stringify(asset.id)))
@@ -51,7 +56,7 @@ test('세로형 연간 순서·공용 속지 추가·빈 페이지 크기를 유
   assert.equal(new Set(doc.pages.map(page => page.id)).size, 78)
   for (const page of doc.pages) assert.deepEqual(pageSize(page), { width: 768, height: 1024 })
   const menu = reusableTemplates('portrait')
-  assert.equal(menu.length, 7)
+  assert.equal(menu.length, 11)
   for (const item of menu) {
     const state = editorReducer(createInitialState(doc), { type: 'addPage', backgroundAssetId: item.assetId })
     assert.equal(getTemplate(getCurrentPage(state).backgroundAssetId).orientation, 'portrait')
@@ -108,8 +113,8 @@ test('내용 없는 이전 연간 문서와 편집한 문서를 모두 그대로
   assert.equal(migrateUntouchedAnnualDoc(edited), edited)
 })
 
-test('공용 속지 7종은 현재 페이지 다음에 추가되며 취소 이력·재실행·JSON 복원이 유지된다', () => {
-  assert.equal(REUSABLE_TEMPLATES.length, 7)
+test('공용 속지 9종(스터디 · 데일리 플래너 · 여행 노선 포함)은 현재 페이지 다음에 추가되며 취소 이력·재실행·JSON 복원이 유지된다', () => {
+  assert.equal(REUSABLE_TEMPLATES.length, 11)
   for (const item of REUSABLE_TEMPLATES) {
     const doc = createDefaultDoc()
     let state = createInitialState(doc)
@@ -160,7 +165,7 @@ test('삭제·실행 취소는 배경 참조를 복구하고 마지막 한 페�
 })
 
 test('알 수 없는 ID·버전 누락/불일치는 내보내기 오류이며 세로형은 허용한다', () => {
-  const page = createTemplatePage(REUSABLE_TEMPLATES[0].assetId)
+  const page = createTemplatePage('2026-reusable-daily-landscape')
   for (const patch of [{ backgroundAssetId: 'missing' }, { backgroundAssetId: '' }, { templateVersion: '9.0.0' }, { templateVersion: undefined }]) {
     assert.throws(() => createExportSnapshot({ ...page, ...patch }), { code: 'EXPORT_TEMPLATE_FAILED' })
   }
@@ -171,18 +176,18 @@ test('알 수 없는 ID·버전 누락/불일치는 내보내기 오류이며 �
 })
 
 test('PNG 스냅샷은 속지 참조·크기를 고정하고 원본 페이지 변경과 독립적이다', () => {
-  const page = createTemplatePage(REUSABLE_TEMPLATES[0].assetId)
+  const page = createTemplatePage('2026-reusable-daily-landscape')
   const snapshot = createExportSnapshot(page)
   assert.equal(snapshot.width, 1024); assert.equal(snapshot.pixelHeight, 768)
   page.backgroundAssetId = 'missing'
-  assert.equal(snapshot.template.backgroundAssetId, REUSABLE_TEMPLATES[0].assetId)
+  assert.equal(snapshot.template.backgroundAssetId, '2026-reusable-daily-landscape')
   assert.equal(snapshot.background, '#FFFFFF')
   const old = createExportSnapshot({ id: 'old', objects: [] })
   assert.equal(old.width, 1188); assert.equal(old.height, 840); assert.equal(old.template, null)
 })
 
 test('배경 준비가 끝나기 전에는 출력 준비가 완료되지 않고 실패 후 재시도할 수 있다', async () => {
-  const snapshot = createExportSnapshot(createTemplatePage(REUSABLE_TEMPLATES[0].assetId))
+  const snapshot = createExportSnapshot(createTemplatePage('2026-reusable-daily-landscape'))
   let release
   let done = false
   const pending = prepareExportSnapshot(snapshot, () => assert.fail('No user images'), () => new Promise(resolve => { release = resolve })).then(v => { done = true; return v })
@@ -260,7 +265,7 @@ test('페이지 순서를 바꾸고 되돌려도 속지·크기·요소와 현�
 
 
 test('PDF는 저장된 페이지별 크기와 속지 참조를 보존하고 공통 출력에 전달한다', () => {
-  const page = createTemplatePage(REUSABLE_TEMPLATES[0].assetId)
+  const page = createTemplatePage('2026-reusable-daily-landscape')
   const legacy = { id: 'legacy-pdf', canvasWidth: 1188, canvasHeight: 840, objects: [] }
   const doc = { title: '혼합 문서', pages: [legacy, page] }
   const before = JSON.stringify(doc)
@@ -269,12 +274,12 @@ test('PDF는 저장된 페이지별 크기와 속지 참조를 보존하고 공�
   assert.equal(snapshot.pages[0].template,null)
   assert.equal(snapshot.pages[1].template.backgroundAssetId,page.backgroundAssetId)
   assert.equal(JSON.stringify(doc),before)
-  const twenty = { pages: Array.from({length:20},() => createTemplatePage(REUSABLE_TEMPLATES[0].assetId)) }
+  const twenty = { pages: Array.from({length:20},() => createTemplatePage('2026-reusable-daily-landscape')) }
   assert.deepEqual(menuPdfPolicy(twenty,{width:1280,height:800}),{enabled:true,maxPages:20,totalPages:20})
 })
 
 test('공통 PNG/PDF 작업기는 SVG 준비를 기다리고 실패 후 재시도해도 참조·크기를 유지한다', async () => {
-  const snapshot = createExportSnapshot(createTemplatePage(REUSABLE_TEMPLATES[0].assetId))
+  const snapshot = createExportSnapshot(createTemplatePage('2026-reusable-daily-landscape'))
   let resolve, fail = false, renders = 0
   const renderer = createPageImageRenderer({
     prepare: input => prepareExportSnapshot(input, () => assert.fail('no images'), () => fail ? Promise.reject(new Error('SVG failure')) : new Promise(r => { resolve = r })),
@@ -297,7 +302,7 @@ test('공통 PNG/PDF 작업기는 SVG 준비를 기다리고 실패 후 재시�
 })
 
 test('최신 영역 프리셋은 SVG와 구형 페이지 각각의 크기 안에서 비율과 중심을 유지한다', () => {
-  const pages = [createTemplatePage(REUSABLE_TEMPLATES[0].assetId), { id: 'legacy-region', objects: [] }]
+  const pages = [createTemplatePage('2026-reusable-daily-landscape'), { id: 'legacy-region', objects: [] }]
   for (const page of pages) {
     const size = pageSize(page)
     const full = { x: 0, y: 0, ...size }

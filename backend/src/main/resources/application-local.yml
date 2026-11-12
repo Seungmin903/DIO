@@ -17,16 +17,25 @@ spring:
     show-sql: true
   flyway:
     enabled: true
-
-dio:
-  diary:
-    formats:
-      "1":
-        width: 1280
-        height: 800
+  # .env를 properties 파일로 읽으면 SPRING_MAIL_* 같은 환경변수식 이름이 spring.mail.*로 자동 변환되지 않는다.
+  # 실제 OS 환경변수로 줄 때(dev·prod)와 같은 이름을 쓰도록 여기서 직접 연결한다.
+  mail:
+    host: ${SPRING_MAIL_HOST:}
+    port: ${SPRING_MAIL_PORT:587}
+    username: ${SPRING_MAIL_USERNAME:}
+    password: ${SPRING_MAIL_PASSWORD:}
+    properties:
+      mail.smtp.auth: ${SPRING_MAIL_PROPERTIES_MAIL_SMTP_AUTH:true}
+      mail.smtp.starttls.enable: ${SPRING_MAIL_PROPERTIES_MAIL_SMTP_STARTTLS_ENABLE:true}
+      mail.smtp.starttls.required: ${SPRING_MAIL_PROPERTIES_MAIL_SMTP_STARTTLS_REQUIRED:false}
 
 # DB 연결 확인용 상세 정보. local 프로필에서만 사용한다.
 management:
   endpoint:
     health:
       show-details: always
+
+dio:
+  local-seed:
+    enabled: ${DIO_LOCAL_SEED_ENABLED:false}
+    file: ${DIO_LOCAL_SEED_FILE:src/main/resources/db/seed/local-demo.json}

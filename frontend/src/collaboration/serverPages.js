@@ -1,0 +1,165 @@
+import {localTemplateReference,SERVER_TEMPLATE_CATALOG,serverTemplateConfigFor,serverTemplateSelectable} from '../editor/templates/serverCatalog.js'
+import {parseRemoteTemplateAssetId} from '../editor/templates/remoteTemplates.js'
+import {datedBaseId,isDatedId} from '../editor/templates/dated.js'
+import {decodeElement,sharedElement} from './canvasElements.js'
+import {pageSettingsBody} from './pageSettings.js'
+const uuid=value=>typeof value==='string'&&/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)
+const invalid=()=>Object.assign(new Error('서버의 페이지와 속지 정보를 확인하지 못했어요. 기존 기기 문서는 유지돼요.'),{code:'INVALID_SERVER_PAGES'})
+export function decodeServerPage(detail,diaryId){
+ const p=detail?.page
+ if(!p||!uuid(p.pageId)||p.diaryId!==diaryId||!Array.isArray(detail.elements)||![p.canvasWidth,p.canvasHeight].every(n=>Number.isFinite(n)&&n>0))throw invalid()
+ const code=p.templateCode??p.templateConfig?.templateCode,version=p.templateVersion??p.templateConfig?.templateVersion
+ let reference
+ if(code&&version){try{reference=localTemplateReference(code,version,p.templateConfig)}catch{throw invalid()}}
+ else if(p.templateId==null||p.templateConfig?.blank===true)reference={backgroundAssetId:null}
+ else throw invalid()
+ const elements=detail.elements.filter(sharedElement)
+ if(elements.some(e=>e.pageId!==p.pageId)||new Set(elements.map(e=>e.elementId)).size!==elements.length)throw invalid()
+ return {...reference,id:p.pageId,title:p.title,canvasWidth:p.canvasWidth,canvasHeight:p.canvasHeight,
+  serverTemplateId:p.templateId??null,serverTemplateConfig:p.templateConfig??{},
+  gridVisible:p.gridVisible===true,gridColor:p.gridColor??'#DCE5F1',
+  ...(p.templateConfig?.paperAppearance?{paperAppearance:p.templateConfig.paperAppearance}:{}),objects:elements.map(decodeElement)}
+}
+// Settings metadata must not depend on decoding a template or canvas elements.
+// An unsupported template on an existing page leaves its local appearance intact.
+function pageListSettings(p){
+ const settings={id:p.pageId}
+ if(p.title===null||typeof p.title==='string')settings.title=p.title
+ if([p.canvasWidth,p.canvasHeight].every(n=>Number.isFinite(n)&&n>0)){
+  settings.canvasWidth=p.canvasWidth;settings.canvasHeight=p.canvasHeight
+ }
+ if(typeof p.gridVisible==='boolean')settings.gridVisible=p.gridVisible
+ if(typeof p.gridColor==='string'&&/^#[0-9a-f]{6}$/i.test(p.gridColor))settings.gridColor=p.gridColor
+ if(p.templateConfig?.paperAppearance && typeof p.templateConfig.paperAppearance==='object' && !Array.isArray(p.templateConfig.paperAppearance))
+  settings.paperAppearance=p.templateConfig.paperAppearance
+ if(settings.canvasWidth===undefined)return settings
+ const code=p.templateCode??p.templateConfig?.templateCode,version=p.templateVersion??p.templateConfig?.templateVersion
+ let reference
+ if(code&&version){try{reference=localTemplateReference(code,version,p.templateConfig)}catch{return settings}}
+ else if(p.templateId==null||p.templateConfig?.blank===true)reference={backgroundAssetId:null}
+ else return settings
+ // 속지의 기본 크기가 서버에 저장된 페이지 크기(PDF 쪽 크기 등)를 덮지 않게 한다.
+ return {...reference,...settings,serverTemplateId:p.templateId??null,serverTemplateConfig:p.templateConfig??{}}
+}
+function readPageSettings(response,diaryId,pageId){
+ const p=response?.page
+ if(!p||p.pageId!==pageId||p.diaryId!==diaryId||![p.canvasWidth,p.canvasHeight].every(n=>Number.isFinite(n)&&n>0))throw invalid()
+ return pageListSettings(p)
+}
+// Existing pages are not re-imported: unsent strokes and local media remain intact.
+export async function loadServerPageSnapshot(transport,diaryId,{knownIds=[]}={}){
+ if(!uuid(diaryId))throw invalid()
+ const result=await transport({path:`/diaries/${diaryId}/pages`})
+ if(!Array.isArray(result?.items)||result.items.some(p=>!uuid(p.pageId)||p.diaryId!==diaryId)||new Set(result.items.map(p=>p.pageId)).size!==result.items.length)throw invalid()
+ const known=new Set(knownIds),rows=result.items.filter(p=>!known.has(p.pageId)),pages=new Array(rows.length);let next=0
+ const worker=async()=>{while(next<rows.length){
+  const index=next++,row=rows[index],detail=await transport({path:`/pages/${row.pageId}`})
+  if(detail?.page?.pageId!==row.pageId)throw invalid()
+  pages[index]=decodeServerPage(detail,diaryId)
+ }}
+ await Promise.all(Array.from({length:Math.min(3,pages.length)},worker))
+ const settings=result.items.map(pageListSettings)
+ return {pageIds:result.items.map(p=>p.pageId),pages,settings,
+  ...(result.paperAppearance&&{paperAppearance:result.paperAppearance})}
+}
+export async function updateServerPage(transport,diaryId,pageId,input){
+ if(!uuid(diaryId)||!uuid(pageId))throw invalid()
+ const body=pageSettingsBody(input)
+ // The current backend replaces templateConfig and does not accept an expected
+ // version. A client GET/merge/PATCH cannot protect concurrent appearance edits.
+ if('templateConfig' in body||'templateId' in body)throw Object.assign(Error('기존 페이지의 속지 변경은 아직 지원하지 않아요.'),{code:'UNSUPPORTED_PAGE_TEMPLATE'})
+ const result=await transport({method:'PATCH',path:`/pages/${pageId}`,body})
+ const settings=readPageSettings(result,diaryId,pageId)
+ if(body.paperAppearance && (!settings.paperAppearance
+  || Object.keys(settings.paperAppearance).length!==Object.keys(body.paperAppearance).length
+  || Object.entries(body.paperAppearance).some(([key,value])=>settings.paperAppearance[key]!==value)))throw invalid()
+ return settings
+}
+export async function loadPageSettings(transport,diaryId,pageId){
+ if(!uuid(diaryId)||!uuid(pageId))throw invalid()
+ const detail=await transport({path:`/pages/${pageId}`})
+ return readPageSettings(detail,diaryId,pageId)
+}
+export async function loadServerPages(transport,diaryId,options){
+ const result=await loadServerPageSnapshot(transport,diaryId,options)
+ if(!result.pageIds.length)throw invalid()
+ return result.pages
+}
+export async function copyServerPage(transport,diaryId,pageId){
+ if(!uuid(diaryId)||!uuid(pageId))throw invalid()
+ const result=await transport({method:'POST',path:`/pages/${pageId}/copies`})
+ if(!uuid(result?.page?.pageId)||result.page.diaryId!==diaryId||result.page.pageId===pageId)throw invalid()
+ const detail=await transport({path:`/pages/${result.page.pageId}`})
+ if(detail?.page?.pageId!==result.page.pageId)throw invalid()
+ return decodeServerPage(detail,diaryId)
+}
+export async function deleteServerPage(transport,pageId){
+ if(!uuid(pageId))throw invalid()
+ try{await transport({method:'DELETE',path:`/pages/${pageId}`})}
+ catch(error){if(error.status!==404||error.code!=='PAGE_NOT_FOUND')throw error}
+}
+export async function createServerPage({transport,diaryId,backgroundAssetId=null,orientation='landscape',paperAppearance,storage,key,createId,isActive=()=>true}){
+ const check=()=>{if(!isActive())throw Object.assign(Error('계정이 바뀌어 페이지 생성을 중단했어요.'),{code:'STALE_ACCOUNT'})}
+ check();if(!uuid(diaryId))throw invalid()
+ // 원격 속지(remote-<id>-<방향>)는 방향별 범용 행(dio-remote-<방향>)에 만들고 설정에 remoteTemplate 을 싣는다
+ const remote=parseRemoteTemplateAssetId(backgroundAssetId)
+ // 날짜 속지는 같은 양식의 만년형 속지 행에 만들고 설정에 datedTemplate 을 싣는다(페이지 생성은 설정 키를 막지 않는다)
+ let base=backgroundAssetId;try{if(isDatedId(backgroundAssetId))base=datedBaseId(backgroundAssetId)}catch{throw invalid()}
+ const template=remote?SERVER_TEMPLATE_CATALOG.find(t=>t.remote&&t.orientation===remote.orientation.toUpperCase())
+  :SERVER_TEMPLATE_CATALOG.find(t=>!t.remote&&t.backgroundAssetId===base&&(base!==null||t.orientation===orientation.toUpperCase()))
+ if(!serverTemplateSelectable(template))throw invalid()
+ let pending=JSON.parse(await storage.getItem(key)??'null');check()
+ if(pending){
+  const list=await transport({path:`/diaries/${diaryId}/pages`});check()
+  const row=list?.items?.find(p=>p.diaryId===diaryId&&p.templateConfig?.clientPageRequestId===pending.requestId)
+  if(row){const detail=await transport({path:`/pages/${row.pageId}`});check();const page=decodeServerPage(detail,diaryId);await storage.removeItem(key);return page}
+  // The existing POST reuses the same request UUID under the diary lock.
+ }
+ pending??={requestId:createId()}
+ if(!uuid(pending.requestId))throw invalid()
+ const body=pending.body??{canvasWidth:template.canvasWidth,canvasHeight:template.canvasHeight,templateConfig:{...template.defaultConfig,
+  templateCode:template.templateCode,templateVersion:template.templateVersion,clientPageRequestId:pending.requestId,...serverTemplateConfigFor(backgroundAssetId),...(paperAppearance?{paperAppearance}:{})}}
+ pending.body=body;await storage.setItem(key,JSON.stringify(pending));check()
+ let response
+ try{response=await transport({method:'POST',path:`/diaries/${diaryId}/pages`,body})}
+ catch(error){if(error.status>=400&&error.status<500&&error.status!==408)await storage.removeItem(key);throw pageCreateError(error)}
+ check();const page=decodeServerPage({...response,elements:[]},diaryId)
+ await storage.removeItem(key);check();return page
+}
+
+// 서버가 속지 코드를 확인한다. 서버에 없는 속지는 400 UNKNOWN_PAGE_TEMPLATE(앱이 서버보다 새 속지를 알 때 등, 업데이트로 풀릴 수 있다),
+// 크기 불일치 · 원격 속지 설정 오류 등 다른 요청 오류는 400 INVALID_PAGE_REQUEST, 서버 속지 목록 중복은 500 PAGE_TEMPLATE_CATALOG_INVALID.
+// HTTP 층은 상태 코드마다 같은 문구를 쓰므로 페이지 추가에서는 원인에 맞는 문구로 바꿔 알림에 보인다
+const PAGE_CREATE_MESSAGES={
+ UNKNOWN_PAGE_TEMPLATE:'이 속지를 서버에서 찾지 못했어요. 앱을 최신 버전으로 업데이트한 뒤 다시 시도해 주세요.',
+ INVALID_PAGE_REQUEST:'이 속지로 페이지를 추가하지 못했어요. 다른 속지를 고르거나 잠시 뒤 다시 시도해 주세요.',
+ PAGE_TEMPLATE_CATALOG_INVALID:'서버의 속지 목록을 확인하고 있어요. 잠시 뒤 다시 시도해 주세요.',
+}
+function pageCreateError(error){
+ const message=PAGE_CREATE_MESSAGES[error?.code]
+ if(message)try{error.message=message}catch{}
+ return error
+}
+
+// Keep the user's relative move, rather than submitting a stale complete page list.
+export async function reorderServerPages(transport,diaryId,{ids,anchorId,place}){
+ if(!uuid(diaryId)||!Array.isArray(ids)||!ids.length||ids.some(id=>!uuid(id))||new Set(ids).size!==ids.length||!uuid(anchorId)||!['before','after'].includes(place))throw invalid()
+ if(ids.includes(anchorId))return
+ for(let attempt=0;attempt<2;attempt++){
+  const list=await transport({path:`/diaries/${diaryId}/pages`})
+  if(!Array.isArray(list?.items)||list.items.some(p=>p.diaryId!==diaryId||!uuid(p.pageId))||new Set(list.items.map(p=>p.pageId)).size!==list.items.length)throw invalid()
+  const order=list.items.map(p=>p.pageId),known=new Set(order)
+  if(!known.has(anchorId)||ids.some(id=>!known.has(id)))throw Object.assign(Error('이동할 페이지나 기준 페이지가 변경됐어요. 목록을 확인해 주세요.'),{code:'PAGE_ORDER_CHANGED'})
+  const moving=new Set(ids),rest=order.filter(id=>!moving.has(id)),at=rest.indexOf(anchorId)+(place==='after'?1:0)
+  const pageIds=[...rest.slice(0,at),...ids,...rest.slice(at)]
+  if(pageIds.every((id,i)=>id===order[i]))return
+  try{
+   const result=await transport({method:'PATCH',path:`/diaries/${diaryId}/pages/order`,body:{pageIds}})
+   if(!Array.isArray(result?.items)||result.items.length!==pageIds.length||result.items.some((p,i)=>p.diaryId!==diaryId||p.pageId!==pageIds[i]))throw invalid()
+   return
+  }catch(error){
+   if(attempt||!((error.status===400&&error.code==='INVALID_PAGE_REQUEST')||(error.status===409&&error.code==='PAGE_VERSION_CONFLICT')))throw error
+   // A concurrent add/delete/reorder may have invalidated the first snapshot.
+  }
+ }
+}

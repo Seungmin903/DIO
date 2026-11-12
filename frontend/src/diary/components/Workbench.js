@@ -1,0 +1,159 @@
+import { createContext, useEffect, useMemo, useRef, useState } from 'react'
+import { Keyboard, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native'
+import Icon from '../../editor/components/controls/Icon'
+import { colors, DISABLED_OPACITY, shadow } from '../../shared/theme'
+
+/** 옵션 패널 스크롤: 펼친 요소 줄이 화면 밖이면 보이도록 끌어온다 (ElementRow 가 쓴다) */
+export const PanelScroll = createContext(null)
+/** 옵션 패널 안쪽 폭 어림값: 격자가 폭을 재기 전 첫 화면을 이 폭으로 그려 잰 뒤 줄 수가 바뀌어 아래가 밀리지 않게 한다(PaperGrid) */
+export const PanelWidth = createContext(null)
+
+/**
+ * 새 다이어리 · 다이어리 수정이 함께 쓰는 틀 (2안 · 구역 카드).
+ * 위 막대(취소 · 제목 · 주요 버튼) | 왼쪽 큰 구역 카드 | 가운데 미리보기 | 오른쪽 옵션.
+ * sheet(폰)에서는 구역 카드를 위쪽 가로 줄로, 미리보기를 그 아래 낮은 판으로, 옵션을 남은 높이에 둔다.
+ */
+const PANEL_WIDTH = 420, PANEL_PADDING = 16
+
+export default function Workbench({ title, actionLabel, onCancel, onSubmit, submitDisabled = false, cancelDisabled = false,
+  sections, section, onSection, sheet = false, roomy = false, topInset = 0, bottomInset = 0, onStageLayout, stage, panel, foot, panelLocked = false }) {
+  const scrollRef = useRef(null), contentRef = useRef(null)
+  const view = useRef({ y: 0, height: 0 })
+  const scroll = useMemo(() => ({
+    reveal(node) {
+      try {
+        node?.measureLayout(contentRef.current, (x, y, w, h) => {
+          const { y: top, height } = view.current
+          if (y >= top && y + Math.min(h, height - 24) <= top + height) return
+          scrollRef.current?.scrollTo({ y: Math.max(0, y - 8), animated: true })
+        }, () => {})
+      } catch { /* 잴 수 없으면 그대로 둔다 */ }
+    },
+  }), [])
+  // 키보드가 옵션 패널을 가리면(태블릿에서 표지 '제목 · 소제목'의 소제목 칸 등) 가린 만큼 아래를 비우고 입력 중인 칸을 키보드 위로 올린다.
+  // Modal 안이라 화면이 저절로 밀리지 않는다. 입력칸마다 연결하지 않도록 지금 포커스된 입력을 찾아 잰다.
+  const [keyboardPad, setKeyboardPad] = useState(0)
+  const keyboardTop = useRef(null), panelRef = useRef(null), revealFocused = useRef(() => {})
+  useEffect(() => {
+    if (Platform.OS === 'web') return undefined
+    let timer = null, alive = true
+    const reveal = () => {
+      clearTimeout(timer)
+      timer = setTimeout(() => {
+        const input = TextInput.State?.currentlyFocusedInput?.()
+        const top = keyboardTop.current
+        if (!alive || !input?.measureInWindow || top == null) return
+        scrollRef.current?.measureInWindow?.((sx, sy, sw, sh) => input.measureInWindow((x, y, w, h) => {
+          if (!alive || !h || x < sx || x > sx + sw || y < sy || y > sy + sh) return // 패널 밖 입력(다른 창)은 건드리지 않는다
+          const end = Math.min(sy + sh, top) - 16
+          if (y + h > end) scrollRef.current?.scrollTo({ y: Math.max(0, view.current.y + y + h - end), animated: true })
+        }))
+      }, 80)
+    }
+    revealFocused.current = reveal
+    const show = Keyboard.addListener('keyboardDidShow', event => {
+      keyboardTop.current = event.endCoordinates?.screenY ?? null
+      panelRef.current?.measureInWindow?.((x, y, w, h) => {
+        if (!alive || keyboardTop.current == null) return
+        setKeyboardPad(Math.max(0, Math.round(y + h - keyboardTop.current)))
+        reveal()
+      })
+    })
+    const hide = Keyboard.addListener('keyboardDidHide', () => { keyboardTop.current = null; setKeyboardPad(0) })
+    return () => { alive = false; clearTimeout(timer); revealFocused.current = () => {}; show.remove(); hide.remove() }
+  }, [])
+  const { width: windowWidth } = useWindowDimensions()
+  const cards = sections.map(item => {
+    const on = item.id === section
+    return <Pressable key={item.id} accessibilityRole="tab" accessibilityLabel={`${item.title}, ${item.summary}`} accessibilityState={{ selected: on }}
+      onPress={() => onSection(item.id)} style={({ pressed }) => [styles.card, sheet && styles.cardSheet, on && styles.cardOn, pressed && styles.pressed]}>
+      {/* 폭이 좁은 폰에서는 이름이 잘리지 않게 아이콘을 뺀다 */}
+      {(!sheet || windowWidth >= SHEET_ICON_MIN_WIDTH) && <View style={[styles.cardIcon, sheet && styles.cardIconSheet]}><Icon name={item.icon} size={sheet ? 16 : 22} color={on ? colors.primaryStrong : colors.text} /></View>}
+      <Text numberOfLines={1} style={styles.cardTitle}>{item.title}</Text>
+    </Pressable>
+  })
+  return <>
+    <View style={[styles.topbar, sheet && styles.topbarSheet, topInset > 0 && { height: TOPBAR_HEIGHT + topInset, paddingTop: topInset }]}>
+      <Pressable accessibilityRole="button" accessibilityLabel="취소" disabled={cancelDisabled} onPress={onCancel} style={({ pressed }) => [styles.cancel, sheet && styles.cancelSheet, pressed && styles.pressed]}>
+        <Text style={styles.cancelText}>취소</Text>
+      </Pressable>
+      <Text accessibilityRole="header" style={styles.topTitle}>{title}</Text>
+      <Pressable accessibilityRole="button" accessibilityLabel={actionLabel} accessibilityState={{ disabled: submitDisabled }} disabled={submitDisabled} onPress={onSubmit}
+        style={({ pressed }) => [styles.submit, sheet && styles.submitSheet, pressed && styles.pressed, submitDisabled && { opacity: DISABLED_OPACITY }]}>
+        <Text style={styles.submitText}>{actionLabel}</Text>
+      </Pressable>
+    </View>
+    <View style={[styles.main, sheet && styles.mainSheet]}>
+      {/* 구역이 하나뿐인 화면(공방 표지 편집)은 sections 를 비워 카드 줄을 두지 않는다 */}
+      {!cards.length ? null : sheet ? <View style={styles.cardsSheet}>{cards}</View>
+        : <ScrollView style={styles.cards} contentContainerStyle={styles.cardsBody}>{cards}</ScrollView>}
+      <View style={[styles.stage, !sheet && styles.stageWide, sheet && styles.stageSheet, sheet && (roomy ? styles.stageRoomy : styles.stagePhone)]} onLayout={event => { const { width, height } = event.nativeEvent.layout; onStageLayout({ width, height }) }}>
+        {stage}
+      </View>
+      <View ref={panelRef} collapsable={false} style={[styles.panel, sheet && styles.panelSheet, sheet && roomy && styles.panelRoomy]}>
+        <ScrollView ref={scrollRef} keyboardShouldPersistTaps="handled" scrollEventThrottle={64}
+          onScroll={event => { view.current.y = event.nativeEvent.contentOffset.y }} onLayout={event => { view.current.height = event.nativeEvent.layout.height }}
+          contentContainerStyle={[styles.panelBody, sheet && !foot && { paddingBottom: 16 + bottomInset }, keyboardPad > 0 && { paddingBottom: 16 + keyboardPad }]}>
+          {/* 키보드가 떠 있는 채 다른 칸을 누르면 keyboardDidShow 가 다시 오지 않을 수 있다(iOS) — 누른 뒤 포커스된 칸을 다시 잰다 */}
+          <View ref={contentRef} collapsable={false} pointerEvents={panelLocked ? 'none' : 'auto'} onTouchEnd={() => { if (keyboardTop.current != null) revealFocused.current() }}>
+            <PanelScroll.Provider value={scroll}><PanelWidth.Provider value={(sheet ? windowWidth : PANEL_WIDTH) - PANEL_PADDING * 2}>{panel}</PanelWidth.Provider></PanelScroll.Provider>
+          </View>
+        </ScrollView>
+        {foot ? <View style={[styles.panelFoot, sheet && { paddingBottom: 12 + bottomInset }]}>{foot}</View> : null}
+      </View>
+    </View>
+  </>
+}
+
+/** 가운데 판의 알약 설명 */
+export function StagePill({ children }) {
+  return <Text style={styles.pill}>{children}</Text>
+}
+
+/** maxWidth × maxHeight 안에 ratio(가로/세로)를 지키며 가장 크게 */
+export function fit(ratio, maxWidth, maxHeight) {
+  const width = Math.max(0, Math.min(maxWidth, maxHeight * ratio))
+  return { width, height: width / ratio }
+}
+
+const SHEET_ICON_MIN_WIDTH = 390
+const TOPBAR_HEIGHT = 60
+
+const styles = StyleSheet.create({
+  pressed: {}, // 눌림 효과 없음(사용자 지시)
+  topbar: { height: TOPBAR_HEIGHT, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, gap: 8, backgroundColor: colors.surface, borderBottomWidth: 1, borderBottomColor: colors.border },
+  topbarSheet: { paddingHorizontal: 16 },
+  cancel: { minWidth: 60, height: 48, alignItems: 'center', justifyContent: 'center', borderRadius: 12 },
+  cancelText: { color: colors.textMuted, fontSize: 14, fontWeight: '700' },
+  topTitle: { flex: 1, textAlign: 'center', color: colors.text, fontSize: 16, fontWeight: '800' },
+  submit: { minWidth: 120, height: 48, paddingHorizontal: 18, alignItems: 'center', justifyContent: 'center', borderRadius: 12, backgroundColor: colors.primaryStrong },
+  // 폰: 상단 바 토글 규격 높이 40 · 모서리 12. 좌우 여백은 머리줄 padding 16 으로 같게(지라 668)
+  submitSheet: { minWidth: 72, height: 40 },
+  cancelSheet: { alignItems: 'flex-start', minWidth: 72 },
+  submitText: { color: '#FFFFFF', fontSize: 14, fontWeight: '700' },
+  main: { flex: 1, minHeight: 0, flexDirection: 'row', justifyContent: 'center', paddingTop: 12 },
+  mainSheet: { flexDirection: 'column', paddingTop: 0 },
+  cards: { width: 200, flexGrow: 0 },
+  cardsBody: { paddingHorizontal: 12, paddingBottom: 12, gap: 8 },
+  cardsSheet: { flexDirection: 'row', paddingHorizontal: 16, paddingVertical: 10, gap: 8 },
+  card: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, paddingRight: 20, borderRadius: 16, borderWidth: 2, borderColor: 'transparent', backgroundColor: 'rgba(255,255,255,.55)' },
+  // 폰 구역 칩 48(네 칸이 잘리지 않게 같은 폭으로 나눈다): 기본은 #F1F0F9 면, 고르면 흰 면 + primaryStrong 2px 테두리(코덱스 9번)
+  cardSheet: { flex: 1, justifyContent: 'center', minHeight: 48, paddingVertical: 6, paddingLeft: 4, paddingRight: 4, gap: 4, borderRadius: 999, backgroundColor: colors.surfaceMuted },
+  cardOn: { borderColor: colors.primaryStrong, backgroundColor: colors.surface },
+  cardIcon: { width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surfaceMuted },
+  cardIconSheet: { width: 24, height: 24, borderRadius: 12 },
+  cardTitle: { flexShrink: 1, color: colors.text, fontSize: 14.5, fontWeight: '800' },
+  stage: { flex: 1, minWidth: 0, marginRight: 12, marginBottom: 12, borderRadius: 12, alignItems: 'center', justifyContent: 'center', gap: 14, backgroundColor: colors.surfaceMuted }, // 면 #F1F0F9 · 모서리 12 · 그림자 없음(코덱스 8번)
+  // 미리보기 판은 남는 폭 · 높이를 다 채워 오른쪽 설정 패널이 기기 오른쪽 끝에 붙게 한다(판 자체를 620×560으로 줄이면 가운데 정렬된 줄 전체가 좁아져 패널이 끝에서 떨어졌다). 안의 표지 · 속지는 높이 352까지만(DiaryCreateModal)
+  stageWide: {},
+  stageSheet: { flex: 0, flexGrow: 0, flexShrink: 0, flexBasis: 'auto', marginHorizontal: 16, marginBottom: 0, borderRadius: 12, gap: 8 },
+  stagePhone: { height: 240 },
+  // 세로 태블릿: 구역 카드와 옵션 사이 남은 높이를 미리보기와 옵션이 나눠 쓴다
+  stageRoomy: { flexGrow: 1, flexShrink: 1, flexBasis: 0, minHeight: 240 },
+  panelRoomy: { flexGrow: 1.4 },
+  panel: { width: PANEL_WIDTH, borderTopLeftRadius: 24, backgroundColor: colors.surface, ...shadow.card, shadowOpacity: 0.06 },
+  panelSheet: { flex: 1, width: '100%', marginTop: 12, borderTopRightRadius: 24 },
+  panelBody: { padding: PANEL_PADDING },
+  panelFoot: { gap: 8, paddingHorizontal: 16, paddingVertical: 12, borderTopWidth: 1, borderTopColor: colors.border },
+  pill: { overflow: 'hidden', paddingHorizontal: 14, paddingVertical: 7, borderRadius: 999, color: colors.text, fontSize: 12.5, fontWeight: '700', backgroundColor: 'rgba(255,255,255,.85)' },
+})

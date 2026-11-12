@@ -122,6 +122,6 @@ export function PdfGeneratedPreview({
 }
 const styles = StyleSheet.create({
   // 진행 막대
-  track: { height: 8, borderRadius: 4, overflow: 'hidden', backgroundColor: '#EEF2F9' },
+  track: { height: 8, borderRadius: 4, overflow: 'hidden', backgroundColor: colors.surfaceMuted },
   bar: { height: 8, borderRadius: 4, backgroundColor: colors.primary },
 })

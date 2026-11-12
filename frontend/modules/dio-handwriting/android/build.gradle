@@ -1,0 +1,38 @@
+apply plugin: 'com.android.library'
+apply plugin: 'expo-module-gradle-plugin'
+
+group = 'expo.modules.diohandwriting'
+version = '1.0.0'
+android {
+  namespace 'expo.modules.diohandwriting'
+  defaultConfig { versionCode 1; versionName '1.0.0'; testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner' }
+}
+dependencies {
+  implementation 'com.microsoft.onnxruntime:onnxruntime-android:1.23.2'
+  androidTestImplementation 'androidx.test:runner:1.6.2'
+  androidTestImplementation 'androidx.test.ext:junit:1.2.1'
+}
+
+def modelAssets = layout.projectDirectory.dir('src/main/assets/dio_handwriting')
+def modelNames = ['encoder.fp32.onnx', 'decoder.fp32.onnx']
+def verifyDebugHandwritingModels = tasks.register('verifyDebugHandwritingModels') {
+  group = 'verification'
+  description = 'Verifies the DM-Font assets required by the Android development build.'
+  doLast {
+    def manifest = new groovy.json.JsonSlurper().parse(modelAssets.file('manifest.json').asFile)
+    for (String name : modelNames) {
+      def model = modelAssets.file(name).asFile
+      if (!model.isFile()) {
+        throw new GradleException("Missing DM-Font model: ${name}. Run frontend/scripts/prepare-handwriting-models.ps1 with the verified model bundle before building Android debug.")
+      }
+      def digest = java.security.MessageDigest.getInstance('SHA-256')
+      model.eachByte(1024 * 1024) { buffer, length -> digest.update(buffer, 0, length) }
+      if (digest.digest().encodeHex().toString() != manifest.files[name].sha256) {
+        throw new GradleException("DM-Font model checksum mismatch: ${name}. Prepare the verified model bundle again.")
+      }
+    }
+  }
+}
+tasks.matching { it.name == 'preDebugBuild' }.configureEach {
+  dependsOn verifyDebugHandwritingModels
+}

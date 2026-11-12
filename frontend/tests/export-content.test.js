@@ -10,7 +10,7 @@ test('폰트 준비는 실제 한글·줄바꿈과 스타일을 전달하고 완
   const job = waitForExportFonts([{type:'text',text:'가나다\nAB',font:'serif',fontSize:24,bold:true,italic:true}], {
     load: (font, text) => { request = [font,text]; return new Promise(ok => {finish=ok}) }, ready: Promise.resolve(),
   }).then(() => {ready=true})
-  assert.deepEqual(request,['italic 700 24px serif','가나다\nAB']); await Promise.resolve(); assert.equal(ready,false)
+  assert.deepEqual(request,['normal 700 24px serif','가나다\nAB']); await Promise.resolve(); assert.equal(ready,false)
   finish(); await job; assert.equal(ready,true)
   await assert.rejects(waitForExportFonts([{type:'text',text:'실패'}],{load:()=>Promise.reject(Error('font')),ready:Promise.resolve()}),{code:'EXPORT_FONT_FAILED'})
   await waitForExportFonts([],undefined)

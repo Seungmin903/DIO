@@ -1,5 +1,11 @@
 import { catalog, annualBook, portraitAnnualBook, reusableMenu } from './data.js'
 import { UNDATED_TEMPLATES } from './undated.js'
+import { STUDY_PLANNER_MENU_ITEM, STUDY_PLANNER_TEMPLATES } from './studyPlanner.js'
+import { DAY_PLANNER_MENU_ITEM, DAY_PLANNER_TEMPLATES } from './dayPlanner.js'
+import { ROUTE_PAPER_MENU_ITEM, ROUTE_PAPER_TEMPLATES } from './routePaper.js'
+import { datedTemplate } from './dated.js'
+import { PLANNER_TEMPLATE_SELECTION_ENABLED, ROUTE_TEMPLATE_SELECTION_ENABLED, INK_RECORD_TEMPLATE_SELECTION_ENABLED } from './serverCatalog.js'
+import { remoteTemplateAsset } from './remoteTemplates.js'
 
 export const TEMPLATE_VERSION = catalog.templateVersion
 export const ANNUAL_PAGE_IDS = annualBook.pages
@@ -16,28 +22,48 @@ function displayName(item) {
   if (item.type === 'weekly') return `주간 계획 · ${item.name}`
   return item.name
 }
-export const reusableTemplates = (orientation = 'landscape') => reusableMenu.map(item => ({ ...item, name: displayName(item), assetId: item.assets.find(asset => asset.orientation === normalizeOrientation(orientation)).assetId }))
+// 예전 하루 계획(reusableMenu 첫 항목)은 메뉴에서 빼고 데일리 플래너(구글 일간식)로 대체한다. 옛 속지 파일은 이미 만든 다이어리를 위해 아래 assets 에 남긴다.
+// V27 전(플래너 선택 꺼짐)에는 DB에 플래너가 없으므로 예전 하루 계획을 그대로 고르게 둔다. 이렇게 만든 페이지는 V27이 데일리 플래너로 옮긴다.
+// 여행 노선 속지도 서버 행(V36)이 들어가기 전에는 고르지 못하게 둔다(ROUTE_TEMPLATE_SELECTION_ENABLED). 플래너 뒤, 공용 속지 앞에 둔다.
+const routeItems = ROUTE_TEMPLATE_SELECTION_ENABLED ? [ROUTE_PAPER_MENU_ITEM] : []
+// 발색 기록 속지도 서버 행(V45)이 들어가기 전에는 고르지 못하게 둔다. 공용 속지 목록 안에 있어 걸러낸다.
+const reusableItems = INK_RECORD_TEMPLATE_SELECTION_ENABLED ? reusableMenu : reusableMenu.filter(item => item.type !== 'inkRecord')
+const menuItems = PLANNER_TEMPLATE_SELECTION_ENABLED
+  ? [STUDY_PLANNER_MENU_ITEM, DAY_PLANNER_MENU_ITEM, ...routeItems, ...reusableItems.slice(1)]
+  : [...reusableItems, ...routeItems]
+const withAssetId = (orientation) => (item) => ({ ...item, name: displayName(item),
+  assetId: item.assets.find(asset => asset.orientation === normalizeOrientation(orientation)).assetId })
+/** 지금 고를 수 있는 공용 속지(배포 플래그로 가린 것은 빠진다) */
+export const reusableTemplates = (orientation = 'landscape') => menuItems.map(withAssetId(orientation))
+/**
+ * 플래그로 가린 것까지 **전부**. 고르기 목록이 아니라 **ID 를 찾을 때** 쓴다 —
+ * 플래그를 켠 빌드에서 만든 페이지를 플래그 0 빌드가 열 때도 속지 ID 는 나와야 한다
+ * (코드리뷰 2026-11-11: 가려진 속지를 찾다 undefined.assetId 로 터졌다).
+ */
+const everyItem = [STUDY_PLANNER_MENU_ITEM, DAY_PLANNER_MENU_ITEM, ROUTE_PAPER_MENU_ITEM, ...reusableMenu]
+export const everyReusableTemplate = (orientation = 'landscape') => everyItem.map(withAssetId(orientation))
 export const REUSABLE_TEMPLATES = reusableTemplates()
 const assets = new Map(catalog.assets.map(asset => [asset.id, { ...asset, name: displayName(asset) }]))
-for (const asset of UNDATED_TEMPLATES) assets.set(asset.id, asset)
+for (const asset of [...UNDATED_TEMPLATES, ...STUDY_PLANNER_TEMPLATES, ...DAY_PLANNER_TEMPLATES, ...ROUTE_PAPER_TEMPLATES]) assets.set(asset.id, asset)
 
 export class TemplateError extends Error {
-  constructor(message = '내지를 불러오지 못했어요. 다시 시도해 주세요.', cause) {
+  constructor(message = '속지를 불러오지 못했어요. 다시 시도해 주세요.', cause) {
     super(message); this.name = 'TemplateError'; this.code = 'TEMPLATE_UNAVAILABLE'; this.cause = cause
   }
 }
 
 export function getTemplate(id, version = TEMPLATE_VERSION) {
-  const asset = assets.get(id)
+  // 날짜 속지(dated-…)는 파일 없이 ID 에서 항목을 만든다. 원격 속지(remote-…)는 목록(catalog.json)에서 찾는다
+  const asset = assets.get(id) ?? datedTemplate(id) ?? remoteTemplateAsset(id)
   if (!asset || !['landscape', 'portrait'].includes(asset.orientation) || version !== asset.templateVersion) {
-    throw new TemplateError('이 페이지의 내지 또는 버전을 찾을 수 없어요.')
+    throw new TemplateError('이 페이지의 속지 또는 버전을 찾을 수 없어요.')
   }
   return asset
 }
 
 export function templateReference(page) {
   if (page.backgroundAssetId == null) return null
-  if (!page.templateVersion) throw new TemplateError('내지 버전 정보가 없어요.')
+  if (!page.templateVersion) throw new TemplateError('속지 버전 정보가 없어요.')
   const asset = getTemplate(page.backgroundAssetId, page.templateVersion)
   return { backgroundAssetId: asset.id, templateVersion: asset.templateVersion }
 }

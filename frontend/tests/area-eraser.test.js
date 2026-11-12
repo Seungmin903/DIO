@@ -51,3 +51,42 @@ test('replaceObjects 는 같은 층 위치에 조각을 넣고 되돌리기 한 
   const undone = editorReducer(next, { type: 'undo' })
   assert.deepEqual(undone.doc.pages[0].objects.map((o) => o.id), ['a', 'b'])
 })
+
+
+test('부분 거리 메타데이터를 가진 점 쌍도 영역 지우기로 NaN을 만들지 않는다', () => {
+  for (const index of [0, 1]) {
+    const points = [{ x: 0, y: 100 }, { x: 300, y: 100 }]
+    for (const key of ['inkDistance', 'force', 'time', 'speed', 'tiltX', 'tiltY']) points[index][key] = index + 1
+    const stroke = createStroke(points, { id: 'partial', kind: 'ball', renderVersion: 3, width: 4 })
+    const session = createEraserSession([stroke], 10, 'area')
+    session.move({ x: 150, y: 60 }, { x: 150, y: 140 })
+    const pieces = session.finish().replacements.partial
+    assert.equal(pieces.length, 2)
+    for (const piece of pieces) {
+      if (piece.inkStartDistance != null) assert.ok(Number.isFinite(piece.inkStartDistance))
+      for (const p of piece.points) {
+        if (p.inkDistance != null) assert.ok(Number.isFinite(p.inkDistance))
+        const original = Math.abs(p.x + piece.x) < 1e-6 || Math.abs(p.x + piece.x - 300) < 1e-6
+        // 잉크 펜이 아닌 획의 조각은 화면과 같은 곡선 표본(sampled)이라 표본마다 진행 거리를 갖는다(위에서 유한함만 확인). 입력 메타데이터는 원래 점에만 남는다.
+        if (!original) for (const key of ['force', 'time', 'speed', 'tiltX', 'tiltY']) assert.equal(key in p, false, key)
+      }
+    }
+  }
+})
+
+
+test('다른 조각만 다시 지울 때 변하지 않은 미리보기 조각은 같은 참조를 유지한다', () => {
+  const source = line(), session = createEraserSession([source], 8, 'area')
+  session.move({ x: 100, y: 60 }, { x: 100, y: 140 })
+  const before = session.replacements().line
+  assert.equal(before.length, 2)
+  session.move({ x: 220, y: 60 }, { x: 220, y: 140 })
+  const after = session.replacements().line
+  assert.equal(after.length, 3)
+  assert.equal(after[0], before[0])
+  const final = session.finish().replacements.line
+  assert.equal(final.length, 3)
+  assert.equal(final[0], before[0])
+  assert.notEqual(final[0].id, source.id)
+  assert.equal(source.points.length, 2)
+})

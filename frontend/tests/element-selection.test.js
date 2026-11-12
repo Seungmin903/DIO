@@ -6,6 +6,9 @@ import * as common from '../src/editor/utils/common.js'
 import * as text from '../src/editor/utils/text.js'
 import * as reducer from '../src/editor/state/editorReducer.js'
 import { pageSize } from '../src/editor/utils/pageGeometry.js'
+import * as planners from '../src/editor/templates/planners.js'
+import * as completedStrokePlan from '../src/editor/utils/completedStrokePlan.js'
+import * as pageGrid from '../src/editor/utils/pageGrid.js'
 
 const require = createRequire(import.meta.url)
 const expo = createRequire(require.resolve('expo/package.json'))
@@ -23,17 +26,23 @@ function fixture(objects, selectedIds = [], zoom = 1, multi = false) {
   const dispatch = (action) => { actions.push(action); state = reducer.editorReducer(state, action) }
   const module = { exports: {} }
   const load = (id) => {
-    if (id === 'react') return { useRef: (current) => ({ current }), useState: (value) => [value, () => {}], useEffect() {} }
+    if (id === 'react') return { forwardRef: fn => fn, memo: fn => fn, useImperativeHandle() {}, useRef: (current) => ({ current }), useState: (value) => [value, () => {}], useEffect() {}, useLayoutEffect() {}, useMemo: fn => fn() }
     if (id === 'react-native') return { View: 'view', Text: 'text', Pressable: 'pressable', Keyboard: { dismiss() {} }, Platform: { OS: 'android', select: (options) => options.default }, StyleSheet: { create: (value) => value } }
+    if (id.endsWith('/usePageReadiness.js')) return { usePageReadiness: () => ({ pageReady: true, generation: {}, setReadyPage() {} }) }
     if (id.endsWith('/usePan')) return { usePan: (value) => { handlers = value; return {} } }
+    if (id.endsWith('/useProgressiveNativePage.js')) return { useProgressiveNativePage: () => true }
     if (id.endsWith('/editorReducer')) return reducer
     if (id.endsWith('/common')) return common
     if (id.endsWith('/text')) return text
     if (id.endsWith('/modifiers')) return { isMultiSelectKey: () => multi }
     if (id.endsWith('/pageGeometry.js')) return { pageSize }
-    if (id.endsWith('/theme')) return { colors: {} }
+    if (id.endsWith('/planners.js')) return planners
+    if (id.endsWith('/completedStrokePlan.js')) return completedStrokePlan
+    if (id.endsWith('/pageGrid.js')) return pageGrid
+    if (id.endsWith('/theme')) return { colors: {}, radius: { lg: 12 }, shadow: {} }
     if (id.endsWith('/constants')) return { PHOTO_SHAPES: [] }
     if (id.endsWith('/objects')) return {}
+    if (id.endsWith('/backdrop.js')) return { isBackdrop: (object) => object?.backdrop === true }
     if (id.endsWith('/GridOverlay')) return { __esModule: true, default: () => null, DEFAULT_GUIDES: { grid: 'none' }, hasGuides: () => false }
     if (id.startsWith('.')) return { __esModule: true, default: () => null }
     return require(id)
@@ -43,7 +52,7 @@ function fixture(objects, selectedIds = [], zoom = 1, multi = false) {
     actions, state: () => state,
     background: () => { module.exports.default({ page: state.doc.pages[0], zoom, selectedIds, dispatch }); return handlers },
     object: (object) => {
-      module.exports.CanvasObject({ object, objects, pageWidth: 1188, pageHeight: 840, zoom, selectedIds, dispatch, onGuides() {}, onInteracting() {}, onEditText() {} })
+      module.exports.CanvasObject({ object, live: { current: { objects, selectedIds, onEditText() {} } }, pageWidth: 1188, pageHeight: 840, zoom, dispatch, onGuides() {}, onInteracting() {} })
       return handlers
     },
   }

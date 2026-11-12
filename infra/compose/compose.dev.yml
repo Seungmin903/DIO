@@ -1,0 +1,118 @@
+services:
+  backend:
+    image: ${BACKEND_IMAGE:?BACKEND_IMAGE is required}
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "7"
+        compress: "true"
+    ports:
+      - "127.0.0.1:8081:8080"
+    environment:
+      SHARING_INVITE_SECRET: "${SHARING_INVITE_SECRET:-}"
+      SHARING_INVITE_BASE_URL: "${SHARING_INVITE_BASE_URL:-/invite/}"
+      SPRING_PROFILES_ACTIVE: dev
+      DB_URL: "jdbc:postgresql://db:5432/${POSTGRES_DB:?POSTGRES_DB is required}"
+      POSTGRES_USER: "${POSTGRES_USER:?POSTGRES_USER is required}"
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}"
+      AUTH_JWT_SECRET: "${AUTH_JWT_SECRET:?AUTH_JWT_SECRET is required}"
+      SIGNUP_VERIFICATION_SECRET: "${SIGNUP_VERIFICATION_SECRET:?SIGNUP_VERIFICATION_SECRET is required}"
+      REPORT_NOTIFICATION_ENABLED: "${REPORT_NOTIFICATION_ENABLED:-false}"
+      REPORT_NOTIFICATION_TO: "${REPORT_NOTIFICATION_TO:-}"
+      SIGNUP_MAIL_FROM: "${SIGNUP_MAIL_FROM:?SIGNUP_MAIL_FROM is required}"
+      SPRING_MAIL_HOST: "${SPRING_MAIL_HOST:?SPRING_MAIL_HOST is required}"
+      SPRING_MAIL_PORT: "${SPRING_MAIL_PORT:-587}"
+      SPRING_MAIL_USERNAME: "${SPRING_MAIL_USERNAME:?SPRING_MAIL_USERNAME is required}"
+      SPRING_MAIL_PASSWORD: "${SPRING_MAIL_PASSWORD:?SPRING_MAIL_PASSWORD is required}"
+      SPRING_MAIL_PROPERTIES_MAIL_SMTP_AUTH: "${SPRING_MAIL_PROPERTIES_MAIL_SMTP_AUTH:-true}"
+      SPRING_MAIL_PROPERTIES_MAIL_SMTP_STARTTLS_ENABLE: "${SPRING_MAIL_PROPERTIES_MAIL_SMTP_STARTTLS_ENABLE:-true}"
+      # 기기 등록은 항상 환경·암호화 키 범위가 필요하다. 발송 스위치는 기본 비활성이다.
+      PUSH_ENVIRONMENT: "${PUSH_ENVIRONMENT:?PUSH_ENVIRONMENT is required}"
+      PUSH_APP_ID: "${PUSH_APP_ID:-dio}"
+      PUSH_ACTIVE_KEY_ID: "${PUSH_ACTIVE_KEY_ID:?PUSH_ACTIVE_KEY_ID is required}"
+      PUSH_ENCRYPTION_KEYS: "${PUSH_ENCRYPTION_KEYS:?PUSH_ENCRYPTION_KEYS is required}"
+      DIO_PUSH_OUTBOX_ENABLED: "${DIO_PUSH_OUTBOX_ENABLED:-false}"
+      DIO_PUSH_OUTBOX_TTL_SECONDS: "${DIO_PUSH_OUTBOX_TTL_SECONDS:-0}"
+      DIO_PUSH_DELIVERY_ENABLED: "${DIO_PUSH_DELIVERY_ENABLED:-false}"
+      DIO_PUSH_QUEUE_RETENTION_ENABLED: "${DIO_PUSH_QUEUE_RETENTION_ENABLED:-true}"
+      AUTH_SESSION_CLEANUP_ENABLED: "${AUTH_SESSION_CLEANUP_ENABLED:-true}"
+      AUTH_SESSION_CLEANUP_DELAY_MS: "${AUTH_SESSION_CLEANUP_DELAY_MS:-60000}"
+      AUTH_SESSION_CLEANUP_INITIAL_DELAY_MS: "${AUTH_SESSION_CLEANUP_INITIAL_DELAY_MS:-300000}"
+      AUTH_ALLOWED_ORIGINS: "${AUTH_ALLOWED_ORIGINS:-https://k15f106.p.ssafy.io:8443,http://localhost:8081,http://127.0.0.1:8081}"
+      # 인증 배포 계약: ../auth-deployment.md (Nginx가 X-Forwarded-For를 덮어쓴다.)
+      AUTH_TRUSTED_PROXY_REGEX: "${AUTH_TRUSTED_PROXY_REGEX:?AUTH_TRUSTED_PROXY_REGEX is required; see infra/auth-deployment.md}"
+      SIGNUP_PHOTO_MIGRATE_LEGACY: "${SIGNUP_PHOTO_MIGRATE_LEGACY:-false}"
+      SIGNUP_PHOTO_LOCAL_DIRECTORY: /app/.local-data/profile-photos
+      # 미디어와 프로필 사진은 같은 MEDIA_* 저장소 설정을 쓴다(키 접두사 profile-photos/, media/로 구분).
+      # 배포 서버에서는 항상 S3에 두며, 버킷이 없으면 배포 단계에서 실패한다.
+      MEDIA_STORAGE: "${MEDIA_STORAGE:-s3}"
+      MEDIA_S3_BUCKET: "${MEDIA_S3_BUCKET:?MEDIA_S3_BUCKET is required}"
+      MEDIA_S3_REGION: "${MEDIA_S3_REGION:-ap-northeast-2}"
+
+      AWS_ACCESS_KEY_ID: "${AWS_ACCESS_KEY_ID:?AWS_ACCESS_KEY_ID is required}"
+      AWS_SECRET_ACCESS_KEY: "${AWS_SECRET_ACCESS_KEY:?AWS_SECRET_ACCESS_KEY is required}"
+      # 삭제된 미디어: 기본 24시간 보관 후 S3 물리 삭제
+      MEDIA_DELETE_RETENTION: "${MEDIA_DELETE_RETENTION:-PT24H}"
+      MEDIA_EXPIRY_CLEANUP_ENABLED: "${MEDIA_EXPIRY_CLEANUP_ENABLED:-false}"
+      MEDIA_EXPIRY_CLEANUP_DELAY_MS: "${MEDIA_EXPIRY_CLEANUP_DELAY_MS:-3600000}"
+      MEDIA_EXPIRY_CLEANUP_INITIAL_DELAY_MS: "${MEDIA_EXPIRY_CLEANUP_INITIAL_DELAY_MS:-900000}"
+
+      # 휴지통 다이어리: 30일 보관 후 DB 영구 삭제
+      DIO_DIARY_EXPIRY_CLEANUP_ENABLED: "${DIO_DIARY_EXPIRY_CLEANUP_ENABLED:-false}"
+      DIO_DIARY_EXPIRY_CLEANUP_DELAY_MS: "${DIO_DIARY_EXPIRY_CLEANUP_DELAY_MS:-60000}"
+      DIO_DIARY_EXPIRY_CLEANUP_INITIAL_DELAY_MS: "${DIO_DIARY_EXPIRY_CLEANUP_INITIAL_DELAY_MS:-300000}"
+      AUTH_GOOGLE_CLIENT_IDS: "${AUTH_GOOGLE_CLIENT_IDS:-}"
+      AUTH_APPLE_CLIENT_IDS: "${AUTH_APPLE_CLIENT_IDS:-com.f106.DIO}"
+      AUTH_APPLE_TEAM_ID: "${AUTH_APPLE_TEAM_ID:-5574VUMQN5}"
+      AUTH_APPLE_KEY_ID: "${AUTH_APPLE_KEY_ID:-}"
+      AUTH_APPLE_PRIVATE_KEY: "${AUTH_APPLE_PRIVATE_KEY:-}"
+      SIGNUP_SERVICE_TERMS_VERSION: "${SIGNUP_SERVICE_TERMS_VERSION:-v2}"
+      SIGNUP_PRIVACY_TERMS_VERSION: "${SIGNUP_PRIVACY_TERMS_VERSION:-v2}"
+      SIGNUP_MARKETING_TERMS_VERSION: "${SIGNUP_MARKETING_TERMS_VERSION:-v1}"
+      # 사진 속 대상 오리기: 같은 compose의 ai 컨테이너를 내부망으로 부른다.
+      AI_SERVER_URL: "http://ai:8000"
+      DIO_AI_API_KEY: "${DIO_AI_API_KEY:?DIO_AI_API_KEY is required}"
+    volumes:
+      - signup-profile-photos:/app/.local-data/profile-photos
+    networks:
+      development-db:
+      ai:
+      proxy:
+        aliases:
+          - backend-dev
+
+  # SAM 2 사진 속 대상 오리기 서버(ai/). 외부 포트 없이 backend만 접근한다.
+  # 사진 임베딩을 메모리에 두므로 컨테이너는 하나만 띄운다. 메모리·CPU 상한으로 백엔드·DB를 보호한다.
+  ai:
+    image: ${AI_IMAGE:?AI_IMAGE is required}
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+        compress: "true"
+    environment:
+      DIO_AI_API_KEY: "${DIO_AI_API_KEY:?DIO_AI_API_KEY is required}"
+      # 사진 1장 임베딩 ≈ 23MB(실측). 24장이면 약 1.3GB로 2GB 상한 안에 여유를 둔다.
+      SAM2_CACHE_SIZE: "24"
+    mem_limit: 2g
+    cpus: 2
+    networks:
+      ai:
+
+networks:
+  # backend ↔ ai 전용. internal이라 외부 인터넷으로 나가지도, 밖에서 들어오지도 않는다.
+  ai:
+    internal: true
+  development-db:
+    external: true
+    name: dio-dev_default
+  proxy:
+    external: true
+    name: dio-proxy
+
+volumes:
+  signup-profile-photos:

@@ -13,7 +13,7 @@ const { code } = fromExpo('@babel/core').transformSync(readFileSync(new URL('../
   configFile: false, babelrc: false,
   plugins: [[fromExpo.resolve('@babel/plugin-transform-react-jsx'), { runtime: 'automatic' }], fromExpo.resolve('@babel/plugin-transform-modules-commonjs')],
 })
-function input(zoom = 1, diameter) {
+function input(zoom = 1, diameter, props = {}) {
   let handlers
   const actions = [], previews = []
   const module = { exports: {} }
@@ -22,15 +22,23 @@ function input(zoom = 1, diameter) {
     if (name === '../../shared/theme') return { colors: {} }
     if (name === '../hooks/usePan') return { usePan: (value) => { handlers = value; return {} } }
     if (name === '../utils/eraser.js') return eraser
+    if (name === '../utils/penPerformance.js') return { startPenMeasurement: () => null }
     return require(name)
   }
   new Function('require', 'module', 'exports', code)(load, module, module.exports)
   renderToStaticMarkup(React.createElement(module.exports.default, {
     zoom, diameter, objects: [createStroke([{ x: 100, y: 50 }, { x: 100, y: 150 }], { id: 'stroke', width: 2 })],
-    dispatch: (action) => actions.push(action), onPreview: (ids) => previews.push(ids),
+    dispatch: (action) => actions.push(action), onPreview: (ids) => previews.push(ids), ...props,
   }))
-  return { handlers, actions, previews }
+  return { handlers, actions, previews, interval: module.exports.eraserPreviewInterval }
 }
+test('영역 지우기 미리보기 간격은 iOS 태블릿과 폰을 구분한다', () => {
+  const { interval } = input()
+  assert.equal(interval('ios', false), 64)
+  assert.equal(interval('ios', true), 32)
+  assert.equal(interval('android', false), 32)
+  assert.equal(interval('web', true), 32)
+})
 test('실제 지우개 입력 핸들러는 화면 배율을 환산하고 확정 전에는 삭제하지 않는다', () => {
   for (const zoom of [0.5, 1, 2.5]) {
     const { handlers, actions, previews } = input(zoom)
@@ -72,5 +80,46 @@ test('크기 설정은 실제 삭제 반경에 반영되고 확대 상태에서�
       handlers.onEnd({ cancelled: false })
       assert.deepEqual(actions, expected)
     }
+  }
+})
+
+
+test('플래너 지우기와 일반 획 삭제는 한 action으로 확정하고 취소 시 둘 다 버린다', () => {
+  for (const cancelled of [false, true]) {
+    const original = { cells: { a: '#123456' } }, erased = { cells: {} }, drafts = []
+    const f = input(1, 24, { planner: original, onPlannerErase: () => erased, onPlannerPreview: value => drafts.push(value) })
+    f.handlers.onStart({ locationX: 100, locationY: 100 })
+    assert.deepEqual(f.actions, [])
+    f.handlers.onEnd({ cancelled })
+    f.handlers.onEnd({ cancelled })
+    assert.deepEqual(f.actions, cancelled ? [] : [{ type: 'setPlanner', planner: erased, after: { type: 'removeObjects', ids: ['stroke'] } }])
+    assert.equal(drafts.at(-1), null)
+  }
+})
+
+test('영역 지우기의 조각 미리보기 제한 중에도 속지 채움은 손을 떼기 전 표시한다', () => {
+  const original = { fills: { a: '#123456' } }, erased = { fills: {} }, drafts = []
+  let calls = 0
+  const f = input(1, 24, { mode: 'area', planner: original, onPlannerErase: () => ++calls === 2 ? erased : null, onPlannerPreview: value => drafts.push(value) })
+  f.handlers.onStart({ locationX: 20, locationY: 20 })
+  f.handlers.onMove(2, 0, {})
+  assert.deepEqual(drafts.at(-1), erased)
+  assert.deepEqual(f.actions, [])
+  f.handlers.onEnd({ cancelled: false })
+  assert.deepEqual(f.actions, [{ type: 'setPlanner', planner: erased }])
+})
+
+
+test('대상 선택은 실제 입력 세션에 전달되고 선택 지우기에서 플래너 기록은 보존된다', () => {
+  for (const mode of ['stroke', 'area']) for (const target of ['pen', 'highlighter']) {
+    let plannerCalls = 0
+    const original = { cells: { a: '#123456' } }
+    const f = input(1, 24, { mode, target, planner: original,
+      onPlannerErase: () => { plannerCalls++; return { cells: {} } } })
+    f.handlers.onStart({ locationX: 100, locationY: 100 })
+    f.handlers.onEnd({ cancelled: false })
+    assert.equal(plannerCalls, 0)
+    assert.equal(f.actions.length, target === 'pen' ? 1 : 0)
+    if (target === 'pen') assert.equal(f.actions[0].type, mode === 'area' ? 'replaceObjects' : 'removeObjects')
   }
 })

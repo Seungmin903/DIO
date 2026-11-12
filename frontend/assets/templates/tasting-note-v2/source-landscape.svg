@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 768" width="1024" height="768" role="img" aria-labelledby="title desc">
+  <title id="title">테이스팅 노트 가로형 시안</title>
+  <desc id="desc">사진 칸의 너비와 높이가 240 대 320인 3 대 4 비율의 가로형 테이스팅 노트</desc>
+  <style>
+    @font-face { font-family: PoorStory; src: url('../../../node_modules/@expo-google-fonts/poor-story/400Regular/PoorStory_400Regular.ttf') format('truetype'); }
+    .text { font-family: PoorStory, 'Malgun Gothic', sans-serif; font-weight: 700; fill: #202020; }
+    .label { font-size: 23px; } .option { font-size: 20px; } .guide { fill: none; stroke: #b7babd; stroke-width: 1.25; }
+    .icon { fill: none; stroke: #252525; stroke-width: 2.1; stroke-linecap: round; stroke-linejoin: round; }
+    .choice { fill: none; stroke: #777c80; stroke-width: 1.8; }
+  </style>
+  <rect width="1024" height="768" fill="white"/>
+  <rect x="14" y="14" width="996" height="740" rx="13" class="guide"/>
+  <g class="icon" transform="translate(34 42) rotate(-14 12 24)"><path d="M4 0v11c0 6 3 9 8 10v28a3 3 0 0 0 6 0V21c5-1 8-4 8-10V0 M11 0v12 M19 0v12"/></g>
+  <text x="75" y="80" class="text" font-size="40">테이스팅 노트</text>
+  <path d="M331 39v61" class="guide"/>
+  <text x="350" y="60" class="text label">날짜</text><path d="M406 64h128" class="guide"/>
+  <text x="557" y="60" class="text label">지역</text><path d="M611 64h145" class="guide"/>
+  <text x="350" y="94" class="text label">with</text><path d="M405 98h569" class="guide"/>
+  <path d="M30 113h964" class="guide"/>
+  <!-- 240 / 320 = 3 / 4 -->
+  <rect id="photo-frame" x="30" y="130" width="240" height="320" rx="10" class="guide"/>
+  <g id="photo-placeholder" fill="none" stroke="#a0a4a8" stroke-width="3" stroke-linecap="round"><path d="M140 270h20 M150 260v20"/></g>
+  <text x="150" y="304" text-anchor="middle" font-family="PoorStory, 'Malgun Gothic', sans-serif" font-size="22" fill="#a0a4a8">사진 추가</text>
+  <g class="text label"><text x="297" y="155">가게</text><text x="297" y="202">메뉴</text><text x="297" y="249">가격</text><text x="297" y="296">별점</text></g>
+  <g class="guide"><path d="M362 160h610"/><path d="M362 207h610"/><path d="M362 254h610"/></g>
+  <g id="rating" class="choice" stroke-linejoin="round">
+    <polygon id="star-1" points="0,-16 5,-6 16,-5 7,3 10,15 0,9 -10,15 -7,3 -16,-5 -5,-6" transform="translate(390 292)"/>
+    <polygon id="star-2" points="0,-16 5,-6 16,-5 7,3 10,15 0,9 -10,15 -7,3 -16,-5 -5,-6" transform="translate(450 292)"/>
+    <polygon id="star-3" points="0,-16 5,-6 16,-5 7,3 10,15 0,9 -10,15 -7,3 -16,-5 -5,-6" transform="translate(510 292)"/>
+    <polygon id="star-4" points="0,-16 5,-6 16,-5 7,3 10,15 0,9 -10,15 -7,3 -16,-5 -5,-6" transform="translate(570 292)"/>
+    <polygon id="star-5" points="0,-16 5,-6 16,-5 7,3 10,15 0,9 -10,15 -7,3 -16,-5 -5,-6" transform="translate(630 292)"/>
+  </g>
+  <rect x="290" y="319" width="704" height="49" rx="8" class="guide"/>
+  <text x="307" y="351" class="text label">방문</text>
+  <g class="choice"><circle id="visit-1" cx="427" cy="344" r="11"/><circle id="visit-2" cx="634" cy="344" r="11"/><circle id="visit-3" cx="825" cy="344" r="11"/></g>
+  <g class="text option"><text x="448" y="351">우연히</text><text x="655" y="351">추천</text><text x="846" y="351">찾아서</text></g>
+  <rect x="290" y="380" width="704" height="91" rx="8" class="guide"/>
+  <text x="307" y="411" class="text label">또 먹을래?</text>
+  <g class="choice"><circle id="again-1" cx="479" cy="404" r="11"/><circle id="again-2" cx="702" cy="404" r="11"/><circle id="again-3" cx="479" cy="446" r="11"/></g>
+  <g class="text option"><text x="501" y="411">꼭 다시</text><text x="724" y="411">기회가 되면</text><text x="501" y="453">한 번으로 만족</text></g>
+  <g class="icon" transform="translate(306 487)"><path d="M12 29C8 23 3 17 3 11a9 9 0 1 1 18 0c0 6-5 12-9 18Z"/><circle cx="12" cy="11" r="3"/></g>
+  <text x="342" y="511" class="text label">주소</text><path d="M394 515h581" class="guide"/>
+  <g class="icon" transform="translate(303 533)"><path d="M0 25h39 M3 24a16.5 16.5 0 0 1 33 0 M19.5 5v-3 M17 2a2.5 2.5 0 1 0 5 0a2.5 2.5 0 1 0 -5 0 M9 19c1-5 4-8 8-9"/></g>
+  <text x="354" y="556" class="text label">이 맛을 한마디로</text><path d="M533 560h442" class="guide"/>
+  <g class="icon" transform="translate(301 578)"><path d="M0 4q13-5 26 0c0 10-4 14-13 14S0 14 0 4Z M4 5q9 4 18 0 M7 18v3h12v-3 M31 4q13-5 26 0c0 10-4 14-13 14s-13-4-13-14Z M35 5q9 4 18 0 M38 18v3h12v-3"/></g>
+  <text x="370" y="600" class="text label">같이 먹으면 좋은 조합</text><path d="M588 604h387" class="guide"/>
+  <rect id="decoration-area" x="30" y="623" width="964" height="109" rx="10" class="guide"/>
+</svg>

@@ -1,18 +1,27 @@
-import Svg, { Circle, Path, Rect } from 'react-native-svg';
+import { Image } from 'react-native';
 
-// 원본: assets/brand/dio-logo.svg (746×836). 앱 아이콘·시작 화면 PNG 도 이 그림으로 만든다.
-const INK = '#242424';
-const THEME = '#9FB6D9';
-export const BRAND_LOGO_RATIO = 746 / 836;
+// Approved transparent-corner revision from app-icon-transparent-fixed.zip.
+export const BRAND_LOGO_RATIO = 1;
+// Metro selects the matching @2x/@3x asset for the device density.
+const sources = {
+  24: require('../../assets/brand/display/mascot-24.png'),
+  28: require('../../assets/brand/display/mascot-28.png'),
+  30: require('../../assets/brand/display/mascot-30.png'),
+  32: require('../../assets/brand/display/mascot-32.png'),
+  52: require('../../assets/brand/display/mascot-52.png'),
+  160: require('../../assets/brand/display/mascot-160.png'),
+};
+const sizes = Object.keys(sources).map(Number).sort((a, b) => a - b);
+// New display sizes reuse the next larger prepared asset, never the 1254px original.
+const warnedSizes = new Set();
+const sourceForSize = size => {
+  if (typeof __DEV__ !== 'undefined' && __DEV__ && !Object.hasOwn(sources, size) && !warnedSizes.has(size)) {
+    warnedSizes.add(size);
+    console.warn(`[BrandLogo] 준비되지 않은 크기 ${size}. 지원 크기: ${sizes.join(', ')}. 생성 목록을 확장하고 pnpm brand:icons를 실행해 주세요.`);
+  }
+  return sources[sizes.find(value => value >= size) ?? sizes.at(-1)];
+};
 
-/** DIO 로고 (D 심볼 + 테마 원). size 는 높이 */
-export default function BrandLogo({ size = 28, color = INK, accent = THEME }) {
-  return (
-    <Svg width={size * BRAND_LOGO_RATIO} height={size} viewBox="6 -16 746 836" fill="none" accessibilityLabel="DIO 로고">
-      <Path d="M431 106C408 96 383 94 350 94H72V754H350C534 754 686 622 686 424C686 357 664 297 624 251" stroke={color} strokeWidth={132} strokeLinecap="round" strokeLinejoin="round" />
-      <Rect x={218} y={356} width={277} height={44} rx={22} fill={color} />
-      <Rect x={218} y={452} width={195} height={44} rx={22} fill={color} />
-      <Circle cx={607} cy={74} r={90} fill={accent} />
-    </Svg>
-  );
+export default function BrandLogo({ size = 28, onLoadEnd }) {
+  return <Image source={sourceForSize(size)} onLoadEnd={onLoadEnd} style={{ width: size, height: size }} resizeMode="contain" resizeMethod="scale" fadeDuration={0} accessibilityLabel="DIO 로고" />;
 }

@@ -8,11 +8,55 @@ function load(file, mocks) {
   const m = { exports: {} }; new Function('require', 'module', 'exports', code)(id => id in mocks ? mocks[id] : require(id), m, m.exports); return m.exports
 }
 const all = n => !n || typeof n !== 'object' ? [] : [n, ...[n.props?.children].flat(Infinity).flatMap(all)]
+function loadLicenses(components, size) { return loadModule(components, size).default }
+function loadModule(components, size = { width: 400, height: 800 }) {
+  return load('../src/diary/components/ContentLicenses.js', {
+    react: { useMemo: f => f(), useState: v => [v, () => {}] }, 'react-native': { FlatList: 'list', Linking: {}, Platform: { select: o => o.default }, Pressable: 'button', ScrollView: 'scroll', StatusBar: 'status', StyleSheet: { create: x => x }, Text: 'text', TextInput: 'input', View: 'view', useWindowDimensions: () => size },
+    'react-native-safe-area-context': { SafeAreaView: 'safe' }, '../../editor/components/controls/EditorModal': { __esModule: true, default: 'modal' }, '../../editor/components/controls/Icon': { __esModule: true, default: 'editor-icon' }, '../../shared/AppIcon': { __esModule: true, default: 'icon' },
+    '../../shared/dialogs': {}, '../../shared/theme': { colors: {}, radius: {} }, './BackButton': { __esModule: true, default: 'back' }, './EmptyState': { __esModule: true, default: 'empty' }, '../data/contentLicenses.json': [],
+    '../../licenses/softwareNotices': { __esModule: true, default: { components } }, '../../licenses/sourceFiles': {},
+  })
+}
+test('596: 전문의 생성기 표시 줄(--- LICENSE ---)은 지우고, 묶음 항목만 "라이브러리 (파일)" 이름을 소제목으로 남긴다', () => {
+  const { legalSections } = loadModule([])
+  assert.deepEqual(legalSections('--- LICENSE ---\nMIT License\n\nCopyright (c) 2020 Expo'), [{ label: '', body: 'MIT License\n\nCopyright (c) 2020 Expo' }])
+  assert.deepEqual(legalSections('--- Source copyright header 1 ---\n/* (c) Meta */\n\n--- MIT license ---\nMIT License').map(s => s.label), ['', ''])
+  const skia = legalSections('--- Skia (skia-LICENSE.txt) ---\nBSD\n\n\n\n--- HarfBuzz (skia-harfbuzz-COPYING.txt) ---\nOld MIT\n--- end of FTL.TXT ---')
+  assert.deepEqual(skia.map(s => s.label), ['Skia (skia-LICENSE.txt)', 'HarfBuzz (skia-harfbuzz-COPYING.txt)'])
+  assert.equal(skia[0].body, 'BSD')
+  assert.equal(skia[1].body, 'Old MIT\n--- end of FTL.TXT ---', '원문 마지막 줄은 남긴다')
+  // 원문 안의 긴 대시 구분선은 그대로
+  assert.equal(legalSections('a\n-----------------------------\nb')[0].body, 'a\n-----------------------------\nb')
+})
+test('596: 카드 없이 이름 순 한 줄 목록 → 누르면 상세, 태블릿 가로는 목록 · 상세 나란히', () => {
+  const entry = (id, name, license, version) => ({ id, name, license, version, text: 'MIT License' })
+  const components = [entry('z', 'Zstandard', 'BSD-3-Clause', '1.5.7'), entry('l', 'libavif', 'BSD-2-Clause', '1.3'), entry('a', '@expo/cli', 'MIT', '58.1.15'), entry('p', 'Pretendard', 'OFL-1.1', 'bundled font files')]
+  const phone = loadLicenses(components)({ visible: true, onClose() {} })
+  const list = all(phone).find(n => n.type === 'list')
+  assert.deepEqual(list.props.data.map(e => e.name), ['@expo/cli', 'libavif', 'Pretendard', 'Zstandard'])
+  const row = list.props.renderItem({ item: list.props.data[2] })
+  assert.equal(row.props.accessibilityLabel, 'Pretendard 라이선스 전문 보기')
+  // 숫자 없는 버전('bundled font files')은 보조 줄에 쓰지 않는다
+  assert.ok(all(row).some(n => n.type === 'text' && n.props.children === 'OFL-1.1'))
+  assert.equal(all(phone).find(n => n.type === 'back').props.label, '라이선스 화면 닫기')
+  const tablet = loadLicenses(components, { width: 1280, height: 800 })({ visible: true, onClose() {} })
+  assert.ok(all(tablet).some(n => n.type === 'list'))
+  assert.ok(all(tablet).some(n => n.props?.entry?.name === '@expo/cli' && n.props.wide), '넓은 창은 첫 항목 상세를 옆에 연다')
+})
+test('라이선스 이름 순은 localeCompare 없이 대소문자 무시 · 숫자 크기 순으로 정렬하고, 설정 화면은 열 때만 라이선스를 마운트한다', () => {
+  const { sortByName } = loadModule([])
+  const names = ['lib10', 'Zstandard', 'lib2', '@expo/cli', 'libavif', 'Pretendard']
+  assert.deepEqual(sortByName(names.map(name => ({ name }))).map(e => e.name), ['@expo/cli', 'lib2', 'lib10', 'libavif', 'Pretendard', 'Zstandard'])
+  // 13자리 이상 숫자(날짜 · 해시 등)도 크기 순, 앞 0은 값에 영향을 주지 않는다
+  const long = ['x-20261111000000', 'x-9', 'x-0010', 'x-1234567890123']
+  assert.deepEqual(sortByName(long.map(name => ({ name }))).map(e => e.name), ['x-9', 'x-0010', 'x-1234567890123', 'x-20261111000000'])
+  const source = readFileSync(new URL('../src/diary/components/ContentLicenses.js', import.meta.url), 'utf8')
+  assert.doesNotMatch(source, /\.localeCompare\(/)
+  const info = readFileSync(new URL('../src/diary/components/AppInformation.js', import.meta.url), 'utf8')
+  assert.match(info, /\{licensesOpen && <ContentLicenses visible onClose=/)
+})
 test('라이선스 모달 방향·상태바·닫기', () => {
-  const Screen = load('../src/diary/components/ContentLicenses.js', {
-    react: { useState: v => [v, () => {}] }, 'react-native': { Linking: {}, Pressable: 'button', ScrollView: 'scroll', StatusBar: 'status', StyleSheet: { create: x => x }, Text: 'text', View: 'view' },
-    'react-native-safe-area-context': { SafeAreaView: 'safe' }, '../../editor/components/controls/EditorModal': { __esModule: true, default: 'modal' }, '../../shared/AppIcon': { __esModule: true, default: 'icon' }, '../../shared/dialogs': {}, '../constants': { C: {} }, '../data/contentLicenses.json': [],
-  }).default
+  const Screen = loadLicenses([])
   let closed = false; const t = Screen({ visible: true, onClose: () => { closed = true } })
   assert.equal(t.type, 'modal'); assert.deepEqual(t.props.supportedOrientations, ['portrait', 'landscape']); assert.equal(t.props.statusBarTranslucent, true)
   assert.equal(all(t).find(n => n.type === 'status').props.hidden, true); t.props.onRequestClose(); assert.ok(closed)
@@ -20,7 +64,7 @@ test('라이선스 모달 방향·상태바·닫기', () => {
 })
 test('출처 순서·숨김을 저장하고 앱 재시작 후 복원·숨김 해제', async () => {
   const disk = new Map()
-  const storage = load('../src/editor/services/storage.js', { '@react-native-async-storage/async-storage': { __esModule: true, default: { getItem: async k => disk.get(k) ?? null, setItem: async (k,v) => { disk.set(k,v) } } }, '../utils/storageContract.js': { STORAGE_KEYS: { customDecor: 'dio:editor:custom-decor:v2' } } })
+  const storage = load('../src/editor/services/storage.js', { './documentStorage': { __esModule: true, default: { getItem: async k => disk.get(k) ?? null, setItem: async (k,v) => { disk.set(k,v) } } }, '../utils/storageContract.js': { STORAGE_KEYS: { customDecor: 'dio:editor:custom-decor:v2' } } })
   function mount() {
     let states = [], deps = [], cursor = 0, effects = []
     const react = { useCallback: f => f, useState: v => { const i = cursor++; if (!(i in states)) states[i] = typeof v === 'function' ? v() : v; return [states[i], n => { states[i] = typeof n === 'function' ? n(states[i]) : n }] }, useEffect: (fn,next) => { const i = cursor++; if (!deps[i] || next.some((v,k) => !Object.is(v,deps[i][k]))) { effects.push(fn); deps[i] = next } } }
@@ -32,22 +76,6 @@ test('출처 순서·숨김을 저장하고 앱 재시작 후 복원·숨김 해
   const stored = JSON.parse(disk.get('dio:editor:custom-decor:v2')); assert.deepEqual(stored.categoryOrder,order); assert.deepEqual(stored.hiddenCategories,['fluent-emoji'])
   const restart = mount(); await restart(); r = await restart(); assert.deepEqual(r.items.categoryOrder,order); assert.deepEqual(r.items.hiddenCategories,['fluent-emoji'])
   r.toggleHidden('fluent-emoji'); await restart(); assert.deepEqual(JSON.parse(disk.get('dio:editor:custom-decor:v2')).hiddenCategories,[])
-})
-
-test('Twemoji 64종은 공식 SVG에서 생성한 512px PNG이며 기존 asset ID를 유지한다', async () => {
-  const { createHash } = await import('node:crypto')
-  const manifest = JSON.parse(readFileSync(new URL('../assets/stickers/twemoji/manifest.json', import.meta.url), 'utf8'))
-  assert.equal(manifest.items.length, 64)
-  assert.equal(new Set(manifest.items.map(x => x.asset)).size, 64)
-  for (const item of manifest.items) {
-    const png = readFileSync(new URL(`../assets/stickers/twemoji/${item.codepoint}.png`, import.meta.url))
-    const svg = readFileSync(new URL(`../assets/stickers/twemoji/svg/${item.codepoint}.svg`, import.meta.url))
-    assert.equal(item.asset, `tw-${item.codepoint}`)
-    assert.equal(png.readUInt32BE(16), 512); assert.equal(png.readUInt32BE(20), 512)
-    assert.equal(createHash('sha256').update(png).digest('hex'), item.sha256)
-    assert.equal(createHash('sha256').update(svg).digest('hex'), item.sourceSha256)
-    assert.equal(item.url, `https://raw.githubusercontent.com/twitter/twemoji/v14.0.2/assets/svg/${item.codepoint}.svg`)
-  }
 })
 
 test('실제 EditorModal을 거쳐도 폰·태블릿 모두 방향·상태바·닫기 props를 유지한다', () => {

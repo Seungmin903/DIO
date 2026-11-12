@@ -1,4 +1,11 @@
-export const TRASH_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
+import { scanStored } from './storedScan.js';
+
+export const TRASH_RETENTION_DAYS = 30;
+export const TRASH_RETENTION_MS = TRASH_RETENTION_DAYS * 24 * 60 * 60 * 1000;
+
+// 남은 날짜(올림). 기기 시계가 서버보다 조금이라도 늦으면 막 옮긴 다이어리가 '31일'로 보이므로 보관 기간(30일)을 넘지 않게 한다.
+// 서버 보관 기간도 30일 고정이다(backend DiaryTrashService.RETENTION = 30일, purgeAt = deletedAt + 30일). 서버 기간이 바뀌면 이 상한도 같이 바꾼다.
+export const trashDaysLeft = (deadline, now) => Math.min(TRASH_RETENTION_DAYS, Math.max(0, Math.ceil((deadline - now) / (24 * 60 * 60 * 1000))));
 
 export function trashDeadline(diary) {
   if (!diary?.trashedAt) return null;
@@ -11,18 +18,24 @@ export function isTrashExpired(diary, now = Date.now()) {
   return Boolean(diary?.purgePending || (deadline !== null && now >= deadline));
 }
 
+/** 고른 다이어리에만 삭제 시각을 기록한다. 이미 휴지통에 있으면 기존 기한을 늘리지 않는다. */
+export function markTrashed(diaries, ids, trashedAt) {
+  const targets = new Set(ids);
+  return diaries.map(diary => (targets.has(diary.id) && !diary.trashedAt ? { ...diary, trashedAt } : diary));
+}
+
+// 회원 보관함으로 옮긴 다이어리의 표지(목록 · 기기 값)와 문서도 기기의 사진 파일을 쓴다.
+const MEMBER_REFERENCE_KEY = /^dio:member:v1:\d+:(index|local-meta|doc:[^:]+)$/;
+
 export function trashStatus(diary, now = Date.now()) {
   const deadline = trashDeadline(diary);
   if (diary.purgePending || (deadline !== null && now >= deadline)) return '보관 기한 만료 · 영구 삭제 대기';
   if (deadline === null) return '삭제 날짜 확인 필요 · 자동 삭제 보류';
-  const days = Math.ceil((deadline - now) / (24 * 60 * 60 * 1000));
-  const date = new Date(deadline);
-  const formatted = `${date.getFullYear()}.${String(date.getMonth() + 1).padStart(2, '0')}.${String(date.getDate()).padStart(2, '0')}`;
-  return `${days}일 후 영구 삭제 · ${formatted}`;
+  return `${trashDaysLeft(deadline, now)}일 후 영구 삭제`;
 }
 
 /** 호출자는 목록 저장과 삭제를 같은 큐에서 실행한다. 삭제 표식은 문서보다 먼저 저장한다. */
-export async function purgeTrashedDiary({ id, storage, keys, getDiaries, updateDiaries, forgetDoc, collectMediaIds, removeMedia }) {
+export async function purgeTrashedDiary({ id, storage, keys, getDiaries, updateDiaries, forgetDoc, forgetView, collectMediaIds, removeMedia, collectSourceIds = () => [], removeSource = async () => {} }) {
   const diary = getDiaries().find(item => item.id === id);
   if (!diary?.trashedAt) return false;
   const targetKey = `${keys.doc}:${id}`;
@@ -31,25 +44,42 @@ export async function purgeTrashedDiary({ id, storage, keys, getDiaries, updateD
     const marked = getDiaries().map(item => item.id === id ? { ...item, purgePending: true } : item);
     await storage.setItem(keys.diaries, JSON.stringify(marked));
     updateDiaries(current => current.map(item => item.id === id ? { ...item, purgePending: true } : item));
-    const targetRaw = await storage.getItem(targetKey);
     const allKeys = await storage.getAllKeys();
     const referenceKeys = allKeys.filter(key => (
-      (key.startsWith(`${keys.doc}:`) && key !== targetKey) || key === keys.doc || key === keys.customDecor
+      (key.startsWith(`${keys.doc}:`) && key !== targetKey) || key === keys.doc || key === keys.customDecor || key === keys.myCovers || key === keys.myPapers || MEMBER_REFERENCE_KEY.test(key)
     ));
-    const references = referenceKeys.length ? await storage.multiGet(referenceKeys) : [];
+    // 큰 문서도 한 조각씩 해석하고 id 만 남긴다.
     // 손상된 참조를 "미사용"으로 해석하지 않는다. 이 경우 미디어 파일은 보수적으로 보존한다.
-    let unshared = [];
-    try {
-      const targetMedia = collectMediaIds(targetRaw ? JSON.parse(targetRaw) : null);
-      const retained = new Set(references.flatMap(([, raw]) => collectMediaIds(raw ? JSON.parse(raw) : null)));
-      unshared = targetMedia.filter(mediaId => !retained.has(mediaId));
-    } catch {}
+    let unreadable = false;
+    const collectInto = (media, sources) => (_, raw) => {
+      if (!raw) return true;
+      try {
+        const value = JSON.parse(raw);
+        collectMediaIds(value).forEach(item => media.add(item));
+        collectSourceIds(value).forEach(item => sources.add(item));
+      } catch { unreadable = true; }
+      return true;
+    };
+    const targetMedia = new Set(), targetSources = new Set(), retained = new Set(), retainedSources = new Set();
+    // 대상 문서가 깨졌으면 쓰는 파일을 알 수 없다. 파일은 남기고 문서는 지워 휴지통에서 비울 수 있게 한다.
+    try { await scanStored(storage, [targetKey], collectInto(targetMedia, targetSources)); }
+    catch { unreadable = true; }
+    await scanStored(storage, referenceKeys, collectInto(retained, retainedSources));
+    // 다른 다이어리의 표지(다이어리 목록에 들어 있다)가 같은 쪽 그림을 쓸 수 있다. 지우는 다이어리 자신의 표지는 제외한다.
+    const otherDiaries = getDiaries().filter(item => item.id !== id);
+    collectMediaIds(otherDiaries).forEach(item => retained.add(item));
+    collectSourceIds(otherDiaries).forEach(item => retainedSources.add(item));
+    // 불러온 PDF 원본도 같은 방식으로: 다른 문서 · 내 속지가 쓰지 않을 때만 지운다.
+    const unshared = unreadable ? [] : [...targetMedia].filter(mediaId => !retained.has(mediaId));
+    const unsharedSources = unreadable ? [] : [...targetSources].filter(sourceId => !retainedSources.has(sourceId));
+    // 열람 기록 삭제가 실패하면 문서를 보존하여 재시도에도 미디어 참조를 읽을 수 있게 한다.
+    if (await forgetView(targetKey) === false) throw new Error('열람 기록 삭제 실패');
     await storage.removeItem(targetKey);
     forgetDoc(targetKey);
     await storage.setItem(keys.diaries, JSON.stringify(getDiaries().filter(item => item.id !== id)));
     updateDiaries(current => current.filter(item => item.id !== id));
     // 정리 실패는 다른 원본이나 문서를 손상시키지 않도록 고아 파일로 남긴다.
-    await Promise.allSettled(unshared.map(removeMedia));
+    await Promise.allSettled([...unshared.map(removeMedia), ...unsharedSources.map(removeSource)]);
     return true;
   } catch {
     return false;

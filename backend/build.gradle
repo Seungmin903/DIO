@@ -18,12 +18,20 @@ repositories {
 }
 
 dependencies {
+	implementation 'com.twelvemonkeys.imageio:imageio-webp:3.15.0'
+	implementation 'org.springframework.boot:spring-boot-starter-security-oauth2-resource-server'
+	implementation platform('software.amazon.awssdk:bom:2.42.22')
+	implementation 'software.amazon.awssdk:s3'
+	implementation 'software.amazon.awssdk:url-connection-client'
+	implementation 'org.springframework.boot:spring-boot-starter-mail'
+	implementation 'org.springframework.security:spring-security-crypto'
 	implementation 'org.springframework.boot:spring-boot-starter-actuator'
 	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
 	implementation 'org.springframework.boot:spring-boot-starter-flyway'
 	runtimeOnly 'org.flywaydb:flyway-database-postgresql'
 	implementation 'org.springframework.boot:spring-boot-starter-validation'
 	implementation 'org.springframework.boot:spring-boot-starter-webmvc'
+	implementation 'org.springframework.boot:spring-boot-starter-websocket'
 	implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:3.1.1'
 	compileOnly 'org.projectlombok:lombok'
 	developmentOnly 'org.springframework.boot:spring-boot-devtools'
@@ -33,22 +41,336 @@ dependencies {
 	testImplementation 'org.springframework.boot:spring-boot-starter-data-jpa-test'
 	testImplementation 'org.springframework.boot:spring-boot-starter-validation-test'
 	testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'
+	testImplementation 'org.springframework.security:spring-security-test'
 	testCompileOnly 'org.projectlombok:lombok'
 	testRuntimeOnly 'com.h2database:h2'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 	testAnnotationProcessor 'org.projectlombok:lombok'
 }
 
-tasks.named('test') {
-	useJUnitPlatform()
+// 테스트는 compose·infra 파일과 DB 환경변수처럼 선언되지 않은 입력에 의존하므로 빌드 캐시 결과로 건너뛰지 않는다.
+tasks.withType(Test).configureEach {
+	outputs.cacheIf { false }
+	// 테스트 JVM 기본 힙(512MB)으로는 설정이 다른 Spring 테스트 컨텍스트가 최대 32개까지 캐시되며 OutOfMemoryError로 멈춘다.
+	// 캐시 개수를 줄여 메모리 사용을 일정하게 묶고, 힙 상한을 둔다(로컬·CI 공통, 서버 실행과는 무관).
+	maxHeapSize = '2g'
+	systemProperty 'spring.test.context.cache.maxSize', '16'
+	// 여러 JVM으로 나눠 돌 때 파일 저장 폴더가 겹치지 않게, 기본 미디어 · 프로필 사진 폴더를 JVM(Gradle 작업자 번호)마다 나눈다.
+	// 값의 \${...} 는 스프링이 테스트 JVM 안에서 풀므로 모든 JVM의 설정 문자열은 같고, 스프링 테스트 컨텍스트 공유도 그대로다.
+	// 테스트가 폴더를 직접 지정하면 그 값이 우선이므로, 그런 테스트도 경로 끝에 같은 작업자 번호를 붙인다.
+	systemProperty 'dio.media.local-directory', 'build/test-files/${org.gradle.test.worker:0}/media'
+	systemProperty 'dio.signup.photos.local-directory', 'build/test-files/${org.gradle.test.worker:0}/profile-photos'
 }
 
-tasks.register('postgresTest', Test) {
-	description = 'Runs diary persistence tests against the local PostgreSQL database (test rows rolled back).'
+// H2 테스트(test · fastTest · changedTest)는 로컬에서 테스트 클래스를 여러 JVM에 나눠 돌린다. 각 JVM은 자기 H2 인메모리 DB를 쓴다.
+// CI는 러너 메모리를 알 수 없으므로 1개를 유지한다. -PtestForks=N 으로 직접 지정할 수 있다.
+// 실제 PostgreSQL을 함께 쓰는 postgres 태스크에는 적용하지 않는다.
+def h2TestForks = (project.findProperty('testForks') ?: (System.getenv('CI') ? 1
+	: Math.max(1, Math.min(4, Runtime.runtime.availableProcessors().intdiv(4))))) as int
+
+tasks.named('test') {
+    // Missing generated contracts invalidate UP-TO-DATE on reused runner workspaces.
+    outputs.files('build/contracts/member-diary-http.json',
+        'build/contracts/member-diary-trash-http.json','build/contracts/member-diary-purge-http.json')
+	useJUnitPlatform()
+	maxParallelForks = h2TestForks
+}
+
+// 개발 중 빠른 실행(fastTest · changedTest)에서 빼는 느린 테스트. 전체 test 와 CI 에서는 그대로 돈다.
+def slowLocalTests = [
+	// 실제 포트를 여는 HTTP · WebSocket 통합 테스트
+	'com.f106.DIO.auth.integration.AuthBrowserTests',
+	'com.f106.DIO.auth.integration.AuthProxyTests',
+	'com.f106.DIO.collaboration.CanvasCollaborationTests',
+	'com.f106.DIO.notification.InvitationLookupBootHttpTests',
+	'com.f106.DIO.notification.NotificationAuthenticationHttpTests',
+	'com.f106.DIO.page.TextPageFrontendHttpTests',
+	// local 프로필 전용 스프링 컨텍스트를 따로 띄우는 데모 시드 통합 테스트
+	'com.f106.DIO.localseed.LocalDemoSeedIntegrationTests',
+]
+
+tasks.register('fastTest', Test) {
+	description = 'Runs the local fast suite, excluding loopback HTTP and WebSocket tests.'
 	group = 'verification'
 	testClassesDirs = sourceSets.test.output.classesDirs
 	classpath = sourceSets.test.runtimeClasspath
 	useJUnitPlatform()
-	filter { includeTestsMatching 'com.f106.DIO.diary.PostgresDiary*Tests' }
+	filter { slowLocalTests.each { excludeTestsMatching it } }
+	maxParallelForks = h2TestForks
+}
+
+// 개발 중 바꾼 기능의 테스트만 돌린다. 기준 브랜치(기본 origin/develop)와 갈라진 뒤 바뀐 파일(커밋 · 미커밋 · 새 파일)에서
+// com.f106.DIO 아래 최상위 패키지를 골라 그 패키지 테스트만 실행한다. 여러 기능에 걸치는 파일이 바뀌면 fastTest 와 같은 범위로 돈다.
+//   ./gradlew changedTest                          바뀐 패키지만
+//   ./gradlew changedTest -PtestPackages=cover,tape  패키지를 직접 고름
+//   ./gradlew changedTest -PtestBase=origin/release/v2.0.0  비교 기준 변경
+def backendDir = projectDir
+tasks.register('changedTest', Test) {
+	description = 'Runs fast tests only for backend packages changed since the base branch (-PtestBase, -PtestPackages).'
+	group = 'verification'
+	testClassesDirs = sourceSets.test.output.classesDirs
+	classpath = sourceSets.test.runtimeClasspath
+	useJUnitPlatform()
+	filter { slowLocalTests.each { excludeTestsMatching it } }
+	maxParallelForks = h2TestForks
+	def requested = providers.gradleProperty('testPackages').orNull
+	def base = providers.gradleProperty('testBase').getOrElse('origin/develop')
+	doFirst {
+		def git = { List<String> args ->
+			def process = (['git', '-C', backendDir.path] + args).execute()
+			def out = process.text
+			if (process.waitFor() != 0) throw new GradleException("git ${args.join(' ')} failed: ${process.err.text.trim()}")
+			out.readLines()*.trim().findAll { it }
+		}
+		Set<String> packages
+		if (requested) {
+			packages = requested.split(',')*.trim().findAll { it } as Set
+		} else {
+			def mergeBase = git(['merge-base', base, 'HEAD'])[0]
+			def changed = (git(['diff', '--name-only', '--relative', mergeBase]) + git(['ls-files', '--others', '--exclude-standard'])) as Set
+			// src/main/java/com/f106/DIO/<패키지>/... 또는 src/test/java/... 에서 <패키지>를 꺼낸다. 패키지 밖 파일이면 null
+			def javaRoots = ['src/main/java/com/f106/DIO/', 'src/test/java/com/f106/DIO/']
+			def featureOf = { String path ->
+				def root = javaRoots.find { path.startsWith(it) }
+				if (root == null) return null
+				def rest = path.substring(root.length())
+				rest.contains('/') ? rest.substring(0, rest.indexOf('/')) : null
+			}
+			// 리소스(마이그레이션 · 설정) · 빌드 파일 · 루트 클래스 · 공용 패키지(global, support)와
+			// 다른 기능 테스트가 많이 기대는 패키지(auth: 로그인 · 토큰, user: 회원, media: 업로드 · 보관함 미디어)는 여러 기능에 걸친다
+			def wide = changed.findAll { path -> !path.endsWith('.md') && featureOf(path) in [null, 'global', 'support', 'auth', 'user', 'media'] }
+			if (wide) {
+				logger.lifecycle("changedTest: shared files changed, running the whole fastTest scope (${wide.take(5).join(', ')}${wide.size() > 5 ? ', ...' : ''})")
+				return
+			}
+			packages = changed.collect { featureOf(it) }.findAll { it } as Set
+			if (!packages) {
+				logger.lifecycle("changedTest: no backend changes since ${base}, nothing to run")
+				throw new StopExecutionException()
+			}
+		}
+		// 테스트가 없는 패키지(새 기능 · 오타)만 골라도 빨간불이 되지 않게, 찾은 테스트가 없으면 안내만 남기고 통과한다
+		def testsRoot = new File(backendDir, 'src/test/java/com/f106/DIO')
+		def withoutTests = packages.findAll { !new File(testsRoot, it).isDirectory() }
+		if (withoutTests) logger.lifecycle("changedTest: no tests found for ${withoutTests.sort().join(', ')}")
+		logger.lifecycle("changedTest: running tests in ${packages.sort().join(', ')} (${requested ? '-PtestPackages' : 'changed since ' + base})")
+		filter {
+			failOnNoMatchingTests = false
+			packages.each { includeTestsMatching "com.f106.DIO.${it}.*" }
+		}
+	}
+}
+
+tasks.register('seedMemberDevelopment', JavaExec) {
+	description = 'Seeds a test-only account in the explicitly owned local member app database.'
+	dependsOn testClasses
+	classpath = sourceSets.test.runtimeClasspath
+	mainClass = 'com.f106.DIO.diary.qa.MemberDevelopmentFixture'
+}
+
+tasks.register('writeMemberDevelopmentArtifact') {
+	description = 'Records the exact bootJar output used by the local member development launcher.'
+	dependsOn tasks.named('bootJar')
+	doLast {
+		def manifest = layout.buildDirectory.file('member-development/boot-jar-path.txt').get().asFile
+		manifest.parentFile.mkdirs()
+		manifest.setText(tasks.named('bootJar').get().archiveFile.get().asFile.absolutePath + '\n', 'UTF-8')
+	}
+}
+
+tasks.register('postgresMemberDiaryCreationTest', Test) {
+	description = 'Runs atomic diary/owner/initial-page creation tests in isolated PostgreSQL schemas.'
+	group = 'verification'
+	testClassesDirs = sourceSets.test.output.classesDirs
+	classpath = sourceSets.test.runtimeClasspath
+	useJUnitPlatform()
+	filter {
+		includeTestsMatching 'com.f106.DIO.diary.creation.PostgresMemberDiaryCreationTests'
+		includeTestsMatching 'com.f106.DIO.diary.creation.PageCatalogPostgresTests'
+		includeTestsMatching 'com.f106.DIO.diary.creation.MemberMigrationUpgradePostgresTests'
+		includeTestsMatching 'com.f106.DIO.diary.http.MemberDiaryListPostgresTests'
+	}
+	systemProperty 'dio.diary-creation-postgres', 'true'
+}
+
+tasks.register('postgresDiaryDetailTest', Test) {
+	description = 'Runs diary metadata permission and conflict tests in isolated PostgreSQL schemas.'
+	group = 'verification'
+	testClassesDirs = sourceSets.test.output.classesDirs
+	classpath = sourceSets.test.runtimeClasspath
+	useJUnitPlatform()
+	filter { includeTestsMatching 'com.f106.DIO.diary.detail.PostgresDiaryDetailTests' }
+	systemProperty 'dio.diary-detail-postgres', 'true'
+}
+
+// 로컬 전용 시드는 파일 시스템에서만 읽는다. JAR 리소스에는 절대 넣지 않는다.
+tasks.named('processResources') {
+	exclude 'db/seed/**'
+}
+
+tasks.register('authPostgresTest', Test) {
+	description = 'Verifies auth, password reset and notification SQL using separate disposable databases; requires DIO_AUTH_SCHEMA_TEST_URL/PASSWORD and DIO_RESET_POSTGRES_URL/PASSWORD (see docs/password-reset.md).'
+	group = 'verification'
+	testClassesDirs = sourceSets.test.output.classesDirs
+	classpath = sourceSets.test.runtimeClasspath
+	useJUnitPlatform()
+	filter {
+		includeTestsMatching 'com.f106.DIO.auth.integration.AuthInitialSchemaPostgresTests'
+		includeTestsMatching 'com.f106.DIO.auth.integration.RefreshSessionHttpPostgresTests'
+		includeTestsMatching 'com.f106.DIO.notification.NotificationPostgresSchemaTests'
+		includeTestsMatching 'com.f106.DIO.auth.integration.PasswordResetPostgresTests'
+	}
+	environment 'DIO_AUTH_SCHEMA_TEST', 'true'
+	environment 'DIO_RESET_POSTGRES_QA', 'true'
+	doFirst {
+		def required = ['DIO_AUTH_SCHEMA_TEST_URL', 'DIO_AUTH_SCHEMA_TEST_PASSWORD',
+			'DIO_RESET_POSTGRES_URL', 'DIO_RESET_POSTGRES_PASSWORD']
+		def missing = required.findAll { !environment[it]?.toString()?.trim() }
+		if (!missing.isEmpty()) {
+			throw new GradleException('Missing disposable PostgreSQL test configuration: ' + missing.join(', ')
+				+ '. Use separate auth_ci / dio_reset_qa test databases. See docs/password-reset.md (authPostgresTest local setup). No database fallback is allowed.')
+		}
+	}
+}
+
+tasks.register('postgresTest', Test) {
+	description = 'Runs diary and page persistence tests against the local PostgreSQL database (test rows rolled back).'
+	group = 'verification'
+	testClassesDirs = sourceSets.test.output.classesDirs
+	classpath = sourceSets.test.runtimeClasspath
+	useJUnitPlatform()
+	filter {
+		includeTestsMatching 'com.f106.DIO.diary.PostgresDiary*Tests'
+		includeTestsMatching 'com.f106.DIO.page.Postgres*Tests'
+	}
 	systemProperty 'dio.postgres-test', 'true'
+}
+
+// Uses a separate disposable database; never falls back to a developer database.
+tasks.register('sharingPostgresTest', Test) {
+    description = 'Verifies sharing permissions, concurrency and permanent deletion against dedicated dio_sharing_qa PostgreSQL.'
+    group = 'verification'
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+    useJUnitPlatform()
+    filter {
+        includeTestsMatching 'com.f106.DIO.sharing.SharingPostgresTests'
+        includeTestsMatching 'com.f106.DIO.sharing.UserWithdrawalPostgresTests'
+        includeTestsMatching 'com.f106.DIO.sharing.EmailInvitePostgresTests'
+        includeTestsMatching 'com.f106.DIO.sharing.DiaryProfilePostgresTests'
+        includeTestsMatching 'com.f106.DIO.sharing.SharingReviewPostgresTests'
+    }
+    environment 'DIO_SHARING_POSTGRES_QA', 'true'
+    doFirst {
+        def required = ['DIO_SHARING_POSTGRES_URL', 'DIO_SHARING_POSTGRES_PASSWORD']
+        if (required.any { !environment[it]?.toString()?.trim() }) {
+            throw new GradleException('Explicit DIO_SHARING_POSTGRES_URL/PASSWORD for disposable dio_sharing_qa required. No fallback. See docs/diary-sharing.md.')
+        }
+    }
+}
+
+tasks.register('notificationBrowserQa', JavaExec) {
+    group = 'verification'
+    description = 'Starts the explicitly opted-in loopback H2 notification browser QA fixture.'
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.f106.DIO.notification.NotificationBrowserQa'
+}
+
+tasks.register('mediaThumbnailBrowserQa', JavaExec) {
+    group = 'verification'
+    description = 'Starts an explicitly opted-in loopback H2 media thumbnail browser fixture.'
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.f106.DIO.media.MediaThumbnailBrowserQa'
+}
+
+
+tasks.register('postgresDiaryTrashTest',Test) {
+    group='verification'
+    description='Runs member trash tests only against explicit disposable dio_trash_qa.'
+    testClassesDirs=sourceSets.test.output.classesDirs
+    classpath=sourceSets.test.runtimeClasspath
+    useJUnitPlatform()
+    filter {
+        includeTestsMatching 'com.f106.DIO.diary.trash.*'
+        includeTestsMatching 'com.f106.DIO.diary.http.MemberDiaryTrashContractPostgresTests'
+    }
+    environment 'DIO_MEMBER_TRASH_PG','true'
+    outputs.upToDateWhen {false}
+    outputs.cacheIf {false}
+    doFirst {
+        if(environment['DIO_LIST_QUERY_PG']!='true' || !(environment['DB_URL']?.toString()==~/jdbc:postgresql:\/\/127\.0\.0\.1:[0-9]+\/dio_trash_qa/) || !environment['POSTGRES_USER'] || !environment['POSTGRES_PASSWORD'])
+            throw new GradleException('Explicit disposable dio_trash_qa and DIO_LIST_QUERY_PG=true required; no fallback.')
+    }
+}
+
+tasks.register('postgresDiaryPurgeTest',Test) {
+    group='verification'
+    description='Runs member purge and media physical-delete tests only against explicit disposable dio_trash_qa.'
+    testClassesDirs=sourceSets.test.output.classesDirs
+    classpath=sourceSets.test.runtimeClasspath
+    useJUnitPlatform()
+    filter {
+        includeTestsMatching 'com.f106.DIO.diary.purge.*'
+        includeTestsMatching 'com.f106.DIO.diary.http.MemberDiaryPurgeContractPostgresTests'
+        includeTestsMatching 'com.f106.DIO.media.*PostgresTests'
+    }
+    environment 'DIO_MEMBER_PURGE_PG','true'
+    outputs.upToDateWhen {false}
+    outputs.cacheIf {false}
+    doFirst {
+        if(environment['DIO_LIST_QUERY_PG']!='true' || !(environment['DB_URL']?.toString()==~/jdbc:postgresql:\/\/127\.0\.0\.1:[0-9]+\/dio_trash_qa/) || !environment['POSTGRES_USER'] || !environment['POSTGRES_PASSWORD'])
+            throw new GradleException('Explicit disposable dio_trash_qa and DIO_LIST_QUERY_PG=true required; no fallback.')
+    }
+}
+
+tasks.register('postgresMemberDiaryHttpTest',Test) {
+    group='verification'
+    description='Runs real member diary HTTP contracts on disposable PostgreSQL only.'
+    testClassesDirs=sourceSets.test.output.classesDirs
+    classpath=sourceSets.test.runtimeClasspath
+    useJUnitPlatform()
+    filter {includeTestsMatching 'com.f106.DIO.diary.http.MemberDiaryContractPostgresTests'}
+    environment 'DIO_MEMBER_CONTRACT_PG','true'
+    outputs.upToDateWhen {false}
+    outputs.cacheIf {false}
+    doFirst {
+        if(!(environment['DB_URL']?.toString()==~/jdbc:postgresql:\/\/127\.0\.0\.1:[0-9]+\/dio_member_contract_qa/) || !environment['POSTGRES_USER'] || !environment['POSTGRES_PASSWORD'])
+            throw new GradleException('Explicit disposable dio_member_contract_qa required; no fallback.')
+    }
+}
+
+// Existing ERD tables only. Never use a developer database for mutation/locking tests.
+tasks.register('collaborationPostgresTest', Test) {
+    group='verification'
+    description='Runs canvas history, concurrency and real WebSocket tests on disposable dio_collaboration_qa.'
+    testClassesDirs=sourceSets.test.output.classesDirs
+    classpath=sourceSets.test.runtimeClasspath
+    useJUnitPlatform()
+    filter {includeTestsMatching 'com.f106.DIO.collaboration.CanvasCollaborationPostgresTests'}
+    environment 'DIO_COLLABORATION_POSTGRES_QA','true'
+    doFirst {
+        if(!(environment['DIO_COLLABORATION_POSTGRES_URL']?.toString()==~/jdbc:postgresql:\/\/127\.0\.0\.1:[0-9]+\/dio_collaboration_qa/) || !environment['DIO_COLLABORATION_POSTGRES_PASSWORD'])
+            throw new GradleException('Explicit disposable dio_collaboration_qa URL/password required; no fallback.')
+    }
+}
+
+tasks.register('pushPostgresTest', Test) {
+    description = 'Runs push API and key rotation against an explicitly marked disposable loopback PostgreSQL database.'
+    group = 'verification'
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+    useJUnitPlatform()
+    filter { includeTestsMatching 'com.f106.DIO.push.PushPostgresTests' }
+    environment 'DIO_PUSH_TEST', 'true'
+    outputs.upToDateWhen { false }
+    outputs.cacheIf { false }
+    doFirst {
+        def url = environment['DIO_PUSH_URL']?.toString()
+        def nonce = environment['DIO_PUSH_GUARD']?.toString()
+        if (environment['DIO_PUSH_TEST_DISPOSABLE'] != 'true' || !(url ==~ /jdbc:postgresql:\/\/127\.0\.0\.1:[0-9]{1,5}\/pushqa_[a-f0-9]{12}/) ||
+            !(nonce ==~ /[a-f0-9]{32}/) || !environment['DIO_PUSH_PASSWORD']?.toString()?.trim())
+            throw new GradleException('Explicit marked disposable loopback push database is required; no fallback.')
+    }
 }

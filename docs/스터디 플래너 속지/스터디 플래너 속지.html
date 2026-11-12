@@ -1,0 +1,856 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>스터디 플래너 속지</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+<style>
+:root { --ink:#0B1957; --text:#1D1D1F; --muted:#6B7280; --line:#E1E6F0; --bg:#FFFFFF; --soft:#F3F5FA; --accent:#6E92C6; --accent-soft:#EAF0FA; --cream:#FEF0BF; --lilac:#DBDCF9; --danger:#E5484D; --danger-soft:#FDECEC; --ok:#1E9E6A; --ok-soft:#E7F6EF; --warn-soft:#FFF6DB; }
+* { box-sizing:border-box; }
+html { scroll-behavior:smooth; }
+body { margin:0; background:var(--bg); color:var(--text); font:15px/1.65 "Pretendard","Nanum Gothic","Malgun Gothic","Noto Sans KR",sans-serif; word-break:keep-all; }
+a { color:var(--accent); text-decoration:none; } a:hover { text-decoration:underline; }
+.wrap { display:grid; grid-template-columns:240px minmax(0,1fr); min-height:100vh; }
+nav { position:sticky; top:0; height:100vh; overflow:auto; padding:24px 16px; border-right:1px solid var(--line); background:var(--soft); }
+nav .brand { font-weight:800; font-size:13px; letter-spacing:.06em; color:var(--muted); margin-bottom:12px; }
+nav ol { list-style:none; margin:0; padding:0; } nav li { margin:0 0 4px; }
+nav a { display:block; padding:7px 10px; border-radius:8px; color:var(--text); font-size:13.5px; line-height:1.35; }
+nav a:hover, nav a.on { background:var(--accent-soft); color:var(--accent); text-decoration:none; }
+nav .hint { margin-top:20px; font-size:12px; color:var(--muted); line-height:1.5; }
+main { padding:32px 48px 96px; max-width:1280px; }
+.doc { padding-bottom:40px; margin-bottom:40px; border-bottom:2px solid var(--line); } .doc:last-child { border-bottom:0; }
+h1 { font-size:27px; margin:8px 0 16px; line-height:1.3; color:var(--ink); } h2 { font-size:20px; margin:40px 0 12px; padding-top:8px; border-top:1px solid var(--line); color:var(--ink); } h3 { font-size:16px; margin:28px 0 8px; color:var(--ink); } h4 { font-size:14px; margin:18px 0 6px; }
+blockquote { margin:0 0 20px; padding:12px 16px; background:var(--accent-soft); border-left:4px solid var(--accent); border-radius:0 8px 8px 0; font-size:13.5px; color:#374151; } blockquote p { margin:0; }
+table { border-collapse:collapse; width:100%; margin:12px 0 20px; font-size:13px; line-height:1.5; display:block; overflow-x:auto; }
+thead th { background:var(--soft); text-align:left; font-weight:700; }
+th, td { border:1px solid var(--line); padding:7px 9px; vertical-align:top; }
+tbody tr:nth-child(even) td { background:#FAFBFD; }
+td:first-child, th:first-child { white-space:nowrap; }
+table.wrapcol td:first-child, table.wrapcol th:first-child { white-space:normal; }
+img { max-width:100%; height:auto; border:1px solid var(--line); border-radius:6px; box-shadow:0 1px 4px rgba(0,0,0,.06); }
+code { font:12.5px/1.4 ui-monospace,Consolas,monospace; background:var(--soft); padding:1px 5px; border-radius:4px; }
+pre { background:var(--soft); padding:10px 14px; border-radius:8px; overflow:auto; font-size:12px; } pre code { background:none; padding:0; }
+li { margin:3px 0; } hr { border:0; border-top:1px solid var(--line); margin:28px 0; } strong { font-weight:800; }
+figure { margin:0; } figcaption { margin-top:6px; font-size:12.5px; line-height:1.45; color:#374151; }
+/* 스크린샷 · 이미지 묶음 */
+.shots { display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:18px 20px; margin:14px 0 18px; }
+.shots img { width:100%; display:block; max-height:520px; object-fit:cover; object-position:top; }
+.shots.three { grid-template-columns:repeat(3, minmax(0,1fr)); } .shots.three img { max-height:400px; }
+.shots.profile img { max-height:none; object-fit:contain; }
+.shots.four { grid-template-columns:repeat(4, minmax(0,1fr)); } .shots.four img { max-height:none; object-fit:contain; }
+.wide img { width:100%; display:block; }
+.grid { display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:18px 20px; margin:14px 0 18px; }
+.grid.two { grid-template-columns:repeat(2, minmax(0,1fr)); } .grid.four { grid-template-columns:repeat(4, minmax(0,1fr)); } .grid.five { grid-template-columns:repeat(5, minmax(0,1fr)); }
+.grid img { width:100%; display:block; background:#fff; }
+.grid figcaption { font-size:12.5px; }
+.note { font-size:12.5px; color:var(--muted); }
+.xtl { display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:14px; margin:14px 0 18px; }
+.xp { border:1px solid var(--line); border-radius:14px; padding:12px 14px; background:#fff; break-inside:avoid; font-size:13.5px; line-height:1.5; }
+.xh { display:flex; gap:8px; align-items:center; } .xh .av { width:34px; height:34px; border-radius:50%; object-fit:cover; flex:none; } .xh b { font-size:13.5px; } .xh span { color:var(--muted); font-size:11.5px; display:block; } .xh i { margin-left:auto; font-style:normal; font-size:11px; background:var(--accent-soft); color:var(--ink); border-radius:8px; padding:1px 7px; white-space:nowrap; }
+.xp p { margin:8px 0; } .xi { width:100%; border-radius:10px; border:1px solid var(--line); display:block; max-height:300px; object-fit:contain; background:var(--soft); }
+.xr { margin-top:6px; padding:5px 9px; border-radius:8px; font-size:12px; background:var(--soft); } .xr.a { background:var(--accent-soft); margin-left:14px; }
+.xn { margin-top:8px; font-size:11.5px; color:var(--muted); border-top:1px dashed var(--line); padding-top:6px; }
+.kpi { display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:12px; margin:12px 0 20px; }
+.kpi div { border:1px solid var(--line); border-radius:10px; padding:12px 14px; background:var(--soft); }
+.kpi b { display:block; font-size:22px; line-height:1.2; margin-bottom:4px; color:var(--ink); } .kpi span { font-size:12px; color:var(--muted); line-height:1.4; display:block; }
+/* 강조 상자 */
+.warn, .ok, .info, .stop { border-radius:10px; padding:12px 16px; margin:14px 0 18px; font-size:13.5px; line-height:1.6; }
+.warn { background:var(--warn-soft); border:1px solid #F0D98A; } .ok { background:var(--ok-soft); border:1px solid #B9E3D0; } .info { background:var(--accent-soft); border:1px solid #CBD9F0; } .stop { background:var(--danger-soft); border:1px solid #F5C2C4; }
+.warn p, .ok p, .info p, .stop p { margin:4px 0; } .warn ul, .ok ul, .info ul, .stop ul { margin:4px 0; padding-left:20px; }
+.tag { display:inline-block; padding:0 7px; border-radius:999px; font-size:11.5px; font-weight:800; line-height:1.6; white-space:nowrap; }
+.tag.hi { background:#FDECEC; color:#B3262B; } .tag.mid { background:#FFF1C9; color:#8A5A00; } .tag.lo { background:#E7F6EF; color:#157A52; } .tag.ref { background:#EAF0FA; color:#2F4E8E; }
+@media (max-width:900px) { .wrap { grid-template-columns:1fr; } nav { position:static; height:auto; border-right:0; border-bottom:1px solid var(--line); } main { padding:20px 16px 60px; } .grid, .shots, .shots.three, .kpi { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+@media print {
+  @page { size:A4 landscape; margin:11mm 12mm 13mm; }
+  body { font-size:11px; } .wrap { display:block; } nav { display:none; } main { padding:0; max-width:none; }
+  .doc { break-before:page; border:0; margin:0; padding:0; } .doc:first-child { break-before:auto; }
+  h1 { font-size:22px; } h2 { font-size:16px; break-after:avoid; margin-top:6mm; } h3 { font-size:13px; break-after:avoid; }
+  table { display:table; font-size:9.3px; } tr { break-inside:avoid; } thead { display:table-header-group; }
+  img { box-shadow:none; }
+  .sec2, .sec3 { break-inside:auto; } h2 + p, h3 + p { break-after:avoid; }
+  .grid { grid-template-columns:repeat(3, minmax(0,1fr)) !important; gap:4mm 5mm; margin:3mm 0 4mm; } .grid.two { grid-template-columns:repeat(2, minmax(0,1fr)) !important; } .grid.four { grid-template-columns:repeat(4, minmax(0,1fr)) !important; } .grid.five { grid-template-columns:repeat(5, minmax(0,1fr)) !important; }
+  .grid figure { break-inside:avoid; } .grid img { max-height:150mm; width:auto; max-width:100%; margin:0 auto; object-fit:contain; } .grid figcaption { text-align:center; } .grid figcaption { font-size:9px; margin-top:1.5mm; }
+  .shots { grid-template-columns:repeat(2, minmax(0,1fr)) !important; gap:4mm 5mm; margin:3mm 0 4mm; } .shots.three { grid-template-columns:repeat(3, minmax(0,1fr)) !important; } .shots.four { grid-template-columns:repeat(4, minmax(0,1fr)) !important; }
+  .shots img { max-height:118mm; } .shots.three img { max-height:92mm; } .shots.profile img, .shots.four img { max-height:none; } .shots figcaption { font-size:9px; } .shots figure { break-inside:avoid; }
+  .wide { break-inside:avoid; } .wide img { width:auto; max-width:100%; max-height:160mm; margin:0 auto; display:block; } .wide figcaption { font-size:9px; text-align:center; }
+  .kpi { grid-template-columns:repeat(4, minmax(0,1fr)) !important; gap:3mm; } .kpi b { font-size:16px; } .kpi span { font-size:9px; }
+  .warn, .ok, .info, .stop { font-size:10px; break-inside:avoid; padding:2.5mm 4mm; }
+  a { color:var(--text); }
+  blockquote, thead th, tbody tr:nth-child(even) td, .kpi div, .warn, .ok, .info, .stop, .tag { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+<nav>
+<div class="brand">DIO · 스터디 플래너 속지</div>
+<ol>
+<li><a href="#doc-idx">스터디 플래너 인터랙션 속지 — 가로형 · 세로형 시안</a></li>
+<li><a href="#doc-01">01 레퍼런스 조사 — 스터디 플래너 다꾸</a></li>
+<li><a href="#doc-02">02 인터랙션 기능</a></li>
+<li><a href="#doc-03">03 디자인 — 가로형 · 세로형</a></li>
+</ol>
+<div class="hint">원본은 같은 폴더의 md 파일. 이 html · pdf는 빌드.py로 다시 만든다. 목업은 스크립트/렌더.py(시안.html), 스크린샷은 스크립트/스크린샷찍기.py.</div>
+</nav>
+<main>
+<section class="doc" id="doc-idx" data-title="스터디 플래너 인터랙션 속지 — 가로형 · 세로형 시안">
+<h1 id="스터디-플래너-인터랙션-속지-가로형-세로형-시안">스터디 플래너 인터랙션 속지 — 가로형 · 세로형 시안</h1>
+<blockquote>
+<p>작성일: 2026-10-27 · 담당: 황민희 · 상태: <strong>시안 + 앱 테스트판</strong> (편집기 '페이지 추가 → 스터디 플래너')<br>
+<strong>PDF 한 파일</strong>: <a href="스터디%20플래너%20속지.pdf">스터디 플래너 속지.pdf</a> (A4 가로) · 눌러 보는 시안: <a href="시안.html">시안.html</a>. md가 원본이며 <code>python "docs/스터디 플래너 속지/빌드.py"</code>로 PDF를 다시 만든다.</p>
+</blockquote>
+<p><strong>형광펜으로 쓸면 10분 칸이 반듯하게 칠해지고, 펜으로 체크하면 그 펜 색 ✓가 남는 속지.</strong> 과목을 고르는 단계 없이 지금 든 형광펜 색이 곧 분류이고, 총 공부 시간 · 색별 시간 · 시작/끝 시각은 앱이 센다.</p>
+<div class="grid two">
+<figure><img src="목업/가로 예시.jpg"><figcaption>가로형 1280 × 800</figcaption></figure>
+<figure><img src="목업/세로 예시.jpg"><figcaption>세로형 800 × 1280</figcaption></figure>
+</div>
+<div class="sec2"><h2 id="문서">문서</h2>
+<table>
+<thead>
+<tr>
+<th>문서</th>
+<th>내용</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="#doc-01">01 레퍼런스 조사</a></td>
+<td>구글 · 네이버 "스터디 플래너 다꾸 · 10분 플래너 형광펜" 검색 스크린샷 10장, 공통 구성 요소, 가져온 것</td>
+</tr>
+<tr>
+<td><a href="#doc-02">02 인터랙션 기능</a></td>
+<td>기능 우선순위, 10분 칸 채움 규칙, 펜 색 체크 · 할 일 줄 띠, 자동 칸, 도구별 반응표, 저장 · 출력</td>
+</tr>
+<tr>
+<td><a href="#doc-03">03 디자인</a></td>
+<td>가로 · 세로 배치와 영역 좌표, 선 규칙(바깥 실선 · 안쪽 점선), 색 · 글자, 종이 색</td>
+</tr>
+</tbody>
+</table>
+</div><div class="sec2"><h2 id="한눈에-보기">한눈에 보기</h2>
+<table>
+<thead>
+<tr>
+<th>질문</th>
+<th>답</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>무엇을 칠하나</td>
+<td>시간표의 10분 칸. 형광펜 획이 지나간 칸 전체가 그 색으로 채워진다</td>
+</tr>
+<tr>
+<td>과목은</td>
+<td>고르지 않는다. 색이 분류. 할 일 줄 오른쪽 색 칸을 같은 색으로 채워 짝짓는다</td>
+</tr>
+<tr>
+<td>체크 색은</td>
+<td>체크할 때 들고 있던 펜 색</td>
+</tr>
+<tr>
+<td>안쪽 칸 선은</td>
+<td>점선. 바깥 테두리 · 머리줄 · 시간 숫자 열만 실선</td>
+</tr>
+<tr>
+<td>자동 계산</td>
+<td>총 공부 시간(칸 수 × 10분), 시작 ~ 끝 시각, 시간 분포 막대 · 비율(정수, 합 100)</td>
+</tr>
+<tr>
+<td>새 도구가 필요한가</td>
+<td>아니다. 기존 펜 · 형광펜 · 지우개 · 손. 속지 영역이 획을 알아듣는다</td>
+</tr>
+<tr>
+<td>가로 · 세로 차이</td>
+<td>가로는 3단(할 일 · 시간표 · 기록), 세로는 10분 플래너 기본형(할 일 + 긴 시간표 띠)</td>
+</tr>
+</tbody>
+</table>
+</div><div class="sec2"><h2 id="정한-것">정한 것</h2>
+<table>
+<thead>
+<tr>
+<th>항목</th>
+<th>결정</th>
+<th>이유</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>쉬는 시간</td>
+<td><strong>속지 옵션에서 쉬는 시간 색을 고르면 그 색 칸은 합계에서 뺀다.</strong> 총 공부 시간 칸에 <code>쉬는 시간 1시간 10분</code>처럼 따로 보이고, 색별 기록 맨 아래에 흐리게 둔다</td>
+<td>사용자 요청. 쉬는 시간도 칠해 하루 흐름을 남기고 싶은 사람이 많다</td>
+</tr>
+<tr>
+<td>색별 기록 순서</td>
+<td><strong>처음 칠한 순서로 고정</strong></td>
+<td>칠하는 중에 줄이 뒤바뀌지 않는다</td>
+</tr>
+<tr>
+<td>계획 줄</td>
+<td><strong>1차에서 뺀다</strong></td>
+<td>한 시간 줄을 계획 · 실제로 나누면 칸 높이가 반이 되어 손가락으로 칠하기 어렵다. 계획은 할 일 칸에 쓴다</td>
+</tr>
+<tr>
+<td>주간 쪽</td>
+<td><strong>후속안</strong></td>
+<td>하루 쪽이 실제로 쓰이는지 먼저 본다. 기록이 칸 데이터라 나중에 모으기 쉽다</td>
+</tr>
+<tr>
+<td>시간표 시작</td>
+<td><strong>속지 옵션에서 5 · 6 · 7시</strong> 중 고른다(기본 6시). 바꿔도 칠한 칸은 같은 시각에 남는다</td>
+<td>24줄이 하루 전체라 시작만 바꾸면 되고 잃는 칸이 없다</td>
+</tr>
+<tr>
+<td>형광펜 칸 맞춤</td>
+<td><strong>속지 옵션에서 켬 · 끔</strong> (기본 켬)</td>
+<td>시간표 위에 자유롭게 꾸미고 싶을 때 끈다</td>
+</tr>
+</tbody>
+</table>
+</div><div class="sec2"><h2 id="앱-테스트판">앱 테스트판</h2>
+<div class="grid three">
+<figure><img src="목업/앱 가로 예시.jpg"><figcaption>앱 · 가로 (다른 속지와 같은 양식)</figcaption></figure>
+<figure><img src="목업/앱 세로 예시.jpg"><figcaption>앱 · 세로</figcaption></figure>
+<figure><img src="목업/앱 속지 옵션.jpg"><figcaption>앱 · 속지 옵션 (양식 바꾸기 전 화면)</figcaption></figure>
+</div>
+<ul>
+<li>
+<p>가로 · 세로 그림은 앱 코드(<code>studyPlannerSvg</code>)가 만든 속지를 그대로 찍었다. 초록이 쉬는 시간 색이라 합계 · 비율에서 빠지고 <code>쉼</code>으로 표시된다. 속지 옵션 화면은 양식을 바꾸기 전 웹 빌드에서 찍었다.</p>
+</li>
+<li>
+<p><strong>여는 법</strong> — 편집기 → 페이지 목록 → 페이지 추가 → <strong>스터디 플래너</strong>(데일리 플래너 옆). 다이어리 방향에 맞춰 가로 1024 × 768 · 세로 768 × 1024 속지가 들어간다.</p>
+</li>
+<li><strong>써 보기</strong> — 형광펜으로 시간표 · 할 일 줄(→ 오른쪽 색 칸) 쓸기, 펜으로 체크칸 · 요일 · 하트 톡, 지우개로 칸 지우기(획 지우개는 막대 통째, 영역 지우개는 한 칸). 되돌리기 한 번에 한 획.</li>
+<li><strong>속지 옵션</strong> — 선택 도구에서 빈 곳을 길게 누름 → <strong>속지 옵션</strong>. 종이 색 아래에 쉬는 시간 색 · 시간표 시작 · 형광펜 칸 맞춤이 있다(이 페이지에만 적용).</li>
+<li><strong>이번 판에서 안 되는 것</strong> — 쓰는 동안 칠해질 칸을 점선으로 미리 보여 주기(지금은 펜을 떼면 바로 칠해짐), 다이어리 만들 때 내지 구성에서 고르기.</li>
+<li><strong>코드</strong> — <code>frontend/src/editor/templates/studyPlanner.js</code>(속지 바탕 · 기록 덮개 SVG · 획 → 칸 판정 · 합계 · 비율), <code>studyPlannerGlyphs.js</code>(MaruBuri 글자 윤곽, 자동 생성), 연결: <code>PenInput</code> · <code>EraserInput</code> · <code>Canvas</code> · <code>PageBackground</code> · <code>PaperColorSettings</code> · <code>pageExport</code> · <code>editorReducer</code>(<code>setPlanner</code>). 테스트: <code>frontend/tests/study-planner.test.js</code>.</li>
+<li>시안 HTML(<a href="시안.html">시안.html</a>)은 1280 × 800 기준이고 색별 기록이 많은 순이다. 앱은 위 결정대로 처음 칠한 순.</li>
+</ul>
+</div><div class="sec2"><h2 id="폴더">폴더</h2>
+<pre><code>스터디 플래너 속지/
+├── 스터디 플래너 속지.pdf · .html   ← 결과물 (빌드.py)
+├── 시안.html                       눌러 보는 시안 (가로 · 세로)
+├── 색인.md · 01~03 md              ← 원본
+├── 빌드.py                         md → html → pdf (크롬 헤드리스)
+├── 스크린샷/                       검색 스크린샷 10장 (2026-10-27)
+├── 목업/                           속지 전체 · 영역 지도 · 인터랙션 단계 (렌더.py)
+└── 스크립트/                       스크린샷찍기.py · 렌더.py
+</code></pre></div>
+</section><section class="doc" id="doc-01" data-title="01 레퍼런스 조사 — 스터디 플래너 다꾸">
+<h1 id="01-레퍼런스-조사-스터디-플래너-다꾸">01 레퍼런스 조사 — 스터디 플래너 다꾸</h1>
+<p>2026-10-27에 구글 · 네이버에서 "스터디 플래너 다꾸", "10분 플래너 형광펜", "굿노트 스터디 플래너 속지", "공부 타임테이블 색칠", "가로형 · 세로형 스터디 플래너" 같은 검색어로 찾은 결과를 모았다. 구글 이미지 검색은 한국어 검색어에서 봇 확인(reCAPTCHA)에 걸려 영어 검색 1장과 구글 통합 검색 1장만 쓰고, 나머지는 네이버 이미지 · 블로그로 채웠다.</p>
+<div class="sec2"><h2 id="검색-화면">검색 화면</h2>
+<div class="shots">
+<figure><img src="스크린샷/05 네이버 10분 플래너 형광펜.jpg"><figcaption>네이버 · 10분 플래너 형광펜</figcaption></figure>
+<figure><img src="스크린샷/04 네이버 스터디 플래너 다꾸.jpg"><figcaption>네이버 · 스터디 플래너 다꾸</figcaption></figure>
+</div>
+<ul>
+<li><strong>10분 플래너 형광펜</strong> — 거의 모든 사진이 같은 모양이다. 한 시간이 한 줄, 한 줄이 10분 칸 6개이고, 공부한 시간을 형광펜으로 가로로 길게 칠한다. 색은 3~6가지를 섞고, 칠한 막대가 줄마다 이어져 "색 막대 그래프"처럼 보이는 게 다꾸 사진의 핵심이다.</li>
+<li><strong>스터디 플래너 다꾸</strong> — 칠한 시간표 옆에 할 일 목록 · 체크 · 스티커 · 마스킹테이프를 얹는다. 할 일 줄도 형광펜으로 칠해 시간표 색과 맞추는 사진이 많다(과목 이름 칸 대신 색으로 묶는다).</li>
+</ul>
+<div class="shots">
+<figure><img src="스크린샷/07 네이버 공부 타임테이블 색칠.jpg"><figcaption>네이버 · 공부 타임테이블 색칠</figcaption></figure>
+<figure><img src="스크린샷/06 네이버 굿노트 스터디 플래너 속지.jpg"><figcaption>네이버 · 굿노트 스터디 플래너 속지</figcaption></figure>
+</div>
+<ul>
+<li><strong>공부 타임테이블 색칠</strong> — 종이 제품(오늘공부 · 텐바이텐 등)의 시간표는 바깥 테두리와 시간 숫자만 진하고, 안쪽 10분 칸 선은 가늘거나 점선이다. 칠했을 때 선이 색을 가르지 않게 하려는 처리다.</li>
+<li><strong>굿노트 스터디 플래너 속지</strong> — 디지털 속지도 구성은 종이와 같다: 날짜 · D-day · 총 공부 시간 · 할 일 · 10분 시간표 · 메모. 어두운 속지에 형광 색 막대를 칠한 사진, 분홍 톤 다꾸 속지도 보인다. 칠하기는 전부 사용자가 손으로 하고, 칸에 맞춰 주는 기능은 없다.</li>
+</ul>
+<div class="shots">
+<figure><img src="스크린샷/08 네이버 가로형 스터디 플래너.jpg"><figcaption>네이버 · 가로형 스터디 플래너 속지</figcaption></figure>
+<figure><img src="스크린샷/09 네이버 세로형 스터디 플래너.jpg"><figcaption>네이버 · 세로형 스터디 플래너 양식</figcaption></figure>
+</div>
+<ul>
+<li><strong>가로형</strong> — 태블릿 가로 화면용. 2~3단으로 나눠 왼쪽 할 일, 가운데 시간표, 오른쪽 메모 · 기록을 둔다. 2쪽 펼침(왼쪽 계획 · 오른쪽 기록)도 많다.</li>
+<li><strong>세로형</strong> — 가장 흔한 10분 플래너 모양. 위에 날짜 · D-day · 목표, 아래 왼쪽은 넓은 할 일 칸, 오른쪽은 위아래로 긴 시간표 띠.</li>
+</ul>
+<div class="shots three">
+<figure><img src="스크린샷/03 구글 study planner aesthetic.jpg"><figcaption>구글 이미지 · study planner aesthetic</figcaption></figure>
+<figure><img src="스크린샷/11 구글 스터디 플래너 10분.jpg"><figcaption>구글 · 스터디 플래너 10분 타임테이블</figcaption></figure>
+<figure><img src="스크린샷/12 네이버 열품타 스터디 플래너.jpg"><figcaption>네이버 · 공스타그램 스터디플래너</figcaption></figure>
+</div>
+<ul>
+<li><strong>study planner aesthetic</strong> — 해외 속지는 파스텔 바탕 · 둥근 상자 · 영문 소제목(TIME TABLE, TO DO, NOTES)이 공통이다. 시작/끝 시각, 총 공부 시간 칸이 따로 있다.</li>
+<li><strong>구글 10분 타임테이블</strong> — AI 요약도 "과목별로 색을 정해 형광펜으로 10분 칸을 채우면 하루 공부 패턴이 한눈에 들어온다"고 정리한다. 하루가 끝난 뒤 실제 보낸 시간을 돌아보는 용도가 핵심.</li>
+<li><strong>공스타그램</strong> — 인증 사진은 상단의 큰 총 공부 시간 숫자(예: 8H 50M)와 칠한 시간표가 함께 보이게 찍는다.</li>
+</ul>
+<div class="shots">
+<figure><img src="스크린샷/10 네이버 스터디 플래너 블로그.jpg"><figcaption>네이버 블로그 · 스터디 플래너 쓰는 법 10분</figcaption></figure>
+</div>
+<ul>
+<li><strong>쓰는 법 블로그</strong> — 보통 순서: 아침에 할 일을 적고 → 공부할 때마다 시간표를 칠하고 → 끝난 할 일은 체크(✓) · 미룬 건 화살표나 △ → 밤에 총 시간을 세서 적고 → 한 줄 회고. 총 시간을 칸 수로 직접 세는 게 귀찮다는 이야기가 반복된다.</li>
+</ul>
+</div><div class="sec2"><h2 id="공통-구성-요소">공통 구성 요소</h2>
+<table>
+<thead>
+<tr>
+<th>요소</th>
+<th>자주 보이는 정도</th>
+<th>이번 시안</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>10분 시간표 (1시간 = 6칸, 06시 시작 24줄)</td>
+<td>거의 전부</td>
+<td><strong>넣음</strong> · 형광펜 칸 맞춤</td>
+</tr>
+<tr>
+<td>날짜 · 요일 동그라미</td>
+<td>거의 전부</td>
+<td>넣음 · 요일은 펜 색 표시</td>
+</tr>
+<tr>
+<td>D-day</td>
+<td>많음</td>
+<td>넣음</td>
+</tr>
+<tr>
+<td>총 공부 시간 (H · M)</td>
+<td>많음 · 손으로 셈</td>
+<td><strong>자동 계산</strong></td>
+</tr>
+<tr>
+<td>할 일 + 체크칸</td>
+<td>거의 전부</td>
+<td>넣음 · 펜 색 체크 · 줄 형광펜</td>
+</tr>
+<tr>
+<td>과목 이름 칸 / 과목별 시간</td>
+<td>많음</td>
+<td><strong>과목 칸 대신 색별 자동 합계</strong> + 이름은 손글씨</td>
+</tr>
+<tr>
+<td>오늘의 목표 · 한마디</td>
+<td>많음</td>
+<td>넣음</td>
+</tr>
+<tr>
+<td>메모 · 회고 · 피드백</td>
+<td>많음</td>
+<td>넣음</td>
+</tr>
+<tr>
+<td>만족도 · 집중도</td>
+<td>가끔</td>
+<td>넣음(하트 5개)</td>
+</tr>
+<tr>
+<td>시작 · 끝 시각</td>
+<td>가끔</td>
+<td>자동 표시</td>
+</tr>
+<tr>
+<td>계획/실제 두 줄 시간표</td>
+<td>가끔</td>
+<td>후속안(02 · 정할 것)</td>
+</tr>
+<tr>
+<td>주간 누적 막대</td>
+<td>가끔(별도 쪽)</td>
+<td>후속안</td>
+</tr>
+</tbody>
+</table>
+</div><div class="sec2"><h2 id="이번-시안에-가져온-것">이번 시안에 가져온 것</h2>
+<ul>
+<li><strong>칠하는 재미는 그대로, 세는 일은 자동으로.</strong> 사람들이 형광펜으로 칠하는 행위 자체를 즐기므로 칠하기를 버튼으로 바꾸지 않는다. 대신 칸에 딱 맞게 정리하고, 총 시간 · 색별 시간 · 시작/끝 시각은 앱이 센다.</li>
+<li><strong>과목 대신 색.</strong> 과목 이름을 고르는 과정을 없애고, 지금 들고 있는 형광펜 색이 곧 분류다. 색 옆에 이름이 필요하면 손글씨로 적는다.</li>
+<li><strong>체크는 펜 색으로.</strong> 다꾸 사진에서 체크 색을 바꿔 쓰는 경우가 많다(완료는 검정, 중요한 건 빨강 등). 체크 모양만 반듯하게 다듬고 색은 지금 펜 색을 쓴다.</li>
+<li><strong>안쪽 칸은 점선.</strong> 바깥 테두리 · 시간 숫자 · 머리줄은 실선, 칠하는 안쪽 칸은 점선으로 해서 칠한 막대가 선에 잘리지 않게 한다.</li>
+</ul></div>
+</section><section class="doc" id="doc-02" data-title="02 인터랙션 기능">
+<h1 id="02-인터랙션-기능">02 인터랙션 기능</h1>
+<p>새 도구를 만들지 않는다. <strong>기존 펜 · 형광펜 · 지우개 · 손 도구를 그대로 쓰고, 속지 영역이 그 획을 알아듣는다.</strong> 같은 형광펜이라도 시간표 안에서 시작하면 칸 채움, 바깥에서 시작하면 보통 형광펜 획이다.</p>
+<div class="sec2"><h2 id="기능-목록">기능 목록</h2>
+<table>
+<thead>
+<tr>
+<th>우선</th>
+<th>기능</th>
+<th>도구 · 동작</th>
+<th>결과</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span class="tag hi">필수</span></td>
+<td>10분 칸 채움</td>
+<td>형광펜으로 시간표를 쓸기</td>
+<td>펜촉 중심이 지나간 칸이 그 형광펜 색으로 통째 칠해짐</td>
+</tr>
+<tr>
+<td><span class="tag hi">필수</span></td>
+<td>총 공부 시간 자동</td>
+<td>—</td>
+<td>칠한 칸 수 × 10분, 총 공부 시간 칸에 <code>8시간 50분</code></td>
+</tr>
+<tr>
+<td><span class="tag hi">필수</span></td>
+<td>펜 색 체크</td>
+<td>펜으로 체크칸을 톡 또는 ✓ 모양으로 긋기</td>
+<td>반듯한 ✓가 지금 펜 색으로 그려짐</td>
+</tr>
+<tr>
+<td><span class="tag hi">필수</span></td>
+<td>시간 분포 자동</td>
+<td>—</td>
+<td>색 칩 · 막대 · 시간 · 비율(%), 처음 칠한 순</td>
+</tr>
+<tr>
+<td><span class="tag hi">필수</span></td>
+<td>지우기 · 되돌리기</td>
+<td>지우개로 칸 · 체크 · 색 칸을 지나가기 / 실행 취소</td>
+<td>획 지우개는 닿은 막대 통째로, 영역 지우개는 칸 하나씩. 한 번 쓸기 = 한 번 취소</td>
+</tr>
+<tr>
+<td><span class="tag mid">권장</span></td>
+<td>할 일 색 칸</td>
+<td>형광펜으로 할 일 줄을 쓸기</td>
+<td>그 줄 오른쪽 색 칸이 형광펜 색으로 참</td>
+</tr>
+<tr>
+<td><span class="tag mid">권장</span></td>
+<td>색 바꾸기</td>
+<td>다른 색 형광펜으로 이미 칠한 칸을 다시 쓸기</td>
+<td>그 칸만 새 색으로 바뀜(진해지지 않음, 시간 그대로)</td>
+</tr>
+<tr>
+<td><span class="tag mid">권장</span></td>
+<td>시작 · 끝 시각</td>
+<td>—</td>
+<td>총 공부 시간 칸 오른쪽 위에 첫 칸 ~ 마지막 칸 시각</td>
+</tr>
+<tr>
+<td><span class="tag mid">권장</span></td>
+<td>요일 표시</td>
+<td>펜으로 요일을 톡 / 형광펜으로 톡</td>
+<td>펜은 동그라미, 형광펜은 동그란 칠. 하나만 선택</td>
+</tr>
+<tr>
+<td><span class="tag mid">권장</span></td>
+<td>만족도</td>
+<td>펜 · 형광펜으로 하트를 톡 또는 여러 개 긋기</td>
+<td>누른 · 그은 하트만 그 색으로 칠해짐(누적, 하트마다 색 따로)</td>
+</tr>
+<tr>
+<td><span class="tag lo">자유</span></td>
+<td>손글씨 · 꾸미기</td>
+<td>펜 · 형광펜 · 스티커 · 테이프</td>
+<td>칸 맞춤 없이 그대로. 날짜 · D-day · 목표 · 할 일 글자 · 메모 · 회고</td>
+</tr>
+</tbody>
+</table>
+</div><div class="sec2"><h2 id="1-10분-칸-채움">1. 10분 칸 채움</h2>
+<div class="grid two">
+<figure><img src="목업/단계 1 칠하는 중.jpg"><figcaption>① 쓰는 중 — 지나간 칸에 점선 미리보기</figcaption></figure>
+<figure><img src="목업/단계 2 칸 채움.jpg"><figcaption>② 펜을 떼면 — 칸 전체가 칠해짐</figcaption></figure>
+</div>
+<ul>
+<li><strong>① 쓰는 중</strong> — 형광펜 획은 원래대로 반투명하게 보이고, 그 밑에 "칠해질 칸"이 같은 색 점선 테두리로 미리 보인다. 줄 끝에서 펜을 들지 않고 다음 줄로 내려가도 한 동작으로 이어진다.</li>
+<li><strong>② 펜을 떼면</strong> — 손으로 그은 획은 사라지고, 미리보기 칸이 반듯하게 칠해진다. 같은 줄의 같은 색 칸은 하나의 둥근 막대로 이어 그려 종이에 형광펜으로 칠한 느낌을 낸다. 총 공부 시간 · 시간 분포이 바로 바뀐다.</li>
+</ul>
+<p>규칙</p>
+<ol>
+<li>시간표 <strong>안에서 시작한</strong> 형광펜 획만 칸 채움이 된다. 바깥에서 시작해 들어온 획은 보통 형광펜 획으로 남는다(꾸미기용 밑줄을 망치지 않게).</li>
+<li>칸 판정은 <strong>펜촉 중심선</strong>으로 한다. 굵은 형광펜 가장자리만 스친 옆 줄 · 옆 칸은 칠하지 않는다. 빠르게 그어도 칸이 빠지지 않게 점 사이를 3pt 간격으로 채워 판정한다.</li>
+<li>한 번 쓸기(펜 대고 ~ 뗄 때까지)가 실행 취소 한 단위다.</li>
+<li>같은 색으로 다시 쓸면 변화 없음. 다른 색이면 그 칸만 색이 바뀌고 시간은 늘지 않는다.</li>
+<li>시간표 바깥으로 나가면 채움만 멈추고 다시 들어오면 이어진다. 두 번째 손가락 · 손바닥이 닿거나 취소 이벤트가 오면 미리보기를 버린다.</li>
+<li>칸 채움은 그림이 아니라 <strong>기록</strong>으로 저장한다(<code>{줄, 칸, 색}</code> 목록). 그래서 레이어 패널에 획으로 쌓이지 않고, 합계 계산 · 색 바꾸기 · 지우기가 칸 단위로 된다.</li>
+<li>펜으로 시간표에 쓰는 건 자유 필기다(예: 칸 위에 "인강"이라고 적기). 칸 채움으로 바꾸지 않는다.</li>
+</ol>
+<div class="grid three">
+<figure><img src="목업/색 바꾸기 1.jpg"><figcaption>색 바꾸기 — 분홍으로 다시 쓸기</figcaption></figure>
+<figure><img src="목업/색 바꾸기 2.jpg"><figcaption>색 바꾸기 — 그 두 칸만 바뀜</figcaption></figure>
+<figure><img src="목업/지우기.jpg"><figcaption>지우개 — 칸 기록을 비움</figcaption></figure>
+</div>
+<ul>
+<li><strong>색 바꾸기</strong> — 다른 색으로 쓸면 지나간 칸만 새 색이 된다. 막대는 색이 바뀌는 지점에서 자동으로 나뉜다.</li>
+<li><strong>지우개</strong> — 지우개 설정을 따른다. <strong>획 지우개</strong>는 닿은 칸이 속한 막대(같은 줄에 이어 칠한 같은 색 칸) 전체를 지우고, <strong>영역 지우개</strong>는 지우개 중심이 지나간 칸 하나하나만 지운다. 지우개 크기와는 관계없다. 지우는 동안 칸이 바로 비고, 손을 떼면 한 번의 되돌리기로 확정된다.</li>
+<li><strong>끝 모양</strong> — 형광펜 끝 모양이 둥글면 막대 양 끝이 반원, 네모면 네모로 칠한다(칸마다 기억). 영역 지우개로 가운데를 지워 막대가 나뉘어도 조각마다 원래 끝 모양을 유지한다. 끝 모양이 다른 칸은 같은 색이어도 다른 막대다.</li>
+</ul>
+<div class="sec3"><h3 id="시간의-뜻">시간의 뜻</h3>
+<p>칠한 칸 1개 = 10분 <strong>손으로 남긴 기록</strong>이다. 타이머로 잰 시간이 아니다. 합계는 칠한 칸 수 × 10분이고, <strong>속지 옵션에서 고른 쉬는 시간 색은 합계에서 뺀다.</strong> 쉬는 시간은 총 공부 시간 칸 오른쪽 아래에 <code>쉬는 시간 1시간 10분</code>처럼 따로 보이고, 시간표 막대와 색별 기록에서 흐리게 그린다.</p>
+</div></div><div class="sec2"><h2 id="2-체크-할-일-줄">2. 체크 · 할 일 줄</h2>
+<div class="grid two">
+<figure><img src="목업/체크 그리는 중.jpg"><figcaption>펜으로 대충 ✓</figcaption></figure>
+<figure><img src="목업/체크 완성.jpg"><figcaption>그 펜 색의 반듯한 ✓</figcaption></figure>
+</div>
+<ul>
+<li><strong>펜 색 체크</strong> — 체크칸 <strong>안에서 시작한</strong> 펜 획이면 모양과 관계없이(톡, ✓, ✕, 낙서) 체크로 본다. 펜을 떼면 손 획 대신 반듯한 ✓를 지금 펜 색 · 굵기 2.8로 그린다. 다시 톡 하면 그 색으로 바뀐다. 지우개로 지우면 빈칸.</li>
+<li>체크칸에 형광펜으로 톡 하면 칸이 형광펜 색으로 칠해진다(진행 중 표시 등으로 자유롭게).</li>
+</ul>
+<div class="grid two">
+<figure><img src="목업/할 일 칠하는 중.jpg"><figcaption>할 일 줄을 형광펜으로 쓸기</figcaption></figure>
+<figure><img src="목업/할 일 칠함.jpg"><figcaption>그 줄만 칠함 (시안 · 앱에서는 오른쪽 색 칸)</figcaption></figure>
+</div>
+<ul>
+<li><strong>할 일 색 칸</strong> — 할 일 줄 오른쪽 끝에 <code>색</code> 칸이 있다. 형광펜으로 그 줄을 쓸면(글자 위든 색 칸이든) 그 줄의 색 칸이 형광펜 색으로 찬다. 시간표에 칠한 색과 같은 색을 골라 할 일과 공부 시간을 짝짓는다. 글자 위를 덮지 않아 손글씨가 그대로 읽힌다. 지우개는 색 칸 위를 지나갈 때만 지운다.</li>
+<li>색 칸과 시간표 색은 <strong>연결하지 않는다.</strong> 같은 색이면 사람이 보기에 묶일 뿐, 앱이 과목을 추론하지 않는다.</li>
+</ul>
+</div><div class="sec2"><h2 id="3-자동으로-채워지는-칸">3. 자동으로 채워지는 칸</h2>
+<table>
+<thead>
+<tr>
+<th>칸</th>
+<th>계산</th>
+<th>빈 상태</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>총 공부 시간</td>
+<td>쉬는 시간 색을 뺀 칸 수 × 10분 → <code>n시간 mm분</code>, 쉬는 시간은 <code>쉬는 시간 1시간 10분</code></td>
+<td>비움</td>
+</tr>
+<tr>
+<td>시작–끝</td>
+<td>가장 이른 칸의 시작 ~ 가장 늦은 칸의 끝 (<code>09:00 ~ 22:20</code>)</td>
+<td>숨김</td>
+</tr>
+<tr>
+<td>시간 분포</td>
+<td>색별 칸 수 × 10분(<code>1시간 40분</code> · <code>50분</code>)과 공부 시간 중 비율(<code>43%</code>), 처음 칠한 순 최대 7색(쉬는 시간 색은 맨 아래, 비율 대신 <code>쉼</code>). 막대 길이는 가장 많은 색 기준</td>
+<td>빈 칩 · 빈 막대 7줄</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>칩 옆 손글씨 이름 칸은 없앴다(칩 바로 옆에 막대). 그래도 줄이 흔들리지 않게 <strong>그 페이지에서 처음 칠한 순서로 줄을 고정</strong>하고, 새 색만 아래에 붙인다. 쉬는 시간 색은 맨 아래.</li>
+<li><strong>비율</strong> — 쉬는 시간을 뺀 공부 시간 안에서의 비율이다. 소수점 아래는 표기하지 않고, 버린 소수점이 큰 색부터 1씩 더해 <strong>보이는 숫자의 합이 늘 100</strong>이 되게 한다(예: 10 · 10 · 10분 → 34 · 33 · 33%).</li>
+<li>자동 칸은 사용자가 손으로 덮어 쓸 수 없고, 그 위에 자유 필기는 할 수 있다.</li>
+</ul>
+</div><div class="sec2"><h2 id="4-도구별-반응-정리">4. 도구별 반응 정리</h2>
+<table>
+<thead>
+<tr>
+<th>영역</th>
+<th>손</th>
+<th>펜</th>
+<th>형광펜</th>
+<th>지우개</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>시간표 칸</td>
+<td>화면 이동</td>
+<td>자유 필기</td>
+<td><strong>칸 채움</strong></td>
+<td>획 지우개: 막대 통째 · 영역 지우개: 칸 하나</td>
+</tr>
+<tr>
+<td>체크칸</td>
+<td>화면 이동</td>
+<td><strong>펜 색 ✓</strong></td>
+<td>칸 칠</td>
+<td>체크 지움</td>
+</tr>
+<tr>
+<td>할 일 줄</td>
+<td>화면 이동</td>
+<td>자유 필기</td>
+<td><strong>색 칸 채움</strong></td>
+<td>색 칸(그 위를 지날 때) · 획 지움</td>
+</tr>
+<tr>
+<td>요일</td>
+<td>화면 이동</td>
+<td>동그라미</td>
+<td>동그란 칠</td>
+<td>표시 지움</td>
+</tr>
+<tr>
+<td>만족도 하트</td>
+<td>화면 이동</td>
+<td>톡 → 누른 하트만 칠함, 여러 개를 그으면 지나간 하트가 참</td>
+<td>펜과 같음(형광펜 색)</td>
+<td>닿은 하트 하나씩 비움 (획 · 영역 같음)</td>
+</tr>
+<tr>
+<td>그 밖 (날짜 · D-day · 목표 · 메모 · 회고)</td>
+<td>화면 이동</td>
+<td>자유 필기</td>
+<td>자유 형광펜</td>
+<td>획 지움</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>텍스트 도구 칸 맞춤</strong> — 날짜 · D-day · 오늘의 목표 · 할 일 · 메모 · 오늘 돌아보기를 텍스트 도구로 탭하면, 그 칸(밑줄 폭 · 할 일 줄 · 메모 줄)에 맞춘 글상자가 생긴다. 글자 16 · 줄 높이 28이라 여러 줄도 다음 칸 · 다음 밑줄에 그대로 맞는다. 정렬 · 색은 사용자가 바꾼다. 끌어서 만든 상자는 칸 맞춤 없이 그대로.</li>
+<li><strong>만족도 하트는 누적이다</strong> — 펜 · 형광펜 모두 이미 칠한 하트는 그대로 두고 누른 하트 하나 · 그은 하트들만 칠한다. 하트마다 칠한 색을 따로 기억한다. 줄이려면 지우개로 하트를 하나씩 지운다.</li>
+<li>손바닥 · 펜 입력 분리는 편집기의 기존 규칙(펜이 있으면 손가락은 이동)을 따른다.</li>
+<li>선택 · 올가미 도구는 속지 기록(칸 · 체크 · 색 칸)을 고르지 않는다. 기록은 속지의 일부라 옮기거나 돌릴 수 없다.</li>
+</ul>
+</div><div class="sec2"><h2 id="5-속지-옵션">5. 속지 옵션</h2>
+<p>선택 도구에서 빈 곳을 길게 눌러 여는 <strong>속지 옵션</strong>(스터디 플래너가 아니면 기존 '속지 색')에 세 가지를 붙였다. 이 페이지에만 쓴다.</p>
+<table>
+<thead>
+<tr>
+<th>옵션</th>
+<th>값</th>
+<th>동작</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>쉬는 시간 색</td>
+<td>없음 · 형광펜 7색</td>
+<td>고른 색 칸은 합계에서 빼고 흐리게 그린다</td>
+</tr>
+<tr>
+<td>시간표 시작</td>
+<td>5 · 6 · 7시 (기본 6)</td>
+<td>시간 숫자가 바뀐다. 칠한 칸은 같은 시각으로 옮겨 그대로 남는다</td>
+</tr>
+<tr>
+<td>형광펜 칸 맞춤</td>
+<td>켬 · 끔 (기본 켬)</td>
+<td>끄면 형광펜 · 펜 모두 보통 획으로 남는다</td>
+</tr>
+</tbody>
+</table>
+</div><div class="sec2"><h2 id="6-저장-출력">6. 저장 · 출력</h2>
+<ul>
+<li>페이지 속지 ID는 <code>study-planner-landscape</code> · <code>study-planner-portrait</code>, 기록은 <code>page.planner</code>에 저장한다: <code>cells: {"줄,칸": 색}</code>, <code>checks: {줄: 색}</code>, <code>bands: {줄: 색}</code>, <code>day</code>, <code>mood</code>, <code>colorOrder</code>, <code>options: {restColor, startHour, snap}</code>. 획 · 스티커 같은 요소는 기존 형식 그대로.</li>
+<li>합계는 저장하지 않고 열 때마다 계산한다(기록과 숫자가 어긋나지 않게).</li>
+<li>속지 그림은 파일이 아니라 코드로 만든 SVG이고, 기록을 같은 SVG에 그린다. 그래서 편집 화면 · 썸네일 · PNG/PDF 내보내기가 같은 결과를 쓴다(속지 → 기록 → 사용자 요소 순).</li>
+<li>
+<p>가로 · 세로 속지는 좌표가 다르므로 서로 바꿔도 기록을 옮기지 않는다. 바꾸기 전에 "기록이 이 방향 속지에만 남아요" 안내.</p>
+</li>
+<li>
+<p>페이지 복제는 속지 ID·방향·배색·플래너 기록과 옵션을 함께 복사한다. 페이지·요소·그룹 ID는 새로 만들고, 복제 후 기록 수정과 Undo/Redo는 원본에 영향을 주지 않는다.</p>
+</li>
+<li>속지 배경색·레이아웃색을 바꿔도 사용자가 칠한 칸·체크·요일·만족도와 집계 색상표의 색은 유지한다. 자동 집계 글자·기본 선만 속지 배색을 따른다. 편집 화면과 PNG/PDF 모두 같은 규칙이다. 기존 저장 형식은 바꾸지 않는다.</li>
+</ul></div>
+</section><section class="doc" id="doc-03" data-title="03 디자인 — 가로형 · 세로형">
+<h1 id="03-디자인-가로형-세로형">03 디자인 — 가로형 · 세로형</h1>
+<div class="sec2"><h2 id="앱-적용판-다른-속지와-같은-양식">앱 적용판 — 다른 속지와 같은 양식</h2>
+<div class="grid two">
+<figure><img src="목업/앱 가로 예시.jpg"><figcaption>앱 · 가로</figcaption></figure>
+<figure><img src="목업/앱 세로 예시.jpg"><figcaption>앱 · 세로</figcaption></figure>
+</div>
+<p>앱에 들어간 속지는 아래 시안의 칸 구성을 그대로 두고, <strong>테두리 · 글자 · 제목을 데일리 플래너 등 다른 속지와 맞췄다.</strong> 아래 '가로형' 이후 절은 처음 시안(둥근 상자 · 하늘색 선) 기록이다.</p>
+<ul>
+<li><strong>제목 · 머리줄</strong> — 왼쪽 위 <code>스터디 플래너</code>(MaruBuri Bold 30, <code>#292929</code>), 오른쪽에 날짜 밑줄 · 요일 · D-day, 그 아래 가로선과 <code>오늘의 목표</code> 밑줄. 데일리 플래너와 같은 자리.</li>
+<li><strong>칸 묶음 제목</strong> — <code>TO DO LIST</code> · <code>TIMELINE</code> · <code>RECORD</code>(Bold 16). 칸 안 이름은 <code>총 공부 시간</code> · <code>시간 분포</code> · <code>오늘 돌아보기</code> · <code>오늘 만족도</code> · <code>메모</code>(Regular 14, <code>#666666</code>).</li>
+<li><strong>테두리</strong> — 모서리 없는 네모, 바깥선 · 칸 나눔 <code>#d7d9dc</code>, 안쪽 줄 · 시간표 칸 <code>#e8e9eb</code>, 모두 실선 1. 체크칸은 12 × 12 <code>#666666</code>. 시간 숫자는 <code>06</code>처럼 두 자리.</li>
+<li><strong>글자</strong> — 다른 속지처럼 MaruBuri 글자 윤곽을 path 로 넣는다. 쓰는 글자만 <a href="스크립트/글자.py">스크립트/글자.py</a>로 뽑아 <code>studyPlannerGlyphs.js</code>에 둔다(새 글자를 쓰면 다시 만든다).</li>
+<li><strong>레이아웃 색</strong> — 같은 6색 팔레트라 속지 옵션의 레이아웃 색(네이비 · 브라운 …)이 스터디 플래너에도 먹는다.</li>
+<li><strong>할 일</strong> — <code>완료 | 할 일 | 색</code> 세 칸. 오른쪽 <code>색</code> 칸을 형광펜으로 채운다.</li>
+<li><strong>그리기</strong> — 기록과 상관없는 바탕은 한 번 만들어 캐시하고, 칠한 칸 · 체크 · 합계는 작은 덮개 SVG로 겹친다. 기록이 바뀌면 덮개만 다시 그려 칠하기 · 지우기가 가볍다. 내보내기는 둘을 합친 한 장.</li>
+</ul>
+</div><div class="sec2"><h2 id="처음-시안">처음 시안</h2>
+<p>두 방향 모두 <strong>같은 칸 9~10개를 같은 규칙으로</strong> 쓴다. 다른 점은 배치뿐이다. 색 · 글자 · 모서리는 <a href="../디자인%20가이드.md">DIO 디자인 가이드</a>의 토큰과 꾸미기 팔레트를 쓴다.</p>
+<blockquote>
+<p>이 문서의 그림 · 좌표는 시안(1280 × 800 · 800 × 1280) 기준이다. 앱 테스트판은 앱 좌표계(1024 × 768 · 768 × 1024)에 같은 배치를 줄여 넣었고, 좌표는 <code>studyPlanner.js</code>의 <code>LAYOUTS</code>에 있다.</p>
+</blockquote>
+</div><div class="sec2"><h2 id="가로형-1280-800">가로형 1280 × 800</h2>
+<div class="wide">
+<figure><img src="목업/가로 예시.jpg"><figcaption>가로형 · 하루를 다 쓴 예시</figcaption></figure>
+</div>
+<ul>
+<li><strong>3단 배치</strong> — 왼쪽 할 일 · 메모, 가운데 시간표, 오른쪽 색별 기록 · 회고 · 만족도. 태블릿 가로 화면에서 시간표 24줄이 스크롤 없이 한 화면에 들어온다(줄 높이 25.9).</li>
+<li>위 머리줄은 날짜 · D-day · 목표 · TOTAL 네 상자. TOTAL만 하늘색 바탕(<code>#EDF3FA</code>)으로 "자동 칸"임을 구분한다.</li>
+<li>시간표 칸은 가로로 넓어(67 × 26) 형광펜을 옆으로 긋기 편하다.</li>
+</ul>
+<div class="grid two">
+<figure><img src="목업/가로 영역 지도.jpg"><figcaption>가로형 영역 번호</figcaption></figure>
+<figure><img src="목업/가로 빈 속지.jpg"><figcaption>가로형 빈 속지</figcaption></figure>
+</div>
+<table>
+<thead>
+<tr>
+<th>번호</th>
+<th>영역</th>
+<th>가로 위치 (x, y, w, h)</th>
+<th>세로 위치</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>DATE 날짜 · 요일</td>
+<td>36, 32, 400, 64</td>
+<td>32, 28, 488, 60</td>
+</tr>
+<tr>
+<td>2</td>
+<td>D-DAY</td>
+<td>452, 32, 140, 64</td>
+<td>536, 28, 232, 60</td>
+</tr>
+<tr>
+<td>3</td>
+<td>GOAL 오늘의 한 줄</td>
+<td>608, 32, 396, 64</td>
+<td>32, 100, 488, 56</td>
+</tr>
+<tr>
+<td>4</td>
+<td>TOTAL 자동</td>
+<td>1020, 32, 224, 64</td>
+<td>536, 100, 232, 56</td>
+</tr>
+<tr>
+<td>5</td>
+<td>TO DO 할 일</td>
+<td>36, 116, 400, 412 · 13줄</td>
+<td>32, 176, 468, 532 · 17줄</td>
+</tr>
+<tr>
+<td>6</td>
+<td>TIME 10분 시간표</td>
+<td>456, 116, 444, 648</td>
+<td>520, 176, 248, 1072</td>
+</tr>
+<tr>
+<td>7</td>
+<td>COLORS 색별 기록</td>
+<td>920, 116, 324, 300</td>
+<td>32, 728, 468, 236</td>
+</tr>
+<tr>
+<td>8</td>
+<td>REVIEW 돌아보기</td>
+<td>920, 436, 324, 236</td>
+<td>32, 984, 468, 180</td>
+</tr>
+<tr>
+<td>9</td>
+<td>MOOD 만족도</td>
+<td>920, 692, 324, 72</td>
+<td>32, 1184, 468, 64</td>
+</tr>
+<tr>
+<td>10</td>
+<td>MEMO 메모 · 꾸미기</td>
+<td>36, 548, 400, 216</td>
+<td>없음 (할 일이 더 길다)</td>
+</tr>
+</tbody>
+</table>
+</div><div class="sec2"><h2 id="세로형-800-1280">세로형 800 × 1280</h2>
+<div class="grid two">
+<figure><img src="목업/세로 예시.jpg"><figcaption>세로형 · 하루를 다 쓴 예시</figcaption></figure>
+<figure><img src="목업/세로 영역 지도.jpg"><figcaption>세로형 영역 번호</figcaption></figure>
+</div>
+<ul>
+<li><strong>10분 플래너 기본형</strong> — 레퍼런스에서 가장 흔한 모양 그대로, 오른쪽에 위아래로 긴 시간표 띠, 왼쪽에 넓은 할 일 · 기록 칸.</li>
+<li>시간표 줄 높이가 43.9로 커서 폰 세로 · 태블릿 세로에서 손가락으로도 칸을 정확히 쓸 수 있다. 칸 폭은 35로 좁지만 판정은 중심선이라 문제없다.</li>
+<li>할 일이 17줄로 늘고 메모 칸은 뺐다. 메모가 필요하면 회고 칸 · 여백에 쓴다.</li>
+</ul>
+</div><div class="sec2"><h2 id="선-규칙">선 규칙</h2>
+<table>
+<thead>
+<tr>
+<th>선</th>
+<th>모양</th>
+<th>색 · 굵기</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>상자 바깥 테두리</td>
+<td>실선, 모서리 10</td>
+<td><code>#9FB6D9</code> · 1.25</td>
+</tr>
+<tr>
+<td>시간표 머리줄 · 시간 숫자 열 경계</td>
+<td>실선</td>
+<td><code>#9FB6D9</code> · 1.25</td>
+</tr>
+<tr>
+<td><strong>시간표 안쪽 10분 칸</strong></td>
+<td><strong>점선</strong> 1.5–2 / 4</td>
+<td><code>#B9C7DE</code> · 1</td>
+</tr>
+<tr>
+<td>시간표 30분 경계 · 6시간 경계(12 · 18 · 0시)</td>
+<td>조금 긴 점선 4 / 3</td>
+<td><code>#A9BBD8</code> · 1.1</td>
+</tr>
+<tr>
+<td>할 일 · 메모 · 회고 줄</td>
+<td>점선 2 / 4</td>
+<td><code>#B9C7DE</code> · 1</td>
+</tr>
+<tr>
+<td>체크칸</td>
+<td>실선 18 × 18, 모서리 5, 흰 바탕</td>
+<td><code>#9FB6D9</code> · 1.25</td>
+</tr>
+<tr>
+<td>빈 색 칩 · 빈 하트</td>
+<td>점선</td>
+<td><code>#B9C7DE</code></td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>칠하는 곳의 안쪽 선은 전부 점선이다. 칠한 막대는 칸 안쪽으로 1.5 · 위아래 2.5씩 들여 그리고 투명도 0.78이라, 칠한 뒤에도 점선이 막대 사이로 살짝 보여 "칸을 칠한" 느낌이 남는다.</li>
+<li>새벽 0~5시 숫자는 흐린 색(<code>#A9B8D2</code>)으로 덜 눈에 띄게 한다.</li>
+</ul>
+</div><div class="sec2"><h2 id="색">색</h2>
+<table>
+<thead>
+<tr>
+<th>쓰임</th>
+<th>값</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>소제목 영문 (DATE · TO DO · TIME …)</td>
+<td><code>#6E92C6</code> 11 / 800, 자간 1.2</td>
+</tr>
+<tr>
+<td>소제목 한국어</td>
+<td><code>#8AA3C8</code> 11 / 700</td>
+</tr>
+<tr>
+<td>시간 숫자 · 요일 · 큰 합계 숫자</td>
+<td><code>#0B1957</code> (토 <code>#6E92C6</code> · 일 <code>#E5848A</code>)</td>
+</tr>
+<tr>
+<td>칸 채움 · 띠 · 색 칩</td>
+<td>형광펜 팔레트 7색 <code>#FFE066 · #FFB3C7 · #B5EAD7 · #A0C4FF · #D0B8FF · #FFD6A5 · #C7F0A0</code> + 내 색상</td>
+</tr>
+<tr>
+<td>체크 · 요일 동그라미 · 하트</td>
+<td>펜 팔레트 7색 + 내 색상</td>
+</tr>
+<tr>
+<td>자동 칸 바탕 · 색 막대 빈 부분</td>
+<td><code>#EDF3FA</code></td>
+</tr>
+</tbody>
+</table>
+<div class="grid two">
+<figure><img src="목업/가로 아이보리.jpg"><figcaption>종이 색 · 아이보리</figcaption></figure>
+<figure><img src="목업/세로 하늘.jpg"><figcaption>종이 색 · 하늘</figcaption></figure>
+</div>
+<ul>
+<li>종이 바탕은 기존 종이 색(<code>#FFFFFF</code> · <code>#FFF8E7</code> · <code>#EDF3FA</code> …)을 그대로 고를 수 있다. 노랑 형광펜이 아이보리 위에서도 구분되는지 확인했다.</li>
+</ul>
+</div><div class="sec2"><h2 id="글자">글자</h2>
+<ul>
+<li>속지에 인쇄된 글자(소제목 · 숫자)는 시스템 고딕. 영문 대문자 소제목 + 작은 한국어 설명을 붙여 레퍼런스의 "aesthetic" 느낌과 읽기 쉬움을 같이 챙긴다.</li>
+<li>예시의 손글씨는 앱의 캔버스 서체 <strong>나눔손글씨 펜</strong>으로 그렸다(실제로는 사용자 필기).</li>
+<li>큰 합계 숫자는 26 / 900, 단위 H · M은 13 / 800 하늘색. 인증 사진에서 가장 먼저 보이는 숫자다.</li>
+</ul>
+</div><div class="sec2"><h2 id="눌러-보는-시안">눌러 보는 시안</h2>
+<p><a href="시안.html">시안.html</a>을 크롬에서 열면 가로 · 세로 전환, 형광펜 칸 채움, 펜 색 체크, 할 일 줄 띠, 요일 · 만족도, 지우개, 되돌리기, 종이 색을 직접 해 볼 수 있다. 위 도구 막대는 시안 확인용이며 앱에서는 기존 편집기 도구를 쓴다.</p></div>
+</section>
+</main>
+</div>
+<script>
+const links=[...document.querySelectorAll('nav a')],secs=[...document.querySelectorAll('.doc')];
+const io=new IntersectionObserver(es=>{es.forEach(e=>{if(e.isIntersecting){links.forEach(l=>l.classList.toggle('on',l.getAttribute('href')==='#'+e.target.id));}})},{rootMargin:'-20% 0px -70% 0px'});
+secs.forEach(s=>io.observe(s));
+</script>
+</body>
+</html>

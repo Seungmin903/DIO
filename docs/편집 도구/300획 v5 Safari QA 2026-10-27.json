@@ -1,0 +1,322 @@
+{
+  "date": "2026-10-27",
+  "windowUTC": [
+    "2026-10-27T04:36:42.449Z",
+    "2026-10-27T04:38:50.262Z"
+  ],
+  "caveats": [
+    "Both observed area gestures began with caches available, not cold/partial-cache validation",
+    "Affected object counts, zoom and tool differ from previous trials; no controlled improvement ratio",
+    "Restoration counters may repeat an object; no pixel/visual fidelity audit",
+    "Stall markers remain; accepted strokes cannot count unreceived physical attempts"
+  ],
+  "area": [
+    {
+      "at": "2026-10-27T04:37:01.234Z",
+      "sequence": 1,
+      "kind": "eraser",
+      "eraserMode": "area",
+      "zoom": 0.3880952380952381,
+      "objectCount": 300,
+      "affectedObjects": 23,
+      "cancelled": false,
+      "metrics": {
+        "downToAcceptedMs": {
+          "count": 1,
+          "p50": 4,
+          "p95": 4,
+          "max": 4
+        },
+        "downEventAgeMs": {
+          "count": 1,
+          "p50": 39,
+          "p95": 39,
+          "max": 39
+        },
+        "eraserSetupMs": {
+          "count": 1,
+          "p50": 16,
+          "p95": 16,
+          "max": 16
+        },
+        "eraserMoveMs": {
+          "count": 74,
+          "p50": 0,
+          "p95": 1,
+          "max": 2
+        },
+        "eventAgeMs": {
+          "count": 73,
+          "p50": 4,
+          "p95": 6,
+          "max": 20
+        },
+        "jsFrameGapMs": {
+          "count": 88,
+          "p50": 17,
+          "p95": 17.000000000003638,
+          "max": 46
+        },
+        "eraserFragmentsMs": {
+          "count": 35,
+          "p50": 0,
+          "p95": 1,
+          "max": 1
+        },
+        "jsMoveGapMs": {
+          "count": 72,
+          "p50": 17,
+          "p95": 17.000000000003638,
+          "max": 19
+        },
+        "nativeTimestampDelta": {
+          "count": 72,
+          "p50": 17,
+          "p95": 17.000000000003638,
+          "max": 18
+        },
+        "eraserPreviewToLayoutMs": {
+          "count": 28,
+          "p50": 6,
+          "p95": 10,
+          "max": 12
+        },
+        "eraserFinalizeMs": {
+          "count": 1,
+          "p50": 0,
+          "p95": 0,
+          "max": 0
+        },
+        "eraserFinalizeToLayoutMs": {
+          "count": 1,
+          "p50": 25,
+          "p95": 25,
+          "max": 25
+        }
+      },
+      "visibleCachesAtDown": 75,
+      "visibleCachesAtEnd": 61
+    },
+    {
+      "at": "2026-10-27T04:37:04.015Z",
+      "sequence": 2,
+      "kind": "eraser",
+      "eraserMode": "area",
+      "zoom": 0.3880952380952381,
+      "objectCount": 304,
+      "affectedObjects": 17,
+      "cancelled": false,
+      "metrics": {
+        "downToAcceptedMs": {
+          "count": 1,
+          "p50": 1,
+          "p95": 1,
+          "max": 1
+        },
+        "downEventAgeMs": {
+          "count": 1,
+          "p50": 14.999999999996362,
+          "p95": 14.999999999996362,
+          "max": 14.999999999996362
+        },
+        "eraserSetupMs": {
+          "count": 1,
+          "p50": 8,
+          "p95": 8,
+          "max": 8
+        },
+        "eraserMoveMs": {
+          "count": 42,
+          "p50": 0,
+          "p95": 0,
+          "max": 4.000000000003638
+        },
+        "eventAgeMs": {
+          "count": 41,
+          "p50": 4,
+          "p95": 12,
+          "max": 23
+        },
+        "jsFrameGapMs": {
+          "count": 56,
+          "p50": 17,
+          "p95": 17.000000000003638,
+          "max": 28
+        },
+        "eraserFragmentsMs": {
+          "count": 19,
+          "p50": 0,
+          "p95": 1,
+          "max": 1.000000000003638
+        },
+        "eraserPreviewToLayoutMs": {
+          "count": 18,
+          "p50": 6,
+          "p95": 14,
+          "max": 18
+        },
+        "jsMoveGapMs": {
+          "count": 40,
+          "p50": 17,
+          "p95": 17.000000000003638,
+          "max": 23
+        },
+        "nativeTimestampDelta": {
+          "count": 40,
+          "p50": 17,
+          "p95": 17.000000000003638,
+          "max": 17.000000000003638
+        },
+        "eraserFinalizeMs": {
+          "count": 1,
+          "p50": 0,
+          "p95": 0,
+          "max": 0
+        },
+        "eraserFinalizeToLayoutMs": {
+          "count": 1,
+          "p50": 10,
+          "p95": 10,
+          "max": 10
+        }
+      },
+      "visibleCachesAtDown": 79,
+      "visibleCachesAtEnd": 70
+    }
+  ],
+  "restoration": {
+    "restoredInkObjects": 497,
+    "restoredFragmentObjects": 46,
+    "restoredOriginalObjects": 451
+  },
+  "markers": [
+    {
+      "at": "2026-10-27T04:38:15.792Z",
+      "type": "stall-marker",
+      "qaCase": "300"
+    },
+    {
+      "at": "2026-10-27T04:38:34.771Z",
+      "type": "stall-marker",
+      "qaCase": "300"
+    }
+  ],
+  "penSummary": {
+    "strokes": 139,
+    "cancelled": 0,
+    "kinds": {
+      "fountain": 24,
+      "felt": 27,
+      "brush": 88
+    },
+    "zooms": [
+      0.3880952380952381,
+      0.8991187800547119,
+      1.050034082749578,
+      1.1176340167711658,
+      1.0078912975061363,
+      1.000085733444725,
+      1.1288633821115086
+    ],
+    "metricBasis": "Each value summarizes per-stroke maxima, not pooled event quantiles. Count means strokes, not event samples.",
+    "metrics": {
+      "downToAcceptedMs": {
+        "strokesWithMetric": 139,
+        "p50OfStrokeMax": 0,
+        "p95OfStrokeMax": 2,
+        "max": 10
+      },
+      "downEventAgeMs": {
+        "strokesWithMetric": 139,
+        "p50OfStrokeMax": 16,
+        "p95OfStrokeMax": 28,
+        "max": 49
+      },
+      "previewSnapshotMs": {
+        "strokesWithMetric": 139,
+        "p50OfStrokeMax": 0,
+        "p95OfStrokeMax": 1,
+        "max": 1
+      },
+      "firstPreviewCommitMs": {
+        "strokesWithMetric": 139,
+        "p50OfStrokeMax": 1,
+        "p95OfStrokeMax": 4,
+        "max": 14
+      },
+      "downToFirstPreviewCommitMs": {
+        "strokesWithMetric": 139,
+        "p50OfStrokeMax": 2,
+        "p95OfStrokeMax": 6,
+        "max": 14
+      },
+      "eventToFirstPreviewCommitMs": {
+        "strokesWithMetric": 139,
+        "p50OfStrokeMax": 18,
+        "p95OfStrokeMax": 32,
+        "max": 50
+      },
+      "eventAgeMs": {
+        "strokesWithMetric": 139,
+        "p50OfStrokeMax": 16,
+        "p95OfStrokeMax": 25,
+        "max": 28
+      },
+      "jsFrameGapMs": {
+        "strokesWithMetric": 139,
+        "p50OfStrokeMax": 34,
+        "p95OfStrokeMax": 40,
+        "max": 45
+      },
+      "jsMoveGapMs": {
+        "strokesWithMetric": 139,
+        "p50OfStrokeMax": 17,
+        "p95OfStrokeMax": 18,
+        "max": 23
+      },
+      "nativeTimestampDelta": {
+        "strokesWithMetric": 139,
+        "p50OfStrokeMax": 17,
+        "p95OfStrokeMax": 17,
+        "max": 18
+      },
+      "firstPreviewFrameOpportunityMs": {
+        "strokesWithMetric": 139,
+        "p50OfStrokeMax": 14,
+        "p95OfStrokeMax": 25,
+        "max": 38
+      },
+      "downToFirstPreviewFrameOpportunityMs": {
+        "strokesWithMetric": 139,
+        "p50OfStrokeMax": 14,
+        "p95OfStrokeMax": 25,
+        "max": 38
+      },
+      "startInsidePage": {
+        "strokesWithMetric": 139,
+        "p50OfStrokeMax": 1,
+        "p95OfStrokeMax": 1,
+        "max": 1
+      },
+      "pointsOutsidePage": {
+        "strokesWithMetric": 139,
+        "p50OfStrokeMax": 0,
+        "p95OfStrokeMax": 0,
+        "max": 0
+      },
+      "finalizeJsMs": {
+        "strokesWithMetric": 139,
+        "p50OfStrokeMax": 0,
+        "p95OfStrokeMax": 1,
+        "max": 3
+      },
+      "previewToDocumentCommitMs": {
+        "strokesWithMetric": 139,
+        "p50OfStrokeMax": 13,
+        "p95OfStrokeMax": 18,
+        "max": 24
+      }
+    }
+  },
+  "evidenceFormat": "Per-stroke pen records replaced by aggregate summaries; individual area gestures and caveats retained. Original local reports are not published as CI artifacts."
+}

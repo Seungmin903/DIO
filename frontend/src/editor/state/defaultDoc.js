@@ -1,7 +1,8 @@
 import { normalizePaperAppearance } from '../templates/appearance.js'
 import { createId } from '../utils/common.js'
 import { TEMPLATE_VERSION, getTemplate, normalizeOrientation, templateCanvasSize, templateIdForOrientation } from '../templates/catalog.js'
-import { configuredPageIds, normalizeTemplateConfig } from '../templates/creation.js'
+import { configuredPageIds, normalizeTemplateConfig, replacedAssetId } from '../templates/creation.js'
+import { assignRouteDays } from '../templates/routePaper.js'
 
 const FIRST_PAGE_ASSETS = {
   blank: '2026-reusable-note-plain-landscape',
@@ -58,7 +59,8 @@ export function createDefaultDoc(diary) {
     templateConfig,
     paperAppearance,
     templateVersion: TEMPLATE_VERSION,
-    pages: ids.length ? ids.map(id => createTemplatePage(id, paperAppearance)) : [{ ...createBlankPage(templateConfig.orientation), paperAppearance }],
+    // 여행 노선 속지는 순서대로 DAY 1, 2, 3… 을 매긴다
+    pages: ids.length ? assignRouteDays(ids.map(id => createTemplatePage(id, paperAppearance))) : [{ ...createBlankPage(templateConfig.orientation), paperAppearance }],
   }
 }
 
@@ -67,5 +69,20 @@ export function createBlankPage(orientation) {
   return { id: createId(), ...(orientation === 'portrait' ? { canvasWidth: 768, canvasHeight: 1024 } : {}), objects: [] }
 }
 
-/** 기존 호출자와 호환하면서 저장된 페이지를 축소하거나 재구성하지 않는다. */
-export function migrateUntouchedAnnualDoc(doc) { return doc }
+/**
+ * 저장된 페이지를 축소하거나 재구성하지 않는다. 단 없어진 하루 계획 속지는 같은 방향의 데일리 플래너로 바꾼다
+ * (올려 둔 글 · 그림 · 스티커는 그대로). 바꿀 페이지가 없으면 받은 문서를 그대로 돌려준다.
+ */
+export function migrateUntouchedAnnualDoc(doc) {
+  const replacement = page => typeof page?.backgroundAssetId === 'string' ? replacedAssetId(page.backgroundAssetId) : page?.backgroundAssetId
+  if (!Array.isArray(doc?.pages) || !doc.pages.some(page => replacement(page) !== page?.backgroundAssetId)) return doc
+  return {
+    ...doc,
+    pages: doc.pages.map(page => {
+      const next = replacement(page)
+      if (next === page?.backgroundAssetId) return page
+      const template = getTemplate(next)
+      return { ...page, backgroundAssetId: template.id, templateVersion: template.templateVersion }
+    }),
+  }
+}

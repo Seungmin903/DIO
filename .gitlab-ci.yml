@@ -1,0 +1,659 @@
+# 배포 뒤 backend /actuator/health 확인 대기. dev 잡과 운영 infra/scripts/up-backend-with-rollback.sh가 함께 쓴다.
+# 새 마이그레이션이 있으면 기동이 30초를 넘기기도 해 2초 간격 60번(약 2분)까지 기다린다.
+variables:
+  HEALTH_RETRIES: "60"
+  HEALTH_RETRY_DELAY: "2"
+
+stages:
+  - check
+  - quality
+  - review
+  - deploy
+  - edge
+
+runner-check:
+  stage: check
+  tags:
+    - ec2-deploy
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "develop"'
+    - if: '$CI_COMMIT_BRANCH == "master"'
+  script:
+    - whoami
+    - docker --version
+    - docker ps
+
+deploy-development:
+  stage: deploy
+  tags:
+    - ec2-deploy
+  variables:
+    # release 검증의 develop과의 migration 비교는 얕은 clone에 의존하지 않는다.
+    GIT_DEPTH: "0"
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "develop"'
+    - if: '$CI_COMMIT_BRANCH =~ /^release\/.+$/ && $CI_COMMIT_REF_PROTECTED == "true"'
+      when: manual
+  resource_group: development
+  environment:
+    name: development
+  script:
+    # release 검증은 dev DB의 Flyway 이력을 공유하므로 양쪽 migration 집합이 같아야 한다.
+    - >
+      if printf '%s' "$CI_COMMIT_BRANCH" | grep -Eq '^release/'; then
+        if ! git fetch --no-tags origin +refs/heads/develop:refs/remotes/origin/develop; then
+          echo "Cannot fetch the current origin/develop for the shared-DB migration check." >&2;
+          exit 1;
+        fi;
+        bash infra/scripts/assert-shared-db-migrations.sh origin/develop HEAD;
+      fi
+    - export BACKEND_IMAGE="dio-backend:dev-${CI_COMMIT_SHORT_SHA}"
+    - export AI_IMAGE="dio-ai:dev-${CI_COMMIT_SHORT_SHA}"
+    # 필수 인증·SMTP·프록시·AI 내부 키 환경변수 누락 시 이미지 빌드/컨테이너 교체 전에 중단한다.
+    # 옛 SIGNUP_PHOTO_* 저장소 변수는 더 이상 읽지 않으므로 남아 있으면 배포 전에 중단한다.
+    - bash infra/scripts/assert-no-legacy-photo-env.sh /home/gitlab-runner/dio-env/dev.env
+    - docker compose --project-name dio-dev-backend --env-file /home/gitlab-runner/dio-env/dev.env -f infra/compose/compose.dev.yml config --quiet
+    - docker build --tag "dio-backend:dev-${CI_COMMIT_SHORT_SHA}" ./backend
+    # AI 이미지는 의존성·모델 레이어가 캐시되어 ai/app만 바뀌면 빠르게 끝난다.
+    - docker build --tag "dio-ai:dev-${CI_COMMIT_SHORT_SHA}" ./ai
+    # backend health 대기는 맨 위 HEALTH_RETRIES · HEALTH_RETRY_DELAY를 쓴다(운영 롤백 스크립트와 같은 값).
+    - >
+      if ! docker compose --project-name dio-dev-backend --env-file /home/gitlab-runner/dio-env/dev.env -f infra/compose/compose.dev.yml up -d --force-recreate ||
+         ! curl --fail --retry "$HEALTH_RETRIES" --retry-all-errors --retry-delay "$HEALTH_RETRY_DELAY" http://127.0.0.1:8081/actuator/health; then
+        docker compose --project-name dio-dev-backend --env-file /home/gitlab-runner/dio-env/dev.env -f infra/compose/compose.dev.yml logs --tail=200 backend || true;
+        exit 1;
+      fi
+    # AI는 모델 로딩 뒤 healthy가 된다. 3분 안에 healthy가 아니면 로그를 남기고 실패한다.
+    - >
+      AI_CONTAINER="$(docker compose --project-name dio-dev-backend --env-file /home/gitlab-runner/dio-env/dev.env -f infra/compose/compose.dev.yml ps -q ai)";
+      if ! timeout 180 sh -c "until [ \"\$(docker inspect -f '{{.State.Health.Status}}' $AI_CONTAINER)\" = healthy ]; do sleep 3; done"; then
+        docker logs --tail=200 "$AI_CONTAINER" || true;
+        exit 1;
+      fi
+
+deploy-production:
+  stage: deploy
+  tags:
+    - ec2-deploy
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "master"'
+      when: manual
+  resource_group: production
+  environment:
+    name: production
+  script:
+    - bash infra/scripts/assert-flyway-initial-state.sh app-db-1
+    - export BACKEND_IMAGE="dio-backend:prod-${CI_COMMIT_SHORT_SHA}"
+    # AI 이미지 태그는 커밋이 아니라 ai/ 폴더 내용(git tree 해시)으로 정한다.
+    # ai/가 그대로면 태그가 같아 빌드를 건너뛰고 컨테이너도 재생성하지 않는다(모델 재로딩·임베딩 캐시 손실·빌드 메모리 없음).
+    - export AI_IMAGE="dio-ai:prod-$(git rev-parse --short=12 HEAD:ai)"
+    # 필수 인증·SMTP·프록시·AI 내부 키 환경변수 누락 시 이미지 빌드/컨테이너 교체 전에 중단한다.
+    # 옛 SIGNUP_PHOTO_* 저장소 변수는 더 이상 읽지 않으므로 남아 있으면 배포 전에 중단한다.
+    - bash infra/scripts/assert-no-legacy-photo-env.sh /home/gitlab-runner/dio-env/prod.env
+    - docker compose --project-name dio-prod-backend --env-file /home/gitlab-runner/dio-env/prod.env -f infra/compose/compose.prod.yml config --quiet
+    - docker build --tag "dio-backend:prod-${CI_COMMIT_SHORT_SHA}" ./backend
+    # 같은 ai/ 내용의 이미지가 이미 있으면 빌드하지 않는다. 바뀌었을 때도 의존성·모델 레이어는 캐시된다.
+    - docker image inspect "$AI_IMAGE" >/dev/null 2>&1 || docker build --tag "$AI_IMAGE" ./ai
+    # AI를 먼저 올리고 healthy(모델 로딩 완료, ai/Dockerfile HEALTHCHECK)를 확인한 뒤에만 backend를 교체한다.
+    # --force-recreate를 쓰지 않아 이미지·설정이 같으면 기존 AI 컨테이너를 그대로 둔다(이미 healthy라 대기도 바로 끝난다).
+    # 롤백 기준은 마지막으로 배포 전체가 성공한 이미지(dio-backend·dio-ai:prod-last-good)다. 같은 커밋 재시도에도 쓸 수 있다.
+    # AI가 3분 안에 healthy가 아니거나 종료되면 로그를 남기고 마지막 정상 AI로 되돌린 뒤 실패한다(backend는 교체하지 않음).
+    - bash infra/scripts/up-ai-with-rollback.sh dio-prod-backend /home/gitlab-runner/dio-env/prod.env infra/compose/compose.prod.yml 180
+    # backend가 정상 응답하지 않으면 backend와 AI를 마지막 정상 배포로 함께 되돌린 뒤 실패한다. 성공하면 prod-last-good을 갱신한다.
+    # Flyway가 적용한 스키마는 되돌아가지 않으므로 이전 backend와 호환되는 마이그레이션만 이 롤백에 기댄다.
+    - bash infra/scripts/up-backend-with-rollback.sh dio-prod-backend /home/gitlab-runner/dio-env/prod.env infra/compose/compose.prod.yml http://127.0.0.1:8082/actuator/health
+
+deploy-dev-proxy:
+  stage: edge
+  tags:
+    - ec2-deploy
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "develop"'
+      changes:
+        - infra/nginx/dev/**/*
+        - infra/compose/compose.proxy.dev.yml
+  resource_group: development-edge
+  script:
+    - docker build --tag "dio-nginx-dev:${CI_COMMIT_SHORT_SHA}" ./infra/nginx/dev
+    - export NGINX_DEV_IMAGE="dio-nginx-dev:${CI_COMMIT_SHORT_SHA}"
+    - docker compose --project-name dio-proxy-dev -f infra/compose/compose.proxy.dev.yml run --rm --no-deps nginx-dev nginx -t
+    - docker compose --project-name dio-proxy-dev -f infra/compose/compose.proxy.dev.yml up -d --force-recreate
+
+deploy-prod-proxy:
+  stage: edge
+  tags:
+    - ec2-deploy
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "master"'
+      when: manual
+      changes:
+        - infra/nginx/prod/**/*
+        - infra/compose/compose.proxy.prod.yml
+  resource_group: production-edge
+  script:
+    - docker build --tag "dio-nginx-prod:${CI_COMMIT_SHORT_SHA}" ./infra/nginx/prod
+    - export NGINX_PROD_IMAGE="dio-nginx-prod:${CI_COMMIT_SHORT_SHA}"
+    - docker compose --project-name dio-proxy-prod -f infra/compose/compose.proxy.prod.yml run --rm --no-deps nginx-prod nginx -t
+    - docker compose --project-name dio-proxy-prod -f infra/compose/compose.proxy.prod.yml up -d --force-recreate
+    - 'curl --fail --retry 12 --retry-all-errors --retry-delay 2 --resolve k15f106.p.ssafy.io:443:127.0.0.1 https://k15f106.p.ssafy.io/actuator/health'
+
+legal-document-test:
+  stage: quality
+  tags:
+    - ec2-deploy
+  interruptible: true
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" || $CI_COMMIT_BRANCH == "develop"'
+      changes:
+        - docs/legal/**/*
+        - frontend/src/shared/legalContent.json
+        - frontend/src/auth/signupPolicy.js
+        - backend/src/main/resources/application.yml
+        - infra/compose/*.env.example
+        - .gitlab-ci.yml
+  script:
+    - >
+      docker run --rm
+      --user "$(id -u):$(id -g)"
+      -e PYTHONDONTWRITEBYTECODE=1
+      -v "$CI_PROJECT_DIR:/workspace:ro"
+      -w /workspace
+      python:3.12-alpine
+      python -m unittest discover -s docs/legal/tests -v
+
+# Pure Node contract tests: no dependency installation, native modules, or deployment secrets.
+frontend-email-contract-test:
+  stage: quality
+  tags:
+    - ec2-deploy
+  interruptible: true
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" || $CI_COMMIT_BRANCH == "develop"'
+      changes:
+        - docs/contracts/**/*
+        - frontend/src/shared/emailInput.js
+        - frontend/src/auth/validation.js
+        - frontend/src/auth/authApi.js
+        - frontend/src/auth/signupPolicy.js
+        - frontend/src/auth/developmentAccess.js
+        - frontend/src/sharing/sharingContracts.js
+        - frontend/tests/email-input.test.js
+        - backend/src/main/java/com/f106/DIO/user/support/UserInput.java
+        - backend/src/main/java/com/f106/DIO/auth/dto/**/*
+        - .gitlab-ci.yml
+  script:
+    - >
+      docker run --rm
+      --user "$(id -u):$(id -g)"
+      -v "$CI_PROJECT_DIR/frontend:/workspace/frontend:ro"
+      -v "$CI_PROJECT_DIR/docs/contracts:/workspace/docs/contracts:ro"
+      -w /workspace/frontend
+      node:24-alpine
+      node --test tests/email-input.test.js
+
+backend-test:
+  stage: quality
+  tags:
+    - ec2-deploy
+  cache:
+    key: backend-gradle-v1
+    paths:
+      - backend/.gradle/caches/
+      - backend/.gradle/wrapper/
+    policy: pull-push
+  interruptible: true
+  rules:
+    - if: '$CI_COMMIT_BRANCH =~ /^release\/.+$/'
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      # 백엔드 산출물을 만드는 작업이므로 프런트엔드 전용 변경에서는 실행하지 않는다.
+      changes: &backend_contract_changes
+        - backend/**/*
+        - docs/contracts/**/*
+        - .gitlab-ci.yml
+        - infra/compose/compose.*.yml
+        - infra/nginx/**/default.conf
+        - infra/scripts/test-auth-postgres.sh
+        - infra/scripts/check-member-list-icu.sh
+  script:
+    - >
+      docker run --rm
+      --user "$(id -u):$(id -g)"
+      -e JAVA_TOOL_OPTIONS=-Xmx2g
+      -e GRADLE_USER_HOME=/workspace/backend/.gradle
+      -e DIO_NOTIFICATION_CONTRACT_OUTPUT=/workspace/backend/build/notification-frontend-contract.json
+      -v "$CI_PROJECT_DIR/backend:/workspace/backend"
+      -v "$CI_PROJECT_DIR/frontend/remote-content:/workspace/frontend/remote-content:ro"
+      -v "$CI_PROJECT_DIR/docs/contracts:/workspace/docs/contracts:ro"
+      -v "$CI_PROJECT_DIR/infra:/workspace/infra:ro"
+      -v "$CI_PROJECT_DIR/frontend/assets/fonts/gowundodum:/workspace/frontend/assets/fonts/gowundodum:ro"
+      -v "$CI_PROJECT_DIR/.gitlab-ci.yml:/workspace/.gitlab-ci.yml:ro"
+      -w /workspace/backend
+      eclipse-temurin:17-jdk
+      sh ./gradlew test --no-daemon
+    - >
+      docker run --rm
+      --user "$(id -u):$(id -g)"
+      -e DIO_NOTIFICATION_CONTRACT_OUTPUT=/evidence/notification-frontend-contract.json
+      -v "$CI_PROJECT_DIR/frontend:/workspace/frontend:ro"
+      -v "$CI_PROJECT_DIR/backend/build:/evidence:ro"
+      -w /workspace/frontend
+      node:24-alpine
+      node --test tests/spring-notification-contract.test.js
+  artifacts:
+    when: always
+    reports:
+      junit: backend/build/test-results/test/*.xml
+    paths:
+      - backend/build/reports/tests/test/
+      - backend/build/contracts/
+    expire_in: 7 days
+
+release-migration-guard-test:
+  stage: quality
+  tags:
+    - ec2-deploy
+  rules:
+    - if: '$CI_COMMIT_BRANCH =~ /^release\/.+$/'
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      changes:
+        - .gitlab-ci.yml
+        - infra/scripts/assert-shared-db-migrations.sh
+        - infra/scripts/test-assert-shared-db-migrations.sh
+  script:
+    - bash infra/scripts/test-assert-shared-db-migrations.sh
+
+# PostgreSQL 잡: MR에서는 스키마·해당 테스트 변경에만 자동 실행하고 나머지는 수동, develop 파이프라인에서는 배포 전에 항상 실행한다.
+backend-postgres-auth-test:
+  stage: quality
+  needs:
+    - job: backend-test
+      artifacts: false
+      # develop 파이프라인에는 backend-test가 없으므로 선택 의존으로 둔다.
+      optional: true
+  tags:
+    - ec2-deploy
+  cache:
+    key: backend-gradle-v1
+    paths:
+      - backend/.gradle/caches/
+      - backend/.gradle/wrapper/
+    policy: pull
+  interruptible: true
+  rules:
+    # develop 파이프라인은 변경 경로와 무관하게 배포 전에 항상 실행한다.
+    # 앞선 파이프라인이 취소돼도 배포하는 파이프라인이 직접 검증하므로 검증 없이 배포되지 않는다.
+    - if: '$CI_COMMIT_BRANCH == "develop"'
+    # MR에서는 스키마(Flyway)나 이 묶음이 실행하는 테스트(부모 클래스 포함)가 바뀐 경우에만 자동 실행한다.
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      changes:
+        - backend/src/main/resources/db/migration/**/*
+        - infra/scripts/test-auth-postgres.sh
+        - backend/src/test/java/**/auth/**/*Postgres*.java
+        - backend/src/test/java/**/auth/integration/PasswordResetTests.java
+        - backend/src/test/java/**/notification/**/*Postgres*.java
+    # 그 밖의 백엔드·CI 변경은 필요할 때 수동으로 실행한다. 실행하지 않아도 파이프라인을 막지 않는다.
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      changes:
+        - backend/**/*
+        - .gitlab-ci.yml
+      when: manual
+      allow_failure: true
+  script:
+    - bash infra/scripts/test-auth-postgres.sh auth
+  artifacts:
+    when: always
+    reports:
+      junit:
+        - backend/build/test-results/authPostgresTest/*.xml
+    paths:
+      - backend/build/reports/tests/authPostgresTest/
+    expire_in: 7 days
+
+backend-postgres-sharing-test:
+  stage: quality
+  needs:
+    - job: backend-test
+      artifacts: false
+      # develop 파이프라인에는 backend-test가 없으므로 선택 의존으로 둔다.
+      optional: true
+  tags:
+    - ec2-deploy
+  cache:
+    key: backend-gradle-v1
+    paths:
+      - backend/.gradle/caches/
+      - backend/.gradle/wrapper/
+    policy: pull
+  interruptible: true
+  rules:
+    # develop 파이프라인은 변경 경로와 무관하게 배포 전에 항상 실행한다.
+    # 앞선 파이프라인이 취소돼도 배포하는 파이프라인이 직접 검증하므로 검증 없이 배포되지 않는다.
+    - if: '$CI_COMMIT_BRANCH == "develop"'
+    # MR에서는 스키마(Flyway)나 이 묶음이 실행하는 테스트(부모 클래스 포함)가 바뀐 경우에만 자동 실행한다.
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      changes:
+        - backend/src/main/resources/db/migration/**/*
+        - infra/scripts/test-auth-postgres.sh
+        - backend/src/test/java/**/sharing/**/*
+        - backend/src/test/java/**/collaboration/**/*
+    # 그 밖의 백엔드·CI 변경은 필요할 때 수동으로 실행한다. 실행하지 않아도 파이프라인을 막지 않는다.
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      changes:
+        - backend/**/*
+        - .gitlab-ci.yml
+      when: manual
+      allow_failure: true
+  script:
+    - bash infra/scripts/test-auth-postgres.sh sharing
+  artifacts:
+    when: always
+    reports:
+      junit:
+        - backend/build/test-results/sharingPostgresTest/*.xml
+        - backend/build/test-results/collaborationPostgresTest/*.xml
+    paths:
+      - backend/build/reports/tests/sharingPostgresTest/
+      - backend/build/reports/tests/collaborationPostgresTest/
+    expire_in: 7 days
+
+backend-postgres-diary-test:
+  stage: quality
+  needs:
+    - job: backend-test
+      artifacts: false
+      # develop 파이프라인에는 backend-test가 없으므로 선택 의존으로 둔다.
+      optional: true
+  tags:
+    - ec2-deploy
+  cache:
+    key: backend-gradle-v1
+    paths:
+      - backend/.gradle/caches/
+      - backend/.gradle/wrapper/
+    policy: pull
+  interruptible: true
+  rules:
+    # develop 파이프라인은 변경 경로와 무관하게 배포 전에 항상 실행한다.
+    # 앞선 파이프라인이 취소돼도 배포하는 파이프라인이 직접 검증하므로 검증 없이 배포되지 않는다.
+    - if: '$CI_COMMIT_BRANCH == "develop"'
+    # MR에서는 스키마(Flyway)나 이 묶음이 실행하는 테스트(부모 클래스 포함)가 바뀐 경우에만 자동 실행한다.
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      changes:
+        - backend/src/main/resources/db/migration/**/*
+        - infra/scripts/test-auth-postgres.sh
+        - infra/scripts/check-member-list-icu.sh
+        - backend/src/test/java/**/support/**/*
+        - backend/src/test/java/**/diary/creation/**/*
+        - backend/src/test/java/**/diary/detail/**/*
+        - backend/src/test/java/**/diary/http/MemberDiaryHttpTests.java
+        - backend/src/test/java/**/diary/http/MemberDiaryContractPostgresTests.java
+        - backend/src/test/java/**/diary/http/MemberDiaryListPostgresTests.java
+    # 그 밖의 백엔드·CI 변경은 필요할 때 수동으로 실행한다. 실행하지 않아도 파이프라인을 막지 않는다.
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      changes:
+        - backend/**/*
+        - .gitlab-ci.yml
+      when: manual
+      allow_failure: true
+  script:
+    - bash infra/scripts/test-auth-postgres.sh diary
+  artifacts:
+    when: always
+    reports:
+      junit:
+        - backend/build/test-results/postgresMemberDiaryCreationTest/*.xml
+        - backend/build/test-results/postgresDiaryDetailTest/*.xml
+        - backend/build/test-results/postgresMemberDiaryHttpTest/*.xml
+    paths:
+      - backend/build/reports/tests/postgresMemberDiaryCreationTest/
+      - backend/build/reports/tests/postgresDiaryDetailTest/
+      - backend/build/reports/tests/postgresMemberDiaryHttpTest/
+    expire_in: 7 days
+
+backend-postgres-lifecycle-test:
+  stage: quality
+  needs:
+    - job: backend-test
+      artifacts: false
+      # develop 파이프라인에는 backend-test가 없으므로 선택 의존으로 둔다.
+      optional: true
+  tags:
+    - ec2-deploy
+  cache:
+    key: backend-gradle-v1
+    paths:
+      - backend/.gradle/caches/
+      - backend/.gradle/wrapper/
+    policy: pull
+  interruptible: true
+  rules:
+    # develop 파이프라인은 변경 경로와 무관하게 배포 전에 항상 실행한다.
+    # 앞선 파이프라인이 취소돼도 배포하는 파이프라인이 직접 검증하므로 검증 없이 배포되지 않는다.
+    - if: '$CI_COMMIT_BRANCH == "develop"'
+    # MR에서는 스키마(Flyway)나 이 묶음이 실행하는 테스트(부모 클래스 포함)가 바뀐 경우에만 자동 실행한다.
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      changes:
+        - backend/src/main/resources/db/migration/**/*
+        - infra/scripts/test-auth-postgres.sh
+        - backend/src/test/java/**/support/**/*
+        - backend/src/test/java/**/diary/trash/**/*
+        - backend/src/test/java/**/diary/purge/**/*
+        - backend/src/test/java/**/diary/http/MemberDiaryTrash*.java
+        - backend/src/test/java/**/diary/http/MemberDiaryPurge*.java
+        - backend/src/test/java/**/media/**/*Postgres*.java
+    # 그 밖의 백엔드·CI 변경은 필요할 때 수동으로 실행한다. 실행하지 않아도 파이프라인을 막지 않는다.
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      changes:
+        - backend/**/*
+        - .gitlab-ci.yml
+      when: manual
+      allow_failure: true
+  script:
+    - bash infra/scripts/test-auth-postgres.sh lifecycle
+  artifacts:
+    when: always
+    reports:
+      junit:
+        - backend/build/test-results/postgresDiaryTrashTest/*.xml
+        - backend/build/test-results/postgresDiaryPurgeTest/*.xml
+    paths:
+      - backend/build/reports/tests/postgresDiaryTrashTest/
+      - backend/build/reports/tests/postgresDiaryPurgeTest/
+    expire_in: 7 days
+
+secret-scan:
+  stage: quality
+  tags:
+    - ec2-deploy
+  interruptible: true
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+  script:
+    - git ls-files --error-unmatch frontend/google-services.json
+    - >
+      docker run --rm
+      -v "$CI_PROJECT_DIR:/repo:ro"
+      node@sha256:fe4f6d74e20370acb04ad889077d14d0f64a9c8ea6a42bc60cddf1e844699914
+      node /repo/infra/scripts/verify-firebase-android-config.test.mjs
+    - >
+      docker run --rm
+      -v "$CI_PROJECT_DIR:/repo:ro"
+      node@sha256:fe4f6d74e20370acb04ad889077d14d0f64a9c8ea6a42bc60cddf1e844699914
+      node /repo/infra/scripts/verify-firebase-android-config.mjs /repo/frontend/google-services.json /repo/frontend/app.json
+    - >
+      docker run --rm
+      -v "$CI_PROJECT_DIR:/repo:ro"
+      ghcr.io/gitleaks/gitleaks:v8.30.1
+      dir /repo --config /repo/.gitleaks.toml --redact --no-banner
+
+ai-code-review:
+  stage: review
+  # 테스트 결과를 쓰지 않으므로 quality 단계를 기다리지 않고 바로 시작한다.
+  needs: []
+  tags:
+    - ec2-deploy
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+  variables:
+    GIT_DEPTH: "0"
+  interruptible: true
+  timeout: 15m
+  allow_failure: true
+  script:
+    - bash infra/review/mr-review.sh
+
+backend-postgres-push-test:
+  stage: quality
+  needs:
+    - job: backend-test
+      artifacts: false
+      optional: true
+  tags:
+    - ec2-deploy
+  cache:
+    key: backend-gradle-v1
+    paths:
+      - backend/.gradle/caches/
+      - backend/.gradle/wrapper/
+    policy: pull
+  interruptible: true
+  rules:
+    # MR 변경 스크립트를 배포 호스트에서 실행하지 않는다.
+    - if: '$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_REF_PROTECTED == "true"'
+      changes:
+        - .gitlab-ci.yml
+        - infra/scripts/test-push-postgres.sh
+        - backend/build.gradle
+        - backend/settings.gradle
+        - backend/gradle/**/*
+        - backend/src/main/resources/db/migration/**/*
+        - backend/src/main/resources/application*.yml
+        - backend/src/test/resources/push*/**/*
+        - backend/src/test/resources/push-session-h2.sql
+        - backend/src/main/java/**/push/**/*
+        - backend/src/test/java/**/push/**/*
+        - backend/src/main/java/**/auth/**/*
+        - backend/src/main/java/**/user/**/*
+        - backend/src/test/java/**/auth/**/*
+  script:
+    - bash infra/scripts/test-push-postgres.sh
+  artifacts:
+    when: always
+    reports:
+      junit:
+        - backend/build/test-results/pushPostgresTest/*.xml
+    paths:
+      - backend/build/reports/tests/pushPostgresTest/
+    expire_in: 7 days
+
+# ---------- 원격 에셋(S3 + CloudFront) ----------
+# frontend/remote-content(앱 배포 없이 추가하는 글꼴 · 스티커 · 속지)와 번들에서 뺀 assets 를 에셋 버킷에 올린다. docs/remote-assets.md
+# 버킷 · 키는 러너 서버의 env 파일에 둔다(다른 배포 잡과 같다). Git · CI 변수에는 넣지 않는다.
+#   /home/gitlab-runner/dio-env/assets-dev.env · assets-prod.env
+#   ASSET_S3_BUCKET, ASSET_S3_PREFIX(기본 static-assets), AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_DEFAULT_REGION
+#   키 권한: <접두사>/* 에 s3:GetObject · s3:PutObject, 버킷에 s3:ListBucket(접두사 제한)
+.remote-assets-changes: &remote-assets-changes
+  - frontend/remote-content/**/*
+  - frontend/assets/fonts/**/*
+  - frontend/assets/templates/**/*
+  - frontend/src/shared/remoteAssets/**/*
+  - frontend/scripts/build-remote-assets.mjs
+  - frontend/scripts/remote-content.mjs
+  - frontend/scripts/compare-remote-catalog.mjs
+  - frontend/scripts/fetch-remote-catalog.sh
+  - frontend/scripts/upload-remote-assets.sh
+  - frontend/scripts/template-svg-rules.mjs
+  - .gitlab-ci.yml
+
+# 형식 검사만 한다(키 · 네트워크 없음). 틀린 글꼴 · 스티커 · 속지는 MR 에서 막는다.
+remote-assets-check:
+  stage: quality
+  tags:
+    - ec2-deploy
+  interruptible: true
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" || $CI_COMMIT_BRANCH == "develop" || $CI_COMMIT_BRANCH == "master"'
+      changes: *remote-assets-changes
+  script:
+    - >
+      docker run --rm
+      --user "$(id -u):$(id -g)"
+      -v "$CI_PROJECT_DIR/frontend:/workspace/frontend:ro"
+      -w /workspace/frontend
+      node:24-alpine
+      node scripts/build-remote-assets.mjs --check
+
+.remote-assets-publish: &remote-assets-publish
+  tags:
+    - ec2-deploy
+  variables:
+    AWS_CLI_IMAGE: amazon/aws-cli:2.17.0
+  script:
+    # 스크립트 줄에 '콜론+공백'을 쓰면 YAML 이 키로 읽으므로 블록(>)으로 쓴다
+    - >
+      test -f "$ASSET_ENV_FILE" || { echo "에셋 버킷 설정 파일이 없습니다 - $ASSET_ENV_FILE" >&2; exit 1; }
+    - export WORK="$CI_PROJECT_DIR/.ci-remote-assets"
+    - rm -rf "$WORK" && mkdir -p "$WORK"
+    # 1) 올릴 파일과 catalog.json 을 만든다(저장소는 읽기 전용, 커밋된 매니페스트와 다르면 실패)
+    - >
+      docker run --rm --user "$(id -u):$(id -g)"
+      -v "$CI_PROJECT_DIR/frontend:/workspace/frontend:ro" -v "$WORK:/out"
+      -w /workspace/frontend node:24-alpine
+      node scripts/build-remote-assets.mjs --dist-only --out /out/dist
+    # 2) 지금 올라간 목록을 받아 3) 이미 공개한 항목이 빠지지 않았는지 비교한다(빠지면 멈춤, ALLOW_CATALOG_REMOVAL=1 CI 변수로 허용)
+    - >
+      docker run --rm --user "$(id -u):$(id -g)" -e HOME=/tmp --env-file "$ASSET_ENV_FILE"
+      -v "$CI_PROJECT_DIR/frontend/scripts:/scripts:ro" -v "$WORK:/out"
+      --entrypoint sh "$AWS_CLI_IMAGE" /scripts/fetch-remote-catalog.sh /out/previous-catalog.json
+    - >
+      docker run --rm --user "$(id -u):$(id -g)" -e ALLOW_CATALOG_REMOVAL
+      -v "$CI_PROJECT_DIR/frontend/scripts:/scripts:ro" -v "$WORK:/out:ro"
+      node:24-alpine node /scripts/compare-remote-catalog.mjs /out/previous-catalog.json /out/dist/catalog.json
+    # 4) 파일을 먼저, catalog.json 을 마지막에 올린다
+    - >
+      docker run --rm --user "$(id -u):$(id -g)" -e HOME=/tmp --env-file "$ASSET_ENV_FILE"
+      -e REMOTE_ASSETS_DIST=/out/dist -e REMOTE_CATALOG_COMPARED=1
+      -v "$CI_PROJECT_DIR/frontend/scripts:/scripts:ro" -v "$WORK:/out:ro"
+      --entrypoint sh "$AWS_CLI_IMAGE" /scripts/upload-remote-assets.sh
+  after_script:
+    - rm -rf "$CI_PROJECT_DIR/.ci-remote-assets"
+
+# develop 에 병합되면 개발 백엔드 배포(V34 원격 속지 행)가 끝난 뒤 개발 에셋 버킷에 자동으로 올린다
+publish-remote-assets-dev:
+  <<: *remote-assets-publish
+  stage: deploy
+  # deploy-development 는 develop 의 모든 파이프라인에 생기므로(rules 에 changes 없음) optional 을 두지 않는다.
+  # 백엔드 배포가 실패하면 에셋도 올리지 않는다
+  needs:
+    - deploy-development
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "develop"'
+      changes: *remote-assets-changes
+  resource_group: development-assets
+  environment:
+    name: development-assets
+  variables:
+    AWS_CLI_IMAGE: amazon/aws-cli:2.17.0
+    ASSET_ENV_FILE: /home/gitlab-runner/dio-env/assets-dev.env
+
+# 운영 에셋 버킷은 master 에서 사람이 눌러 올린다(사용자 앱에 바로 보이므로).
+# 운영 백엔드 배포(deploy-production, V34 원격 속지 행)가 성공한 뒤에만 누를 수 있다. 행이 없으면 원격 속지로 페이지를 만들 수 없다.
+# 에셋이 바뀌지 않은 파이프라인에서도 눌러 다시 올릴 수 있게 changes 조건을 두지 않는다(같은 내용이면 바뀌는 것이 없다).
+# deploy-production 도 master 의 모든 파이프라인에 생기므로 needs 에 optional 을 두지 않는다.
+# 실패(목록 비교에서 공개 항목 삭제 감지 · 업로드 실패 · 설정 파일 없음)가 파이프라인 실패로 드러나도록 allow_failure: false 를 명시한다.
+# rules 의 when: manual 은 기본값도 false 지만, 잡 수준 when: manual(기본 true)과 헷갈리지 않게 적어 둔다. 누르기 전까지 파이프라인은 deploy-production 처럼 blocked 다.
+publish-remote-assets-prod:
+  <<: *remote-assets-publish
+  stage: deploy
+  needs:
+    - deploy-production
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "master"'
+      when: manual
+      allow_failure: false
+  resource_group: production-assets
+  environment:
+    name: production-assets
+  variables:
+    AWS_CLI_IMAGE: amazon/aws-cli:2.17.0
+    ASSET_ENV_FILE: /home/gitlab-runner/dio-env/assets-prod.env

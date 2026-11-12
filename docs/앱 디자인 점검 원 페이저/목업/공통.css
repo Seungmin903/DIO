@@ -1,0 +1,21 @@
+/* 목업 공통: 앱 토큰(frontend/src/shared/theme.js)과 같은 값. 목업 크기는 원 페이저.json 의 mockSize */
+:root {
+  --surface: #FFFFFF; --soft: #F7F8FD; --primary: #818AC3; --strong: #606BB2; --ptext: #525FAD; --secondary: #ABB1D8;
+  --text: #0B1766; --muted: rgba(11,23,102,0.68); --border: rgba(11,23,102,0.16); --sm: #F0F1F9; --lav: #DBDCF9;
+  --card: #D9DCEF; --butter: #FEF0BF; --tape: #FBE5A3; --gold: #B98208; --pink: #B63F7C;
+}
+* { box-sizing: border-box; margin: 0; }
+html, body { width: 100%; height: 100%; overflow: hidden; }
+body { font-family: 'Pretendard', sans-serif; color: var(--text); background: var(--soft); font-size: 14px; }
+.row { display: flex; align-items: center; } .col { display: flex; flex-direction: column; }
+.rail { position: absolute; left: 0; top: 0; bottom: 0; width: 64px; background: var(--surface); border-right: 1px solid var(--card);
+  display: flex; flex-direction: column; align-items: center; padding-top: 18px; gap: 14px; }
+.rail i { width: 40px; height: 40px; border-radius: 12px; display: block; position: relative; }
+.rail i::after { content: ''; position: absolute; inset: 11px; border: 2px solid var(--text); border-radius: 4px; }
+.rail i.on { background: #E9EBF6; }
+.title { font-size: 26px; font-weight: 800; letter-spacing: -0.5px; }
+.chip { height: 32px; padding: 0 12px; border-radius: 10px; border: 1px solid var(--card); background: var(--surface); font-size: 13px; font-weight: 500; display: inline-flex; align-items: center; gap: 6px; }
+.chip.on { border-color: var(--strong); font-weight: 600; }
+.cover { border-radius: 4px 9px 9px 4px; box-shadow: 0 6px 8px rgba(11,23,102,0.06); background-size: cover; background-position: center; }
+.label { font-size: 13px; font-weight: 600; } .sub { font-size: 11px; color: var(--muted); }
+.note { position: absolute; font-size: 11px; font-weight: 700; color: var(--strong); background: #fff; border: 1px dashed var(--strong); border-radius: 6px; padding: 2px 6px; }

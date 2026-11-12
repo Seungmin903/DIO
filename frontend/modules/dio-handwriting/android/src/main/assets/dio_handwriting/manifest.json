@@ -1,0 +1,151 @@
+{
+  "model": "DM-Font",
+  "model_version": "dmfont-fp32-e5b28ca6-inference-v2",
+  "original_commit": "488a8e823920d94ea3f544bad9fe8e34929d8c04",
+  "original_checkpoint_sha256": "e5b28ca6793429b5e8bc77ed07ef166c7dfce91e089f068cc86318897700cae0",
+  "precision": "float32",
+  "batch": 1,
+  "image_resolution": [
+    128,
+    128
+  ],
+  "input_normalization": "gray/127.5 - 1",
+  "preprocess_version": "dio-ink-safe90-margin4-fp32-v2",
+  "versions": {
+    "torch": "2.7.1+cu128",
+    "onnx": "1.23.2",
+    "desktop_onnxruntime": "1.31.0",
+    "android_onnxruntime": "1.23.2"
+  },
+  "state_dict_tensors": 266,
+  "checkpoint_values_exact": true,
+  "files": {
+    "encoder.fp32.onnx": {
+      "sha256": "36f39745654a47a352752251429c36fc8f607256a3446d18791bb32b9bfdbab0",
+      "bytes": 46117580,
+      "sample_max_abs_error": [
+        0.39453125,
+        0.0087890625
+      ],
+      "seconds": 1.8501113999991503,
+      "operators": {
+        "Identity": 3,
+        "Constant": 741,
+        "ConstantOfShape": 43,
+        "Concat": 107,
+        "Reshape": 169,
+        "Slice": 98,
+        "Transpose": 42,
+        "Cast": 83,
+        "Pad": 41,
+        "Conv": 73,
+        "Relu": 34,
+        "AveragePool": 8,
+        "Flatten": 1,
+        "Softmax": 8,
+        "Shape": 85,
+        "Einsum": 15,
+        "Gemm": 2,
+        "LayerNormalization": 8,
+        "Unsqueeze": 59,
+        "Add": 43,
+        "Gather": 49,
+        "Div": 21,
+        "Mod": 21,
+        "MatMul": 2,
+        "Mul": 9,
+        "Equal": 2,
+        "Where": 2,
+        "Expand": 2,
+        "GatherElements": 2
+      }
+    },
+    "decoder.fp32.onnx": {
+      "sha256": "73ceea513ee8eba489f44a1f9658f2cd22d77fb6881cbd70a79fd307c80f1368",
+      "bytes": 128802918,
+      "sample_max_abs_error": [
+        5.3763389587402344E-05
+      ],
+      "seconds": 1.4485200000017358,
+      "operators": {
+        "Gather": 4,
+        "Shape": 7,
+        "Constant": 283,
+        "Slice": 32,
+        "Concat": 34,
+        "Reshape": 55,
+        "Relu": 22,
+        "ConstantOfShape": 24,
+        "Transpose": 24,
+        "Cast": 28,
+        "Pad": 24,
+        "Conv": 24,
+        "Div": 2,
+        "Unsqueeze": 3,
+        "Mod": 1,
+        "Add": 4,
+        "AveragePool": 4,
+        "BatchNormalization": 7,
+        "Resize": 6,
+        "InstanceNormalization": 11,
+        "Tanh": 1
+      }
+    }
+  },
+  "input_contract": {
+    "encoder": {
+      "image": [
+        1,
+        1,
+        128,
+        128
+      ]
+    },
+    "decoder": {
+      "components": [
+        1,
+        3,
+        256,
+        16,
+        16
+      ],
+      "skips": [
+        1,
+        3,
+        128,
+        32,
+        32
+      ],
+      "component_addresses": [
+        1,
+        3
+      ]
+    }
+  },
+  "source_files": {
+    "dio_dmfont/__init__.py": "a47a1206650121fe15c1fcbba87e7e5eb5eee1603d5424023b4579c9a65e8368",
+    "dio_dmfont/comp_encoder.py": "c0afb080bebffafc9271e6354f78277e8ff44b7042347d674f9dfc19daa7ce24",
+    "dio_dmfont/decoder.py": "a01c02619b24811449a4b9054b0a185820e421a62bbb36f1dc01713b405acdc7",
+    "dio_dmfont/factory.py": "db1cd72ffbf1bd2bf45d6d1e4baef6ee13055b664395fe845e17b5c97157729f",
+    "dio_dmfont/hangul.py": "e2255e0b9bd8e35cb7796ea55b96b92d0796de03210c99a1bceef21de0ff2842",
+    "dio_dmfont/ma_core.py": "78fdf9f918e06eb21eba31cb41ee9450404740d864c572d4cd86316b22e6b0e2",
+    "dio_dmfont/memory.py": "41fec09bd0213eb228c001a0d4741331f4d8c40c385772028298ac84a1f7e9df",
+    "dio_dmfont/mobile.py": "3a93a86e7fc1088373a3dd42e7d8a166a75aeeb6042dcbee09331b4f32d5143b",
+    "dio_dmfont/modules/__init__.py": "e223900a078b8c8a60fe3f50b820a51405174ce0138a26817ce927669a59f6e1",
+    "dio_dmfont/modules/blocks.py": "1d5e24adcca137940d2da5ad24137fabc14596bff302058be310b1ab5d59e1ec",
+    "dio_dmfont/modules/self_attention.py": "86de8c60efa836726095982cce9efaebeadaca126a4b0f62cc3f2efa1e3a9cf8",
+    "dio_dmfont/tensor_ops.py": "4af1753f518adafa6f8d97435c39c9cd0ff40e3b5a706c870b8e003ddee32499"
+  },
+  "weights_rights_review": "Excluded by task scope",
+  "status": "verified; 11172 glyph equivalence and TTF checks passed",
+  "verification": {
+    "glyphs": 11172,
+    "torch_exact": {
+      "features": true,
+      "skips": true,
+      "outputs": true
+    },
+    "pixel_max": 0,
+    "pixel_mean_max": 0.0
+  }
+}

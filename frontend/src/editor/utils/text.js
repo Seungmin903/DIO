@@ -1,3 +1,4 @@
+import { isAiHandwritingFont } from '../../handwriting/aiDisclosure.js'
 export const TEXT_FONT_SIZE = 28
 export const TEXT_LINE_HEIGHT = 38
 // 줄간격 기본값 (글자 크기 대비). 예전 텍스트의 38/28 과 같다.
@@ -38,7 +39,7 @@ export function textPatch(text, width = 320, settings = {}) {
 
 export function createText({ id, x, y, text, width = 320, ...settings }) {
   const largest = Math.max(settings.fontSize ?? TEXT_FONT_SIZE, ...(settings.styleRanges ?? []).map((range) => range.fontSize ?? 0))
-  return { id, type: 'text', name: '텍스트', x, y, w: width, rotation: 0, color: '#0B1957', ...settings, ...textPatch(text, width, { ...settings, fontSize: largest, letterSpacing: largest * (settings.letterSpacing ?? 0) }) }
+  return { id, type: 'text', name: '텍스트', x, y, w: width, rotation: 0, color: '#0B1766', ...settings, ...textPatch(text, width, { ...settings, fontSize: largest, letterSpacing: largest * (settings.letterSpacing ?? 0) }) }
 }
 
 // family 가 있는 글꼴은 앱에 넣은 한국어 글꼴(Google Fonts, OFL 라이선스로 상업 이용 가능). services/textFonts.js 가 불러온다.
@@ -51,13 +52,61 @@ export const TEXT_AUTO_MIN_WIDTH = 60
 export const TEXT_AUTO_MAX_WIDTH = 480
 
 export const TEXT_FONTS = [
-  { id: 'sans', label: '기본 고딕', systemNames: { ios: 'Apple SD 산돌고딕 Neo', android: 'Noto Sans', web: '맑은 고딕' } },
-  { id: 'serif', label: '기본 명조', systemNames: { ios: 'AppleMyungjo', android: 'Noto Serif', web: '바탕' } },
+  { id: 'pretendard', label: '프리텐다드', family: 'Pretendard-Regular', boldFamily: 'Pretendard-Bold' },
   { id: 'nanum-gothic', label: '나눔고딕', family: 'NanumGothic', boldFamily: 'NanumGothicBold' },
   { id: 'nanum-myeongjo', label: '나눔명조', family: 'NanumMyeongjo', boldFamily: 'NanumMyeongjoBold' },
+  { id: 'gowun-dodum', label: '고운돋움', family: 'GowunDodum' },
+  { id: 'gowun-batang', label: '고운바탕', family: 'GowunBatang', boldFamily: 'GowunBatangBold' },
+  { id: 'maruburi', label: '마루부리', family: 'MaruBuri', boldFamily: 'MaruBuriBold' },
   { id: 'nanum-pen', label: '나눔손글씨 펜', family: 'NanumPenScript' },
   { id: 'poor-story', label: '푸어스토리', family: 'PoorStory' },
 ]
+// 예전 '기본 고딕 · 기본 명조'(기기마다 다른 글꼴)는 목록에서 뺐다. 저장된 글자는 앱 글꼴 나눔고딕 · 나눔명조로 읽는다.
+const FONT_ALIASES = { sans: 'nanum-gothic', serif: 'nanum-myeongjo' }
+export const resolveFontId = (id) => FONT_ALIASES[id] ?? id
+// 원격 글꼴(앱 배포 없이 에셋 저장소에 올린 글꼴, shared/remoteAssets/remoteCatalog.js)은 앱 글꼴 뒤 · 내 폰트 앞에 둔다.
+// hidden 은 글꼴 고르기 목록(getPickableTextFonts)에서만 빠지고, 이미 쓴 글자는 계속 그 글꼴로 그린다.
+let personalFonts = [], catalogFonts = [], sharedFonts = [], allFonts = TEXT_FONTS, fontListRevision = 0
+export const getTextFonts = () => allFonts
+export const getPickableTextFonts = () => allFonts.filter(font => !font.hidden)
+export const textFontListSnapshot = () => fontListRevision
+function rebuildFontList() {
+  // 친구가 공유한 폰트는 그 글자를 그릴 때만 쓴다(고르기 목록에는 숨김). 같은 폰트가 내 폰트에 있으면 내 폰트를 쓴다
+  const shared = sharedFonts.filter(font => !personalFonts.some(mine => mine.id === font.id))
+  allFonts = [...TEXT_FONTS, ...catalogFonts, ...personalFonts, ...shared]
+  fontListRevision++
+  fontListeners.forEach(listener => listener())
+}
+export function registerPersonalTextFonts(fonts) {
+  personalFonts = fonts.filter(f => /^personal-[a-f0-9-]{36}$/.test(f.id) && /^DIOHW_[a-f0-9]{32}$/.test(f.family)).map(f => ({ id: f.id, label: f.label, family: f.family, personal: true, aiGenerated: isAiHandwritingFont(f) }))
+  rebuildFontList()
+}
+/** 공유 다이어리에서 받은 다른 사람의 손글씨 폰트. 이미 받은 것에 더한다(같은 id 는 새 값으로) */
+export function registerSharedTextFonts(fonts) {
+  const added = fonts.filter(f => /^personal-[a-f0-9-]{36}$/.test(f.id) && /^DIOHW_[a-f0-9]{32}$/.test(f.family))
+    .map(f => ({ id: f.id, label: f.label ?? '함께 쓰는 폰트', family: f.family, personal: true, shared: true, hidden: true }))
+  if (!added.length) return
+  sharedFonts = [...sharedFonts.filter(font => !added.some(item => item.id === font.id)), ...added]
+  rebuildFontList()
+}
+/** 편집 세션을 닫거나 계정이 바뀔 때(ids 없이), 또는 특정 친구 폰트를 더 쓰지 않을 때(ids: 글꼴 id 목록): 목록에서 뺀다(빼면 그 글꼴로 그리지 않는다) */
+export function clearSharedTextFonts(ids = null) {
+  const removing = ids ? sharedFonts.filter(font => ids.includes(font.id)) : sharedFonts
+  // 내 폰트와 같은 글꼴(내가 공유한 폰트를 다시 받은 경우)은 불러온 상태를 지우지 않는다
+  const families = removing.map(font => font.family).filter(family => !personalFonts.some(mine => mine.family === family))
+  if (!removing.length) return []
+  sharedFonts = sharedFonts.filter(font => !removing.includes(font))
+  for (const family of families) { loadedFamilies.delete(family); failedFamilies.delete(family) }
+  fontStateRevision++
+  rebuildFontList()
+  return families
+}
+/** 문서에 저장된 글꼴 id 를 받아도 되는지. 원격 글꼴은 목록을 아직 못 받았어도(오프라인 첫 실행) 기본 글꼴로 그리므로 받는다 */
+export const isKnownTextFontId = (id) => getTextFonts().some(font => font.id === resolveFontId(id)) || /^remote-[a-z0-9-]{1,40}$/.test(id)
+export function registerCatalogTextFonts(fonts) {
+  catalogFonts = fonts.filter(f => /^remote-[a-z0-9-]{1,40}$/.test(f.id) && /^DIOR_[a-z0-9_]{1,40}$/.test(f.family) && f.files?.[f.family])
+  rebuildFontList()
+}
 // 목록에서 뺀 글꼴. 저장된 글자는 기본 고딕으로 그리고 내보내기도 막지 않는다.
 // - mono(고정폭): 한글 글리프가 없어 실제로는 고딕으로 보였다.
 // - black-han-sans(검은고딕): 한글 11,172자 중 2,581자만 있어 드문 글자는 다른 글꼴로 섞여 보였다.
@@ -72,34 +121,107 @@ const loadedFamilies = new Set()
 const failedFamilies = new Set()
 const fontListeners = new Set()
 export const subscribeTextFonts = (listener) => { fontListeners.add(listener); return () => fontListeners.delete(listener) }
+// 글꼴 불러오기 상태가 바뀔 때마다 오르는 번호. 특정 글꼴이 아니라 글꼴 전체(목록 미리보기 등)를 보여 주는 곳이 구독한다(useTextFont 는 한 글꼴용)
+let fontStateRevision = 0
+export const textFontStateSnapshot = () => `${fontListRevision}:${fontStateRevision}`
 export function markTextFontLoaded(family) {
   loadedFamilies.add(family); failedFamilies.delete(family)
+  fontStateRevision++
   fontListeners.forEach(listener => listener())
 }
 export function markTextFontFailed(family) {
   failedFamilies.add(family)
+  fontStateRevision++
   fontListeners.forEach(listener => listener())
 }
 export function textFontSnapshot(id) {
-  const font = TEXT_FONTS.find(f => f.id === id)
+  const font = getTextFonts().find(f => f.id === resolveFontId(id))
   return [font?.family, font?.boldFamily].filter(Boolean).map(f => `${f}:${loadedFamilies.has(f) ? 'loaded' : failedFamilies.has(f) ? 'error' : 'loading'}`).join('|')
 }
-/** 글꼴 id → 지금 쓸 수 있는 fontFamily. 앱 글꼴이 아니거나 아직 불러오기 전이면 null */
+// 글꼴 파일은 쓰일 때 불러온다(services/textFonts.js 가 등록). 글꼴을 찾는 순간이 곧 "쓰겠다"는 뜻이라,
+// 같은 글꼴은 한 번만 요청되고 불러오기가 끝나면 구독자에게 알려 다시 그린다. 등록 전(테스트 등)에는 아무 일도 하지 않는다.
+let fontRequester = null
+export const setTextFontRequester = (requester) => { fontRequester = requester }
+/** 글꼴 id 들을 미리 불러오도록 요청한다(이미 요청했으면 무시). bold 면 굵은 서체도 함께 */
+export function requestTextFonts(ids, { bold = false } = {}) {
+  if (!fontRequester) return
+  for (const id of ids) {
+    const font = getTextFonts().find((font) => font.id === resolveFontId(id))
+    if (font?.family) fontRequester(font, bold)
+  }
+}
+
+// 글꼴 파일이 기기에 있는지(services/textFonts.js 가 등록). face → 'bundled' | 'saved' | 'downloading' | 'remote'(아직 안 받음)
+let fontFileState = null, fontDownloader = null, fontProgress = null, fontProgressSubscribe = null
+export const setTextFontDownloader = ({ fileState, download, progress = null, subscribeProgress = null }) => { fontFileState = fileState; fontDownloader = download; fontProgress = progress; fontProgressSubscribe = subscribeProgress }
+/** 받는 중 진행 변화만 구독한다(진행 막대 전용). 글꼴 상태 구독(subscribeTextFonts)은 진행마다 알리지 않는다 */
+export const subscribeTextFontProgress = (listener) => fontProgressSubscribe?.(listener) ?? (() => {})
+/** 이 서체(family)를 불러오지 못했는가(다시 받기에서 그 서체만 다시 받는다) */
+export const isTextFontFamilyFailed = (family) => failedFamilies.has(family)
+/** 받는 중인 글꼴의 진행률(0~1). 받는 중이 아니거나 알 수 없으면(웹) null */
+export function textFontProgress(id) {
+  const font = getTextFonts().find(f => f.id === resolveFontId(id))
+  return font && fontProgress ? fontProgress(font) : null
+}
+/** 글꼴 상태가 바뀌었다고 알린다. 렌더 중에 불릴 수 있어 다음 차례로 미룬다 */
+export const notifyTextFontState = () => Promise.resolve().then(() => { fontStateRevision++; fontListeners.forEach(listener => listener()) })
+
+/**
+ * 글꼴 고르기 목록에 보일 상태.
+ * ready: 쓸 수 있음 · loading: 앱에 든 글꼴을 읽는 중 · download: 아직 받지 않은 원격 글꼴 · downloading: 받는 중 · error: 받지 못함
+ * 받기 전 · 받음은 본 서체로 정한다(굵은 서체는 굵게를 쓸 때 받는다). 받는 중 · 받지 못함은 굵은 서체도 본다 —
+ * 본 서체만 받고 굵은 서체를 받지 못하면 굵게 켠 글자가 조용히 기본 글꼴로 그려지므로 '받지 못함'으로 보이고 다시 받게 한다(리뷰 S15P31F106-743).
+ */
+export function textFontStatus(id) {
+  const font = getTextFonts().find(f => f.id === resolveFontId(id))
+  if (!font?.family) return 'ready'
+  const faces = font.boldFamily ? [font.family, font.boldFamily] : [font.family]
+  const fileOf = family => fontFileState?.(font, family)
+  if (faces.some(family => fileOf(family) === 'downloading')) return 'downloading'
+  // 다시 받을 수 있는 원격 서체만 '받지 못함'으로 보인다(앱에 든 글꼴은 다시 읽지 않으므로 예전처럼 기본 글꼴로 고를 수 있게 둔다)
+  if (faces.some(family => failedFamilies.has(family) && ['remote', 'saved'].includes(fileOf(family)))) return 'error'
+  if (loadedFamilies.has(font.family) || failedFamilies.has(font.family)) return 'ready'
+  if (fileOf(font.family) === 'remote') return 'download'
+  return 'loading'
+}
+/** 목록에서 받기를 누를 때: 원격 글꼴 파일(굵은 서체까지)을 받아 등록한다. 실패했던 글꼴이면 다시 받는다 */
+export const downloadTextFont = (id) => {
+  const font = getTextFonts().find(f => f.id === resolveFontId(id))
+  return font && fontDownloader ? fontDownloader(font) : Promise.resolve()
+}
+/**
+ * 목록 미리보기 글꼴: 받은(또는 앱에 든) 글꼴은 그 글꼴로, 아직 받지 않은 원격 글꼴은 받지 않고 기본 글꼴로 보여 준다.
+ * (목록을 여는 것만으로 원격 글꼴을 모두 받던 것을, 사용자가 받기를 누를 때만 받도록 바꿨다)
+ */
+// status: 그 항목에서 이미 계산한 textFontStatus(목록이 항목마다 한 번만 계산해 이름 · 표시 · 화면 읽기에 같이 쓴다)
+export function textFontPreviewFamily(id, platform = 'android', status = textFontStatus(id)) {
+  if (status === 'download' || status === 'error') return platform === 'ios' ? 'System' : 'sans-serif'
+  return textStyle({ font: id }, 1, platform).fontFamily
+}
+
+/** 글꼴 id → 지금 쓸 수 있는 fontFamily. 앱 글꼴이 아니거나 아직 불러오기 전이면 null (찾으면서 불러오기도 시작한다) */
 export function loadedFontFamily(id, bold = false) {
-  const font = TEXT_FONTS.find((font) => font.id === id)
+  const font = getTextFonts().find((font) => font.id === resolveFontId(id))
+  if (font?.family) fontRequester?.(font, bold)
   const family = bold && font?.boldFamily && loadedFamilies.has(font.boldFamily) ? font.boldFamily : font?.family
   return family && loadedFamilies.has(family) ? family : null
 }
 
+// 기울임은 글꼴의 기울임 서체를 쓰지 않는다(앱 글꼴에는 없고, 기기가 흉내 내는 모양은 안드로이드 · iOS · 웹이 다르다).
+// 모든 글꼴에 같은 각도로 글자 상자를 기울인다. 화면 · 입력창 · 내보내기(화면을 그대로 찍는다)가 같은 변형을 쓴다.
+export const ITALIC_SKEW_DEG = 12
+export const italicTransform = () => [{ skewX: `-${ITALIC_SKEW_DEG}deg` }]
+
 export function textStyleSupport(id, platform = 'android') {
-  const font = TEXT_FONTS.find(f => f.id === id)
-  if (font?.family) return { bold: Boolean(font.boldFamily), italic: false }
-  // AppleMyungjo는 단일 Regular 서체다. System은 iOS의 시스템 서식 선택을 사용한다.
-  return platform === 'ios' && id === 'serif' ? { bold: false, italic: false } : { bold: true, italic: true }
+  if (id?.startsWith('personal-')) return { bold: false, italic: true }
+  const font = getTextFonts().find(f => f.id === resolveFontId(id))
+  if (font?.family) return { bold: Boolean(font.boldFamily), italic: true }
+  return { bold: true, italic: true } // 목록에서 뺀 예전 글꼴(고정폭 등): 기기 글꼴로 그린다
 }
 
 export function textStyleReady(id, style) {
-  const font = TEXT_FONTS.find(f => f.id === id)
+  const font = getTextFonts().find(f => f.id === resolveFontId(id))
+  if (font?.family) fontRequester?.(font, style === 'bold')
   return !font?.family || (loadedFamilies.has(font.family) && (style !== 'bold' || !font.boldFamily || loadedFamilies.has(font.boldFamily)))
 }
 
@@ -108,9 +230,24 @@ export function textFontChangePatch(settings, id, platform) {
   return { font: id, bold: Boolean(settings.bold && support.bold), italic: Boolean(settings.italic && support.italic) }
 }
 // 펜·형광펜·마스킹테이프처럼 한 줄 7색 (같은 톤의 라벤더를 더했다)
-export const TEXT_COLORS = ['#1D1D1F', '#8D96A8', '#DD887A', '#E1B4CA', '#A3C5F0', '#96B49F', '#B4A3E0']
+// 글자 기본 색(코덱스 2026-10-31): 펜과 같은 계열, 흰 바탕 4.5:1 이상
+export const TEXT_COLORS = ['#18224D', '#9B3E4B', '#856D2A', '#4F7553', '#4C7896', '#75579A', '#666D7A']
 // letterSpacing: 자간(글자 크기 대비 비율, 0.1 = 10%), lineSpacing: 줄간격(글자 크기 대비 배수), strike: 취소선
-export const DEFAULT_TEXT_SETTINGS = { font: 'sans', fontSize: 18, color: '#1D1D1F', bold: false, italic: false, underline: false, strike: false, textAlign: 'left', letterSpacing: 0, lineSpacing: DEFAULT_LINE_SPACING }
+export const DEFAULT_TEXT_SETTINGS = { font: 'nanum-gothic', fontSize: 18, color: '#18224D', bold: false, italic: false, underline: false, strike: false, textAlign: 'left', letterSpacing: 0, lineSpacing: DEFAULT_LINE_SPACING }
+
+// 저장된 글자 기본값 검사: 항목마다 기본값과 같은 종류(문자열 · 숫자 · 참거짓)일 때만 받는다
+export function sanitizeTextDefaults(saved) {
+  if (!saved || typeof saved !== 'object') return undefined
+  const kept = {}
+  for (const [key, fallback] of Object.entries(DEFAULT_TEXT_SETTINGS)) {
+    const value = saved[key]
+    if (typeof value !== typeof fallback) continue
+    if (typeof value === 'number' && !(Number.isFinite(value) && Math.abs(value) <= 1000)) continue
+    if (typeof value === 'string' && value.length > 64) continue
+    kept[key] = value
+  }
+  return { ...DEFAULT_TEXT_SETTINGS, ...kept }
+}
 
 export function textSettings(object) {
   return { ...DEFAULT_TEXT_SETTINGS, ...Object.fromEntries(Object.keys(DEFAULT_TEXT_SETTINGS).filter((key) => object?.[key] != null).map((key) => [key, object[key]])), fontSize: object?.fontSize ?? (object?.type === 'text' ? TEXT_FONT_SIZE : 18) }
@@ -123,19 +260,64 @@ export function textStyle(object, scale = 1, platform = 'android') {
   const support = textStyleSupport(s.font, platform)
   const family = loadedFontFamily(s.font, s.bold && support.bold)
   // 등록한 단일 face를 직접 선택한다. 파일에 없는 weight/style을 다시 요청하지 않는다.
-  return { fontFamily: families[s.font] ?? family ?? families.sans, fontSize: s.fontSize * scale, lineHeight: s.fontSize * s.lineSpacing * scale, letterSpacing: s.fontSize * s.letterSpacing * scale, color: s.color, fontWeight: !family && s.bold && support.bold ? '700' : '400', fontStyle: !family && s.italic && support.italic ? 'italic' : 'normal', textDecorationLine: decoration, textAlign: s.textAlign, includeFontPadding: false }
+  // 크기가 0이면 안드로이드가 예외를 던진다. 줄간격·자간도 같은 크기를 기준으로 맞춘다.
+  const size = Math.max(1, s.fontSize * scale)
+  // 앱 글꼴을 아직 불러오기 전이면 같은 계열의 기기 글꼴로 먼저 그린다
+  return { fontFamily: family ?? families[s.font] ?? families.sans, fontSize: size, lineHeight: size * s.lineSpacing, letterSpacing: size * s.letterSpacing, color: s.color, fontWeight: !family && s.bold && support.bold ? '700' : '400', fontStyle: 'normal', ...(s.italic && support.italic && { transform: italicTransform() }), textDecorationLine: decoration, textAlign: s.textAlign, includeFontPadding: false }
 }
 
 export function textFormatPatch(object, settings) {
   const baseWidth = object.baseWidth ?? object.w
   const largest = Math.max(settings.fontSize ?? TEXT_FONT_SIZE, ...(object.styleRanges ?? []).map((range) => range.fontSize ?? 0))
   const patch = textPatch(object.text, baseWidth, { ...settings, fontSize: largest, letterSpacing: largest * (settings.letterSpacing ?? 0) })
-  return { ...settings, text: patch.text, h: patch.h * object.w / baseWidth }
+  const h = patch.h * object.w / baseWidth
+  // 세로로 직접 늘린 상자(manualHeight)는 그 높이 아래로 줄이지 않는다(서식 · 폭을 바꿔도 사용자가 정한 높이를 지킨다)
+  return { ...settings, text: patch.text, h: object.manualHeight ? Math.max(h, object.h) : h }
 }
+
+// 글자 모양만 바꾸고 줄바꿈 · 높이에는 영향이 없는 서식. 기울임은 글자 상자를 기울이는 변형이라 줄 폭이 그대로다(ITALIC_SKEW_DEG).
+// 이 서식만 바꿀 때는 높이를 다시 짐작하지 않는다(짐작 → 실측 사이에 상자 아래가 줄었다 느는 것을 막는다).
+export const VISUAL_TEXT_KEYS = ['italic', 'underline', 'strike', 'color', 'textAlign']
 
 // 높이·위치를 제외하고 줄바꿈·글자 실측 크기를 바꾸는 값으로 측정 결과를 구분한다.
 export function textLayoutKey(object) {
   return JSON.stringify([object.text, object.w, object.baseWidth ?? object.w, textSettings(object), object.styleRanges ?? []])
+}
+
+/**
+ * 글상자 입력 안내 글. 폭이 고정된 좁은 상자(속지 D-day 밑줄 칸 등)에서는 '텍스트 입력'이 두 줄로 접혀 한 줄 높이 칸 밖으로 잘리므로 빈 칸으로 둔다(지라 835).
+ * 한글 다섯 자 + 띄어쓰기 ≈ 5.3 글자 폭이라 5.5 글자 폭보다 좁으면 뺀다. 글자만큼 넓어지는 상자는 입력 폭이 넓어 접히지 않는다.
+ */
+export const TEXT_PLACEHOLDER = '텍스트 입력'
+export function textPlaceholder(boxWidth, fontSize, autoWidth = false) {
+  return autoWidth || !(boxWidth > 0 && fontSize > 0) || boxWidth >= fontSize * 5.5 ? TEXT_PLACEHOLDER : ''
+}
+
+// 글자만큼 넓어지는 상자의 입력창 폭. 상자 폭은 글자를 그린 뒤에 잰 값이라 한 번 늦게 따라온다.
+// 입력창을 상자 폭에 맞추면 그 사이 한 줄이 둘로 접혔다 펴져 깜박이므로, 입력창은 최대 폭까지 넓혀 두고
+// 상자 폭 밖은 잘라서 보이지 않게 한다. 가운데 · 오른쪽 맞춤은 상자 기준 자리에 오도록 입력창을 왼쪽으로 민다.
+export function autoWidthInputLayout(boxWidth, wrapWidth, textAlign = 'left') {
+  const width = Math.max(wrapWidth, boxWidth)
+  const spare = width - boxWidth
+  const shift = textAlign === 'right' ? spare : textAlign === 'center' ? spare / 2 : 0
+  return { width, marginLeft: shift ? -shift : 0 }
+}
+
+// 입력창 높이는 화면 배율을 따른다. 새 상자의 임시 드래그 높이는 내용 여백으로 저장하지 않는다.
+export function textInputHeight(object, zoom, measuredHeight = null) {
+  const settings = textSettings(object)
+  const scale = object.w / (object.baseWidth ?? object.w) * zoom
+  const largest = Math.max(settings.fontSize, ...(object.styleRanges ?? []).map(range => range.fontSize ?? 0))
+  const minimum = largest * settings.lineSpacing * scale
+  const preserved = object.existing ? (object.h ?? 0) * zoom : 0
+  return Math.max(minimum, preserved, Number.isFinite(measuredHeight) && measuredHeight > 0 ? measuredHeight : 0)
+}
+
+// onTextLayout 이 준 줄 배치에서 글 전체 높이(마지막 줄 아래)를 잰다. 줄이 없으면 null
+export function textLinesHeight(lines) {
+  if (!Array.isArray(lines) || !lines.length) return null
+  const bottom = Math.max(...lines.map(line => (line.y ?? 0) + (line.height ?? 0)))
+  return Number.isFinite(bottom) && bottom > 0 ? bottom : null
 }
 
 // 수동으로 늘린 여백은 유지하고, 이전 문서나 줄바꿈 증가로 부족한 높이만 보완한다.

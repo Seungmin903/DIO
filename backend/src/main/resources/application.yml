@@ -5,19 +5,106 @@ spring:
     default: local
   jpa:
     open-in-view: false
+  servlet:
+    multipart:
+      max-file-size: 25MB
+      max-request-size: 26MB
+  mail:
+    properties:
+      mail.smtp.connectiontimeout: 5000
+      mail.smtp.timeout: 5000
+      mail.smtp.writetimeout: 5000
 
 server:
   port: 8080
 
 springdoc:
-  paths-to-match: /api/v1/diaries/**, /api/v1/diaries
+  paths-to-match: /api/v1/reports, /api/v1/diaries/**, /api/v1/diaries, /api/v1/pages/**, /api/v1/media/**, /api/v1/sticker-cutouts, /api/v1/sticker-cutouts/**, /api/v1/member/diaries/**, /api/v1/member/diaries, /api/v1/auth/**, /api/v1/notifications, /api/v1/notifications/**, /api/v1/invites/**, /api/v1/me, /api/v1/me/**, /api/v1/handwriting-fonts, /api/v1/push/installations, /api/v1/push/installations/**
   swagger-ui:
     path: /swagger-ui.html
     operations-sorter: method
     persist-authorization: false
 
 management:
+  health:
+    mail:
+      enabled: false
   endpoints:
     web:
       exposure:
         include: health
+
+# 실제 발신 계정 및 비밀키는 환경변수로만 전달한다. 미설정 시 이메일 발송은 503.
+dio:
+  push:
+    encryption-key: ${PUSH_ENCRYPTION_KEY:}
+    active-key-id: ${PUSH_ACTIVE_KEY_ID:legacy}
+    encryption-keys: ${PUSH_ENCRYPTION_KEYS:}
+    environment: ${PUSH_ENVIRONMENT:}
+    app-id: ${PUSH_APP_ID:dio}
+    cleanup:
+      enabled: ${PUSH_REGISTRATION_CLEANUP_ENABLED:true}
+  auth:
+    google:
+      client-ids: ${AUTH_GOOGLE_CLIENT_IDS:}
+    apple:
+      # 네이티브 iOS 로그인의 aud = 앱 번들 ID. 공개 식별자라 기본값을 둔다.
+      client-ids: ${AUTH_APPLE_CLIENT_IDS:com.f106.DIO}
+      # 탈퇴 시 Apple 토큰 철회용 client_secret 서명. Team ID·Key ID는 공개 식별자, 개인 키(.p8)만 비밀값이다.
+      team-id: ${AUTH_APPLE_TEAM_ID:5574VUMQN5}
+      key-id: ${AUTH_APPLE_KEY_ID:}
+      private-key: ${AUTH_APPLE_PRIVATE_KEY:}
+    jwt-secret: ${AUTH_JWT_SECRET:}
+    access-token-seconds: ${AUTH_ACCESS_TOKEN_SECONDS:900}
+    refresh-token-seconds: ${AUTH_REFRESH_TOKEN_SECONDS:2592000}
+    session-cleanup:
+      enabled: ${AUTH_SESSION_CLEANUP_ENABLED:true}
+      delay-ms: ${AUTH_SESSION_CLEANUP_DELAY_MS:60000}
+      initial-delay-ms: ${AUTH_SESSION_CLEANUP_INITIAL_DELAY_MS:300000}
+  signup:
+    photos:
+      # 저장 방식·버킷·리전은 미디어와 같은 MEDIA_* 환경변수를 본다. 키 접두사(profile-photos/, media/)가 달라 충돌하지 않는다.
+      storage: ${MEDIA_STORAGE:local}
+      local-directory: ${SIGNUP_PHOTO_LOCAL_DIRECTORY:.local-data/profile-photos}
+      s3-bucket: ${MEDIA_S3_BUCKET:}
+      s3-region: ${MEDIA_S3_REGION:ap-northeast-2}
+      migrate-legacy: ${SIGNUP_PHOTO_MIGRATE_LEGACY:false}
+    verification-secret: ${SIGNUP_VERIFICATION_SECRET:}
+    mail-from: ${SIGNUP_MAIL_FROM:}
+    service-terms-version: ${SIGNUP_SERVICE_TERMS_VERSION:v2}
+    privacy-terms-version: ${SIGNUP_PRIVACY_TERMS_VERSION:v2}
+    marketing-terms-version: ${SIGNUP_MARKETING_TERMS_VERSION:v1}
+  cutout:
+    # 사진 속 대상 오리기 AI 서버(ai/). 앱은 직접 부르지 않고 백엔드만 내부에서 호출한다.
+    ai-base-url: ${AI_SERVER_URL:http://localhost:8000}
+    ai-key: ${DIO_AI_API_KEY:}
+    connect-timeout: ${AI_SERVER_CONNECT_TIMEOUT:PT3S}
+    read-timeout: ${AI_SERVER_READ_TIMEOUT:PT30S}
+    session-ttl: PT30M
+    max-sessions-per-user: 3
+    max-concurrent-uploads: ${AI_CUTOUT_MAX_CONCURRENT_UPLOADS:2}
+  media:
+    storage: ${MEDIA_STORAGE:local}
+    local-directory: ${MEDIA_LOCAL_DIRECTORY:.local-data/media}
+    s3-bucket: ${MEDIA_S3_BUCKET:}
+    s3-region: ${MEDIA_S3_REGION:ap-northeast-2}
+    # Six weighted units budget source payloads at three 5MiB uploads or two 15MiB GIFs. Temporary read buffers and storage copies can use additional heap.
+    upload:
+      max-in-flight-units: ${MEDIA_UPLOAD_MAX_IN_FLIGHT_UNITS:}
+      # 이전 MEDIA_UPLOAD_MAX_CONCURRENT 값은 5MiB 동시 업로드 수로 해석해 2 units씩 변환한다.
+      max-concurrent: ${MEDIA_UPLOAD_MAX_CONCURRENT:}
+      max-waiters: ${MEDIA_UPLOAD_MAX_WAITERS:8}
+      wait-millis: ${MEDIA_UPLOAD_WAIT_MILLIS:250}
+    expiry-cleanup:
+      enabled: ${MEDIA_EXPIRY_CLEANUP_ENABLED:false}
+      delay-ms: ${MEDIA_EXPIRY_CLEANUP_DELAY_MS:3600000}
+      initial-delay-ms: ${MEDIA_EXPIRY_CLEANUP_INITIAL_DELAY_MS:900000}
+      batch-size: ${MEDIA_EXPIRY_CLEANUP_BATCH_SIZE:100}
+      retention: ${MEDIA_DELETE_RETENTION:PT24H}
+
+  moderation:
+    report-mail:
+      enabled: ${REPORT_NOTIFICATION_ENABLED:false}
+      to: ${REPORT_NOTIFICATION_TO:}
+      delay-ms: ${REPORT_NOTIFICATION_DELAY_MS:60000}
+      initial-delay-ms: ${REPORT_NOTIFICATION_INITIAL_DELAY_MS:10000}

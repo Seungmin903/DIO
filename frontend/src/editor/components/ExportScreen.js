@@ -1,6 +1,7 @@
 import EditorModal from './controls/EditorModal'
 import { Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native'
-import { colors } from '../../shared/theme'
+import { SafeAreaView } from 'react-native-safe-area-context'
+import { colors, DISABLED_OPACITY } from '../../shared/theme'
 import Icon from './controls/Icon'
 import { toolPanelStyles } from './ToolPanel'
 
@@ -32,8 +33,8 @@ export function Note({ children, tone }) {
 export default function ExportScreen({ title, onClose, closeLabel, closeDisabled = false, preview, children, visible = true }) {
   const { width } = useWindowDimensions()
   const wide = width >= 720
-  return <EditorModal visible={visible} animationType="fade" onRequestClose={onClose}>
-    <View style={styles.root}>
+  return <EditorModal visible={visible} animationType="none" onRequestClose={onClose}>
+    <SafeAreaView edges={['top']} style={styles.root}>
       <View style={styles.header}>
         <Pressable onPress={onClose} disabled={closeDisabled} hitSlop={8} accessibilityRole="button" accessibilityLabel={closeLabel ?? `${title} 닫기`} accessibilityState={{ disabled: closeDisabled }}
           style={({ pressed }) => [styles.close, pressed && styles.closePressed, closeDisabled && styles.disabled]}>
@@ -47,7 +48,7 @@ export default function ExportScreen({ title, onClose, closeLabel, closeDisabled
           <ScrollView contentContainerStyle={[toolPanelStyles.content, styles.sideContent]}>{children}</ScrollView>
         </View>
       </View>
-    </View>
+    </SafeAreaView>
   </EditorModal>
 }
 
@@ -55,22 +56,22 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.surfaceSoft },
   header: { height: 64, flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, backgroundColor: 'rgba(255,255,255,0.9)' },
   close: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-  closePressed: { backgroundColor: colors.primarySoft },
-  title: { flex: 1, fontSize: 17, fontWeight: '800', color: colors.text },
+  closePressed: {}, // 눌림 효과 없음(사용자 지시)
+  title: { flex: 1, fontSize: 17, fontWeight: '700', color: colors.text },
   body: { flex: 1, flexDirection: 'row', gap: 16, padding: 16 },
   bodyNarrow: { flexDirection: 'column' },
   // 작업 영역: 편집 화면의 작업창처럼 둥근 판 위에 미리보기를 가운데 둔다
-  stage: { flex: 1, minWidth: 0, minHeight: 200, borderRadius: 18, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', padding: 16, backgroundColor: 'rgba(255,255,255,0.35)' },
+  stage: { flex: 1, minWidth: 0, minHeight: 200, borderRadius: 16, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', padding: 16, backgroundColor: 'rgba(255,255,255,0.35)' },
   sideContent: { paddingTop: 18, paddingBottom: 18 },
   side: { width: 320, alignSelf: 'flex-start', maxHeight: '100%' },
   sideNarrow: { width: '100%', maxHeight: '45%' },
-  button: { minHeight: 36, paddingHorizontal: 12, alignItems: 'center', justifyContent: 'center', borderRadius: 11, backgroundColor: '#EEF2F9', borderWidth: 1.5, borderColor: 'transparent' },
+  button: { minHeight: 48, paddingHorizontal: 12, alignItems: 'center', justifyContent: 'center', borderRadius: 10, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.cardBorder },
   buttonText: { fontSize: 12.5, fontWeight: '700', color: colors.text },
-  selected: { backgroundColor: colors.surface, borderColor: colors.primary },
-  pressed: { opacity: 0.75 },
-  disabled: { opacity: 0.4 },
-  primary: { minHeight: 44, backgroundColor: colors.primary },
-  primaryText: { fontSize: 14, fontWeight: '800', color: colors.surface },
+  selected: { backgroundColor: colors.surface, borderColor: colors.primaryStrong, borderWidth: 2 },
+  pressed: {}, // 눌림 효과 없음(사용자 지시)
+  disabled: { opacity: DISABLED_OPACITY },
+  primary: { minHeight: 48, borderColor: colors.primaryStrong, backgroundColor: colors.primaryStrong }, // 만들기 버튼 48 · 모서리 10
+  primaryText: { fontSize: 14, fontWeight: '700', color: colors.surface },
   info: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 },
   infoLabel: { flexShrink: 0, fontSize: 12.5, fontWeight: '700', color: colors.textMuted },
   infoValue: { flex: 1, textAlign: 'right', fontSize: 12.5, fontWeight: '700', color: colors.text },

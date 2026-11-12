@@ -4,6 +4,7 @@ import { createRequire } from 'node:module'
 import { readFileSync } from 'node:fs'
 import * as common from '../src/editor/utils/common.js'
 import * as reducer from '../src/editor/state/editorReducer.js'
+import * as placement from '../src/editor/utils/popoverPlacement.js'
 import * as text from '../src/editor/utils/text.js'
 
 const require = createRequire(import.meta.url)
@@ -26,6 +27,10 @@ function fixture(object, zoom = 1, textMinHeight = null) {
     if (id === 'react-native') return { View: 'view', Platform: { OS: 'web' }, StyleSheet: { create: (value) => value } }
     if (id.endsWith('/theme')) return { colors: {} }
     if (id.endsWith('/common')) return common
+    if (id.endsWith('/popoverPlacement')) return placement
+    if (id.endsWith('/utils/editorShapes')) return { memoPaperBox: () => null }
+    if (id.endsWith('/utils/objects')) return { tapeUnitH: (tape) => tape.unitH ?? 34 }
+    if (id.endsWith('/constants')) return { TAPE_SIZES: [{ id: 'slim', w: 200, h: 11 }, { id: 'standard', w: 180, h: 34 }, { id: 'wide', w: 200, h: 68 }] }
     if (id.endsWith('/text')) return text
     if (id.endsWith('/usePan')) return { usePan: (value) => { handlers = value; return {} } }
     if (id === '../controls/Icon') return { __esModule: true, default: () => null }
@@ -91,15 +96,29 @@ test('크기 조절 취소는 원래 좌표와 크기를 복원하고 연속 드
   }
 })
 
-test('사진·스티커는 모서리만, 테이프는 길이만 조절하는 기존 규칙을 유지한다', () => {
+test('사진·스티커는 모서리만, 테이프는 길이와 폭을 끝 · 위아래 손잡이로 조절한다', () => {
   const api = fixture(object()).api
   for (const type of ['photo', 'sticker']) {
     const handles = api.handlesFor(object({ type }))
     assert.equal(handles.length, 4)
     assert.ok(handles.every((h) => h.sx && h.sy))
   }
-  assert.deepEqual(api.handlesFor(object({ type: 'tape' })).map((h) => [h.sx, h.sy]), [[-1, 0], [1, 0]])
+  assert.deepEqual(api.handlesFor(object({ type: 'tape' })).map((h) => [h.sx, h.sy]), [[-1, 0], [1, 0], [0, -1], [0, 1]])
   assert.equal(api.handlesFor(object({ type: 'stroke' })).length, 8)
+})
+
+test('테이프 폭을 바꾸면 무늬 기준 높이 · 사진 조각 길이가 같은 비율로 바뀌어(조각 비율 고정) 범위를 지킨다', () => {
+  const tape = object({ type: 'tape', w: 180, h: 34, size: 'standard', segmentW: 180 })
+  const f = fixture(tape), input = f.handle({ sx: 0, sy: 1 })
+  input.onStart(); input.onMove(0, 34); input.onEnd({ cancelled: false })
+  const wide = f.state().doc.pages[0].objects[0]
+  close(wide.h, 68); close(wide.w, 180); close(wide.unitH, 68); close(wide.segmentW, 360); close(wide.y, tape.y)
+  const g = fixture(tape), thin = g.handle({ sx: 0, sy: -1 })
+  thin.onStart(); thin.onMove(0, 1000); thin.onEnd({ cancelled: false })
+  close(g.state().doc.pages[0].objects[0].h, 11)
+  const h = fixture(tape), tap = h.handle({ sx: 0, sy: 1 })
+  tap.onStart(); tap.onMove(0, 0); tap.onEnd({ cancelled: false })
+  assert.ok(!h.actions.some((action) => action.type === 'checkpoint'))
 })
 
 test('웹 양방향 커서는 회전된 변·모서리 방향에 맞는다', () => {
@@ -127,6 +146,29 @@ test('텍스트 옆면은 기존 확대 배율의 글씨 크기를 유지하고 
     assert.equal(settings.fontSize, 20)
     assert.equal(text.textStyle(end, end.w / end.baseWidth).fontSize, 20 * scale)
   }
+})
+
+test('텍스트 너비는 확대 배율과 부분 서식의 큰 글자보다 작아지지 않는다', () => {
+  for (const zoom of [0.5, 1, 2]) for (const sx of [-1, 1]) {
+    const start = text.createText({ id: 'text', x: 100, y: 80, width: 240, text: '한글과 영어', fontSize: 20, styleRanges: [{ start: 0, end: 2, fontSize: 40 }] })
+    start.w *= 2; start.h *= 2
+    const f = fixture(start, zoom), input = f.handle({ sx, sy: 0 })
+    input.onStart(); input.onMove(-sx * 1000 * zoom, 0); input.onEnd({ cancelled: false })
+    const end = f.state().doc.pages[0].objects[0]
+    close(end.w, 96)
+    close(sx === 1 ? end.x : end.x + end.w, sx === 1 ? start.x : start.x + start.w)
+    assert.equal(end.text, start.text)
+  }
+})
+
+test('이전 문서의 너무 좁은 텍스트 상자는 크기 조절 시 글자 폭을 복구한다', () => {
+  const start = text.createText({ id: 'legacy', x: 100, y: 80, width: 20, text: '한글', fontSize: 50 })
+  const f = fixture(start), input = f.handle({ sx: 1, sy: 0 })
+  input.onStart(); input.onMove(1, 0); input.onEnd({ cancelled: false })
+  const end = f.state().doc.pages[0].objects[0]
+  close(end.w, 60)
+  close(end.x, start.x)
+  assert.equal(end.text, start.text)
 })
 
 test('텍스트는 네 변만 조절하고 옆면 취소는 원래 폭과 높이를 복원한다', () => {
@@ -172,6 +214,37 @@ test('텍스트 높이 확장·취소와 실측 전 안전한 축소 한도를 �
   input.onStart(); input.onMove(0, -200); input.onEnd({ cancelled: false })
   assert.deepEqual(f.state().doc.pages[0].objects[0], start)
   assert.equal(f.state().past.length, 0)
+})
+
+test('세로로 직접 늘린 텍스트 상자는 폭을 바꿔도 그 높이를 지키고, 세로를 안 건드린 상자는 내용 높이를 따른다', () => {
+  const start = text.createText({ id: 'text', x: 100, y: 80, width: 240, text: '가나다라마바사', fontSize: 20 })
+  const tall = fixture(start), down = tall.handle({ sx: 0, sy: 1 })
+  down.onStart(); down.onMove(0, 120); down.onEnd({ cancelled: false })
+  const stretched = tall.state().doc.pages[0].objects[0]
+  assert.equal(stretched.manualHeight, true)
+  close(stretched.h, start.h + 120)
+  for (const dx of [80, -60]) {
+    const f = fixture(stretched), side = f.handle({ sx: 1, sy: 0 })
+    side.onStart(); side.onMove(dx, 0); side.onEnd({ cancelled: false })
+    close(f.state().doc.pages[0].objects[0].h, stretched.h)
+  }
+  // 아주 좁혀 줄바꿈이 늘어 내용이 더 길어지면 그만큼은 늘어난다
+  const narrow = fixture(stretched), squeeze = narrow.handle({ sx: 1, sy: 0 })
+  squeeze.onStart(); squeeze.onMove(-215, 0); squeeze.onEnd({ cancelled: false })
+  assert.ok(narrow.state().doc.pages[0].objects[0].h >= stretched.h)
+  // 세로를 건드리지 않은 상자는 예전처럼 폭을 넓히면 내용 높이로 줄어든다
+  const wide = { ...start, w: 120, baseWidth: 120, h: text.textFormatPatch({ ...start, w: 120, baseWidth: 120 }, text.textSettings(start)).h }
+  const plain = fixture(wide), grow = plain.handle({ sx: 1, sy: 0 })
+  grow.onStart(); grow.onMove(200, 0); grow.onEnd({ cancelled: false })
+  assert.ok(plain.state().doc.pages[0].objects[0].h < wide.h)
+  assert.equal(plain.state().doc.pages[0].objects[0].manualHeight, undefined)
+})
+
+test('줄바꿈에 영향 없는 서식(기울임 · 밑줄 · 취소선 · 색 · 정렬)은 높이를 다시 짐작하지 않고, 직접 늘린 높이는 서식을 바꿔도 줄지 않는다', () => {
+  assert.deepEqual([...text.VISUAL_TEXT_KEYS].sort(), ['color', 'italic', 'strike', 'textAlign', 'underline'])
+  const start = { ...text.createText({ id: 'text', x: 100, y: 80, width: 240, text: '한 줄', fontSize: 20 }), h: 160, manualHeight: true }
+  close(text.textFormatPatch(start, { ...text.textSettings(start), bold: true }).h, 160)
+  close(text.textFormatPatch({ ...start, manualHeight: undefined }, text.textSettings(start)).h < 160 ? 1 : 0, 1)
 })
 
 function rotationInput(start, zoom = 1) {

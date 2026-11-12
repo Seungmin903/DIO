@@ -14,10 +14,10 @@ const HUE_STOPS = ['#FF0000', '#FFFF00', '#00FF00', '#00FFFF', '#0000FF', '#FF00
 export const PaletteInteractionContext = createContext(null)
 
 /** 팔레트 전용 입력: 화면 좌표를 측정한 팔레트 좌표로 바꾸고 스크롤에 터치를 넘기지 않는다. */
-function usePaletteDrag({ width, height, onStart, onPoint, onInteractionChange }) {
+function usePaletteDrag({ width, height, onStart, onEnd, onPoint, onInteractionChange }) {
   const drag = useRef(null)
   const handlers = useRef(null)
-  handlers.current = { width, height, onStart, onPoint, onInteractionChange }
+  handlers.current = { width, height, onStart, onEnd, onPoint, onInteractionChange }
   const [responder] = useState(() => {
     const point = event => {
       const native = event.nativeEvent
@@ -33,10 +33,11 @@ function usePaletteDrag({ width, height, onStart, onPoint, onInteractionChange }
       const y = current.localY + current.pageY - current.startY
       handlers.current.onPoint(clamp(x / Math.max(1, current.width), 0, 1), clamp(y / Math.max(1, current.height), 0, 1))
     }
-    const finish = () => {
+    const finish = (cancelled = false) => {
       if (!drag.current) return
       drag.current = null
       handlers.current.onInteractionChange?.(false)
+      handlers.current.onEnd?.({ cancelled })
     }
     return PanResponder.create({
       onStartShouldSetPanResponder: () => true,
@@ -70,20 +71,22 @@ function usePaletteDrag({ width, height, onStart, onPoint, onInteractionChange }
         }
         finish()
       },
-      onPanResponderTerminate: finish,
+      onPanResponderTerminate: () => finish(true),
     })
   })
   useEffect(() => () => {
-    if (drag.current) { drag.current = null; handlers.current.onInteractionChange?.(false) }
+    if (drag.current) { drag.current = null; handlers.current.onInteractionChange?.(false); handlers.current.onEnd?.({ cancelled: true }) }
   }, [])
   return responder.panHandlers
 }
 
 /**
- * 색을 직접 고르는 피커. 위 네모에서 채도(가로)·밝기(세로), 아래 막대에서 색상(hue)을 고르고 HEX 로도 넣을 수 있다.
+ * 색을 직접 고르는 피커. 위 네모에서 채도(가로)·밝기(세로), 아래 막대 셋(색상 · 채도 · 명도)으로도 고르고 HEX 로도 넣을 수 있다.
+ * 막대는 Procreate '클래식'처럼 한 값씩 정밀하게 옮길 때 쓴다(사용자 요청 2026-11-02).
  * onStart 는 끌기·입력을 시작할 때 한 번 (되돌리기 지점), onChange(hex) 는 바뀔 때마다.
  */
-export default function ColorPicker({ value, onChange, onStart, label = '색', showHex = true, onInteractionChange }) {
+// trailing: HEX 줄 끝에 붙는 것(색 창의 스포이드 버튼)
+export default function ColorPicker({ value, onChange, onStart, onEnd, label = '색', showHex = true, onInteractionChange, trailing = null }) {
   const panelInteraction = useContext(PaletteInteractionContext)
   const interactionChange = onInteractionChange ?? panelInteraction
   const [hsv, setHsv] = useState(() => hexToHsv(value))
@@ -106,12 +109,8 @@ export default function ColorPicker({ value, onChange, onStart, label = '색', s
     onChange(hsvToHex(next))
   }
   const svPan = usePaletteDrag({
-    width: size.sv, height: SV_HEIGHT, onStart, onInteractionChange: interactionChange,
+    width: size.sv, height: SV_HEIGHT, onStart, onEnd, onInteractionChange: interactionChange,
     onPoint: (x, y) => apply({ ...hsv, s: x, v: 1 - y }),
-  })
-  const huePan = usePaletteDrag({
-    width: size.hue, height: HUE_HEIGHT + 8, onStart, onInteractionChange: interactionChange,
-    onPoint: x => apply({ ...hsv, h: x * 360 }),
   })
 
   const commitDraft = () => {
@@ -123,6 +122,7 @@ export default function ColorPicker({ value, onChange, onStart, label = '색', s
     if (hex !== value.toUpperCase()) {
       onStart?.()
       onChange(hex)
+      onEnd?.({ cancelled: false })
     }
   }
   const hueColor = hsvToHex({ h: hsv.h, s: 1, v: 1 })
@@ -166,32 +166,15 @@ export default function ColorPicker({ value, onChange, onStart, label = '색', s
         />
       </View>
 
-      <View
-        style={styles.hue}
-        onLayout={(e) => {
-          const width = e.nativeEvent.layout.width
-          setSize((prev) => ({ ...prev, hue: width }))
-        }}
-        accessibilityLabel={`${label} 색상`}
-        {...huePan}
-      >
-        <View style={[StyleSheet.absoluteFill, styles.hueTrack]} pointerEvents="none">
-          <Svg width="100%" height="100%">
-            <Defs>
-              <LinearGradient id={`${id}-h`} x1="0" y1="0" x2="1" y2="0">
-                {HUE_STOPS.map((stop, i) => (
-                  <Stop key={i} offset={`${i / (HUE_STOPS.length - 1)}`} stopColor={stop} />
-                ))}
-              </LinearGradient>
-            </Defs>
-            <Rect width="100%" height="100%" fill={`url(#${id}-h)`} />
-          </Svg>
-        </View>
-        <View
-          pointerEvents="none"
-          style={[styles.thumb, styles.hueThumb, { left: (hsv.h / 360) * size.hue - THUMB / 2, backgroundColor: hueColor }]}
-        />
-      </View>
+      <Bar label={`${label} 색상`} name="색상" width={size.hue} value={hsv.h / 360} thumbColor={hueColor} stops={HUE_STOPS} id={`${id}-h`}
+        onLayoutWidth={(width) => setSize((prev) => ({ ...prev, hue: width }))} drag={{ onStart, onEnd, onInteractionChange: interactionChange }}
+        onValue={(x) => apply({ ...hsv, h: Math.min(359.9, x * 360) })} />
+      <Bar label={`${label} 채도`} name="채도" width={size.hue} value={hsv.s} thumbColor={value} id={`${id}-s`}
+        stops={[hsvToHex({ h: hsv.h, s: 0, v: hsv.v }), hsvToHex({ h: hsv.h, s: 1, v: hsv.v })]}
+        drag={{ onStart, onEnd, onInteractionChange: interactionChange }} onValue={(x) => apply({ ...hsv, s: x })} />
+      <Bar label={`${label} 명도`} name="명도" width={size.hue} value={hsv.v} thumbColor={value} id={`${id}-v`}
+        stops={['#000000', hsvToHex({ h: hsv.h, s: hsv.s, v: 1 })]}
+        drag={{ onStart, onEnd, onInteractionChange: interactionChange }} onValue={(x) => apply({ ...hsv, v: x })} />
 
       {showHex && <View style={styles.hexRow}>
         <View style={[styles.preview, { backgroundColor: value }]} />
@@ -207,7 +190,42 @@ export default function ColorPicker({ value, onChange, onStart, label = '색', s
           style={styles.hexInput}
           accessibilityLabel={`${label} HEX 코드`}
         />
+        {trailing}
       </View>}
+    </View>
+  )
+}
+
+// 한 값(0~1)을 고르는 막대: 왼쪽 이름(색상 · 채도 · 명도) + 그라데이션 막대. 화면 읽기에서는 5%씩 올리고 내린다
+function Bar({ label, name, width, value, thumbColor, stops, id, onLayoutWidth, drag, onValue }) {
+  const pan = usePaletteDrag({ width, height: HUE_HEIGHT + 8, ...drag, onPoint: (x) => onValue(x) })
+  const step = (delta) => { drag.onStart?.(); onValue(Math.min(1, Math.max(0, value + delta))); drag.onEnd?.({ cancelled: false }) }
+  return (
+    <View style={styles.barRow}>
+      <Text style={styles.barName}>{name}</Text>
+      <View
+        style={styles.hue}
+        onLayout={(e) => { const w = e.nativeEvent.layout.width; onLayoutWidth?.(w) }}
+        accessible
+        accessibilityRole="adjustable"
+        accessibilityLabel={label}
+        accessibilityValue={{ min: 0, max: 100, now: Math.round(value * 100) }}
+        accessibilityActions={[{ name: 'increment' }, { name: 'decrement' }]}
+        onAccessibilityAction={({ nativeEvent }) => step(nativeEvent.actionName === 'increment' ? 0.05 : -0.05)}
+        {...pan}
+      >
+        <View style={[StyleSheet.absoluteFill, styles.hueTrack]} pointerEvents="none">
+          <Svg width="100%" height="100%">
+            <Defs>
+              <LinearGradient id={id} x1="0" y1="0" x2="1" y2="0">
+                {stops.map((stop, i) => <Stop key={i} offset={`${i / (stops.length - 1)}`} stopColor={stop} />)}
+              </LinearGradient>
+            </Defs>
+            <Rect width="100%" height="100%" fill={`url(#${id})`} />
+          </Svg>
+        </View>
+        <View pointerEvents="none" style={[styles.thumb, styles.hueThumb, { left: value * width - THUMB / 2, backgroundColor: thumbColor }]} />
+      </View>
     </View>
   )
 }
@@ -249,7 +267,10 @@ const styles = StyleSheet.create({
   wrap: { gap: 10 },
   sv: { height: SV_HEIGHT, touchAction: 'none' },
   svFill: { borderRadius: 10, overflow: 'hidden' },
-  hue: { height: HUE_HEIGHT + 8, justifyContent: 'center', touchAction: 'none' },
+  // 막대 시작을 아래 HEX 글자 시작선(견본 32 + 간격 8)에 맞춘다(코덱스 2026-11-02)
+  barRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  barName: { width: 32, fontSize: 12, fontWeight: '700', color: colors.textMuted },
+  hue: { flex: 1, height: HUE_HEIGHT + 8, justifyContent: 'center', touchAction: 'none' },
   hueTrack: { top: 4, bottom: 4, borderRadius: HUE_HEIGHT / 2, overflow: 'hidden' },
   thumb: {
     position: 'absolute',
@@ -258,12 +279,13 @@ const styles = StyleSheet.create({
     borderRadius: THUMB / 2,
     borderWidth: 3,
     borderColor: '#FFFFFF',
-    boxShadow: '0px 1px 3px rgba(11, 25, 87, 0.35)',
+    // 아주 밝은 색 위에서도 손잡이 자리가 보이게 바깥에 가는 남색 테두리 한 겹
+    boxShadow: '0px 0px 0px 1px rgba(81, 74, 150, 0.55), 0px 1px 3px rgba(28, 28, 28, 0.17)',
   },
   hueThumb: { top: (HUE_HEIGHT + 8 - THUMB) / 2 },
   hexRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   preview: { width: 32, height: 32, borderRadius: 8, borderWidth: 1, borderColor: colors.border },
-  hash: { fontSize: 12, fontWeight: '800', color: colors.textMuted },
+  hash: { fontSize: 12, fontWeight: '700', color: colors.textMuted },
   hexInput: {
     flex: 1,
     width: 0, // 웹 입력창의 기본 너비 때문에 패널 밖으로 넘치지 않게

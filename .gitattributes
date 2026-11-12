@@ -5,3 +5,13 @@
 *.png binary
 *.jpg binary
 *.ico binary
+
+# Preserve original third-party notices and the byte-verified LGPL distribution.
+frontend/model-tools/license-history/DMFont-NOTICE-v1.txt -text -whitespace
+frontend/modules/dio-handwriting/android/src/main/assets/dio_licenses/THIRD_PARTY_NOTICES.txt -text -whitespace
+frontend/public/licenses/THIRD_PARTY_NOTICES.txt -text -whitespace
+frontend/public/vendor/heic-to/** -text
+frontend/public/vendor/heic-to/1.6.6/register.mjs text eol=lf
+frontend/public/licenses/sources/*.zip binary
+frontend/modules/dio-handwriting/android/src/main/assets/dio_licenses/sources/*.zip binary
+/frontend/modules/dio-handwriting/android/src/main/assets/dio_handwriting/decoder.fp32.onnx filter=lfs diff=lfs merge=lfs -text

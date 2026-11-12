@@ -1,9 +1,11 @@
 import { createContext, useLayoutEffect, useRef } from 'react'
-import { stylus, touchKind } from '../utils/stylus'
+import { touchKind, forgetStylusTouch } from '../utils/stylus'
+import { getDrawingInput } from '../../shared/drawingInput'
 
 /**
  * 펜으로 그릴 때 손바닥(손)이 함께 닿는 경우의 처리. 그림 앱들(GoodNotes·Notability·삼성 노트)이 쓰는 방식을 따른다.
  *
+ * 그리기 입력 설정(shared/drawingInput)이 '펜만'이면 아래처럼 펜만 그린다. '펜 · 손가락'이면 손가락도 그리고, 펜으로 그리는 중에 닿은 손은 거른다.
  * 펜을 구분할 수 있을 때 (iOS Apple Pencil, Android 개발 빌드·웹의 pointerType)
  *  - 펜이 한 번 보이면 그 뒤로는 펜만 그린다. 손가락·손바닥은 그리지 않고, 두 손가락은 확대·축소·이동만 한다.
  *  - 손바닥이 먼저 닿아 있어도 펜 획은 그대로 그려지고, 펜으로 그리는 중에는 화면이 확대·축소되지 않는다.
@@ -14,6 +16,9 @@ import { stylus, touchKind } from '../utils/stylus'
  */
 export const PINCH_WINDOW_MS = 250
 const PALM_STILL_PX = 10
+// 펜만 그릴 때 손가락으로 '톡' 누른 것(지라 828): 이만큼 안 움직이고 이 시간 안에 떼면 톡이다. 얹어 둔 손바닥은 오래 닿아 있어 걸리지 않는다
+export const FINGER_TAP_PX = 10
+export const FINGER_TAP_MS = 350
 
 /** 이 안의 usePan 은 손바닥을 거르는 끌기로 바뀐다 (Canvas 가 펜·지우개 입력 영역을 감싼다) */
 export const PalmRejectionContext = createContext(false)
@@ -23,6 +28,7 @@ export const PalmRejectionContext = createContext(false)
  * event 는 따라가는 터치 하나의 정보(locationX·Y 는 입력 영역 기준, touches 에는 그 터치 하나)라
  * 입력 쪽의 '두 손가락이면 그리지 않기' 검사에 손바닥이 걸리지 않는다.
  * 획을 다른 터치로 옮길 때는 앞 획을 onEnd({ cancelled: true }) 로 버리고 onStart 를 새로 부른다.
+ * onFingerTap(event): 펜만 그리는 설정에서 그리지 않는 손가락으로 톡 누른 것(한 손가락 · 펜이 닿지 않은 동안). 속지 칸 입력(플래너 할 일 · 체크 등)에 쓴다.
  */
 export function usePalmRejectingPan(handlers) {
   const handlersRef = useRef(handlers)
@@ -40,7 +46,9 @@ export function usePalmRejectingPan(handlers) {
   })
 
   const begin = (s, t, kind) => {
-    s.track = { id: t.identifier, startX: t.pageX, startY: t.pageY, startTime: Date.now(), moved: 0, pen: kind === 'pen' }
+    if (kind === 'pen') s.penSeen = true
+    s.track = { id: t.identifier, startX: t.pageX, startY: t.pageY, startTime: Date.now(), moved: 0,
+      force: Number.isFinite(t.force) && t.force > 0 ? t.force : null, pen: kind === 'pen' }
     call('onStart', asEvent(s, t))
   }
   const finish = (s, cancelled) => {
@@ -53,8 +61,10 @@ export function usePalmRejectingPan(handlers) {
   // 새로 닿은 터치를 어떻게 다룰지 정한다.
   const consider = (s, t) => {
     if (s.track?.id === t.identifier || s.ignored.has(t.identifier)) return
-    const kind = touchKind(t)
-    if (stylus.seen) {
+    // 기기 기본값은 펜 감지에 따라 바뀔 수 있으므로 판정 후 다시 읽는다.
+    const kind = touchKind(t, { requirePointer: getDrawingInput() === 'pen' })
+    const input = getDrawingInput()
+    if (input === 'pen') {
       if (kind === 'pen') {
         // 손가락으로 그리던 획(펜을 보기 전에 시작한)은 버리고 펜으로 옮긴다.
         if (s.track && !s.track.pen) finish(s, true)
@@ -63,8 +73,11 @@ export function usePalmRejectingPan(handlers) {
       }
       // 펜 모드에서는 손가락·손바닥으로 그리지 않는다.
       // 아직 종류를 모르면(포인터 이벤트가 터치보다 늦게 올 수 있다) 첫 움직임 때 다시 본다.
-      if (kind === 'unknown' && stylus.pointerEvents) s.pending.set(t.identifier, t)
+      // 펜만이면 첫 터치라 포인터 이벤트를 아직 못 봤어도 기다린다(종류를 모르는 터치로 그리지 않는다)
+      if (kind === 'unknown') s.pending.set(t.identifier, t)
       else s.ignored.add(t.identifier)
+      // 그리지는 않지만 톡 누른 것인지 지켜본다(손가락 톡 → onFingerTap)
+      s.fingers.set(t.identifier, { t, at: Date.now(), moved: 0 })
       return
     }
     if (!s.track) {
@@ -75,6 +88,11 @@ export function usePalmRejectingPan(handlers) {
     if (kind === 'pen' && !s.track.pen) {
       finish(s, true)
       begin(s, t, kind)
+      return
+    }
+    // 펜으로 그리는 중에 닿은 손(바닥)은 덜 움직였어도 무시한다 (펜 · 손가락 설정에서 펜 획을 손바닥으로 빼앗기지 않게)
+    if (s.track.pen) {
+      s.ignored.add(t.identifier)
       return
     }
     const still = s.track.moved <= PALM_STILL_PX
@@ -98,9 +116,10 @@ export function usePalmRejectingPan(handlers) {
   // 종류를 몰라 미뤄 둔 터치: 지금은 알면 펜일 때 닿았던 자리부터 획을 시작한다.
   const resolvePending = (s) => {
     for (const [id, t] of s.pending) {
-      const kind = touchKind(t)
+      const kind = touchKind(t, { requirePointer: getDrawingInput() === 'pen' })
       if (kind === 'unknown') continue
       s.pending.delete(id)
+      if (kind === 'pen') s.fingers.delete(id)
       if (kind === 'pen' && !s.track) begin(s, t, kind)
       else if (kind !== 'pen') s.ignored.add(id)
     }
@@ -113,25 +132,39 @@ export function usePalmRejectingPan(handlers) {
     return e.touches?.length ? e.touches : [e]
   }
   const addNew = (s, event) => {
-    for (const t of touchesOf(event)) {
+    const touches = touchesOf(event)
+    s.most = Math.max(s.most, touches.length)
+    for (const t of touches) {
       if (s.seen.has(t.identifier)) continue
       s.seen.add(t.identifier)
       consider(s, t)
     }
   }
+  // 지켜보던 손가락이 떨어졌을 때: 한 손가락만 닿았고 · 펜 획이 없었고 · 거의 안 움직이고 · 짧게 눌렀으면 톡이다
+  const fingerEnded = (s, id) => {
+    const f = s.fingers.get(id)
+    s.fingers.delete(id)
+    if (!f || s.most > 1 || s.penSeen || f.moved > FINGER_TAP_PX || Date.now() - f.at > FINGER_TAP_MS) return
+    if (touchKind(f.t, { requirePointer: getDrawingInput() === 'pen' }) === 'pen') return
+    call('onFingerTap', asEvent(s, f.t))
+  }
 
   // move가 생략되어도 뗀 위치까지 확정한다. 다른 손가락의 좌표는 쓰지 않는다.
-  const moveTracked = (s, t) => {
+  const moveTracked = (s, t, isRelease = false) => {
     if (!s.track || !t || !Number.isFinite(t.pageX) || !Number.isFinite(t.pageY)) return
     const dx = t.pageX - s.track.startX
     const dy = t.pageY - s.track.startY
-    if (s.track.dx == null && dx === 0 && dy === 0) return
-    // 다른 터치(손바닥)만 움직인 이벤트에서는 획을 다시 그리지 않는다
-    if (dx === s.track.dx && dy === s.track.dy) return
+    const moved = dx !== (s.track.dx ?? 0) || dy !== (s.track.dy ?? 0)
+    const forceChanged = !isRelease && Number.isFinite(t.force) && t.force !== s.track.force
+      && (t.force > 0 || s.track.force > 0)
+    // 미지원 0·변함없는 압력의 탭과, 같은 위치에서 해제할 때의 0은 이동이 아니다.
+    // 실제 압력 변화나 마지막 위치 변화만 전달한다.
+    if (!moved && !forceChanged) return
     s.track.dx = dx
     s.track.dy = dy
+    s.track.force = t.force
     s.track.moved = Math.max(s.track.moved, Math.hypot(dx, dy))
-    call('onMove', dx, dy, asEvent(s, t))
+    call('onMove', dx, dy, { ...asEvent(s, t), isRelease })
   }
   const finishAt = (s, event) => {
     const e = event?.nativeEvent
@@ -139,7 +172,7 @@ export function usePalmRejectingPan(handlers) {
     if (id == null) return
     const last = e?.changedTouches?.find((t) => t.identifier === id)
       ?? (e?.identifier === id ? e : null)
-    moveTracked(s, last)
+    moveTracked(s, last, true)
     finish(s, false)
   }
 
@@ -152,7 +185,7 @@ export function usePalmRejectingPan(handlers) {
       const s = state.current
       if (!s || s.releasable) return true
       const fresh = touchesOf(event).filter((t) => !s.seen.has(t.identifier))
-      const freshPen = fresh.some((t) => touchKind(t) === 'pen')
+      const freshPen = fresh.some((t) => touchKind(t, { requirePointer: getDrawingInput() === 'pen' }) === 'pen')
       if (!s.track) {
         // 그리던 획이 없으면: 새 터치가 펜이면 지키고, 손가락이면 넘긴다.
         if (freshPen) return false
@@ -177,6 +210,9 @@ export function usePalmRejectingPan(handlers) {
         ignored: new Set(),
         pending: new Map(),
         releasable: false,
+        fingers: new Map(), // 펜만 그릴 때 그리지 않는 손가락: 톡인지 지켜본다
+        most: 0, // 이번 터치 동안 한꺼번에 닿은 손가락 수의 최대(둘 이상이면 톡이 아니다)
+        penSeen: false,
       }
       addNew(state.current, event)
     },
@@ -188,6 +224,11 @@ export function usePalmRejectingPan(handlers) {
       const s = state.current
       if (!s) return
       if (s.pending.size) resolvePending(s)
+      s.most = Math.max(s.most, (event.nativeEvent.touches ?? []).length)
+      for (const touch of event.nativeEvent.touches ?? []) {
+        const f = s.fingers.get(touch.identifier)
+        if (f) f.moved = Math.max(f.moved, Math.hypot(touch.pageX - f.t.pageX, touch.pageY - f.t.pageY))
+      }
       if (!s.track) return
       const t = (event.nativeEvent.touches ?? []).find((touch) => touch.identifier === s.track.id)
       if (!t) return
@@ -200,18 +241,24 @@ export function usePalmRejectingPan(handlers) {
       const alive = new Set((event.nativeEvent.touches ?? []).map((t) => t.identifier))
       for (const id of [...s.seen]) {
         if (alive.has(id)) continue
+        forgetStylusTouch(id)
         s.seen.delete(id)
         s.ignored.delete(id)
         s.pending.delete(id)
         if (s.track?.id === id) finishAt(s, event)
+        fingerEnded(s, id)
       }
     },
     onResponderRelease: (event) => {
       if (state.current) finishAt(state.current, event)
+      // onResponderEnd 를 거치지 않고 끝난 손가락(플랫폼마다 다르다)도 톡인지 본다
+      if (state.current) for (const id of [...state.current.fingers.keys()]) fingerEnded(state.current, id)
+      if (state.current) for (const id of state.current.seen) forgetStylusTouch(id)
       state.current = null
     },
     onResponderTerminate: () => {
       if (state.current) finish(state.current, true)
+      if (state.current) for (const id of state.current.seen) forgetStylusTouch(id)
       state.current = null
     },
   }).current

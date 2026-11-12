@@ -225,3 +225,14 @@ test('IndexedDB v1 GIF 복원·v3 원본/표시본/메타데이터 커밋·실�
   assert.equal(restored.length, 2)
   restored.forEach((item) => URL.revokeObjectURL(item.uri))
 })
+
+test('회원 다이어리는 서버 한도를 넘는 GIF 를 넣기 전에 막고 게스트는 그대로 받는다', async () => {
+  const gif = new Uint8Array([0x47, 0x49, 0x46, 0x38, 0x39, 0x61, ...new Array(58).fill(0)])
+  const limit = 5 * 1024 * 1024
+  const run = (size, saves) => importer({ readAsset: async (asset) => ({ size, header: gif, source: asset }), createDisplay: async () => null, dispose: async () => {}, save: async () => { saves.push(size); return 'saved-uri' } })
+  const saved = []
+  await assert.rejects(run(limit + 1, saved)([{ uri: 'big.gif' }], { sharedGifMaxBytes: limit }), (error) => error.code === 'SHARED_GIF_TOO_LARGE' && /5MB/.test(error.message))
+  assert.deepEqual(saved, [])
+  assert.equal((await run(limit, saved)([{ uri: 'ok.gif' }], { sharedGifMaxBytes: limit })).length, 1)
+  assert.equal((await run(limit + 1, saved)([{ uri: 'guest.gif' }])).length, 1)
+})

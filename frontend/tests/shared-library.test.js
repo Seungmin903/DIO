@@ -1,0 +1,139 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
+import { createSharingPreview } from '../src/sharing/sharingPreview.js';
+import * as memory from '../src/editor/services/sessionDocuments.js';
+import * as memberStorage from '../src/diary/services/memberStorage.js';
+import { createDefaultDoc, migrateUntouchedAnnualDoc } from '../src/editor/state/defaultDoc.js';
+const require = createRequire(import.meta.url),
+  expo = createRequire(require.resolve('expo/package.json')),
+  babel = expo('@babel/core');
+function docsFixture() {
+  const disk = new Map(),
+    calls = [];
+  const code = babel.transformSync(
+    readFileSync(new URL('../src/editor/services/editorDocs.js', import.meta.url), 'utf8'),
+    {
+      configFile: false,
+      babelrc: false,
+      plugins: [expo.resolve('@babel/plugin-transform-modules-commonjs')],
+    },
+  ).code;
+  const mocks = {
+    './documentStorage': {
+      __esModule: true,
+      default: {
+        loadDocument: async (key) => {
+          calls.push(['get', key]);
+          const raw = disk.get(key);
+          return raw ? JSON.parse(raw) : null;
+        },
+        saveDocument: async (key, doc) => {
+          calls.push(['save', key]);
+          disk.set(key, JSON.stringify(doc));
+        },
+      },
+    },
+    '../../diary/services/memberStorage.js': memberStorage,
+    '../state/defaultDoc': { createDefaultDoc, migrateUntouchedAnnualDoc },
+    '../templates/catalog.js': { templateReference: () => null },
+    '../templates/loadTemplate': {},
+    './mediaStore': {},
+    './sessionDocuments.js': memory,
+    './editorViewState': { loadViewedPage: async () => null },
+    './storage': {
+      STORAGE_KEYS: { doc: 'personal:doc' },
+    },
+  };
+  const mod = { exports: {} };
+  new Function('require', 'module', 'exports', code)((id) => mocks[id], mod, mod.exports);
+  return { ...mod.exports, disk, calls };
+}
+const pending = (r) => r.preview.inspect().invitations.find((i) => i.status === 'PENDING').inviteId;
+test('수락 후 공유 보관함 카드를 만들고 문서는 세션에서만 저장·재열람한다', async () => {
+  const runtime = createSharingPreview({ delay: 0 });
+  const docs = docsFixture();
+  assert.deepEqual(runtime.getSnapshot().library, []);
+  const shared = await runtime.accept(pending(runtime), '참여자');
+  const card = runtime.getSnapshot().library[0];
+  assert.equal(card.title, shared.title);
+  assert.equal(card.sharedDiaryId, shared.id);
+  assert.equal(card.canManage, false);
+  assert.ok(memory.isSessionDocumentKey(card.id));
+  const doc = createDefaultDoc(card);
+  assert.equal(doc.pages.length, 1);
+  assert.equal(docs.editorDocKey(card), card.sessionStorageKey);
+  doc.pages[0].objects.push({ id: 'shape', type: 'shape' });
+  assert.equal(await docs.saveEditorDoc(card.sessionStorageKey, doc), true);
+  assert.equal((await docs.loadEditorDoc(card)).pages[0].objects[0].id, 'shape');
+  assert.deepEqual(docs.calls, []);
+  assert.equal(docs.disk.size, 0);
+  runtime.toggleFavorite(shared.id);
+  assert.equal(runtime.getSnapshot().library[0].favorite, true);
+  assert.equal(runtime.registerDiary(card).members.find((m) => m.id === 'self').role, 'EDITOR');
+  runtime.dispose();
+});
+test('참여 해제·로그아웃은 카드와 문서 접근을 지우며 늦은 저장으로 복구하지 않는다', async () => {
+  const runtime = createSharingPreview({ delay: 0 }),
+    docs = docsFixture(),
+    shared = await runtime.accept(pending(runtime), '참여자');
+  const card = runtime.getSnapshot().library[0];
+  await docs.saveEditorDoc(card.sessionStorageKey, createDefaultDoc(card));
+  await runtime.leave(shared.id);
+  assert.equal(runtime.getSnapshot().library.length, 0);
+  assert.equal(await docs.loadEditorDoc(card), null);
+  assert.equal(await docs.saveEditorDoc(card.sessionStorageKey, { pages: [{}] }), false);
+  assert.deepEqual(docs.calls, []);
+  const other = await runtime.accept(pending(runtime), '다른참여자');
+  const next = runtime.getSnapshot().library[0];
+  assert.notEqual(next.sessionStorageKey, card.sessionStorageKey);
+  runtime.dispose();
+  assert.equal(await docs.saveEditorDoc(next.sessionStorageKey, { pages: [{}] }), false);
+});
+test('개인 다이어리 저장 키와 기존 기기 저장 경로는 유지한다', async () => {
+  const docs = docsFixture(),
+    diary = { id: 'own' };
+  assert.equal(docs.editorDocKey(diary), 'personal:doc:own');
+  const doc = { id: 'own', title: '내 기록', pages: [{ objects: [] }] };
+  assert.equal(await docs.saveEditorDoc(docs.editorDocKey(diary), doc), true);
+  assert.deepEqual(await docs.loadEditorDoc(diary), doc);
+  assert.deepEqual(docs.calls, [
+    ['save', 'personal:doc:own'],
+    ['get', 'personal:doc:own'],
+  ]);
+});
+
+test('문서 캐시 무효화는 개인 열람 기록과 문서를 삭제하지 않고 반환형이 같다', async () => {
+  const docs = docsFixture();
+  const diary = { id: 'cache-only' }, key = docs.editorDocKey(diary);
+  const value = { id: diary.id, pages: [{ id: 'p1', objects: [] }] };
+  docs.disk.set(key, JSON.stringify(value));
+  docs.disk.set(`dio:editor:view:v1:${key}`, '"p1"');
+  await docs.loadEditorDoc(diary);
+  assert.equal(docs.forgetEditorDoc(key), true);
+  assert.equal(docs.peekEditorDoc(key), null);
+  assert.equal(docs.disk.get(`dio:editor:view:v1:${key}`), '"p1"');
+  assert.deepEqual(await docs.loadEditorDoc(diary), value);
+  const owner = memory.createSessionDocuments();
+  const sessionKey = owner.key('shared-cache');
+  assert.equal(docs.forgetEditorDoc(sessionKey), true);
+  owner.dispose();
+});
+
+
+test('회원 문서는 같은 다이어리 ID라도 계정별 저장 키·캐시를 분리하고 비회원·공유 저장을 유지한다', async () => {
+  const docs = docsFixture();
+  const first = { id: 'same-diary', source: 'member-api', memberAccountId: '1' };
+  const second = { ...first, memberAccountId: '2' };
+  const firstKey = docs.editorDocKey(first), secondKey = docs.editorDocKey(second);
+  assert.equal(firstKey, memberStorage.memberKeys('1').doc(first.id));
+  assert.notEqual(firstKey, secondKey);
+  assert.notEqual(firstKey, docs.editorDocKey({ id: first.id }));
+  const firstDoc = { id: first.id, memberAccountId: '1', pages: [{ id: 'server-page', objects: [{ id: 'ink' }] }] };
+  assert.equal(await docs.saveEditorDoc(firstKey, firstDoc), true);
+  assert.deepEqual(await docs.loadEditorDoc(first), firstDoc);
+  assert.equal(await docs.loadEditorDoc(second), null);
+  assert.equal(docs.disk.has(secondKey), false);
+  assert.equal(docs.disk.has(`personal:doc:${first.id}`), false);
+});

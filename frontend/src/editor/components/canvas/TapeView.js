@@ -3,7 +3,9 @@ import { useMediaUri } from '../../hooks/useMediaUri'
 import { coverLayout } from '../../utils/objects'
 import { LEGACY_TAPE_PATTERNS, TAPE_DEFAULT, TAPE_PALETTES } from '../../constants'
 import { useSvgId } from '../../utils/svgId'
+import { LACE_HEIGHT, LACE_TILES } from './laceTapes'
 import Svg, { Circle, ClipPath, Defs, G, Image as SvgImage, Line, Path, Pattern, Polygon, Rect } from 'react-native-svg'
+import { snapScale, snapToPixel } from '../../../shared/pixelSnap'
 
 // 기본 테이프 크기(180×34)의 가로:세로. 이미지 테이프 자르기 틀도 이 비율을 쓴다.
 export const TAPE_RATIO = 180 / 34
@@ -22,12 +24,67 @@ export function tapeLook(pattern, palette) {
   return { ...look, bg: colors.bg, fg: colors.fg }
 }
 
+// 레이스 도안을 몇 벌 이어 붙일지. 도안이 타일 안(0 ~ width)에만 있어야 복사본끼리 겹치지 않고 맞닿는다
+// (겹치면 evenodd 라 겹친 곳이 구멍이 된다). 예전 도안(아이렛 · 크로셰)은 타일 밖으로 조금 나가 있어 한 벌만 쓴다.
+const LACE_MAX_COPIES = 12
+const laceFits = new Map()
+function laceCopies(pattern, lace, needed) {
+  if (!laceFits.has(pattern)) {
+    const xs = lace.body.match(/-?\d+(\.\d+)?/g).filter((_, i) => i % 2 === 0).map(Number) // 모든 명령이 절대 좌표 x y 쌍이다
+    laceFits.set(pattern, Math.min(...xs) >= 0 && Math.max(...xs) <= lace.width)
+  }
+  return laceFits.get(pattern) && Number.isFinite(needed) ? Math.max(1, Math.min(LACE_MAX_COPIES, Math.ceil(needed))) : 1
+}
+const joinedLaces = new Map()
+function joinedLace(pattern, lace, copies) {
+  if (copies === 1) return lace.body
+  const key = `${pattern}:${copies}`
+  if (!joinedLaces.has(key)) {
+    const parts = Array.from({ length: copies }, (_, n) => {
+      let i = 0
+      return lace.body.replace(/-?\d+(\.\d+)?/g, (v) => (i++ % 2 === 0 ? +(Number(v) + n * lace.width).toFixed(2) : v))
+    })
+    joinedLaces.set(key, parts.join(''))
+  }
+  return joinedLaces.get(key)
+}
+// 한 경로로 이어도 복사본 경계가 맞닿는 곳에 가는 줄이 남아(태블릿에서 확인) 그 위에 경계를 끊김 없이 그린 조각(seam)을 덧그린다.
+// 같은 색을 겹쳐 칠하므로 조각의 가장자리는 보이지 않고 경계의 가는 줄만 메워진다.
+function laceSeams(pattern, lace, copies) {
+  const key = `${pattern}:seam:${copies}`
+  if (!joinedLaces.has(key)) {
+    const parts = Array.from({ length: copies - 1 }, (_, n) => {
+      let i = 0
+      return lace.seam.replace(/-?\d+(\.\d+)?/g, (v) => (i++ % 2 === 0 ? +(Number(v) + (n + 1) * lace.width).toFixed(2) : v))
+    })
+    joinedLaces.set(key, parts.join(''))
+  }
+  return joinedLaces.get(key)
+}
+
 /**
  * 무늬 타일. 바탕(bg)·무늬(fg) 두 색으로 그려서 무늬는 그대로 두고 색만 바꿀 수 있다.
  * 화면 배율과 상관없이 같은 밀도로 보이도록 scale 을 곱한다.
  */
-function PatternTile({ id, pattern, bg, fg, scale }) {
+function PatternTile({ id, pattern, bg, fg, scale, height, width }) {
   const s = (v) => v * scale
+  const lace = LACE_TILES[pattern]
+  if (lace) {
+    // 레이스: 구멍이 뚫린 레이스 모양 하나(evenodd)만 칠하고 바탕 사각형은 없다. 칠하지 않은 곳은 진짜 투명이라 밑이 비친다.
+    // 레이스는 한 가지 색(바탕색)이다. 타일은 테이프 높이에 맞춰 키운다.
+    // 이어 붙일 수 있는 도안은 테이프 길이만큼 한 경로로 이어 붙여 타일 하나로 채운다: 타일이 여러 장이면
+    // 곧은 헤딩 · 띠가 칸 경계마다 가는 줄로 잘려 보였다(무늬 칸 이음매).
+    // 타일 높이는 테이프의 두 배로 두고 아래 절반은 비운다: 높이가 소수점 픽셀이면(미리보기 14dp × 1.75 = 24.5px) 기기가 타일을
+    // 정수 픽셀로 맞추면서 아래 칸 타일의 윗줄이 테이프 밑에 가는 실선으로 비쳤다(부채술의 곧은 헤딩).
+    const k = height / LACE_HEIGHT
+    const copies = laceCopies(pattern, lace, width / (lace.width * k))
+    return (
+      <Pattern id={id} patternUnits="userSpaceOnUse" width={lace.width * k * copies} height={height * 2} viewBox={`0 0 ${lace.width * copies} ${LACE_HEIGHT * 2}`}>
+        <Path d={joinedLace(pattern, lace, copies)} fill={bg} fillRule="evenodd" />
+        {copies > 1 && lace.seam && <Path d={laceSeams(pattern, lace, copies)} fill={bg} fillRule="evenodd" />}
+      </Pattern>
+    )
+  }
   switch (pattern) {
     case 'stripe':
       // 사선 스트라이프
@@ -420,10 +477,11 @@ function diagonalPolygon(w, h) {
 }
 
 /** 무늬 타일을 테이프 세로 가운데에 맞춘다 (타일 한 장이 테이프 높이 한가운데 오게 위쪽을 민다) */
-function centeredTile(tile, height) {
+function centeredTile(tile, height, crisp) {
   const tileHeight = Number(tile.props.height)
   if (!tileHeight) return tile
-  return cloneElement(tile, { y: (height - tileHeight) / 2 })
+  const y = (height - tileHeight) / 2
+  return cloneElement(tile, { y: crisp ? snapToPixel(y) : y })
 }
 
 /**
@@ -452,13 +510,30 @@ function tornPolygon(w, h) {
  * 마스킹테이프. 기본 패턴은 SVG 무늬로 채우고, 사용자가 올린 이미지는 테이프 네모 틀에 꽉 채워(cover) 넣는다.
  * 어느 쪽이든 끝 모양(절취선·직선)으로 자른다. 비치는 정도는 요소 불투명도(기본 80%)로 정한다.
  */
-export default function TapeView({ pattern, palette, segmentRatio, src, mediaFileId, crop, imageWidth, imageHeight, edge = 'torn', width, height, scale = 1, onAssetLoad }) {
+/**
+ * 저장한 사진 테이프의 미리보기 크기(보관함 칸 · 공방 카드): 폭 width 안에서 정한 조각 비율(pieceRatio)대로 높이를 정하고
+ * (minH~maxH 로 묶는다), 조각이 폭보다 짧으면 반복되게 segmentShare 를 돌려준다. 비율이 없던 예전 테이프는 규격 비율.
+ */
+export function tapePreviewBox(tape, width, minH, maxH, fallbackRatio) {
+  const ratio = tape.pieceRatio ?? fallbackRatio
+  const height = Math.min(maxH, Math.max(minH, width / ratio))
+  const piece = height * ratio
+  return { width, height, segmentShare: piece / width, pieceRatio: ratio }
+}
+
+// segmentShare: 사진 테이프 한 조각 폭 ÷ 테이프 길이(없으면 한 조각), pieceRatio: 잘라 둘 때 조각의 가로:세로
+// crisp: 미리보기(보관함 칸 · 레이어 썸네일 등 줄여 그린 그림)는 무늬 배율을 기기 픽셀에 맞춰 칸 이음매가 깨지지 않게 한다(shared/pixelSnap).
+// 캔버스는 확대 · 축소할 때 무늬가 튀지 않게 맞추지 않는다
+export default function TapeView({ pattern, palette, segmentShare, pieceRatio, src, mediaFileId, crop, imageWidth, imageHeight, edge = 'torn', width, height, scale = 1, crisp = false, onAssetLoad }) {
   const uri = useMediaUri({ src, mediaFileId })
   const hasImage = Boolean(mediaFileId || src)
   const svgId = useSvgId('tape')
   const look = tapeLook(pattern, palette)
   // 무늬·색·끝 모양이 바뀌면 id 도 바꾸고 SVG 를 새로 만든다. (같은 id 로 내용만 바꾸면 기기에서 이전 모양이 남는다)
-  const variant = `${edge}-${look.pattern}-${look.palette}`
+  // 레이스는 테이프 길이에 따라 이어 붙인 벌 수도 넣는다(벌 수가 바뀌면 타일 내용이 바뀐다)
+  const lace = LACE_TILES[look.pattern]
+  const laceCount = lace ? laceCopies(look.pattern, lace, width / (lace.width * height / LACE_HEIGHT)) : 1
+  const variant = `${edge}-${look.pattern}-${look.palette}${lace ? `-${laceCount}` : ''}`
   const patternId = `${svgId}-pattern-${variant}`
   const clipId = `${svgId}-clip-${variant}`
   // 테이프 모양(직선은 네모, 절취선은 톱니 다각형)
@@ -468,13 +543,30 @@ export default function TapeView({ pattern, palette, segmentRatio, src, mediaFil
       : edge === 'diagonal'
         ? diagonalPolygon(width, height)
         : `0,0 ${width},0 ${width},${height} 0,${height}`
+  if (!hasImage && look.pattern === 'stripe') {
+    // 사선줄은 무늬 타일로 채우지 않고 줄마다 테이프 모양으로 잘라 직접 그린다.
+    // 타일로 채우면 한 줄이 칸 경계마다 조각으로 나뉘어, 칸 크기가 소수점 픽셀이 될 때(캔버스 확대 · 회전) 이음매에서 줄이 어긋났다.
+    const s = crisp ? snapScale(scale) : scale
+    const offset = (height - s * 12) / 2 // 예전 타일과 같은 자리에 줄이 오게 (centeredTile 과 같은 위치)
+    return (
+      <Svg key={variant} width={width} height={height}>
+        <Polygon points={points} fill={look.bg} />
+        {stripeBands(parsePoints(points), width + height, s, crisp ? snapToPixel(offset) : offset).map((band, i) => (
+          <Polygon key={i} points={band} fill={look.fg} />
+        ))}
+      </Svg>
+    )
+  }
   if (!hasImage) {
     // 무늬 테이프는 잘라내기(ClipPath) 대신 테이프 모양 자체를 무늬로 채운다.
     // Android 의 SVG 는 G 에 건 ClipPath 를 무시하는 경우가 있어 절취선↔직선이 안 바뀌었다.
     return (
       <Svg key={variant} width={width} height={height}>
         <Defs>
-          {centeredTile(PatternTile({ id: patternId, pattern: look.pattern, bg: look.bg, fg: look.fg, scale }), height)}
+          {/* 레이스 타일은 테이프 위끝에 맞춰 둔다(아래 절반이 빈 두 배 높이라 가운데 맞추면 안 된다) */}
+          {lace
+            ? PatternTile({ id: patternId, pattern: look.pattern, bg: look.bg, fg: look.fg, scale, height, width })
+            : centeredTile(PatternTile({ id: patternId, pattern: look.pattern, bg: look.bg, fg: look.fg, scale: crisp ? snapScale(scale) : scale, height, width }), height, crisp)}
         </Defs>
         <Polygon points={points} fill={`url(#${patternId})`} />
       </Svg>
@@ -492,9 +584,11 @@ export default function TapeView({ pattern, palette, segmentRatio, src, mediaFil
           imageHeight={imageHeight}
           width={width}
           height={height}
-          segmentWidth={segmentRatio ? height * segmentRatio : width}
+          segmentWidth={segmentShare ? width * segmentShare : width}
+          pieceRatio={pieceRatio}
           points={points}
           clipId={clipId}
+          crisp={crisp}
         />
       </G>
     </Svg>
@@ -502,17 +596,24 @@ export default function TapeView({ pattern, palette, segmentRatio, src, mediaFil
 }
 
 /**
- * 이미지 테이프: 고른 영역(crop)을 '한 조각' 틀(segmentWidth × height)에 꽉 채운다.
- * 테이프가 한 조각보다 길면 같은 조각을 옆으로 이어 붙여 반복한다. crop 이 없던 예전 테이프는 가운데 기준.
+ * 이미지 테이프: 고른 영역(crop)을 '한 조각' 틀(segmentWidth × height)에 채운다.
+ * 테이프가 한 조각보다 길면 같은 조각을 옆으로 이어 붙여 반복한다(좌우로 늘리면 조각이 더 이어진다).
+ * 두께를 바꾸면 조각도 가로세로 비율 그대로 커진다(segmentW 가 두께와 함께 바뀐다). pieceRatio 는 조각의 가로:세로라 늘 segmentW / 두께와 같다.
+ * crop 이 없던 예전 테이프는 가운데 기준.
  * 조각마다 '테이프 모양 ∩ 그 조각 칸'으로 잘라야 자른 영역 밖(원본의 나머지)이 옆 칸으로 비어져 나오지 않는다.
  * (G 에 건 ClipPath 는 Android 에서 무시될 때가 있어, 겹친 잘라내기 대신 다각형을 직접 잘라 이미지마다 건다)
  */
-function TapeImage({ onAssetLoad, uri, crop, imageWidth, imageHeight, width, height, segmentWidth, points, clipId }) {
+function TapeImage({ onAssetLoad, uri, crop, imageWidth, imageHeight, width, height, segmentWidth, pieceRatio, points, clipId, crisp }) {
   if (!uri) return null
   const href = { uri }
-  const seg = Math.max(1, segmentWidth || width)
+  // 미리보기(crisp)는 조각 경계를 기기 픽셀에 맞춰 이음매가 흐린 줄로 보이지 않게 한다
+  const seg = Math.max(1, crisp ? snapToPixel(segmentWidth || width) : segmentWidth || width)
   const count = Math.max(1, Math.ceil(width / seg - 0.001))
-  const layout = crop && imageWidth && imageHeight ? coverLayout({ imageWidth, imageHeight, crop }, seg, height) : null
+  // 자를 때 높이(조각 폭 ÷ 가로:세로)로 자리를 잡은 뒤, 지금 두께에 맞춰 위아래만 늘린다
+  const pieceH = pieceRatio ? seg / pieceRatio : height
+  const stretch = height / pieceH
+  const base = crop && imageWidth && imageHeight ? coverLayout({ imageWidth, imageHeight, crop }, seg, pieceH) : null
+  const layout = base && { left: base.left, width: base.width, top: base.top * stretch, height: base.height * stretch }
   const shape = parsePoints(points)
   // 이웃 칸 사이에 가는 틈이 보이지 않게 아주 조금 겹친다.
   const clips = Array.from({ length: count }, (_, i) =>
@@ -562,6 +663,36 @@ const SEAM = 0.4
 
 function parsePoints(points) {
   return points.split(' ').map((pair) => pair.split(',').map(Number))
+}
+
+/** 다각형에서 a·x + b·y ≤ c 인 쪽만 남긴다. (Sutherland–Hodgman, 경계 하나) */
+function clipHalfPlane(shape, a, b, c) {
+  const out = []
+  shape.forEach((cur, i) => {
+    const prev = shape[(i + shape.length - 1) % shape.length]
+    const dc = a * cur[0] + b * cur[1] - c, dp = a * prev[0] + b * prev[1] - c
+    if ((dc <= 0) !== (dp <= 0)) {
+      const t = dp / (dp - dc)
+      out.push([prev[0] + t * (cur[0] - prev[0]), prev[1] + t * (cur[1] - prev[1])])
+    }
+    if (dc <= 0) out.push(cur)
+  })
+  return out
+}
+
+/**
+ * 사선줄(/ 방향 45°) 띠마다 테이프 모양으로 자른 다각형. 예전 12×12 타일(줄 굵기 3.2)과 같은 간격 · 굵기 · 자리다.
+ * 줄의 중심선은 x + y = offset + 12·s·k 이고, 수직 굵기 3.2·s 는 x + y 로 재면 ±1.6·s·√2 다.
+ */
+export function stripeBands(shape, span, s, offset) {
+  const step = 12 * s, half = 1.6 * s * Math.SQRT2
+  const bands = []
+  for (let k = Math.floor((-half - offset) / step); offset + k * step - half <= span; k++) {
+    const c = offset + k * step
+    const band = clipHalfPlane(clipHalfPlane(shape, 1, 1, c + half), -1, -1, -(c - half))
+    if (band.length >= 3) bands.push(band.map(([x, y]) => `${x.toFixed(2)},${y.toFixed(2)}`).join(' '))
+  }
+  return bands
 }
 
 /** 다각형을 세로 띠(left ≤ x ≤ right) 안으로 자른다. (Sutherland–Hodgman, 세로 경계 두 개) */

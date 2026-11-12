@@ -1,5 +1,6 @@
 import { detectMediaType } from './mediaPolicy.js'
 import { PageExportError } from './pageExport.js'
+import { loadHeicDecoder } from './heicDecoder.web.js'
 
 export async function exportImage({ blob, media, size }) {
   const format = detectMediaType(new Uint8Array(await blob.slice(0, 64).arrayBuffer()))
@@ -12,7 +13,7 @@ export async function exportImage({ blob, media, size }) {
   let source = blob
   if (format.extension === 'heic') {
     if (media?.width * media?.height > 8000000) throw new PageExportError('EXPORT_RASTER_TOO_LARGE', '이 HEIC 원본은 너무 커요. 확대나 출력 배율을 줄여 주세요.')
-    const { heicTo } = await import('heic-to/csp')
+    const { heicTo } = await loadHeicDecoder()
     source = await heicTo({ blob, type: 'image/jpeg', quality: 1 })
   }
   const uri = URL.createObjectURL(source)

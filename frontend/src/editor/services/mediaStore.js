@@ -1,4 +1,5 @@
 // 문서에는 media:{UUID} 참조만, 원본·메타데이터는 플랫폼 보관소에 저장한다.
+import {retryRemoteMedia} from './mediaRetry.js'
 import { Platform } from 'react-native'
 import { randomUUID } from 'expo-crypto'
 import * as repository from '../utils/mediaRepository'
@@ -11,14 +12,27 @@ export function reportMediaDisplayError(item) {
   const id = mediaId(item)
   if (id) mediaRegistry.fail(id, new MediaError('MEDIA_CORRUPT', '이미지를 표시하지 못했어요. 원본 파일을 다시 선택해 주세요.'))
 }
+// 보관함처럼 한꺼번에 여러 장을 열 때 저장소 읽기가 한 번에 몰리지 않게 8장씩 읽는다.
+// 표시 전 디코딩 검사(Image.getSize)는 하지 않는다: 안드로이드에서 원본을 통째로 풀어 보관함 썸네일이 줄줄이 늦게 떴다.
+// 깨진 파일은 실제로 그리는 쪽의 onError → reportMediaDisplayError 로 같은 오류 상태가 된다.
+const LOAD_LIMIT = 8
+let loading = 0
+const waiting = []
+async function limited(task) {
+  if (loading >= LOAD_LIMIT) await new Promise(resolve => waiting.push(resolve))
+  loading += 1
+  try { return await task() } finally { loading -= 1; waiting.shift()?.() }
+}
+
 export const mediaRegistry = createMediaRegistry({
-  async load(id) {
+  load: id => limited(async () => {
     const { media, blob, displayBlob } = await repository.get(id)
     const source = displayBlob ?? blob
-    await repository.verifyDisplay(source)
     return { media, uri: Platform.OS === 'web' ? URL.createObjectURL(source) : source.uri }
-  },
+  }),
   release(uri) { if (Platform.OS === 'web') URL.revokeObjectURL(uri) },
+  // 보관함을 닫았다 다시 열 때 다시 읽지 않도록 잠시 더 들고 있는다 (앱 파일 경로는 메모리를 거의 쓰지 않는다)
+  idleMs: Platform.OS === 'web' ? 60000 : 300000,
 })
 
 export function mediaUri(item, { still = false } = {}) {
@@ -40,10 +54,16 @@ export async function importMedia(assets, options) {
   })
 }
 
+/** Only freshly imported, not-yet-published generator results may be rolled back. */
+export async function discardGeneratedMedia(items) {
+  await Promise.allSettled(items.map(item => repository.remove(item.mediaFileId)))
+}
+
 export const mediaService = {
   async import(asset) { return (await importMedia([asset]))[0] },
   get: repository.get,
   resolveDisplay: (id) => mediaRegistry.ensure(id),
+  async retryDisplay(id) { await retryRemoteMedia(id); return mediaRegistry.ensure(id) },
 }
 
 export async function hydrateMedia(references) {

@@ -3,33 +3,30 @@ package com.f106.DIO.diary.service;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.f106.DIO.diary.config.DiaryFormatProperties;
 import com.f106.DIO.diary.domain.Diary;
+import com.f106.DIO.diary.domain.DiaryMember;
 import com.f106.DIO.diary.dto.DiaryCreateRequest;
 import com.f106.DIO.diary.dto.DiaryCreateResponse;
+import com.f106.DIO.diary.repository.DiaryMemberRepository;
 import com.f106.DIO.diary.repository.DiaryRepository;
-import com.f106.DIO.diary.support.InvalidDiaryFormatException;
 
 @Service
 public class DiaryCreationService {
 
 	private final DiaryRepository diaryRepository;
-	private final DiaryFormatProperties formats;
-
-	public DiaryCreationService(DiaryRepository diaryRepository, DiaryFormatProperties formats) {
+	private final DiaryMemberRepository memberRepository;
+	public DiaryCreationService(DiaryRepository diaryRepository, DiaryMemberRepository memberRepository) {
 		this.diaryRepository = diaryRepository;
-		this.formats = formats;
+		this.memberRepository = memberRepository;
 	}
 
 	@Transactional
-	public DiaryCreateResponse create(DiaryCreateRequest request) {
-		DiaryFormatProperties.Dimensions dimensions = formats.getFormats().get(request.formatId());
-		if (dimensions == null) {
-			throw new InvalidDiaryFormatException();
-		}
+	public DiaryCreateResponse create(DiaryCreateRequest request, Long ownerUserId) {
+		// 소유자 없는 다이어리는 누구도 접근할 수 없으므로 만들지 않는다.
+		java.util.Objects.requireNonNull(ownerUserId, "ownerUserId");
 		Diary diary = diaryRepository.saveAndFlush(new Diary(request.diaryTitle(), request.coverColor(),
-			request.coverPattern(), request.bindingType(), request.formatId(), dimensions.width(), dimensions.height(),
-			request.defaultPageTemplate()));
+			request.coverStyle(), request.visibility(), ownerUserId));
+		memberRepository.saveAndFlush(new DiaryMember(diary.getDiaryId(), ownerUserId, "OWNER"));
 		return new DiaryCreateResponse(DiaryMapper.toData(diary));
 	}
 }

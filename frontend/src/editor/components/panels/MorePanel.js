@@ -6,19 +6,25 @@ import Icon from '../controls/Icon'
 import { objectOpacity } from '../canvas/ObjectView'
 import Slider from '../controls/Slider'
 import EffectOptions from './EffectOptions'
+import ShapeSettings from '../ShapeSettings'
 import TapeOptions from './TapeOptions'
 import FrameOptions from './FrameOptions'
+import DdayOptions from '../../widgets/DdayOptions'
+import RouteNodeOptions from '../../widgets/RouteNodeOptions'
+import { isRouteNode } from '../../widgets/routeNode'
+import { isStripFrame } from '../../utils/photoStrip'
+import { hasPhotoMedia } from '../../utils/objects'
 import { PaletteInteractionContext } from '../controls/ColorPicker'
 
-const TYPE_TITLES = { sticker: '스티커', photo: '사진', tape: '마스킹테이프' }
+const TYPE_TITLES = { sticker: '스티커', photo: '사진', tape: '마스킹테이프', shape: '도형' }
 
 /**
  * 선택한 요소의 세부 옵션 (편집 바의 '더보기').
  * 캔버스 위에 띄우면 요소·편집 바를 가리기 쉬워서 보관함처럼 편집 영역 오른쪽에 붙인다.
- * 탭 두 개: '꾸미기'(사진 프레임·모서리 둥글기·틀 색, 불투명도, 윤곽선·그림자, 테이프 디자인)를 먼저, '배치'(반전·각도)는 뒤에.
+ * 탭 두 개: '꾸미기'(사진 틀·칸 사진·모양·모서리 둥글기·틀 색, 불투명도, 윤곽선·그림자, 테이프 디자인)를 먼저, '배치'(반전·각도)는 뒤에.
  * 꾸밀 것이 없는 요소(이미지 테이프 등)는 배치만 보여 준다.
  */
-export default function MorePanel({ objects, dispatch, onReplacePhoto, onClose }) {
+export default function MorePanel({ objects, dispatch, onReplacePhoto, onReplaceCell, onCropCell, onClose }) {
   const [tab, setTab] = useState('style')
   const scrollRef = useRef(null)
   const [paletteDragging, setPaletteDragging] = useState(false)
@@ -31,10 +37,15 @@ export default function MorePanel({ objects, dispatch, onReplacePhoto, onClose }
   const editable = objects.filter((o) => !o.locked)
   const single = objects.length === 1 ? objects[0] : null
   const isPhoto = single?.type === 'photo' && !single.locked
+  const isShape = single?.type === 'shape' && !single.locked
   const isTape = single?.type === 'tape' && !single.locked
+  const isWidget = single?.type === 'sticker' && Boolean(single.widget) && !single.locked
+  const isRouteStop = Boolean(single) && isRouteNode(single) && !single.locked
   const hasStyle = true // 불투명도는 모든 요소에 있어 꾸미기 탭이 늘 있다
   const current = hasStyle ? tab : 'layout'
-  const title = objects.length > 1 ? `${objects.length}개 요소` : `${TYPE_TITLES[single?.type] ?? '요소'} 옵션`
+  // 메모(종이 그림이 있는 도형) · 디데이 같은 스티커형 위젯은 보관함의 위젯 칸에서 붙이므로 '위젯'으로 부른다
+  const typeTitle = single?.art || single?.widget ? '위젯' : single && isRouteNode(single) ? '지점' : TYPE_TITLES[single?.type]
+  const title = objects.length > 1 ? `${objects.length}개 요소` : `${typeTitle ?? '요소'} 옵션`
   const updateEach = (makePatch, record = true) =>
     dispatch({ type: 'updateMany', record, patches: Object.fromEntries(editable.map((o) => [o.id, makePatch(o)])) })
   // 각도: 하나면 제자리(가운데 기준)에서, 여러 개(그룹)면 묶음 가운데를 기준으로 함께 돌린다.
@@ -88,18 +99,22 @@ export default function MorePanel({ objects, dispatch, onReplacePhoto, onClose }
           <Text style={styles.hint}>잠긴 요소예요. 잠금을 풀면 편집할 수 있어요.</Text>
         ) : current === 'style' ? (
           <>
-            {isPhoto && (
+            {isShape && <ShapeSettings embedded showShapePicker={false} settings={single} onCheckpoint={() => dispatch({type:'checkpoint'})} onCommit={() => dispatch({type:'commitCheckpoint'})} onChange={(patch,record=true) => updateEach(()=>patch,record)} />}
+            {/* 여러 칸 틀은 칸마다 '칸 사진'에서 바꾼다 */}
+            {isPhoto && !isStripFrame(single.frame) && (
               <Pressable
                 onPress={() => onReplacePhoto(single.id)}
                 accessibilityRole="button"
                 style={({ pressed }) => [styles.replaceButton, pressed && styles.pressed]}
               >
-                <Icon name="swap" size={16} />
-                <Text style={styles.chipText}>사진 바꾸기</Text>
+                <Icon name="swap" size={16} forText={12.5} />
+                <Text style={styles.chipText}>{hasPhotoMedia(single) ? '사진 바꾸기' : '사진 넣기'}</Text>
               </Pressable>
             )}
-            {isPhoto && <FrameOptions photo={single} dispatch={dispatch} />}
+            {isPhoto && <FrameOptions photo={single} dispatch={dispatch} onReplaceCell={onReplaceCell} onCropCell={onCropCell} />}
 
+            {isWidget && <DdayOptions object={single} dispatch={dispatch} />}
+            {isRouteStop && <RouteNodeOptions object={single} dispatch={dispatch} />}
             <Section title="불투명도">
               <Slider
                 value={objectOpacity(editable[0])}
@@ -112,11 +127,13 @@ export default function MorePanel({ objects, dispatch, onReplacePhoto, onClose }
                 unit="%"
                 label="불투명도"
                 onStart={() => dispatch({ type: 'checkpoint' })}
+                onEnd={() => dispatch({type:'commitCheckpoint'})}
                 onChange={(value) => updateEach(() => ({ opacity: Math.round(value * 100) / 100 }), false)}
               />
             </Section>
 
-            <EffectOptions objects={editable} dispatch={dispatch} />
+            {/* 위젯 · 여행 노선 지점은 코드로 그려 윤곽선·그림자를 따라 그릴 수 없다 */}
+            <EffectOptions objects={editable.filter((o) => !o.widget && !isRouteNode(o))} dispatch={dispatch} />
 
             {isTape && (
               <TapeOptions tape={single} dispatch={dispatch} />
@@ -148,6 +165,7 @@ export default function MorePanel({ objects, dispatch, onReplacePhoto, onClose }
                   dispatch({ type: 'checkpoint' })
                   pivotRef.current = unionCenter(editable)
                 }}
+                onEnd={() => dispatch({type:'commitCheckpoint'})}
                 onChange={(value) => rotateTo(Math.round(value))}
               />
             </Section>
@@ -187,7 +205,7 @@ const styles = StyleSheet.create({
     maxWidth: '100%',
     maxHeight: '100%',
     flexShrink: 1,
-    borderRadius: 24,
+    borderRadius: 16,
     backgroundColor: 'rgba(255,255,255,0.97)',
     // 웹에서는 뒤 캔버스가 살짝 비치는 유리 질감 (네이티브는 불투명 흰 배경)
     ...Platform.select({ web: { backgroundColor: 'rgba(255,255,255,0.86)', backdropFilter: 'blur(18px)' }, default: {} }),
@@ -201,13 +219,13 @@ const styles = StyleSheet.create({
     marginTop: 10,
     padding: 3,
     borderRadius: 12,
-    backgroundColor: '#EEF2F9',
+    backgroundColor: colors.surfaceMuted,
   },
   tab: { flex: 1, height: 38, alignItems: 'center', justifyContent: 'center', borderRadius: 9 },
-  tabActive: { backgroundColor: colors.surface, boxShadow: '0px 1px 3px rgba(11, 25, 87, 0.14)' },
+  tabActive: { backgroundColor: colors.surface, boxShadow: '0px 1px 3px rgba(28, 28, 28, 0.07)' },
   tabText: { fontSize: 13, fontWeight: '700', color: colors.textMuted },
   tabTextActive: { color: colors.text, fontWeight: '800' },
-  title: { fontSize: 15, fontWeight: '800', color: colors.text },
+  title: { fontSize: 15, fontWeight: '700', color: colors.text },
   close: { padding: 6 },
   scroll: { flexShrink: 1 },
   body: { paddingHorizontal: 16, paddingBottom: 18 },
@@ -216,7 +234,7 @@ const styles = StyleSheet.create({
   sectionTitle: { marginBottom: 8, fontSize: 12, fontWeight: '700', color: colors.textMuted },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   chip: {
-    minHeight: 40,
+    minHeight: 48,
     paddingHorizontal: 12,
     justifyContent: 'center',
     borderRadius: 10,
@@ -224,7 +242,7 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     backgroundColor: colors.surface,
   },
-  pressed: { backgroundColor: colors.primarySoft },
+  pressed: {}, // 눌림 효과 없음(사용자 지시)
   replaceButton: {
     flexDirection: 'row',
     alignItems: 'center',

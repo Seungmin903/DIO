@@ -1,73 +1,59 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native'
-import Svg, { Path, Rect } from 'react-native-svg'
-import { colors } from '../../../shared/theme'
-import { FRAME_INSETS, PHOTO_FRAMES, PHOTO_SHAPES, POLAROID_RATIOS } from '../../constants'
-import { framedHeight, isBorderFrame, ratioValueOf, resizeAroundCenter } from '../../utils/objects'
+import { useState } from 'react'
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native'
+import Svg, { Path } from 'react-native-svg'
+import { colors, DISABLED_OPACITY } from '../../../shared/theme'
+import { FRAME_TEXT, PHOTO_FRAME_ASSETS, PHOTO_SHAPES } from '../../constants'
+import { useMediaUri } from '../../hooks/useMediaUri'
+import { photoShapePatch } from '../../utils/objects'
+import { isStripFrame } from '../../utils/photoStrip'
 import { shapePath } from '../../utils/shapes'
 import { frameColorOf, photoCornerRadius } from '../canvas/ObjectView'
+import { frameTextOf } from '../canvas/PhotoFrame'
+import PenSafeTextInput from '../controls/PenSafeTextInput'
 import ColorField from '../controls/ColorField'
+import Icon from '../controls/Icon'
 import Slider from '../controls/Slider'
-import FrameBackdrop from '../canvas/PhotoFrame'
-
-const PREVIEW = 46
-const PHOTO_FILL = '#B9CBE6' // 미리보기 안의 사진 자리
+import { PHOTO_FILL, PREVIEW, TileGrid } from './PhotoFramePicker'
 
 /**
- * 사진 프레임 (옵션 패널 '꾸미기' 맨 위). 미리보기 칸을 눌러 바꾼다.
- * - 모양(없음·라운드·원형·하트·별): 사진 자체를 그 모양으로 자른다.
- * - 틀(폴라로이드·필름·우표·액자): 여백 있는 틀에 사진을 넣는다. 안쪽 사진 비율은 '자르기'에서 고른다.
- * 틀 색을 쓰는 프레임(폴라로이드·우표·액자)은 아래에 틀 색 피커가 나온다.
+ * 사진 틀·모양 (옵션 패널 '꾸미기' 맨 위). 틀은 사진 보관함에서 붙일 때 정하고, 붙인 뒤에는 바꾸지 않는다.
+ * - 글자: 티켓 · 인생네컷에 인쇄된 글자 (처음엔 기본 글자)
+ * - 칸 사진: 여러 칸 틀(인생네컷·필름 4컷)에서 칸을 골라 사진을 바꾸거나 비운다.
+ * - 모양(사각·라운드·원형·하트·별): 틀 없는 사진만. 사진 자체를 그 모양으로 자른다.
+ * 틀 색을 쓰는 틀(폴라로이드·우표·티켓 4종·인생네컷)은 아래에 틀 색 피커가 나온다.
  */
-export default function FrameOptions({ photo, dispatch }) {
+export default function FrameOptions({ photo, dispatch, onReplaceCell, onCropCell }) {
   const update = (patch) => dispatch({ type: 'updateObject', id: photo.id, record: true, patch })
-  const current = isBorderFrame(photo.frame) ? photo.frame : photo.shape
-  const frameInfo = PHOTO_FRAMES.find((f) => f.id === current)
+  const strip = isStripFrame(photo.frame)
+  // 예전 문서의 액자도 틀 색은 계속 바꿀 수 있다
+  const colored = PHOTO_FRAME_ASSETS.find((f) => f.id === photo.frame)?.colored || photo.frame === 'frame'
 
-  function applyFrame(frame) {
-    if (frame.id === current) return
-    // 지금 안쪽 사진의 비율 (틀이면 자르기 비율, 모양이면 지금 크기)
-    const innerRatio = isBorderFrame(photo.frame)
-      ? ratioValueOf(photo.ratio, photo) ?? photo.imageWidth / photo.imageHeight
-      : photo.w / photo.h
-    if (frame.kind === 'border') {
-      const ratio = POLAROID_RATIOS.some((r) => r.id === photo.ratio) ? photo.ratio : innerRatio === 1 ? '1:1' : 'original'
-      update({ frame: frame.id, ratio, ...resizeAroundCenter(photo, photo.w, framedHeight(photo.w, ratio, photo, frame.id)) })
-      return
-    }
-    const square = PHOTO_SHAPES.find((s) => s.id === frame.id)?.square
-    if (square) {
-      const size = Math.min(photo.w, photo.h)
-      update({ frame: 'shape', shape: frame.id, ...resizeAroundCenter(photo, size, size) })
-      return
-    }
-    // 사각·라운드는 모서리 둥글기를 그 모양의 기본값으로 되돌린다
-    update({ frame: 'shape', shape: frame.id, radius: undefined, ...resizeAroundCenter(photo, photo.w, photo.w / innerRatio) })
+  const apply = (patch) => {
+    if (patch && Object.keys(patch).length) update(patch)
   }
 
   return (
     <View style={styles.section}>
-      <Text style={styles.title}>틀 모양</Text>
-      <View style={styles.grid}>
-        {PHOTO_FRAMES.map((frame) => {
-          const active = frame.id === current
-          return (
-            <Pressable
-              key={frame.id}
-              onPress={() => applyFrame(frame)}
-              accessibilityRole="button"
-              accessibilityLabel={`틀 모양 ${frame.name}`}
-              accessibilityState={{ selected: active }}
-              style={[styles.cell, active && styles.cellActive]}
-            >
-              {/* 미리보기는 늘 그 틀의 기본 색으로 (고른 틀 색상은 반영하지 않는다) */}
-              <FramePreview frame={frame} color={frameColorOf({ frame: frame.id })} />
-              <Text style={styles.name} numberOfLines={1}>
-                {frame.name}
-              </Text>
-            </Pressable>
-          )
-        })}
-      </View>
+      {FRAME_TEXT[photo.frame] && <FrameTextOptions photo={photo} dispatch={dispatch} />}
+
+      {strip && <CellOptions photo={photo} dispatch={dispatch} onReplaceCell={onReplaceCell} onCropCell={onCropCell} />}
+
+      {photo.frame === 'shape' && (
+        <>
+          <Text style={[styles.title, styles.subTitle]}>모양</Text>
+          <TileGrid
+            items={PHOTO_SHAPES}
+            value={photo.shape}
+            onSelect={(shape) => apply(photoShapePatch(photo, shape.id))}
+            label={(shape) => `사진 모양 ${shape.name}`}
+            renderPreview={(shape) => (
+              <Svg width={PREVIEW} height={PREVIEW}>
+                <Path d={shapePath(shape.id, PREVIEW - 8, PREVIEW - 8)} fill={PHOTO_FILL} transform="translate(4 4)" />
+              </Svg>
+            )}
+          />
+        </>
+      )}
 
       {photo.frame === 'shape' && (photo.shape === 'rect' || photo.shape === 'round') && (
         <>
@@ -83,6 +69,7 @@ export default function FrameOptions({ photo, dispatch }) {
             unit="%"
             label="모서리 둥글기"
             onStart={() => dispatch({ type: 'checkpoint' })}
+            onEnd={() => dispatch({ type: 'commitCheckpoint' })}
             onChange={(value) =>
               dispatch({ type: 'updateObject', id: photo.id, record: false, patch: { radius: Math.round(value * 100) / 100 } })
             }
@@ -90,7 +77,7 @@ export default function FrameOptions({ photo, dispatch }) {
         </>
       )}
 
-      {frameInfo?.colored && (
+      {colored && (
         <>
           {/* 틀 색: 프리셋 없이 피커로 직접 고른다 */}
           <ColorField
@@ -98,6 +85,7 @@ export default function FrameOptions({ photo, dispatch }) {
             label="틀 색상"
             value={frameColorOf(photo)}
             onStart={() => dispatch({ type: 'checkpoint' })}
+            onEnd={() => dispatch({ type: 'commitCheckpoint' })}
             onChange={(value) => dispatch({ type: 'updateObject', id: photo.id, record: false, patch: { frameColor: value } })}
           />
         </>
@@ -106,45 +94,162 @@ export default function FrameOptions({ photo, dispatch }) {
   )
 }
 
-function FramePreview({ frame, color }) {
-  if (frame.kind === 'shape') {
-    return (
-      <Svg width={PREVIEW} height={PREVIEW}>
-        <Path d={shapePath(frame.id, PREVIEW - 8, PREVIEW - 8)} fill={PHOTO_FILL} transform="translate(4 4)" />
-      </Svg>
-    )
-  }
-  const insets = FRAME_INSETS[frame.id]
-  const w = PREVIEW - 6
-  const inner = { left: w * insets.side, top: w * insets.top, width: w * (1 - insets.side * 2) }
-  inner.height = inner.width // 미리보기는 정사각 사진
-  const h = inner.top + inner.height + w * insets.bottom
+/**
+ * 여러 칸 틀의 칸 사진: 칸을 고르고 아래 버튼으로 넣기·바꾸기 · 자르기 · 비우기 (손가락으로 누르기 쉬운 크기 유지).
+ * 캔버스에서 칸을 두 번 눌러도 같다 (빈 칸은 넣기, 찬 칸은 자르기).
+ */
+function CellOptions({ photo, dispatch, onReplaceCell, onCropCell }) {
+  const cells = photo.cells ?? []
+  const [picked, setPicked] = useState(() => Math.max(0, cells.findIndex((cell) => !cell)))
+  const index = Math.min(picked, cells.length - 1)
+  const filled = Boolean(cells[index])
+  const clear = () =>
+    dispatch({ type: 'updateObject', id: photo.id, record: true, patch: { cells: cells.map((cell, i) => (i === index ? null : cell)) } })
   return (
-    <View style={{ width: w, height: h, marginVertical: (PREVIEW - h) / 2 }}>
-      <FrameBackdrop frame={frame.id} width={w} height={h} inner={inner} color={color} />
-      <Svg width={w} height={h} style={StyleSheet.absoluteFill}>
-        <Rect x={inner.left} y={inner.top} width={inner.width} height={inner.height} fill={PHOTO_FILL} />
-      </Svg>
-    </View>
+    <>
+      <Text style={[styles.title, styles.subTitle]}>칸 사진</Text>
+      <View style={styles.cells}>
+        {cells.map((cell, i) => (
+          <Pressable
+            key={i}
+            onPress={() => setPicked(i)}
+            accessibilityRole="button"
+            accessibilityLabel={`${i + 1}번 칸${cell ? '' : ' (비어 있음)'}`}
+            accessibilityState={{ selected: i === index }}
+            style={[styles.cellSlot, i === index && styles.cellActive]}
+          >
+            {cell ? <CellThumb cell={cell} /> : <Icon name="plus" size={16} color={colors.textMuted} />}
+            <Text style={styles.cellNumber}>{i + 1}</Text>
+          </Pressable>
+        ))}
+      </View>
+      <View style={styles.actions}>
+        <Pressable
+          onPress={() => onReplaceCell?.(photo.id, index)}
+          accessibilityRole="button"
+          accessibilityLabel={filled ? `${index + 1}번 칸 사진 바꾸기` : `${index + 1}번 칸에 사진 넣기`}
+          style={({ pressed }) => [styles.action, pressed && styles.pressed]}
+        >
+          <Icon name={filled ? 'swap' : 'image'} size={16} forText={13} />
+          <Text style={styles.actionText}>{filled ? '바꾸기' : `${index + 1}번 칸에 넣기`}</Text>
+        </Pressable>
+        {filled && (
+          <Pressable
+            onPress={() => onCropCell?.(photo.id, index)}
+            accessibilityRole="button"
+            accessibilityLabel={`${index + 1}번 칸 자르기`}
+            style={({ pressed }) => [styles.action, pressed && styles.pressed]}
+          >
+            <Icon name="crop" size={16} forText={13} />
+            <Text style={styles.actionText}>자르기</Text>
+          </Pressable>
+        )}
+        <Pressable
+          onPress={clear}
+          disabled={!filled}
+          accessibilityRole="button"
+          accessibilityLabel={`${index + 1}번 칸 비우기`}
+          accessibilityState={{ disabled: !filled }}
+          style={({ pressed }) => [styles.action, !filled && styles.disabled, pressed && styles.pressed]}
+        >
+          <Text style={styles.actionText}>비우기</Text>
+        </Pressable>
+      </View>
+    </>
   )
+}
+
+/** 틀에 인쇄된 글자 입력칸. 입력을 시작할 때 한 번만 되돌리기 지점을 만든다. */
+function FrameTextOptions({ photo, dispatch }) {
+  const text = frameTextOf(photo.frame, photo.frameText)
+  return (
+    <>
+      <Text style={styles.title}>글자</Text>
+      <View style={styles.fields}>
+        {FRAME_TEXT[photo.frame].fields.map((field) => (
+          <View key={field.key} style={styles.field}>
+            <Text style={styles.fieldName}>{field.name}</Text>
+            <PenSafeTextInput
+              value={text[field.key] ?? ''}
+              onFocus={() => dispatch({ type: 'checkpoint' })}
+              onBlur={() => dispatch({ type: 'commitCheckpoint' })}
+              onChangeText={(value) =>
+                dispatch({ type: 'updateObject', id: photo.id, record: false, patch: { frameText: { ...photo.frameText, [field.key]: value } } })
+              }
+              accessibilityLabel={`${field.name} 글자`}
+              maxLength={40}
+              style={styles.input}
+            />
+          </View>
+        ))}
+      </View>
+    </>
+  )
+}
+
+function CellThumb({ cell }) {
+  const uri = useMediaUri(cell, { still: true })
+  return <Image source={uri ? { uri } : null} style={StyleSheet.absoluteFill} resizeMode="cover" />
 }
 
 const styles = StyleSheet.create({
   section: { marginTop: 14 },
   title: { marginBottom: 8, fontSize: 12, fontWeight: '700', color: colors.textMuted },
   subTitle: { marginTop: 12 },
-  // 한 줄 3칸이 패널 폭에 꽉 차게
-  grid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 6 },
-  cell: {
-    width: '32.3%',
+  fields: { gap: 6 },
+  field: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  fieldName: { width: 64, fontSize: 12, fontWeight: '600', color: colors.textMuted },
+  input: {
+    flex: 1,
+    minHeight: 48,
+    paddingHorizontal: 10,
+    borderRadius: 9,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  cells: { flexDirection: 'row', gap: 6 },
+  cellSlot: {
+    flex: 1,
+    aspectRatio: 1,
     alignItems: 'center',
-    gap: 4,
-    paddingVertical: 8,
+    justifyContent: 'center',
+    overflow: 'hidden',
     borderRadius: 10,
     borderWidth: 1,
     borderColor: colors.border,
     backgroundColor: '#F4F6FA',
   },
-  cellActive: { borderWidth: 2, borderColor: colors.primary, backgroundColor: colors.primarySoft },
-  name: { fontSize: 11, fontWeight: '600', color: colors.text },
+  cellActive: { borderWidth: 2, borderColor: colors.primary },
+  cellNumber: {
+    position: 'absolute',
+    left: 4,
+    top: 4,
+    minWidth: 16,
+    paddingHorizontal: 3,
+    borderRadius: 8,
+    overflow: 'hidden',
+    textAlign: 'center',
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.text,
+    backgroundColor: colors.surface,
+  },
+  actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 },
+  action: {
+    minHeight: 48,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    backgroundColor: colors.primarySoft,
+  },
+  actionText: { fontSize: 13, fontWeight: '600', color: colors.text },
+  disabled: { opacity: DISABLED_OPACITY },
+  pressed: {}, // 눌림 효과 없음(사용자 지시)
 })

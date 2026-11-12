@@ -2,7 +2,7 @@ import EditorModal from './controls/EditorModal'
 import { Segmented, ToolPanelHeader, toolPanelStyles } from './ToolPanel'
 import { ExportButton } from './ExportScreen'
 import { Fragment, useEffect, useMemo, useState } from 'react'
-import { Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native'
+import { Keyboard, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native'
 import { colors } from '../../shared/theme'
 import { pageSize } from '../utils/pageGeometry.js'
 import { createMenuPdfSnapshot, menuPdfPolicy, pdfMenuFailure } from '../utils/pdfMenu.js'
@@ -11,7 +11,7 @@ import { isAnimatedMedia } from '../stickerAssets'
 
 export { ExportButton }
 
-// 무엇을 내보낼지 (문서 앱 인쇄 창처럼: 현재 페이지 · 전체 · 페이지 지정). 영역 내보내기는 지금은 뺐다.
+// 페이지 범위와 별도로 현재 페이지 PNG에서 좌표 영역을 고를 수 있다.
 const MODES = [
   { id: 'current', label: '현재 페이지' },
   { id: 'all', label: '전체 페이지' },
@@ -19,23 +19,29 @@ const MODES = [
 ]
 const FORMATS = [{ id: 'png', label: 'PNG' }, { id: 'pdf', label: 'PDF' }, { id: 'gif', label: 'GIF' }]
 const RUN_TITLES = { png: 'PNG 만들기', pdf: 'PDF 만들기', gif: 'GIF 만들기' }
-const BUBBLE_WIDTH = 380
+const BUBBLE_WIDTH = 360 // 코덱스 21번: 내보내기 버튼 아래 360 폭 앵커 패널
 
 /** 무엇을·어떤 형식으로 내보낼지 고르는 말풍선. 만들기를 누르면 닫히고, 만들기·저장은 편집 화면이 화면 없이 진행한다 (ExportRunner) */
 export default function ExportMenu({ mobilePortrait = false, anchor, doc, currentId, onClose, onRegion, onPng, onGif, onPdf }) {
   const viewport = useWindowDimensions()
   const Root = mobilePortrait ? View : Fragment
   const [modalHeight, setModalHeight] = useState(null)
+  // 키보드는 창 위로 올라오고 창 크기는 줄지 않아, 페이지 지정 칸을 누르면 형식 · 만들기 버튼이 키보드 뒤로 간다. 가운데 창은 키보드 높이만큼 위로 비켜 서고 안에서 스크롤한다
+  const [keyboardHeight, setKeyboardHeight] = useState(0)
+  useEffect(() => {
+    const show = Keyboard.addListener('keyboardDidShow', (event) => setKeyboardHeight(event.endCoordinates?.height ?? 0))
+    const hide = Keyboard.addListener('keyboardDidHide', () => setKeyboardHeight(0))
+    return () => { show.remove(); hide.remove() }
+  }, [])
   const centered = mobilePortrait || !anchor
-  // 말풍선: 내보내기 버튼 바로 아래, 오른쪽 끝을 버튼에 맞추고 꼬리가 버튼 가운데를 가리킨다
+  // 내보내기 버튼 바로 아래, 오른쪽 끝을 버튼에 맞춘다. 다른 옵션 창 · 말풍선처럼 꼬리는 두지 않는다
   const panelWidth = Math.min(BUBBLE_WIDTH, viewport.width - 32)
   const panelTop = Math.min(anchor ? anchor.y + anchor.height + 12 : 80, Math.max(16, viewport.height - 200))
   const panelLeft = Math.max(16, Math.min(anchor ? anchor.x + anchor.width - panelWidth : (viewport.width - panelWidth) / 2, viewport.width - panelWidth - 16))
-  const tailLeft = anchor ? Math.min(panelWidth - 28, Math.max(16, anchor.x + anchor.width / 2 - panelLeft - 8)) : null
   // 기준 버튼이 없으면(폰) 말풍선 대신 화면 가운데 창으로 띄운다.
   const placement = !centered
     ? { position: 'absolute', width: panelWidth, left: panelLeft, top: panelTop, maxHeight: viewport.height - panelTop - 16 }
-    : { width: panelWidth, maxHeight: Math.max(1, (mobilePortrait ? modalHeight ?? viewport.height : viewport.height) - 32) }
+    : { width: panelWidth, maxHeight: Math.max(1, (mobilePortrait ? modalHeight ?? viewport.height : viewport.height) - 32 - keyboardHeight) }
   const [mode, setMode] = useState('current'), [format, setFormat] = useState('png')
   const number = doc.pages.findIndex((p) => p.id === currentId) + 1
   const [spec, setSpec] = useState(String(number)) // 페이지 지정: '1-3, 5'
@@ -81,13 +87,11 @@ export default function ExportMenu({ mobilePortrait = false, anchor, doc, curren
     // 현재 페이지는 PNG 부터, 여러 페이지는 PDF 한 파일, 영역은 PNG
     setFormat(value === 'current' ? 'png' : 'pdf')
   }
-  return <EditorModal visible transparent animationType="fade" onRequestClose={onClose}>
+  return <EditorModal visible transparent animationType="none" onRequestClose={onClose}>
     <Root {...(mobilePortrait ? { style: styles.portraitRoot, onLayout: (event) => setModalHeight(event.nativeEvent.layout.height) } : {})}>
     {/* 화면을 어둡게 덮지 않는다 (덮으면 뒤의 요소가 반투명해 보였다). 바깥을 누르면 닫는다 */}
     <Pressable style={StyleSheet.absoluteFill} onPress={onClose} accessibilityLabel="내보내기 닫기" />
-    {/* 꼬리는 카드 바깥에 그린다 (카드 안에 두면 둥근 모서리 자르기에 가려졌다) */}
-    {!centered && tailLeft != null && <View pointerEvents="none" style={[styles.tail, { left: panelLeft + tailLeft, top: panelTop - 7 }]} />}
-    <View style={mobilePortrait ? styles.portraitCenter : anchor ? StyleSheet.absoluteFill : styles.center} pointerEvents="box-none">
+    <View style={centered && keyboardHeight > 0 ? { ...(mobilePortrait ? styles.portraitCenter : styles.center), paddingBottom: 16 + keyboardHeight } : mobilePortrait ? styles.portraitCenter : anchor ? StyleSheet.absoluteFill : styles.center} pointerEvents="box-none">
     <View style={[toolPanelStyles.card, styles.card, placement]} accessibilityViewIsModal>
       <ToolPanelHeader icon="share" title="내보내기" closeLabel="내보내기 창 닫기" onClose={onClose} />
       <ScrollView contentContainerStyle={toolPanelStyles.content}>
@@ -113,6 +117,7 @@ export default function ExportMenu({ mobilePortrait = false, anchor, doc, curren
         {!!invalid && <Text accessibilityRole="alert" style={styles.hint}>{invalid}</Text>}
         {!!failure && <Text accessibilityRole="alert" style={styles.hint}>{failure}</Text>}
         <ExportButton primary title={RUN_TITLES[format]} onPress={() => run()} disabled={!!invalid || changed} />
+        {mode === 'current' && format === 'png' && onRegion && <ExportButton title="영역 선택 내보내기" label="영역 선택" onPress={onRegion} disabled={changed} />}
       </ScrollView>
     </View>
     </View>
@@ -120,20 +125,18 @@ export default function ExportMenu({ mobilePortrait = false, anchor, doc, curren
   </EditorModal>
 }
 const styles = StyleSheet.create({
-  card: { backgroundColor: colors.surface }, // 둥글기·그림자는 공용 옵션 창(카드)을 따른다
+  card: { backgroundColor: colors.surface }, // 둥글기 12·테두리·그림자 없음은 공용 옵션 창(카드)을 따른다
   portraitRoot: { flex: 1 },
   portraitCenter: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 16 },
-  center: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center', padding: 16 },
-  // 말풍선 꼬리: 카드 위쪽에서 내보내기 버튼 가운데를 가리킨다
-  tail: { position: 'absolute', width: 16, height: 16, borderRadius: 3, backgroundColor: colors.surface, transform: [{ rotate: '45deg' }] },
+  center: { ...StyleSheet.absoluteFill, alignItems: 'center', justifyContent: 'center', padding: 16 },
   notice: { gap: 6 },
   hint: { color: colors.textMuted, fontSize: 12.5, lineHeight: 19 },
   tiles: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  tile: { width: 104, padding: 4, gap: 4, alignItems: 'center', borderRadius: 10, borderWidth: 1.5, borderColor: 'transparent', backgroundColor: '#EEF2F9' },
+  tile: { width: 104, padding: 4, gap: 4, alignItems: 'center', borderRadius: 10, borderWidth: 1.5, borderColor: 'transparent', backgroundColor: colors.surfaceMuted },
   tileOn: { borderColor: colors.primary, backgroundColor: colors.surface },
   tileThumb: { width: 96, overflow: 'hidden', borderRadius: 4, backgroundColor: colors.surface },
   tileText: { fontSize: 12, fontWeight: '700', color: colors.textMuted },
-  tileTextOn: { color: colors.primary },
-  spec: { height: 42, paddingHorizontal: 12, borderWidth: 1, borderColor: colors.border, borderRadius: 11, color: colors.text, fontSize: 15, fontWeight: '700', textAlign: 'left', ...(Platform.OS === 'web' && { outlineStyle: 'none' }) },
+  tileTextOn: { color: colors.primaryStrong },
+  spec: { height: 40, paddingHorizontal: 12, borderWidth: 1, borderColor: colors.cardBorder, borderRadius: 10, color: colors.text, fontSize: 15, fontWeight: '700', textAlign: 'left', ...(Platform.OS === 'web' && { outlineStyle: 'none' }) },
   input: { width: 56, height: 38, borderWidth: 1, borderColor: colors.border, borderRadius: 10, textAlign: 'center', color: colors.text, fontSize: 14, fontWeight: '700' },
 })

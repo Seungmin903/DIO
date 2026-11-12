@@ -1,35 +1,49 @@
 export const REGION_MIN = 32
+export const REGION_HANDLE_SIZE = 44
 const clamp = (n, min, max) => Math.max(min, Math.min(max, n))
+export const REGION_CORNERS = { nw: '왼쪽 위', ne: '오른쪽 위', sw: '왼쪽 아래', se: '오른쪽 아래' }
 export const REGION_PRESETS = {
   free: { label: '자유' }, square: { label: '정사각형 1:1', ratio: 1, width: 1080, height: 1080 },
   portrait: { label: '세로 피드 4:5', ratio: 4 / 5, width: 1080, height: 1350 },
   story: { label: '스토리 9:16', ratio: 9 / 16, width: 1080, height: 1920 },
 }
 export function validRegion(r, page, ratio) {
-  return !!r && [r.x,r.y,r.width,r.height].every(Number.isFinite) && r.x >= 0 && r.y >= 0 && r.width >= REGION_MIN && r.height >= REGION_MIN && r.x + r.width <= page.width + 1e-6 && r.y + r.height <= page.height + 1e-6 && (!ratio || Math.abs(r.width/r.height/ratio-1) <= 1e-6)
+  return !!r && [r.x, r.y, r.width, r.height].every(Number.isFinite)
+    && r.x >= 0 && r.y >= 0 && r.width >= REGION_MIN && r.height >= REGION_MIN
+    && r.x + r.width <= page.width + 1e-6 && r.y + r.height <= page.height + 1e-6
+    && (!ratio || Math.abs(r.width / r.height / ratio - 1) <= 1e-6)
 }
-export function moveRegion(r, dx, dy, page) {
-  return { ...r, x: clamp(r.x+dx,0,page.width-r.width), y: clamp(r.y+dy,0,page.height-r.height) }
-}
-export function regionFromDrag(start, end, page, ratio) {
-  const x = clamp(start.x,0,page.width), y = clamp(start.y,0,page.height)
-  let dx = clamp(end.x,0,page.width)-x, dy = clamp(end.y,0,page.height)-y
-  if (ratio) {
-    const sx = dx < 0 ? -1 : 1, sy = dy < 0 ? -1 : 1
-    const width = Math.min(Math.max(Math.abs(dx),Math.abs(dy)*ratio), sx < 0 ? x : page.width-x, (sy < 0 ? y : page.height-y)*ratio)
-    dx = sx*width; dy = sy*width/ratio
+
+export function regionDragAction(point, region, zoom) {
+  const dx = (point.x - region.x) * zoom, dy = (point.y - region.y) * zoom
+  const width = region.width * zoom, height = region.height * zoom
+  const halfW = Math.min(REGION_HANDLE_SIZE, width) / 2
+  const halfH = Math.min(REGION_HANDLE_SIZE, height) / 2
+  for (const corner of Object.keys(REGION_CORNERS)) {
+    if (Math.abs(dx - (corner.includes('e') ? width : 0)) < halfW
+      && Math.abs(dy - (corner.includes('s') ? height : 0)) < halfH) return corner
   }
-  return { x: Math.min(x,x+dx), y: Math.min(y,y+dy), width: Math.abs(dx), height: Math.abs(dy) }
+  return dx >= 0 && dx <= width && dy >= 0 && dy <= height ? 'move' : null
+}
+
+export function moveRegion(region, dx, dy, page) {
+  return { ...region,
+    x: clamp(region.x + dx, 0, Math.max(0, page.width - region.width)),
+    y: clamp(region.y + dy, 0, Math.max(0, page.height - region.height)),
+  }
 }
 export function resizeRegion(r, corner, dx, dy, page, ratio) {
   const left = corner.includes('w'), top = corner.includes('n')
   const anchor = { x: left ? r.x+r.width : r.x, y: top ? r.y+r.height : r.y }
   const maxW = left ? anchor.x : page.width-anchor.x, maxH = top ? anchor.y : page.height-anchor.y
-  let width = clamp(r.width+(left ? -dx : dx),Math.min(REGION_MIN,maxW),maxW)
-  let height = clamp(r.height+(top ? -dy : dy),Math.min(REGION_MIN,maxH),maxH)
+  const dw = left ? -dx : dx, dh = top ? -dy : dy
+  let width = clamp(r.width + dw, Math.min(REGION_MIN, maxW), maxW)
+  let height = clamp(r.height + dh, Math.min(REGION_MIN, maxH), maxH)
   if (ratio) {
     const minW = Math.max(REGION_MIN,REGION_MIN*ratio)
-    width = Math.min(Math.min(maxW,maxH*ratio), Math.max(minW,Math.max(width,height*ratio)))
+    // 비율을 유지하는 대각선에 움직임을 투영해 가로나 세로로만 끌어도 조절한다.
+    const delta = (dw * ratio + dh) * ratio / (ratio * ratio + 1)
+    width = Math.min(Math.min(maxW, maxH * ratio), Math.max(minW, r.width + delta))
     height = width/ratio
   }
   return { x: left ? anchor.x-width : anchor.x, y: top ? anchor.y-height : anchor.y, width, height }
@@ -49,18 +63,4 @@ export function regionOutput(region, preset = 'free') {
   const width = config.width ?? Math.max(1,Math.floor(region.width*s)), height = config.height ?? Math.max(1,Math.floor(region.height*s))
   const magnification = Math.max(width/region.width,height/region.height)
   return { width,height,magnification,blocked:magnification>6,needsConfirmation:magnification>3&&magnification<=6 }
-}
-
-/** 새 드래그가 취소되거나 유효하지 않으면 기존 유효 영역을 보존한다. */
-export function finishRegionDrag(previous, draft, { cancelled, moved, page, ratio }) {
-  return cancelled || !moved || !validRegion(draft, page, ratio) ? previous : draft
-}
-
-/** 게시 안내는 조작 오차를 허용한다. 출력 프리셋의 엄격한 비율 검증과 별개다. */
-export function regionPublishWarning(region, destination = 'feed') {
-  if (!(region.width > 0 && region.height > 0)) return false
-  const ratio = region.width / region.height
-  return destination === 'story'
-    ? Math.abs(ratio / (9 / 16) - 1) > 0.01 + 1e-12
-    : ratio < 0.8 || ratio > 1.91
 }

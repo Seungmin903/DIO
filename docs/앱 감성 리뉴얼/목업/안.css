@@ -1,0 +1,82 @@
+/* 안(skin)별 덮어쓰기 — 값은 코덱스 명세(2026-10-31)를 따른다. 클로드가 보정한 곳은 "내 판단"으로 표시한다.
+   A 햇살 드로어리 · B 포토부스 콜라주 · C 조용한 문구점 */
+.skin-a { --page-bg: #F3F3F7; --card-bg: #FFFFFF; --card-border: 1px solid #D9DCEF; --card-radius: 22px; --card-shadow: 0 8px 20px rgba(11,23,102,.09); --btn-radius: 16px; --field-radius: 16px; --accent: #FBE5A3; }
+.skin-b { --page-bg: #F3F3F7; --card-bg: #FFFFFF; --card-border: 1px solid #D9DCEF; --card-radius: 26px; --card-shadow: 0 10px 24px rgba(11,23,102,.11); --btn-radius: 20px; --field-radius: 18px; --accent: #DBDCF9; }
+.skin-c { --page-bg: #F3F3F7; --card-bg: #FFFFFF; --card-border: 1px solid rgba(11,23,102,.18); --card-radius: 16px; --card-shadow: 0 4px 12px rgba(11,23,102,.07); --btn-radius: 12px; --field-radius: 12px; --accent: #ABB1D8; }
+
+/* 큰 제목 자간 (크기는 가이드 값 그대로 — 내 판단: 코덱스가 지금 크기를 42로 읽었으나 실제는 29/30) */
+.skin-a .h-title { letter-spacing: -.8px; } .skin-b .h-title { letter-spacing: -1px; } .skin-c .h-title { letter-spacing: -.6px; }
+
+/* 종이결: SVG feTurbulence, 배경에만, 불투명도 .03 (글자 · 입력칸 · 표지 위에는 쓰지 않는다) */
+.grain { position: absolute; inset: 0; pointer-events: none; opacity: .035; mix-blend-mode: multiply;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 .1  0 0 0 0 .1  0 0 0 0 .2  0 0 0 .9 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>"); }
+
+/* 레일 · 탭 (A/B/C 공통) */
+.skin-a .rail, .skin-b .rail, .skin-c .rail { background: rgba(255,255,255,.78); }
+.skin-a .rail .ri.on, .skin-b .rail .ri.on, .skin-c .rail .ri.on { background: #F0F1F9; }
+.skin-a .tabs, .skin-b .tabs, .skin-c .tabs { border-radius: 28px; }
+
+/* 표지 그림자: 바닥 위에 놓인 느낌 */
+.skin-a .diary.lift0 .sh, .skin-b .diary.lift0 .sh { box-shadow: 0 10px 16px rgba(11,23,102,.16); }
+.skin-a .diary.lift1 .sh, .skin-b .diary.lift1 .sh { box-shadow: 0 14px 24px rgba(11,23,102,.18); }
+.skin-c .diary .sh { box-shadow: 0 5px 10px rgba(11,23,102,.10); }
+
+/* 칩 · 보기 전환 (A/B/C) */
+.skin-a .chips, .skin-b .chips { height: 48px; border-radius: 16px; background: rgba(255,255,255,.88); border-color: rgba(11,23,102,.12); }
+.skin-a .chips div, .skin-b .chips div { height: 40px; }
+.skin-a .chips div.on, .skin-b .chips div.on, .skin-c .chips div.on { background: #0B1766; color: #fff; border: 0; box-shadow: none; }
+.skin-c .chips { height: 44px; border-radius: 12px; background: #fff; } .skin-c .chips div { height: 36px; border-radius: 9px; }
+.skin-a .segsw, .skin-b .segsw { height: 46px; border-radius: 16px; } .skin-c .segsw { border-radius: 12px; }
+.skin-a .ib, .skin-b .ib { width: 52px; height: 52px; border-radius: 16px; } .skin-c .ib { width: 48px; height: 48px; border-radius: 12px; }
+.skin-a .fab, .skin-b .fab { width: 64px; height: 64px; border-radius: 20px; } .skin-c .fab { width: 60px; height: 60px; border-radius: 16px; }
+
+/* 로그인 */
+.skin-a .field, .skin-b .field { height: 56px; } .skin-c .field { height: 54px; border-color: rgba(11,23,102,.22); }
+.skin-a .btn, .skin-b .btn { height: 52px; } .skin-c .btn { height: 50px; }
+.skin-a .social .sc i, .skin-b .social .sc i { border: 1px solid rgba(11,23,102,.16); } .skin-c .social .sc i { width: 52px; height: 52px; border: 1px solid rgba(11,23,102,.16); }
+.skin-a .social .sc, .skin-b .social .sc, .skin-c .social .sc { font-size: 14px; font-weight: 700; }
+
+/* 빈 상태 · 라벨 */
+.empty-title { position: absolute; font-size: 16px; font-weight: 800; text-align: center; letter-spacing: -.2px; }
+.soon { position: absolute; font-size: 14px; font-weight: 700; color: var(--muted); }
+.ring { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; vertical-align: -1px; background: conic-gradient(var(--rc, var(--muted)) calc(var(--p) * 1turn), rgba(11,23,102,.14) 0); -webkit-mask: radial-gradient(farthest-side, transparent 38%, #000 40%); mask: radial-gradient(farthest-side, transparent 38%, #000 40%); }
+.tag-days { font-size: 14px; font-weight: 700; color: var(--muted); }
+.tag-days.hot, .tag-days.hot2 { color: #0B1766; --rc: #B98208; background: #FEF0BF; border-radius: 10px; padding: 1px 9px 1px 7px; width: fit-content; }
+.chk-sq { position: absolute; width: 28px; height: 28px; border-radius: 7px; background: #fff; border: 1.5px solid rgba(11,23,102,.3); }
+.avatar { display: grid; place-items: center; font-weight: 900; color: var(--text); background: var(--lilac); }
+.mini { position: absolute; }
+.fadewrap { filter: saturate(.38) brightness(1.05); opacity: .82; }
+.lab-dot { position: absolute; width: 28px; height: 28px; border-radius: 8px; background: #D8D9DE; border: 1px solid rgba(11,23,102,.12); display: grid; place-items: center; z-index: 5; }
+.pol-frame { position: absolute; background: #fff; box-shadow: 0 5px 12px rgba(11,23,102,.10); }
+.stamp { position: absolute; left: 0; right: 0; bottom: 0; height: 26px; background: rgba(255,255,255,.92); display: flex; align-items: center; justify-content: center; font-size: 12.5px; font-weight: 800; color: var(--muted); z-index: 6; border-radius: 0 0 14px 6px; }
+.stamp.hot { color: #0B1766; background: #FEF0BF; }
+
+/* 혼합안(H): A 규칙 위에 코덱스 확정 토큰. BI 토큰(primary · 네이비)은 바꾸지 않는다. */
+.skin-h { --page-bg: #F3F3F7; --card-bg: #FFFFFF; --card-radius: 18px; --card-shadow: 0 4px 12px rgba(11,23,102,.08); --btn-radius: 12px; --field-radius: 12px; }
+.skin-h.phone { --card-radius: 16px; }
+.skin-h .fab { border-radius: 18px; }
+.skin-h .h-title { letter-spacing: -.4px; }
+.ring2 { display: inline-block; width: 11px; height: 11px; border-radius: 50%; margin-right: 6px; vertical-align: -1px; background: conic-gradient(var(--rc, rgba(11,23,102,.68)) calc(var(--p) * 1turn), rgba(11,23,102,.16) 0); -webkit-mask: radial-gradient(farthest-side, transparent 70%, #000 72%); mask: radial-gradient(farthest-side, transparent 70%, #000 72%); }
+
+/* ---------- 색 규칙 v2 (2026-10-31): 메인 = UI 색상 계열, 보조 = 캐릭터 노랑 하나. 그 밖의 색상 계열은 UI 층에서 쓰지 않는다. ---------- */
+/* 알림 점: 적색 → 진한 노랑(코덱스: danger는 영구 삭제 확인에만) */
+.skin-a .rail .dot, .skin-b .rail .dot, .skin-c .rail .dot, .skin-a .tabs .dot, .skin-b .tabs .dot, .skin-c .tabs .dot { background: #B98208; }
+/* 레일 · 도구판은 흰색 + UI 계열 경계 */
+.skin-a .rail, .skin-b .rail, .skin-c .rail { background: #FFFFFF; border-right-color: #D9DCEF; }
+/* 표지 아래 그림자는 UI 계열 네이비(코덱스 값). 표지 색 자체는 사용자 콘텐츠라 건드리지 않는다. */
+.skin-a .diary.lift0 .sh { box-shadow: 0 10px 18px rgba(11,23,102,.14); }
+.skin-a .diary.lift1 .sh { box-shadow: 0 14px 24px rgba(11,23,102,.16); }
+.skin-b .diary.lift0 .sh { box-shadow: 0 12px 22px rgba(11,23,102,.16); }
+.skin-b .diary.lift1 .sh { box-shadow: 0 14px 26px rgba(11,23,102,.18); }
+.skin-c .diary .sh { box-shadow: 0 8px 14px rgba(11,23,102,.10); }
+/* 표지 라벨 띠: 다색 표지를 라벨이 증폭하지 않게 흰 · 라벤더 면 */
+.skin-a .diary .lab, .skin-b .diary .lab { background: #FFFFFF; border-top-color: #D9DCEF; border-bottom-color: #D9DCEF; box-shadow: none; }
+.skin-c .diary .lab { background: #F0F1F9; border-top-color: #D9DCEF; border-bottom-color: #D9DCEF; box-shadow: none; }
+.skin-a .avatar { background: #ABB1D8; }
+.skin-h .rail .dot, .skin-h .tabs .dot { background: #B98208; }
+.skin-h .rail { background: #FFFFFF; border-right-color: #D9DCEF; }
+.skin-h .chips div.on { background: #0B1766; color: #fff; border: 0; box-shadow: none; }
+.skin-h .diary .lab { background: #FFFFFF; border-top-color: #D9DCEF; border-bottom-color: #D9DCEF; box-shadow: none; }
+.skin-h .diary.lift0 .sh { box-shadow: 0 10px 18px rgba(11,23,102,.14); }
+.skin-h .diary.lift1 .sh { box-shadow: 0 14px 24px rgba(11,23,102,.16); }
+.skin-h .avatar { background: #ABB1D8; }

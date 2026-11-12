@@ -14,7 +14,7 @@ import Slider from '../controls/Slider'
  */
 export default function EffectOptions({ objects, dispatch }) {
   const outlineTargets = objects.filter((o) => o.type === 'sticker' || (o.type === 'photo' && o.frame === 'shape'))
-  const shadowTargets = objects.filter((o) => o.type === 'sticker' || (o.type === 'photo' && photoSupportsShadow(o)))
+  const shadowTargets = objects.filter((o) => o.type === 'sticker' || o.type === 'shape' || (o.type === 'photo' && photoSupportsShadow(o)))
   if (!outlineTargets.length && !shadowTargets.length) return null
 
   const apply = (targets, patch, record = true) =>
@@ -39,7 +39,7 @@ export default function EffectOptions({ objects, dispatch }) {
             minusLabel="윤곽선 얇게"
             plusLabel="윤곽선 두껍게"
             label="윤곽선 두께"
-            onStart={checkpoint}
+            onStart={checkpoint} onEnd={() => dispatch({type:'commitCheckpoint'})}
             onChange={(value) => {
               const width = Math.round(value)
               apply(outlineTargets, width ? { outline: true, outlineWidth: width } : { outline: false }, false)
@@ -49,7 +49,7 @@ export default function EffectOptions({ objects, dispatch }) {
             <ColorField
               label="윤곽선 색"
               value={outline.color}
-              onStart={checkpoint}
+              onStart={checkpoint} onEnd={() => dispatch({type:'commitCheckpoint'})}
               onChange={(value) => apply(outlineTargets, { outlineColor: value }, false)}
             />
           )}
@@ -66,7 +66,7 @@ export default function EffectOptions({ objects, dispatch }) {
             minusLabel="그림자 작게"
             plusLabel="그림자 크게"
             label="그림자 크기"
-            onStart={checkpoint}
+            onStart={checkpoint} onEnd={() => dispatch({type:'commitCheckpoint'})}
             onChange={(value) => {
               const size = Math.round(value)
               apply(shadowTargets, size ? { shadow: true, shadowSpread: size } : { shadow: false }, false)
@@ -137,7 +137,7 @@ export default function EffectOptions({ objects, dispatch }) {
                 minusLabel="그림자 가깝게"
                 plusLabel="그림자 멀게"
                 label="그림자 거리"
-                onStart={checkpoint}
+                onStart={checkpoint} onEnd={() => dispatch({type:'commitCheckpoint'})}
                 onChange={(value) => apply(shadowTargets, { shadowDistance: Math.round(value), shadowX: undefined, shadowY: undefined }, false)}
               />
               <Label text="흐림" />
@@ -149,7 +149,7 @@ export default function EffectOptions({ objects, dispatch }) {
                 minusLabel="그림자 선명하게"
                 plusLabel="그림자 흐리게"
                 label="그림자 흐림"
-                onStart={checkpoint}
+                onStart={checkpoint} onEnd={() => dispatch({type:'commitCheckpoint'})}
                 onChange={(value) => apply(shadowTargets, { shadowBlur: Math.round(value) }, false)}
               />
               <Label text="불투명도" />
@@ -163,13 +163,13 @@ export default function EffectOptions({ objects, dispatch }) {
                 scale={100}
                 unit="%"
                 label="그림자 불투명도"
-                onStart={checkpoint}
+                onStart={checkpoint} onEnd={() => dispatch({type:'commitCheckpoint'})}
                 onChange={(value) => apply(shadowTargets, { shadowOpacity: Math.round(value * 100) / 100 }, false)}
               />
               <ColorField
                 label="그림자 색"
                 value={shadow.color}
-                onStart={checkpoint}
+                onStart={checkpoint} onEnd={() => dispatch({type:'commitCheckpoint'})}
                 onChange={(value) => apply(shadowTargets, { shadowColor: value }, false)}
               />
             </>
@@ -199,7 +199,7 @@ const styles = StyleSheet.create({
   section: { marginTop: 14 },
   title: { marginBottom: 8, fontSize: 12, fontWeight: '700', color: colors.textMuted },
   label: { marginTop: 10, marginBottom: 4, fontSize: 12, fontWeight: '700', color: colors.textMuted },
-  segment: { flexDirection: 'row', padding: 3, marginBottom: 2, borderRadius: 11, backgroundColor: '#EEF2F9' },
+  segment: { flexDirection: 'row', padding: 3, marginBottom: 2, borderRadius: 11, backgroundColor: colors.surfaceMuted },
   segmentItem: { flex: 1, minHeight: 38, alignItems: 'center', justifyContent: 'center', borderRadius: 8 },
   segmentActive: { backgroundColor: colors.surface },
   segmentText: { fontSize: 12.5, fontWeight: '600', color: colors.textMuted },
@@ -224,5 +224,5 @@ const styles = StyleSheet.create({
   directionTextActive: { color: colors.text, fontWeight: '800' },
   previewShadow: { position: 'absolute', width: 16, height: 16, borderRadius: 4, backgroundColor: 'rgba(0,0,0,0.22)' },
   previewGlow: { width: 22, height: 22, borderRadius: 6, backgroundColor: 'rgba(0,0,0,0.16)' },
-  pressed: { backgroundColor: colors.primarySoft },
+  pressed: {}, // 눌림 효과 없음(사용자 지시)
 })

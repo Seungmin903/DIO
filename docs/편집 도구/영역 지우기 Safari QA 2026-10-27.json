@@ -1,0 +1,1106 @@
+{
+  "date": "2026-10-27",
+  "windowUTC": [
+    "2026-10-27T04:03:42.207Z",
+    "2026-10-27T04:06:21.640Z"
+  ],
+  "caveat": "different zoom, gesture paths and affected counts; no controlled before/after improvement ratio; layout commit is not physical paint",
+  "cases": [
+    {
+      "case": "100",
+      "eraser": [
+        {
+          "sequence": 1,
+          "eraserMode": "area",
+          "zoom": 0.6254962075203496,
+          "objectCount": 100,
+          "affectedObjects": 11,
+          "cancelled": false,
+          "metrics": {
+            "downToAcceptedMs": {
+              "count": 1,
+              "p50": 2,
+              "p95": 2,
+              "max": 2
+            },
+            "downEventAgeMs": {
+              "count": 1,
+              "p50": 22,
+              "p95": 22,
+              "max": 22
+            },
+            "eraserSetupMs": {
+              "count": 1,
+              "p50": 8,
+              "p95": 8,
+              "max": 8
+            },
+            "eraserMoveMs": {
+              "count": 95,
+              "p50": 0,
+              "p95": 1,
+              "max": 2
+            },
+            "eventAgeMs": {
+              "count": 94,
+              "p50": 4,
+              "p95": 11,
+              "max": 22.00000000000182
+            },
+            "jsFrameGapMs": {
+              "count": 110,
+              "p50": 17,
+              "p95": 22.99999999999818,
+              "max": 35
+            },
+            "eraserFragmentsMs": {
+              "count": 44,
+              "p50": 0,
+              "p95": 1,
+              "max": 1
+            },
+            "eraserPreviewToLayoutMs": {
+              "count": 28,
+              "p50": 5,
+              "p95": 14,
+              "max": 26
+            },
+            "jsMoveGapMs": {
+              "count": 93,
+              "p50": 17,
+              "p95": 19,
+              "max": 34.00000000000182
+            },
+            "nativeTimestampDelta": {
+              "count": 93,
+              "p50": 17,
+              "p95": 17.00000000000182,
+              "max": 17.00000000000182
+            },
+            "eraserFinalizeMs": {
+              "count": 1,
+              "p50": 1,
+              "p95": 1,
+              "max": 1
+            },
+            "eraserFinalizeToLayoutMs": {
+              "count": 1,
+              "p50": 7,
+              "p95": 7,
+              "max": 7
+            }
+          }
+        },
+        {
+          "sequence": 12,
+          "eraserMode": "area",
+          "zoom": 1.1554065170067274,
+          "objectCount": 106,
+          "affectedObjects": 10,
+          "cancelled": false,
+          "metrics": {
+            "downToAcceptedMs": {
+              "count": 1,
+              "p50": 0,
+              "p95": 0,
+              "max": 0
+            },
+            "downEventAgeMs": {
+              "count": 1,
+              "p50": 18.000000000003638,
+              "p95": 18.000000000003638,
+              "max": 18.000000000003638
+            },
+            "eraserSetupMs": {
+              "count": 1,
+              "p50": 0.999999999996362,
+              "p95": 0.999999999996362,
+              "max": 0.999999999996362
+            },
+            "eraserMoveMs": {
+              "count": 61,
+              "p50": 0,
+              "p95": 1,
+              "max": 1
+            },
+            "eventAgeMs": {
+              "count": 60,
+              "p50": 4,
+              "p95": 13,
+              "max": 16
+            },
+            "jsFrameGapMs": {
+              "count": 76,
+              "p50": 17,
+              "p95": 21,
+              "max": 32
+            },
+            "eraserFragmentsMs": {
+              "count": 28,
+              "p50": 0,
+              "p95": 0,
+              "max": 1
+            },
+            "jsMoveGapMs": {
+              "count": 59,
+              "p50": 16.999999999996362,
+              "p95": 18,
+              "max": 29
+            },
+            "nativeTimestampDelta": {
+              "count": 59,
+              "p50": 17,
+              "p95": 17.000000000003638,
+              "max": 17.000000000003638
+            },
+            "eraserPreviewToLayoutMs": {
+              "count": 26,
+              "p50": 4.000000000003638,
+              "p95": 12.000000000003638,
+              "max": 27.999999999996362
+            },
+            "eraserFinalizeMs": {
+              "count": 1,
+              "p50": 0,
+              "p95": 0,
+              "max": 0
+            },
+            "eraserFinalizeToLayoutMs": {
+              "count": 1,
+              "p50": 7,
+              "p95": 7,
+              "max": 7
+            }
+          }
+        }
+      ],
+      "feedback": [],
+      "stallMarkers": 0,
+      "penSummary": {
+        "strokes": 10,
+        "cancelled": 0,
+        "kinds": {},
+        "zooms": [
+          0.6254962075203496
+        ],
+        "metricBasis": "Each value summarizes per-stroke maxima, not pooled event quantiles. Count means strokes, not event samples.",
+        "metrics": {
+          "downToAcceptedMs": {
+            "strokesWithMetric": 10,
+            "p50OfStrokeMax": 0,
+            "p95OfStrokeMax": 3,
+            "max": 3
+          },
+          "downEventAgeMs": {
+            "strokesWithMetric": 10,
+            "p50OfStrokeMax": 16,
+            "p95OfStrokeMax": 23,
+            "max": 23
+          },
+          "previewSnapshotMs": {
+            "strokesWithMetric": 10,
+            "p50OfStrokeMax": 0,
+            "p95OfStrokeMax": 1,
+            "max": 1
+          },
+          "firstPreviewCommitMs": {
+            "strokesWithMetric": 10,
+            "p50OfStrokeMax": 1,
+            "p95OfStrokeMax": 7,
+            "max": 7
+          },
+          "downToFirstPreviewCommitMs": {
+            "strokesWithMetric": 10,
+            "p50OfStrokeMax": 2,
+            "p95OfStrokeMax": 9,
+            "max": 9
+          },
+          "eventToFirstPreviewCommitMs": {
+            "strokesWithMetric": 10,
+            "p50OfStrokeMax": 18,
+            "p95OfStrokeMax": 31,
+            "max": 31
+          },
+          "eventAgeMs": {
+            "strokesWithMetric": 10,
+            "p50OfStrokeMax": 17,
+            "p95OfStrokeMax": 26,
+            "max": 26
+          },
+          "jsFrameGapMs": {
+            "strokesWithMetric": 10,
+            "p50OfStrokeMax": 30,
+            "p95OfStrokeMax": 33,
+            "max": 33
+          },
+          "jsMoveGapMs": {
+            "strokesWithMetric": 10,
+            "p50OfStrokeMax": 17,
+            "p95OfStrokeMax": 18,
+            "max": 18
+          },
+          "nativeTimestampDelta": {
+            "strokesWithMetric": 10,
+            "p50OfStrokeMax": 17,
+            "p95OfStrokeMax": 17,
+            "max": 17
+          },
+          "firstPreviewFrameOpportunityMs": {
+            "strokesWithMetric": 10,
+            "p50OfStrokeMax": 14,
+            "p95OfStrokeMax": 20,
+            "max": 20
+          },
+          "downToFirstPreviewFrameOpportunityMs": {
+            "strokesWithMetric": 10,
+            "p50OfStrokeMax": 15,
+            "p95OfStrokeMax": 23,
+            "max": 23
+          },
+          "startInsidePage": {
+            "strokesWithMetric": 10,
+            "p50OfStrokeMax": 1,
+            "p95OfStrokeMax": 1,
+            "max": 1
+          },
+          "pointsOutsidePage": {
+            "strokesWithMetric": 10,
+            "p50OfStrokeMax": 0,
+            "p95OfStrokeMax": 0,
+            "max": 0
+          },
+          "finalizeJsMs": {
+            "strokesWithMetric": 10,
+            "p50OfStrokeMax": 0,
+            "p95OfStrokeMax": 1,
+            "max": 1
+          },
+          "previewToDocumentCommitMs": {
+            "strokesWithMetric": 10,
+            "p50OfStrokeMax": 7,
+            "p95OfStrokeMax": 13,
+            "max": 13
+          }
+        }
+      }
+    },
+    {
+      "case": "300",
+      "eraser": [
+        {
+          "sequence": 13,
+          "eraserMode": "area",
+          "zoom": 0.7006820425546426,
+          "objectCount": 300,
+          "affectedObjects": 30,
+          "cancelled": false,
+          "metrics": {
+            "downToAcceptedMs": {
+              "count": 1,
+              "p50": 1,
+              "p95": 1,
+              "max": 1
+            },
+            "downEventAgeMs": {
+              "count": 1,
+              "p50": 50,
+              "p95": 50,
+              "max": 50
+            },
+            "eraserSetupMs": {
+              "count": 1,
+              "p50": 9,
+              "p95": 9,
+              "max": 9
+            },
+            "eraserMoveMs": {
+              "count": 65,
+              "p50": 0,
+              "p95": 1,
+              "max": 2.000000000007276
+            },
+            "eventAgeMs": {
+              "count": 64,
+              "p50": 4,
+              "p95": 21,
+              "max": 33
+            },
+            "jsFrameGapMs": {
+              "count": 12,
+              "p50": 114,
+              "p95": 387,
+              "max": 401
+            },
+            "eraserFragmentsMs": {
+              "count": 9,
+              "p50": 0,
+              "p95": 1,
+              "max": 3
+            },
+            "jsMoveGapMs": {
+              "count": 63,
+              "p50": 17,
+              "p95": 83,
+              "max": 92.99999999999272
+            },
+            "nativeTimestampDelta": {
+              "count": 63,
+              "p50": 17,
+              "p95": 67,
+              "max": 84
+            },
+            "eraserPreviewToLayoutMs": {
+              "count": 9,
+              "p50": 87,
+              "p95": 108.00000000000728,
+              "max": 119
+            },
+            "eraserFinalizeMs": {
+              "count": 1,
+              "p50": 1.000000000007276,
+              "p95": 1.000000000007276,
+              "max": 1.000000000007276
+            },
+            "eraserFinalizeToLayoutMs": {
+              "count": 1,
+              "p50": 18.999999999992724,
+              "p95": 18.999999999992724,
+              "max": 18.999999999992724
+            }
+          }
+        },
+        {
+          "sequence": 14,
+          "eraserMode": "area",
+          "zoom": 0.7006820425546426,
+          "objectCount": 301,
+          "affectedObjects": 29,
+          "cancelled": false,
+          "metrics": {
+            "downToAcceptedMs": {
+              "count": 1,
+              "p50": 1,
+              "p95": 1,
+              "max": 1
+            },
+            "downEventAgeMs": {
+              "count": 1,
+              "p50": 17,
+              "p95": 17,
+              "max": 17
+            },
+            "eraserSetupMs": {
+              "count": 1,
+              "p50": 6,
+              "p95": 6,
+              "max": 6
+            },
+            "eraserMoveMs": {
+              "count": 61,
+              "p50": 0,
+              "p95": 1,
+              "max": 2
+            },
+            "eventAgeMs": {
+              "count": 60,
+              "p50": 3,
+              "p95": 16.999999999992724,
+              "max": 19
+            },
+            "jsFrameGapMs": {
+              "count": 62,
+              "p50": 17,
+              "p95": 39.999999999992724,
+              "max": 72.99999999999272
+            },
+            "eraserFragmentsMs": {
+              "count": 22,
+              "p50": 0,
+              "p95": 0,
+              "max": 0.999999999992724
+            },
+            "jsMoveGapMs": {
+              "count": 59,
+              "p50": 17,
+              "p95": 29,
+              "max": 44
+            },
+            "nativeTimestampDelta": {
+              "count": 59,
+              "p50": 17,
+              "p95": 17.000000000007276,
+              "max": 33.999999999992724
+            },
+            "eraserPreviewToLayoutMs": {
+              "count": 22,
+              "p50": 10,
+              "p95": 19,
+              "max": 27.999999999992724
+            },
+            "eraserFinalizeMs": {
+              "count": 1,
+              "p50": 0,
+              "p95": 0,
+              "max": 0
+            },
+            "eraserFinalizeToLayoutMs": {
+              "count": 1,
+              "p50": 22,
+              "p95": 22,
+              "max": 22
+            }
+          }
+        },
+        {
+          "sequence": 24,
+          "eraserMode": "area",
+          "zoom": 0.7006820425546426,
+          "objectCount": 317,
+          "affectedObjects": 72,
+          "cancelled": false,
+          "metrics": {
+            "downToAcceptedMs": {
+              "count": 1,
+              "p50": 0.999999999992724,
+              "p95": 0.999999999992724,
+              "max": 0.999999999992724
+            },
+            "downEventAgeMs": {
+              "count": 1,
+              "p50": 18,
+              "p95": 18,
+              "max": 18
+            },
+            "eraserSetupMs": {
+              "count": 1,
+              "p50": 4.999999999992724,
+              "p95": 4.999999999992724,
+              "max": 4.999999999992724
+            },
+            "eraserMoveMs": {
+              "count": 164,
+              "p50": 0,
+              "p95": 1,
+              "max": 4
+            },
+            "eventAgeMs": {
+              "count": 163,
+              "p50": 4.000000000007276,
+              "p95": 21,
+              "max": 26
+            },
+            "jsFrameGapMs": {
+              "count": 110,
+              "p50": 20,
+              "p95": 79,
+              "max": 132
+            },
+            "eraserFragmentsMs": {
+              "count": 53,
+              "p50": 0,
+              "p95": 1.000000000007276,
+              "max": 2.000000000014552
+            },
+            "jsMoveGapMs": {
+              "count": 162,
+              "p50": 17,
+              "p95": 43,
+              "max": 75.99999999998545
+            },
+            "nativeTimestampDelta": {
+              "count": 162,
+              "p50": 17,
+              "p95": 33.99999999998545,
+              "max": 83.99999999998545
+            },
+            "eraserPreviewToLayoutMs": {
+              "count": 49,
+              "p50": 14,
+              "p95": 47,
+              "max": 76
+            },
+            "eraserFinalizeMs": {
+              "count": 1,
+              "p50": 0,
+              "p95": 0,
+              "max": 0
+            },
+            "eraserFinalizeToLayoutMs": {
+              "count": 1,
+              "p50": 26,
+              "p95": 26,
+              "max": 26
+            }
+          }
+        },
+        {
+          "sequence": 25,
+          "eraserMode": "area",
+          "zoom": 0.7006820425546426,
+          "objectCount": 311,
+          "affectedObjects": 44,
+          "cancelled": false,
+          "metrics": {
+            "downToAcceptedMs": {
+              "count": 1,
+              "p50": 1,
+              "p95": 1,
+              "max": 1
+            },
+            "downEventAgeMs": {
+              "count": 1,
+              "p50": 14.999999999985448,
+              "p95": 14.999999999985448,
+              "max": 14.999999999985448
+            },
+            "eraserSetupMs": {
+              "count": 1,
+              "p50": 6,
+              "p95": 6,
+              "max": 6
+            },
+            "eraserMoveMs": {
+              "count": 152,
+              "p50": 0,
+              "p95": 1,
+              "max": 2
+            },
+            "eventAgeMs": {
+              "count": 151,
+              "p50": 4,
+              "p95": 17,
+              "max": 26
+            },
+            "jsFrameGapMs": {
+              "count": 142,
+              "p50": 17,
+              "p95": 36,
+              "max": 48
+            },
+            "eraserFragmentsMs": {
+              "count": 58,
+              "p50": 0,
+              "p95": 0,
+              "max": 1
+            },
+            "eraserPreviewToLayoutMs": {
+              "count": 54,
+              "p50": 8,
+              "p95": 19,
+              "max": 21
+            },
+            "jsMoveGapMs": {
+              "count": 150,
+              "p50": 16.999999999985448,
+              "p95": 28,
+              "max": 35
+            },
+            "nativeTimestampDelta": {
+              "count": 150,
+              "p50": 17,
+              "p95": 17.000000000014552,
+              "max": 17.000000000014552
+            },
+            "eraserFinalizeMs": {
+              "count": 1,
+              "p50": 0,
+              "p95": 0,
+              "max": 0
+            },
+            "eraserFinalizeToLayoutMs": {
+              "count": 1,
+              "p50": 20,
+              "p95": 20,
+              "max": 20
+            }
+          }
+        }
+      ],
+      "feedback": [
+        "slow",
+        "slow"
+      ],
+      "stallMarkers": 0,
+      "penSummary": {
+        "strokes": 53,
+        "cancelled": 0,
+        "kinds": {},
+        "zooms": [
+          0.7006820425546426
+        ],
+        "metricBasis": "Each value summarizes per-stroke maxima, not pooled event quantiles. Count means strokes, not event samples.",
+        "metrics": {
+          "downToAcceptedMs": {
+            "strokesWithMetric": 53,
+            "p50OfStrokeMax": 1,
+            "p95OfStrokeMax": 2,
+            "max": 3
+          },
+          "downEventAgeMs": {
+            "strokesWithMetric": 53,
+            "p50OfStrokeMax": 17,
+            "p95OfStrokeMax": 30,
+            "max": 30
+          },
+          "previewSnapshotMs": {
+            "strokesWithMetric": 53,
+            "p50OfStrokeMax": 0,
+            "p95OfStrokeMax": 1,
+            "max": 1
+          },
+          "firstPreviewCommitMs": {
+            "strokesWithMetric": 53,
+            "p50OfStrokeMax": 1,
+            "p95OfStrokeMax": 4,
+            "max": 6
+          },
+          "downToFirstPreviewCommitMs": {
+            "strokesWithMetric": 53,
+            "p50OfStrokeMax": 2,
+            "p95OfStrokeMax": 5,
+            "max": 7
+          },
+          "eventToFirstPreviewCommitMs": {
+            "strokesWithMetric": 53,
+            "p50OfStrokeMax": 20,
+            "p95OfStrokeMax": 32,
+            "max": 35
+          },
+          "jsFrameGapMs": {
+            "strokesWithMetric": 53,
+            "p50OfStrokeMax": 35,
+            "p95OfStrokeMax": 38,
+            "max": 40
+          },
+          "eventAgeMs": {
+            "strokesWithMetric": 53,
+            "p50OfStrokeMax": 16,
+            "p95OfStrokeMax": 27,
+            "max": 30
+          },
+          "jsMoveGapMs": {
+            "strokesWithMetric": 53,
+            "p50OfStrokeMax": 17,
+            "p95OfStrokeMax": 18,
+            "max": 25
+          },
+          "nativeTimestampDelta": {
+            "strokesWithMetric": 53,
+            "p50OfStrokeMax": 17,
+            "p95OfStrokeMax": 17,
+            "max": 33
+          },
+          "firstPreviewFrameOpportunityMs": {
+            "strokesWithMetric": 52,
+            "p50OfStrokeMax": 13,
+            "p95OfStrokeMax": 27,
+            "max": 36
+          },
+          "downToFirstPreviewFrameOpportunityMs": {
+            "strokesWithMetric": 52,
+            "p50OfStrokeMax": 14,
+            "p95OfStrokeMax": 28,
+            "max": 38
+          },
+          "startInsidePage": {
+            "strokesWithMetric": 53,
+            "p50OfStrokeMax": 1,
+            "p95OfStrokeMax": 1,
+            "max": 1
+          },
+          "pointsOutsidePage": {
+            "strokesWithMetric": 53,
+            "p50OfStrokeMax": 0,
+            "p95OfStrokeMax": 0,
+            "max": 0
+          },
+          "finalizeJsMs": {
+            "strokesWithMetric": 53,
+            "p50OfStrokeMax": 0,
+            "p95OfStrokeMax": 1,
+            "max": 1
+          },
+          "previewToDocumentCommitMs": {
+            "strokesWithMetric": 53,
+            "p50OfStrokeMax": 14,
+            "p95OfStrokeMax": 17,
+            "max": 17
+          },
+          "previewRemovedBeforeFrameOpportunity": {
+            "strokesWithMetric": 1,
+            "p50OfStrokeMax": 1,
+            "p95OfStrokeMax": 1,
+            "max": 1
+          }
+        }
+      }
+    },
+    {
+      "case": "long30",
+      "eraser": [
+        {
+          "sequence": 70,
+          "eraserMode": "area",
+          "zoom": 0.7936662048312151,
+          "objectCount": 30,
+          "affectedObjects": 10,
+          "cancelled": false,
+          "metrics": {
+            "downToAcceptedMs": {
+              "count": 1,
+              "p50": 0,
+              "p95": 0,
+              "max": 0
+            },
+            "downEventAgeMs": {
+              "count": 1,
+              "p50": 83,
+              "p95": 83,
+              "max": 83
+            },
+            "eraserSetupMs": {
+              "count": 1,
+              "p50": 3,
+              "p95": 3,
+              "max": 3
+            },
+            "eraserMoveMs": {
+              "count": 19,
+              "p50": 0,
+              "p95": 1,
+              "max": 2
+            },
+            "eventAgeMs": {
+              "count": 18,
+              "p50": 11,
+              "p95": 89,
+              "max": 92
+            },
+            "jsFrameGapMs": {
+              "count": 6,
+              "p50": 224,
+              "p95": 241.99999999998545,
+              "max": 248.00000000001455
+            },
+            "eraserFragmentsMs": {
+              "count": 4,
+              "p50": 2,
+              "p95": 2,
+              "max": 2
+            },
+            "eraserPreviewToLayoutMs": {
+              "count": 4,
+              "p50": 119,
+              "p95": 143,
+              "max": 179
+            },
+            "jsMoveGapMs": {
+              "count": 17,
+              "p50": 17,
+              "p95": 199,
+              "max": 212
+            },
+            "nativeTimestampDelta": {
+              "count": 17,
+              "p50": 33,
+              "p95": 150,
+              "max": 184
+            },
+            "eraserFinalizeMs": {
+              "count": 1,
+              "p50": 0,
+              "p95": 0,
+              "max": 0
+            },
+            "eraserFinalizeToLayoutMs": {
+              "count": 1,
+              "p50": 8,
+              "p95": 8,
+              "max": 8
+            }
+          }
+        },
+        {
+          "sequence": 71,
+          "eraserMode": "area",
+          "zoom": 0.7936662048312151,
+          "objectCount": 41,
+          "affectedObjects": 13,
+          "cancelled": false,
+          "metrics": {
+            "downToAcceptedMs": {
+              "count": 1,
+              "p50": 0.9999999999854481,
+              "p95": 0.9999999999854481,
+              "max": 0.9999999999854481
+            },
+            "downEventAgeMs": {
+              "count": 1,
+              "p50": 13.000000000014552,
+              "p95": 13.000000000014552,
+              "max": 13.000000000014552
+            },
+            "eraserSetupMs": {
+              "count": 1,
+              "p50": 4,
+              "p95": 4,
+              "max": 4
+            },
+            "eraserMoveMs": {
+              "count": 93,
+              "p50": 0,
+              "p95": 1,
+              "max": 2
+            },
+            "eventAgeMs": {
+              "count": 92,
+              "p50": 3,
+              "p95": 23,
+              "max": 51.99999999998545
+            },
+            "jsFrameGapMs": {
+              "count": 38,
+              "p50": 17,
+              "p95": 209,
+              "max": 510
+            },
+            "eraserFragmentsMs": {
+              "count": 15,
+              "p50": 0,
+              "p95": 2.000000000014552,
+              "max": 3
+            },
+            "jsMoveGapMs": {
+              "count": 91,
+              "p50": 17,
+              "p95": 73,
+              "max": 124
+            },
+            "nativeTimestampDelta": {
+              "count": 91,
+              "p50": 17,
+              "p95": 66,
+              "max": 83.00000000001455
+            },
+            "eraserPreviewToLayoutMs": {
+              "count": 10,
+              "p50": 80,
+              "p95": 111.00000000001455,
+              "max": 137
+            },
+            "eraserFinalizeMs": {
+              "count": 1,
+              "p50": 0,
+              "p95": 0,
+              "max": 0
+            },
+            "eraserFinalizeToLayoutMs": {
+              "count": 1,
+              "p50": 21.999999999985448,
+              "p95": 21.999999999985448,
+              "max": 21.999999999985448
+            }
+          }
+        },
+        {
+          "sequence": 72,
+          "eraserMode": "area",
+          "zoom": 0.7936662048312151,
+          "objectCount": 52,
+          "affectedObjects": 5,
+          "cancelled": false,
+          "metrics": {
+            "downToAcceptedMs": {
+              "count": 1,
+              "p50": 1.000000000014552,
+              "p95": 1.000000000014552,
+              "max": 1.000000000014552
+            },
+            "downEventAgeMs": {
+              "count": 1,
+              "p50": 18,
+              "p95": 18,
+              "max": 18
+            },
+            "eraserSetupMs": {
+              "count": 1,
+              "p50": 4.000000000014552,
+              "p95": 4.000000000014552,
+              "max": 4.000000000014552
+            },
+            "eraserMoveMs": {
+              "count": 37,
+              "p50": 0,
+              "p95": 1,
+              "max": 2
+            },
+            "eventAgeMs": {
+              "count": 36,
+              "p50": 6,
+              "p95": 23.000000000014552,
+              "max": 36
+            },
+            "jsFrameGapMs": {
+              "count": 31,
+              "p50": 17,
+              "p95": 89,
+              "max": 111
+            },
+            "eraserFragmentsMs": {
+              "count": 9,
+              "p50": 0,
+              "p95": 1,
+              "max": 1
+            },
+            "eraserPreviewToLayoutMs": {
+              "count": 9,
+              "p50": 47,
+              "p95": 61,
+              "max": 65
+            },
+            "jsMoveGapMs": {
+              "count": 35,
+              "p50": 17,
+              "p95": 46,
+              "max": 80
+            },
+            "nativeTimestampDelta": {
+              "count": 35,
+              "p50": 17,
+              "p95": 34.00000000001455,
+              "max": 50
+            },
+            "eraserFinalizeMs": {
+              "count": 1,
+              "p50": 0,
+              "p95": 0,
+              "max": 0
+            },
+            "eraserFinalizeToLayoutMs": {
+              "count": 1,
+              "p50": 8,
+              "p95": 8,
+              "max": 8
+            }
+          }
+        }
+      ],
+      "feedback": [
+        "slow",
+        "slow",
+        "slow",
+        "slow",
+        "slow"
+      ],
+      "stallMarkers": 0,
+      "penSummary": {
+        "strokes": 69,
+        "cancelled": 0,
+        "kinds": {},
+        "zooms": [
+          0.7936662048312151
+        ],
+        "metricBasis": "Each value summarizes per-stroke maxima, not pooled event quantiles. Count means strokes, not event samples.",
+        "metrics": {
+          "downToAcceptedMs": {
+            "strokesWithMetric": 69,
+            "p50OfStrokeMax": 0,
+            "p95OfStrokeMax": 1,
+            "max": 11
+          },
+          "downEventAgeMs": {
+            "strokesWithMetric": 69,
+            "p50OfStrokeMax": 16,
+            "p95OfStrokeMax": 28,
+            "max": 29
+          },
+          "previewSnapshotMs": {
+            "strokesWithMetric": 69,
+            "p50OfStrokeMax": 0,
+            "p95OfStrokeMax": 1,
+            "max": 1
+          },
+          "firstPreviewCommitMs": {
+            "strokesWithMetric": 69,
+            "p50OfStrokeMax": 2,
+            "p95OfStrokeMax": 4,
+            "max": 4
+          },
+          "downToFirstPreviewCommitMs": {
+            "strokesWithMetric": 69,
+            "p50OfStrokeMax": 2,
+            "p95OfStrokeMax": 5,
+            "max": 15
+          },
+          "eventToFirstPreviewCommitMs": {
+            "strokesWithMetric": 69,
+            "p50OfStrokeMax": 20,
+            "p95OfStrokeMax": 32,
+            "max": 40
+          },
+          "jsFrameGapMs": {
+            "strokesWithMetric": 69,
+            "p50OfStrokeMax": 35,
+            "p95OfStrokeMax": 39,
+            "max": 50
+          },
+          "eventAgeMs": {
+            "strokesWithMetric": 69,
+            "p50OfStrokeMax": 17,
+            "p95OfStrokeMax": 25,
+            "max": 27
+          },
+          "jsMoveGapMs": {
+            "strokesWithMetric": 69,
+            "p50OfStrokeMax": 17,
+            "p95OfStrokeMax": 20,
+            "max": 24
+          },
+          "nativeTimestampDelta": {
+            "strokesWithMetric": 69,
+            "p50OfStrokeMax": 17,
+            "p95OfStrokeMax": 18,
+            "max": 33
+          },
+          "firstPreviewFrameOpportunityMs": {
+            "strokesWithMetric": 69,
+            "p50OfStrokeMax": 14,
+            "p95OfStrokeMax": 17,
+            "max": 31
+          },
+          "downToFirstPreviewFrameOpportunityMs": {
+            "strokesWithMetric": 69,
+            "p50OfStrokeMax": 14,
+            "p95OfStrokeMax": 21,
+            "max": 31
+          },
+          "startInsidePage": {
+            "strokesWithMetric": 69,
+            "p50OfStrokeMax": 1,
+            "p95OfStrokeMax": 1,
+            "max": 1
+          },
+          "pointsOutsidePage": {
+            "strokesWithMetric": 69,
+            "p50OfStrokeMax": 0,
+            "p95OfStrokeMax": 0,
+            "max": 0
+          },
+          "finalizeJsMs": {
+            "strokesWithMetric": 69,
+            "p50OfStrokeMax": 0,
+            "p95OfStrokeMax": 1,
+            "max": 1
+          },
+          "previewToDocumentCommitMs": {
+            "strokesWithMetric": 69,
+            "p50OfStrokeMax": 14,
+            "p95OfStrokeMax": 16,
+            "max": 18
+          }
+        }
+      }
+    }
+  ],
+  "evidenceFormat": "Per-stroke pen records replaced by aggregate summaries; individual area gestures and caveats retained. Original local reports are not published as CI artifacts."
+}

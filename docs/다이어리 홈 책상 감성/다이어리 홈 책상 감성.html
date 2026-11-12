@@ -1,0 +1,860 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DIO 다이어리 홈 책상 감성 — 스와이프 · 한눈에 재구성 검토안</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+<style>
+:root { --ink:#0B1957; --text:#1D1D1F; --muted:#6B7280; --line:#E1E6F0; --bg:#FFFFFF; --soft:#F3F5FA; --accent:#6E92C6; --accent-soft:#EAF0FA; --cream:#FEF0BF; --lilac:#DBDCF9; --danger:#E5484D; --danger-soft:#FDECEC; --ok:#1E9E6A; --ok-soft:#E7F6EF; --warn-soft:#FFF6DB; }
+* { box-sizing:border-box; }
+html { scroll-behavior:smooth; }
+body { margin:0; background:var(--bg); color:var(--text); font:15px/1.65 "Pretendard","Nanum Gothic","Malgun Gothic","Noto Sans KR",sans-serif; word-break:keep-all; }
+a { color:var(--accent); text-decoration:none; } a:hover { text-decoration:underline; }
+.wrap { display:grid; grid-template-columns:240px minmax(0,1fr); min-height:100vh; }
+nav { position:sticky; top:0; height:100vh; overflow:auto; padding:24px 16px; border-right:1px solid var(--line); background:var(--soft); }
+nav .brand { font-weight:800; font-size:13px; letter-spacing:.06em; color:var(--muted); margin-bottom:12px; }
+nav ol { list-style:none; margin:0; padding:0; } nav li { margin:0 0 4px; }
+nav a { display:block; padding:7px 10px; border-radius:8px; color:var(--text); font-size:13.5px; line-height:1.35; }
+nav a:hover, nav a.on { background:var(--accent-soft); color:var(--accent); text-decoration:none; }
+nav .hint { margin-top:20px; font-size:12px; color:var(--muted); line-height:1.5; }
+main { padding:32px 48px 96px; max-width:1280px; }
+.doc { padding-bottom:40px; margin-bottom:40px; border-bottom:2px solid var(--line); } .doc:last-child { border-bottom:0; }
+h1 { font-size:27px; margin:8px 0 16px; line-height:1.3; color:var(--ink); } h2 { font-size:20px; margin:40px 0 12px; padding-top:8px; border-top:1px solid var(--line); color:var(--ink); } h3 { font-size:16px; margin:28px 0 8px; color:var(--ink); } h4 { font-size:14px; margin:18px 0 6px; }
+blockquote { margin:0 0 20px; padding:12px 16px; background:var(--accent-soft); border-left:4px solid var(--accent); border-radius:0 8px 8px 0; font-size:13.5px; color:#374151; } blockquote p { margin:0; }
+table { border-collapse:collapse; width:100%; margin:12px 0 20px; font-size:13px; line-height:1.5; display:block; overflow-x:auto; }
+thead th { background:var(--soft); text-align:left; font-weight:700; }
+th, td { border:1px solid var(--line); padding:7px 9px; vertical-align:top; }
+tbody tr:nth-child(even) td { background:#FAFBFD; }
+td:first-child, th:first-child { white-space:nowrap; }
+table.wrapcol td:first-child, table.wrapcol th:first-child { white-space:normal; }
+img { max-width:100%; height:auto; border:1px solid var(--line); border-radius:6px; box-shadow:0 1px 4px rgba(0,0,0,.06); }
+code { font:12.5px/1.4 ui-monospace,Consolas,monospace; background:var(--soft); padding:1px 5px; border-radius:4px; }
+pre { background:var(--soft); padding:10px 14px; border-radius:8px; overflow:auto; font-size:12px; } pre code { background:none; padding:0; }
+li { margin:3px 0; } hr { border:0; border-top:1px solid var(--line); margin:28px 0; } strong { font-weight:800; }
+figure { margin:0; } figcaption { margin-top:6px; font-size:12.5px; line-height:1.45; color:#374151; }
+/* 스크린샷 · 이미지 묶음 */
+.shots { display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:18px 20px; margin:14px 0 18px; }
+.shots img { width:100%; display:block; max-height:520px; object-fit:cover; object-position:top; }
+.shots.three { grid-template-columns:repeat(3, minmax(0,1fr)); } .shots.three img { max-height:400px; }
+.shots.profile img { max-height:none; object-fit:contain; }
+.shots.four { grid-template-columns:repeat(4, minmax(0,1fr)); } .shots.four img { max-height:none; object-fit:contain; }
+.wide img { width:100%; display:block; }
+.grid { display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:18px 20px; margin:14px 0 18px; }
+.grid.two { grid-template-columns:repeat(2, minmax(0,1fr)); } .grid.four { grid-template-columns:repeat(4, minmax(0,1fr)); } .grid.five { grid-template-columns:repeat(5, minmax(0,1fr)); }
+.grid img { width:100%; display:block; background:#fff; }
+.grid figcaption { font-size:12.5px; }
+.note { font-size:12.5px; color:var(--muted); }
+.xtl { display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:14px; margin:14px 0 18px; }
+.xp { border:1px solid var(--line); border-radius:14px; padding:12px 14px; background:#fff; break-inside:avoid; font-size:13.5px; line-height:1.5; }
+.xh { display:flex; gap:8px; align-items:center; } .xh .av { width:34px; height:34px; border-radius:50%; object-fit:cover; flex:none; } .xh b { font-size:13.5px; } .xh span { color:var(--muted); font-size:11.5px; display:block; } .xh i { margin-left:auto; font-style:normal; font-size:11px; background:var(--accent-soft); color:var(--ink); border-radius:8px; padding:1px 7px; white-space:nowrap; }
+.xp p { margin:8px 0; } .xi { width:100%; border-radius:10px; border:1px solid var(--line); display:block; max-height:300px; object-fit:contain; background:var(--soft); }
+.xr { margin-top:6px; padding:5px 9px; border-radius:8px; font-size:12px; background:var(--soft); } .xr.a { background:var(--accent-soft); margin-left:14px; }
+.xn { margin-top:8px; font-size:11.5px; color:var(--muted); border-top:1px dashed var(--line); padding-top:6px; }
+.kpi { display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:12px; margin:12px 0 20px; }
+.kpi div { border:1px solid var(--line); border-radius:10px; padding:12px 14px; background:var(--soft); }
+.kpi b { display:block; font-size:22px; line-height:1.2; margin-bottom:4px; color:var(--ink); } .kpi span { font-size:12px; color:var(--muted); line-height:1.4; display:block; }
+/* 강조 상자 */
+.warn, .ok, .info, .stop { border-radius:10px; padding:12px 16px; margin:14px 0 18px; font-size:13.5px; line-height:1.6; }
+.warn { background:var(--warn-soft); border:1px solid #F0D98A; } .ok { background:var(--ok-soft); border:1px solid #B9E3D0; } .info { background:var(--accent-soft); border:1px solid #CBD9F0; } .stop { background:var(--danger-soft); border:1px solid #F5C2C4; }
+.warn p, .ok p, .info p, .stop p { margin:4px 0; } .warn ul, .ok ul, .info ul, .stop ul { margin:4px 0; padding-left:20px; }
+.tag { display:inline-block; padding:0 7px; border-radius:999px; font-size:11.5px; font-weight:800; line-height:1.6; white-space:nowrap; }
+.tag.hi { background:#FDECEC; color:#B3262B; } .tag.mid { background:#FFF1C9; color:#8A5A00; } .tag.lo { background:#E7F6EF; color:#157A52; } .tag.ref { background:#EAF0FA; color:#2F4E8E; }
+@media (max-width:900px) { .wrap { grid-template-columns:1fr; } nav { position:static; height:auto; border-right:0; border-bottom:1px solid var(--line); } main { padding:20px 16px 60px; } .grid, .shots, .shots.three, .kpi { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+@media print {
+  @page { size:A4 landscape; margin:11mm 12mm 13mm; }
+  body { font-size:11px; } .wrap { display:block; } nav { display:none; } main { padding:0; max-width:none; }
+  .doc { break-before:page; border:0; margin:0; padding:0; } .doc:first-child { break-before:auto; }
+  h1 { font-size:22px; } h2 { font-size:16px; break-after:avoid; margin-top:6mm; } h3 { font-size:13px; break-after:avoid; }
+  table { display:table; font-size:9.3px; } tr { break-inside:avoid; } thead { display:table-header-group; }
+  img { box-shadow:none; }
+  .sec2, .sec3 { break-inside:auto; } h2 + p, h3 + p { break-after:avoid; }
+  .grid { grid-template-columns:repeat(3, minmax(0,1fr)) !important; gap:4mm 5mm; margin:3mm 0 4mm; } .grid.two { grid-template-columns:repeat(2, minmax(0,1fr)) !important; } .grid.four { grid-template-columns:repeat(4, minmax(0,1fr)) !important; } .grid.five { grid-template-columns:repeat(5, minmax(0,1fr)) !important; }
+  .grid figure { break-inside:avoid; } .grid figcaption { font-size:9px; margin-top:1.5mm; }
+  .shots { grid-template-columns:repeat(2, minmax(0,1fr)) !important; gap:4mm 5mm; margin:3mm 0 4mm; } .shots.three { grid-template-columns:repeat(3, minmax(0,1fr)) !important; } .shots.four { grid-template-columns:repeat(4, minmax(0,1fr)) !important; }
+  .shots img { max-height:118mm; } .shots.three img { max-height:92mm; } .shots.profile img, .shots.four img { max-height:none; } .shots figcaption { font-size:9px; } .shots figure { break-inside:avoid; }
+  .wide { break-inside:avoid; } .wide img { width:auto; max-width:100%; max-height:126mm; margin:0 auto; display:block; } .wide figcaption { font-size:9px; text-align:center; }
+  .kpi { grid-template-columns:repeat(4, minmax(0,1fr)) !important; gap:3mm; } .kpi b { font-size:16px; } .kpi span { font-size:9px; }
+  .warn, .ok, .info, .stop { font-size:10px; break-inside:avoid; padding:2.5mm 4mm; }
+  a { color:var(--text); }
+  blockquote, thead th, tbody tr:nth-child(even) td, .kpi div, .warn, .ok, .info, .stop, .tag { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+<nav>
+<div class="brand">DIO · 홈 책상 감성</div>
+<ol>
+<li><a href="#doc-idx">다이어리 홈 책상 감성 — 스와이프 · 한눈에 보기 재구성 검토안</a></li>
+<li><a href="#doc-01">01 조사 — 간단히</a></li>
+<li><a href="#doc-02">02 편집 화면과 충돌하지 않는 원칙</a></li>
+<li><a href="#doc-03">03 스와이프 시안 — 여섯 가지 책상</a></li>
+<li><a href="#doc-04">04 한눈에 보기 시안 — 같은 책상, 정리한 모습</a></li>
+<li><a href="#doc-05">05 감성 포인트 — 골라 섞는 부품</a></li>
+<li><a href="#doc-06">06 편집 화면으로 이어지기 · 만들기</a></li>
+</ol>
+<div class="hint">원본은 같은 폴더의 md 파일. 이 html · pdf는 빌드.py로 다시 만든다. 시안은 스크립트/렌더.py(목업/장면.html).</div>
+</nav>
+<main>
+<section class="doc" id="doc-idx" data-title="다이어리 홈 책상 감성 — 스와이프 · 한눈에 보기 재구성 검토안">
+<h1 id="다이어리-홈-책상-감성-스와이프-한눈에-보기-재구성-검토안">다이어리 홈 책상 감성 — 스와이프 · 한눈에 보기 재구성 검토안</h1>
+<blockquote>
+<p>작성일: 2026-10-28 · 담당: 황민희 · 기준: <a href="../디자인%20가이드.md">디자인 가이드</a>, <code>feature/fe/layer</code><br>
+요청: "좀비고 10주년 느낌으로 스와이프 화면을 책상 위 같은 느낌으로 싹 재구성하고, 한눈에 보기도 비슷한 감성으로. 조사는 간략히, 시안은 최대한 풍성하게. 감성 포인트가 심플한 편집 화면과 충돌하지 않게."<br>
+<strong>PDF 한 파일</strong>: <a href="다이어리%20홈%20책상%20감성.pdf">다이어리 홈 책상 감성.pdf</a> (A4 가로) · md가 원본이며 <code>python "docs/다이어리 홈 책상 감성/빌드.py"</code>로 다시 만든다.<br>
+보는 법: 모든 시안은 <strong>태블릿 1280 × 800 · 폰 390 × 844</strong> 화면 그대로다. 버튼 · 글자 · 칩은 지금 앱 토큰 그대로이고 바뀌는 건 바닥(책상)과 다이어리의 물건 느낌이다. 웹에서 그린 시안이라 실제 구현과 조금 다를 수 있다.<br>
+상태: <strong>검토안</strong></p>
+</blockquote>
+<div class="sec2"><h2 id="한-줄-결론">한 줄 결론</h2>
+<p><strong>감성은 바닥 한 겹(책상)에만, 색은 다이어리에만, 버튼은 편집기 그대로.</strong> 그리고 다이어리를 열 때 '집어 들어 펼치는' 전환 하나로 홈과 편집기를 같은 책상의 두 거리로 잇는다.</p>
+<p>추천은 <strong>1안 연필 책상</strong> — 레퍼런스처럼 책상 · 소품을 흑백 연필 그림으로 낮추고 가운데 다이어리만 원색으로 둔다. 세계가 무채색이라 편집기의 담백한 회색과 가장 덜 부딪히고, 사용자가 꾸민 표지가 가장 돋보인다. 만들 때는 6안(물건 · UI만) → 1안(책상 그림) → 전환 · 디테일 순으로 나눠 간다.</p>
+<div class="grid two">
+<figure><img src="이미지/00%20지금%20스와이프.png"><figcaption>지금</figcaption></figure>
+<figure><img src="이미지/1안%20기본.jpg"><figcaption>1안 연필 책상</figcaption></figure>
+</div>
+
+</div><div class="sec2"><h2 id="한눈에-보기">한눈에 보기</h2>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>1안 연필 책상 ★</th>
+<th>2안 햇살 책상</th>
+<th>3안 작업 매트</th>
+<th>4안 밤의 스탠드</th>
+<th>5안 원근 책상</th>
+<th>6안 종이 한 장</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>바닥</td>
+<td>흑백 연필 그림 · 비네팅</td>
+<td>연한 나무 · 블라인드 빛 · 잎 그림자</td>
+<td>앱 바탕 위 커팅 매트</td>
+<td>어두운 책상 · 스탠드 빛</td>
+<td>원근으로 누운 책상</td>
+<td>앱 바탕 위 종이 한 장</td>
+</tr>
+<tr>
+<td>옆 다이어리</td>
+<td>회색으로 빠짐 → 가운데 오면 색이 돌아옴</td>
+<td>회색</td>
+<td>회색</td>
+<td>그늘에 잠김</td>
+<td>책상에 누움</td>
+<td>투명도(지금처럼)</td>
+</tr>
+<tr>
+<td>한눈에 보기</td>
+<td>놀링(직각 정리)</td>
+<td>진열 선반</td>
+<td>매트 칸 + 재단 표시</td>
+<td>불 켠 방</td>
+<td>카메라가 위로</td>
+<td>종이 위 정리</td>
+</tr>
+<tr>
+<td>편집기와 충돌</td>
+<td>낮음</td>
+<td>중간</td>
+<td>가장 낮음</td>
+<td>높음(다크 전제)</td>
+<td>낮음</td>
+<td>없음</td>
+</tr>
+<tr>
+<td>만드는 품</td>
+<td>중간</td>
+<td>중간</td>
+<td>중간</td>
+<td>큼</td>
+<td>큼</td>
+<td>작음</td>
+</tr>
+</tbody>
+</table>
+</div><div class="sec2"><h2 id="문서">문서</h2>
+<table>
+<thead>
+<tr>
+<th>문서</th>
+<th>내용</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="#doc-01">01 조사</a></td>
+<td>레퍼런스에서 가져올 것 6가지, 지금 화면의 빈 곳, 근거 다섯 줄(게임 UI 세계 층 · iBooks 나무 책장 · 2026 촉감 디자인 · 미적 사용성 효과 · 놀링 · 컨테이너 전환)</td>
+</tr>
+<tr>
+<td><a href="#doc-02">02 충돌하지 않는 원칙</a></td>
+<td><strong>핵심.</strong> 세 겹 구조, 색 예산(수치), 같은 재료, 그린 그림, 움직임 예산, 정보는 물건의 상태로, 편집기로 다리 놓기, 끌 수 있음, 폰은 덜기, 점검표 · ✕/○ 비교</td>
+</tr>
+<tr>
+<td><a href="#doc-03">03 스와이프 시안</a></td>
+<td>1안 ~ 6안 스와이프(태블릿) + 넘기는 중 · 새 다이어리 · 시간대 · 폰 모음, 여섯 안 비교표</td>
+</tr>
+<tr>
+<td><a href="#doc-04">04 한눈에 시안</a></td>
+<td>같은 책상을 '정리한 모습'으로 — 안별 한눈에 보기 6장</td>
+</tr>
+<tr>
+<td><a href="#doc-05">05 감성 포인트</a></td>
+<td>골라 섞는 부품 — 소품 도감 20종, 표지 디테일 8종 우선순위, 공유 탭, 빈 책상, 계절 4종</td>
+</tr>
+<tr>
+<td><a href="#doc-06">06 편집 화면으로 이어지기</a></td>
+<td>다이어리 열기 4단계 전환(시간표), React Native 만들기 메모(iOS · Android), 단계별 도입, 정해야 할 것</td>
+</tr>
+</tbody>
+</table>
+</div><div class="sec2"><h2 id="폴더">폴더</h2>
+<pre><code>다이어리 홈 책상 감성/
+├── 다이어리 홈 책상 감성.pdf · .html   ← 결과물 (빌드.py)
+├── 색인.md · 01~06 md                   ← 원본
+├── 빌드.py                               md → html → pdf (크롬 헤드리스)
+├── 이미지/                               시안 · 모음 그림 (스크립트/렌더.py), 00 = 레퍼런스 · 지금 화면
+├── 목업/                                 장면.html#&lt;장면 이름&gt; 으로 여는 시안 원본
+│   ├── 장면.html · 장면.js                장면 조립 (테마 · 배치 · 장면 목록)
+│   ├── 소품.js                            아이콘 · 표지 · 소품 20종 (SVG/HTML)
+│   ├── 공통.css                           세 겹 · 앱 토큰 · 테마 6종
+│   └── 소재/                             캐릭터(캐릭터 디자인 문서) · 스티커(편집기와 같은 Fluent Emoji)
+└── 스크립트/렌더.py                       장면 → jpg (크롬 헤드리스 2배) + 모음 그림
+</code></pre>
+<p>다시 만들기: <code>python 스크립트/렌더.py</code> → <code>python 빌드.py</code> (이 폴더에서). 장면 하나만: <code>python 스크립트/렌더.py 1안 기본</code>.</p></div>
+</section><section class="doc" id="doc-01" data-title="01 조사 — 간단히">
+<h1 id="01-조사-간단히">01 조사 — 간단히</h1>
+<div class="sec2"><h2 id="레퍼런스-좀비고등학교-10주년">레퍼런스: 좀비고등학교 10주년</h2>
+<figure class="wide"><img src="이미지/00%20레퍼런스%20좀비고%2010주년.png"><figcaption>레퍼런스 · 좀비고 10주년</figcaption></figure>
+
+<p>이 장면에서 가져올 것 여섯 가지:</p>
+<ul>
+<li><strong>흑백 세계 + 한 점의 주인공.</strong> 책상 · 굿즈는 회색 연필 그림인데, 가운데 휴대폰만 진한 검정에 흰 로고다. 색과 대비를 한 곳에 몰아 눈이 저절로 가운데로 간다.</li>
+<li><strong>소품이 곧 추억.</strong> 학생증 · 엽서 · 아크릴 키링 · 피규어 · 펜은 10년 동안 쌓인 '우리 물건'이다. 설명 없이도 "여기는 그동안의 기록이 있는 곳"이라고 말한다.</li>
+<li><strong>가장자리는 어둡고 가운데는 밝다</strong>(비네팅). 소품이 많아도 시끄럽지 않은 이유.</li>
+<li><strong>배경은 원근, 주인공은 정면.</strong> 책상과 굿즈는 비스듬히 누워 있고 휴대폰만 화면과 나란하다.</li>
+<li><strong>주인공 위의 사선 반사광.</strong> 유리 · 코팅 느낌 한 줄이 '진짜 물건'이라는 인상을 준다.</li>
+<li><strong>위아래 검은 띠</strong>(시네마틱). 영상용 연출이라 앱 화면에는 가져오지 않는다.</li>
+</ul>
+</div><div class="sec2"><h2 id="지금-화면">지금 화면</h2>
+<figure class="wide"><img src="이미지/00%20지금%20스와이프.png"><figcaption>지금 · 스와이프</figcaption></figure>
+
+<ul>
+<li>바탕은 <code>surfaceSoft #F1F3F7</code> 한 색이다. 표지는 예쁘지만 '어디에 놓여 있는지'가 없어서 목록 화면처럼 보인다.</li>
+<li>옆 카드는 투명도 0.36 + 크기 0.84로 흐려진다. 흐린 방식이 '멀어짐'이지 '그늘짐'이 아니라 물건 느낌이 약하다.</li>
+<li>표지에 그림자가 거의 없고 두께가 없다. 그래서 책상을 깔아도 표지가 종이처럼 떠 보일 위험이 있다(시안에서 두께 · 두 겹 그림자를 더한 이유).</li>
+</ul>
+</div><div class="sec2"><h2 id="근거-다섯-줄">근거 다섯 줄</h2>
+<table>
+<thead>
+<tr>
+<th>근거</th>
+<th>우리에게 주는 뜻</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>게임 UI의 <strong>세계 층(diegetic) / 화면 층(non-diegetic)</strong> 구분 — Fagerholt &amp; Lorentzon, <em>Beyond the HUD</em> (2009) (<a href="https://www.gamedeveloper.com/design/user-interface-design-in-video-games">정리</a>)</td>
+<td>책상 · 소품은 '세계', 버튼 · 글자는 '화면'. 둘을 섞지 않으면 감성을 크게 올려도 조작은 그대로다. 좀비고 자체도 로비는 화려하고 플레이 화면은 단순하다.</td>
+</tr>
+<tr>
+<td>iBooks 나무 책장은 iOS 7 두 달 뒤 회색 바탕으로 바뀌었다 (<a href="https://techcrunch.com/2013/11/14/apple-releases-ibooks-app-and-store-with-ios-7-design/">TechCrunch 2013</a>)</td>
+<td><strong>사진처럼 사실적인 재질은 빨리 낡는다.</strong> 나무결 · 가죽 대신 '그린 그림'(일러스트) 톤으로 가야 오래 간다. 단, 책장 넘김처럼 손맛 있는 동작은 살아남았다.</td>
+</tr>
+<tr>
+<td>2026 촉감 디자인 흐름 — 사실 재질을 <strong>일부에만</strong> 쓰고 구조는 평평하게 둔다 (<a href="https://clay.global/blog/skeuomorphism-ui">Clay</a>, <a href="https://trends.daisyui.com/ui-design-trends-2026/">daisyUI 2026</a>)</td>
+<td>화면 전체가 아니라 한 겹(바닥)에만 질감을 준다.</td>
+</tr>
+<tr>
+<td>미적 사용성 효과는 <strong>첫인상</strong>에 강하고 쓸수록 약해진다 (<a href="https://lawsofux.com/aesthetic-usability-effect/">Laws of UX</a>)</td>
+<td>감성은 '입구'(홈)에 쓰고, 오래 머무는 편집기는 담백하게 두는 배분이 맞다.</td>
+</tr>
+<tr>
+<td>놀링(knolling) — 물건을 직각으로 늘어놓아 많은 것을 한 장에 정돈해 보여 주는 방식 (<a href="https://readingdesign.org/knolling">Reading Design</a>) · 머티리얼 <strong>컨테이너 전환</strong> — 누른 물건이 다음 화면으로 커지며 이어진다 (<a href="https://material.io/design/motion/the-motion-system.html">Material motion</a>)</td>
+<td>한눈에 보기 = '정리한 책상', 다이어리 열기 = '다이어리를 집어 펼치기'.</td>
+</tr>
+</tbody>
+</table></div>
+</section><section class="doc" id="doc-02" data-title="02 편집 화면과 충돌하지 않는 원칙">
+<h1 id="02-편집-화면과-충돌하지-않는-원칙">02 편집 화면과 충돌하지 않는 원칙</h1>
+<div class="sec2"><h2 id="무엇이-충돌인가">무엇이 충돌인가</h2>
+<p>홈만 감성적으로 바꾸면 두 가지 중 하나가 생긴다.</p>
+<ul>
+<li><strong>편집기가 초라해 보인다.</strong> 따뜻한 책상에서 다이어리를 열었는데 갑자기 회색 바탕과 흰 종이만 남으면 '다른 앱으로 넘어간' 느낌이 든다.</li>
+<li><strong>홈이 시끄러워진다.</strong> 소품 · 질감 · 손글씨가 표지와 같은 세기로 경쟁하면 사용자가 꾸민 표지가 묻힌다. 다이어리 앱에서 주인공은 늘 <strong>사용자가 만든 것</strong>이다.</li>
+</ul>
+<p>그래서 목표는 "홈을 편집기만큼 담백하게"도, "편집기를 홈만큼 화려하게"도 아니다. <strong>같은 책상의 두 거리</strong> — 멀리서 본 책상(홈)과 가까이 다가간 종이(편집기) — 로 만드는 것이다. 편집기의 <code>#F1F3F7</code> 바탕은 '책상에 바짝 다가가 종이 매트만 보이는 거리'가 된다.</p>
+<p>아래 원칙 아홉 개가 그 거리를 지키는 규칙이다. 시안 여섯 개는 모두 이 규칙 안에서 감성의 세기만 다르게 했다.</p>
+</div><div class="sec2"><h2 id="원칙-1-세-겹으로-나누고-감성은-바닥에만">원칙 1 · 세 겹으로 나누고 감성은 바닥에만</h2>
+<figure class="wide"><img src="이미지/층%20구조.jpg"><figcaption>세 겹 구조</figcaption></figure>
+
+<table>
+<thead>
+<tr>
+<th>겹</th>
+<th>들어가는 것</th>
+<th>규칙</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>① 세계 층</td>
+<td>책상 · 소품 · 빛 · 계절</td>
+<td>누르지 않는다. 움직이지 않는다. 화면 읽기(스크린 리더)가 읽지 않는다. 편집기로 갈 때 가장 먼저 사라진다.</td>
+</tr>
+<tr>
+<td>② 물건 층</td>
+<td>다이어리 표지</td>
+<td>사용자 색 그대로. 두 겹 그림자 + 페이지 두께로 '물건'이 된다. 유일하게 눌러서 들어가는 것.</td>
+</tr>
+<tr>
+<td>③ UI 층</td>
+<td>제목 · 칩 · 보기 전환 · 검색 · 화살표 · 정보 카드 · 개수</td>
+<td><strong>편집기와 같은 토큰</strong> (<code>theme.js</code>), 같은 글꼴 · 굵기 · 모서리 · 그림자. 손글씨 · 나무 · 종이 재질을 쓰지 않는다.</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>게임 UI 용어로 ①은 세계(diegetic), ③은 화면(non-diegetic)이다. 세계를 아무리 꾸며도 화면 층이 그대로면 조작 학습이 그대로 이어진다.</li>
+<li><strong>글자는 그림 위에 바로 올리지 않는다.</strong> 가운데 다이어리 이름 · 페이지 수는 흰 정보 카드(모서리 16, <code>shadow.card</code>)에 담는다. 한눈에 보기 이름표도 바탕이 복잡한 안(2 · 3안)은 흰 판을 깐다.</li>
+</ul>
+</div><div class="sec2"><h2 id="원칙-2-색-예산-화면에서-가장-진한-색은-표지">원칙 2 · 색 예산 — 화면에서 가장 진한 색은 표지</h2>
+<figure class="wide"><img src="이미지/모음%20OX%20비교.jpg"><figcaption>✕ 감성이 UI를 덮음 · ○ 감성은 바닥에만</figcaption></figure>
+
+<ul>
+<li>왼쪽(✕)은 나무 책상 · 원색 소품 · 손글씨 칩 · 그림 위 글자. 소품이 표지와 같은 채도라 메모장 표지가 열 개 물건 중 하나가 된다. 버튼도 편집기와 다른 앱처럼 보인다.</li>
+<li>오른쪽(○)은 레퍼런스처럼 <strong>세계를 흑백</strong>으로 낮췄다. 가운데 표지만 색이 있어서 소품이 열 개여도 시선이 흩어지지 않는다.</li>
+</ul>
+<p>수치 기준(시안에서 쓴 값):</p>
+<table>
+<thead>
+<tr>
+<th>대상</th>
+<th>채도</th>
+<th>바탕과의 명도 대비</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>세계 층 바탕</td>
+<td>0 ~ 10%</td>
+<td>—</td>
+</tr>
+<tr>
+<td>세계 층 소품</td>
+<td>1안 0%, 2 · 5안 35 ~ 60%, 3안 테이프 팔레트 그대로(파스텔)</td>
+<td>바탕 대비 1.3 : 1 안팎 (선은 보이되 튀지 않게)</td>
+</tr>
+<tr>
+<td>옆 다이어리</td>
+<td>원래 색의 10 ~ 30%</td>
+<td>가운데보다 낮게</td>
+</tr>
+<tr>
+<td>가운데 다이어리</td>
+<td>100%</td>
+<td>가장 높게</td>
+</tr>
+<tr>
+<td>계절 · 시간 포인트</td>
+<td><strong>한 화면에 한 색만</strong> (벚꽃 분홍, 단풍 주황 …)</td>
+<td>작게</td>
+</tr>
+</tbody>
+</table>
+</div><div class="sec2"><h2 id="원칙-3-같은-재료만-쓴다">원칙 3 · 같은 재료만 쓴다</h2>
+<ul>
+<li>소품은 모두 <strong>앱 안에 이미 있는 것</strong>에서 가져온다: 편집기 테이프 팔레트(<code>editor/constants.js</code>), 편집기 스티커, 캐릭터 모아 · 디오, 오늘 날짜, 다이어리 이름.</li>
+<li>그래서 책상은 장식이 아니라 <strong>편집기 도구의 예고편</strong>이 된다. 홈에서 본 하늘색 줄무늬 테이프 롤을 편집기 테이프 도구에서 다시 만난다.</li>
+<li>다른 브랜드의 굿즈 · 실제 사진 · 다른 그림체를 넣지 않는다. 소품 선은 캐릭터 그림체(둥근 끝, 먹선)와 가이드 아이콘 규칙(선만 · 둥근 끝)을 따른다.</li>
+</ul>
+</div><div class="sec2"><h2 id="원칙-4-사실-재질-대신-그린-그림">원칙 4 · 사실 재질 대신 '그린 그림'</h2>
+<ul>
+<li>iBooks 나무 책장이 iOS 7에서 빨리 사라진 것처럼, 사진 같은 나무결 · 가죽 · 금속은 빨리 낡고 기기마다 다르게 보인다.</li>
+<li>시안의 책상은 모두 <strong>평평한 색 + 아주 옅은 결 + 손으로 그린 선</strong>이다. 1안은 연필선을 일부러 흔들었다(선 흔들림 3px).</li>
+<li>질감 무늬는 화면 크기에서 거의 안 보일 정도(불투명도 6 ~ 16%)로만 쓴다.</li>
+</ul>
+</div><div class="sec2"><h2 id="원칙-5-움직임-예산-움직이는-건-다이어리-하나">원칙 5 · 움직임 예산 — 움직이는 건 다이어리 하나</h2>
+<ul>
+<li>세계 층은 <strong>멈춰 있다.</strong> 반짝임 · 흔들림 · 떠다니는 꽃잎을 쓰지 않는다(계절 꽃잎도 놓여 있을 뿐).</li>
+<li>넘길 때 바뀌는 것은 다이어리의 위치 · 크기 · 기울기 · 색뿐이다. 1안은 옆에서 가운데로 오면서 <strong>색이 돌아온다</strong>.</li>
+<li>편집기의 움직임(가이드 10장: 패널 · 토스트)보다 길게 끌지 않는다. 전환은 06에서 정한 시간 안에서.</li>
+<li>기기에서 '동작 줄이기'를 켜면 전환 연출을 빼고 바로 연다(편집기 <code>ToolGuideAnimation.js</code>와 같은 방식).</li>
+</ul>
+</div><div class="sec2"><h2 id="원칙-6-정보는-배지-대신-물건의-상태로">원칙 6 · 정보는 배지 대신 물건의 상태로</h2>
+<figure class="wide"><img src="이미지/표지%20디테일.jpg"><figcaption>표지 디테일</figcaption></figure>
+
+<p>글자 · 숫자 · 배지를 더하면 UI 층이 늘어나 편집기와 멀어진다. 이미 있는 정보를 <strong>물건의 모양</strong>으로 바꾸면 감성은 늘고 UI는 그대로다.</p>
+<ul>
+<li><strong>페이지 수 → 두께</strong> · <strong>즐겨찾기 → 책갈피 끈</strong> · <strong>공유 → 이름 테이프</strong> · <strong>마지막으로 쓴 다이어리 → 위에 놓인 펜</strong> · <strong>새 다이어리 → 비닐 포장</strong> · <strong>편집 모드 선택 → 체크 스티커</strong> · <strong>오늘 한 장 완성 → 도장</strong> · <strong>가운데 → 코팅 반사 한 줄</strong></li>
+<li>정보 카드의 <code>N페이지</code> 글자는 그대로 둔다(가이드 5.4). 두께는 보조 신호이고 글자를 대신하지 않는다.</li>
+</ul>
+</div><div class="sec2"><h2 id="원칙-7-편집기-쪽으로-다리를-놓는다">원칙 7 · 편집기 쪽으로 다리를 놓는다</h2>
+<ul>
+<li>홈에서 다이어리를 누르면 <strong>그 다이어리가 집어 들려 펼쳐지고, 책상이 흐려지며 편집기 바탕색으로 바뀐다</strong> (06 문서). 편집기는 하나도 바꾸지 않는다.</li>
+<li>편집기에서 돌아오면 거꾸로: 종이가 접혀 표지가 되고 책상 위 제자리로 내려앉는다.</li>
+<li>이 한 번의 연결 덕분에 두 화면은 '다른 디자인'이 아니라 '같은 공간의 다른 거리'로 읽힌다.</li>
+</ul>
+</div><div class="sec2"><h2 id="원칙-8-끌-수-있고-없어도-완전하다">원칙 8 · 끌 수 있고, 없어도 완전하다</h2>
+<ul>
+<li>세계 층을 통째로 지우면 6안(종이 한 장) 또는 지금 화면이 된다. <strong>세계 층 없이도 화면이 완전해야</strong> 한다. 설정에 <code>책상 꾸미기</code> 스위치를 두면 저사양 기기 · 취향 모두 대응된다.</li>
+<li>세계 층은 정적 그림 한 장(태블릿 · 폰 각각)이라 끄고 켜는 비용이 거의 없다.</li>
+</ul>
+</div><div class="sec2"><h2 id="원칙-9-폰은-덜어낸다">원칙 9 · 폰은 덜어낸다</h2>
+<ul>
+<li>폰은 화면이 좁아 소품이 표지와 겹친다. <strong>위 · 아래 가장자리에만 소품 3 ~ 5개</strong>, 가운데 세로 띠(다이어리 · 정보 카드)는 비운다.</li>
+<li>한눈에 보기(폰)는 소품을 맨 아래 한 줄로만. 스크롤하면 표지만 지나간다.</li>
+</ul>
+</div><div class="sec2"><h2 id="점검표-새-소품-새-테마를-넣을-때">점검표 (새 소품 · 새 테마를 넣을 때)</h2>
+<ul>
+<li>[ ] 앱 안의 재료(테이프 · 스티커 · 캐릭터 · 날짜 · 이름)에서 왔다.</li>
+<li>[ ] 가운데 표지보다 채도 · 대비가 낮다. 계절 색은 한 화면에 하나.</li>
+<li>[ ] 누를 수 없고 움직이지 않는다. 화면 읽기가 건너뛴다.</li>
+<li>[ ] 표지 · 정보 카드 · 화살표 · 칩과 겹치지 않는다(폰은 위 · 아래 가장자리만).</li>
+<li>[ ] 글자를 그림 위에 바로 올리지 않았다(소품 안의 손글씨는 꾸밈이라 예외, 정보 전달용 글자 금지).</li>
+<li>[ ] 세계 층을 지워도 화면이 완전하다.</li>
+</ul></div>
+</section><section class="doc" id="doc-03" data-title="03 스와이프 시안 — 여섯 가지 책상">
+<h1 id="03-스와이프-시안-여섯-가지-책상">03 스와이프 시안 — 여섯 가지 책상</h1>
+<p>모든 안이 함께 지키는 것: 왼쪽 레일 · 제목 · 칩 · 보기 전환 · 검색 · 더보기 · 화살표의 <strong>자리와 모양은 지금 앱 그대로</strong>다(UI 층). 바뀌는 것은 바닥(세계 층)과 다이어리의 물건 느낌, 가운데 정보 카드 하나다.</p>
+<p>공통으로 바뀌는 다이어리:</p>
+<ul>
+<li>가운데 표지 250(지금 238 × 1.06과 거의 같음), 옆 표지 196. 옆 표지는 <strong>살짝 기울어져</strong>(−3.5° · +3°) 책상에 놓인 물건처럼 보인다.</li>
+<li>두 겹 그림자(가까운 진한 그림자 + 먼 옅은 그림자)와 오른쪽 · 아래 <strong>페이지 두께</strong>.</li>
+<li>이름 · 페이지 수 · 휴지통은 표지 아래 흰 <strong>정보 카드</strong>로. 개수 <code>2 / 7</code>은 그 아래 작은 알약.</li>
+</ul>
+<div class="sec2"><h2 id="1안-연필-책상-좀비고-오마주-추천">1안 연필 책상 — 좀비고 오마주 ★ 추천</h2>
+<figure class="wide"><img src="이미지/1안%20기본.jpg"><figcaption>1안 · 기본</figcaption></figure>
+
+<ul>
+<li><strong>컨셉:</strong> 레퍼런스를 가장 그대로 옮겼다. 책상 · 소품 전부 회색 연필 그림, 가운데 다이어리만 원색.</li>
+<li><strong>소품:</strong> DIO 다이어리 클럽 회원증(레퍼런스의 학생증 자리) · 엽서 · 폴라로이드 · 모아 아크릴 키링 · 디오 아크릴 스탠드 · 탁상 달력(오늘 날짜) · 마스킹테이프 롤 · 연필 · 펜 · 포스트잇 · 클립.</li>
+<li><strong>빛:</strong> 가장자리를 어둡게(비네팅) + 가운데 옅은 조명 + 가장자리 빗금 그림자. 가운데 표지에 사선 반사광 한 줄.</li>
+<li><strong>편집기와의 관계:</strong> 세계가 무채색이라 편집기의 회색 바탕과 가장 가깝다. 홈에서 색이 있는 건 '내 다이어리'뿐이고, 들어가면 '내 종이'만 남는다. 감성의 세기는 크지만 색 충돌은 가장 적다.</li>
+<li><strong>위험:</strong> 흑백이 '쓸쓸하다'로 읽힐 수 있다 → 바탕을 순회색이 아니라 따뜻한 회색(<code>#E6E6E3</code>)으로, 연필선은 진하지 않게. 계절 포인트(05 문서)로 한 색을 더할 수 있다.</li>
+</ul>
+<div class="grid two">
+<figure><img src="이미지/1안%20넘기는%20중.jpg"><figcaption>1안 · 넘기는 중</figcaption></figure>
+<figure><img src="이미지/1안%20새%20다이어리.jpg"><figcaption>1안 · 맨 끝 새 다이어리</figcaption></figure>
+</div>
+
+<ul>
+<li><strong>넘기는 중</strong> — 가운데로 오는 다이어리는 색이 돌아오고, 밀려나는 다이어리는 회색이 된다. 이 '색이 돌아오는' 순간이 1안의 대표 동작이다. 지금의 투명도 · 크기 변화를 색 · 기울기 변화로 바꾼 것.</li>
+<li><strong>새 다이어리</strong> — 맨 끝 카드는 비닐 포장된 빈 노트. 정보 카드와 개수는 비운다(지금 규칙과 같음).</li>
+</ul>
+</div><div class="sec2"><h2 id="2안-햇살-책상-따뜻한-오후">2안 햇살 책상 — 따뜻한 오후</h2>
+<figure class="wide"><img src="이미지/2안%20기본.jpg"><figcaption>2안 · 기본</figcaption></figure>
+
+<ul>
+<li><strong>컨셉:</strong> 창가 책상. 연한 나무색 바탕에 블라인드 사이로 들어온 빛줄기와 잎 그림자.</li>
+<li><strong>소품:</strong> 화분 · 머그컵 · 폴라로이드(숲) · 스티커 시트 · 테이프 롤 · 모아 스탠드 · 펜 · 포스트잇. 소품 채도 60%.</li>
+<li><strong>편집기와의 관계:</strong> 바탕이 따뜻한 베이지라 편집기 회청색 바탕과 온도가 다르다. 전환에서 '빛이 꺼지듯' 바탕이 식는 연출이 꼭 필요하다(06).</li>
+<li><strong>위험:</strong> 머스터드 · 카멜 · 크림 표지가 바탕에 묻힌다. 표지 그림자를 1안보다 진하게.</li>
+</ul>
+<figure class="wide"><img src="이미지/모음%202안%20시간대.jpg"><figcaption>2안 · 아침 · 오후 · 밤</figcaption></figure>
+
+<ul>
+<li>기기 시간에 따라 빛만 바뀐다(아침: 오른쪽에서 서늘한 빛, 오후: 왼쪽 위 따뜻한 빛줄기, 밤: 어두운 방 + 스탠드 빛). 소품 · 배치는 그대로라 그림 한 장 + 색 덮개 3종으로 만든다.</li>
+</ul>
+</div><div class="sec2"><h2 id="3안-다꾸-작업-매트-편집기의-예고편">3안 다꾸 작업 매트 — 편집기의 예고편</h2>
+<figure class="wide"><img src="이미지/3안%20기본.jpg"><figcaption>3안 · 기본</figcaption></figure>
+
+<ul>
+<li><strong>컨셉:</strong> 바닥 전체가 아니라 앱 바탕(<code>#F1F3F7</code>) 위에 <strong>커팅 매트 한 장</strong>을 깐다. 매트의 칸 · 눈금 · 45° 사선.</li>
+<li><strong>소품:</strong> 편집기 테이프 팔레트 그대로의 테이프 롤 3개 · 테이프 조각 · 가위 · 칼 · 자 · 편집기 스티커 시트 · 모아 스티커. 모두 '편집기에서 쓸 수 있는 것'.</li>
+<li><strong>편집기와의 관계:</strong> 매트 밖은 편집기와 같은 바탕이고, 매트의 칸은 편집기 격자(<code>#DCE5F1</code> 계열)와 같은 언어다. 홈 ↔ 편집기 거리가 여섯 안 중 가장 가깝다. 감성은 '아날로그 작업대'.</li>
+<li><strong>위험:</strong> 매트 하늘색과 페리윙클 · 하늘색 표지가 비슷하다 → 매트 채도를 더 낮추거나 매트 색을 사용자 선택(테이프 팔레트 7색)으로.</li>
+</ul>
+</div><div class="sec2"><h2 id="4안-밤의-스탠드-다크-모드와-함께">4안 밤의 스탠드 — 다크 모드와 함께</h2>
+<figure class="wide"><img src="이미지/4안%20기본.jpg"><figcaption>4안 · 기본</figcaption></figure>
+
+<ul>
+<li><strong>컨셉:</strong> 밤에 일기 쓰는 시간. 어두운 책상에 스탠드 빛이 가운데 다이어리에만 떨어진다. 옆 다이어리는 그늘에 잠긴다(어둡게 = 1안의 회색과 같은 역할).</li>
+<li><strong>UI:</strong> 레일 · 칩 · 정보 카드가 다크 토큰(<code>디자인 트렌드 검토</code> 6번 시안 값: 바탕 <code>#121620</code>, 막대 <code>rgba(32,37,50,.95)</code>, 글자 <code>#E7EAF3</code>)으로 바뀐다.</li>
+<li><strong>편집기와의 관계:</strong> 편집기가 밝은 채로면 <strong>가장 크게 충돌</strong>한다. 다크 모드를 채택할 때만, 편집기 껍데기도 함께 어둡게 하는 조건으로 쓴다. 종이와 꾸민 내용은 원래 색 그대로.</li>
+<li><strong>위험:</strong> 차콜 표지(독서 노트)가 어둠에 묻힌다 → 표지 테두리에 아주 옅은 빛 테두리.</li>
+</ul>
+</div><div class="sec2"><h2 id="5안-원근-책상-시네마틱">5안 원근 책상 — 시네마틱</h2>
+<figure class="wide"><img src="이미지/5안%20기본.jpg"><figcaption>5안 · 기본</figcaption></figure>
+
+<ul>
+<li><strong>컨셉:</strong> 레퍼런스의 '배경은 원근, 주인공은 정면'을 그대로. 책상이 화면 안쪽으로 누워 있고 옆 다이어리도 책상 위에 누워 있다. 가운데 다이어리만 <strong>일어서서 정면</strong>을 본다. 아크릴 스탠드는 책상 위에 서 있다.</li>
+<li><strong>넘길 때:</strong> 다음 다이어리가 책상에서 일어나고, 지금 다이어리는 눕는다. 위쪽은 흐리게(심도).</li>
+<li><strong>편집기와의 관계:</strong> 가운데 다이어리가 이미 정면이라 '집어 들기 → 펼치기'(06)로 가장 자연스럽게 이어진다.</li>
+<li><strong>위험:</strong> 만드는 품이 가장 크다(눕는 · 일어나는 3D 변형, 원근 배경 이미지). 폰에서는 원근이 좁아 효과가 약하다 → 태블릿 전용 또는 2차.</li>
+</ul>
+</div><div class="sec2"><h2 id="6안-종이-한-장-최소안">6안 종이 한 장 — 최소안</h2>
+<figure class="wide"><img src="이미지/6안%20기본.jpg"><figcaption>6안 · 기본</figcaption></figure>
+
+<ul>
+<li><strong>컨셉:</strong> 바탕은 지금 그대로, 큰 종이 매트 한 장을 마스킹테이프 두 조각으로 붙였다. 소품은 연필 하나 · 모아 스티커 하나.</li>
+<li><strong>바뀌는 것:</strong> 종이 매트, 표지 두께 · 그림자, 정보 카드. 옆 다이어리는 지금처럼 투명도로 흐린다.</li>
+<li><strong>편집기와의 관계:</strong> 충돌 없음. 다만 레퍼런스의 감성은 30% 정도만 온다.</li>
+<li><strong>쓰임:</strong> 1안으로 가는 <strong>1단계</strong>(세계 층을 빼고 물건 층 · UI 층만 먼저 바꿈), 또는 <code>책상 꾸미기</code> 끔 상태.</li>
+</ul>
+</div><div class="sec2"><h2 id="폰">폰</h2>
+<figure class="wide"><img src="이미지/모음%20폰.jpg"><figcaption>폰 · 1안 · 1안 한눈에 · 2안 · 3안 · 6안</figcaption></figure>
+
+<ul>
+<li>소품은 <strong>위 · 아래 가장자리</strong>에만(원칙 9). 가운데 세로 띠는 다이어리 · 정보 카드 · 개수만.</li>
+<li>옆 다이어리는 양쪽으로 반쯤 걸쳐 '넘길 수 있다'를 보여 준다(화살표 없음, 지금과 같음).</li>
+<li>3 · 6안은 매트 · 종이가 화면 폭에 가깝게 깔려 칩 아래부터 시작한다.</li>
+</ul>
+</div><div class="sec2"><h2 id="여섯-안-비교">여섯 안 비교</h2>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>1안 연필 책상</th>
+<th>2안 햇살 책상</th>
+<th>3안 작업 매트</th>
+<th>4안 밤의 스탠드</th>
+<th>5안 원근 책상</th>
+<th>6안 종이 한 장</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>레퍼런스 닮음</td>
+<td>★★★</td>
+<td>★</td>
+<td>★</td>
+<td>★★</td>
+<td>★★★</td>
+<td>☆</td>
+</tr>
+<tr>
+<td>감성 세기</td>
+<td>강</td>
+<td>강</td>
+<td>중</td>
+<td>강</td>
+<td>최강</td>
+<td>약</td>
+</tr>
+<tr>
+<td>편집기와 충돌</td>
+<td>낮음 (무채색)</td>
+<td>중간 (온도 차)</td>
+<td><strong>가장 낮음</strong></td>
+<td>높음 (다크 전제)</td>
+<td>낮음 (전환 자연스러움)</td>
+<td>없음</td>
+</tr>
+<tr>
+<td>표지가 돋보임</td>
+<td><strong>가장 좋음</strong></td>
+<td>보통</td>
+<td>보통</td>
+<td>좋음</td>
+<td>좋음</td>
+<td>보통</td>
+</tr>
+<tr>
+<td>만드는 품</td>
+<td>중간 (배경 그림 2장 + 회색 덮개)</td>
+<td>중간 (+ 시간대 덮개)</td>
+<td>중간</td>
+<td>큼 (다크 토큰 전체)</td>
+<td>큼</td>
+<td>작음</td>
+</tr>
+<tr>
+<td>추천</td>
+<td><strong>기본안</strong></td>
+<td>시간대만 차용</td>
+<td>소품 · 매트 차용</td>
+<td>다크 모드 때</td>
+<td>태블릿 2차</td>
+<td>1단계 · 꺼짐 상태</td>
+</tr>
+</tbody>
+</table></div>
+</section><section class="doc" id="doc-04" data-title="04 한눈에 보기 시안 — 같은 책상, 정리한 모습">
+<h1 id="04-한눈에-보기-시안-같은-책상-정리한-모습">04 한눈에 보기 시안 — 같은 책상, 정리한 모습</h1>
+<p>스와이프가 '책상 위에 펼쳐 둔 다이어리'라면 한눈에 보기는 <strong>놀링(knolling)</strong> — 같은 책상 위 물건을 직각으로 가지런히 정리한 모습이다. 그래서 두 보기를 오가도 '다른 화면'이 아니라 '같은 책상을 치운 것'으로 읽힌다.</p>
+<p>공통 규칙:</p>
+<ul>
+<li>표지는 <strong>기울이지 않는다</strong>(정리했으니까). 그림자는 가벼운 한 겹.</li>
+<li>모든 표지가 색을 가진다(가운데가 없으니 회색 처리도 없다).</li>
+<li>소품은 표지 줄 <strong>바깥 여백</strong>에만, 역시 직각으로 줄 세운다.</li>
+<li>이름 · 페이지 수는 표지 아래 지금 자리 그대로(가이드 5.4: 12 · 줄 높이 18 · <code>textMuted</code>). 바탕이 복잡한 안은 흰 이름표 판을 깐다.</li>
+<li>스와이프 ↔ 한눈에 전환: 기울어진 다이어리들이 똑바로 서며 칸으로 미끄러지고, 소품이 가장자리로 정리된다(0.35초). 동작 줄이기 켜짐이면 바로 바뀜.</li>
+</ul>
+<div class="sec2"><h2 id="1안-흑백-책상-위-놀링">1안 — 흑백 책상 위 놀링 ★</h2>
+<figure class="wide"><img src="이미지/1안%20한눈에.jpg"><figcaption>1안 · 한눈에</figcaption></figure>
+
+<ul>
+<li>왼쪽 여백: 모아 스탠드 · 테이프 롤 · 포스트잇. 오른쪽 여백: 펜 · 연필 · 지우개 · 클립 두 개 · 탁상 달력을 세로로 나란히.</li>
+<li>책상이 흑백이라 표지 8개가 한 번에 보여도 '표지 진열장'처럼 깔끔하다. 이 안의 한눈에 보기가 여섯 안 중 가장 정돈돼 보인다.</li>
+</ul>
+</div><div class="sec2"><h2 id="2안-진열-선반">2안 — 진열 선반</h2>
+<figure class="wide"><img src="이미지/2안%20한눈에.jpg"><figcaption>2안 · 한눈에</figcaption></figure>
+
+<ul>
+<li>책상이 아니라 <strong>벽 선반</strong>에 표지를 앞으로 세워 진열했다(서점 진열대). 선반 끝에 선인장 · 테이프 롤 · 모아 · 디오 스탠드.</li>
+<li>스와이프(책상)와 공간이 달라지는 대신, '모아 보기 = 책장'이라는 은유가 가장 쉽다. 줄이 많아지면 선반이 아래로 늘어난다.</li>
+<li>이름표는 선반 아래 흰 판.</li>
+</ul>
+</div><div class="sec2"><h2 id="3안-매트-칸에-맞춰">3안 — 매트 칸에 맞춰</h2>
+<figure class="wide"><img src="이미지/3안%20한눈에.jpg"><figcaption>3안 · 한눈에</figcaption></figure>
+
+<ul>
+<li>표지가 매트 칸(20 단위)에 딱 맞게 놓이고 네 모서리에 <strong>재단 표시</strong>가 붙는다. 편집기의 격자 · 정렬 보조선과 같은 언어.</li>
+<li>왼쪽 여백에 테이프 롤 셋과 가위, 오른쪽에 스티커 시트 · 자 · 칼.</li>
+</ul>
+</div><div class="sec2"><h2 id="4안-불-켠-방">4안 — 불 켠 방</h2>
+<figure class="wide"><img src="이미지/4안%20한눈에.jpg"><figcaption>4안 · 한눈에</figcaption></figure>
+
+<ul>
+<li>스와이프의 스탠드 하나 대신 방 불을 켠 것처럼 전체가 조금 밝아진다. '모아 보기는 밝게, 하나 고르기는 스탠드'.</li>
+</ul>
+</div><div class="sec2"><h2 id="5안-카메라가-위로">5안 — 카메라가 위로</h2>
+<figure class="wide"><img src="이미지/5안%20한눈에.jpg"><figcaption>5안 · 한눈에</figcaption></figure>
+
+<ul>
+<li>스와이프의 비스듬한 카메라가 책상 바로 위로 올라가 내려다본다. 누워 있던 다이어리가 그대로 바둑판이 된다. 5안의 원근이 이 전환에서 가장 빛난다.</li>
+</ul>
+</div><div class="sec2"><h2 id="6안-종이-위-정리">6안 — 종이 위 정리</h2>
+<figure class="wide"><img src="이미지/6안%20한눈에.jpg"><figcaption>6안 · 한눈에</figcaption></figure>
+
+<ul>
+<li>같은 종이 매트 위에 표지만. 지금 한눈에 보기와 가장 비슷하다.</li>
+</ul>
+</div><div class="sec2"><h2 id="폰-한눈에">폰 한눈에</h2>
+<ul>
+<li>2열, 소품은 맨 아래 한 줄(펜 · 테이프 롤)과 위 구석 클립 하나. 스크롤하면 표지만 지나간다. 앞 문서 '폰' 모음의 두 번째 그림.</li>
+</ul></div>
+</section><section class="doc" id="doc-05" data-title="05 감성 포인트 — 골라 섞는 부품">
+<h1 id="05-감성-포인트-골라-섞는-부품">05 감성 포인트 — 골라 섞는 부품</h1>
+<p>어느 안을 고르든 아래 부품을 더하거나 뺄 수 있다. 모두 02의 원칙(세계 층 · 앱 안의 재료 · 정보는 물건의 상태로)을 지킨다.</p>
+<div class="sec2"><h2 id="소품-도감">소품 도감</h2>
+<figure class="wide"><img src="이미지/소품%20도감.jpg"><figcaption>소품 도감 20종</figcaption></figure>
+
+<ul>
+<li><strong>캐릭터 굿즈 (회원증 · 아크릴 스탠드 · 키링)</strong> — 레퍼런스에서 가장 강한 감성은 '우리 캐릭터의 굿즈가 책상에 있다'는 것이다. 모아 · 디오를 화면 안 캐릭터가 아니라 <strong>책상 위 굿즈</strong>로 등장시키면 말풍선 · 안내 없이도 브랜드가 보인다. 캐릭터 디자인 문서의 단품 그림을 그대로 썼다.</li>
+<li><strong>편집기 재료 (테이프 롤 · 테이프 조각 · 스티커 시트 · 펜 · 연필 · 지우개)</strong> — 편집기 도구의 예고편. 테이프 색은 편집기 테이프 팔레트, 스티커는 편집기 스티커 묶음에서.</li>
+<li><strong>실제 정보 (탁상 달력 · 도장)</strong> — 달력은 오늘 날짜, 도장은 오늘 한 장을 채운 날. 꾸밈이지만 거짓말을 하지 않는 소품.</li>
+<li><strong>분위기 (화분 · 머그컵 · 스탠드 조명 · 엽서 · 폴라로이드)</strong> — 2 · 4안처럼 공간의 온도를 정하는 소품. 개수를 가장 아껴 쓴다.</li>
+</ul>
+</div><div class="sec2"><h2 id="표지-디테일">표지 디테일</h2>
+<p>02 원칙 6의 그림(표지 디테일 8종)이 이 부품들이다. 우선순위:</p>
+<table>
+<thead>
+<tr>
+<th>순위</th>
+<th>디테일</th>
+<th>이유</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>페이지 두께 · 두 겹 그림자</td>
+<td>어느 안이든 '물건'이 되려면 꼭 필요. 비용 작음</td>
+</tr>
+<tr>
+<td>2</td>
+<td>새 다이어리 = 비닐 포장</td>
+<td>맨 끝 카드가 '빈 자리'에서 '뜯고 싶은 새 노트'로</td>
+</tr>
+<tr>
+<td>3</td>
+<td>즐겨찾기 = 책갈피 끈</td>
+<td>별 버튼은 그대로, 끈이 덤으로</td>
+</tr>
+<tr>
+<td>4</td>
+<td>마지막으로 쓴 다이어리 = 펜</td>
+<td>다시 열 다이어리를 바로 알려 줌. 정렬 '최근 수정' 과 잘 맞음</td>
+</tr>
+<tr>
+<td>5</td>
+<td>공유 = 이름 테이프</td>
+<td>공유 아이콘을 대신하지 않고 더함</td>
+</tr>
+<tr>
+<td>6</td>
+<td>오늘 한 장 = 도장</td>
+<td>매일 쓰는 동기. 기록 습관 기능과 함께</td>
+</tr>
+</tbody>
+</table>
+</div><div class="sec2"><h2 id="공유-다이어리-탭-친구들의-책상">공유 다이어리 탭 — 친구들의 책상</h2>
+<figure class="wide"><img src="이미지/1안%20공유%20탭.jpg"><figcaption>1안 · 공유 다이어리 탭</figcaption></figure>
+
+<ul>
+<li>공유 탭으로 바꾸면 소품이 바뀐다: 디오 혼자였던 스탠드가 <strong>모아와 디오 둘이</strong> 되고, 친구들의 포스트잇이 붙는다.</li>
+<li>정보 카드에는 함께 쓰는 사람(<code>민지 · 지후 외 2명</code>)이 나온다. 포스트잇 손글씨는 꾸밈이다 — 실제 활동(누가 언제 썼는지)을 포스트잇에 띄우려면 같은 정보를 알림 · 정보 카드에도 보여야 한다(정보를 그림에만 두지 않기).</li>
+</ul>
+</div><div class="sec2"><h2 id="빈-책상">빈 책상</h2>
+<figure class="wide"><img src="이미지/1안%20빈%20책상.jpg"><figcaption>1안 · 다이어리가 없을 때</figcaption></figure>
+
+<ul>
+<li>다이어리가 놓일 자리에 점선 자리 표시, 옆에서 모아가 손을 흔든다. 문구는 지금 그대로(<code>다이어리가 없어요</code> · <code>새 다이어리를 만들어 기록을 시작해 보세요.</code>), 버튼은 주요 버튼 토큰.</li>
+</ul>
+</div><div class="sec2"><h2 id="계절">계절</h2>
+<figure class="wide"><img src="이미지/모음%20계절.jpg"><figcaption>1안 · 봄 · 여름 · 가을 · 겨울</figcaption></figure>
+
+<ul>
+<li>흑백 책상에 <strong>계절 색 하나</strong>만 더한다: 봄 벚꽃잎, 여름 레모네이드 · 바다 사진, 가을 단풍잎, 겨울 귤 · 눈송이. 원칙 2의 '한 화면 한 색'.</li>
+<li>계절 소품은 놓여 있을 뿐 떨어지거나 날리지 않는다(원칙 5).</li>
+<li>시즌 스티커 · 속지 팩(속지 에셋 아이디어 문서)과 같은 시기에 바꾸면 '이번 시즌 책상'이 마케팅 소재가 된다.</li>
+</ul>
+</div><div class="sec2"><h2 id="시간대">시간대</h2>
+<ul>
+<li>2안의 아침 · 오후 · 밤(03 문서)을 1안에도 쓸 수 있다. 1안은 흑백이라 빛 방향(비네팅 중심)만 옮기면 된다.</li>
+</ul></div>
+</section><section class="doc" id="doc-06" data-title="06 편집 화면으로 이어지기 · 만들기">
+<h1 id="06-편집-화면으로-이어지기-만들기">06 편집 화면으로 이어지기 · 만들기</h1>
+<div class="sec2"><h2 id="다이어리를-열-때">다이어리를 열 때</h2>
+<figure class="wide"><img src="이미지/모음%20전환%20스토리보드.jpg"><figcaption>① 책상 · ② 집어 들기 · ③ 펼치기 · ④ 편집기</figcaption></figure>
+
+<table>
+<thead>
+<tr>
+<th>단계</th>
+<th>시간</th>
+<th>무엇이 바뀌나</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>① 누름</td>
+<td>0</td>
+<td>가운데 다이어리가 살짝 눌린다(크기 0.98).</td>
+</tr>
+<tr>
+<td>② 집어 들기</td>
+<td>0 → 180ms</td>
+<td>다이어리가 커지며(1.2배) 떠오르고 그림자가 깊어진다. <strong>세계 층이 흐려지고</strong>(흐림 · 밝아짐) 옆 다이어리 · UI 층이 사라진다.</td>
+</tr>
+<tr>
+<td>③ 펼치기</td>
+<td>180 → 380ms</td>
+<td>표지가 왼쪽으로 넘어가며 첫 장(마지막으로 본 페이지)이 보인다. 바탕이 편집기 바탕 <code>#F1F3F7</code>로 덮인다.</td>
+</tr>
+<tr>
+<td>④ 편집기</td>
+<td>380 → 480ms</td>
+<td>펼친 오른쪽 페이지가 편집기 종이 자리로 미끄러지고, 상단 바 · 리본 · 실행 취소 바가 나타난다.</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>전체 0.5초 안. 머티리얼의 컨테이너 전환과 같은 구조: <strong>누른 물건이 다음 화면의 주인공이 된다.</strong></li>
+<li>편집기 쪽은 하나도 바꾸지 않는다. 편집기 탭의 색 띠(다이어리 색)가 '방금 그 다이어리'라는 마지막 연결 고리다.</li>
+<li>돌아올 때는 거꾸로(종이 → 표지 → 책상 위 제자리). 편집기에서 바꾼 마지막 페이지가 있으면 그 다이어리 위에 펜이 놓인다(05 표지 디테일 4번).</li>
+<li>동작 줄이기 켜짐: ②③을 빼고 바로 편집기(지금과 같음).</li>
+<li><strong>1단계 단순판:</strong> 펼치기(③)가 어렵다면 ② 다음 바로 바탕을 <code>#F1F3F7</code>로 덮고 편집기를 띄워도 연결감의 70%는 온다.</li>
+</ul>
+</div><div class="sec2"><h2 id="만들기-메모-react-native-ios와-android-모두">만들기 메모 (React Native · iOS와 Android 모두)</h2>
+<table>
+<thead>
+<tr>
+<th>부분</th>
+<th>방법</th>
+<th>주의</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>세계 층</td>
+<td><strong>정적 그림 한 장</strong>(태블릿 · 폰 각각, webp)을 <code>expo-image</code>로 깐다. 소품을 하나씩 컴포넌트로 만들지 않는다.</td>
+<td>안전 영역까지 깔고, 창 크기에 맞춰 가운데 기준으로 잘라 쓴다(<code>contentFit="cover"</code>). 계절 · 공유 탭은 그림을 바꿔 끼운다.</td>
+</tr>
+<tr>
+<td>세계 층 접근성</td>
+<td><code>accessibilityElementsHidden</code> · <code>importantForAccessibility="no-hide-descendants"</code></td>
+<td>화면 읽기가 소품을 읽지 않게.</td>
+</tr>
+<tr>
+<td>페이지 두께 · 그림자</td>
+<td>표지 뒤 <code>View</code> 두 개(두께 줄무늬, 그림자). 그림자는 <code>boxShadow</code>(최근 카드 버튼 그림자 수정과 같은 방식)</td>
+<td>안드로이드 <code>elevation</code> 회색 번짐 문제를 피한다.</td>
+</tr>
+<tr>
+<td>옆 다이어리 회색 (1안)</td>
+<td>표지 위에 <strong>회색 덮개 View</strong>(바탕색, 투명도 0 → 0.55)를 얹고 지금 <code>carouselMotion</code>의 보간에 투명도만 추가</td>
+<td>RN의 <code>filter: grayscale</code>은 플랫폼마다 지원이 달라(iOS 제한) 쓰지 않는다. 덮개 방식은 완전한 흑백은 아니지만 '빛이 빠진' 효과는 같다. 네이티브 드라이버로 움직인다.</td>
+</tr>
+<tr>
+<td>기울기</td>
+<td>지금 <code>carouselMotion</code>에 <code>rotate</code> 보간 추가(−3.5° ↔ 0 ↔ 3°)</td>
+<td>지금 코드는 위 기준 축소라 기울기 축을 가운데로 바꿔야 한다(주석에 적힌 문제와 같은 원인).</td>
+</tr>
+<tr>
+<td>정보 카드</td>
+<td>지금 <code>cardInfoCarousel</code> 내용을 흰 카드로 감싼다</td>
+<td>휴지통 버튼 자리 · 크기는 그대로(44 이상).</td>
+</tr>
+<tr>
+<td>전환 ②③</td>
+<td><code>Animated</code>로 표지 크기 · 위치, 세계 층 투명도, 바탕 덮개 투명도</td>
+<td>흐림 라이브러리가 없으니 흐림 대신 <strong>밝아짐 + 투명도</strong>로. 펼치기는 표지 <code>rotateY</code>(원근 포함).</td>
+</tr>
+<tr>
+<td>5안 원근</td>
+<td>원근 그림 + 옆 다이어리 <code>rotateX</code></td>
+<td>비용이 크다. 태블릿 2차.</td>
+</tr>
+<tr>
+<td>끄기</td>
+<td>설정 <code>책상 꾸미기</code> → 세계 층 그림만 빼고 바탕 <code>#F1F3F7</code></td>
+<td>6안과 같은 화면이 된다.</td>
+</tr>
+</tbody>
+</table>
+</div><div class="sec2"><h2 id="단계">단계</h2>
+<table>
+<thead>
+<tr>
+<th>단계</th>
+<th>내용</th>
+<th>결과</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>물건 층 · UI 층: 두께 · 두 겹 그림자 · 기울기 · 정보 카드 · 새 다이어리 비닐 포장</td>
+<td>6안. 편집기와 충돌 0, 감성 30%</td>
+</tr>
+<tr>
+<td>2</td>
+<td>세계 층: 1안 연필 책상 그림(태블릿 · 폰) + 옆 다이어리 회색 덮개 + 한눈에 놀링 배치</td>
+<td>1안. 레퍼런스 감성 대부분</td>
+</tr>
+<tr>
+<td>3</td>
+<td>전환 ②③ · 표지 디테일(끈 · 펜 · 이름 테이프 · 도장) · 빈 책상 · 공유 탭 소품</td>
+<td>홈 ↔ 편집기 연결</td>
+</tr>
+<tr>
+<td>4</td>
+<td>계절 · 시간대, (다크 모드 채택 시) 4안</td>
+<td>시즌 운영</td>
+</tr>
+</tbody>
+</table>
+</div><div class="sec2"><h2 id="정해야-할-것">정해야 할 것</h2>
+<ul>
+<li>[ ] 기본 방향: <strong>1안 연필 책상</strong>(추천) / 3안 작업 매트 / 6안 최소</li>
+<li>[ ] 흑백 세계가 '쓸쓸함'으로 읽히는지 — 팀 몇 명에게 1안 · 2안 기본 그림을 보여 첫인상 확인</li>
+<li>[ ] 한눈에 보기: 놀링(같은 책상) / 진열 선반(2안)</li>
+<li>[ ] 다이어리 열기 전환을 1단계 단순판으로 할지, 펼치기까지 할지</li>
+<li>[ ] <code>책상 꾸미기</code> 끄기 설정을 둘지</li>
+<li>[ ] 책상 그림을 누가 그릴지 — 시안의 소품 SVG를 다듬어 쓸 수 있다(<code>목업/소품.js</code>). 손그림으로 다시 그리면 레퍼런스에 더 가까워진다.</li>
+</ul></div>
+</section>
+</main>
+</div>
+<script>
+const links=[...document.querySelectorAll('nav a')],secs=[...document.querySelectorAll('.doc')];
+const io=new IntersectionObserver(es=>{es.forEach(e=>{if(e.isIntersecting){links.forEach(l=>l.classList.toggle('on',l.getAttribute('href')==='#'+e.target.id));}})},{rootMargin:'-20% 0px -70% 0px'});
+secs.forEach(s=>io.observe(s));
+</script>
+</body>
+</html>

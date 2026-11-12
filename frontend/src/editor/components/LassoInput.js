@@ -141,7 +141,7 @@ export default function LassoInput({ objects, selectedIds, shape, mode, zoom, pa
   const path = polygon.length ? 'M' + polygon.map(p => p.x + ' ' + p.y).join('L') + 'Z' : ''
   return (
     <View style={[styles.layer, { width: pageWidth * zoom, height: pageHeight * zoom, zIndex: captureAll ? 3 : 0 }]} pointerEvents="box-none" collapsable={false}>
-      <View accessibilityLabel={shape === 'freeform' ? '자유형 올가미 입력 영역' : '네모 올가미 입력 영역'} style={StyleSheet.absoluteFill} pointerEvents="box-only" collapsable={false} {...handlers}>
+      <View accessibilityLabel={shape === 'freeform' ? '자유형 올가미 입력 영역' : '네모형 올가미 입력 영역'} style={StyleSheet.absoluteFill} pointerEvents="box-only" collapsable={false} {...handlers}>
       <Svg pointerEvents="none" width={pageWidth * zoom} height={pageHeight * zoom} viewBox={'0 0 ' + pageWidth + ' ' + pageHeight}>
         {drawing && objects.filter(object => !object.hidden && previewIds.has(object.id)).map(object => (
           <Polygon key={object.id} points={objectLassoCorners(object).map(p => p.x + ',' + p.y).join(' ')}

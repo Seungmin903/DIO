@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DIO 리뉴얼 2안 · 구역 카드 + 스위치 목록</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nanum+Gothic:wght@400;700&family=Nanum+Myeongjo:wght@400;700&family=Nanum+Pen+Script&family=Poor+Story&display=swap">
+<link rel="stylesheet" href="공통.css">
+<style>
+  .seccards { width: 248px; flex: none; padding: 14px 12px; display: flex; flex-direction: column; gap: 8px; overflow: auto }
+  .seccard { display: flex; align-items: center; gap: 12px; padding: 14px; border-radius: 18px; background: rgba(255,255,255,.55); border: 2px solid transparent; text-align: left }
+  .seccard .ic { width: 44px; height: 44px; border-radius: 14px; background: var(--plate); display: grid; place-items: center; font-size: 22px; flex: none }
+  .seccard b { font-size: 14.5px; display: block } .seccard i { font-style: normal; color: var(--muted); font-size: 11.5px; display: block; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 150px }
+  .seccard.on { background: #fff; border-color: var(--primary); box-shadow: var(--card) }
+  .acc { flex: none; border-radius: 16px; border: 1px solid var(--border); overflow: hidden; background: #fff }
+  .acc + .acc { margin-top: 8px }
+  .acc > .head { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 52px; padding: 0 14px; text-align: left }
+  .acc > .head b { font-size: 13.5px } .acc > .head i { font-style: normal; color: var(--muted); font-size: 12px; margin-left: auto; max-width: 150px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis }
+  .acc > .head .chev { color: var(--muted); transition: transform .15s } .acc.open > .head .chev { transform: rotate(90deg) }
+  .acc.open { border-color: var(--primary) }
+  .acc > .body { padding: 2px 14px 12px; border-top: 1px solid var(--border) }
+</style>
+</head>
+<body>
+<div id="root"></div><div class="toast" id="toast"></div>
+<script src="렌더.js"></script><script src="카탈로그.js"></script><script src="엔진.js"></script>
+<script>
+// 2안 구역 카드 + 스위치 목록: 왼쪽 큰 구역 카드(4안의 세로 카테고리 모양) | 가운데 미리보기 | 오른쪽 목록 —
+// 표지 요소는 한 줄씩(켜고 끄는 스위치 + 요약), 줄을 누르면 그 자리에서 펼친다(한 번에 하나).
+function cardsHTML() { return SECTIONS().map(([id, l, ic]) => `<button class="seccard ${S.section === id ? 'on' : ''}" data-act="section" data-v="${id}"><span class="ic">${ic}</span><span><b>${l}</b><i>${sectionSummary(id)}</i></span></button>`).join('') }
+const acc = (id, title, summary, body, { open, toggle } = {}) => `<div class="acc ${open ? 'open' : ''}"><div class="head" data-act="${S.section === 'cover' ? 'el' : 'agroup'}" data-v="${id}" role="button">${toggle ?? ''}<b>${title}</b><i>${summary}</i><span class="chev">›</span></div>${open ? `<div class="body appear">${body}</div>` : ''}</div>`
+ACT.agroup = (v) => { if (S.screen === 'add') ACT.addGroup(v); else ACT.group(v) }
+function panelHTML() {
+  if (S.section === 'basic') return { body: basicOptions() + (S.screen === 'edit' ? `<div class="card" style="margin-top:8px"><div class="ico">📔</div><div class="grow"><div class="lbl">하루 일기 · ${EDIT_DIARY.period}</div><div class="val">속지 종류와 기간은 그대로예요. 더 쓰려면 새 페이지에서 이어 붙여요</div></div></div>` : '') }
+  if (S.section === 'style') return { body: styleOptions(curPaper()) }
+  if (S.section === 'cover') {
+    if (!S.cover.enabled) return { body: `${coverKindOptions()}<div class="hint" style="margin-top:12px">표지 없이 첫 장부터 시작해요. 다이어리 수정에서 언제든 다시 더할 수 있어요.</div>` }
+    return { body: `${coverKindOptions()}<div style="margin-top:12px">${COVER_ELEMENTS().map(([el, l, d, onKey]) => acc(el, l, d, elementOptions(el), { open: S.el === el, toggle: onKey ? `<span data-stop>${sw2(getK('cover.' + onKey), 'toggle', 'cover.' + onKey)}</span>` : '' })).join('')}</div>`, foot: S.screen === 'edit' ? `<button class="btn ghost small" style="color:var(--danger)" data-act="coverKind" data-v="none">표지 빼기</button>` : '' }
+  }
+  // 속지: 묶음을 한 줄씩, 고른 묶음만 펼쳐 속지를 보여 준다
+  const add = S.screen === 'add', st = add ? S.add : S
+  return { body: GROUPS.map((g) => acc(g.id, `${g.icon} ${g.name}`, st.group === g.id ? paperById(st.paperId).name : g.desc, paperGrid(add ? 'add' : 'new'), { open: st.group === g.id })).join(''), foot: add ? addOptions() : contextOptions() }
+}
+function stageHTML() {
+  const st = $('#stage'), W = st.clientWidth - 60, H = st.clientHeight - 80
+  if (S.screen === 'add') { const p = paperById(S.add.paperId), w = Math.min(W * 0.55, H * 4 / 3); return `<div class="row" style="flex-wrap:nowrap;gap:24px;align-items:center"><div style="width:${w * 0.32}px;opacity:.45">${paperPreview(w * 0.32, H, 'weekly', { year: 2026, month: 10, week: 3 })}</div><div class="ghostpage">${paperPreview(w, H, p.kinds[0], addPreviewOpts())}</div><div style="width:${w * 0.32}px;opacity:.45">${paperPreview(w * 0.32, H, 'diary', { year: 2026, month: 10, day: 23 })}</div></div><span class="pill">＋ ${addSummary()}</span>` }
+  const p = paperById(S.paperId)
+  if (S.section === 'cover') return coverPreview(W * 0.8, H - 20)
+  if (S.section === 'paper' || S.section === 'style') return `${paperPreview(W * 0.8, H - 30, p.kinds[0], { year: S.period.year, month: S.period.start, dated: p.type !== 'note' && (p.type !== 'diary' || S.dateStamp) })}<span class="pill">${p.name}</span>`
+  const half = W / 2 - 20
+  return `<div class="row" style="flex-wrap:nowrap;gap:32px;align-items:center">${coverPreview(half, H - 40)}${paperPreview(half, H - 40, p.kinds[0], { year: S.period.year, month: S.period.start })}</div><span class="cap">${S.orient === 'landscape' ? '가로' : '세로'} · 표지와 속지가 같은 방향이에요</span>`
+}
+RENDER = () => {
+  const p = panelHTML(), keep = $('#panel .side-body')?.scrollTop ?? 0
+  $('#root').innerHTML = `${switcher('2안 · 구역 카드')}<div class="app">${topbar()}
+    <main class="main" style="padding:12px 0">
+      <nav class="seccards">${cardsHTML()}</nav>
+      <section class="board grow" id="stage" style="min-width:0;margin-right:12px"></section>
+      <aside class="side" id="panel" style="width:420px;border-radius:24px 0 0 24px"><div class="side-body" style="padding-top:16px">${p.body}</div>${p.foot ? `<div class="pfoot">${p.foot}</div>` : ''}</aside>
+    </main></div>`
+  $('#panel .side-body').scrollTop = keep
+  RENDER_STAGE()
+}
+// 줄 머리의 스위치는 펼치지 않고 켜고 끄기만
+document.addEventListener('click', (e) => { if (e.target.closest('[data-stop]')) e.stopPropagation() }, true)
+document.addEventListener('click', (e) => { const s = e.target.closest('[data-stop] [data-act]'); if (s) { ACT[s.dataset.act](s.dataset.v); RENDER() } }, true)
+RENDER_STAGE = () => { const st = $('#stage'); if (st) st.innerHTML = stageHTML() }
+RENDER(); window.addEventListener('resize', RENDER); document.fonts?.ready.then(RENDER)
+</script>
+</body>
+</html>

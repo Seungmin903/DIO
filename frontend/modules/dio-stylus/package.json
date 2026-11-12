@@ -1,0 +1,1 @@
+{"name":"dio-stylus","version":"1.0.0","description":"Android stylus pressure and tilt for DIO pens (React Native pointer events report a fixed 0.5 pressure and 0 tilt on Android)","license":"MIT","private":true,"main":"index.js"}

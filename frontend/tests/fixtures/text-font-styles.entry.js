@@ -4,10 +4,10 @@ import { registerRootComponent } from 'expo'
 import { View } from 'react-native'
 import TextSettings from '../../src/editor/components/TextSettings'
 import ObjectContent from '../../src/editor/components/canvas/ObjectView'
-import { preloadTextFonts } from '../../src/editor/services/textFonts'
-import { DEFAULT_TEXT_SETTINGS } from '../../src/editor/utils/text'
+import { ensureTextFonts } from '../../src/editor/services/textFonts'
+import { DEFAULT_TEXT_SETTINGS, TEXT_FONTS } from '../../src/editor/utils/text'
 
-preloadTextFonts().then(() => { window.__fontFilesReady = true })
+ensureTextFonts(TEXT_FONTS.map(f => f.id), { bold: true }).then(() => { window.__fontFilesReady = true })
 function Fixture() {
   const [settings, setSettings] = useState({ ...DEFAULT_TEXT_SETTINGS, font: 'nanum-gothic', fontSize: 32 })
   useEffect(() => { window.__fontFixtureSettings = settings }, [settings])

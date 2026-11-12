@@ -3,31 +3,27 @@ import { Pressable, Text, View } from 'react-native';
 import AppIcon from '../../shared/AppIcon';
 import { C } from '../constants';
 import { styles as s } from '../styles';
+import { BOTTOM_TABS, isBottomTabSelected, navigateBottomTab } from './bottomTabModel';
 
-const TABS = [
-  { id: 'library', filter: 'personal', label: '다이어리', icon: 'book' },
-  { id: 'library', filter: 'favorite', label: '즐겨찾기', icon: 'star' },
-  { id: 'profile', label: '내 공간', icon: 'person' },
-  { id: 'trash', label: '휴지통', icon: 'trash' },
-];
-
-// 폰 홈의 하단 탭. 태블릿 사이드 메뉴(SideRail)와 같은 navigate를 쓴다.
+// 폰에서는 화면 전환을 담당하는 하단 네비게이션 바를 쓴다. 알림은 상단 아이콘으로 분리한다.
 function BottomTabs({ page, filter, navigate, bottomInset = 0 }) {
   return (
-    <View style={[s.tabBarWrap, { paddingBottom: Math.max(bottomInset, 10) + 8 }]}>
+    <View style={[s.tabBarWrap, { paddingBottom: bottomInset }]}>
       <View style={s.tabBar} accessibilityRole="tablist">
-        {TABS.map((tab) => {
-          const selected = page === tab.id && (!tab.filter || filter === tab.filter);
+        {BOTTOM_TABS.map(tab => {
+          const selected = isBottomTabSelected(page, filter, tab);
           return (
             <Pressable
               key={tab.label}
               accessibilityRole="tab"
-              accessibilityLabel={tab.label}
+              accessibilityLabel={tab.accessibilityLabel}
               accessibilityState={{ selected }}
-              onPress={() => navigate(tab.id, tab.filter)}
-              style={({ pressed }) => [s.tabItem, selected && s.tabItemSelected, pressed && s.pressed]}
+              onPress={() => navigateBottomTab(navigate, tab)}
+              style={({ pressed }) => [s.tabItem, pressed && s.pressed]}
             >
-              <AppIcon name={tab.icon} size={21} color={selected ? C.ink : C.muted} fill={selected && tab.icon === 'star' ? C.ink : 'none'} />
+              <View collapsable={false} style={[s.tabIconPill, selected && s.tabIconPillSelected]}>
+                <AppIcon name={tab.icon} size={20} color={C.ink} fill="none" />{/* 태블릿 좌측 바 메뉴 아이콘과 같은 20 (2026-11-08 사용자 결정) */}
+              </View>
               <Text numberOfLines={1} style={[s.tabLabel, selected && s.tabLabelSelected]}>{tab.label}</Text>
             </Pressable>
           );

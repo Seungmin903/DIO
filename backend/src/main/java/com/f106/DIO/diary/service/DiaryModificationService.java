@@ -1,5 +1,7 @@
 package com.f106.DIO.diary.service;
 
+import java.util.UUID;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -7,29 +9,34 @@ import com.f106.DIO.diary.domain.Diary;
 import com.f106.DIO.diary.dto.DiaryResponse;
 import com.f106.DIO.diary.dto.DiaryUpdateRequest;
 import com.f106.DIO.diary.repository.DiaryRepository;
-import com.f106.DIO.diary.support.DiaryNotFoundException;
 
 @Service
 public class DiaryModificationService {
 
 	private final DiaryRepository diaryRepository;
+	private final DiaryAccessService accessService;
+	private final MemberDiaryWriteBoundary memberBoundary;
 
-	public DiaryModificationService(DiaryRepository diaryRepository) {
+	public DiaryModificationService(DiaryRepository diaryRepository, DiaryAccessService accessService, MemberDiaryWriteBoundary memberBoundary) {
 		this.diaryRepository = diaryRepository;
+		this.accessService = accessService;
+		this.memberBoundary = memberBoundary;
 	}
 
 	@Transactional
-	public DiaryResponse update(Long diaryId, DiaryUpdateRequest request) {
-		Diary diary = diaryRepository.findById(diaryId).orElseThrow(DiaryNotFoundException::new);
-		diary.updateSettings(request.getDiaryTitle(), request.getCoverColor(), request.getCoverPattern(), request.getBindingType());
+	public DiaryResponse update(UUID diaryId, DiaryUpdateRequest request, Long userId) {
+		memberBoundary.requireLegacyWrite(diaryId);
+		Diary diary = accessService.requireWrite(diaryId, userId);
+		diary.updateSettings(request.getDiaryTitle(), request.getCoverColor(), request.getCoverStyle(), request.getVisibility());
 		diaryRepository.flush();
 		return new DiaryResponse(DiaryMapper.toData(diary));
 	}
 
 	@Transactional
-	public void delete(Long diaryId) {
-		Diary diary = diaryRepository.findById(diaryId).orElseThrow(DiaryNotFoundException::new);
-		diaryRepository.delete(diary);
+	public void delete(UUID diaryId, Long userId) {
+		memberBoundary.requireLegacyWrite(diaryId);
+		Diary diary = accessService.requireOwner(diaryId, userId);
+		diary.softDelete();
 		diaryRepository.flush();
 	}
 }

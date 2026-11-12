@@ -1,0 +1,79 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
+import { scheduleIdleTask } from '../src/editor/utils/idleTask.js';
+
+const require = createRequire(import.meta.url), expo = createRequire(require.resolve('expo/package.json'));
+const { code } = expo('@babel/core').transformSync(readFileSync(new URL('../src/editor/hooks/useEditor.js', import.meta.url), 'utf8'), {
+  configFile: false, babelrc: false, plugins: [expo.resolve('@babel/plugin-transform-modules-commonjs')],
+});
+
+test('열람은 수정 시각을 만들지 않고 편집 저장은 시각과 저장 완료 상태를 보존한다', async () => {
+  const slots = [], effects = [], listeners = [], saved = [], cached = [];
+  let cursor = 0;
+  const doc = { id: 'a', pages: [{ objects: [] }] };
+  let state = { doc, past: [], future: [] };
+  const same = (a, b) => a?.length === b?.length && a.every((v, i) => Object.is(v, b[i]));
+  const react = {
+    useState(initial) { const i = cursor++; slots[i] ??= { value: typeof initial === 'function' ? initial() : initial }; return [slots[i].value, v => { slots[i].value = v; }]; },
+    useRef(initial) { const i = cursor++; return slots[i] ??= { current: initial }; },
+    useReducer() { cursor++; return [state, () => {}]; },
+    useCallback(fn, deps) { const i = cursor++; if (!slots[i] || !same(slots[i].deps, deps)) slots[i] = { fn, deps }; return slots[i].fn; },
+    useEffect(fn, deps) { const i = cursor++; if (!slots[i] || !same(slots[i].deps, deps)) { const previous = slots[i]; slots[i] = { deps }; effects.push(() => { previous?.cleanup?.(); slots[i].cleanup = fn(); }); } },
+  };
+  const mocks = {
+    react,
+    'react-native': { AppState: { addEventListener: (_, fn) => { listeners.push(fn); return { remove() {} }; } } },
+    '../utils/idleTask': { scheduleIdleTask },
+    '../services/editorViewState': { peekViewedPage: () => null, rememberViewedPage: async () => true },
+    '../state/defaultDoc': { createDefaultDoc: () => doc },
+    '../state/editorReducer': {},
+    '../services/editorDocs': { saveEditorDoc: async (_, value) => { saved.push(value); return true; }, editorDocKey: () => 'doc:a', peekEditorDoc: () => ({ doc }), rememberEditorDoc: (_, value) => cached.push(value) },
+    '../services/mediaStore': { hydrateMedia: async () => {} },
+    '../services/storage': { saveJSON: async (_, value) => { saved.push(value); return true; } },
+  };
+  const module = { exports: {} };
+  new Function('require', 'module', 'exports', code)(id => mocks[id], module, module.exports);
+  const render = () => { cursor = 0; const value = module.exports.useEditor({ id: 'a' }); effects.splice(0).forEach(fn => fn()); return value; };
+  render();
+  assert.equal(cached.length, 0);
+  state = { doc: { ...doc, title: '편집' }, past: [doc], future: [] };
+  assert.equal(render().saveStatus, 'saving');
+  assert.ok(Number.isFinite(Date.parse(cached[0].updatedAt)));
+  assert.equal(state.doc.updatedAt, undefined);
+  listeners[0]('background');
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(saved.length, 1);
+  assert.equal(saved[0].title, '편집');
+  assert.equal(saved[0].updatedAt, cached[0].updatedAt);
+  assert.equal(render().saveStatus, 'saved');
+});
+
+test('문서 읽기 실패는 편집 전부터 오류를 표시하고 이후 쓰기를 차단한다', async () => {
+  const slots = [], effects = [], saves = [];
+  let cursor = 0, state = { doc: { pages: [{ id: 'p', objects: [] }] }, past: [], future: [] };
+  const same = (a, b) => a?.length === b?.length && a.every((v, i) => Object.is(v, b[i]));
+  const react = {
+    useState(initial) { const i = cursor++; slots[i] ??= { value: typeof initial === 'function' ? initial() : initial }; return [slots[i].value, v => { slots[i].value = v; }]; },
+    useRef(initial) { const i = cursor++; return slots[i] ??= { current: initial }; },
+    useReducer() { cursor++; return [state, () => {}]; },
+    useCallback(fn, deps) { const i = cursor++; if (!slots[i] || !same(slots[i].deps, deps)) slots[i] = { fn, deps }; return slots[i].fn; },
+    useEffect(fn, deps) { const i = cursor++; if (!slots[i] || !same(slots[i].deps, deps)) { const previous = slots[i]; slots[i] = { deps }; effects.push(() => { previous?.cleanup?.(); slots[i].cleanup = fn(); }); } },
+  };
+  const mocks = {
+    react, 'react-native': { AppState: { addEventListener: () => ({ remove() {} }) } },
+    '../utils/idleTask': { scheduleIdleTask }, '../services/editorViewState': { peekViewedPage: () => undefined, loadViewedPage: async () => null, rememberViewedPage: () => saves.push('view') },
+    '../state/defaultDoc': { createDefaultDoc: () => state.doc }, '../state/editorReducer': {},
+    '../services/editorDocs': { editorDocKey: () => 'doc:a', peekEditorDoc: () => null, loadEditorDoc: async () => { throw new Error('read'); }, rememberEditorDoc: () => saves.push('cache'), saveEditorDoc: () => saves.push('write') },
+    '../services/mediaStore': { hydrateMedia: async () => {} },
+  };
+  const module = { exports: {} };
+  new Function('require', 'module', 'exports', code)(id => mocks[id], module, module.exports);
+  const render = () => { cursor = 0; const result = module.exports.useEditor({ id: 'a' }); effects.splice(0).forEach(fn => fn()); return result; };
+  render(); await new Promise(resolve => setImmediate(resolve));
+  assert.equal(render().saveStatus, 'load-error');
+  state = { ...state, past: [state.doc] };
+  assert.equal(render().saveStatus, 'load-error');
+  assert.deepEqual(saves, []);
+});

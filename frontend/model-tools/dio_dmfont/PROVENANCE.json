@@ -1,0 +1,68 @@
+{
+  "upstream": "https://github.com/clovaai/dmfont",
+  "commit": "488a8e823920d94ea3f544bad9fe8e34929d8c04",
+  "files": [
+    {
+      "original": "models/ma_core.py",
+      "local": "ma_core.py",
+      "upstreamSha256": "78fdf9f918e06eb21eba31cb41ee9450404740d864c572d4cd86316b22e6b0e2",
+      "localSha256": "78fdf9f918e06eb21eba31cb41ee9450404740d864c572d4cd86316b22e6b0e2"
+    },
+    {
+      "original": "models/comp_encoder.py",
+      "local": "comp_encoder.py",
+      "upstreamSha256": "c0afb080bebffafc9271e6354f78277e8ff44b7042347d674f9dfc19daa7ce24",
+      "localSha256": "c0afb080bebffafc9271e6354f78277e8ff44b7042347d674f9dfc19daa7ce24"
+    },
+    {
+      "original": "models/decoder.py",
+      "local": "decoder.py",
+      "upstreamSha256": "a01c02619b24811449a4b9054b0a185820e421a62bbb36f1dc01713b405acdc7",
+      "localSha256": "a01c02619b24811449a4b9054b0a185820e421a62bbb36f1dc01713b405acdc7"
+    },
+    {
+      "original": "models/memory.py",
+      "local": "memory.py",
+      "upstreamSha256": "76e5b59f9f28e78432178577e8a9cc89d4f3165b096b2a7248c529aa1d58f918",
+      "localSha256": "41fec09bd0213eb228c001a0d4741331f4d8c40c385772028298ac84a1f7e9df"
+    },
+    {
+      "original": "models/modules/blocks.py",
+      "local": "modules/blocks.py",
+      "upstreamSha256": "6a7ad42eb7a03bb1ceb4b45a829c3beac2c52a97eb7e49cd7c18b58af39c6a3a",
+      "localSha256": "1d5e24adcca137940d2da5ad24137fabc14596bff302058be310b1ab5d59e1ec"
+    },
+    {
+      "original": "models/modules/self_attention.py",
+      "local": "modules/self_attention.py",
+      "upstreamSha256": "e68790a173c058acf1af7466d5d9bbc075ebd90e926cb18af402817d8964fa7a",
+      "localSha256": "86de8c60efa836726095982cce9efaebeadaca126a4b0f62cc3f2efa1e3a9cf8"
+    },
+    {
+      "original": "datasets/kor_decompose.py",
+      "local": "hangul.py",
+      "upstreamSha256": "e2255e0b9bd8e35cb7796ea55b96b92d0796de03210c99a1bceef21de0ff2842",
+      "localSha256": "e2255e0b9bd8e35cb7796ea55b96b92d0796de03210c99a1bceef21de0ff2842"
+    }
+  ],
+  "excluded": [
+    "models/modules/modules.py",
+    "train.py",
+    "trainer.py",
+    "models/discriminator.py",
+    "models/aux_classifier.py"
+  ],
+  "weightsRightsReview": "Excluded by task scope",
+  "modifications": {
+    "memory.py": "Namespaced imports and Korean-only address conversion; Thai dependency removed.",
+    "modules/blocks.py": "Removed restricted module import; only identity weight normalization accepted, including its internal dispatcher callback.",
+    "modules/self_attention.py": "Imports the independent tensor utility."
+  },
+  "dioWrittenFiles": [
+    "tensor_ops.py",
+    "factory.py",
+    "mobile.py",
+    "__init__.py",
+    "modules/__init__.py"
+  ]
+}

@@ -4,6 +4,10 @@ import { colors } from '../../../shared/theme'
 import { usePan } from '../../hooks/usePan'
 import { centerOf, normalizeAngle, rotateVector } from '../../utils/common'
 import { textFormatPatch, textSettings, TEXT_FRAME_PAD } from '../../utils/text'
+import { tapeUnitH } from '../../utils/objects'
+import { memoPaperBox } from '../../utils/editorShapes'
+import { TAPE_SIZES } from '../../constants'
+import { ROTATE_HANDLE as ROTATE_HANDLE_SIZE, ROTATE_OFFSET } from '../../utils/popoverPlacement'
 import Icon from '../controls/Icon'
 
 // 핸들이 박스 바깥에 걸쳐도 터치를 받도록 오버레이를 이만큼 넓게 잡는다. (Android 는 부모 밖 터치를 받지 않음)
@@ -13,9 +17,13 @@ const HANDLE = 18
 const EDGE_THICKNESS = 20 // 변 전체가 보이지 않는 크기 조절 영역
 // 변 영역은 대부분 박스 바깥에 두고 안쪽으로는 이만큼만 들어온다. (가운데를 눌러 옮기는 영역을 넓게 남긴다)
 const EDGE_INSET = 4
-const ROTATE_OFFSET = 34
-const ROTATE_HANDLE = HANDLE // 꼭짓점 손잡이와 같은 크기
+// 보이는 변 손잡이(텍스트)는 테두리 선 한가운데에 놓는다. 터치 영역 가운데는 박스 밖으로 (EDGE_THICKNESS / 2 - EDGE_INSET) 나가 있고,
+// 테두리 선은 박스 바로 바깥에 FRAME_WIDTH 굵기로 그리므로 그 차이만큼 안쪽으로 당긴다.
+const GRIP_SHIFT = EDGE_THICKNESS / 2 - EDGE_INSET - FRAME_WIDTH / 2
+const ROTATE_HANDLE = ROTATE_HANDLE_SIZE // 꼭짓점 손잡이와 같은 크기 (떠 있는 메뉴가 이 자리를 피한다)
 const MIN_SIZE = 20
+// 글꼴별 글자 폭 차이를 위한 여유. 정확한 글리프 실측은 아니므로 실기기 확인이 필요하다.
+const TEXT_GLYPH_WIDTH_MARGIN = 1.2
 
 const CORNERS = [
   { key: 'nw', sx: -1, sy: -1 },
@@ -33,13 +41,20 @@ const SIDES = [
 const LENGTH_KNOBS = [
   { key: 'w', sx: -1, sy: 0, knob: true },
   { key: 'e', sx: 1, sy: 0, knob: true },
+  { key: 'n', sx: 0, sy: -1, knob: true },
+  { key: 's', sx: 0, sy: 1, knob: true },
 ]
 const KNOB = HANDLE // 회전 손잡이와 같은 크기
+// 테이프 폭(높이) 범위: 가장 얇은 예전 규격(슬림)부터 와이드의 두 배까지
+const TAPE_MIN_H = TAPE_SIZES[0].h
+const TAPE_MAX_H = TAPE_SIZES[2].h * 2
 
 /** 오브젝트 종류별로 쓸 수 있는 크기 조절 핸들 */
 function handlesFor(object) {
   if (object.type === 'sticker') return CORNERS
-  // 테이프: 폭은 규격으로 정해져 있고 길이만 늘이고 줄인다. 양쪽 끝 동그라미 손잡이 두 개.
+  // 메모 종이는 그림이라 비율을 지켜 모서리로만 바꾼다
+  if (object.type === 'shape' && object.art) return CORNERS
+  // 테이프: 양쪽 끝 동그라미로 길이, 위아래 동그라미로 폭을 바꾼다.
   if (object.type === 'tape') return LENGTH_KNOBS
   // 사진: 비율은 '자르기'에서 정하고, 캔버스에서는 모서리로 크기만 바꾼다 (변을 끌어 비율이 바뀌지 않게)
   if (object.type === 'photo') return CORNERS
@@ -59,15 +74,26 @@ function cursorFor(handle, rotation) {
 export default function SelectionOverlay({ object, zoom, dispatch, onRotation, onInteracting, textMinHeight = null }) {
   // 보이는 상자: 텍스트는 편집 중 테두리와 같이 글자에서 TEXT_FRAME_PAD 만큼 띄운다. (크기 계산은 요소 상자 그대로)
   const pad = object.type === 'text' ? TEXT_FRAME_PAD : 0
-  const width = object.w * zoom + pad * 2
-  const height = object.h * zoom + pad * 2
+  // 663: 메모 종이는 요소 상자보다 작게 그려지므로 선택 상자도 종이 본체 영역으로 줄인다(회전 중심이 어긋나지 않게 중심 차이를 회전해 더한다)
+  // 크기 · 회전 손잡이 계산은 요소 상자 기준 그대로다 — 종이 여백이 요소 폭의 3~5% 라 끄는 손가락과의 차이가 그만큼이고, 첫 움직임에 튀지 않는다(상대 이동량). 실기기 확인 2026-11-08
+  const paper = object.type === 'shape' && object.art ? memoPaperBox(object) : null
+  const width = (paper ? paper.w : object.w) * zoom + pad * 2
+  const height = (paper ? paper.h : object.h) * zoom + pad * 2
+  let shiftX = 0, shiftY = 0
+  if (paper) {
+    const dx = (paper.x + paper.w / 2 - object.w / 2) * zoom, dy = (paper.y + paper.h / 2 - object.h / 2) * zoom
+    const rad = (object.rotation * Math.PI) / 180
+    shiftX = dx * Math.cos(rad) - dy * Math.sin(rad) - dx
+    shiftY = dx * Math.sin(rad) + dy * Math.cos(rad) - dy
+    shiftX += paper.x * zoom; shiftY += paper.y * zoom
+  }
   return (
     <View
       pointerEvents="box-none"
       style={{
         position: 'absolute',
-        left: object.x * zoom - pad - MARGIN,
-        top: object.y * zoom - pad - MARGIN,
+        left: object.x * zoom - pad - MARGIN + shiftX,
+        top: object.y * zoom - pad - MARGIN + shiftY,
         width: width + MARGIN * 2,
         height: height + MARGIN * 2,
         transform: [{ rotate: `${object.rotation}deg` }],
@@ -100,8 +126,9 @@ export default function SelectionOverlay({ object, zoom, dispatch, onRotation, o
           />
           {handlesFor(object).map((handle) => {
             const corner = Boolean(handle.sx && handle.sy)
-            // 테이프 길이 손잡이: 변 가운데에 보이는 동그라미
+            // 테이프 손잡이: 변 가운데에 보이는 동그라미. 얇은 테이프에서는 위아래 손잡이가 겹치지 않게 바깥으로 벌린다.
             if (handle.knob) {
+              const knobY = handle.sy < 0 ? Math.min(0, height / 2 - KNOB * 0.6) : handle.sy > 0 ? Math.max(height, height / 2 + KNOB * 0.6) : height / 2
               return (
                 <Handle
                   key={handle.key}
@@ -117,7 +144,7 @@ export default function SelectionOverlay({ object, zoom, dispatch, onRotation, o
                     styles.knob,
                     {
                       left: MARGIN + ((handle.sx + 1) / 2) * width - KNOB / 2,
-                      top: MARGIN + height / 2 - KNOB / 2,
+                      top: MARGIN + knobY - KNOB / 2,
                     },
                     Platform.OS === 'web' && { cursor: cursorFor(handle, object.rotation) },
                   ]}
@@ -208,6 +235,7 @@ function Handle({ kind, handle, object, zoom, dispatch, onRotation, onInteractin
       const g = gesture.current
       gesture.current = null
       if (cancelled && g?.checkpointed) dispatch({ type: 'revertToCheckpoint' })
+      else if(g?.checkpointed) dispatch({type:'commitCheckpoint'})
       onRotation?.(null)
       onInteracting(false)
     },
@@ -215,7 +243,7 @@ function Handle({ kind, handle, object, zoom, dispatch, onRotation, onInteractin
 
   return <View {...panHandlers} accessibilityLabel={kind === 'rotate' ? '요소 회전 손잡이' : object.type === 'text' ? handle.sy ? `텍스트 높이 조절 ${handle.sy < 0 ? '위쪽' : '아래쪽'}` : `텍스트 너비 조절 ${handle.sx < 0 ? '왼쪽' : '오른쪽'}` : undefined} hitSlop={10} style={[styles.handle, style]}>
     {kind === 'rotate' && <View pointerEvents="none"><Icon name="rotate" size={11} strokeWidth={2.6} color={colors.surface} /></View>}
-    {kind === 'resize' && object.type === 'text' && <View pointerEvents="none" style={[styles.sideGrip, handle?.sy && { width: 24, height: 8 }]} />}
+    {kind === 'resize' && object.type === 'text' && <View pointerEvents="none" style={[styles.sideGrip, handle?.sy && { width: 24, height: 8 }, { transform: [handle.sx ? { translateX: -handle.sx * GRIP_SHIFT } : { translateY: -handle.sy * GRIP_SHIFT }] }]} />}
   </View>
 }
 
@@ -250,12 +278,22 @@ function resizePatch(g, handle, pointer) {
     w = start.w * scale
     h = start.h * scale
   } else if (sx) {
-    w = Math.max(MIN_SIZE, sx * (q.x - anchor.x))
+    // 한 글자도 들어가지 않는 폭에서는 iOS가 글자를 가로로 잘라 표시한다.
+    // 부분 서식의 큰 글자와 현재 텍스트 확대 배율도 함께 반영한다.
+    const settings = start.type === 'text' ? textSettings(start) : null
+    const largestFont = settings ? Math.max(settings.fontSize, ...(start.styleRanges ?? []).map(range => range.fontSize ?? 0)) : 0
+    // 이미 잘린 기존 상자도 다시 조절하면 최소 폭으로 복구한다.
+    const textMinWidth = largestFont * (start.w / (start.baseWidth ?? start.w)) * TEXT_GLYPH_WIDTH_MARGIN
+    w = Math.max(MIN_SIZE, textMinWidth, sx * (q.x - anchor.x))
+  } else if (start.type === 'tape') {
+    h = Math.min(TAPE_MAX_H, Math.max(TAPE_MIN_H, sy * (q.y - anchor.y)))
   } else {
     // 실측 전에는 현재 높이를 더 줄이지 않아 글꼴별 폭 추정 오차로 인한 잘림을 막는다.
     const contentHeight = start.type === 'text' ? g.textMinHeight ?? Math.max(start.h, textFormatPatch(start, textSettings(start)).h) : 0
     h = Math.max(MIN_SIZE, contentHeight, sy * (q.y - anchor.y))
   }
+  // 텍스트 높이를 손잡이로 직접 바꾸면 그 높이를 상자에 남긴다(manualHeight). 이후 폭을 바꿔도 이 높이 아래로 줄이지 않는다.
+  const manualHeight = start.type === 'text' && !sx && sy && Math.abs(h - start.h) >= 1e-8
 
   let baseWidth
   const reflowText = start.type === 'text' && sx && !sy
@@ -264,6 +302,8 @@ function resizePatch(g, handle, pointer) {
     const scale = start.w / (start.baseWidth ?? start.w)
     baseWidth = w / scale
     h = textFormatPatch({ ...start, w, baseWidth }, textSettings(start)).h
+    // 세로로 직접 늘려 둔 상자는 그 높이를 지키고, 줄바꿈으로 글자가 더 길어질 때만 늘린다.
+    if (start.manualHeight) h = Math.max(h, start.h)
   }
   const localCenter = {
     x: sx ? anchor.x + (sx * w) / 2 : 0,
@@ -271,7 +311,11 @@ function resizePatch(g, handle, pointer) {
     y: reflowText ? (h - start.h) / 2 : sy ? anchor.y + (sy * h) / 2 : 0,
   }
   const offset = rotateVector(localCenter.x, localCenter.y, start.rotation)
-  return { w, h, x: center.x + offset.x - w / 2, y: center.y + offset.y - h / 2, ...(baseWidth != null ? { baseWidth } : {}), ...(reflowText && start.autoWidth ? { autoWidth: false } : {}) }
+  // 테이프 폭을 바꾸면 무늬 기준 높이와 사진 한 조각 길이도 같은 비율로 바꿔, 등록한 조각이 가로세로 비율 그대로 커진다(좌우로 늘리면 조각이 반복된다)
+  const tapeWidth = start.type === 'tape' && sy && Math.abs(h - start.h) >= 1e-8
+    ? { unitH: (tapeUnitH(start) * h) / start.h, ...(start.segmentW ? { segmentW: (start.segmentW * h) / start.h } : {}) }
+    : {}
+  return { ...tapeWidth, w, h, x: center.x + offset.x - w / 2, y: center.y + offset.y - h / 2, ...(baseWidth != null ? { baseWidth } : {}), ...(reflowText && start.autoWidth ? { autoWidth: false } : {}), ...(manualHeight ? { manualHeight: true } : {}) }
 }
 
 const styles = StyleSheet.create({
@@ -282,7 +326,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderWidth: 2,
     borderColor: colors.primary,
-    shadowColor: '#0B1957',
+    shadowColor: colors.text,
     shadowOpacity: 0.2,
     shadowRadius: 3,
     shadowOffset: { width: 0, height: 1 },
@@ -298,7 +342,7 @@ const styles = StyleSheet.create({
     borderRadius: ROTATE_HANDLE / 2,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.primary,
+    backgroundColor: colors.primaryStrong,
     borderColor: colors.surface,
     borderWidth: 1,
     shadowOpacity: 0.12,
