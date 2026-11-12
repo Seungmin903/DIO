@@ -67,6 +67,12 @@ function outlinePolygons(path) {
 }
 function strokePolygons(object) {
   const { points, penKind: kind, strokeWidth: width } = object
+  // 번진 자리는 **페이지 좌표로 고정**이다(화면 3px). 여기 값은 요소 좌표라 투영에서 요소 크기만큼
+  // 늘어난다 — 미리 나눠 둬야 확대한 획에서도 1.5 가 되고, 영역 지우개(createAreaEraserSession)의
+  // 판정과 어긋나지 않는다(코드리뷰 2026-11-13).
+  const bleed = kind === 'glass'
+    ? GLASS_BLEED / Math.max(1e-6, Math.max((object.w ?? 0) / (object.baseWidth || 1), (object.h ?? 0) / (object.baseHeight || 1)))
+    : 0
   if (isDashedKind(kind)) return outlinePolygons(dashedObjectContour(object))
   if (isNibKind(kind)) return outlinePolygons(nibContour(object))
   if (kind === 'felt' && [2, 3].includes(object.renderVersion)) return outlinePolygons(penContour(points, width, kind))
@@ -74,8 +80,7 @@ function strokePolygons(object) {
     return outlinePolygons([2, 3].includes(object.renderVersion) ? penContour(points, width, kind) : strokeOutline(points, width, object.eraserCaps))
   }
   // 유리펜은 실루엣 밖으로 번진 자리까지가 획이다 — 보이는 잉크에 지우개를 대면 지워져야 한다
-  const half = width / 2 * (kind === 'highlighter' ? 1 : points.length === 1 ? points[0].pressure ?? 1 : kind === 'pencil' ? 0.85 : 1)
-    + (kind === 'glass' ? GLASS_BLEED : 0)
+  const half = width / 2 * (kind === 'highlighter' ? 1 : points.length === 1 ? points[0].pressure ?? 1 : kind === 'pencil' ? 0.85 : 1) + bleed
   const square = kind === 'highlighter' && object.lineCap === 'square'
   const samples = points.length === 1 && kind === 'highlighter' ? [points[0], { x: points[0].x + 0.01, y: points[0].y }] : points
   const shapes = []
@@ -184,7 +189,13 @@ function fragmentStroke(source, points, id, caps) {
     inkGlitter: source.inkGlitter, inkSheen: source.inkSheen, inkFilm: source.inkFilm,
     inkGlitterColor: source.inkGlitterColor, inkAmount: source.inkAmount, inkSheenColor: source.inkSheenColor, inkSheenAmount: source.inkSheenAmount,
   })
+  // 유리펜 무늬도 연필 결과 같다 — 조각의 상자가 달라진 만큼 밀어주기를 옮겨, 자르기 전과
+  // **같은 무늬**가 남게 한다. 안 옮기면 createStroke 가 조각 자리로 새로 적어 무늬가 튄다
+  // (원본을 옮긴 뒤 지운 경우에만 티가 난다).
+  const inkOrigin = source.inkOrigin
+    && { x: source.inkOrigin.x + stroke.x - source.x, y: source.inkOrigin.y + stroke.y - source.y }
   return { ...source, ...stroke, ...ink, ...tail, renderVersion: source.renderVersion, name: source.name,
+    ...(inkOrigin && { inkOrigin }),
     ...(grain && { grainOrigin: { ...grain, x: grain.x + source.x - stroke.x, y: grain.y + source.y - stroke.y } }) }
 }
 

@@ -67,3 +67,51 @@ test('둥근 캡의 호는 반지름이 커질수록 잘게 나뉜다 — 굵은
   assert.ok(count(80) > thin, `굵어지면 늘어야 한다 — ${thin} → ${count(80)}`)
   assert.ok(count(160) > count(80), `더 굵으면 더 늘어야 한다 — ${count(80)} → ${count(160)}`)
 })
+
+test('옛 획의 대신 값은 끌어 옮기는 동안 흔들리지 않는다', () => {
+  // 그때그때 지금 자리를 읽으면 매 프레임 무늬가 바뀌고 그림 열쇠도 달라져 비싼 셰이더를
+  // 다시 녹화한다(코드리뷰 2026-11-13). 점 배열이 같으면 같은 값이어야 한다.
+  const old = glass()
+  delete old.inkOrigin
+  const first = glassOrigin(old)
+  for (const step of [5, 50, 500]) {
+    const dragging = { ...old, x: old.x + step, y: old.y + step }
+    assert.deepEqual(glassOrigin(dragging), first, `${step} 만큼 끄는 동안`)
+    assert.equal(glassOrigin(dragging), first, '같은 객체를 돌려줘 열쇠가 흔들리지 않는다')
+  }
+})
+
+test('확대한 잉크펜 획도 번진 자리가 페이지 좌표로 1.5 — 두 지우개 길이 같은 답을 낸다', () => {
+  // strokePolygons 는 요소 좌표에서 재고 투영에서 늘어난다. 영역 지우개는 페이지 좌표에서 더한다.
+  // 미리 나눠 두지 않으면 확대한 획에서 둘이 어긋난다(코드리뷰 2026-11-13).
+  const base = glass()
+  const grown = { ...base, w: base.w * 3, h: base.h * 3 }
+  // 늘인 획의 실루엣 가장자리(페이지 좌표)
+  const edge = grown.y + grown.h / 2 + (grown.h / base.h) * (base.strokeWidth / 2)
+  const at = (object, y, mode) => createEraserSession([object], 1, mode).move({ x: grown.x + grown.w / 2, y })
+  for (const mode of ['stroke', 'area']) {
+    assert.ok(at(grown, edge + GLASS_BLEED - 0.3, mode).length > 0, `${mode}: 번진 자리 안은 닿는다`)
+    assert.equal(at(grown, edge + GLASS_BLEED * 4, mode).length, 0, `${mode}: 요소 크기만큼 늘어나지 않는다`)
+  }
+})
+
+test('영역 지우개로 자른 조각은 자르기 전과 같은 무늬를 쓴다', () => {
+  // 옮긴 뒤 지우면 조각이 제 자리로 밀어주기를 새로 적어 무늬가 튀었다(코드리뷰 2026-11-13).
+  const base = glass()
+  const source = { ...base, x: base.x + 400, y: base.y + 250 }
+  const session = createEraserSession([source], 6, 'area')
+  const middle = { x: source.x + source.w / 2, y: source.y + source.h / 2 }
+  assert.deepEqual(session.move(middle), ['g'], '가운데를 지운다')
+  const action = session.finish()
+  assert.equal(action.type, 'replaceObjects')
+  const pieces = action.replacements.g
+  assert.ok(pieces.length >= 2, `가운데를 지웠으니 조각이 둘 이상이어야 한다 — ${pieces.length}`)
+  // 무늬 좌표 = (페이지 − 상자) + 밀어주기 → 상자가 달라진 만큼 밀어주기도 옮겨져야 같은 무늬다
+  const want = source.inkOrigin.x - source.x
+  for (const piece of pieces) {
+    assert.ok(piece.inkOrigin, `조각 ${piece.id} 에 밀어주기가 있어야 한다`)
+    assert.ok(Math.abs((piece.inkOrigin.x - piece.x) - want) < 1e-6,
+      `조각 ${piece.id}: ${piece.inkOrigin.x - piece.x} vs ${want}`)
+    assert.ok(Math.abs((piece.inkOrigin.y - piece.y) - (source.inkOrigin.y - source.y)) < 1e-6)
+  }
+})

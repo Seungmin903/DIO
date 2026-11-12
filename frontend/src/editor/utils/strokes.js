@@ -25,7 +25,18 @@ export const GLASS_BLEED = 1.5
  * 옛 획에는 그 값이 없으니 **지금 자리**를 쓴다. 옮기면 무늬가 바뀌지만, 모든 획이 같은 무늬를
  * 받는 것(2026-11-13 에 고친 증상)보다는 낫다.
  */
-export const glassOrigin = object => object?.inkOrigin ?? { x: object?.x ?? 0, y: object?.y ?? 0 }
+const ORIGIN_ZERO = { x: 0, y: 0 }
+// 옛 획의 대신 값을 **한 번만** 정해 둔다. 그때그때 지금 자리를 읽으면 끌어 옮기는 동안 매 프레임
+// 값이 달라져 ① 무늬가 따라 흔들리고 ② 그림 열쇠(glassKey)가 매번 바뀌어 비싼 셰이더를 다시
+// 녹화한다(코드리뷰 2026-11-13). 점 배열은 옮겨도 그대로라 그걸 열쇠로 쓴다.
+const fallbackOrigin = new WeakMap()
+export function glassOrigin(object) {
+  if (object?.inkOrigin) return object.inkOrigin
+  if (!object?.points) return ORIGIN_ZERO
+  let origin = fallbackOrigin.get(object.points)
+  if (!origin) fallbackOrigin.set(object.points, (origin = { x: object.x ?? 0, y: object.y ?? 0 }))
+  return origin
+}
 const SENSOR_PRECISION = { force: 10000, time: 10, speed: 10000, tiltX: 10, tiltY: 10, inkDistance: 10000 }
 const storedPoint = (point, x, y, renderVersion) => {
   const result = { x: point.x - x, y: point.y - y, ...(point.pressure != null && { pressure: point.pressure }) }
