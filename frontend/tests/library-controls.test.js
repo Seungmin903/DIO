@@ -96,6 +96,63 @@ function selectionProps(compact=false) {
  props.onSortChange=value=>{props.sort=value};
  return props;
 }
+
+test('폰·태블릿의 빈 보관함은 세 보기에서 동일한 본문 배치를 사용한다', () => {
+ for (const compact of [true, false]) for (const filter of ['personal', 'shared', 'favorite']) {
+  const layouts = ['open', 'carousel', 'grid'].map(view => {
+   const render = setup('../src/diary/screens/LibraryScreen.js');
+   const tree = render({...selectionProps(compact), diaries:[], filter, view, onCreate:()=>{}});
+   const empty = nodes(tree).find(n=>n.type==='EmptyState');
+   assert.ok(empty);
+   assert.equal(empty.props.raised, true);
+   const container = nodes(tree).filter(n=>n.type==='view'&&nodes(n).includes(empty)).at(-1);
+   assert.equal(container.type, 'view', '빈 상태는 목록 ScrollView와 FAB 하단 여백을 사용하지 않는다');
+   assert.equal(nodes(tree).filter(n=>n.type==='scroll').length, 0);
+   assert.equal(Boolean(findControl(tree,'새 다이어리 만들기')), filter==='personal');
+   render.unmount();
+   return {style:container.props.style, emptyProps:empty.props};
+  });
+  assert.deepEqual(layouts[0], layouts[1]);
+  assert.deepEqual(layouts[1], layouts[2]);
+ }
+});
+
+test('다이어리가 있으면 펼쳐서·스와이프·한눈에의 기존 목록과 스크롤을 유지한다', () => {
+ for (const compact of [true, false]) for (const view of ['open','carousel','grid']) {
+  const render=setup('../src/diary/screens/LibraryScreen.js');
+  const tree=render({...selectionProps(compact),view,onCreate:()=>{}});
+  const all=nodes(tree);
+  assert.ok(!all.some(n=>n.type==='EmptyState'));
+  assert.ok(findControl(tree,'새 다이어리 만들기'));
+  if(view==='open') {
+   assert.ok(all.some(n=>n.type==='OpenBookShelf'&&n.props.diaries.length===2));
+   assert.equal(all.filter(n=>n.type==='scroll').length,0);
+  } else if(view==='carousel') {
+   assert.ok(all.some(n=>n.type==='list'&&n.props.data.length===2));
+   assert.ok(all.some(n=>n.type==='scroll'&&n.props.scrollEnabled===!compact));
+  } else {
+   assert.equal(all.filter(n=>n.type==='../components/DiaryCard').length,2);
+   const scroll=all.find(n=>n.type==='scroll');
+   assert.ok(scroll.props.contentContainerStyle.includes(compact?'libraryGridScrollFabCompact':'libraryGridScrollFab'));
+  }
+  render.unmount();
+ }
+});
+
+test('빈 목록을 재조회하는 동안은 빈 화면으로 바뀌지 않고 성공 시에만 공통 빈 화면을 표시한다', () => {
+ for(const view of ['open','carousel','grid']) {
+  const render=setup('../src/diary/screens/LibraryScreen.js');
+  const props={...selectionProps(true),diaries:[],view};
+  const pending=nodes(render({...props,suppressEmpty:true,loading:true}));
+  assert.ok(pending.some(n=>n.type==='LoadingSpot'));
+  assert.ok(!pending.some(n=>n.type==='EmptyState'));
+  const failed=nodes(render({...props,suppressEmpty:true,centeredNotice:'조회 오류'}));
+  assert.ok(!failed.some(n=>n.type==='EmptyState'));
+  assert.ok(failed.some(n=>n.props.children==='조회 오류'));
+  assert.ok(nodes(render(props)).some(n=>n.type==='EmptyState'));
+  render.unmount();
+ }
+});
 test('폰·태블릿은 카드 길게 누르기로 선택 모드에 들어가고 완료 칩으로 나오며 필터·정렬을 유지한다',()=>{
  for(const compact of [true,false]) {
   const render=setup('../src/diary/screens/LibraryScreen.js'),props=selectionProps(compact);
