@@ -1,7 +1,8 @@
 /**
  * SVG 이미지용 GIF 첫 장면 PNG 보관소. 같은 GIF 는 한 번만 만들고, 쓰는 화면(retain)이 있는 동안은 지우지 않는다.
  * 아무도 안 쓰는 완성본이 limit 개를 넘으면 오래 안 쓴 것부터 지운다(dispose 로 캐시 파일 삭제).
- * 실패도 기억해 다시 그릴 때마다 변환을 되풀이하지 않는다(실패 기록도 limit 개까지).
+ * 실패는 쓰는 화면이 있는 동안만 기억해 다시 그릴 때마다 변환을 되풀이하지 않는다. 쓰는 화면이 모두 사라지면 실패 기록을 지워,
+ * 보관소가 아직 파일을 못 내려준 것 같은 일시적 오류라면 다음에 그 화면을 열 때 다시 만든다.
  * 상태는 바뀔 때마다 새 스냅샷 객체({ status: 'pending' | 'ready' | 'failed', uri, error })로 바꿔 useSyncExternalStore 가 알아챈다.
  */
 export function createStillCache({ make, dispose = () => {}, limit = 24 }) {
@@ -12,12 +13,13 @@ export function createStillCache({ make, dispose = () => {}, limit = 24 }) {
   const set = (entry, snapshot) => { entry.snapshot = snapshot; notify() }
 
   function trim() {
-    for (const status of ['ready', 'failed']) {
-      const idle = [...entries].filter(([, e]) => e.snapshot.status === status && e.users === 0).sort((a, b) => a[1].used - b[1].used)
-      for (const [key, entry] of idle.slice(0, Math.max(0, idle.length - limit))) {
-        entries.delete(key)
-        if (entry.resource) { try { dispose(entry.resource) } catch { /* 캐시 파일은 OS 도 지운다 */ } }
-      }
+    for (const [key, entry] of entries) {
+      if (entry.snapshot.status === 'failed' && entry.users === 0) entries.delete(key)
+    }
+    const idle = [...entries].filter(([, e]) => e.snapshot.status === 'ready' && e.users === 0).sort((a, b) => a[1].used - b[1].used)
+    for (const [key, entry] of idle.slice(0, Math.max(0, idle.length - limit))) {
+      entries.delete(key)
+      if (entry.resource) { try { dispose(entry.resource) } catch { /* 캐시 파일은 OS 도 지운다 */ } }
     }
   }
 

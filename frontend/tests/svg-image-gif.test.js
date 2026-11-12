@@ -59,15 +59,40 @@ test('같은 GIF 는 한 번만 만들고, 만들어지면 새 스냅샷으로 �
   assert.equal(cache.get('media:m1').status, 'ready')
 })
 
-test('실패도 기억해 다시 그릴 때마다 변환을 되풀이하지 않는다', async () => {
+test('쓰는 화면이 있는 동안은 실패를 기억해 변환을 되풀이하지 않는다', async () => {
   let made = 0
   const cache = createStillCache({ make: async () => { made++; throw new Error('broken gif') } })
-  cache.retain('media:bad', { id: 'bad' })()
+  const first = cache.retain('media:bad', { id: 'bad' })
   await flush()
   assert.equal(cache.get('media:bad').status, 'failed')
-  cache.retain('media:bad', { id: 'bad' })()
+  cache.retain('media:bad', { id: 'bad' })() // 같은 GIF 를 쓰는 다른 화면
   await flush()
   assert.equal(made, 1)
+  assert.equal(cache.get('media:bad').status, 'failed')
+  first()
+})
+
+test('쓰는 화면이 모두 사라지면 실패 기록을 지워 다음에 다시 만든다(일시적 오류 회복)', async () => {
+  let made = 0
+  const cache = createStillCache({ make: async ({ id }) => { if (++made === 1) throw new Error('blob not ready'); return { uri: `file:///${id}.png` } } })
+  const release = cache.retain('media:late', { id: 'late' })
+  await flush()
+  assert.equal(cache.get('media:late').status, 'failed')
+  release()
+  assert.equal(cache.get('media:late'), undefined)
+  const again = cache.retain('media:late', { id: 'late' })
+  await flush()
+  assert.equal(made, 2)
+  assert.deepEqual(cache.get('media:late'), { status: 'ready', uri: 'file:///late.png' })
+  again()
+})
+
+test('다 쓴 뒤에 실패가 오면 기록하지 않는다', async () => {
+  const cache = createStillCache({ make: async () => { throw new Error('broken gif') } })
+  cache.retain('media:gone', { id: 'gone' })()
+  await flush()
+  assert.equal(cache.get('media:gone'), undefined)
+  assert.equal(cache.size(), 0)
 })
 
 test('안 쓰는 첫 장면이 상한을 넘으면 오래된 것부터 지우고(파일 삭제), 쓰는 중인 것은 남긴다', async () => {
