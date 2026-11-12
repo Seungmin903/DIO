@@ -3,6 +3,11 @@
   "order": 80,
   "stickers": [
     {
+      "id": "blue-a",
+      "name": "파란색 A",
+      "image": "blue-a.png"
+    },
+    {
       "id": "blue-b",
       "name": "파란색 B",
       "image": "blue-b.png"
@@ -178,46 +183,6 @@
       "image": "blue-9.png"
     },
     {
-      "id": "blue-a",
-      "name": "파란색 A",
-      "image": "blue-a.png"
-    },
-    {
-      "id": "mint-3",
-      "name": "민트색 3",
-      "image": "mint-3.png"
-    },
-    {
-      "id": "mint-4",
-      "name": "민트색 4",
-      "image": "mint-4.png"
-    },
-    {
-      "id": "mint-5",
-      "name": "민트색 5",
-      "image": "mint-5.png"
-    },
-    {
-      "id": "mint-6",
-      "name": "민트색 6",
-      "image": "mint-6.png"
-    },
-    {
-      "id": "mint-7",
-      "name": "민트색 7",
-      "image": "mint-7.png"
-    },
-    {
-      "id": "mint-8",
-      "name": "민트색 8",
-      "image": "mint-8.png"
-    },
-    {
-      "id": "mint-9",
-      "name": "민트색 9",
-      "image": "mint-9.png"
-    },
-    {
       "id": "mint-a",
       "name": "민트색 A",
       "image": "mint-a.png"
@@ -318,14 +283,14 @@
       "image": "mint-t.png"
     },
     {
-      "id": "mint-v",
-      "name": "민트색 V",
-      "image": "mint-v.png"
-    },
-    {
       "id": "mint-u",
       "name": "민트색 U",
       "image": "mint-u.png"
+    },
+    {
+      "id": "mint-v",
+      "name": "민트색 V",
+      "image": "mint-v.png"
     },
     {
       "id": "mint-w",
@@ -363,144 +328,39 @@
       "image": "mint-2.png"
     },
     {
-      "id": "peach-2",
-      "name": "복숭아색 2",
-      "image": "peach-2.png"
+      "id": "mint-3",
+      "name": "민트색 3",
+      "image": "mint-3.png"
     },
     {
-      "id": "peach-1",
-      "name": "복숭아색 1",
-      "image": "peach-1.png"
+      "id": "mint-4",
+      "name": "민트색 4",
+      "image": "mint-4.png"
     },
     {
-      "id": "peach-0",
-      "name": "복숭아색 0",
-      "image": "peach-0.png"
+      "id": "mint-5",
+      "name": "민트색 5",
+      "image": "mint-5.png"
     },
     {
-      "id": "peach-z",
-      "name": "복숭아색 Z",
-      "image": "peach-z.png"
+      "id": "mint-6",
+      "name": "민트색 6",
+      "image": "mint-6.png"
     },
     {
-      "id": "peach-y",
-      "name": "복숭아색 Y",
-      "image": "peach-y.png"
+      "id": "mint-7",
+      "name": "민트색 7",
+      "image": "mint-7.png"
     },
     {
-      "id": "peach-x",
-      "name": "복숭아색 X",
-      "image": "peach-x.png"
+      "id": "mint-8",
+      "name": "민트색 8",
+      "image": "mint-8.png"
     },
     {
-      "id": "peach-w",
-      "name": "복숭아색 W",
-      "image": "peach-w.png"
-    },
-    {
-      "id": "peach-v",
-      "name": "복숭아색 V",
-      "image": "peach-v.png"
-    },
-    {
-      "id": "peach-u",
-      "name": "복숭아색 U",
-      "image": "peach-u.png"
-    },
-    {
-      "id": "peach-t",
-      "name": "복숭아색 T",
-      "image": "peach-t.png"
-    },
-    {
-      "id": "peach-s",
-      "name": "복숭아색 S",
-      "image": "peach-s.png"
-    },
-    {
-      "id": "peach-r",
-      "name": "복숭아색 R",
-      "image": "peach-r.png"
-    },
-    {
-      "id": "peach-q",
-      "name": "복숭아색 Q",
-      "image": "peach-q.png"
-    },
-    {
-      "id": "peach-p",
-      "name": "복숭아색 P",
-      "image": "peach-p.png"
-    },
-    {
-      "id": "peach-o",
-      "name": "복숭아색 O",
-      "image": "peach-o.png"
-    },
-    {
-      "id": "peach-n",
-      "name": "복숭아색 N",
-      "image": "peach-n.png"
-    },
-    {
-      "id": "peach-m",
-      "name": "복숭아색 M",
-      "image": "peach-m.png"
-    },
-    {
-      "id": "peach-l",
-      "name": "복숭아색 L",
-      "image": "peach-l.png"
-    },
-    {
-      "id": "peach-k",
-      "name": "복숭아색 K",
-      "image": "peach-k.png"
-    },
-    {
-      "id": "peach-j",
-      "name": "복숭아색 J",
-      "image": "peach-j.png"
-    },
-    {
-      "id": "peach-i",
-      "name": "복숭아색 I",
-      "image": "peach-i.png"
-    },
-    {
-      "id": "peach-h",
-      "name": "복숭아색 H",
-      "image": "peach-h.png"
-    },
-    {
-      "id": "peach-g",
-      "name": "복숭아색 G",
-      "image": "peach-g.png"
-    },
-    {
-      "id": "peach-f",
-      "name": "복숭아색 F",
-      "image": "peach-f.png"
-    },
-    {
-      "id": "peach-e",
-      "name": "복숭아색 E",
-      "image": "peach-e.png"
-    },
-    {
-      "id": "peach-d",
-      "name": "복숭아색 D",
-      "image": "peach-d.png"
-    },
-    {
-      "id": "peach-c",
-      "name": "복숭아색 C",
-      "image": "peach-c.png"
-    },
-    {
-      "id": "peach-b",
-      "name": "복숭아색 B",
-      "image": "peach-b.png"
+      "id": "mint-9",
+      "name": "민트색 9",
+      "image": "mint-9.png"
     },
     {
       "id": "peach-a",
@@ -508,34 +368,144 @@
       "image": "peach-a.png"
     },
     {
-      "id": "peach-9",
-      "name": "복숭아색 9",
-      "image": "peach-9.png"
+      "id": "peach-b",
+      "name": "복숭아색 B",
+      "image": "peach-b.png"
     },
     {
-      "id": "peach-8",
-      "name": "복숭아색 8",
-      "image": "peach-8.png"
+      "id": "peach-c",
+      "name": "복숭아색 C",
+      "image": "peach-c.png"
     },
     {
-      "id": "peach-7",
-      "name": "복숭아색 7",
-      "image": "peach-7.png"
+      "id": "peach-d",
+      "name": "복숭아색 D",
+      "image": "peach-d.png"
     },
     {
-      "id": "peach-6",
-      "name": "복숭아색 6",
-      "image": "peach-6.png"
+      "id": "peach-e",
+      "name": "복숭아색 E",
+      "image": "peach-e.png"
     },
     {
-      "id": "peach-5",
-      "name": "복숭아색 5",
-      "image": "peach-5.png"
+      "id": "peach-f",
+      "name": "복숭아색 F",
+      "image": "peach-f.png"
     },
     {
-      "id": "peach-4",
-      "name": "복숭아색 4",
-      "image": "peach-4.png"
+      "id": "peach-g",
+      "name": "복숭아색 G",
+      "image": "peach-g.png"
+    },
+    {
+      "id": "peach-h",
+      "name": "복숭아색 H",
+      "image": "peach-h.png"
+    },
+    {
+      "id": "peach-i",
+      "name": "복숭아색 I",
+      "image": "peach-i.png"
+    },
+    {
+      "id": "peach-j",
+      "name": "복숭아색 J",
+      "image": "peach-j.png"
+    },
+    {
+      "id": "peach-k",
+      "name": "복숭아색 K",
+      "image": "peach-k.png"
+    },
+    {
+      "id": "peach-l",
+      "name": "복숭아색 L",
+      "image": "peach-l.png"
+    },
+    {
+      "id": "peach-m",
+      "name": "복숭아색 M",
+      "image": "peach-m.png"
+    },
+    {
+      "id": "peach-n",
+      "name": "복숭아색 N",
+      "image": "peach-n.png"
+    },
+    {
+      "id": "peach-o",
+      "name": "복숭아색 O",
+      "image": "peach-o.png"
+    },
+    {
+      "id": "peach-p",
+      "name": "복숭아색 P",
+      "image": "peach-p.png"
+    },
+    {
+      "id": "peach-q",
+      "name": "복숭아색 Q",
+      "image": "peach-q.png"
+    },
+    {
+      "id": "peach-r",
+      "name": "복숭아색 R",
+      "image": "peach-r.png"
+    },
+    {
+      "id": "peach-s",
+      "name": "복숭아색 S",
+      "image": "peach-s.png"
+    },
+    {
+      "id": "peach-t",
+      "name": "복숭아색 T",
+      "image": "peach-t.png"
+    },
+    {
+      "id": "peach-u",
+      "name": "복숭아색 U",
+      "image": "peach-u.png"
+    },
+    {
+      "id": "peach-v",
+      "name": "복숭아색 V",
+      "image": "peach-v.png"
+    },
+    {
+      "id": "peach-w",
+      "name": "복숭아색 W",
+      "image": "peach-w.png"
+    },
+    {
+      "id": "peach-x",
+      "name": "복숭아색 X",
+      "image": "peach-x.png"
+    },
+    {
+      "id": "peach-y",
+      "name": "복숭아색 Y",
+      "image": "peach-y.png"
+    },
+    {
+      "id": "peach-z",
+      "name": "복숭아색 Z",
+      "image": "peach-z.png"
+    },
+    {
+      "id": "peach-0",
+      "name": "복숭아색 0",
+      "image": "peach-0.png"
+    },
+    {
+      "id": "peach-1",
+      "name": "복숭아색 1",
+      "image": "peach-1.png"
+    },
+    {
+      "id": "peach-2",
+      "name": "복숭아색 2",
+      "image": "peach-2.png"
     },
     {
       "id": "peach-3",
@@ -543,144 +513,34 @@
       "image": "peach-3.png"
     },
     {
-      "id": "pink-2",
-      "name": "분홍색 2",
-      "image": "pink-2.png"
+      "id": "peach-4",
+      "name": "복숭아색 4",
+      "image": "peach-4.png"
     },
     {
-      "id": "pink-1",
-      "name": "분홍색 1",
-      "image": "pink-1.png"
+      "id": "peach-5",
+      "name": "복숭아색 5",
+      "image": "peach-5.png"
     },
     {
-      "id": "pink-0",
-      "name": "분홍색 0",
-      "image": "pink-0.png"
+      "id": "peach-6",
+      "name": "복숭아색 6",
+      "image": "peach-6.png"
     },
     {
-      "id": "pink-z",
-      "name": "분홍색 Z",
-      "image": "pink-z.png"
+      "id": "peach-7",
+      "name": "복숭아색 7",
+      "image": "peach-7.png"
     },
     {
-      "id": "pink-y",
-      "name": "분홍색 Y",
-      "image": "pink-y.png"
+      "id": "peach-8",
+      "name": "복숭아색 8",
+      "image": "peach-8.png"
     },
     {
-      "id": "pink-x",
-      "name": "분홍색 X",
-      "image": "pink-x.png"
-    },
-    {
-      "id": "pink-w",
-      "name": "분홍색 W",
-      "image": "pink-w.png"
-    },
-    {
-      "id": "pink-v",
-      "name": "분홍색 V",
-      "image": "pink-v.png"
-    },
-    {
-      "id": "pink-u",
-      "name": "분홍색 U",
-      "image": "pink-u.png"
-    },
-    {
-      "id": "pink-t",
-      "name": "분홍색 T",
-      "image": "pink-t.png"
-    },
-    {
-      "id": "pink-s",
-      "name": "분홍색 S",
-      "image": "pink-s.png"
-    },
-    {
-      "id": "pink-r",
-      "name": "분홍색 R",
-      "image": "pink-r.png"
-    },
-    {
-      "id": "pink-q",
-      "name": "분홍색 Q",
-      "image": "pink-q.png"
-    },
-    {
-      "id": "pink-p",
-      "name": "분홍색 P",
-      "image": "pink-p.png"
-    },
-    {
-      "id": "pink-o",
-      "name": "분홍색 O",
-      "image": "pink-o.png"
-    },
-    {
-      "id": "pink-n",
-      "name": "분홍색 N",
-      "image": "pink-n.png"
-    },
-    {
-      "id": "pink-m",
-      "name": "분홍색 M",
-      "image": "pink-m.png"
-    },
-    {
-      "id": "pink-l",
-      "name": "분홍색 L",
-      "image": "pink-l.png"
-    },
-    {
-      "id": "pink-k",
-      "name": "분홍색 K",
-      "image": "pink-k.png"
-    },
-    {
-      "id": "pink-j",
-      "name": "분홍색 J",
-      "image": "pink-j.png"
-    },
-    {
-      "id": "pink-i",
-      "name": "분홍색 I",
-      "image": "pink-i.png"
-    },
-    {
-      "id": "pink-h",
-      "name": "분홍색 H",
-      "image": "pink-h.png"
-    },
-    {
-      "id": "pink-g",
-      "name": "분홍색 G",
-      "image": "pink-g.png"
-    },
-    {
-      "id": "pink-f",
-      "name": "분홍색 F",
-      "image": "pink-f.png"
-    },
-    {
-      "id": "pink-e",
-      "name": "분홍색 E",
-      "image": "pink-e.png"
-    },
-    {
-      "id": "pink-d",
-      "name": "분홍색 D",
-      "image": "pink-d.png"
-    },
-    {
-      "id": "pink-c",
-      "name": "분홍색 C",
-      "image": "pink-c.png"
-    },
-    {
-      "id": "pink-b",
-      "name": "분홍색 B",
-      "image": "pink-b.png"
+      "id": "peach-9",
+      "name": "복숭아색 9",
+      "image": "peach-9.png"
     },
     {
       "id": "pink-a",
@@ -688,29 +548,149 @@
       "image": "pink-a.png"
     },
     {
-      "id": "pink-9",
-      "name": "분홍색 9",
-      "image": "pink-9.png"
+      "id": "pink-b",
+      "name": "분홍색 B",
+      "image": "pink-b.png"
     },
     {
-      "id": "pink-8",
-      "name": "분홍색 8",
-      "image": "pink-8.png"
+      "id": "pink-c",
+      "name": "분홍색 C",
+      "image": "pink-c.png"
     },
     {
-      "id": "pink-7",
-      "name": "분홍색 7",
-      "image": "pink-7.png"
+      "id": "pink-d",
+      "name": "분홍색 D",
+      "image": "pink-d.png"
     },
     {
-      "id": "pink-6",
-      "name": "분홍색 6",
-      "image": "pink-6.png"
+      "id": "pink-e",
+      "name": "분홍색 E",
+      "image": "pink-e.png"
     },
     {
-      "id": "pink-5",
-      "name": "분홍색 5",
-      "image": "pink-5.png"
+      "id": "pink-f",
+      "name": "분홍색 F",
+      "image": "pink-f.png"
+    },
+    {
+      "id": "pink-g",
+      "name": "분홍색 G",
+      "image": "pink-g.png"
+    },
+    {
+      "id": "pink-h",
+      "name": "분홍색 H",
+      "image": "pink-h.png"
+    },
+    {
+      "id": "pink-i",
+      "name": "분홍색 I",
+      "image": "pink-i.png"
+    },
+    {
+      "id": "pink-j",
+      "name": "분홍색 J",
+      "image": "pink-j.png"
+    },
+    {
+      "id": "pink-k",
+      "name": "분홍색 K",
+      "image": "pink-k.png"
+    },
+    {
+      "id": "pink-l",
+      "name": "분홍색 L",
+      "image": "pink-l.png"
+    },
+    {
+      "id": "pink-m",
+      "name": "분홍색 M",
+      "image": "pink-m.png"
+    },
+    {
+      "id": "pink-n",
+      "name": "분홍색 N",
+      "image": "pink-n.png"
+    },
+    {
+      "id": "pink-o",
+      "name": "분홍색 O",
+      "image": "pink-o.png"
+    },
+    {
+      "id": "pink-p",
+      "name": "분홍색 P",
+      "image": "pink-p.png"
+    },
+    {
+      "id": "pink-q",
+      "name": "분홍색 Q",
+      "image": "pink-q.png"
+    },
+    {
+      "id": "pink-r",
+      "name": "분홍색 R",
+      "image": "pink-r.png"
+    },
+    {
+      "id": "pink-s",
+      "name": "분홍색 S",
+      "image": "pink-s.png"
+    },
+    {
+      "id": "pink-t",
+      "name": "분홍색 T",
+      "image": "pink-t.png"
+    },
+    {
+      "id": "pink-u",
+      "name": "분홍색 U",
+      "image": "pink-u.png"
+    },
+    {
+      "id": "pink-v",
+      "name": "분홍색 V",
+      "image": "pink-v.png"
+    },
+    {
+      "id": "pink-w",
+      "name": "분홍색 W",
+      "image": "pink-w.png"
+    },
+    {
+      "id": "pink-x",
+      "name": "분홍색 X",
+      "image": "pink-x.png"
+    },
+    {
+      "id": "pink-y",
+      "name": "분홍색 Y",
+      "image": "pink-y.png"
+    },
+    {
+      "id": "pink-z",
+      "name": "분홍색 Z",
+      "image": "pink-z.png"
+    },
+    {
+      "id": "pink-0",
+      "name": "분홍색 0",
+      "image": "pink-0.png"
+    },
+    {
+      "id": "pink-1",
+      "name": "분홍색 1",
+      "image": "pink-1.png"
+    },
+    {
+      "id": "pink-2",
+      "name": "분홍색 2",
+      "image": "pink-2.png"
+    },
+    {
+      "id": "pink-3",
+      "name": "분홍색 3",
+      "image": "pink-3.png"
     },
     {
       "id": "pink-4",
@@ -718,139 +698,29 @@
       "image": "pink-4.png"
     },
     {
-      "id": "lavender-1",
-      "name": "보라색 1",
-      "image": "lavender-1.png"
+      "id": "pink-5",
+      "name": "분홍색 5",
+      "image": "pink-5.png"
     },
     {
-      "id": "lavender-0",
-      "name": "보라색 0",
-      "image": "lavender-0.png"
+      "id": "pink-6",
+      "name": "분홍색 6",
+      "image": "pink-6.png"
     },
     {
-      "id": "lavender-z",
-      "name": "보라색 Z",
-      "image": "lavender-z.png"
+      "id": "pink-7",
+      "name": "분홍색 7",
+      "image": "pink-7.png"
     },
     {
-      "id": "lavender-y",
-      "name": "보라색 Y",
-      "image": "lavender-y.png"
+      "id": "pink-8",
+      "name": "분홍색 8",
+      "image": "pink-8.png"
     },
     {
-      "id": "lavender-x",
-      "name": "보라색 X",
-      "image": "lavender-x.png"
-    },
-    {
-      "id": "lavender-w",
-      "name": "보라색 W",
-      "image": "lavender-w.png"
-    },
-    {
-      "id": "lavender-v",
-      "name": "보라색 V",
-      "image": "lavender-v.png"
-    },
-    {
-      "id": "lavender-u",
-      "name": "보라색 U",
-      "image": "lavender-u.png"
-    },
-    {
-      "id": "lavender-t",
-      "name": "보라색 T",
-      "image": "lavender-t.png"
-    },
-    {
-      "id": "lavender-s",
-      "name": "보라색 S",
-      "image": "lavender-s.png"
-    },
-    {
-      "id": "lavender-r",
-      "name": "보라색 R",
-      "image": "lavender-r.png"
-    },
-    {
-      "id": "lavender-q",
-      "name": "보라색 Q",
-      "image": "lavender-q.png"
-    },
-    {
-      "id": "lavender-p",
-      "name": "보라색 P",
-      "image": "lavender-p.png"
-    },
-    {
-      "id": "lavender-o",
-      "name": "보라색 O",
-      "image": "lavender-o.png"
-    },
-    {
-      "id": "lavender-n",
-      "name": "보라색 N",
-      "image": "lavender-n.png"
-    },
-    {
-      "id": "lavender-m",
-      "name": "보라색 M",
-      "image": "lavender-m.png"
-    },
-    {
-      "id": "lavender-l",
-      "name": "보라색 L",
-      "image": "lavender-l.png"
-    },
-    {
-      "id": "lavender-k",
-      "name": "보라색 K",
-      "image": "lavender-k.png"
-    },
-    {
-      "id": "lavender-j",
-      "name": "보라색 J",
-      "image": "lavender-j.png"
-    },
-    {
-      "id": "lavender-i",
-      "name": "보라색 I",
-      "image": "lavender-i.png"
-    },
-    {
-      "id": "lavender-h",
-      "name": "보라색 H",
-      "image": "lavender-h.png"
-    },
-    {
-      "id": "lavender-g",
-      "name": "보라색 G",
-      "image": "lavender-g.png"
-    },
-    {
-      "id": "lavender-f",
-      "name": "보라색 F",
-      "image": "lavender-f.png"
-    },
-    {
-      "id": "lavender-e",
-      "name": "보라색 E",
-      "image": "lavender-e.png"
-    },
-    {
-      "id": "lavender-d",
-      "name": "보라색 D",
-      "image": "lavender-d.png"
-    },
-    {
-      "id": "lavender-c",
-      "name": "보라색 C",
-      "image": "lavender-c.png"
-    },
-    {
-      "id": "lavender-b",
-      "name": "보라색 B",
-      "image": "lavender-b.png"
+      "id": "pink-9",
+      "name": "분홍색 9",
+      "image": "pink-9.png"
     },
     {
       "id": "lavender-a",
@@ -858,39 +728,139 @@
       "image": "lavender-a.png"
     },
     {
-      "id": "lavender-9",
-      "name": "보라색 9",
-      "image": "lavender-9.png"
+      "id": "lavender-b",
+      "name": "보라색 B",
+      "image": "lavender-b.png"
     },
     {
-      "id": "lavender-8",
-      "name": "보라색 8",
-      "image": "lavender-8.png"
+      "id": "lavender-c",
+      "name": "보라색 C",
+      "image": "lavender-c.png"
     },
     {
-      "id": "lavender-7",
-      "name": "보라색 7",
-      "image": "lavender-7.png"
+      "id": "lavender-d",
+      "name": "보라색 D",
+      "image": "lavender-d.png"
     },
     {
-      "id": "lavender-6",
-      "name": "보라색 6",
-      "image": "lavender-6.png"
+      "id": "lavender-e",
+      "name": "보라색 E",
+      "image": "lavender-e.png"
     },
     {
-      "id": "lavender-5",
-      "name": "보라색 5",
-      "image": "lavender-5.png"
+      "id": "lavender-f",
+      "name": "보라색 F",
+      "image": "lavender-f.png"
     },
     {
-      "id": "lavender-4",
-      "name": "보라색 4",
-      "image": "lavender-4.png"
+      "id": "lavender-g",
+      "name": "보라색 G",
+      "image": "lavender-g.png"
     },
     {
-      "id": "lavender-3",
-      "name": "보라색 3",
-      "image": "lavender-3.png"
+      "id": "lavender-h",
+      "name": "보라색 H",
+      "image": "lavender-h.png"
+    },
+    {
+      "id": "lavender-i",
+      "name": "보라색 I",
+      "image": "lavender-i.png"
+    },
+    {
+      "id": "lavender-j",
+      "name": "보라색 J",
+      "image": "lavender-j.png"
+    },
+    {
+      "id": "lavender-k",
+      "name": "보라색 K",
+      "image": "lavender-k.png"
+    },
+    {
+      "id": "lavender-l",
+      "name": "보라색 L",
+      "image": "lavender-l.png"
+    },
+    {
+      "id": "lavender-m",
+      "name": "보라색 M",
+      "image": "lavender-m.png"
+    },
+    {
+      "id": "lavender-n",
+      "name": "보라색 N",
+      "image": "lavender-n.png"
+    },
+    {
+      "id": "lavender-o",
+      "name": "보라색 O",
+      "image": "lavender-o.png"
+    },
+    {
+      "id": "lavender-p",
+      "name": "보라색 P",
+      "image": "lavender-p.png"
+    },
+    {
+      "id": "lavender-q",
+      "name": "보라색 Q",
+      "image": "lavender-q.png"
+    },
+    {
+      "id": "lavender-r",
+      "name": "보라색 R",
+      "image": "lavender-r.png"
+    },
+    {
+      "id": "lavender-s",
+      "name": "보라색 S",
+      "image": "lavender-s.png"
+    },
+    {
+      "id": "lavender-t",
+      "name": "보라색 T",
+      "image": "lavender-t.png"
+    },
+    {
+      "id": "lavender-u",
+      "name": "보라색 U",
+      "image": "lavender-u.png"
+    },
+    {
+      "id": "lavender-v",
+      "name": "보라색 V",
+      "image": "lavender-v.png"
+    },
+    {
+      "id": "lavender-w",
+      "name": "보라색 W",
+      "image": "lavender-w.png"
+    },
+    {
+      "id": "lavender-x",
+      "name": "보라색 X",
+      "image": "lavender-x.png"
+    },
+    {
+      "id": "lavender-y",
+      "name": "보라색 Y",
+      "image": "lavender-y.png"
+    },
+    {
+      "id": "lavender-z",
+      "name": "보라색 Z",
+      "image": "lavender-z.png"
+    },
+    {
+      "id": "lavender-0",
+      "name": "보라색 0",
+      "image": "lavender-0.png"
+    },
+    {
+      "id": "lavender-1",
+      "name": "보라색 1",
+      "image": "lavender-1.png"
     },
     {
       "id": "lavender-2",
@@ -898,149 +868,39 @@
       "image": "lavender-2.png"
     },
     {
-      "id": "yellow-3",
-      "name": "노란색 3",
-      "image": "yellow-3.png"
+      "id": "lavender-3",
+      "name": "보라색 3",
+      "image": "lavender-3.png"
     },
     {
-      "id": "yellow-2",
-      "name": "노란색 2",
-      "image": "yellow-2.png"
+      "id": "lavender-4",
+      "name": "보라색 4",
+      "image": "lavender-4.png"
     },
     {
-      "id": "yellow-1",
-      "name": "노란색 1",
-      "image": "yellow-1.png"
+      "id": "lavender-5",
+      "name": "보라색 5",
+      "image": "lavender-5.png"
     },
     {
-      "id": "yellow-0",
-      "name": "노란색 0",
-      "image": "yellow-0.png"
+      "id": "lavender-6",
+      "name": "보라색 6",
+      "image": "lavender-6.png"
     },
     {
-      "id": "yellow-z",
-      "name": "노란색 Z",
-      "image": "yellow-z.png"
+      "id": "lavender-7",
+      "name": "보라색 7",
+      "image": "lavender-7.png"
     },
     {
-      "id": "yellow-y",
-      "name": "노란색 Y",
-      "image": "yellow-y.png"
+      "id": "lavender-8",
+      "name": "보라색 8",
+      "image": "lavender-8.png"
     },
     {
-      "id": "yellow-x",
-      "name": "노란색 X",
-      "image": "yellow-x.png"
-    },
-    {
-      "id": "yellow-w",
-      "name": "노란색 W",
-      "image": "yellow-w.png"
-    },
-    {
-      "id": "yellow-v",
-      "name": "노란색 V",
-      "image": "yellow-v.png"
-    },
-    {
-      "id": "yellow-u",
-      "name": "노란색 U",
-      "image": "yellow-u.png"
-    },
-    {
-      "id": "yellow-t",
-      "name": "노란색 T",
-      "image": "yellow-t.png"
-    },
-    {
-      "id": "yellow-s",
-      "name": "노란색 S",
-      "image": "yellow-s.png"
-    },
-    {
-      "id": "yellow-r",
-      "name": "노란색 R",
-      "image": "yellow-r.png"
-    },
-    {
-      "id": "yellow-q",
-      "name": "노란색 Q",
-      "image": "yellow-q.png"
-    },
-    {
-      "id": "yellow-p",
-      "name": "노란색 P",
-      "image": "yellow-p.png"
-    },
-    {
-      "id": "yellow-o",
-      "name": "노란색 O",
-      "image": "yellow-o.png"
-    },
-    {
-      "id": "yellow-n",
-      "name": "노란색 N",
-      "image": "yellow-n.png"
-    },
-    {
-      "id": "yellow-m",
-      "name": "노란색 M",
-      "image": "yellow-m.png"
-    },
-    {
-      "id": "yellow-l",
-      "name": "노란색 L",
-      "image": "yellow-l.png"
-    },
-    {
-      "id": "yellow-k",
-      "name": "노란색 K",
-      "image": "yellow-k.png"
-    },
-    {
-      "id": "yellow-j",
-      "name": "노란색 J",
-      "image": "yellow-j.png"
-    },
-    {
-      "id": "yellow-i",
-      "name": "노란색 I",
-      "image": "yellow-i.png"
-    },
-    {
-      "id": "yellow-h",
-      "name": "노란색 H",
-      "image": "yellow-h.png"
-    },
-    {
-      "id": "yellow-g",
-      "name": "노란색 G",
-      "image": "yellow-g.png"
-    },
-    {
-      "id": "yellow-f",
-      "name": "노란색 F",
-      "image": "yellow-f.png"
-    },
-    {
-      "id": "yellow-e",
-      "name": "노란색 E",
-      "image": "yellow-e.png"
-    },
-    {
-      "id": "yellow-d",
-      "name": "노란색 D",
-      "image": "yellow-d.png"
-    },
-    {
-      "id": "yellow-c",
-      "name": "노란색 C",
-      "image": "yellow-c.png"
-    },
-    {
-      "id": "yellow-b",
-      "name": "노란색 B",
-      "image": "yellow-b.png"
+      "id": "lavender-9",
+      "name": "보라색 9",
+      "image": "lavender-9.png"
     },
     {
       "id": "yellow-a",
@@ -1048,29 +908,149 @@
       "image": "yellow-a.png"
     },
     {
-      "id": "yellow-9",
-      "name": "노란색 9",
-      "image": "yellow-9.png"
+      "id": "yellow-b",
+      "name": "노란색 B",
+      "image": "yellow-b.png"
     },
     {
-      "id": "yellow-8",
-      "name": "노란색 8",
-      "image": "yellow-8.png"
+      "id": "yellow-c",
+      "name": "노란색 C",
+      "image": "yellow-c.png"
     },
     {
-      "id": "yellow-7",
-      "name": "노란색 7",
-      "image": "yellow-7.png"
+      "id": "yellow-d",
+      "name": "노란색 D",
+      "image": "yellow-d.png"
     },
     {
-      "id": "yellow-6",
-      "name": "노란색 6",
-      "image": "yellow-6.png"
+      "id": "yellow-e",
+      "name": "노란색 E",
+      "image": "yellow-e.png"
     },
     {
-      "id": "yellow-5",
-      "name": "노란색 5",
-      "image": "yellow-5.png"
+      "id": "yellow-f",
+      "name": "노란색 F",
+      "image": "yellow-f.png"
+    },
+    {
+      "id": "yellow-g",
+      "name": "노란색 G",
+      "image": "yellow-g.png"
+    },
+    {
+      "id": "yellow-h",
+      "name": "노란색 H",
+      "image": "yellow-h.png"
+    },
+    {
+      "id": "yellow-i",
+      "name": "노란색 I",
+      "image": "yellow-i.png"
+    },
+    {
+      "id": "yellow-j",
+      "name": "노란색 J",
+      "image": "yellow-j.png"
+    },
+    {
+      "id": "yellow-k",
+      "name": "노란색 K",
+      "image": "yellow-k.png"
+    },
+    {
+      "id": "yellow-l",
+      "name": "노란색 L",
+      "image": "yellow-l.png"
+    },
+    {
+      "id": "yellow-m",
+      "name": "노란색 M",
+      "image": "yellow-m.png"
+    },
+    {
+      "id": "yellow-n",
+      "name": "노란색 N",
+      "image": "yellow-n.png"
+    },
+    {
+      "id": "yellow-o",
+      "name": "노란색 O",
+      "image": "yellow-o.png"
+    },
+    {
+      "id": "yellow-p",
+      "name": "노란색 P",
+      "image": "yellow-p.png"
+    },
+    {
+      "id": "yellow-q",
+      "name": "노란색 Q",
+      "image": "yellow-q.png"
+    },
+    {
+      "id": "yellow-r",
+      "name": "노란색 R",
+      "image": "yellow-r.png"
+    },
+    {
+      "id": "yellow-s",
+      "name": "노란색 S",
+      "image": "yellow-s.png"
+    },
+    {
+      "id": "yellow-t",
+      "name": "노란색 T",
+      "image": "yellow-t.png"
+    },
+    {
+      "id": "yellow-u",
+      "name": "노란색 U",
+      "image": "yellow-u.png"
+    },
+    {
+      "id": "yellow-v",
+      "name": "노란색 V",
+      "image": "yellow-v.png"
+    },
+    {
+      "id": "yellow-w",
+      "name": "노란색 W",
+      "image": "yellow-w.png"
+    },
+    {
+      "id": "yellow-x",
+      "name": "노란색 X",
+      "image": "yellow-x.png"
+    },
+    {
+      "id": "yellow-y",
+      "name": "노란색 Y",
+      "image": "yellow-y.png"
+    },
+    {
+      "id": "yellow-z",
+      "name": "노란색 Z",
+      "image": "yellow-z.png"
+    },
+    {
+      "id": "yellow-0",
+      "name": "노란색 0",
+      "image": "yellow-0.png"
+    },
+    {
+      "id": "yellow-1",
+      "name": "노란색 1",
+      "image": "yellow-1.png"
+    },
+    {
+      "id": "yellow-2",
+      "name": "노란색 2",
+      "image": "yellow-2.png"
+    },
+    {
+      "id": "yellow-3",
+      "name": "노란색 3",
+      "image": "yellow-3.png"
     },
     {
       "id": "yellow-4",
@@ -1078,9 +1058,29 @@
       "image": "yellow-4.png"
     },
     {
-      "id": "pink-3",
-      "name": "분홍색 3",
-      "image": "pink-3.png"
+      "id": "yellow-5",
+      "name": "노란색 5",
+      "image": "yellow-5.png"
+    },
+    {
+      "id": "yellow-6",
+      "name": "노란색 6",
+      "image": "yellow-6.png"
+    },
+    {
+      "id": "yellow-7",
+      "name": "노란색 7",
+      "image": "yellow-7.png"
+    },
+    {
+      "id": "yellow-8",
+      "name": "노란색 8",
+      "image": "yellow-8.png"
+    },
+    {
+      "id": "yellow-9",
+      "name": "노란색 9",
+      "image": "yellow-9.png"
     }
   ]
 }
