@@ -25,7 +25,7 @@ import { refreshPersonalFonts } from '../../handwriting/library';
 import { fontWorkflow } from '../../handwriting/manager';
 import { listStatus } from '../../handwriting/workflow';
 import { AI_FONT_LABEL, isAiHandwritingFont } from '../../handwriting/aiDisclosure';
-import { CUTOUT_ENTRANCE, HANDWRITING_FONT_CREATION_ENABLED } from '../../shared/featureFlags';
+import { CUTOUT_ENTRANCE } from '../../shared/featureFlags';
 import { loadedFontFamily } from '../../editor/utils/text';
 import { FOLDER_NAME_LIMIT, useCustomDecor } from '../../editor/hooks/useCustomDecor';
 import { stickerSplit } from '../../editor/services/stickerSplit';
@@ -212,9 +212,7 @@ export default function DecorationStudioScreen({ compact = false, registerBackHa
 
   // 폰트 목록은 이 탭이 직접 보여 준다: 만들던 폰트 · 생성 중인 폰트(손글씨 공방의 항목)와 가져온 폰트를 한 줄 목록으로 모으고,
   // '새로 만들기'는 손글씨 공방의 자체 목록을 거치지 않고 바로 새 폰트 입력으로, 항목을 누르면 그 폰트 화면으로 바로 간다.
-  // 폰트 만들기를 끈 빌드에서는 생성 대기 · 중 · 일시 정지 · 실패 항목을 이어 가거나 정리할 화면이 없으니 숨긴다(저장된 항목은 그대로라 다시 켜면 보인다).
-  // 완성된 폰트와 지울 수 있는 작성 중 항목만 남긴다
-  const entries = !made.loaded ? [] : HANDWRITING_FONT_CREATION_ENABLED ? made.entries : made.entries.filter(entry => entry.status === 'ready' || entry.status === 'draft');
+  const entries = made.loaded ? made.entries : [];
   const loose = fonts.filter(font => !entries.some(entry => entry.fontId === font.id));
   const fontTotal = entries.length + loose.length;
   const fontReady = fontState === 'ready' && made.loaded;
@@ -236,7 +234,7 @@ export default function DecorationStudioScreen({ compact = false, registerBackHa
     </View>;
 
   const fontSection = <StudioSection fill={fontReady && !fontTotal} title="폰트" count={fontReady ? count({ length: fontTotal }) : null}
-    right={HANDWRITING_FONT_CREATION_ENABLED ? addTool({ kind: 'font', icon: 'text', title: '폰트 추가', description: '손글씨를 나만의 글꼴로', onPress: () => loginGate('내 폰트 만들기', () => openFontStudio({ create: true })) }) : null}>
+    right={addTool({ kind: 'font', icon: 'text', title: '폰트 추가', description: '손글씨를 나만의 글꼴로', onPress: () => loginGate('내 폰트 만들기', () => openFontStudio({ create: true })) })}>
     {shelfError === 'font' && <Text accessibilityRole="alert" style={s.error}>폰트를 지우지 못했어요. 다시 시도해 주세요.</Text>}
     {/* 손글씨 공방 상태를 못 읽으면(loaded 가 오지 않음) 불러오는 중에 갇히지 않게 오류와 다시 불러오기를 보인다 */}
     {fontState === 'error' || (!made.loaded && made.error) ? <View accessibilityRole="alert" style={s.alert}><Text style={s.empty}>폰트 목록을 불러오지 못했어요.</Text><DioButton variant="tonal" label="폰트 목록 다시 불러오기" onPress={() => { if (!made.loaded) fontWorkflow.init().catch(() => {}); refreshFonts(); }} /></View>
@@ -245,15 +243,13 @@ export default function DecorationStudioScreen({ compact = false, registerBackHa
       : <View style={s.fontList}>
         {entries.map(entry => {
           const status = listStatus(entries, entry);
-          const openable = HANDWRITING_FONT_CREATION_ENABLED || entry.status === 'ready';
           return <View key={entry.id} style={[s.fontRow, s.fontRowLine, compact && s.fontRowCompact]}>
-            {/* 폰트 만들기를 끈 빌드: 완성 폰트는 관리 화면(이름 · 파일 저장 · 글자 간격)으로 열고, 작성 중은 이어 쓸 수 없어 누를 수 없는 줄(삭제만)로 보인다 */}
-            <Pressable accessibilityRole={openable ? 'button' : 'text'} accessibilityLabel={`${entry.name} ${status}`} disabled={!openable} onPress={() => loginGate('내 폰트 만들기', () => openFontStudio(HANDWRITING_FONT_CREATION_ENABLED ? { open: entry.id } : { open: entry.id, manage: true }))} style={s.fontOpen}>
+            <Pressable accessibilityRole="button" accessibilityLabel={`${entry.name} ${status}`} onPress={() => loginGate('내 폰트 만들기', () => openFontStudio({ open: entry.id }))} style={s.fontOpen}>
               <Text style={s.itemTitle}>{entry.name}</Text>
               {entry.status === 'ready' && (entry.jobId || isAiHandwritingFont(fonts.find(font => font.id === entry.fontId))) ? <Text style={s.description}>{AI_FONT_LABEL}</Text> : null}
               {entry.status === 'ready' ? fontPreview(fonts.find(font => font.id === entry.fontId)) : <Text style={s.description}>{status}</Text>}
             </Pressable>
-            {entry.status === 'draft' ? <DioButton variant="icon" icon="trash" label={`${entry.name} 삭제`} onPress={() => setQuestion({ draft: entry })} /> : openable ? <AppIcon name="chevron-right" size={20} color={colors.textMuted} /> : null}
+            {entry.status === 'draft' ? <DioButton variant="icon" icon="trash" label={`${entry.name} 삭제`} onPress={() => setQuestion({ draft: entry })} /> : <AppIcon name="chevron-right" size={20} color={colors.textMuted} />}
           </View>;
         })}
         {loose.map(font => <View key={font.id} style={[s.fontRow, compact && s.fontRowCompact]}>

@@ -33,5 +33,6 @@ def verifyDebugHandwritingModels = tasks.register('verifyDebugHandwritingModels'
     }
   }
 }
-// v2.0.0: 나만의 폰트 만들기를 꺼서 모델 없이 빌드한다. 다시 켜면 preDebugBuild 가 이 검사에 의존하게 되돌린다
-// (frontend/src/shared/featureFlags.js).
+tasks.matching { it.name == 'preDebugBuild' }.configureEach {
+  dependsOn verifyDebugHandwritingModels
+}

@@ -43,3 +43,8 @@ modules/dio-handwriting/android/build/
 modules/dio-handwriting/android/.gradle/
 modules/dio-handwriting/android/src/androidTest/assets/
 modules/dio-handwriting/android/src/main/assets/dio_handwriting/*.onnx
+
+# The Android asset directory is also the iOS pod's model resource source.
+# Include the two prepared inference graphs in EAS uploads.
+!modules/dio-handwriting/android/src/main/assets/dio_handwriting/encoder.fp32.onnx
+!modules/dio-handwriting/android/src/main/assets/dio_handwriting/decoder.fp32.onnx

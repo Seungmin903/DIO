@@ -6,7 +6,7 @@ import { MODEL_VERSION, PREPROCESS_VERSION, PROMPTS } from '../src/handwriting/p
 const clone = value => JSON.parse(JSON.stringify(value))
 const sample = { coordinateSize: 1024, strokes: [{ width: 9, points: [{ x: 200, y: 200 }, { x: 700, y: 700 }] }] }
 const draft = id => ({ schema: 1, id, samples: Object.fromEntries(PROMPTS.map(c => [c, clone(sample)])), updatedAt: '2026-10-30' })
-function setup(saved = [], jobs = new Map()) {
+function setup(saved = [], jobs = new Map(), maxGeneratedFonts) {
   let next = 0, active = null, failSave = false, failRegister = false
   const calls = [], fonts = new Map()
   const repository = {
@@ -37,7 +37,7 @@ function setup(saved = [], jobs = new Map()) {
     preview: async () => { assert.equal(active, null); calls.push('preview'); return { 안: 'file://preview.png' } },
     wait: async () => {},
   }
-  const flow = createFontWorkflow({ repository, engine, uuid: () => `entry-${++next}` })
+  const flow = createFontWorkflow({ repository, engine, maxGeneratedFonts, uuid: () => `entry-${++next}` })
   const item = id => flow.getSnapshot().entries.find(e => e.id === id)
   const complete = id => { const job = jobs.get(item(id).jobId); Object.assign(job, { state: 'ready', completed: 11172, fontUri: 'file://font.ttf' }); active = null }
   const prepare = async name => {
@@ -46,6 +46,36 @@ function setup(saved = [], jobs = new Map()) {
   return { flow, calls, jobs, fonts, item, complete, prepare, repository, engine,
     saved: () => clone(saved), failSave: value => { failSave = value }, failRegister: value => { failRegister = value } }
 }
+
+test('생성 한도가 1개일 때 동시에 확정해도 하나만 시작하고 재실행 후에도 한도를 지킨다', async () => {
+  const h = setup([], new Map(), 1)
+  await h.flow.init()
+  const first = await h.prepare('첫 폰트')
+  const second = await h.prepare('둘째 폰트')
+  const [accepted, rejected] = await Promise.allSettled([h.flow.confirm(first), h.flow.confirm(second)])
+  assert.equal(accepted.status, 'fulfilled')
+  assert.match(rejected.reason.message, /1개까지/)
+  assert.equal(h.item(second).status, 'draft')
+  h.complete(first)
+  await h.flow.tick()
+
+  const restarted = setup(h.saved(), h.jobs, 1)
+  await restarted.flow.init()
+  await assert.rejects(restarted.flow.create(first), /1개까지/)
+  await assert.rejects(restarted.flow.confirm(second), /1개까지/)
+})
+
+test('가져온 폰트는 한도를 사용하지 않고 생성 취소 후 다시 만들 수 있다', async () => {
+  const h = setup([{ id: 'imported', status: 'ready', fontId: 'imported' }], new Map(), 1)
+  await h.flow.init()
+  const first = await h.prepare('첫 폰트')
+  await h.flow.confirm(first)
+  await assert.rejects(h.flow.create(), /1개까지/)
+  await h.flow.control(first, 'cancel')
+  const second = await h.prepare('둘째 폰트')
+  await h.flow.confirm(second)
+  assert.equal(h.item(second).status, 'processing')
+})
 
 test('대기열은 화면 구독 없이도 FIFO로 생성하고 완료를 한 번만 등록한다', async () => {
   const h = setup(); await h.flow.init()
@@ -199,36 +229,4 @@ test('작성 중인 폰트만 지우고 저장소에서도 사라지며, 생성�
   assert.equal(h.item(id), undefined); assert.equal(h.saved().some(e => e.id === id), false)
   await assert.rejects(h.flow.removeDraft(kept), /작성 중인 폰트만/)
   assert.ok(h.item(kept))
-})
-
-// v2.0.0 폰트 만들기 끄기: 모델이 없는 빌드(capabilities.available=false)에서도 목록은 불러오지만,
-// 공방에서 숨긴 생성 대기 · 중 · 일시 정지 · 실패 작업을 재개 · 실패 처리 · 삭제하지 않아 다시 켜면 그대로 보인다
-test('모델이 없으면 저장된 미완료 작업 상태를 바꾸지 않고 네이티브 작업도 부르지 않는다', async () => {
-  const saved = [
-    { id: 'q', name: '대기', status: 'queued', queueOrder: 1, inputHash: 'h-q', draft: draft('q') },
-    { id: 'p', name: '생성 중', status: 'processing', jobId: 'job-p', job: { id: 'job-p', state: 'processing', completed: 120 } },
-    { id: 's', name: '일시 정지', status: 'paused', pauseReason: 'background', jobId: 'job-s' },
-    { id: 'f', name: '실패', status: 'failed', error: 'boom', jobId: 'job-f' },
-    { id: 'd', name: '작성 중', status: 'draft', draft: draft('d') },
-  ]
-  const before = clone(saved)
-  let stored = clone(saved)
-  const calls = []
-  const forbidden = name => async () => { calls.push(name); throw new Error(name + ' must not run without models') }
-  const flow = createFontWorkflow({
-    uuid: () => 'new',
-    repository: { load: async () => clone(stored), save: async entries => { calls.push('save'); stored = clone(entries) }, newDraft: () => ({}), register: forbidden('register'), renameFont: forbidden('renameFont'), fontForJob: forbidden('fontForJob') },
-    engine: {
-      capabilities: async () => ({ available: false, reason: '이 iOS 빌드에 손글씨 모델이 포함되어 있지 않아요.' }),
-      snapshot: forbidden('snapshot'), start: forbidden('start'), refresh: forbidden('refresh'), latest: forbidden('latest'),
-      jobDraft: forbidden('jobDraft'), control: forbidden('control'), preview: forbidden('preview'), isBusy: forbidden('isBusy'), wait: async () => {},
-    },
-  })
-  await flow.setForeground(true)
-  await flow.init()
-  for (let i = 0; i < 3; i++) await flow.tick()
-  assert.deepEqual(calls, [])
-  assert.deepEqual(stored, before)
-  assert.equal(flow.getSnapshot().loaded, true)
-  assert.deepEqual(flow.getSnapshot().entries.map(e => [e.id, e.status]), before.map(e => [e.id, e.status]))
 })
