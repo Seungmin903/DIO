@@ -18,6 +18,12 @@ const draw = (object, frame, size = 40, source = frame) => {
 const sticker = (extra) => ({ id: 'g', type: 'sticker', mediaFileId: 'm', x: 10, y: 10, w: 20, h: 10, ...extra })
 const photo = (extra) => ({ id: 'p', type: 'photo', frame: 'shape', shape: 'rect', mediaFileId: 'm', x: 10, y: 10, w: 10, h: 10, imageWidth: 2, imageHeight: 1, crop: { zoom: 1, fx: 0.5, fy: 0.5 }, ...extra })
 
+test('스티커는 화면(StickerContent)처럼 crop 을 보지 않고 상자 안에 그대로 놓는다', () => {
+  const plain = gifPlacement(sticker(), 40, 20)
+  assert.deepEqual(gifPlacement(sticker({ crop: { zoom: 2, fx: 0.1, fy: 0.9 } }), 40, 20), plain)
+  assert.deepEqual(plain.content, { x: 0, y: 0, width: 20, height: 10 })
+})
+
 test('합치기로 그릴 수 있는 GIF 만 층 합성을 쓴다', () => {
   assert.equal(layerDrawable(sticker()), true)
   assert.equal(layerDrawable(sticker({ outline: true })), false)

@@ -65,7 +65,8 @@ export function gifPlacement(object, frameWidth, frameHeight) {
     const radius = object.shape === 'circle' ? 'ellipse' : Math.min(w, h) * (object.radius ?? VIEW_CLIP_SHAPES[object.shape] ?? 0)
     return { content, clip: { x: 0, y: 0, width: w, height: h, radius } }
   }
-  // 스티커: 배경 스티커는 늘이고(stretch), 나머지는 비율대로 상자 안에(contain)
+  // 스티커: 배경 스티커는 늘이고(stretch), 나머지는 비율대로 상자 안에(contain).
+  // crop 은 보지 않는다: 화면의 StickerContent 도 스티커 crop 을 쓰지 않는다(crop 은 사진 · 테이프만)
   if (object.backdrop) return { content: { x: 0, y: 0, width: w, height: h }, clip: { x: 0, y: 0, width: w, height: h, radius: 0 } }
   const s = Math.min(w / frameWidth, h / frameHeight)
   const content = { x: (w - frameWidth * s) / 2, y: (h - frameHeight * s) / 2, width: frameWidth * s, height: frameHeight * s }

@@ -75,7 +75,9 @@ export async function createPageGif(snapshot, { renderFrame, onProgress, signal,
       const { width, height } = gifSize(gif.bytes)
       gif.source = { width, height }
       const users = snapshot.objects.filter((o) => gif.ids.includes(o.id))
-      const scale = Math.min(1, Math.max(...users.map((o) => Math.max(o.w * ratioX / width, o.h * ratioY / height) * Math.max(1, o.crop?.zoom ?? 1))))
+      // 자르기 확대는 사진만 쓴다. 스티커는 화면(StickerContent)도 crop 을 보지 않고 상자 안에 그대로 그린다(gifPlacement 와 같다)
+      const zoomOf = (o) => (o.type === 'photo' ? Math.max(1, o.crop?.zoom ?? 1) : 1)
+      const scale = Math.min(1, Math.max(...users.map((o) => Math.max(o.w * ratioX / width, o.h * ratioY / height) * zoomOf(o))))
       gif.target = { width: Math.max(1, Math.ceil(width * scale)), height: Math.max(1, Math.ceil(height * scale)) }
       kept += plan.needed[g].size * gif.target.width * gif.target.height * 4
     }
