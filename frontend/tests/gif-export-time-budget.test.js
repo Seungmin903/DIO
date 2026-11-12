@@ -14,7 +14,7 @@ const { code } = expo('@babel/core').transformSync(readFileSync(new URL('../src/
   configFile: false, babelrc: false, plugins: [expo.resolve('@babel/plugin-transform-modules-commonjs')],
 })
 
-function load(clock) {
+function load(clock, { area = { x: 0, y: 0, w: 100, h: 100 }, onPng = () => {} } = {}) {
   const PAGE = 100
   const mocks = {
     '../services/mediaStore': { mediaService: { get: async () => ({ blob: love }) } },
@@ -26,7 +26,7 @@ function load(clock) {
     './gifExport.js': gifExport,
     './gifFileIO': {
       readBytes: async (blob) => blob,
-      pngResource: () => ({ uri: 'file:///frame.png', dispose() {} }),
+      pngResource: () => { onPng(); return { uri: 'file:///frame.png', dispose() {} } },
       // 찍은 장면: 페이지 크기 RGBA. 장면마다 색을 달리해 GIF 에서 합쳐지지 않게 한다
       captureRgba: async (result) => new Uint8Array(result.width * result.height * 4).fill(result.shade ?? 255),
       gifResult: (bytes) => ({ bytes, dispose() {} }),
@@ -34,7 +34,7 @@ function load(clock) {
   }
   const module = { exports: {} }
   new Function('require', 'module', 'exports', code)((id) => mocks[id], module, module.exports)
-  const snapshot = { width: PAGE, height: PAGE, pixelWidth: PAGE, pixelHeight: PAGE, objects: [{ id: 'gif', type: 'sticker', mediaFileId: 'm1', x: 0, y: 0, w: PAGE, h: PAGE }] }
+  const snapshot = { width: PAGE, height: PAGE, pixelWidth: PAGE, pixelHeight: PAGE, objects: [{ id: 'gif', type: 'sticker', mediaFileId: 'm1', ...area }] }
   return { createPageGif: module.exports.createPageGif, snapshot, clock }
 }
 
@@ -81,4 +81,53 @@ test('찍는 도중 시간이 계속 늘어나면 멈추고 찍은 장면만으�
   assert.equal(output.reduced, true)
   assert.ok(clock.now <= gifExport.GIF_TIME_BUDGET.captureStop + 15000, `걸린 시간 ${clock.now}`)
   assert.ok(new GifReader(output.bytes).numFrames() >= 1)
+}))
+
+// GIF 가 페이지 일부만 차지하면 첫 장면만 전체를 찍고 나머지는 움직이는 사각형(rect)만 찍는다
+const SMALL = { x: 10, y: 10, w: 20, h: 20 }
+
+test('일부만 움직이는 페이지도 느리면 사각형 장면을 솎아 예산 안에 끝낸다', () => withClock(async (clock) => {
+  const { createPageGif, snapshot } = load(clock, { area: SMALL })
+  const frames = []
+  // 느린 기기: 한 번 찍는 데 10초
+  const renderFrame = async (frame) => { frames.push(frame); clock.now += 10000; return { width: frame.pixelWidth, height: frame.pixelHeight, shade: frames.length * 40, dispose() {} } }
+  const output = await createPageGif(snapshot, { renderFrame })
+  const full = gifExport.planGifTimeline([gifExport.gifFrameDelays(love)])
+  assert.ok(frames[1].region, '두 번째부터는 사각형만 찍는다')
+  assert.ok(frames[1].pixelWidth < 100 && frames[1].pixelHeight < 100)
+  assert.equal(output.reduced, true)
+  assert.ok(frames.length <= 5, `찍은 장면 ${frames.length}`)
+  assert.ok(clock.now <= gifExport.GIF_TIME_BUDGET.total, `걸린 시간 ${clock.now}`)
+  assert.equal(output.duration, full.steps.reduce((sum, s) => sum + s.delay, 0) * 10)
+  const gif = new GifReader(output.bytes)
+  assert.deepEqual([gif.width, gif.height], [100, 100])
+  assert.equal(gif.numFrames(), output.frames)
+}))
+
+test('일부만 움직이는 페이지에서 찍다가 멈추면 찍은 사각형 장면만으로 묶는다', () => withClock(async (clock) => {
+  const { createPageGif, snapshot } = load(clock, { area: SMALL })
+  let renders = 0
+  // 첫 전체·첫 사각형은 빨랐는데 그다음부터 갑자기 느려진다
+  const renderFrame = async (frame) => { clock.now += renders++ < 2 ? 100 : 15000; return { width: frame.pixelWidth, height: frame.pixelHeight, shade: renders * 30, dispose() {} } }
+  const output = await createPageGif(snapshot, { renderFrame })
+  assert.equal(output.reduced, true)
+  assert.ok(clock.now <= gifExport.GIF_TIME_BUDGET.captureStop + 15000, `걸린 시간 ${clock.now}`)
+  const gif = new GifReader(output.bytes)
+  assert.equal(gif.numFrames(), output.frames)
+  assert.ok(output.frames < gifExport.planGifTimeline([gifExport.gifFrameDelays(love)]).steps.length)
+}))
+
+test('장면을 푸는 데 decodeStop 을 넘기면 뒤 장면은 풀지 않고 앞 장면으로 대신한다', () => withClock(async (clock) => {
+  // 장면 하나를 풀어 PNG 로 만드는 데 12초: 두 번째 장면을 풀고 나면 20초를 넘는다
+  const { createPageGif, snapshot } = load(clock, { onPng: () => { clock.now += 12000 } })
+  const pngs = []
+  const renderFrame = async (frame) => { pngs.push(frame.objects[0].src); clock.now += 50; return { width: frame.pixelWidth, height: frame.pixelHeight, shade: pngs.length * 40, dispose() {} } }
+  const output = await createPageGif(snapshot, { renderFrame })
+  const full = gifExport.planGifTimeline([gifExport.gifFrameDelays(love)])
+  assert.equal(output.reduced, true)
+  // 푼 두 장면만 찍는다 (풀지 못한 장면 자리는 앞 장면이 채운다)
+  assert.equal(pngs.length, 2)
+  assert.ok(pngs.every(Boolean))
+  assert.equal(output.frames, 2)
+  assert.equal(output.duration, full.steps.reduce((sum, s) => sum + s.delay, 0) * 10)
 }))
