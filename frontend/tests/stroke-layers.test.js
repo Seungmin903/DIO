@@ -151,8 +151,13 @@ test('획 묶음 캐시는 자리표를 비(非)획으로 보고, 같은 내용�
   const first = component.render({ ...options, objects: mixed })
   assert.equal(first.at(-1).props.object, front, '자리표는 renderObject 로 그린다')
   assert.ok(first[0].props.batch, '앞의 획들은 한 묶음으로 남는다')
-  const again = component.render({ ...options, objects: mixed })
-  assert.equal(again[0].props.batch, first[0].props.batch, '같은 내용이면 묶음을 그대로 쓴다')
+  // StaticPage 는 렌더마다 ordered 를 **새 배열**로 만든다. 같은 배열을 두 번 넘기면 참조가 같아
+  // 아무것도 증명하지 못한다 — 내용만 같은 새 배열로 견준다(코드리뷰 2026-11-13).
+  const again = component.render({ ...options, objects: [...mixed] })
+  assert.equal(again[0].props.batch, first[0].props.batch, '배열이 새것이어도 내용이 같으면 묶음을 그대로 쓴다')
+  // 자리표까지 새 객체면 그 자리에서 묶음이 끊기는 것은 그대로지만, 앞 묶음은 여전히 같아야 한다
+  const newMark = component.render({ ...options, objects: [...objects, { ...front }] })
+  assert.equal(newMark[0].props.batch, first[0].props.batch, '자리표가 바뀌어도 앞의 획 묶음은 그대로다')
 })
 
 test('숨긴 비(非)획 요소는 병 윤곽 · 덧그림의 차례를 가르지 않는다', () => {
@@ -182,6 +187,20 @@ test('잉크병 메모 덧그림 자리표도 같은 메모면 같은 객체다'
   const first = markOf()
   assert.ok(first, '덧그림 자리표가 넘어간다')
   assert.equal(markOf(), first, '다시 그려도 같은 객체여야 한다')
+})
+
+test('두 번 그려도 캐시 층에 넘어가는 목록이 **같은 객체들**이다', () => {
+  // 목록(ordered)은 렌더마다 새 배열이지만, 캐시 층은 배열이 아니라 **요소 참조**로 견준다.
+  // 그러니 요소가 하나도 새로 만들어지지 않아야 획 묶음을 다시 녹화하지 않는다(코드리뷰 2026-11-13).
+  const memo = { id: 'memo', type: 'sticker', art: 'inkRound', x: 0, y: 0, w: 100, h: 100 }
+  const later = { id: 'later', type: 'sticker', x: 10, y: 10, w: 50, h: 50 }
+  const component = loadComponent('StaticPage', 'ios', null, null, ['inkRound'])
+  const inkPage = { ...page, backgroundAssetId: 'ink-record', objects: [...objects, memo, later] }
+  const listOf = () => drawingOf(component.render({ page: inkPage, zoom: 1, cacheStrokes: true })).props.objects
+  const a = listOf(), b = listOf()
+  assert.notEqual(a, b, '배열 자체는 새것이다(그래도 괜찮다)')
+  assert.equal(a.length, b.length)
+  a.forEach((object, i) => assert.equal(b[i], object, `${i} 번째가 같은 객체여야 한다`))
 })
 
 test('웹 캐시 층은 type · x · w 가 없는 자리표를 그대로 renderObject 에 넘긴다', () => {
