@@ -27,7 +27,7 @@ async function readGifBytes(object) {
 // 런타임을 못 읽어도 GIF 만들기는 JS 합성으로 이어 간다 (기본값이라 아래 try 바깥에서 불린다)
 const gpuSkia = () => { try { const runtime = skiaState?.()?.runtime; return runtime?.gpuSurface ? runtime : null } catch { return null } }
 
-// 줄여 둔 GIF 장면을 들고 있을 수 있는 RGBA 바이트 합 (Skia 합성은 같은 크기를 한 번 더 올린다)
+// 층 합성에서 들고 있을 수 있는 RGBA 바이트 합 (찍은 층 + 줄여 둔 GIF 장면. Skia 합성은 둘 다 이미지로 한 번 더 올려 두 배로 센다)
 export const GIF_FRAME_PIXEL_BUDGET = 96 * 1024 * 1024
 
 const hasTransparency = (rgba) => { for (let i = 3; i < rgba.length; i += 4) if (rgba[i] < 255) return true; return false }
@@ -66,12 +66,14 @@ export async function createPageGif(snapshot, { renderFrame, onProgress, signal,
     disposers.push(() => prepared.dispose())
     check()
     const { pixelWidth: width, pixelHeight: height } = snapshot
-    // 층 합성 계획. 층은 페이지 크기 RGBA 로 들고 있으므로(Skia 는 한 장 더 올린다) 장면을 줄여 둘 메모리 상한에서 먼저 뺀다
+    // 층 합성 계획. 층은 페이지 크기 RGBA 로 들고 있으므로 장면을 줄여 둘 메모리 상한에서 먼저 뺀다.
+    // Skia 로 합치면 층과 장면을 이미지로 한 번 더 올리므로(gifSkiaCompose 의 layer · frame 이미지) 둘 다 두 배로 센다
     const gifIndex = new Map()
     gifs.forEach((gif, g) => gif.ids.forEach((id) => gifIndex.set(id, g)))
     const segments = !packingLayout(prepared.template?.backgroundAssetId) && !prepared.region
       && planLayers(prepared.objects, (o) => gifIndex.has(o.id), { hasFrontLayer: Boolean(prepared.template) })
-    const layerBytes = segments ? segments.filter((s) => s.kind === 'layer' && s.capture).length * width * height * 4 * (skia ? 2 : 1) : 0
+    const copies = segments && skia ? 2 : 1
+    const layerBytes = segments ? segments.filter((s) => s.kind === 'layer' && s.capture).length * width * height * 4 * copies : 0
     // 층이 상한 대부분을 차지해도 장면이 알아볼 수 없을 만큼 줄지 않게 4분의 1 은 남긴다
     const frameBudget = Math.max(pixelBudget / 4, pixelBudget - layerBytes)
     // GIF 마다 필요한 장면만, 페이지에 보이는 크기(출력 픽셀 기준, 자르기 확대 포함)로 줄여 둔다.
@@ -92,7 +94,7 @@ export async function createPageGif(snapshot, { renderFrame, onProgress, signal,
       const zoomOf = (o) => (o.type === 'photo' ? Math.max(1, o.crop?.zoom ?? 1) : 1)
       const scale = Math.min(1, Math.max(...users.map((o) => Math.max(o.w * ratioX / width, o.h * ratioY / height) * zoomOf(o))))
       gif.target = { width: Math.max(1, Math.ceil(width * scale)), height: Math.max(1, Math.ceil(height * scale)) }
-      kept += plan.needed[g].size * gif.target.width * gif.target.height * 4
+      kept += plan.needed[g].size * gif.target.width * gif.target.height * 4 * copies
     }
     if (kept > frameBudget) {
       const shrink = Math.sqrt(frameBudget / kept)
@@ -102,7 +104,8 @@ export async function createPageGif(snapshot, { renderFrame, onProgress, signal,
       gif.pixels = new Map()
       for (const { index, rgba, width, height } of gifFrames(gif.bytes, plan.needed[g])) {
         const small = downscaleRgba(rgba, width, height, gif.target.width, gif.target.height)
-        // 줄이지 않았으면 small.rgba 는 다음 장면에서 덮어쓰는 버퍼라 복사해 둔다
+        // 장면은 모두 들고 있다가 합치므로 장면마다 따로 된 버퍼여야 한다. downscaleRgba 는 줄일 때마다 새 버퍼를 만들고,
+        // 줄이지 않았으면 small.rgba 는 gifFrames 가 다음 장면에서 덮어쓰는 버퍼라 복사해 둔다
         gif.pixels.set(index, { rgba: small.rgba === rgba ? rgba.slice() : small.rgba, width: small.width, height: small.height })
         onProgress?.({ phase: 'decode', done: ++decoded, total: decodeTotal })
         await pause()

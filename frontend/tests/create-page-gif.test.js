@@ -116,6 +116,42 @@ test('장면 풀기: 줄여 둔 장면들이 메모리 상한을 넘으면 같�
   assert.ok(squeezed <= frameBudget, `${squeezed} > ${frameBudget}`)
   assert.ok(squeezed > frameBudget / 2, '필요한 만큼만 줄인다')
   assert.equal(output.frames, full.steps.length)
+  // Skia 로 합치면 층과 장면을 이미지로 한 번 더 올리므로 둘 다 두 배로 센다 (가짜 Skia 는 만들다 실패해 JS 로 합친다)
+  kept.splice(0)
+  const warn = console.warn
+  console.warn = () => {}
+  try { await createPageGif(snapshot, { renderFrame, pixelBudget: 2 * (frameBudget + layerBytes), skia: {} }) }
+  finally { console.warn = warn }
+  const withSkia = kept.reduce((sum, n) => sum + n, 0)
+  assert.ok(withSkia <= frameBudget && withSkia > frameBudget / 2, `${withSkia} / ${frameBudget}`)
+})
+
+test('장면 풀기: 장면을 줄이지 않아도(풀기 버퍼를 다음 장면이 덮어써도) 장면마다 따로 들고 있다가 합친다', async () => {
+  const COLORS = [[255, 0, 0], [0, 255, 0], [0, 0, 255], [255, 255, 0], [0, 255, 255], [255, 0, 255]]
+  // 풀기는 버퍼 하나를 장면마다 덮어쓰고, 줄이기는 받은 버퍼를 그대로 돌려준다
+  const exportModule = {
+    ...gifExport,
+    * gifFrames(bytes, needed) {
+      const { width, height } = gifExport.gifSize(bytes), buffer = new Uint8Array(width * height * 4)
+      for (const index of [...needed].sort((a, b) => a - b)) {
+        const color = COLORS[index % COLORS.length]
+        for (let i = 0; i < buffer.length; i += 4) buffer.set([...color, 255], i)
+        yield { index, rgba: buffer, width, height }
+      }
+    },
+    downscaleRgba: (rgba, width, height) => ({ rgba, width, height }),
+  }
+  const { createPageGif, snapshot } = load({ exportModule })
+  const output = await createPageGif(snapshot, { renderFrame: async (frame) => shot(frame) })
+  const gif = new GifReader(output.bytes), pixels = new Uint8Array(gif.width * gif.height * 4), seen = new Set()
+  for (let i = 0; i < gif.numFrames(); i++) {
+    gif.decodeAndBlitFrameRGBA(i, pixels)
+    const at = (50 * gif.width + 50) * 4
+    seen.add(pixels.subarray(at, at + 3).join(','))
+  }
+  const expected = new Set(full.steps.map((s) => s.indices[0] % COLORS.length)).size
+  assert.ok(expected > 1)
+  assert.equal(seen.size, expected, [...seen].join(' / '))
 })
 
 test('진행률: 층 찍기에서 장면 만들기로 넘어가도, 층 합성이 실패해 예전 방식으로 가도 찍기 진행률이 되돌아가지 않는다', async () => {
