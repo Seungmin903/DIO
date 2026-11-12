@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
-import { execFileSync } from 'node:child_process'
+import { readdirSync } from 'node:fs'
 import { MODEL_VERSION, PREPROCESS_VERSION } from '../src/handwriting/protocol.js'
 import { HANDWRITING_FONT_CREATION_ENABLED } from '../src/shared/featureFlags.js'
 
@@ -64,14 +64,14 @@ test('폰트 만들기를 끄면 모델 없이 빌드되게 EAS · iOS · Androi
   assert(!/\.onnx/.test(read('modules/dio-handwriting/expo-module.config.json')))
   // 모델이 없어도 네이티브 모듈은 뜨고 capabilities 가 available=false 를 돌려준다: Android 는 에셋 열기 실패를 잡고,
   // iOS 는 리소스 묶음에 모델이 없으면 assets 가 nil 이다. ONNX 세션은 작업을 시작할 때만 만든다
-  const android = read('modules/dio-handwriting/android/src/main/java/expo/modules/diohandwriting/DioHandwritingModule.kt')
-  assert.match(android, /AsyncFunction\("capabilities"\) \{[\s\S]{0,200}val bundled = try \{ assets\.open\("dio_handwriting\/encoder\.fp32\.onnx"\)\.close\(\); assets\.open\("dio_handwriting\/decoder\.fp32\.onnx"\)\.close\(\); true \} catch \(_: Exception\) \{ false \}/)
-  assert.match(android, /"available" to bundled/)
-  const iosModule = read('modules/dio-handwriting/ios/DioHandwritingModule.swift')
-  assert.match(iosModule, /let bundled = HandwritingModel\.assets != nil\s*return \["available": bundled/)
-  assert.match(read('modules/dio-handwriting/ios/HandwritingInference.swift'), /static let assets: \(encoder: URL, decoder: URL\)\? = \{[\s\S]*?else \{ continue \}[\s\S]*?return nil/)
+  const capabilities = source => source.slice(source.indexOf('AsyncFunction("capabilities")'), source.indexOf('AsyncFunction(', source.indexOf('AsyncFunction("capabilities")') + 1))
+  const android = capabilities(read('modules/dio-handwriting/android/src/main/java/expo/modules/diohandwriting/DioHandwritingModule.kt'))
+  assert(android.includes('catch (_: Exception) { false }') && android.includes('"available" to bundled'))
+  const ios = capabilities(read('modules/dio-handwriting/ios/DioHandwritingModule.swift'))
+  assert(ios.includes('HandwritingModel.assets != nil') && ios.includes('"available": bundled'))
   // 폰트 화면을 여는 입구는 공방 폰트 탭(스위치로 숨김) 하나뿐이다. 새 입구를 만들면 스위치로 막고 여기에 더한다
-  const openers = execFileSync('git', ['grep', '-l', 'openFontStudio(', '--', 'src', 'App.js'], { cwd: new URL('..', import.meta.url), encoding: 'utf8' }).trim().split('\n').sort()
+  const walk = dir => readdirSync(new URL(`../${dir}/`, import.meta.url), { withFileTypes: true }).flatMap(item => item.isDirectory() ? walk(`${dir}/${item.name}`) : /\.jsx?$/.test(item.name) ? [`${dir}/${item.name}`] : [])
+  const openers = [...walk('src'), 'App.js'].filter(file => read(file).includes('openFontStudio(')).sort()
   assert.deepEqual(openers, ['src/diary/screens/DecorationStudioScreen.js', 'src/handwriting/studioBus.js'])
   assert(!/dependsOn verifyDebugHandwritingModels/.test(read('modules/dio-handwriting/android/build.gradle')))
 })

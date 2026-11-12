@@ -245,14 +245,15 @@ export default function DecorationStudioScreen({ compact = false, registerBackHa
       : <View style={s.fontList}>
         {entries.map(entry => {
           const status = listStatus(entries, entry);
+          const openable = HANDWRITING_FONT_CREATION_ENABLED || entry.status === 'ready';
           return <View key={entry.id} style={[s.fontRow, s.fontRowLine, compact && s.fontRowCompact]}>
-            {/* 폰트 만들기를 끈 빌드에서는 공방을 열 수 없으니 누를 수 없는 줄로 보인다 */}
-            <Pressable accessibilityRole={HANDWRITING_FONT_CREATION_ENABLED ? 'button' : 'text'} accessibilityLabel={`${entry.name} ${status}`} disabled={!HANDWRITING_FONT_CREATION_ENABLED} onPress={() => loginGate('내 폰트 만들기', () => openFontStudio({ open: entry.id }))} style={s.fontOpen}>
+            {/* 폰트 만들기를 끈 빌드: 완성 폰트는 관리 화면(이름 · 파일 저장 · 글자 간격)으로 열고, 작성 중은 이어 쓸 수 없어 누를 수 없는 줄(삭제만)로 보인다 */}
+            <Pressable accessibilityRole={openable ? 'button' : 'text'} accessibilityLabel={`${entry.name} ${status}`} disabled={!openable} onPress={() => loginGate('내 폰트 만들기', () => openFontStudio(HANDWRITING_FONT_CREATION_ENABLED ? { open: entry.id } : { open: entry.id, manage: true }))} style={s.fontOpen}>
               <Text style={s.itemTitle}>{entry.name}</Text>
               {entry.status === 'ready' && (entry.jobId || isAiHandwritingFont(fonts.find(font => font.id === entry.fontId))) ? <Text style={s.description}>{AI_FONT_LABEL}</Text> : null}
               {entry.status === 'ready' ? fontPreview(fonts.find(font => font.id === entry.fontId)) : <Text style={s.description}>{status}</Text>}
             </Pressable>
-            {entry.status === 'draft' ? <DioButton variant="icon" icon="trash" label={`${entry.name} 삭제`} onPress={() => setQuestion({ draft: entry })} /> : HANDWRITING_FONT_CREATION_ENABLED ? <AppIcon name="chevron-right" size={20} color={colors.textMuted} /> : null}
+            {entry.status === 'draft' ? <DioButton variant="icon" icon="trash" label={`${entry.name} 삭제`} onPress={() => setQuestion({ draft: entry })} /> : openable ? <AppIcon name="chevron-right" size={20} color={colors.textMuted} /> : null}
           </View>;
         })}
         {loose.map(font => <View key={font.id} style={[s.fontRow, compact && s.fontRowCompact]}>

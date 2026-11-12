@@ -225,12 +225,17 @@ test('폰트 만들기를 끄면 폰트 추가 버튼이 없고 목록 항목을
   assert.equal(find(tree,'폰트 추가'),undefined);
   // 이어 가거나 정리할 화면이 없는 생성 중 · 실패 항목은 숨긴다
   assert.equal(nodes(tree).some(n=>n.props?.children==='내 글씨 2'||n.props?.children==='내 글씨 4'),false);
+  // 완성 폰트는 관리 화면으로 연다(이름 · 파일 저장 · 글자 간격). 작성 중은 누를 수 없고 지우기만 된다
   const ready=find(tree,'내 글씨 3 생성 완료');
-  assert.equal(ready.props.disabled,true);
-  assert.notEqual(ready.props.accessibilityRole,'button');
+  assert.equal(ready.props.accessibilityRole,'button');
+  const draft=find(tree,'내 글씨 1 3 / 36 작성 중');
+  assert.equal(draft.props.disabled,true);
+  assert.notEqual(draft.props.accessibilityRole,'button');
   assert.ok(find(tree,'테스트 글꼴 미리보기'));
   assert.ok(find(tree,'내 글씨 1 삭제'));
   assert.deepEqual(ui.opened,[]);
+  ready.props.onPress();
+  assert.deepEqual(ui.opened,[{open:'e3',manage:true}]);
   ui.unmount();
 });
 test('작성 중인 폰트만 지울 수 있고 확인을 거친 뒤에 지운다', async () => {

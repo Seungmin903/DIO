@@ -51,9 +51,9 @@ export default function HandwritingStudio() {
   const options = useSyncExternalStore(subscribeStudio, studioSnapshot, studioSnapshot)
   // This host stays mounted even when the studio modal closes.
   useEffect(() => { initializeFontWorkflow() }, [])
-  // 폰트 만들기를 끈 빌드(shared/featureFlags.js)에서는 어느 입구에서 열려고 해도 화면을 띄우지 않는다.
+  // 폰트 만들기를 끈 빌드(shared/featureFlags.js)에서는 완성 폰트 관리(manage)로 연 경우만 화면을 띄운다(버스도 같은 규칙으로 막는다).
   // 목록 불러오기(initializeFontWorkflow)는 만든 폰트를 보여 주려고 그대로 둔다 — 모델이 없으면 support.available 이 false 라 작업을 이어 돌리지 않는다
-  const open = HANDWRITING_FONT_CREATION_ENABLED && Boolean(options)
+  const open = Boolean(options) && (HANDWRITING_FONT_CREATION_ENABLED || Boolean(options.manage && options.open))
   return <EditorModal visible={open} animationType="none" onRequestClose={closeFontStudio} presentationStyle="fullScreen" supportedOrientations={['portrait', 'landscape']}>
     {open ? <StudioContent options={options} /> : null}
   </EditorModal>
@@ -110,6 +110,8 @@ export function StudioContent({ options = {}, controller = defaultWorkflow }) {
     if (!direct || launched.current || !state.loaded) return
     launched.current = true
     const item = options.open && state.entries.find(e => e.id === options.open)
+    // 폰트 만들기를 끈 빌드: 완성 폰트 화면만 연다. 그 밖(새로 만들기 · 작성 중 · 생성 중 · 못 찾음)은 만들기 화면(홈 포함)으로 가지 않고 닫는다
+    if (!HANDWRITING_FONT_CREATION_ENABLED) { if (item?.status === 'ready') open(item); else closeFontStudio(); return }
     if (options.create) start()
     else if (item) open(item)
     else setRoute({ screen: 'home' })
@@ -168,7 +170,7 @@ export function StudioContent({ options = {}, controller = defaultWorkflow }) {
         <View style={s.row}>{['processing', 'queued'].includes(value.status) && <Button disabled={Boolean(busy)} onPress={() => run('생성을 멈추고 있어요.', () => workflow.control(value.id, 'pause'))}>일시 정지</Button>}{['paused', 'failed'].includes(value.status) && <Button disabled={Boolean(busy) || !state.support.available || value.incompatible} onPress={() => run('생성을 이어가고 있어요.', () => workflow.control(value.id, 'resume'))}>{value.status === 'failed' ? '다시 시도' : '이어서 만들기'}</Button>}{['processing', 'queued', 'paused', 'failed', 'registering'].includes(value.status) && <Button disabled={Boolean(busy)} onPress={() => run('생성을 취소하고 있어요.', () => workflow.control(value.id, 'cancel'))}>생성 취소</Button>}</View>
         <Text style={s.heading}>생성에 사용한 36자</Text>
         {value.draft ? <InputSamples draft={value.draft} /> : <Text style={s.muted}>이 폰트의 원래 입력 기록이 없어 입력을 표시하거나 수정할 수 없어요.</Text>}
-        {['ready', 'cancelled'].includes(value.status) || value.incompatible ? <Button primary disabled={Boolean(busy) || !value.draft} onPress={() => start(value.id)}>입력 수정</Button> : null}
+        {HANDWRITING_FONT_CREATION_ENABLED && (['ready', 'cancelled'].includes(value.status) || value.incompatible) ? <Button primary disabled={Boolean(busy) || !value.draft} onPress={() => start(value.id)}>입력 수정</Button> : null}
         {value.status === 'ready' && font && <View style={s.row}>{font.missing ? <Text style={s.error}>폰트 파일을 다시 가져와 주세요.</Text> : options.onUse ? <Button primary disabled={!loadedFontFamily(font.id)} onPress={() => { options.onUse(font); closeFontStudio() }}>이 폰트 사용</Button> : <Text style={s.muted}>다이어리 텍스트 도구의 내 폰트에서 선택할 수 있어요.</Text>}</View>}
       </View>}
     </ScrollView>

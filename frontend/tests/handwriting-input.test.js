@@ -9,7 +9,7 @@ import * as inkPreview from '../src/handwriting/inkPreview.js'
 import { manuscriptLayout } from '../src/handwriting/manuscriptLayout.js'
 
 const require = createRequire(import.meta.url), expo = createRequire(require.resolve('expo/package.json'))
-function harness(component = 'DrawingPad') {
+function harness(component = 'DrawingPad', { fontCreation = true } = {}) {
   const file = component === 'DrawingPad' ? 'DrawingPad' : 'HandwritingStudio'
   const { code } = expo('@babel/core').transformSync(readFileSync(new URL(`../src/handwriting/${file}.js`, import.meta.url), 'utf8'), {
     configFile: false, babelrc: false, plugins: [[expo.resolve('@babel/plugin-transform-react-jsx'), { runtime: 'automatic' }], expo.resolve('@babel/plugin-transform-modules-commonjs')],
@@ -50,6 +50,8 @@ function harness(component = 'DrawingPad') {
     if (id === './manuscriptLayout.js') return { manuscriptLayout }
     if (id === './library.js') return { refreshPersonalFonts: async () => [] }
     if (id === './workflow.js') return { statusText, listStatus, isEmptyDraft, queuePosition: () => 1, completedCount: () => 0 }
+    if (id.endsWith('/featureFlags.js')) return { HANDWRITING_FONT_CREATION_ENABLED: fontCreation }
+    if (id === './aiDisclosure.js') return { isAiHandwritingFont: () => false }
     if (id === './studioBus.js') return { setStudioCloseGuard: guard => { guards.push(guard); return () => {} }, closeFontStudio: async () => { closed.push(1) } }
     if (id.endsWith('/controls/Slider')) return { __esModule: true, default: 'Slider' }
     if (id.endsWith('/MakerKit')) return { MakerHeader: 'MakerHeader', MakerBar: 'MakerBar', MakerSegment: 'Segment', MakerSegmentItem: 'SegmentItem', MakerSteps: 'Steps', MakerNav: 'Nav' }
@@ -272,6 +274,35 @@ test('공방에서 열면(create · open) 자체 목록을 건너뛰고 새 폰�
   const lost = harness('StudioContent')
   lost.render({ options: { open: 'gone' }, controller }); lost.flush(); await tick()
   assert.equal(hasHome(lost.render({ options: { open: 'gone' }, controller })), true, '없는 항목이면 자체 목록으로 돌아간다')
+})
+
+test('폰트 만들기를 끄면 완성 폰트는 관리 화면(입력 수정 없음)으로 열고, 새로 만들기 · 작성 중 · 못 찾은 항목은 닫는다', async () => {
+  const tick = () => new Promise(resolve => setImmediate(resolve))
+  const entries = [
+    { id: 'ready', name: '완성', status: 'ready', fontId: 'font-1', draft: { schema: 1, id: 'ink', samples: {} } },
+    { id: 'draft', name: '테스트', status: 'draft', draft: { schema: 1, id: 'ink2', samples: {} } },
+  ]
+  const snapshot = { loaded: true, error: '', support: { available: false }, entries }
+  const created = []
+  const controller = { subscribe() {}, getSnapshot: () => snapshot, saveDraft: async () => {}, rename: async () => {}, create: async () => { created.push(1); return 'fresh' } }
+  const hasText = (tree, text) => Boolean(find(tree, n => n.props?.children === text || n.props?.label === text))
+  const hasInput = tree => Boolean(find(tree, n => n.type?.name === 'InputScreen'))
+
+  const manage = harness('StudioContent', { fontCreation: false })
+  manage.render({ options: { open: 'ready', manage: true }, controller }); manage.flush(); await tick()
+  const detail = manage.render({ options: { open: 'ready', manage: true }, controller })
+  assert.equal(hasText(detail, '샘플 문장'), true, '완성 폰트 화면을 연다')
+  assert.equal(hasText(detail, '입력 수정'), false, '모델이 없어 다시 만들 수 없다')
+  assert.deepEqual(manage.closed, [])
+
+  for (const options of [{ create: true }, { open: 'draft', manage: true }, { open: 'gone', manage: true }]) {
+    const other = harness('StudioContent', { fontCreation: false })
+    other.render({ options, controller }); other.flush(); await tick()
+    const tree = other.render({ options, controller })
+    assert.deepEqual(other.closed, [1], JSON.stringify(options))
+    assert.equal(hasInput(tree) || hasText(tree, '+ 새로 만들기'), false)
+  }
+  assert.deepEqual(created, [])
 })
 
 test('아무것도 쓰지 않고 입력 화면을 나가면 그 새 폰트는 저장하지 않고 지운다', async () => {
