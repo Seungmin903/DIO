@@ -114,8 +114,8 @@ export function createCanvasMedia({request,files,storage,key,isActive=()=>true,n
 export function createMediaRequest({auth,accountId,sessionKey,baseUrl,fetchImpl}){
  const active=()=>{if(auth.getSessionKey()!==sessionKey)throw Error('로그인 상태가 변경됐어요.')}
  return async(path,{method='GET',body,binary=false,maxBytes=sharedGifMaxBytes,timeoutMs=30000}={})=>{
-  // 미디어 업로드 · 파일과 공유 다이어리 폰트 파일(collaboration/diaryFonts.js)만 받는다
-  if(!/^\/media(?:\/[0-9a-f-]+\/file)?$/i.test(path)&&!/^\/diaries\/[0-9a-f-]{36}\/fonts\/[0-9a-f-]{36}\/file$/i.test(path))throw Error('미디어 API 경로를 확인해 주세요.')
+  // 미디어 업로드 · 원본 · 썸네일과 공유 다이어리 폰트 파일만 받는다.
+  if(!/^\/media(?:\/[0-9a-f-]+\/(?:file|thumbnail))?$/i.test(path)&&!/^\/diaries\/[0-9a-f-]{36}\/fonts\/[0-9a-f-]{36}\/file$/i.test(path))throw Error('미디어 API 경로를 확인해 주세요.')
   const url=baseUrl.replace(/\/$/,'')+path
   const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),timeoutMs)
   try{

@@ -52,6 +52,20 @@ test('스티커 팩은 기본 스티커와 같은 모양으로 바꾸고 잘못�
   assert.deepEqual(Object.keys(pack.items[0]).sort(), ['builtin', 'h', 'hidden', 'name', 'paths', 'w'])
 })
 
+test('원격 스티커는 목록용 썸네일과 캔버스 원본을 별도로 유지한다', () => {
+  const image = file('catalog/stickers/test/flower.png')
+  const thumbnail = file('catalog/stickers/test/thumbnails/flower.png')
+  const flower = { id: 'flower', name: '꽃', image, thumbnail, width: 900, height: 600 }
+  const pack = parseStickerPack({ id: 'test', name: '테스트' }, { stickers: [
+    flower,
+    { ...flower, id: 'legacy', thumbnail: undefined },
+    { ...flower, id: 'invalid', thumbnail: file('catalog/stickers/test/flower.svg') },
+  ] })
+  assert.deepEqual(pack.items.map(item => item.image.key), [image.key, image.key, image.key])
+  assert.deepEqual(pack.items.map(item => item.thumbnail?.key), [thumbnail.key, undefined, undefined])
+  assert.deepEqual(pack.items.map(({ iw, ih }) => [iw, ih]), [[900, 600], [900, 600], [900, 600]])
+})
+
 test('원격 스티커 팩은 보관함 기본 분류 · 검색 · 그리기에 들어가고, 숨긴 팩은 보관함에서만 빠진다', () => {
   const items = { folders: [], favorites: [], recentStickers: [], categoryOrder: [], hiddenCategories: [] }
   registerRemoteStickerPack(parseStickerPack({ id: 'spring', name: '봄' }, { stickers: [sticker] }))

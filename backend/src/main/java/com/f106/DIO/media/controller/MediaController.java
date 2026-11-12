@@ -52,6 +52,14 @@ public class MediaController {
 		}
 		return response.body(file.content());
 	}
+	@GetMapping("/{mediaFileId}/thumbnail")
+	@Operation(summary = "미디어 썸네일 조회", description = "원본과 같은 접근 권한을 확인하여 긴 변이 최대 320px인 PNG 미리보기를 반환합니다. 없으면 생성해 저장하며 GIF는 첫 장면을 표시합니다.")
+	public ResponseEntity<byte[]> thumbnail(@PathVariable UUID mediaFileId, @AuthenticationPrincipal Jwt jwt) {
+		var image = mediaService.thumbnail(mediaFileId, userId(jwt));
+		return ResponseEntity.ok().contentType(MediaType.IMAGE_PNG)
+			.header(HttpHeaders.CACHE_CONTROL, "private, no-store")
+			.header("X-Content-Type-Options", "nosniff").body(image.content());
+	}
 	@DeleteMapping("/{mediaFileId}") @Operation(summary = "미디어 삭제", description = "로그인 사용자가 소유한 미디어를 소프트 삭제합니다.")
 	public ResponseEntity<Void> delete(@PathVariable UUID mediaFileId, @AuthenticationPrincipal Jwt jwt) { mediaService.delete(mediaFileId, userId(jwt)); return ResponseEntity.noContent().build(); }
 	private static Long userId(Jwt jwt) { return Long.valueOf(jwt.getSubject()); }

@@ -7,6 +7,7 @@ import MediaImage from '../canvas/MediaImage'
 import { useMediaUri } from '../../hooks/useMediaUri'
 import { photoKey, useCustomDecor } from '../../hooks/useCustomDecor'
 import { createMediaLibraryRuntime } from '../../../diary/services/mediaLibraryRuntime'
+import { createMediaThumbnailPreview } from '../../../diary/services/mediaThumbnailPreview.js'
 import { mediaLibraryError, mergeMediaPages, canSelectMediaPhoto } from '../../../diary/services/mediaLibraryApi.js'
 import AppIcon from '../../../shared/AppIcon'
 import { mediaTooLargeLabel } from '../../../shared/mediaLimits.js'
@@ -15,13 +16,20 @@ import { colors, radius, DISABLED_OPACITY } from '../../../shared/theme'
 // 673: 마지막 줄이 모자라면 빈 칸으로 채워 모든 칸이 같은 폭 · 같은 x 에 놓이게 한다(칸마다 maxWidth 로 폭이 달라지던 것을 막는다)
 const FILLER_KEY=item=>`filler-${item.__filler}`
 
-function PhotoRow({row,api,busy,onSelect,columns}) {
+function PhotoRow({row,api,busy,onSelect,visible}) {
   const supported=canSelectMediaPhoto(row)
-  const src=useMediaUri({mediaFileId:row.mediaFileId})
-  const [failed,setFailed]=useState(false)
-  useEffect(()=>{if(!supported)return;let alive=true;api.previewCached(row).catch(()=>{if(alive)setFailed(true)});return()=>{alive=false}},[api,row,supported])
+  const [preview,setPreview]=useState(null)
+  useEffect(()=>{
+    setPreview(null)
+    if(!visible||!supported)return
+    const session=createMediaThumbnailPreview({api,row,onChange:setPreview})
+    session.start()
+    return()=>session.dispose()
+  },[api,row,supported,visible])
+  const current=visible&&preview?.owner===api&&preview.mediaFileId===row.mediaFileId?preview:null
+  const src=current?.uri,failed=current?.failed
   return <Pressable accessibilityRole="button" accessibilityLabel={`사진 선택: ${row.originalFilename}`} accessibilityState={{disabled:busy||!supported}} disabled={busy||!supported} onPress={()=>onSelect(row)} style={[s.tile,(busy||!supported)&&s.disabled]}>
-    <View style={s.thumbnail}>{src&&!failed?<MediaImage source={{uri:src}} animated={row.mimeType==='image/gif'} resizeMode="contain" style={s.image} onError={()=>setFailed(true)}/>:<View style={s.placeholder}><AppIcon name="image" size={28} color={colors.textMuted}/><Text style={s.placeholderText}>{!supported?mediaTooLargeLabel(row.mimeType):failed?'미리보기 실패':'선택해 불러오기'}</Text></View>}
+    <View style={s.thumbnail}>{src&&!failed?<MediaImage key={`${src}:${current.attempt}`} source={{uri:src}} accessibilityLabel={`사진 미리보기: ${row.originalFilename}`} resizeMode="contain" style={s.image} onError={current.onError}/>:<View style={s.placeholder}>{supported&&visible&&!failed?<ActivityIndicator size="small" color={colors.primaryStrong}/>:<AppIcon name="image" size={28} color={colors.textMuted}/>}<Text style={s.placeholderText}>{!supported?mediaTooLargeLabel(row.mimeType):failed?'미리보기 실패':'미리보기 불러오는 중'}</Text></View>}
       {row.mimeType==='image/gif'&&<View style={s.badge}><Text style={s.badgeText}>GIF</Text></View>}
     </View>
   </Pressable>
@@ -41,6 +49,10 @@ export default function PhotoSourcePicker({diary,onClose,onDevice,onSelect,onSel
   const member=diary?.source==='member-api'
   const recentPhotos=useCustomDecor().items.recentPhotos??[]
   const [api,setApi]=useState(null),[items,setItems]=useState([]),[cursor,setCursor]=useState(null)
+  const ownedApis=useRef(new WeakSet())
+  const [visibleIds,setVisibleIds]=useState(()=>new Set())
+  const viewabilityConfig=useRef({itemVisiblePercentThreshold:1}).current
+  const onViewableItemsChanged=useRef(({viewableItems})=>setVisibleIds(new Set(viewableItems.map(({item})=>item.mediaFileId).filter(Boolean)))).current
   const [busy,setBusy]=useState(false),[error,setError]=useState(null),[loaded,setLoaded]=useState(false)
   const alive=useRef(true),pending=useRef(false),current=useRef({onSelect});current.current={onSelect}
   useEffect(()=>{alive.current=true;return()=>{alive.current=false}},[])
@@ -51,13 +63,16 @@ export default function PhotoSourcePicker({diary,onClose,onDevice,onSelect,onSel
     finally{pending.current=false;if(alive.current)setBusy(false)}
   }
   const load=(more=false)=>run(async()=>{
-    const client=api??runtime??createMediaLibraryRuntime(diary)
+    let client=api??runtime
+    if(!client){client=createMediaLibraryRuntime(diary);ownedApis.current.add(client)}
     const result=await client.list(more?{cursor}:{})
-    if(!alive.current)return
+    if(!alive.current){if(ownedApis.current.has(client))client.dispose?.();return}
     setApi(client);setItems(previous=>more?mergeMediaPages(previous,result.items):result.items);setCursor(result.nextCursor);setLoaded(true)
   })
   // 회원 다이어리는 패널을 열면 바로 서버 목록을 읽는다
   useEffect(()=>{if(member)load()},[member]) // eslint-disable-line react-hooks/exhaustive-deps
+  // A runtime supplied by the parent may be reused when the panel is reopened.
+  useEffect(()=>()=>{if(api&&ownedApis.current.has(api))api.dispose?.()},[api])
   const choose=row=>run(async()=>{
     const image=await api.selectPhoto(row,diary)
     if(alive.current)current.current.onSelect(image)
@@ -73,8 +88,8 @@ export default function PhotoSourcePicker({diary,onClose,onDevice,onSelect,onSel
       {member?<>
         {error&&<View accessibilityRole="alert" style={s.notice}><Text style={s.error}>{error}</Text><SourceOption label="다시 불러오기" disabled={busy} onPress={()=>load()}/></View>}
         {busy&&<ActivityIndicator style={s.loading} accessibilityLabel="사진 불러오는 중" color={colors.primaryStrong}/>}
-        <FlatList key={columns} {...gridProps} data={padRows(items.filter(row=>row.mediaType==='IMAGE'),columns)} keyExtractor={row=>row.__filler!==undefined?FILLER_KEY(row):row.mediaFileId}
-          renderItem={({item})=>item.__filler!==undefined?<View style={s.tile}/>:<PhotoRow row={item} api={api} busy={busy} onSelect={choose} columns={columns}/>}
+        <FlatList key={columns} {...gridProps} extraData={visibleIds} viewabilityConfig={viewabilityConfig} onViewableItemsChanged={onViewableItemsChanged} data={padRows(items.filter(row=>row.mediaType==='IMAGE'),columns)} keyExtractor={row=>row.__filler!==undefined?FILLER_KEY(row):row.mediaFileId}
+          renderItem={({item})=>item.__filler!==undefined?<View style={s.tile}/>:<PhotoRow row={item} api={api} busy={busy} onSelect={choose} visible={visibleIds.has(item.mediaFileId)}/>}
           ListEmptyComponent={loaded&&!busy&&!error?<View style={s.empty}><AppIcon name="image" size={36} color={colors.textMuted}/><Text style={s.emptyText}>올린 사진이 없어요</Text></View>:null}
           ListFooterComponent={cursor?<SourceOption label="더 불러오기" disabled={busy} onPress={()=>load(true)}/>:null}/>
       </>:recentPhotos.length>0&&<FlatList key={columns} {...gridProps} data={padRows(recentPhotos,columns)} keyExtractor={photo=>photo.__filler!==undefined?FILLER_KEY(photo):photoKey(photo)}

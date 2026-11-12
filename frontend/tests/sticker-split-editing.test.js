@@ -6,6 +6,7 @@ import * as groups from '../src/editor/utils/stickerSplitGroups.js'
 import { initialStickerGrouping } from '../src/editor/utils/stickerInitialGrouping.js'
 import * as split from '../src/editor/utils/stickerSplit.js'
 import { saveSplitSelection, splitSaveError } from '../src/editor/utils/stickerSplitSave.js'
+import * as customStickerLimit from '../src/editor/utils/customStickerLimit.js'
 import * as cropUtils from '../src/editor/utils/stickerSplitCrop.js'
 
 const require = createRequire(import.meta.url), expo = createRequire(require.resolve('expo/package.json'))
@@ -339,6 +340,7 @@ test('실제 모달은 미리보기 준비를 기다리고 저장 실패 후 같
     './StickerGroupThumbnail': { __esModule: true, default: 'Thumbnail' },
     '../../hooks/useStickerSplitEditing': { __esModule: true, default: () => editing },
     '../../utils/stickerSplitSave.js': { saveSplitSelection, splitSaveError },
+    '../../utils/customStickerLimit.js': customStickerLimit,
     '../../services/stickerSplit': { stickerSplit: { completeRegions: true, pick: async () => { picks++; if (pickError) throw new Error('SVG_SPLIT_UNSUPPORTED'); if (pickCancelled) return null; return { ...image, uri: 'file:///sheet' } }, cleanup: async ids => cleaned.push(...ids), cancel() {}, disposeSource() {},
       analyze: (_uri, options) => { analyses++; tolerances.push(options.tolerance); return { id: 'analyze', promise: Promise.resolve({ parts }) } },
       brushHits: () => ({ id: 'brush', promise: Promise.resolve(brushHitIds) }),
@@ -416,6 +418,20 @@ test('실제 모달은 미리보기 준비를 기다리고 저장 실패 후 같
   find(render(), node => node.props?.label === '배경 허용 범위').props.onCancel()
   assert.equal(find(render(), node => node.props?.label === '배경 허용 범위').props.value, 10)
   assert.equal(action('2개 저장').disabled, false)
+  props.ownedStickerCount = 199
+  assert.equal(action('2개 저장').disabled, true)
+  assert.equal(find(render(), node => node.props?.accessibilityRole === 'alert').props.children,
+    '지금은 스티커를 최대 200개까지 만들 수 있어요\n1개 초과했어요.')
+  await action('2개 저장').onPress()
+  assert.equal(merges, 0)
+  find(render(), node => node.type === 'Tools').props.onChange('results')
+  cardCheck(cards().data[0]).onPress()
+  assert.equal(action('1개 저장').disabled, false)
+  assert.equal(find(render(), node => node.props?.accessibilityRole === 'alert'), null)
+  action('목록 더보기').onPress(); action('모두 선택').onPress()
+  props.ownedStickerCount = 198
+  assert.equal(action('2개 저장').disabled, false)
+  find(render(), node => node.type === 'Tools').props.onChange('background')
   action('영역 조정').onPress()
   assert.equal(find(render(), node => node.props?.label === '확대'), null)
   assert.equal(find(render(), node => node.props?.label === '축소'), null)
@@ -478,6 +494,7 @@ test('모달은 첫 분석의 초기 묶기를 기다리고 취소·재분리·�
       './StickerSplitTools': { __esModule: true, default: 'Tools', SplitAction: 'Action', SplitIconAction: 'IconAction' },
       './StickerGroupThumbnail': { __esModule: true, default: 'Thumbnail' }, '../../hooks/useStickerSplitEditing': { __esModule: true, default: () => editing },
       '../../utils/stickerSplitSave.js': { saveSplitSelection, splitSaveError },
+      '../../utils/customStickerLimit.js': customStickerLimit,
       '../../services/mediaStore': {},
       '../../services/stickerSplit': { stickerSplit: { completeRegions: true, pick: async () => ({ width: 1000, height: 1000, uri: 'file:///sheet' }),
         analyze() { analyses++; return { id: `analysis${analyses}`, promise: Promise.resolve({ parts }) } },

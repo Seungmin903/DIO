@@ -8,6 +8,8 @@ import { createAuthenticatedMemberTransport } from './memberTransport.js'
 import { createMediaRequest } from '../../collaboration/canvasMedia.js'
 import { createMediaLibraryApi, canSelectMediaPhoto, mediaLibrarySizeMessage } from './mediaLibraryApi.js'
 import { canvasMediaFiles } from '../../editor/services/canvasMediaFiles'
+import {createMediaThumbnailCache} from './mediaThumbnailCache.js'
+import {createMediaThumbnailFiles} from './mediaThumbnailFiles'
 
 export function createMediaLibraryRuntime(diary) {
   const sessionKey=authService.getSessionKey(),accountId=authService.getCurrentUserId()
@@ -16,9 +18,15 @@ export function createMediaLibraryRuntime(diary) {
   const request=createAuthenticatedMemberTransport({auth:authService,accountId,baseUrl:apiBaseUrl,accessTokenHeader,fetchImpl:memberFetch})
   const api=createMediaLibraryApi({transport:async options=>{active();const result=await request(options);active();return result},fileRequest:createMediaRequest({auth:authService,accountId,sessionKey,baseUrl:apiBaseUrl,fetchImpl:memberFetch})})
   const selectable=row=>{if(!canSelectMediaPhoto(row))throw Object.assign(Error(mediaLibrarySizeMessage()),{status:413,code:'MEDIA_FILE_TOO_LARGE'})}
+  const thumbnails=createMediaThumbnailCache({files:createMediaThumbnailFiles(`${apiBaseUrl}|${accountId}`),request:id=>api.thumbnail(id),active})
   return {
     ...api,
     async previewCached(row) { active();if(!canSelectMediaPhoto(row))return false;const cached=await canvasMediaFiles.cached(row.mediaFileId);active();return cached },
+    async previewThumbnail(row){active();selectable(row);return thumbnails.load(row.mediaFileId)},
+    retainThumbnail(row){active();selectable(row);return thumbnails.retain(row.mediaFileId)},
+    async retryThumbnail(row,uri){active();selectable(row);return thumbnails.refresh(row.mediaFileId,uri)},
+    invalidateThumbnail:(row,uri)=>thumbnails.invalidate(row.mediaFileId,uri),
+    dispose:()=>thumbnails.dispose(),
     async selectPhoto(row,diary) {
       active();selectable(row)
       row=await api.get(row.mediaFileId);active()

@@ -81,7 +81,10 @@ export function parseStickerPack(pack, value) {
     if (sticker.image != null) {
       const image = file(sticker.image)
       if (!image || !/\.png$/i.test(image.key) || !imageSize(sticker.width) || !imageSize(sticker.height)) return null
-      return { id: sticker.id, builtin: `remote:${pack.id}:${sticker.id}`, name: label(sticker.name), image, iw: sticker.width, ih: sticker.height, hidden: sticker.hidden === true }
+      const thumbnail = file(sticker.thumbnail)
+      return { id: sticker.id, builtin: `remote:${pack.id}:${sticker.id}`, name: label(sticker.name), image,
+        ...(thumbnail && /\.png$/i.test(thumbnail.key) ? { thumbnail } : {}),
+        iw: sticker.width, ih: sticker.height, hidden: sticker.hidden === true }
     }
     if (!size(sticker.w) || !size(sticker.h)) return null
     const paths = Array.isArray(sticker.paths) ? sticker.paths : []
