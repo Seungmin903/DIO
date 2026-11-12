@@ -601,12 +601,6 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onWithdraw
   const sharedLibraryRef = useRef(sharing.library);
   sharedLibraryRef.current = sharing.library;
   const sharingMembers = (signedIn && sharing.diaries.find(value => value.id === (active?.sharedDiaryId || active?.id))?.members) || [];
-  // Keep the editor's participant chips current even when the sharing sheet is closed.
-  useEffect(() => {
-    const diaryId = active?.sharedDiaryId || active?.id;
-    if (!member || !isSharingDiaryId(diaryId) || !sharing.runtime.server || typeof sharing.runtime.watchDiary !== 'function') return undefined;
-    return sharing.runtime.watchDiary(diaryId, { onUnavailable: message => notify('공유 상태 변경', message) });
-  }, [member, active?.id, active?.sharedDiaryId, sharing.runtime]);
   // 상단 바에 열어 둔 다이어리 탭 (id 순서대로). 다이어리를 열면 탭이 생기고, 탭을 눌러 오가며, 닫으면 옆 탭으로 간다.
   const [tabIds, setTabIds] = useState([]);
   const [createOpen, setCreateOpen] = useState(false);
@@ -989,6 +983,30 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onWithdraw
     setCarousel(Math.max(0, index));
     setPage('library');
   }, [active?.id, member, libraryMetadata, librarySort, visibleDiaries]);
+
+  // Keep navigation current without restarting the watch on list/metadata updates.
+  const returnToLibraryRef = useRef(returnToLibrary);
+  returnToLibraryRef.current = returnToLibrary;
+  // A closed socket can be a network failure. Only a confirmed membership denial closes the diary.
+  useEffect(() => {
+    const tabId = active?.id, diaryId = active?.sharedDiaryId || tabId;
+    if (!member || !isSharingDiaryId(diaryId) || !sharing.runtime.server || typeof sharing.runtime.watchDiary !== 'function') return undefined;
+    let watching = true;
+    const release = sharing.runtime.watchDiary(diaryId, { onUnavailable: (message, error) => {
+      if (!watching) return;
+      if (![403, 404].includes(error?.status)) { notify('공유 상태 변경', message); return; }
+      watching = false;
+      opening.current = null;
+      setTabIds(current => current.filter(id => id !== tabId));
+      setActive(current => current?.id === tabId ? null : current);
+      setSharingRequest(null);
+      returnToLibraryRef.current();
+      returnDiaryId.current = null;
+      notify('다이어리 접근 종료', '참여 권한이 없거나 삭제된 다이어리예요. 목록으로 돌아왔어요.');
+      diaryState.store.reload().catch(() => {});
+    } });
+    return () => { watching = false; release(); };
+  }, [member, active?.id, active?.sharedDiaryId, sharing.runtime, diaryState.store]);
 
   const selectTab = useCallback((id) => {
     if (id === active?.id) return;
