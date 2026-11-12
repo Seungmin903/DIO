@@ -5,12 +5,15 @@ import {createRequire} from 'node:module'
 import {clamp,rotateVector,normalizeAngle} from '../src/editor/utils/common.js'
 import {STICKER_SIZE} from '../src/diary/utils/coverDesign.js'
 import {colors} from '../src/shared/theme.js'
+import * as controlMetrics from '../src/diary/utils/coverStickerControls.js'
 const require=createRequire(import.meta.url),expo=createRequire(require.resolve('expo/package.json')),babel=expo('@babel/core')
 const source=readFileSync(new URL('../src/diary/components/CoverArt.js',import.meta.url),'utf8')
 const ast=babel.parseSync(source,{configFile:false,babelrc:false,parserOpts:{plugins:['jsx']}})
 const declaration=ast.program.body.find(node=>node.type==='FunctionDeclaration'&&node.id.name==='StickerControl')
 assert.ok(declaration,'StickerControl component must exist')
 const{code}=babel.transformFromAstSync({...ast,program:{...ast.program,body:[declaration]}},source,{configFile:false,babelrc:false,plugins:[[expo.resolve('@babel/plugin-transform-react-jsx'),{runtime:'classic'}]]})
+const references=new Set()
+babel.traverse(babel.parseSync(code,{configFile:false,babelrc:false}),{ReferencedIdentifier(path){if(!path.scope.hasBinding(path.node.name))references.add(path.node.name)}})
 function fixture({selected=true,rotation=0}={}){
  const slots=[],drafts=new Map(),commits=[],selections=[],removals=[],copies=[];let cursor=0
  const item={id:'a',name:'원본',x:50,y:40,size:18,rotation}
@@ -18,8 +21,9 @@ function fixture({selected=true,rotation=0}={}){
  const scope={React:{createElement:(type,props,...children)=>({type,props:{...props,children}}),Fragment:'Fragment'},
  useState(initial){const i=cursor++;if(!(i in slots))slots[i]=initial;return[slots[i],value=>{slots[i]=typeof value==='function'?value(slots[i]):value}]},
  useRef(initial){const i=cursor++;return slots[i]??={current:initial}},useDraft:(_store,item)=>({...item,...store.get(item.id)}),usePan:handlers=>({qaMove:handlers}),
- clamp,rotateVector,normalizeAngle,STICKER_SIZE,MARGIN:40,HANDLE:18,ROTATE_OFFSET:34,ROTATE_SNAP_DEG:4.5,BAR:{width:92,height:40},CORNERS:[[-1,-1],[1,-1],[-1,1],[1,1]],
+ clamp,rotateVector,normalizeAngle,STICKER_SIZE,...controlMetrics,
  StyleSheet:{absoluteFill:{position:'absolute',top:0,right:0,bottom:0,left:0}},Platform:{OS:'android'},View:'View',Pressable:'Pressable',Icon:'Icon',StickerHandle:'StickerHandle',colors,styles:{},}
+ for(const name of references)assert.ok(name in scope||name in globalThis,`StickerControl 테스트 scope에 실제 참조 ${name}이 없습니다.`)
  const Component=new Function(...Object.keys(scope),code+'\nreturn StickerControl;')(...Object.values(scope))
  const render=()=>{cursor=0;return Component({item,scale:1.5,width:300,height:400,selected,store,onSelect:id=>selections.push(id),onCommit:value=>commits.push(value),onRemove:id=>removals.push(id),onDuplicate:value=>copies.push(value)})}
  function findAll(node,predicate){if(!node||typeof node!=='object')return[];return[...(predicate(node)?[node]:[]),...(node.props?.children??[]).flat(Infinity).flatMap(child=>findAll(child,predicate))]}

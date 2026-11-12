@@ -15,7 +15,7 @@ import { useRemoteAssetUri } from '../../shared/remoteAssets/useRemoteAssetUri'
 import BuiltinStickerArt from '../../editor/components/canvas/BuiltinStickerArt'
 import { stickerSource } from '../../editor/stickerAssets'
 import { clamp, normalizeAngle, rotateVector } from '../../editor/utils/common'
-import { ROTATE_OFFSET } from '../../editor/utils/popoverPlacement'
+import { HANDLE, MARGIN, ROTATE_SNAP_DEG, CORNERS, BAR, ROTATE_OFFSET } from '../utils/coverStickerControls.js'
 import { textStyle } from '../../editor/utils/text'
 import { useTextFont } from '../../editor/hooks/useTextFont'
 import { STICKER_SIZE, bandAutoColor, coverTitle, createStickerCopy, coverLineColor, gradientStops, mix } from '../utils/coverDesign'
@@ -172,13 +172,6 @@ const StickerView = memo(function StickerView({ item, scale, store }) {
   const shown = useDraft(store, item)
   return <View pointerEvents="none" style={[styles.sticker, stickerBox(shown, scale)]}><StickerImage item={item} /></View>
 })
-
-// 편집기 선택 테두리(SelectionOverlay)와 같은 손잡이 크기 · 자리
-const HANDLE = 18
-const MARGIN = 40 // 손잡이가 스티커 밖에 걸쳐도 터치를 받도록 넓힌 둘레
-const ROTATE_SNAP_DEG = 4.5
-const CORNERS = [[-1, -1], [1, -1], [-1, 1], [1, 1]]
-const BAR = { width: 92, height: 40 }
 
 /** 손잡이 하나: 누른 자리를 기억하고 이동량으로 값을 바꾼다 */
 function StickerHandle({ onStart, onMove, onEnd, label, style, children }) {

@@ -3,7 +3,8 @@ const assert=require('node:assert/strict')
 const base=new URL(process.argv[2]||'http://127.0.0.1:8095')
 if(!['127.0.0.1','localhost'].includes(base.hostname))throw Error('Use a dedicated loopback QA server')
 ;(async()=>{
- const server=await chromium.launchServer({channel:'msedge',headless:true}),browser=await chromium.connect(server.wsEndpoint())
+ const channel=process.env.DIO_QA_BROWSER_CHANNEL
+ const server=await chromium.launchServer({headless:true,...(channel&&channel!=='chromium'?{channel}:{})}),browser=await chromium.connect(server.wsEndpoint())
  const results=[]
  try{
   for(const viewport of [{width:430,height:800},{width:1100,height:850}]){
