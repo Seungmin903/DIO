@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { GifReader } from 'omggif'
 import * as gifExport from '../src/editor/utils/gifExport.js'
+import * as gifLayers from '../src/editor/utils/gifLayers.js'
 import * as mediaReferences from '../src/editor/utils/mediaReferences.js'
 import { PageExportError } from '../src/editor/utils/pageExport.js'
 
@@ -14,9 +15,12 @@ const { code } = expo('@babel/core').transformSync(readFileSync(new URL('../src/
   configFile: false, babelrc: false, plugins: [expo.resolve('@babel/plugin-transform-modules-commonjs')],
 })
 
-function load(clock) {
+// layered: false 면 GIF 스티커에 테두리를 달아 층 합성 대신 예전 방식(장면마다 찍기)으로 만들게 한다
+function load(clock, { layered = false, objects } = {}) {
   const PAGE = 100
   const mocks = {
+    './gifLayers.js': gifLayers,
+    '../templates/packingLayout.js': { packingLayout: () => null },
     '../services/mediaStore': { mediaService: { get: async () => ({ blob: love }) } },
     './mediaReferences.js': mediaReferences,
     '../stickerAssets': { isAnimatedMedia: (o) => o.id === 'gif' },
@@ -34,7 +38,8 @@ function load(clock) {
   }
   const module = { exports: {} }
   new Function('require', 'module', 'exports', code)((id) => mocks[id], module, module.exports)
-  const snapshot = { width: PAGE, height: PAGE, pixelWidth: PAGE, pixelHeight: PAGE, objects: [{ id: 'gif', type: 'sticker', mediaFileId: 'm1', x: 0, y: 0, w: PAGE, h: PAGE }] }
+  const gif = { id: 'gif', type: 'sticker', mediaFileId: 'm1', x: 0, y: 0, w: PAGE, h: PAGE, ...(layered ? {} : { outline: true }) }
+  const snapshot = { width: PAGE, height: PAGE, pixelWidth: PAGE, pixelHeight: PAGE, objects: objects ?? [gif] }
   return { createPageGif: module.exports.createPageGif, snapshot, clock }
 }
 
@@ -81,4 +86,63 @@ test('찍는 도중 시간이 계속 늘어나면 멈추고 찍은 장면만으�
   assert.equal(output.reduced, true)
   assert.ok(clock.now <= gifExport.GIF_TIME_BUDGET.captureStop + 15000, `걸린 시간 ${clock.now}`)
   assert.ok(new GifReader(output.bytes).numFrames() >= 1)
+}))
+
+const lastFramePixels = (bytes) => {
+  const gif = new GifReader(bytes), pixels = new Uint8Array(gif.width * gif.height * 4)
+  for (let i = 0; i < gif.numFrames(); i++) gif.decodeAndBlitFrameRGBA(i, pixels)
+  return pixels
+}
+
+test('층 합성: 페이지는 바탕 층 한 번만 찍고, 장면은 GIF 를 끼워 합쳐 만든다 (느린 기기에서도 장면을 줄이지 않는다)', () => withClock(async (clock) => {
+  const { createPageGif, snapshot } = load(clock, { layered: true })
+  const frames = []
+  // 페이지 한 장 찍는 데 10초 걸리는 느린 기기
+  const renderFrame = async (frame) => { frames.push(frame); clock.now += 10000; return { width: frame.pixelWidth, height: frame.pixelHeight, shade: 255, dispose() {} } }
+  const output = await createPageGif(snapshot, { renderFrame })
+  const full = gifExport.planGifTimeline([gifExport.gifFrameDelays(love)])
+  assert.equal(frames.length, 1)
+  assert.equal(frames[0].layer, 'base')
+  assert.deepEqual(frames[0].objects, []) // GIF 는 찍지 않는다
+  assert.equal(output.reduced, false)
+  assert.equal(output.frames, full.steps.length)
+  assert.ok(clock.now <= 20000, `걸린 시간 ${clock.now}`)
+  // 흰 바탕 위에 GIF 장면이 그려졌다
+  const pixels = lastFramePixels(output.bytes)
+  let colored = 0
+  for (let i = 0; i < pixels.length; i += 4) if (pixels[i] < 200 || pixels[i + 1] < 200 || pixels[i + 2] < 200) colored++
+  assert.ok(colored > 100, `색칠된 픽셀 ${colored}`)
+  assert.ok(new GifReader(output.bytes).numFrames() > 1)
+}))
+
+test('층 합성: GIF 위에 있는 요소는 투명 바탕의 맨 위 층으로 따로 찍어 덮는다', () => withClock(async (clock) => {
+  const note = { id: 'note', type: 'text', text: '안녕', x: 10, y: 10, w: 50, h: 20, baseWidth: 50 }
+  const below = { id: 'paper', type: 'shape', x: 0, y: 0, w: 100, h: 100 }
+  const gif = { id: 'gif', type: 'sticker', mediaFileId: 'm1', x: 0, y: 0, w: 100, h: 100 }
+  const { createPageGif, snapshot } = load(clock, { layered: true, objects: [below, gif, note] })
+  const frames = []
+  const renderFrame = async (frame) => {
+    frames.push(frame)
+    // 맨 위 층은 투명(알파 0)으로 돌려준다 (가운데 한 점만 검정)
+    if (frame.layer === 'top') return { width: frame.pixelWidth, height: frame.pixelHeight, shade: 0, dispose() {} }
+    return { width: frame.pixelWidth, height: frame.pixelHeight, shade: 255, dispose() {} }
+  }
+  const output = await createPageGif(snapshot, { renderFrame })
+  assert.deepEqual(frames.map((f) => [f.layer, f.objects.map((o) => o.id)]), [['base', ['paper']], ['top', ['note']]])
+  assert.ok(new GifReader(output.bytes).numFrames() > 1)
+}))
+
+test('층 합성이 실패하면 예전 방식(장면마다 찍기)으로 다시 만든다', () => withClock(async (clock) => {
+  const { createPageGif, snapshot } = load(clock, { layered: true })
+  const frames = []
+  const renderFrame = async (frame) => {
+    frames.push(frame)
+    if (frame.layer) throw new Error('transparent capture unsupported')
+    return { width: frame.pixelWidth, height: frame.pixelHeight, shade: (frames.length * 37) % 256, dispose() {} }
+  }
+  const output = await createPageGif(snapshot, { renderFrame })
+  assert.equal(frames[0].layer, 'base')
+  assert.ok(frames.slice(1).every((f) => !f.layer))
+  assert.ok(frames.length > 2)
+  assert.ok(new GifReader(output.bytes).numFrames() >= 2)
 }))
