@@ -20,6 +20,14 @@ const DRAG_OPACITY = 0.5
 // type · x · w 가 없다. 획 묶음을 가르는 쪽(CompletedStrokeLayer · WebStrokeCache)은
 // type !== 'stroke' 를 비(非)획으로 보고 renderObject 에 넘기므로 그대로 동작한다.
 const INK_RECORD_FRONT = { id: 'ink-record-front', inkRecordFront: true }
+// 잉크병 메모 덧그림의 자리표도 같은 이유로 **요소마다 하나씩** 만들어 둔다
+// (렌더마다 새 객체면 획 묶음 캐시가 참조로 견주는 자리에서 괜히 달라 보인다).
+const overTopMarks = new WeakMap()
+const overTopMark = object => {
+  let mark = overTopMarks.get(object)
+  if (!mark) overTopMarks.set(object, (mark = { id: `over-${object.id}`, overTopOf: object }))
+  return mark
+}
 
 /**
  * 편집 화면이 페이지 그림에 알려 GIF 를 멈출지 정하는 값. (EditorScreen 이 Viewport 안쪽에 준다)
@@ -80,9 +88,12 @@ const StaticPage = memo(function StaticPage({ qaPageMeasurement = null, page, zo
   // 견주는 자리에서 괜히 달라 보인다(코드리뷰 2026-11-13).
   const pending = inkRecordLayout(page.backgroundAssetId) ? [INK_RECORD_FRONT] : []
   for (const object of renderableObjects) {
-    if (object.type !== 'stroke' && pending.length) ordered.push(...pending.splice(0))
+    // **숨긴 요소는 차례를 가르지 않는다.** 그리는 쪽은 숨긴 것을 빼고 그리므로, 숨긴 스티커 ·
+    // 사진이 획 앞에 있다고 윤곽을 거기서 끊으면 **화면에는 아무것도 없는데** 그 뒤에 그은 획이
+    // 윤곽 위로 올라와 병 선을 덮는다(코드리뷰 2026-11-13).
+    if (!object.hidden && object.type !== 'stroke' && pending.length) ordered.push(...pending.splice(0))
     ordered.push(object)
-    if (!object.hidden && memoArtOf(object.art)?.overTop) pending.push({ id: `over-${object.id}`, overTopOf: object })
+    if (!object.hidden && memoArtOf(object.art)?.overTop) pending.push(overTopMark(object))
   }
   ordered.push(...pending)
   const renderOverTop = stored => {

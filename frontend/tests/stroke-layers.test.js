@@ -155,6 +155,46 @@ test('획 묶음 캐시는 자리표를 비(非)획으로 보고, 같은 내용�
   assert.equal(again[0].props.batch, first[0].props.batch, '같은 내용이면 묶음을 그대로 쓴다')
 })
 
+test('숨긴 비(非)획 요소는 병 윤곽 · 덧그림의 차례를 가르지 않는다', () => {
+  // 그리는 쪽은 숨긴 것을 빼고 그린다. 숨긴 스티커가 획 앞에 있다고 거기서 윤곽을 끊으면
+  // 화면에는 아무것도 없는데 뒤에 그은 획이 윤곽 위로 올라와 병 선을 덮는다(코드리뷰 2026-11-13).
+  const hiddenSticker = { id: 'ghost', type: 'sticker', hidden: true, x: 0, y: 0, w: 10, h: 10 }
+  const later = { id: 'later', type: 'sticker', x: 10, y: 10, w: 50, h: 50 }
+  const component = loadComponent('StaticPage')
+  const inkPage = { ...page, backgroundAssetId: 'ink-record', objects: [hiddenSticker, ...objects, later] }
+  const drawing = drawingOf(component.render({ page: inkPage, zoom: 1 }))
+  const front = drawing.findIndex(child => child?.type === 'ink-record-front')
+  const lastStroke = drawing.findIndex(child => child?.props?.object === objects[objects.length - 1])
+  const iLater = drawing.findIndex(child => child?.props?.object === later)
+  assert.ok(front >= 0 && lastStroke >= 0 && iLater >= 0)
+  assert.ok(lastStroke < front, `윤곽(${front}) 이 획(${lastStroke}) 보다 뒤여야 한다 — 숨긴 것이 앞을 막지 않는다`)
+  assert.ok(front < iLater, '보이는 메모는 여전히 윤곽 위에')
+})
+
+test('잉크병 메모 덧그림 자리표도 같은 메모면 같은 객체다', () => {
+  // 렌더마다 새 객체면 획 묶음 캐시가 참조로 견주는 자리에서 괜히 달라 보인다(코드리뷰 2026-11-13).
+  const memo = { id: 'memo', type: 'sticker', art: 'inkRound', x: 0, y: 0, w: 100, h: 100 }
+  const later = { id: 'later', type: 'sticker', x: 10, y: 10, w: 50, h: 50 }
+  const component = loadComponent('StaticPage', 'ios', null, null, ['inkRound'])
+  const memoPage = { ...page, objects: [memo, ...objects, later] }
+  const markOf = () => drawingOf(component.render({ page: memoPage, zoom: 1, cacheStrokes: true }))
+    .props.objects.find(object => object?.overTopOf === memo)
+  const first = markOf()
+  assert.ok(first, '덧그림 자리표가 넘어간다')
+  assert.equal(markOf(), first, '다시 그려도 같은 객체여야 한다')
+})
+
+test('웹 캐시 층은 type · x · w 가 없는 자리표를 그대로 renderObject 에 넘긴다', () => {
+  const component = loadComponent('WebStrokeCache')
+  const front = { id: 'ink-record-front', inkRecordFront: true }
+  const ghost = { id: 'ghost', type: 'sticker', hidden: true, x: 0, y: 0, w: 10, h: 10 }
+  const seen = []
+  const rendered = component.render({ objects: [...objects, front, ghost], renderObject: object => { seen.push(object); return { type: 'rendered', props: { object } } } })
+  assert.equal(rendered.length, objects.length + 1, '숨긴 것은 빼고 자리표는 그린다')
+  assert.ok(seen.includes(front), '자리표도 renderObject 로 간다')
+  assert.ok(!seen.includes(ghost), '숨긴 요소는 안 간다')
+})
+
 test('발색 기록 속지가 아니면 병 윤곽을 아예 그리지 않는다', () => {
   const component = loadComponent('StaticPage')
   const drawing = drawingOf(component.render({ page, zoom: 1 }))
