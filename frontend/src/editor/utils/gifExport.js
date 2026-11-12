@@ -4,6 +4,19 @@ import { PageExportError } from './pageExport.js'
 // 페이지 GIF: 페이지 속 움직이는 GIF 들의 장면을 같은 시간축에 놓고, 장면이 바뀔 때마다 페이지를 한 장씩 찍어 이어 붙인다.
 export const GIF_LIMITS = { frames: 40, duration: 6000, minStep: 60, bytes: 50 * 1024 * 1024, pixels: 8000000 }
 
+/**
+ * 오래 걸리는 반복에서 쉬어 갈 함수를 만든다. 부를 때마다 쉬지 않고, 지난번 쉰 뒤 budget(ms) 넘게 일했을 때만
+ * 한 번 쉰다(wait). 화면은 그 사이 진행률을 그린다. 뒤로 간 브라우저 탭은 타이머를 1초 넘게 미뤄, 매번 쉬면 크게 느려진다.
+ */
+export function createYield({ budget = 50, now = () => Date.now(), wait = () => new Promise((resolve) => setTimeout(resolve, 0)) } = {}) {
+  let last = now()
+  return async () => {
+    if (now() - last < budget) return
+    await wait()
+    last = now()
+  }
+}
+
 // 브라우저처럼 0·1(1/100초) 지연은 0.1초로 본다
 const frameDelay = (centiseconds) => (centiseconds < 2 ? 10 : centiseconds) * 10
 
@@ -55,23 +68,31 @@ export function planGifTimeline(delayLists, limits = GIF_LIMITS) {
  * rgba 는 다음 장면에서 덮어쓰므로 onFrame 안에서 바로 써야 한다.
  */
 export function decodeGifFrames(bytes, needed, onFrame) {
+  for (const { index, rgba, width, height } of gifFrames(bytes, needed)) onFrame(index, rgba, width, height)
+}
+
+/**
+ * decodeGifFrames 와 같지만 필요한 장면을 하나씩 꺼낸다({ index, rgba, width, height }).
+ * 꺼내는 사이에 쉬어 갈 수 있어(await) 큰 GIF 를 풀 때도 화면이 굳지 않는다. rgba 는 다음 장면을 꺼내면 덮어쓴다.
+ */
+export function* gifFrames(bytes, needed) {
   const reader = readGif(bytes)
   const { width, height } = reader
   const canvas = new Uint8Array(width * height * 4)
   const last = Math.max(...needed)
-  try {
-    for (let i = 0; i <= last && i < reader.numFrames(); i++) {
-      const info = reader.frameInfo(i)
-      const saved = info.disposal === 3 ? canvas.slice() : null
+  for (let i = 0; i <= last && i < reader.numFrames(); i++) {
+    let info, saved
+    try {
+      info = reader.frameInfo(i)
+      saved = info.disposal === 3 ? canvas.slice() : null
       reader.decodeAndBlitFrameRGBA(i, canvas)
-      if (needed.has(i)) onFrame(i, canvas, width, height)
-      if (info.disposal === 2) {
-        for (let y = info.y; y < Math.min(height, info.y + info.height); y++) canvas.fill(0, (y * width + info.x) * 4, (y * width + Math.min(width, info.x + info.width)) * 4)
-      } else if (saved) canvas.set(saved)
+    } catch (error) {
+      throw new PageExportError('EXPORT_GIF_DECODE_FAILED', 'GIF 장면을 읽지 못했어요. 원본을 확인해 주세요.', error)
     }
-  } catch (error) {
-    if (error instanceof PageExportError) throw error
-    throw new PageExportError('EXPORT_GIF_DECODE_FAILED', 'GIF 장면을 읽지 못했어요. 원본을 확인해 주세요.', error)
+    if (needed.has(i)) yield { index: i, rgba: canvas, width, height }
+    if (info.disposal === 2) {
+      for (let y = info.y; y < Math.min(height, info.y + info.height); y++) canvas.fill(0, (y * width + info.x) * 4, (y * width + Math.min(width, info.x + info.width)) * 4)
+    } else if (saved) canvas.set(saved)
   }
 }
 

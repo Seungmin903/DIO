@@ -1,5 +1,7 @@
-import { cloneElement } from 'react'
+import { cloneElement, useEffect } from 'react'
 import { useMediaUri } from '../../hooks/useMediaUri'
+import { useSvgImageUri } from '../../hooks/useSvgImageUri'
+import { reportMediaDisplayError } from '../../services/mediaStore'
 import { coverLayout } from '../../utils/objects'
 import { LEGACY_TAPE_PATTERNS, TAPE_DEFAULT, TAPE_PALETTES } from '../../constants'
 import { useSvgId } from '../../utils/svgId'
@@ -524,9 +526,18 @@ export function tapePreviewBox(tape, width, minH, maxH, fallbackRatio) {
 // segmentShare: 사진 테이프 한 조각 폭 ÷ 테이프 길이(없으면 한 조각), pieceRatio: 잘라 둘 때 조각의 가로:세로
 // crisp: 미리보기(보관함 칸 · 레이어 썸네일 등 줄여 그린 그림)는 무늬 배율을 기기 픽셀에 맞춰 칸 이음매가 깨지지 않게 한다(shared/pixelSnap).
 // 캔버스는 확대 · 축소할 때 무늬가 튀지 않게 맞추지 않는다
-export default function TapeView({ pattern, palette, segmentShare, pieceRatio, src, mediaFileId, crop, imageWidth, imageHeight, edge = 'torn', width, height, scale = 1, crisp = false, onAssetLoad }) {
-  const uri = useMediaUri({ src, mediaFileId })
+export default function TapeView({ pattern, palette, segmentShare, pieceRatio, src, mediaFileId, crop, imageWidth, imageHeight, edge = 'torn', width, height, scale = 1, crisp = false, onAssetLoad, onAssetError }) {
   const hasImage = Boolean(mediaFileId || src)
+  // 사진 테이프는 SVG 이미지로 그린다. 기기에서 GIF 를 넘기면 앱이 죽어 첫 장면 PNG 로 바꿔 넘긴다
+  const image = useSvgImageUri({ src, mediaFileId }, useMediaUri({ src, mediaFileId }), { enabled: hasImage })
+  const uri = image.uri
+  // 첫 장면을 만들지 못하면 그릴 이미지가 없어 onAssetLoad 가 오지 않는다. 대신 오류를 알린다.
+  // failed 는 실패한 항목의 키라, 실패한 다른 GIF 로 바뀌어도 다시 알린다
+  useEffect(() => {
+    if (!image.failed) return
+    reportMediaDisplayError({ src, mediaFileId })
+    onAssetError?.()
+  }, [image.failed]) // eslint-disable-line react-hooks/exhaustive-deps
   const svgId = useSvgId('tape')
   const look = tapeLook(pattern, palette)
   // 무늬·색·끝 모양이 바뀌면 id 도 바꾸고 SVG 를 새로 만든다. (같은 id 로 내용만 바꾸면 기기에서 이전 모양이 남는다)

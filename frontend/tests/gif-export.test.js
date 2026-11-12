@@ -2,9 +2,20 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { GifReader } from 'omggif'
-import { createGifAssembler, decodeGifFrames, gifFrameDelays, planGifTimeline } from '../src/editor/utils/gifExport.js'
+import { createGifAssembler, createYield, decodeGifFrames, gifFrameDelays, gifFrames, planGifTimeline } from '../src/editor/utils/gifExport.js'
 
 const love = new Uint8Array(readFileSync(new URL('./fixtures/gifs/n-love.gif', import.meta.url)))
+
+test('오래 걸리는 반복은 매번이 아니라 일한 시간이 50ms 를 넘을 때만 쉰다 (뒤로 간 탭의 타이머 지연을 덜 받는다)', async () => {
+  let clock = 0, waits = 0
+  const pause = createYield({ budget: 50, now: () => clock, wait: async () => { waits++ } })
+  for (let i = 0; i < 10; i++) { clock += 10; await pause() } // 장면당 10ms 씩 100ms 일함
+  assert.equal(waits, 2)
+  clock += 49; await pause()
+  assert.equal(waits, 2)
+  clock += 1; await pause()
+  assert.equal(waits, 3)
+})
 
 test('여러 GIF 의 장면을 한 시간축에 맞추고, 같은 장면이 이어지면 합친다', () => {
   const plan = planGifTimeline([[100, 100, 100, 100], [200, 200]])
@@ -20,6 +31,16 @@ test('여러 GIF 의 장면을 한 시간축에 맞추고, 같은 장면이 이�
   const long = planGifTimeline([Array(300).fill(40)])
   assert.ok(long.steps.length <= 40)
   assert.equal(long.steps.reduce((sum, s) => sum + s.delay, 0), 600)
+})
+
+test('장면을 하나씩 꺼내 풀어도 한꺼번에 푼 것과 같다', () => {
+  const needed = planGifTimeline([gifFrameDelays(love)]).needed[0]
+  const all = new Map()
+  decodeGifFrames(love, needed, (index, rgba) => all.set(index, rgba.slice()))
+  const oneByOne = new Map()
+  for (const { index, rgba } of gifFrames(love, needed)) oneByOne.set(index, rgba.slice())
+  assert.deepEqual([...oneByOne.keys()], [...needed].sort((a, b) => a - b))
+  for (const [index, rgba] of all) assert.deepEqual(oneByOne.get(index), rgba)
 })
 
 test('기본 GIF 스티커를 장면별로 풀고 다시 GIF 로 묶는다', () => {
