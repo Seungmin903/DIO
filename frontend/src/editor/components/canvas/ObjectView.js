@@ -17,6 +17,7 @@ import { colors } from '../../../shared/theme'
 import { mediaId } from '../../utils/mediaReferences.js'
 import { isBackdrop } from '../../utils/backdrop.js'
 import { useMediaEntry, useMediaUri } from '../../hooks/useMediaUri'
+import { useSvgImageUri } from '../../hooks/useSvgImageUri'
 import { coverLayout, hasPhotoMedia, photoInnerBox, tapePieceRatio, tapeUnitH } from '../../utils/objects'
 import { shapePath } from '../../utils/shapes'
 import { useSvgId } from '../../utils/svgId'
@@ -368,6 +369,8 @@ const emojiText = (height) => ({ fontSize: height * 0.72, lineHeight: height })
 // still: 페이지 썸네일처럼 움직일 필요 없는 곳에서는 GIF 대신 첫 장면을 그린다.
 export function PhotoContent({ photo, zoom, still = false, onAssetLoad, onAssetError }) {
   const uri = useMediaUri(photo, { still })
+  // 모양(하트·별 등) 틀은 SVG 이미지로 자른다. 기기에서 GIF 를 넘기면 앱이 죽어 첫 장면 PNG 로 바꿔 넘긴다
+  const svgUri = useSvgImageUri(still && photo.poster ? photo.poster : photo, uri)
   const animated = !still && isAnimatedMedia(photo)
   const clipInstance = useSvgId('photo-clip')
   const clipId = `${clipInstance}-${photo.shape ?? 'rect'}`
@@ -413,7 +416,7 @@ export function PhotoContent({ photo, zoom, still = false, onAssetLoad, onAssetE
         </Defs>
         <SvgImage
           onLoad={onAssetLoad} onError={() => { reportMediaDisplayError(photo); onAssetError?.() }}
-          href={uri ? { uri } : undefined}
+          href={svgUri ? { uri: svgUri } : undefined}
           x={layout.left}
           y={layout.top}
           width={layout.width}

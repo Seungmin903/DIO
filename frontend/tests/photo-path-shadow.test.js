@@ -12,7 +12,7 @@ function load(file, mocks = {}) {
   const { code } = expo('@babel/core').transformSync(readFileSync(new URL(file, import.meta.url), 'utf8'), { configFile: false, babelrc: false, plugins: [[expo.resolve('@babel/plugin-transform-react-jsx'), { runtime: 'automatic' }], expo.resolve('@babel/plugin-transform-modules-commonjs')] })
   const module = { exports: {} }
   const svg = Object.fromEntries(['ClipPath','Defs','Filter','FeGaussianBlur','G','Mask','Path','Rect','Image'].map(n => [n, n]))
-  const defaults = { react: { memo: x => x, createContext: () => ({}), useContext: () => null }, 'react-native': { Platform: { OS: 'ios', select: o => o.ios ?? o.default }, StyleSheet: { create: x => x }, View: 'View' }, 'react-native-svg': { __esModule: true, default: 'Svg', ...svg }, '../../utils/effects': effects, '../../utils/svgId': { useSvgId: () => 'test-shadow' }, '../../utils/shapes': shapes, '../../../shared/theme': { colors: {} } }
+  const defaults = { react: { memo: x => x, createContext: () => ({}), useContext: () => null }, 'react-native': { Platform: { OS: 'ios', select: o => o.ios ?? o.default }, StyleSheet: { create: x => x }, View: 'View' }, 'react-native-svg': { __esModule: true, default: 'Svg', ...svg }, '../../utils/effects': effects, '../../utils/svgId': { useSvgId: () => 'test-shadow' }, '../../utils/shapes': shapes, '../../../shared/theme': { colors: {} }, '../../hooks/useSvgImageUri': { useSvgImageUri: (_, uri) => uri } }
   new Function('require','module','exports',code)(id => mocks[id] ?? defaults[id] ?? (id === 'react/jsx-runtime' ? require(id) : { __esModule: true, default: id }), module, module.exports)
   return module.exports
 }
