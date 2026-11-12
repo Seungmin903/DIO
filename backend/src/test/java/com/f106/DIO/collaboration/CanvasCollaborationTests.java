@@ -686,4 +686,32 @@ class CanvasCollaborationTests {
         mvc.perform(post("/api/v1/pages/"+page+"/elements/batch").header("Authorization","Bearer "+outsider.token()).contentType("application/json").content(body)).andExpect(status().isForbidden());
         mvc.perform(post("/api/v1/pages/"+page+"/elements/batch").header("Authorization","Bearer "+owner.token()).contentType("application/json").content(body)).andExpect(status().isBadRequest());
     }
+    @Test void farOutsidePageStrokeCoordinatesPersistAndReloadWithoutClamping() throws Exception {
+        var owner=actor(); UUID page=page(diary(owner));
+        for (long[] box : List.of(new long[]{-1000000,-1000000,2000004,1000004}, new long[]{-300,20,1504,24}, new long[]{999000000,20,100004,24})) {
+            UUID id=UUID.randomUUID();
+            var points=List.of(Map.of("x",2,"y",2,"pressure",1),Map.of("x",box[2]-2,"y",box[3]-2,"pressure",1));
+            var stroke=new HashMap<String,Object>();
+            stroke.put("elementId",id); stroke.put("elementType","STROKE");
+            stroke.put("x",box[0]); stroke.put("y",box[1]); stroke.put("width",box[2]); stroke.put("height",box[3]);
+            stroke.put("propertiesJson",Map.of("points",points,"baseWidth",box[2],"baseHeight",box[3],"strokeWidth",4,"penKind","ball","color","#123456"));
+            apply(page,owner,UUID.randomUUID(),Map.of("creates",List.of(stroke)));
+            var rows=json.readTree(mvc.perform(get("/api/v1/pages/"+page+"/elements").header("Authorization","Bearer "+owner.token())).andExpect(status().isOk()).andReturn().getResponse().getContentAsString()).path("items");
+            JsonNode found=null;
+            for (JsonNode row:rows) if (row.path("elementId").asText().equals(id.toString())) found=row;
+            assertThat(found).isNotNull();
+            assertThat(found.path("x").asLong()).isEqualTo(box[0]);
+            assertThat(found.path("y").asLong()).isEqualTo(box[1]);
+            assertThat(found.path("width").asLong()).isEqualTo(box[2]);
+            assertThat(found.path("height").asLong()).isEqualTo(box[3]);
+            assertThat(found.path("propertiesJson").path("points")).isEqualTo(json.readTree(json.writeValueAsString(points)));
+        }
+    }
+    @Test void outOfContractStrokeCoordinatesAreRejectedWithoutSavingAnElement() throws Exception {
+        var owner=actor(); UUID page=page(diary(owner)),id=UUID.randomUUID();
+        var stroke=Map.of("elementId",id,"elementType","STROKE","x",-1000000000000L,"y",0,"width",1000000000004L,"height",20,
+            "propertiesJson",Map.of("points",List.of(Map.of("x",2,"y",2),Map.of("x",1000000000002L,"y",2))));
+        postJson(page,owner,"/canvas-operations",Map.of("clientOperationId",UUID.randomUUID(),"changes",Map.of("creates",List.of(stroke))),400);
+        assertThat(jdbc.queryForObject("select count(*) from canvas_elements where element_id=?",Integer.class,id)).isZero();
+    }
 }

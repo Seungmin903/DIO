@@ -727,3 +727,21 @@ test('페이지 밖 직선도 두 손가락·제스처 취소 시 저장하지 �
     f.unmount()
   }
 })
+
+test('극단적으로 먼 입력은 직선 각도를 유지한 채 미리보기·저장 경계만 제한한다', () => {
+  for (const kind of ['ball','highlighter']) {
+    const f=fixture(kind),h=f.handlers
+    h.onStart({locationX:200,locationY:200})
+    h.onMove(40,100,{});h.onMove(160,20,{})
+    f.hold()
+    h.onMove(1e12,1e12,{})
+    const points=previewPointsOf(f)
+    assert.equal(points.length,2)
+    assert.ok(points[1].x<=2376+1e-6&&points[1].y<=2028+1e-6)
+    const expected=points.map(p=>({...p}))
+    h.onEnd({cancelled:false})
+    assertSavedPreview(f,expected)
+    assert.ok(f.actions[0].objects[0].w<4000)
+    f.unmount()
+  }
+})
