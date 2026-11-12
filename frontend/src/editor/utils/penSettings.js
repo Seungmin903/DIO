@@ -17,8 +17,9 @@ const ALL_PEN_TYPES = [
 // 잉크펜을 끈 빌드(shared/featureFlags.js)에서는 고를 수 없다. 이미 그린 획은 penKind 로 그대로 그린다
 export const PEN_TYPES = INK_PEN_ENABLED ? ALL_PEN_TYPES : ALL_PEN_TYPES.filter(type => type.id !== 'glass')
 export const DEFAULT_PEN_SETTINGS = { kind: 'ball', color: '#18224D', width: 2.5 }
-// 잉크펜 꾸미기를 끈 빌드(shared/featureFlags.js INK_PEN_CUSTOM_ENABLED)에서 고를 수 있는 잉크 색: 남색 · 자주 · 파랑(EDITOR_COLORS 에서)
-export const INK_PEN_COLORS = ['#18224D', '#A33C4B', '#34769F']
+// 잉크펜 꾸미기를 끈 빌드(shared/featureFlags.js INK_PEN_CUSTOM_ENABLED)에서 고를 수 있는 잉크 색: 남색 · 자주 · 파랑.
+// 펜 기본 색(EDITOR_COLORS)에서 가져와 펜 팔레트 색을 바꾸면 함께 따라간다
+export const INK_PEN_COLORS = [EDITOR_COLORS[0], EDITOR_COLORS[1], EDITOR_COLORS[4]]
 // 유리펜 잉크: 글리터 · 테를 따로 켜고 끈다. 글리터 색은 색상환이 아니라 **운모 코팅 두께(nm)** 하나로 정한다 —
 // 실제 펄 안료가 그렇다(운모판 + TiO2 코팅의 박막 간섭). 계산한 색 순서가 안료 업계 두께표와 일치한다.
 export const GLASS_FILMS = [

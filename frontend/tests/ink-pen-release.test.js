@@ -5,8 +5,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
-import { INK_PEN_CUSTOM_ENABLED, INK_PEN_ENABLED } from '../src/shared/featureFlags.js'
-import { sanitizeToolPreferences } from '../src/editor/utils/toolPreferences.js'
+import { INK_PEN_CUSTOM_ENABLED } from '../src/shared/featureFlags.js'
 import * as penSettings from '../src/editor/utils/penSettings.js'
 const { DEFAULT_GLASS_INK, INK_PEN_COLORS, limitInkPen } = penSettings
 
@@ -89,7 +88,34 @@ test('잉크펜 꾸미기를 끄면 잉크펜 설정은 3색 중 하나와 기�
   assert.equal(limitInkPen(ball), ball)
 })
 
-test('잉크펜을 끄면 기기에 저장된 펜 설정(잉크펜)을 불러올 때 볼펜으로 시작한다', { skip: INK_PEN_ENABLED && '잉크펜 켜짐' }, () => {
+// 펜 설정 검사(penSettings → toolPreferences)를 플래그 값만 바꿔 불러온다 — 지금 스위치 값과 상관없이 끈 경로도 늘 검사한다
+async function loadToolPreferences(flags) {
+  const real = {
+    dashed: await import('../src/editor/utils/dashedStroke.js'), eraser: await import('../src/editor/utils/eraser.js'),
+    grid: await import('../src/editor/utils/pageGrid.js'), text: await import('../src/editor/utils/text.js'),
+  }
+  const pen = load('../src/editor/utils/penSettings.js', id => {
+    if (id.endsWith('/featureFlags.js')) return flags
+    if (id === './dashedStroke.js') return real.dashed
+    throw Error('unexpected ' + id)
+  })
+  return load('../src/editor/utils/toolPreferences.js', id => {
+    if (id === 'react') return { useCallback: fn => fn, useSyncExternalStore: () => null }
+    if (id === '@react-native-async-storage/async-storage') return { __esModule: true, default: {} }
+    if (id === './penSettings.js') return pen
+    if (id === './eraser.js') return real.eraser
+    if (id === './pageGrid.js') return real.grid
+    if (id === './text.js') return real.text
+    throw Error('unexpected ' + id)
+  })
+}
+
+test('잉크펜을 끄면 기기에 저장된 펜 설정(잉크펜)을 불러올 때 볼펜으로 시작하고, 켜면 잉크펜 그대로다', async () => {
+  const saved = { pen: { kind: 'glass', color: '#A33C4B', width: 24, opacity: 1, inkGlitter: true }, penKinds: { glass: { width: 24, opacity: 1 } } }
+  const on = (await loadToolPreferences({ INK_PEN_ENABLED: true, INK_PEN_CUSTOM_ENABLED: false })).sanitizeToolPreferences(saved)
+  assert.equal(on.pen.kind, 'glass')
+  assert.equal(on.pen.width, 24)
+  const { sanitizeToolPreferences } = await loadToolPreferences({ INK_PEN_ENABLED: false, INK_PEN_CUSTOM_ENABLED: false })
   const restored = sanitizeToolPreferences({
     pen: { kind: 'glass', color: '#A33C4B', width: 24, opacity: 1, inkGlitter: true },
     penKinds: { glass: { width: 24, opacity: 1 } },
