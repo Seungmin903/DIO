@@ -1,0 +1,121 @@
+{
+  "name": "잠자는 고양이",
+  "order": 60,
+  "stickers": [
+    {
+      "id": "sleeping-cat-1",
+      "name": "갈색 그라데이션 고양이",
+      "image": "sleeping-cat-1.png"
+    },
+    {
+      "id": "sleeping-cat-2",
+      "name": "회색 줄무늬 고양이",
+      "image": "sleeping-cat-2.png"
+    },
+    {
+      "id": "sleeping-cat-3",
+      "name": "갈색 줄무늬 고양이",
+      "image": "sleeping-cat-3.png"
+    },
+    {
+      "id": "sleeping-cat-4",
+      "name": "흰색 삼색 고양이",
+      "image": "sleeping-cat-4.png"
+    },
+    {
+      "id": "sleeping-cat-5",
+      "name": "검정 삼색 고양이",
+      "image": "sleeping-cat-5.png"
+    },
+    {
+      "id": "sleeping-cat-6",
+      "name": "연한 삼색 고양이",
+      "image": "sleeping-cat-6.png"
+    },
+    {
+      "id": "sleeping-cat-7",
+      "name": "검정 줄무늬 고양이",
+      "image": "sleeping-cat-7.png"
+    },
+    {
+      "id": "sleeping-cat-8",
+      "name": "짙은 회색 줄무늬 고양이",
+      "image": "sleeping-cat-8.png"
+    },
+    {
+      "id": "sleeping-cat-9",
+      "name": "검정 고양이",
+      "image": "sleeping-cat-9.png"
+    },
+    {
+      "id": "sleeping-cat-10",
+      "name": "흰색 고양이",
+      "image": "sleeping-cat-10.png"
+    },
+    {
+      "id": "sleeping-cat-11",
+      "name": "턱시도 고양이",
+      "image": "sleeping-cat-11.png"
+    },
+    {
+      "id": "sleeping-cat-12",
+      "name": "청회색 턱시도 고양이",
+      "image": "sleeping-cat-12.png"
+    },
+    {
+      "id": "sleeping-cat-13",
+      "name": "크림색 갈색 포인트 고양이",
+      "image": "sleeping-cat-13.png"
+    },
+    {
+      "id": "sleeping-cat-14",
+      "name": "크림색 회색 포인트 고양이",
+      "image": "sleeping-cat-14.png"
+    },
+    {
+      "id": "sleeping-cat-15",
+      "name": "크림색 주황 포인트 고양이",
+      "image": "sleeping-cat-15.png"
+    },
+    {
+      "id": "sleeping-cat-16",
+      "name": "진갈색 고양이",
+      "image": "sleeping-cat-16.png"
+    },
+    {
+      "id": "sleeping-cat-17",
+      "name": "흰색 검정 포인트 고양이",
+      "image": "sleeping-cat-17.png"
+    },
+    {
+      "id": "sleeping-cat-18",
+      "name": "흰색 주황 포인트 고양이",
+      "image": "sleeping-cat-18.png"
+    },
+    {
+      "id": "sleeping-cat-19",
+      "name": "회색 점박이 고양이",
+      "image": "sleeping-cat-19.png"
+    },
+    {
+      "id": "sleeping-cat-20",
+      "name": "청회색 고양이",
+      "image": "sleeping-cat-20.png"
+    },
+    {
+      "id": "sleeping-cat-21",
+      "name": "연한 베이지 고양이",
+      "image": "sleeping-cat-21.png"
+    },
+    {
+      "id": "sleeping-cat-22",
+      "name": "초콜릿 갈색 고양이",
+      "image": "sleeping-cat-22.png"
+    },
+    {
+      "id": "sleeping-cat-23",
+      "name": "회색 크림 얼룩 고양이",
+      "image": "sleeping-cat-23.png"
+    }
+  ]
+}

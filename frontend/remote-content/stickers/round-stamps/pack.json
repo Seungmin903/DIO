@@ -1,0 +1,86 @@
+{
+  "name": "원형 도장",
+  "order": 40,
+  "stickers": [
+    {
+      "id": "seal-1",
+      "name": "보라 월계수 도장",
+      "image": "seal-1.png"
+    },
+    {
+      "id": "seal-2",
+      "name": "크림색 잎사귀 도장",
+      "image": "seal-2.png"
+    },
+    {
+      "id": "seal-3",
+      "name": "금빛 깃털 도장",
+      "image": "seal-3.png"
+    },
+    {
+      "id": "seal-4",
+      "name": "붉은 장미 도장",
+      "image": "seal-4.png"
+    },
+    {
+      "id": "seal-5",
+      "name": "보라 초승달 도장",
+      "image": "seal-5.png"
+    },
+    {
+      "id": "seal-6",
+      "name": "금빛 별 도장",
+      "image": "seal-6.png"
+    },
+    {
+      "id": "seal-7",
+      "name": "분홍 장미 도장",
+      "image": "seal-7.png"
+    },
+    {
+      "id": "seal-8",
+      "name": "붉은 꽃 도장",
+      "image": "seal-8.png"
+    },
+    {
+      "id": "seal-9",
+      "name": "초록 나침반 도장",
+      "image": "seal-9.png"
+    },
+    {
+      "id": "seal-10",
+      "name": "파란 책 도장",
+      "image": "seal-10.png"
+    },
+    {
+      "id": "seal-11",
+      "name": "크림색 강아지 도장",
+      "image": "seal-11.png"
+    },
+    {
+      "id": "seal-12",
+      "name": "분홍 돼지 도장",
+      "image": "seal-12.png"
+    },
+    {
+      "id": "seal-13",
+      "name": "크림색 고양이 도장",
+      "image": "seal-13.png"
+    },
+    {
+      "id": "seal-14",
+      "name": "보라 토끼 도장",
+      "image": "seal-14.png"
+    },
+    {
+      "id": "seal-15",
+      "name": "파란 고래 도장",
+      "image": "seal-15.png"
+    },
+    {
+      "id": "seal-16",
+      "name": "주황 병아리 도장",
+      "image": "seal-16.png"
+    }
+  ]
+}

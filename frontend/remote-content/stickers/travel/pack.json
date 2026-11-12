@@ -1,0 +1,406 @@
+{
+  "name": "여행",
+  "order": 10,
+  "stickers": [
+    {
+      "id": "airplane",
+      "name": "비행기",
+      "image": "airplane.png"
+    },
+    {
+      "id": "backpack",
+      "name": "배낭",
+      "image": "backpack.png"
+    },
+    {
+      "id": "bicycle",
+      "name": "자전거",
+      "image": "bicycle.png"
+    },
+    {
+      "id": "binoculars",
+      "name": "쌍안경",
+      "image": "binoculars.png"
+    },
+    {
+      "id": "burger",
+      "name": "햄버거",
+      "image": "burger.png"
+    },
+    {
+      "id": "bus",
+      "name": "버스",
+      "image": "bus.png"
+    },
+    {
+      "id": "cap",
+      "name": "모자",
+      "image": "cap.png"
+    },
+    {
+      "id": "compass",
+      "name": "나침반",
+      "image": "compass.png"
+    },
+    {
+      "id": "croissant",
+      "name": "크루아상",
+      "image": "croissant.png"
+    },
+    {
+      "id": "ferris-wheel",
+      "name": "관람차",
+      "image": "ferris-wheel.png"
+    },
+    {
+      "id": "ferry",
+      "name": "여객선",
+      "image": "ferry.png"
+    },
+    {
+      "id": "hotel-key",
+      "name": "호텔 열쇠",
+      "image": "hotel-key.png"
+    },
+    {
+      "id": "ice-cream",
+      "name": "아이스크림",
+      "image": "ice-cream.png"
+    },
+    {
+      "id": "iced-coffee",
+      "name": "아이스커피",
+      "image": "iced-coffee.png"
+    },
+    {
+      "id": "lighthouse",
+      "name": "등대",
+      "image": "lighthouse.png"
+    },
+    {
+      "id": "map",
+      "name": "지도",
+      "image": "map.png"
+    },
+    {
+      "id": "mountain",
+      "name": "산",
+      "image": "mountain.png"
+    },
+    {
+      "id": "onigiri",
+      "name": "주먹밥",
+      "image": "onigiri.png"
+    },
+    {
+      "id": "palm",
+      "name": "야자수",
+      "image": "palm.png"
+    },
+    {
+      "id": "passport",
+      "name": "여권",
+      "image": "passport.png"
+    },
+    {
+      "id": "pizza",
+      "name": "피자",
+      "image": "pizza.png"
+    },
+    {
+      "id": "postcard",
+      "name": "엽서",
+      "image": "postcard.png"
+    },
+    {
+      "id": "sneaker",
+      "name": "운동화",
+      "image": "sneaker.png"
+    },
+    {
+      "id": "sunglasses",
+      "name": "선글라스",
+      "image": "sunglasses.png"
+    },
+    {
+      "id": "taxi",
+      "name": "택시",
+      "image": "taxi.png"
+    },
+    {
+      "id": "tent",
+      "name": "텐트",
+      "image": "tent.png"
+    },
+    {
+      "id": "ticket",
+      "name": "티켓",
+      "image": "ticket.png"
+    },
+    {
+      "id": "train",
+      "name": "기차",
+      "image": "train.png"
+    },
+    {
+      "id": "umbrella",
+      "name": "우산",
+      "image": "umbrella.png"
+    },
+    {
+      "id": "water-bottle",
+      "name": "물병",
+      "image": "water-bottle.png"
+    },
+    {
+      "id": "beach-chair",
+      "name": "해변 의자",
+      "image": "beach-chair.png"
+    },
+    {
+      "id": "bridge",
+      "name": "다리",
+      "image": "bridge.png"
+    },
+    {
+      "id": "bubble-tea",
+      "name": "버블티",
+      "image": "bubble-tea.png"
+    },
+    {
+      "id": "cable-car",
+      "name": "케이블카",
+      "image": "cable-car.png"
+    },
+    {
+      "id": "camp-lantern",
+      "name": "캠핑 랜턴",
+      "image": "camp-lantern.png"
+    },
+    {
+      "id": "canoe",
+      "name": "카누",
+      "image": "canoe.png"
+    },
+    {
+      "id": "donut",
+      "name": "도넛",
+      "image": "donut.png"
+    },
+    {
+      "id": "door-hanger",
+      "name": "문고리 안내판",
+      "image": "door-hanger.png"
+    },
+    {
+      "id": "earbuds",
+      "name": "이어폰",
+      "image": "earbuds.png"
+    },
+    {
+      "id": "flashlight",
+      "name": "손전등",
+      "image": "flashlight.png"
+    },
+    {
+      "id": "hiking-boot",
+      "name": "등산화",
+      "image": "hiking-boot.png"
+    },
+    {
+      "id": "hot-air-balloon",
+      "name": "열기구",
+      "image": "hot-air-balloon.png"
+    },
+    {
+      "id": "hotel-bell",
+      "name": "호텔 벨",
+      "image": "hotel-bell.png"
+    },
+    {
+      "id": "museum",
+      "name": "박물관",
+      "image": "museum.png"
+    },
+    {
+      "id": "neck-pillow",
+      "name": "목베개",
+      "image": "neck-pillow.png"
+    },
+    {
+      "id": "popsicle",
+      "name": "아이스바",
+      "image": "popsicle.png"
+    },
+    {
+      "id": "pretzel",
+      "name": "프레첼",
+      "image": "pretzel.png"
+    },
+    {
+      "id": "ramen",
+      "name": "라멘",
+      "image": "ramen.png"
+    },
+    {
+      "id": "road-sign",
+      "name": "도로 표지판",
+      "image": "road-sign.png"
+    },
+    {
+      "id": "scooter",
+      "name": "스쿠터",
+      "image": "scooter.png"
+    },
+    {
+      "id": "seashell",
+      "name": "조개",
+      "image": "seashell.png"
+    },
+    {
+      "id": "sleep-mask",
+      "name": "수면 안대",
+      "image": "sleep-mask.png"
+    },
+    {
+      "id": "sleeping-bag",
+      "name": "침낭",
+      "image": "sleeping-bag.png"
+    },
+    {
+      "id": "snow-globe",
+      "name": "스노글로브",
+      "image": "snow-globe.png"
+    },
+    {
+      "id": "surfboard",
+      "name": "서핑 보드",
+      "image": "surfboard.png"
+    },
+    {
+      "id": "sushi",
+      "name": "초밥",
+      "image": "sushi.png"
+    },
+    {
+      "id": "tram",
+      "name": "트램",
+      "image": "tram.png"
+    },
+    {
+      "id": "travel-adapter",
+      "name": "여행용 어댑터",
+      "image": "travel-adapter.png"
+    },
+    {
+      "id": "waterfall",
+      "name": "폭포",
+      "image": "waterfall.png"
+    },
+    {
+      "id": "windmill",
+      "name": "풍차",
+      "image": "windmill.png"
+    },
+    {
+      "id": "beach-bucket",
+      "name": "모래놀이 양동이",
+      "image": "beach-bucket.png"
+    },
+    {
+      "id": "bento",
+      "name": "도시락",
+      "image": "bento.png"
+    },
+    {
+      "id": "cabin",
+      "name": "오두막",
+      "image": "cabin.png"
+    },
+    {
+      "id": "cable-lock",
+      "name": "케이블 자물쇠",
+      "image": "cable-lock.png"
+    },
+    {
+      "id": "cactus",
+      "name": "선인장",
+      "image": "cactus.png"
+    },
+    {
+      "id": "camera-film",
+      "name": "카메라 필름",
+      "image": "camera-film.png"
+    },
+    {
+      "id": "fan",
+      "name": "휴대용 선풍기",
+      "image": "fan.png"
+    },
+    {
+      "id": "lemonade",
+      "name": "레모네이드",
+      "image": "lemonade.png"
+    },
+    {
+      "id": "macaron",
+      "name": "마카롱",
+      "image": "macaron.png"
+    },
+    {
+      "id": "market-stall",
+      "name": "시장 가판대",
+      "image": "market-stall.png"
+    },
+    {
+      "id": "metro-card",
+      "name": "교통카드",
+      "image": "metro-card.png"
+    },
+    {
+      "id": "picnic-basket",
+      "name": "피크닉 바구니",
+      "image": "picnic-basket.png"
+    },
+    {
+      "id": "raincoat",
+      "name": "우비",
+      "image": "raincoat.png"
+    },
+    {
+      "id": "snorkel-mask",
+      "name": "스노클 마스크",
+      "image": "snorkel-mask.png"
+    },
+    {
+      "id": "streetlamp",
+      "name": "가로등",
+      "image": "streetlamp.png"
+    },
+    {
+      "id": "suitcase-scale",
+      "name": "여행 가방 저울",
+      "image": "suitcase-scale.png"
+    },
+    {
+      "id": "sunblock",
+      "name": "선크림",
+      "image": "sunblock.png"
+    },
+    {
+      "id": "taiyaki",
+      "name": "도미빵",
+      "image": "taiyaki.png"
+    },
+    {
+      "id": "torii",
+      "name": "도리이",
+      "image": "torii.png"
+    },
+    {
+      "id": "tteokbokki",
+      "name": "떡볶이",
+      "image": "tteokbokki.png"
+    }
+  ]
+}
