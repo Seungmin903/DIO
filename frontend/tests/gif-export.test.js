@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { GifReader } from 'omggif'
-import { createGifAssembler, decodeGifFrames, gifFrameDelays, planGifTimeline } from '../src/editor/utils/gifExport.js'
+import { createGifAssembler, decodeGifFrames, gifFrameDelays, gifFrames, planGifTimeline } from '../src/editor/utils/gifExport.js'
 
 const love = new Uint8Array(readFileSync(new URL('./fixtures/gifs/n-love.gif', import.meta.url)))
 
@@ -20,6 +20,16 @@ test('여러 GIF 의 장면을 한 시간축에 맞추고, 같은 장면이 이�
   const long = planGifTimeline([Array(300).fill(40)])
   assert.ok(long.steps.length <= 40)
   assert.equal(long.steps.reduce((sum, s) => sum + s.delay, 0), 600)
+})
+
+test('장면을 하나씩 꺼내 풀어도 한꺼번에 푼 것과 같다', () => {
+  const needed = planGifTimeline([gifFrameDelays(love)]).needed[0]
+  const all = new Map()
+  decodeGifFrames(love, needed, (index, rgba) => all.set(index, rgba.slice()))
+  const oneByOne = new Map()
+  for (const { index, rgba } of gifFrames(love, needed)) oneByOne.set(index, rgba.slice())
+  assert.deepEqual([...oneByOne.keys()], [...needed].sort((a, b) => a - b))
+  for (const [index, rgba] of all) assert.deepEqual(oneByOne.get(index), rgba)
 })
 
 test('기본 GIF 스티커를 장면별로 풀고 다시 GIF 로 묶는다', () => {

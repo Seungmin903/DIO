@@ -55,23 +55,31 @@ export function planGifTimeline(delayLists, limits = GIF_LIMITS) {
  * rgba 는 다음 장면에서 덮어쓰므로 onFrame 안에서 바로 써야 한다.
  */
 export function decodeGifFrames(bytes, needed, onFrame) {
+  for (const { index, rgba, width, height } of gifFrames(bytes, needed)) onFrame(index, rgba, width, height)
+}
+
+/**
+ * decodeGifFrames 와 같지만 필요한 장면을 하나씩 꺼낸다({ index, rgba, width, height }).
+ * 꺼내는 사이에 쉬어 갈 수 있어(await) 큰 GIF 를 풀 때도 화면이 굳지 않는다. rgba 는 다음 장면을 꺼내면 덮어쓴다.
+ */
+export function* gifFrames(bytes, needed) {
   const reader = readGif(bytes)
   const { width, height } = reader
   const canvas = new Uint8Array(width * height * 4)
   const last = Math.max(...needed)
-  try {
-    for (let i = 0; i <= last && i < reader.numFrames(); i++) {
-      const info = reader.frameInfo(i)
-      const saved = info.disposal === 3 ? canvas.slice() : null
+  for (let i = 0; i <= last && i < reader.numFrames(); i++) {
+    let info, saved
+    try {
+      info = reader.frameInfo(i)
+      saved = info.disposal === 3 ? canvas.slice() : null
       reader.decodeAndBlitFrameRGBA(i, canvas)
-      if (needed.has(i)) onFrame(i, canvas, width, height)
-      if (info.disposal === 2) {
-        for (let y = info.y; y < Math.min(height, info.y + info.height); y++) canvas.fill(0, (y * width + info.x) * 4, (y * width + Math.min(width, info.x + info.width)) * 4)
-      } else if (saved) canvas.set(saved)
+    } catch (error) {
+      throw new PageExportError('EXPORT_GIF_DECODE_FAILED', 'GIF 장면을 읽지 못했어요. 원본을 확인해 주세요.', error)
     }
-  } catch (error) {
-    if (error instanceof PageExportError) throw error
-    throw new PageExportError('EXPORT_GIF_DECODE_FAILED', 'GIF 장면을 읽지 못했어요. 원본을 확인해 주세요.', error)
+    if (needed.has(i)) yield { index: i, rgba: canvas, width, height }
+    if (info.disposal === 2) {
+      for (let y = info.y; y < Math.min(height, info.y + info.height); y++) canvas.fill(0, (y * width + info.x) * 4, (y * width + Math.min(width, info.x + info.width)) * 4)
+    } else if (saved) canvas.set(saved)
   }
 }
 
