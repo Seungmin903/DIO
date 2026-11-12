@@ -16,6 +16,10 @@ import { memoArtOf } from '../../utils/editorShapes'
 import { packingLayout } from '../../templates/packingLayout.js'
 
 const DRAG_OPACITY = 0.5
+// 발색 기록 속지의 병 윤곽이 들어갈 자리표. 요소가 아니라 **차례를 잡는 표식**이라
+// type · x · w 가 없다. 획 묶음을 가르는 쪽(CompletedStrokeLayer · WebStrokeCache)은
+// type !== 'stroke' 를 비(非)획으로 보고 renderObject 에 넘기므로 그대로 동작한다.
+const INK_RECORD_FRONT = { id: 'ink-record-front', inkRecordFront: true }
 
 /**
  * 편집 화면이 페이지 그림에 알려 GIF 를 멈출지 정하는 값. (EditorScreen 이 Viewport 안쪽에 준다)
@@ -72,7 +76,9 @@ const StaticPage = memo(function StaticPage({ qaPageMeasurement = null, page, zo
   // 메모지랑 같은 버그"). 맨 뒤에 그리고 있어서 나중에 붙인 메모 · 사진까지 덮었다.
   // 속지는 모든 요소보다 아래(배경)에 있으므로 **처음 만나는 비(非)획 요소 바로 앞**이 제자리다 —
   // 그때까지 그은 획은 덮어 잉크가 병 안에 든 것처럼 보이고, 뒤에 붙인 것에는 덮인다.
-  const pending = inkRecordLayout(page.backgroundAssetId) ? [{ id: 'ink-record-front', inkRecordFront: true }] : []
+  // 자리표는 **한 번만** 만들어 둔 것을 쓴다 — 렌더마다 새 객체면 획 묶음 캐시가 참조로
+  // 견주는 자리에서 괜히 달라 보인다(코드리뷰 2026-11-13).
+  const pending = inkRecordLayout(page.backgroundAssetId) ? [INK_RECORD_FRONT] : []
   for (const object of renderableObjects) {
     if (object.type !== 'stroke' && pending.length) ordered.push(...pending.splice(0))
     ordered.push(object)

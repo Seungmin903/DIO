@@ -115,6 +115,46 @@ test('발색 기록 속지의 병 윤곽은 획 위에, 나중에 붙인 메모 
   assert.equal(drawing[front].props.page, inkPage)
 })
 
+test('획 캐시 경로(앱 · 웹)에도 같은 차례로 넘어간다', () => {
+  // 실제 필기 화면은 ordered 를 통째로 캐시 층에 넘긴다 — 차례가 거기서도 지켜져야 한다
+  // (코드리뷰 2026-11-13: 새 검사가 캐시 없는 길만 보고 있었다).
+  const later = { id: 'later', type: 'sticker', x: 10, y: 10, w: 50, h: 50 }
+  const memo = { id: 'memo', type: 'sticker', art: 'inkRound', x: 0, y: 0, w: 100, h: 100 }
+  // 속지에 획을 긋고 → 잉크병 메모를 붙이고 → 그 위에 다른 메모를 붙인 차례
+  const inkPage = { ...page, backgroundAssetId: 'ink-record', objects: [...objects, memo, later] }
+  for (const [name, options] of [['앱', { cacheStrokes: true }], ['웹', { cacheStrokes: true }]]) {
+    const component = loadComponent('StaticPage', name === '웹' ? 'web' : 'ios', name === '웹' ? true : null, null, ['inkRound'])
+    const cache = drawingOf(component.render({ page: inkPage, zoom: 1, ...options }))
+    assert.equal(cache.type, name === '웹' ? './WebStrokeCache' : './CompletedStrokeLayer', name)
+    const given = cache.props.objects
+    const at = pred => given.findIndex(pred)
+    const iFront = at(o => o?.inkRecordFront)
+    const iOver = at(o => o?.overTopOf === memo)
+    const iLast = at(o => o === objects[objects.length - 1])
+    const iLater = at(o => o === later)
+    assert.ok(iFront >= 0 && iOver >= 0 && iLater >= 0, `${name}: 셋 다 넘어간다`)
+    assert.ok(iLast < iFront && iFront < iLater, `${name}: 윤곽은 획 위 · 나중에 붙인 것 아래`)
+    assert.ok(iOver < iLater, `${name}: 덧그림도 나중에 붙인 것 아래`)
+    // 자리표 · 덧그림은 요소가 아니다 — 캐시 층이 비(非)획으로 보고 renderObject 에 넘겨야 한다
+    assert.equal(given[iFront].type, undefined)
+    assert.equal(typeof cache.props.renderObject, 'function')
+  }
+})
+
+test('획 묶음 캐시는 자리표를 비(非)획으로 보고, 같은 내용이면 묶음을 그대로 쓴다', () => {
+  // 자리표에 type 이 없어 묶음이 끊기는 것은 의도다. 다만 그 때문에 획 묶음이 매번
+  // 다시 녹화되면 안 된다(렌더마다 새 객체였다면 그렇게 된다 — 코드리뷰 2026-11-13).
+  const component = loadComponent('CompletedStrokeLayer')
+  const front = { id: 'ink-record-front', inkRecordFront: true }
+  const options = { width: 1024, height: 768, zoom: 1, renderObject: object => ({ type: 'rendered', props: { object } }) }
+  const mixed = [...objects, front]
+  const first = component.render({ ...options, objects: mixed })
+  assert.equal(first.at(-1).props.object, front, '자리표는 renderObject 로 그린다')
+  assert.ok(first[0].props.batch, '앞의 획들은 한 묶음으로 남는다')
+  const again = component.render({ ...options, objects: mixed })
+  assert.equal(again[0].props.batch, first[0].props.batch, '같은 내용이면 묶음을 그대로 쓴다')
+})
+
 test('발색 기록 속지가 아니면 병 윤곽을 아예 그리지 않는다', () => {
   const component = loadComponent('StaticPage')
   const drawing = drawingOf(component.render({ page, zoom: 1 }))
