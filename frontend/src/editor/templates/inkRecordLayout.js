@@ -88,9 +88,20 @@ export function inkRecordLayout(assetId) {
  * 기준이 필요하다 — **병을 가리는 것**만 윤곽을 끌어내린다. 페이지 구석에 붙인 스티커까지
  * 차례를 가르면, 그 뒤에 칠한 잉크가 전부 병 선을 덮는다(코드리뷰 2026-11-13).
  *
- * 숨긴 요소는 그리지 않으므로 차례도 가르지 않는다. 돌린 요소는 감싸는 네모로 본다 —
- * 조금 넉넉하게 잡히지만, 덜 잡혀 선이 가려지는 쪽보다 낫다.
+ * 숨긴 요소는 그리지 않으므로 차례도 가르지 않는다. 돌린 요소는 **돌린 뒤의** 감싸는 네모로 본다 —
+ * 가로로 긴 메모를 90도 가까이 돌려 병에 걸치면 돌리기 전 네모로는 안 겹치기 때문이다
+ * (코드리뷰 2026-11-13). 조금 넉넉하게 잡히지만, 덜 잡혀 선이 가려지는 쪽보다 낫다.
  */
+const coverBox = (object) => {
+  const w = object.w ?? 0, h = object.h ?? 0, x = object.x ?? 0, y = object.y ?? 0
+  const angle = ((object.rotation ?? 0) % 360) * Math.PI / 180
+  if (!angle) return { x, y, w, h }
+  // 가운데를 축으로 돈다(PageObject 의 transform 과 같다). 돌린 네 모서리를 감싸는 네모:
+  // 폭 = |w·cos| + |h·sin|, 높이 = |w·sin| + |h·cos|
+  const cos = Math.abs(Math.cos(angle)), sin = Math.abs(Math.sin(angle))
+  const rw = w * cos + h * sin, rh = w * sin + h * cos
+  return { x: x + (w - rw) / 2, y: y + (h - rh) / 2, w: rw, h: rh }
+}
 export function inkRecordFrontIndex(assetId, objects) {
   const layout = inkRecordLayout(assetId)
   if (!layout) return -1
@@ -98,9 +109,9 @@ export function inkRecordFrontIndex(assetId, objects) {
   for (let i = 0; i < list.length; i++) {
     const object = list[i]
     if (!object || object.hidden || object.type === 'stroke') continue
-    const w = object.w ?? 0, h = object.h ?? 0, x = object.x ?? 0, y = object.y ?? 0
-    if (layout.cells.some(cell => x < cell.bottle.x + cell.bottle.w && x + w > cell.bottle.x
-      && y < cell.bottle.y + cell.bottle.h && y + h > cell.bottle.y)) return i
+    const box = coverBox(object)
+    if (layout.cells.some(cell => box.x < cell.bottle.x + cell.bottle.w && box.x + box.w > cell.bottle.x
+      && box.y < cell.bottle.y + cell.bottle.h && box.y + box.h > cell.bottle.y)) return i
   }
   return list.length   // 병을 가리는 것이 없으면 맨 뒤 — 모든 획 위
 }

@@ -222,6 +222,10 @@ test('병 윤곽 자리 계산은 순수 함수 하나로 — 화면과 내보�
   assert.equal(inkRecordFrontIndex(id, [stroke, far, over, stroke]), 2, '병을 가리는 것 바로 앞')
   assert.equal(inkRecordFrontIndex(id, [stroke, { ...over, hidden: true }, stroke]), 3, '숨긴 것은 안 가른다')
   assert.equal(inkRecordFrontIndex(id, [{ ...over, type: 'stroke' }, stroke]), 2, '획은 안 가른다')
+  // 돌린 요소는 **돌린 뒤** 네모로 본다 — 가로로 긴 메모를 90도 돌리면 병에 걸친다
+  const long = { id: 'long', type: 'sticker', x: bottle.x + bottle.w / 2 - 80, y: bottle.y - 50, w: 160, h: 20 }
+  assert.equal(inkRecordFrontIndex(id, [stroke, long, stroke]), 3, '안 돌리면 병 위쪽 바깥이라 안 가린다')
+  assert.equal(inkRecordFrontIndex(id, [stroke, { ...long, rotation: 90 }, stroke]), 1, '돌리면 병에 걸친다')
 })
 
 test('화면도 병을 안 가리는 요소에는 윤곽을 안 내린다', () => {
