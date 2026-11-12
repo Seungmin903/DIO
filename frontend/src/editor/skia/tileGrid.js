@@ -29,9 +29,13 @@ export const pixelTileScale = scale => Math.max(1, Math.round(TILE * scale)) / T
  * 타일을 화면에 놓을 자리. 이웃 타일과 **같은 정수 픽셀**에서 만나게 반올림한다 — 경계 픽셀 하나를
  * 두 타일이 반씩 덮으면 반투명 잉크가 옅어져 1px 줄이 뜬다(실기 SM-X510 2026-11-11).
  */
-export function tileScreenRect(tile, zoom) {
-  const x0 = Math.round(tile.col * TILE * zoom), y0 = Math.round(tile.row * TILE * zoom)
-  const x1 = Math.round((tile.col + 1) * TILE * zoom), y1 = Math.round((tile.row + 1) * TILE * zoom)
+export function tileScreenRect(tile, zoom, dpr = 1) {
+  // dp 로만 반올림하면 PixelRatio 가 정수가 아닌 기기(SM-X510 은 2.625)에서 경계가 **기기 픽셀
+  // 한가운데**에 떨어진다. 그러면 벡터로 얹는 획을 자르는 자리(부드러운 클립)와 반 픽셀 어긋나
+  // 그 한 줄이 두 번 그려진다 — 유리펜에서 네모난 테두리로 보였다(실기 2026-11-13).
+  const snap = v => Math.round(v * zoom * dpr) / dpr
+  const x0 = snap(tile.col * TILE), y0 = snap(tile.row * TILE)
+  const x1 = snap((tile.col + 1) * TILE), y1 = snap((tile.row + 1) * TILE)
   return { x: x0, y: y0, width: x1 - x0, height: y1 - y0 }
 }
 export const tileKey = (col, row, scale) => `${col}|${row}|${scale}`

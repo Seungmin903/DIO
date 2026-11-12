@@ -63,7 +63,16 @@ test('창 밖 바탕은 또렷한 그림 아래에 깔고 창 안쪽은 잘라 �
   assert.match(src.slice(backdrop, sharp), /invertClip/, '덮이는 쪽을 잘라 내야 한다')
   // 창(160 격자)이 아니라 **타일이 덮는 네모**로 잘라야 한다. 타일은 256 칸이라 창 밖으로 최대 255
   // 더 뻗고, 창으로 자르면 그 띠에서 바탕과 타일이 둘 다 그려져 반투명 잉크가 진해진다.
-  assert.match(src.slice(backdrop, sharp), /covered\.x \* zoom, covered\.y \* zoom, covered\.w \* zoom, covered\.h \* zoom/)
+  assert.match(src.slice(backdrop, sharp), /snapRect\(covered, snapDp\)/)
+  // 자르는 자리 · 타일 자리 · 벡터 획을 자르는 자리는 **모두 같은 기기 픽셀 경계**여야 한다.
+  // 하나라도 어긋나면 그 한 줄이 두 번 그려지거나(진해짐) 비어(옅어짐) 네모난 테두리로 보인다
+  // (2026-11-13: dp 로만 반올림해서 PixelRatio 2.625 기기에서 경계가 픽셀 한가운데 떨어졌다).
+  assert.match(src.slice(sharp), /tileScreenRect\(tile, zoom, PixelRatio\.get\(\)\)/, '타일도 같은 기기 픽셀 반올림을 쓴다')
+  assert.match(src, /snapRect\(box, snapPage\)/, '벡터 획을 자르는 자리도 같은 반올림을 쓴다')
+  assert.match(src, /const snapPage = v => Math\.round\(v \* screenScale\) \/ screenScale/, '배율 그룹 안은 페이지 좌표로 돌려준다')
+  assert.match(src, /const snapDp = v => Math\.round\(v \* screenScale\) \/ PixelRatio\.get\(\)/, '배율 그룹 밖은 dp 로 돌려준다')
+  // 양 끝을 각각 맞춰 폭을 빼야 이웃한 두 칸의 맞닿은 변이 같은 자리에 떨어진다
+  assert.match(src, /snap\(box\.x \+ box\.w\) - snap\(box\.x\)/)
   assert.match(src, /tilesBounds\(win, width, height\)/)
   // 바탕 배율은 페이지 크기만 따른다 - 확대율이 들어가면 확대할 때마다 다시 구워진다
   assert.match(src, /const wideScale = Math\.sqrt\(WIDE_MAX_PX \/ Math\.max\(1, width \* height\)\)/)

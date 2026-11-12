@@ -7,7 +7,13 @@ import { HIGHLIGHTER_OPACITY } from '../utils/penSettings.js'
 import { drawGlassStroke } from './glassStroke.js'
 // 유리펜 잉크 설정(획 설정 · 저장 획 공용). 없으면 기본값(글리터 · 테 켬)
 const glassInkOf = one => ({ glitter: one?.inkGlitter !== false, sheen: one?.inkSheen !== false, film: one?.inkFilm, glitterColor: one?.inkGlitterColor, amount: one?.inkAmount, sheenColor: one?.inkSheenColor, sheenAmount: one?.inkSheenAmount })
-const glassKey = one => `|${one?.inkGlitter !== false}|${one?.inkSheen !== false}|${one?.inkFilm ?? ''}|${one?.inkGlitterColor ?? ''}|${one?.inkAmount ?? ''}|${one?.inkSheenColor ?? ''}|${one?.inkSheenAmount ?? ''}`
+// 유리펜 무늬를 **페이지**에 붙이는 밀어주기. 셰이더가 받는 좌표는 획 자기 좌표라
+// (요소 상자 왼쪽 위가 원점) 이걸 더해야 페이지 자리가 된다. 그을 때 적어 둔 inkOrigin 을
+// 먼저 쓴다 — 나중에 옮기면 무늬가 획을 따라가야 하기 때문이다(연필 grainOrigin 과 같은 생각).
+// 옛 획은 그 값이 없으니 지금 자리를 쓴다(옮기면 무늬가 바뀌지만 **찍어낸 무늬**보다는 낫다).
+const ORIGIN0 = { x: 0, y: 0 }
+export const glassOrigin = object => object?.inkOrigin ?? { x: object?.x ?? 0, y: object?.y ?? 0 }
+const glassKey = one => `|${glassOrigin(one).x},${glassOrigin(one).y}|${one?.inkGlitter !== false}|${one?.inkSheen !== false}|${one?.inkFilm ?? ''}|${one?.inkGlitterColor ?? ''}|${one?.inkAmount ?? ''}|${one?.inkSheenColor ?? ''}|${one?.inkSheenAmount ?? ''}`
 import { PENCIL_CAP, PENCIL_CAP_DIAMETER, PENCIL_COPY, PENCIL_DOME, PENCIL_DOME_DIAMETER, PENCIL_DOME_FIBER, PENCIL_DOMES, PENCIL_GRAIN_PNG, PENCIL_SMALL, PENCIL_STRAND_PNG, PENCIL_SWEEP, PENCIL_TOOTH_PNG, PENCIL_TIP_DIAMETER, PENCIL_TIPS, PENCIL_TIPS_K2 } from './pencilGrain.js'
 
 // 앱(안드로이드 · iOS)의 필기 그리기: 그리기 앱처럼 획을 Skia 캔버스에 그린다(웹은 SVG 그대로).
@@ -533,7 +539,7 @@ function drawParts(canvas, parts, style) {
   // 쓰는 중에 오프스크린 표면을 쓰면 이 기기에서 librnskia 가 죽는다(2026-11-09 실기 SIGTRAP · SIGSEGV).
   // 유리펜: 쓰는 중과 손을 뗀 뒤가 **같은 함수**다(그림이 같다). 오프스크린 표면을 쓰지 않는다 —
   // 이 기기에서 MakeOffscreen 이 librnskia 를 죽인다(2026-11-09 실기 SIGTRAP · SIGSEGV).
-  if (kind === 'glass' && drawGlassStroke(canvas, parts.flatMap(part => part.points), style.width, style.color, style.zoom ?? 1, style.ink)) return
+  if (kind === 'glass' && drawGlassStroke(canvas, parts.flatMap(part => part.points), style.width, style.color, style.zoom ?? 1, style.ink, style.inkOrigin ?? ORIGIN0)) return
   if (isNibKind(kind)) {
     const paths = nibPreviewPaths(parts, style.width, kind)
     const path = join(paths.map((d, i) => i < parts.length - 2 ? cachedParse(parts[i], 'nib', () => parse(d)) : parse(d)))
@@ -582,10 +588,13 @@ function drawObjectContent(canvas, object, zoom = 1) {
   }
   const kind = skiaKind(object.penKind), { points, strokeWidth: width, color } = object
   const style = { kind, width, color, lineCap: object.lineCap,
-    dotWidth: width * (points[0]?.pressure ?? 1), origin: object.grainOrigin ?? points[0], zoom, opacity: object.opacity ?? 1, ink: glassInkOf(object) }
+    dotWidth: width * (points[0]?.pressure ?? 1), origin: object.grainOrigin ?? points[0], zoom, opacity: object.opacity ?? 1,
+    // 유리펜 무늬를 페이지에 붙이는 밀어주기. 손을 뗀 획은 **요소 좌표**로 그려지므로 꼭 넘겨야 한다
+    // (쓰는 중인 획은 이미 페이지 좌표라 기본값 0 이 맞다).
+    ink: glassInkOf(object), inkOrigin: glassOrigin(object) }
   // 캘리펜 · 붓펜은 저장 점에 진행 거리가 없어 구간으로 그리면 붓펜 전체 길이가 0 이 된다(뗀 뒤 몸통이 끝 굵기로 얇아졌다) → 아래 외곽선(nibContour)이 거리를 다시 재서 쓰는 중과 같은 모양이 된다
   if (!object.sampled && !object.taperBaked && !isNibKind(kind)) return drawParts(canvas, createStrokePreview(previewSegmentFor(kind)).snapshot(points), style)
-  if (kind === 'glass' && drawGlassStroke(canvas, points, width, color, zoom, glassInkOf(object))) return
+  if (kind === 'glass' && drawGlassStroke(canvas, points, width, color, zoom, glassInkOf(object), glassOrigin(object))) return
   if (kind === 'pencil' && PENCIL_BRUSH.engine === 'shader') {
     releaseLive()
     if (drawShaderStroke(canvas, pencilDabs(brushSampledPoints(points, object.inkStartDistance ?? 0), width, -Infinity, Infinity, Infinity, brushSeed(style.origin)), width, color, style.origin, inkBox([points], width), zoom)) return

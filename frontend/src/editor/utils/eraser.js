@@ -1,6 +1,6 @@
 import { createId, rotateVector } from './common.js'
 import { isDashedKind, dashedObjectContour, dashedObjectSamples } from './dashedStroke.js'
-import { createStroke, penContour, strokeOutline, samplePenCurve } from './strokes.js'
+import { createStroke, penContour, strokeOutline, samplePenCurve, GLASS_BLEED } from './strokes.js'
 import { isNibKind, nibContour, nibCurve, withDistances, withTaper } from './nibStroke.js'
 import { createBoxIndex, queryBoxIndex } from './boxIndex.js'
 
@@ -73,7 +73,9 @@ function strokePolygons(object) {
   if (points.length > 1 && (kind === 'brush' || kind === 'fountain')) {
     return outlinePolygons([2, 3].includes(object.renderVersion) ? penContour(points, width, kind) : strokeOutline(points, width, object.eraserCaps))
   }
+  // 유리펜은 실루엣 밖으로 번진 자리까지가 획이다 — 보이는 잉크에 지우개를 대면 지워져야 한다
   const half = width / 2 * (kind === 'highlighter' ? 1 : points.length === 1 ? points[0].pressure ?? 1 : kind === 'pencil' ? 0.85 : 1)
+    + (kind === 'glass' ? GLASS_BLEED : 0)
   const square = kind === 'highlighter' && object.lineCap === 'square'
   const samples = points.length === 1 && kind === 'highlighter' ? [points[0], { x: points[0].x + 0.01, y: points[0].y }] : points
   const shapes = []
@@ -109,6 +111,7 @@ function eraserTarget(object) {
   }
   // 대략의 범위: 요소 상자 네 모서리(회전 반영)에 획 굵기만큼 여유. 정확한 도형(polygons)은 이 범위에 지우개가 닿을 때 만든다.
   const pad = object.strokeWidth * object.points.reduce((max, p) => Math.max(max, p.pressure ?? 1), 1) * Math.max(object.w / object.baseWidth, object.h / object.baseHeight)
+    + (object.penKind === 'glass' ? GLASS_BLEED : 0)
   const corners = [[0, 0], [object.baseWidth, 0], [0, object.baseHeight], [object.baseWidth, object.baseHeight]].map(([x, y]) => project({ x, y }))
   const box = boundsOf(corners)
   let polygons = null
@@ -253,8 +256,10 @@ function createAreaEraserSession(objects, radius) {
         const current = before ?? piecesOf(target)
         let changed = false
         const next = current.flatMap((piece) => {
+          // 유리펜의 번진 자리(GLASS_BLEED)는 그릴 때 **화면 좌표로** 붙으므로 요소 크기(piece.scale)를 따르지 않는다
           const reach = point => radius + target.object.strokeWidth * piece.scale / 2
             * (target.object.penKind === 'highlighter' ? 1 : ['brush', 'fountain', 'felt', 'taperBrush', 'ball', 'calligraphy'].includes(target.object.penKind) ? point.pressure ?? 1 : target.object.penKind === 'pencil' ? 0.85 : 1)
+            + (target.object.penKind === 'glass' ? GLASS_BLEED : 0)
           const erased = (point, page) => distanceToSegment(page, from, to) <= reach(point)
           const hit = piece.page.map((p, i) => erased(piece.points[i], p))
           if (!hit.some(Boolean)) return [piece]

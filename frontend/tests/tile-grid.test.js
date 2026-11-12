@@ -182,4 +182,16 @@ test('타일 굽기 배율은 한 칸이 정수 픽셀이 되게 맞추고, 화�
       assert.equal(here.y + here.height, below.y, `${zoom} 세로 이음매`)
     }
   }
+  // 기기 픽셀비를 주면 **기기 픽셀**에 맞춘다. dp 로만 맞추면 PixelRatio 2.625 기기에서 경계가
+  // 픽셀 한가운데에 떨어져, 벡터로 얹는 획을 자르는 자리와 반 픽셀 어긋난다(실기 2026-11-13).
+  for (const dpr of [2, 2.625, 3]) {
+    for (const zoom of [0.37, 1, 1.189]) {
+      for (let col = 0; col < 4; col++) {
+        const here = tileScreenRect({ col, row: 0 }, zoom, dpr), right = tileScreenRect({ col: col + 1, row: 0 }, zoom, dpr)
+        const device = here.x * dpr
+        assert.ok(Math.abs(device - Math.round(device)) < 1e-9, `${dpr} ${zoom} ${col}: ${device}`)
+        assert.equal(here.x + here.width, right.x, `${dpr} ${zoom} 이음매`)
+      }
+    }
+  }
 })
