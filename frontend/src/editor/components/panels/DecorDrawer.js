@@ -738,11 +738,19 @@ export default function DecorDrawer({ tab, onAdd, onTapeInserted, onToast, onClo
 }
 
 // 칸 그림은 썸네일 · 캐시 · 다시 시도를 하는 공용 부품으로 그린다
-function StickerThumb({ item }) {
-  return <StickerThumbImage item={item} style={styles.tileImage} />
+function StickerThumb({ item, loadImage = true }) {
+  return loadImage
+    ? <StickerThumbImage item={item} style={styles.tileImage} />
+    : <View style={[styles.tileImage, styles.stickerPlaceholder]} />
 }
 
+const STICKER_VIEWABILITY = { itemVisiblePercentThreshold: 1 }
+
 function StickerResults({ sections, columns, tileProps, keyword }) {
+  const [visibleRows, setVisibleRows] = useState([])
+  const onViewableItemsChanged = useRef(({ viewableItems }) => {
+    setVisibleRows(viewableItems.map(({ index }) => index).filter(Number.isInteger))
+  }).current
   const rows = sections.flatMap(({ id, title, items }) => {
     if (keyword && !items.length) return []
     const result = [{ key: `${id}:title`, title }]
@@ -751,6 +759,9 @@ function StickerResults({ sections, columns, tileProps, keyword }) {
     }
     return result
   })
+  const lastVisible = visibleRows.length ? Math.max(...visibleRows) : -1
+  const nextRow = lastVisible < 0 ? -1 : rows.findIndex((row, index) => index > lastVisible && row.items)
+  const loadingRows = new Set([...visibleRows, nextRow])
   return (
     <FlatList
       style={styles.scroll}
@@ -759,13 +770,15 @@ function StickerResults({ sections, columns, tileProps, keyword }) {
       initialNumToRender={5}
       maxToRenderPerBatch={4}
       windowSize={3}
+      viewabilityConfig={STICKER_VIEWABILITY}
+      onViewableItemsChanged={onViewableItemsChanged}
       keyExtractor={row => row.key}
       ListEmptyComponent={keyword ? <Text style={styles.empty}>'{keyword}'에 맞는 스티커가 없어요.</Text> : null}
-      renderItem={({ item: row }) => row.items ? (
+      renderItem={({ item: row, index }) => row.items ? (
         <View style={styles.grid}>
           {row.items.map(item => (
             <Tile key={`${item.folderId ?? ''}:${stickerKey(item)}`} {...tileProps(item)}>
-              <StickerThumb item={item} />
+              <StickerThumb item={item} loadImage={loadingRows.has(index)} />
             </Tile>
           ))}
         </View>
@@ -1303,6 +1316,7 @@ const styles = StyleSheet.create({
   },
   pressed: {}, // 눌림 효과 없음(사용자 지시)
   tileImage: { width: '74%', height: '74%' },
+  stickerPlaceholder: { borderRadius: 8, backgroundColor: colors.surfaceMuted },
   // 이름 있는 칸(테이프): 스티커 칸과 같은 정사각(사용자 2026-11-02). 띠는 위 22(왼쪽 위 즐겨찾기 별 아래), 이름 12/600/16 은 아래 8 에 붙인다
   tileCaption: { justifyContent: 'space-between', paddingTop: 22, paddingBottom: 8, paddingHorizontal: 4 }, // 띠는 왼쪽 위 즐겨찾기 별(16) 아래에서 시작
   caption: { maxWidth: '100%', fontSize: 12, lineHeight: 16, fontWeight: '600', color: colors.text },

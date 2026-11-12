@@ -71,20 +71,36 @@ test('스티커 칩 복원·선택 저장과 삭제·숨김 칩은 비어 있지
 test('큰 스티커 팩은 한 행씩 만들고 화면의 타일은 기존 추가·즐겨찾기 동작을 사용한다', () => {
   const items = Array.from({ length: 85 }, (_, index) => ({ id: `cat-${index}`, name: `고양이 ${index}` }))
   const added = [], favorites = []
+  let measuring = false, visibleRows = []
   const tree = drawer(make(), { tab: 'sticker', onAdd: item => added.push(item), onToast() {} }, true, {
     lastStickerCategory: 'remote:cats',
     packs: [{ id: 'remote:cats', name: '고양이', items }],
     markRecent() {},
     toggleFavorite: item => favorites.push(item),
+  }, {
+    useState: initial => measuring ? [visibleRows, value => { visibleRows = value }]
+      : [typeof initial === 'function' ? initial() : initial, () => {}],
   })
   const results = nodes(tree).find(node => node.type?.name === 'StickerResults')
-  const list = results.type({ ...results.props, columns: 4 })
+  measuring = true
+  const renderList = () => results.type({ ...results.props, columns: 4 })
+  const list = renderList()
   assert.equal(list.type, 'flat-list')
   assert.equal(list.props.initialNumToRender, 5)
   assert.equal(list.props.data.length, 23)
   assert.equal(list.props.data[0].title, '고양이')
   assert.deepEqual(list.props.data.at(-1).items, [items.at(-1)])
-  const row = list.props.renderItem({ item: list.props.data[1] })
+  const rowAt = (view, index) => view.props.renderItem({ item: view.props.data[index], index })
+  const thumbs = (view, index) => nodes(rowAt(view, index)).filter(node => node.type?.name === 'StickerThumb')
+  const requestedRows = view => view.props.data.flatMap((row, index) =>
+    row.items && thumbs(view, index).some(thumb => thumb.props.loadImage) ? [index] : [])
+  assert.deepEqual(requestedRows(list), [])
+  const showRows = indices => list.props.onViewableItemsChanged({ viewableItems: indices.map(index => ({ index })) })
+  showRows([0, 1, 2, 3, 4, 5])
+  assert.deepEqual(requestedRows(renderList()), [1, 2, 3, 4, 5, 6])
+  showRows([3, 4, 5, 6, 7])
+  assert.deepEqual(requestedRows(renderList()), [3, 4, 5, 6, 7, 8])
+  const row = rowAt(renderList(), 1)
   const tiles = nodes(row).filter(node => node.type?.name === 'Tile')
   assert.deepEqual(tiles.map(tile => tile.props.label), items.slice(0, 4).map(item => item.name))
   tiles[0].props.onPress()
