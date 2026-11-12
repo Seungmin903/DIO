@@ -79,3 +79,28 @@ export function inkRecordLayout(assetId) {
   for (let row = 0; row < rows; row++) for (let col = 0; col < cols; col++) cells.push(cellRegions(orientation, col, row, shape))
   return { orientation, shape, ...SIZES[orientation], cells }
 }
+
+/**
+ * 병 윤곽(InkRecordFrontLayer)을 요소 목록의 **몇 번째 앞**에 끼울지. 속지가 아니면 -1.
+ *
+ * 윤곽은 속지의 것이라 칠한 잉크 **위**에 있어야 하고(사용자 2026-11-11), 그 위에 붙인
+ * 메모 · 사진에는 **덮여야** 한다(사용자 2026-11-13). 평평한 차례 하나로 둘 다 지키려면
+ * 기준이 필요하다 — **병을 가리는 것**만 윤곽을 끌어내린다. 페이지 구석에 붙인 스티커까지
+ * 차례를 가르면, 그 뒤에 칠한 잉크가 전부 병 선을 덮는다(코드리뷰 2026-11-13).
+ *
+ * 숨긴 요소는 그리지 않으므로 차례도 가르지 않는다. 돌린 요소는 감싸는 네모로 본다 —
+ * 조금 넉넉하게 잡히지만, 덜 잡혀 선이 가려지는 쪽보다 낫다.
+ */
+export function inkRecordFrontIndex(assetId, objects) {
+  const layout = inkRecordLayout(assetId)
+  if (!layout) return -1
+  const list = Array.isArray(objects) ? objects : []
+  for (let i = 0; i < list.length; i++) {
+    const object = list[i]
+    if (!object || object.hidden || object.type === 'stroke') continue
+    const w = object.w ?? 0, h = object.h ?? 0, x = object.x ?? 0, y = object.y ?? 0
+    if (layout.cells.some(cell => x < cell.bottle.x + cell.bottle.w && x + w > cell.bottle.x
+      && y < cell.bottle.y + cell.bottle.h && y + h > cell.bottle.y)) return i
+  }
+  return list.length   // 병을 가리는 것이 없으면 맨 뒤 — 모든 획 위
+}

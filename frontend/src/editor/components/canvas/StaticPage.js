@@ -11,7 +11,7 @@ import { WebStrokeCacheEnabled } from './WebStrokeCacheContext'
 import { ViewportMotion } from './viewportMotion'
 import { PackingColorLayer, PackingFrontLayer } from './PackingColorLayer'
 import { InkRecordFrontLayer } from './InkRecordFrontLayer'
-import { inkRecordLayout } from '../../templates/inkRecordLayout.js'
+import { inkRecordFrontIndex } from '../../templates/inkRecordLayout.js'
 import { memoArtOf } from '../../utils/editorShapes'
 import { packingLayout } from '../../templates/packingLayout.js'
 
@@ -89,17 +89,21 @@ const StaticPage = memo(function StaticPage({ qaPageMeasurement = null, page, zo
   // 그때까지 그은 획은 덮어 잉크가 병 안에 든 것처럼 보이고, 뒤에 붙인 것에는 덮인다.
   // 자리표는 **한 번만** 만들어 둔 것을 쓴다 — 렌더마다 새 객체면 획 묶음 캐시가 참조로
   // 견주는 자리에서 괜히 달라 보인다(코드리뷰 2026-11-13).
-  // 속지가 아니면 자리표를 아예 만들지 않는다 — InkRecordFrontLayer 자신도 같은 판정으로
-  // null 을 돌려주지만(그 파일 첫 줄), 자리표가 끼면 그 자리에서 획 묶음이 공연히 끊긴다.
-  const pending = inkRecordLayout(page.backgroundAssetId) ? [INK_RECORD_FRONT] : []
-  for (const object of renderableObjects) {
-    // **숨긴 요소는 차례를 가르지 않는다.** 그리는 쪽은 숨긴 것을 빼고 그리므로, 숨긴 스티커 ·
-    // 사진이 획 앞에 있다고 윤곽을 거기서 끊으면 **화면에는 아무것도 없는데** 그 뒤에 그은 획이
-    // 윤곽 위로 올라와 병 선을 덮는다(코드리뷰 2026-11-13).
+  // 병 윤곽이 들어갈 자리(inkRecordFrontIndex): **병을 가리는** 비(非)획 요소 바로 앞, 없으면 맨 뒤.
+  // 속지가 아니면 -1 이라 아예 끼지 않는다 — InkRecordFrontLayer 자신도 같은 판정으로 null 을
+  // 돌려주지만(그 파일 첫 줄), 자리표가 끼면 그 자리에서 획 묶음이 공연히 끊긴다.
+  const frontAt = inkRecordFrontIndex(page.backgroundAssetId, renderableObjects)
+  const pending = []
+  renderableObjects.forEach((object, index) => {
+    if (index === frontAt) ordered.push(INK_RECORD_FRONT)
+    // 덧그림은 **숨긴 요소가 차례를 가르지 않는다.** 그리는 쪽은 숨긴 것을 빼고 그리므로, 숨긴
+    // 스티커 · 사진이 획 앞에 있다고 거기서 끊으면 **화면에는 아무것도 없는데** 그 뒤에 그은 획이
+    // 덧그림 위로 올라와 병 선을 덮는다(코드리뷰 2026-11-13).
     if (!object.hidden && object.type !== 'stroke' && pending.length) ordered.push(...pending.splice(0))
     ordered.push(object)
     if (!object.hidden && memoArtOf(object.art)?.overTop) pending.push(overTopMark(object))
-  }
+  })
+  if (frontAt >= renderableObjects.length) ordered.push(INK_RECORD_FRONT)
   ordered.push(...pending)
   const renderOverTop = stored => {
     const object = fitBackdropToPage(stored, width, height)

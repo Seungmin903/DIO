@@ -15,6 +15,7 @@ import { useStickerPacks } from '../hooks/useStickerPacks'
 import { packingLayout } from '../templates/packingLayout.js'
 import { PackingColorLayer, PackingFrontLayer } from './canvas/PackingColorLayer'
 import { InkRecordFrontLayer } from './canvas/InkRecordFrontLayer'
+import { inkRecordFrontIndex } from '../templates/inkRecordLayout.js'
 import { KeepFont } from '../../shared/fontScope'
 
 // 원격 스티커 팩(catalog.json)을 기다리는 최대 시간. 앱이 켜질 때 받으므로 보통은 이미 들어와 있다
@@ -82,12 +83,12 @@ export default function PageImageSurface({ job }) {
   const packingPage = packing && { ...snapshot.template, objects: snapshot.objects, canvasWidth: snapshot.pageWidth ?? snapshot.width, canvasHeight: snapshot.pageHeight ?? snapshot.height }
   const packed = packing ? snapshot.objects.filter(o => o.packingSlot === 0 || o.packingSlot === 1) : []
   const ordinary = packing ? snapshot.objects.filter(o => !o.packingColorRegion && o.packingSlot !== 0 && o.packingSlot !== 1) : snapshot.objects
-  // 병 윤곽이 들어갈 자리: 처음 만나는 **보이는** 비(非)획 요소 바로 앞(없으면 맨 뒤).
-  // 화면(StaticPage)과 같은 규칙이어야 내보낸 그림이 화면과 같다 — 숨긴 요소는 차례를 가르지
-  // 않는다. createExportSnapshot 이 이미 숨긴 것을 걸러 내지만(pageExport.js), 두 쪽 규칙이
-  // 글로 같아야 나중에 거르는 조건이 달라져도 어긋나지 않는다(코드리뷰 2026-11-13).
-  const firstNonStroke = ordinary.findIndex(o => !o.hidden && o.type !== 'stroke')
-  const inkFrontAt = firstNonStroke < 0 ? ordinary.length : firstNonStroke
+  // 병 윤곽이 들어갈 자리. 화면(StaticPage)과 **같은 함수**를 써야 내보낸 그림이 화면과 같다.
+  // 남는 차이 하나: 내보내기 목록은 불투명도 0 인 요소와 물러난 기본 스티커를 미리 빼므로
+  // (pageExport.js), 그런 것이 병을 가리고 있으면 화면보다 윤곽이 뒤로 간다. 눈에 안 보이는
+  // 요소라 그려지는 그림은 같다(코드리뷰 2026-11-13).
+  const front = inkRecordFrontIndex(snapshot.template?.backgroundAssetId, ordinary)
+  const inkFrontAt = front < 0 ? ordinary.length : Math.min(front, ordinary.length)
   const renderObject = (object, pageCoordinates = false) => <View key={object.id} needsOffscreenAlphaCompositing={snapshot.isolateObjectOpacity ? objectDrawOpacity(object) < 1 : undefined} style={{ position: 'absolute', ...(pageCoordinates ? { left: object.x * scale, top: object.y * scale } : exportObjectPosition(object, snapshot, scale)), width: object.w * scale, height: object.h * scale, transform: [{ rotate: `${object.rotation ?? 0}deg` }], opacity: objectDrawOpacity(object) }}>
     <KeepFont>
       <ObjectContent object={object} zoom={scale} still onAssetLoad={() => setLoaded((previous) => new Set(previous).add(object.id))} onAssetError={assetError} />

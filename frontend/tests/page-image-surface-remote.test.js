@@ -40,6 +40,8 @@ function renderSurface(snapshot) {
     '../templates/packingLayout.js': { packingLayout: () => null },
     './canvas/PackingColorLayer': { PackingColorLayer: 'PackingColorLayer', PackingFrontLayer: 'PackingFrontLayer' },
     './canvas/InkRecordFrontLayer': { InkRecordFrontLayer: 'InkRecordFrontLayer' },
+    // 병 윤곽 자리 계산은 **진짜 모듈**을 쓴다 — 화면과 같은 규칙인지 가짜로는 못 본다
+    '../templates/inkRecordLayout.js': require('../src/editor/templates/inkRecordLayout.js'),
     '../../shared/fontScope': { KeepFont: 'KeepFont' },
   }
   const module = { exports: {} }

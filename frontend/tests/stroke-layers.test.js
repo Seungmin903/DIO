@@ -4,7 +4,7 @@ import { createRequire } from 'node:module'
 import { readFileSync } from 'node:fs'
 import { createStroke } from '../src/editor/utils/strokes.js'
 import { createEraserSession } from '../src/editor/utils/eraser.js'
-import { createExportSnapshot } from '../src/editor/utils/pageExport.js'
+import { inkRecordFrontIndex, inkRecordId, inkRecordLayout } from '../src/editor/templates/inkRecordLayout.js'
 import * as planner from '../src/editor/utils/completedStrokePlan.js'
 import * as geometry from '../src/editor/utils/pageGeometry.js'
 
@@ -31,8 +31,8 @@ function loadComponent(file, platform = 'ios', cacheOverride = null, packing = n
     if (id.endsWith('/packingLayout.js')) return { packingLayout: () => packing }
     if (id === './PackingColorLayer') return { PackingColorLayer: 'packing-color', PackingFrontLayer: 'packing-front' }
     if (id === './InkRecordFrontLayer') return { InkRecordFrontLayer: 'ink-record-front' }
-    // 발색 기록 속지인지 — 'ink-record' 를 깐 장만 속지로 본다
-    if (id.endsWith('/inkRecordLayout.js')) return { inkRecordLayout: assetId => assetId === 'ink-record' ? { cells: [] } : null }
+    // 자리 계산은 **진짜 모듈**을 쓴다(순수 계산이라 RN 의존이 없다) — 가짜를 두면 규칙이 어긋나도 모른다
+    if (id.endsWith('/inkRecordLayout.js')) return require('../src/editor/templates/inkRecordLayout.js')
     if (id === './WebStrokeCacheContext') return { WebStrokeCacheEnabled: cacheContext }
     // 잉크병 메모 덧그림 판별용. 이 검사에는 메모가 안 나오므로 늘 아니라고 답한다
     if (id.endsWith('/utils/editorShapes')) return { memoArtOf: art => overTopIds.includes(art) ? { overTop: true } : null }
@@ -52,6 +52,10 @@ const drawingOf = rendered => rendered.props.children.find(child => child?.type 
 
 const objects = Array.from({ length: 4 }, (_, i) => createStroke([{ x: 10, y: 20 }, { x: 200, y: 50 }], { id: `s${i}`, kind: 'highlighter' }))
 const page = { id: 'p', canvasWidth: 1024, canvasHeight: 768, objects }
+const INK_PAGE = inkRecordId('square', 'portrait')
+// 병 윤곽은 **병을 가리는** 요소에만 자리를 내준다 — 검사에 쓸 '병 위' 자리
+const BOTTLE = inkRecordLayout(INK_PAGE).cells[0].bottle
+const onBottle = (over = {}) => ({ type: 'sticker', x: BOTTLE.x + 5, y: BOTTLE.y + 5, w: 40, h: 40, ...over })
 
 test('완성 획 층은 네이티브 캐시와 별도 원점을 사용하며 터치를 받지 않는다', () => {
   const component = loadComponent('CompletedStrokeLayer')
@@ -104,8 +108,8 @@ test('발색 기록 속지의 병 윤곽은 획 위에, 나중에 붙인 메모 
   // 사용자 2026-11-11: "속지 병 안에 획 그으면 병 윤곽이 내가 그은 획보다 위이게 해줘"
   // 사용자 2026-11-13: "발색 기록 속지들도 메모지랑 같은 버그" — 맨 뒤에 그려서 나중에 붙인 것까지 덮었다
   const component = loadComponent('StaticPage')
-  const later = { id: 'later', type: 'sticker', x: 10, y: 10, w: 50, h: 50 }
-  const inkPage = { ...page, backgroundAssetId: 'ink-record', objects: [...objects, later] }
+  const later = onBottle({ id: 'later' })
+  const inkPage = { ...page, backgroundAssetId: INK_PAGE, objects: [...objects, later] }
   const drawing = drawingOf(component.render({ page: inkPage, zoom: 1 }))
   const front = drawing.findIndex(child => child?.type === 'ink-record-front')
   const lastStroke = drawing.findIndex(child => child?.props?.object === objects[objects.length - 1])
@@ -119,10 +123,10 @@ test('발색 기록 속지의 병 윤곽은 획 위에, 나중에 붙인 메모 
 test('획 캐시 경로(앱 · 웹)에도 같은 차례로 넘어간다', () => {
   // 실제 필기 화면은 ordered 를 통째로 캐시 층에 넘긴다 — 차례가 거기서도 지켜져야 한다
   // (코드리뷰 2026-11-13: 새 검사가 캐시 없는 길만 보고 있었다).
-  const later = { id: 'later', type: 'sticker', x: 10, y: 10, w: 50, h: 50 }
+  const later = onBottle({ id: 'later' })
   const memo = { id: 'memo', type: 'sticker', art: 'inkRound', x: 0, y: 0, w: 100, h: 100 }
   // 속지에 획을 긋고 → 잉크병 메모를 붙이고 → 그 위에 다른 메모를 붙인 차례
-  const inkPage = { ...page, backgroundAssetId: 'ink-record', objects: [...objects, memo, later] }
+  const inkPage = { ...page, backgroundAssetId: INK_PAGE, objects: [...objects, memo, later] }
   for (const [name, options] of [['앱', { cacheStrokes: true }], ['웹', { cacheStrokes: true }]]) {
     const component = loadComponent('StaticPage', name === '웹' ? 'web' : 'ios', name === '웹' ? true : null, null, ['inkRound'])
     const cache = drawingOf(component.render({ page: inkPage, zoom: 1, ...options }))
@@ -164,10 +168,10 @@ test('획 묶음 캐시는 자리표를 비(非)획으로 보고, 같은 내용�
 test('숨긴 비(非)획 요소는 병 윤곽 · 덧그림의 차례를 가르지 않는다', () => {
   // 그리는 쪽은 숨긴 것을 빼고 그린다. 숨긴 스티커가 획 앞에 있다고 거기서 윤곽을 끊으면
   // 화면에는 아무것도 없는데 뒤에 그은 획이 윤곽 위로 올라와 병 선을 덮는다(코드리뷰 2026-11-13).
-  const hiddenSticker = { id: 'ghost', type: 'sticker', hidden: true, x: 0, y: 0, w: 10, h: 10 }
-  const later = { id: 'later', type: 'sticker', x: 10, y: 10, w: 50, h: 50 }
+  const hiddenSticker = onBottle({ id: 'ghost', hidden: true })
+  const later = onBottle({ id: 'later', x: BOTTLE.x + 10 })
   const component = loadComponent('StaticPage')
-  const inkPage = { ...page, backgroundAssetId: 'ink-record', objects: [hiddenSticker, ...objects, later] }
+  const inkPage = { ...page, backgroundAssetId: INK_PAGE, objects: [hiddenSticker, ...objects, later] }
   const drawing = drawingOf(component.render({ page: inkPage, zoom: 1 }))
   const front = drawing.findIndex(child => child?.type === 'ink-record-front')
   const lastStroke = drawing.findIndex(child => child?.props?.object === objects[objects.length - 1])
@@ -196,7 +200,7 @@ test('두 번 그려도 캐시 층에 넘어가는 목록이 **같은 객체들*
   const memo = { id: 'memo', type: 'sticker', art: 'inkRound', x: 0, y: 0, w: 100, h: 100 }
   const later = { id: 'later', type: 'sticker', x: 10, y: 10, w: 50, h: 50 }
   const component = loadComponent('StaticPage', 'ios', null, null, ['inkRound'])
-  const inkPage = { ...page, backgroundAssetId: 'ink-record', objects: [...objects, memo, later] }
+  const inkPage = { ...page, backgroundAssetId: INK_PAGE, objects: [...objects, memo, later] }
   const listOf = () => drawingOf(component.render({ page: inkPage, zoom: 1, cacheStrokes: true })).props.objects
   const a = listOf(), b = listOf()
   assert.notEqual(a, b, '배열 자체는 새것이다(그래도 괜찮다)')
@@ -204,16 +208,42 @@ test('두 번 그려도 캐시 층에 넘어가는 목록이 **같은 객체들*
   a.forEach((object, i) => assert.equal(b[i], object, `${i} 번째가 같은 객체여야 한다`))
 })
 
-test('내보내기도 숨긴 요소를 빼고 같은 자리에 병 윤곽을 넣는다', () => {
-  // 화면과 내보내기가 다른 규칙을 쓰면 내보낸 그림이 화면과 달라진다(코드리뷰 2026-11-13).
-  const src = readFileSync(new URL('../src/editor/components/PageImageSurface.js', import.meta.url), 'utf8')
-  assert.match(src, /findIndex\(o => !o\.hidden && o\.type !== 'stroke'\)/, '숨긴 요소는 차례를 가르지 않는다')
-  assert.match(src, /ordinary\.slice\(0, inkFrontAt\)/, '윤곽 앞 · 뒤로 나눠 그린다')
-  assert.match(src, /ordinary\.slice\(inkFrontAt\)/)
-  // 내보내기 목록 자체에도 숨긴 요소가 안 들어온다
-  const hidden = { id: 'ghost', type: 'sticker', hidden: true, x: 0, y: 0, w: 10, h: 10, h0: 0 }
-  const snapshot = createExportSnapshot({ objects: [...objects, hidden] }, { scale: 1 })
-  assert.equal(snapshot.objects.some(object => object.id === 'ghost'), false)
+test('병 윤곽 자리 계산은 순수 함수 하나로 — 화면과 내보내기가 같은 답을 쓴다', () => {
+  // 전에는 내보내기 쪽을 소스 정규식으로 봤다. 변수명만 바뀌어도 깨지고 죽은 코드여도 통과한다
+  // (코드리뷰 2026-11-13) → 자리 계산을 순수 함수로 빼고 입출력으로 본다.
+  const id = inkRecordId('square', 'portrait')
+  const layout = inkRecordLayout(id)
+  const bottle = layout.cells[0].bottle
+  const stroke = { id: 's', type: 'stroke', x: 0, y: 0, w: 10, h: 10 }
+  const far = { id: 'far', type: 'sticker', x: layout.W - 40, y: layout.H - 40, w: 20, h: 20 }
+  const over = { id: 'over', type: 'sticker', x: bottle.x + 5, y: bottle.y + 5, w: 20, h: 20 }
+  assert.equal(inkRecordFrontIndex('plain-paper', [over]), -1, '속지가 아니면 아예 안 끼운다')
+  assert.equal(inkRecordFrontIndex(id, [stroke, far, stroke]), 3, '병을 안 가리면 맨 뒤 — 모든 획 위')
+  assert.equal(inkRecordFrontIndex(id, [stroke, far, over, stroke]), 2, '병을 가리는 것 바로 앞')
+  assert.equal(inkRecordFrontIndex(id, [stroke, { ...over, hidden: true }, stroke]), 3, '숨긴 것은 안 가른다')
+  assert.equal(inkRecordFrontIndex(id, [{ ...over, type: 'stroke' }, stroke]), 2, '획은 안 가른다')
+})
+
+test('화면도 병을 안 가리는 요소에는 윤곽을 안 내린다', () => {
+  // 구석 스티커 하나 때문에 윤곽이 모든 획 아래로 내려가면 병 선이 잉크에 덮인다(자체 리뷰 2026-11-13).
+  const id = inkRecordId('square', 'portrait')
+  const bottle = inkRecordLayout(id).cells[0].bottle
+  const far = { id: 'far', type: 'sticker', x: 700, y: 980, w: 20, h: 20 }
+  const over = { id: 'over', type: 'sticker', x: bottle.x + 5, y: bottle.y + 5, w: 20, h: 20 }
+  const component = loadComponent('StaticPage')
+  const orderOf = objects => {
+    const drawing = drawingOf(component.render({ page: { ...page, backgroundAssetId: id, objects }, zoom: 1 }))
+    return {
+      front: drawing.findIndex(child => child?.type === 'ink-record-front'),
+      last: drawing.findIndex(child => child?.props?.object === objects.at(-1)),
+      over: drawing.findIndex(child => child?.props?.object === over),
+    }
+  }
+  const corner = orderOf([far, ...objects])
+  assert.ok(corner.last < corner.front, '구석 스티커는 윤곽을 안 내린다 — 윤곽이 모든 획 위')
+  const covering = orderOf([...objects, over])
+  assert.ok(covering.front < covering.over, '병을 가리는 것은 윤곽 위에')
+  assert.ok(covering.front > 0, '그 앞의 획들은 윤곽 아래')
 })
 
 test('웹 캐시 층은 type · x · w 가 없는 자리표를 그대로 renderObject 에 넘긴다', () => {
