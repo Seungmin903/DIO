@@ -169,3 +169,20 @@ test('돌린 · 늘인 옛 획을 잘라도 무늬가 그대로다', () => {
     assert.deepEqual(piece.inkOrigin, want, '상자를 그대로 쓰므로 밀어주기도 그대로다')
   }
 })
+
+test('번진 자리 여유는 확대율 1 기준 — 축소에서 모자라는 몫이 얼마인지 못 박는다', () => {
+  // 번짐은 화면 3px(glassPooled 의 MARGIN)이라 페이지 단위로는 배율을 탄다.
+  // 값을 키우면 늘 쓰는 배율에서 판정이 뚱뚱해지므로 **확대율 1** 을 맞추고 축소의 모자람은 감수한다.
+  // 그 몫이 얼마인지 수치로 남겨 둔다(코드리뷰 2026-11-13).
+  const MARGIN = 3, ZOOM_MIN = 0.5
+  const pageBleed = (zoom, dpr) => MARGIN / (zoom * dpr)
+  for (const dpr of [2, 2.625, 3]) {
+    assert.ok(pageBleed(1, dpr) <= GLASS_BLEED + 1e-9, `확대율 1 · 픽셀비 ${dpr} 은 늘 덮는다`)
+    assert.ok(pageBleed(2, dpr) <= GLASS_BLEED, '확대할수록 더 넉넉하다')
+  }
+  // 가장 나쁜 자리에서도 모자람은 **화면 1.5px** 을 넘지 않는다
+  for (const dpr of [2, 2.625, 3]) {
+    const short = Math.max(0, pageBleed(ZOOM_MIN, dpr) - GLASS_BLEED)
+    assert.ok(short * ZOOM_MIN * dpr <= 1.5 + 1e-9, `픽셀비 ${dpr}: 화면 ${(short * ZOOM_MIN * dpr).toFixed(2)}px`)
+  }
+})
