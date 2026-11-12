@@ -436,3 +436,27 @@ test('화면과 내보내기가 같은 기준으로 그려지는 요소를 센�
   assert.equal(ids.includes('old'), false)
   assert.equal(ids.includes('live'), true)
 })
+
+test('겹친 메모 둘의 덧그림은 목록 차례 그대로 쌓인다', () => {
+  // 거꾸로 돌면서 비우면 둘의 선이 서로 위아래가 뒤집힌다(코드리뷰 2026-11-13).
+  // 둘이 **서로 겹치지 않아야** 덧그림 둘이 동시에 밀려 있다가 함께 빠져나온다 —
+  // 겹쳐 두면 하나씩 빠져나가 차례가 드러나지 않는다
+  const a = { id: 'a', type: 'sticker', art: 'inkRound', x: 100, y: 100, w: 80, h: 80 }
+  const b = { id: 'b', type: 'sticker', art: 'inkRound', x: 300, y: 100, w: 80, h: 80 }
+  const cover = { id: 'cover', type: 'sticker', x: 90, y: 90, w: 400, h: 120 }
+  const component = loadComponent('StaticPage', 'ios', null, null, ['inkRound'])
+  const drawing = drawingOf(component.render({ page: { ...page, objects: [a, b, ...objects, cover] }, zoom: 1 }))
+  const at = key => drawing.findIndex(child => child?.key === key)
+  assert.ok(at('over-a') >= 0 && at('over-b') >= 0, '덧그림 둘 다 목록에 든다')
+  assert.ok(at('over-a') < at('over-b'), '나중 메모(b)의 선이 위 — 목록 차례 그대로')
+  assert.ok(at('over-b') < drawing.findIndex(child => child?.props?.object === cover), '덮는 것이 둘 위')
+})
+
+test('안 그려지는 요소는 덧그림 차례도 안 가른다', () => {
+  const memo = { id: 'memo', type: 'sticker', art: 'inkRound', x: 100, y: 100, w: 120, h: 120 }
+  const ghost = { id: 'ghost', type: 'sticker', opacity: 0, x: 110, y: 110, w: 200, h: 200 }
+  const component = loadComponent('StaticPage', 'ios', null, null, ['inkRound'])
+  const drawing = drawingOf(component.render({ page: { ...page, objects: [memo, ghost, ...objects] }, zoom: 1 }))
+  assert.equal(drawing.findIndex(child => child?.key === 'over-memo'), -1,
+    '투명도 0 이 끌어내리지 않는다 — 맨 위 층으로 남는다')
+})

@@ -12,7 +12,7 @@ import { ViewportMotion } from './viewportMotion'
 import { PackingColorLayer, PackingFrontLayer } from './PackingColorLayer'
 import { InkRecordFrontLayer } from './InkRecordFrontLayer'
 import { inkRecordFrontIndex } from '../../templates/inkRecordLayout.js'
-import { coverBounds, coversEach } from '../../utils/coverBounds.js'
+import { coverBounds, coversEach, drawsOnPage } from '../../utils/coverBounds.js'
 import { memoArtOf } from '../../utils/editorShapes'
 import { packingLayout } from '../../templates/packingLayout.js'
 
@@ -100,16 +100,21 @@ const StaticPage = memo(function StaticPage({ qaPageMeasurement = null, page, zo
     // 덧그림은 **그것을 가리는** 비(非)획 요소 앞까지만 올라간다. 아무 요소에나 자리를 내주면
     // 구석에 붙인 스티커 하나 때문에 그 뒤에 그은 획이 메모 선을 덮는다 — 병 윤곽과 같은 규칙이다
     // (코드리뷰 2026-11-13). 숨긴 요소는 그리지 않으므로 차례도 가르지 않는다.
-    if (!object.hidden && object.type !== 'stroke' && pending.length) {
+    if (drawsOnPage(object) && object.type !== 'stroke' && pending.length) {
+      // **목록 차례 그대로** 비운다. 거꾸로 돌면서 빼면 겹친 메모 둘의 선이 서로 위아래가 뒤집힌다
+      // (코드리뷰 2026-11-13). 가르는 기준은 윤곽과 같은 drawsOnPage 다 — 안 그려지는 요소가
+      // 메모 선을 끌어내리면 그 뒤에 그은 획이 선을 덮는다.
       const box = coverBounds(object)
-      for (let i = pending.length - 1; i >= 0; i--) {
-        if (!coversEach(box, coverBounds(pending[i].overTopOf))) continue
-        ordered.push(pending[i])
-        pending.splice(i, 1)
+      const stay = []
+      for (const mark of pending) {
+        if (coversEach(box, coverBounds(mark.overTopOf))) ordered.push(mark)
+        else stay.push(mark)
       }
+      pending.length = 0
+      for (const mark of stay) pending.push(mark)
     }
     ordered.push(object)
-    if (!object.hidden && memoArtOf(object.art)?.overTop) pending.push(overTopMark(object))
+    if (drawsOnPage(object) && memoArtOf(object.art)?.overTop) pending.push(overTopMark(object))
   })
   // 맨 뒤에 남는 것은 **목록에 넣지 않고 층으로** 그린다. 넣으면 그 뒤가 빈 묶음이 되어
   //  ① 쓰는 중인 획이 그 위에 떴다가 손을 떼면 아래로 내려앉고(깜박임)
