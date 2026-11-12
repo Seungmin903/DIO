@@ -91,7 +91,8 @@ const PHOTO_RETRIES = 3
 // 자른 자리(crop)가 있으면 표지 크기를 재서 그 자리대로 놓는다(없으면 가운데 기준으로 꽉 채움)
 function OwnPhoto({ photo }) {
   const [box, setBox] = useState(null)
-  const aspect = useCoverPhotoAspect(photo)
+  const { aspect, status } = useCoverPhotoAspect(photo)
+  if (photo.crop && !aspect) return <View accessibilityLabel={status === 'failed' ? '표지 사진 크기 확인 실패' : '표지 사진 크기 확인 중'} style={[StyleSheet.absoluteFill, styles.noPhoto]}><Icon name="image" size={20} color="#FFFFFF" /></View>
   if (photo.crop && aspect) {
     const layout = box && coverLayout({ imageWidth: aspect, imageHeight: 1, crop: photo.crop }, box.width, box.height)
     // 같은 URI라도 crop이 바뀌면 네이티브 이미지의 이전 표시 상태를 재사용하지 않는다.

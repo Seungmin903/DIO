@@ -49,23 +49,24 @@ const code = expo('@babel/core').transformSync(readFileSync(new URL('../src/diar
   configFile: false, babelrc: false, plugins: [expo.resolve('@babel/plugin-transform-modules-commonjs')],
 }).code
 function fixture() {
-  let cursor = 0, uri = 'blob:first', entry
+  let cursor = 0, uri = 'blob:first', entry, reloads = 0
   const slots = [], effects = [], cleanups = [], requests = []
   const react = {
-    useState(initial) { const i = cursor++; if (!(i in slots)) slots[i] = initial; return [slots[i], value => { slots[i] = value }] },
+    useState(initial) { const i = cursor++; if (!(i in slots)) slots[i] = initial; return [slots[i], value => { slots[i] = typeof value === 'function' ? value(slots[i]) : value }] },
     useEffect(fn, deps) { const i = cursor++; if (!slots[i] || deps.some((v, j) => !Object.is(v, slots[i][j]))) { slots[i] = deps; effects.push(() => { cleanups[i]?.(); cleanups[i] = fn() }) } },
   }
   const mocks = {
     react, 'react-native': { Image: { getSize: (uri, success, failure) => requests.push({ uri, success, failure }) } },
     '../../editor/hooks/useMediaUri': { useMediaUri: () => uri, useMediaEntry: () => entry },
+    '../../editor/services/mediaStore': { mediaService: { retryDisplay: async () => { reloads++ } } },
     '../../editor/utils/mediaReferences.js': { mediaId: photo => photo?.mediaFileId },
     '../utils/coverPhotoCrop.js': { coverPhotoAspect },
   }
   const mod = { exports: {} }
   new Function('require', 'module', 'exports', code)(id => { assert.ok(id in mocks, id); return mocks[id] }, mod, mod.exports)
   return {
-    requests, setUri: value => { uri = value }, setEntry: value => { entry = value },
-    render(photo) { cursor = 0; const result = mod.exports.useCoverPhotoAspect(photo); while (effects.length) effects.shift()(); return result },
+    requests, get reloads() { return reloads }, setUri: value => { uri = value }, setEntry: value => { entry = value },
+    render(photo) { cursor = 0; const result = mod.exports.useCoverPhotoAspect({ src: imported.src, ...photo }); while (effects.length) effects.shift()(); return result },
     unmount() { cleanups.forEach(fn => fn?.()) },
   }
 }
@@ -73,19 +74,19 @@ function fixture() {
 test('기존 표지는 메타데이터 로딩 완료 즉시 복구하고 이미지 디코딩을 생략한다', () => {
   const ui = fixture()
   ui.setUri(null)
-  assert.equal(ui.render({ crop }), null)
+  assert.equal(ui.render({ crop }).aspect, null)
   ui.setEntry({ media: imported })
   ui.setUri('blob:first')
-  assert.equal(ui.render({ crop }), 1600 / 900)
+  assert.equal(ui.render({ crop }).aspect, 1600 / 900)
   assert.equal(ui.requests.length, 0)
 })
 
 test('메타데이터가 없는 원격 표지는 이미지 크기로 복구하며 다시 열어도 복구한다', () => {
   for (let opening = 0; opening < 2; opening++) {
     const ui = fixture()
-    assert.equal(ui.render({ crop }), null)
+    assert.equal(ui.render({ crop }).aspect, null)
     ui.requests[0].success(900, 1600)
-    assert.equal(ui.render({ crop }), 900 / 1600)
+    assert.equal(ui.render({ crop }).aspect, 900 / 1600)
     ui.unmount()
   }
 })
@@ -94,11 +95,11 @@ test('사진 전환·언마운트 뒤 늦은 크기 응답은 현재 표지 비�
   const ui = fixture()
   ui.render({ crop })
   ui.setUri('blob:second')
-  assert.equal(ui.render({ crop }), null)
+  assert.equal(ui.render({ crop }).aspect, null)
   ui.requests[0].success(1600, 900)
-  assert.equal(ui.render({ crop }), null)
+  assert.equal(ui.render({ crop }).aspect, null)
   ui.requests[1].success(900, 1600)
-  assert.equal(ui.render({ crop }), 900 / 1600)
+  assert.equal(ui.render({ crop }).aspect, 900 / 1600)
   ui.unmount()
   ui.requests[0].success(1, 1)
 })
@@ -107,7 +108,7 @@ test('이미지 크기 조회 실패 시 가짜 정사각형 비율을 저장하
   const ui = fixture()
   ui.render({ crop })
   ui.requests[0].failure(new Error('offline'))
-  assert.equal(ui.render({ crop }), null)
+  assert.equal(ui.render({ crop }).aspect, null)
 })
 
 
@@ -124,9 +125,9 @@ test('실제 표지 사진 선택·적용 콜백도 비율을 누락하지 않�
   const slots = []
   const scope = {
     React: { createElement: (type, props, ...children) => ({ type, props: { ...props, children } }), Fragment: 'Fragment' },
-    useState(initial) { const i = cursor++; if (!(i in slots)) slots[i] = initial; return [slots[i], value => { slots[i] = value }] },
+    useState(initial) { const i = cursor++; if (!(i in slots)) slots[i] = initial; return [slots[i], value => { slots[i] = typeof value === 'function' ? value(slots[i]) : value }] },
     useRef(initial) { const i = cursor++; return slots[i] ??= { current: initial } }, useEffect() {},
-    useCoverPhotoAspect: () => null, pickImages: async () => [imported],
+    useCoverPhotoAspect: () => ({ aspect: null, status: 'idle', retry() {} }), pickImages: async () => [imported],
     coverCropPhoto, coverPhotoWithAspect, applyCoverPhotoCrop,
     OptionRow: 'OptionRow', View: 'View', Pressable: 'Pressable', Text: 'Text', Icon: 'Icon', OwnPhotoTile: 'OwnPhotoTile', PhotoCropper: 'PhotoCropper',
     styles: {}, mediaFailureMessage: error => error.message, discardGeneratedMedia: async () => {},
@@ -168,7 +169,7 @@ test('실제 표지 렌더러는 같은 사진 재크롭 시 이미지에 직접
   const OwnPhoto = loadFunction('../src/diary/components/CoverArt.js', 'OwnPhoto', {
     React: { createElement: (type, props, ...children) => ({ type, props: { ...props, children } }) },
     useState: () => [box, value => { box = typeof value === 'function' ? value(box) : value }],
-    useCoverPhotoAspect: photo => coverPhotoAspect(photo, imported),
+    useCoverPhotoAspect: photo => ({ aspect: coverPhotoAspect(photo, imported), status: 'ready' }),
     coverLayout, View: 'View', PhotoImage: 'PhotoImage', StyleSheet: { absoluteFill: {} }, styles: { photoClip: {} },
   })
   const photo = { src: imported.src, mediaFileId: imported.mediaFileId, crop: { fx: 0.5, fy: 0.5, zoom: 1 } }
@@ -182,4 +183,121 @@ test('실제 표지 렌더러는 같은 사진 재크롭 시 이미지에 직접
   assert.ok(after.props.style.width > before.props.style.width)
   assert.notEqual(after.props.style.left, before.props.style.left)
   assert.equal(after.props.photo.src, before.props.photo.src)
+})
+
+
+test('크기 조회 실패·재시도·성공을 구분하고 같은 URI의 이전 응답은 무시한다', () => {
+  const ui = fixture()
+  assert.equal(ui.render({ crop }).status, 'loading')
+  ui.requests[0].failure(new Error('offline'))
+  assert.equal(ui.render({ crop }).status, 'failed')
+  ui.render({ crop }).retry()
+  assert.equal(ui.render({ crop }).status, 'loading')
+  assert.equal(ui.requests.length, 2)
+  ui.requests[0].success(1, 1)
+  assert.equal(ui.render({ crop }).aspect, null)
+  ui.requests[1].success(1600, 900)
+  const restored = ui.render({ crop })
+  assert.equal(restored.status, 'ready')
+  assert.equal(restored.aspect, 1600 / 900)
+})
+
+test('크기 응답이 유효하지 않으면 실패로 표시하고 재시도할 수 있다', () => {
+  const ui = fixture()
+  ui.render({ crop })
+  ui.requests[0].success(0, 0)
+  assert.equal(ui.render({ crop }).status, 'failed')
+  ui.render({ crop }).retry()
+  assert.equal(ui.render({ crop }).status, 'loading')
+})
+
+function optionsFixture({ photo = null, item = imported, apply = applyCoverPhotoCrop } = {}) {
+  let cursor = 0, saved, recovery = { aspect: null, status: 'idle', retry: () => retries++ }, retries = 0
+  const slots = [], effects = [], notices = []
+  const Component = loadFunction('../src/diary/components/CoverOptions.js', 'PhotoOptions', {
+    React: { createElement: (type, props, ...children) => ({ type, props: { ...props, children } }), Fragment: 'Fragment' },
+    useState(initial) { const i = cursor++; if (!(i in slots)) slots[i] = initial; return [slots[i], value => { slots[i] = typeof value === 'function' ? value(slots[i]) : value }] },
+    useRef(initial) { const i = cursor++; return slots[i] ??= { current: initial } }, useEffect: fn => effects.push(fn),
+    useCoverPhotoAspect: () => recovery, pickImages: async () => [item], coverCropPhoto, coverPhotoWithAspect, applyCoverPhotoCrop: apply,
+    OptionRow: 'OptionRow', View: 'View', Pressable: 'Pressable', Text: 'Text', Icon: 'Icon', OwnPhotoTile: 'OwnPhotoTile', PhotoCropper: 'PhotoCropper',
+    styles: {}, mediaFailureMessage: error => error.message, discardGeneratedMedia: async () => {},
+  })
+  function find(node, predicate) {
+    if (!node || typeof node !== 'object') return null
+    if (predicate(node)) return node
+    for (const child of (node.props?.children ?? []).flat(Infinity)) { const result = find(child, predicate); if (result) return result }
+    return null
+  }
+  const ui = {
+    notices, get saved() { return saved }, get retries() { return retries },
+    setRecovery(value) { recovery = { ...recovery, ...value } },
+    render() { cursor = 0; const tree = Component({ cover: { ...newDiaryCover(), photo }, ratio: 3 / 4, onChange: value => { saved = value }, onNotice: value => notices.push(value) }); while (effects.length) effects.shift()(); return tree },
+    find: predicate => find(ui.render(), predicate),
+  }
+  return ui
+}
+
+test('크롭 적용 실패는 창 안과 상위 화면에 안내하고 선택을 유지한 채 다시 적용한다', async () => {
+  let fail = true
+  const ui = optionsFixture({ apply: (...args) => { if (fail) throw new Error('사진 크기를 확인하지 못했어요.'); return applyCoverPhotoCrop(...args) } })
+  await ui.find(node => node.props?.accessibilityLabel === '내 사진 고르기').props.onPress()
+  ui.find(node => node.type === 'PhotoCropper').props.onApply({ crop })
+  assert.equal(ui.saved, undefined)
+  assert.deepEqual(ui.notices, ['사진 크기를 확인하지 못했어요.'])
+  const dialog = ui.find(node => node.type === 'PhotoCropper')
+  assert.equal(dialog.props.notice, ui.notices[0])
+  fail = false
+  dialog.props.onApply({ crop })
+  assert.deepEqual(ui.saved.photo.crop, crop)
+  assert.equal(ui.find(node => node.type === 'PhotoCropper'), null)
+})
+
+test('사진 선택 시 크기가 없으면 자르기 창을 열지 않고 안내한다', async () => {
+  const ui = optionsFixture({ item: { src: 'media:no-size' } })
+  await ui.find(node => node.props?.accessibilityLabel === '내 사진 고르기').props.onPress()
+  assert.equal(ui.find(node => node.type === 'PhotoCropper'), null)
+  assert.deepEqual(ui.notices, ['사진 크기를 확인하지 못했어요.'])
+})
+
+test('복구 실패 안내·재시도·진행 중 안내와 자르기 버튼 상태를 구분하고 복구 비율을 저장에 반영한다', () => {
+  const ui = optionsFixture({ photo: { src: imported.src, crop } })
+  ui.setRecovery({ status: 'failed' })
+  assert.equal(ui.find(node => node.props?.accessibilityLabel === '표지 사진 크기 확인 실패').props.disabled, true)
+  assert.ok(ui.find(node => node.props?.accessibilityRole === 'alert'))
+  ui.find(node => node.props?.accessibilityLabel === '표지 사진 크기 다시 확인').props.onPress()
+  assert.equal(ui.retries, 1)
+  ui.setRecovery({ status: 'loading' })
+  assert.equal(ui.find(node => node.props?.accessibilityLabel === '표지 사진 크기 확인 중').props.disabled, true)
+  assert.equal(ui.find(node => node.props?.accessibilityLabel === '표지 사진 크기 다시 확인'), null)
+  ui.setRecovery({ status: 'ready', aspect: 1600 / 900 })
+  assert.equal(ui.find(node => node.props?.accessibilityLabel === '표지 사진 자르기').props.disabled, false)
+  assert.equal(ui.saved.photo.aspect, 1600 / 900)
+  assert.deepEqual(ui.saved.photo.crop, crop)
+})
+
+test('복구 실패 시 저장된 크롭을 무시한 전체 사진을 미리보기로 표시하지 않는다', () => {
+  const OwnPhoto = loadFunction('../src/diary/components/CoverArt.js', 'OwnPhoto', {
+    React: { createElement: (type, props, ...children) => ({ type, props: { ...props, children } }) },
+    useState: () => [null, () => {}], useCoverPhotoAspect: () => ({ aspect: null, status: 'failed' }),
+    View: 'View', Icon: 'Icon', StyleSheet: { absoluteFill: {} }, styles: { noPhoto: {} },
+  })
+  const result = OwnPhoto({ photo: { src: imported.src, crop } })
+  assert.equal(result.props.accessibilityLabel, '표지 사진 크기 확인 실패')
+  assert.equal(result.props.children[0].type, 'Icon')
+})
+
+
+test('원본 읽기부터 실패한 표지는 재시도 시 미디어를 다시 읽고 메타데이터로 복구한다', async () => {
+  const ui = fixture()
+  ui.setUri(null)
+  ui.setEntry({ status: 'error' })
+  assert.equal(ui.render({ mediaFileId: 'original', crop }).status, 'failed')
+  ui.render({ mediaFileId: 'original', crop }).retry()
+  await Promise.resolve()
+  assert.equal(ui.reloads, 1)
+  ui.setEntry({ status: 'ready', media: imported })
+  ui.setUri('blob:reloaded')
+  const result = ui.render({ mediaFileId: 'original', crop })
+  assert.equal(result.status, 'ready')
+  assert.equal(result.aspect, 1600 / 900)
 })

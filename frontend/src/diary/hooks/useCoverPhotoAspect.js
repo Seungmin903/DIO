@@ -1,24 +1,39 @@
 import { useEffect, useState } from 'react'
 import { Image } from 'react-native'
 import { useMediaEntry, useMediaUri } from '../../editor/hooks/useMediaUri'
+import { mediaService } from '../../editor/services/mediaStore'
 import { mediaId } from '../../editor/utils/mediaReferences.js'
 import { coverPhotoAspect } from '../utils/coverPhotoCrop.js'
 
-// 예전 표지에는 crop만 있고 aspect가 없다. 원본 메타데이터로 복구하고,
-// 원격 이미지에 크기 정보도 없을 때만 실제 표시 주소에서 크기를 읽는다.
+// 예전 표지는 메타데이터 → 실제 이미지 크기 순서로 비율을 복구한다.
 export function useCoverPhotoAspect(photo) {
   const uri = useMediaUri(photo)
-  const entry = useMediaEntry(mediaId(photo))
+  const id = mediaId(photo)
+  const entry = useMediaEntry(id)
   const known = coverPhotoAspect(photo, entry?.media)
+  const source = `${id ?? ''}:${photo?.src ?? ''}`
+  const [attempt, setAttempt] = useState(0)
   const [measured, setMeasured] = useState(null)
   useEffect(() => {
     if (known || !uri) return undefined
     let active = true
-    Image.getSize(uri, (width, height) => {
-      const aspect = coverPhotoAspect({ width, height })
-      if (active && aspect) setMeasured({ uri, aspect })
-    }, () => {})
+    const fail = () => { if (active) setMeasured({ source, uri, attempt, status: 'failed' }) }
+    try {
+      Image.getSize(uri, (width, height) => {
+        const aspect = coverPhotoAspect({ width, height })
+        if (!aspect) { fail(); return }
+        if (active) setMeasured({ source, uri, attempt, status: 'ready', aspect })
+      }, fail)
+    } catch { fail() }
     return () => { active = false }
-  }, [known, uri])
-  return known ?? (measured?.uri === uri ? measured.aspect : null)
+  }, [known, uri, source, attempt])
+  const current = measured?.source === source && measured?.uri === uri && measured?.attempt === attempt ? measured : null
+  const aspect = known ?? current?.aspect ?? null
+  const status = aspect ? 'ready' : !photo?.src && !id ? 'idle'
+    : current?.status === 'failed' || entry?.status === 'error' ? 'failed' : 'loading'
+  const retry = () => {
+    setAttempt(value => value + 1)
+    if (id && !uri) mediaService.retryDisplay(id).catch(() => {})
+  }
+  return { aspect, status, retry }
 }
