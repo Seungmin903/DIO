@@ -43,6 +43,8 @@ export function createFontWorkflow({ repository, engine, uuid, maxGeneratedFonts
   const requireGenerationSlot = id => {
     const reserved = state.entries.filter(value => {
       if (value.id === id) return false
+      // 완성 폰트는 생성 작업(jobId)이 있을 때만 센다. 생성 폰트는 등록할 때부터 작업 ID(sourceJob)를 달고, 목록 이관(storage.js loadWorkflow)도
+      // 그 값을 jobId 로 옮긴다. 가져온 폰트 · 글자 간격 보정본은 작업이 없어 한도를 쓰지 않는다(font-spacing.test.js 이관 · 한도 테스트)
       if (value.status === 'ready') return Boolean(value.jobId)
       if (value.status === 'failed') return value.job?.state === 'ready'
       return ['queued', 'processing', 'paused', 'registering'].includes(value.status)
