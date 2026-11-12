@@ -308,13 +308,13 @@ test('창을 닫을 때(닫기 가드)도 아무것도 쓰지 않은 새 폰트�
   }
 })
 
-// 기기당 생성 한도: 완성 폰트는 한도를 쓰고 있어 '입력 수정'(새 생성)을 보이지 않는다.
-// 한도를 쓰지 않는 생성 취소 · 생성기 변경(incompatible) 폰트만 원본 36자로 수정본을 만들 수 있다(workflow.js requireGenerationSlot)
-test('입력 수정 버튼은 생성 취소 · 생성기 변경 폰트에만 보이고 완성 폰트에는 없다', async () => {
+// develop 은 기기당 생성 한도가 없어(manager.js) 완성 · 생성 취소 · 생성기 변경(incompatible) 폰트에서 원본 36자로 수정본을 만들 수 있다.
+// 생성 중 실패한 폰트는 '다시 시도'로 이어서 만든다
+test('입력 수정 버튼은 완성 · 생성 취소 · 생성기 변경 폰트에 보이고 실패 폰트에는 없다', async () => {
   const tick = () => new Promise(resolve => setImmediate(resolve))
   const draft = { schema: 1, id: 'ink', samples: {} }
   const cases = [
-    [{ id: 'ready', name: '완성', status: 'ready', jobId: 'job-1', fontId: 'font-1', draft }, false],
+    [{ id: 'ready', name: '완성', status: 'ready', jobId: 'job-1', fontId: 'font-1', draft }, true],
     [{ id: 'cancelled', name: '취소', status: 'cancelled', jobId: 'job-2', draft }, true],
     [{ id: 'changed', name: '생성기 변경', status: 'failed', incompatible: true, error: '생성기가 변경됐어요.', jobId: 'job-3', draft }, true],
     [{ id: 'failed', name: '실패', status: 'failed', error: 'boom', jobId: 'job-4', draft }, false],

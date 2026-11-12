@@ -8,7 +8,6 @@ import { SAMPLE_TEXT } from './protocol.js'
 
 export const fontWorkflow = createFontWorkflow({
   uuid: randomUUID,
-  maxGeneratedFonts: 1,
   repository: {
     load: loadWorkflow, save: saveWorkflow, newDraft, register: registerFontFile, renameFont,
     fontForJob: async id => (await loadFontLibrary()).find(font => font.sourceJob === id),

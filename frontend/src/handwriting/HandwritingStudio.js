@@ -164,7 +164,7 @@ export function StudioContent({ options = {}, controller = defaultWorkflow }) {
         <View style={s.row}>{['processing', 'queued'].includes(value.status) && <Button disabled={Boolean(busy)} onPress={() => run('생성을 멈추고 있어요.', () => workflow.control(value.id, 'pause'))}>일시 정지</Button>}{['paused', 'failed'].includes(value.status) && <Button disabled={Boolean(busy) || !state.support.available || value.incompatible} onPress={() => run('생성을 이어가고 있어요.', () => workflow.control(value.id, 'resume'))}>{value.status === 'failed' ? '다시 시도' : '이어서 만들기'}</Button>}{['processing', 'queued', 'paused', 'failed', 'registering'].includes(value.status) && <Button disabled={Boolean(busy)} onPress={() => run('생성을 취소하고 있어요.', () => workflow.control(value.id, 'cancel'))}>생성 취소</Button>}</View>
         <Text style={s.heading}>생성에 사용한 36자</Text>
         {value.draft ? <InputSamples draft={value.draft} /> : <Text style={s.muted}>이 폰트의 원래 입력 기록이 없어 입력을 표시하거나 수정할 수 없어요.</Text>}
-        {value.status === 'cancelled' || value.incompatible ? <Button primary disabled={Boolean(busy) || !value.draft} onPress={() => start(value.id)}>입력 수정</Button> : null}
+        {['ready', 'cancelled'].includes(value.status) || value.incompatible ? <Button primary disabled={Boolean(busy) || !value.draft} onPress={() => start(value.id)}>입력 수정</Button> : null}
         {value.status === 'ready' && font && <View style={s.row}>{font.missing ? <Text style={s.error}>폰트 파일을 다시 가져와 주세요.</Text> : <Text style={s.muted}>다이어리 텍스트 도구의 내 폰트에서 선택할 수 있어요.</Text>}</View>}
       </View>}
     </ScrollView>
