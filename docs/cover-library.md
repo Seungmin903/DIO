@@ -74,3 +74,10 @@
 - `sharingPostgresTest`의 `UserWithdrawalPostgresTests`: `media_files` 외래 키 목록과 탈퇴 시 보관함 표지 그림 정리.
 - `node --test tests/cover-library-sync.test.js`: 새 기기 · 재설치 복원, 지우기 · 이름 · 편집 반영, 409 합치기, 올리지 못한 표지 보존 · 반복 저장 없음, 받지 못한 그림 재시도 · 404 중단, 실패 표시, 다른 계정 기기, 받는 중 수정, 표지당 그림 한도, 계정을 바꿨다 돌아올 때 되살리기 · 30일 기한, 탈퇴 정리, structuredClone 없는 런타임, 바꾼 직후 편집, src 맞추기.
 - `node --test tests/my-library-store.test.js`: `useMyLibrary` 저장소(읽기 전 저장 순서, 연속 저장, 화면 사이 공유, 저장 실패, `replaceMyCovers`의 base 거절 · 구독 해제).
+
+### 표지 스티커 편집의 터치 우선순위
+
+- 스티커 그림은 저장된 배열 순서대로 표시한다. 선택된 스티커의 조작 영역만 별도의 네이티브 View에서 더 높은 zIndex로 배치해, 복제·삭제 버튼과 크기·회전 손잡이를 다른 스티커 선택 영역이 가로채지 않게 한다.
+- 조작 영역의 빈 곳은 터치를 통과시킨다. 다른 스티커의 드러난 부분을 눌러 선택하거나, 표지 빈 곳을 눌러 선택을 해제할 수 있다. 이동 중 바 숨김, 조작 취소 시 초안 폐기, 복제 시 새 ID·위치 오프셋은 유지한다. 저장 형식과 이미지 겹침 순서는 바뀌지 않는다.
+- 단위·회귀 검증: `node --test tests/cover-sticker-controls.test.js tests/cover-photo-import.test.js tests/studio-cover-edit.test.js tests/studio-cover-polish.test.js tests/shared-diary-cover.test.js`.
+- 브라우저 터치 검증: 별도 서버 `pnpm exec expo start --port 8095 --offline --max-workers 2` 실행 후 `node tests/cover-sticker-controls-browser.cjs`. 폰·태블릿 크기에서 다른 스티커와 겹친 아래·위쪽 바의 복제·삭제, 이동·크기 조절·회전, 선택 전환·해제, 완전 겹침 상태의 선택과 복제 후 삭제를 확인한다. 실기기 테스트를 대체하지 않는다.
