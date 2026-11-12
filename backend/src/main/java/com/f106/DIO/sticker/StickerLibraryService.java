@@ -22,6 +22,7 @@ public class StickerLibraryService {
     public record StickerLibraryDocument(long version, List<StickerFolder> folders) {}
 
     static final int MAX_FOLDERS = 200, MAX_ITEMS = 3000, MAX_NAME = 40, MAX_TEXT = 200;
+    static final int MAX_CUSTOM_STICKERS = 200;
     private static final Pattern FOLDER_ID = Pattern.compile("^[A-Za-z0-9_-]{1,64}$");
     private static final TypeReference<List<StickerFolder>> FOLDERS = new TypeReference<>() {};
     private final JdbcTemplate jdbc;
@@ -44,6 +45,14 @@ public class StickerLibraryService {
         if (version != expectedVersion) throw StickerLibraryException.conflict();
         Set<UUID> media = new LinkedHashSet<>();
         for (StickerFolder folder : clean) for (StickerItem item : folder.items()) if (item.mediaFileId() != null) media.add(item.mediaFileId());
+        if (media.size() > MAX_CUSTOM_STICKERS) {
+            // 이미 한도를 넘은 보관함에서도 이름 변경과 삭제는 가능하다.
+            var saved = jdbc.queryForList("select media_file_id from user_sticker_library_media where user_id=?", UUID.class, userId);
+            if (!new HashSet<>(saved).containsAll(media)) {
+                throw StickerLibraryException.invalid("지금은 스티커를 최대 200개까지 만들 수 있어요\n"
+                    + (media.size() - MAX_CUSTOM_STICKERS) + "개 초과했어요.");
+            }
+        }
         requireOwnImages(userId, media);
         long next = version + 1;
         var now = java.sql.Timestamp.from(Instant.now());

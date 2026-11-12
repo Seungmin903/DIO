@@ -290,10 +290,13 @@ export default function DecorDrawer({ tab, onAdd, onTapeInserted, onToast, onClo
         name: image.name,
         aspect: image.width / image.height,
       }))
-      if (folderId) custom.addToFolder(folderId, stickers)
-      else stickers.forEach((sticker) => custom.add(kind, sticker))
+      if (stickers.length) {
+        try { await custom.addToFolder(folderId, stickers) }
+        catch (error) { await discardGeneratedMedia(images).catch(() => {}); throw error }
+      }
     } catch (error) {
-      onToast(mediaFailureMessage(error), () => addCustom(kind, folderId))
+      if (error?.code === 'CUSTOM_STICKER_LIMIT') onToast(error.message)
+      else onToast(mediaFailureMessage(error), () => addCustom(kind, folderId))
     } finally {
       setBusy(false)
     }
@@ -711,7 +714,7 @@ export default function DecorDrawer({ tab, onAdd, onTapeInserted, onToast, onClo
           }}
         />
       )}
-      {splitTarget && <StickerSplitModal folder={splitTarget.folder} initialName={splitTarget.name}
+      {splitTarget && <StickerSplitModal folder={splitTarget.folder} initialName={splitTarget.name} ownedStickerCount={custom.ownedStickerCount}
         onClose={() => setSplitTarget(null)} onSave={async (folderId, name, stickers) => {
           const id = await custom.saveGenerated(folderId, name, stickers)
           setCategory(`folder:${id}`); setFolderDraft(null)

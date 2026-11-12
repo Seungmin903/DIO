@@ -271,8 +271,12 @@ export default function DecorationStudioScreen({ compact = false, registerBackHa
     setShelfError(null);
     try {
       const images = await pickImages({ usage: 'sticker' });
-      if (images.length) custom.addToFolder(targetId, images.map(image => ({ src: image.src, mediaFileId: image.mediaFileId, poster: image.poster, name: image.name, aspect: image.width / image.height })));
-    } catch { if (alive.current) setShelfError('sticker'); }
+      if (images.length) {
+        try {
+          await custom.addToFolder(targetId, images.map(image => ({ src: image.src, mediaFileId: image.mediaFileId, poster: image.poster, name: image.name, aspect: image.width / image.height })));
+        } catch (error) { await discardGeneratedMedia(images).catch(() => {}); throw error; }
+      }
+    } catch (error) { if (alive.current) setShelfError(error?.code === 'CUSTOM_STICKER_LIMIT' ? { stickerLimit: error.message } : 'sticker'); }
   };
 
   const stickerSection = <StudioSection fill={custom.loaded && (folder ? !folder.items.length : !custom.items.folders.length)} title={folder ? folder.name : '스티커'} count={custom.loaded ? (folder ? count(folder.items) : count(custom.items.folders)) : null}
@@ -286,6 +290,7 @@ export default function DecorationStudioScreen({ compact = false, registerBackHa
     {/* 폴더 안 추가: 머리줄 아래 줄 오른쪽에 `스티커 추가`(다른 `○○ 추가` 버튼과 같은 모양 · 머리줄의 추가 버튼과 같은 쪽). 누르면 이 폴더로 넣는 방법을 말풍선으로 고른다 */}
     {folder && <View style={s.addRow}>{addTool({ kind: 'stickerIn', icon: 'sticker', title: '스티커 추가', description: CUTOUT_ENTRANCE ? '시트에서 분리하기 · 사진 속 대상 오리기 · 이미지 한 장씩 넣기' : '시트에서 분리하기 · 이미지 한 장씩 넣기', menu: true })}</View>}
     {shelfError === 'sticker' && <Text accessibilityRole="alert" style={s.error}>사진을 불러오지 못했어요. 다시 시도해 주세요.</Text>}
+    {!!shelfError?.stickerLimit && <Text accessibilityRole="alert" style={s.error}>{shelfError.stickerLimit}</Text>}
     {folder && stickerRename != null && <View style={s.renameRow}>
       <TextInput autoFocus selectTextOnFocus maxLength={FOLDER_NAME_LIMIT} value={stickerRename} onChangeText={setStickerRename} onSubmitEditing={commitStickerRename}
         returnKeyType="done" accessibilityLabel="스티커 폴더 이름" style={s.renameInput} />
@@ -537,7 +542,7 @@ export default function DecorationStudioScreen({ compact = false, registerBackHa
         {current}
       </Pressable>
     </ScrollView>
-    {(tool === 'split' || tool === 'splitIn') && <StickerSplitModal folder={tool === 'splitIn' ? folder : undefined} onClose={() => setTool(null)} onSave={async (id, name, stickers) => {
+    {(tool === 'split' || tool === 'splitIn') && <StickerSplitModal folder={tool === 'splitIn' ? folder : undefined} ownedStickerCount={custom.ownedStickerCount} onClose={() => setTool(null)} onSave={async (id, name, stickers) => {
       const cleanName = name.trim();
       await custom.saveGenerated(id, cleanName, stickers);
       if (tool !== 'splitIn') setFolderId(null); // 폴더 안에서 분리하면 그 폴더에 머문다

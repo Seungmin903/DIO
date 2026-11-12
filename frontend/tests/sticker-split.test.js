@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { splitAvailable, SPLIT_API_VERSION, MAX_SPLIT_PIXELS, imagePoint, cropBetween, FULL_CROP, validateSplitOptions, splitError, previewLoadMatches } from '../src/editor/utils/stickerSplit.js'
 import { saveSplitSelection, splitSaveError } from '../src/editor/utils/stickerSplitSave.js'
+import * as customStickerLimit from '../src/editor/utils/customStickerLimit.js'
 import { MediaError } from '../src/editor/utils/mediaPolicy.js'
 import { stickerSplit as web } from '../src/editor/services/stickerSplit.js'
 import * as cropUtils from '../src/editor/utils/stickerSplitCrop.js'
@@ -173,6 +174,7 @@ async function decorHarness(storage, failWrite = false) {
     if (id.endsWith('/common')) return { createId: () => `id-${++uuid}` }
     if (id.endsWith('/mediaStore')) return { hydrateMedia: async () => {} }
     if (id.endsWith('/mediaReferences.js')) return { mediaId: item => item?.mediaFileId }
+    if (id.endsWith('/customStickerLimit.js')) return customStickerLimit
     if (id.endsWith('/storage')) return { STORAGE_KEYS: { customDecor: 'decor', stickerCategory: 'category' }, loadJSON: async (key, fallback) => key === 'decor' && storage.read ? storage.read() : (key === 'category' ? storage.category : storage.value) ?? fallback,
       saveJSON: async (key, value) => {
         if (key === 'category') {
@@ -309,6 +311,23 @@ test('저장 오류는 내부 코드·경로·cause를 노출하지 않고 한�
   assert.equal(splitSaveError(media), media.message)
 })
 const initialDecor = () => ({ folders: [{ id: 'old', name: '기존', items: [{ src: 'media:old', mediaFileId: 'old' }] }] })
+test('분리 저장은 200개까지 허용하고 동시 저장으로 초과하면 새 폴더를 만들지 않는다', async () => {
+  const existing = Array.from({ length: 199 }, (_, index) => ({ mediaFileId: `old-${index}` }))
+  const storage = { value: { folders: [
+    { id: 'first', name: '첫 폴더', items: existing },
+    { id: 'second', name: '두 번째', items: [existing[0], { builtin: 'heart' }] },
+  ] } }
+  const h = await decorHarness(storage)
+  assert.equal(h.api.ownedStickerCount, 199)
+  const first = h.api.saveGenerated(null, '저장 가능', [{ mediaFileId: 'new-1' }])
+  const second = h.api.saveGenerated(null, '저장 불가', [{ mediaFileId: 'new-2' }, { mediaFileId: 'new-3' }])
+  await first
+  await assert.rejects(second, { code: 'CUSTOM_STICKER_LIMIT', message: '지금은 스티커를 최대 200개까지 만들 수 있어요\n2개 초과했어요.' })
+  assert.equal(h.render().ownedStickerCount, 200)
+  assert.equal(storage.value.folders.length, 3)
+  assert.throws(() => h.api.addToFolder('first', [{ mediaFileId: 'new-4' }]), { code: 'CUSTOM_STICKER_LIMIT' })
+  h.unmount()
+})
 test('일반 폴더 생성·이름 변경·이미지 추가·삭제 실패를 알리고 재시도하면 현재 내용을 보존한다', async () => {
   const changes = [
     api => api.addFolder('새 폴더'),
