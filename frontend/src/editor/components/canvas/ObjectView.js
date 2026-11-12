@@ -1,4 +1,4 @@
-import { createContext, memo, useContext, useLayoutEffect, useRef, useState } from 'react'
+import { createContext, memo, useContext, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Platform, StyleSheet, Text, View } from 'react-native'
 import Svg, { ClipPath, Defs, Image as SvgImage, Path } from 'react-native-svg'
 import { TAPE_DEFAULT_OPACITY } from '../../constants'
@@ -17,6 +17,7 @@ import { colors } from '../../../shared/theme'
 import { mediaId } from '../../utils/mediaReferences.js'
 import { isBackdrop } from '../../utils/backdrop.js'
 import { useMediaEntry, useMediaUri } from '../../hooks/useMediaUri'
+import { useSvgImageUri } from '../../hooks/useSvgImageUri'
 import { coverLayout, hasPhotoMedia, photoInnerBox, tapePieceRatio, tapeUnitH } from '../../utils/objects'
 import { shapePath } from '../../utils/shapes'
 import { useSvgId } from '../../utils/svgId'
@@ -104,6 +105,7 @@ function ObjectContent({ object, zoom, areaPreview = false, still: stillRequeste
             // 테이프를 키우면 무늬도 같은 배율로 커지게 (규격 기본 높이 대비)
             scale={(zoom * object.h) / tapeUnitH(object)}
             onAssetLoad={onAssetLoad}
+            onAssetError={onAssetError}
           />
         </View>
       )
@@ -368,6 +370,18 @@ const emojiText = (height) => ({ fontSize: height * 0.72, lineHeight: height })
 // still: 페이지 썸네일처럼 움직일 필요 없는 곳에서는 GIF 대신 첫 장면을 그린다.
 export function PhotoContent({ photo, zoom, still = false, onAssetLoad, onAssetError }) {
   const uri = useMediaUri(photo, { still })
+  // 모양(하트·별 등) 틀은 SVG 이미지로 자른다. 기기에서 GIF 를 넘기면 앱이 죽어 첫 장면 PNG 로 바꿔 넘긴다.
+  // useMediaUri 와 같은 항목(still 이면 poster)으로 판별하고, SVG 로 그리는 모양일 때만 변환한다
+  const svgPhoto = photo.frame === 'shape' && VIEW_CLIP_SHAPES[photo.shape] == null
+  const svgImage = useSvgImageUri(still && photo.poster ? photo.poster : photo, uri, { enabled: svgPhoto })
+  const svgUri = svgImage.uri
+  // 첫 장면을 만들지 못하면 SvgImage 에 주소가 없어 onLoad·onError 가 오지 않는다. 대신 오류를 알린다.
+  // failed 는 실패한 항목의 키라, 실패한 다른 GIF 로 바뀌어도 다시 알린다
+  useEffect(() => {
+    if (!svgImage.failed) return
+    reportMediaDisplayError(photo)
+    onAssetError?.()
+  }, [svgImage.failed]) // eslint-disable-line react-hooks/exhaustive-deps
   const animated = !still && isAnimatedMedia(photo)
   const clipInstance = useSvgId('photo-clip')
   const clipId = `${clipInstance}-${photo.shape ?? 'rect'}`
@@ -399,7 +413,8 @@ export function PhotoContent({ photo, zoom, still = false, onAssetLoad, onAssetE
     )
   }
 
-  if (photo.frame === 'shape') {
+  // SVG 이미지로 그리는 곳은 이 분기뿐이다. 첫 장면 변환(svgPhoto)과 같은 조건을 써서 둘이 어긋나지 않게 한다
+  if (svgPhoto) {
     const d = shapePath(photo.shape, box.width, box.height)
     return (
       <View style={{ width: box.width, height: box.height }}>
@@ -413,7 +428,7 @@ export function PhotoContent({ photo, zoom, still = false, onAssetLoad, onAssetE
         </Defs>
         <SvgImage
           onLoad={onAssetLoad} onError={() => { reportMediaDisplayError(photo); onAssetError?.() }}
-          href={uri ? { uri } : undefined}
+          href={svgUri ? { uri: svgUri } : undefined}
           x={layout.left}
           y={layout.top}
           width={layout.width}

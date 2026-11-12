@@ -474,8 +474,9 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
     const index = state.doc.pages.findIndex((p) => p.id === id)
     try {
       const fileName = pngFileName(state.doc.title, index + 1).replace(/.png$/, `.${kind}`)
-      // PNG·GIF 도 PDF 처럼 2배로 만든다 (1배는 태블릿 화면에서 흐려 보였다)
-      startExport({ kind, snapshot: { ...createExportSnapshot(state.doc.pages[index], { scale: 2 }), fileName } })
+      // PNG 는 PDF 처럼 2배로 만든다 (1배는 태블릿 화면에서 흐려 보였다).
+      // GIF 는 장면마다 페이지를 찍고 묶어 화소 수만큼 오래 걸리므로 1.5배로 만든다 (2배의 약 56% 화소, 256색이라 2배 이득도 적다)
+      startExport({ kind, snapshot: { ...createExportSnapshot(state.doc.pages[index], { scale: kind === 'gif' ? 1.5 : 2 }), fileName } })
     } catch (error) { setExportOpen(false); showToast(error.message) }
   }
   const finishExport = ({ message, error }) => {

@@ -56,7 +56,8 @@ export default function ExportRunner({ job, onProgress, onFinish }) {
         catch (error) { throw new Error(pngSaveError(error)) }
       }
       if (job.kind === 'gif') {
-        const weights = { decode: [0, 0.05], capture: [0.05, 0.8], encode: [0.85, 0.15] }
+        // 원본 GIF 장면 풀기도 오래 걸릴 수 있어 몫을 넉넉히 준다
+        const weights = { decode: [0, 0.25], capture: [0.25, 0.6], encode: [0.85, 0.15] }
         const output = await createPageGif(job.snapshot, { renderFrame, signal, onProgress: ({ phase, done, total }) => progress(weights[phase][0] + weights[phase][1] * (total ? done / total : 0)) })
         owned.push(output)
         try { return savedMessage(await saveGifFile(output, job.snapshot.fileName, { picker: false }), 'GIF') }
