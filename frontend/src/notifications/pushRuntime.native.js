@@ -7,10 +7,13 @@ import { createNativePushAdapter } from './nativePushAdapter.js';
 import { createPushInstallationApi } from './pushInstallationApi.js';
 import { createPushCoordinator } from './pushCoordinator.js';
 import { resolvePushInvitation } from './pushInvitationClick.js';
+import { whenBooted } from '../shared/bootGate';
 
 /** 기본 비활성. 명시적 빌드 설정이 없으면 OS 권한도 요청하지 않는다. */
 export async function startPushRuntime({ auth, userId, invitations, onInvitation, onError = () => {}, onSynced = () => {} }) {
  if (process.env.EXPO_PUBLIC_PUSH_ENABLED !== 'true') return () => {};
+ // OS 알림 권한 창은 시작 화면(로딩) 위로 뜨므로, 시작 화면이 닫힌 뒤에 권한을 묻고 알림 연결을 시작한다
+ await whenBooted();
  const sessionKey=auth.getSessionKey();let stopped=false, retryTimer=null, attempts=0;
  const projectId=Constants.easConfig?.projectId || Constants.expoConfig?.extra?.eas?.projectId;
  const native=createNativePushAdapter({notifications:Notifications,secureStore:SecureStore,platform:Platform.OS,projectId});

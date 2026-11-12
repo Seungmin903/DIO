@@ -8,11 +8,13 @@ const { code } = expo('@babel/core').transformSync(readFileSync(new URL('../src/
   configFile: false, babelrc: false, plugins: [expo.resolve('@babel/plugin-transform-modules-commonjs')],
 });
 // 호스트가 없을 때 쓰는 기본 창은 기록만 한다
-function load() {
-  const native = [], module = { exports: {} };
+function load({ booting = false } = {}) {
+  const native = [], module = { exports: {} }, waiting = [];
+  const bootGate = { isBooting: () => booting, afterBoot: run => waiting.push(run) };
   const alert = { alert: (...args) => native.push(args) };
-  new Function('require', 'module', 'exports', code)(id => (id === 'react-native' ? { Alert: alert, Platform: { OS: 'ios' } } : require(id)), module, module.exports);
-  return { ...module.exports, native };
+  new Function('require', 'module', 'exports', code)(id => (id === 'react-native' ? { Alert: alert, Platform: { OS: 'ios' } } : id === './bootGate' ? bootGate : require(id)), module, module.exports);
+  const finishBoot = () => { booting = false; waiting.splice(0).forEach(run => run()); };
+  return { ...module.exports, native, finishBoot };
 }
 
 test('호스트가 없으면 기본 창으로 물어보고, 되돌릴 수 있는 동작은 위험 표시를 쓰지 않는다', () => {
@@ -98,4 +100,22 @@ test('시스템 창이 버튼 없이 닫히면 onAbort 를, 없으면 onCancel �
   confirmAction({ title: 'u', message: 'm', confirmLabel: '확인', onConfirm() {}, onCancel: () => log.push('u-cancel') });
   native[1][3].onDismiss();
   assert.deepEqual(log, ['abort', 'cancel', 'u-cancel']);
+});
+
+test('시작 화면 중에는 기본 창을 띄우지 않고, 시작 화면이 닫히면 그때 띄운다', () => {
+  const { confirmAction, notify, native, finishBoot } = load({ booting: true });
+  notify('안내', '내용');
+  confirmAction({ title: '확인', message: 'm', confirmLabel: '네', onConfirm() {} });
+  assert.equal(native.length, 0);
+  finishBoot();
+  assert.deepEqual(native.map(args => args[0]), ['안내', '확인']);
+});
+
+test('시작 화면 중이라도 앱 창 호스트가 있으면 큐에 넣는다(호스트의 모달이 시작 화면이 닫힐 때까지 기다린다)', () => {
+  const { notify, dialogStore, native } = load({ booting: true });
+  const detach = dialogStore.attach();
+  notify('안내', '내용');
+  assert.equal(native.length, 0);
+  assert.equal(dialogStore.getSnapshot()?.title, '안내');
+  detach();
 });
