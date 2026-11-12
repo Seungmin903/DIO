@@ -4,6 +4,7 @@
 // (검사 tests/ink-record.test.js 가 둘이 같은지 지킨다.)
 
 import { INK_RECORD_BOTTLES } from './inkRecordBottles.js'
+import { coverBounds } from '../utils/coverBounds.js'
 
 export const INK_RECORD_SHAPES = ['round', 'square']
 export const inkRecordId = (shape, orientation) => `2026-reusable-ink-record-${shape}-${orientation}`
@@ -91,17 +92,12 @@ export function inkRecordLayout(assetId) {
  * 숨긴 요소는 그리지 않으므로 차례도 가르지 않는다. 돌린 요소는 **돌린 뒤의** 감싸는 네모로 본다 —
  * 가로로 긴 메모를 90도 가까이 돌려 병에 걸치면 돌리기 전 네모로는 안 겹치기 때문이다
  * (코드리뷰 2026-11-13). 조금 넉넉하게 잡히지만, 덜 잡혀 선이 가려지는 쪽보다 낫다.
+ *
+ * 한계: 자리는 **한 장에 하나**다. 윤곽 그림(InkRecordFrontLayer)이 여섯 병을 한 번에 그리기
+ * 때문이다. 그래서 한 병만 가려도 그 뒤에 그은 획이 **다른 병의** 윤곽 위로도 올라간다.
+ * 병마다 따로 그리면 정확해지지만 층이 여섯 개가 되고 획 묶음도 여섯 번 끊긴다 — 가리는 것이
+ * 아예 없을 때(흔한 경우)는 윤곽이 맨 위 층이라 모든 병이 모든 획 위이므로, 그 값을 치르지 않는다.
  */
-const coverBox = (object) => {
-  const w = object.w ?? 0, h = object.h ?? 0, x = object.x ?? 0, y = object.y ?? 0
-  const angle = ((object.rotation ?? 0) % 360) * Math.PI / 180
-  if (!angle) return { x, y, w, h }
-  // 가운데를 축으로 돈다(PageObject 의 transform 과 같다). 돌린 네 모서리를 감싸는 네모:
-  // 폭 = |w·cos| + |h·sin|, 높이 = |w·sin| + |h·cos|
-  const cos = Math.abs(Math.cos(angle)), sin = Math.abs(Math.sin(angle))
-  const rw = w * cos + h * sin, rh = w * sin + h * cos
-  return { x: x + (w - rw) / 2, y: y + (h - rh) / 2, w: rw, h: rh }
-}
 export function inkRecordFrontIndex(assetId, objects) {
   const layout = inkRecordLayout(assetId)
   if (!layout) return -1
@@ -109,9 +105,10 @@ export function inkRecordFrontIndex(assetId, objects) {
   for (let i = 0; i < list.length; i++) {
     const object = list[i]
     if (!object || object.hidden || object.type === 'stroke') continue
-    const box = coverBox(object)
-    if (layout.cells.some(cell => box.x < cell.bottle.x + cell.bottle.w && box.x + box.w > cell.bottle.x
-      && box.y < cell.bottle.y + cell.bottle.h && box.y + box.h > cell.bottle.y)) return i
+    // 돌린 요소는 돌린 뒤의 감싸는 네모로 본다(utils/common 의 rotatedBounds 와 같은 식)
+    const box = coverBounds(object)
+    if (layout.cells.some(cell => box.left < cell.bottle.x + cell.bottle.w && box.right > cell.bottle.x
+      && box.top < cell.bottle.y + cell.bottle.h && box.bottom > cell.bottle.y)) return i
   }
   return list.length   // 병을 가리는 것이 없으면 맨 뒤 — 모든 획 위
 }

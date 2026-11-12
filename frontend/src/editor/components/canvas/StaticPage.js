@@ -12,6 +12,7 @@ import { ViewportMotion } from './viewportMotion'
 import { PackingColorLayer, PackingFrontLayer } from './PackingColorLayer'
 import { InkRecordFrontLayer } from './InkRecordFrontLayer'
 import { inkRecordFrontIndex } from '../../templates/inkRecordLayout.js'
+import { coverBounds, coversEach } from '../../utils/coverBounds.js'
 import { memoArtOf } from '../../utils/editorShapes'
 import { packingLayout } from '../../templates/packingLayout.js'
 
@@ -96,15 +97,26 @@ const StaticPage = memo(function StaticPage({ qaPageMeasurement = null, page, zo
   const pending = []
   renderableObjects.forEach((object, index) => {
     if (index === frontAt) ordered.push(INK_RECORD_FRONT)
-    // 덧그림은 **숨긴 요소가 차례를 가르지 않는다.** 그리는 쪽은 숨긴 것을 빼고 그리므로, 숨긴
-    // 스티커 · 사진이 획 앞에 있다고 거기서 끊으면 **화면에는 아무것도 없는데** 그 뒤에 그은 획이
-    // 덧그림 위로 올라와 병 선을 덮는다(코드리뷰 2026-11-13).
-    if (!object.hidden && object.type !== 'stroke' && pending.length) ordered.push(...pending.splice(0))
+    // 덧그림은 **그것을 가리는** 비(非)획 요소 앞까지만 올라간다. 아무 요소에나 자리를 내주면
+    // 구석에 붙인 스티커 하나 때문에 그 뒤에 그은 획이 메모 선을 덮는다 — 병 윤곽과 같은 규칙이다
+    // (코드리뷰 2026-11-13). 숨긴 요소는 그리지 않으므로 차례도 가르지 않는다.
+    if (!object.hidden && object.type !== 'stroke' && pending.length) {
+      const box = coverBounds(object)
+      for (let i = pending.length - 1; i >= 0; i--) {
+        if (!coversEach(box, coverBounds(pending[i].overTopOf))) continue
+        ordered.push(pending[i])
+        pending.splice(i, 1)
+      }
+    }
     ordered.push(object)
     if (!object.hidden && memoArtOf(object.art)?.overTop) pending.push(overTopMark(object))
   })
-  if (frontAt >= renderableObjects.length) ordered.push(INK_RECORD_FRONT)
-  ordered.push(...pending)
+  // 맨 뒤에 남는 것은 **목록에 넣지 않고 층으로** 그린다. 넣으면 그 뒤가 빈 묶음이 되어
+  //  ① 쓰는 중인 획이 그 위에 떴다가 손을 떼면 아래로 내려앉고(깜박임)
+  //  ② 마지막 획 묶음이 타일 굽기를 잃는다(CompletedStrokeLayer 의 TailRun).
+  // 어차피 맨 위이므로 층으로 그려도 보이는 차례는 같다(코드리뷰 2026-11-13).
+  const frontOnTop = frontAt >= 0 && frontAt >= renderableObjects.length
+  const tailMarks = pending
   const renderOverTop = stored => {
     const object = fitBackdropToPage(stored, width, height)
     return <PageObject key={`over-${object.id}`} object={object} zoom={zoom} linesOnly
@@ -136,6 +148,9 @@ const StaticPage = memo(function StaticPage({ qaPageMeasurement = null, page, zo
         : ordered.filter(object => !object.hidden).map(renderObject)}
       </TextMeasureReady.Provider>
       </TextMeasure.Provider>
+      {/* 맨 위에 남는 덧그림 — 속지 병 윤곽이 먼저(종이 쪽), 그 위에 잉크병 메모 선 */}
+      {frontOnTop && <InkRecordFrontLayer page={page} zoom={zoom} />}
+      {tailMarks.map(mark => renderOverTop(mark.overTopOf))}
     </View>
   )
 }, (previous, next) => (

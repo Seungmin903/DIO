@@ -33,6 +33,7 @@ function loadComponent(file, platform = 'ios', cacheOverride = null, packing = n
     if (id === './InkRecordFrontLayer') return { InkRecordFrontLayer: 'ink-record-front' }
     // 자리 계산은 **진짜 모듈**을 쓴다(순수 계산이라 RN 의존이 없다) — 가짜를 두면 규칙이 어긋나도 모른다
     if (id.endsWith('/inkRecordLayout.js')) return require('../src/editor/templates/inkRecordLayout.js')
+    if (id.endsWith('/coverBounds.js')) return require('../src/editor/utils/coverBounds.js')
     if (id === './WebStrokeCacheContext') return { WebStrokeCacheEnabled: cacheContext }
     // 잉크병 메모 덧그림 판별용. 이 검사에는 메모가 안 나오므로 늘 아니라고 답한다
     if (id.endsWith('/utils/editorShapes')) return { memoArtOf: art => overTopIds.includes(art) ? { overTop: true } : null }
@@ -123,8 +124,9 @@ test('발색 기록 속지의 병 윤곽은 획 위에, 나중에 붙인 메모 
 test('획 캐시 경로(앱 · 웹)에도 같은 차례로 넘어간다', () => {
   // 실제 필기 화면은 ordered 를 통째로 캐시 층에 넘긴다 — 차례가 거기서도 지켜져야 한다
   // (코드리뷰 2026-11-13: 새 검사가 캐시 없는 길만 보고 있었다).
-  const later = onBottle({ id: 'later' })
-  const memo = { id: 'memo', type: 'sticker', art: 'inkRound', x: 0, y: 0, w: 100, h: 100 }
+  // 메모와 나중에 붙인 것을 **둘 다 병 위**에 둔다 — 그래야 윤곽 · 덧그림이 목록에 끼어 들어간다
+  const memo = onBottle({ id: 'memo', art: 'inkRound' })
+  const later = onBottle({ id: 'later', x: BOTTLE.x + 15 })
   // 속지에 획을 긋고 → 잉크병 메모를 붙이고 → 그 위에 다른 메모를 붙인 차례
   const inkPage = { ...page, backgroundAssetId: INK_PAGE, objects: [...objects, memo, later] }
   for (const [name, options] of [['앱', { cacheStrokes: true }], ['웹', { cacheStrokes: true }]]) {
@@ -243,8 +245,15 @@ test('화면도 병을 안 가리는 요소에는 윤곽을 안 내린다', () =
       over: drawing.findIndex(child => child?.props?.object === over),
     }
   }
-  const corner = orderOf([far, ...objects])
-  assert.ok(corner.last < corner.front, '구석 스티커는 윤곽을 안 내린다 — 윤곽이 모든 획 위')
+  // 가리는 것이 없으면 윤곽은 **목록에 안 끼고 맨 위 층**으로 그린다(빈 묶음이 생기지 않게)
+  const cornerPage = { ...page, backgroundAssetId: id, objects: [far, ...objects] }
+  const rendered = component.render({ page: cornerPage, zoom: 1 })
+  const children = rendered.props.children
+  const frontLayer = children.findIndex(child => child?.type === 'ink-record-front')
+  const strokeLayer = children.findIndex(child => child?.type === contexts.TextMeasure.Provider)
+  assert.ok(frontLayer > strokeLayer, '획 층보다 뒤 — 즉 모든 획 위')
+  assert.equal(drawingOf(rendered).findIndex(child => child?.type === 'ink-record-front'), -1,
+    '목록에는 끼지 않는다 — 끼면 그 뒤가 빈 묶음이 되어 쓰는 중인 획이 깜박인다')
   const covering = orderOf([...objects, over])
   assert.ok(covering.front < covering.over, '병을 가리는 것은 윤곽 위에')
   assert.ok(covering.front > 0, '그 앞의 획들은 윤곽 아래')
@@ -259,6 +268,21 @@ test('웹 캐시 층은 type · x · w 가 없는 자리표를 그대로 renderO
   assert.equal(rendered.length, objects.length + 1, '숨긴 것은 빼고 자리표는 그린다')
   assert.ok(seen.includes(front), '자리표도 renderObject 로 간다')
   assert.ok(!seen.includes(ghost), '숨긴 요소는 안 간다')
+})
+
+test('맨 위에 남는 덧그림은 목록에 끼지 않는다 — 빈 묶음이 생기면 쓰는 중인 획이 깜박인다', () => {
+  // 목록 맨 뒤에 자리표를 넣으면 그 뒤가 **빈 묶음(TailRun)** 이 된다. 쓰는 중인 획은 거기 그려지므로
+  // 자리표 위에 떴다가 손을 떼면 아래로 내려앉고, 마지막 획 묶음은 타일 굽기를 잃는다
+  // (코드리뷰 2026-11-13).
+  const memo = { id: 'memo', type: 'sticker', art: 'inkRound', x: 0, y: 0, w: 100, h: 100 }
+  const component = loadComponent('StaticPage', 'ios', null, null, ['inkRound'])
+  const rendered = component.render({ page: { ...page, objects: [memo, ...objects] }, zoom: 1, cacheStrokes: true })
+  const given = drawingOf(rendered).props.objects
+  assert.equal(given.findIndex(one => one?.overTopOf === memo), -1, '덧그림이 목록 맨 뒤에 끼지 않는다')
+  assert.equal(given.at(-1), objects.at(-1), '목록은 획으로 끝난다 — 빈 묶음이 생기지 않는다')
+  // 대신 층으로 그려 여전히 맨 위다
+  const over = rendered.props.children.flat(2).filter(child => child?.key === 'over-memo')
+  assert.equal(over.length, 1, '덧그림은 층으로 그린다')
 })
 
 test('발색 기록 속지가 아니면 병 윤곽을 아예 그리지 않는다', () => {
