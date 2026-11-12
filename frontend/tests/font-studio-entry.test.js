@@ -5,8 +5,8 @@
 // 묶음(import * as bus), 다시 내보내기(export { openFontStudio } from)도 잡는다.
 // 동적 import(await import('…/studioBus'))나 require 는 앱 코드에서 쓰지 않으므로 보지 않는다.
 //
-// 입구가 넘기는 옵션(onUse 를 넘기지 않는지)은 문자열로 보지 않고, 공방 화면을 실제로 그려 넘긴 값을
-// 그대로 비교하는 decoration-studio.test.js('폰트 추가' → { create: true }, 항목 → { open: id })가 맡는다.
+// 입구가 넘기는 옵션은 공방 화면을 실제로 그려 넘긴 값을 그대로 비교하는 decoration-studio.test.js
+// ('폰트 추가' → { create: true }, 항목 → { open: id })가 맡는다.
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readdirSync, readFileSync } from 'node:fs'
