@@ -245,8 +245,11 @@ test('한도 1개: 생성 실패 폰트 다시 시도는 다른 폰트가 한도
   await assert.rejects(h.flow.control(a, 'resume'), /1개까지/)
   assert.equal(h.item(a).status, 'failed')
   await h.flow.control(b, 'cancel')
-  // 한도가 비면 다시 시도를 거절하지 않는다(재개 뒤 작업 상태는 엔진이 정한다)
-  await assert.doesNotReject(h.flow.control(a, 'resume'))
+  // 한도가 비면 다시 시도한다: 같은 네이티브 작업을 이어서 돌린다(새 작업을 만들지 않는다)
+  await h.flow.control(a, 'resume')
+  assert.equal(h.item(a).status, 'processing')
+  assert.ok(h.calls.includes(`resume:${h.item(a).jobId}`))
+  assert.equal(h.calls.filter(v => v.startsWith('start:')).length, 2)
 })
 
 test('한도 1개: 등록 단계에서 실패한 폰트는 한도를 계속 쓰고, 자기 자신은 다시 시도할 수 있다', async () => {

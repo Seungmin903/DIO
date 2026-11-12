@@ -74,7 +74,12 @@ export function createFontWorkflow({ repository, engine, uuid, maxGeneratedFonts
       return
     }
     if (job.state === 'cancelled') return update(value.id, { job, status: 'cancelled', pauseReason: null })
-    if (job.state === 'failed') return update(value.id, { job, status: 'failed', error: job.error || '생성을 마치지 못했어요.' })
+    if (job.state === 'failed') {
+      // '다시 시도'로 대기열에 넣은 실패 작업은 그대로 둔다 — 아래 차례에서 네이티브 resumeJob 이 마지막 저장 지점부터 다시 돌린다.
+      // 여기서 다시 실패로 덮으면 다시 시도가 곧바로 실패로 돌아간다. 생성기가 바뀐 작업은 다시 돌릴 수 없으니 실패로 둔다
+      if (value.status === 'queued' && jobMatchesModel(job, state.support.modelVersion)) return
+      return update(value.id, { job, status: 'failed', error: job.error || '생성을 마치지 못했어요.' })
+    }
     if (!jobMatchesModel(job, state.support.modelVersion)) return update(value.id, { job, status: 'failed', error: '생성기가 변경됐어요. 입력을 수정해 새 작업으로 만들어 주세요.', incompatible: true })
     await update(value.id, { job, status: job.state === 'processing' ? 'processing' : 'paused' })
   }
