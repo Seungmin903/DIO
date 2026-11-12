@@ -91,8 +91,8 @@ const PHOTO_RETRIES = 3
 // 자른 자리(crop)가 있으면 표지 크기를 재서 그 자리대로 놓는다(없으면 가운데 기준으로 꽉 채움)
 function OwnPhoto({ photo }) {
   const [box, setBox] = useState(null)
-  const { aspect, status } = useCoverPhotoAspect(photo)
-  if (photo.crop && !aspect) return <View accessibilityLabel={status === 'failed' ? '표지 사진 크기 확인 실패' : '표지 사진 크기 확인 중'} style={[StyleSheet.absoluteFill, styles.noPhoto]}><Icon name="image" size={20} color="#FFFFFF" /></View>
+  const { aspect, status } = useCoverPhotoAspect(photo, { enabled: Boolean(photo.crop) })
+  if (photo.crop && !aspect) return <View accessibilityLabel={status === 'failed' ? '표지 사진 크기 확인 실패' : '표지 사진 크기 확인 중'} style={[StyleSheet.absoluteFill, styles.noPhoto]}><Icon name="image" size={20} color={colors.surface} /></View>
   if (photo.crop && aspect) {
     const layout = box && coverLayout({ imageWidth: aspect, imageHeight: 1, crop: photo.crop }, box.width, box.height)
     // 같은 URI라도 crop이 바뀌면 네이티브 이미지의 이전 표시 상태를 재사용하지 않는다.
@@ -413,7 +413,7 @@ function CoverArt({ cover, name, width, height, edit = null, shadow = null, pixe
   {shadow && <View pointerEvents="none" style={[styles.layer, body, { backgroundColor: base }, hasGradient && bodyInset, shadow]} />}
   <View style={[styles.layer, styles.clip, body, { backgroundColor: hasGradient ? 'transparent' : base }]}>
     {cover.kind === 'photo' ? (cover.photo?.src ? <OwnPhoto photo={cover.photo} />
-      : <View style={styles.noPhoto}><Icon name="image" size={Math.max(18, 30 * scale)} color="#FFFFFF" /></View>)
+      : <View style={styles.noPhoto}><Icon name="image" size={Math.max(18, 30 * scale)} color={colors.surface} /></View>)
       : <>{stops && <GradientFill stops={stops} initialWidth={bodyWidth} initialHeight={bodyHeight} />}<CoverPattern pattern={cover.pattern.type} tone={cover.pattern.tone} scale={scale} line={lineColor} pixelScale={pixelScale} initialWidth={bodyWidth} initialHeight={bodyHeight} /></>}
     {edit && <Pressable accessibilityLabel="표지 스티커 선택 해제" onPress={() => select(null)} style={StyleSheet.absoluteFill} />}
     <View pointerEvents="none" style={[styles.spine, { width: '4.9%' }]} />

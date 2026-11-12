@@ -2,6 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
+import { colors } from '../src/shared/theme.js'
 import { coverPhotoAspect, applyCoverPhotoCrop, coverPhotoWithAspect, coverCropPhoto } from '../src/diary/utils/coverPhotoCrop.js'
 import { newDiaryCover, normalizeCover } from '../src/diary/utils/coverDesign.js'
 
@@ -66,7 +67,7 @@ function fixture() {
   new Function('require', 'module', 'exports', code)(id => { assert.ok(id in mocks, id); return mocks[id] }, mod, mod.exports)
   return {
     requests, get reloads() { return reloads }, setUri: value => { uri = value }, setEntry: value => { entry = value },
-    render(photo) { cursor = 0; const result = mod.exports.useCoverPhotoAspect({ src: imported.src, ...photo }); while (effects.length) effects.shift()(); return result },
+    render(photo, options) { cursor = 0; const result = mod.exports.useCoverPhotoAspect({ src: imported.src, ...photo }, options); while (effects.length) effects.shift()(); return result },
     unmount() { cleanups.forEach(fn => fn?.()) },
   }
 }
@@ -211,16 +212,16 @@ test('크기 응답이 유효하지 않으면 실패로 표시하고 재시도�
   assert.equal(ui.render({ crop }).status, 'loading')
 })
 
-function optionsFixture({ photo = null, item = imported, apply = applyCoverPhotoCrop } = {}) {
+function optionsFixture({ photo = null, item = imported, apply = applyCoverPhotoCrop, cleanupFails = false } = {}) {
   let cursor = 0, saved, recovery = { aspect: null, status: 'idle', retry: () => retries++ }, retries = 0
-  const slots = [], effects = [], notices = []
+  const slots = [], effects = [], notices = [], discarded = []
   const Component = loadFunction('../src/diary/components/CoverOptions.js', 'PhotoOptions', {
     React: { createElement: (type, props, ...children) => ({ type, props: { ...props, children } }), Fragment: 'Fragment' },
     useState(initial) { const i = cursor++; if (!(i in slots)) slots[i] = initial; return [slots[i], value => { slots[i] = typeof value === 'function' ? value(slots[i]) : value }] },
     useRef(initial) { const i = cursor++; return slots[i] ??= { current: initial } }, useEffect: fn => effects.push(fn),
     useCoverPhotoAspect: () => recovery, pickImages: async () => [item], coverCropPhoto, coverPhotoWithAspect, applyCoverPhotoCrop: apply,
     OptionRow: 'OptionRow', View: 'View', Pressable: 'Pressable', Text: 'Text', Icon: 'Icon', OwnPhotoTile: 'OwnPhotoTile', PhotoCropper: 'PhotoCropper',
-    styles: {}, mediaFailureMessage: error => error.message, discardGeneratedMedia: async () => {},
+    styles: {}, mediaFailureMessage: error => error.message, discardGeneratedMedia: async items => { discarded.push(...items); if (cleanupFails) throw new Error('cleanup failed') },
   })
   function find(node, predicate) {
     if (!node || typeof node !== 'object') return null
@@ -229,7 +230,7 @@ function optionsFixture({ photo = null, item = imported, apply = applyCoverPhoto
     return null
   }
   const ui = {
-    notices, get saved() { return saved }, get retries() { return retries },
+    notices, discarded, get saved() { return saved }, get retries() { return retries },
     setRecovery(value) { recovery = { ...recovery, ...value } },
     render() { cursor = 0; const tree = Component({ cover: { ...newDiaryCover(), photo }, ratio: 3 / 4, onChange: value => { saved = value }, onNotice: value => notices.push(value) }); while (effects.length) effects.shift()(); return tree },
     find: predicate => find(ui.render(), predicate),
@@ -279,11 +280,12 @@ test('복구 실패 시 저장된 크롭을 무시한 전체 사진을 미리보
   const OwnPhoto = loadFunction('../src/diary/components/CoverArt.js', 'OwnPhoto', {
     React: { createElement: (type, props, ...children) => ({ type, props: { ...props, children } }) },
     useState: () => [null, () => {}], useCoverPhotoAspect: () => ({ aspect: null, status: 'failed' }),
-    View: 'View', Icon: 'Icon', StyleSheet: { absoluteFill: {} }, styles: { noPhoto: {} },
+    View: 'View', Icon: 'Icon', colors, StyleSheet: { absoluteFill: {} }, styles: { noPhoto: {} },
   })
   const result = OwnPhoto({ photo: { src: imported.src, crop } })
   assert.equal(result.props.accessibilityLabel, '표지 사진 크기 확인 실패')
   assert.equal(result.props.children[0].type, 'Icon')
+  assert.equal(result.props.children[0].props.color, colors.surface)
 })
 
 
@@ -300,4 +302,55 @@ test('원본 읽기부터 실패한 표지는 재시도 시 미디어를 다시 
   const result = ui.render({ mediaFileId: 'original', crop })
   assert.equal(result.status, 'ready')
   assert.equal(result.aspect, 1600 / 900)
+})
+
+
+test('비율 복구를 끈 표지는 이미지 크기를 조회하거나 재시도하지 않는다', () => {
+  const ui = fixture()
+  const idle = ui.render({ mediaFileId: 'original' }, { enabled: false })
+  assert.equal(idle.status, 'idle')
+  assert.equal(idle.aspect, null)
+  idle.retry()
+  ui.render({ mediaFileId: 'original' }, { enabled: false })
+  assert.equal(ui.requests.length, 0)
+  assert.equal(ui.reloads, 0)
+  ui.render({ mediaFileId: 'original', crop }, { enabled: true })
+  assert.equal(ui.requests.length, 1)
+  ui.render({ mediaFileId: 'original' }, { enabled: false })
+  ui.requests[0].success(900, 1600)
+  assert.equal(ui.render({ mediaFileId: 'original' }, { enabled: false }).aspect, null)
+})
+
+test('실제 표지 렌더러는 크롭이 없는 사진의 비율 복구를 끈다', () => {
+  let enabled
+  const OwnPhoto = loadFunction('../src/diary/components/CoverArt.js', 'OwnPhoto', {
+    React: { createElement: (type, props) => ({ type, props }) },
+    useState: () => [null, () => {}],
+    useCoverPhotoAspect: (photo, options) => { enabled = options.enabled; return { aspect: null, status: 'idle' } },
+    PhotoImage: 'PhotoImage',
+  })
+  assert.equal(OwnPhoto({ photo: { src: imported.src } }).type, 'PhotoImage')
+  assert.equal(enabled, false)
+})
+
+test('새 사진 크기 검증 실패 시 가져온 미디어만 정리하고 기존 표지는 유지한다', async () => {
+  const old = { src: 'media:old', mediaFileId: 'old', aspect: 1, crop }
+  const item = { src: 'media:invalid', mediaFileId: 'invalid', width: 0, height: 900 }
+  const ui = optionsFixture({ photo: old, item })
+  await ui.find(node => node.props?.accessibilityLabel === '내 사진 고르기').props.onPress()
+  assert.deepEqual(ui.discarded, [item])
+  assert.deepEqual(old.crop, crop)
+  assert.equal(ui.saved, undefined)
+  assert.equal(ui.find(node => node.type === 'PhotoCropper'), null)
+  assert.deepEqual(ui.notices, ['사진 크기를 확인하지 못했어요.'])
+})
+
+test('정리 실패가 원래 크기 검증 안내를 가리지 않고 정상 사진은 적용 전 삭제하지 않는다', async () => {
+  const broken = optionsFixture({ item: { src: 'media:broken' }, cleanupFails: true })
+  await broken.find(node => node.props?.accessibilityLabel === '내 사진 고르기').props.onPress()
+  assert.deepEqual(broken.notices, ['사진 크기를 확인하지 못했어요.'])
+  const valid = optionsFixture()
+  await valid.find(node => node.props?.accessibilityLabel === '내 사진 고르기').props.onPress()
+  assert.deepEqual(valid.discarded, [])
+  assert.ok(valid.find(node => node.type === 'PhotoCropper'))
 })

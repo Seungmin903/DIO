@@ -118,7 +118,10 @@ function PhotoOptions({ cover, ratio, onChange, onNotice, pickNow, onPickHandled
     try {
       const [item] = await pickImages({ multiple: false, usage: 'photo' })
       if (item) {
-        const { src, mediaFileId, aspect, width, height } = coverPhotoWithAspect(item)
+        let photo
+        try { photo = coverPhotoWithAspect(item) }
+        catch (error) { await discardGeneratedMedia([item]).catch(() => {}); throw error }
+        const { src, mediaFileId, aspect, width, height } = photo
         setCropping({ src, mediaFileId, aspect, width, height, fresh: true })
       }
     } catch (error) { onNotice?.(mediaFailureMessage(error)) } finally { setBusy(false) }
