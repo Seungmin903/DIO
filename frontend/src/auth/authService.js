@@ -8,6 +8,7 @@ import { signInWithGoogle, revokeGoogleAccess } from './googleLogin';
 import { signInWithApple } from './appleLogin';
 import { fetch as authFetch } from 'expo/fetch';
 import { isSecureApiBaseUrl } from '../shared/apiBaseUrlPolicy';
+import { clearMediaThumbnailFiles } from '../diary/services/mediaThumbnailFiles';
 
 const host = Platform.OS === 'android' ? '10.0.2.2' : (globalThis.location?.hostname || 'localhost');
 const configuredApiBaseUrl = process.env.EXPO_PUBLIC_API_BASE_URL;
@@ -22,6 +23,7 @@ export const accessTokenHeader = process.env.EXPO_PUBLIC_AUTH_TOKEN_HEADER || 'A
 export const authService = createAuthApi({
   baseUrl: apiBaseUrl,
   sessionStore,
+  clearSessionData: clearMediaThumbnailFiles,
   buildPhotoBody,
   googleSignIn: signInWithGoogle,
   googleRevoke: revokeGoogleAccess,

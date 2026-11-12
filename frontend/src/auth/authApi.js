@@ -54,7 +54,7 @@ export function authBaseUrl(value) {
 // Access tokens and development-server Basic credentials stay in memory.
 // Only the injected native secure store persists refresh credentials.
 // Never save passwords or tokens in AsyncStorage.
-export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhotoBody, googleSignIn, googleRevoke, appleSignIn, now = Date.now, accessTokenHeader = 'Authorization', allowDevelopmentAccess = false, developmentAccessStore = null, presetDevelopmentAccess = null, sessionStore = null }) {
+export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhotoBody, googleSignIn, googleRevoke, appleSignIn, now = Date.now, accessTokenHeader = 'Authorization', allowDevelopmentAccess = false, developmentAccessStore = null, presetDevelopmentAccess = null, sessionStore = null, clearSessionData = null }) {
   if (!['Authorization', 'X-DIO-Access-Token'].includes(accessTokenHeader)) throw new Error('인증 헤더 설정을 확인해 주세요.');
   const base = authBaseUrl(baseUrl);
   const accessOrigin = new URL(base).origin;
@@ -122,6 +122,10 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
     return operation;
   };
   const clearStoredSession = () => store('clear');
+  const clearPrivateSessionData = async () => {
+    try { await clearSessionData?.(); }
+    catch { console.warn('[auth] PRIVATE_SESSION_DATA_CLEAR_FAILED'); }
+  };
   // LoginException.token() is the backend's explicit refresh rejection contract.
   const invalidRefreshToken = error => error?.status === 401 && error.code === 'INVALID_TOKEN';
   const clearStoredSessionSafely = async () => {
@@ -137,7 +141,8 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
     expiredSessionKey = null;
     accessRefreshAt = 0;
     api.cancelPending();
-    return clearStoredSessionSafely();
+    const [cleared] = await Promise.all([clearStoredSessionSafely(), clearPrivateSessionData()]);
+    return cleared;
   };
   const acceptSession = async (result, { keepSessionOnStorageFailure = false } = {}) => {
     const text = value => typeof value === 'string' && value.trim().length > 0;
@@ -675,7 +680,7 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
             for (const listener of expiryListeners) {
               try { listener(expired); } catch { console.warn('[auth] SESSION_EXPIRY_LISTENER_FAILED'); }
             }
-            await clearStoredSessionSafely();
+            await Promise.all([clearStoredSessionSafely(), clearPrivateSessionData()]);
             error.message = SESSION_EXPIRED_MESSAGE;
             error.sessionExpired = true;
           }
@@ -696,13 +701,13 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
         try {
           const result = await request('refresh', { refreshToken: saved.refreshToken });
           if (attempt !== revision || session) return null;
-          if (String(result?.user?.userId) !== saved.userId) { await clearStoredSessionSafely(); throw unauthorized(); }
+          if (String(result?.user?.userId) !== saved.userId) { await Promise.all([clearStoredSessionSafely(), clearPrivateSessionData()]); throw unauthorized(); }
           await acceptSession({ ...result, provider: saved.provider });
           sessionSequence++;
           return userView(session.user);
         } catch (error) {
           if (attempt === revision && invalidRefreshToken(error)) {
-            await clearStoredSessionSafely();
+            await Promise.all([clearStoredSessionSafely(), clearPrivateSessionData()]);
             error.message = SESSION_EXPIRED_MESSAGE;
             error.sessionExpired = true;
           }

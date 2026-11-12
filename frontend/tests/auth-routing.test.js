@@ -379,7 +379,7 @@ test('authService 모듈은 공용 주소·헤더를 선언한 뒤 생성 인자
  }).code
  for (const dev of [true, false]) {
   const mod = { exports: {} }
-  const mocks = { './sessionStore': {sessionStore: null}, 'react-native': { Platform: { OS: 'android' } }, './authApi': {
+  const mocks = { '../diary/services/mediaThumbnailFiles': { clearMediaThumbnailFiles() {} }, './sessionStore': {sessionStore: null}, 'react-native': { Platform: { OS: 'android' } }, './authApi': {
    authBaseUrl: value => `${value}/api/v1`, createAuthApi: options => options,
   }, './photoUpload': { buildPhotoBody() {} }, './googleLogin': { signInWithGoogle() {} }, './appleLogin': { signInWithApple() {} }, './appleLogin': { signInWithApple() {} }, '../shared/apiBaseUrlPolicy': apiBaseUrlPolicy, 'expo/fetch': { fetch() {} },
    './developmentAccessStore': { createDevelopmentAccessStore: options => { stores++; storeOptions = options; return 'store'; } },
@@ -387,6 +387,7 @@ test('authService 모듈은 공용 주소·헤더를 선언한 뒤 생성 인자
   let stores = 0, storeOptions = null
   new Function('require', 'module', 'exports', '__DEV__', 'process', source)(id => mocks[id], mod, mod.exports, dev,
    { env: { EXPO_PUBLIC_API_BASE_URL: 'https://server.example', EXPO_PUBLIC_AUTH_TOKEN_HEADER: 'X-DIO-Access-Token' } })
+  assert.equal(mod.exports.authService.clearSessionData, mocks['../diary/services/mediaThumbnailFiles'].clearMediaThumbnailFiles)
   assert.equal(mod.exports.authService.baseUrl, mod.exports.apiBaseUrl)
   assert.equal(mod.exports.authService.accessTokenHeader, mod.exports.accessTokenHeader)
   assert.equal(mod.exports.accessTokenHeader, 'X-DIO-Access-Token')
@@ -403,7 +404,7 @@ test('API 주소가 없는 정적 웹 릴리스도 모듈 로드 대신 설정 �
   configFile: false, babelrc: false, plugins: [expo.resolve('@babel/plugin-transform-modules-commonjs')],
  }).code
  const mod = { exports: {} }
- const mocks = { './sessionStore': {sessionStore: null}, 'react-native': { Platform: { OS: 'web' } }, './authApi': { authBaseUrl: value => value, createAuthApi: options => options },
+ const mocks = { '../diary/services/mediaThumbnailFiles': { clearMediaThumbnailFiles() {} }, './sessionStore': {sessionStore: null}, 'react-native': { Platform: { OS: 'web' } }, './authApi': { authBaseUrl: value => value, createAuthApi: options => options },
   './photoUpload': { buildPhotoBody() {} }, './googleLogin': { signInWithGoogle() {} }, './appleLogin': { signInWithApple() {} },
   './developmentAccessStore': { createDevelopmentAccessStore() {} }, './legacyAccessKeychain': { legacyAccessKeychain: 'keychain' }, '../shared/apiBaseUrlPolicy': apiBaseUrlPolicy, 'expo/fetch': { fetch() {} } }
  new Function('require', 'module', 'exports', '__DEV__', 'process', source)(id => mocks[id], mod, mod.exports, false, { env: {} })
@@ -415,7 +416,7 @@ test('API 주소가 없는 네이티브 릴리스도 시작 설정 오류로 분
   configFile: false, babelrc: false, plugins: [expo.resolve('@babel/plugin-transform-modules-commonjs')],
  }).code
  const mod = { exports: {} }
- const mocks = { './sessionStore': {sessionStore: null}, 'react-native': { Platform: { OS: 'android' } }, './authApi': { authBaseUrl: value => value, createAuthApi: options => options },
+ const mocks = { '../diary/services/mediaThumbnailFiles': { clearMediaThumbnailFiles() {} }, './sessionStore': {sessionStore: null}, 'react-native': { Platform: { OS: 'android' } }, './authApi': { authBaseUrl: value => value, createAuthApi: options => options },
   './photoUpload': { buildPhotoBody() {} }, './googleLogin': { signInWithGoogle() {} }, './appleLogin': { signInWithApple() {} },
   './developmentAccessStore': { createDevelopmentAccessStore() {} }, './legacyAccessKeychain': { legacyAccessKeychain: 'keychain' }, '../shared/apiBaseUrlPolicy': apiBaseUrlPolicy, 'expo/fetch': { fetch() {} } }
  new Function('require', 'module', 'exports', '__DEV__', 'process', source)(id => mocks[id], mod, mod.exports, false, { env: {} })
@@ -425,7 +426,7 @@ test('평문 또는 잘못된 API 주소가 주입된 릴리스도 설정 오류
  const source = babel.transformSync(readFileSync(new URL('../src/auth/authService.js', import.meta.url), 'utf8'), {
   configFile: false, babelrc: false, plugins: [expo.resolve('@babel/plugin-transform-modules-commonjs')],
  }).code
- const mocks = { './sessionStore': {sessionStore: null}, 'react-native': { Platform: { OS: 'android' } }, './authApi': { authBaseUrl: value => value, createAuthApi: options => options },
+ const mocks = { '../diary/services/mediaThumbnailFiles': { clearMediaThumbnailFiles() {} }, './sessionStore': {sessionStore: null}, 'react-native': { Platform: { OS: 'android' } }, './authApi': { authBaseUrl: value => value, createAuthApi: options => options },
   './photoUpload': { buildPhotoBody() {} }, './googleLogin': { signInWithGoogle() {} }, './appleLogin': { signInWithApple() {} },
   './developmentAccessStore': { createDevelopmentAccessStore() {} }, './legacyAccessKeychain': { legacyAccessKeychain: 'keychain' }, '../shared/apiBaseUrlPolicy': apiBaseUrlPolicy, 'expo/fetch': { fetch() {} } }
  for (const url of ['http://10.0.2.2:8080/api', 'not a URL']) {

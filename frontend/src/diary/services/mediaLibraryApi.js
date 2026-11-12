@@ -6,6 +6,7 @@ export const mediaLibraryMaxBytes = row => row?.mimeType === 'image/gif' ? share
 export const canSelectMediaPhoto = row => row?.mediaType === 'IMAGE' && Number.isSafeInteger(row.fileSize) && row.fileSize > 0 && row.fileSize <= mediaLibraryMaxBytes(row)
 export { mediaLibrarySizeMessage }
 import { isUuid } from '../../collaboration/canvasElements.js'
+import { THUMBNAIL_MAX_BYTES } from './mediaThumbnailCache.js'
 
 const invalid = () => { throw Object.assign(Error('미디어 정보를 확인하지 못했어요. 다시 불러와 주세요.'), { code:'INVALID_MEDIA_RESPONSE' }) }
 const path = id => { if (!isUuid(id)) invalid(); return `/media/${id}` }
@@ -31,6 +32,7 @@ export function createMediaLibraryApi({ transport, fileRequest }) {
     },
     async get(id) { return readMedia(await transport({path:path(id)}),id) },
     file(id,options) { path(id);return fileRequest(`/media/${id}/file`,{timeoutMs:120000,...options,binary:true}) },
+    thumbnail(id) { path(id);return fileRequest(`/media/${id}/thumbnail`,{timeoutMs:30000,maxBytes:THUMBNAIL_MAX_BYTES,binary:true}) },
   }
 }
 

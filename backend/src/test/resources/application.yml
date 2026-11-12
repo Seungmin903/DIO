@@ -16,7 +16,8 @@ dio:
 
 spring:
   datasource:
-    url: jdbc:h2:mem:testdb;MODE=PostgreSQL
+    # FixedTestDatabaseInitializer replaces this marker once per context, before datasource binding.
+    url: jdbc:h2:mem:dio-test-context;MODE=PostgreSQL
     username: sa
     password:
   jpa:
