@@ -6,7 +6,7 @@ import { MODEL_VERSION, PREPROCESS_VERSION, PROMPTS } from '../src/handwriting/p
 const clone = value => JSON.parse(JSON.stringify(value))
 const sample = { coordinateSize: 1024, strokes: [{ width: 9, points: [{ x: 200, y: 200 }, { x: 700, y: 700 }] }] }
 const draft = id => ({ schema: 1, id, samples: Object.fromEntries(PROMPTS.map(c => [c, clone(sample)])), updatedAt: '2026-10-30' })
-function setup(saved = [], jobs = new Map()) {
+function setup(saved = [], jobs = new Map(), maxGeneratedFonts) {
   let next = 0, active = null, failSave = false, failRegister = false
   const calls = [], fonts = new Map()
   const repository = {
@@ -37,15 +37,47 @@ function setup(saved = [], jobs = new Map()) {
     preview: async () => { assert.equal(active, null); calls.push('preview'); return { 안: 'file://preview.png' } },
     wait: async () => {},
   }
-  const flow = createFontWorkflow({ repository, engine, uuid: () => `entry-${++next}` })
+  const flow = createFontWorkflow({ repository, engine, maxGeneratedFonts, uuid: () => `entry-${++next}` })
   const item = id => flow.getSnapshot().entries.find(e => e.id === id)
   const complete = id => { const job = jobs.get(item(id).jobId); Object.assign(job, { state: 'ready', completed: 11172, fontUri: 'file://font.ttf' }); active = null }
+  // 작업 상태를 바꾸고 엔진을 비운다(생성 실패 · 생성기 변경처럼 작업이 멈춘 경우)
+  const settle = (id, patch) => { Object.assign(jobs.get(item(id).jobId), patch); active = null }
   const prepare = async name => {
     const id = await flow.create(); await flow.saveDraft(id, draft(id), name); await flow.preview(id); return id
   }
-  return { flow, calls, jobs, fonts, item, complete, prepare, repository, engine,
+  return { flow, calls, jobs, fonts, item, complete, settle, prepare, repository, engine,
     saved: () => clone(saved), failSave: value => { failSave = value }, failRegister: value => { failRegister = value } }
 }
+
+test('생성 한도가 1개일 때 동시에 확정해도 하나만 시작하고 재실행 후에도 한도를 지킨다', async () => {
+  const h = setup([], new Map(), 1)
+  await h.flow.init()
+  const first = await h.prepare('첫 폰트')
+  const second = await h.prepare('둘째 폰트')
+  const [accepted, rejected] = await Promise.allSettled([h.flow.confirm(first), h.flow.confirm(second)])
+  assert.equal(accepted.status, 'fulfilled')
+  assert.match(rejected.reason.message, /1개까지/)
+  assert.equal(h.item(second).status, 'draft')
+  h.complete(first)
+  await h.flow.tick()
+
+  const restarted = setup(h.saved(), h.jobs, 1)
+  await restarted.flow.init()
+  await assert.rejects(restarted.flow.create(first), /1개까지/)
+  await assert.rejects(restarted.flow.confirm(second), /1개까지/)
+})
+
+test('가져온 폰트는 한도를 사용하지 않고 생성 취소 후 다시 만들 수 있다', async () => {
+  const h = setup([{ id: 'imported', status: 'ready', fontId: 'imported' }], new Map(), 1)
+  await h.flow.init()
+  const first = await h.prepare('첫 폰트')
+  await h.flow.confirm(first)
+  await assert.rejects(h.flow.create(), /1개까지/)
+  await h.flow.control(first, 'cancel')
+  const second = await h.prepare('둘째 폰트')
+  await h.flow.confirm(second)
+  assert.equal(h.item(second).status, 'processing')
+})
 
 test('대기열은 화면 구독 없이도 FIFO로 생성하고 완료를 한 번만 등록한다', async () => {
   const h = setup(); await h.flow.init()
@@ -199,4 +231,51 @@ test('작성 중인 폰트만 지우고 저장소에서도 사라지며, 생성�
   assert.equal(h.item(id), undefined); assert.equal(h.saved().some(e => e.id === id), false)
   await assert.rejects(h.flow.removeDraft(kept), /작성 중인 폰트만/)
   assert.ok(h.item(kept))
+})
+
+test('한도 1개: 생성 실패 폰트 다시 시도는 다른 폰트가 한도를 쓰는 동안 거절되고, 비면 허용된다', async () => {
+  const h = setup([], new Map(), 1)
+  await h.flow.init()
+  const a = await h.prepare('A'); await h.flow.confirm(a)
+  h.settle(a, { state: 'failed', error: 'boom' }); await h.flow.tick()
+  assert.equal(h.item(a).status, 'failed')
+  // 생성 자체가 실패한 폰트는 한도를 쓰지 않으니 다른 폰트를 만들 수 있다
+  const b = await h.prepare('B'); await h.flow.confirm(b)
+  assert.equal(h.item(b).status, 'processing')
+  await assert.rejects(h.flow.control(a, 'resume'), /1개까지/)
+  assert.equal(h.item(a).status, 'failed')
+  await h.flow.control(b, 'cancel')
+  // 한도가 비면 다시 시도한다: 같은 네이티브 작업을 이어서 돌린다(새 작업을 만들지 않는다)
+  await h.flow.control(a, 'resume')
+  assert.equal(h.item(a).status, 'processing')
+  assert.ok(h.calls.includes(`resume:${h.item(a).jobId}`))
+  assert.equal(h.calls.filter(v => v.startsWith('start:')).length, 2)
+})
+
+test('한도 1개: 등록 단계에서 실패한 폰트는 한도를 계속 쓰고, 자기 자신은 다시 시도할 수 있다', async () => {
+  const h = setup([], new Map(), 1)
+  await h.flow.init()
+  const a = await h.prepare('A'); await h.flow.confirm(a)
+  h.complete(a); h.failRegister(true); await h.flow.tick()
+  assert.equal(h.item(a).status, 'failed')
+  await assert.rejects(h.flow.create(), /1개까지/)
+  h.failRegister(false); await h.flow.control(a, 'resume')
+  assert.equal(h.item(a).status, 'ready')
+  assert.equal(h.calls.filter(v => v.startsWith('start:')).length, 1)
+})
+
+test('한도 1개: 입력 수정 버튼이 보이는 폰트(취소 · 생성기 변경)는 한도를 쓰지 않아 원본에서 수정본을 만들고 확정할 수 있다', async () => {
+  for (const make of ['cancelled', 'incompatible']) {
+    const h = setup([], new Map(), 1)
+    await h.flow.init()
+    const a = await h.prepare('A'); await h.flow.confirm(a)
+    if (make === 'cancelled') await h.flow.control(a, 'cancel')
+    else { h.settle(a, { state: 'paused', modelVersion: 'old-model' }); await h.flow.tick() }
+    assert.equal(h.item(a).status, make === 'cancelled' ? 'cancelled' : 'failed', make)
+    if (make === 'incompatible') assert.equal(h.item(a).incompatible, true)
+    const revision = await h.flow.create(a)
+    assert.equal(h.item(revision).sourceId, a, make)
+    await h.flow.preview(revision); await h.flow.confirm(revision)
+    assert.notEqual(h.item(revision).status, 'draft', make)
+  }
 })
