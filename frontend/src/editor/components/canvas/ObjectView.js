@@ -1,4 +1,4 @@
-import { createContext, memo, useContext, useLayoutEffect, useRef, useState } from 'react'
+import { createContext, memo, useContext, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Platform, StyleSheet, Text, View } from 'react-native'
 import Svg, { ClipPath, Defs, Image as SvgImage, Path } from 'react-native-svg'
 import { TAPE_DEFAULT_OPACITY } from '../../constants'
@@ -105,6 +105,7 @@ function ObjectContent({ object, zoom, areaPreview = false, still: stillRequeste
             // 테이프를 키우면 무늬도 같은 배율로 커지게 (규격 기본 높이 대비)
             scale={(zoom * object.h) / tapeUnitH(object)}
             onAssetLoad={onAssetLoad}
+            onAssetError={onAssetError}
           />
         </View>
       )
@@ -369,8 +370,17 @@ const emojiText = (height) => ({ fontSize: height * 0.72, lineHeight: height })
 // still: 페이지 썸네일처럼 움직일 필요 없는 곳에서는 GIF 대신 첫 장면을 그린다.
 export function PhotoContent({ photo, zoom, still = false, onAssetLoad, onAssetError }) {
   const uri = useMediaUri(photo, { still })
-  // 모양(하트·별 등) 틀은 SVG 이미지로 자른다. 기기에서 GIF 를 넘기면 앱이 죽어 첫 장면 PNG 로 바꿔 넘긴다
-  const svgUri = useSvgImageUri(still && photo.poster ? photo.poster : photo, uri)
+  // 모양(하트·별 등) 틀은 SVG 이미지로 자른다. 기기에서 GIF 를 넘기면 앱이 죽어 첫 장면 PNG 로 바꿔 넘긴다.
+  // useMediaUri 와 같은 항목(still 이면 poster)으로 판별하고, SVG 로 그리는 모양일 때만 변환한다
+  const svgPhoto = photo.frame === 'shape' && VIEW_CLIP_SHAPES[photo.shape] == null
+  const svgImage = useSvgImageUri(still && photo.poster ? photo.poster : photo, uri, { enabled: svgPhoto })
+  const svgUri = svgImage.uri
+  // 첫 장면을 만들지 못하면 SvgImage 에 주소가 없어 onLoad·onError 가 오지 않는다. 대신 오류를 알린다
+  useEffect(() => {
+    if (!svgImage.failed) return
+    reportMediaDisplayError(photo)
+    onAssetError?.()
+  }, [svgImage.failed]) // eslint-disable-line react-hooks/exhaustive-deps
   const animated = !still && isAnimatedMedia(photo)
   const clipInstance = useSvgId('photo-clip')
   const clipId = `${clipInstance}-${photo.shape ?? 'rect'}`
