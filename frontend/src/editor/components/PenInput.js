@@ -12,7 +12,7 @@ import { previewSegmentFor } from '../utils/pencilBrush.js'
 import { startPenMeasurement, reportPenInputRejected } from '../utils/penPerformance.js'
 import { DEFAULT_PEN_SETTINGS, createPenPressureSampler } from '../utils/penSettings'
 import { getPenDynamics } from '../../shared/penDynamics'
-import { createHighlighterHold } from '../utils/strokeAssist'
+import { createHighlighterHold, snapStraightEnd } from '../utils/strokeAssist'
 import { createPenPointerInput } from '../utils/penPointerInput.js'
 import { withStylusSensor } from '../utils/stylusSensor.js'
 import { createPenMotion, penEventTime } from '../utils/penMotion.js'
@@ -159,7 +159,8 @@ export default function PenInput({ zoom, dispatch, pageWidth = PAGE_WIDTH, pageH
       const offset = event.pointerType === 'pen' ? g.pointerOffset : null
       const next = { x: g.start.x + dx / zoom + (offset?.x ?? 0), y: g.start.y + dy / zoom + (offset?.y ?? 0) }
       const outside = next.x < 0 || next.x > pageWidth || next.y < 0 || next.y > pageHeight
-      if (outside) { g.hold?.cancel(); g.straight = false; g.points = g.rawPoints }
+      // 직선 전환 전에는 경계 밖에서 대기를 멈추되, 이미 보정한 직선은 원래 곡선으로 되돌리지 않는다.
+      if (outside && !g.straight) g.hold?.cancel()
       const now = Math.max(g.time, penEventTime(event))
       const elapsed = Math.max(1, now - g.time)
       const distance = Math.hypot(next.x - last.x, next.y - last.y)
@@ -175,14 +176,14 @@ export default function PenInput({ zoom, dispatch, pageWidth = PAGE_WIDTH, pageH
           g.lastRaw = next
           // 시각은 그대로 둔다: 멈췄다 떼었다고 끝 갈고리 판정이 쓰는 중과 달라지면 뗄 때 갈고리가 나타난다
           g.rawPoints[g.rawPoints.length - 1] = { ...last, ...next }
-          g.points = g.straight ? [g.points[0], g.rawPoints.at(-1)] : g.rawPoints
+          g.points = g.straight ? [g.points[0], snapStraightEnd(g.points[0], g.rawPoints.at(-1))] : g.rawPoints
           return
         }
         // 움직이지 않고 누르는 힘만 바뀌어도 꼬리를 갱신한다. 같은 좌표를 쌓지 않는다.
         if (!event.isRelease && (Math.abs(pressure - last.pressure) > 0.01 || (force != null && force !== last.force))) {
           const sample = { ...last, ...metadata }
           g.rawPoints[g.rawPoints.length - 1] = sample
-          g.points = g.straight ? [g.points[0], sample] : g.rawPoints
+          g.points = g.straight ? [g.points[0], snapStraightEnd(g.points[0], sample)] : g.rawPoints
           g.time = now
           schedulePreview(g)
         }
@@ -195,9 +196,9 @@ export default function PenInput({ zoom, dispatch, pageWidth = PAGE_WIDTH, pageH
       if (event.isRelease) for (const key of ['force', 'speed', 'tiltX', 'tiltY']) if (last[key] != null) sample[key] = last[key]
       sample.inkDistance = (last.inkDistance ?? 0) + Math.hypot(sample.x - last.x, sample.y - last.y)
       g.rawPoints.push(sample)
-      if (g.straight) g.points = [g.points[0], sample]
+      if (g.straight) g.points = [g.points[0], snapStraightEnd(g.points[0], sample)]
       else g.points = g.rawPoints
-      if (!outside) g.hold?.move(sample)
+      if (!outside || g.straight) g.hold?.move(sample)
       schedulePreview(g)
     },
     onEnd: ({ cancelled, reason }) => {
