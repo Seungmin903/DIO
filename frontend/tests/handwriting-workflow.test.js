@@ -200,3 +200,35 @@ test('작성 중인 폰트만 지우고 저장소에서도 사라지며, 생성�
   await assert.rejects(h.flow.removeDraft(kept), /작성 중인 폰트만/)
   assert.ok(h.item(kept))
 })
+
+// v2.0.0 폰트 만들기 끄기: 모델이 없는 빌드(capabilities.available=false)에서도 목록은 불러오지만,
+// 공방에서 숨긴 생성 대기 · 중 · 일시 정지 · 실패 작업을 재개 · 실패 처리 · 삭제하지 않아 다시 켜면 그대로 보인다
+test('모델이 없으면 저장된 미완료 작업 상태를 바꾸지 않고 네이티브 작업도 부르지 않는다', async () => {
+  const saved = [
+    { id: 'q', name: '대기', status: 'queued', queueOrder: 1, inputHash: 'h-q', draft: draft('q') },
+    { id: 'p', name: '생성 중', status: 'processing', jobId: 'job-p', job: { id: 'job-p', state: 'processing', completed: 120 } },
+    { id: 's', name: '일시 정지', status: 'paused', pauseReason: 'background', jobId: 'job-s' },
+    { id: 'f', name: '실패', status: 'failed', error: 'boom', jobId: 'job-f' },
+    { id: 'd', name: '작성 중', status: 'draft', draft: draft('d') },
+  ]
+  const before = clone(saved)
+  let stored = clone(saved)
+  const calls = []
+  const forbidden = name => async () => { calls.push(name); throw new Error(name + ' must not run without models') }
+  const flow = createFontWorkflow({
+    uuid: () => 'new',
+    repository: { load: async () => clone(stored), save: async entries => { calls.push('save'); stored = clone(entries) }, newDraft: () => ({}), register: forbidden('register'), renameFont: forbidden('renameFont'), fontForJob: forbidden('fontForJob') },
+    engine: {
+      capabilities: async () => ({ available: false, reason: '이 iOS 빌드에 손글씨 모델이 포함되어 있지 않아요.' }),
+      snapshot: forbidden('snapshot'), start: forbidden('start'), refresh: forbidden('refresh'), latest: forbidden('latest'),
+      jobDraft: forbidden('jobDraft'), control: forbidden('control'), preview: forbidden('preview'), isBusy: forbidden('isBusy'), wait: async () => {},
+    },
+  })
+  await flow.setForeground(true)
+  await flow.init()
+  for (let i = 0; i < 3; i++) await flow.tick()
+  assert.deepEqual(calls, [])
+  assert.deepEqual(stored, before)
+  assert.equal(flow.getSnapshot().loaded, true)
+  assert.deepEqual(flow.getSnapshot().entries.map(e => [e.id, e.status]), before.map(e => [e.id, e.status]))
+})
