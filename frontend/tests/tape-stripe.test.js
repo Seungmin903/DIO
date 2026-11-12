@@ -10,8 +10,19 @@ const { code } = expo('@babel/core').transformSync(readFileSync(new URL('../src/
 })
 const svg = { __esModule: true, default: 'Svg' }
 for (const id of ['Circle', 'ClipPath', 'Defs', 'G', 'Image', 'Line', 'Path', 'Pattern', 'Polygon', 'Rect']) svg[id] = id
-const mocks = { react: { cloneElement: (el, props) => ({ ...el, props: { ...el.props, ...props } }) }, 'react-native-svg': svg,
-  '../../hooks/useMediaUri': { useMediaUri: () => null }, '../../utils/objects': { coverLayout: () => null }, '../../constants': constants,
+// 사진 테이프 시험용: useSvgImageUri 가 돌려줄 값과 오류 알림 기록
+const svgImage = { result: (_, uri) => ({ uri, failed: false }) }
+const reported = []
+// effect: 보통은 바로 실행한다. instance 를 두면 한 화면처럼 의존성이 바뀔 때만 다시 실행한다(TapeView 의 effect 는 하나)
+const effect = { instance: null }
+const useEffect = (fn, deps) => {
+  if (!effect.instance) { fn(); return }
+  const prev = effect.instance.deps
+  if (!prev || deps.some((d, i) => d !== prev[i])) { effect.instance.deps = deps; fn() }
+}
+const mocks = { react: { cloneElement: (el, props) => ({ ...el, props: { ...el.props, ...props } }), useEffect }, 'react-native-svg': svg,
+  '../../hooks/useMediaUri': { useMediaUri: () => 'file:///media/tape.gif' }, '../../hooks/useSvgImageUri': { useSvgImageUri: (...args) => svgImage.result(...args) },
+  '../../services/mediaStore': { reportMediaDisplayError: (item) => reported.push(item) }, '../../utils/objects': { coverLayout: () => null }, '../../constants': constants,
   '../../utils/svgId': { useSvgId: () => 'tape' }, './laceTapes': { LACE_HEIGHT, LACE_TILES },
   '../../../shared/pixelSnap': { snapScale: v => v, snapToPixel: v => v } }
 const mod = { exports: {} }
@@ -65,4 +76,51 @@ test('이어 붙일 수 있는 레이스는 테이프 길이만큼 한 경로로
   // 타일 밖으로 나간 예전 도안은 한 벌만 (겹치면 evenodd 로 구멍이 된다)
   const tree = TapeView({ pattern: 'lace-flower', palette: 'mint', width: 300, height: 34, edge: 'straight' })
   assert.equal(nodes(tree).find(n => n.type === 'Pattern').props.width, LACE_TILES['lace-flower'].width)
+})
+
+// 사진 테이프 안쪽(TapeImage 컴포넌트)까지 그려 SVG 이미지 노드를 모은다
+const tapeImages = (tree) => nodes(tree).flatMap(n => typeof n.type === 'function' ? nodes(n.type(n.props)) : []).filter(n => n.type === 'Image')
+
+test('사진 테이프는 useSvgImageUri 가 준 주소(GIF 면 첫 장면 PNG)만 SVG 이미지에 넘긴다', () => {
+  const calls = []
+  svgImage.result = (item, uri, options) => { calls.push({ item, uri, options }); return { uri: 'file:///cache/still.png', failed: false } }
+  const tree = TapeView({ mediaFileId: 'm1', width: 180, height: 34, edge: 'straight' })
+  assert.deepEqual(calls[0], { item: { src: undefined, mediaFileId: 'm1' }, uri: 'file:///media/tape.gif', options: { enabled: true } })
+  const images = tapeImages(tree)
+  assert.ok(images.length >= 1)
+  images.forEach(image => assert.equal(image.props.href.uri, 'file:///cache/still.png'))
+  // 무늬 테이프는 변환하지 않는다
+  TapeView({ pattern: 'dot', palette: 'mint', width: 180, height: 34 })
+  assert.equal(calls.at(-1).options.enabled, false)
+})
+
+test('첫 장면을 만드는 중이면 이미지를 그리지 않고, 실패하면 오류를 알린다', () => {
+  svgImage.result = () => ({ uri: null, failed: false })
+  assert.equal(tapeImages(TapeView({ mediaFileId: 'm1', width: 180, height: 34 })).length, 0)
+  reported.length = 0
+  let errors = 0
+  svgImage.result = () => ({ uri: null, failed: 'media:m1' })
+  const tree = TapeView({ mediaFileId: 'm1', width: 180, height: 34, onAssetError: () => errors++ })
+  assert.equal(tapeImages(tree).length, 0)
+  assert.equal(errors, 1)
+  assert.deepEqual(reported, [{ src: undefined, mediaFileId: 'm1' }])
+  svgImage.result = (_, uri) => ({ uri, failed: false })
+})
+
+test('같은 테이프에서 실패한 GIF 가 실패한 다른 GIF 로 바뀌면 다시 알리고, 그대로 다시 그리면 또 알리지 않는다', () => {
+  reported.length = 0
+  let errors = 0
+  effect.instance = {}
+  try {
+    svgImage.result = (item) => ({ uri: null, failed: `media:${item.mediaFileId}` })
+    const draw = (mediaFileId) => TapeView({ mediaFileId, width: 180, height: 34, onAssetError: () => errors++ })
+    draw('a')
+    draw('a')
+    draw('b')
+    assert.equal(errors, 2)
+    assert.deepEqual(reported.map((item) => item.mediaFileId), ['a', 'b'])
+  } finally {
+    effect.instance = null
+    svgImage.result = (_, uri) => ({ uri, failed: false })
+  }
 })
