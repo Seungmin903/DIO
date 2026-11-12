@@ -9,6 +9,7 @@
 import { clamp, createId, rotatedBounds, unionBounds } from '../utils/common.js'
 import { pageSize } from '../utils/pageGeometry.js'
 import { isBackdrop, keepBackdropBottom } from '../utils/backdrop.js'
+import { glassOrigin } from '../utils/strokes.js'
 import { createBlankPage, createTemplatePage } from './defaultDoc.js'
 import { assignRouteDays } from '../templates/routePaper.js'
 import { normalizePaperAppearance } from '../templates/appearance.js'
@@ -99,6 +100,9 @@ export function namePhotos(existing, added) {
  * 여기서 적어 두면 그 뒤로는 문서에 실려 다녀 어느 기기에서도 같다.
  *
  * **고치기 전**에 적는 것이 핵심이다 — 옮기고 나서 적으면 옮겨진 자리가 기준이 되어 무늬가 튄다.
+ *
+ * 값: 그 페이지를 처음 고칠 때 옛 유리펜 획의 객체가 한 번 새로 만들어져, 그 획이 든 타일이
+ * 한 번 다시 구워진다. 페이지마다 한 번뿐이고, 그 대가로 무늬가 기기 · 세션을 타지 않는다.
  */
 function pinInkOrigin(objects) {
   let changed = false
@@ -192,6 +196,10 @@ function cloneObjects(objects, offset) {
       y: object.y + offset,
       locked: false,
       groupId,
+      // 유리펜 무늬 기준은 **베낀 쪽 것을 그대로** 물려준다(무늬가 획을 따라간다).
+      // 옛 획을 베끼면 사본은 점 배열을 함께 쓰므로 처음에는 원본의 기억으로 그려지다가,
+      // 다음 고침에서 제 자리로 적혀 무늬가 튄다 — 여기서 못 박는다(코드리뷰 2026-11-13).
+      ...(object.penKind === 'glass' && { inkOrigin: glassOrigin(object) }),
     }
   })
 }

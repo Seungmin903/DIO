@@ -217,3 +217,21 @@ test('옛 획을 고치면 무늬 기준을 **고치기 전 자리**로 한 번 
   // 저장 · 동기화를 타도 그대로 — 이제 기기가 달라도 같은 무늬다
   assert.deepEqual(JSON.parse(JSON.stringify(after)).inkOrigin, before)
 })
+
+test('옛 획을 베껴 붙여도 무늬가 튀지 않는다', () => {
+  // 사본은 점 배열을 함께 쓰므로 처음에는 원본의 기억으로 그려지다가, 다음 고침에서 제 자리로
+  // 적혀 무늬가 튀었다(코드리뷰 2026-11-13). 베낄 때 바로 못 박는다.
+  const legacy = glass()
+  delete legacy.inkOrigin
+  const want = glassOrigin(legacy)
+  const doc = { id: 'doc', pages: [{ id: 'page', objects: [legacy] }] }
+  let state = createInitialState(doc)
+  state = editorReducer(state, { type: 'duplicateObjects', ids: ['g'] })
+  const copy = getCurrentPage(state).objects.find(one => one.id !== 'g')
+  assert.ok(copy, '사본이 생겼다')
+  assert.deepEqual(copy.inkOrigin, want, '베낄 때 바로 적힌다')
+  // 그 뒤에 아무 고침이 와도 바뀌지 않는다
+  state = editorReducer(state, { type: 'addObjects', objects: [ball({ id: 'new' })], select: false })
+  const later = getCurrentPage(state).objects.find(one => one.id === copy.id)
+  assert.deepEqual(later.inkOrigin, want, '다음 고침에도 그대로 — 무늬가 안 튄다')
+})

@@ -940,15 +940,21 @@ half4 main(float2 p) {
     float gy = pool.eval(q + e2).g - pool.eval(q - e2).g;
     float gl = length(float2(gx, gy));
     float2 tdir = gl > 1e-6 ? float2(-gy, gx) / gl : float2(1.0, 0.0);
-    // 49b: 결의 방향은 **축**이지 화살표가 아니다. 고임 기울기는 획 중심선을 넘으면 부호가 뒤집혀
-    //   tdir 도 뒤집히는데, 그대로 두면 ① 중심선에서 무늬가 끊겨 이음선이 생기고 ② tdir 이
-    //   (-1,0) 쪽일 때 고정 축과 섞으면 **영벡터**가 되어 normalize 가 NaN 을 낸다
-    //   (align 0.5 부근). 한쪽 반평면으로 몰아 두 문제를 한 번에 없앤다(코드리뷰 2026-11-13).
-    if (tdir.x < 0.0) tdir = -tdir;
+    // 49c: 결의 방향은 **축**이지 화살표가 아니다(θ 와 θ+180 도가 같은 뜻). 그런데 고임 기울기는
+    //   획 중심선을 넘으면 부호가 뒤집혀 tdir 도 뒤집히고, 그대로 섞으면 ① 중심선에서 무늬가
+    //   점대칭으로 뒤집혀 이음선이 생기고 ② 고정 축과 상쇄되어 **영벡터**가 될 수 있다.
+    //   반평면으로 몰면(x >= 0) 세로 획에서 같은 일이 생기므로, **각도를 두 배로** 두고 섞는다 —
+    //   2θ 는 θ 와 θ+180 도가 같은 값이라 부호가 아예 없다. 섞은 뒤 반으로 되돌린다
+    //   (cosθ = √((1+C)/2), sinθ = S / 2cosθ). 코드리뷰 2026-11-13.
+    float2 t2 = float2(tdir.x * tdir.x - tdir.y * tdir.y, 2.0 * tdir.x * tdir.y);
     float align = glVeilAlign * smoothstep(0.0, 0.003, gl);
-    float2 mixed = mix(float2(1.0, 0.0), tdir, align);
-    float ml = length(mixed);
-    float2 ax = ml > 1e-6 ? mixed / ml : float2(1.0, 0.0);
+    float2 m2 = mix(float2(1.0, 0.0), t2, align);
+    float ml = length(m2);
+    // 가로 축과 세로 축을 꼭 반씩 섞는 자리(align 0.5 · 세로 획)는 45 도와 135 도가 똑같이 맞아
+    //   답이 없다 — 고정 축으로 되돌린다. 기울기가 거의 0 인 얇은 띠에서만 스친다.
+    float2 n2 = ml > 1e-6 ? m2 / ml : float2(1.0, 0.0);
+    float cx = sqrt(max(0.0, (1.0 + n2.x) * 0.5));
+    float2 ax = cx > 1e-6 ? float2(cx, n2.y / (2.0 * cx)) : float2(0.0, 1.0);
     float2 ay = float2(-ax.y, ax.x);
     float2 pr = float2(dot(p, ax), dot(p, ay));
     float2 q0 = float2(pr.x / (glVeilScl * glVeilLong), pr.y / (glVeilScl * glVeilCross)) + float2(Tb0 * 0.5, Tb0 * 0.35);
