@@ -18,7 +18,7 @@ export function availableName(name, entries) {
 export function revisionName(entry, entries) {
   return availableName(entry.baseName || entry.name, entries)
 }
-export function createFontWorkflow({ repository, engine, uuid, onFontsChanged = async () => {} }) {
+export function createFontWorkflow({ repository, engine, uuid, maxGeneratedFonts = Infinity, onFontsChanged = async () => {} }) {
   let state = { loaded: false, entries: [], support: { available: false, reason: '실행 환경을 확인하고 있어요.' }, error: '', previewing: false }
   let initialized, serial = Promise.resolve(), previewTask, foreground = true
   const listeners = new Set(), snapshots = new Map()
@@ -40,6 +40,17 @@ export function createFontWorkflow({ repository, engine, uuid, onFontsChanged = 
     return value
   }
   const requireSupport = () => { if (!state.support.available) throw new Error(state.support.reason) }
+  const requireGenerationSlot = id => {
+    const reserved = state.entries.filter(value => {
+      if (value.id === id) return false
+      // 완성 폰트는 생성 작업(jobId)이 있을 때만 센다. 생성 폰트는 등록할 때부터 작업 ID(sourceJob)를 달고, 목록 이관(storage.js loadWorkflow)도
+      // 그 값을 jobId 로 옮긴다. 가져온 폰트 · 글자 간격 보정본은 작업이 없어 한도를 쓰지 않는다(font-spacing.test.js 이관 · 한도 테스트)
+      if (value.status === 'ready') return Boolean(value.jobId)
+      if (value.status === 'failed') return value.job?.state === 'ready'
+      return ['queued', 'processing', 'paused', 'registering'].includes(value.status)
+    }).length
+    if (reserved >= maxGeneratedFonts) throw new Error(`이 기기에서 손글씨 폰트는 ${maxGeneratedFonts}개까지 만들 수 있어요.`)
+  }
   const nextQueueOrder = () => Math.max(0, ...state.entries.map(e => e.queueOrder || 0)) + 1
   const prepared = async value => {
     let snapshot = snapshots.get(value.id)
@@ -65,7 +76,12 @@ export function createFontWorkflow({ repository, engine, uuid, onFontsChanged = 
       return
     }
     if (job.state === 'cancelled') return update(value.id, { job, status: 'cancelled', pauseReason: null })
-    if (job.state === 'failed') return update(value.id, { job, status: 'failed', error: job.error || '생성을 마치지 못했어요.' })
+    if (job.state === 'failed') {
+      // '다시 시도'로 대기열에 넣은 실패 작업은 그대로 둔다 — 아래 차례에서 네이티브 resumeJob 이 마지막 저장 지점부터 다시 돌린다.
+      // 여기서 다시 실패로 덮으면 다시 시도가 곧바로 실패로 돌아간다. 생성기가 바뀐 작업은 다시 돌릴 수 없으니 실패로 둔다
+      if (value.status === 'queued' && jobMatchesModel(job, state.support.modelVersion)) return
+      return update(value.id, { job, status: 'failed', error: job.error || '생성을 마치지 못했어요.' })
+    }
     if (!jobMatchesModel(job, state.support.modelVersion)) return update(value.id, { job, status: 'failed', error: '생성기가 변경됐어요. 입력을 수정해 새 작업으로 만들어 주세요.', incompatible: true })
     await update(value.id, { job, status: job.state === 'processing' ? 'processing' : 'paused' })
   }
@@ -152,6 +168,7 @@ export function createFontWorkflow({ repository, engine, uuid, onFontsChanged = 
     tick: () => transact(pump).catch(report),
     async create(sourceId) {
       return transact(async () => {
+        requireGenerationSlot()
         const source = sourceId ? entry(sourceId) : null
         if (source && !source.draft) throw new Error('이 폰트의 원래 입력이 없어 수정할 수 없어요.')
         const draft = source ? copy(source.draft) : repository.newDraft()
@@ -183,6 +200,7 @@ export function createFontWorkflow({ repository, engine, uuid, onFontsChanged = 
       if (previewTask) return Promise.reject(new Error('샘플을 만들고 있어요. 잠시 기다려 주세요.'))
       previewTask = transact(async () => {
         requireSupport()
+        requireGenerationSlot(id)
         const value = entry(id)
         if (value.status !== 'draft') throw new Error('작성 중인 입력만 미리볼 수 있어요.')
         validateDraft(value.draft, true)
@@ -201,6 +219,7 @@ export function createFontWorkflow({ repository, engine, uuid, onFontsChanged = 
       requireSupport()
       const value = entry(id)
       if (value.status !== 'draft') return id
+      requireGenerationSlot(id)
       validateDraft(value.draft, true)
       const snapshot = await prepared(value)
       if (!value.preview || value.previewHash !== snapshot.inputHash) throw new Error('수정한 입력의 샘플을 먼저 확인해 주세요.')
@@ -215,6 +234,7 @@ export function createFontWorkflow({ repository, engine, uuid, onFontsChanged = 
       } else if (action === 'resume') {
         if (value.incompatible) throw new Error(value.error)
         if (!['failed', 'paused'].includes(value.status)) return
+        if (value.status === 'failed') requireGenerationSlot(id)
         await update(id, { status: 'queued', queueOrder: nextQueueOrder(), pauseReason: null, error: null })
       } else if (action === 'cancel' && !['ready', 'cancelled', 'draft'].includes(value.status)) {
         if (value.status === 'processing') await stopAndWait(value, 'cancel')

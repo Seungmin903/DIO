@@ -96,6 +96,21 @@ class StickerLibraryTests {
             .andExpect(jsonPath("version").value(2)).andExpect(jsonPath("folders[0].id").value("b"));
     }
 
+    @Test void customStickerLimitCountsUniqueImagesAcrossFolders() throws Exception {
+        var actor = actor();
+        var items = java.util.stream.IntStream.range(0, 201)
+            .mapToObj(index -> "{\"mediaFileId\":\"" + image(actor.id()) + "\"}").toList();
+        var firstFolder = "{\"id\":\"a\",\"name\":\"A\",\"items\":[" + String.join(",", items.subList(0, 200)) + "]}";
+        var secondFolder = "{\"id\":\"b\",\"name\":\"B\",\"items\":[" + items.get(0) + ",{\"builtin\":\"heart\"}";
+        put(actor, body(0, "[" + firstFolder + "," + secondFolder + "]}]"))
+            .andExpect(status().isOk()).andExpect(jsonPath("version").value(1));
+        put(actor, body(1, "[" + firstFolder + "," + secondFolder + "," + items.get(200) + "]}]"))
+            .andExpect(status().isBadRequest());
+        mvc.perform(get("/api/v1/me/sticker-library").header("Authorization", "Bearer " + actor.token()))
+            .andExpect(status().isOk()).andExpect(jsonPath("version").value(1))
+            .andExpect(jsonPath("folders[1].items.length()").value(2));
+    }
+
     @Test void onlyMyOwnImagesCanBeStored() throws Exception {
         var actor = actor(); var other = actor();
         var someoneElses = image(other.id());

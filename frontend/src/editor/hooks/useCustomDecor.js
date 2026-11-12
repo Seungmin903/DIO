@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { createId } from '../utils/common'
 import { hydrateMedia } from '../services/mediaStore'
 import { mediaId } from '../utils/mediaReferences.js'
+import { CUSTOM_STICKER_LIMIT, ownedStickerKeys, stickerLimitError } from '../utils/customStickerLimit.js'
 import { loadJSON, saveJSON, STORAGE_KEYS } from '../services/storage'
 
 // folders: 사용자가 만든 스티커 폴더 [{ id, name, items: [스티커 정보] }] (보관함 분류 칩 옆에 보인다)
@@ -20,6 +21,13 @@ const folderName = (name) => Array.from(String(name ?? '').trim()).slice(0, FOLD
 // 이름 바꾸기를 그대로 끝내면(포커스만 잃어도 확정된다) 예전 한도로 저장된 긴 이름을 자르지 않고 둔다
 const renamed = (folder, name) => (String(name ?? '').trim() === folder.name ? folder : { ...folder, name: folderName(name) })
 
+function checkStickerLimit(before, after) {
+  const nextKeys = ownedStickerKeys(after)
+  if (nextKeys.size <= CUSTOM_STICKER_LIMIT) return
+  const currentKeys = ownedStickerKeys(before)
+  if ([...nextKeys].some(key => !currentKeys.has(key))) throw stickerLimitError(nextKeys.size - CUSTOM_STICKER_LIMIT)
+}
+
 // 한 번 읽은 목록은 메모리에 두고 보관함을 다시 열 때 바로 쓴다 (열 때마다 빈 목록 → 저장소 읽기로 화면이 바뀌지 않게)
 let cached = null
 let cachedCategory = null
@@ -30,6 +38,7 @@ function persistCategory(category) {
 }
 // Serialize writes so a prior effect cannot overwrite a confirmed generated folder.
 let saving = Promise.resolve()
+let stickerSaving = Promise.resolve()
 // 보관함을 닫아도 실패 상태와 최신 편집 내용은 다음 진입까지 유지한다.
 let saveState = { error: null, pending: false }
 let saveRevision = 0
@@ -189,38 +198,53 @@ export function useCustomDecor() {
   const removeFolder = useCallback((id) => {
     setItems((prev) => ({ ...prev, folders: prev.folders.filter((f) => f.id !== id) }))
   }, [])
-  // 같은 스티커는 한 번만 담는다. 새로 담은 것이 앞에 온다.
-  const addToFolder = useCallback((id, stickers) => {
-    setItems((prev) => ({
-      ...prev,
-      folders: prev.folders.map((f) => {
-        if (f.id !== id) return f
-        const adding = stickers.map(stickerRef)
-        const keys = new Set(adding.map(stickerKey))
-        return { ...f, items: [...adding, ...f.items.filter((item) => !keys.has(stickerKey(item)))] }
-      }),
-    }))
-  }, [])
-
   // The generator modal blocks other drawer edits. Publish only after persistence succeeds.
-  const saveGenerated = useCallback(async (folderId, name, stickers) => {
-    if (!loaded) throw new Error('보관함을 읽은 뒤 다시 시도해 주세요.')
-    const current = cached ?? items
-    const cleanName = folderName(name)
-    if (!cleanName) throw new Error('폴더 이름을 입력해 주세요.')
-    const id = folderId ?? createId()
-    if (folderId && !current.folders.some(f => f.id === folderId)) throw new Error('폴더가 없어졌어요. 새 폴더로 다시 저장해 주세요.')
+  const saveGenerated = useCallback((folderId, name, stickers) => {
+    const write = stickerSaving.catch(() => {}).then(async () => {
+      if (!cached) throw new Error('보관함을 읽은 뒤 다시 시도해 주세요.')
+      const current = cached
+      const folder = current.folders.find(f => f.id === folderId)
+      if (folderId && !folder) throw new Error('폴더가 없어졌어요. 새 폴더로 다시 저장해 주세요.')
+      const cleanName = folderName(name)
+      if (!cleanName) throw new Error('폴더 이름을 입력해 주세요.')
+      const id = folderId ?? createId()
+      const adding = stickers.map(stickerRef)
+      const keys = new Set(adding.map(stickerKey))
+      const withFolder = base => ({ ...base, folders: folderId
+        ? base.folders.map(f => f.id === id ? { ...f, items: [...adding, ...f.items.filter(item => !keys.has(stickerKey(item)))] } : f)
+        : [...base.folders, { id, name: cleanName, items: adding }] })
+      function checkedNext(base) {
+        if (folderId && !base.folders.some(f => f.id === folderId)) throw new Error('폴더가 없어졌어요. 새 폴더로 다시 저장해 주세요.')
+        const next = withFolder(base)
+        checkStickerLimit(base, next)
+        return next
+      }
+      const next = checkedNext(current)
+      await persist(next)
+      // 저장 중 동기화나 최근 기록이 들어왔으면 최신 보관함에 추가한다.
+      if (cached !== current) {
+        try { commitItems(checkedNext(cached)) }
+        catch (error) { await persist(cached); throw error }
+      } else publishItems(next)
+      return id
+    })
+    stickerSaving = write
+    return write
+  }, [])
+  const addToFolder = useCallback((id, stickers) => {
+    // 폴더 없음 · 한도 검사는 공용 목록(cached)으로 여기서 바로 끝내 예외가 호출부 catch(한도 안내 · 가져온 이미지 정리)에 닿게 한다.
+    // 읽기 전(cached 없음)에는 폴더도 없으니 막는다
+    if (!cached) throw new Error('보관함을 읽은 뒤 다시 시도해 주세요.')
+    const prev = cached
+    if (!prev.folders.some(folder => folder.id === id)) throw new Error('폴더가 없어졌어요. 새 폴더로 다시 저장해 주세요.')
     const adding = stickers.map(stickerRef)
-    const withFolder = base => ({ ...base, folders: folderId
-      ? base.folders.map(f => f.id === id ? { ...f, items: [...adding, ...f.items] } : f)
-      : [...base.folders, { id, name: cleanName, items: adding }] })
-    const next = withFolder(current)
-    await persist(next)
-    // 저장하는 동안 들어온 변경(최근 기록 등)을 덮지 않게 그 위에 폴더만 다시 얹어 저장한다
-    if (cached && cached !== current) commitItems(withFolder(cached))
-    else publishItems(next)
-    return id
-  }, [items, loaded])
+    const keys = new Set(adding.map(stickerKey))
+    const next = { ...prev, folders: prev.folders.map(folder => folder.id === id
+      ? { ...folder, items: [...adding, ...folder.items.filter(item => !keys.has(stickerKey(item)))] }
+      : folder) }
+    checkStickerLimit(prev, next)
+    commitItems(next)
+  }, [])
   const removeFromFolder = useCallback((id, sticker) => {
     const key = stickerKey(sticker)
     setItems((prev) => ({
@@ -357,6 +381,7 @@ export function useCustomDecor() {
   return {
     items,
     loaded,
+    ownedStickerCount: ownedStickerKeys(items).size,
     lastStickerCategory,
     saveError: saveStatus.error,
     savePending: saveStatus.pending,

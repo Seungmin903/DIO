@@ -18,6 +18,7 @@ repositories {
 }
 
 dependencies {
+	implementation 'com.twelvemonkeys.imageio:imageio-webp:3.15.0'
 	implementation 'org.springframework.boot:spring-boot-starter-security-oauth2-resource-server'
 	implementation platform('software.amazon.awssdk:bom:2.42.22')
 	implementation 'software.amazon.awssdk:s3'
@@ -274,6 +275,14 @@ tasks.register('notificationBrowserQa', JavaExec) {
     dependsOn tasks.named('testClasses')
     classpath = sourceSets.test.runtimeClasspath
     mainClass = 'com.f106.DIO.notification.NotificationBrowserQa'
+}
+
+tasks.register('mediaThumbnailBrowserQa', JavaExec) {
+    group = 'verification'
+    description = 'Starts an explicitly opted-in loopback H2 media thumbnail browser fixture.'
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.f106.DIO.media.MediaThumbnailBrowserQa'
 }
 
 

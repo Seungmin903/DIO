@@ -47,6 +47,7 @@
 | --- | --- |
 | 폴더 수 | 200개 |
 | 스티커 수 | 모든 폴더 합쳐 3000개 |
+| 내가 만든 스티커(서로 다른 `mediaFileId`) | 200개. 넘으면 400 `INVALID_STICKER_LIBRARY`, `message`는 `지금은 스티커를 최대 200개까지 만들 수 있어요\n{초과 수}개 초과했어요.`. 단, 넘는 문서에 든 `mediaFileId`가 모두 이미 저장된 보관함에 있던 것이면 받는다(이미 200개를 넘은 보관함도 이름 변경 · 옮기기 · 삭제는 된다). 앱도 같은 한도로 추가를 막는다(`frontend/src/editor/utils/customStickerLimit.js`) |
 | 폴더 `id` | `^[A-Za-z0-9_-]{1,64}$`, 문서 안에서 중복 불가 |
 | 폴더 `name` | 비어 있지 않음, 40자(코드 포인트) 이하 |
 | 스티커 글자 칸(`builtin` · `asset` · `widget` · `style` · `emoji` · `name`) | 각 200자(코드 포인트) 이하 |

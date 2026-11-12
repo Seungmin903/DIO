@@ -183,3 +183,27 @@ test('구형 JSON·TTF 가져오기와 보정 메타데이터 이관을 지원�
   target.state.picked = { name: 'copy.ttf', bytes: s.files.get(next.uri) }
   assert.equal((await target.importLocalFile()).font.spacingVersion, FONT_SPACING_VERSION)
 })
+
+// 기기당 생성 한도(workflow.js requireGenerationSlot)는 완성 폰트를 jobId 로 센다. 이관한 폰트도 생성 폰트면 jobId 를 갖고
+// (생성 폰트는 처음부터 작업 ID(sourceJob)를 달아 등록했다), 가져온 폰트 · 글자 간격 보정본은 갖지 않아야 한도를 우회하거나 잘못 막지 않는다
+test('이관한 생성 폰트는 한도를 쓰고, 가져온 폰트 · 간격 보정본은 쓰지 않는다', async () => {
+  const { createFontWorkflow } = await import('../src/handwriting/workflow.js')
+  const flowOf = s => createFontWorkflow({ uuid: () => `new-${Math.random()}`, maxGeneratedFonts: 1,
+    repository: { load: current => s.loadWorkflow(current), save: async () => {}, newDraft: () => ({ schema: 1, id: 'd', samples: {}, updatedAt: 'now' }) },
+    engine: { capabilities: async () => ({ available: true, modelVersion: protocol.MODEL_VERSION }), latest: async () => null, jobDraft: async () => null, isBusy: async () => false } })
+
+  const mine = storage()
+  const generated = await mine.registerFontFile('file:///source.ttf', '내가 만든 폰트', 'job-1')
+  const entries = await mine.loadWorkflow()
+  assert.equal(entries.find(e => e.fontId === generated.id).jobId, 'job-1')
+  const withGenerated = flowOf(mine); await withGenerated.init()
+  await assert.rejects(withGenerated.create(), /1개까지/)
+
+  const other = storage()
+  const imported = await other.registerFontFile('file:///source.ttf', '가져온 폰트')
+  const corrected = await other.correctRegisteredFont(imported)
+  const otherEntries = await other.loadWorkflow()
+  assert.deepEqual(otherEntries.map(e => [e.fontId, e.jobId]).sort(), [[corrected.id, null], [imported.id, null]].sort())
+  const withoutGenerated = flowOf(other); await withoutGenerated.init()
+  assert.ok(await withoutGenerated.create())
+})

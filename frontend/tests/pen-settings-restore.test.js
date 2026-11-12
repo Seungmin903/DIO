@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { createPenColorPreference, PEN_COLOR_KEY } from '../src/editor/utils/penColorPreference.js'
 import * as penSettings from '../src/editor/utils/penSettings.js'
+import { INK_PEN_CUSTOM_ENABLED } from '../src/shared/featureFlags.js'
 const { DEFAULT_PEN_SETTINGS } = penSettings
 
 const require = createRequire(import.meta.url), expo = createRequire(require.resolve('expo/package.json'))
@@ -75,4 +76,20 @@ test('저장된 종류별 설정은 손상된 값만 버린다', () => {
   assert.deepEqual(penSettings.sanitizePenKinds({ ball: { width: 99, opacity: 0.2 }, pencil: { width: 'x' }, zzz: { width: 3 }, calligraphy: 5 }),
     { ball: { width: 16, opacity: 0.2 }, pencil: { width: 2.5, opacity: 0.8 } })
   assert.equal(penSettings.sanitizePenKinds(null), undefined)
+})
+
+test('잉크펜 꾸미기를 끄면 다른 펜 색을 이어받거나 빠른 색을 골라도 잉크펜은 정해 둔 3색만 쓴다', { skip: INK_PEN_CUSTOM_ENABLED && '잉크펜 꾸미기 켜짐' }, () => {
+  const app = fixture()
+  let [settings, change] = app.mount()
+  change({ ...settings, color: '#ABCDEF' }); ;[settings, change] = app.render()
+  change({ ...settings, kind: 'glass' }); ;[settings, change] = app.render()
+  assert.equal(settings.color, penSettings.INK_PEN_COLORS[0], '볼펜 색을 이어받지 않는다')
+  change({ ...settings, color: '#123456', inkGlitterColor: '#FFFFFF', inkSheen: false }); ;[settings, change] = app.render()
+  assert.equal(settings.color, penSettings.INK_PEN_COLORS[0])
+  assert.equal(settings.inkGlitterColor, null)
+  assert.equal(settings.inkSheen, true)
+  change({ ...settings, color: penSettings.INK_PEN_COLORS[2] }); ;[settings, change] = app.render()
+  assert.equal(settings.color, penSettings.INK_PEN_COLORS[2])
+  change({ ...settings, kind: 'ball' }); ;[settings] = app.render()
+  assert.equal(settings.color, '#ABCDEF', '볼펜 색은 그대로 돌아온다')
 })
