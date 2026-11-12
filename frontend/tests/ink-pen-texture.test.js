@@ -115,3 +115,21 @@ test('영역 지우개로 자른 조각은 자르기 전과 같은 무늬를 쓴
     assert.ok(Math.abs((piece.inkOrigin.y - piece.y) - (source.inkOrigin.y - source.y)) < 1e-6)
   }
 })
+
+test('옛 획(적어 둔 자리 없음)을 잘라도 조각끼리 · 자르기 전과 무늬가 같다', () => {
+  // 조각은 createStroke 로 새로 만들어져 제 자리로 밀어주기를 적는다. 옛 획에는 기준이 없어
+  // 조각마다 달라졌다(코드리뷰 2026-11-13) — glassOrigin 의 대신 값을 기준으로 삼는다.
+  const base = glass()
+  const source = { ...base, x: base.x + 400, y: base.y + 250 }
+  delete source.inkOrigin
+  const want = glassOrigin(source).x - source.x
+  const session = createEraserSession([source], 6, 'area')
+  assert.deepEqual(session.move({ x: source.x + source.w / 2, y: source.y + source.h / 2 }), ['g'])
+  const pieces = session.finish().replacements.g
+  assert.ok(pieces.length >= 2, `조각이 둘 이상 — ${pieces.length}`)
+  for (const piece of pieces) {
+    assert.ok(piece.inkOrigin, `조각 ${piece.id} 에 밀어주기를 적어 줘야 한다`)
+    assert.ok(Math.abs((piece.inkOrigin.x - piece.x) - want) < 1e-6,
+      `조각 ${piece.id}: ${piece.inkOrigin.x - piece.x} vs ${want}`)
+  }
+})

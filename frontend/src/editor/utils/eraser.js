@@ -1,6 +1,6 @@
 import { createId, rotateVector } from './common.js'
 import { isDashedKind, dashedObjectContour, dashedObjectSamples } from './dashedStroke.js'
-import { createStroke, penContour, strokeOutline, samplePenCurve, GLASS_BLEED } from './strokes.js'
+import { createStroke, penContour, strokeOutline, samplePenCurve, glassOrigin, GLASS_BLEED } from './strokes.js'
 import { isNibKind, nibContour, nibCurve, withDistances, withTaper } from './nibStroke.js'
 import { createBoxIndex, queryBoxIndex } from './boxIndex.js'
 
@@ -192,8 +192,11 @@ function fragmentStroke(source, points, id, caps) {
   // 유리펜 무늬도 연필 결과 같다 — 조각의 상자가 달라진 만큼 밀어주기를 옮겨, 자르기 전과
   // **같은 무늬**가 남게 한다. 안 옮기면 createStroke 가 조각 자리로 새로 적어 무늬가 튄다
   // (원본을 옮긴 뒤 지운 경우에만 티가 난다).
-  const inkOrigin = source.inkOrigin
-    && { x: source.inkOrigin.x + stroke.x - source.x, y: source.inkOrigin.y + stroke.y - source.y }
+  // 옛 획에는 inkOrigin 이 없다 — 그때는 glassOrigin 의 대신 값(그 획의 자리)을 기준으로 삼는다.
+  // 안 그러면 조각마다 제 자리로 새로 적혀 **조각끼리도, 자르기 전과도** 무늬가 달라진다
+  // (코드리뷰 2026-11-13).
+  const origin = source.penKind === 'glass' ? glassOrigin(source) : null
+  const inkOrigin = origin && { x: origin.x + stroke.x - source.x, y: origin.y + stroke.y - source.y }
   return { ...source, ...stroke, ...ink, ...tail, renderVersion: source.renderVersion, name: source.name,
     ...(inkOrigin && { inkOrigin }),
     ...(grain && { grainOrigin: { ...grain, x: grain.x + source.x - stroke.x, y: grain.y + source.y - stroke.y } }) }

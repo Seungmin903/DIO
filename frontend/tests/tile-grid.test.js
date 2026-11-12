@@ -190,7 +190,8 @@ test('타일 굽기 배율은 한 칸이 정수 픽셀이 되게 맞추고, 화�
         const here = tileScreenRect({ col, row: 0 }, zoom, dpr), right = tileScreenRect({ col: col + 1, row: 0 }, zoom, dpr)
         const device = here.x * dpr
         assert.ok(Math.abs(device - Math.round(device)) < 1e-9, `${dpr} ${zoom} ${col}: ${device}`)
-        assert.equal(here.x + here.width, right.x, `${dpr} ${zoom} 이음매`)
+        // dp 값은 이제 정수가 아니라 나눗셈 결과라 더하면 1ulp 어긋날 수 있다 — **기기 픽셀 정수**로 견준다
+        assert.equal(Math.round((here.x + here.width) * dpr), Math.round(right.x * dpr), `${dpr} ${zoom} 이음매`)
       }
     }
   }
