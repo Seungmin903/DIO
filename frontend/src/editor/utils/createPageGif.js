@@ -4,11 +4,9 @@ import { isAnimatedMedia } from '../stickerAssets'
 import { readLegacyExportImage } from './exportImage'
 import { preparePageExport } from './preparePageExport'
 import { PageExportError } from './pageExport.js'
-import { animatedRegion, createGifAssembler, downscaleRgba, gifFrameDelays, gifFrames, planGifTimeline } from './gifExport.js'
+import { animatedRegion, createGifAssembler, createYield, downscaleRgba, gifFrameDelays, gifFrames, planGifTimeline } from './gifExport.js'
 import { captureRgba, gifResult, pngResource, readBytes } from './gifFileIO'
 
-// 다음 일을 하기 전에 화면이 진행률을 그릴 틈을 준다
-const pause = () => new Promise((resolve) => setTimeout(resolve, 0))
 const keyOf = (o) => o.mediaFileId ? `media:${o.mediaFileId}` : o.asset ? `asset:${o.asset}` : o.src
 
 /** 이 페이지에 움직이는 GIF(스티커·사진)가 있는지 */
@@ -48,8 +46,10 @@ export async function createPageGif(snapshot, { renderFrame, onProgress, signal 
     }
     const plan = planGifTimeline(gifs.map((g) => g.delays))
     // GIF 마다 필요한 장면만, 페이지에 보이는 크기(출력 픽셀 기준, 자르기 확대 포함)로 줄여 PNG 로.
-    // 장면 하나 풀고 PNG 로 만드는 일이 JS 스레드를 오래 잡으므로, 장면마다 쉬어 가며 진행률을 알린다
-    // (안 쉬면 큰 GIF 에서 화면이 굳고 진행률이 0% 에 멈춰 보인다)
+    // 장면 하나 풀고 PNG 로 만드는 일이 JS 스레드를 오래 잡으므로, 쉬어 가며 진행률을 알린다
+    // (안 쉬면 큰 GIF 에서 화면이 굳고 진행률이 0% 에 멈춰 보인다). 장면마다가 아니라 일한 지 50ms 가 지났을 때만 쉰다:
+    // 웹 브라우저는 뒤로 간 탭의 타이머를 1초 넘게 미뤄, 장면마다 쉬면 탭을 바꾸는 순간 장면 수만큼 초가 늘어난다
+    const pause = createYield()
     const decodeTotal = plan.needed.reduce((sum, set) => sum + set.size, 0)
     let decoded = 0
     for (const [g, gif] of gifs.entries()) {

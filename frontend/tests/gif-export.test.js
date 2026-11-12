@@ -2,9 +2,20 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { GifReader } from 'omggif'
-import { createGifAssembler, decodeGifFrames, gifFrameDelays, gifFrames, planGifTimeline } from '../src/editor/utils/gifExport.js'
+import { createGifAssembler, createYield, decodeGifFrames, gifFrameDelays, gifFrames, planGifTimeline } from '../src/editor/utils/gifExport.js'
 
 const love = new Uint8Array(readFileSync(new URL('./fixtures/gifs/n-love.gif', import.meta.url)))
+
+test('오래 걸리는 반복은 매번이 아니라 일한 시간이 50ms 를 넘을 때만 쉰다 (뒤로 간 탭의 타이머 지연을 덜 받는다)', async () => {
+  let clock = 0, waits = 0
+  const pause = createYield({ budget: 50, now: () => clock, wait: async () => { waits++ } })
+  for (let i = 0; i < 10; i++) { clock += 10; await pause() } // 장면당 10ms 씩 100ms 일함
+  assert.equal(waits, 2)
+  clock += 49; await pause()
+  assert.equal(waits, 2)
+  clock += 1; await pause()
+  assert.equal(waits, 3)
+})
 
 test('여러 GIF 의 장면을 한 시간축에 맞추고, 같은 장면이 이어지면 합친다', () => {
   const plan = planGifTimeline([[100, 100, 100, 100], [200, 200]])
