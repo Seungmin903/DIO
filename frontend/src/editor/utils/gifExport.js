@@ -5,14 +5,6 @@ import { PageExportError } from './pageExport.js'
 export const GIF_LIMITS = { frames: 40, duration: 6000, minStep: 60, bytes: 50 * 1024 * 1024, pixels: 8000000 }
 
 /**
- * 느린 기기에서도 GIF 만들기가 1분 안에 끝나도록 하는 시간 예산(ms, 시작부터 잰다). 저장까지 여유를 두고 50초 안에 묶는다.
- * decodeStop: 원본 GIF 장면 풀기를 그만두는 때(그 뒤 장면은 앞 장면으로 대신한다)
- * captureFit: 첫 장면을 찍은 시간으로 이때까지 다 찍을 수 있게 장면 수를 줄인다
- * captureStop: 그래도 넘치면 찍기를 멈추고 찍은 장면만으로 묶는다
- */
-export const GIF_TIME_BUDGET = { total: 50000, decodeStop: 20000, captureFit: 38000, captureStop: 42000 }
-
-/**
  * 오래 걸리는 반복에서 쉬어 갈 함수를 만든다. 부를 때마다 쉬지 않고, 지난번 쉰 뒤 budget(ms) 넘게 일했을 때만
  * 한 번 쉰다(wait). 화면은 그 사이 진행률을 그린다. 뒤로 간 브라우저 탭은 타이머를 1초 넘게 미뤄, 매번 쉬면 크게 느려진다.
  */
@@ -69,45 +61,6 @@ export function planGifTimeline(delayLists, limits = GIF_LIMITS) {
     else steps.push({ indices, delay })
   }
   return { steps, needed: delayLists.map((_, g) => new Set(steps.map((s) => s.indices[g]))) }
-}
-
-/**
- * 장면 목록(steps)을 고쳐 쓴다. pick(step, n) 이 장면 번호 배열을 돌려주면 그 장면으로, null 이면 그 장면을 빼고
- * 보여 주던 시간을 앞 장면에 붙인다. 앞과 같은 장면 조합이 이어지면 합친다. 첫 장면은 null 이면 안 된다.
- */
-export function reshapeSteps(steps, pick) {
-  const out = []
-  steps.forEach((step, n) => {
-    const indices = pick(step, n)
-    const last = out.at(-1)
-    if (!indices) { if (!last) throw new Error('First GIF step is required'); last.delay += step.delay; return }
-    if (last && last.indices.every((v, g) => v === indices[g])) last.delay += step.delay
-    else out.push({ indices: [...indices], delay: step.delay })
-  })
-  return out
-}
-
-const uniqueCount = (steps) => new Set(steps.map((s) => s.indices.join(','))).size
-
-/**
- * 서로 다른 장면 조합이 max 개 이하가 되도록 장면을 고르게 솎는다(k 장면마다 하나). GIF 전체 시간은 그대로이고
- * 장면 간격만 넓어진다(움직임이 덜 부드러워진다). 이미 max 이하면 그대로 돌려준다.
- */
-export function thinSteps(steps, max) {
-  const limit = Math.max(1, Math.floor(max))
-  if (uniqueCount(steps) <= limit) return steps
-  const k = Math.ceil(steps.length / limit)
-  return reshapeSteps(steps, (step, n) => (n % k === 0 ? step.indices : null))
-}
-
-/**
- * 시간이 모자라 GIF 마다 앞쪽 장면만 풀었을 때: 풀지 못한 장면은 그 앞에서 마지막으로 푼 장면으로 바꾼다.
- * decoded: GIF 마다 푼 장면 번호 집합(비어 있으면 안 된다)
- */
-export function limitStepsToDecoded(steps, decoded) {
-  const sorted = decoded.map((set) => [...set].sort((a, b) => a - b))
-  const nearest = (list, i) => { let found = list[0]; for (const d of list) { if (d > i) break; found = d } return found }
-  return reshapeSteps(steps, (step) => step.indices.map((i, g) => nearest(sorted[g], i)))
 }
 
 /**

@@ -4,7 +4,7 @@ import { isAnimatedMedia } from '../stickerAssets'
 import { readLegacyExportImage } from './exportImage'
 import { preparePageExport } from './preparePageExport'
 import { PageExportError } from './pageExport.js'
-import { animatedRegion, createGifAssembler, createYield, downscaleRgba, GIF_TIME_BUDGET, gifFrameDelays, gifFrames, limitStepsToDecoded, planGifTimeline, reshapeSteps, thinSteps } from './gifExport.js'
+import { animatedRegion, createGifAssembler, createYield, downscaleRgba, gifFrameDelays, gifFrames, planGifTimeline } from './gifExport.js'
 import { composeFrame, planLayers } from './gifLayers.js'
 import { packingLayout } from '../templates/packingLayout.js'
 import { captureRgba, gifResult, pngResource, readBytes } from './gifFileIO'
@@ -28,7 +28,6 @@ const isCancel = (error, signal) => signal?.aborted || error?.code === 'EXPORT_C
  * 1) 층 합성(gifLayers.js): 페이지를 GIF 사이사이 층으로 몇 번만 찍고, 장면마다 GIF 장면을 층 사이에 픽셀로 끼워 합친다.
  * 2) 층 합성으로 화면과 똑같이 그릴 수 없는 GIF(테두리 · 그림자 · 틀 · 하트 모양 등)가 있거나 층 합성이 실패하면,
  *    예전처럼 장면 조합이 바뀔 때마다 renderFrame 으로 페이지를 찍는다(첫 장면만 전체, 나머지는 움직이는 곳만).
- * 어느 쪽이든 1분 안에 끝나도록 시간을 재서 늦어지면 장면 수를 줄인다(GIF_TIME_BUDGET).
  * onProgress({ phase, done, total }) 로 진행을 알린다. 반환값은 dispose 해야 한다.
  */
 export async function createPageGif(snapshot, { renderFrame, onProgress, signal }) {
@@ -44,9 +43,6 @@ export async function createPageGif(snapshot, { renderFrame, onProgress, signal 
     }
     if (!groups.size) throw new PageExportError('EXPORT_GIF_NONE', '이 페이지에는 움직이는 GIF가 없어요.')
     onProgress?.({ phase: 'decode', done: 0, total: 1 })
-    // 1분 안에 끝내기: 시작부터 시간을 재서, 늦어지면 장면 수를 줄인다 (GIF_TIME_BUDGET)
-    const started = Date.now(), elapsed = () => Date.now() - started
-    let reduced = false
     const ratioX = snapshot.pixelWidth / snapshot.width, ratioY = snapshot.pixelHeight / snapshot.height
     const gifs = []
     for (const group of groups.values()) {
@@ -66,8 +62,6 @@ export async function createPageGif(snapshot, { renderFrame, onProgress, signal 
       gif.pixels = new Map()
       const users = snapshot.objects.filter((o) => gif.ids.includes(o.id))
       for (const { index, rgba, width, height } of gifFrames(gif.bytes, plan.needed[g])) {
-        // 너무 오래 걸리면 뒤 장면은 풀지 않는다 (GIF 마다 첫 장면은 꼭 푼다). 못 푼 장면은 아래에서 앞 장면으로 대신한다
-        if (gif.pixels.size && elapsed() > GIF_TIME_BUDGET.decodeStop) { reduced = true; break }
         gif.source = { width, height }
         const scale = Math.min(1, Math.max(...users.map((o) => Math.max(o.w * ratioX / width, o.h * ratioY / height) * Math.max(1, o.crop?.zoom ?? 1))))
         const small = downscaleRgba(rgba, width, height, Math.max(1, Math.ceil(width * scale)), Math.max(1, Math.ceil(height * scale)))
@@ -79,7 +73,7 @@ export async function createPageGif(snapshot, { renderFrame, onProgress, signal 
       }
       gif.bytes = null
     }
-    let steps = reduced ? limitStepsToDecoded(plan.steps, gifs.map((gif) => new Set(gif.pixels.keys()))) : plan.steps
+    const steps = plan.steps
     const prepared = await preparePageExport(snapshot)
     disposers.push(() => prepared.dispose())
     // 첫 장면만 페이지 전체를 만들고, 그다음은 움직이는 요소가 있는 사각형만 만든다 (다룰 픽셀이 크게 준다).
@@ -87,20 +81,7 @@ export async function createPageGif(snapshot, { renderFrame, onProgress, signal 
     const rect = animatedRegion(snapshot.objects.filter((o) => gifs.some((gif) => gif.ids.includes(o.id))), snapshot)
     const { pixelWidth: width, pixelHeight: height } = snapshot
     const keyOfStep = (step) => step.indices.join(',')
-    let keys = steps.map(keyOfStep), unique = [...new Set(keys)]
-    // 첫 장면을 만들어 본 시간(perFrame: 장면 하나를 만들고 묶는 데 드는 예상 시간)으로, captureFit 까지 다 만들 수 있게 장면을 솎는다
-    const fit = (perFrame) => {
-      const room = Math.floor((GIF_TIME_BUDGET.captureFit - elapsed()) / Math.max(1, perFrame)) + 1
-      const thinned = thinSteps(steps, Math.max(2, room))
-      if (thinned !== steps) { steps = thinned; reduced = true; keys = steps.map(keyOfStep); unique = [...new Set(keys)] }
-    }
-    // 그래도 captureStop 을 넘기면 멈추고, 만들지 못한 장면은 빼고 앞 장면을 그만큼 더 보여 준다
-    const keepMade = (made) => {
-      reduced = true
-      steps = reshapeSteps(steps, (step) => (made.has(keyOfStep(step)) ? step.indices : null))
-      keys = steps.map(keyOfStep); unique = [...new Set(keys)]
-    }
-    const overTime = () => elapsed() > GIF_TIME_BUDGET.captureStop
+    const keys = steps.map(keyOfStep), unique = [...new Set(keys)]
     const capture = async (frame) => {
       const result = await renderFrame(frame, { signal })
       try { return await captureRgba(result) } finally { result.dispose() }
@@ -108,12 +89,10 @@ export async function createPageGif(snapshot, { renderFrame, onProgress, signal 
     const finish = (assembler) => {
       const output = gifResult(assembler.end())
       const duration = steps.reduce((sum, s) => sum + s.delay, 0) * 10
-      // reduced: 시간이 모자라 장면을 줄였다 (움직임이 덜 부드럽다)
-      return { ...output, width, height, frames: steps.length, duration, reduced }
+      return { ...output, width, height, frames: steps.length, duration }
     }
-    // 장면 픽셀들로 GIF 를 묶는다. makeRegion(key): 그 장면의 rect 부분, makeFull(key): 그 장면의 페이지 전체.
-    // perFrameFactor: 장면 하나 만든 시간에 곱해 묶는 시간까지 어림하는 값
-    const assemble = async ({ makeRegion, makeFull, perFrameFactor }) => {
+    // 장면 픽셀들로 GIF 를 묶는다. makeRegion(key): 그 장면의 rect 부분, makeFull(key): 그 장면의 페이지 전체
+    const assemble = async ({ makeRegion, makeFull }) => {
       const assembler = createGifAssembler(width, height)
       if (rect) {
         onProgress?.({ phase: 'capture', done: 0, total: unique.length + 1 })
@@ -123,11 +102,8 @@ export async function createPageGif(snapshot, { renderFrame, onProgress, signal 
         for (let n = 0; n < unique.length; n++) {
           const key = unique[n]
           if (crops.has(key)) continue
-          if (n > 0 && overTime()) { keepMade(crops); break }
-          const startedAt = Date.now()
           crops.set(key, await makeRegion(key))
           check()
-          if (n === 0) fit((Date.now() - startedAt) * perFrameFactor)
           onProgress?.({ phase: 'capture', done: crops.size + 1, total: unique.length + 1 })
           await pause()
         }
@@ -147,12 +123,9 @@ export async function createPageGif(snapshot, { renderFrame, onProgress, signal 
         const key = unique[n]
         if (made.has(key)) continue
         check()
-        if (n > 0 && overTime()) { keepMade(made); break }
         onProgress?.({ phase: 'capture', done: made.size, total: unique.length })
-        const startedAt = Date.now()
         assembler.addColors(await makeFull(key))
         made.add(key)
-        if (n === 0) fit((Date.now() - startedAt) * perFrameFactor)
         await pause()
       }
       let last = null, lastPixels = null
@@ -191,8 +164,7 @@ export async function createPageGif(snapshot, { renderFrame, onProgress, signal 
             frameOf: (object) => { const g = gifIndex.get(object.id); return { frame: gifs[g].pixels.get(indices[g]), source: gifs[g].source } },
           })
         }
-        // 합치기는 묶기와 비슷하게 걸려 곱을 작게 둔다
-        return await assemble({ makeRegion: (key) => compose(key, rect), makeFull: (key) => compose(key, full), perFrameFactor: 2 })
+        return await assemble({ makeRegion: (key) => compose(key, rect), makeFull: (key) => compose(key, full) })
       } catch (error) {
         if (isCancel(error, signal)) throw error
         // 층 합성이 안 되면(기기에서 투명 층을 못 찍는 등) 예전 방식으로 다시 만든다
@@ -238,11 +210,9 @@ export async function createPageGif(snapshot, { renderFrame, onProgress, signal 
       }
       return captureRgba(captures.get(key))
     }
-    // 사각형 장면 하나 찍는 시간 + 묶는 시간(대략 절반) / 전체 장면은 찍기 + 두 번 풀기 + 색 모으기 · 압축
     return await assemble({
       makeRegion: (key) => capture(cropOf(frameOf(key))),
       makeFull: rect ? (key) => capture(frameOf(key)) : captureFull,
-      perFrameFactor: rect ? 1.5 : 3,
     })
   } catch (error) {
     if (error instanceof PageExportError || signal?.aborted) throw error

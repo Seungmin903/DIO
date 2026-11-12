@@ -60,11 +60,7 @@ export default function ExportRunner({ job, onProgress, onFinish }) {
         const weights = { decode: [0, 0.25], capture: [0.25, 0.6], encode: [0.85, 0.15] }
         const output = await createPageGif(job.snapshot, { renderFrame, signal, onProgress: ({ phase, done, total }) => progress(weights[phase][0] + weights[phase][1] * (total ? done / total : 0)) })
         owned.push(output)
-        try {
-          const message = savedMessage(await saveGifFile(output, job.snapshot.fileName, { picker: false }), 'GIF')
-          // 1분 안에 끝내려고 장면을 줄였으면 알려 준다
-          return output.reduced ? `${message} 오래 걸려서 움직임을 조금 줄였어요.` : message
-        }
+        try { return savedMessage(await saveGifFile(output, job.snapshot.fileName, { picker: false }), 'GIF') }
         catch (error) { throw new Error(pngSaveError(error)) }
       }
       // PDF: 페이지가 많으면 여러 파일을 차례로 만든 뒤 차례로 저장한다
