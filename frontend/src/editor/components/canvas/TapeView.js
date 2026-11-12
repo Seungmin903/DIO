@@ -1,5 +1,5 @@
 import { cloneElement } from 'react'
-import { useSvgImageUri } from '../../hooks/useMediaUri'
+import { useMediaUri } from '../../hooks/useMediaUri'
 import { coverLayout } from '../../utils/objects'
 import { LEGACY_TAPE_PATTERNS, TAPE_DEFAULT, TAPE_PALETTES } from '../../constants'
 import { useSvgId } from '../../utils/svgId'
@@ -524,9 +524,8 @@ export function tapePreviewBox(tape, width, minH, maxH, fallbackRatio) {
 // segmentShare: 사진 테이프 한 조각 폭 ÷ 테이프 길이(없으면 한 조각), pieceRatio: 잘라 둘 때 조각의 가로:세로
 // crisp: 미리보기(보관함 칸 · 레이어 썸네일 등 줄여 그린 그림)는 무늬 배율을 기기 픽셀에 맞춰 칸 이음매가 깨지지 않게 한다(shared/pixelSnap).
 // 캔버스는 확대 · 축소할 때 무늬가 튀지 않게 맞추지 않는다
-export default function TapeView({ pattern, palette, segmentShare, pieceRatio, src, mediaFileId, poster, crop, imageWidth, imageHeight, edge = 'torn', width, height, scale = 1, crisp = false, onAssetLoad }) {
-  // SVG 이미지로 그리므로 GIF 테이프는 첫 장면(poster)으로 그린다(useSvgImageUri)
-  const uri = useSvgImageUri({ src, mediaFileId, poster })
+export default function TapeView({ pattern, palette, segmentShare, pieceRatio, src, mediaFileId, crop, imageWidth, imageHeight, edge = 'torn', width, height, scale = 1, crisp = false, onAssetLoad }) {
+  const uri = useMediaUri({ src, mediaFileId })
   const hasImage = Boolean(mediaFileId || src)
   const svgId = useSvgId('tape')
   const look = tapeLook(pattern, palette)

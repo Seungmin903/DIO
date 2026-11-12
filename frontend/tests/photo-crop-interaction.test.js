@@ -19,7 +19,7 @@ function fixture() {
   const constants = { CROP_RATIOS: [{ id: '16:9', name: '16:9', value: 16 / 9 }, { id: '3:4', name: '3:4', value: 3 / 4 }], POLAROID_RATIOS: [], PHOTO_SHAPES: [], CROP_ZOOM_MAX: 9 }
   const objects = { isBorderFrame: () => false, photoInnerBox: () => ({ width: 400, height: 300 }), ratioValueOf: id => constants.CROP_RATIOS.find(r => r.id === id)?.value, resizeAroundCenter: (_, w, h) => ({ w, h }) }
   const mocks = { react, 'react/jsx-runtime': jsx, 'react-native': native, '../../../shared/theme': { colors: {}, shadow: {} }, '../../constants': constants, '../../utils/objects': objects,
-    '../../utils/common': { clamp: (x, lo, hi) => Math.min(hi, Math.max(lo, x)) }, '../../utils/photoCropGeometry.js': geometry, '../../hooks/useMediaUri': { useMediaUri: () => 'image', useSvgImageUri: () => 'image' }, '../../hooks/usePan': { usePan: handlers => handlers } }
+    '../../utils/common': { clamp: (x, lo, hi) => Math.min(hi, Math.max(lo, x)) }, '../../utils/photoCropGeometry.js': geometry, '../../hooks/useMediaUri': { useMediaUri: () => 'image' }, '../../hooks/usePan': { usePan: handlers => handlers } }
   const code = expo('@babel/core').transformSync(readFileSync(new URL('../src/editor/components/panels/PhotoCropper.js', import.meta.url), 'utf8'), { configFile: false, babelrc: false, plugins: [[expo.resolve('@babel/plugin-transform-react-jsx'), { runtime: 'automatic' }], expo.resolve('@babel/plugin-transform-modules-commonjs')] }).code
   const mod = { exports: {} }
   new Function('require', 'module', 'exports', code)(id => mocks[id] ?? { __esModule: true, default: id }, mod, mod.exports)

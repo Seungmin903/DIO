@@ -1074,7 +1074,7 @@ function TapeThumb({ item, palette }) {
   if (item.src || item.mediaFileId) {
     // 등록할 때 정한 조각 비율대로(조각이 칸보다 짧으면 반복)
     const box = tapePreviewBox(item, TAPE_THUMB_W, 10, 24, sizeRatio(item.size))
-    return <TapeView src={item.src} mediaFileId={item.mediaFileId} poster={item.poster} crop={item.crop} imageWidth={item.imageWidth} imageHeight={item.imageHeight}
+    return <TapeView src={item.src} mediaFileId={item.mediaFileId} crop={item.crop} imageWidth={item.imageWidth} imageHeight={item.imageHeight}
       edge="straight" width={box.width} height={box.height} segmentShare={box.segmentShare} pieceRatio={box.pieceRatio} crisp />
   }
   return <TapeView pattern={item.pattern} palette={palette} edge="straight" width={TAPE_THUMB_W} height={PATTERN_THUMB_H} scale={PATTERN_THUMB_H / TAPE_STANDARD.h} crisp />

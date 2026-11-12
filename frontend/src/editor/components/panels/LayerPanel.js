@@ -604,7 +604,6 @@ const LayerThumb = memo(function LayerThumb({ object }) {
           pieceRatio={tapePieceRatio(object)}
           src={object.src}
           mediaFileId={object.mediaFileId}
-          poster={object.poster}
           crop={object.crop}
           imageWidth={object.imageWidth}
           imageHeight={object.imageHeight}

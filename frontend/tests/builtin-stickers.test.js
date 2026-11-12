@@ -136,7 +136,7 @@ function renderBuiltin(options) {
     '../../utils/effects': require('../src/editor/utils/effects.js'),
     '../../stickerAssets': { isAnimatedMedia: () => false, stickerSource: () => null },
     '../../builtinStickers': builtinStickers,
-    '../../hooks/useMediaUri': { useMediaUri: () => undefined, useSvgImageUri: () => undefined },
+    '../../hooks/useMediaUri': { useMediaUri: () => undefined },
     '../../hooks/useStickerPlayback': { useStickerPlayback: () => ({ source: null, error: null }) },
     '../../hooks/useStickerPacks': { useStickerPacks: () => 0 },
     '../../../shared/remoteAssets/useRemoteAssetUri': { useRemoteAssetUri: () => null },
