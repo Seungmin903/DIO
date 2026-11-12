@@ -6,6 +6,8 @@ import { preparePageExport } from './preparePageExport'
 import { PageExportError } from './pageExport.js'
 import { animatedRegion, createGifAssembler, createYield, downscaleRgba, gifFrameDelays, gifFrames, planGifTimeline } from './gifExport.js'
 import { composeFrame, planLayers } from './gifLayers.js'
+import { createSkiaComposer } from './gifSkiaCompose.js'
+import { skiaState } from '../skia/skiaRuntime'
 import { packingLayout } from '../templates/packingLayout.js'
 import { captureRgba, gifResult, pngResource, readBytes } from './gifFileIO'
 
@@ -21,16 +23,20 @@ async function readGifBytes(object) {
   try { return await readBytes(input.blob) } finally { input.dispose?.() }
 }
 
+// 장면 합성은 GPU 표면이 있는 앱에서만 Skia 로 한다. 웹 CanvasKit 은 CPU 로 그려 큰 페이지에서는 V8 의 JS 합성보다 느리다
+const gpuSkia = () => { const runtime = skiaState().runtime; return runtime?.gpuSurface ? runtime : null }
+
 const isCancel = (error, signal) => signal?.aborted || error?.code === 'EXPORT_CANCELLED'
 
 /**
  * 페이지 한 장을 움직이는 GIF 로 만든다. GIF 마다 필요한 장면을 풀어 보이는 크기로 줄여 둔 뒤,
  * 1) 층 합성(gifLayers.js): 페이지를 GIF 사이사이 층으로 몇 번만 찍고, 장면마다 GIF 장면을 층 사이에 픽셀로 끼워 합친다.
+ *    앱(GPU Skia)에서는 Skia 로 합치고(gifSkiaCompose.js), 없거나 실패하면 JS 로 합친다.
  * 2) 층 합성으로 화면과 똑같이 그릴 수 없는 GIF(테두리 · 그림자 · 틀 · 하트 모양 등)가 있거나 층 합성이 실패하면,
  *    예전처럼 장면 조합이 바뀔 때마다 renderFrame 으로 페이지를 찍는다(첫 장면만 전체, 나머지는 움직이는 곳만).
  * onProgress({ phase, done, total }) 로 진행을 알린다. 반환값은 dispose 해야 한다.
  */
-export async function createPageGif(snapshot, { renderFrame, onProgress, signal }) {
+export async function createPageGif(snapshot, { renderFrame, onProgress, signal, skia = gpuSkia() }) {
   const disposers = []
   const check = () => { if (signal?.aborted) throw signal.reason ?? new PageExportError('EXPORT_CANCELLED', 'GIF 만들기를 취소했어요.') }
   try {
@@ -157,12 +163,26 @@ export async function createPageGif(snapshot, { renderFrame, onProgress, signal 
         }
         const ratio = { x: ratioX, y: ratioY }
         const full = { x: 0, y: 0, width, height }
+        let indices = null
+        const frameOf = (object) => { const g = gifIndex.get(object.id); return { frame: gifs[g].pixels.get(indices[g]), source: gifs[g].source } }
+        // Hermes 에서는 화소마다 도는 JS 합성이 가장 오래 걸려 Skia 로 합친다. 못 만들거나 도중에 실패하면 JS 로 이어 간다
+        let skiaComposer = null
+        if (skia) {
+          try {
+            skiaComposer = createSkiaComposer(skia, { segments, layers, pageWidth: width, pageHeight: height, ratio, frameOf })
+            disposers.push(() => skiaComposer?.dispose())
+          } catch (error) { console.warn?.('GIF Skia compose unavailable, composing in JS', error) }
+        }
         const compose = (key, region) => {
-          const indices = key.split(',').map(Number)
-          return composeFrame({
-            segments, layers, region, pageWidth: width, ratio,
-            frameOf: (object) => { const g = gifIndex.get(object.id); return { frame: gifs[g].pixels.get(indices[g]), source: gifs[g].source } },
-          })
+          indices = key.split(',').map(Number)
+          if (skiaComposer) {
+            try { return skiaComposer.compose(region) }
+            catch (error) {
+              console.warn?.('GIF Skia compose failed, composing in JS', error)
+              skiaComposer.dispose(); skiaComposer = null
+            }
+          }
+          return composeFrame({ segments, layers, region, pageWidth: width, ratio, frameOf })
         }
         return await assemble({ makeRegion: (key) => compose(key, rect), makeFull: (key) => compose(key, full) })
       } catch (error) {
