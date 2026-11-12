@@ -32,7 +32,15 @@ public class MemberDiaryController {
     private final IdempotentDiaryCreationService creation;
     private final MemberDiaryContractService detail;
     private final MemberDiaryListQuery lists;
-    public MemberDiaryController(IdempotentDiaryCreationService creation,MemberDiaryContractService detail,MemberDiaryListQuery lists) { this.creation=creation; this.detail=detail; this.lists=lists; }
+    private final MemberDiaryUsageQuery usage;
+    public MemberDiaryController(IdempotentDiaryCreationService creation,MemberDiaryContractService detail,MemberDiaryListQuery lists,MemberDiaryUsageQuery usage) { this.creation=creation; this.detail=detail; this.lists=lists; this.usage=usage; }
+
+    @ApiResponse(responseCode="200",description="참여 중인 다이어리 수와 다이어리별 속지·요소 수",content=@Content(mediaType="application/json",schema=@Schema(implementation=MemberDiaryUsageQuery.Usage.class)))
+    @GetMapping("/usage")
+    @Operation(summary="회원 다이어리 사용량",description="내가 참여 중인 모든 다이어리(내 다이어리 + 참여 중인 공유 다이어리)의 수와 다이어리별 속지(페이지) 수·요소 수를 한 번에 돌려줍니다. 범위는 목록 API와 같고 페이지로 나누지 않습니다. 휴지통의 다이어리·속지·요소는 세지 않습니다. owned는 내가 OWNER인지입니다.")
+    public ResponseEntity<MemberDiaryUsageQuery.Usage> usage() {
+        return ResponseEntity.ok().header("Cache-Control","no-store").body(usage.get());
+    }
 
     @ApiResponse(responseCode="200",description="회원 활성 다이어리 목록",content=@Content(mediaType="application/json",schema=@Schema(implementation=MemberDiaryListQuery.Page.class)))
     @GetMapping
