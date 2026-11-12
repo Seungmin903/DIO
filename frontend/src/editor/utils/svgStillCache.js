@@ -51,9 +51,16 @@ export function createStillCache({ make, dispose = () => {}, limit = 24 }) {
   }
 }
 
-/** 문자열을 짧은 키로 (큰 data URI 를 그대로 Map 키로 들고 있지 않게) */
+/**
+ * 문자열을 짧은 키로 (큰 data URI 를 그대로 Map 키로 들고 있지 않게).
+ * 키가 겹치면 다른 GIF 의 첫 장면이 오류 없이 보이므로, 서로 다른 해시 두 개(djb2 · FNV-1a, 합쳐 64비트)와 길이를 함께 쓴다
+ */
 export function shortKey(text) {
-  let hash = 5381
-  for (let i = 0; i < text.length; i++) hash = (hash * 33 + text.charCodeAt(i)) >>> 0
-  return `${hash.toString(36)}:${text.length}`
+  let djb = 5381, fnv = 0x811c9dc5
+  for (let i = 0; i < text.length; i++) {
+    const c = text.charCodeAt(i)
+    djb = (Math.imul(djb, 33) + c) >>> 0
+    fnv = Math.imul(fnv ^ c, 0x01000193) >>> 0
+  }
+  return `${djb.toString(36)}.${fnv.toString(36)}:${text.length}`
 }

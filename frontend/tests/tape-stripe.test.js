@@ -13,7 +13,14 @@ for (const id of ['Circle', 'ClipPath', 'Defs', 'G', 'Image', 'Line', 'Path', 'P
 // 사진 테이프 시험용: useSvgImageUri 가 돌려줄 값과 오류 알림 기록
 const svgImage = { result: (_, uri) => ({ uri, failed: false }) }
 const reported = []
-const mocks = { react: { cloneElement: (el, props) => ({ ...el, props: { ...el.props, ...props } }), useEffect: (fn) => { fn() } }, 'react-native-svg': svg,
+// effect: 보통은 바로 실행한다. instance 를 두면 한 화면처럼 의존성이 바뀔 때만 다시 실행한다(TapeView 의 effect 는 하나)
+const effect = { instance: null }
+const useEffect = (fn, deps) => {
+  if (!effect.instance) { fn(); return }
+  const prev = effect.instance.deps
+  if (!prev || deps.some((d, i) => d !== prev[i])) { effect.instance.deps = deps; fn() }
+}
+const mocks = { react: { cloneElement: (el, props) => ({ ...el, props: { ...el.props, ...props } }), useEffect }, 'react-native-svg': svg,
   '../../hooks/useMediaUri': { useMediaUri: () => 'file:///media/tape.gif' }, '../../hooks/useSvgImageUri': { useSvgImageUri: (...args) => svgImage.result(...args) },
   '../../services/mediaStore': { reportMediaDisplayError: (item) => reported.push(item) }, '../../utils/objects': { coverLayout: () => null }, '../../constants': constants,
   '../../utils/svgId': { useSvgId: () => 'tape' }, './laceTapes': { LACE_HEIGHT, LACE_TILES },
@@ -92,10 +99,28 @@ test('첫 장면을 만드는 중이면 이미지를 그리지 않고, 실패하
   assert.equal(tapeImages(TapeView({ mediaFileId: 'm1', width: 180, height: 34 })).length, 0)
   reported.length = 0
   let errors = 0
-  svgImage.result = () => ({ uri: null, failed: true })
+  svgImage.result = () => ({ uri: null, failed: 'media:m1' })
   const tree = TapeView({ mediaFileId: 'm1', width: 180, height: 34, onAssetError: () => errors++ })
   assert.equal(tapeImages(tree).length, 0)
   assert.equal(errors, 1)
   assert.deepEqual(reported, [{ src: undefined, mediaFileId: 'm1' }])
   svgImage.result = (_, uri) => ({ uri, failed: false })
+})
+
+test('같은 테이프에서 실패한 GIF 가 실패한 다른 GIF 로 바뀌면 다시 알리고, 그대로 다시 그리면 또 알리지 않는다', () => {
+  reported.length = 0
+  let errors = 0
+  effect.instance = {}
+  try {
+    svgImage.result = (item) => ({ uri: null, failed: `media:${item.mediaFileId}` })
+    const draw = (mediaFileId) => TapeView({ mediaFileId, width: 180, height: 34, onAssetError: () => errors++ })
+    draw('a')
+    draw('a')
+    draw('b')
+    assert.equal(errors, 2)
+    assert.deepEqual(reported.map((item) => item.mediaFileId), ['a', 'b'])
+  } finally {
+    effect.instance = null
+    svgImage.result = (_, uri) => ({ uri, failed: false })
+  }
 })

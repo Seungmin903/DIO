@@ -166,10 +166,3 @@ test('훅: 첫 장면을 만들지 못하면 failed 로 그 항목의 키를 알
   // 실패한 A 에서 실패한 B 로 바뀌면 failed 값이 달라져, 알림 effect 가 B 도 다시 알린다
   assert.notEqual(first.failed, second.failed)
 })
-
-test('실패 알림 effect 는 실패한 항목의 키(failed)에 반응한다', () => {
-  for (const [file, name] of [['TapeView.js', 'image'], ['ObjectView.js', 'svgImage']]) {
-    const source = readFileSync(new URL(`../src/editor/components/canvas/${file}`, import.meta.url), 'utf8')
-    assert.match(source, new RegExp(`\\}, \\[${name}\\.failed\\]\\)`), file)
-  }
-})

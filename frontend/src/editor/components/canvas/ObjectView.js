@@ -413,7 +413,8 @@ export function PhotoContent({ photo, zoom, still = false, onAssetLoad, onAssetE
     )
   }
 
-  if (photo.frame === 'shape') {
+  // SVG 이미지로 그리는 곳은 이 분기뿐이다. 첫 장면 변환(svgPhoto)과 같은 조건을 써서 둘이 어긋나지 않게 한다
+  if (svgPhoto) {
     const d = shapePath(photo.shape, box.width, box.height)
     return (
       <View style={{ width: box.width, height: box.height }}>

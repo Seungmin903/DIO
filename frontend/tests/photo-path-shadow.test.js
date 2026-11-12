@@ -282,6 +282,49 @@ test('하트·별 전환은 SVG와 클립 식별자를 함께 교체하고 인�
   const thumbnail = view.PhotoContent({ photo: { ...photo, shape: 'heart' }, zoom: 0.2 })
   assert.equal(nodes(thumbnail).find(n => n.type === 'ClipPath').props.id, 'photo-thumbnail-heart')
 })
+
+test('모양 틀 GIF 사진: SVG 이미지로 그리는 모양만 첫 장면으로 바꾸고, 만드는 중엔 비우고, 실패하면 항목마다 한 번 알린다', () => {
+  const calls = [], reported = []
+  let result = (_, uri) => ({ uri, failed: false })
+  // 한 화면처럼: PhotoContent 의 effect(하나)는 의존성이 바뀔 때만 다시 실행한다
+  let deps = null
+  const view = load('../src/editor/components/canvas/ObjectView.js', {
+    react: { memo: x => x, createContext: () => ({}), useContext: () => null, useEffect: (fn, next) => { if (!deps || next.some((d, i) => d !== deps[i])) { deps = next; fn() } } },
+    '../../hooks/useMediaUri': { useMediaUri: (photo) => `file:///${photo.mediaFileId}.gif` },
+    '../../hooks/useSvgImageUri': { useSvgImageUri: (item, uri, options) => { calls.push({ item, uri, options }); return result(item, uri, options) } },
+    '../../services/mediaStore': { reportMediaDisplayError: (item) => reported.push(item.mediaFileId) },
+    '../../stickerAssets': { isAnimatedMedia: () => true },
+    '../../utils/objects': { hasPhotoMedia: () => true, photoInnerBox: p => ({ left: 0, top: 0, width: p.w, height: p.h }), coverLayout: (_p, w, h) => ({ left: 0, top: 0, width: w, height: h }) },
+  })
+  const photo = (shape, mediaFileId = 'g1') => ({ id: 'p', type: 'photo', frame: 'shape', shape, mediaFileId, w: 100, h: 80 })
+  const svgImage = (tree) => nodes(tree).find(n => n.type === 'Image')
+  const mediaImage = (tree) => nodes(tree).find(n => n.type === './MediaImage')
+
+  // 사각·원형은 View 로 그려 GIF 가 그대로 움직인다: 변환하지 않는다
+  const rect = view.PhotoContent({ photo: photo('rect'), zoom: 1 })
+  assert.equal(calls.at(-1).options.enabled, false)
+  assert.equal(svgImage(rect), undefined)
+  assert.equal(mediaImage(rect).props.source.uri, 'file:///g1.gif')
+
+  // 하트는 SVG 이미지로 그려 변환을 켜고, 훅이 준 첫 장면만 넘긴다
+  result = () => ({ uri: 'file:///still-g1.png', failed: false })
+  const heart = view.PhotoContent({ photo: photo('heart'), zoom: 1 })
+  assert.equal(calls.at(-1).options.enabled, true)
+  assert.equal(svgImage(heart).props.href.uri, 'file:///still-g1.png')
+
+  // 만드는 중: 주소를 넘기지 않는다 (GIF 를 넘기면 Android 에서 앱이 죽는다)
+  result = () => ({ uri: null, failed: false })
+  assert.equal(svgImage(view.PhotoContent({ photo: photo('heart'), zoom: 1 })).props.href, undefined)
+  assert.deepEqual(reported, [])
+
+  // 실패: 항목마다 한 번 알린다. 그대로 다시 그리면 또 알리지 않고, 실패한 다른 GIF 로 바뀌면 다시 알린다
+  let errors = 0
+  result = (item) => ({ uri: null, failed: `media:${item.mediaFileId}` })
+  const draw = (id) => view.PhotoContent({ photo: photo('star', id), zoom: 1, onAssetError: () => errors++ })
+  draw('a'); draw('a'); draw('b')
+  assert.equal(errors, 2)
+  assert.deepEqual(reported, ['a', 'b'])
+})
 test('바깥 그림자는 모양 경로·방향·색·흐림·퍼짐을 반영하고 SVG 여백을 확보한다', () => {
   const shadow = effects.shadowOf({ shadow: true, shadowDirection: 'r', shadowDistance: 10, shadowSpread: 3, shadowBlur: 8, shadowColor: '#FF0000', shadowOpacity: 0.4 })
   const tree = pathShadow({ d: shapes.shapePath('heart', 100, 80), width: 100, height: 80, shadow, zoom: 2, flipY: true })
