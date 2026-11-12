@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # MR 변경분을 Claude Code로 리뷰하고 결과를 MR 노트로 남긴다.
-# Claude는 도구 없이 격리된 컨테이너에서 diff 텍스트만 받는다. GitLab 토큰은 컨테이너에 넘기지 않는다.
+# mr-sandbox 러너의 잡 컨테이너(node:22-bookworm)에서 실행한다. 호스트 docker를 쓰지 않는다(infra/ci-runners.md).
+# Claude는 도구 없이 diff 텍스트만 받는다. GitLab 토큰은 Claude 프로세스 환경에 넘기지 않는다.
 set -euo pipefail
 
 : "${CI_MERGE_REQUEST_IID:?MR 파이프라인에서만 실행합니다}"
@@ -10,10 +11,10 @@ if [ -z "${CLAUDE_CODE_OAUTH_TOKEN:-}" ] || [ -z "${GITLAB_REVIEW_TOKEN:-}" ]; t
   exit 0
 fi
 
+: "${CLAUDE_CODE_VERSION:?CLAUDE_CODE_VERSION은 .gitlab-ci.yml의 ai-code-review 변수로 고정합니다}"
+
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 MAX_DIFF_BYTES="${MAX_DIFF_BYTES:-200000}"
-CLAUDE_CODE_VERSION="$(sed -n 's/^ARG CLAUDE_CODE_VERSION=//p' "$SCRIPT_DIR/Dockerfile")"
-IMAGE="dio-claude-review:${CLAUDE_CODE_VERSION}"
 
 WORK_DIR="$(mktemp -d)"
 trap 'rm -rf "$WORK_DIR"' EXIT
@@ -43,20 +44,12 @@ fi
 head -c "$MAX_DIFF_BYTES" "$WORK_DIR/full.diff" > "$WORK_DIR/diff.patch"
 cp "$SCRIPT_DIR/prompt.md" "$WORK_DIR/prompt.md"
 
-docker build --quiet --tag "$IMAGE" "$SCRIPT_DIR" > /dev/null
+npm install --global --no-audit --no-fund --loglevel=error "@anthropic-ai/claude-code@${CLAUDE_CODE_VERSION}" > /dev/null
 
-if docker run --rm \
-  --user "$(id -u):$(id -g)" \
-  --cap-drop ALL \
-  --security-opt no-new-privileges \
-  --memory 1g \
-  --pids-limit 256 \
-  -e HOME=/tmp \
-  -e CLAUDE_CODE_OAUTH_TOKEN \
-  -v "$WORK_DIR:/review:ro" \
-  "$IMAGE" \
-  sh -c 'claude -p "$(cat /review/prompt.md)" --tools "" --strict-mcp-config --no-session-persistence < /review/diff.patch' \
-  > "$WORK_DIR/review.md"
+mkdir -p "$WORK_DIR/home"
+if env -u GITLAB_REVIEW_TOKEN HOME="$WORK_DIR/home" \
+  claude -p "$(cat "$WORK_DIR/prompt.md")" --tools "" --strict-mcp-config --no-session-persistence \
+  < "$WORK_DIR/diff.patch" > "$WORK_DIR/review.md"
 then
   :
 else
@@ -84,13 +77,8 @@ fi
   cat "$WORK_DIR/review.md"
 } > "$WORK_DIR/note.md"
 
-docker run --rm \
-  --user "$(id -u):$(id -g)" \
-  --network none \
-  -v "$WORK_DIR:/review:ro" \
-  "$IMAGE" \
-  node -e 'process.stdout.write(JSON.stringify({ body: require("fs").readFileSync("/review/note.md", "utf8") }))' \
-  > "$WORK_DIR/note.json"
+node -e 'process.stdout.write(JSON.stringify({ body: require("fs").readFileSync(process.argv[1], "utf8") }))' \
+  "$WORK_DIR/note.md" > "$WORK_DIR/note.json"
 
 # 토큰이 프로세스 인자에 드러나지 않도록 헤더를 파일로 넘긴다.
 printf 'PRIVATE-TOKEN: %s\n' "$GITLAB_REVIEW_TOKEN" > "$WORK_DIR/auth.header"

@@ -137,10 +137,19 @@ deploy-prod-proxy:
     - docker compose --project-name dio-proxy-prod -f infra/compose/compose.proxy.prod.yml up -d --force-recreate
     - 'curl --fail --retry 12 --retry-all-errors --retry-delay 2 --resolve k15f106.p.ssafy.io:443:127.0.0.1 https://k15f106.p.ssafy.io/actuator/health'
 
+# ---------- MR 검사 잡 ----------
+# MR 파이프라인은 MR 브랜치의 .gitlab-ci.yml과 스크립트를 그대로 실행한다. 그래서 MR이 닿을 수 있는 잡은
+# 배포 호스트의 docker·dio-env에 접근할 수 없는 mr-sandbox 러너(docker executor, 호스트 docker 소켓 없음)에서
+# 잡 이미지로 직접 실행한다. ec2-deploy 러너는 보호 브랜치 전용(Protected)이며 배포·운영 검증 잡만 맡는다.
+# 러너 등록·설정: infra/ci-runners.md
+
 legal-document-test:
   stage: quality
   tags:
-    - ec2-deploy
+    - mr-sandbox
+  image: python:3.12-alpine
+  variables:
+    PYTHONDONTWRITEBYTECODE: "1"
   interruptible: true
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event" || $CI_COMMIT_BRANCH == "develop"'
@@ -152,20 +161,14 @@ legal-document-test:
         - infra/compose/*.env.example
         - .gitlab-ci.yml
   script:
-    - >
-      docker run --rm
-      --user "$(id -u):$(id -g)"
-      -e PYTHONDONTWRITEBYTECODE=1
-      -v "$CI_PROJECT_DIR:/workspace:ro"
-      -w /workspace
-      python:3.12-alpine
-      python -m unittest discover -s docs/legal/tests -v
+    - python -m unittest discover -s docs/legal/tests -v
 
 # Pure Node contract tests: no dependency installation, native modules, or deployment secrets.
 frontend-email-contract-test:
   stage: quality
   tags:
-    - ec2-deploy
+    - mr-sandbox
+  image: node:24-alpine
   interruptible: true
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event" || $CI_COMMIT_BRANCH == "develop"'
@@ -182,19 +185,18 @@ frontend-email-contract-test:
         - backend/src/main/java/com/f106/DIO/auth/dto/**/*
         - .gitlab-ci.yml
   script:
-    - >
-      docker run --rm
-      --user "$(id -u):$(id -g)"
-      -v "$CI_PROJECT_DIR/frontend:/workspace/frontend:ro"
-      -v "$CI_PROJECT_DIR/docs/contracts:/workspace/docs/contracts:ro"
-      -w /workspace/frontend
-      node:24-alpine
-      node --test tests/email-input.test.js
+    - cd frontend
+    - node --test tests/email-input.test.js
 
 backend-test:
   stage: quality
   tags:
-    - ec2-deploy
+    - mr-sandbox
+  image: eclipse-temurin:17-jdk
+  variables:
+    JAVA_TOOL_OPTIONS: "-Xmx2g"
+    GRADLE_USER_HOME: "$CI_PROJECT_DIR/backend/.gradle"
+    DIO_NOTIFICATION_CONTRACT_OUTPUT: "$CI_PROJECT_DIR/backend/build/notification-frontend-contract.json"
   cache:
     key: backend-gradle-v1
     paths:
@@ -202,11 +204,11 @@ backend-test:
       - backend/.gradle/wrapper/
     policy: pull-push
   interruptible: true
-  rules:
+  rules: &backend_test_rules
     - if: '$CI_COMMIT_BRANCH =~ /^release\/.+$/'
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
       # 백엔드 산출물을 만드는 작업이므로 프런트엔드 전용 변경에서는 실행하지 않는다.
-      changes: &backend_contract_changes
+      changes:
         - backend/**/*
         - docs/contracts/**/*
         - .gitlab-ci.yml
@@ -215,30 +217,8 @@ backend-test:
         - infra/scripts/test-auth-postgres.sh
         - infra/scripts/check-member-list-icu.sh
   script:
-    - >
-      docker run --rm
-      --user "$(id -u):$(id -g)"
-      -e JAVA_TOOL_OPTIONS=-Xmx2g
-      -e GRADLE_USER_HOME=/workspace/backend/.gradle
-      -e DIO_NOTIFICATION_CONTRACT_OUTPUT=/workspace/backend/build/notification-frontend-contract.json
-      -v "$CI_PROJECT_DIR/backend:/workspace/backend"
-      -v "$CI_PROJECT_DIR/frontend/remote-content:/workspace/frontend/remote-content:ro"
-      -v "$CI_PROJECT_DIR/docs/contracts:/workspace/docs/contracts:ro"
-      -v "$CI_PROJECT_DIR/infra:/workspace/infra:ro"
-      -v "$CI_PROJECT_DIR/frontend/assets/fonts/gowundodum:/workspace/frontend/assets/fonts/gowundodum:ro"
-      -v "$CI_PROJECT_DIR/.gitlab-ci.yml:/workspace/.gitlab-ci.yml:ro"
-      -w /workspace/backend
-      eclipse-temurin:17-jdk
-      sh ./gradlew test --no-daemon
-    - >
-      docker run --rm
-      --user "$(id -u):$(id -g)"
-      -e DIO_NOTIFICATION_CONTRACT_OUTPUT=/evidence/notification-frontend-contract.json
-      -v "$CI_PROJECT_DIR/frontend:/workspace/frontend:ro"
-      -v "$CI_PROJECT_DIR/backend/build:/evidence:ro"
-      -w /workspace/frontend
-      node:24-alpine
-      node --test tests/spring-notification-contract.test.js
+    - cd backend
+    - sh ./gradlew test --no-daemon
   artifacts:
     when: always
     reports:
@@ -246,12 +226,31 @@ backend-test:
     paths:
       - backend/build/reports/tests/test/
       - backend/build/contracts/
+      - backend/build/notification-frontend-contract.json
     expire_in: 7 days
+
+# backend-test가 남긴 Spring 알림 OpenAPI로 프런트 알림 요청을 검사한다.
+notification-contract-test:
+  stage: quality
+  needs:
+    - job: backend-test
+      artifacts: true
+  tags:
+    - mr-sandbox
+  image: node:24-alpine
+  variables:
+    DIO_NOTIFICATION_CONTRACT_OUTPUT: "$CI_PROJECT_DIR/backend/build/notification-frontend-contract.json"
+  interruptible: true
+  rules: *backend_test_rules
+  script:
+    - cd frontend
+    - node --test tests/spring-notification-contract.test.js
 
 release-migration-guard-test:
   stage: quality
   tags:
-    - ec2-deploy
+    - mr-sandbox
+  image: alpine:3.20
   rules:
     - if: '$CI_COMMIT_BRANCH =~ /^release\/.+$/'
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
@@ -260,6 +259,7 @@ release-migration-guard-test:
         - infra/scripts/assert-shared-db-migrations.sh
         - infra/scripts/test-assert-shared-db-migrations.sh
   script:
+    - apk add --no-cache bash git >/dev/null
     - bash infra/scripts/test-assert-shared-db-migrations.sh
 
 # PostgreSQL 잡: MR에서는 스키마·해당 테스트 변경에만 자동 실행하고 나머지는 수동, develop 파이프라인에서는 배포 전에 항상 실행한다.
@@ -271,7 +271,16 @@ backend-postgres-auth-test:
       # develop 파이프라인에는 backend-test가 없으므로 선택 의존으로 둔다.
       optional: true
   tags:
-    - ec2-deploy
+    - mr-sandbox
+  image: eclipse-temurin:17-jdk
+  # 잡마다 새로 뜨는 폐기용 PostgreSQL. 잡 네트워크 안에서만 보이며 실제 dev/prod DB와 접속 정보·볼륨을 공유하지 않는다.
+  services:
+    - name: postgres:17
+      alias: postgres
+      command: ["postgres", "-c", "fsync=off", "-c", "synchronous_commit=off", "-c", "full_page_writes=off"]
+  variables:
+    POSTGRES_DB: auth_ci
+    POSTGRES_PASSWORD: postgres
   cache:
     key: backend-gradle-v1
     paths:
@@ -317,7 +326,16 @@ backend-postgres-sharing-test:
       # develop 파이프라인에는 backend-test가 없으므로 선택 의존으로 둔다.
       optional: true
   tags:
-    - ec2-deploy
+    - mr-sandbox
+  image: eclipse-temurin:17-jdk
+  # 잡마다 새로 뜨는 폐기용 PostgreSQL. 잡 네트워크 안에서만 보이며 실제 dev/prod DB와 접속 정보·볼륨을 공유하지 않는다.
+  services:
+    - name: postgres:17
+      alias: postgres
+      command: ["postgres", "-c", "fsync=off", "-c", "synchronous_commit=off", "-c", "full_page_writes=off"]
+  variables:
+    POSTGRES_DB: auth_ci
+    POSTGRES_PASSWORD: postgres
   cache:
     key: backend-gradle-v1
     paths:
@@ -364,7 +382,16 @@ backend-postgres-diary-test:
       # develop 파이프라인에는 backend-test가 없으므로 선택 의존으로 둔다.
       optional: true
   tags:
-    - ec2-deploy
+    - mr-sandbox
+  image: eclipse-temurin:17-jdk
+  # 잡마다 새로 뜨는 폐기용 PostgreSQL. 잡 네트워크 안에서만 보이며 실제 dev/prod DB와 접속 정보·볼륨을 공유하지 않는다.
+  services:
+    - name: postgres:17
+      alias: postgres
+      command: ["postgres", "-c", "fsync=off", "-c", "synchronous_commit=off", "-c", "full_page_writes=off"]
+  variables:
+    POSTGRES_DB: auth_ci
+    POSTGRES_PASSWORD: postgres
   cache:
     key: backend-gradle-v1
     paths:
@@ -418,7 +445,16 @@ backend-postgres-lifecycle-test:
       # develop 파이프라인에는 backend-test가 없으므로 선택 의존으로 둔다.
       optional: true
   tags:
-    - ec2-deploy
+    - mr-sandbox
+  image: eclipse-temurin:17-jdk
+  # 잡마다 새로 뜨는 폐기용 PostgreSQL. 잡 네트워크 안에서만 보이며 실제 dev/prod DB와 접속 정보·볼륨을 공유하지 않는다.
+  services:
+    - name: postgres:17
+      alias: postgres
+      command: ["postgres", "-c", "fsync=off", "-c", "synchronous_commit=off", "-c", "full_page_writes=off"]
+  variables:
+    POSTGRES_DB: auth_ci
+    POSTGRES_PASSWORD: postgres
   cache:
     key: backend-gradle-v1
     paths:
@@ -464,38 +500,43 @@ backend-postgres-lifecycle-test:
 secret-scan:
   stage: quality
   tags:
-    - ec2-deploy
+    - mr-sandbox
+  image:
+    name: ghcr.io/gitleaks/gitleaks:v8.30.1
+    entrypoint: [""]
   interruptible: true
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
   script:
-    - git ls-files --error-unmatch frontend/google-services.json
-    - >
-      docker run --rm
-      -v "$CI_PROJECT_DIR:/repo:ro"
-      node@sha256:fe4f6d74e20370acb04ad889077d14d0f64a9c8ea6a42bc60cddf1e844699914
-      node /repo/infra/scripts/verify-firebase-android-config.test.mjs
-    - >
-      docker run --rm
-      -v "$CI_PROJECT_DIR:/repo:ro"
-      node@sha256:fe4f6d74e20370acb04ad889077d14d0f64a9c8ea6a42bc60cddf1e844699914
-      node /repo/infra/scripts/verify-firebase-android-config.mjs /repo/frontend/google-services.json /repo/frontend/app.json
-    - >
-      docker run --rm
-      -v "$CI_PROJECT_DIR:/repo:ro"
-      ghcr.io/gitleaks/gitleaks:v8.30.1
-      dir /repo --config /repo/.gitleaks.toml --redact --no-banner
+    - gitleaks dir "$CI_PROJECT_DIR" --config "$CI_PROJECT_DIR/.gitleaks.toml" --redact --no-banner
+
+# 커밋된 Firebase Android 클라이언트 설정이 app.json과 맞고 서비스 계정 키가 아닌지 확인한다.
+firebase-config-check:
+  stage: quality
+  tags:
+    - mr-sandbox
+  image: node@sha256:fe4f6d74e20370acb04ad889077d14d0f64a9c8ea6a42bc60cddf1e844699914
+  interruptible: true
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+  script:
+    # CI 체크아웃에는 Git이 추적하는 파일만 있으므로 파일 존재가 곧 커밋 여부다.
+    - test -f frontend/google-services.json || { echo "frontend/google-services.json이 커밋되어 있지 않습니다." >&2; exit 1; }
+    - node infra/scripts/verify-firebase-android-config.test.mjs
+    - node infra/scripts/verify-firebase-android-config.mjs frontend/google-services.json frontend/app.json
 
 ai-code-review:
   stage: review
   # 테스트 결과를 쓰지 않으므로 quality 단계를 기다리지 않고 바로 시작한다.
   needs: []
   tags:
-    - ec2-deploy
+    - mr-sandbox
+  image: node:22-bookworm
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
   variables:
     GIT_DEPTH: "0"
+    CLAUDE_CODE_VERSION: "2.1.296"
   interruptible: true
   timeout: 15m
   allow_failure: true
@@ -569,19 +610,15 @@ backend-postgres-push-test:
 remote-assets-check:
   stage: quality
   tags:
-    - ec2-deploy
+    - mr-sandbox
+  image: node:24-alpine
   interruptible: true
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event" || $CI_COMMIT_BRANCH == "develop" || $CI_COMMIT_BRANCH == "master"'
       changes: *remote-assets-changes
   script:
-    - >
-      docker run --rm
-      --user "$(id -u):$(id -g)"
-      -v "$CI_PROJECT_DIR/frontend:/workspace/frontend:ro"
-      -w /workspace/frontend
-      node:24-alpine
-      node scripts/build-remote-assets.mjs --check
+    - cd frontend
+    - node scripts/build-remote-assets.mjs --check
 
 .remote-assets-publish: &remote-assets-publish
   tags:

@@ -4,7 +4,7 @@
 
 전용 `release` 환경·`deploy-release` 잡·8083 컨테이너는 사용하지 않으며, release 브랜치는 운영 배포 경로가 아니라 공유 dev 환경의 수동 검증 경로다. 따라서 이전 release 전용 compose와 환경/DB 검사 스크립트도 유지하지 않는다. 운영 갱신은 `master`의 `deploy-production`만 사용한다.
 
-`release/*`는 GitLab의 **Protected branches**로 지정해야 하며, `ec2-deploy` 러너도 protected ref에서만 작업하도록 설정한다. CI 규칙의 `$CI_COMMIT_REF_PROTECTED == "true"` 조건은 이 GitLab 보호 설정을 대신하지 않는다. 보호 설정이 없으면 release 코드가 공유 dev DB와 dev 서버에 배포되는 권한을 의도한 담당자로 제한할 수 없다.
+`release/*`는 GitLab의 **Protected branches**로 지정해야 하며, `ec2-deploy` 러너도 protected ref에서만 작업하도록 설정한다. MR 검사 잡은 별도 `mr-sandbox` 러너에서 실행한다([CI 러너 분리](./ci-runners.md)). CI 규칙의 `$CI_COMMIT_REF_PROTECTED == "true"` 조건은 이 GitLab 보호 설정을 대신하지 않는다. 보호 설정이 없으면 release 코드가 공유 dev DB와 dev 서버에 배포되는 권한을 의도한 담당자로 제한할 수 없다.
 
 release 검증 배포는 dev와 **같은 PostgreSQL DB와 Flyway 이력**을 공유한다. release의 migration은 dev DB에도 즉시 적용되며, `deploy-development`는 헬스 체크 실패 시 이전 이미지로 자동 복구하지 않는다. release 파이프라인은 `origin/develop`과 release의 migration 목록이 양방향으로 정확히 같은지 배포 전에 확인한다. 한쪽에만 있는 migration 또는 비교 자체의 Git 오류가 있으면 배포하지 않아 공유 DB에 release 전용 스키마를 적용하거나, release가 dev에 이미 적용된 migration보다 뒤처진 상태로 기동하는 일을 막는다. 따라서 release에 포함하는 migration은 develop의 이전·다음 애플리케이션 버전과 함께 기동할 수 있는 expand/contract 방식으로 작성한다. 새 테이블·컬럼·인덱스 추가와 새 코드 배포를 먼저 하고, 컬럼 삭제·이름 변경·제약 강화처럼 이전 코드와 호환되지 않는 변경은 release 검증과 develop 재배포가 끝난 뒤 별도 후속 배포로 분리한다. 헬스 체크 실패 시에는 컨테이너 로그와 적용된 Flyway 이력을 확인한 뒤, 호환되는 커밋을 수동 재배포한다. 이미 적용된 migration은 이미지 교체만으로 되돌아가지 않으므로 파괴적 변경의 복구에는 DB 백업·스냅샷 복원이 필요하다.
 
@@ -40,7 +40,7 @@ CI는 이미지 빌드·컨테이너 교체 **전에** `docker compose ... confi
 
 ## 자동 PostgreSQL 검증과 헬스 체크
 
-`backend-postgres-auth-test`, `backend-postgres-sharing-test`, `backend-postgres-diary-test`, `backend-postgres-lifecycle-test`는 실행 시간을 줄이기 위해 다음처럼 실행한다. MR에서는 Flyway migration, `infra/scripts/test-auth-postgres.sh`, 해당 묶음이 실행하는 테스트 파일(부모 테스트 클래스 포함)이 바뀐 경우에만 자동 실행하고, 그 밖의 백엔드·CI 변경에서는 파이프라인을 막지 않는 수동 작업으로 남긴다. SQL·트랜잭션·락 동작을 바꾼 MR은 작성자가 해당 묶음을 수동 실행해 결과를 MR에 남긴다. develop 파이프라인에서는 변경 경로와 무관하게 네 작업을 모두 실행하며, 실패하면 개발 서버 배포 단계로 넘어가지 않는다. 앞선 파이프라인이 취소돼도 배포하는 파이프라인이 직접 검증한다. MR 자동 실행 경로가 Gradle 테스트 필터와 맞는지는 `DeploymentAuthContractTests`가 확인한다. 각 작업은 CI_JOB_ID별 폐기용 PostgreSQL 17을 만들고 호스트 포트를 공개하지 않는다. 테스트 JVM만 DB 네트워크 네임스페이스에 참여하며 실제 배포 환경 파일·DB·볼륨을 사용하지 않고, 성공·실패 시 trap으로 테스트 DB와 익명 볼륨을 정리한다. 결과는 각 테스트 task의 JUnit artifact에 남긴다. 일반 H2 테스트도 별도로 유지한다.
+`backend-postgres-auth-test`, `backend-postgres-sharing-test`, `backend-postgres-diary-test`, `backend-postgres-lifecycle-test`는 실행 시간을 줄이기 위해 다음처럼 실행한다. MR에서는 Flyway migration, `infra/scripts/test-auth-postgres.sh`, 해당 묶음이 실행하는 테스트 파일(부모 테스트 클래스 포함)이 바뀐 경우에만 자동 실행하고, 그 밖의 백엔드·CI 변경에서는 파이프라인을 막지 않는 수동 작업으로 남긴다. SQL·트랜잭션·락 동작을 바꾼 MR은 작성자가 해당 묶음을 수동 실행해 결과를 MR에 남긴다. develop 파이프라인에서는 변경 경로와 무관하게 네 작업을 모두 실행하며, 실패하면 개발 서버 배포 단계로 넘어가지 않는다. 앞선 파이프라인이 취소돼도 배포하는 파이프라인이 직접 검증한다. MR 자동 실행 경로가 Gradle 테스트 필터와 맞는지는 `DeploymentAuthContractTests`가 확인한다. 각 작업은 `mr-sandbox` 러너에서 `eclipse-temurin:17-jdk` 잡 컨테이너로 실행하고, 잡의 `services`로 폐기용 PostgreSQL 17(별칭 `postgres`)을 띄운다. 호스트 docker·포트·실제 배포 환경 파일·DB·볼륨을 사용하지 않으며, DB는 잡이 끝나면 러너가 함께 지운다. 결과는 각 테스트 task의 JUnit artifact에 남긴다. 일반 H2 테스트도 별도로 유지한다.
 
 `management.health.mail.enabled=false`로 외부 SMTP 장애를 기본 `/actuator/health`에서 제외한다. DB 등 다른 헬스 검사는 유지한다. 메일 발송 API의 실패 응답·오류 처리는 유지하므로 운영자는 실제 테스트 메일 도착과 발송 실패를 별도로 관찰한다.
 
@@ -59,6 +59,8 @@ CI는 이미지 빌드·컨테이너 교체 **전에** `docker compose ... confi
 ```bash
 bash infra/scripts/check-member-list-icu.sh <실제-DB-컨테이너-이름>
 ```
+
+CI의 diary 묶음은 같은 검사를 `--psql`로 실행해 잡의 서비스 DB에 `PG*` 환경변수로 직접 접속한다.
 
 스크립트는 docker inspect/exec만 사용하고 컨테이너의 POSTGRES_USER/POSTGRES_DB/POSTGRES_PASSWORD를 내부 프로세스에서 사용한다. 환경 전체나 비밀값을 출력하지 않는다. 공식 이미지의 기본 사용자/DB도 지원한다. psql의 각 질의는 BEGIN READ ONLY / ROLLBACK으로 감싸 pg_catalog의 deterministic ICU root 존재와 실제 ÉÄ→éä lower 연산을 확인한다. DB·설정·Flyway 이력을 바꾸거나 컨테이너를 시작/종료하지 않는다. 종료 코드 0은 지원, 2는 ICU catalog 부재, 3은 접속·권한·예상 밖 응답·연산 오류이므로 확인 불가/오류를 미지원으로 단정하지 않는다.
 

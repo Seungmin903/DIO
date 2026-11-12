@@ -1,12 +1,17 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-if [ "$#" -ne 1 ]; then echo "usage: $0 <postgres-container-name>" >&2; exit 3; fi
+# 운영·개발 서버: DB 컨테이너 이름을 넘긴다. CI 잡: --psql 을 넘기면 PGHOST·PGUSER·PGPASSWORD 등으로 직접 접속한다.
+if [ "$#" -ne 1 ]; then echo "usage: $0 <postgres-container-name>|--psql" >&2; exit 3; fi
 container_name="$1"
-if ! docker inspect --type container "$container_name" >/dev/null 2>&1; then
+if [ "$container_name" != --psql ] && ! docker inspect --type container "$container_name" >/dev/null 2>&1; then
   echo "Member list ICU check failed: database container unavailable" >&2; exit 3
 fi
 run_query() {
+  if [ "$container_name" = --psql ]; then
+    psql -X -qAt -v ON_ERROR_STOP=1 -c "$1" 2>/dev/null
+    return
+  fi
   # Credentials stay inside the existing container; never render its environment.
   docker exec "$container_name" sh -c '
     set -eu

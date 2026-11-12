@@ -1,6 +1,8 @@
 package com.f106.DIO.auth.integration;
 
 import java.nio.file.*;
+import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.env.YamlPropertySourceLoader;
 import org.springframework.core.io.FileSystemResource;
@@ -18,8 +20,9 @@ class DeploymentAuthContractTests {
         }
         assertThat(ci.getProperty("backend-test.rules[0].if")).isEqualTo("$CI_COMMIT_BRANCH =~ /^release\\/.+$/");
         assertThat(ci.getProperty("release-migration-guard-test.rules[0].if")).isEqualTo("$CI_COMMIT_BRANCH =~ /^release\\/.+$/");
-        assertThat(ci.getProperty("release-migration-guard-test.image")).isNull();
-        assertThat(ci.getProperty("release-migration-guard-test.script[0]")).isEqualTo("bash infra/scripts/test-assert-shared-db-migrations.sh");
+        assertThat(ci.getProperty("release-migration-guard-test.image")).isEqualTo("alpine:3.20");
+        assertThat(ci.getProperty("release-migration-guard-test.tags[0]")).isEqualTo("mr-sandbox");
+        assertThat(ci.getProperty("release-migration-guard-test.script[1]")).isEqualTo("bash infra/scripts/test-assert-shared-db-migrations.sh");
         String text = Files.readString(Path.of("../.gitlab-ci.yml"));
         String deploy = block(text, "deploy-development:\n", "\ndeploy-production:");
         assertThat(deploy).contains("git fetch --no-tags origin +refs/heads/develop:refs/remotes/origin/develop",
@@ -62,6 +65,11 @@ class DeploymentAuthContractTests {
             assertThat(ci.getProperty(job + ".needs[0].job")).isEqualTo("backend-test");
             assertThat(ci.getProperty(job + ".needs[0].optional")).isEqualTo(true);
             assertThat(ci.getProperty(job + ".allow_failure")).isNull();
+            // MR이 바꿀 수 있는 스크립트이므로 배포 호스트가 아닌 mr-sandbox에서, 잡마다 새로 뜨는 서비스 DB로 실행한다.
+            assertThat(ci.getProperty(job + ".tags[0]")).isEqualTo("mr-sandbox");
+            assertThat(ci.getProperty(job + ".image")).isEqualTo("eclipse-temurin:17-jdk");
+            assertThat(ci.getProperty(job + ".services[0].name")).isEqualTo("postgres:17");
+            assertThat(ci.getProperty(job + ".services[0].alias")).isEqualTo("postgres");
         }
         for (String job : new String[]{"backend-postgres-auth-test", "backend-postgres-sharing-test", "backend-postgres-diary-test", "backend-postgres-lifecycle-test"}) {
             // develop 파이프라인은 변경 경로와 무관하게 배포 전에 반드시 실행한다(앞선 파이프라인 취소 대비).
@@ -109,35 +117,36 @@ class DeploymentAuthContractTests {
             "backend/build/test-results/postgresDiaryPurgeTest/*.xml");
 
         String script = Files.readString(Path.of("../infra/scripts/test-auth-postgres.sh")).replace("\r\n", "\n");
-        assertThat(script).contains("auth|sharing|diary|lifecycle|all", "trap cleanup EXIT", "--network \"container:$pg_name\"",
-            "CREATE DATABASE dio_reset_qa", "authPostgresTest --no-daemon", "CREATE DATABASE dio_sharing_qa",
-            "sharingPostgresTest collaborationPostgresTest --no-daemon", "CREATE DATABASE dio_member_ci",
-            "postgresMemberDiaryCreationTest postgresDiaryDetailTest --no-daemon", "CREATE DATABASE dio_member_contract_qa",
-            "postgresMemberDiaryHttpTest --no-daemon", "CREATE DATABASE dio_trash_qa",
-            "postgresDiaryTrashTest postgresDiaryPurgeTest --no-daemon", "-e DIO_AUTH_SCHEMA_TEST=true",
-            "-e DIO_LIST_QUERY_PG=true", "-e POSTGRES_USER=postgres");
+        assertThat(script).contains("auth|sharing|diary|lifecycle|all", "pg_host=\"${DIO_TEST_PG_HOST:-postgres}\"",
+            "create_db dio_reset_qa", "authPostgresTest --no-daemon", "create_db dio_sharing_qa",
+            "sharingPostgresTest collaborationPostgresTest --no-daemon", "create_db dio_member_ci",
+            "postgresMemberDiaryCreationTest postgresDiaryDetailTest --no-daemon", "create_db dio_member_contract_qa",
+            "postgresMemberDiaryHttpTest --no-daemon", "create_db dio_trash_qa",
+            "postgresDiaryTrashTest postgresDiaryPurgeTest --no-daemon", "DIO_AUTH_SCHEMA_TEST=true",
+            "DIO_LIST_QUERY_PG=true", "POSTGRES_USER=postgres", "check-member-list-icu.sh\" --psql");
+        // 호스트 docker를 부르면 MR이 배포 호스트의 컨테이너·환경 파일에 닿는다.
+        assertThat(script).doesNotContain("docker ");
 
         String authSuite = block(script, "if [ \"$suite\" = auth ]", "if [ \"$suite\" = sharing ]");
         String sharingSuite = block(script, "if [ \"$suite\" = sharing ]", "if [ \"$suite\" = diary ]");
         String diarySuite = block(script, "if [ \"$suite\" = diary ]", "if [ \"$suite\" = lifecycle ]");
         String lifecycleSuite = script.substring(script.indexOf("if [ \"$suite\" = lifecycle ]"));
         assertThat(diarySuite).containsSubsequence(
-            "CREATE DATABASE dio_member_ci",
-            "-v \"$CI_PROJECT_DIR/backend:/workspace/backend\"",
-            "-v \"$CI_PROJECT_DIR/docs:/workspace/docs:ro\"",
+            "create_db dio_member_ci",
+            "DB_URL=\"jdbc:postgresql://$pg_host:5432/dio_member_ci\"",
             "postgresMemberDiaryCreationTest postgresDiaryDetailTest --no-daemon");
-        assertThat(occurrences(authSuite, "docker run --rm")).isEqualTo(1);
-        assertThat(authSuite).doesNotContain("-e DB_URL=");
-        assertThat(occurrences(sharingSuite, "docker run --rm")).isEqualTo(1);
-        assertThat(sharingSuite).doesNotContain("-e DB_URL=");
-        assertThat(sharingSuite).contains("-e DIO_SHARING_POSTGRES_URL=jdbc:postgresql://127.0.0.1:5432/dio_sharing_qa", "CREATE DATABASE dio_collaboration_qa", "DIO_COLLABORATION_POSTGRES_URL=jdbc:postgresql://127.0.0.1:5432/dio_collaboration_qa");
-        assertThat(occurrences(diarySuite, "docker run --rm")).isEqualTo(2);
-        assertThat(occurrences(diarySuite, "-e DB_URL=")).isEqualTo(2);
-        assertThat(diarySuite).contains("-e DB_URL=jdbc:postgresql://127.0.0.1:5432/dio_member_ci",
-            "-e DB_URL=jdbc:postgresql://127.0.0.1:5432/dio_member_contract_qa");
-        assertThat(occurrences(lifecycleSuite, "docker run --rm")).isEqualTo(1);
-        assertThat(occurrences(lifecycleSuite, "-e DB_URL=")).isEqualTo(1);
-        assertThat(lifecycleSuite).contains("-e DB_URL=jdbc:postgresql://127.0.0.1:5432/dio_trash_qa");
+        assertThat(occurrences(authSuite, "sh ./gradlew ")).isEqualTo(1);
+        assertThat(authSuite).doesNotContain("DB_URL=");
+        assertThat(occurrences(sharingSuite, "sh ./gradlew ")).isEqualTo(1);
+        assertThat(sharingSuite).doesNotContain("DB_URL=");
+        assertThat(sharingSuite).contains("DIO_SHARING_POSTGRES_URL=\"jdbc:postgresql://$pg_host:5432/dio_sharing_qa\"", "create_db dio_collaboration_qa", "DIO_COLLABORATION_POSTGRES_URL=\"jdbc:postgresql://$pg_host:5432/dio_collaboration_qa\"");
+        assertThat(occurrences(diarySuite, "sh ./gradlew ")).isEqualTo(2);
+        assertThat(occurrences(diarySuite, "DB_URL=")).isEqualTo(2);
+        assertThat(diarySuite).contains("DB_URL=\"jdbc:postgresql://$pg_host:5432/dio_member_ci\"",
+            "DB_URL=\"jdbc:postgresql://$pg_host:5432/dio_member_contract_qa\"");
+        assertThat(occurrences(lifecycleSuite, "sh ./gradlew ")).isEqualTo(1);
+        assertThat(occurrences(lifecycleSuite, "DB_URL=")).isEqualTo(1);
+        assertThat(lifecycleSuite).contains("DB_URL=\"jdbc:postgresql://$pg_host:5432/dio_trash_qa\"");
     }
     /** MR 자동 실행 경로가 각 묶음이 실제로 돌리는 Gradle 필터 대상과 그 부모 테스트 클래스를 모두 덮는지 확인한다. */
     @Test void postgresMergeRequestPathsCoverEveryTestTheSuiteRuns() throws Exception {
@@ -200,15 +209,46 @@ class DeploymentAuthContractTests {
         }
         return java.util.regex.Pattern.compile(regex.toString());
     }
-    @Test void ciContainerIncludesReadOnlyDeploymentInputsBesideBackend() throws Exception {
+    @Test void backendTestRunsInTheSandboxImageAndHandsTheNotificationContractToNode() throws Exception {
         var properties = new YamlPropertySourceLoader().load("ci",
             new FileSystemResource(Path.of("../.gitlab-ci.yml"))).get(0);
-        assertThat(properties.getProperty("backend-test.script[0]").toString())
-            .contains("-v \"$CI_PROJECT_DIR/backend:/workspace/backend\"",
-                "-v \"$CI_PROJECT_DIR/frontend/remote-content:/workspace/frontend/remote-content:ro\"",
-                "-v \"$CI_PROJECT_DIR/infra:/workspace/infra:ro\"",
-                "-v \"$CI_PROJECT_DIR/.gitlab-ci.yml:/workspace/.gitlab-ci.yml:ro\"",
-                "-w /workspace/backend");
+        assertThat(properties.getProperty("backend-test.tags[0]")).isEqualTo("mr-sandbox");
+        assertThat(properties.getProperty("backend-test.image")).isEqualTo("eclipse-temurin:17-jdk");
+        assertThat(properties.getProperty("backend-test.script[0]")).isEqualTo("cd backend");
+        assertThat(properties.getProperty("backend-test.script[1]")).isEqualTo("sh ./gradlew test --no-daemon");
+        assertThat(properties.getProperty("backend-test.artifacts.paths[2]")).isEqualTo("backend/build/notification-frontend-contract.json");
+        assertThat(properties.getProperty("notification-contract-test.needs[0].job")).isEqualTo("backend-test");
+        assertThat(properties.getProperty("notification-contract-test.needs[0].artifacts")).isEqualTo(true);
+        assertThat(properties.getProperty("notification-contract-test.variables.DIO_NOTIFICATION_CONTRACT_OUTPUT"))
+            .isEqualTo(properties.getProperty("backend-test.variables.DIO_NOTIFICATION_CONTRACT_OUTPUT"));
+    }
+
+    /**
+     * MR 파이프라인은 MR 브랜치의 CI 파일과 스크립트를 실행하므로, MR에서 생길 수 있는 잡은 배포 호스트(ec2-deploy)에 두지 않는다.
+     * ec2-deploy는 보호 브랜치 전용 러너로 등록하고(infra/ci-runners.md) 배포·운영 검증 잡만 맡긴다.
+     */
+    @Test void mergeRequestJobsNeverRunOnTheDeploymentRunner() throws Exception {
+        Map<String, Object> ci = new org.yaml.snakeyaml.Yaml().load(Files.readString(Path.of("../.gitlab-ci.yml")));
+        var deployJobs = new java.util.TreeSet<String>();
+        for (var entry : ci.entrySet()) {
+            if (entry.getKey().startsWith(".") || !(entry.getValue() instanceof Map<?, ?> job) || !job.containsKey("script")) continue;
+            List<?> tags = (List<?>) job.get("tags");
+            assertThat(tags).as(entry.getKey() + " tags").isNotNull().hasSize(1);
+            boolean mergeRequest = String.valueOf(job.get("rules")).contains("merge_request_event");
+            if ("ec2-deploy".equals(tags.get(0))) {
+                deployJobs.add(entry.getKey());
+                assertThat(mergeRequest).as(entry.getKey() + " must not run in MR pipelines").isFalse();
+            } else {
+                assertThat(tags.get(0)).as(entry.getKey()).isEqualTo("mr-sandbox");
+                assertThat(job.get("image")).as(entry.getKey() + " image").isNotNull();
+                String script = String.valueOf(job.get("script"));
+                assertThat(script).as(entry.getKey()).doesNotContain("docker ", "/home/gitlab-runner");
+            }
+        }
+        assertThat(deployJobs).containsExactly("backend-postgres-push-test", "deploy-dev-proxy", "deploy-development",
+            "deploy-prod-proxy", "deploy-production", "publish-remote-assets-dev", "publish-remote-assets-prod", "runner-check");
+        String review = Files.readString(Path.of("../infra/review/mr-review.sh"));
+        assertThat(review).doesNotContain("docker ").contains("env -u GITLAB_REVIEW_TOKEN");
     }
     @Test void bothDeploymentManifestsInjectRequiredAuthSettingsAndProxiesOverwriteHeaders() throws Exception {
         for (String profile : new String[]{"dev", "prod"}) {
