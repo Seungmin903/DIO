@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { TILE, evictTiles, hitsTile, pendingStrokes, planTiles, removedFrom, tilesBounds, removedStrokes, reusable, showsHad, staleImages, strokesInTile, tileBox, tileKey, tilesFor, pixelTileScale, tileScreenRect } from '../src/editor/skia/tileGrid.js'
+import { TILE, evictTiles, hitsTile, pendingStrokes, planTiles, removedFrom, tilesBounds, removedStrokes, restClipRects, reusable, showsHad, staleImages, strokesInTile, tileBox, tileKey, tilesFor, pixelTileScale, tileScreenRect } from '../src/editor/skia/tileGrid.js'
 
 // 획 하나: 왼쪽 위 (x, y) 에 w x h. reachOf 가 대각선 반지름 + 번짐 여유 8 을 붙인다.
 const at = (id, x, y, w = 10, h = 10) => ({ id, x, y, w, h })
@@ -195,4 +195,35 @@ test('타일 굽기 배율은 한 칸이 정수 픽셀이 되게 맞추고, 화�
       }
     }
   }
+})
+
+test('벡터 획을 자를 자리: 못 구운 칸 + 타일이 덮지 않는 바깥', () => {
+  // 자르지 않으면 이미 구운 타일에도 같은 획이 겹쳐 그려져 반투명 잉크가 두 번 올라간다.
+  const W = 1000, H = 800
+  const area = rects => rects.reduce((sum, r) => sum + r.w * r.h, 0)
+  const covers = (rects, point) => rects.some(r => point.x >= r.x && point.x <= r.x + r.w && point.y >= r.y && point.y <= r.y + r.h)
+
+  // 덮인 네모가 없으면 못 구운 칸만
+  const only = restClipRects([{ x: 0, y: 0, w: 256, h: 256 }], null, W, H)
+  assert.deepEqual(only, [{ x: 0, y: 0, w: 256, h: 256 }])
+
+  // 바깥은 네 띠. 겹치지 않고, 넓이 합이 페이지 − 덮인 네모와 같아야 한다
+  const covered = { x: 200, y: 100, w: 400, h: 300 }
+  const outside = restClipRects([], covered, W, H)
+  assert.equal(outside.length, 4)
+  assert.equal(area(outside), W * H - covered.w * covered.h)
+  assert.equal(covers(outside, { x: 400, y: 250 }), false, '덮인 안쪽은 자를 자리가 아니다')
+  assert.equal(covers(outside, { x: 50, y: 250 }), true, '왼쪽 바깥은 자를 자리다')
+  assert.equal(covers(outside, { x: 400, y: 50 }), true, '위쪽 바깥은 자를 자리다')
+
+  // 페이지를 다 덮으면 바깥이 없다 — 못 구운 칸이 없으면 빈 배열(= 자르지 말라)
+  assert.deepEqual(restClipRects([], { x: 0, y: 0, w: W, h: H }, W, H), [])
+  assert.equal(restClipRects([{ x: 0, y: 0, w: 10, h: 10 }], { x: 0, y: 0, w: W, h: H }, W, H).length, 1)
+
+  // 페이지 밖으로 튀어나온 덮임도 띠가 음수 크기로 생기지 않는다
+  for (const r of restClipRects([], { x: -50, y: -50, w: W + 100, h: 200 }, W, H)) {
+    assert.ok(r.w > 0 && r.h > 0, JSON.stringify(r))
+  }
+  // 넘겨준 것이 없어도 터지지 않는다
+  assert.deepEqual(restClipRects(null, null, W, H), [])
 })

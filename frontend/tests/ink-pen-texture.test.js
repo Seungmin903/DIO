@@ -186,3 +186,15 @@ test('번진 자리 여유는 확대율 1 기준 — 축소에서 모자라는 �
     assert.ok(short * ZOOM_MIN * dpr <= 1.5 + 1e-9, `픽셀비 ${dpr}: 화면 ${(short * ZOOM_MIN * dpr).toFixed(2)}px`)
   }
 })
+
+test('inkOrigin 은 저장 · 동기화를 타고 그대로 살아남는다', () => {
+  // 문서는 필드를 고르지 않고 통째로 JSON 으로 오간다(services 의 JSON.parse(JSON.stringify)).
+  // 값이 사라지면 다시 열 때마다 대신 값이 쓰여 무늬가 달라지므로 못 박아 둔다(코드리뷰 2026-11-13).
+  const one = glass()
+  const roundTrip = JSON.parse(JSON.stringify({ pages: [{ objects: [one] }] })).pages[0].objects[0]
+  assert.deepEqual(roundTrip.inkOrigin, one.inkOrigin)
+  assert.deepEqual(glassOrigin(roundTrip), one.inkOrigin, '다시 열어도 같은 밀어주기를 쓴다')
+  // 옮긴 뒤 저장해도 **적어 둔 값**이 이긴다 — 무늬가 획을 따라간다
+  const moved = JSON.parse(JSON.stringify({ ...one, x: one.x + 300, y: one.y + 200 }))
+  assert.deepEqual(glassOrigin(moved), one.inkOrigin)
+})

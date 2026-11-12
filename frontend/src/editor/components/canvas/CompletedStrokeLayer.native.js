@@ -1,10 +1,10 @@
 import { memo, useContext, useEffect, useMemo, useReducer, useRef, useSyncExternalStore } from 'react'
 import { PixelRatio } from 'react-native'
-import { BlendMode, Canvas, ClipOp, Group, Image, PathOp, Picture, Skia } from '@shopify/react-native-skia'
+import { BlendMode, Canvas, ClipOp, Group, Image, Picture, Skia } from '@shopify/react-native-skia'
 import { nowMs, PENCIL_PROFILE, previewPicture, recordProfile, strokesPicture } from '../../skia/strokeSkia.js'
 import { liveStroke } from '../../skia/liveStroke.js'
 import { bakeWindow, coversPage, keepScale, keepWindow, reachOf, reachTouches, sameObjects, stepUpScale } from '../../skia/bakeDelta.js'
-import { TILE, evictTiles, pixelTileScale, tileScreenRect, pendingStrokes, planTiles, removedFrom, removedStrokes, reusable, staleImages, tileKey, tilesBounds } from '../../skia/tileGrid.js'
+import { TILE, evictTiles, pixelTileScale, restClipRects, tileScreenRect, pendingStrokes, planTiles, removedFrom, removedStrokes, reusable, staleImages, tileKey, tilesBounds } from '../../skia/tileGrid.js'
 import { ViewportMotion } from './viewportMotion'
 
 const DRAG_OPACITY = 0.5
@@ -346,22 +346,14 @@ const TailRun = memo(function TailRun({ objects, width, height, zoom, fade }) {
   // 벡터로 얹는 획을 자를 자리: **아직 못 구운 칸** + 타일이 덮지 않는 바깥
   const restClip = useMemo(() => {
     if (!plan.rest?.length) return null
-    // 벡터로 얹을 획이 있으면 **못 구운 칸도 반드시 있다**(rest 가 그 칸들에서 나온다).
-    // 그래도 빈 경로로 자르면 획이 통째로 사라지므로 — 그릴 것이 있는데 자를 자리가 없다면
-    // 자르지 않는 쪽이 맞다 — 빈 경로는 null 로 돌려 클립을 걸지 않는다(코드리뷰 2026-11-13).
+    // 자를 네모는 **순수 함수**가 센다(tileGrid 의 restClipRects) — 경로 빼기(PathOp)는 실패하면
+    // null 이 돌아와 조용히 잘못 그려지고 검사하기도 어렵다(코드리뷰 2026-11-13).
+    const rects = restClipRects(plan.pending, covered, width, height)
+    if (!rects.length) return null   // 자를 자리가 없으면 자르지 않는다
     // 이 바인딩에서 addRect 는 **PathBuilder** 쪽에 있다(SkPath 에는 없다)
     const build = Skia.PathBuilder.Make()
-    for (const box of plan.pending ?? []) build.addRect(snapRect(box, snapPage))
-    let path = build.detach()
-    if (covered) {
-      const out = Skia.PathBuilder.Make()
-      out.addRect(Skia.XYWHRect(0, 0, width, height))
-      const hole = Skia.PathBuilder.Make()
-      hole.addRect(snapRect(covered, snapPage))
-      const outside = Skia.Path.MakeFromOp(out.detach(), hole.detach(), PathOp.Difference)
-      if (outside) path = Skia.Path.MakeFromOp(path, outside, PathOp.Union) ?? path
-    }
-    return path?.isEmpty?.() ? null : path
+    for (const box of rects) build.addRect(snapRect(box, snapPage))
+    return build.detach()
   }, [plan, covered, width, height, screenScale])
   return <>
   <Canvas pointerEvents="none" style={{ position: 'absolute', left: 0, top: 0, width: width * zoom, height: height * zoom }}>

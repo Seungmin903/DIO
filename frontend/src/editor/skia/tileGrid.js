@@ -175,3 +175,30 @@ export function evictTiles(cache, budgetPx, dispose, inUse) {
   }
   return dropped
 }
+
+/**
+ * 아직 못 구운 칸에 벡터로 얹는 획을 **자를 자리**(페이지 좌표 네모들).
+ *
+ * 두 조각이다 — ① 아직 못 구운 칸들 ② 타일이 덮지 않는 바깥. 자르지 않으면 이미 구워진 타일에도
+ * 같은 획이 겹쳐 그려져 반투명 잉크가 두 번 올라간다(사용자 2026-11-13 "타일별로 진해졌다가
+ * 원래 색으로 돌아온다").
+ *
+ * 바깥은 페이지에서 덮인 네모를 뺀 **네 띠**로 바로 만든다. 경로 빼기(PathOp.Difference)를 쓰면
+ * 실패해서 null 이 돌아올 수 있고(그러면 자를 자리가 비어 획이 통째로 사라지거나 두 번 그려진다)
+ * 검사하기도 어렵다 — 네모 계산은 순수하고 눈으로 셀 수 있다(코드리뷰 2026-11-13).
+ *
+ * 빈 배열을 돌려주면 **자르지 말라는 뜻**이다(그릴 것이 있는데 자를 자리가 없으면 자르지 않는 쪽이 맞다).
+ */
+export function restClipRects(pending, covered, width, height) {
+  const out = []
+  for (const box of pending ?? []) if (box && box.w > 0 && box.h > 0) out.push(box)
+  if (!covered) return out
+  const x0 = Math.max(0, covered.x), y0 = Math.max(0, covered.y)
+  const x1 = Math.min(width, covered.x + covered.w), y1 = Math.min(height, covered.y + covered.h)
+  const band = (x, y, w, h) => { if (w > 0 && h > 0) out.push({ x, y, w, h }) }
+  band(0, 0, width, y0)                      // 위
+  band(0, y1, width, height - y1)            // 아래
+  band(0, y0, x0, y1 - y0)                   // 왼쪽
+  band(x1, y0, width - x1, y1 - y0)          // 오른쪽
+  return out
+}
