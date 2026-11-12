@@ -17,7 +17,7 @@ import tools.jackson.databind.json.JsonMapper;
 @Service
 @Transactional
 public class TapeLibraryService {
-    @org.springframework.beans.factory.annotation.Autowired private com.f106.DIO.inventory.InventoryLimits inventory;
+    private final com.f106.DIO.inventory.InventoryLimits inventory;
     /** 자른 자리(TapeCropper): fx · fy 0~1, zoom 1 이상 */
     public record TapeCrop(Double fx, Double fy, Double zoom) {}
     /** 폴더 안 테이프 하나. 사진 테이프는 mediaFileId, 기본 무늬는 pattern(+palette) */
@@ -32,7 +32,8 @@ public class TapeLibraryService {
     private static final TypeReference<List<TapeFolder>> FOLDERS = new TypeReference<>() {};
     private final JdbcTemplate jdbc;
     private final JsonMapper json = JsonMapper.builder().build();
-    public TapeLibraryService(JdbcTemplate jdbc) { this.jdbc = jdbc; }
+    public TapeLibraryService(JdbcTemplate jdbc, com.f106.DIO.inventory.InventoryLimits inventory) {
+        this.inventory=java.util.Objects.requireNonNull(inventory,"inventory"); this.jdbc = jdbc; }
 
     @Transactional(readOnly = true)
     public TapeLibraryDocument get(long userId) {

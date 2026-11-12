@@ -11,7 +11,7 @@ import org.springframework.jdbc.core.JdbcTemplate;import org.springframework.dat
 public class BlockService {
  private final UserBlockRepository blocks;private final SharingAccessService access;private final UserRepository users;private final JdbcTemplate jdbc;
  public BlockService(UserBlockRepository blocks,SharingAccessService access,UserRepository users,JdbcTemplate jdbc){this.blocks=blocks;this.access=access;this.users=users;this.jdbc=jdbc;}
- // All pair mutations/check-and-write operations take user rows in a stable order, after any diary lock.
+ // All pair mutations/check-and-write operations take user rows in a stable order, before any diary lock; inventory quota guards are acquired last.
  public void lockPair(long actor,long target){
   jdbc.queryForList("select user_id from users where user_id in (?,?) order by user_id for update",Math.min(actor,target),Math.max(actor,target));
  }
@@ -20,9 +20,9 @@ public class BlockService {
  @Transactional public void block(long actor,long target,UUID diaryId){
   if(actor==target)throw ModerationException.invalid("본인은 차단할 수 없어요.");
   if(blocks.existsById(new UserBlockId(actor,target)))return;
+  lockPair(actor,target);
   var diary=access.lock(diaryId);access.readMember(diary,actor);
   if(access.visibleMembers(diary).stream().noneMatch(m->m.getUserId()==target))throw ModerationException.missing();
-  lockPair(actor,target);
   if(!blocks.existsById(new UserBlockId(actor,target)))blocks.saveAndFlush(new UserBlock(actor,target));
  }
  @Transactional public void unblock(long actor,long target){access.activeUser(actor);lockPair(actor,target);blocks.findById(new UserBlockId(actor,target)).ifPresent(blocks::delete);}

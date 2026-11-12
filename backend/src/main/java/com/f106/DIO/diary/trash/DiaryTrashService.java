@@ -19,7 +19,7 @@ import com.f106.DIO.diary.auth.DiaryRequestIdentity;
 
 @Service
 public class DiaryTrashService {
-    @org.springframework.beans.factory.annotation.Autowired private com.f106.DIO.inventory.InventoryLimits inventory;
+    private final com.f106.DIO.inventory.InventoryLimits inventory;
     private final JdbcTemplate jdbc;
     private final boolean postgres;
     private final DiaryRequestIdentity identity;
@@ -32,10 +32,11 @@ public class DiaryTrashService {
     public record Cursor(int v, String q, String scope, String deletedAt, String id) {}
 
     @Autowired
-    public DiaryTrashService(JdbcTemplate jdbc, DiaryRequestIdentity identity, DiaryDetailRepository diaries, DiaryMembershipAccess memberships) {
-        this(jdbc, identity, diaries, memberships, Clock.systemUTC());
+    public DiaryTrashService(JdbcTemplate jdbc, DiaryRequestIdentity identity, DiaryDetailRepository diaries, DiaryMembershipAccess memberships, com.f106.DIO.inventory.InventoryLimits inventory) {
+        this(jdbc, identity, diaries, memberships, Clock.systemUTC(),inventory);
     }
-    public DiaryTrashService(JdbcTemplate jdbc, DiaryRequestIdentity identity, DiaryDetailRepository diaries, DiaryMembershipAccess memberships, Clock clock) {
+    public DiaryTrashService(JdbcTemplate jdbc, DiaryRequestIdentity identity, DiaryDetailRepository diaries, DiaryMembershipAccess memberships, Clock clock, com.f106.DIO.inventory.InventoryLimits inventory) {
+        this.inventory=java.util.Objects.requireNonNull(inventory,"inventory");
         this.postgres=Boolean.TRUE.equals(jdbc.execute((org.springframework.jdbc.core.ConnectionCallback<Boolean>) c -> "PostgreSQL".equals(c.getMetaData().getDatabaseProductName())));
         this.jdbc = jdbc; this.identity = identity; this.diaries = diaries; this.memberships = memberships; this.clock = clock;
     }
@@ -106,9 +107,8 @@ public class DiaryTrashService {
 
     @Transactional
     public DiaryResponse restore(UUID id) {
-        long user = identity.requireUserId(DiaryDetailException::unauthorized);
+        long user = authenticate();
         var row = lockOwner(user, id);
-        if(!diaries.lockActiveUser(user)) throw DiaryDetailException.unauthorized();
         Instant updatedAt = row.updatedAt();
         if (row.deletedAt() != null) {
             Instant now = clock.instant().truncatedTo(ChronoUnit.MICROS);
@@ -138,9 +138,8 @@ public class DiaryTrashService {
     }
     @Transactional
     public void trash(UUID id) {
-        long user = identity.requireUserId(DiaryDetailException::unauthorized);
+        long user = authenticate();
         var row = lockOwner(user, id);
-        if(!diaries.lockActiveUser(user)) throw DiaryDetailException.unauthorized();
         if (row.deletedAt() != null) return; // 재요청은 보관 기한을 연장하지 않는다.
         Instant deleted = clock.instant().truncatedTo(ChronoUnit.MICROS);
         Instant updated = deleted.isAfter(row.updatedAt()) ? deleted : row.updatedAt().plus(1, ChronoUnit.MICROS);

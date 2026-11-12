@@ -61,7 +61,7 @@ class PageCatalogPostgresTests {
             "{\"paperAppearance\":{\"backgroundColor\":\"#123456\"}}");
     }
 
-    @Test void freshUpgradeRegistersEveryReferenceAndCreatesAll288InitialPagesWithTheProductModule() {
+    @Test void freshUpgradeRegistersEveryReferenceAndCreatesAll288ReferencesAcrossDiariesWithinThePageLimit() {
         flyway("latest").migrate();
         var templates=contract.get("templates");
         var stored=jdbc.queryForList("select code,template_version,orientation,canvas_width,canvas_height from page_templates");
@@ -85,12 +85,15 @@ class PageCatalogPostgresTests {
         var repo=new MemberDiaryCreationRepository(jdbc);
         var pages=new JdbcDiaryInitialPages(jdbc);
         try(var validation=Validation.buildDefaultValidatorFactory()) {
-            var service=com.f106.DIO.inventory.InventoryTestSupport.withQuotaMock(new MemberDiaryCreationService(repo,() -> 1,repo::insertOwner,pages,validation.getValidator(),Clock.systemUTC(),512));
+            var service=new MemberDiaryCreationService(repo,() -> 1,repo::insertOwner,pages,validation.getValidator(),Clock.systemUTC(),512, org.mockito.Mockito.mock(com.f106.DIO.inventory.InventoryLimits.class));
             var tx=new TransactionTemplate(new DataSourceTransactionManager(dataSource));
-            var result=tx.execute(s -> service.create(new DiaryCreateRequest("all references",null,null,null),selections));
-            assertThat(result.pageIds()).hasSize(288).doesNotHaveDuplicates();
-            assertThat(jdbc.queryForList("select t.code from pages p join page_templates t on p.template_id=t.template_id order by p.sort_key",String.class))
-                .isEqualTo(selections.stream().map(DiaryInitialPages.Selection::templateCode).toList());
+            for(int offset=0;offset<selections.size();offset+=150) {
+                var batch=List.copyOf(selections.subList(offset,Math.min(offset+150,selections.size())));
+                var result=tx.execute(status -> service.create(new DiaryCreateRequest("all references",null,null,null),batch));
+                assertThat(result.pageIds()).hasSize(batch.size()).doesNotHaveDuplicates();
+                assertThat(jdbc.queryForList("select t.code from pages p join page_templates t on p.template_id=t.template_id where p.diary_id=? order by p.sort_key",String.class,UUID.fromString(result.diary().diaryId())))
+                    .isEqualTo(batch.stream().map(DiaryInitialPages.Selection::templateCode).toList());
+            }
             assertThat(jdbc.queryForObject("select count(*) from pages where jsonb_typeof(template_config)='object' and version=1 and grid_visible=false",Long.class)).isEqualTo(288);
             assertThat(jdbc.queryForObject("select count(*) from pages where (template_config->>'blank')::boolean=true",Long.class)).isEqualTo(2);
         }

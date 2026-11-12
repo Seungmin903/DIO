@@ -22,7 +22,7 @@ import com.f106.DIO.diary.dto.DiaryCreateResponse.DiaryData;
 /** 231 트랜잭션 기반. 기존 비회원 생성 경로는 전환하지 않고 페이지·공유 연결 계약을 분리한다. */
 @Service
 public class MemberDiaryCreationService {
-    @org.springframework.beans.factory.annotation.Autowired private com.f106.DIO.inventory.InventoryLimits inventory;
+    private final com.f106.DIO.inventory.InventoryLimits inventory;
 	private final MemberDiaryCreationRepository repository;
 	private final DiaryCreationIdentity identity;
 	private final DiaryOwnerMembershipWriter membership;
@@ -34,11 +34,12 @@ public class MemberDiaryCreationService {
 	@Autowired
 	public MemberDiaryCreationService(MemberDiaryCreationRepository repository,DiaryCreationIdentity identity,
 		DiaryOwnerMembershipWriter membership,DiaryInitialPages pages,Validator validator,ObjectProvider<Clock> clocks,
-		@Value("${dio.diary.initial-pages.max-count:512}") int maxPages) {
-		this(repository,identity,membership,pages,validator,clocks.getIfAvailable(Clock::systemUTC),maxPages);
+		@Value("${dio.diary.initial-pages.max-count:512}") int maxPages, com.f106.DIO.inventory.InventoryLimits inventory) {
+		this(repository,identity,membership,pages,validator,clocks.getIfAvailable(Clock::systemUTC),maxPages,inventory);
 	}
 	public MemberDiaryCreationService(MemberDiaryCreationRepository repository,DiaryCreationIdentity identity,
-		DiaryOwnerMembershipWriter membership,DiaryInitialPages pages,Validator validator,Clock clock,int maxPages) {
+		DiaryOwnerMembershipWriter membership,DiaryInitialPages pages,Validator validator,Clock clock,int maxPages, com.f106.DIO.inventory.InventoryLimits inventory) {
+        this.inventory=java.util.Objects.requireNonNull(inventory,"inventory");
 		if (maxPages < 1 || maxPages > 4096) throw new IllegalArgumentException("Invalid initial page limit");
 		this.repository=repository; this.identity=identity; this.membership=membership; this.pages=pages;
 		this.validator=validator; this.clock=clock; this.maxPages=maxPages;

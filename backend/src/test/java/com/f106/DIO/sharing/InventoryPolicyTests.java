@@ -45,6 +45,25 @@ class InventoryPolicyTests extends SharingTestSupport {
     }
     boolean attempt(Runnable action){try{action.run();return true;}catch(InventoryLimitException expected){return false;}}
 
+    @Test void acceptingInvitesDoesNotRewriteVisibilityOrMetadataVersion(){
+        var owner=actor();var book=diary(owner);var token=links.create(book,owner.id()).token();
+        var before=jdbc.queryForMap("select visibility,updated_at,version from diaries where diary_id=?",book);
+        links.accept(token,actor().id());
+        assertThat(jdbc.queryForMap("select visibility,updated_at,version from diaries where diary_id=?",book)).isEqualTo(before);
+        // Legacy links retain their visibility; only the first transition to shared inventory is dirty.
+        var legacy=diary(actor());var legacyOwner=jdbc.queryForObject("select owner_user_id from diaries where diary_id=?",Long.class,legacy);
+        var legacyToken=links.create(legacy,legacyOwner).token();
+        jdbc.update("update diaries set visibility='LINK',inventory_shared=false where diary_id=?",legacy);
+        var updated=jdbc.queryForObject("select updated_at from diaries where diary_id=?",java.sql.Timestamp.class,legacy);
+        links.accept(legacyToken,actor().id());
+        assertThat(jdbc.queryForObject("select visibility from diaries where diary_id=?",String.class,legacy)).isEqualTo("LINK");
+        assertThat(jdbc.queryForObject("select updated_at from diaries where diary_id=?",java.sql.Timestamp.class,legacy)).isEqualTo(updated);
+        assertThat(jdbc.queryForObject("select inventory_shared from diaries where diary_id=?",Boolean.class,legacy)).isTrue();
+        var version=jdbc.queryForObject("select version from diaries where diary_id=?",Long.class,legacy);
+        links.accept(legacyToken,actor().id());
+        assertThat(jdbc.queryForObject("select version from diaries where diary_id=?",Long.class,legacy)).isEqualTo(version);
+    }
+
     @Test void privateFiveDeleteFreesSlotAndRestoreChecksAgain()throws Exception{
         var user=actor();UUID book=create(user);for(int i=1;i<5;i++)create(user);
         quota(()->create(user));assertThat(count(user,false)).isEqualTo(5);

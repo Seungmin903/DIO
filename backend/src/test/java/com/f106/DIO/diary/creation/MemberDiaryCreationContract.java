@@ -45,7 +45,7 @@ abstract class MemberDiaryCreationContract {
 		service=service(owner,pages);
 	}
 	MemberDiaryCreationService service(DiaryOwnerMembershipWriter membership,DiaryInitialPages initialPages) {
-		return com.f106.DIO.inventory.InventoryTestSupport.withQuotaMock(new MemberDiaryCreationService(repository,actor::get,membership,initialPages,validation.getValidator(),Clock.fixed(AT,ZoneOffset.UTC),512));
+		return new MemberDiaryCreationService(repository,actor::get,membership,initialPages,validation.getValidator(),Clock.fixed(AT,ZoneOffset.UTC),512, org.mockito.Mockito.mock(com.f106.DIO.inventory.InventoryLimits.class));
 	}
 	@AfterEach
 	void cleanup() { if(validation!=null) validation.close(); cleanupDatabase(); }

@@ -17,7 +17,7 @@ import tools.jackson.databind.json.JsonMapper;
 @Service
 @Transactional
 public class StickerLibraryService {
-    @org.springframework.beans.factory.annotation.Autowired private com.f106.DIO.inventory.InventoryLimits inventory;
+    private final com.f106.DIO.inventory.InventoryLimits inventory;
     public record StickerItem(UUID mediaFileId, String builtin, String asset, String widget, String style, String emoji, String name, Double aspect) {}
     public record StickerFolder(String id, String name, List<StickerItem> items) {}
     public record StickerLibraryDocument(long version, List<StickerFolder> folders) {}
@@ -27,7 +27,8 @@ public class StickerLibraryService {
     private static final TypeReference<List<StickerFolder>> FOLDERS = new TypeReference<>() {};
     private final JdbcTemplate jdbc;
     private final JsonMapper json = JsonMapper.builder().build();
-    public StickerLibraryService(JdbcTemplate jdbc) { this.jdbc = jdbc; }
+    public StickerLibraryService(JdbcTemplate jdbc, com.f106.DIO.inventory.InventoryLimits inventory) {
+        this.inventory=java.util.Objects.requireNonNull(inventory,"inventory"); this.jdbc = jdbc; }
 
     @Transactional(readOnly = true)
     public StickerLibraryDocument get(long userId) {

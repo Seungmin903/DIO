@@ -13,14 +13,15 @@ import com.f106.DIO.page.support.*;
 
 @Service
 public class PageService {
-    @org.springframework.beans.factory.annotation.Autowired private com.f106.DIO.inventory.InventoryLimits inventory;
+    private final com.f106.DIO.inventory.InventoryLimits inventory;
 	private static final BigDecimal DEFAULT_CANVAS_WIDTH=new BigDecimal("1280.00"),DEFAULT_CANVAS_HEIGHT=new BigDecimal("800.00"),SORT_STEP=BigDecimal.ONE;
 	private final org.springframework.context.ApplicationEventPublisher events;
     private final com.f106.DIO.diary.repository.DiaryRepository diaries;
     @jakarta.persistence.PersistenceContext private jakarta.persistence.EntityManager entities;
     private static final tools.jackson.databind.json.JsonMapper JSON=tools.jackson.databind.json.JsonMapper.builder().build();
 	private final DiaryPageRepository pageRepository; private final PageTemplateRepository templateRepository; private final CanvasElementRepository elementRepository; private final DiaryAccessService diaryAccessService;
-	public PageService(DiaryPageRepository pageRepository,PageTemplateRepository templateRepository,CanvasElementRepository elementRepository,DiaryAccessService diaryAccessService,org.springframework.context.ApplicationEventPublisher events,com.f106.DIO.diary.repository.DiaryRepository diaries){this.events=events;this.diaries=diaries;this.pageRepository=pageRepository;this.templateRepository=templateRepository;this.elementRepository=elementRepository;this.diaryAccessService=diaryAccessService;}
+	public PageService(DiaryPageRepository pageRepository,PageTemplateRepository templateRepository,CanvasElementRepository elementRepository,DiaryAccessService diaryAccessService,org.springframework.context.ApplicationEventPublisher events,com.f106.DIO.diary.repository.DiaryRepository diaries, com.f106.DIO.inventory.InventoryLimits inventory){
+        this.inventory=java.util.Objects.requireNonNull(inventory,"inventory");this.events=events;this.diaries=diaries;this.pageRepository=pageRepository;this.templateRepository=templateRepository;this.elementRepository=elementRepository;this.diaryAccessService=diaryAccessService;}
 
 	@Transactional(readOnly=true) public PageListResponse list(UUID diaryId,Long userId){diaryAccessService.requireRead(diaryId,userId);return listWithoutDiaryCheck(diaryId);}
 	@Transactional public PageResponse create(UUID diaryId,PageCreateRequest r,Long userId){

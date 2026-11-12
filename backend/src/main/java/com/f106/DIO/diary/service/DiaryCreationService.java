@@ -12,11 +12,12 @@ import com.f106.DIO.diary.repository.DiaryRepository;
 
 @Service
 public class DiaryCreationService {
-    @org.springframework.beans.factory.annotation.Autowired private com.f106.DIO.inventory.InventoryLimits inventory;
+    private final com.f106.DIO.inventory.InventoryLimits inventory;
 
 	private final DiaryRepository diaryRepository;
 	private final DiaryMemberRepository memberRepository;
-	public DiaryCreationService(DiaryRepository diaryRepository, DiaryMemberRepository memberRepository) {
+	public DiaryCreationService(DiaryRepository diaryRepository, DiaryMemberRepository memberRepository, com.f106.DIO.inventory.InventoryLimits inventory) {
+        this.inventory=java.util.Objects.requireNonNull(inventory,"inventory");
 		this.diaryRepository = diaryRepository;
 		this.memberRepository = memberRepository;
 	}

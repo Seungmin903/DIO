@@ -51,7 +51,7 @@ class DiaryMembershipChangedEventTests {
         var diary=new Diary(id,"test","#FFFFFF","PLAIN","PRIVATE");diary.transferOwnership(1L);
         when(invites.findById(123L)).thenReturn(Optional.of(invite));when(access.lock(id)).thenReturn(diary);when(access.activeUser(anyLong())).thenReturn(mock(com.f106.DIO.user.domain.User.class));when(members.findById(any())).thenReturn(Optional.empty());when(members.countByDiaryIdAndLeftAtIsNull(id)).thenReturn(1L);when(access.cursorColor(id)).thenReturn("#111111");when(access.visibleMembers(diary)).thenReturn(List.of());when(invites.pendingEmail(id,2L)).thenReturn(Optional.empty());
         var blocks=mock(com.f106.DIO.moderation.service.BlockService.class);when(blocks.targets(anyLong())).thenReturn(Set.of());
-        com.f106.DIO.inventory.InventoryTestSupport.withQuotaMock(new DiaryInviteService(access,members,invites,tokens,mock(jakarta.persistence.EntityManager.class),blocks,events)).accept(token,2L);
+        new DiaryInviteService(access,members,invites,tokens,mock(jakarta.persistence.EntityManager.class),blocks,events, org.mockito.Mockito.mock(com.f106.DIO.inventory.InventoryLimits.class)).accept(token,2L);
         verify(events).publishEvent(new DiaryMembershipChanged(id));
 
         reset(events);verifyNoInteractions(events);

@@ -61,7 +61,7 @@ abstract class DiaryPurgePostgresFixture {
         jdbc.update("insert into ai_jobs(source_media_file_id,result_media_file_id,status) values(?,?,'PROCESSING')",shared,derived);
         notice(101,target,page);notice(102,other,deletedPage);notice(103,other,otherPage);
         jdbc.update("insert into diary_creation_receipts(user_id,key_hash,request_hash,diary_id,response_body,completed_at) values(1,?,?,?,'{\"title\":\"private\"}',?)",key,request,target,Timestamp.from(now));
-        service=service(1);var repo=new DiaryDetailRepository(jdbc);trash=com.f106.DIO.inventory.InventoryTestSupport.withQuotaMock(new DiaryTrashService(jdbc,identity(1),repo,new JdbcDiaryMembershipAccess(jdbc,repo),Clock.fixed(now,ZoneOffset.UTC)));
+        service=service(1);var repo=new DiaryDetailRepository(jdbc);trash=new DiaryTrashService(jdbc,identity(1),repo,new JdbcDiaryMembershipAccess(jdbc,repo),Clock.fixed(now,ZoneOffset.UTC), org.mockito.Mockito.mock(com.f106.DIO.inventory.InventoryLimits.class));
     }
     /** true면 setup이 빈 스키마를 만들고 {@link #migrate}로 직접 마이그레이션한다. */
     boolean migratesItself() {return false;}

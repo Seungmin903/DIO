@@ -63,7 +63,7 @@ class DiaryExpiryPostgresTests extends DiaryPurgePostgresFixture {
         var pool=Executors.newFixedThreadPool(2);var held=new CountDownLatch(1);var release=new CountDownLatch(1);var blocker=new CompletableFuture<Integer>();
         try {
             var first=pool.submit(()->tx.execute(s->{blocker.complete(jdbc.queryForObject("select pg_backend_pid()",Integer.class));
-                if(restore) {var repo=new DiaryDetailRepository(jdbc);com.f106.DIO.inventory.InventoryTestSupport.withQuotaMock(new DiaryTrashService(jdbc,identity(1),repo,new JdbcDiaryMembershipAccess(jdbc,repo),Clock.fixed(now.minusNanos(1000),ZoneOffset.UTC))).restore(target);}
+                if(restore) {var repo=new DiaryDetailRepository(jdbc);new DiaryTrashService(jdbc,identity(1),repo,new JdbcDiaryMembershipAccess(jdbc,repo),Clock.fixed(now.minusNanos(1000),ZoneOffset.UTC), org.mockito.Mockito.mock(com.f106.DIO.inventory.InventoryLimits.class)).restore(target);}
                 else jdbc.update("update diaries set deleted_at=? where diary_id=?",Timestamp.from(now),target);
                 held.countDown();await(release);return true;}));
             assertThat(held.await(10,TimeUnit.SECONDS)).isTrue();
@@ -80,7 +80,7 @@ class DiaryExpiryPostgresTests extends DiaryPurgePostgresFixture {
             var child=pool.submit(()->tx.execute(s->{blocker.complete(jdbc.queryForObject("select pg_backend_pid()",Integer.class));jdbc.queryForList("select page_id from pages where page_id=? for update",UUID.class,page);held.countDown();await(release);return true;}));
             assertThat(held.await(10,TimeUnit.SECONDS)).isTrue();
             var batch=pool.submit(()->cleanup(20,5000).run());int batchPid=waitingPid(blocker.get(5,TimeUnit.SECONDS));
-            var restore=pool.submit(()->tx.execute(s->{restorePid.complete(jdbc.queryForObject("select pg_backend_pid()",Integer.class));try {var repo=new DiaryDetailRepository(jdbc);com.f106.DIO.inventory.InventoryTestSupport.withQuotaMock(new DiaryTrashService(jdbc,identity(1),repo,new JdbcDiaryMembershipAccess(jdbc,repo),Clock.fixed(now.minusNanos(1000),ZoneOffset.UTC))).restore(target);return 0;}catch(DiaryDetailException e){return e.status().value();}}));
+            var restore=pool.submit(()->tx.execute(s->{restorePid.complete(jdbc.queryForObject("select pg_backend_pid()",Integer.class));try {var repo=new DiaryDetailRepository(jdbc);new DiaryTrashService(jdbc,identity(1),repo,new JdbcDiaryMembershipAccess(jdbc,repo),Clock.fixed(now.minusNanos(1000),ZoneOffset.UTC), org.mockito.Mockito.mock(com.f106.DIO.inventory.InventoryLimits.class)).restore(target);return 0;}catch(DiaryDetailException e){return e.status().value();}}));
             blocked(batchPid,restorePid.get(5,TimeUnit.SECONDS));release.countDown();assertThat(child.get(10,TimeUnit.SECONDS)).isTrue();
             assertThat(batch.get(10,TimeUnit.SECONDS).deleted()).isEqualTo(1);assertThat(restore.get(10,TimeUnit.SECONDS)).isEqualTo(404);
         } finally {release.countDown();pool.shutdownNow();assertThat(pool.awaitTermination(15,TimeUnit.SECONDS)).isTrue();}

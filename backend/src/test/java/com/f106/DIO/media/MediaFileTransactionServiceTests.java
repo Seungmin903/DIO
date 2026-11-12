@@ -29,7 +29,37 @@ class MediaFileTransactionServiceTests {
 	private final MediaFileRepository mediaFiles = mock(MediaFileRepository.class);
 	private final DiaryMediaLibraryRepository sharedLibrary = mock(DiaryMediaLibraryRepository.class);
 	private final MediaStorageDeletionTaskRepository deletionTasks = mock(MediaStorageDeletionTaskRepository.class);
-	private final MediaFileTransactionService service = com.f106.DIO.inventory.InventoryTestSupport.withQuotaMock(new MediaFileTransactionService(mediaFiles, sharedLibrary, deletionTasks, org.mockito.Mockito.mock(com.f106.DIO.media.service.CanvasMediaAccess.class)));
+	private final com.f106.DIO.media.service.CanvasMediaAccess canvasMedia = mock(com.f106.DIO.media.service.CanvasMediaAccess.class);
+	private final MediaFileTransactionService service = new MediaFileTransactionService(mediaFiles, sharedLibrary, deletionTasks, canvasMedia, org.mockito.Mockito.mock(com.f106.DIO.inventory.InventoryLimits.class));
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.EnumSource(value=MediaLibraryCategory.class,names={"STICKER","TAPE"})
+    void referencedDecorationsCannotBeDeletedFromCanvas(MediaLibraryCategory category) {
+        var file=decoration(category);
+        when(mediaFiles.findOwnedForUpdate(file.getMediaFileId(),2L)).thenReturn(Optional.of(file));
+        when(canvasMedia.retained(file.getMediaFileId())).thenReturn(true);
+        assertProtected(file,"MEDIA_FILE_IN_CANVAS");
+    }
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.EnumSource(value=MediaLibraryCategory.class,names={"STICKER","TAPE"})
+    void referencedDecorationsCannotBeDeletedFromSharedLibrary(MediaLibraryCategory category) {
+        var file=decoration(category);
+        when(mediaFiles.findOwnedForUpdate(file.getMediaFileId(),2L)).thenReturn(Optional.of(file));
+        when(mediaFiles.existsInSharedLibrary(eq(file.getMediaFileId()),any())).thenReturn(true);
+        assertProtected(file,"MEDIA_FILE_SHARED");
+    }
+    private MediaFile decoration(MediaLibraryCategory category) {
+        var id=UUID.randomUUID();
+        return new MediaFile(id,2L,MediaType.IMAGE,category,"media/image/"+id+".png","asset.png","image/png",1,"0".repeat(64));
+    }
+    private void assertProtected(MediaFile file,String code) {
+        assertThatThrownBy(()->service.delete(file.getMediaFileId(),2L)).isInstanceOfSatisfying(MediaRequestException.class,e->{
+            assertThat(e.status().value()).isEqualTo(409);
+            assertThat(e.code()).isEqualTo(code);
+        });
+        assertThat(file.getDeletedAt()).isNull();
+        assertThat(file.getLibraryRemovedAt()).isNull();
+    }
 
 	@Test
 	void removesTheUploadCleanupTaskWithTheSuccessfulMediaPersistence() {

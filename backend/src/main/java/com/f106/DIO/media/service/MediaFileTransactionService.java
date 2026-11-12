@@ -21,14 +21,15 @@ import com.f106.DIO.media.support.MediaRequestException;
 /** DB 작업만 트랜잭션으로 묶고, 저장소 읽기·쓰기는 MediaService가 트랜잭션 밖에서 수행한다. */
 @Service
 public class MediaFileTransactionService {
-	@org.springframework.beans.factory.annotation.Autowired private com.f106.DIO.inventory.InventoryLimits inventory;
+	private final com.f106.DIO.inventory.InventoryLimits inventory;
 	private final MediaFileRepository mediaFiles;
     private final CanvasMediaAccess canvasMedia;
 	private final DiaryMediaLibraryRepository sharedLibrary;
 	private final MediaStorageDeletionTaskRepository deletionTasks;
 
 	public MediaFileTransactionService(MediaFileRepository mediaFiles, DiaryMediaLibraryRepository sharedLibrary,
-			MediaStorageDeletionTaskRepository deletionTasks, CanvasMediaAccess canvasMedia) {
+			MediaStorageDeletionTaskRepository deletionTasks, CanvasMediaAccess canvasMedia, com.f106.DIO.inventory.InventoryLimits inventory) {
+        this.inventory=java.util.Objects.requireNonNull(inventory,"inventory");
 		this.canvasMedia=canvasMedia; this.mediaFiles = mediaFiles; this.sharedLibrary = sharedLibrary;
 		this.deletionTasks = deletionTasks;
 	}

@@ -19,7 +19,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 @Service
 public class EmailInviteService {
-    @org.springframework.beans.factory.annotation.Autowired private com.f106.DIO.inventory.InventoryLimits inventory;
+    private final com.f106.DIO.inventory.InventoryLimits inventory;
     private final com.f106.DIO.moderation.service.BlockService blocks;
     @jakarta.persistence.PersistenceContext private jakarta.persistence.EntityManager entities;
     private final SharingAccessService access;private final DiaryInviteRepository invites;private final DiaryMemberRepository members;
@@ -28,7 +28,8 @@ public class EmailInviteService {
     private final ApplicationEventPublisher events;private final InviteViews views;private final DiaryInviteService links;
     private final com.f106.DIO.sharing.support.EmailInviteAttemptThrottle attempts;
     public EmailInviteService(SharingAccessService access,DiaryInviteRepository invites,DiaryMemberRepository members,UserRepository users,
-            InviteTokens tokens,ApplicationEventPublisher events,InviteViews views,DiaryInviteService links,org.springframework.transaction.PlatformTransactionManager manager,com.f106.DIO.sharing.support.EmailInviteAttemptThrottle attempts,com.f106.DIO.moderation.service.BlockService blocks){
+            InviteTokens tokens,ApplicationEventPublisher events,InviteViews views,DiaryInviteService links,org.springframework.transaction.PlatformTransactionManager manager,com.f106.DIO.sharing.support.EmailInviteAttemptThrottle attempts,com.f106.DIO.moderation.service.BlockService blocks, com.f106.DIO.inventory.InventoryLimits inventory){
+        this.inventory=java.util.Objects.requireNonNull(inventory,"inventory");
         this.write=new org.springframework.transaction.support.TransactionTemplate(manager);
         this.blocks=blocks;this.access=access;this.invites=invites;this.members=members;this.users=users;this.tokens=tokens;this.events=events;this.views=views;this.links=links;this.attempts=attempts;
     }
@@ -39,12 +40,14 @@ public class EmailInviteService {
         return EmailInviteAcknowledgement.accepted();
     }
     private void prepare(UUID diaryId,long actor,EmailInviteRequest request){
+        var recipient=users.findByEmail(request.email()).filter(u->u.isActive()).orElse(null);
+        blocks.lockPair(actor,recipient==null?actor:recipient.getUserId());
         var diary=access.lock(diaryId);access.member(diary,actor);tokens.configured();
         Instant now=Instant.now().truncatedTo(ChronoUnit.MICROS);
         attempts.reserve(diaryId,actor,request.email(),now);
-        var recipient=users.findByEmail(request.email()).filter(u->u.isActive()).orElse(null);
         if(recipient==null)return;
-        blocks.lockPair(actor,recipient.getUserId());
+        entities.refresh(recipient);
+        if(!recipient.isActive())return;
         if(blocks.between(actor,recipient.getUserId()))return;
         if(members.findById(new DiaryMemberId(diaryId,recipient.getUserId())).filter(DiaryMember::active).isPresent())return;
         var pending=invites.pendingEmail(diaryId,recipient.getUserId()).orElse(null);

@@ -25,7 +25,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 @Service
 public class MediaService {
-	@org.springframework.beans.factory.annotation.Autowired private com.f106.DIO.inventory.InventoryLimits inventory;
+	private final com.f106.DIO.inventory.InventoryLimits inventory;
 	private static final Logger log = LoggerFactory.getLogger(MediaService.class);
 	private static final int MAX_FILE_SIZE = 5 * 1024 * 1024;
 	private static final int MAX_GIF_SIZE = 15 * 1024 * 1024;
@@ -37,7 +37,8 @@ public class MediaService {
 	private final MediaStorageDeletionQueueService deletionQueue;
 	private final GuardedMediaOperations guarded;
 	private final MediaUploadAdmission admission;
-	public MediaService(MediaFiles files, MediaFileTransactionService transactions, MediaStorageDeletionQueueService deletionQueue, GuardedMediaOperations guarded, MediaUploadAdmission admission) {
+	public MediaService(MediaFiles files, MediaFileTransactionService transactions, MediaStorageDeletionQueueService deletionQueue, GuardedMediaOperations guarded, MediaUploadAdmission admission, com.f106.DIO.inventory.InventoryLimits inventory) {
+        this.inventory=java.util.Objects.requireNonNull(inventory,"inventory");
 		this.files = files; this.transactions = transactions; this.deletionQueue = deletionQueue; this.guarded = guarded; this.admission = admission;
 	}
 

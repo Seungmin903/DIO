@@ -18,7 +18,7 @@ import com.f106.DIO.media.service.MediaService;
 /** 사진 속 대상 오리기: 사진 분석 → 붓질 미리보기 → 결과 PNG → 보관함 저장. 로그인 사용자 전용. */
 @Service
 public class StickerCutoutService {
-	@org.springframework.beans.factory.annotation.Autowired private com.f106.DIO.inventory.InventoryLimits inventory;
+	private final com.f106.DIO.inventory.InventoryLimits inventory;
 	private static final int MAX_PHOTO_BYTES = 20 * 1024 * 1024;
 	private final CutoutAiClient ai;
 	private final CutoutSessions sessions;
@@ -27,7 +27,8 @@ public class StickerCutoutService {
 	private final Semaphore uploads;
 
 	public StickerCutoutService(CutoutAiClient ai, CutoutSessions sessions, MediaService media,
-			@Value("${dio.cutout.max-concurrent-uploads:2}") int maxConcurrentUploads) {
+			@Value("${dio.cutout.max-concurrent-uploads:2}") int maxConcurrentUploads, com.f106.DIO.inventory.InventoryLimits inventory) {
+        this.inventory=java.util.Objects.requireNonNull(inventory,"inventory");
 		if (maxConcurrentUploads < 1) throw new IllegalArgumentException("Invalid cutout upload limit");
 		this.ai = ai; this.sessions = sessions; this.media = media; this.uploads = new Semaphore(maxConcurrentUploads, true);
 	}

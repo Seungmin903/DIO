@@ -91,6 +91,9 @@ public class Diary {
 		if (ownerUserId == null) ownerUserId = userId;
 	}
 
+    /** Shared inventory classification is sticky and independent of visibility/metadata edits. */
+    public void markSharedInventory() { this.inventoryShared = true; }
+
 	public void updateSettings(String title, String coverColor, String coverStyle, String visibility) {
 		if (title != null) { this.title = title; }
 		if (coverColor != null) { this.coverColor = coverColor; }

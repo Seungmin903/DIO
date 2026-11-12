@@ -18,7 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @Transactional
 public class DiaryInviteService {
-    @org.springframework.beans.factory.annotation.Autowired private com.f106.DIO.inventory.InventoryLimits inventory;
+    private final com.f106.DIO.inventory.InventoryLimits inventory;
     private final com.f106.DIO.moderation.service.BlockService blocks;
     private final SharingAccessService access;
     private final DiaryMemberRepository members;
@@ -26,7 +26,8 @@ public class DiaryInviteService {
     private final InviteTokens tokens;
     private final jakarta.persistence.EntityManager entities;
     private final org.springframework.context.ApplicationEventPublisher events;
-    public DiaryInviteService(SharingAccessService access,DiaryMemberRepository members,DiaryInviteRepository invites,InviteTokens tokens,jakarta.persistence.EntityManager entities,com.f106.DIO.moderation.service.BlockService blocks,org.springframework.context.ApplicationEventPublisher events){
+    public DiaryInviteService(SharingAccessService access,DiaryMemberRepository members,DiaryInviteRepository invites,InviteTokens tokens,jakarta.persistence.EntityManager entities,com.f106.DIO.moderation.service.BlockService blocks,org.springframework.context.ApplicationEventPublisher events, com.f106.DIO.inventory.InventoryLimits inventory){
+        this.inventory=java.util.Objects.requireNonNull(inventory,"inventory");
         this.blocks=blocks;this.access=access;this.members=members;this.invites=invites;this.tokens=tokens;this.entities=entities;this.events=events;
     }
     @Transactional(readOnly=true)
@@ -39,6 +40,7 @@ public class DiaryInviteService {
         return link(invite,token);
     }
     public InviteLinkResponse create(UUID id,long actor) {
+        blocks.lockPair(actor,actor);
         var diary=access.lock(id);access.member(diary,actor);tokens.configured();
         Instant now=Instant.now().truncatedTo(ChronoUnit.MICROS);
         Instant since=now.minusSeconds(SharingPolicy.INVITE_WINDOW_SECONDS);
@@ -111,15 +113,12 @@ public class DiaryInviteService {
     public InviteAcceptResponse accept(String token,long actor,boolean acknowledgeBlockedMembers) {
         long inviteId=tokens.id(token);
         var invite=valid(inviteId,token,actor);UUID id=invite.getDiaryId();
+        blocks.lockPair(actor,invite.email()?invite.getInviterUserId():actor);
         var diary=access.lock(id);
         // Another transaction may have cancelled/consumed the invite while we waited.
         // Refresh the first-level JPA cache before validating again under the parent lock.
         try{entities.refresh(invite);}catch(jakarta.persistence.EntityNotFoundException e){throw tokens.notFound();}
         invite=valid(inviteId,token,actor);
-        if(!invite.email())blocks.lockPair(actor,actor);
-        if(invite.email()){
-            blocks.lockPair(actor,invite.getInviterUserId());
-        }
         access.activeUser(actor);access.initializeOwner(diary);
         var member=members.findById(new DiaryMemberId(id,actor)).orElse(null);
         int count=Math.toIntExact(members.countByDiaryIdAndLeftAtIsNull(id));
@@ -140,7 +139,7 @@ public class DiaryInviteService {
         if(invite.email())invite.acceptedEmail(Instant.now());else invite.used();
         // Joining by a shared link also consumes a pending invitation for this recipient.
         invites.pendingEmail(id,actor).ifPresent(i->i.acceptedEmail(Instant.now()));
-        diary.updateSettings(null,null,null,"MEMBERS");
+        diary.markSharedInventory();
         inventory.sharedDiaryChanged(id,shared,actor);
         events.publishEvent(new DiaryMembershipChanged(id));
         return new InviteAcceptResponse(id,"EDITOR",false,count+1,SharingPolicy.MAX_MEMBERS);

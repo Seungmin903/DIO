@@ -19,7 +19,7 @@ class InviteSignatureTests {
         var tokens=new InviteTokens(Base64.getEncoder().encodeToString(new byte[32]),"https://dio.test/invite/");
         var invite=new DiaryInvite(UUID.randomUUID(),1L,Instant.now());ReflectionTestUtils.setField(invite,"inviteId",123L);
         invite.initializeHash(tokens.hash(tokens.token(invite)));when(invites.findById(123L)).thenReturn(Optional.of(invite));
-        var service=com.f106.DIO.inventory.InventoryTestSupport.withQuotaMock(new DiaryInviteService(access,members,invites,tokens,entities,mock(com.f106.DIO.moderation.service.BlockService.class),mock(org.springframework.context.ApplicationEventPublisher.class)));
+        var service=new DiaryInviteService(access,members,invites,tokens,entities,mock(com.f106.DIO.moderation.service.BlockService.class),mock(org.springframework.context.ApplicationEventPublisher.class), org.mockito.Mockito.mock(com.f106.DIO.inventory.InventoryLimits.class));
         String forged="123."+"A".repeat(43);
         assertThatThrownBy(()->service.preview(forged)).isInstanceOf(SharingException.class);
         assertThatThrownBy(()->service.accept(forged,2)).isInstanceOf(SharingException.class);
@@ -32,7 +32,7 @@ class InviteSignatureTests {
         UUID id=UUID.randomUUID();var invite=new DiaryInvite(id,1L,Instant.now());ReflectionTestUtils.setField(invite,"inviteId",123L);
         String token=tokens.token(invite);invite.initializeHash(tokens.hash(token));when(invites.findById(123L)).thenReturn(Optional.of(invite));
         doAnswer(call->{invite.cancel(Instant.now());return null;}).when(entities).refresh(invite);
-        var service=com.f106.DIO.inventory.InventoryTestSupport.withQuotaMock(new DiaryInviteService(access,members,invites,tokens,entities,mock(com.f106.DIO.moderation.service.BlockService.class),mock(org.springframework.context.ApplicationEventPublisher.class)));
+        var service=new DiaryInviteService(access,members,invites,tokens,entities,mock(com.f106.DIO.moderation.service.BlockService.class),mock(org.springframework.context.ApplicationEventPublisher.class), org.mockito.Mockito.mock(com.f106.DIO.inventory.InventoryLimits.class));
         assertThatThrownBy(()->service.accept(token,2)).isInstanceOfSatisfying(SharingException.class,e->assertThat(e.code).isEqualTo("INVITE_REVOKED"));
         verify(access).lock(id);verify(entities).refresh(invite);verify(access,never()).initializeOwner(any());verifyNoInteractions(members);
     }
