@@ -79,6 +79,9 @@ test('출력 배율과 안전 상한은 화면 DPR과 독립적이며 잘못된 
   const page = { objects: [] }
   const doubled = createExportSnapshot(page, { scale: 2 })
   assert.deepEqual([doubled.pixelWidth, doubled.pixelHeight], [2376, 1680])
+  // GIF 는 1.5배로 만든다: 홀수 크기 페이지도 GIF 버퍼 크기로 쓸 수 있게 정수 픽셀로 내린다
+  const gif = createExportSnapshot(page, { width: 595, height: 841, scale: 1.5 })
+  assert.deepEqual([gif.pixelWidth, gif.pixelHeight], [892, 1261])
   const limited = createExportSnapshot(page, { width: 8000, height: 6000, scale: 2 })
   assert.ok(limited.pixelWidth <= 4096 && limited.pixelWidth * limited.pixelHeight <= 8000000)
   assert.throws(() => createExportSnapshot(page, { scale: Infinity }), { code: 'EXPORT_SIZE_INVALID' })
