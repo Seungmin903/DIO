@@ -43,8 +43,9 @@ import useMyLibrary from '../../diary/hooks/useMyLibrary'
 import { pdfDocPage } from '../../diary/utils/pdfImport.js'
 import { isBackdrop } from '../utils/backdrop.js'
 import { ERASER_RADIUS } from '../utils/eraser.js'
-import { pencilTapTool, rememberTool } from '../utils/pencilDoubleTap.js'
+import { createToolSwitcher, pencilTapTool, rememberTool } from '../utils/pencilDoubleTap.js'
 import { usePencilDoubleTap } from '../hooks/usePencilDoubleTap'
+import { useSPenSideButton } from '../hooks/useSPenSideButton'
 import LassoSettings from '../components/LassoSettings'
 import TextSettings from '../components/TextSettings'
 import TextLinkDialog from '../components/TextLinkDialog'
@@ -1050,26 +1051,33 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
     setActiveTool('select')
     setDrawerTab(drawerTab === tab ? null : tab)
   }
-  const selectTool = (tool) => {
+  // 모든 도구 선택은 전환 창구(createToolSwitcher)를 거친다. 리렌더 전에 연달아 온 전환의 이전 도구(current)와
+  // S펜 사이드버튼의 임시 지우개 복귀 기억을 창구가 맡는다(utils/pencilDoubleTap.js, 테스트 tests/pencil-double-tap.test.js).
+  const applyToolRef = useRef(null)
+  const toolSwitcher = useRef(null)
+  if (!toolSwitcher.current) toolSwitcher.current = createToolSwitcher((tool, current) => applyToolRef.current(tool, current), activeTool)
+  toolSwitcher.current.sync(activeTool)
+  const selectTool = (tool) => toolSwitcher.current.select(tool)
+  applyToolRef.current = (tool, current) => {
     closePhotoPanel()
-    if (tool !== activeTool && tool !== 'shape') {
+    if (tool !== current && tool !== 'shape') {
       toolChangeMeasurement.current?.dispose()
-      toolChangeMeasurement.current = startPagePanelMeasurement({ kind: 'tool-change', from: activeTool, to: tool, objects: page.objects.length, pages: state.doc.pages.length })
+      toolChangeMeasurement.current = startPagePanelMeasurement({ kind: 'tool-change', from: current, to: tool, objects: page.objects.length, pages: state.doc.pages.length })
     }
     setGuidesOpen(false)
-    setLassoSettingsOpen(tool === 'lasso' ? tool !== activeTool || !lassoSettingsOpen : false)
+    setLassoSettingsOpen(tool === 'lasso' ? tool !== current || !lassoSettingsOpen : false)
     // 텍스트 도구는 누를 때(처음이든 다시든) 기본값 서식 창을 열지 않는다 — 편집 중 서식은 키보드 위 줄이, 상자를 고른 뒤의 서식은 선택 바의 '서식'이 맡는다(실기 피드백, S15P31F106-482)
     setTextSettingsOpen(false)
-    setPenSettingsOpen(['pen', 'highlighter', 'eraser'].includes(tool) && tool === activeTool && !penSettingsOpen)
+    setPenSettingsOpen(['pen', 'highlighter', 'eraser'].includes(tool) && tool === current && !penSettingsOpen)
     if (cropId) finishCrop(false)
     setTapeCropId(null)
     setDrawerTab(null)
     setMoreOpen(false)
-    const keepSelection = (tool === 'text' && activeTool !== 'lasso') || tool === 'lasso' || (activeTool === 'lasso' && tool === 'select')
+    const keepSelection = (tool === 'text' && current !== 'lasso') || tool === 'lasso' || (current === 'lasso' && tool === 'select')
     if (!keepSelection) dispatch({ type: 'select', ids: [] })
-    if (tool === 'lasso' || (activeTool === 'lasso' && tool === 'select')) {
+    if (tool === 'lasso' || (current === 'lasso' && tool === 'select')) {
       setTextEditing(null)
-      if (activeTool !== 'lasso') setLasso(current => ({ ...current, mode: 'replace' }))
+      if (current !== 'lasso') setLasso(lasso => ({ ...lasso, mode: 'replace' }))
     }
     setActiveTool(tool)
   }
@@ -1081,6 +1089,9 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
     const next = pencilTapTool(action, activeTool, pencilToolHistory.current)
     if (next) selectTool(next)
   }, !readOnly)
+  // S펜 사이드버튼: 누르는 동안만 지우개, 떼면 누르기 전 펜·형광펜으로 돌아간다. 글 입력 중에 누르면 무시한다.
+  // 읽기 전용이어도 구독은 유지한다. 누름만 무시하고 뗌은 늘 처리해야 누르는 중에 읽기 전용이 돼도 임시 지우개가 남지 않는다.
+  useSPenSideButton((pressed) => toolSwitcher.current.sideButton(pressed, { ignorePress: readOnly || Boolean(textEditing) }))
   const openExport = () => {
     if (!exportEnabled) return
     if (state.pagesLoading) { showToast(PAGES_LOADING_MESSAGE); return }
