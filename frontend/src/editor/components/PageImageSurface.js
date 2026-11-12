@@ -82,6 +82,9 @@ export default function PageImageSurface({ job }) {
   const packingPage = packing && { ...snapshot.template, objects: snapshot.objects, canvasWidth: snapshot.pageWidth ?? snapshot.width, canvasHeight: snapshot.pageHeight ?? snapshot.height }
   const packed = packing ? snapshot.objects.filter(o => o.packingSlot === 0 || o.packingSlot === 1) : []
   const ordinary = packing ? snapshot.objects.filter(o => !o.packingColorRegion && o.packingSlot !== 0 && o.packingSlot !== 1) : snapshot.objects
+  // 병 윤곽이 들어갈 자리: 처음 만나는 비(非)획 요소 바로 앞(없으면 맨 뒤)
+  const firstNonStroke = ordinary.findIndex(o => o.type !== 'stroke')
+  const inkFrontAt = firstNonStroke < 0 ? ordinary.length : firstNonStroke
   const renderObject = (object, pageCoordinates = false) => <View key={object.id} needsOffscreenAlphaCompositing={snapshot.isolateObjectOpacity ? objectDrawOpacity(object) < 1 : undefined} style={{ position: 'absolute', ...(pageCoordinates ? { left: object.x * scale, top: object.y * scale } : exportObjectPosition(object, snapshot, scale)), width: object.w * scale, height: object.h * scale, transform: [{ rotate: `${object.rotation ?? 0}deg` }], opacity: objectDrawOpacity(object) }}>
     <KeepFont>
       <ObjectContent object={object} zoom={scale} still onAssetLoad={() => setLoaded((previous) => new Set(previous).add(object.id))} onAssetError={assetError} />
@@ -100,12 +103,14 @@ export default function PageImageSurface({ job }) {
         return <View key={slot} style={{ position: 'absolute', ...exportObjectPosition({ x, y }, snapshot, scale), width: box.width * sx * scale, height: box.height * sy * scale, borderRadius: box.rx * Math.min(sx, sy) * scale, overflow: 'hidden' }}><View style={{ position: 'absolute', left: -x * scale, top: -y * scale, width: packingPage.canvasWidth * scale, height: packingPage.canvasHeight * scale }}>{packed.filter(o => o.packingSlot === slot).map(o => renderObject(o, true))}</View></View>
       })}
       {packing && <View pointerEvents="none" style={{ position: 'absolute', ...exportObjectPosition({ x: 0, y: 0 }, snapshot, scale), width: packingPage.canvasWidth * scale, height: packingPage.canvasHeight * scale }}><PackingFrontLayer page={packingPage} zoom={scale} /></View>}
-      {ordinary.map(o => renderObject(o))}
-      {/* 발색 기록 속지의 병 윤곽은 획 **위**다(StaticPage 와 같은 차례) — 내보낸 그림도 화면과 같아야 한다.
+      {/* 발색 기록 속지의 병 윤곽은 획 **위**, 붙인 것 **아래**다(StaticPage 와 같은 차례) —
+          내보낸 그림도 화면과 같아야 한다. 맨 뒤에 그리면 나중에 붙인 메모 · 사진까지 덮는다.
           snapshot.template 에는 배색이 없어 paperAppearance 를 따로 넘긴다(안 넘기면 바꾼 배색이 기본색으로 나온다) */}
+      {ordinary.slice(0, inkFrontAt).map(o => renderObject(o))}
       {snapshot.template && <View pointerEvents="none" style={{ position: 'absolute', ...exportObjectPosition({ x: 0, y: 0 }, snapshot, scale), width: (snapshot.pageWidth ?? snapshot.width) * scale, height: (snapshot.pageHeight ?? snapshot.height) * scale }}>
         <InkRecordFrontLayer page={{ ...snapshot.template, paperAppearance: snapshot.paperAppearance, canvasWidth: snapshot.pageWidth ?? snapshot.width, canvasHeight: snapshot.pageHeight ?? snapshot.height }} zoom={scale} />
       </View>}
+      {ordinary.slice(inkFrontAt).map(o => renderObject(o))}
       </SkiaPencilScale.Provider>
     </View>}
   </View>

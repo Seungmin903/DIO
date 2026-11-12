@@ -9,7 +9,7 @@ import * as geometry from '../src/editor/utils/pageGeometry.js'
 
 const require = createRequire(import.meta.url), expo = createRequire(require.resolve('expo/package.json'))
 const contexts = { TextMeasure: { Provider: 'measure' }, TextMeasureReady: { Provider: 'measure-ready' }, objectOpacity: object => object.opacity ?? 1, objectDrawOpacity: object => object.opacity ?? 1 }
-function loadComponent(file, platform = 'ios', cacheOverride = null, packing = null) {
+function loadComponent(file, platform = 'ios', cacheOverride = null, packing = null, overTopIds = []) {
   const { code } = expo('@babel/core').transformSync(readFileSync(new URL(`../src/editor/components/canvas/${file}.js`, import.meta.url), 'utf8'), {
     configFile: false, babelrc: false,
     plugins: [[expo.resolve('@babel/plugin-transform-react-jsx'), { runtime: 'automatic' }], expo.resolve('@babel/plugin-transform-modules-commonjs')],
@@ -30,9 +30,11 @@ function loadComponent(file, platform = 'ios', cacheOverride = null, packing = n
     if (id.endsWith('/packingLayout.js')) return { packingLayout: () => packing }
     if (id === './PackingColorLayer') return { PackingColorLayer: 'packing-color', PackingFrontLayer: 'packing-front' }
     if (id === './InkRecordFrontLayer') return { InkRecordFrontLayer: 'ink-record-front' }
+    // 발색 기록 속지인지 — 'ink-record' 를 깐 장만 속지로 본다
+    if (id.endsWith('/inkRecordLayout.js')) return { inkRecordLayout: assetId => assetId === 'ink-record' ? { cells: [] } : null }
     if (id === './WebStrokeCacheContext') return { WebStrokeCacheEnabled: cacheContext }
     // 잉크병 메모 덧그림 판별용. 이 검사에는 메모가 안 나오므로 늘 아니라고 답한다
-    if (id.endsWith('/utils/editorShapes')) return { memoArtOf: () => null }
+    if (id.endsWith('/utils/editorShapes')) return { memoArtOf: art => overTopIds.includes(art) ? { overTop: true } : null }
     if (id.endsWith('/fontScope')) return { KeepFont: 'keep-font' }
     if (id === './ObjectView') return contexts
     if (id === './viewportMotion') return { ViewportMotion: {} }
@@ -80,14 +82,43 @@ test('네이티브 페이지를 단계별로 표시해도 이미 완성된 획 �
   assert.deepEqual(later.flatMap(layer => layer.props.batch.objects), [...objects, ...more])
 })
 
-test('발색 기록 속지의 병 윤곽은 획 층보다 **뒤**에 — 즉 획 위에 — 그려진다', () => {
+test('잉크병 메모의 덧그림은 뒤에 그은 획만 덮고, 나중에 붙인 메모에는 덮인다', () => {
+  // 사용자 2026-11-12: "그 위에 다른 메모지가 붙으면 공병 메모지의 공병 윤곽도 가려져야 한다"
+  const memo = { id: 'memo', type: 'sticker', art: 'inkRound', x: 0, y: 0, w: 100, h: 100 }
+  const later = { id: 'later', type: 'sticker', x: 10, y: 10, w: 50, h: 50 }
+  const component = loadComponent('StaticPage', 'ios', null, null, ['inkRound'])
+  const drawing = drawingOf(component.render({ page: { ...page, objects: [memo, ...objects, later] }, zoom: 1 }))
+  const at = pred => drawing.findIndex(pred)
+  const iMemo = at(n => n?.props?.object === memo)
+  const iOver = at(n => n?.key === 'over-memo')
+  const iLater = at(n => n?.props?.object === later)
+  assert.ok(iMemo >= 0 && iOver >= 0 && iLater >= 0, '셋 다 그려진다')
+  assert.ok(iMemo < iOver, '덧그림은 메모 위에')
+  assert.ok(iOver < iLater, '나중에 붙인 메모가 덧그림 위에')
+  // 사이의 획은 덧그림 아래에 있어야 한다
+  assert.ok(at(n => n?.props?.object === objects[objects.length - 1]) < iOver, '그 사이 획은 덧그림 아래')
+})
+
+test('발색 기록 속지의 병 윤곽은 획 위에, 나중에 붙인 메모 아래에 그려진다', () => {
   // 사용자 2026-11-11: "속지 병 안에 획 그으면 병 윤곽이 내가 그은 획보다 위이게 해줘"
+  // 사용자 2026-11-13: "발색 기록 속지들도 메모지랑 같은 버그" — 맨 뒤에 그려서 나중에 붙인 것까지 덮었다
   const component = loadComponent('StaticPage')
-  const children = component.render({ page, zoom: 1, cacheStrokes: true }).props.children
-  const front = children.findIndex(child => child?.type === 'ink-record-front')
-  const strokes = children.findIndex(child => child?.type === contexts.TextMeasure.Provider)
-  assert.ok(front > strokes, `윤곽(${front}) 이 획(${strokes}) 보다 뒤여야 한다`)
-  assert.equal(children[front].props.page, page)
+  const later = { id: 'later', type: 'sticker', x: 10, y: 10, w: 50, h: 50 }
+  const inkPage = { ...page, backgroundAssetId: 'ink-record', objects: [...objects, later] }
+  const drawing = drawingOf(component.render({ page: inkPage, zoom: 1 }))
+  const front = drawing.findIndex(child => child?.type === 'ink-record-front')
+  const lastStroke = drawing.findIndex(child => child?.props?.object === objects[objects.length - 1])
+  const iLater = drawing.findIndex(child => child?.props?.object === later)
+  assert.ok(front >= 0 && lastStroke >= 0 && iLater >= 0, '셋 다 그려진다')
+  assert.ok(lastStroke < front, `윤곽(${front}) 이 획(${lastStroke}) 보다 뒤여야 한다`)
+  assert.ok(front < iLater, '나중에 붙인 메모가 윤곽 위에')
+  assert.equal(drawing[front].props.page, inkPage)
+})
+
+test('발색 기록 속지가 아니면 병 윤곽을 아예 그리지 않는다', () => {
+  const component = loadComponent('StaticPage')
+  const drawing = drawingOf(component.render({ page, zoom: 1 }))
+  assert.equal(drawing.findIndex(child => child?.type === 'ink-record-front'), -1)
 })
 
 test('필기에서만 캐시를 사용하고 일반 표시·사진 자르기·내보내기는 원본 표시를 유지한다', () => {
