@@ -1,6 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { DEFAULT_PEN_SETTINGS, PEN_TYPES, penPressure, tiltAmount } from '../src/editor/utils/penSettings.js'
+import { DEFAULT_PEN_SETTINGS, PEN_TYPES, penPressure, sanitizePenKinds, sanitizePenSettings, tiltAmount } from '../src/editor/utils/penSettings.js'
+import { INK_PEN_ENABLED } from '../src/shared/featureFlags.js'
 import { createStroke } from '../src/editor/utils/strokes.js'
 import { brushScale, nibContour, nibCurve, nibPreviewPaths, withDistances, withTaper } from '../src/editor/utils/nibStroke.js'
 import { trimEndHook } from '../src/editor/utils/penHook.js'
@@ -16,7 +17,7 @@ const bounds = path => {
 }
 
 test('펜 종류는 볼펜 · 캘리펜 · 붓펜 · 연필 · 잉크펜 · 점선이고 기본은 볼펜이다. 힘 정보가 없으면 볼펜 · 캘리펜 굵기는 그대로이고, 있으면 세 펜 모두 힘 · 기울기를 따른다', () => {
-  assert.deepEqual(PEN_TYPES.map(type => type.label), ['볼펜', '캘리펜', '붓펜', '연필', '점선', '잉크펜'])
+  assert.deepEqual(PEN_TYPES.map(type => type.label), ['볼펜', '캘리펜', '붓펜', '연필', '점선', ...(INK_PEN_ENABLED ? ['잉크펜'] : [])])
   assert.equal(DEFAULT_PEN_SETTINGS.kind, 'ball')
   for (const kind of ['ball', 'calligraphy']) {
     assert.equal(penPressure(kind, 0), 1)
@@ -30,6 +31,13 @@ test('펜 종류는 볼펜 · 캘리펜 · 붓펜 · 연필 · 잉크펜 · 점�
   assert.ok(penPressure('taperBrush', 20, 0.5) > penPressure('taperBrush', 20, 0.05))
   const range = kind => penPressure(kind, 0, 1) / penPressure(kind, 0, 0)
   assert.ok(range('taperBrush') > range('calligraphy') && range('calligraphy') > range('ball'), '변화 폭: 붓펜 > 캘리펜 > 볼펜')
+})
+
+test('잉크펜을 끄면 고를 수 없고 저장된 잉크펜 설정은 볼펜으로 되돌리되 잉크펜 기억 · 이미 그린 획은 남는다', { skip: INK_PEN_ENABLED && '잉크펜 켜짐' }, () => {
+  assert.equal(PEN_TYPES.some(type => type.id === 'glass'), false)
+  assert.equal(sanitizePenSettings({ kind: 'glass', color: '#18224D', width: 20, opacity: 1 }).kind, 'ball')
+  assert.ok(sanitizePenKinds({ glass: { width: 8, opacity: 1 } }).glass)
+  assert.equal(createStroke([{ x: 0, y: 0 }, { x: 20, y: 10 }], { id: 'a', kind: 'glass', color: '#18224D', width: 4 }).penKind, 'glass')
 })
 
 test('캘리펜은 같은 굵기에서 가로획이 세로획보다 가늘다', () => {
