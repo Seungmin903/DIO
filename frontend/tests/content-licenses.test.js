@@ -2,6 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
+import * as customStickerLimit from '../src/editor/utils/customStickerLimit.js'
 const require = createRequire(import.meta.url), expo = createRequire(require.resolve('expo/package.json'))
 function load(file, mocks) {
   const { code } = expo('@babel/core').transformSync(readFileSync(new URL(file, import.meta.url), 'utf8'), { configFile: false, babelrc: false, plugins: [[expo.resolve('@babel/plugin-transform-react-jsx'), { runtime: 'automatic' }], expo.resolve('@babel/plugin-transform-modules-commonjs')] })
@@ -68,7 +69,7 @@ test('출처 순서·숨김을 저장하고 앱 재시작 후 복원·숨김 해
   function mount() {
     let states = [], deps = [], cursor = 0, effects = []
     const react = { useCallback: f => f, useState: v => { const i = cursor++; if (!(i in states)) states[i] = typeof v === 'function' ? v() : v; return [states[i], n => { states[i] = typeof n === 'function' ? n(states[i]) : n }] }, useEffect: (fn,next) => { const i = cursor++; if (!deps[i] || next.some((v,k) => !Object.is(v,deps[i][k]))) { effects.push(fn); deps[i] = next } } }
-    const hook = load('../src/editor/hooks/useCustomDecor.js', { react, '../utils/common': { createId: () => 'id' }, '../services/mediaStore': { hydrateMedia: async () => {} }, '../utils/mediaReferences.js': { mediaId: () => null }, '../services/storage': storage }).useCustomDecor
+    const hook = load('../src/editor/hooks/useCustomDecor.js', { react, '../utils/common': { createId: () => 'id' }, '../services/mediaStore': { hydrateMedia: async () => {} }, '../utils/mediaReferences.js': { mediaId: () => null }, '../utils/customStickerLimit.js': customStickerLimit, '../services/storage': storage }).useCustomDecor
     return async () => { cursor = 0; const result = hook(), pending = effects; effects = []; pending.forEach(fn => fn()); await new Promise(r => setImmediate(r)); return result }
   }
   const render = mount(); await render(); let r = await render(); const order = ['twemoji','fluent-emoji','motion']
