@@ -24,7 +24,7 @@ const nodes = node => !node || typeof node !== 'object' ? [] : [node, ...[node.p
 function drawer(store, callbacks = {}, ready = true, saveStatus = {}, hooks = {}, flags = {}) {
   const mocks = {
     react: { createContext: () => ({ Provider: 'provider' }), useContext: () => 4, useRef: value => ({ current: value }), useState: value => [typeof value === 'function' ? value() : value, () => {}], ...hooks },
-    'react-native': { View: 'view', Text: 'text', Platform: { OS: 'web', select: values => values.web }, StyleSheet: { create: value => value } },
+    'react-native': { View: 'view', Text: 'text', FlatList: 'flat-list', ScrollView: 'scroll-view', Platform: { OS: 'web', select: values => values.web }, StyleSheet: { create: value => value } },
     '../../../shared/theme': { colors: {}, radius: {}, shadow: {} },
     '../../constants': { TAPE_SIZES: sizes, TAPE_DEFAULT: { size: 'standard', palette: 'pink' }, TAPE_PALETTES: [{ id: 'sky', name: '하늘' }, { id: 'pink', name: '딸기' }], TAPE_PATTERN_NAMES: { dot: '도트', solid: '무지', 'lace-flower': '아이렛' }, PHOTO_FRAME_ASSETS: [{ id: 'polaroid', name: '폴라로이드', kind: 'border', group: 'basic' }, { id: 'ticket-movie', name: '영화 티켓', kind: 'border', group: 'ticket' }], PHOTO_FRAME_GROUPS: [{ id: 'basic', name: '기본' }, { id: 'ticket', name: '티켓' }] },
     '../../hooks/useCustomDecor': { RECENT_LIMIT: 12, stickerKey: item => item.id, widgetKey: item => item.frame ?? item.memo ?? item.style, tapeKey: item => item.src ?? `pattern:${item.pattern}`,
@@ -43,7 +43,7 @@ function drawer(store, callbacks = {}, ready = true, saveStatus = {}, hooks = {}
     '../../utils/common': { clamp: value => value },
     './PhotoFramePicker': { FramePreview: 'FramePreview', frameLabel: frame => `사진 틀 ${frame.name}` },
   }
-  mocks['../../stickerLibrary'] = load(library, { './hooks/useCustomDecor': mocks['../../hooks/useCustomDecor'], './builtinStickers': { stickerPacks: () => [{ id: 'builtin:dio-moa', name: '디오&모아', items: [] }] } })
+  mocks['../../stickerLibrary'] = load(library, { './hooks/useCustomDecor': mocks['../../hooks/useCustomDecor'], './builtinStickers': { stickerPacks: () => [{ id: 'builtin:dio-moa', name: '디오&모아', items: [] }, ...(saveStatus.packs ?? [])] } })
   mocks['../../tapeLibrary'] = load(tapeLibrarySource, { './hooks/useCustomDecor': mocks['../../hooks/useCustomDecor'], './constants': mocks['../../constants'] })
   const module = { exports: {} }
   new Function('require', 'module', 'exports', code)(id => mocks[id] ?? (id === 'react/jsx-runtime' ? require(id) : { __esModule: true, default: id }), module, module.exports)
@@ -66,6 +66,31 @@ test('스티커 칩 복원·선택 저장과 삭제·숨김 칩은 비어 있지
   assert.equal(pills().find(node => node.props.active).props.label, '디오&모아')
   items.favorites = [{ id: 'a' }]
   assert.equal(pills().find(node => node.props.active).props.label, '즐겨찾기')
+})
+
+test('큰 스티커 팩은 한 행씩 만들고 화면의 타일은 기존 추가·즐겨찾기 동작을 사용한다', () => {
+  const items = Array.from({ length: 85 }, (_, index) => ({ id: `cat-${index}`, name: `고양이 ${index}` }))
+  const added = [], favorites = []
+  const tree = drawer(make(), { tab: 'sticker', onAdd: item => added.push(item), onToast() {} }, true, {
+    lastStickerCategory: 'remote:cats',
+    packs: [{ id: 'remote:cats', name: '고양이', items }],
+    markRecent() {},
+    toggleFavorite: item => favorites.push(item),
+  })
+  const results = nodes(tree).find(node => node.type?.name === 'StickerResults')
+  const list = results.type({ ...results.props, columns: 4 })
+  assert.equal(list.type, 'flat-list')
+  assert.equal(list.props.initialNumToRender, 5)
+  assert.equal(list.props.data.length, 23)
+  assert.equal(list.props.data[0].title, '고양이')
+  assert.deepEqual(list.props.data.at(-1).items, [items.at(-1)])
+  const row = list.props.renderItem({ item: list.props.data[1] })
+  const tiles = nodes(row).filter(node => node.type?.name === 'Tile')
+  assert.deepEqual(tiles.map(tile => tile.props.label), items.slice(0, 4).map(item => item.name))
+  tiles[0].props.onPress()
+  tiles[0].props.onLongPress()
+  assert.deepEqual(added, [{ kind: 'sticker', ...items[0] }])
+  assert.deepEqual(favorites, [items[0]])
 })
 
 test('위젯 칸은 메모지 · 디데이 · 사진 틀 칩으로 나누고 칸을 누르면 그 위젯을 붙인다', () => {

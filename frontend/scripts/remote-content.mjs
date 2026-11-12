@@ -35,14 +35,15 @@ function fontFile(dir, id, name, errors) {
 // 그림 스티커는 PNG 만 받는다(투명 배경, 기기 · 웹 · 내보내기에서 같게 그려진다). 2 MiB · 한 변 2048px 이하
 const STICKER_PNG_MAX = 2 * 1024 * 1024
 const PNG_SIGNATURE = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]
-function stickerImage(dir, packId, name, errors) {
+const STICKER_THUMBNAIL_MAX = 256
+function stickerImage(dir, packId, name, errors, maxDimension = STICKER_IMAGE_MAX) {
   const path = join(dir, name)
   if (!/^[A-Za-z0-9._-]+\.png$/.test(name) || !existsSync(path)) { errors.push(`stickers/${packId}: 그림 ${name} 이 없거나 이름이 올바르지 않아요(.png, 영문·숫자·-_.)`); return null }
   const data = readFileSync(path)
   if (data.length < 24 || PNG_SIGNATURE.some((byte, i) => data[i] !== byte) || data.subarray(12, 16).toString('latin1') !== 'IHDR') { errors.push(`stickers/${packId}/${name}: PNG 파일이 아니에요`); return null }
   const width = data.readUInt32BE(16), height = data.readUInt32BE(20)
   if (data.length > STICKER_PNG_MAX) { errors.push(`stickers/${packId}/${name}: 2 MiB 를 넘어요`); return null }
-  if (width < 1 || height < 1 || width > STICKER_IMAGE_MAX || height > STICKER_IMAGE_MAX) { errors.push(`stickers/${packId}/${name}: 한 변이 ${STICKER_IMAGE_MAX}px 이하여야 해요(지금 ${width}×${height})`); return null }
+  if (width < 1 || height < 1 || width > maxDimension || height > maxDimension) { errors.push(`stickers/${packId}/${name}: 한 변이 ${maxDimension}px 이하여야 해요(지금 ${width}×${height})`); return null }
   return { source: path, key: hashed(`stickers/${packId}`, name, data), size: data.length, sha256: sha256(data), width, height }
 }
 
@@ -83,11 +84,18 @@ export function buildCatalog(content) {
     let imageError = false
     const stickers = (Array.isArray(meta.stickers) ? meta.stickers : []).map(sticker => {
       if (typeof sticker?.image !== 'string') return sticker
-      const image = stickerImage(join(content, 'stickers', id), id, sticker.image, errors)
+      const dir = join(content, 'stickers', id)
+      const image = stickerImage(dir, id, sticker.image, errors)
       if (!image) { imageError = true; return null }
       images.push(image)
-      const { image: _, ...rest } = sticker
-      return { ...rest, image: { key: image.key, size: image.size, sha256: image.sha256 }, width: image.width, height: image.height }
+      const thumbnailDir = join(dir, 'thumbnails')
+      const thumbnail = existsSync(join(thumbnailDir, sticker.image))
+        ? stickerImage(thumbnailDir, `${id}/thumbnails`, sticker.image, errors, STICKER_THUMBNAIL_MAX)
+        : null
+      if (thumbnail) images.push(thumbnail)
+      const ref = ({ key, size, sha256 }) => ({ key, size, sha256 })
+      const { image: _, thumbnail: _thumbnail, ...rest } = sticker
+      return { ...rest, image: ref(image), ...(thumbnail ? { thumbnail: ref(thumbnail) } : {}), width: image.width, height: image.height }
     })
     if (imageError) continue
     // 앱과 같은 검사를 거쳐 하나라도 빠지면 오류로 알린다(앱에서 조용히 사라지지 않게)

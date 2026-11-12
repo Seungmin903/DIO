@@ -1,6 +1,6 @@
 import { ToolPanelHeader, toolPanelStyles } from '../ToolPanel'
 import { createContext, useContext, useRef, useState } from 'react'
-import { Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
+import { FlatList, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
 import { colors, radius, shadow, DISABLED_OPACITY } from '../../../shared/theme'
 import { PHOTO_FRAME_ASSETS, PHOTO_FRAME_GROUPS, TAPE_DEFAULT, TAPE_PATTERN_NAMES, TAPE_SIZES } from '../../constants'
 import { FOLDER_NAME_LIMIT, RECENT_LIMIT, stickerKey, tapeKey, useCustomDecor, widgetKey } from '../../hooks/useCustomDecor'
@@ -479,6 +479,18 @@ export default function DecorDrawer({ tab, onAdd, onTapeInserted, onToast, onClo
       )}
 
       <ColumnsContext.Provider value={columns}>
+        {tab === 'sticker' && !editingList && (pack || keyword) ? (
+          <StickerResults
+            key={pack?.id ?? 'search'}
+            columns={columns}
+            sections={pack ? [{ id: pack.id, title: pack.name, items: pack.items }] : [
+              { id: 'packs', title: '디오&모아', items: packMatches },
+              { id: 'folders', title: '내 폴더', items: folderMatches },
+            ]}
+            keyword={keyword}
+            tileProps={tileProps}
+          />
+        ) : (
         <ScrollView style={styles.scroll} contentContainerStyle={styles.body} scrollEnabled={!listDragging}>
           {tab === 'sticker' && (
             <>
@@ -518,18 +530,6 @@ export default function DecorDrawer({ tab, onAdd, onTapeInserted, onToast, onClo
                   </View>
                 </Section>
               )}
-              {/* 기본 분류(디오&모아)는 고치지 않고 붙이기만 한다 */}
-              {!editingList && pack && (
-                <Section title={pack.name}>
-                  <View style={styles.grid}>
-                    {pack.items.map((item) => (
-                      <Tile key={stickerKey(item)} {...tileProps(item)}>
-                        <StickerThumb item={item} />
-                      </Tile>
-                    ))}
-                  </View>
-                </Section>
-              )}
               {!editingList && folder && (
                 <FolderView
                   key={folder.id}
@@ -555,31 +555,6 @@ export default function DecorDrawer({ tab, onAdd, onTapeInserted, onToast, onClo
                     })
                   }
                 />
-              )}
-              {packMatches.length > 0 && (
-                <Section title="디오&모아">
-                  <View style={styles.grid}>
-                    {packMatches.map((item) => (
-                      <Tile key={stickerKey(item)} {...tileProps(item)}>
-                        <StickerThumb item={item} />
-                      </Tile>
-                    ))}
-                  </View>
-                </Section>
-              )}
-              {folderMatches.length > 0 && (
-                <Section title="내 폴더">
-                  <View style={styles.grid}>
-                    {folderMatches.map((item) => (
-                      <Tile key={`${item.folderId}-${stickerKey(item)}`} {...tileProps(item)}>
-                        <StickerThumb item={item} />
-                      </Tile>
-                    ))}
-                  </View>
-                </Section>
-              )}
-              {keyword && !packMatches.length && !folderMatches.length && (
-                <Text style={styles.empty}>'{keyword}'에 맞는 스티커가 없어요.</Text>
               )}
             </>
           )}
@@ -686,6 +661,7 @@ export default function DecorDrawer({ tab, onAdd, onTapeInserted, onToast, onClo
           )}
 
         </ScrollView>
+        )}
       </ColumnsContext.Provider>
       {/* 폴더 편집 도구줄: 보관함 · 휴지통 선택 모드와 같은 부품(전체 선택 · 지우기 · 완료는 맨 오른쪽) */}
       {edit && (
@@ -764,6 +740,38 @@ export default function DecorDrawer({ tab, onAdd, onTapeInserted, onToast, onClo
 // 칸 그림은 썸네일 · 캐시 · 다시 시도를 하는 공용 부품으로 그린다
 function StickerThumb({ item }) {
   return <StickerThumbImage item={item} style={styles.tileImage} />
+}
+
+function StickerResults({ sections, columns, tileProps, keyword }) {
+  const rows = sections.flatMap(({ id, title, items }) => {
+    if (keyword && !items.length) return []
+    const result = [{ key: `${id}:title`, title }]
+    for (let offset = 0; offset < items.length; offset += columns) {
+      result.push({ key: `${id}:${offset}`, items: items.slice(offset, offset + columns) })
+    }
+    return result
+  })
+  return (
+    <FlatList
+      style={styles.scroll}
+      contentContainerStyle={styles.body}
+      data={rows}
+      initialNumToRender={5}
+      maxToRenderPerBatch={4}
+      windowSize={3}
+      keyExtractor={row => row.key}
+      ListEmptyComponent={keyword ? <Text style={styles.empty}>'{keyword}'에 맞는 스티커가 없어요.</Text> : null}
+      renderItem={({ item: row }) => row.items ? (
+        <View style={styles.grid}>
+          {row.items.map(item => (
+            <Tile key={`${item.folderId ?? ''}:${stickerKey(item)}`} {...tileProps(item)}>
+              <StickerThumb item={item} />
+            </Tile>
+          ))}
+        </View>
+      ) : <Section title={row.title} />}
+    />
+  )
 }
 
 function Section({ title, badge, children }) {
