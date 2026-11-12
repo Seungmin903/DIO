@@ -58,12 +58,16 @@ const pxPerUnit = scale => Math.max(0.2, Math.max(0.05, scale))
 const MARGIN = 3
 
 function setUniforms(color, width, ink, S, org) {
-  // 열쇠에 **원점도** 넣어야 한다. 같은 설정으로 다른 자리에 이어 그은 획이 일찍 돌아가 버리면
-  // noiseOrg 가 앞 획 값으로 남아, 자리가 달라도 같은 무늬가 나온다(이 변경이 막으려던 바로 그것).
-  // 입자 쪽(sparkPaint)과 같은 기준이다(코드리뷰 2026-11-13).
-  const key = `${inkKey(color, width, S, ink)}|${org.x}|${org.y}`
-  if (key === uniKey) return key   // 지난번과 같은 획 — builder 가 그 값을 아직 들고 있다
-  uniKey = key
+  // 열쇠는 둘로 나눈다(코드리뷰 2026-11-13).
+  //  · 설정 열쇠(inkKey): 색 · 굵기 · 배율 · 잉크 설정. 같으면 유니폼 70여 개를 다시 안 넣는다.
+  //  · 밀어주기(noiseOrg): 획마다 다르다. **반드시 매번 넣어야** 앞 획 값이 남지 않는다.
+  // 돌려주는 열쇠에 둘 다 담는 이유는 필터 때문이다 — 필터는 만들 때 builder 의 유니폼을
+  // 복사해 두므로, 밀어주기가 달라지면 같은 설정이어도 새 필터가 필요하다.
+  const setKey = inkKey(color, width, S, ink)
+  const key = `${setKey}|${org.x}|${org.y}`
+  const u0 = (name, ...v) => builder.setUniform(name, v)
+  if (setKey === uniKey) { u0('noiseOrg', org.x * S, org.y * S); return key }
+  uniKey = setKey
   const P = GLASS_INK
   const rgb = hex3(color)
   const sheenOn = ink.sheen !== false
@@ -381,8 +385,19 @@ export function drawGlassPooled(canvas, points, width, color, zoom = 1, ink = {}
     //   똑같이 비었다 — 사용자 2026-11-13). 종이에 붙은 노이즈로 고임을 흔들어 자리마다 다르게
     //   한다. 노이즈는 **페이지 좌표**라 겹쳐 그어도 무늬가 맞고, 확대해도 그대로다.
     const vary = P.glPoolVary, varyScl = Math.max(1, P.glPoolVaryScale)
+    // 노이즈는 **다시 잴 만큼 움직였을 때만** 잰다. 덩이 크기가 26 단위인데 도장 간격은 0.18 이라
+    // 이웃 도장끼리 값이 사실상 같다 — 도장마다 재면 긴 획에서 한 프레임에 3000번(해시 12000번)
+    // 돌지만, 0.75 단위마다 재도 덩이 하나를 35번 뜨는 셈이라 눈에는 같다(코드리뷰 2026-11-13).
+    let nx = NaN, ny = NaN, nv = 1
     for (const d of dabs) {
-      const t = vary > 0 ? d.t * wPool * (1 + vary * (2 * vnoise2((d.x + org.x) / varyScl, (d.y + org.y) / varyScl) - 1)) : d.t * wPool
+      let t = d.t * wPool
+      if (vary > 0) {
+        if (!(Math.abs(d.x - nx) < 0.75 && Math.abs(d.y - ny) < 0.75)) {
+          nx = d.x; ny = d.y
+          nv = 1 + vary * (2 * vnoise2((d.x + org.x) / varyScl, (d.y + org.y) / varyScl) - 1)
+        }
+        t *= nv
+      }
       pool.setAlphaf(P.glPoolFloor + (1 - P.glPoolFloor) * smooth01((t - P.glPoolLo) / span))
       canvas.drawCircle(d.x * S, d.y * S, d.r * S + 1, pool)
     }

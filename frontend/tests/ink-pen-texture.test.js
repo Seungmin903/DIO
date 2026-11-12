@@ -79,6 +79,10 @@ test('옛 획의 대신 값은 끌어 옮기는 동안 흔들리지 않는다', 
     assert.deepEqual(glassOrigin(dragging), first, `${step} 만큼 끄는 동안`)
     assert.equal(glassOrigin(dragging), first, '같은 객체를 돌려줘 열쇠가 흔들리지 않는다')
   }
+  // 호환 정책: 점 배열이 **새것**이면(다시 불러오기 · 복제) 그때 자리가 새 기준이 된다.
+  // 이 판 이전 획은 어차피 다 같은 무늬였으므로 감수한다 — strokes.js 주석에 적어 두었다.
+  const reloaded = { ...old, points: old.points.map(point => ({ ...point })), x: old.x + 500 }
+  assert.deepEqual(glassOrigin(reloaded), { x: reloaded.x, y: reloaded.y })
 })
 
 test('확대한 잉크펜 획도 번진 자리가 페이지 좌표로 1.5 — 두 지우개 길이 같은 답을 낸다', () => {
