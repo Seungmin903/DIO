@@ -22,7 +22,7 @@ public class MediaController {
 	private final MediaService mediaService;
 	public MediaController(MediaService mediaService) { this.mediaService = mediaService; }
 	@PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-	@Operation(summary = "미디어 업로드", description = "이미지(JPEG, PNG, WebP, GIF), 오디오(MP3, M4A, WAV, OGG), 폰트(TTF, OTF), PDF 원본을 업로드합니다. 파일 형식은 서버가 판별합니다.")
+	@Operation(summary = "미디어 업로드", description = "이미지(JPEG, PNG, WebP, GIF), 오디오(MP3, M4A, WAV, OGG), 폰트(TTF, OTF), PDF 원본을 업로드합니다. 파일 형식은 서버가 판별합니다. 사진 200장, 사용자 생성 스티커 200개, 테이프 5개 한도이며 초과 시 409 INVENTORY_LIMIT_REACHED입니다.")
 	public ResponseEntity<MediaFileResponse> upload(@RequestPart("file") MultipartFile file,
 			@Parameter(description = "이미지는 PHOTO·STICKER·TAPE, 오디오는 AUDIO, 폰트는 FONT, PDF 원본은 DOCUMENT. 생략 시 파일 유형의 기본값") @RequestParam(required = false) String libraryCategory,
 			@AuthenticationPrincipal Jwt jwt) {
@@ -52,7 +52,7 @@ public class MediaController {
 		}
 		return response.body(file.content());
 	}
-	@DeleteMapping("/{mediaFileId}") @Operation(summary = "미디어 삭제", description = "로그인 사용자가 소유한 미디어를 소프트 삭제합니다.")
+	@DeleteMapping("/{mediaFileId}") @Operation(summary = "미디어 삭제", description = "사진은 개인 보관함에서 제거해 보유 한도를 반환합니다. 다이어리·공유·이력에서 쓰는 원본은 유지합니다. 다른 종류의 사용 중인 원본은 기존 참조 검사를 유지합니다.")
 	public ResponseEntity<Void> delete(@PathVariable UUID mediaFileId, @AuthenticationPrincipal Jwt jwt) { mediaService.delete(mediaFileId, userId(jwt)); return ResponseEntity.noContent().build(); }
 	private static Long userId(Jwt jwt) { return Long.valueOf(jwt.getSubject()); }
 	private static boolean isSourceDocument(String mimeType) {

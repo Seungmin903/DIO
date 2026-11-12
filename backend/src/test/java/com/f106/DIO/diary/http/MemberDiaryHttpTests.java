@@ -508,15 +508,16 @@ class MemberDiaryHttpTests {
             .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("INVALID_DIARY_LIST_QUERY"));
     }
 
-    @Test void sharedFilterAndBadgeUseActiveMembersInsteadOfVisibilityAcrossPages() throws Exception {
+    @Test void sharedFilterRetainsSharedTypeAcrossPages() throws Exception {
         String privateShared=id(create()),membersSolo=id(create()),linkSolo=id(create()),formerShared=id(create()),membersShared=id(create());
         jdbc.update("update diaries set visibility='MEMBERS' where diary_id in (?,?)",UUID.fromString(membersSolo),UUID.fromString(membersShared));
         jdbc.update("update diaries set visibility='LINK' where diary_id=?",UUID.fromString(linkSolo));
         for(String id:List.of(privateShared,formerShared,membersShared))
             jdbc.update("insert into diary_members(diary_id,user_id,role,member_color) values(?,202,'EDITOR','#654321')",UUID.fromString(id));
+        jdbc.update("update diaries set inventory_shared=true where diary_id=?",UUID.fromString(formerShared));
         jdbc.update("update diary_members set left_at=current_timestamp where diary_id=? and user_id=202",UUID.fromString(formerShared));
-        var shared=java.util.Set.of(privateShared,membersShared);
-        var personal=java.util.Set.of(membersSolo,linkSolo,formerShared);
+        var shared=java.util.Set.of(privateShared,membersShared,membersSolo,formerShared);
+        var personal=java.util.Set.of(linkSolo);
         for(String sort:List.of("created","updated","title","pages")) {
             for(String filter:List.of("all","personal","shared")) {
                 var seen=new java.util.HashSet<String>();String cursor=null;

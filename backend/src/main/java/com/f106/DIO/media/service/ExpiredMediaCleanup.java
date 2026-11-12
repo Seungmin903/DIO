@@ -60,7 +60,7 @@ public class ExpiredMediaCleanup {
 			PageRequest limit = PageRequest.of(0, remaining);
 			List<MediaFile> candidates = last == null
 				? mediaFiles.findPhysicallyDeletable(cutoff, limit)
-				: mediaFiles.findPhysicallyDeletableAfter(cutoff, last.getDeletedAt(), last.getMediaFileId(), limit);
+				: mediaFiles.findPhysicallyDeletableAfter(cutoff, last.cleanupSince(), last.getMediaFileId(), limit);
 			for (MediaFile mediaFile : candidates) {
 				last = mediaFile;
 				if (removedRows >= remaining) break;

@@ -166,7 +166,6 @@ class SharingTests extends SharingTestSupport {
     }
     @Test void ownerTransfersAndRemainsAnEditorUntilExplicitLeave() throws Exception {
         var owner=actor();var editor=actor();var id=diary(owner);var link=links.create(id,owner.id());links.accept(link.token(),editor.id());
-        mvc.perform(delete("/api/v1/diaries/"+id+"/members/"+owner.id()).header("Authorization","Bearer "+owner.token())).andExpect(status().isConflict());
         mvc.perform(post("/api/v1/diaries/"+id+"/transfer-owner").header("Authorization","Bearer "+owner.token())
             .contentType(MediaType.APPLICATION_JSON).content("{\"newOwnerUserId\":"+editor.id()+"}" )).andExpect(status().isNoContent());
         assertThat(diaries.findById(id).orElseThrow().getOwnerUserId()).isEqualTo(editor.id());

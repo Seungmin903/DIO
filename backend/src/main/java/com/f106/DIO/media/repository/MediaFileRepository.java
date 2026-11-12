@@ -20,9 +20,9 @@ public interface MediaFileRepository extends JpaRepository<MediaFile, UUID> {
 	 * 보존 기간이 지났고 어느 테이블에서도 참조하지 않는 미디어 조건. 조회와 조건부 삭제가 같은 문자열을 써서
 	 * 두 쿼리의 판단이 어긋나지 않게 하고, PostgreSQL 통합 테스트도 이 문자열을 그대로 실행한다.
 	 */
-	String PHYSICALLY_DELETABLE = "media_files.deleted_at <= :cutoff " + MediaReferenceSql.UNREFERENCED;
-	String DELETABLE_ORDER = " order by media_files.deleted_at, media_files.media_file_id";
-	String DELETABLE_AFTER = " and (media_files.deleted_at, media_files.media_file_id) > (:afterDeletedAt, :afterMediaFileId)";
+	String PHYSICALLY_DELETABLE = "coalesce(media_files.deleted_at,media_files.library_removed_at) <= :cutoff " + MediaReferenceSql.UNREFERENCED;
+	String DELETABLE_ORDER = " order by coalesce(media_files.deleted_at,media_files.library_removed_at), media_files.media_file_id";
+	String DELETABLE_AFTER = " and (coalesce(media_files.deleted_at,media_files.library_removed_at), media_files.media_file_id) > (:afterDeletedAt, :afterMediaFileId)";
 
 	/**
 	 * 활성 다이어리나 아직 복원할 수 있는 휴지통 다이어리의 공유 보관함에 남아 있는지.
@@ -57,13 +57,13 @@ public interface MediaFileRepository extends JpaRepository<MediaFile, UUID> {
 	Optional<MediaFile> findOwnedForUpdate(@Param("mediaFileId") UUID mediaFileId, @Param("ownerUserId") Long ownerUserId);
 	@Query("""
 		select mediaFile from MediaFile mediaFile
-		where mediaFile.ownerUserId = :ownerUserId and mediaFile.deletedAt is null and mediaFile.mediaType <> com.f106.DIO.media.domain.MediaType.DOCUMENT
+		where mediaFile.ownerUserId = :ownerUserId and mediaFile.deletedAt is null and mediaFile.libraryRemovedAt is null and mediaFile.mediaType <> com.f106.DIO.media.domain.MediaType.DOCUMENT
 		order by mediaFile.createdAt desc, mediaFile.mediaFileId desc
 		""")
 	List<MediaFile> findFirstActivePage(@Param("ownerUserId") Long ownerUserId, Pageable pageable);
 	@Query("""
 		select mediaFile from MediaFile mediaFile
-		where mediaFile.ownerUserId = :ownerUserId and mediaFile.deletedAt is null and mediaFile.mediaType <> com.f106.DIO.media.domain.MediaType.DOCUMENT
+		where mediaFile.ownerUserId = :ownerUserId and mediaFile.deletedAt is null and mediaFile.libraryRemovedAt is null and mediaFile.mediaType <> com.f106.DIO.media.domain.MediaType.DOCUMENT
 		  and (mediaFile.createdAt < :createdAt
 		       or (mediaFile.createdAt = :createdAt and mediaFile.mediaFileId < :mediaFileId))
 		order by mediaFile.createdAt desc, mediaFile.mediaFileId desc

@@ -21,6 +21,7 @@ import com.f106.DIO.media.support.MediaRequestException;
 /** DB 작업만 트랜잭션으로 묶고, 저장소 읽기·쓰기는 MediaService가 트랜잭션 밖에서 수행한다. */
 @Service
 public class MediaFileTransactionService {
+	@org.springframework.beans.factory.annotation.Autowired private com.f106.DIO.inventory.InventoryLimits inventory;
 	private final MediaFileRepository mediaFiles;
     private final CanvasMediaAccess canvasMedia;
 	private final DiaryMediaLibraryRepository sharedLibrary;
@@ -34,7 +35,8 @@ public class MediaFileTransactionService {
 
 	@Transactional
 	public MediaFileResponse persist(MediaFile mediaFile, UUID uploadCleanupTaskId) {
-		mediaFiles.save(mediaFile);
+		mediaFiles.saveAndFlush(mediaFile);
+		inventory.completeMedia(mediaFile.getOwnerUserId(),mediaFile.getLibraryCategory().name(),mediaFile.getInventoryReservationId());
 		deletionTasks.deleteById(uploadCleanupTaskId);
 		return MediaFileResponse.from(mediaFile);
 	}
@@ -79,6 +81,11 @@ public class MediaFileTransactionService {
 	public void delete(UUID mediaFileId, Long userId) {
 		MediaFile mediaFile = mediaFiles.findOwnedForUpdate(mediaFileId, userId).orElseThrow(MediaFileNotFoundException::new);
 		Instant restorableSince = Instant.now().minus(DiaryRetention.PERIOD);
+		if(mediaFile.getLibraryCategory()==com.f106.DIO.media.domain.MediaLibraryCategory.PHOTO){
+			mediaFile.removeFromLibrary();
+			if(!canvasMedia.retained(mediaFileId)&&!mediaFiles.existsInSharedLibrary(mediaFileId,restorableSince))mediaFile.softDelete();
+			mediaFiles.flush();return;
+		}
 		if (canvasMedia.retained(mediaFileId)) throw MediaRequestException.canvasReference();
 		if (mediaFiles.existsInSharedLibrary(mediaFileId, restorableSince)) throw MediaRequestException.sharedLibraryReference();
 		mediaFile.softDelete();

@@ -29,7 +29,7 @@ class MediaFileTransactionServiceTests {
 	private final MediaFileRepository mediaFiles = mock(MediaFileRepository.class);
 	private final DiaryMediaLibraryRepository sharedLibrary = mock(DiaryMediaLibraryRepository.class);
 	private final MediaStorageDeletionTaskRepository deletionTasks = mock(MediaStorageDeletionTaskRepository.class);
-	private final MediaFileTransactionService service = new MediaFileTransactionService(mediaFiles, sharedLibrary, deletionTasks, org.mockito.Mockito.mock(com.f106.DIO.media.service.CanvasMediaAccess.class));
+	private final MediaFileTransactionService service = com.f106.DIO.inventory.InventoryTestSupport.withQuotaMock(new MediaFileTransactionService(mediaFiles, sharedLibrary, deletionTasks, org.mockito.Mockito.mock(com.f106.DIO.media.service.CanvasMediaAccess.class)));
 
 	@Test
 	void removesTheUploadCleanupTaskWithTheSuccessfulMediaPersistence() {
@@ -39,7 +39,7 @@ class MediaFileTransactionServiceTests {
 		service.persist(mediaFile, cleanupTaskId);
 
 		var order = inOrder(mediaFiles, deletionTasks);
-		order.verify(mediaFiles).save(mediaFile);
+		order.verify(mediaFiles).saveAndFlush(mediaFile);
 		order.verify(deletionTasks).deleteById(cleanupTaskId);
 	}
 
@@ -52,14 +52,14 @@ class MediaFileTransactionServiceTests {
 	}
 
 	@Test
-	void preventsDeletingMediaWhileItIsInASharedLibrary() {
+	void deletingPhotoInSharedLibraryHidesInventoryButPreservesOriginal() {
 		MediaFile mediaFile = media(2L);
 		when(mediaFiles.findOwnedForUpdate(mediaFile.getMediaFileId(), 2L)).thenReturn(Optional.of(mediaFile));
 		when(mediaFiles.existsInSharedLibrary(org.mockito.ArgumentMatchers.eq(mediaFile.getMediaFileId()), org.mockito.ArgumentMatchers.any())).thenReturn(true);
 
-		assertThatThrownBy(() -> service.delete(mediaFile.getMediaFileId(), 2L))
-			.isInstanceOf(MediaRequestException.class)
-			.hasMessageContaining("공유 보관함");
+		service.delete(mediaFile.getMediaFileId(), 2L);
+        assertThat(mediaFile.getLibraryRemovedAt()).isNotNull();
+        assertThat(mediaFile.getDeletedAt()).isNull();
 	}
 
 	@Test

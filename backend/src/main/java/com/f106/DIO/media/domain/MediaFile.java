@@ -53,6 +53,11 @@ public class MediaFile {
 	private Instant createdAt;
 	@Column(name = "deleted_at")
 	private Instant deletedAt;
+	@Column(name="library_removed_at") private Instant libraryRemovedAt;
+	@jakarta.persistence.Transient private UUID inventoryReservationId;
+	public void reserveInventory(UUID id){inventoryReservationId=id;}
+	public void removeFromLibrary(){if(libraryRemovedAt==null)libraryRemovedAt=Instant.now().truncatedTo(ChronoUnit.MICROS);}
+	public Instant cleanupSince(){return deletedAt==null?libraryRemovedAt:deletedAt;}
 
 	public MediaFile(UUID mediaFileId, Long ownerUserId, MediaType mediaType, MediaLibraryCategory libraryCategory,
 			String storageKey, String originalFilename, String mimeType, long fileSize, String checksumSha256) {

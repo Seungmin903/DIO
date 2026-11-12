@@ -12,6 +12,7 @@ import com.f106.DIO.diary.repository.DiaryRepository;
 
 @Service
 public class DiaryModificationService {
+    @org.springframework.beans.factory.annotation.Autowired private com.f106.DIO.inventory.InventoryLimits inventory;
 
 	private final DiaryRepository diaryRepository;
 	private final DiaryAccessService accessService;
@@ -27,8 +28,10 @@ public class DiaryModificationService {
 	public DiaryResponse update(UUID diaryId, DiaryUpdateRequest request, Long userId) {
 		memberBoundary.requireLegacyWrite(diaryId);
 		Diary diary = accessService.requireWrite(diaryId, userId);
+		boolean shared=inventory.shared(diaryId);
 		diary.updateSettings(request.getDiaryTitle(), request.getCoverColor(), request.getCoverStyle(), request.getVisibility());
 		diaryRepository.flush();
+		if(!shared && diary.isInventoryShared()) inventory.sharedDiaryChanged(diaryId,false,null);
 		return new DiaryResponse(DiaryMapper.toData(diary));
 	}
 

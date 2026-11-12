@@ -25,6 +25,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 @Service
 public class MediaService {
+	@org.springframework.beans.factory.annotation.Autowired private com.f106.DIO.inventory.InventoryLimits inventory;
 	private static final Logger log = LoggerFactory.getLogger(MediaService.class);
 	private static final int MAX_FILE_SIZE = 5 * 1024 * 1024;
 	private static final int MAX_GIF_SIZE = 15 * 1024 * 1024;
@@ -53,24 +54,35 @@ public class MediaService {
 
 	/** 서버가 AI로 만든 스티커 PNG를 사용자 보관함(STICKER)에 저장한다. 클라이언트가 보낸 파일은 받지 않는다. */
 	public MediaFileResponse storeAiSticker(byte[] content, Long userId) {
+		return storeAiSticker(content,userId,null);
+	}
+	public MediaFileResponse storeAiSticker(byte[] content, Long userId, UUID reservation) {
 		try (var permit = admission.acquire()) {
 		if (content == null || content.length == 0) throw MediaRequestException.invalidFile();
 		MediaUploadInspector.FileKind kind = MediaUploadInspector.inspect(content);
 		if (kind.mediaType() != MediaType.IMAGE) throw MediaRequestException.invalidFile();
 		if (content.length > MAX_FILE_SIZE) throw MediaRequestException.tooLarge();
-		return store(content, kind, MediaLibraryCategory.STICKER, MediaSourceType.AI_RESULT, null, userId);
+		return store(content, kind, MediaLibraryCategory.STICKER, MediaSourceType.AI_RESULT, null, userId, reservation);
 		}
 	}
 
 	private MediaFileResponse store(byte[] content, MediaUploadInspector.FileKind kind, MediaLibraryCategory category,
 			MediaSourceType sourceType, String filename, Long userId) {
+		return store(content,kind,category,sourceType,filename,userId,null);
+	}
+	private MediaFileResponse store(byte[] content, MediaUploadInspector.FileKind kind, MediaLibraryCategory category,
+			MediaSourceType sourceType, String filename, Long userId,UUID reserved) {
+		UUID reservation=reserved==null?inventory.reserveMedia(userId,category.name()):reserved;
+		try {
 		UUID id = UUID.randomUUID();
 		String key = MediaStorageKeys.create(kind.mediaType(), kind.extension(), id);
 		MediaFile mediaFile = new MediaFile(id, userId, kind.mediaType(), sourceType, category, key, filename,
 			kind.mimeType(), content.length, checksum(content));
+		mediaFile.reserveInventory(reservation);
 		MediaStorageDeletionTask cleanupTask = deletionQueue.reserveUploadCleanup(id, key);
 		// A failure leaves the independently committed reservation for delayed recovery.
 		return guarded.upload(mediaFile, cleanupTask.getDeletionId(), content, kind.mimeType());
+		} finally { inventory.releaseMedia(reservation); }
 	}
 
 	public MediaFileListResponse list(Long userId, int limit, String cursor) {

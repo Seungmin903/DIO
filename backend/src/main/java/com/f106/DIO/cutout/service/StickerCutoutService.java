@@ -18,6 +18,7 @@ import com.f106.DIO.media.service.MediaService;
 /** 사진 속 대상 오리기: 사진 분석 → 붓질 미리보기 → 결과 PNG → 보관함 저장. 로그인 사용자 전용. */
 @Service
 public class StickerCutoutService {
+	@org.springframework.beans.factory.annotation.Autowired private com.f106.DIO.inventory.InventoryLimits inventory;
 	private static final int MAX_PHOTO_BYTES = 20 * 1024 * 1024;
 	private final CutoutAiClient ai;
 	private final CutoutSessions sessions;
@@ -52,7 +53,9 @@ public class StickerCutoutService {
 
 	/** 서버에서 다시 만든 PNG 만 저장한다. 앱이 보낸 이미지를 AI 결과로 저장하지 않는다. */
 	public MediaFileResponse save(UUID cutoutId, CutoutSelectionRequest selection, Long userId) {
-		return media.storeAiSticker(render(cutoutId, selection, userId), userId);
+		UUID reservation=inventory.reserveMedia(userId,"STICKER");
+		try{return media.storeAiSticker(render(cutoutId, selection, userId), userId,reservation);}
+		finally{inventory.releaseMedia(reservation);}
 	}
 
 	public void close(UUID cutoutId, Long userId) { sessions.close(cutoutId, userId); }

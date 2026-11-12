@@ -85,7 +85,7 @@ class PageCatalogPostgresTests {
         var repo=new MemberDiaryCreationRepository(jdbc);
         var pages=new JdbcDiaryInitialPages(jdbc);
         try(var validation=Validation.buildDefaultValidatorFactory()) {
-            var service=new MemberDiaryCreationService(repo,() -> 1,repo::insertOwner,pages,validation.getValidator(),Clock.systemUTC(),512);
+            var service=com.f106.DIO.inventory.InventoryTestSupport.withQuotaMock(new MemberDiaryCreationService(repo,() -> 1,repo::insertOwner,pages,validation.getValidator(),Clock.systemUTC(),512));
             var tx=new TransactionTemplate(new DataSourceTransactionManager(dataSource));
             var result=tx.execute(s -> service.create(new DiaryCreateRequest("all references",null,null,null),selections));
             assertThat(result.pageIds()).hasSize(288).doesNotHaveDuplicates();

@@ -19,6 +19,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 @Service
 public class EmailInviteService {
+    @org.springframework.beans.factory.annotation.Autowired private com.f106.DIO.inventory.InventoryLimits inventory;
     private final com.f106.DIO.moderation.service.BlockService blocks;
     @jakarta.persistence.PersistenceContext private jakarta.persistence.EntityManager entities;
     private final SharingAccessService access;private final DiaryInviteRepository invites;private final DiaryMemberRepository members;
@@ -57,9 +58,11 @@ public class EmailInviteService {
             // Its outcome must not expose whether a matching account exists.
             return;
         }
+        boolean shared=inventory.shared(diaryId);
         var invite=invites.saveAndFlush(DiaryInvite.email(diaryId,actor,recipient.getUserId(),now));
         String token=tokens.token(invite);invite.initializeHash(tokens.hash(token));diary.updateSettings(null,null,null,"MEMBERS");
         entities.flush();
+        inventory.sharedDiaryChanged(diaryId,shared,null);
         events.publishEvent(new com.f106.DIO.notification.event.InvitationConfirmedEvent(UUID.randomUUID(),invite.getInviteId(),recipient.getUserId(),now));
     }
     @Transactional(readOnly=true)

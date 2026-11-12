@@ -17,6 +17,7 @@ import tools.jackson.databind.json.JsonMapper;
 @Service
 @Transactional
 public class StickerLibraryService {
+    @org.springframework.beans.factory.annotation.Autowired private com.f106.DIO.inventory.InventoryLimits inventory;
     public record StickerItem(UUID mediaFileId, String builtin, String asset, String widget, String style, String emoji, String name, Double aspect) {}
     public record StickerFolder(String id, String name, List<StickerItem> items) {}
     public record StickerLibraryDocument(long version, List<StickerFolder> folders) {}
@@ -44,6 +45,9 @@ public class StickerLibraryService {
         if (version != expectedVersion) throw StickerLibraryException.conflict();
         Set<UUID> media = new LinkedHashSet<>();
         for (StickerFolder folder : clean) for (StickerItem item : folder.items()) if (item.mediaFileId() != null) media.add(item.mediaFileId());
+        var before=inventory.mediaItems(userId,com.f106.DIO.inventory.InventoryLimits.Kind.STICKER);
+        var removed=new HashSet<>(jdbc.queryForList("select media_file_id from user_sticker_library_media where user_id=?",UUID.class,userId));
+        removed.removeAll(media);
         requireOwnImages(userId, media);
         long next = version + 1;
         var now = java.sql.Timestamp.from(Instant.now());
@@ -57,6 +61,8 @@ public class StickerLibraryService {
         jdbc.update("delete from user_sticker_library_media where user_id=?", userId);
         jdbc.batchUpdate("insert into user_sticker_library_media(user_id, media_file_id) values(?,?)",
             media.stream().map(id -> new Object[] {userId, id}).toList());
+        inventory.releaseLibraryMedia(userId,"STICKER",removed);
+        inventory.validateLibrary(userId,com.f106.DIO.inventory.InventoryLimits.Kind.STICKER,before);
         return new StickerLibraryDocument(next, clean);
     }
 

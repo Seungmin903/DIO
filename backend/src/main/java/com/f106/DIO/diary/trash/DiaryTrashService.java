@@ -19,6 +19,7 @@ import com.f106.DIO.diary.auth.DiaryRequestIdentity;
 
 @Service
 public class DiaryTrashService {
+    @org.springframework.beans.factory.annotation.Autowired private com.f106.DIO.inventory.InventoryLimits inventory;
     private final JdbcTemplate jdbc;
     private final boolean postgres;
     private final DiaryRequestIdentity identity;
@@ -105,14 +106,16 @@ public class DiaryTrashService {
 
     @Transactional
     public DiaryResponse restore(UUID id) {
-        long user = authenticate();
+        long user = identity.requireUserId(DiaryDetailException::unauthorized);
         var row = lockOwner(user, id);
+        if(!diaries.lockActiveUser(user)) throw DiaryDetailException.unauthorized();
         Instant updatedAt = row.updatedAt();
         if (row.deletedAt() != null) {
             Instant now = clock.instant().truncatedTo(ChronoUnit.MICROS);
             if (!now.isBefore(row.deletedAt().plus(RETENTION))) throw new DiaryDetailException(HttpStatus.GONE, "DIARY_RESTORE_EXPIRED", "복원 가능한 보관 기간이 지났어요.");
             long version=version(id);
             if(jdbc.update("UPDATE diaries SET deleted_at=NULL,updated_at=?,version=version+1 WHERE diary_id=? AND version=? AND deleted_at IS NOT NULL",Timestamp.from(now.isAfter(row.updatedAt())?now:row.updatedAt().plus(1,ChronoUnit.MICROS)),id,version)!=1) throw conflict();
+            inventory.restoredDiary(id,inventory.shared(id));
             updatedAt = now.isAfter(row.updatedAt()) ? now : row.updatedAt().plus(1, ChronoUnit.MICROS);
         }
         return new DiaryResponse(new DiaryCreateResponse.DiaryData(row.id().toString(), row.title(),
@@ -135,8 +138,9 @@ public class DiaryTrashService {
     }
     @Transactional
     public void trash(UUID id) {
-        long user = authenticate();
+        long user = identity.requireUserId(DiaryDetailException::unauthorized);
         var row = lockOwner(user, id);
+        if(!diaries.lockActiveUser(user)) throw DiaryDetailException.unauthorized();
         if (row.deletedAt() != null) return; // 재요청은 보관 기한을 연장하지 않는다.
         Instant deleted = clock.instant().truncatedTo(ChronoUnit.MICROS);
         Instant updated = deleted.isAfter(row.updatedAt()) ? deleted : row.updatedAt().plus(1, ChronoUnit.MICROS);

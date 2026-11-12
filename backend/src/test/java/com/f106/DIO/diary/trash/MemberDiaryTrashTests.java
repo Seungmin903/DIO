@@ -30,7 +30,7 @@ class MemberDiaryTrashTests {
     }
     DiaryTrashService service(long user, Clock clock) {
         var repo=new DiaryDetailRepository(jdbc);
-        return new DiaryTrashService(jdbc,owner(user),repo,new JdbcDiaryMembershipAccess(jdbc,repo),clock);
+        return com.f106.DIO.inventory.InventoryTestSupport.withQuotaMock(new DiaryTrashService(jdbc,owner(user),repo,new JdbcDiaryMembershipAccess(jdbc,repo),clock));
     }
     @BeforeEach void setup() {
         DriverManagerDataSource source;

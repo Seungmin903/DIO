@@ -22,6 +22,7 @@ import com.f106.DIO.diary.dto.DiaryCreateResponse.DiaryData;
 /** 231 트랜잭션 기반. 기존 비회원 생성 경로는 전환하지 않고 페이지·공유 연결 계약을 분리한다. */
 @Service
 public class MemberDiaryCreationService {
+    @org.springframework.beans.factory.annotation.Autowired private com.f106.DIO.inventory.InventoryLimits inventory;
 	private final MemberDiaryCreationRepository repository;
 	private final DiaryCreationIdentity identity;
 	private final DiaryOwnerMembershipWriter membership;
@@ -58,6 +59,7 @@ public class MemberDiaryCreationService {
 				throw DiaryCreationException.invalid();
 			}
 		}
+		com.f106.DIO.inventory.InventoryLimits.capacity(com.f106.DIO.inventory.InventoryLimits.Kind.PAGE,0,selections.size());
 		var requested = List.copyOf(selections);
 		try {
 			pages.validateSelections(requested);
@@ -69,6 +71,7 @@ public class MemberDiaryCreationService {
 			if (created == null || created.size()!=requested.size() || created.stream().anyMatch(java.util.Objects::isNull)
 				|| new HashSet<>(created).size()!=created.size() || !repository.activePageIds(diaryId).equals(created)
 				|| !repository.validOwnerState(diaryId,userId)) throw DiaryCreationException.invalidState();
+			inventory.createdDiary(userId,false);
 			return new Created(new DiaryData(diaryId.toString(),metadata.diaryTitle(),metadata.coverColor(),metadata.coverStyle(),"PRIVATE",now,now),
 				created.get(0).toString(),created.stream().map(UUID::toString).toList());
 		} catch (DiaryInitialPages.InvalidSelection invalid) {

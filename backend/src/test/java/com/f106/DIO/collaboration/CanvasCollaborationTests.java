@@ -231,9 +231,9 @@ class CanvasCollaborationTests {
         mvc.perform(get("/api/v1/media/"+media+"/file").header("Authorization","Bearer "+editor.token())).andExpect(status().isOk()).andExpect(content().bytes(png));
         var stolen=new HashMap<String,Object>(strip);stolen.put("elementId",UUID.randomUUID());
         postJson(page(diary(stranger)),stranger,"/canvas-operations",Map.of("clientOperationId",UUID.randomUUID(),"changes",Map.of("creates",List.of(stolen))),404);
-        mvc.perform(delete("/api/v1/media/"+media).header("Authorization","Bearer "+owner.token())).andExpect(status().isConflict());
+        mvc.perform(delete("/api/v1/media/"+media).header("Authorization","Bearer "+owner.token())).andExpect(status().isNoContent());
         postJson(page,owner,"/undo",command(history(page,owner).path("nextUndo"),UUID.randomUUID()),200);
-        mvc.perform(delete("/api/v1/media/"+media).header("Authorization","Bearer "+owner.token())).andExpect(status().isConflict());
+        mvc.perform(delete("/api/v1/media/"+media).header("Authorization","Bearer "+owner.token())).andExpect(status().isNoContent());
         postJson(page,owner,"/redo",command(history(page,owner).path("nextRedo"),UUID.randomUUID()),200);
         mvc.perform(get("/api/v1/media/"+media+"/file").header("Authorization","Bearer "+editor.token())).andExpect(status().isOk());
     }

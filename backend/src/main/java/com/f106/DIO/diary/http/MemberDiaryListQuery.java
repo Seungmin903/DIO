@@ -68,13 +68,13 @@ public class MemberDiaryListQuery {
         if(favorite) base+=" AND m.is_favorite=true";
         if(!q.isEmpty()) {base+=" AND "+titleKeySql+" LIKE ? ESCAPE '!'";args.add("%"+q.replace("!","!!").replace("%","!%").replace("_","!_")+"%");}
         String sql="SELECT * FROM ("+base+") x";
-        // Filters and badge use the same active-membership count, independent of visibility.
-        sql+=" WHERE "+switch(filter) {case "personal"->"member_count<=1";case "shared"->"member_count>1";default->"1=1";};
+        // Sticky shared type survives the last collaborator leaving.
+        sql+=" WHERE "+switch(filter) {case "personal"->"not (inventory_shared or visibility='MEMBERS' or member_count>1)";case "shared"->"(inventory_shared or visibility='MEMBERS' or member_count>1)";default->"1=1";};
         if(encoded!=null) {
             try {
                 if(encoded.length()>4096) throw invalid();
                 var c=json.readValue(Base64.getUrlDecoder().decode(encoded),Cursor.class);
-                if(c.v()!=4 || !filter.equals(c.filter()) || favorite!=c.favorite() || c.user()!=user || !q.equals(c.q()) || !sort.equals(c.sort()) || c.value()==null || c.value().length()>300) throw invalid();
+                if(c.v()!=5 || !filter.equals(c.filter()) || favorite!=c.favorite() || c.user()!=user || !q.equals(c.q()) || !sort.equals(c.sort()) || c.value()==null || c.value().length()>300) throw invalid();
                 Object value=switch(sort) {case "title"->c.value();case "pages"->Long.parseLong(c.value());default->Timestamp.from(Instant.parse(c.value()));};
                 UUID id=UUID.fromString(c.id());String cmp=asc?">":"<";
                 sql+=" AND ("+column+cmp+"? OR ("+column+"=? AND diary_id"+cmp+"?))";
@@ -88,10 +88,10 @@ public class MemberDiaryListQuery {
             var enriched=diary.withCover(DiaryCoverDesign.read(rs.getString("cover_json")))
                 .withPaperAppearance(com.f106.DIO.page.domain.PaperAppearance.read(rs.getString("paper_appearance_json")))
                 .withTemplateConfig(com.f106.DIO.diary.support.DiaryTemplateConfig.readLenient(rs.getString("template_config_json"),rs.getString("diary_id")));
-            return new Row(new Item(enriched,rs.getLong("page_count"),rs.getLong("member_count")>1),value);
+            return new Row(new Item(enriched,rs.getLong("page_count"),(rs.getBoolean("inventory_shared")||"MEMBERS".equals(rs.getString("visibility"))||rs.getLong("member_count")>1)),value);
         },args.toArray());
         boolean more=rows.size()>limit;var selected=rows.subList(0,Math.min(limit,rows.size()));String next=null;
-        if(more) {var last=selected.get(selected.size()-1);next=Base64.getUrlEncoder().withoutPadding().encodeToString(json.writeValueAsString(new Cursor(4,user,q,sort,last.value(),last.item().diary().diaryId(),filter,favorite)).getBytes(StandardCharsets.UTF_8));}
+        if(more) {var last=selected.get(selected.size()-1);next=Base64.getUrlEncoder().withoutPadding().encodeToString(json.writeValueAsString(new Cursor(5,user,q,sort,last.value(),last.item().diary().diaryId(),filter,favorite)).getBytes(StandardCharsets.UTF_8));}
         return new Page(selected.stream().map(Row::item).toList(),next,more);
     }
 }

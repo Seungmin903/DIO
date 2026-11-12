@@ -45,6 +45,7 @@ public class JdbcDiaryInitialPages implements DiaryInitialPages {
     @Override public void validateSelections(List<Selection> selections) { prepare(selections); }
 
     @Override public List<UUID> create(UUID diaryId, long ownerUserId, List<Selection> selections, Instant createdAt) {
+        com.f106.DIO.inventory.InventoryLimits.capacity(com.f106.DIO.inventory.InventoryLimits.Kind.PAGE,0,selections.size());
         var plans = prepare(selections);
         var owners = jdbc.queryForList("select owner_user_id from diaries where diary_id=? and deleted_at is null for update",Long.class,diaryId);
         Long memberships = jdbc.queryForObject("select count(*) from diary_members where diary_id=? and user_id=? and role='OWNER' and left_at is null",Long.class,diaryId,ownerUserId);

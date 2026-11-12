@@ -18,6 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @Transactional
 public class DiaryInviteService {
+    @org.springframework.beans.factory.annotation.Autowired private com.f106.DIO.inventory.InventoryLimits inventory;
     private final com.f106.DIO.moderation.service.BlockService blocks;
     private final SharingAccessService access;
     private final DiaryMemberRepository members;
@@ -49,7 +50,9 @@ public class DiaryInviteService {
         invites.revokeLinks(id,now);
         var invite=invites.saveAndFlush(new DiaryInvite(id,actor,now));
         String token=tokens.token(invite);invite.initializeHash(tokens.hash(token));
+        boolean shared=inventory.shared(id);
         diary.updateSettings(null,null,null,"MEMBERS");
+        inventory.sharedDiaryChanged(id,shared,null);
         return link(invite,token);
     }
     @Transactional(readOnly=true)
@@ -130,12 +133,15 @@ public class DiaryInviteService {
         if(invite.email()&&!invite.pendingEmail())throw new SharingException(HttpStatus.GONE,"INVITE_ALREADY_USED","이미 사용한 이메일 초대예요.");
         if(count>=SharingPolicy.MAX_MEMBERS)throw new SharingException(HttpStatus.CONFLICT,"DIARY_MEMBER_LIMIT_REACHED","최대 4명까지 참여할 수 있어요.");
         if(invite.getMaxUses()!=null&&invite.getUseCount()>=invite.getMaxUses())throw new SharingException(HttpStatus.GONE,"INVITE_EXHAUSTED","사용이 끝난 초대 링크예요.");
+        boolean shared=inventory.shared(id);
         var user=access.activeUser(actor);
         if(member==null)members.save(new DiaryMember(id,actor,"EDITOR",access.cursorColor(id),Instant.now()));
         else member.rejoin(Instant.now());
         if(invite.email())invite.acceptedEmail(Instant.now());else invite.used();
         // Joining by a shared link also consumes a pending invitation for this recipient.
         invites.pendingEmail(id,actor).ifPresent(i->i.acceptedEmail(Instant.now()));
+        diary.updateSettings(null,null,null,"MEMBERS");
+        inventory.sharedDiaryChanged(id,shared,actor);
         events.publishEvent(new DiaryMembershipChanged(id));
         return new InviteAcceptResponse(id,"EDITOR",false,count+1,SharingPolicy.MAX_MEMBERS);
     }

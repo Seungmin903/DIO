@@ -28,7 +28,7 @@ class MediaServiceTests {
 	private final MediaFileTransactionService transactions = mock(MediaFileTransactionService.class);
 	private final MediaStorageDeletionQueueService deletionQueue = mock(MediaStorageDeletionQueueService.class);
 	private final GuardedMediaOperations guarded = mock(GuardedMediaOperations.class);
-	private final MediaService service = new MediaService(storage, transactions, deletionQueue, guarded, new MediaUploadAdmission(6,8,250));
+	private final MediaService service = com.f106.DIO.inventory.InventoryTestSupport.withQuotaMock(new MediaService(storage, transactions, deletionQueue, guarded, new MediaUploadAdmission(6,8,250)));
 
 	@Test
 	void gifIsStoredAsImageAndKeepsGifMimeType() {

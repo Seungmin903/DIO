@@ -56,7 +56,7 @@ class DiaryPurgePostgresTests {
         jdbc.update("insert into ai_jobs(source_media_file_id,result_media_file_id,status) values(?,?,'PROCESSING')",shared,derived);
         notice(101,target,page);notice(102,other,deletedPage);notice(103,other,otherPage);
         jdbc.update("insert into diary_creation_receipts(user_id,key_hash,request_hash,diary_id,response_body,completed_at) values(1,?,?,?,'{\"title\":\"private\"}',?)",key,request,target,Timestamp.from(now));
-        service=service(1);var repo=new DiaryDetailRepository(jdbc);trash=new DiaryTrashService(jdbc,identity(1),repo,new JdbcDiaryMembershipAccess(jdbc,repo),Clock.fixed(now,ZoneOffset.UTC));
+        service=service(1);var repo=new DiaryDetailRepository(jdbc);trash=com.f106.DIO.inventory.InventoryTestSupport.withQuotaMock(new DiaryTrashService(jdbc,identity(1),repo,new JdbcDiaryMembershipAccess(jdbc,repo),Clock.fixed(now,ZoneOffset.UTC)));
     }
     // 다음 테스트의 reset이 데이터를 비우므로 스키마를 지우지 않는다.
     void diary(UUID id,long owner,Instant deleted) {jdbc.update("insert into diaries(diary_id,owner_user_id,title,deleted_at) values(?,?,'owned',?)",id,owner,deleted==null?null:Timestamp.from(deleted));}

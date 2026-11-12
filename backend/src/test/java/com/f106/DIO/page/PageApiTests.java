@@ -37,6 +37,8 @@ class PageApiTests {
 
     @Autowired org.springframework.jdbc.core.JdbcTemplate boundaryJdbc;
     @org.junit.jupiter.api.BeforeEach void memberReceiptFixture() {
+        // Tests use fixed subjects; free their previous diary slots before this independent scenario.
+        boundaryJdbc.update("update diaries set deleted_at=current_timestamp where owner_user_id in (101,102,103,104)");
         // JWT fixture subjects represent active accounts, as required by collaboration writes.
         for (long id : new long[]{101,102,103,104}) {
             boundaryJdbc.update("insert into users(user_id,email,nickname,nickname_key,profile_color,status,created_at,updated_at) select ?,?,?,?,'#6F9FC6', 'ACTIVE',current_timestamp,current_timestamp where not exists(select 1 from users where user_id=?)", id,"page-fixture-"+id+"@example.com","page-"+id,"page-"+id,id);

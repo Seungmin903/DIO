@@ -40,9 +40,14 @@ public class DiaryMembershipService {
         var member=members.findById(new DiaryMemberId(id,target)).filter(DiaryMember::active).orElseThrow(SharingException::forbidden);
         if(Long.valueOf(target).equals(diary.getOwnerUserId())) {
             access.owner(diary,actor);
-            if(members.countByDiaryIdAndLeftAtIsNull(id)>1)
-                throw new SharingException(HttpStatus.CONFLICT,"OWNER_TRANSFER_REQUIRED","소유권을 다른 멤버에게 넘긴 뒤 나가 주세요.");
-            deletion.delete(id);return;
+            var successor=access.visibleMembers(diary).stream()
+                .filter(m->m.active()&&m.supportedRole()&&!m.getUserId().equals(target))
+                .sorted(java.util.Comparator.comparing(DiaryMember::getJoinedAt).thenComparing(DiaryMember::getUserId)).findFirst();
+            if(successor.isEmpty()){deletion.delete(id);return;}
+            successor.get().promote();
+            diary.transferOwnership(successor.get().getUserId());
+            diary.updateSettings(null,null,null,"MEMBERS");
+            invites.revokeLinks(id,Instant.now());
         }
         member.leave(Instant.now());
         if(actor!=target)invites.revokeLinks(id,Instant.now());

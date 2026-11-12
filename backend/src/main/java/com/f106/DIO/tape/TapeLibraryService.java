@@ -17,6 +17,7 @@ import tools.jackson.databind.json.JsonMapper;
 @Service
 @Transactional
 public class TapeLibraryService {
+    @org.springframework.beans.factory.annotation.Autowired private com.f106.DIO.inventory.InventoryLimits inventory;
     /** 자른 자리(TapeCropper): fx · fy 0~1, zoom 1 이상 */
     public record TapeCrop(Double fx, Double fy, Double zoom) {}
     /** 폴더 안 테이프 하나. 사진 테이프는 mediaFileId, 기본 무늬는 pattern(+palette) */
@@ -49,6 +50,9 @@ public class TapeLibraryService {
         if (version != expectedVersion) throw TapeLibraryException.conflict();
         Set<UUID> media = new LinkedHashSet<>();
         for (TapeFolder folder : clean) for (TapeItem item : folder.items()) if (item.mediaFileId() != null) media.add(item.mediaFileId());
+        var before=inventory.mediaItems(userId,com.f106.DIO.inventory.InventoryLimits.Kind.TAPE);
+        var removed=new HashSet<>(jdbc.queryForList("select media_file_id from user_tape_library_media where user_id=?",UUID.class,userId));
+        removed.removeAll(media);
         requireOwnImages(userId, media);
         long next = version + 1;
         var now = java.sql.Timestamp.from(Instant.now());
@@ -62,6 +66,8 @@ public class TapeLibraryService {
         jdbc.update("delete from user_tape_library_media where user_id=?", userId);
         jdbc.batchUpdate("insert into user_tape_library_media(user_id, media_file_id) values(?,?)",
             media.stream().map(id -> new Object[] {userId, id}).toList());
+        inventory.releaseLibraryMedia(userId,"TAPE",removed);
+        inventory.validateLibrary(userId,com.f106.DIO.inventory.InventoryLimits.Kind.TAPE,before);
         return new TapeLibraryDocument(next, clean);
     }
 
@@ -86,6 +92,7 @@ public class TapeLibraryService {
         if (folders.size() > MAX_FOLDERS) throw TapeLibraryException.invalid("폴더는 " + MAX_FOLDERS + "개까지 저장할 수 있습니다.");
         Set<String> ids = new HashSet<>();
         int total = 0;
+        Map<String,TapeItem> identities = new HashMap<>();
         List<TapeFolder> clean = new ArrayList<>();
         for (TapeFolder folder : folders) {
             if (folder == null || folder.id() == null || !ID.matcher(folder.id()).matches() || !ids.add(folder.id())) throw TapeLibraryException.invalid("폴더 id 를 확인해 주세요.");
@@ -95,7 +102,14 @@ public class TapeLibraryService {
             total += items.size();
             if (total > MAX_ITEMS) throw TapeLibraryException.invalid("테이프는 " + MAX_ITEMS + "개까지 저장할 수 있습니다.");
             List<TapeItem> cleanItems = new ArrayList<>();
-            for (TapeItem item : items) cleanItems.add(item(item));
+            for (TapeItem item : items) {
+                TapeItem normalized=item(item);
+                if(normalized.id()!=null){
+                    TapeItem previous=identities.putIfAbsent(normalized.id(),normalized);
+                    if(previous!=null&&!previous.equals(normalized))throw TapeLibraryException.invalid("같은 테이프 id에는 같은 내용을 전달해 주세요.");
+                }
+                cleanItems.add(normalized);
+            }
             clean.add(new TapeFolder(folder.id(), name, List.copyOf(cleanItems)));
         }
         return List.copyOf(clean);
