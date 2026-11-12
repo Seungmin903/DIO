@@ -19,8 +19,9 @@ import { FULL_CROP, splitError } from '../../utils/stickerSplit.js'
 import { discardGeneratedMedia, importMedia } from '../../services/mediaStore'
 import { saveSplitSelection, splitSaveError } from '../../utils/stickerSplitSave.js'
 import { initialStickerGrouping } from '../../utils/stickerInitialGrouping.js'
+import { CUSTOM_STICKER_LIMIT, stickerLimitMessage } from '../../utils/customStickerLimit.js'
 
-export default function StickerSplitModal({ folder, initialName = '', onSave, onClose }) {
+export default function StickerSplitModal({ folder, initialName = '', ownedStickerCount = 0, onSave, onClose }) {
   const insets = useSafeAreaInsets()
   const { width, height } = useWindowDimensions()
   const wide = width - insets.left - insets.right >= 768 && height - insets.top - insets.bottom >= 500
@@ -180,8 +181,9 @@ export default function StickerSplitModal({ folder, initialName = '', onSave, on
     else return run()
   }
   const saveCount = groups.length
+  const excess = saveCount ? Math.max(0, ownedStickerCount + saveCount - CUSTOM_STICKER_LIMIT) : 0
   async function save() {
-    if (busy.current || dirty || !selected.length || !editing.ready || interacting || !sourceReady || manualMerge || (mode === 'add' && addCrop)) return
+    if (busy.current || dirty || !saveCount || excess || !editing.ready || interacting || !sourceReady || manualMerge || (mode === 'add' && addCrop)) return
     busy.current = true; setPhase(editing.enabled ? 'composing' : 'saving'); setError('')
     const attemptIds = []
     try {
@@ -197,7 +199,7 @@ export default function StickerSplitModal({ folder, initialName = '', onSave, on
       await stickerSplit.cleanup(attemptIds)
       jobIds.current = jobIds.current.filter(id => !attemptIds.includes(id))
       if (__DEV__) console.warn('스티커 분리 결과 저장 실패', failure.code, failure.cause ?? failure)
-      if (alive.current) setError(splitSaveError(failure))
+      if (alive.current && failure?.code !== 'CUSTOM_STICKER_LIMIT') setError(splitSaveError(failure))
     } finally { operation.current = null; busy.current = false; if (alive.current) setPhase('idle') }
   }
   function close() {
@@ -231,7 +233,7 @@ export default function StickerSplitModal({ folder, initialName = '', onSave, on
   const primaryLabel = working ? (saving ? '저장 중' : phase === 'analyzing' ? '분리 중' : phase === 'grouping' ? '초기 묶음 계산 중' : phase === 'picking' ? '이미지 준비 중' : '처리 중')
     : manualMerge ? '선택한 항목 묶기' : adding ? '이 영역 추가' : mustAnalyze ? (parts.length ? '다시 분리하기' : '분리하기') : `${saveCount}개 저장`
   const primaryDisabled = working || !sourceReady || interacting ||
-    (manualMerge ? locked || mergeTargets.length < 2 : adding ? !addCrop : mustAnalyze ? false : !editing.ready || !selected.length || !name.trim())
+    (manualMerge ? locked || mergeTargets.length < 2 : adding ? !addCrop : mustAnalyze ? false : !editing.ready || !saveCount || excess > 0 || !name.trim())
   const primaryAction = () => manualMerge ? merge() : adding ? run('add', addCrop) : mustAnalyze ? requestRun() : save()
   const tileWidth = (contentWidth - 32 - (columns - 1) * 8) / columns
   const focusedGroup = groups.find(group => group.members.some(part => part.id === focusedPart))
@@ -276,7 +278,9 @@ export default function StickerSplitModal({ folder, initialName = '', onSave, on
   const hasNotes = !!error || !!editing.error || working || editing.pending || (!!parts.length && !mustAnalyze && !manualMerge) || (dirty && !!parts.length)
   const footer = (!!source || !!error) && <View style={s.footer}>
     {hasNotes && <View style={s.footerNotes}>
-    {!!error && <Text accessibilityRole="alert" style={s.error}>{error}</Text>}
+    {(!mustAnalyze && !manualMerge && !adding && excess > 0)
+      ? <Text accessibilityRole="alert" style={s.error}>{stickerLimitMessage(excess)}</Text>
+      : !!error && <Text accessibilityRole="alert" style={s.error}>{error}</Text>}
     {!!editing.error && <View><Text accessibilityRole="alert" style={s.error}>{editing.error}</Text><Action label="묶음 계산 다시 시도" disabled={working || dirty} onPress={editing.retry} /></View>}
     {(working || editing.pending) && <View accessibilityLiveRegion="polite" style={s.row}>
       <ActivityIndicator color={colors.primary} /><Text style={s.body}>{working ? primaryLabel : '묶음 계산 중'}</Text>
