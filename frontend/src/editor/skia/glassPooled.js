@@ -58,7 +58,10 @@ const pxPerUnit = scale => Math.max(0.2, Math.max(0.05, scale))
 const MARGIN = 3
 
 function setUniforms(color, width, ink, S, org) {
-  const key = inkKey(color, width, S, ink)
+  // 열쇠에 **원점도** 넣어야 한다. 같은 설정으로 다른 자리에 이어 그은 획이 일찍 돌아가 버리면
+  // noiseOrg 가 앞 획 값으로 남아, 자리가 달라도 같은 무늬가 나온다(이 변경이 막으려던 바로 그것).
+  // 입자 쪽(sparkPaint)과 같은 기준이다(코드리뷰 2026-11-13).
+  const key = `${inkKey(color, width, S, ink)}|${org.x}|${org.y}`
   if (key === uniKey) return key   // 지난번과 같은 획 — builder 가 그 값을 아직 들고 있다
   uniKey = key
   const P = GLASS_INK
@@ -326,15 +329,10 @@ export function drawGlassPooled(canvas, points, width, color, zoom = 1, ink = {}
   canvas.restore()
   canvas.restore()   // 필터 층 끝
 
-  // 필터가 그린 것이 내가 그은 획 밖으로 넘치지 않게 깎는다(사용자 규칙).
-  // **층 안에서 합친 뒤 한 번만** DstIn 한다. 구간마다 바로 DstIn 하면 구간이 겹치는 자리
-  // (구간은 표본 하나씩 겹친다)에서 알파가 두 번 곱해져 안티에일리어스 가장자리가 패인다 —
-  // 필압으로 굵기가 변할 때 테두리에 보이던 '픽셀'이 이것이다(사용자 2026-11-10).
-  // [실험 2026-11-13] 사용자 요청: '획 밖으로 안 넘치게 딱 자르는' 리미트를 풀면 어떻게 되나.
-  //   필터는 실루엣을 MARGIN 만큼 부풀린 자리까지 그려 두므로, 깎지 않으면 그만큼 번져 나온다.
-  // canvas.saveLayer(paints.dstIn, bounds)
-  // canvas.drawPath(shape, paints.cover)
-  // canvas.restore()
+  // 2026-11-13 까지는 여기서 한 번 더 DstIn 해 **내가 그은 실루엣 밖을 깎았다**. 지금은 깎지 않는다
+  // (사용자 결정): 필터가 실루엣을 MARGIN 만큼 부풀린 자리까지 그려 두는데, 그걸 칼같이 자르면
+  // 커피링 · 테가 뚝 끊겨 그래픽처럼 보였다. 번진 자리까지가 획이고(utils/strokes.js 의 GLASS_BLEED),
+  // 상자 · 지우개 · 선택이 그만큼 함께 넓게 본다.
   canvas.restore()   // 바깥 층 끝
   canvas.restore()   // 배율 되돌리기 — 입자는 **페이지 좌표**로 그려야 한다
 

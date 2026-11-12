@@ -16,6 +16,16 @@ export const DEFAULT_PEN = { color: '#0B1766', width: 3 }
  * 집히는 정도라 덜 나쁘다.
  */
 export const GLASS_BLEED = 1.5
+
+/**
+ * 유리펜 무늬를 **페이지**에 붙이는 밀어주기. 손을 뗀 획은 요소 좌표(상자 왼쪽 위가 원점)로
+ * 그려지므로, 셰이더에 이 값을 더해야 페이지 자리가 된다.
+ * 그을 때 적어 둔 inkOrigin 을 먼저 쓴다 — 나중에 옮겨도 무늬가 획을 따라가야 하기 때문이다
+ * (연필이 grainOrigin 으로 종이 이빨을 붙이는 것과 같은 생각).
+ * 옛 획에는 그 값이 없으니 **지금 자리**를 쓴다. 옮기면 무늬가 바뀌지만, 모든 획이 같은 무늬를
+ * 받는 것(2026-11-13 에 고친 증상)보다는 낫다.
+ */
+export const glassOrigin = object => object?.inkOrigin ?? { x: object?.x ?? 0, y: object?.y ?? 0 }
 const SENSOR_PRECISION = { force: 10000, time: 10, speed: 10000, tiltX: 10, tiltY: 10, inkDistance: 10000 }
 const storedPoint = (point, x, y, renderVersion) => {
   const result = { x: point.x - x, y: point.y - y, ...(point.pressure != null && { pressure: point.pressure }) }

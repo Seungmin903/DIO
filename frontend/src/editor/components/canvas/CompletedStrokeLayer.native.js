@@ -346,6 +346,9 @@ const TailRun = memo(function TailRun({ objects, width, height, zoom, fade }) {
   // 벡터로 얹는 획을 자를 자리: **아직 못 구운 칸** + 타일이 덮지 않는 바깥
   const restClip = useMemo(() => {
     if (!plan.rest?.length) return null
+    // 벡터로 얹을 획이 있으면 **못 구운 칸도 반드시 있다**(rest 가 그 칸들에서 나온다).
+    // 그래도 빈 경로로 자르면 획이 통째로 사라지므로 — 그릴 것이 있는데 자를 자리가 없다면
+    // 자르지 않는 쪽이 맞다 — 빈 경로는 null 로 돌려 클립을 걸지 않는다(코드리뷰 2026-11-13).
     // 이 바인딩에서 addRect 는 **PathBuilder** 쪽에 있다(SkPath 에는 없다)
     const build = Skia.PathBuilder.Make()
     for (const box of plan.pending ?? []) build.addRect(snapRect(box, snapPage))
@@ -358,7 +361,7 @@ const TailRun = memo(function TailRun({ objects, width, height, zoom, fade }) {
       const outside = Skia.Path.MakeFromOp(out.detach(), hole.detach(), PathOp.Difference)
       if (outside) path = Skia.Path.MakeFromOp(path, outside, PathOp.Union) ?? path
     }
-    return path
+    return path?.isEmpty?.() ? null : path
   }, [plan, covered, width, height, screenScale])
   return <>
   <Canvas pointerEvents="none" style={{ position: 'absolute', left: 0, top: 0, width: width * zoom, height: height * zoom }}>

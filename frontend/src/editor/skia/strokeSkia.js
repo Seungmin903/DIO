@@ -5,14 +5,10 @@ import { ballPreviewPaths, ballSweepPath, ballVaries, isNibKind, nibContour, nib
 import { PENCIL_BRUSH, pencilAccumulates, PENCIL_STRAND_SKSL, strandUniforms, brushPartSamples, depositFloor, depositGain, brushSampledPoints, brushSeed, ribbonStretch, copyDabs, previewSegmentFor, shaderCap, shaderDabAlpha, shaderUniforms, PENCIL_SHADER_SKSL, brushTipPower, partRange, partTotal, paperMatrices, paperUniforms, pencilDabs, PENCIL_PAPER_SKSL } from '../utils/pencilBrush.js'
 import { HIGHLIGHTER_OPACITY } from '../utils/penSettings.js'
 import { drawGlassStroke } from './glassStroke.js'
+import { glassOrigin } from '../utils/strokes.js'
 // 유리펜 잉크 설정(획 설정 · 저장 획 공용). 없으면 기본값(글리터 · 테 켬)
 const glassInkOf = one => ({ glitter: one?.inkGlitter !== false, sheen: one?.inkSheen !== false, film: one?.inkFilm, glitterColor: one?.inkGlitterColor, amount: one?.inkAmount, sheenColor: one?.inkSheenColor, sheenAmount: one?.inkSheenAmount })
-// 유리펜 무늬를 **페이지**에 붙이는 밀어주기. 셰이더가 받는 좌표는 획 자기 좌표라
-// (요소 상자 왼쪽 위가 원점) 이걸 더해야 페이지 자리가 된다. 그을 때 적어 둔 inkOrigin 을
-// 먼저 쓴다 — 나중에 옮기면 무늬가 획을 따라가야 하기 때문이다(연필 grainOrigin 과 같은 생각).
-// 옛 획은 그 값이 없으니 지금 자리를 쓴다(옮기면 무늬가 바뀌지만 **찍어낸 무늬**보다는 낫다).
 const ORIGIN0 = { x: 0, y: 0 }
-export const glassOrigin = object => object?.inkOrigin ?? { x: object?.x ?? 0, y: object?.y ?? 0 }
 const glassKey = one => `|${glassOrigin(one).x},${glassOrigin(one).y}|${one?.inkGlitter !== false}|${one?.inkSheen !== false}|${one?.inkFilm ?? ''}|${one?.inkGlitterColor ?? ''}|${one?.inkAmount ?? ''}|${one?.inkSheenColor ?? ''}|${one?.inkSheenAmount ?? ''}`
 import { PENCIL_CAP, PENCIL_CAP_DIAMETER, PENCIL_COPY, PENCIL_DOME, PENCIL_DOME_DIAMETER, PENCIL_DOME_FIBER, PENCIL_DOMES, PENCIL_GRAIN_PNG, PENCIL_SMALL, PENCIL_STRAND_PNG, PENCIL_SWEEP, PENCIL_TOOTH_PNG, PENCIL_TIP_DIAMETER, PENCIL_TIPS, PENCIL_TIPS_K2 } from './pencilGrain.js'
 
