@@ -232,19 +232,19 @@ export function useCustomDecor() {
     return write
   }, [])
   const addToFolder = useCallback((id, stickers) => {
-    // 읽기 전에는 setItems 가 React 상태 세터로 넘겨 아래 예외(폴더 없음 · 한도)가 렌더 중에 터진다. 호출부 catch 로 잡히게 여기서 먼저 막는다
+    // 폴더 없음 · 한도 검사는 공용 목록(cached)으로 여기서 바로 끝내 예외가 호출부 catch(한도 안내 · 가져온 이미지 정리)에 닿게 한다.
+    // 읽기 전(cached 없음)에는 폴더도 없으니 막는다
     if (!cached) throw new Error('보관함을 읽은 뒤 다시 시도해 주세요.')
-    setItems(prev => {
-      if (!prev.folders.some(folder => folder.id === id)) throw new Error('폴더가 없어졌어요. 새 폴더로 다시 저장해 주세요.')
-      const adding = stickers.map(stickerRef)
-      const keys = new Set(adding.map(stickerKey))
-      const next = { ...prev, folders: prev.folders.map(folder => folder.id === id
-        ? { ...folder, items: [...adding, ...folder.items.filter(item => !keys.has(stickerKey(item)))] }
-        : folder) }
-      checkStickerLimit(prev, next)
-      return next
-    })
-  }, [setItems])
+    const prev = cached
+    if (!prev.folders.some(folder => folder.id === id)) throw new Error('폴더가 없어졌어요. 새 폴더로 다시 저장해 주세요.')
+    const adding = stickers.map(stickerRef)
+    const keys = new Set(adding.map(stickerKey))
+    const next = { ...prev, folders: prev.folders.map(folder => folder.id === id
+      ? { ...folder, items: [...adding, ...folder.items.filter(item => !keys.has(stickerKey(item)))] }
+      : folder) }
+    checkStickerLimit(prev, next)
+    commitItems(next)
+  }, [])
   const removeFromFolder = useCallback((id, sticker) => {
     const key = stickerKey(sticker)
     setItems((prev) => ({
