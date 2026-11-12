@@ -15,7 +15,8 @@ import { createId } from '../../editor/utils/common'
 import { colors } from '../../shared/theme'
 import useFillGrid from '../../shared/useFillGrid'
 import PhotoCropper from '../../editor/components/panels/PhotoCropper'
-import { COVER_PHOTO_RATIO, coverCropPhoto } from '../utils/coverPhotoCrop'
+import { COVER_PHOTO_RATIO, coverCropPhoto, coverPhotoWithAspect, applyCoverPhotoCrop } from '../utils/coverPhotoCrop'
+import { useCoverPhotoAspect } from '../hooks/useCoverPhotoAspect'
 import { AutoSwatch, ChipGroup, ColorRow, CustomSwatch, ElementRow, NumberField, OptionRow, Segmented, Swatch, Toggle } from './FormControls'
 import { useColorWindow } from './PresetColorEditor'
 import CoverPattern from './CoverPattern'
@@ -104,6 +105,7 @@ function OwnPhotoTile({ photo }) {
 }
 
 function PhotoOptions({ cover, ratio, onChange, onNotice, pickNow, onPickHandled }) {
+  const savedAspect = useCoverPhotoAspect(cover.photo)
   const [busy, setBusy] = useState(false)
   const latest = useRef(null)
   // 자르기 창에 넘긴 사진(새로 고른 사진이거나 지금 표지 사진)
@@ -113,7 +115,10 @@ function PhotoOptions({ cover, ratio, onChange, onNotice, pickNow, onPickHandled
     setBusy(true)
     try {
       const [item] = await pickImages({ multiple: false, usage: 'photo' })
-      if (item) setCropping({ src: item.src, mediaFileId: item.mediaFileId, aspect: item.aspect, width: item.width, height: item.height, fresh: true })
+      if (item) {
+        const { src, mediaFileId, aspect, width, height } = coverPhotoWithAspect(item)
+        setCropping({ src, mediaFileId, aspect, width, height, fresh: true })
+      }
     } catch (error) { onNotice?.(mediaFailureMessage(error)) } finally { setBusy(false) }
   }
   latest.current = { cover, onChange }
@@ -125,13 +130,13 @@ function PhotoOptions({ cover, ratio, onChange, onNotice, pickNow, onPickHandled
         <Pressable accessibilityRole="button" accessibilityLabel="내 사진 고르기" disabled={busy} onPress={choose} style={({ pressed }) => [styles.addPhoto, busy && styles.dim, pressed && styles.pressed]}>
           <Icon name="image" size={16} forText={12.5} /><Text style={styles.addPhotoText}>{busy ? '여는 중…' : cover.photo?.src ? '사진 바꾸기' : '사진 고르기'}</Text>
         </Pressable>
-        {cover.photo?.src ? <Pressable accessibilityRole="button" accessibilityLabel="표지 사진 자르기" onPress={() => setCropping(cover.photo)} style={[styles.photoTile, styles.photoTileOn]}><OwnPhotoTile photo={cover.photo} /></Pressable> : null}
+        {cover.photo?.src ? <Pressable accessibilityRole="button" accessibilityLabel="표지 사진 자르기" disabled={!savedAspect} onPress={() => setCropping({ ...cover.photo, aspect: savedAspect })} style={[styles.photoTile, styles.photoTileOn]}><OwnPhotoTile photo={cover.photo} /></Pressable> : null}
       </View>
     </OptionRow>
     {cropping && <PhotoCropper photo={coverCropPhoto(cropping, ratio)} fixedAspect={ratio} title="표지 사진 자르기"
       // 새로 고른 사진을 자르다 취소하면 방금 가져온 미디어를 지운다(지금 표지 사진을 다시 자를 때는 그대로 둔다)
       onCancel={() => { if (cropping.fresh) discardGeneratedMedia([cropping]).catch(() => {}); setCropping(null) }}
-      onApply={({ crop }) => { const { width, height, fresh, ...photo } = cropping; latest.current.onChange({ ...latest.current.cover, photo: { ...photo, crop } }); setCropping(null) }} />}
+      onApply={({ crop }) => { latest.current.onChange({ ...latest.current.cover, photo: applyCoverPhotoCrop(cropping, crop) }); setCropping(null) }} />}
   </>
 }
 
