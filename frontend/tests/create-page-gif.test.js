@@ -20,7 +20,8 @@ const full = gifExport.planGifTimeline([gifExport.gifFrameDelays(love)])
 const fullDuration = full.steps.reduce((sum, s) => sum + s.delay, 0) * 10
 
 // layered: false 면 GIF 스티커에 테두리를 달아 층 합성 대신 예전 방식(장면마다 찍기)으로 만들게 한다. area: GIF 스티커 자리
-function load({ layered = true, objects, area = { x: 0, y: 0, w: 100, h: 100 } } = {}) {
+// exportModule: gifExport.js 대신 쓸 모듈 (함수를 감싸 부른 값을 볼 때)
+function load({ layered = true, objects, area = { x: 0, y: 0, w: 100, h: 100 }, exportModule = gifExport } = {}) {
   const PAGE = 100
   const mocks = {
     './gifLayers.js': gifLayers,
@@ -34,7 +35,7 @@ function load({ layered = true, objects, area = { x: 0, y: 0, w: 100, h: 100 } }
     './exportImage': { readLegacyExportImage: async () => ({ blob: love }) },
     './preparePageExport': { preparePageExport: async (snapshot) => ({ ...snapshot, dispose() {} }) },
     './pageExport.js': { PageExportError },
-    './gifExport.js': gifExport,
+    './gifExport.js': exportModule,
     './gifFileIO': {
       readBytes: async (blob) => blob,
       pngResource: () => ({ uri: 'file:///frame.png', dispose() {} }),
@@ -99,6 +100,21 @@ test('층 합성: 일부만 움직이는 페이지도 바탕 층 한 번만 찍�
     const info = gif.frameInfo(i)
     assert.ok(info.x >= 0 && info.x + info.width <= 100 && info.width < 100, `장면 ${i} 폭 ${info.width}`)
   }
+})
+
+test('장면 풀기: 줄여 둔 장면들이 메모리 상한을 넘으면 같은 비율로 더 줄여 상한 안에 둔다', async () => {
+  const kept = []
+  const exportModule = { ...gifExport, downscaleRgba: (...args) => { const small = gifExport.downscaleRgba(...args); kept.push(small.width * small.height * 4); return small } }
+  const { createPageGif, snapshot } = load({ exportModule })
+  const renderFrame = async (frame) => shot(frame)
+  await createPageGif(snapshot, { renderFrame })
+  const normal = kept.splice(0).reduce((sum, n) => sum + n, 0)
+  const pixelBudget = Math.floor(normal / 4)
+  const output = await createPageGif(snapshot, { renderFrame, pixelBudget })
+  const squeezed = kept.reduce((sum, n) => sum + n, 0)
+  assert.ok(squeezed <= pixelBudget, `${squeezed} > ${pixelBudget}`)
+  assert.ok(squeezed > pixelBudget / 2, '필요한 만큼만 줄인다')
+  assert.equal(output.frames, full.steps.length)
 })
 
 const skiaRuntime = await loadCanvasKitSkia()

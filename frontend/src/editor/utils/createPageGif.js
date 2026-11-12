@@ -4,7 +4,7 @@ import { isAnimatedMedia } from '../stickerAssets'
 import { readLegacyExportImage } from './exportImage'
 import { preparePageExport } from './preparePageExport'
 import { PageExportError } from './pageExport.js'
-import { animatedRegion, createGifAssembler, createYield, downscaleRgba, gifFrameDelays, gifFrames, planGifTimeline } from './gifExport.js'
+import { animatedRegion, createGifAssembler, createYield, downscaleRgba, gifFrameDelays, gifFrames, gifSize, planGifTimeline } from './gifExport.js'
 import { composeFrame, planLayers } from './gifLayers.js'
 import { createSkiaComposer } from './gifSkiaCompose.js'
 import { skiaState } from '../skia/skiaRuntime'
@@ -24,7 +24,11 @@ async function readGifBytes(object) {
 }
 
 // 장면 합성은 GPU 표면이 있는 앱에서만 Skia 로 한다. 웹 CanvasKit 은 CPU 로 그려 큰 페이지에서는 V8 의 JS 합성보다 느리다
-const gpuSkia = () => { const runtime = skiaState().runtime; return runtime?.gpuSurface ? runtime : null }
+// 런타임을 못 읽어도 GIF 만들기는 JS 합성으로 이어 간다 (기본값이라 아래 try 바깥에서 불린다)
+const gpuSkia = () => { try { const runtime = skiaState?.()?.runtime; return runtime?.gpuSurface ? runtime : null } catch { return null } }
+
+// 줄여 둔 GIF 장면을 들고 있을 수 있는 RGBA 바이트 합 (Skia 합성은 같은 크기를 한 번 더 올린다)
+export const GIF_FRAME_PIXEL_BUDGET = 96 * 1024 * 1024
 
 const isCancel = (error, signal) => signal?.aborted || error?.code === 'EXPORT_CANCELLED'
 
@@ -36,7 +40,7 @@ const isCancel = (error, signal) => signal?.aborted || error?.code === 'EXPORT_C
  *    예전처럼 장면 조합이 바뀔 때마다 renderFrame 으로 페이지를 찍는다(첫 장면만 전체, 나머지는 움직이는 곳만).
  * onProgress({ phase, done, total }) 로 진행을 알린다. 반환값은 dispose 해야 한다.
  */
-export async function createPageGif(snapshot, { renderFrame, onProgress, signal, skia = gpuSkia() }) {
+export async function createPageGif(snapshot, { renderFrame, onProgress, signal, skia = gpuSkia(), pixelBudget = GIF_FRAME_PIXEL_BUDGET }) {
   const disposers = []
   const check = () => { if (signal?.aborted) throw signal.reason ?? new PageExportError('EXPORT_CANCELLED', 'GIF 만들기를 취소했어요.') }
   try {
@@ -64,13 +68,25 @@ export async function createPageGif(snapshot, { renderFrame, onProgress, signal,
     const pause = createYield()
     const decodeTotal = plan.needed.reduce((sum, set) => sum + set.size, 0)
     let decoded = 0
+    // 줄여 둘 크기: 보이는 크기. 다 합쳐 pixelBudget 바이트를 넘으면(페이지를 덮는 GIF 가 장면이 많을 때 수백 MB) 같은 비율로 더 줄여
+    // 메모리 부족으로 앱이 죽지 않게 한다 (GIF 는 256색이라 이때 조금 흐려지는 정도다)
+    let kept = 0
+    for (const [g, gif] of gifs.entries()) {
+      const { width, height } = gifSize(gif.bytes)
+      gif.source = { width, height }
+      const users = snapshot.objects.filter((o) => gif.ids.includes(o.id))
+      const scale = Math.min(1, Math.max(...users.map((o) => Math.max(o.w * ratioX / width, o.h * ratioY / height) * Math.max(1, o.crop?.zoom ?? 1))))
+      gif.target = { width: Math.max(1, Math.ceil(width * scale)), height: Math.max(1, Math.ceil(height * scale)) }
+      kept += plan.needed[g].size * gif.target.width * gif.target.height * 4
+    }
+    if (kept > pixelBudget) {
+      const shrink = Math.sqrt(pixelBudget / kept)
+      for (const gif of gifs) gif.target = { width: Math.max(1, Math.floor(gif.target.width * shrink)), height: Math.max(1, Math.floor(gif.target.height * shrink)) }
+    }
     for (const [g, gif] of gifs.entries()) {
       gif.pixels = new Map()
-      const users = snapshot.objects.filter((o) => gif.ids.includes(o.id))
       for (const { index, rgba, width, height } of gifFrames(gif.bytes, plan.needed[g])) {
-        gif.source = { width, height }
-        const scale = Math.min(1, Math.max(...users.map((o) => Math.max(o.w * ratioX / width, o.h * ratioY / height) * Math.max(1, o.crop?.zoom ?? 1))))
-        const small = downscaleRgba(rgba, width, height, Math.max(1, Math.ceil(width * scale)), Math.max(1, Math.ceil(height * scale)))
+        const small = downscaleRgba(rgba, width, height, gif.target.width, gif.target.height)
         // 줄이지 않았으면 small.rgba 는 다음 장면에서 덮어쓰는 버퍼라 복사해 둔다
         gif.pixels.set(index, { rgba: small.rgba === rgba ? rgba.slice() : small.rgba, width: small.width, height: small.height })
         onProgress?.({ phase: 'decode', done: ++decoded, total: decodeTotal })
