@@ -4,7 +4,7 @@
 // (검사 tests/ink-record.test.js 가 둘이 같은지 지킨다.)
 
 import { INK_RECORD_BOTTLES } from './inkRecordBottles.js'
-import { coverBounds } from '../utils/coverBounds.js'
+import { coverBounds, drawsOnPage } from '../utils/coverBounds.js'
 
 export const INK_RECORD_SHAPES = ['round', 'square']
 export const inkRecordId = (shape, orientation) => `2026-reusable-ink-record-${shape}-${orientation}`
@@ -89,7 +89,8 @@ export function inkRecordLayout(assetId) {
  * 기준이 필요하다 — **병을 가리는 것**만 윤곽을 끌어내린다. 페이지 구석에 붙인 스티커까지
  * 차례를 가르면, 그 뒤에 칠한 잉크가 전부 병 선을 덮는다(코드리뷰 2026-11-13).
  *
- * 숨긴 요소는 그리지 않으므로 차례도 가르지 않는다. 돌린 요소는 **돌린 뒤의** 감싸는 네모로 본다 —
+ * **그려지지 않는 것**(숨김 · 투명도 0 · 없앤 기본 스티커)은 차례도 가르지 않는다 —
+ * 내보내기가 목록에서 빼는 기준과 같다(utils/coverBounds 의 drawsOnPage). 돌린 요소는 **돌린 뒤의** 감싸는 네모로 본다 —
  * 가로로 긴 메모를 90도 가까이 돌려 병에 걸치면 돌리기 전 네모로는 안 겹치기 때문이다
  * (코드리뷰 2026-11-13). 조금 넉넉하게 잡히지만, 덜 잡혀 선이 가려지는 쪽보다 낫다.
  *
@@ -104,7 +105,7 @@ export function inkRecordFrontIndex(assetId, objects) {
   const list = Array.isArray(objects) ? objects : []
   for (let i = 0; i < list.length; i++) {
     const object = list[i]
-    if (!object || object.hidden || object.type === 'stroke') continue
+    if (!drawsOnPage(object) || object.type === 'stroke') continue
     // 돌린 요소는 돌린 뒤의 감싸는 네모로 본다(utils/common 의 rotatedBounds 와 같은 식)
     const box = coverBounds(object)
     if (layout.cells.some(cell => box.left < cell.bottle.x + cell.bottle.w && box.right > cell.bottle.x

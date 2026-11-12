@@ -5,6 +5,8 @@ import { readFileSync } from 'node:fs'
 import { createStroke } from '../src/editor/utils/strokes.js'
 import { createEraserSession } from '../src/editor/utils/eraser.js'
 import { inkRecordFrontIndex, inkRecordId, inkRecordLayout } from '../src/editor/templates/inkRecordLayout.js'
+import { drawsOnPage } from '../src/editor/utils/coverBounds.js'
+import { createExportSnapshot } from '../src/editor/utils/pageExport.js'
 import * as planner from '../src/editor/utils/completedStrokePlan.js'
 import * as geometry from '../src/editor/utils/pageGeometry.js'
 
@@ -223,6 +225,10 @@ test('병 윤곽 자리 계산은 순수 함수 하나로 — 화면과 내보�
   assert.equal(inkRecordFrontIndex(id, [stroke, far, stroke]), 3, '병을 안 가리면 맨 뒤 — 모든 획 위')
   assert.equal(inkRecordFrontIndex(id, [stroke, far, over, stroke]), 2, '병을 가리는 것 바로 앞')
   assert.equal(inkRecordFrontIndex(id, [stroke, { ...over, hidden: true }, stroke]), 3, '숨긴 것은 안 가른다')
+  // 안 그려지는 것은 다 안 가른다 — 내보내기가 목록에서 빼는 기준과 같아야 두 그림이 같다
+  assert.equal(inkRecordFrontIndex(id, [stroke, { ...over, opacity: 0 }, stroke]), 3, '투명도 0 도 안 가른다')
+  assert.equal(inkRecordFrontIndex(id, [stroke, { ...over, asset: 'gone' }, stroke]), 3, '없앤 기본 스티커도 안 가른다')
+  assert.equal(inkRecordFrontIndex(id, [stroke, { ...over, asset: 'x', widget: true }, stroke]), 1, '살아 있는 위젯 스티커는 가른다')
   assert.equal(inkRecordFrontIndex(id, [{ ...over, type: 'stroke' }, stroke]), 2, '획은 안 가른다')
   // 돌린 요소는 **돌린 뒤** 네모로 본다 — 가로로 긴 메모를 90도 돌리면 병에 걸친다
   const long = { id: 'long', type: 'sticker', x: bottle.x + bottle.w / 2 - 80, y: bottle.y - 50, w: 160, h: 20 }
@@ -414,4 +420,19 @@ test('스티커 선택·드래그는 필기 캐시를 유지하고 실제 필기
     }
     assert.equal(draw({}).type, expected)
   }
+})
+
+test('화면과 내보내기가 같은 기준으로 그려지는 요소를 센다', () => {
+  // 한쪽만 안 보이는 요소를 세면 병 윤곽이 두 그림에서 다른 자리에 간다(코드리뷰 2026-11-13).
+  const ghost = { id: 'ghost', type: 'sticker', opacity: 0, x: 0, y: 0, w: 10, h: 10 }
+  const retired = { id: 'old', type: 'sticker', asset: 'gone', x: 0, y: 0, w: 10, h: 10 }
+  const live = { id: 'live', type: 'sticker', x: 0, y: 0, w: 10, h: 10 }
+  for (const one of [ghost, retired]) assert.equal(drawsOnPage(one), false, one.id)
+  assert.equal(drawsOnPage(live), true)
+  // 내보내기 목록도 같은 기준으로 걸러진다
+  const snapshot = createExportSnapshot({ objects: [...objects, ghost, retired, live] }, { scale: 1 })
+  const ids = snapshot.objects.map(one => one.id)
+  assert.equal(ids.includes('ghost'), false)
+  assert.equal(ids.includes('old'), false)
+  assert.equal(ids.includes('live'), true)
 })

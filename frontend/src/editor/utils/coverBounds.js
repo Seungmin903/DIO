@@ -18,3 +18,14 @@ export function coverBounds(object) {
 
 /** 두 자리가 겹치나 */
 export const coversEach = (a, b) => a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top
+
+/**
+ * 이 요소가 **그려지나**. 차례를 정할 때 화면과 내보내기가 **같은 기준**을 써야 두 그림이 같다.
+ *
+ * 숨긴 것 · 투명도 0 · 없앤 기본 스티커(예전 문서의 asset id)는 그려지지 않으므로 차례도 가르지
+ * 않는다. 내보내기(pageExport)가 목록에서 아예 빼는 것과 같은 기준이다 — 한쪽만 세면 안 보이는
+ * 요소 때문에 병 윤곽이 화면과 내보낸 그림에서 다른 자리에 간다(코드리뷰 2026-11-13).
+ */
+export const drawsOnPage = object => Boolean(object)
+  && !object.hidden && object.opacity !== 0
+  && !(object.type === 'sticker' && object.asset && !object.widget)

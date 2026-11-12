@@ -84,9 +84,9 @@ export default function PageImageSurface({ job }) {
   const packed = packing ? snapshot.objects.filter(o => o.packingSlot === 0 || o.packingSlot === 1) : []
   const ordinary = packing ? snapshot.objects.filter(o => !o.packingColorRegion && o.packingSlot !== 0 && o.packingSlot !== 1) : snapshot.objects
   // 병 윤곽이 들어갈 자리. 화면(StaticPage)과 **같은 함수**를 써야 내보낸 그림이 화면과 같다.
-  // 남는 차이 하나: 내보내기 목록은 불투명도 0 인 요소와 물러난 기본 스티커를 미리 빼므로
-  // (pageExport.js), 그런 것이 병을 가리고 있으면 화면보다 윤곽이 뒤로 간다. 눈에 안 보이는
-  // 요소라 그려지는 그림은 같다(코드리뷰 2026-11-13).
+  // 자리를 가를지 말지도 같은 기준(drawsOnPage)이다 — 내보내기는 안 그려지는 요소를 목록에서
+  // 아예 빼는데 화면만 그것을 세면, 그 뒤에 그은 획이 화면에서는 윤곽 위 · 내보낸 그림에서는
+  // 윤곽 아래로 가 두 그림이 달라진다(코드리뷰 2026-11-13).
   const front = inkRecordFrontIndex(snapshot.template?.backgroundAssetId, ordinary)
   const inkFrontAt = front < 0 ? ordinary.length : Math.min(front, ordinary.length)
   const renderObject = (object, pageCoordinates = false) => <View key={object.id} needsOffscreenAlphaCompositing={snapshot.isolateObjectOpacity ? objectDrawOpacity(object) < 1 : undefined} style={{ position: 'absolute', ...(pageCoordinates ? { left: object.x * scale, top: object.y * scale } : exportObjectPosition(object, snapshot, scale)), width: object.w * scale, height: object.h * scale, transform: [{ rotate: `${object.rotation ?? 0}deg` }], opacity: objectDrawOpacity(object) }}>
