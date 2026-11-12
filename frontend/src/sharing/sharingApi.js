@@ -1,3 +1,4 @@
+import { isDiaryAccessLost } from './diaryAccessLoss.js';
 import { normalizeSharingNickname, sharingNicknameError, normalizeInviteEmail, inviteEmailError, SharingError } from './sharingContracts.js';
 import { AUTHENTICATION_FAILED_MESSAGE } from '../auth/sessionExpiry.js';
 
@@ -326,10 +327,10 @@ export function createSharingApi({ user, auth, fetchImpl = globalThis.fetch, bui
         .catch(error => {
           if (watch.stopped || watchedDiaries.get(id) !== watch) return null;
           if (error?.code === 'DISPOSED') stop();
-          else if ([401, 403, 404].includes(error?.status)) {
+          else if (error?.status === 401 || isDiaryAccessLost(error)) {
             const previous = diaries.get(id);
             const message = error.status === 401 ? '로그인 상태가 바뀌었어요. 다시 로그인해 주세요.' : '공유 권한 또는 다이어리 상태가 바뀌었어요. 목록을 다시 확인해 주세요.';
-            if ([403, 404].includes(error.status)) {
+            if (isDiaryAccessLost(error)) {
               diaries.delete(id);
               realtimeDiaries.delete(id);
             } else if (previous) diaries.set(id, { ...previous, refreshWarning: message });

@@ -1,33 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import { createRequire } from 'node:module';
-import { createSharingApi, isSharingDiaryId } from '../src/sharing/sharingApi.js';
+import { createSharingApi } from '../src/sharing/sharingApi.js';
+import { watchKickedDiaryExit } from '../src/sharing/kickedDiaryExit.js';
+import { isDiaryAccessLost } from '../src/sharing/diaryAccessLoss.js';
 
-// Execute the actual App effect and return-to-library callback with controlled React setters.
-const source = readFileSync(new URL('../App.js', import.meta.url), 'utf8');
-const require = createRequire(import.meta.url), expo = createRequire(require.resolve('expo/package.json'));
-const ast = expo('@babel/core').parseSync(source, { configFile: false, babelrc: false, parserOpts: { plugins: ['jsx'] } });
-const component = ast.program.body.find(node => node.type === 'FunctionDeclaration' && node.id.name === 'DiaryAppContent');
-const effect = component.body.body.find(node => node.type === 'ExpressionStatement'
-  && node.expression.callee?.name === 'useEffect'
-  && source.slice(node.expression.arguments[0].start, node.expression.arguments[0].end).includes('sharing.runtime.watchDiary')).expression.arguments[0];
-const returnHome = component.body.body.flatMap(node => node.declarations || [])
-  .find(node => node.id.name === 'returnToLibrary').init.arguments[0];
-const bind = (node, scope) => new Function(...Object.keys(scope), `return (${source.slice(node.start, node.end)});`)(...Object.values(scope));
 const diaryId = '11111111-1111-4111-8111-111111111111';
 const flush = () => new Promise(resolve => setTimeout(resolve, 0));
 const response = (body, status = 200) => ({ ok: status < 400, status, json: async () => body });
-
-test('목록이나 로그인 안내로 복귀 콜백이 바뀌어도 참여자 감시를 재시작하지 않는다', () => {
-  const dependencies = component.body.body.find(node => node.expression?.arguments?.[0] === effect).expression.arguments[1];
-  const scope = { member: true, active: { id: diaryId }, sharing: { runtime: {} }, diaryState: { store: {} }, returnToLibrary: () => {} };
-  const before = bind(dependencies, scope);
-  scope.returnToLibrary = () => {};
-  const after = bind(dependencies, scope);
-  assert.equal(before.length, after.length);
-  before.forEach((value, index) => assert.equal(value, after[index]));
-});
 
 async function setup({ tabId = diaryId, reloadFails = false, member = true } = {}) {
   let failure = null, deferred = null, reloads = 0, queries = 0, callback;
@@ -41,6 +20,10 @@ async function setup({ tabId = diaryId, reloadFails = false, member = true } = {
       queries++;
       if (deferred) return deferred;
       if (failure instanceof Error) throw failure;
+      if (failure && typeof failure === 'object') return {
+        ...response(failure.body, failure.status),
+        ...(failure.html ? { json: async () => { throw new SyntaxError('HTML gateway response'); } } : {}),
+      };
       if (failure) return response({ code: failure === 403 ? 'DIARY_ACCESS_DENIED' : 'DIARY_NOT_FOUND' }, failure);
       return response({ members: [{ userId: '10', role: 'EDITOR', nickname: '나' }, { userId: '20', role: 'OWNER', nickname: '친구' }] });
     }
@@ -56,18 +39,17 @@ async function setup({ tabId = diaryId, reloadFails = false, member = true } = {
     filter: 'shared', search: '검색', searchOpen: true, carousel: 3 };
   const set = key => value => { state[key] = typeof value === 'function' ? value(state[key]) : value; };
   const returnDiaryId = { current: tabId }, opening = { current: {} };
-  const goHome = bind(returnHome, { returnDiaryId, active: state.active, member: true,
-    visibleDiaries: [], librarySort: 'created', libraryMetadata: {}, DEFAULT_FILTER: 'all',
-    setFilter: set('filter'), setMemberSearchOpen: set('searchOpen'), setMemberSearch: set('search'),
-    setCarousel: set('carousel'), setPage: set('page') });
-  const cleanup = bind(effect, { active: state.active, member, sharing: { runtime },
-    diaryState: { store: { reload: () => { reloads++; return reloadFails ? Promise.reject(Error('offline')) : Promise.resolve(); } } },
-    isSharingDiaryId, opening, returnDiaryId, returnToLibraryRef: { current: goHome },
+  const goHome = () => {
+    state.filter = 'all'; state.searchOpen = false; state.search = ''; state.carousel = 0; state.page = 'library';
+  };
+  const actions = { opening, returnDiaryId, returnToLibrary: goHome,
+    reloadLibrary: () => { reloads++; return reloadFails ? Promise.reject(Error('offline')) : Promise.resolve(); },
     setTabIds: set('tabs'), setActive: set('active'), setSharingRequest: set('sharingRequest'),
-    notify: (title, message) => notices.push({ title, message }) })();
+    notify: (title, message) => notices.push({ title, message }) };
+  const cleanup = watchKickedDiaryExit({ member, diary: state.active, runtime, getActions: () => actions });
   await flush();
   return { state, notices, runtime, timers, opening, returnDiaryId,
-    reloads: () => reloads, queries: () => queries, deny: value => { failure = value; },
+    updateActions: next => Object.assign(actions, next), reloads: () => reloads, queries: () => queries, deny: value => { failure = value; },
     async tick() { for (const fn of [...timers.values()]) fn(); await flush(); },
     callback: (...args) => callback?.(...args),
     defer() { deferred = new Promise(resolve => { this.resolve = resolve; }); },
@@ -134,7 +116,7 @@ test('탭 전환·언마운트 후 늦게 온 거절 응답은 현재 화면과 
     app.defer(); const tick = app.tick(); app.unwatch();
     app.state.active = { id: 'other-diary' };
     await flush(); app.resolve(response({ code: 'DIARY_ACCESS_DENIED' }, 403)); await tick; await flush();
-    app.callback('stale callback', { status: 403 });
+    app.callback('stale callback', { status: 403, code: 'DIARY_ACCESS_DENIED' });
     assert.equal(app.state.active.id, 'other-diary'); assert.equal(app.state.page, 'editor');
     assert.equal(app.state.tabs.includes(diaryId), true); assert.equal(app.notices.length, 0);
     assert.equal(app.runtime.getSnapshot().diaries.length, 1);
@@ -154,4 +136,50 @@ test('게스트는 서버 다이어리 감시와 강제 퇴장을 사용하지 �
   const app = await setup({ member: false });
   try { assert.equal(app.timers.size, 0); assert.equal(app.state.page, 'editor'); }
   finally { app.close(); }
+});
+
+for (const failure of [
+  { status: 403, body: {} }, { status: 404, body: {} },
+  { status: 403, body: { code: 'UPSTREAM_FORBIDDEN' } },
+  { status: 404, body: { code: 'ROUTE_NOT_FOUND' } },
+  { status: 403, body: { code: 'DIARY_NOT_FOUND' } },
+  { status: 404, body: { code: 'DIARY_ACCESS_DENIED' } },
+  { status: 403, html: true }, { status: 404, html: true },
+]) test(`게이트웨이·무관한·불일치 오류 ${JSON.stringify(failure)}는 탭과 캐시를 유지하고 재시도한다`, async () => {
+  const app = await setup();
+  try {
+    app.deny(failure); await app.tick();
+    assert.equal(app.state.page, 'editor'); assert.equal(app.state.tabs.includes(diaryId), true);
+    assert.equal(app.runtime.getSnapshot().diaries.length, 1); assert.equal(app.notices.length, 0);
+    assert.equal(app.timers.size, 1); assert.equal(app.reloads(), 0);
+    app.deny(null); const before = app.queries(); await app.tick(); await app.tick();
+    assert.ok(app.queries() > before); assert.equal(app.state.page, 'editor');
+  } finally { app.close(); }
+});
+
+test('퇴장 처리도 오류 코드 없는 403/404를 다시 방어한다', async () => {
+  const app = await setup();
+  try {
+    for (const status of [403, 404]) app.callback('unknown error', { status });
+    assert.equal(app.state.page, 'editor'); assert.equal(app.state.tabs.includes(diaryId), true);
+    assert.equal(app.reloads(), 0);
+  } finally { app.close(); }
+});
+
+test('감시를 다시 시작하지 않고 최신 목록 복귀 콜백을 사용한다', async () => {
+  const app = await setup(); let called = 0;
+  try {
+    const timer = app.timers.get('poll');
+    app.updateActions({ returnToLibrary: () => { called++; app.state.page = 'library'; } });
+    app.deny(403); await app.tick();
+    assert.equal(called, 1); assert.equal(app.state.page, 'library');
+    assert.equal(app.queries(), 3); assert.equal(typeof timer, 'function');
+  } finally { app.close(); }
+});
+
+test('접근 상실 판정은 HTTP 상태와 서버 코드의 정확한 조합만 허용한다', () => {
+  assert.equal(isDiaryAccessLost({ status: 403, code: 'DIARY_ACCESS_DENIED' }), true);
+  assert.equal(isDiaryAccessLost({ status: 404, code: 'DIARY_NOT_FOUND' }), true);
+  for (const error of [null, {}, { status: 503, code: 'DIARY_NOT_FOUND' }, { status: 403 }, { status: 404, code: 'HTTP_ERROR' }])
+    assert.equal(isDiaryAccessLost(error), false);
 });
