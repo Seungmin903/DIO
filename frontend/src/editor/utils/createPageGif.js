@@ -30,6 +30,7 @@ const gpuSkia = () => { try { const runtime = skiaState?.()?.runtime; return run
 // 줄여 둔 GIF 장면을 들고 있을 수 있는 RGBA 바이트 합 (Skia 합성은 같은 크기를 한 번 더 올린다)
 export const GIF_FRAME_PIXEL_BUDGET = 96 * 1024 * 1024
 
+const hasTransparency = (rgba) => { for (let i = 3; i < rgba.length; i += 4) if (rgba[i] < 255) return true; return false }
 const isCancel = (error, signal) => signal?.aborted || error?.code === 'EXPORT_CANCELLED'
 
 /**
@@ -176,8 +177,11 @@ export async function createPageGif(snapshot, { renderFrame, onProgress, signal,
         for (const layer of layerSegments) {
           if (!layer.capture) { layers.push(null); continue }
           onProgress?.({ phase: 'capture', done: layers.filter(Boolean).length, total: toCapture + unique.length })
-          layers.push(await capture({ ...prepared, objects: layer.objects, layer: layer.role }))
+          const pixels = await capture({ ...prepared, objects: layer.objects, layer: layer.role })
           check()
+          // 사이 · 맨 위 층은 투명 바탕이어야 GIF 가 비친다. 기기가 알파를 버려 통째로 불투명하게 찍히면 GIF 를 덮으므로 예전 방식으로 만든다
+          if (layer.role !== 'base' && !hasTransparency(pixels)) throw new Error('GIF layer captured without transparency')
+          layers.push(pixels)
         }
         const ratio = { x: ratioX, y: ratioY }
         const full = { x: 0, y: 0, width, height }

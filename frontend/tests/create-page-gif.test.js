@@ -148,6 +148,20 @@ test('층 합성: Skia 가 실패하면 JS 로 합쳐 마저 만든다', { skip:
   } finally { console.warn = warn }
 })
 
+test('맨 위 층이 투명하지 않게 찍히면(기기가 알파를 버림) GIF 를 덮지 않게 예전 방식으로 만든다', async () => {
+  const note = { id: 'note', type: 'text', text: '안녕', x: 10, y: 10, w: 50, h: 20, baseWidth: 50 }
+  const gif = { id: 'gif', type: 'sticker', mediaFileId: 'm1', x: 0, y: 0, w: 100, h: 100 }
+  const { createPageGif, snapshot } = load({ objects: [gif, note] })
+  const frames = [], warn = console.warn
+  console.warn = () => {}
+  try {
+    const output = await createPageGif(snapshot, { renderFrame: async (frame) => { frames.push(frame); return shot(frame, 255) } })
+    assert.deepEqual(frames.slice(0, 2).map((f) => f.layer), ['base', 'top'])
+    assert.ok(frames.slice(2).length > 0 && frames.slice(2).every((f) => !f.layer), '예전 방식으로 장면마다 찍었다')
+    assert.equal(output.frames, full.steps.length)
+  } finally { console.warn = warn }
+})
+
 test('층 합성이 실패하면 예전 방식(장면마다 찍기)으로 다시 만든다', async () => {
   const { createPageGif, snapshot } = load()
   const frames = []
