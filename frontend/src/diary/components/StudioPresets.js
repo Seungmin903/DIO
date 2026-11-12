@@ -5,7 +5,7 @@ import { usePalette } from '../../editor/hooks/usePalettes';
 import { colors } from '../../shared/theme';
 import { confirmAction } from '../../shared/dialogs';
 import EditablePalette, { paletteLinkStyles } from '../../editor/components/controls/EditablePalette';
-import { INK_PEN_ENABLED } from '../../shared/featureFlags';
+import { INK_PEN_CUSTOM_ENABLED, INK_PEN_ENABLED } from '../../shared/featureFlags';
 
 // 내 프리셋: 편집기 도구(펜 · 형광펜 · 마스킹 테이프 · 글자)가 한 줄로 보여 주는 색 목록을 여기서 고친다. 편집기 색 줄이 그대로 따른다.
 // 팔레트 편집 모드에서 색을 누르면 공용 색 창이 뜬다. 바꾼 도구에만 '기본 색으로'가 생긴다.
@@ -18,8 +18,8 @@ const ALL_GROUPS = [
   { scope: 'tape', label: '마스킹 테이프' },
   { scope: 'text', label: '글자' },
 ];
-// 잉크펜을 끈 빌드에서는 잉크펜 색 줄도 숨긴다
-const GROUPS = INK_PEN_ENABLED ? ALL_GROUPS : ALL_GROUPS.filter(group => group.scope !== 'glass');
+// 잉크펜을 끄거나 잉크펜 꾸미기를 끈 빌드(정해 둔 3색만)에서는 잉크펜 색 줄도 숨긴다
+const GROUPS = INK_PEN_ENABLED && INK_PEN_CUSTOM_ENABLED ? ALL_GROUPS : ALL_GROUPS.filter(group => group.scope !== 'glass');
 
 // 바탕과 잘 안 갈리는 옅은 색(세 채널 모두 E0 이상: 흰색 · 종이 색 견본)만 옅은 테두리를 둔다(코덱스 2026-11-02)
 const nearWhite = hex => /^#[0-9a-f]{6}$/i.test(hex) && [1, 3, 5].every(i => parseInt(hex.slice(i, i + 2), 16) >= 0xE0);

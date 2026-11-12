@@ -32,7 +32,7 @@ const DECOR_TOOLS = [
   { tab: 'photo', icon: 'image', label: '사진' },
 ]
 
-export default function Ribbon({ activeTool, drawerTab, onOpenDrawer, onSelectTool, onPlaceholder, onAnchor, penColor, highlighterColor, onPresetColor, guidesActive, onOpenGuides, ...touch }) {
+export default function Ribbon({ activeTool, drawerTab, onOpenDrawer, onSelectTool, onPlaceholder, onAnchor, penColor, penPresetColors, highlighterColor, onPresetColor, guidesActive, onOpenGuides, ...touch }) {
   const { width } = useWindowDimensions()
   const roomy = Boolean(onPresetColor) && width >= PRESET_MIN_WIDTH
   // 3색은 펜 · 형광펜 바로 옆에 늘 있다(자리가 고정이라 도구를 바꿔도 아이콘이 움직이지 않는다).
@@ -55,7 +55,7 @@ export default function Ribbon({ activeTool, drawerTab, onOpenDrawer, onSelectTo
           <Tool color={tool.id === 'pen' ? penColor : tool.id === 'highlighter' ? highlighterColor : undefined} onAnchor={onAnchor} icon={tool.icon} label={tool.label} dim={tool.pending}
             active={!drawerTab && activeTool === tool.id}
             onPress={() => tool.pending ? onPlaceholder(tool.label) : onSelectTool(tool.id)} />
-          {roomy && tool.id === 'highlighter' && <ToolPresets key={inkTool} scope={inkTool} label={inkTool === 'pen' ? '펜' : '형광펜'} color={inkTool === 'pen' ? penColor : highlighterColor}
+          {roomy && tool.id === 'highlighter' && <ToolPresets key={inkTool} scope={inkTool} fixed={inkTool === 'pen' ? penPresetColors : undefined} label={inkTool === 'pen' ? '펜' : '형광펜'} color={inkTool === 'pen' ? penColor : highlighterColor}
             onPick={(color) => { if (!inkActive) onSelectTool(inkTool); onPresetColor(inkTool, color) }} onOpenSettings={() => onSelectTool(inkTool)} active={inkActive} />}
           </Fragment>
         ))}
@@ -72,8 +72,10 @@ export default function Ribbon({ activeTool, drawerTab, onOpenDrawer, onSelectTo
 }
 
 // 도구 옆 3색: 공방 · 설정의 팔레트 앞 3칸. 그 도구를 쓰는 중에 고른 칸을 다시 누르면 설정이 열린다(굿노트 색 칸과 같은 손짓)
-function ToolPresets({ scope, label, color, onPick, onOpenSettings, active }) {
-  const colors = usePalette(scope).colors.slice(0, PRESET_COUNT)
+// fixed: 팔레트 대신 쓸 정해 둔 색(잉크펜 꾸미기를 끈 빌드의 잉크펜 3색)
+function ToolPresets({ scope, label, color, onPick, onOpenSettings, active, fixed }) {
+  const palette = usePalette(scope).colors
+  const colors = (fixed ?? palette).slice(0, PRESET_COUNT)
   return (
     <View style={styles.presets} accessibilityLabel={`${label} 빠른 색`}>
       {colors.map((entry, index) => {

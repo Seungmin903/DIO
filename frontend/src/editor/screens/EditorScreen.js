@@ -61,7 +61,8 @@ import { copyText } from '../services/textClipboard'
 import { objectClipboard, useObjectClipboard } from '../services/objectClipboard'
 import { DEFAULT_TEXT_SETTINGS, textSettings, textFormatPatch, VISUAL_TEXT_KEYS } from '../utils/text'
 import { createText } from '../utils/text'
-import { DEFAULT_HIGHLIGHTER_SETTINGS } from '../utils/penSettings'
+import { DEFAULT_HIGHLIGHTER_SETTINGS, INK_PEN_COLORS } from '../utils/penSettings'
+import { INK_PEN_CUSTOM_ENABLED } from '../../shared/featureFlags'
 import { usePenSettings } from '../hooks/usePenSettings'
 import { recordPenColorUse } from '../hooks/useRecentPenColors'
 import { useDrawingInput } from '../../shared/drawingInput'
@@ -1290,6 +1291,7 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
           {...markInside}
           onAnchor={setToolAnchor}
           penColor={penSettings.color}
+          penPresetColors={penSettings.kind === 'glass' && !INK_PEN_CUSTOM_ENABLED ? INK_PEN_COLORS : undefined}
           highlighterColor={highlighterSettings.color}
           onPresetColor={(tool, color) => (tool === 'highlighter' ? setHighlighterSettings({ ...highlighterSettings, color }) : setPenSettings({ ...penSettings, color }))}
           activeTool={activeTool}

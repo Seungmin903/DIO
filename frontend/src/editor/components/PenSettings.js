@@ -9,7 +9,8 @@ import { glassColors, glassEntry } from '../hooks/usePalettes'
 import EditablePalette, { GlassDot, glassResolved, paletteSwatchStyles } from './controls/EditablePalette'
 import Slider from './controls/Slider'
 import Icon from './controls/Icon'
-import { GLASS_FILMS, GLASS_SHEENS, PEN_TYPES, penWidthMax } from '../utils/penSettings'
+import { GLASS_FILMS, GLASS_SHEENS, INK_PEN_COLORS, PEN_TYPES, penWidthMax } from '../utils/penSettings'
+import { INK_PEN_CUSTOM_ENABLED } from '../../shared/featureFlags'
 import { glitterColorOf, micaColor, sheenAutoColor } from '../utils/glassInk'
 import { DASH_TYPES, DASH_LENGTH_RANGE, DASH_GAP_RANGE, dashPattern, isDashedKind } from '../utils/dashedStroke'
 import { useRecentPenColors } from '../hooks/useRecentPenColors'
@@ -87,6 +88,8 @@ export default function PenSettings({ settings, onChange, onClose, straightAssis
   const glassPen = settings.kind === 'glass'
   // 점선은 펜과 같은 팔레트를 쓴다(사용자 2026-11-10: 공방에서 따로 고르는 칸은 뺀다)
   const paletteScope = highlighter ? 'highlighter' : glassPen ? 'glass' : 'pen'
+  // 잉크펜 꾸미기를 끈 빌드(shared/featureFlags.js): 정해 둔 3색만 고르고, 팔레트 편집 · 직접 고르기 · 최근 색 · 글리터 · 테는 숨긴다
+  const basicInk = glassPen && !INK_PEN_CUSTOM_ENABLED
   const paletteValue = glassPen ? glassEntry({ ink: settings.color, glitter: settings.inkGlitterColor, sheen: settings.inkSheenColor }) : settings.color
   const chooseColor = (entry) => {
     // 묶음('잉크:글리터:테')이면 셋 다 바꾸고, 색 하나면 잉크만 바꾼다
@@ -125,8 +128,19 @@ export default function PenSettings({ settings, onChange, onClose, straightAssis
       </>)}
       <View accessibilityLabel={`${label} 미리보기`} style={styles.preview}><PenSample settings={settings} /></View>
       {/* 색은 펜 종류와 무관하게 늘 쓰므로 종류 바로 아래에 고정한다(아래 옵션은 종류마다 개수가 달라 자리가 밀린다) */}
-      <EditablePalette allowDirect scope={paletteScope} label={label} value={paletteValue} onPick={chooseColor} onOpenEditor={onOpenColorPicker} />
-      {recentColors.length > 0 && <>
+      {basicInk ? <>
+        <Text style={toolPanelStyles.label}>잉크펜 색상</Text>
+        <View accessibilityLabel="잉크펜 색상" style={paletteSwatchStyles.row}>
+          {INK_PEN_COLORS.map((color, index) => {
+            const on = settings.color.toLowerCase() === color.toLowerCase()
+            return <Pressable key={color} accessibilityRole="button" accessibilityLabel={`잉크펜 색 ${index + 1}`} accessibilityState={{ selected: on }}
+              hitSlop={1} onPress={() => onChange({ ...settings, color })} style={paletteSwatchStyles.cell}>
+              {(look => <View style={[paletteSwatchStyles.dot, { backgroundColor: look.sheen }, on && paletteSwatchStyles.chosen]}><GlassDot look={look} border={on ? 3 : 1} /></View>)(glassResolved(color))}
+            </Pressable>
+          })}
+        </View>
+      </> : <EditablePalette allowDirect scope={paletteScope} label={label} value={paletteValue} onPick={chooseColor} onOpenEditor={onOpenColorPicker} />}
+      {!basicInk && recentColors.length > 0 && <>
       <Text style={toolPanelStyles.label}>마지막으로 사용했던 색</Text>
       <View accessibilityLabel={`${label} 최근 사용 색상`} style={paletteSwatchStyles.row}>
         {recentColors.map(color => <Pressable key={color} accessibilityRole="button"
@@ -159,7 +173,7 @@ export default function PenSettings({ settings, onChange, onClose, straightAssis
       {/* 유리펜 잉크. 색 줄은 다이어리 표지와 같은 모양이다 — 맨 앞이 '맞춤'(펜 색에서 자동 계산),
           그 뒤가 견본, 맨 끝이 직접 고르기. 세기는 스위치 없이 0(꺼짐)~100 숫자 하나로 정하고,
           세기를 색보다 위에 둔다(끄고 켜는 게 먼저라 — 사용자 2026-11-10). */}
-      {settings.kind === 'glass' && <>
+      {glassPen && !basicInk && <>
         <Slider name="글리터" label="글리터" minusLabel="글리터 약하게" plusLabel="글리터 세게" min={0} max={100} step={10}
           value={settings.inkGlitter === false ? 0 : Math.round((settings.inkAmount ?? 1) * 100)}
           onChange={(value) => { const amount = Math.round(value / 10) * 10 / 100; onChange({ ...settings, inkGlitter: amount > 0, inkAmount: amount }) }} />

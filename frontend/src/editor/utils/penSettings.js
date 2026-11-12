@@ -3,7 +3,7 @@
 // 기본 프리셋 색(코덱스 2026-10-31): DIO 성격(차분 · 따뜻)에 맞춘 한 세트 — 채도 · 명도를 맞춰 따뜻 · 차가움 · 무채를 고르게, 패널 한 줄에 들어가는 7색. 펜 · 글자는 흰 바탕 4.5:1 이상
 export const EDITOR_COLORS = ['#18224D', '#A33C4B', '#917019', '#397A5B', '#34769F', '#7653A6', '#626878']
 import { DASH_TYPES, dashPattern, isDashedKind } from './dashedStroke.js'
-import { INK_PEN_ENABLED } from '../../shared/featureFlags.js'
+import { INK_PEN_CUSTOM_ENABLED, INK_PEN_ENABLED } from '../../shared/featureFlags.js'
 const ALL_PEN_TYPES = [
   // 2026-11-02: 만년필 · 펠트펜 · 붓펜이 불투명도 100 단색에서 거의 같아 볼펜(굵기 고정) · 캘리펜(평촉) · 붓펜(테이퍼)으로 바꿨다(코덱스).
   // 예전 식별자(fountain · felt · brush)는 고를 수 없을 뿐 이미 그린 획은 그대로 그린다. 새 붓펜은 식별자가 다르다.
@@ -17,6 +17,8 @@ const ALL_PEN_TYPES = [
 // 잉크펜을 끈 빌드(shared/featureFlags.js)에서는 고를 수 없다. 이미 그린 획은 penKind 로 그대로 그린다
 export const PEN_TYPES = INK_PEN_ENABLED ? ALL_PEN_TYPES : ALL_PEN_TYPES.filter(type => type.id !== 'glass')
 export const DEFAULT_PEN_SETTINGS = { kind: 'ball', color: '#18224D', width: 2.5 }
+// 잉크펜 꾸미기를 끈 빌드(shared/featureFlags.js INK_PEN_CUSTOM_ENABLED)에서 고를 수 있는 잉크 색: 남색 · 자주 · 파랑(EDITOR_COLORS 에서)
+export const INK_PEN_COLORS = ['#18224D', '#A33C4B', '#34769F']
 // 유리펜 잉크: 글리터 · 테를 따로 켜고 끈다. 글리터 색은 색상환이 아니라 **운모 코팅 두께(nm)** 하나로 정한다 —
 // 실제 펄 안료가 그렇다(운모판 + TiO2 코팅의 박막 간섭). 계산한 색 순서가 안료 업계 두께표와 일치한다.
 export const GLASS_FILMS = [
@@ -163,6 +165,14 @@ export function createPenPressureSampler(kind, useForce = true, useTilt = true) 
     report() { return { source: samples ? 'force' : 'speed-fallback', samples, min: samples ? min : null, max: samples ? max : null } },
     force() { return lastForce },
   }
+}
+
+// 잉크펜 꾸미기를 끈 빌드: 잉크펜 색은 INK_PEN_COLORS 중 하나(아니면 첫 색), 글리터 · 테는 기본값(맞춤)이다.
+// 펜 설정을 쓰는 곳(usePenSettings)에서 늘 거친다 — 다른 펜 색을 이어받거나 도구 줄 빠른 색 · 예전에 꾸민 설정이 들어와도 막는다
+export function limitInkPen(settings) {
+  if (INK_PEN_CUSTOM_ENABLED || settings?.kind !== 'glass') return settings
+  const color = INK_PEN_COLORS.find(one => one.toLowerCase() === String(settings.color ?? '').toLowerCase()) ?? INK_PEN_COLORS[0]
+  return { ...settings, color, ...DEFAULT_GLASS_INK }
 }
 
 // 유리펜 잉크 설정 검사. 모르는 값은 기본값으로 — 다른 펜에도 그냥 실려 있어도 해가 없다(유리펜일 때만 읽는다)
