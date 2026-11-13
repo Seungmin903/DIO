@@ -33,6 +33,10 @@ export function trackRemoteMedia(id, job) {
   // 성공하면 지운다. 실패한 받기는 남겨 두어, 나중에 화면이 읽어도 '찾을 수 없어요' 대신 그 실패 이유를 보인다(다음 받기가 덮어쓴다).
   job.then(() => { if (pendingRemote.get(id) === job) pendingRemote.delete(id) }, () => {})
 }
+/** 세션이 끝날 때 그 세션이 남긴 기록만 지운다. 그사이 다른 받기가 등록됐으면 그대로 둔다. */
+export function forgetRemoteMedia(id, job) {
+  if (pendingRemote.get(id) === job) pendingRemote.delete(id)
+}
 
 const readDisplay = id => limited(async () => {
   const { media, blob, displayBlob } = await repository.get(id)

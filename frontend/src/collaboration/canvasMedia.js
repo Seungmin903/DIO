@@ -47,6 +47,7 @@ export function createCanvasMedia({request,files,storage,key,isActive=()=>true,n
   return status>=400&&status<500&&![408,429].includes(status)
     ||['MEDIA_DECODE_FAILED','MEDIA_CORRUPT','UNSUPPORTED_MEDIA_TYPE','INVALID_MEDIA','IMAGE_TOO_LARGE','INVALID_SERVER_MEDIA','STORAGE_FULL','PDF_SOURCE_MISSING'].includes(error.code)
  }
+ const tracked=new Map(),track=(id,job)=>{tracked.set(id,job);files.pending?.(id,job)}
  let saving=Promise.resolve()
  const oneAtATime=task=>{const run=saving.then(task,task);saving=run.catch(()=>{});return run}
  const download=(id,force=false)=>{
@@ -65,7 +66,7 @@ export function createCanvasMedia({request,files,storage,key,isActive=()=>true,n
     active();downloaded.add(id);failures.delete(id)
    }catch(error){
     // 세션이 끝나 못 받은 것은 실패로 남기지 않는다(대기 기록을 비운다). 남기면 나중에 '편집 세션이 종료됐어요'가 보인다.
-    if(closed||!isActive())files.pending?.(id,Promise.resolve())
+    if(closed||!isActive())track(id,Promise.resolve())
     active()
     const attempts=(failure?.attempts??0)+1,delays=[5000,15000,60000]
     failures.set(id,{attempts,error,retryAt:permanent(error)||attempts>=4?Infinity:now()+delays[attempts-1]})
@@ -74,7 +75,7 @@ export function createCanvasMedia({request,files,storage,key,isActive=()=>true,n
   })().finally(()=>downloads.delete(id))
   downloads.set(id,job)
   // 받는 동안(다시 조회 포함) 화면이 읽으면 이 받기를 기다린다. 성공하면 대기 기록이 지워지고, 실패하면 이번 실패 이유가 남는다.
-  files.pending?.(id,job)
+  track(id,job)
   return job
  }
  return {
@@ -107,7 +108,7 @@ export function createCanvasMedia({request,files,storage,key,isActive=()=>true,n
    // 화면은 받기를 기다리지 않고 먼저 그린다. 받는 중인 사진은 '찾을 수 없음'이 아니라 '불러오는 중'으로 보이도록
    // 사진마다 끝나는 시점을 미리 알려 둔다(files.pending). 세션이 끝나도 기다리는 쪽이 멈추지 않게 마지막에 모두 풀어 준다.
    const waits=new Map(ids.map(id=>{let settle;const promise=new Promise((ok,no)=>{settle={ok,no}});promise.catch(()=>{});return [id,{promise,settle}]}))
-   ids.forEach(id=>files.pending?.(id,waits.get(id).promise))
+   ids.forEach(id=>track(id,waits.get(id).promise))
    // 한 장씩만 받으면 사진이 많은 페이지가 오래 걸린다. 메모리를 생각해 동시에 3장까지만 받는다. 실패한 ID는 대기 시간 동안 바로 건너뛴다.
    let next=0
    const worker=async()=>{
@@ -132,7 +133,8 @@ export function createCanvasMedia({request,files,storage,key,isActive=()=>true,n
    await files.saveDocument(sourceId,bytes);active()
   },
   async retry(id){active();if(!remote.has(id))throw Error('공유 이미지 참조를 확인해 주세요.');await download(id,true)},
-  dispose(){closed=true;for(const unregister of registrations.values())unregister?.();registrations.clear();failures.clear()},
+  // 이 세션이 남긴 대기 기록(실패 이유 포함)을 지운다. 다른 세션이 그 뒤에 같은 사진을 등록했다면 그 기록은 건드리지 않는다.
+  dispose(){closed=true;tracked.forEach((job,id)=>files.forget?.(id,job));tracked.clear();for(const unregister of registrations.values())unregister?.();registrations.clear();failures.clear()},
  }
 }
 

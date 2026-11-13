@@ -54,3 +54,15 @@ test('실패했던 받기가 나중에 성공으로 바뀌면 예전 오류를 �
  await new Promise(resolve=>setImmediate(resolve))
  await assert.rejects(s.mediaRegistry.ensure('d'),error=>error.code==='MEDIA_NOT_FOUND')
 })
+
+test('세션 정리는 자기가 남긴 실패 기록만 지우고 다른 받기는 건드리지 않는다',async()=>{
+ const s=store(async()=>{throw notFound()})
+ const old=Promise.reject(Object.assign(Error('예전 오류'),{code:'NETWORK_ERROR'}));old.catch(()=>{})
+ s.trackRemoteMedia('e',old)
+ s.forgetRemoteMedia('e',old)
+ await assert.rejects(s.mediaRegistry.ensure('e'),error=>error.code==='MEDIA_NOT_FOUND')
+ const other=Promise.reject(Object.assign(Error('다른 세션 오류'),{code:'NETWORK_ERROR'}));other.catch(()=>{})
+ s.trackRemoteMedia('f',other)
+ s.forgetRemoteMedia('f',old)
+ await assert.rejects(s.mediaRegistry.ensure('f'),error=>error.message==='다른 세션 오류')
+})

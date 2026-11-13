@@ -1,6 +1,6 @@
 import * as repository from '../utils/mediaRepository.web.js'
 import {registerRemoteMediaRetry} from './mediaRetry.js'
-import {mediaRegistry,trackRemoteMedia} from './mediaStore'
+import {mediaRegistry,trackRemoteMedia,forgetRemoteMedia} from './mediaStore'
 import {detectMediaType,checkDimensions} from '../utils/mediaPolicy.js'
 import {needsShareJpeg,needsSharePng,SHARE_MAX_BYTES} from '../utils/shareImagePlan.js'
 import {toShareJpeg,toSharePng} from '../utils/shareImage'
@@ -10,6 +10,7 @@ import {mediaShareSizeMessage,sharedGifMaxBytes,sharedImageMaxBytes} from '../..
 export const canvasMediaFiles={
  registerRetry:registerRemoteMediaRetry,
  pending:trackRemoteMedia,
+ forget:forgetRemoteMedia,
  fail(id,error){mediaRegistry.fail(id,error)},
  async upload(id,category){
   if(category==='DOCUMENT'){

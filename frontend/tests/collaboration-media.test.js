@@ -262,3 +262,15 @@ test('여러 장을 동시에 받아도 저장(디코딩)은 한 장씩 한다',
  await media.hydrate(ids.map(mediaFileId=>({mediaFileId})))
  assert.equal(peak,1)
 })
+
+test('세션이 끝나면 이 세션이 남긴 실패 기록만 지운다',async()=>{
+ const id='d0000000-0000-4000-8000-000000000001',pending=new Map(),forgot=[]
+ const media=createCanvasMedia({storage:{getItem:async()=>null,setItem:async()=>{}},key:'m',now:()=>0,
+  files:{cached:async()=>false,save:async()=>{},pending:(key,job)=>pending.set(key,job),forget:(key,job)=>forgot.push([key,job])},
+  request:async()=>{throw Object.assign(Error('서버 끊김'),{status:503})}})
+ await media.hydrate([{mediaFileId:id}])
+ const failed=pending.get(id)
+ await assert.rejects(failed,/서버 끊김/)
+ media.dispose()
+ assert.deepEqual(forgot,[[id,failed]])
+})

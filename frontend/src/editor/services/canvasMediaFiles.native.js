@@ -1,7 +1,7 @@
 import { File, Paths } from 'expo-file-system'
 import * as repository from '../utils/mediaRepository.native.js'
 import {registerRemoteMediaRetry} from './mediaRetry.js'
-import {mediaRegistry,trackRemoteMedia} from './mediaStore'
+import {mediaRegistry,trackRemoteMedia,forgetRemoteMedia} from './mediaStore'
 import {detectMediaType,checkDimensions} from '../utils/mediaPolicy.js'
 import {needsShareJpeg,needsSharePng,SHARE_MAX_BYTES} from '../utils/shareImagePlan.js'
 import {toShareJpeg,toSharePng} from '../utils/shareImage'
@@ -14,6 +14,7 @@ const filePart=(uri,type,name)=>({uri,type,name,bytes:()=>new File(uri).bytes()}
 export const canvasMediaFiles={
  registerRetry:registerRemoteMediaRetry,
  pending:trackRemoteMedia,
+ forget:forgetRemoteMedia,
  fail(id,error){mediaRegistry.fail(id,error)},
  async upload(id,category){
   if(category==='DOCUMENT'){
