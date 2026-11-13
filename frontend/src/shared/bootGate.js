@@ -6,14 +6,28 @@ import { useSyncExternalStore } from 'react';
 let booting = false;
 const listeners = new Set();
 const waiters = [];
+// App 은 시작 화면을 8초 안에 반드시 내린다(SPLASH_LIMIT_MS). 그 타이머조차 돌지 못한 경우(App 이 효과 전에 멈춤 등)에도
+// 모달 · 안내 창 · 푸시가 영영 막히지 않게 문 스스로 이 시간 뒤에는 연다
+export const BOOT_GATE_LIMIT_MS = 12000;
+let limitTimer = null;
 
 export const isBooting = () => booting;
 
-export function startBoot() { booting = true; listeners.forEach(listener => listener()); }
+// App 의 첫 렌더(useState 초기화)에서 부른다. 효과에서 닫으면 자식 모달이 한 프레임 열렸다 닫힌다.
+// 렌더 중이라 구독자에게 알리지 않는다: 이때는 구독한 컴포넌트가 없고(모두 App 아래에서 이제 그려진다),
+// 새로 구독하는 컴포넌트는 useSyncExternalStore 가 구독할 때 값을 다시 확인한다. 여러 번 불러도(StrictMode) 결과가 같다
+export function startBoot({ limitMs = BOOT_GATE_LIMIT_MS } = {}) {
+  if (booting) return;
+  booting = true;
+  limitTimer = setTimeout(finishBoot, limitMs);
+  limitTimer?.unref?.(); // 시험(node)에서 타이머 때문에 끝나지 않는 일이 없게
+}
 
 export function finishBoot() {
   if (!booting) return;
   booting = false;
+  clearTimeout(limitTimer);
+  limitTimer = null;
   listeners.forEach(listener => listener());
   // 하나가 던져도(예: 미뤄 둔 확인 창의 onConfirm) 뒤에 기다리는 창 · 푸시 시작은 계속 풀어 준다
   waiters.splice(0).forEach(run => {

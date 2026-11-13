@@ -33,3 +33,11 @@ test('기다리던 일 하나가 던져도 나머지는 실행된다', async () 
     assert.deepEqual(order, ['next', 'push']);
   } finally { console.warn = warn; }
 });
+
+test('App 이 시작 화면을 닫지 못해도 제한 시간이 지나면 문이 저절로 열린다', async () => {
+  startBoot({ limitMs: 10 });
+  assert.equal(isBooting(), true);
+  startBoot({ limitMs: 100000 }); // 이미 닫혀 있으면 다시 닫지 않는다(타이머도 그대로)
+  await whenBooted();
+  assert.equal(isBooting(), false);
+});
