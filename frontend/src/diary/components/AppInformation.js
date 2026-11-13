@@ -11,12 +11,13 @@ import LegalDocumentScreen from '../../auth/LegalDocumentScreen';
 import { colors } from '../../shared/theme';
 import ContentLicenses from './ContentLicenses';
 import { SettingSection } from './SettingRow';
+import appConfig from '../../../app.json';
 
 // 배포 공개 주소가 있으면 브라우저로 열고, 없으면 가입 화면과 같은 내장 처리방침을 앱 안에서 연다
 // (예전 대체 주소는 로그인이 필요한 구글 문서라 구글 계정 선택 창이 떴다).
 const PRIVACY_POLICY_URL = signupDocuments.policy;
 const SUPPORT_EMAIL = 'dioapp.official@gmail.com';
-const APP_VERSION = '1.0.0'; // app.json 의 version 과 같다
+const APP_VERSION = appConfig.expo.version;
 const COPY_ERROR = '복사하지 못했어요. 이메일 주소를 길게 눌러 복사해 주세요.';
 
 export default function AppInformation({ onCopyNotice }) {
