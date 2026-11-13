@@ -516,6 +516,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onWithdraw
     startPushRuntime({ auth: authService, userId: previewUser.userId, invitations: sharing.runtime.invitationGateway,
       onInvitation: ({ inviteId }) => { if (!disposed) setPendingPush({ inviteId, sessionKey }); },
       onSynced: () => { if (!disposed) setPushIssue(null); },
+      isActive: () => !disposed,
       onError: onPushError }).then(cleanup => { if (disposed) cleanup(); else stop = cleanup; }).catch(error => { if (!disposed) onPushError(error); });
     return () => { disposed = true; stop(); };
   }, [previewUser.mode, previewUser.userId, sharing.runtime]);

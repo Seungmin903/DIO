@@ -7,13 +7,14 @@ import { createNativePushAdapter } from './nativePushAdapter.js';
 import { createPushInstallationApi } from './pushInstallationApi.js';
 import { createPushCoordinator } from './pushCoordinator.js';
 import { resolvePushInvitation } from './pushInvitationClick.js';
-import { whenBooted } from '../shared/bootGate';
+import { waitToStartPush } from './pushStartGate.js';
 
 /** 기본 비활성. 명시적 빌드 설정이 없으면 OS 권한도 요청하지 않는다. */
-export async function startPushRuntime({ auth, userId, invitations, onInvitation, onError = () => {}, onSynced = () => {} }) {
+export async function startPushRuntime({ auth, userId, invitations, onInvitation, onError = () => {}, onSynced = () => {}, isActive = () => true }) {
  if (process.env.EXPO_PUBLIC_PUSH_ENABLED !== 'true') return () => {};
- // OS 알림 권한 창은 시작 화면(로딩) 위로 뜨므로, 시작 화면이 닫힌 뒤에 권한을 묻고 알림 연결을 시작한다
- await whenBooted();
+ // OS 알림 권한 창은 시작 화면(로딩) 위로 뜨므로, 시작 화면이 닫힌 뒤에 권한을 묻고 알림 연결을 시작한다.
+ // 그사이 호출 측이 그만뒀거나 세션이 바뀌었으면 아무것도 시작하지 않는다
+ if (!await waitToStartPush({ auth, isActive })) return () => {};
  const sessionKey=auth.getSessionKey();let stopped=false, retryTimer=null, attempts=0;
  const projectId=Constants.easConfig?.projectId || Constants.expoConfig?.extra?.eas?.projectId;
  const native=createNativePushAdapter({notifications:Notifications,secureStore:SecureStore,platform:Platform.OS,projectId});

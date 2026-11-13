@@ -15,7 +15,10 @@ export function finishBoot() {
   if (!booting) return;
   booting = false;
   listeners.forEach(listener => listener());
-  waiters.splice(0).forEach(resolve => resolve());
+  // 하나가 던져도(예: 미뤄 둔 확인 창의 onConfirm) 뒤에 기다리는 창 · 푸시 시작은 계속 풀어 준다
+  waiters.splice(0).forEach(run => {
+    try { run(); } catch (error) { console.warn('시작 화면 뒤 작업 실패', error); }
+  });
 }
 
 /** 시작 화면이 닫힌 뒤 풀리는 약속. 이미 닫혔으면 바로 풀린다. */
