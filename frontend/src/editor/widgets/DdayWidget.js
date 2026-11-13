@@ -3,6 +3,7 @@ import { StyleSheet, Text, View } from 'react-native'
 import Svg, { Circle, Path } from 'react-native-svg'
 import { ddayCaption, ddayDateText, ddayText, daysUntil, normalizeWidget } from './dday'
 import { useToday } from './useToday'
+import { stampLayout } from './ddayStampLayout'
 
 // 종이 스티커 그림 색: 앱 화면(UI) 색이 아니라 PDF 시안(속지 에셋 아이디어 54쪽)의 스티커 그림 색이라 theme 토큰이 아닌 고정값을 쓴다.
 // 라벨은 연한 남보라, 티켓은 버터 노랑, 도장은 옅은 붉은 잉크
@@ -14,7 +15,7 @@ const TICKET_SUB = '#7A6A3C'
 const STAMP_INK = '#E8A79D'
 
 // 굵은 숫자 한 글자의 너비 ≈ 글자 크기 × 0.62. 자리 너비에 들어오도록 글자 수에 맞춰 크기를 줄인다. (웹은 adjustsFontSizeToFit 이 없다)
-// 이보다 작은 글자는 브라우저가 최소 크기로 키워 자리를 넘고 잘리므로(보관함 미리보기 등) 그리지 않는다
+// 티켓의 작은 보조 글자는 브라우저 최소 크기로 커져 잘리지 않게 숨긴다. 도장은 기준 크기에서 전체를 축소한다.
 export const MIN_FONT = 6.5
 export const fitFont = (text, base, available) => Math.min(base, available / (Math.max(text.length, 1) * 0.62))
 
@@ -87,19 +88,22 @@ function Ticket({ value, text, width, height }) {
 }
 
 function Stamp({ value, text, width, height }) {
-  const size = Math.min(width, height)
+  const { size, scale, left, top, titleFontSize } = stampLayout(width, height, value.title)
   const c = size / 2
   return (
-    <View style={[styles.center, { width, height }]}>
-      <Svg width={size} height={size} style={StyleSheet.absoluteFill}>
-        <Circle cx={c} cy={c} r={size * 0.46} fill="none" stroke={STAMP_INK} strokeWidth={size * 0.04} />
-        <Circle cx={c} cy={c} r={size * 0.385} fill="none" stroke={STAMP_INK} strokeWidth={size * 0.012} />
-      </Svg>
-      {/* 디데이 글자는 도장 한가운데, 이름은 그 위에 따로 얹는다 (이름이 있어도 글자가 아래로 밀리지 않게) */}
-      <View pointerEvents="none" style={[StyleSheet.absoluteFill, styles.center, { transform: [{ rotate: '-10deg' }] }]}>
-        <Text numberOfLines={1} style={[styles.number, { width: size * 0.7, fontSize: fitFont(text, size * 0.24, size * 0.7), lineHeight: size * 0.3, color: STAMP_INK }]}>{text}</Text>
-        {!!value.title && size * 0.08 >= MIN_FONT && <Text numberOfLines={1} style={{ position: 'absolute', top: size * 0.2, width: size * 0.6, textAlign: 'center', fontSize: Math.min(size * 0.1, (size * 0.6) / (value.title.length * 0.9)), fontWeight: '700', color: STAMP_INK }}>{value.title}</Text>}
-        {size * 0.085 >= MIN_FONT && <Text numberOfLines={1} style={{ position: 'absolute', top: size * 0.68, width: size * 0.6, textAlign: 'center', fontSize: size * 0.085, fontWeight: '700', color: STAMP_INK }}>{ddayDateText(value.date)}</Text>}
+    // scale은 내부 기준 박스의 레이아웃 크기를 줄이지 않으므로 도장 영역에서 클리핑한다.
+    <View style={[styles.center, { width, height, overflow: 'hidden' }]}>
+      <View pointerEvents="none" style={{ position: 'absolute', left, top, width: size, height: size, transform: [{ scale }] }}>
+        <Svg width={size} height={size} style={StyleSheet.absoluteFill}>
+          <Circle cx={c} cy={c} r={size * 0.46} fill="none" stroke={STAMP_INK} strokeWidth={size * 0.04} />
+          <Circle cx={c} cy={c} r={size * 0.385} fill="none" stroke={STAMP_INK} strokeWidth={size * 0.012} />
+        </Svg>
+        {/* 디데이 글자는 가운데, 이름·날짜는 기준 크기에서 배치한 뒤 도장과 함께 축소한다. */}
+        <View pointerEvents="none" style={[StyleSheet.absoluteFill, styles.center, { transform: [{ rotate: '-10deg' }] }]}>
+          <Text allowFontScaling={false} numberOfLines={1} style={[styles.number, { width: size * 0.7, fontSize: fitFont(text, size * 0.24, size * 0.7), lineHeight: size * 0.3, color: STAMP_INK }]}>{text}</Text>
+          {!!value.title && <Text allowFontScaling={false} numberOfLines={1} style={{ position: 'absolute', top: size * 0.2, width: size * 0.6, textAlign: 'center', fontSize: titleFontSize, lineHeight: size * 0.14, includeFontPadding: false, fontWeight: '700', color: STAMP_INK }}>{value.title}</Text>}
+          <Text allowFontScaling={false} numberOfLines={1} style={{ position: 'absolute', top: size * 0.68, width: size * 0.6, textAlign: 'center', fontSize: size * 0.085, lineHeight: size * 0.12, includeFontPadding: false, fontWeight: '700', color: STAMP_INK }}>{ddayDateText(value.date)}</Text>
+        </View>
       </View>
     </View>
   )

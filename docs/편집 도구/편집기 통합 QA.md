@@ -51,6 +51,18 @@
 
 - 직접 색상 선택: 펜·형광펜 각 3회, 총 6/6 팔레트 열기→채도/밝기 및 색상 선택→HEX 값 변경→닫기 통과. 같은 실행의 통합 QA 3/3 통과. Android 실제 드래그 확인은 남아 있다.
 
+## 디데이 도장 이름의 배율 일치 (2026-11-13)
+
+- 기존에는 표시 크기의 8%가 6.5보다 작으면 이름을 생략했다. 기본 168 도장은 편집 배율 약 48% 이하에서 이름이 사라지고 더 크게 그리는 export에서만 나타날 수 있었다.
+- 도장·이름·디데이·날짜를 336 기준 좌표에 배치한 뒤 전체를 같은 비율로 축소한다. 이름과 날짜를 배율로 생략하지 않는다. 이름은 기존 최대 14자 안에서 한글·넓은 영문이 들어오도록 글자 크기를 맞추고, 도장 내부 글자는 시스템 글자 확대를 적용하지 않는다. 저장 형식·날짜 계산·스티커 좌표는 바꾸지 않는다. 라벨·티켓의 렌더링도 유지한다.
+- 단위·기존 동작: frontend에서 `node --test tests/dday-widget.test.js tests/dday-widget-integration.test.js tests/dday-stamp-layout.test.js`.
+- 실제 화면·PNG export 비교: 전용 서버 `pnpm exec expo start --port 8095 --offline --max-workers 2`를 띄우고 `node tests/dday-stamp-scale-browser.cjs`를 실행한다. 기본 Playwright Chromium 또는 `DIO_QA_BROWSER_CHANNEL=msedge` 등 설치된 브라우저를 지정할 수 있다. CI 자동 실행 대상은 아니다.
+- 폰·태블릿에서 짧은 이름, 14자 한글, 14자 W를 10·25·40·50·100·200%로 렌더링한다. 실제 텍스트의 도장 영역 내 포함과 가로 잘림을 검사하고, ObjectContent 편집 화면과 PageImageSurface에서 생성한 PNG를 같은 크기로 맞춰 픽셀 차이를 비교한다. 결과 이미지는 `.expo/dday-stamp-scale`에 저장한다.
+- 최신 master 병합 후 재검증: 관련 Node 테스트 20개 통과. Edge 폰·태블릿 2개 크기 × 이름 3종 × 배율 6종(10~200%)에서 36개 배치·PNG 비교 통과. frozen-lockfile 오프라인 설치와 두 QA 패키지 require 성공.
+- QA 의존성은 frontend/package.json과 pnpm-lock.yaml에 이미 선언돼 있다: playwright는 devDependencies, upng-js는 앱에서도 사용하는 dependencies다. frontend에서 pnpm install --frozen-lockfile 후 실행하며 별도 임시 설치는 필요 없다.
+- 도장 바깥 View는 overflow: hidden으로 내부 336 기준 박스를 도장 크기에 맞춰 클리핑한다. 선택·회전 손잡이는 이 클리핑 영역 밖에 유지한다. 브라우저 QA는 별도의 클리핑 조상이 없는 overflow: scroll 컨테이너에도 ObjectContent를 넣어 10~200%에서 scrollWidth/scrollHeight가 컨테이너 크기를 넘지 않는지 검사한다. 수정 전 Edge에서는 스크롤 증가가 재현되지 않았으며, 주변 레이아웃에 의존하지 않도록 명시적으로 방어한 변경이다.
+- 작은 배율에서는 이름도 비례해 작아져 읽기 어려울 수 있으나 렌더링에서 생략하지 않는다. Android·iOS 실기기에서의 최종 확인은 별도 필요하다.
+
 ## 페이지 목록 썸네일의 스크롤·순서 변경 구분 (2026-11-13)
 
 - 썸네일의 누르기 대기 중에는 `usePan`의 native responder 차단을 끄고, 한 손가락 스크롤이 responder를 가져갈 수 있게 한다. 부모 목록이 가져가면 탭·길게 누르기 타이머를 취소해 선택이나 순서 변경이 뒤늦게 실행되지 않는다.
