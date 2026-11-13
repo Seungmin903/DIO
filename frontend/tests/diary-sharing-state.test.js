@@ -296,6 +296,24 @@ test('초대 상세에서 참여 프로필로 이동하기 전에 최신 상태�
   ui.unmount();
 });
 
+test('공유 다이어리 한도에 도달하면 수락 버튼에서 막고 참여 프로필을 열지 않는다', async () => {
+  let checks = 0;
+  const message = '공유 다이어리는 최대 2개까지 이용할 수 있어요.';
+  const ui = setup({ checkSharedDiaryCapacity: async id => {
+    checks++;
+    assert.equal(id, 'd');
+    throw Object.assign(Error(message), { code: 'SHARED_DIARY_LIMIT_REACHED' });
+  } });
+  find(ui.render(), '초대 초대 상세').props.onPress();
+  await tick();
+  find(ui.render(), '참여 프로필 설정').props.onPress();
+  await tick();
+  assert.equal(checks, 1);
+  assert.equal(find(ui.render(), '다이어리 닉네임'), undefined);
+  assert.ok(nodes(ui.render()).some(node => node.props?.children === message));
+  ui.unmount();
+});
+
 test('이메일 초대는 잘못된 입력·연타를 차단하고 실패 후 입력을 유지해 재시도한다', async () => {
   const diary = { id: 'local', members: [{ id: 'self', role: 'OWNER' }] };
   let resolve, calls = 0;

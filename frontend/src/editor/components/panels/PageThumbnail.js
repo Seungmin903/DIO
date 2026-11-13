@@ -77,5 +77,5 @@ export default function PageThumbnail({ page, workQueue, ...props }) {
   }, [workQueue])
   useEffect(() => { worker.current?.() }, [objects, workQueue])
 
-  return <StaticPage {...props} page={preview} />
+  return <StaticPage {...props} page={preview} thumbnail />
 }

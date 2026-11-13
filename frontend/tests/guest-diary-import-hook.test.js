@@ -7,15 +7,50 @@ const {code}=expo('@babel/core').transformSync(readFileSync(new URL('../src/diar
 const deferred=()=>{let resolve;return {promise:new Promise(r=>resolve=r),resolve:value=>resolve(value)};};
 const tick=()=>new Promise(r=>setImmediate(r));
 function fixture(){
- let cursor=0,key='7:1',enabled=true,model,runs=0,imported=0,factoryOptions,progress,lookupError=null,pendingError=null,lookupGate=null,lookups=0,pendingQueries=0,declineError=null,declineGate=null,declines=0,candidates=[{id:'guest',title:'일기'}];
+ let pendingList=[],createdList=[];
+ let cursor=0,key='7:1',enabled=true,model,runs=0,imported=0,factoryOptions,progress,lookupError=null,pendingError=null,lookupGate=null,lookups=0,pendingQueries=0,declineError=null,declineGate=null,declines=0,slotsAvailable=5,candidates=[{id:'guest',title:'일기'}];
  const slots=[],effects=[],cleanups=[],notices=[],disk=new Map(),completion=deferred();
  const memo=(fn,deps)=>{const i=cursor++;if(!slots[i]||deps.some((v,j)=>!Object.is(v,slots[i].deps[j])))slots[i]={deps,value:fn()};return slots[i].value;};
  const react={useMemo:memo,useCallback:(fn,deps)=>memo(()=>fn,deps),useRef:value=>{const i=cursor++;return slots[i]??=({current:value});},useState:value=>{const i=cursor++;if(!(i in slots))slots[i]=value;return [slots[i],next=>{slots[i]=typeof next==='function'?next(slots[i]):next;}];},useEffect:(fn,deps)=>{const i=cursor++;if(!slots[i]||deps.some((v,j)=>!Object.is(v,slots[i][j]))){slots[i]=deps;effects.push(()=>{cleanups[i]?.();cleanups[i]=fn();});}}};
- const mocks={react,'../../shared/dialogs':{notify:(...args)=>notices.push(args)},'../../editor/services/documentStorage':{__esModule:true,default:{getItem:async key=>disk.get(key)??null}},'expo/fetch':{fetch(){}},'../../auth/authService':{authService:{getSessionKey:()=>key},apiBaseUrl:'https://qa.test/api/v1',accessTokenHeader:'Authorization'},'../services/memberDiaryApi.js':{createMemberDiaryApi:()=>({})},'../services/memberTransport.js':{createAuthenticatedMemberTransport:()=>()=>{}},'../services/memberStorage.js':{memberKeys:()=>({doc:id=>id})},'../services/guestOriginalCleanup':{guestOriginalCleanup:{}},'../services/guestDiaryImport.js':{createGuestDiaryImporter:options=>{factoryOptions=options;return {pendingIds:async()=>{pendingQueries++;if(pendingError)throw pendingError;return [];},run:async(targets,options)=>{runs++;progress=options.onProgress;return completion.promise;}};},sweepMovedGuestDiaries:async()=>{},removeGuestOriginal:async()=>true,dismissGuestImport:async()=>{declines++;if(declineGate)await declineGate;if(declineError)throw declineError;},listGuestImportCandidates:async()=>{lookups++;if(lookupGate)await lookupGate;if(lookupError)throw lookupError;return {diaries:candidates,unasked:candidates};},withUploadRetry:f=>f},'../../collaboration/canvasApi.js':{createCanvasApi:()=>({})},'../../collaboration/canvasMedia.js':{createCanvasMedia:()=>({}),createMediaRequest:()=>()=>{}},'../../editor/services/canvasMediaFiles':{canvasMediaFiles:{}},'../../editor/utils/storageContract.js':{STORAGE_KEYS:{doc:'doc'}},'../../editor/utils/common.js':{createId:()=>''}};
+ const mocks={react,'../../shared/dialogs':{notify:(...args)=>notices.push(args)},'../../editor/services/documentStorage':{__esModule:true,default:{getItem:async key=>disk.get(key)??null}},'expo/fetch':{fetch(){}},'../../auth/authService':{authService:{getSessionKey:()=>key},apiBaseUrl:'https://qa.test/api/v1',accessTokenHeader:'Authorization'},'../services/memberDiaryApi.js':{createMemberDiaryApi:()=>({})},'../services/memberTransport.js':{createAuthenticatedMemberTransport:()=>()=>{}},'../services/memberStorage.js':{memberKeys:()=>({doc:id=>id})},'../services/guestOriginalCleanup':{guestOriginalCleanup:{}},'../services/guestDiaryImport.js':{createGuestDiaryImporter:options=>{factoryOptions=options;return {availableSlots:async()=>slotsAvailable,pendingIds:async(options={})=>{pendingQueries++;if(pendingError)throw pendingError;return options.createdOnly?createdList:pendingList;},run:async(targets,options)=>{runs++;progress=options.onProgress;return completion.promise;}};},sweepMovedGuestDiaries:async()=>{},removeGuestOriginal:async()=>true,dismissGuestImport:async()=>{declines++;if(declineGate)await declineGate;if(declineError)throw declineError;},listGuestImportCandidates:async()=>{lookups++;if(lookupGate)await lookupGate;if(lookupError)throw lookupError;return {diaries:candidates,unasked:candidates};},withUploadRetry:f=>f},'../../collaboration/canvasApi.js':{createCanvasApi:()=>({})},'../../collaboration/canvasMedia.js':{createCanvasMedia:()=>({}),createMediaRequest:()=>()=>{}},'../../editor/services/canvasMediaFiles':{canvasMediaFiles:{}},'../../editor/utils/storageContract.js':{STORAGE_KEYS:{doc:'doc'}},'../../editor/utils/common.js':{createId:()=>''}};
+ mocks['../../editor/utils/mediaRepository']={entries:async()=>[]};
+ mocks['../../collaboration/canvasMedia.js'].createMediaRequest=options=>{assert.equal(options.photoEntries,mocks['../../editor/utils/mediaRepository'].entries);return ()=>{};};
  const mod={exports:{}};new Function('require','module','exports',code)(id=>mocks[id],mod,mod.exports);
  const render=()=>{cursor=0;model=mod.exports.useGuestDiaryImport('7',{enabled,onImported:()=>imported++});while(effects.length)effects.shift()();return model;};
- return {render,notices,get declines(){return declines;},setDeclineError:value=>declineError=value,setDeclineGate:value=>declineGate=value,setLookupError:value=>lookupError=value,setPendingError:value=>pendingError=value,setLookupGate:value=>lookupGate=value,setCandidates:value=>candidates=value,get lookups(){return lookups;},get pendingQueries(){return pendingQueries;},setEnabled:value=>enabled=value,setSession:value=>key=value,unmount:()=>cleanups.forEach(fn=>fn?.()),finish:()=>completion.resolve({imported:[{guestDiaryId:'guest',diaryId:'server',skipped:[]}],failed:[]}),get runs(){return runs;},get imported(){return imported;},get options(){return factoryOptions;},disk,emit:()=>progress?.({guestDiaryId:'guest',done:1,total:2})};
+ return {render,notices,setPendingIds:value=>pendingList=value,setCreatedIds:value=>createdList=value,get declines(){return declines;},setDeclineError:value=>declineError=value,setDeclineGate:value=>declineGate=value,setLookupError:value=>lookupError=value,setPendingError:value=>pendingError=value,setLookupGate:value=>lookupGate=value,setCandidates:value=>candidates=value,setSlots:value=>slotsAvailable=value,get lookups(){return lookups;},get pendingQueries(){return pendingQueries;},setEnabled:value=>enabled=value,setSession:value=>key=value,unmount:()=>cleanups.forEach(fn=>fn?.()),finish:()=>completion.resolve({imported:[{guestDiaryId:'guest',diaryId:'server',skipped:[]}],failed:[]}),get runs(){return runs;},get imported(){return imported;},get options(){return factoryOptions;},disk,emit:()=>progress?.({guestDiaryId:'guest',done:1,total:2})};
 }
+test('남은 한 자리까지만 게스트 다이어리를 선택할 수 있다', async () => {
+ const ui = fixture();
+ ui.setCandidates([{id:'guest',title:'첫째'},{id:'second',title:'둘째'}]);
+ ui.setSlots(1);
+ ui.render(); await tick();
+ const model = ui.render();
+ assert.equal(model.slots, 1);
+ assert.equal(model.selected.size, 0);
+ model.toggle('guest');
+ model.toggle('second');
+ assert.deepEqual([...ui.render().selected], ['guest']);
+ ui.render().toggle('guest');
+ ui.render().toggle('second');
+ assert.deepEqual([...ui.render().selected], ['second']);
+ ui.unmount();
+});
+
+test('서버 생성 전 재개 항목도 남은 한 자리를 차지한다', async () => {
+ const ui=fixture();ui.setCandidates([{id:'resume',title:'재개'},{id:'new',title:'새 항목'}]);ui.setPendingIds(['resume']);ui.setCreatedIds([]);ui.setSlots(1);
+ ui.render();await tick();
+ assert.equal(ui.render().pending.has('resume'),false);
+ ui.render().toggle('resume');ui.render().toggle('new');
+ assert.deepEqual([...ui.render().selected],['resume']);ui.unmount();
+});
+
+test('서버 다이어리가 있는 재개 항목만 남은 자리 없이 선택할 수 있다', async () => {
+ const ui=fixture();ui.setCandidates([{id:'resume',title:'재개'},{id:'new',title:'새 항목'}]);ui.setPendingIds(['resume']);ui.setCreatedIds(['resume']);ui.setSlots(0);
+ ui.render();await tick();
+ assert.deepEqual([...ui.render().selected],['resume']);
+ ui.render().toggle('new');assert.deepEqual([...ui.render().selected],['resume']);ui.unmount();
+});
+
 test('연속 시작은 한 번만 실행하고 잠금 중에는 안내를 숨긴다',async()=>{
  const ui=fixture();ui.render();await tick();const model=ui.render();assert.equal(model.phase,'ask');
  const first=model.start();model.start();assert.equal(ui.runs,1);ui.setEnabled(false);assert.equal(ui.render().phase,null);

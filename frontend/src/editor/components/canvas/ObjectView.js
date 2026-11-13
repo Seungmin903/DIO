@@ -8,6 +8,7 @@ import { useRemoteAssetUri } from '../../../shared/remoteAssets/useRemoteAssetUr
 import { isAnimatedMedia, isRetiredSticker, stickerSource } from '../../stickerAssets'
 import BuiltinStickerArt from './BuiltinStickerArt'
 import MediaImage from './MediaImage'
+import { ViewportMotion } from './viewportMotion'
 import PdfDetail from './PdfDetail'
 import { usePdfPageRaster } from '../../../diary/hooks/usePdfPageRaster'
 import StickerFrame from './StickerFrame'
@@ -46,7 +47,7 @@ export const TextMeasureReady = createContext(false)
  * 오브젝트 하나의 생김새. 위치·회전·불투명도는 바깥에서 잡고, 여기서는 zoom 배율로 내용만 그린다.
  * 편집 화면, 페이지 썸네일에서 함께 쓴다.
  */
-function ObjectContent({ object, zoom, areaPreview = false, still: stillRequested = false, onAssetLoad, onAssetError, showFallbackWhileLoading = false, linesOnly = false }) {
+function ObjectContent({ object, zoom, areaPreview = false, still: stillRequested = false, thumbnail = false, onAssetLoad, onAssetError, showFallbackWhileLoading = false, linesOnly = false }) {
   const fontStatus = useTextFont(object.type === 'text' ? object.font : null, Boolean(object.bold))
 
   const width = object.w * zoom
@@ -111,7 +112,7 @@ function ObjectContent({ object, zoom, areaPreview = false, still: stillRequeste
       )
     case 'photo':
       if (isStripFrame(object.frame)) return <PhotoStripContent photo={object} zoom={zoom} onAssetLoad={onAssetLoad} onAssetError={onAssetError} />
-      return <PhotoContent photo={object} zoom={zoom} still={still} onAssetLoad={onAssetLoad} onAssetError={onAssetError} />
+      return <PhotoContent photo={object} zoom={zoom} still={still} thumbnail={thumbnail} onAssetLoad={onAssetLoad} onAssetError={onAssetError} />
     default:
       return null
   }
@@ -368,7 +369,12 @@ const emojiText = (height) => ({ fontSize: height * 0.72, lineHeight: height })
 /* ---------- 사진 ---------- */
 
 // still: 페이지 썸네일처럼 움직일 필요 없는 곳에서는 GIF 대신 첫 장면을 그린다.
-export function PhotoContent({ photo, zoom, still = false, onAssetLoad, onAssetError }) {
+export function PhotoContent({ photo, zoom, still = false, thumbnail = false, onAssetLoad, onAssetError }) {
+  const { visible } = useContext(ViewportMotion)
+  const decodeDistance = thumbnail && visible ? Math.hypot(
+    photo.x + photo.w / 2 - (visible.x + visible.width / 2),
+    photo.y + photo.h / 2 - (visible.y + visible.height / 2),
+  ) : undefined
   const uri = useMediaUri(photo, { still })
   // 모양(하트·별 등) 틀은 SVG 이미지로 자른다. 기기에서 GIF 를 넘기면 앱이 죽어 첫 장면 PNG 로 바꿔 넘긴다.
   // useMediaUri 와 같은 항목(still 이면 poster)으로 판별하고, SVG 로 그리는 모양일 때만 변환한다
@@ -406,7 +412,7 @@ export function PhotoContent({ photo, zoom, still = false, onAssetLoad, onAssetE
       // 그림자는 잘라 내지 않는 바깥 View 에, 사진은 안쪽 View 에서 자른다.
       <View style={[shapeStyle, boxShadowStyle(shadow, zoom)]}>
         <View style={[styles.shapeClip, shapeStyle, { borderWidth: border, borderColor: outline.color, transform: flip }]}>
-          <MediaImage animated={animated} onLoad={onAssetLoad} onError={() => { reportMediaDisplayError(photo); onAssetError?.() }} source={uri ? { uri } : null} style={[styles.photoImage, shiftForBorder(layout, border)]} resizeMode="stretch" resizeMethod="scale" />
+          <MediaImage animated={animated} thumbnail={thumbnail} decodeZoom={zoom} decodeDistance={decodeDistance} onLoad={onAssetLoad} onError={() => { reportMediaDisplayError(photo); onAssetError?.() }} source={uri ? { uri } : null} style={[styles.photoImage, shiftForBorder(layout, border)]} resizeMode="stretch" resizeMethod="scale" />
           {shadow.inset && <View pointerEvents="none" style={[StyleSheet.absoluteFill, { borderRadius: shapeStyle.borderRadius }, insetShadowStyle(shadow, zoom)]} />}
         </View>
       </View>
@@ -474,7 +480,7 @@ export function PhotoContent({ photo, zoom, still = false, onAssetLoad, onAssetE
       >
         {/* 사진 없이 붙인 틀은 빈 자리 색만 (캔버스에서는 + 로 채운다) */}
         {hasPhotoMedia(photo)
-          ? <MediaImage animated={animated} onLoad={onAssetLoad} onError={() => { reportMediaDisplayError(photo); onAssetError?.() }} source={uri ? { uri } : null} style={[styles.photoImage, layout]} resizeMode="stretch" resizeMethod="scale" />
+          ? <MediaImage animated={animated} thumbnail={thumbnail} decodeZoom={zoom} decodeDistance={decodeDistance} onLoad={onAssetLoad} onError={() => { reportMediaDisplayError(photo); onAssetError?.() }} source={uri ? { uri } : null} style={[styles.photoImage, layout]} resizeMode="stretch" resizeMethod="scale" />
           : <View style={[StyleSheet.absoluteFill, { backgroundColor: emptySlotColor(photo.frame === 'film' || isDarkColor(frameColorOf(photo))) }]} />}
         {/* 안쪽 그림자: 틀 안 사진이 오목하게 들어가 보이게 */}
         {shadow.inset && photo.frame !== 'stamp' && <View pointerEvents="none" style={[StyleSheet.absoluteFill, insetShadowStyle(shadow, zoom)]} />}

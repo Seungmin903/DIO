@@ -6,6 +6,7 @@ import { normalizePaperAppearance } from '../../editor/templates/appearance.js'
 import { createDefaultDoc } from '../../editor/state/defaultDoc.js'
 import { pdfDocPage } from '../utils/pdfImport.js'
 import { normalizeMemberLibraryQuery } from './memberLibraryQuery.js'
+import { PERSONAL_DIARY_LIMIT, PERSONAL_DIARY_LIMIT_MESSAGE } from '../../shared/freeTierLimits.js'
 import { readStoredDocument } from '../../editor/services/readStoredDocument.js'
 
 const clone = value => JSON.parse(JSON.stringify(value))
@@ -447,6 +448,15 @@ export function createMemberAppStore({ accountId, api, storage, makeRequestId, s
       }throw error;}})().finally(()=>{lifecycleRunning=null});return lifecycleRunning;
     },
     retryLifecycle() {if(!state.lifecycle?.canRetry || !lifecycleRequest)return Promise.reject(failure('NO_PENDING_OPERATION','재시도할 작업이 없어요.'));return this.lifecycle(lifecycleRequest.kind,lifecycleRequest.id);},
+    async checkPersonalDiaryCapacity() {
+      active()
+      if (!serverLibrary || state.pending) return
+      const personal = await api.list({ filter: 'personal', limit: PERSONAL_DIARY_LIMIT })
+      active()
+      if (personal.items.length >= PERSONAL_DIARY_LIMIT) {
+        throw failure('PERSONAL_DIARY_LIMIT_REACHED', PERSONAL_DIARY_LIMIT_MESSAGE)
+      }
+    },
     create(form) {
       if (starting) return starting
       starting = (async () => {
@@ -462,6 +472,7 @@ export function createMemberAppStore({ accountId, api, storage, makeRequestId, s
           : { ...selected, defaultPaperAppearance: selected.paperAppearance, diaryTemplateConfig: selected.templateConfig }
       if (state.pending && JSON.stringify(state.pending.input) !== JSON.stringify(input)) throw failure('PENDING_CREATION', '이전 생성 요청을 먼저 확인해 주세요. 창을 닫고 이전 생성 확인을 눌러 주세요.')
       if (!state.pending) {
+        await store.checkPersonalDiaryCapacity()
         const pending = { accountId, requestId: makeRequestId(), input: clone(input), uncertain: false }
         await write(keys.pending, { ...pending, uncertain: true }); active(); emit({ pending })
       }

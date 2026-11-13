@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { DIARY_PAGE_LIMIT, DIARY_PAGE_LIMIT_MESSAGE } from '../../shared/freeTierLimits.js'
 import { AppState, Platform } from 'react-native'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { fetch as memberFetch } from 'expo/fetch'
@@ -14,6 +15,7 @@ import { loadServerPageSnapshot, createServerPage, copyServerPage, deleteServerP
 import { createCanvasSession } from '../../collaboration/canvasSession.js'
 import { createCanvasMedia, createMediaRequest } from '../../collaboration/canvasMedia.js'
 import { canvasMediaFiles } from '../services/canvasMediaFiles'
+import { entries as photoEntries } from '../utils/mediaRepository'
 import { createDiaryFonts, withDiaryFonts } from '../../collaboration/diaryFonts.js'
 import { claimSharedFonts, releaseSharedFonts, sharedFontFiles, sharedFontLibrary } from '../../handwriting/sharedFonts.js'
 import { askFontShareConsent, fontShareConsentBeforeShare } from '../../handwriting/fontShareConsent.js'
@@ -36,7 +38,8 @@ export function useMemberCanvasCollaboration({diary,page,state,loaded,readOnly,d
   const [onlineUserIds,setOnlineUserIds]=useState(null)
   const sessionKey=authService.getSessionKey()
   const failureMessage=error=>{
-    if(error.code==='CANVAS_BATCH_LIMIT')return error.message
+    if(error.code==='PHOTO_CAPACITY_CHECK_FAILED')return '사진 보관함을 확인하지 못했어요. 다시 시도해 주세요.'
+    if(['CANVAS_BATCH_LIMIT','STORAGE_LIMIT_REACHED','MEMBER_PHOTO_INDEX_DAMAGED','PHOTO_LIBRARY_NOT_READY','PHOTO_CAPACITY_CHECK_FAILED'].includes(error.code))return error.message
     const reason=error.status===401?'로그인이 만료됐어요. 다시 로그인해 주세요.':error.status===403?'이 페이지를 편집할 권한을 확인하지 못했어요.':error.status===404?'현재 페이지를 서버에서 찾지 못했어요.':error.status>=500?'서버에서 캔버스 요청을 처리하지 못했어요.':error.code==='NETWORK_ERROR'?'캔버스 요청이 서버에 도달하지 못했어요.':'기기 편집 기록이나 서버의 캔버스 응답을 확인하지 못했어요.'
     const code=typeof error.code==='string'&&/^[A-Z0-9_]{1,80}$/.test(error.code)?error.code:'CANVAS_SYNC_ERROR'
     return `${reason} (${error.status||0} / ${code}) 기기 작업은 유지돼요.`
@@ -60,7 +63,8 @@ export function useMemberCanvasCollaboration({diary,page,state,loaded,readOnly,d
     const diagnostics=createCollaborationDiagnostics({enabled:typeof __DEV__!=='undefined'&&__DEV__&&process.env.EXPO_PUBLIC_COLLABORATION_DIAGNOSTICS==='1'})
     const transport=diagnostics.transport(createAuthenticatedMemberTransport({auth:authService,accountId:diary.memberAccountId,baseUrl:apiBaseUrl,accessTokenHeader,fetchImpl}))
     // 미디어(사진 · 스티커 · PDF)와 손글씨 폰트가 같은 요청 함수를 쓴다(인증 · 시간 제한 설정을 한곳에서)
-    const mediaRequest=createMediaRequest({auth:authService,accountId:diary.memberAccountId,sessionKey,baseUrl:apiBaseUrl,fetchImpl:memberFetch})
+    const mediaRequest=createMediaRequest({auth:authService,accountId:diary.memberAccountId,sessionKey,baseUrl:apiBaseUrl,fetchImpl:memberFetch,photoStorage:AsyncStorage,photoEntries})
+    r.checkPhotoCapacity = mediaRequest.checkPhotoCapacity
     const media=createCanvasMedia({request:mediaRequest,files:canvasMediaFiles,storage:AsyncStorage,key:`${memberDocumentKey(diary)}:media-uploads:v1:${encodeURIComponent(apiBaseUrl)}`,isActive:active})
     // 손글씨 폰트: 내 폰트로 쓴 글자를 보내기 전에 폰트를 이 다이어리에 공유하고, 친구 폰트는 받아 등록한다.
     // 올린 폰트의 서버 id 는 계정 · 서버마다 기록해 다이어리가 달라도 다시 올리지 않는다
@@ -122,7 +126,12 @@ export function useMemberCanvasCollaboration({diary,page,state,loaded,readOnly,d
       dispatch({type:'applyServerPageSettings',settings:patches,paperAppearance:allAppearance})
       return settings
     })
+    const checkPageCapacity = count => {
+      const currentCount = r.pageIds?.size ?? latest.current.state.doc.pages.length
+      if (currentCount + count > DIARY_PAGE_LIMIT) throw Error(DIARY_PAGE_LIMIT_MESSAGE)
+    }
     r.addPage=backgroundAssetId=>mutatePages(async()=>{
+      checkPageCapacity(1)
       dispatch({type:'commitCheckpoint'})
       const page=await createServerPage({transport,diaryId:diary.id,backgroundAssetId,
         orientation:latest.current.state.doc.orientation??'landscape',paperAppearance:latest.current.state.doc.paperAppearance,
@@ -132,6 +141,7 @@ export function useMemberCanvasCollaboration({diary,page,state,loaded,readOnly,d
     })
     // 내 속지(PDF 쪽): 빈 페이지를 만들어 쪽 크기로 맞춘 뒤 바탕 그림을 얹는다(새 PDF 다이어리와 같은 길). 그림과 원본 PDF 는 동기화가 올린다.
     r.addPdfPages=docPages=>mutatePages(async()=>{
+      checkPageCapacity(docPages.length)
       dispatch({type:'commitCheckpoint'})
       const added=[]
       try{
@@ -156,6 +166,7 @@ export function useMemberCanvasCollaboration({diary,page,state,loaded,readOnly,d
       return added
     })
     r.copyPage=pageId=>mutatePages(async()=>{
+      checkPageCapacity(1)
       await flushPage(pageId)
       const page=await copyServerPage(transport,diary.id,pageId)
       if(active()){r.pageIds?.add(page.id);dispatch({type:'importServerPages',pages:[page],selectId:page.id})}
@@ -312,5 +323,9 @@ export function useMemberCanvasCollaboration({diary,page,state,loaded,readOnly,d
   }
   return {enabled,onlineUserIds:enabled?onlineUserIds:null,loadPageSettings:id=>{if(!runtime.current)throw Error('서버 연결을 확인해 주세요.');return runtime.current.loadPageSettings(id)},updatePage:(id,body)=>{if(!runtime.current)throw Error('서버 연결을 확인해 주세요.');return runtime.current.updatePage(id,body)},movePage:(id,toIndex)=>{if(!runtime.current)throw Error('서버 연결을 확인해 주세요.');return runtime.current.movePage(id,toIndex)},movePages:(ids,anchorId,place)=>{if(!runtime.current)throw Error('서버 연결을 확인해 주세요.');return runtime.current.movePages(ids,anchorId,place)},copyPage:id=>{if(!runtime.current)throw Error('서버 연결을 확인해 주세요.');return runtime.current.copyPage(id)},removePages:ids=>{if(!runtime.current)throw Error('서버 연결을 확인해 주세요.');return runtime.current.removePages(ids)},addPage:backgroundAssetId=>{if(!runtime.current)throw Error('서버 연결을 확인한 뒤 다시 시도해 주세요.');return runtime.current.addPage(backgroundAssetId)},addPdfPages:pages=>{if(!runtime.current)throw Error('서버 연결을 확인한 뒤 다시 시도해 주세요.');return runtime.current.addPdfPages(pages)},status:enabled?view.status:null,errorMessage:view.errorMessage,busy:view.busy,
     canUndo:view.pageId===page.id&&!!view.history?.nextUndo,canRedo:view.pageId===page.id&&!!view.history?.nextRedo,
+    checkPhotoCapacity: (count, photos) => {
+      if (!runtime.current?.checkPhotoCapacity) throw Object.assign(Error('사진 보관함 연결을 확인한 뒤 다시 시도해 주세요.'), { code: 'PHOTO_LIBRARY_NOT_READY' })
+      return runtime.current.checkPhotoCapacity(count, photos)
+    },
     undo:()=>control('undo'),redo:()=>control('redo'),retry:()=>runtime.current?.sync(page.id)}
 }

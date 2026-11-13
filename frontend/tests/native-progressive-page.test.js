@@ -20,7 +20,7 @@ test('페이지 전환은 입력 준비 전 요소를 나눠 표시하고 빠른
   const schedule = fn => { const id = ++nextId; timers.set(id, fn); all.set(id, fn); return id }
   const cancel = id => timers.delete(id)
   new Function('require', 'module', 'exports', 'setTimeout', 'clearTimeout', code)(id => id === 'react' ? react : require(id), module, module.exports, schedule, cancel)
-  const render = (page, enabled = true) => { const result = module.exports.useProgressiveNativePage(page, enabled); pending.splice(0).forEach(fn => fn()); return result }
+  const render = (page, enabled = true, startPending = false) => { const result = module.exports.useProgressiveNativePage(page, enabled, startPending); pending.splice(0).forEach(fn => fn()); return result }
   const flush = () => { const [id, fn] = timers.entries().next().value; timers.delete(id); fn() }
   const a = { id: 'a', objects: [{ id: 1 }] }, b = { id: 'b', objects: Array.from({ length: 25 }, (_, id) => ({ id })) }, c = { id: 'c', objects: [{ id: 'new' }] }
   assert.deepEqual(render(a), { count: 1, ready: true })
@@ -33,5 +33,9 @@ test('페이지 전환은 입력 준비 전 요소를 나눠 표시하고 빠른
   flush(); assert.deepEqual(render(c), { count: 1, ready: true })
   assert.equal(b.objects.length, 25)
   assert.deepEqual(render(b, false), { count: 25, ready: true })
+  cleanup?.()
+  state = ref = previousDeps = undefined
+  assert.deepEqual(render(b, true, true), { count: 0, ready: false })
+  flush(); assert.deepEqual(render(b, true, true), { count: 8, ready: false })
   cleanup?.()
 })

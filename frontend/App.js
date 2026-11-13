@@ -3,6 +3,7 @@ import { describeSharingInvitations } from './src/notifications/describeSharingI
 import MemberTrashNotice from './src/diary/components/MemberTrashNotice';
 import MemberLibraryNotice from './src/diary/components/MemberLibraryNotice';
 import { memberLibraryQuery, scheduleLibraryQuery } from './src/diary/services/memberLibraryQuery';
+import { DIARY_PAGE_LIMIT, DIARY_PAGE_LIMIT_MESSAGE, PERSONAL_DIARY_LIMIT, PERSONAL_DIARY_LIMIT_MESSAGE } from './src/shared/freeTierLimits';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AppState, BackHandler, Linking, Platform, StatusBar, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import PinScreen from './src/diary/components/PinScreen';
@@ -748,12 +749,30 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onWithdraw
     return () => subscription.remove();
   }, [createOpen, filter, isPhone, navigate, page, railCollapsed, selection, loginOverlayOpen]);
 
-  const create = useCallback(() => {
+  const guestDiaryLimitReached = !member && diaries.filter(diary => !diary.trashedAt).length >= PERSONAL_DIARY_LIMIT;
+  const create = useCallback(async () => {
     if (savingRef.current) return;
+    if (guestDiaryLimitReached) {
+      notify('다이어리 개수 제한', PERSONAL_DIARY_LIMIT_MESSAGE);
+      return;
+    }
+    if (member) {
+      savingRef.current = true;
+      try {
+        await diaryState.store.checkPersonalDiaryCapacity();
+      } catch (error) {
+        if (error.code !== 'STALE_ACCOUNT') {
+          notify(error.code === 'PERSONAL_DIARY_LIMIT_REACHED' ? '다이어리 개수 제한' : '다이어리 개수를 확인하지 못했어요', error.message);
+        }
+        return;
+      } finally {
+        savingRef.current = false;
+      }
+    }
     pendingCreateId.current = null;
     setEditingDiaryId(null);
     setCreateOpen(true);
-  }, []);
+  }, [guestDiaryLimitReached, member, diaryState.store]);
 
   const edit = useCallback(async (diary) => {
     if (diary.canManage === false || savingRef.current) return;
@@ -850,6 +869,9 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onWithdraw
       finally { savingRef.current = false; setSaving(false); }
     }
 
+    if (!original && guestDiaryLimitReached) {
+      return PERSONAL_DIARY_LIMIT_MESSAGE;
+    }
     let config;
     if (!original) {
       try { config = normalizeTemplateConfig(form.templateConfig, form.pageSize); }
@@ -881,6 +903,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onWithdraw
       try {
         // PDF 로 만든 속지는 쪽마다 잠근 그림 한 장을 깐 페이지가 된다.
         const doc = withPdfPages(createDefaultDoc(diary), form.importedPages, config.orientation, paperAppearance);
+        if (doc.pages.length > DIARY_PAGE_LIMIT) return DIARY_PAGE_LIMIT_MESSAGE;
         if (!await saveJSON(STORAGE_KEYS.doc + ':' + diary.id, doc)) throw new Error('다이어리를 저장하지 못했어요. 다시 시도해 주세요.');
         if (!await addDiary(diary)) throw new Error('보관함을 저장하지 못했어요. 다시 시도해 주세요.');
         rememberEditorDoc(STORAGE_KEYS.doc + ':' + diary.id, doc);

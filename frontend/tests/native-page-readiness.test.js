@@ -15,11 +15,11 @@ test('페이지 재전환과 레이아웃 변경 시 오래된 완료는 입력 
       draft = memo && deps.every((v, i) => v === memo.deps[i]) ? memo : { deps, value: make() }
       return draft.value
     },
-    useState: init => { if (!state) state = init(); return [state, next => { state = next }] },
+    useState: init => { if (state === undefined) state = init(); return [state, next => { state = next }] },
   }
   const module = { exports: {} }
   new Function('require', 'module', 'exports', code)(id => id === 'react' ? react : require(id), module, module.exports)
-  const render = (id, enabled, commit = true) => { const value = module.exports.usePageReadiness(id, enabled); if (commit) memo = draft; return value }
+  const render = (id, enabled, commit = true, startPending = false) => { const value = module.exports.usePageReadiness(id, enabled, startPending); if (commit) memo = draft; return value }
   const first = render('a', true)
   assert.equal(first.pageReady, true)
   const second = render('b', true)
@@ -36,4 +36,10 @@ test('페이지 재전환과 레이아웃 변경 시 오래된 완료는 입력 
   assert.equal(render('a', true).pageReady, true)
   assert.equal(render('a', false).pageReady, true)
   assert.equal(render('a', true).pageReady, false)
+  state = memo = undefined
+  const heavy = render('heavy', true, true, true)
+  assert.equal(heavy.pageReady, false)
+  assert.equal(render('heavy', true, true, true).pageReady, false)
+  heavy.setReadyPage({ id: 'heavy', generation: heavy.generation })
+  assert.equal(render('heavy', true, true, true).pageReady, true)
 })

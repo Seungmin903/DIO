@@ -1,4 +1,6 @@
 import { usePhotoPanel, discardUnusedPhotoImports, addPhotoAndRecordRecent } from '../hooks/usePhotoPanel'
+import { notify } from '../../shared/dialogs'
+import { DIARY_PAGE_LIMIT, DIARY_PAGE_LIMIT_MESSAGE } from '../../shared/freeTierLimits'
 import PhotoSourcePicker from '../components/panels/PhotoSourcePicker'
 import { useCustomDecor } from '../hooks/useCustomDecor'
 import { canLeaveForInvitation } from '../../notifications/editorInvitationGuard';
@@ -391,8 +393,9 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
   const offset = viewportLocked || view.x == null ? centeredOffset(stageSize, zoom, PAGE_WIDTH, PAGE_HEIGHT, stagePadding) : { x: view.x, y: view.y }
   // 이미 화면에 맞춰져 있으면 우하단 "화면에 맞춤" 버튼을 비활성화한다 (고정 보기는 옮길 수 없으니 늘 맞춤)
   const viewFitted = viewportLocked || isFitView(view, centeredOffset(stageSize, fitZoom, PAGE_WIDTH, PAGE_HEIGHT, stagePadding))
-  const viewportMotion = useMemo(() => ({ moving: viewMoving, visible: stageSize ? { x: -offset.x / zoom, y: -offset.y / zoom, width: stageSize.width / zoom, height: stageSize.height / zoom } : null }),
-    [viewMoving, stageSize?.width, stageSize?.height, offset.x, offset.y, zoom])
+  const viewportMotion = useMemo(() => ({ moving: viewMoving, fitZoom,
+    visible: stageSize ? { x: -offset.x / zoom, y: -offset.y / zoom, width: stageSize.width / zoom, height: stageSize.height / zoom } : null }),
+    [viewMoving, fitZoom, stageSize?.width, stageSize?.height, offset.x, offset.y, zoom])
 
   // 페이지가 화면 밖으로 다 사라지지 않게 가장자리 80px 은 남긴다.
   const clampOffset = (next, z) => clampViewportOffset(next, z, stageSize, PAGE_WIDTH, PAGE_HEIGHT)
@@ -623,6 +626,7 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
   }
   const copyPage = async id => {
     if(state.pagesLoading){showToast(PAGES_LOADING_MESSAGE);return}
+    if (state.doc.pages.length >= DIARY_PAGE_LIMIT) { showToast(DIARY_PAGE_LIMIT_MESSAGE); return }
     try{
       if(textSync.enabled)await textSync.copyPage(id)
       else dispatch({type:'duplicatePage',id})
@@ -639,7 +643,17 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
   const pickingPhotos = useRef(false)
   const { visible: photoPanelVisible, toggle: togglePhotoPanel, close: closePhotoPanel } = usePhotoPanel(readOnly)
   // 회원 다이어리의 사진은 서버로 올라간다.
-  const photoLimit = textSync.enabled ? { sharedGifMaxBytes: MEDIA_POLICY.sharedGifMaxBytes } : {}
+  // 런타임이 준비되기 전에도 회원 한도를 생략하지 않는다. 준비 안내 후 다시 시도한다.
+  const photoLimit = diary?.source === 'member-api'
+    ? { sharedGifMaxBytes: MEDIA_POLICY.sharedGifMaxBytes, checkPhotoCapacity: textSync.checkPhotoCapacity }
+    : { guestPhoto: true }
+  const showPhotoFailure = (error, retry) => {
+    if (error.code === 'STORAGE_LIMIT_REACHED') {
+      notify('사진 저장 한도', mediaFailureMessage(error))
+      return
+    }
+    showToast(mediaFailureMessage(error), retry)
+  }
   const { markRecentPhotos } = useCustomDecor()
   const addAlbumPhoto = async (index) => {
     if (pickingPhotos.current || photoAlbumSlotOccupied(pageNow.current, index)) return
@@ -663,7 +677,7 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
       if (selected !== index) showToast('같은 칸에 다른 사진이 먼저 저장되어 빈 칸에 넣었어요.')
     } catch (error) {
       if (image) discardUnused([image])
-      showToast(mediaFailureMessage(error))
+      showPhotoFailure(error)
     } finally { pickingPhotos.current = false }
   }
   const addTastingPhoto = async () => {
@@ -690,7 +704,7 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
       image = null
     } catch (error) {
       if (image) discardUnused([image])
-      showToast(mediaFailureMessage(error))
+      showPhotoFailure(error)
     } finally { pickingPhotos.current = false }
   }
   const addPhotos = async (selectedImages, { recent = false } = {}) => {
@@ -722,7 +736,7 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
       if (diary?.source !== 'member-api') markRecentPhotos(used)
       closeAfterInsert()
     } catch (error) {
-      showToast(mediaFailureMessage(error), () => addPhotos())
+      showPhotoFailure(error, () => addPhotos())
     } finally {
       pickingPhotos.current = false
     }
@@ -753,7 +767,7 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
       dispatch({ type: 'updateObject', id, record: true, patch: { ...media, ...cropped } })
       showToast(filling ? '사진을 넣었어요.' : '사진을 바꿨어요.')
     } catch (error) {
-      showToast(mediaFailureMessage(error), () => replacePhoto(id))
+      showPhotoFailure(error, () => replacePhoto(id))
     }
   }
 
@@ -787,7 +801,7 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
       dispatch({ type: 'updateObject', id, record: true, patch: { cells } })
       showToast(images.length > stillEmpty.length ? `빈 칸 ${placed}개를 채웠어요. 나머지 ${images.length - stillEmpty.length}장은 넣지 않았어요.` : `사진 ${placed}장을 넣었어요.`)
     } catch (error) {
-      showToast(mediaFailureMessage(error), () => fillCells(id))
+      showPhotoFailure(error, () => fillCells(id))
     }
   }
 
@@ -817,7 +831,7 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
       dispatch({ type: 'updateObject', id, record: true, patch: { cells: latest.cells.map((c, i) => (i === index ? cell : c)) } })
       showToast(target.cells[index] ? `${index + 1}번 칸 사진을 바꿨어요.` : `${index + 1}번 칸에 사진을 넣었어요.`)
     } catch (error) {
-      showToast(mediaFailureMessage(error), () => replaceCell(id, index))
+      showPhotoFailure(error, () => replaceCell(id, index))
     }
   }
 
@@ -1342,6 +1356,7 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
         myPapers={myLibrary.papers}
         onSelectMine={async (item, chosen) => {
           try{
+            if (state.doc.pages.length + chosen.length > DIARY_PAGE_LIMIT) throw Error(DIARY_PAGE_LIMIT_MESSAGE)
             const pages=chosen.map(paper=>pdfDocPage(paper,state.doc.orientation??templateOrientation,state.doc.paperAppearance))
             if(textSync.enabled)await textSync.addPdfPages(pages)
             else dispatch({type:'addPage',pages})
@@ -1350,6 +1365,7 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
         }}
         onClose={() => setTemplatePickerOpen(false)} onSelect={async backgroundAssetId => {
           try{
+            if (state.doc.pages.length >= DIARY_PAGE_LIMIT) throw Error(DIARY_PAGE_LIMIT_MESSAGE)
             if(textSync.enabled)await textSync.addPage(backgroundAssetId)
             else dispatch({type:'addPage',backgroundAssetId,paperAppearance:newPageAppearance(state.doc.paperAppearance,await loadDefaultPaperStyle())})
             setTemplatePickerOpen(false);fitToScreen()
@@ -1389,7 +1405,12 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
               }
               dispatch({ type: 'selectPage', id })
             }}
-            onAdd={() => { if (cropId) finishCrop(false); setTemplatePickerOpen(true) }}
+            onAdd={() => {
+              if (state.pagesLoading) { showToast(PAGES_LOADING_MESSAGE); return }
+              if (state.doc.pages.length >= DIARY_PAGE_LIMIT) { showToast(DIARY_PAGE_LIMIT_MESSAGE); return }
+              if (cropId) finishCrop(false)
+              setTemplatePickerOpen(true)
+            }}
             onDuplicate={copyPage}
             onSettings={textSync.enabled && !readOnly ? setSettingsPageId : undefined}
             onToggleIndex={(id) => dispatch({ type: 'togglePageIndex', id })}

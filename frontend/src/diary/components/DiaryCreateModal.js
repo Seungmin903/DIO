@@ -17,6 +17,7 @@ import Workbench, { StagePill, fit } from './Workbench';
 import ConfirmDialog from '../../editor/components/controls/ConfirmDialog';
 import { coverSummary, newDiaryCover, normalizeCover } from '../utils/coverDesign';
 import { defaultSections, savedPaperSummary, sectionTitle, sectionsTemplateConfig } from '../utils/paperChoice';
+import { DIARY_PAGE_LIMIT, DIARY_PAGE_LIMIT_MESSAGE } from '../../shared/freeTierLimits.js';
 import { PdfImportError, coverBackupOf, coverForLibrary, coverWithPdfPage, pdfOrientation, pdfPaperRatio, pdfPapersSummary, restoreCoverBase, splitPdfPages } from '../utils/pdfImport';
 import { pickPdfPages } from '../utils/pdfPages';
 import { discardPdfImport } from '../utils/pdfCleanup';
@@ -191,6 +192,10 @@ export default function DiaryCreateModal({ diary, onSubmit, onCancel, saving = f
     if (disabled || submitting.current) return;
     const trimmed = title.trim();
     if (!trimmed) { setSection('basic'); setError('다이어리 이름을 입력해 주세요.'); return; }
+    if (!editing && pageCount > DIARY_PAGE_LIMIT) {
+      setError(DIARY_PAGE_LIMIT_MESSAGE);
+      return;
+    }
     let templateConfig;
     if (!editing) {
       try { templateConfig = sectionsTemplateConfig(chosenSections, orientation); } catch (failure) { setError(failure.message); return; }

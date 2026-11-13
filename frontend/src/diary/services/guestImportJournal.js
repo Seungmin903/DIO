@@ -87,10 +87,16 @@ export function createGuestImportJournalStore({ storage, key }) {
     return result
   }
   return {
-    async pendingIds() {
+    async pendingIds({ createdOnly = false } = {}) {
       return serialize(storage, key, async () => {
         const index = await readIndex()
-        return Object.keys(index.legacy?.diaries ?? index.diaries)
+        if (!createdOnly) return Object.keys(index.legacy?.diaries ?? index.diaries)
+        const ids = []
+        for (const [id, descriptor] of Object.entries(index.legacy?.diaries ?? index.diaries)) {
+          const entry = index.legacy ? descriptor : await readSection(id, 'meta', descriptor.meta)
+          if (entry?.diaryId) ids.push(id)
+        }
+        return ids
       })
     },
     async load() {

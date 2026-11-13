@@ -188,6 +188,7 @@ async function decorHarness(storage, failWrite = false) {
         if (failWrite || storage.fail) return false
         storage.value = structuredClone(value); return true
       } }
+    if (id.endsWith('/freeTierLimits.js')) return require('../src/shared/freeTierLimits.js')
     throw new Error(`unexpected import ${id}`)
   }, m, m.exports)
   function mount() {
@@ -205,6 +206,65 @@ async function decorHarness(storage, failWrite = false) {
   await new Promise(resolve => setImmediate(resolve))
   return { api: render(), render, unmount, mount }
 }
+
+test('보관함 로딩 전 일반 항목은 예외가 없고 스티커·테이프는 준비 안내를 반환한다', async () => {
+  let finish
+  const storage = { read: () => new Promise(resolve => { finish = resolve }) }
+  const hook = await decorHarness(storage)
+  assert.equal(hook.api.loaded, false)
+  assert.doesNotThrow(() => hook.api.add('recentWidgets', { name: 'widget' }))
+    assert.throws(() => hook.api.add('stickers', { mediaFileId: 'new' }), { code: 'CUSTOM_LIBRARY_NOT_READY' })
+    assert.throws(() => hook.api.checkTapeCapacity(), { code: 'CUSTOM_LIBRARY_NOT_READY' })
+    assert.throws(() => hook.api.addTape(null, { src: 'new' }), { code: 'CUSTOM_LIBRARY_NOT_READY' })
+  finish({})
+  await new Promise(resolve => setImmediate(resolve))
+  assert.equal(hook.render().loaded, true)
+  hook.unmount()
+})
+
+test('스티커 초과 묶음을 거절한 뒤 남은 자리 내에서 다시 추가할 수 있다', async () => {
+  const stickers = Array.from({ length: 193 }, (_, index) => ({ src: `saved-${index}` }))
+  const selected = Array.from({ length: 10 }, (_, index) => ({ src: `new-${index}` }))
+  const h = await decorHarness({ value: { folders: [{ id: 'stickers', items: stickers }] } })
+  assert.throws(() => h.api.addToFolder('stickers', selected), { code: 'CUSTOM_STICKER_LIMIT' })
+  assert.equal(h.render().items.folders[0].items.length, 193)
+  h.api.addToFolder('stickers', selected.slice(0, 3))
+  assert.equal(h.render().items.folders[0].items.length, 196)
+  h.unmount()
+})
+
+test('스티커 200개와 테이프 5개까지 저장하고 그 다음 추가는 거부한다', async () => {
+  const stickers = Array.from({ length: 199 }, (_, index) => ({ src: `sticker-${index}` }))
+  const tapes = Array.from({ length: 4 }, (_, index) => ({ id: `tape-${index}` }))
+  const h = await decorHarness({ value: { folders: [{ id: 'stickers', items: stickers }], tapeFolders: [{ id: 'tapes', items: tapes }] } })
+  h.api.addToFolder('stickers', [{ src: 'last' }])
+  assert.throws(() => h.api.addToFolder('stickers', [{ src: 'over' }]), { code: 'CUSTOM_STICKER_LIMIT' })
+  await assert.rejects(h.api.saveGenerated('stickers', '스티커', [{ src: 'generated' }]), { code: 'CUSTOM_STICKER_LIMIT' })
+  h.api.addTape('tapes', { src: 'last-tape' })
+  assert.throws(() => h.api.addTape('tapes', { src: 'over-tape' }), { code: 'STORAGE_LIMIT_REACHED' })
+  h.unmount()
+})
+
+test('스티커 add 배열은 최신 순서로 한 번에 추가하고 초과 묶음은 전부 거절한다', async () => {
+  const h = await decorHarness({ value: { folders: [{ id: 'existing', items: Array.from({ length: 198 }, (_, i) => ({ src: `old-${i}` })) }] } })
+  h.api.add('stickers', [{ src: 'first' }, { src: 'second' }])
+  assert.deepEqual(h.render().items.stickers.map(item => item.src), ['second', 'first'])
+  const before = h.render().items
+  assert.throws(() => h.api.add('stickers', [{ src: 'third' }, { src: 'fourth' }]), { code: 'CUSTOM_STICKER_LIMIT' })
+  assert.equal(h.render().items, before)
+  h.unmount()
+})
+
+test('테이프 한도는 여러 폴더를 합산해 다섯 번째만 허용한다', async () => {
+  const folders = ['one', 'two'].map(id => ({ id, name: id, items: [1, 2].map(n => ({ id: `${id}-${n}` })) }))
+  const h = await decorHarness({ value: { tapeFolders: folders } })
+  h.api.addTape('one', { src: 'fifth' })
+  const before = h.render().items
+  assert.equal(before.tapeFolders.flatMap(folder => folder.items).length, 5)
+  assert.throws(() => h.api.addTape('two', { src: 'sixth' }), { code: 'STORAGE_LIMIT_REACHED' })
+  assert.equal(h.render().items, before)
+  h.unmount()
+})
 
 test('보관함 두 인스턴스가 저장된 목록을 공유하고 늦게 끝난 로드가 최신 변경을 덮지 않는다', async () => {
   const pendingReads = []

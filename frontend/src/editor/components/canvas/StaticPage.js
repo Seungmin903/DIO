@@ -36,7 +36,7 @@ export { ViewportMotion }
  * 편집 화면에서는 확대·이동하는 동안과 화면 밖에 있는 GIF 도 멈춘다 (ViewportMotion).
  * 편집 화면의 GIF 는 움직여야 하므로, 손대지 않고 보이는 것만 재생한다.
  */
-const StaticPage = memo(function StaticPage({ qaPageMeasurement = null, page, zoom, still = false, cropId = null, background = '#FFFFFF', showBackground = true, fadeIds = null, stillIds = null, onTextMeasure = null, textMeasureReady = false, cacheStrokes = false, areaPreviewObjects = null, areaErasing = false, deferredAreaObjects = null, uncachedObjects = null }) {
+const StaticPage = memo(function StaticPage({ qaPageMeasurement = null, page, zoom, still = false, thumbnail = false, limitPhotoMemory = false, cropId = null, background = '#FFFFFF', showBackground = true, fadeIds = null, stillIds = null, onTextMeasure = null, textMeasureReady = false, cacheStrokes = false, areaPreviewObjects = null, areaErasing = false, deferredAreaObjects = null, uncachedObjects = null }) {
   const { width, height } = pageSize(page)
   useLayoutEffect(() => { qaPageMeasurement?.emit('drawing-layout') }, [page.id, qaPageMeasurement])
   const motion = useContext(ViewportMotion)
@@ -53,10 +53,14 @@ const StaticPage = memo(function StaticPage({ qaPageMeasurement = null, page, zo
   const renderableObjects = packing ? page.objects.filter(o => !o.packingColorRegion && o.packingSlot !== 0 && o.packingSlot !== 1) : page.objects
   const renderObject = stored => {
     const object = fitBackdropToPage(stored, width, height)
+    const outside = offscreen(object, motion.visible)
+    const isCropTarget = object.id === cropId
+    const managePhoto = limitPhotoMemory && object.type === 'photo' && !isCropTarget
+    if (managePhoto && outside) return null
     return <PageObject key={object.id} object={object} zoom={zoom} areaPreview={areaErasing && Boolean(areaPreviewObjects?.has(stored))}
       opacity={objectDrawOpacity(object) * (cropId && object.id !== cropId ? 0.45 : 1) * (fadeIds?.includes(object.id) ? DRAG_OPACITY : 1)}
-      still={still || motion.moving || Boolean(fadeIds?.includes(object.id) || stillIds?.includes(object.id)) || offscreen(object, motion.visible)}
-      crop={object.id === cropId} />
+      still={still || motion.moving || Boolean(fadeIds?.includes(object.id) || stillIds?.includes(object.id)) || outside}
+      thumbnail={thumbnail || managePhoto} crop={isCropTarget} />
   }
   // 잉크병 메모(art.overTop)는 **선만** 한 겹 더 맨 위에 올린다 — 그래야 그 위에 쓴 펜 색이 병 선을 덮지 않고
   // 잉크가 병 안으로 들어간 것처럼 보인다(사용자 2026-11-10). 종이 · 글은 제자리(아래)에 그대로 있고,
@@ -107,6 +111,8 @@ const StaticPage = memo(function StaticPage({ qaPageMeasurement = null, page, zo
   && previous.page === next.page
   && previous.zoom === next.zoom
   && previous.still === next.still
+  && previous.thumbnail === next.thumbnail
+  && previous.limitPhotoMemory === next.limitPhotoMemory
   && previous.cropId === next.cropId
   && previous.background === next.background
   && previous.showBackground === next.showBackground

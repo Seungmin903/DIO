@@ -159,8 +159,16 @@ export default function Canvas({
   readOnly = false,
 }) {
   const drawingSurface = useRef(null)
-  const progressiveNative = Platform.OS === 'ios' && !compact && !(readOnly && readingImage) && !colorPicking
-  const { generation, pageReady, setReadyPage } = usePageReadiness(page.id, progressiveNative)
+  const photoHeavyAndroidPage = useMemo(() => {
+    if (Platform.OS !== 'android') return false
+    let photos = 0
+    for (const object of page.objects) {
+      if (object.type === 'photo' && !object.hidden && ++photos >= 24) return true
+    }
+    return false
+  }, [page.objects])
+  const progressiveNative = ((Platform.OS === 'ios' && !compact) || photoHeavyAndroidPage) && !(readOnly && readingImage) && !colorPicking
+  const { generation, pageReady, setReadyPage } = usePageReadiness(page.id, progressiveNative, photoHeavyAndroidPage)
   useLayoutEffect(() => { qaPageMeasurement?.emit('canvas-layout') }, [page.id, qaPageMeasurement])
   useLayoutEffect(() => { if (pageReady) qaPageMeasurement?.emit('page-render-ready') }, [page.id, pageReady, qaPageMeasurement])
   const suppressBrowserSelection = Platform.OS === 'web' && !readOnly && !textEditing
@@ -492,7 +500,7 @@ export default function Canvas({
         iPad 에서 터치용 View 안에 그리면 요소가 하나도 보이지 않는 문제가 있어 그리기와 터치를 나눴다.
       */}
       <View style={styles.clip} pointerEvents="none">
-        {readOnly && readingImage ? <ReadingPageContent image={readingImage} page={page} zoom={zoom} background="transparent" /> : <EraserPreviewDrawing ref={eraseDrawing} page={page} activeTool={activeTool} textEditingId={textEditing?.id} enabled={progressiveNative} generation={generation} onReady={setReadyPage} qaPageMeasurement={qaPageMeasurement} zoom={zoom} cropId={cropId} background="transparent" showBackground={false} fadeIds={draggingIds} stillIds={interacting ? selectedIds : null} textMeasureReady={pageReady} onTextMeasure={readOnly || interacting || !pageReady ? null : fitTextHeight} cacheStrokes={shouldCacheCompletedStrokes(Platform.OS, readOnly, activeTool)} />}
+        {readOnly && readingImage ? <ReadingPageContent image={readingImage} page={page} zoom={zoom} background="transparent" /> : <EraserPreviewDrawing ref={eraseDrawing} page={page} activeTool={activeTool} textEditingId={textEditing?.id} enabled={progressiveNative} startPending={photoHeavyAndroidPage} generation={generation} onReady={setReadyPage} qaPageMeasurement={qaPageMeasurement} zoom={zoom} cropId={cropId} background="transparent" showBackground={false} fadeIds={draggingIds} stillIds={interacting ? selectedIds : null} textMeasureReady={pageReady} onTextMeasure={readOnly || interacting || !pageReady ? null : fitTextHeight} cacheStrokes={shouldCacheCompletedStrokes(Platform.OS, readOnly, activeTool)} />}
       </View>
       </View>
       {!pageReady && <View pointerEvents="none" accessibilityRole="progressbar" accessibilityLabel="페이지 불러오는 중" style={styles.pageLoading}><Text style={styles.pageLoadingText}>페이지 불러오는 중</Text></View>}
@@ -1008,13 +1016,35 @@ const EraserPreviewDrawing = forwardRef(function EraserPreviewDrawing({ page, ac
 })
 
 // 페이지 내용이 조금씩 준비될 때 Canvas 전체 대신 표시 층만 갱신한다.
-function ProgressiveCanvasDrawing({ page, enabled, generation, onReady, ...props }) {
-  const progress = useProgressiveNativePage(page, enabled)
-  const displayed = useMemo(() => progress.ready ? page : { ...page, objects: page.objects.slice(0, progress.count) }, [page, progress.ready, progress.count])
+function ProgressiveCanvasDrawing({ page, enabled, startPending, generation, onReady, ...props }) {
+  const progress = useProgressiveNativePage(page, enabled, startPending)
+  const previous = useRef(null)
+  const [photoBatch, setPhotoBatch] = useState(null)
+  const objects = page.objects
+  const last = previous.current
+  // Android에서 같은 쪽에 사진을 대량 추가한 경우에만 새 요소의 표시를 나눈다.
+  const appendedPhotos = Platform.OS === 'android' && last?.id === page.id &&
+    objects.length - last.objects.length > 8 &&
+    last.objects.every((object, index) => object.id === objects[index]?.id) &&
+    objects.slice(last.objects.length).every(object => object.type === 'photo')
+  const visibleCount = photoBatch?.objects === objects ? photoBatch.count
+    : appendedPhotos ? last.objects.length + 8 : progress.count
+  useLayoutEffect(() => {
+    previous.current = page
+    if (appendedPhotos) setPhotoBatch({ objects, count: visibleCount })
+  }, [page, objects, appendedPhotos, visibleCount])
+  useEffect(() => {
+    if (photoBatch?.objects !== objects || photoBatch.count >= objects.length) return
+    const timer = setTimeout(() => {
+      setPhotoBatch({ objects, count: Math.min(photoBatch.count + 8, objects.length) })
+    }, 32)
+    return () => clearTimeout(timer)
+  }, [objects, photoBatch])
+  const displayed = useMemo(() => visibleCount >= objects.length ? page : { ...page, objects: objects.slice(0, visibleCount) }, [page, objects, visibleCount])
   useLayoutEffect(() => {
     if (enabled && progress.ready) onReady({ id: page.id, generation })
   }, [page.id, generation, enabled, progress.ready, onReady])
-  return <StaticPage {...props} page={displayed} />
+  return <StaticPage {...props} page={displayed} limitPhotoMemory={startPending} />
 }
 
 // 끌 때마다 바뀌는 값(objects·selectedIds·콜백)은 props 로 받지 않고 live ref 로 읽는다.

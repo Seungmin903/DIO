@@ -8,7 +8,7 @@ import { PageExportError } from '../src/editor/utils/pageExport.js'
 const require = createRequire(import.meta.url), expo = createRequire(require.resolve('expo/package.json'))
 
 // PageImageSurface 를 가짜 React 로 한 번 그리고 effect 를 돌린다(내보내기 화면의 '찍기 전 기다리기' 판단만 본다)
-function renderSurface(snapshot) {
+function renderSurface(snapshot, platform = 'web') {
   const { code } = expo('@babel/core').transformSync(readFileSync(new URL('../src/editor/components/PageImageSurface.js', import.meta.url), 'utf8'), {
     configFile: false, babelrc: false,
     plugins: [[expo.resolve('@babel/plugin-transform-react-jsx'), { runtime: 'automatic' }], expo.resolve('@babel/plugin-transform-modules-commonjs')],
@@ -23,8 +23,8 @@ function renderSurface(snapshot) {
   }
   const mocks = {
     react,
-    'react/jsx-runtime': { jsx: () => null, jsxs: () => null, Fragment: 'Fragment' },
-    'react-native': { PixelRatio: { get: () => 1 }, Platform: { OS: 'web' }, View: 'View' },
+    'react/jsx-runtime': { jsx: (type, props) => ({ type, props }), jsxs: (type, props) => ({ type, props }), Fragment: 'Fragment' },
+    'react-native': { PixelRatio: { get: () => 1 }, Platform: { OS: platform }, View: 'View' },
     './PageBackground': { __esModule: true, default: 'PageBackground' },
     './canvas/ObjectView': { __esModule: true, default: 'ObjectContent', objectDrawOpacity: () => 1 },
     '../utils/pageImageQuality.js': { pageImageQuality: () => ({}) },
@@ -46,10 +46,24 @@ function renderSurface(snapshot) {
   new Function('require', 'module', 'exports', code)(id => { if (!(id in mocks)) throw new Error('mock 없음: ' + id); return mocks[id] }, module, module.exports)
   const calls = { resolve: [], reject: [] }
   const job = { snapshot, signal: { aborted: false }, resolve: v => calls.resolve.push(v), reject: e => calls.reject.push(e), onCaptureStart: () => {} }
-  module.exports.default({ job })
+  let tree = module.exports.default({ job })
+  if (platform === 'android') {
+    tree.props.onLayout({ nativeEvent: { layout: { width: snapshot.width, height: snapshot.height } } })
+    slot = 0
+    effects.length = 0
+    tree = module.exports.default({ job })
+  }
   const cleanups = effects.map(fn => fn())
-  return { calls, cleanups, module }
+  return { calls, cleanups, module, tree }
 }
+
+test('Android 내보내기 전용 surface는 화면 위치와 무관하게 대량 사진을 모두 렌더한다', () => {
+  const photos = Array.from({ length: 30 }, (_, id) => ({ id: String(id), type: 'photo', src: `media:${id}`, x: id * 20, y: id * 20, w: 10, h: 10 }))
+  const surface = renderSurface(page(photos), 'android')
+  const collect = node => !node ? [] : Array.isArray(node) ? node.flatMap(collect) : node.type === 'ObjectContent' ? [node.props.object.id] : collect(node.props?.children)
+  assert.deepEqual(collect(surface.tree), photos.map(photo => photo.id))
+  surface.cleanups.forEach(cleanup => cleanup?.())
+})
 
 const page = objects => ({ pageId: 'p', width: 1024, height: 768, pixelWidth: 1024, background: '#FFFFFF', template: null, objects })
 const remoteSticker = { id: 's1', type: 'sticker', x: 0, y: 0, w: 110, h: 110, builtin: 'remote:gone:cherry' }

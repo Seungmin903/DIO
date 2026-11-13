@@ -189,6 +189,11 @@ test('IndexedDB v1 GIF 복원·v3 원본/표시본/메타데이터 커밋·실�
   const blob = new Blob([png], { type: 'image/png' })
   const uri = await repository.save(blob, metadata)
   URL.revokeObjectURL(uri)
+  const originalGet = IDBObjectStore.prototype.get
+  IDBObjectStore.prototype.get = function () { throw Error('ID 집계는 Blob이나 메타데이터를 읽지 않는다') }
+  try {
+    assert.deepEqual((await repository.entries({ idsOnly: true })).map(row => row.id).sort(), ['legacy-gif', metadata.mediaFileId].sort())
+  } finally { IDBObjectStore.prototype.get = originalGet }
   const stored = await repository.get(metadata.mediaFileId)
   assert.deepEqual(stored.media, metadata)
   assert.deepEqual(new Uint8Array(await stored.blob.arrayBuffer()), png)

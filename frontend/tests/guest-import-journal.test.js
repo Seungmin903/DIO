@@ -27,6 +27,16 @@ function entry(payload = 'before') {
 }
 const journal = value => ({ format: 1, diaries: { diary: value } })
 
+test('재개 목록은 생성 전 항목과 서버 다이어리가 있는 항목을 구분한다', async () => {
+  const data = storage(), source = journal(entry('photo'))
+  source.diaries.diary.diaryId = null
+  source.diaries.created = { ...entry('second'), requestId: 'request-2', diaryId: 'server-id' }
+  await store(data).save(source)
+  const reader = store(data)
+  assert.deepEqual((await reader.pendingIds()).sort(), ['created', 'diary'])
+  assert.deepEqual(await reader.pendingIds({ createdOnly: true }), ['created'])
+})
+
 test('수 MB의 한 다이어리·펜 계획도 모든 행을 256KiB 미만으로 나누고 그대로 복원한다', async () => {
   const data = storage(), value = entry('가🖊'.repeat(180000))
   value.plan.pages[0].batches.push(...[2, 3].map(n => ({ clientOperationId: `operation-${n}`, creates: [{ payload: '그림🖊'.repeat(130000) }] })))

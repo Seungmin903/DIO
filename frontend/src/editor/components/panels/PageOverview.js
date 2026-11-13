@@ -103,7 +103,7 @@ const OverviewItem = memo(function OverviewItem({ page, number, active, managing
     <View style={styles.item}>
       <Pressable onPress={onSelect} accessibilityRole={managing ? "checkbox" : "button"} accessibilityState={managing ? { checked: active } : undefined} accessibilityLabel={`${number}페이지 ${managing ? "선택" : "이동"}`} style={[styles.thumb, { height: height * zoom }]}>
         <View style={styles.thumbPage} pointerEvents="none">
-          <StaticPage page={page} zoom={zoom} still />
+          <StaticPage page={page} zoom={zoom} still thumbnail />
         </View>
         {managing && <Text style={{ position: 'absolute', top: 8, right: 8, fontSize: 22, color: colors.primaryStrong }}>{active ? '☑' : '☐'}</Text>}
         {active && <View style={styles.activeRing} pointerEvents="none" />}
