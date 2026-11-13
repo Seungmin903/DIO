@@ -5,7 +5,7 @@ V27이 적용되기 전에는 DB에 `study-planner-*`·`day-planner-*` 행이 �
 `EXPO_PUBLIC_PLANNER_TEMPLATES_ENABLED=0`을 넣으면 플래너를 열고 기존 페이지를 읽는
 기능은 유지하면서, 새 다이어리/페이지에서의 선택과 서버 생성 요청만 차단한다.
 
-- 값은 `frontend/eas.json`의 `preview`·`production` 프로필 `env`에 `"0"`으로 고정되어 있다. 셸 환경 변수를 빠뜨려도 릴리스 빌드는 꺼진 상태로 나간다. 값을 비운 로컬·development 빌드(`pnpm web`, `pnpm android` 등)는 켜진다.
+- 값은 `frontend/eas.json`의 `preview`·`production` 프로필 `env`에 고정되어 있다. 4단계(2026-11-13)에서 `"1"`로 바꿔 릴리스 빌드에서도 플래너 선택이 켜진다(`production-apk`는 `production`을 이어받는다). 값을 비운 로컬·development 빌드(`pnpm web`, `pnpm android` 등)는 켜진다.
 - 웹 배포본(`pnpm web:licensed`)도 `eas.json`의 `production.env`를 읽어 같은 값으로 빌드한다. 셸 값보다 `eas.json`이 우선한다. 다른 경로로 `expo export`를 직접 실행해 배포하지 않는다.
 - 플래그가 꺼져 있는 동안에는 데일리·스터디 플래너 대신 예전 `하루 계획`(reusable-daily)을 메뉴에 그대로 보여 준다. 이 기간에 만든 하루 계획 페이지도 V27이 데일리 플래너로 옮긴다.
 
