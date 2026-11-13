@@ -83,6 +83,7 @@ test('실제 EditorModal을 거쳐도 폰·태블릿 모두 방향·상태바·�
     const Modal = load('../src/editor/components/controls/EditorModal.js', {
       'react-native': { Modal: 'native-modal' },
       '../../../shared/useFormFactor': { useFormFactor: () => ({ isPhone }) },
+      '../../../shared/bootGate': { useBooting: () => false },
     }).default
     const close = () => {}
     const tree = Modal({ visible: true, supportedOrientations: ['portrait', 'landscape'], statusBarTranslucent: true, onRequestClose: close })
