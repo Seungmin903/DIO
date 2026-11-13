@@ -12,9 +12,9 @@ function fixture(file,props) {
  let cursor=0
  const states=[],events=[]
  const mocks={
-  react:{useState:v=>{const i=cursor++;if(!(i in states))states[i]=v;return [states[i],v=>states[i]=v]},useRef:v=>({current:v}),useCallback:f=>f,useContext:()=>()=>{}},
+  react:{useState:v=>{const i=cursor++;if(!(i in states))states[i]=v;return [states[i],v=>states[i]=v]},useRef:v=>({current:v}),useCallback:f=>f,useEffect:()=>{},useContext:()=>()=>{}},
   'react/jsx-runtime':require('react/jsx-runtime'),
-  'react-native':{View:'view',Text:'text',Pressable:'button',ScrollView:'scroll',Platform:{select:()=>({})},StyleSheet:{create:s=>s}},
+  'react-native':{View:'view',Text:'text',Pressable:'button',ScrollView:'scroll',TextInput:'input',Keyboard:{addListener:()=>({remove(){}})},Platform:{select:()=>({})},StyleSheet:{create:s=>s}},
   'react-native-svg':{__esModule:true,default:'svg',Path:'path'},
  }
  const {code}=expo('@babel/core').transformSync(readFileSync(new URL('../src/editor/components/'+file,import.meta.url),'utf8'),{configFile:false,babelrc:false,plugins:[[expo.resolve('@babel/plugin-transform-react-jsx'),{runtime:'automatic'}],expo.resolve('@babel/plugin-transform-modules-commonjs')]})
@@ -28,6 +28,7 @@ function fixture(file,props) {
   if(id.endsWith('/ObjectView'))return {objectOpacity:o=>o.opacity??1,photoSupportsShadow:()=>true}
   if(id.endsWith('/ToolPanel'))return {ToolPanelHeader:'header',toolPanelStyles:{}}
   if(id.endsWith('/ColorPicker'))return {__esModule:true,default:'picker',PaletteInteractionContext:{Provider:'provider'}}
+  if(id.endsWith('/inputFocusContext'))return {InputFocusContext:{Provider:'focus-provider'}}
   if(id.endsWith('/PresetColorEditor'))return {useColorWindow:()=>({open:(ref,options)=>windows.push(options),element:null,isOpen:false})}
   // 여행 노선 지점(스티커 하위 종류) 판별은 실제 함수가 필요하다(옵션 패널이 윤곽선 · 그림자 대상에서 지점을 뺀다)
   if(id.endsWith('/routeNode'))return {isRouteNode:o=>o?.type==='sticker'&&o.routeNode!=null&&typeof o.routeNode==='object'}

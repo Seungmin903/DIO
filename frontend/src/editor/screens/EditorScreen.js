@@ -86,7 +86,7 @@ import { useMemberPagePosition } from '../hooks/useMemberPagePosition'
 import { prefetchPageTemplate } from '../services/editorDocs'
 import { getCurrentPage } from '../state/editorReducer'
 import { clamp, createId, unionBounds } from '../utils/common'
-import { OPTIONS_TOP, OPTIONS_TOP_PHONE, OPTIONS_WIDTH, optionsPlacement, tabletToolPopover } from '../utils/toolPanelPlacement'
+import { OPTIONS_TOP, OPTIONS_TOP_PHONE, OPTIONS_WIDTH, optionsPlacement, tabletToolPopover, typingOptionsPlacement, typingOverflowsStage, typingRevealDy, typingViewRestore } from '../utils/toolPanelPlacement'
 import { automaticPageTurn, centeredOffset, clampOffset as clampViewportOffset, isFitView, panView } from '../utils/viewport.js'
 import { pickImages } from '../services/image'
 import { tastingPhotoBox } from '../templates/tastingGeometry.js'
@@ -195,6 +195,7 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
     const hide = Keyboard.addListener('keyboardDidHide', () => setKeyboardTop(null))
     return () => { show.remove(); hide.remove() }
   }, [])
+  const [optionsTyping, setOptionsTyping] = useState(false) // 옵션 창 안 입력칸(디데이 이름 · 티켓 글자 등)에 적는 중
   const [sheetHeight, setSheetHeight] = useState(0) // 폰 세로 하단 시트가 열려 있으면 그 높이(되돌리기 막대를 시트 위로 올린다)
   const [phonePanelWidths, setPhonePanelWidths] = useState({ left: 0, right: 0 }) // 폰에서 작업창 위에 띄운 패널 너비
   const toolPopoverStyle = (width = 320) => {
@@ -450,6 +451,36 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
     if (selectedText) dispatch({ type: 'updateObject', id: selectedText.id, record: true, patch: selectedText.type === 'shape' ? shapeTextFormatPatch(selectedText,patch) : { ...(visualOnly ? patch : textFormatPatch(selectedText, next)), ...('color' in patch && { colorRanges: [] }) } })
   }
   const showMore = moreOpen && selectedObjects.length > 0 && !cropId
+  // 옵션 창 자리. 창 안 입력칸에 적는 동안 키보드가 창을 가리면 키보드 바로 위로 내려 낮게 줄인다
+  const moreOptionsPlacement = () => {
+    const base = optionsPlacement(selectedObjects, zoom, offset, stageSize, compact ? OPTIONS_TOP_PHONE : OPTIONS_TOP)
+    return optionsTyping ? typingOptionsPlacement(base, { stageTop: stageOrigin.y, stageHeight: stageSize.height, keyboardTop }) : base
+  }
+  const typingOverflow = optionsTyping && showMore && !drawerTab && Boolean(stageSize) && typingOverflowsStage(moreOptionsPlacement())
+  // 적기 시작하면 고친 글자가 바로 보이게, 고른 요소가 내려온 옵션 창 · 키보드에 가리지 않을 만큼 화면을 올린다.
+  // 적기를 마치면(창이 제자리로 돌아가면) 올리기 전 보기로 되돌린다. 적는 동안 직접 옮긴 보기는 그대로 둔다
+  const typingPan = useRef(null) // { before, after }: 적기 시작할 때 올리기 전 · 후 보기
+  useEffect(() => {
+    if (!optionsTyping) {
+      const restore = typingViewRestore(typingPan.current, view)
+      typingPan.current = null
+      // commitView 가 setView 말고 하는 일은 고정 배율 막기(위에서 확인)와 끄는 손짓에 따른 자동 쪽 넘김뿐이다.
+      // 되돌리기는 손짓이 아니라 적기 전 보기(x 가 null 이면 가운데 보기)로 그대로 돌아가는 것이라 쪽을 넘기면 안 되므로 setView 로 직접 둔다
+      if (restore && !viewportLocked) setView(restore)
+      return
+    }
+    if (keyboardTop == null || !showMore || !stageSize || viewportLocked || typingPan.current) return
+    const b = unionBounds(selectedObjects)
+    const element = { left: offset.x + b.left * zoom, right: offset.x + b.right * zoom, top: offset.y + b.top * zoom, bottom: offset.y + b.bottom * zoom }
+    const keyboardLine = Math.min(stageSize.height, keyboardTop - stageOrigin.y)
+    const dy = typingRevealDy({ element, place: moreOptionsPlacement(), keyboardLine })
+    if (dy <= 0) return
+    const next = resolvePan({ scale: view.scale, zoom, x: offset.x, y: offset.y }, 0, -dy)
+    typingPan.current = { before: { scale: view.scale, x: view.x, y: view.y }, after: { scale: next.scale, x: next.x, y: next.y } }
+    commitView(next)
+    // 적기 시작할 때 한 번만 맞춘다 (적는 동안 요소가 움직여도 화면을 다시 옮기지 않는다)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [optionsTyping, keyboardTop != null])
 
   const showToast = useCallback((message, retry) => {
     if (retry) setImportFailure({ message, retry })
@@ -1404,7 +1435,8 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
           onTouchStart={() => setInputActive(true)}
           onTouchEnd={(event) => { if (!event.nativeEvent.touches?.length) setInputActive(false) }}
           onTouchCancel={() => setInputActive(false)}
-          style={[styles.stage, !compact && !readOnly && styles.stageEdge, phoneSheet && sheetHeight > 0 && { overflow: 'visible' }]}
+          // 옵션 창에 적는 동안 작업창이 너무 낮아 창이 작업창 위로 넘어 올라갈 때만(typingOptionsPlacement) 자르지 않는다
+          style={[styles.stage, !compact && !readOnly && styles.stageEdge, ((phoneSheet && sheetHeight > 0) || typingOverflow) && { overflow: 'visible' }]}
           onLayout={() => stageRef.current?.measureInWindow((x, y) => setStageOrigin({ x, y }))}>
           {/* 선택 바는 페이지 밖(보이는 작업 영역 안)까지 나가므로 페이지가 아니라 작업창 위 층에 그린다. 확대·이동하는 동안은 숨긴다. */}
           <StageOverlayHost hidden={viewMoving}>
@@ -1637,8 +1669,9 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
 
           {showMore && !drawerTab && stageSize && (
             // 옵션 패널은 고른 요소 옆(가리지 않는 쪽)에 띄운다
-            <View style={[styles.optionsWrap, optionsPlacement(selectedObjects, zoom, offset, stageSize, compact ? OPTIONS_TOP_PHONE : OPTIONS_TOP)]} pointerEvents="box-none" {...markInside}>
-              <MorePanel objects={selectedObjects} dispatch={dispatch} onReplacePhoto={replacePhoto} onReplaceCell={replaceCell} onCropCell={startCrop} onClose={() => setMoreOpen(false)} />
+            // 창 안 입력칸에 적는 동안에는 키보드 바로 위로 내려 적는 칸이 보이게 한다
+            <View style={[styles.optionsWrap, moreOptionsPlacement()]} pointerEvents="box-none" {...markInside}>
+              <MorePanel objects={selectedObjects} dispatch={dispatch} onReplacePhoto={replacePhoto} onReplaceCell={replaceCell} onCropCell={startCrop} onClose={() => setMoreOpen(false)} onTypingChange={setOptionsTyping} />
             </View>
           )}
 

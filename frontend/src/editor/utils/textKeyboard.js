@@ -38,6 +38,15 @@ export function startTextKeyboard({ platform, getInput, canFocus, isVisible, fin
   return stop
 }
 
+/**
+ * 키보드에 가린 입력칸이 보이게 화면을 올릴 양(화면 px, 0 이하면 올리지 않는다). 모두 화면(창) 기준 y.
+ * 입력칸 아래에 gap 만큼 여유를 두되, 입력칸 위 끝이 visibleTop(작업창 위 끝) 위로 밀려 나가지는 않게 한다.
+ */
+export function revealOverlap({ inputY, inputHeight, keyboardTop, visibleTop = 0, gap = 80 }) {
+  if (![inputY, inputHeight, keyboardTop].every(Number.isFinite)) return 0
+  return Math.min(inputY + inputHeight + gap - keyboardTop, inputY - visibleTop)
+}
+
 // 키보드 바로 위에 띄우는 '선택한 글자' 줄의 bottom(스테이지 기준). keyboardTop 은 keyboardDidShow 의 screenY(창 기준).
 // 안드로이드 15 edge-to-edge 처럼 키보드가 떠도 스테이지가 안 줄면 가려진 만큼 올린다. 키보드가 레이아웃을 줄이는 환경은
 // 스테이지 아래 끝이 이미 키보드 위라 값이 0 이하가 되어 기본 여백(8)만 남는다(두 번 올라가지 않는다).

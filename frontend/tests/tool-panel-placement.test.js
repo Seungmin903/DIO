@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
-import { OPTIONS_TOP, OPTIONS_TOP_PHONE, OPTIONS_WIDTH, optionsPlacement, tabletToolPopover } from '../src/editor/utils/toolPanelPlacement.js'
+import { OPTIONS_TOP, OPTIONS_TOP_PHONE, OPTIONS_TYPING_HEIGHT, OPTIONS_TYPING_MIN_HEIGHT, OPTIONS_WIDTH, optionsPlacement, tabletToolPopover, typingOptionsPlacement, typingOverflowsStage, typingRevealDy, typingViewRestore } from '../src/editor/utils/toolPanelPlacement.js'
 
 const STAGE = { width: 900, height: 700 }
 const at = (y) => [{ x: 40, y, w: 100, h: 40, rotation: 0 }]
@@ -52,4 +52,104 @@ test('태블릿 도구 줄은 작업창 밖에 두어 패널 폭의 영향을 �
   const ribbon = source.indexOf('<Ribbon')
   assert.ok(ribbon > 0 && ribbon < source.indexOf('<View ref={stageRef}'), '도구 줄이 작업창보다 먼저 그려져야 한다')
   assert.ok(ribbon < source.indexOf('styles.body, compact'), '도구 줄이 패널이 든 본문 밖에 있어야 한다')
+})
+
+test('옵션 창 입력칸에 적는 동안 키보드가 창을 가리면 창을 키보드 바로 위로 내려 낮게 줄인다', () => {
+  const base = { left: 300, top: 8, height: 628 }
+  // 작업창이 화면 y=100에서 시작하고 키보드가 화면 y=500에서 시작한다 → 작업창 기준 400
+  const place = typingOptionsPlacement(base, { stageTop: 100, stageHeight: 700, keyboardTop: 500 })
+  assert.equal(place.left, 300)
+  assert.equal(place.top + place.height, 392) // 키보드 위 8
+  assert.equal(place.height, OPTIONS_TYPING_HEIGHT)
+  // 키보드가 작업창을 줄이는 환경은 작업창 아래 끝까지만 쓴다
+  const resized = typingOptionsPlacement({ left: 0, top: 8, height: 628 }, { stageTop: 100, stageHeight: 300, keyboardTop: 500 })
+  assert.equal(resized.top + resized.height, 292)
+  // 자리가 모자라면 위 끝을 넘지 않는다
+  const tight = typingOptionsPlacement(base, { stageTop: 0, stageHeight: 700, keyboardTop: 120 })
+  assert.equal(tight.top, OPTIONS_TOP)
+  assert.equal(tight.height, 104)
+})
+
+test('창이 이미 키보드 위에 다 보이거나 키보드가 없으면 자리를 바꾸지 않는다', () => {
+  const base = { left: 10, top: 8, height: 300 }
+  assert.equal(typingOptionsPlacement(base, { stageTop: 0, stageHeight: 700, keyboardTop: 400 }), base)
+  assert.equal(typingOptionsPlacement(base, { stageTop: 0, stageHeight: 700, keyboardTop: null }), base)
+})
+
+test('편집 화면은 옵션 창 입력 중 상태를 받아 창 자리를 키보드 위로 옮긴다', () => {
+  assert.match(source, /onTypingChange=\{setOptionsTyping\}/)
+  assert.match(source, /optionsTyping \? typingOptionsPlacement\(base/)
+})
+
+test('적기 시작할 때 요소가 내려온 옵션 창과 가로로 겹치면 창 위 끝 위로 올린다', () => {
+  const place = { left: 300, top: 400, height: 168 }
+  // 요소 아래 끝 500, 창 위 끝 400 → 500 - (400 - 8) = 108 만큼
+  assert.equal(typingRevealDy({ element: { left: 320, right: 420, top: 300, bottom: 500 }, place, keyboardLine: 580 }), 108)
+  // 경계: 요소 오른쪽 끝이 창 왼쪽 끝과 딱 맞닿으면 겹치지 않아 키보드 위 끝 기준 → 아래 끝(500)이 이미 572 위라 0
+  assert.equal(typingRevealDy({ element: { left: 200, right: 300, top: 300, bottom: 500 }, place, keyboardLine: 580 }), 0)
+  // 창 오른쪽 끝(300 + 너비)을 지난 요소도 겹치지 않는다
+  assert.equal(typingRevealDy({ element: { left: 300 + OPTIONS_WIDTH, right: 700, top: 300, bottom: 500 }, place, keyboardLine: 580 }), 0)
+})
+
+test('겹치지 않는 요소는 키보드 위 끝 기준으로 올리고, 위 끝을 넘겨 올리지 않는다', () => {
+  const place = { left: 500, top: 400, height: 168 }
+  // 키보드 위 끝 450 → 아래 끝 520 - (450 - 8) = 78
+  assert.equal(typingRevealDy({ element: { left: 0, right: 100, top: 300, bottom: 520 }, place, keyboardLine: 450 }), 78)
+  // 요소가 커서 다 못 올리면 위 끝이 작업창 위 8에 닿을 만큼만 (40 - 8 = 32)
+  assert.equal(typingRevealDy({ element: { left: 0, right: 100, top: 40, bottom: 600 }, place, keyboardLine: 450 }), 32)
+  // 이미 위 끝에 붙은 요소는 올리지 않는다
+  assert.equal(typingRevealDy({ element: { left: 0, right: 100, top: 8, bottom: 600 }, place, keyboardLine: 450 }), 0)
+  // 잴 수 없으면 올리지 않는다
+  assert.equal(typingRevealDy({ element: { left: 0, right: 100, top: 300, bottom: 520 }, place, keyboardLine: NaN }), 0)
+})
+
+test('적기를 마치면 올린 보기가 그대로일 때만 올리기 전 보기로 되돌린다', () => {
+  const saved = { before: { scale: 1, x: null, y: null }, after: { scale: 1, x: 10, y: -108 } }
+  assert.deepEqual(typingViewRestore(saved, { scale: 1, x: 10, y: -108 }), saved.before)
+  assert.deepEqual(typingViewRestore(saved, { scale: 1, x: 10.2, y: -107.8 }), saved.before) // 반올림 오차
+  // 적는 동안 직접 옮기거나 확대했으면 되돌리지 않는다
+  assert.equal(typingViewRestore(saved, { scale: 1, x: 10, y: -40 }), null)
+  assert.equal(typingViewRestore(saved, { scale: 1.5, x: 10, y: -108 }), null)
+  // 올리지 않았으면 되돌릴 것도 없다
+  assert.equal(typingViewRestore(null, { scale: 1, x: 0, y: 0 }), null)
+})
+
+test('작업창이 낮아 키보드가 거의 다 덮어도 적는 칸 하나 높이는 남기고, 화면 위 끝은 넘지 않는다', () => {
+  const base = { left: 0, top: 8, height: 300 }
+  // 작업창 위 끝 100, 키보드 150 → 작업창 기준 아래 끝 42. 최소 높이를 위해 작업창 위로(-34) 올린다
+  const low = typingOptionsPlacement(base, { stageTop: 100, stageHeight: 300, keyboardTop: 150 })
+  assert.equal(low.height, OPTIONS_TYPING_MIN_HEIGHT)
+  assert.equal(low.top, 42 - OPTIONS_TYPING_MIN_HEIGHT)
+  assert.ok(low.height > 0)
+  // 경계: 최소 높이가 딱 들어가면(아래 끝 84 = minTop 8 + 76) minTop 에 붙는다
+  const exact = typingOptionsPlacement(base, { stageTop: 0, stageHeight: 300, keyboardTop: 92 })
+  assert.deepEqual([exact.top, exact.height], [OPTIONS_TOP, OPTIONS_TYPING_MIN_HEIGHT])
+  // 화면 위 끝(작업창 기준 -stageTop)보다 위로는 올리지 않는다
+  const tiny = typingOptionsPlacement(base, { stageTop: 20, stageHeight: 300, keyboardTop: 60 })
+  assert.equal(tiny.top, -20)
+  assert.equal(tiny.height, 32 + 20)
+})
+
+test('편집 화면은 작업창 위 끝(화면 기준)을 Canvas 의 textEditingTop 으로 넘기고, 캔버스는 티켓 글자 편집에 그대로 쓴다', () => {
+  const canvas = readFileSync(new URL('../src/editor/components/canvas/Canvas.js', import.meta.url), 'utf8')
+  // stageOrigin 은 measureInWindow 로 잰 화면 기준 값이라 FrameTextEditor 의 measureInWindow y 와 같은 좌표계다
+  assert.match(source, /measureInWindow\(\(x, y\) => setStageOrigin\(\{ x, y \}\)\)/)
+  assert.match(source, /textEditingTop=\{stageOrigin\.y \+ 8\}/)
+  assert.match(canvas, /^\s*textEditingTop = 0,$/m)
+  assert.match(canvas, /<FrameTextEditor [^\n]*visibleTop=\{textEditingTop\}/)
+})
+
+test('작업창 자르기는 적는 옵션 창이 작업창 위로 넘어 올라갈 때만 풀고, 캔버스는 따로 잘린다', () => {
+  const base = { left: 0, top: 8, height: 300 }
+  // 보통 키보드: 창이 작업창 안 → 자르기 유지
+  assert.equal(typingOverflowsStage(typingOptionsPlacement(base, { stageTop: 100, stageHeight: 700, keyboardTop: 500 })), false)
+  // 경계: 창 위 끝이 작업창 위 끝(0)과 같으면 넘지 않았다
+  assert.equal(typingOverflowsStage({ left: 0, top: 0, height: 76 }), false)
+  // 낮은 작업창: 최소 높이를 지키려 위로 넘어감 → 풀기
+  assert.equal(typingOverflowsStage(typingOptionsPlacement(base, { stageTop: 100, stageHeight: 300, keyboardTop: 150 })), true)
+  assert.equal(typingOverflowsStage(null), false)
+  assert.match(source, /\(\(phoneSheet && sheetHeight > 0\) \|\| typingOverflow\) && \{ overflow: 'visible' \}/)
+  // 자르기를 풀어도 페이지 · 요소는 Viewport 가 따로 잘라 작업창 밖(도구 막대 위)에 그려지지 않는다
+  const viewport = readFileSync(new URL('../src/editor/components/canvas/Viewport.js', import.meta.url), 'utf8')
+  assert.match(viewport, /viewport: \{ flex: 1, overflow: 'hidden'/)
 })

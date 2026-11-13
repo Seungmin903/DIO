@@ -1,5 +1,5 @@
-import { useCallback, useRef, useState } from 'react'
-import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { Keyboard, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
 import { colors, shadow } from '../../../shared/theme'
 import { normalizeAngle, rotateVector, unionBounds } from '../../utils/common'
 import Icon from '../controls/Icon'
@@ -15,6 +15,7 @@ import { isRouteNode } from '../../widgets/routeNode'
 import { isStripFrame } from '../../utils/photoStrip'
 import { hasPhotoMedia } from '../../utils/objects'
 import { PaletteInteractionContext } from '../controls/ColorPicker'
+import { InputFocusContext } from '../controls/inputFocusContext'
 
 const TYPE_TITLES = { sticker: '스티커', photo: '사진', tape: '마스킹테이프', shape: '도형' }
 
@@ -24,9 +25,47 @@ const TYPE_TITLES = { sticker: '스티커', photo: '사진', tape: '마스킹테
  * 탭 두 개: '꾸미기'(사진 틀·칸 사진·모양·모서리 둥글기·틀 색, 불투명도, 윤곽선·그림자, 테이프 디자인)를 먼저, '배치'(반전·각도)는 뒤에.
  * 꾸밀 것이 없는 요소(이미지 테이프 등)는 배치만 보여 준다.
  */
-export default function MorePanel({ objects, dispatch, onReplacePhoto, onReplaceCell, onCropCell, onClose }) {
+export default function MorePanel({ objects, dispatch, onReplacePhoto, onReplaceCell, onCropCell, onClose, onTypingChange }) {
   const [tab, setTab] = useState('style')
   const scrollRef = useRef(null)
+  // 창 안의 입력칸(디데이 이름 · 티켓 글자 등)에 적는 동안: 편집 화면이 창을 키보드 바로 위로 내리고, 여기서는 적는 칸이 보이게 스크롤한다
+  const contentRef = useRef(null)
+  const typingY = useRef(null)
+  const [typing, setTyping] = useState(false)
+  // 칸 제목까지 보이게 조금 위부터
+  const scrollToTyping = () => {
+    if (typingY.current != null) scrollRef.current?.scrollTo?.({ y: Math.max(0, typingY.current - 30), animated: false })
+  }
+  // 포커스된 입력칸이 이 창 안이면 자리를 재고 그 칸이 보이게 스크롤한다.
+  // 키보드가 처음 뜰 때(keyboardDidShow)와, 키보드가 떠 있는 채로 다른 칸으로 옮길 때(입력칸 onFocus) 부른다
+  // 이 창 밖의 입력칸(캔버스 글상자 등)이면 measureLayout 이 실패한다. 그때는 onOutside 를 부른다
+  const measureTyping = (onOutside) => {
+    const input = TextInput.State?.currentlyFocusedInput?.()
+    if (!input?.measureLayout || !contentRef.current) { if (input) onOutside?.(); return }
+    try {
+      input.measureLayout(contentRef.current, (x, y) => { typingY.current = y; setTyping(true); scrollToTyping() }, () => onOutside?.())
+    } catch { onOutside?.() /* 이미 사라진 입력칸 */ }
+  }
+  // 창 안 칸에서 포커스가 빠지면, 옮겨 간 칸이 창 밖(캔버스 글상자 등)일 때 적기를 끝낸다(창을 제자리로 · 올린 보기를 되돌린다).
+  // 포커스가 넘어간 뒤에 알 수 있어 한 박자 늦게 본다. 포커스 칸이 아예 없으면 키보드가 내려가며 keyboardDidHide 가 끝낸다
+  // 예약은 하나만 둔다(새로 빠지면 앞 예약을 지운다). 창이 닫히면 지워 사라진 창의 상태를 바꾸지 않는다
+  const blurTimer = useRef(null)
+  const inputFocus = {
+    onFocus: () => { if (Keyboard.isVisible?.()) measureTyping() },
+    onBlur: () => {
+      clearTimeout(blurTimer.current)
+      blurTimer.current = setTimeout(() => { blurTimer.current = null; measureTyping(() => setTyping(false)) }, 0)
+    },
+  }
+  useEffect(() => {
+    const show = Keyboard.addListener('keyboardDidShow', () => measureTyping())
+    const hide = Keyboard.addListener('keyboardDidHide', () => setTyping(false))
+    return () => { show.remove(); hide.remove(); clearTimeout(blurTimer.current) }
+    // measureTyping 은 ref 만 쓴다
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+  useEffect(() => { onTypingChange?.(typing) }, [typing, onTypingChange])
+  useEffect(() => () => onTypingChange?.(false), [onTypingChange])
   const [paletteDragging, setPaletteDragging] = useState(false)
   const onPaletteInteraction = useCallback(active => {
     // 다음 렌더 전에도 네이티브 스크롤이 팔레트 제스처를 가져가지 않게 한다.
@@ -67,14 +106,15 @@ export default function MorePanel({ objects, dispatch, onReplacePhoto, onReplace
 
   return (
     <View style={styles.panel}>
-      <View style={styles.header}>
+      {/* 적는 동안은 창이 키보드 위 낮은 막대가 되므로 제목 · 탭을 접어 적는 칸에 자리를 준다 (입력칸은 아래 스크롤 안이라 그대로 남는다) */}
+      {!typing && <View style={styles.header}>
         <Text style={styles.title}>{title}</Text>
         <Pressable onPress={onClose} hitSlop={10} style={styles.close} accessibilityLabel="옵션 닫기">
           <Icon name="close" size={18} />
         </Pressable>
-      </View>
+      </View>}
 
-      {hasStyle && editable.length > 0 && (
+      {!typing && hasStyle && editable.length > 0 && (
         <View style={styles.tabs} accessibilityRole="tablist">
           {[
             { id: 'style', label: '꾸미기' },
@@ -94,7 +134,11 @@ export default function MorePanel({ objects, dispatch, onReplacePhoto, onReplace
       )}
 
       <PaletteInteractionContext.Provider value={onPaletteInteraction}>
-      <ScrollView ref={scrollRef} scrollEnabled={!paletteDragging} style={styles.scroll} contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
+      <ScrollView ref={scrollRef} scrollEnabled={!paletteDragging} style={styles.scroll} contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled"
+        // 창이 키보드 위로 내려가 줄어든 뒤에도 적는 칸이 보이게 다시 맞춘다
+        onLayout={() => { if (typing) scrollToTyping() }}>
+        <View ref={contentRef} collapsable={false}>
+        <InputFocusContext.Provider value={inputFocus}>
         {!editable.length ? (
           <Text style={styles.hint}>잠긴 요소예요. 잠금을 풀면 편집할 수 있어요.</Text>
         ) : current === 'style' ? (
@@ -171,6 +215,8 @@ export default function MorePanel({ objects, dispatch, onReplacePhoto, onReplace
             </Section>
           </>
         )}
+        </InputFocusContext.Provider>
+        </View>
       </ScrollView>
       </PaletteInteractionContext.Provider>
     </View>
