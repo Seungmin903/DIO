@@ -47,24 +47,36 @@ export function createCanvasMedia({request,files,storage,key,isActive=()=>true,n
   return status>=400&&status<500&&![408,429].includes(status)
     ||['MEDIA_DECODE_FAILED','MEDIA_CORRUPT','UNSUPPORTED_MEDIA_TYPE','INVALID_MEDIA','IMAGE_TOO_LARGE','INVALID_SERVER_MEDIA','STORAGE_FULL','PDF_SOURCE_MISSING'].includes(error.code)
  }
+ const tracked=new Map(),track=(id,job)=>{tracked.set(id,job);files.pending?.(id,job)}
+ let saving=Promise.resolve()
+ const oneAtATime=task=>{const run=saving.then(task,task);saving=run.catch(()=>{});return run}
  const download=(id,force=false)=>{
   active()
   if(downloads.has(id))return downloads.get(id)
   if(force){failures.delete(id);downloaded.delete(id)}
   const failure=failures.get(id)
-  if(downloaded.has(id)||failure&&now()<failure.retryAt)return Promise.resolve()
+  if(downloaded.has(id))return Promise.resolve()
+  // 다시 받기를 기다리는 동안 건너뛴 사진도 지난 실패 이유를 그대로 돌려준다. 성공처럼 끝내면 화면이 '찾을 수 없어요'를 보였다.
+  if(failure&&now()<failure.retryAt)return Promise.reject(failure.error)
   const job=(async()=>{
    try{
-    if(!await files.cached(id)){active();const bytes=await request(`/media/${id}/file`,{binary:true,maxBytes:sharedGifMaxBytes,timeoutMs:120000});active();await files.save(id,bytes)}
+    // 평소엔 헤더만 보고 넘어간다(전체 디코딩은 사진마다 느리다). 다시 조회(force)일 때만 끝까지 확인해 깨진 파일을 다시 받는다.
+    // 받기는 동시에 여러 장 하되, 디코딩·표시본을 만드는 저장(save)은 한 장씩 해서 큰 사진이 한꺼번에 풀리지 않게 한다.
+    if(!await files.cached(id,{verify:force})){active();const bytes=await request(`/media/${id}/file`,{binary:true,maxBytes:sharedGifMaxBytes,timeoutMs:120000});active();await oneAtATime(()=>{active();return files.save(id,bytes)})}
     active();downloaded.add(id);failures.delete(id)
    }catch(error){
+    // 세션이 끝나 못 받은 것은 실패로 남기지 않는다(대기 기록을 비운다). 남기면 나중에 '편집 세션이 종료됐어요'가 보인다.
+    if(closed||!isActive())track(id,Promise.resolve())
     active()
     const attempts=(failure?.attempts??0)+1,delays=[5000,15000,60000]
-    failures.set(id,{attempts,retryAt:permanent(error)||attempts>=4?Infinity:now()+delays[attempts-1]})
+    failures.set(id,{attempts,error,retryAt:permanent(error)||attempts>=4?Infinity:now()+delays[attempts-1]})
     files.fail?.(id,error);throw error
    }
   })().finally(()=>downloads.delete(id))
-  downloads.set(id,job);return job
+  downloads.set(id,job)
+  // 받는 동안(다시 조회 포함) 화면이 읽으면 이 받기를 기다린다. 성공하면 대기 기록이 지워지고, 실패하면 이번 실패 이유가 남는다.
+  track(id,job)
+  return job
  }
  return {
   async prepare(body){
@@ -93,8 +105,22 @@ export function createCanvasMedia({request,files,storage,key,isActive=()=>true,n
     remote.add(id)
     if(!registrations.has(id))registrations.set(id,files.registerRetry?.(id,()=>download(id,true)))
    })
-   // Backoff skips failed IDs immediately; only one full-size image is decoded at a time.
-   for(const id of ids){active();try{await download(id)}catch{active()}}
+   // 화면은 받기를 기다리지 않고 먼저 그린다. 받는 중인 사진은 '찾을 수 없음'이 아니라 '불러오는 중'으로 보이도록
+   // 사진마다 끝나는 시점을 미리 알려 둔다(files.pending). 세션이 끝나도 기다리는 쪽이 멈추지 않게 마지막에 모두 풀어 준다.
+   const waits=new Map(ids.map(id=>{let settle;const promise=new Promise((ok,no)=>{settle={ok,no}});promise.catch(()=>{});return [id,{promise,settle}]}))
+   ids.forEach(id=>track(id,waits.get(id).promise))
+   // 한 장씩만 받으면 사진이 많은 페이지가 오래 걸린다. 메모리를 생각해 동시에 3장까지만 받는다. 실패한 ID는 대기 시간 동안 바로 건너뛴다.
+   let next=0
+   const worker=async()=>{
+    while(next<ids.length){
+     const id=ids[next++],{settle}=waits.get(id)
+     try{active();await download(id);settle.ok()}catch(error){if(closed||!isActive())return;settle.no(error)}
+    }
+   }
+   // 세션이 끝나 받지 못한 사진은 실패로 남기지 않는다. 성공처럼 풀어 주면 기다리던 쪽이 다시 읽고,
+   // '편집 세션이 종료됐어요' 같은 엉뚱한 이유 대신 실제 상태(아직 기기에 없음)를 보인다. 남은 대기 기록도 지워진다.
+   try{await Promise.all(Array.from({length:Math.min(3,ids.length)},worker))}
+   finally{waits.forEach(({settle})=>settle.ok())}
    active();return rows
   },
   // 친구 기기: 원본 PDF 를 받아 sourceId 로 보관한다. 이미 있으면 받지 않는다.
@@ -107,7 +133,8 @@ export function createCanvasMedia({request,files,storage,key,isActive=()=>true,n
    await files.saveDocument(sourceId,bytes);active()
   },
   async retry(id){active();if(!remote.has(id))throw Error('공유 이미지 참조를 확인해 주세요.');await download(id,true)},
-  dispose(){closed=true;for(const unregister of registrations.values())unregister?.();registrations.clear();failures.clear()},
+  // 이 세션이 남긴 대기 기록(실패 이유 포함)을 지운다. 다른 세션이 그 뒤에 같은 사진을 등록했다면 그 기록은 건드리지 않는다.
+  dispose(){closed=true;tracked.forEach((job,id)=>files.forget?.(id,job));tracked.clear();for(const unregister of registrations.values())unregister?.();registrations.clear();failures.clear()},
  }
 }
 

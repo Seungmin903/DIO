@@ -165,3 +165,112 @@ test('다운로드와 업로드는 시간 제한을 120초로 요청한다',asyn
  await media.prepare({changes:{creates:[{elementType:'PHOTO',mediaFileId:localId}]}});await media.hydrate([{mediaFileId:'90000000-0000-4000-8000-000000000009'}])
  assert.equal(calls.length,2);assert.ok(calls.every(options=>options.timeoutMs===120000))
 })
+
+test('받는 중인 공유 사진은 끝나는 시점을 먼저 알리고 동시에 3장까지 받으며 실패는 그 오류로 알린다',async()=>{
+ const ids=Array.from({length:5},(_,i)=>`5000000${i}-0000-4000-8000-000000000001`)
+ const pending=new Map(),waiters=[];let running=0,peak=0
+ const media=createCanvasMedia({storage:{getItem:async()=>null,setItem:async()=>{}},key:'m',
+  files:{cached:async()=>false,save:async()=>{},pending:(id,job)=>pending.set(id,job)},
+  request:async path=>{running++;peak=Math.max(peak,running);await new Promise(resolve=>waiters.push(resolve));running--;if(path.includes(ids[4]))throw Object.assign(Error('서버 끊김'),{status:503});return new Uint8Array([1])}})
+ const job=media.hydrate(ids.map(mediaFileId=>({mediaFileId})))
+ assert.deepEqual([...pending.keys()],ids)
+ let done=false;job.finally(()=>{done=true})
+ while(!done){await new Promise(resolve=>setImmediate(resolve));waiters.splice(0).forEach(resolve=>resolve())}
+ await job
+ assert.equal(peak,3)
+ await Promise.all(ids.slice(0,4).map(id=>pending.get(id)))
+ await assert.rejects(pending.get(ids[4]),/서버 끊김/)
+})
+
+test('다시 받기를 기다리는 동안 건너뛴 사진도 지난 실패 이유로 끝난다',async()=>{
+ const id='60000000-0000-4000-8000-000000000001',pending=[]
+ const media=createCanvasMedia({storage:{getItem:async()=>null,setItem:async()=>{}},key:'m',now:()=>0,
+  files:{cached:async()=>false,save:async()=>{},pending:(_,job)=>pending.push(job)},
+  request:async()=>{throw Object.assign(Error('서버 끊김'),{status:503})}})
+ await media.hydrate([{mediaFileId:id}])
+ await assert.rejects(pending[0],/서버 끊김/)
+ await media.hydrate([{mediaFileId:id}])
+ await assert.rejects(pending[1],/서버 끊김/)
+})
+
+test('다시 조회로 받기에 성공하면 지난 실패 기록을 성공으로 바꿔 둔다',async()=>{
+ const id='70000000-0000-4000-8000-000000000001',pending=[];let fail=true
+ const media=createCanvasMedia({storage:{getItem:async()=>null,setItem:async()=>{}},key:'m',now:()=>0,
+  files:{cached:async()=>false,save:async()=>{},pending:(_,job)=>pending.push(job),registerRetry:()=>()=>{}},
+  request:async()=>{if(fail)throw Object.assign(Error('서버 끊김'),{status:503});return new Uint8Array([1])}})
+ await media.hydrate([{mediaFileId:id}])
+ await assert.rejects(pending.at(-1),/서버 끊김/)
+ fail=false;await media.retry(id)
+ await pending.at(-1)
+})
+
+test('세션이 끝나 받지 못한 사진은 세션 종료 오류를 남기지 않고 풀어 준다',async()=>{
+ const id='80000000-0000-4000-8000-000000000001',pending=[];let live=true,release
+ const media=createCanvasMedia({storage:{getItem:async()=>null,setItem:async()=>{}},key:'m',isActive:()=>live,
+  files:{cached:async()=>false,save:async()=>{},pending:(_,job)=>pending.push(job)},
+  request:()=>new Promise(resolve=>{release=resolve})})
+ const job=media.hydrate([{mediaFileId:id}])
+ while(!release)await new Promise(resolve=>setImmediate(resolve))
+ live=false;release(new Uint8Array([1]))
+ await assert.rejects(job,/편집 세션이 종료됐어요/)
+ await pending.at(-1)
+})
+
+test('다시 조회도 실패하면 대기 기록을 최신 실패 이유로 바꾼다',async()=>{
+ const id='90000000-0000-4000-8000-000000000001',pending=[];let reason='처음 오류'
+ const media=createCanvasMedia({storage:{getItem:async()=>null,setItem:async()=>{}},key:'m',now:()=>0,
+  files:{cached:async()=>false,save:async()=>{},pending:(_,job)=>pending.push(job)},
+  request:async()=>{throw Object.assign(Error(reason),{status:503})}})
+ await media.hydrate([{mediaFileId:id}])
+ await assert.rejects(pending.at(-1),/처음 오류/)
+ reason='새 오류';await assert.rejects(media.retry(id),/새 오류/)
+ await assert.rejects(pending.at(-1),/새 오류/)
+})
+
+test('그리다 깨진 사진은 다시 조회 콜백이 전체 확인으로 걸러 서버에서 다시 받는다',async()=>{
+ const id='a0000000-0000-4000-8000-000000000001',checks=[],retries=new Map();let requests=0
+ const media=createCanvasMedia({storage:{getItem:async()=>null,setItem:async()=>{}},key:'m',
+  // 헤더·크기는 맞지만 본문이 깨진 파일: 가벼운 확인은 통과하고 전체 확인(verify)에서만 걸린다
+  files:{cached:async(_,{verify})=>{checks.push(verify);return !verify},save:async()=>{},registerRetry:(key,retry)=>{retries.set(key,retry);return ()=>{}}},
+  request:async()=>{requests++;return new Uint8Array([1])}})
+ await media.hydrate([{mediaFileId:id}])
+ assert.deepEqual(checks,[false]);assert.equal(requests,0)
+ // 화면: ObjectView onError → reportMediaDisplayError → 알림의 다시 조회 → retryRemoteMedia → 이 콜백
+ await retries.get(id)()
+ assert.deepEqual(checks,[false,true]);assert.equal(requests,1)
+})
+
+test('다시 조회로 받는 동안에는 대기 기록이 지금 받는 중인 받기를 가리킨다',async()=>{
+ const id='b0000000-0000-4000-8000-000000000001',pending=[];let fail=true,release
+ const media=createCanvasMedia({storage:{getItem:async()=>null,setItem:async()=>{}},key:'m',now:()=>0,
+  files:{cached:async()=>false,save:async()=>{},pending:(_,job)=>pending.push(job)},
+  request:async()=>{if(fail)throw Object.assign(Error('예전 오류'),{status:503});await new Promise(resolve=>{release=resolve});return new Uint8Array([1])}})
+ await media.hydrate([{mediaFileId:id}])
+ await assert.rejects(pending.at(-1),/예전 오류/)
+ fail=false;const retry=media.retry(id)
+ const current=pending.at(-1);let settled=false;current.then(()=>{settled=true},()=>{settled=true})
+ while(!release)await new Promise(resolve=>setImmediate(resolve))
+ assert.equal(settled,false)
+ release();await retry;await current
+})
+
+test('여러 장을 동시에 받아도 저장(디코딩)은 한 장씩 한다',async()=>{
+ const ids=Array.from({length:4},(_,i)=>`c000000${i}-0000-4000-8000-000000000001`);let saving=0,peak=0
+ const media=createCanvasMedia({storage:{getItem:async()=>null,setItem:async()=>{}},key:'m',
+  files:{cached:async()=>false,save:async()=>{saving++;peak=Math.max(peak,saving);await new Promise(resolve=>setTimeout(resolve,5));saving--}},
+  request:async()=>new Uint8Array([1])})
+ await media.hydrate(ids.map(mediaFileId=>({mediaFileId})))
+ assert.equal(peak,1)
+})
+
+test('세션이 끝나면 이 세션이 남긴 실패 기록만 지운다',async()=>{
+ const id='d0000000-0000-4000-8000-000000000001',pending=new Map(),forgot=[]
+ const media=createCanvasMedia({storage:{getItem:async()=>null,setItem:async()=>{}},key:'m',now:()=>0,
+  files:{cached:async()=>false,save:async()=>{},pending:(key,job)=>pending.set(key,job),forget:(key,job)=>forgot.push([key,job])},
+  request:async()=>{throw Object.assign(Error('서버 끊김'),{status:503})}})
+ await media.hydrate([{mediaFileId:id}])
+ const failed=pending.get(id)
+ await assert.rejects(failed,/서버 끊김/)
+ media.dispose()
+ assert.deepEqual(forgot,[[id,failed]])
+})
