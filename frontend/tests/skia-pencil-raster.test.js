@@ -2,7 +2,8 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { createStroke } from '../src/editor/utils/strokes.js'
 import { createCompletedStrokePlanner } from '../src/editor/utils/completedStrokePlan.js'
-import { isSkiaPencil, pencilRasterBounds, pencilRasterKey, pencilBakesOpacity, rememberRaster, reusableRaster } from '../src/editor/skia/pencilRaster.js'
+import { drawPencilRaster, isSkiaPencil, isSkiaRaster, pencilRasterBounds, pencilRasterKey, pencilBakesOpacity, rememberRaster, reusableRaster } from '../src/editor/skia/pencilRaster.js'
+import { GLASS_INK } from '../src/editor/utils/glassInk.js'
 import { quantizeScale } from '../src/editor/skia/rasterBudget.js'
 
 const withDistance = points => { let d = 0; return points.map((p, i) => { if (i) d += Math.hypot(p.x - points[i - 1].x, p.y - points[i - 1].y); return { ...p, inkDistance: d } }) }
@@ -91,4 +92,62 @@ test('불투명도 슬라이더를 끄는 동안 값마다 굽지 않고, 멈춘
     assert.match(source, /return \(\) => clearTimeout\(timer\)/, `${name}: 값이 또 바뀌면 타이머를 다시 잡는다`)
     assert.match(source, /const cache = new WeakMap\(\)/, `${name}: 획(점 배열)당 그림 하나 — 열쇠가 바뀌면 덮어쓴다`)
   }
+})
+
+// 잉크펜: 앱 편집 화면은 Skia 셰이더로 그리므로 썸네일 · 내보내기도 같은 Skia 그림으로 굽는다(SVG 근사는 색 · 테 · 글리터가 달랐다).
+// 웹 편집 화면은 SVG 라 웹에서는 굽지 않는다.
+const glass = (id, extra = {}) => ({ ...createStroke(line, { id, kind: 'glass', width: 6, renderVersion: 3, materialSeed: 1 }), ...extra })
+
+test('잉크펜은 앱에서만 Skia 그림으로 굽고, 웹 · 다른 펜은 그대로 둔다', () => {
+  assert.equal(isSkiaRaster(glass('g'), 'android'), true)
+  assert.equal(isSkiaRaster(glass('g'), 'ios'), true)
+  assert.equal(isSkiaRaster(glass('g'), 'web'), false)
+  assert.equal(isSkiaRaster(ball('b'), 'android'), false)
+  assert.equal(isSkiaRaster(pencil('p'), 'web'), true, '연필은 웹에서도 굽는다')
+  assert.equal(pencilBakesOpacity(glass('g')), false, '잉크펜 불투명도는 요소 래퍼가 곱한다')
+})
+
+test('잉크펜 그림 범위는 번짐(halo)만큼 여백을 더 두고, 열쇠는 잉크 설정 · 무늬 기준점이 바뀌면 달라진다', () => {
+  const stroke = glass('g')
+  assert.equal(pencilRasterBounds(stroke).left, -(stroke.strokeWidth + 2 + 3 * GLASS_INK.haloSpread))
+  const key = pencilRasterKey(stroke, 2)
+  assert.notEqual(pencilRasterKey({ ...stroke, inkGlitter: false }, 2), key)
+  assert.notEqual(pencilRasterKey({ ...stroke, inkSheenColor: '#ff0000' }, 2), key)
+  assert.notEqual(pencilRasterKey({ ...stroke, inkOrigin: { x: 99, y: 1 } }, 2), key, '무늬가 페이지에 붙어 있어 기준점이 다르면 다른 그림')
+  assert.notEqual(pencilRasterKey(stroke, 2), pencilRasterKey({ ...stroke, penKind: 'ball' }, 2))
+})
+
+// 굽기는 요소를 원점(x · y = 0)으로 옮겨 그린다. 잉크펜 무늬(글리터 · 테)는 페이지에 붙어 있으므로
+// 옮기기 전 기준점(glassOrigin)을 inkOrigin 으로 넘겨야 편집 화면과 같은 자리에 반짝인다.
+function bakedLocal(object) {
+  const drawn = []
+  const canvas = { scale() {}, translate() {}, drawPicture() {} }
+  const runtime = {
+    makeSurface: () => ({ getCanvas: () => canvas, flush() {}, makeImageSnapshot: () => ({ dispose() {} }), dispose() {} }),
+    strokesPicture: (objects, fade, scale) => { drawn.push({ objects, scale }); return {} },
+  }
+  const result = drawPencilRaster(runtime, object, 2)
+  result.dispose()
+  assert.equal(drawn.length, 1)
+  return drawn[0].objects[0]
+}
+
+test('잉크펜 굽기: 저장된 무늬 기준점(inkOrigin)은 요소를 옮긴 뒤에도 그대로 넘긴다', () => {
+  const stroke = glass('g-saved')
+  const origin = { ...stroke.inkOrigin }
+  const local = bakedLocal({ ...stroke, x: stroke.x + 300, y: stroke.y + 40 })
+  assert.deepEqual([local.x, local.y], [0, 0], '위치는 요소 래퍼가 맡는다')
+  assert.deepEqual(local.inkOrigin, origin)
+})
+
+test('잉크펜 굽기: 기준점이 없는 옛 획은 원점으로 옮기기 전 요소 위치를 기준점으로 넘긴다', () => {
+  const { inkOrigin, ...old } = { ...glass('g-old'), x: 120, y: 45 }
+  assert.ok(inkOrigin, '새 획은 기준점을 적어 둔다')
+  const local = bakedLocal({ ...old, points: old.points.map(p => ({ ...p })) })
+  assert.deepEqual([local.x, local.y], [0, 0])
+  assert.deepEqual(local.inkOrigin, { x: 120, y: 45 })
+})
+
+test('연필 굽기에는 inkOrigin 을 끼워 넣지 않는다', () => {
+  assert.equal('inkOrigin' in bakedLocal(pencil('p-bake')), false)
 })

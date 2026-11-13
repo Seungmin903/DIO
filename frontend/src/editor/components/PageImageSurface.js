@@ -9,7 +9,7 @@ import { PageExportError } from '../utils/pageExport.js'
 import { ensurePersonalFonts } from '../../handwriting/library.js'
 import { ensureExportFonts } from '../services/textFonts'
 import { SkiaPencilScale } from '../skia/skiaPencilScale.js'
-import { isSkiaPencil } from '../skia/pencilRaster.js'
+import { isSkiaRaster } from '../skia/pencilRaster.js'
 import { builtinStickerOf } from '../builtinStickers'
 import { useStickerPacks } from '../hooks/useStickerPacks'
 import { packingLayout } from '../templates/packingLayout.js'
@@ -44,12 +44,12 @@ export default function PageImageSurface({ job }) {
   const surface = useRef(null), started = useRef(false), failed = useRef(false)
   const scale = Platform.OS === 'web' || !area ? 1 : Math.min(1, area.width / snapshot.width, area.height / snapshot.height)
   // 여러 칸 사진 틀은 사진이 든 칸이 모두 그려지면 한 번 알린다.
-  // 연필 획은 앱 Skia 그림(PNG · 캔버스)이 올라와야 찍을 수 있다 — 못 그리면 SVG 로 두고 알려 온다(PencilSkiaStroke)
+  // 연필 · 앱의 잉크펜 획은 앱 Skia 그림(PNG · 캔버스)이 올라와야 찍을 수 있다 — 못 그리면 SVG 로 두고 알려 온다(PencilSkiaStroke)
   // 원격 스티커(builtin 'remote:<팩>:<스티커>')는 팩이 들어와야 그릴 수 있다. 팩이 늦게 들어오면 다시 계산한다
   useStickerPacks()
   const missingPack = snapshot.objects.some((o) => isRemoteSticker(o) && !builtinStickerOf(o.builtin))
   // 원격 그림 스티커(팩의 PNG)도 그림이 올라온 뒤 찍는다
-  const ready = !missingPack && snapshot.objects.filter((o) => o.src || o.cells?.some(Boolean) || isSkiaPencil(o) || builtinStickerOf(o.builtin)?.image).every((o) => loaded.has(o.id))
+  const ready = !missingPack && snapshot.objects.filter((o) => o.src || o.cells?.some(Boolean) || isSkiaRaster(o, Platform.OS) || builtinStickerOf(o.builtin)?.image).every((o) => loaded.has(o.id))
   // 팩이 끝내 오지 않으면(오프라인 첫 실행 · 목록에서 지워진 팩) 빈 자리로 찍지 않고 오류로 알린다
   useEffect(() => {
     if (!missingPack || failed.current) return undefined
