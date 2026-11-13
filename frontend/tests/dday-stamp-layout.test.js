@@ -3,6 +3,17 @@ import assert from 'node:assert/strict'
 import { stampLayout } from '../src/editor/widgets/ddayStampLayout.js'
 import { normalizeWidget } from '../src/editor/widgets/dday.js'
 
+test('정규화 없이 직접 호출해도 누락·null·문자열 아닌 이름은 빈 이름처럼 처리한다', () => {
+  for (const zoom of [0.1, 0.4, 1, 2]) {
+    const size = 168 * zoom
+    const empty = stampLayout(size, size, '')
+    assert.deepEqual(stampLayout(size, size), empty)
+    for (const title of [undefined, null, 123, false, {}, [], { length: 100 }]) {
+      assert.deepEqual(stampLayout(size, size, title), empty)
+    }
+  }
+})
+
 test('이름이 없거나 null인 저장 도장도 정규화 후 빈 이름으로 안전하게 배치한다', () => {
   const stored = { kind: 'dday', style: 'stamp', date: '2026-12-01' }
   for (const widget of [stored, { ...stored, title: undefined }, { ...stored, title: null }, { ...stored, title: 123 }]) {
