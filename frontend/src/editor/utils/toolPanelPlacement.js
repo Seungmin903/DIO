@@ -35,6 +35,21 @@ export function optionsPlacement(objects, zoom, offset, stage, optionsTop = OPTI
   return { left, top, height: stage.height - OPTIONS_BOTTOM - top }
 }
 
+export const OPTIONS_TYPING_HEIGHT = 168 // 글자를 적는 동안 옵션 창 높이: 칸 제목 + 입력칸 + 위아래 한 줄씩
+
+/**
+ * 옵션 창의 입력칸(디데이 이름 · 티켓 글자 등)에 글자를 적는 동안의 자리.
+ * 키보드가 창을 가리면 창을 키보드 바로 위로 내려 낮게 줄인다(적고 있는 칸만 보이는 막대처럼). 창 위쪽은 캔버스가 보이게 비워 둔다.
+ * keyboardTop 은 화면 y, 나머지는 작업창 기준. 키보드가 작업창을 줄이는 환경도 작업창 아래 끝까지만 쓴다.
+ */
+export function typingOptionsPlacement(base, { stageTop, stageHeight, keyboardTop, height = OPTIONS_TYPING_HEIGHT, minTop = OPTIONS_TOP }) {
+  if (keyboardTop == null || !Number.isFinite(stageHeight)) return base
+  const bottom = Math.min(stageHeight, keyboardTop - stageTop) - 8
+  if (base.top + base.height <= bottom) return base // 이미 키보드 위에 다 보인다
+  const top = Math.max(minTop, bottom - height)
+  return { left: base.left, top, height: Math.max(0, bottom - top) }
+}
+
 /**
  * 태블릿 도구 설정 창 자리: 누른 도구 가운데에 맞추되 작업창 좌우 8 안으로.
  * 도구 줄이 작업창 바로 위에 있어 작업창 위 끝에 붙이면 도구 아래에 뜬다.

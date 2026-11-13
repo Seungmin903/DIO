@@ -635,7 +635,7 @@ export default function Canvas({
       )}
       {!readOnly && frameTextObject && !interacting && (
         <View pointerEvents="box-none" style={styles.selectionControls}>
-          <FrameTextEditor key={`${frameTextEdit.id}-${frameTextEdit.line}`} object={frameTextObject} line={frameTextEdit.line} zoom={zoom} dispatch={dispatch} onClose={() => onEditFrameText(null)} onReveal={onRevealText} />
+          <FrameTextEditor key={`${frameTextEdit.id}-${frameTextEdit.line}`} object={frameTextObject} line={frameTextEdit.line} zoom={zoom} dispatch={dispatch} onClose={() => onEditFrameText(null)} onReveal={onRevealText} visibleTop={textEditingTop} />
         </View>
       )}
       {freeCropTarget && <View pointerEvents="box-none" style={styles.selectionControls}><CropHandles photo={freeCropTarget} zoom={zoom} dispatch={dispatch} /></View>}

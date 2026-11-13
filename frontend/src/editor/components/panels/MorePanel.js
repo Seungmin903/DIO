@@ -1,5 +1,5 @@
-import { useCallback, useRef, useState } from 'react'
-import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { Keyboard, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
 import { colors, shadow } from '../../../shared/theme'
 import { normalizeAngle, rotateVector, unionBounds } from '../../utils/common'
 import Icon from '../controls/Icon'
@@ -24,9 +24,31 @@ const TYPE_TITLES = { sticker: '스티커', photo: '사진', tape: '마스킹테
  * 탭 두 개: '꾸미기'(사진 틀·칸 사진·모양·모서리 둥글기·틀 색, 불투명도, 윤곽선·그림자, 테이프 디자인)를 먼저, '배치'(반전·각도)는 뒤에.
  * 꾸밀 것이 없는 요소(이미지 테이프 등)는 배치만 보여 준다.
  */
-export default function MorePanel({ objects, dispatch, onReplacePhoto, onReplaceCell, onCropCell, onClose }) {
+export default function MorePanel({ objects, dispatch, onReplacePhoto, onReplaceCell, onCropCell, onClose, onTypingChange }) {
   const [tab, setTab] = useState('style')
   const scrollRef = useRef(null)
+  // 창 안의 입력칸(디데이 이름 · 티켓 글자 등)에 적는 동안: 편집 화면이 창을 키보드 바로 위로 내리고, 여기서는 적는 칸이 보이게 스크롤한다
+  const contentRef = useRef(null)
+  const typingY = useRef(null)
+  const [typing, setTyping] = useState(false)
+  // 칸 제목까지 보이게 조금 위부터
+  const scrollToTyping = () => {
+    if (typingY.current != null) scrollRef.current?.scrollTo?.({ y: Math.max(0, typingY.current - 30), animated: false })
+  }
+  useEffect(() => {
+    const show = Keyboard.addListener('keyboardDidShow', () => {
+      const input = TextInput.State?.currentlyFocusedInput?.()
+      if (!input?.measureLayout || !contentRef.current) return
+      // 이 창 밖의 입력칸(캔버스 글상자 등)이면 measureLayout 이 실패해 그대로 둔다
+      try {
+        input.measureLayout(contentRef.current, (x, y) => { typingY.current = y; setTyping(true); scrollToTyping() }, () => {})
+      } catch { /* 이미 사라진 입력칸 */ }
+    })
+    const hide = Keyboard.addListener('keyboardDidHide', () => setTyping(false))
+    return () => { show.remove(); hide.remove() }
+  }, [])
+  useEffect(() => { onTypingChange?.(typing) }, [typing, onTypingChange])
+  useEffect(() => () => onTypingChange?.(false), [onTypingChange])
   const [paletteDragging, setPaletteDragging] = useState(false)
   const onPaletteInteraction = useCallback(active => {
     // 다음 렌더 전에도 네이티브 스크롤이 팔레트 제스처를 가져가지 않게 한다.
@@ -94,7 +116,10 @@ export default function MorePanel({ objects, dispatch, onReplacePhoto, onReplace
       )}
 
       <PaletteInteractionContext.Provider value={onPaletteInteraction}>
-      <ScrollView ref={scrollRef} scrollEnabled={!paletteDragging} style={styles.scroll} contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
+      <ScrollView ref={scrollRef} scrollEnabled={!paletteDragging} style={styles.scroll} contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled"
+        // 창이 키보드 위로 내려가 줄어든 뒤에도 적는 칸이 보이게 다시 맞춘다
+        onLayout={() => { if (typing) scrollToTyping() }}>
+        <View ref={contentRef} collapsable={false}>
         {!editable.length ? (
           <Text style={styles.hint}>잠긴 요소예요. 잠금을 풀면 편집할 수 있어요.</Text>
         ) : current === 'style' ? (
@@ -171,6 +196,7 @@ export default function MorePanel({ objects, dispatch, onReplacePhoto, onReplace
             </Section>
           </>
         )}
+        </View>
       </ScrollView>
       </PaletteInteractionContext.Provider>
     </View>

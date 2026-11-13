@@ -86,7 +86,7 @@ import { useMemberPagePosition } from '../hooks/useMemberPagePosition'
 import { prefetchPageTemplate } from '../services/editorDocs'
 import { getCurrentPage } from '../state/editorReducer'
 import { clamp, createId, unionBounds } from '../utils/common'
-import { OPTIONS_TOP, OPTIONS_TOP_PHONE, OPTIONS_WIDTH, optionsPlacement, tabletToolPopover } from '../utils/toolPanelPlacement'
+import { OPTIONS_TOP, OPTIONS_TOP_PHONE, OPTIONS_WIDTH, optionsPlacement, tabletToolPopover, typingOptionsPlacement } from '../utils/toolPanelPlacement'
 import { automaticPageTurn, centeredOffset, clampOffset as clampViewportOffset, isFitView, panView } from '../utils/viewport.js'
 import { pickImages } from '../services/image'
 import { tastingPhotoBox } from '../templates/tastingGeometry.js'
@@ -195,6 +195,7 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
     const hide = Keyboard.addListener('keyboardDidHide', () => setKeyboardTop(null))
     return () => { show.remove(); hide.remove() }
   }, [])
+  const [optionsTyping, setOptionsTyping] = useState(false) // 옵션 창 안 입력칸(디데이 이름 · 티켓 글자 등)에 적는 중
   const [sheetHeight, setSheetHeight] = useState(0) // 폰 세로 하단 시트가 열려 있으면 그 높이(되돌리기 막대를 시트 위로 올린다)
   const [phonePanelWidths, setPhonePanelWidths] = useState({ left: 0, right: 0 }) // 폰에서 작업창 위에 띄운 패널 너비
   const toolPopoverStyle = (width = 320) => {
@@ -450,6 +451,27 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
     if (selectedText) dispatch({ type: 'updateObject', id: selectedText.id, record: true, patch: selectedText.type === 'shape' ? shapeTextFormatPatch(selectedText,patch) : { ...(visualOnly ? patch : textFormatPatch(selectedText, next)), ...('color' in patch && { colorRanges: [] }) } })
   }
   const showMore = moreOpen && selectedObjects.length > 0 && !cropId
+  // 옵션 창 자리. 창 안 입력칸에 적는 동안 키보드가 창을 가리면 키보드 바로 위로 내려 낮게 줄인다
+  const moreOptionsPlacement = () => {
+    const base = optionsPlacement(selectedObjects, zoom, offset, stageSize, compact ? OPTIONS_TOP_PHONE : OPTIONS_TOP)
+    return optionsTyping ? typingOptionsPlacement(base, { stageTop: stageOrigin.y, stageHeight: stageSize.height, keyboardTop }) : base
+  }
+  // 적기 시작하면 고친 글자가 바로 보이게, 고른 요소가 내려온 옵션 창 · 키보드에 가리지 않을 만큼 화면을 올린다
+  useEffect(() => {
+    if (!optionsTyping || keyboardTop == null || !showMore || !stageSize || viewportLocked) return
+    const place = moreOptionsPlacement()
+    const b = unionBounds(selectedObjects)
+    const left = offset.x + b.left * zoom, right = offset.x + b.right * zoom
+    const top = offset.y + b.top * zoom, bottom = offset.y + b.bottom * zoom
+    const keyboardLine = Math.min(stageSize.height, keyboardTop - stageOrigin.y)
+    const coversX = right > place.left && left < place.left + OPTIONS_WIDTH
+    const limit = (coversX ? place.top : keyboardLine) - 8
+    // 요소 위 끝이 작업창 밖으로 나가지 않을 만큼만
+    const dy = Math.min(bottom - limit, top - 8)
+    if (dy > 0) commitView(resolvePan({ scale: view.scale, zoom, x: offset.x, y: offset.y }, 0, -dy))
+    // 적기 시작할 때 한 번만 맞춘다 (적는 동안 요소가 움직여도 화면을 다시 옮기지 않는다)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [optionsTyping, keyboardTop != null])
 
   const showToast = useCallback((message, retry) => {
     if (retry) setImportFailure({ message, retry })
@@ -1637,8 +1659,9 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
 
           {showMore && !drawerTab && stageSize && (
             // 옵션 패널은 고른 요소 옆(가리지 않는 쪽)에 띄운다
-            <View style={[styles.optionsWrap, optionsPlacement(selectedObjects, zoom, offset, stageSize, compact ? OPTIONS_TOP_PHONE : OPTIONS_TOP)]} pointerEvents="box-none" {...markInside}>
-              <MorePanel objects={selectedObjects} dispatch={dispatch} onReplacePhoto={replacePhoto} onReplaceCell={replaceCell} onCropCell={startCrop} onClose={() => setMoreOpen(false)} />
+            // 창 안 입력칸에 적는 동안에는 키보드 바로 위로 내려 적는 칸이 보이게 한다
+            <View style={[styles.optionsWrap, moreOptionsPlacement()]} pointerEvents="box-none" {...markInside}>
+              <MorePanel objects={selectedObjects} dispatch={dispatch} onReplacePhoto={replacePhoto} onReplaceCell={replaceCell} onCropCell={startCrop} onClose={() => setMoreOpen(false)} onTypingChange={setOptionsTyping} />
             </View>
           )}
 

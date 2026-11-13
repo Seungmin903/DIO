@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
-import { OPTIONS_TOP, OPTIONS_TOP_PHONE, OPTIONS_WIDTH, optionsPlacement, tabletToolPopover } from '../src/editor/utils/toolPanelPlacement.js'
+import { OPTIONS_TOP, OPTIONS_TOP_PHONE, OPTIONS_TYPING_HEIGHT, OPTIONS_WIDTH, optionsPlacement, tabletToolPopover, typingOptionsPlacement } from '../src/editor/utils/toolPanelPlacement.js'
 
 const STAGE = { width: 900, height: 700 }
 const at = (y) => [{ x: 40, y, w: 100, h: 40, rotation: 0 }]
@@ -52,4 +52,31 @@ test('태블릿 도구 줄은 작업창 밖에 두어 패널 폭의 영향을 �
   const ribbon = source.indexOf('<Ribbon')
   assert.ok(ribbon > 0 && ribbon < source.indexOf('<View ref={stageRef}'), '도구 줄이 작업창보다 먼저 그려져야 한다')
   assert.ok(ribbon < source.indexOf('styles.body, compact'), '도구 줄이 패널이 든 본문 밖에 있어야 한다')
+})
+
+test('옵션 창 입력칸에 적는 동안 키보드가 창을 가리면 창을 키보드 바로 위로 내려 낮게 줄인다', () => {
+  const base = { left: 300, top: 8, height: 628 }
+  // 작업창이 화면 y=100에서 시작하고 키보드가 화면 y=500에서 시작한다 → 작업창 기준 400
+  const place = typingOptionsPlacement(base, { stageTop: 100, stageHeight: 700, keyboardTop: 500 })
+  assert.equal(place.left, 300)
+  assert.equal(place.top + place.height, 392) // 키보드 위 8
+  assert.equal(place.height, OPTIONS_TYPING_HEIGHT)
+  // 키보드가 작업창을 줄이는 환경은 작업창 아래 끝까지만 쓴다
+  const resized = typingOptionsPlacement({ left: 0, top: 8, height: 628 }, { stageTop: 100, stageHeight: 300, keyboardTop: 500 })
+  assert.equal(resized.top + resized.height, 292)
+  // 자리가 모자라면 위 끝을 넘지 않는다
+  const tight = typingOptionsPlacement(base, { stageTop: 0, stageHeight: 700, keyboardTop: 120 })
+  assert.equal(tight.top, OPTIONS_TOP)
+  assert.equal(tight.height, 104)
+})
+
+test('창이 이미 키보드 위에 다 보이거나 키보드가 없으면 자리를 바꾸지 않는다', () => {
+  const base = { left: 10, top: 8, height: 300 }
+  assert.equal(typingOptionsPlacement(base, { stageTop: 0, stageHeight: 700, keyboardTop: 400 }), base)
+  assert.equal(typingOptionsPlacement(base, { stageTop: 0, stageHeight: 700, keyboardTop: null }), base)
+})
+
+test('편집 화면은 옵션 창 입력 중 상태를 받아 창 자리를 키보드 위로 옮긴다', () => {
+  assert.match(source, /onTypingChange=\{setOptionsTyping\}/)
+  assert.match(source, /optionsTyping \? typingOptionsPlacement\(base/)
 })

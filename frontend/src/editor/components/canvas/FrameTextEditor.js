@@ -42,7 +42,7 @@ export function storedLineText(line, value) {
  * 틀에 인쇄된 글자를 그 자리에서 고친다 (티켓 · 인생네컷 · 필름 4컷 글자를 두 번 눌렀을 때).
  * 인쇄된 줄 위에 틀 색 바탕의 입력칸을 얹고, 고치는 대로 바로 틀에 반영한다 (되돌리기는 고치기 전으로 한 번).
  */
-export default function FrameTextEditor({ object, line: index, zoom, dispatch, onClose, onReveal }) {
+export default function FrameTextEditor({ object, line: index, zoom, dispatch, onClose, onReveal, visibleTop = 0 }) {
   const line = frameTextLines(object)[index]
   // 입력 중인 글자는 여기 둔다 (문서를 거쳐 다시 받으면 한글 조합이 끊긴다)
   const [draft, setDraft] = useState(() => (line ? lineText(line, frameTextOf(object.frame, object.frameText)) : ''))
@@ -63,7 +63,8 @@ export default function FrameTextEditor({ object, line: index, zoom, dispatch, o
       const keyboardTop = event.endCoordinates?.screenY
       if (keyboardTop == null || !onReveal) return
       input.current?.measureInWindow?.((x, y, width, height) => {
-        const overlap = y + height + 80 - keyboardTop
+        // 입력칸이 화면 위로 밀려 나가 적는 글자가 안 보이는 일이 없게, 작업창 위 끝 아래까지만 올린다
+        const overlap = Math.min(y + height + 80 - keyboardTop, y - visibleTop)
         if (overlap > 0) onReveal(overlap)
       })
     })

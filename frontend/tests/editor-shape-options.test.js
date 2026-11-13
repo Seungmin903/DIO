@@ -12,9 +12,9 @@ function fixture(file,props) {
  let cursor=0
  const states=[],events=[]
  const mocks={
-  react:{useState:v=>{const i=cursor++;if(!(i in states))states[i]=v;return [states[i],v=>states[i]=v]},useRef:v=>({current:v}),useCallback:f=>f,useContext:()=>()=>{}},
+  react:{useState:v=>{const i=cursor++;if(!(i in states))states[i]=v;return [states[i],v=>states[i]=v]},useRef:v=>({current:v}),useCallback:f=>f,useEffect:()=>{},useContext:()=>()=>{}},
   'react/jsx-runtime':require('react/jsx-runtime'),
-  'react-native':{View:'view',Text:'text',Pressable:'button',ScrollView:'scroll',Platform:{select:()=>({})},StyleSheet:{create:s=>s}},
+  'react-native':{View:'view',Text:'text',Pressable:'button',ScrollView:'scroll',TextInput:'input',Keyboard:{addListener:()=>({remove(){}})},Platform:{select:()=>({})},StyleSheet:{create:s=>s}},
   'react-native-svg':{__esModule:true,default:'svg',Path:'path'},
  }
  const {code}=expo('@babel/core').transformSync(readFileSync(new URL('../src/editor/components/'+file,import.meta.url),'utf8'),{configFile:false,babelrc:false,plugins:[[expo.resolve('@babel/plugin-transform-react-jsx'),{runtime:'automatic'}],expo.resolve('@babel/plugin-transform-modules-commonjs')]})
