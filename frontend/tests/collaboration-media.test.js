@@ -203,3 +203,40 @@ test('다시 조회로 받기에 성공하면 지난 실패 기록을 성공으�
  fail=false;await media.retry(id)
  await pending.at(-1)
 })
+
+test('세션이 끝나 받지 못한 사진은 세션 종료 오류를 남기지 않고 풀어 준다',async()=>{
+ const id='80000000-0000-4000-8000-000000000001',pending=[];let live=true,release
+ const media=createCanvasMedia({storage:{getItem:async()=>null,setItem:async()=>{}},key:'m',isActive:()=>live,
+  files:{cached:async()=>false,save:async()=>{},pending:(_,job)=>pending.push(job)},
+  request:()=>new Promise(resolve=>{release=resolve})})
+ const job=media.hydrate([{mediaFileId:id}])
+ while(!release)await new Promise(resolve=>setImmediate(resolve))
+ live=false;release(new Uint8Array([1]))
+ await assert.rejects(job,/편집 세션이 종료됐어요/)
+ assert.equal(pending.length,1)
+ await pending[0]
+})
+
+test('다시 조회도 실패하면 대기 기록을 최신 실패 이유로 바꾼다',async()=>{
+ const id='90000000-0000-4000-8000-000000000001',pending=[];let reason='처음 오류'
+ const media=createCanvasMedia({storage:{getItem:async()=>null,setItem:async()=>{}},key:'m',now:()=>0,
+  files:{cached:async()=>false,save:async()=>{},pending:(_,job)=>pending.push(job)},
+  request:async()=>{throw Object.assign(Error(reason),{status:503})}})
+ await media.hydrate([{mediaFileId:id}])
+ await assert.rejects(pending.at(-1),/처음 오류/)
+ reason='새 오류';await assert.rejects(media.retry(id),/새 오류/)
+ await assert.rejects(pending.at(-1),/새 오류/)
+})
+
+test('그리다 깨진 사진은 다시 조회 콜백이 전체 확인으로 걸러 서버에서 다시 받는다',async()=>{
+ const id='a0000000-0000-4000-8000-000000000001',checks=[],retries=new Map();let requests=0
+ const media=createCanvasMedia({storage:{getItem:async()=>null,setItem:async()=>{}},key:'m',
+  // 헤더·크기는 맞지만 본문이 깨진 파일: 가벼운 확인은 통과하고 전체 확인(verify)에서만 걸린다
+  files:{cached:async(_,{verify})=>{checks.push(verify);return !verify},save:async()=>{},registerRetry:(key,retry)=>{retries.set(key,retry);return ()=>{}}},
+  request:async()=>{requests++;return new Uint8Array([1])}})
+ await media.hydrate([{mediaFileId:id}])
+ assert.deepEqual(checks,[false]);assert.equal(requests,0)
+ // 화면: ObjectView onError → reportMediaDisplayError → 알림의 다시 조회 → retryRemoteMedia → 이 콜백
+ await retries.get(id)()
+ assert.deepEqual(checks,[false,true]);assert.equal(requests,1)
+})

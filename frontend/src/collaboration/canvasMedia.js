@@ -65,6 +65,8 @@ export function createCanvasMedia({request,files,storage,key,isActive=()=>true,n
     active()
     const attempts=(failure?.attempts??0)+1,delays=[5000,15000,60000]
     failures.set(id,{attempts,error,retryAt:permanent(error)||attempts>=4?Infinity:now()+delays[attempts-1]})
+    // 다시 조회(force)로 실패해도 최신 실패 이유로 바꿔 둔다. 안 바꾸면 화면에 예전 오류가 남는다.
+    const failed=Promise.reject(error);failed.catch(()=>{});files.pending?.(id,failed)
     files.fail?.(id,error);throw error
    }
   })().finally(()=>downloads.delete(id))
@@ -106,11 +108,13 @@ export function createCanvasMedia({request,files,storage,key,isActive=()=>true,n
    const worker=async()=>{
     while(next<ids.length){
      const id=ids[next++],{settle}=waits.get(id)
-     try{active();await download(id);settle.ok()}catch(error){settle.no(error);if(closed||!isActive())return}
+     try{active();await download(id);settle.ok()}catch(error){if(closed||!isActive())return;settle.no(error)}
     }
    }
+   // 세션이 끝나 받지 못한 사진은 실패로 남기지 않는다. 성공처럼 풀어 주면 기다리던 쪽이 다시 읽고,
+   // '편집 세션이 종료됐어요' 같은 엉뚱한 이유 대신 실제 상태(아직 기기에 없음)를 보인다. 남은 대기 기록도 지워진다.
    try{await Promise.all(Array.from({length:Math.min(3,ids.length)},worker))}
-   finally{const stop=Error('편집 세션이 종료됐어요.');waits.forEach(({settle})=>settle.no(stop))}
+   finally{waits.forEach(({settle})=>settle.ok())}
    active();return rows
   },
   // 친구 기기: 원본 PDF 를 받아 sourceId 로 보관한다. 이미 있으면 받지 않는다.
