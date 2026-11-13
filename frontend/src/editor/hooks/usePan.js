@@ -15,7 +15,11 @@ function createResponder(handlersRef) {
     // Android 에서 편집 바 같은 버튼이 하나도 눌리지 않았다. 끌기는 처음 닿을 때 이미 잡는다)
     onMoveShouldSetPanResponder: () => false,
     // 두 번째 손가락이 닿으면(확대·축소, 화면 이동) 보는 영역에 넘긴다. 한 손가락 동작은 끝까지 지킨다.
-    onPanResponderTerminationRequest: (event) => (event.nativeEvent.touches?.length ?? 0) > 1,
+    onPanResponderTerminationRequest: (event) => handlersRef.current.onTerminationRequest?.(event.nativeEvent)
+      ?? (event.nativeEvent.touches?.length ?? 0) > 1,
+    // 목록의 누르기 대기 중에는 네이티브 ScrollView가 한 손가락 스크롤을 가져갈 수 있어야 한다.
+    // 캔버스 등 기존 사용처는 이전처럼 네이티브 responder를 막는다.
+    onShouldBlockNativeResponder: () => handlersRef.current.shouldBlockNativeResponder?.() ?? true,
     onPanResponderGrant: (event) => {
       startTime = Date.now()
       moved = false
@@ -37,6 +41,7 @@ function createResponder(handlersRef) {
 /**
  * PanResponder 를 감싼 훅. 핸들러는 최신 값을 쓰도록 ref 로 보관한다.
  * onStart(event) / onMove(dx, dy, event) / onEnd({ moved, duration })
+ * onTerminationRequest(event) / shouldBlockNativeResponder(): 목록 안 제스처만 스크롤 양보 정책을 지정한다.
  * PalmRejectionContext 안(펜·지우개 입력 영역)에서는 손바닥을 거르는 끌기를 쓴다.
  */
 export function usePan(handlers) {

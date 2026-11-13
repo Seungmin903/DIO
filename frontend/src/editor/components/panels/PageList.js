@@ -410,7 +410,11 @@ const PageItem = memo(function PageItem({ page, index, number, canDrag = true, a
   // 썸네일 그림은 테두리(1px) 안쪽 크기에 정확히 맞춘다. 넘치면 Android 에서 아래쪽 테두리를 덮었다.
   const thumbZoom = (thumbWidth - THUMB_BORDER * 2) / width
   const press = useRef(null)
+  useEffect(() => () => { clearTimeout(press.current?.timer); press.current = null }, [])
   const handlers = usePan({
+    // 길게 누르기 전에는 스크롤을 양보한다. holding 뒤에는 PageList가 스크롤을 잠그고 순서 변경을 받는다.
+    shouldBlockNativeResponder: () => Boolean(press.current?.holding),
+    onTerminationRequest: event => !press.current?.holding || (event.touches?.length ?? 0) > 1,
     onStart: () => {
       const state = { holding: false, moved: false, dragged: false, dy: 0, timer: null }
       if (!readOnly && canDrag)
