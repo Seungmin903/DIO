@@ -19,7 +19,7 @@ test('앱 정보는 배포 방침 URL을 사용하고 미설정 시 내장 처�
       '../../shared/legalContent': { getSignupDocument: id => ({ id }) }, '../../auth/LegalDocumentScreen': 'LegalDocumentScreen',
       'react-native': { Linking: { openURL: async url => opened.push(url) }, StyleSheet: { create: value => value }, Pressable: 'Pressable', Text: 'Text', View: 'View' },
       '../../shared/legalDocuments': { signupDocuments: { policy } },
-      '../../shared/theme': { colors: {} }, '../constants': { C: {} },
+      '../../shared/theme': { colors: {} }, '../constants': { C: {} }, '../../../app.json': { expo: { version: '2.0.0' } },
     };
     new Function('require', 'module', 'exports', code)(id => mocks[id] ?? (id === 'react/jsx-runtime' ? require(id) : { __esModule: true, default: id }), mod, mod.exports);
     const tree = mod.exports.default({});
@@ -42,7 +42,7 @@ test('복사를 연속으로 요청하면 이전 결과가 최신 성공 또는 
     'expo-clipboard': { setStringAsync: () => new Promise((resolve, reject) => pending.push({ resolve, reject })) },
     'react-native': { StyleSheet: { create: value => value }, Pressable: 'Pressable', Text: 'Text', View: 'View' },
     '../../shared/legalDocuments': { signupDocuments: {} },
-    '../../shared/theme': { colors: {} }, '../constants': { C: {} },
+    '../../shared/theme': { colors: {} }, '../constants': { C: {} }, '../../../app.json': { expo: { version: '2.0.0' } },
   };
   new Function('require', 'module', 'exports', code)(id => mocks[id] ?? (id === 'react/jsx-runtime' ? require(id) : { __esModule: true, default: id }), mod, mod.exports);
   const tree = mod.exports.default({ onCopyNotice: message => notices.push(message) });
