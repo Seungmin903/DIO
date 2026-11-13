@@ -35,6 +35,7 @@ import { startPushRuntime } from './src/notifications/pushRuntime';
 import { C, DEFAULT_FILTER } from './src/diary/constants';
 import { useDiaries } from './src/diary/hooks/useDiaries';
 import { useMemberDiaries } from './src/diary/hooks/useMemberDiaries';
+import { renameEditorDiary } from './src/diary/services/renameEditorDiary';
 import MemberRequestNotice from './src/diary/components/MemberRequestNotice';
 import { LoadingSpot } from './src/diary/components/EmptyState';
 import DioButton from './src/shared/DioButton';
@@ -1159,14 +1160,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onWithdraw
         sharingMembers={sharingMembers}
         onMembersChanged={() => { const diaryId = active?.sharedDiaryId || active?.id; if (isSharingDiaryId(diaryId)) { sharing.runtime.invalidateMemberPhotos?.(); sharing.runtime.refreshMembers?.(diaryId)?.catch(() => sharing.runtime.setWatchingRealtime?.(diaryId, false)); } }}
         onCollaborationStateChange={(diaryId, connected) => sharing.runtime.setWatchingRealtime?.(diaryId, connected)}
-        onRenameDiary={async title => {
-          if (!active?.id) return false;
-          try {
-            const updated = await renameDiary(active.id, title);
-            setActive(current => current?.id === active.id ? { ...current, ...(updated || {}), title } : current);
-            return true;
-          } catch (error) { notify('이름을 바꾸지 못했어요', error.message); return false; }
-        }}
+        onRenameDiary={title => renameEditorDiary({ diaryId: active?.id, title, renameDiary, setActive, notify })}
         tabs={tabs}
         onSelectTab={selectTab}
         onCloseTab={closeTab}

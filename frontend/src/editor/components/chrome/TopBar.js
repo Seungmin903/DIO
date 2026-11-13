@@ -128,7 +128,13 @@ export default function TopBar({
 function TitleField({ title, renamable, onCommit, compact }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState('')
+  const editSession = useRef(null)
+  const session = editSession.current
   function commit() {
+    // 완료 뒤 blur가 같은 입력에서 이어져도 저장은 편집 세션당 한 번만 한다.
+    // 이전 입력의 늦은 이벤트는 새 편집 세션을 소비하지 않는다.
+    if (!session || session.committed) return
+    session.committed = true
     setEditing(false)
     const next = draft.trim()
     if (next && next !== title) onCommit(next)
@@ -152,6 +158,7 @@ function TitleField({ title, renamable, onCommit, compact }) {
     <Pressable
       disabled={!renamable}
       onPress={() => {
+        editSession.current = { committed: false }
         setDraft(title)
         setEditing(true)
       }}
