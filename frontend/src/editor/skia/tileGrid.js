@@ -29,9 +29,13 @@ export const pixelTileScale = scale => Math.max(1, Math.round(TILE * scale)) / T
  * 타일을 화면에 놓을 자리. 이웃 타일과 **같은 정수 픽셀**에서 만나게 반올림한다 — 경계 픽셀 하나를
  * 두 타일이 반씩 덮으면 반투명 잉크가 옅어져 1px 줄이 뜬다(실기 SM-X510 2026-11-11).
  */
-export function tileScreenRect(tile, zoom) {
-  const x0 = Math.round(tile.col * TILE * zoom), y0 = Math.round(tile.row * TILE * zoom)
-  const x1 = Math.round((tile.col + 1) * TILE * zoom), y1 = Math.round((tile.row + 1) * TILE * zoom)
+export function tileScreenRect(tile, zoom, dpr = 1) {
+  // dp 로만 반올림하면 PixelRatio 가 정수가 아닌 기기(SM-X510 은 2.625)에서 경계가 **기기 픽셀
+  // 한가운데**에 떨어진다. 그러면 벡터로 얹는 획을 자르는 자리(부드러운 클립)와 반 픽셀 어긋나
+  // 그 한 줄이 두 번 그려진다 — 유리펜에서 네모난 테두리로 보였다(실기 2026-11-13).
+  const snap = v => Math.round(v * zoom * dpr) / dpr
+  const x0 = snap(tile.col * TILE), y0 = snap(tile.row * TILE)
+  const x1 = snap((tile.col + 1) * TILE), y1 = snap((tile.row + 1) * TILE)
   return { x: x0, y: y0, width: x1 - x0, height: y1 - y0 }
 }
 export const tileKey = (col, row, scale) => `${col}|${row}|${scale}`
@@ -170,4 +174,31 @@ export function evictTiles(cache, budgetPx, dispose, inUse) {
     dispose?.(tile)
   }
   return dropped
+}
+
+/**
+ * 아직 못 구운 칸에 벡터로 얹는 획을 **자를 자리**(페이지 좌표 네모들).
+ *
+ * 두 조각이다 — ① 아직 못 구운 칸들 ② 타일이 덮지 않는 바깥. 자르지 않으면 이미 구워진 타일에도
+ * 같은 획이 겹쳐 그려져 반투명 잉크가 두 번 올라간다(사용자 2026-11-13 "타일별로 진해졌다가
+ * 원래 색으로 돌아온다").
+ *
+ * 바깥은 페이지에서 덮인 네모를 뺀 **네 띠**로 바로 만든다. 경로 빼기(PathOp.Difference)를 쓰면
+ * 실패해서 null 이 돌아올 수 있고(그러면 자를 자리가 비어 획이 통째로 사라지거나 두 번 그려진다)
+ * 검사하기도 어렵다 — 네모 계산은 순수하고 눈으로 셀 수 있다(코드리뷰 2026-11-13).
+ *
+ * 빈 배열을 돌려주면 **자르지 말라는 뜻**이다(그릴 것이 있는데 자를 자리가 없으면 자르지 않는 쪽이 맞다).
+ */
+export function restClipRects(pending, covered, width, height) {
+  const out = []
+  for (const box of pending ?? []) if (box && box.w > 0 && box.h > 0) out.push(box)
+  if (!covered) return out
+  const x0 = Math.max(0, covered.x), y0 = Math.max(0, covered.y)
+  const x1 = Math.min(width, covered.x + covered.w), y1 = Math.min(height, covered.y + covered.h)
+  const band = (x, y, w, h) => { if (w > 0 && h > 0) out.push({ x, y, w, h }) }
+  band(0, 0, width, y0)                      // 위
+  band(0, y1, width, height - y1)            // 아래
+  band(0, y0, x0, y1 - y0)                   // 왼쪽
+  band(x1, y0, width - x1, y1 - y0)          // 오른쪽
+  return out
 }

@@ -18,10 +18,10 @@ export function loadSkia() {
     const { LoadSkiaWeb } = await import('@shopify/react-native-skia/lib/module/web')
     await LoadSkiaWeb({ locateFile: file => new URL(WASM_DIR + file, document.baseURI).href })
     const [sk, stroke] = await Promise.all([import('@shopify/react-native-skia'), import('./strokeSkia.js')])
-    const { Skia, AlphaType, ColorType } = sk
+    const { Skia, AlphaType, ColorType, ClipOp, FilterMode, MipmapMode } = sk
     // 화면 밖 그림은 CPU 표면(WebGL 문맥 수 제한 없음). 읽기 · 올리기가 한 번에 끝나는 동기 경로
     const { JsiSkSurface } = await import('@shopify/react-native-skia/lib/module/skia/web/JsiSkSurface')
-    const runtime = { Skia, AlphaType, ColorType, ...stroke, makeSurface: (width, height) => Skia.Surface.Make(width, height),
+    const runtime = { Skia, AlphaType, ColorType, ClipOp, FilterMode, MipmapMode, ...stroke, makeSurface: (width, height) => Skia.Surface.Make(width, height),
       // 보이는 캔버스에 바로 그리는 WebGL 표면(쓰는 중 연필). 못 만들면 null
       liveSurface: canvas => { const ref = global.CanvasKit.MakeWebGLCanvasSurface(canvas); return ref ? new JsiSkSurface(global.CanvasKit, ref) : null } }
     set({ status: 'ready', runtime })
