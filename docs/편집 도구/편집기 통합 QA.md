@@ -60,3 +60,15 @@
 - native responder 계약 및 회귀 검증(frontend): `node --test tests/page-list-scroll-gesture.test.js tests/page-thumbnail-memo.test.js tests/photo-crop-interaction.test.js tests/pen-materials.test.js tests/editor-page-management.test.js`.
 - 실제 웹 터치 검증: 전용 `pnpm exec expo start --port 8095 --offline --max-workers 2` 실행 후 `node tests/page-list-scroll-browser.cjs`. 기본 Playwright Chromium 또는 `DIO_QA_BROWSER_CHANNEL=msedge` 등 설치된 브라우저를 사용한다. 폰·태블릿에서 20쪽 목록의 썸네일 위 스와이프가 스크롤로 이어지고, 페이지 선택·길게 누른 순서 변경·작업 메뉴를 유지하는지 확인한다. CI 자동 실행 대상은 아니다.
 - 웹 터치 검증과 native responder 계약 검사는 실제 Android/iOS 기기의 네이티브 스크롤 실행 검증을 대체하지 않는다. 실기기에서 썸네일 위 즉시 스크롤, 길게 누른 이동, 목록 밖 자동 스크롤, 북마크·읽기 전용 상태를 확인한다.
+
+## 편집 화면 다이어리 이름 중복 저장 방지
+
+- 키보드 완료와 포커스 해제가 연달아 발생하면 같은 편집 세션에서 저장을 한 번만 실행한다. 이전 입력의 늦은 이벤트가 새 편집 세션을 저장하거나 닫지 않는다.
+- 정상 저장 후 현재 다이어리와 탭의 이름을 갱신한다. 실제 저장 실패 시 기존 이름을 유지하고 “이름을 바꾸지 못했어요” 안내를 표시한다. 다시 편집하면 재시도할 수 있다.
+- 빈 이름·기존과 같은 이름은 저장하지 않는다. 늦은 저장 응답으로 다른 다이어리의 이름을 덮어쓰지 않는다.
+- 저장 스키마·API·화면 디자인 변경 없음.
+- 자동 검증: `node --test tests/diary-rename-once.test.js tests/member-app-store.test.js tests/editor-save-lifecycle.test.js tests/diary-editor.test.js` — 39개 통과.
+- 브라우저 QA: `pnpm exec expo start --port 8095 --offline --max-workers 2` 실행 후 `node tests/diary-rename-browser.cjs`. Playwright Chromium을 설치해 사용하며, 설치된 Edge를 사용할 때는 `DIO_QA_BROWSER_CHANNEL=msedge`를 지정한다. 테스트용 가상 저장 응답으로 입력 이벤트·저장 횟수·성공/실패 안내를 검증하며 운영 서버를 변경하지 않는다. 수동 QA이며 CI 자동 실행 대상은 아니다.
+- 사용자 실기기에서 이름 변경 정상 동작 확인 완료(기기 모델·OS 버전 미기록). 자동 테스트의 실패 응답 모사는 실제 운영 장애 재현과 구분한다.
+- Edge 브라우저 QA 결과: 430×800·1100×800에서 키보드 Enter 후 포커스 해제, 정상 변경·실제 저장 실패 안내를 각각 검증해 4개 시나리오 통과. 저장 요청은 각 1회이며 실패 때 기존 이름을 유지했다.
+- 전체 플랫폼 번들: `pnpm exec expo export --platform all --max-workers 2 --output-dir .expo/diary-rename-once-bundles` — 일반 실행 환경에서 종료 코드 0, 웹 JS와 Android/iOS Hermes 번들 생성 확인. APK/IPA 빌드나 실기기 실행 검증을 뜻하지 않는다.
