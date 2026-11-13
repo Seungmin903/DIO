@@ -15,7 +15,7 @@ import { useRemoteAssetUri } from '../../shared/remoteAssets/useRemoteAssetUri'
 import BuiltinStickerArt from '../../editor/components/canvas/BuiltinStickerArt'
 import { stickerSource } from '../../editor/stickerAssets'
 import { clamp, normalizeAngle, rotateVector } from '../../editor/utils/common'
-import { HANDLE, MARGIN, ROTATE_SNAP_DEG, CORNERS, BAR, ROTATE_OFFSET } from '../utils/coverStickerControls.js'
+import { HANDLE, MARGIN, ROTATE_SNAP_DEG, CORNERS, BAR, ROTATE_OFFSET, stickerControlLayer } from '../utils/coverStickerControls.js'
 import { textStyle } from '../../editor/utils/text'
 import { useTextFont } from '../../editor/hooks/useTextFont'
 import { STICKER_SIZE, bandAutoColor, coverTitle, createStickerCopy, coverLineColor, gradientStops, mix } from '../utils/coverDesign'
@@ -255,7 +255,8 @@ function StickerControl({ item, scale, width, height, selected, store, onSelect,
   const barTop = below + BAR.height <= height ? below : c.y - extent - ROTATE_OFFSET - HANDLE / 2 - 8 - BAR.height
   const bar = { left: clamp(c.x - BAR.width / 2, 0, Math.max(0, width - BAR.width)), top: clamp(barTop, 0, Math.max(0, height - BAR.height)) }
   // 그림 순서는 유지하고 선택된 조작 영역만 위로 올린다. 버튼·손잡이를 다른 스티커가 가로채지 않게 한다.
-  return <View pointerEvents="box-none" collapsable={false} style={[StyleSheet.absoluteFill, { zIndex: selected ? 1 : 0 }]}>
+  const layer = stickerControlLayer(selected)
+  return <View {...layer} style={[StyleSheet.absoluteFill, layer.style]}>
     <View pointerEvents="box-none" style={box}>
       <View accessibilityRole="adjustable" accessibilityLabel={`표지 스티커 ${item.name ?? ''}`} {...moveHandlers}
         style={[styles.stickerHit, { left: MARGIN, top: MARGIN, width: side, height: side }, Platform.OS === 'web' && { cursor: 'move' }]} />

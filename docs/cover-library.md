@@ -82,7 +82,9 @@
 - 단위·회귀 검증: `node --test tests/cover-sticker-controls.test.js tests/cover-photo-import.test.js tests/studio-cover-edit.test.js tests/studio-cover-polish.test.js tests/shared-diary-cover.test.js`.
 - 브라우저 터치 검증: 별도 서버 `pnpm exec expo start --port 8095 --offline --max-workers 2` 실행 후 `node tests/cover-sticker-controls-browser.cjs`. 폰·태블릿 크기에서 다른 스티커와 겹친 아래·위쪽 바의 복제·삭제, 이동·크기 조절·회전, 선택 전환·해제, 완전 겹침 상태의 선택과 복제 후 삭제를 확인한다. 실기기 테스트를 대체하지 않는다.
 - 위 명령은 frontend 폴더에서 실행한다. 기본 브라우저는 Playwright Chromium이며, 설치되어 있지 않으면 `pnpm exec playwright install chromium`으로 설치한다. 다른 브라우저를 쓰려면 `DIO_QA_BROWSER_CHANNEL`을 지정한다(PowerShell 예: `$env:DIO_QA_BROWSER_CHANNEL='msedge'`). `chromium`을 지정하거나 환경 변수를 지우면 기본 Chromium을 사용한다.
-- 브라우저 검증은 별도 Metro 서버가 필요한 수동 QA이며 현재 CI에서 자동 실행하지 않는다. 조작 상수는 `coverStickerControls.js`를 실제 컴포넌트와 단위 테스트가 함께 사용한다. 회전 손잡이 간격은 편집기의 `selectionMetrics.js`와 공유한다.
+- `pnpm qa:cover-stickers`는 전용 Metro 서버를 자동 시작하고 실제 CoverArt 브라우저 검증을 실행한 뒤 서버를 정리한다. 다른 서버가 해당 포트를 쓰고 있으면 중단하며 `DIO_QA_PORT`로 다른 포트를 지정할 수 있다. 기존 서버를 재사용하거나 종료하지 않는다.
+- 관련 프론트 변경의 MR·develop CI에서 `cover-sticker-browser-test`가 공용 배치 함수 단위 테스트와 Chromium 브라우저 조작 검증을 자동 실행한다. Docker의 독립 작업 폴더에서 의존성·브라우저를 설치하고 배포 서버·DB·환경 파일은 사용하지 않는다. Metro 로그는 CI artifact로 남는다. Windows 로컬에서는 `DIO_QA_BROWSER_CHANNEL=msedge` 등으로 설치된 브라우저를 지정할 수 있다.
+- 단위 테스트는 `coverStickerControls.js`의 배치 함수를 직접 가져온다. CoverArt 함수 추출·가짜 훅·스타일 배열 위치에 의존하지 않으며, 복제·삭제·이동·크기·회전·선택 및 실제 터치 전달은 브라우저에서 실제 컴포넌트와 훅으로 검증한다. 회전 손잡이 간격은 편집기의 `selectionMetrics.js`와 공유한다.
 
 ### 사진 표지 크롭 호환
 
