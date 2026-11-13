@@ -152,6 +152,8 @@ cover-sticker-browser-test:
         - frontend/tests/cover-sticker-controls*
         - frontend/tests/fixtures/cover-sticker-controls.entry.js
         - frontend/scripts/*cover-stickers*
+        - frontend/scripts/cover-sticker-processes.cjs
+        - frontend/tests/cover-sticker-processes.test.js
         - frontend/package.json
         - frontend/pnpm-lock.yaml
         - frontend/metro.config.cjs
@@ -159,14 +161,19 @@ cover-sticker-browser-test:
         - .gitlab-ci.yml
   script:
     - mkdir -p .qa-artifacts/cover-stickers
+    - docker build -f frontend/scripts/cover-stickers.Dockerfile -t "dio-cover-sticker-qa:${CI_PIPELINE_ID}" frontend/scripts
     - >
-      docker run --rm --init --ipc=host
+      docker run --rm --init --ipc=private --shm-size=1g
+      --user "$(id -u):$(id -g)" --cap-drop=ALL
+      --security-opt=no-new-privileges --pids-limit=512
       -e CI=1 -e EXPO_NO_DOTENV=1
       -v "$CI_PROJECT_DIR/frontend:/source:ro"
       -v "$CI_PROJECT_DIR/.qa-artifacts/cover-stickers:/artifacts"
       -w /workspace/frontend
-      node:24-bookworm
+      "dio-cover-sticker-qa:${CI_PIPELINE_ID}"
       bash /source/scripts/ci-cover-stickers.sh
+  after_script:
+    - docker image rm "dio-cover-sticker-qa:${CI_PIPELINE_ID}" || true
   artifacts:
     when: always
     expire_in: 7 days
