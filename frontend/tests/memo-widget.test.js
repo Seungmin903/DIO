@@ -74,13 +74,14 @@ test('잉크병 메모는 선만 한 겹 더 맨 위에 올려, 그 위에 쓴 �
   const over = MEMO_ARTS.filter((art) => art.overTop).map((art) => art.id)
   assert.deepEqual(over, ['inkSquare', 'inkRound'])
   const read = (file) => readFileSync(new URL(file, import.meta.url), 'utf8')
-  // StaticPage: 획 층을 그린 **뒤에** overTop 메모를 linesOnly 로 다시 그린다(순서가 뒤집히면 효과가 없다)
+  // StaticPage: 덧그림은 요소마다 자리표(overTopMark)를 목록 사이에 끼우고, 맨 뒤에 남는 것(tailMarks)만
+  // 획 층 **밖**에서 linesOnly 로 다시 그린다(새 요소가 아니라 획 묶음 캐시가 살아 있다). 차례는 stroke-layers 가 본다
   const page = read('../src/editor/components/canvas/StaticPage.js')
-  assert.match(page, /const overTop = renderableObjects\.filter\(object => !object\.hidden && memoArtOf\(object\.art\)\?\.overTop\)/)
+  assert.match(page, /if \(drawsOnPage\(object\) && memoArtOf\(object\.art\)\?\.overTop\) pending\.push\(overTopMark\(object\)\)/)
   assert.match(page, /<PageObject key=\{`over-\$\{object\.id\}`\} object=\{object\} zoom=\{zoom\} linesOnly/)
   // 덧그림은 글자 재기 통로 **밖**에 둔다 — 안에 두면 통로의 외동 자식이 배열이 돼 획 층을 읽던 검사가 깨진다
-  const strokes = page.indexOf('renderableObjects.filter(object => !object.hidden).map(renderObject)')
-  const overlay = page.indexOf('{overTop.map(renderOverTop)}')
+  const strokes = page.indexOf('ordered.filter(object => !object.hidden).map(renderObject)')
+  const overlay = page.indexOf('{tailMarks.map(mark => renderOverTop(mark.overTopOf))}')
   assert.ok(strokes > 0 && overlay > page.indexOf('</TextMeasure.Provider>') && overlay > strokes, '덧그림은 획 층 뒤에 와야 한다')
   // 덧그림은 종이 · 글 · 그림자 없이 선만 그리고 손가락을 안 받는다
   const shape = read('../src/editor/components/canvas/ShapeContent.js')
