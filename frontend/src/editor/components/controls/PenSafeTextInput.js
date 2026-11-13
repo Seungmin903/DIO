@@ -1,5 +1,6 @@
-import { forwardRef, useState } from 'react'
+import { forwardRef, useContext, useState } from 'react'
 import { Platform, Pressable, StyleSheet, Text, TextInput } from 'react-native'
+import { InputFocusContext } from './inputFocusContext'
 
 // 글자 모양 속성은 Text 로, 나머지(크기·여백·테두리)는 누르는 상자로 나눈다.
 const TEXT_KEYS = ['color', 'fontSize', 'fontWeight', 'fontFamily', 'fontStyle', 'letterSpacing', 'lineHeight', 'textAlign']
@@ -12,12 +13,17 @@ const TEXT_KEYS = ['color', 'fontSize', 'fontWeight', 'fontFamily', 'fontStyle',
  */
 const PenSafeTextInput = forwardRef(function PenSafeTextInput(props, ref) {
   const [editing, setEditing] = useState(false)
+  const onInputFocus = useContext(InputFocusContext)
   if (Platform.OS === 'web' || editing) {
     return (
       <TextInput
         ref={ref}
         {...props}
         autoFocus={Platform.OS === 'web' ? props.autoFocus : true}
+        onFocus={(event) => {
+          props.onFocus?.(event)
+          onInputFocus?.()
+        }}
         onBlur={(event) => {
           setEditing(false)
           props.onBlur?.(event)

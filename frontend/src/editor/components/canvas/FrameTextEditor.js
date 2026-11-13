@@ -4,7 +4,7 @@ import { colors } from '../../../shared/theme'
 import { FRAME_TEXT } from '../../constants'
 import { photoInnerBox } from '../../utils/objects'
 import { isStripFrame, stripCellBoxes } from '../../utils/photoStrip'
-import { startTextKeyboard } from '../../utils/textKeyboard'
+import { revealOverlap, startTextKeyboard } from '../../utils/textKeyboard'
 import { frameColorOf } from './ObjectView'
 import { frameTextOf, lineText, MONO, printColor, STRIP_DEFAULT_COLOR, stripLines, ticketLines } from './PhotoFrame'
 
@@ -64,7 +64,8 @@ export default function FrameTextEditor({ object, line: index, zoom, dispatch, o
       if (keyboardTop == null || !onReveal) return
       input.current?.measureInWindow?.((x, y, width, height) => {
         // 입력칸이 화면 위로 밀려 나가 적는 글자가 안 보이는 일이 없게, 작업창 위 끝 아래까지만 올린다
-        const overlap = Math.min(y + height + 80 - keyboardTop, y - visibleTop)
+        // (visibleTop 은 편집 화면이 measureInWindow 로 잰 작업창 위 끝 + 8 이라 y 와 같은 화면 기준)
+        const overlap = revealOverlap({ inputY: y, inputHeight: height, keyboardTop, visibleTop })
         if (overlap > 0) onReveal(overlap)
       })
     })

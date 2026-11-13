@@ -15,6 +15,7 @@ import { isRouteNode } from '../../widgets/routeNode'
 import { isStripFrame } from '../../utils/photoStrip'
 import { hasPhotoMedia } from '../../utils/objects'
 import { PaletteInteractionContext } from '../controls/ColorPicker'
+import { InputFocusContext } from '../controls/inputFocusContext'
 
 const TYPE_TITLES = { sticker: '스티커', photo: '사진', tape: '마스킹테이프', shape: '도형' }
 
@@ -35,17 +36,23 @@ export default function MorePanel({ objects, dispatch, onReplacePhoto, onReplace
   const scrollToTyping = () => {
     if (typingY.current != null) scrollRef.current?.scrollTo?.({ y: Math.max(0, typingY.current - 30), animated: false })
   }
+  // 포커스된 입력칸이 이 창 안이면 자리를 재고 그 칸이 보이게 스크롤한다.
+  // 키보드가 처음 뜰 때(keyboardDidShow)와, 키보드가 떠 있는 채로 다른 칸으로 옮길 때(입력칸 onFocus) 부른다
+  const measureTyping = () => {
+    const input = TextInput.State?.currentlyFocusedInput?.()
+    if (!input?.measureLayout || !contentRef.current) return
+    // 이 창 밖의 입력칸(캔버스 글상자 등)이면 measureLayout 이 실패해 그대로 둔다
+    try {
+      input.measureLayout(contentRef.current, (x, y) => { typingY.current = y; setTyping(true); scrollToTyping() }, () => {})
+    } catch { /* 이미 사라진 입력칸 */ }
+  }
+  const onInputFocus = () => { if (Keyboard.isVisible?.()) measureTyping() }
   useEffect(() => {
-    const show = Keyboard.addListener('keyboardDidShow', () => {
-      const input = TextInput.State?.currentlyFocusedInput?.()
-      if (!input?.measureLayout || !contentRef.current) return
-      // 이 창 밖의 입력칸(캔버스 글상자 등)이면 measureLayout 이 실패해 그대로 둔다
-      try {
-        input.measureLayout(contentRef.current, (x, y) => { typingY.current = y; setTyping(true); scrollToTyping() }, () => {})
-      } catch { /* 이미 사라진 입력칸 */ }
-    })
+    const show = Keyboard.addListener('keyboardDidShow', () => measureTyping())
     const hide = Keyboard.addListener('keyboardDidHide', () => setTyping(false))
     return () => { show.remove(); hide.remove() }
+    // measureTyping 은 ref 만 쓴다
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
   useEffect(() => { onTypingChange?.(typing) }, [typing, onTypingChange])
   useEffect(() => () => onTypingChange?.(false), [onTypingChange])
@@ -120,6 +127,7 @@ export default function MorePanel({ objects, dispatch, onReplacePhoto, onReplace
         // 창이 키보드 위로 내려가 줄어든 뒤에도 적는 칸이 보이게 다시 맞춘다
         onLayout={() => { if (typing) scrollToTyping() }}>
         <View ref={contentRef} collapsable={false}>
+        <InputFocusContext.Provider value={onInputFocus}>
         {!editable.length ? (
           <Text style={styles.hint}>잠긴 요소예요. 잠금을 풀면 편집할 수 있어요.</Text>
         ) : current === 'style' ? (
@@ -196,6 +204,7 @@ export default function MorePanel({ objects, dispatch, onReplacePhoto, onReplace
             </Section>
           </>
         )}
+        </InputFocusContext.Provider>
         </View>
       </ScrollView>
       </PaletteInteractionContext.Provider>
