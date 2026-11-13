@@ -113,7 +113,7 @@ test('폰·태블릿은 카드 길게 누르기로 선택 모드에 들어가고
   assert.equal(props.sort,'title');assert.equal(props.filter,'personal');
   assert.ok(!findControl(tree,'보관함 옵션'));assert.ok(!findControl(tree,'다이어리 검색'));
   assert.ok(!findControl(tree,'선택한 1개 휴지통으로 이동').props.disabled);
-  assert.ok(!nodes(tree).some(n=>n.props?.accessibilityLabel==='새 다이어리 만들기'));
+  assert.ok(!nodes(tree).some(n=>n.type==='../components/LibraryCreateMenu'&&n.props.onCreate));
   const card=nodes(tree).filter(n=>n.type==='../components/DiaryCard')[1];
   card.props.onToggleSelect(card.props.diary);tree=render(props);
   assert.equal(props.selection.length,2);
@@ -166,9 +166,9 @@ test('보관함 검색·초기화·빈 결과·정렬 선택을 연결하고 새
  const props={compact:true,diaries:[{id:'a',title:'여행',createdAt:'2026-10-20'},{id:'b',title:'일기',createdAt:'2026-10-21'}],metadata:{a:{pageCount:2},b:{pageCount:5}},sort:'updated',onSortChange:value=>{props.sort=value},filter:'personal',view:'grid',carousel:0,onCarouselChange:()=>{},onCreate:()=>{}};
  const find=(tree,label)=>nodes(tree).find(n=>(n.props.accessibilityLabel??n.props.label)===label);
  let tree=render(props);
- assert.ok(nodes(tree).some(n=>n.props?.accessibilityLabel==='새 다이어리 만들기'));
+ assert.ok(nodes(tree).some(n=>n.type==='../components/LibraryCreateMenu'&&n.props.onCreate));
  find(tree,'다이어리 검색').props.onPress();tree=render(props);
- assert.ok(!nodes(tree).some(n=>n.props?.accessibilityLabel==='새 다이어리 만들기'));
+ assert.ok(!nodes(tree).some(n=>n.type==='../components/LibraryCreateMenu'&&n.props.onCreate));
  assert.equal(tree.type,'../components/LibrarySearchScreen');
  tree.props.onQueryChange('여행');tree=render(props);
  assert.deepEqual(tree.props.diaries.map(d=>d.id),['a']);
@@ -182,7 +182,7 @@ test('보관함 검색·초기화·빈 결과·정렬 선택을 연결하고 새
  const options=nodes(tree).filter(n=>n.props.accessibilityRole==='radio'&&!/ 보기$/.test(n.props.accessibilityLabel??''));assert.equal(options.length,4);
  options[2].props.onPress();tree=render(props);
  assert.deepEqual(nodes(tree).filter(n=>n.type==='../components/DiaryCard').map(n=>n.props.diary.id),['b','a']);
- assert.ok(nodes(tree).some(n=>n.props?.accessibilityLabel==='새 다이어리 만들기'));
+ assert.ok(nodes(tree).some(n=>n.type==='../components/LibraryCreateMenu'&&n.props.onCreate));
 });
 test('접힌·펼친 사이드바 모두 생성 버튼 없이 기존 탐색을 제공한다',()=>{
  const render=setup('../src/diary/components/SideRail.js');

@@ -44,7 +44,7 @@ test('825: 보관함 오류 안내 위치, 재시도 및 401 로그인 복구', 
     '../utils/useDiaryGrid': { useDiaryGrid: () => null }, '../utils/carouselFollow': { carouselMotion: () => ({}) },
     '../components/OpenBookShelf': { ...stub('OpenBookShelf'), preloadOpenBooks() {} },
     '../components/EmptyState': { ...stub('EmptyState'), LoadingSpot: 'LoadingSpot' },
-    '../components/PopoverMenu': stub('PopoverMenu'), '../../editor/components/controls/FadeScroll': stub('FadeScroll'),
+    '../components/PopoverMenu': stub('PopoverMenu'), '../components/LibraryCreateMenu': stub('LibraryCreateMenu'), '../../editor/components/controls/FadeScroll': stub('FadeScroll'),
     '../../shared/AppIcon': stub('AppIcon'), '../../shared/FavoriteStar': stub('FavoriteStar'),
     ...Object.fromEntries(['DiaryCard', 'IconButton', 'PhoneBell', 'SelectionBar', 'SelectionButton', 'LibrarySearchScreen']
       .map(name => [`../components/${name}`, stub(name)])),

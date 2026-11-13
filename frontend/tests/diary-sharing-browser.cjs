@@ -152,11 +152,6 @@ const server = http.createServer((req, res) => {
     await button('참여 해제').click();
     await page.getByText('참여를 해제했어요.').waitFor();
     assert.equal(await page.getByTestId('joined').textContent(), '0');
-    await page
-      .getByRole('textbox', { name: '받은 초대 링크' })
-      .fill('https://evil.example/invite/x');
-    await button('초대 링크 확인').click();
-    await page.getByText('사용할 수 없는 초대 링크예요.').waitFor();
     await button('주말의 기록 초대 거절').click();
     await button('거절').click();
     await button('주말의 기록 초대 거절').waitFor({ state: 'detached' });
@@ -167,7 +162,7 @@ const server = http.createServer((req, res) => {
     await page.getByText('받은 초대가 없어요').waitFor();
     assert.deepEqual(errors, []);
     console.log(
-      'PASS: 5 viewport layouts, owner permissions/removal/link, nickname duplicate/recheck/cancel, accept/leave, invalid links; no page errors',
+      'PASS: 5 viewport layouts, owner permissions/removal/link, nickname duplicate/recheck/cancel, accept/leave; no page errors',
     );
   } finally {
     await browser.close();

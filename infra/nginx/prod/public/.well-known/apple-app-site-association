@@ -1,0 +1,13 @@
+{
+  "applinks": {
+    "apps": [],
+    "details": [
+      {
+        "appID": "5574VUMQN5.com.f106.DIO",
+        "appIDs": ["5574VUMQN5.com.f106.DIO"],
+        "paths": ["/invite/*"],
+        "components": [{ "/": "/invite/*" }]
+      }
+    ]
+  }
+}

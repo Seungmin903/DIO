@@ -996,3 +996,24 @@ test('외부 공유 링크는 기존 참여 화면을 열고 확인을 누른 �
   assert.deepEqual(accepted, [token]);
   ui.unmount();
 });
+
+test('보관함 + 로 붙여 넣은 링크가 형식 오류 · 서명 불일치면 오류를 보여 주고 참여 화면으로 넘어가지 않는다', async () => {
+  const failures = {
+    'javascript:alert(1)': Object.assign(new Error('초대 링크를 확인해 주세요.'), { code: 'INVALID_LINK' }),
+    'https://evil.example/invite/x': Object.assign(new Error('사용할 수 없는 초대 링크예요.'), { code: 'INVITE_NOT_FOUND' }),
+  };
+  for (const [link, failure] of Object.entries(failures)) {
+    const accepted = [];
+    const ui = setup({
+      resolveLink: async () => { throw failure; },
+      accept: async id => { accepted.push(id); },
+    }, undefined, { mode: 'invitation', link });
+    ui.render();
+    await tick();
+    const screen = ui.render();
+    assert.ok(nodes(screen).some(n => n.props?.children === failure.message), link);
+    assert.equal(find(screen, '수락하고 참여하기'), undefined, link);
+    assert.deepEqual(accepted, [], link);
+    ui.unmount();
+  }
+});

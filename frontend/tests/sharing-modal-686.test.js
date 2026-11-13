@@ -144,7 +144,7 @@ test('알림 새로고침 때 자리표시(빈 네모) · 스피너가 깜빡이
   assert.match(panel, /\{items\.length === 0 && list\.data && list\.status !== 'error' && <View testID="notification-empty"/)
 })
 
-test('알림이 많으면 목록 칸만 창 안에서 스크롤하고 초대 링크 확인은 아래에 고정, 창 높이 고정 · 훅은 이른 return 위', () => {
+test('알림이 많으면 목록 칸만 창 안에서 스크롤하고 창 높이는 고정 · 훅은 이른 return 위', () => {
   assert.match(src, /<FadeScroll testID="sharing-invitations-scroll" style=\{s\.invitationScroll\}/)
   assert.match(src, /const fixedHeight = screen === 'invitations' \? \(lockedHeight \|\| /)
   assert.match(src, /fixedHeight \? \{ height: fixedHeight \}/)
