@@ -4,7 +4,8 @@ import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import * as builtinStickers from '../src/editor/builtinStickers.js'
 import { PageExportError } from '../src/editor/utils/pageExport.js'
-import { isSkiaRaster } from '../src/editor/skia/pencilRaster.js'
+import * as pencilRasterModule from '../src/editor/skia/pencilRaster.js'
+const { isSkiaRaster } = pencilRasterModule
 import { createStroke } from '../src/editor/utils/strokes.js'
 
 const require = createRequire(import.meta.url), expo = createRequire(require.resolve('expo/package.json'))
@@ -172,4 +173,53 @@ test('StrokeContent: 앱의 잉크펜은 Skia 그림으로, 웹의 잉크펜은 
   const web = renderStroke(glassStroke(), 'web')
   assert.equal(web.type, 'Svg')
   assert.equal(web.props.children.type, 'GlassStrokeContent')
+})
+
+// PencilSkiaStroke(앱)는 펜 종류를 가리지 않고, 그림이 올라오면(Image onLoad · onError) · 그림을 못 만들면(SVG 폴백) onAssetLoad 를 보낸다.
+// PageImageSurface 가 앱의 잉크펜 획을 이 알림으로 기다리므로, 잉크펜 획에서도 두 경우 모두 알림이 와야 내보내기가 멈추지 않는다.
+const pencilSkiaNativeCode = transform('../src/editor/components/PencilSkiaStroke.native.js')
+function renderPencilSkiaNative(object, drawn) {
+  const states = [], notified = []
+  let slot = 0, effects = []
+  const element = (type, props) => ({ type, props })
+  const react = {
+    useContext: () => 2,
+    useState: (initial) => { const i = slot++; if (!(i in states)) states[i] = initial; return [states[i], (value) => { states[i] = typeof value === 'function' ? value(states[i]) : value }] },
+    useRef: (value) => { const i = slot++; if (!(i in states)) states[i] = { current: value }; return states[i] },
+    useEffect: (fn) => effects.push(fn),
+  }
+  const raster = require('../src/editor/skia/rasterBudget.js')
+  const PencilSkiaStroke = load(pencilSkiaNativeCode, {
+    react,
+    'react/jsx-runtime': { jsx: element, jsxs: element, Fragment: 'Fragment' },
+    'react-native': { Image: 'Image', PixelRatio: { get: () => 1 }, View: 'View' },
+    '../skia/skiaPencilScale.js': { SkiaPencilScale: {} },
+    '../skia/skiaRuntime': { useSkiaRuntime: () => ({ runtime: {} }) },
+    '../skia/pencilRaster.js': { ...pencilRasterModule, drawPencilRaster: () => drawn },
+    '../skia/rasterBudget.js': { ...raster, withinBudget: () => true },
+    '../utils/pencilPreviewFallback.js': require('../src/editor/utils/pencilPreviewFallback.js'),
+  }).default
+  slot = 0; effects = []
+  const tree = PencilSkiaStroke({ object, zoom: 1, fallback: 'SvgFallback', onAssetLoad: () => notified.push(object.id) })
+  effects.forEach((fn) => fn())
+  return { tree, notified }
+}
+
+test('PencilSkiaStroke(앱): 잉크펜 획도 그림이 올라오면 onAssetLoad 를 보낸다', () => {
+  const object = glassStroke()
+  const drawn = { image: { encodeToBase64: () => 'AA==' }, dispose() {}, left: -10, top: -10, width: 80, height: 50 }
+  const { tree, notified } = renderPencilSkiaNative(object, drawn)
+  const image = [...nodes(tree)].find((node) => node.type === 'Image')
+  assert.ok(image, 'Skia 그림을 띄운다')
+  assert.deepEqual(notified, [], '그림이 올라오기 전에는 알리지 않는다')
+  image.props.onLoad()
+  assert.deepEqual(notified, ['glass-1'])
+  image.props.onError()
+  assert.deepEqual(notified, ['glass-1', 'glass-1'], '그림을 못 띄워도 알린다(SVG 로 둔다)')
+})
+
+test('PencilSkiaStroke(앱): 잉크펜 그림을 못 만들면 SVG 를 그리고 바로 onAssetLoad 를 보낸다', () => {
+  const { tree, notified } = renderPencilSkiaNative(glassStroke(), null)
+  assert.ok([...nodes(tree)].includes('SvgFallback') || JSON.stringify(tree).includes('SvgFallback'), 'SVG 폴백')
+  assert.deepEqual(notified, ['glass-1'])
 })

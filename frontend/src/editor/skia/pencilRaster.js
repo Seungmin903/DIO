@@ -12,6 +12,8 @@ export const isSkiaPencil = object =>
   object?.type === 'stroke' && object.penKind === 'pencil' && (object.renderVersion === 2 || object.renderVersion === 3) && object.points?.length > 0
   && (object.sampled || object.taperBaked || object.points.every(p => Number.isFinite(p.inkDistance)))
 
+// 앱 편집 화면(CompletedStrokeLayer.native)은 판(renderVersion)과 상관없이 모든 획을 strokesPicture 로 그린다. 굽기도 같은 함수라
+// 옛 잉크펜 획도 화면과 같은 그림이 된다(연필처럼 거를 판이 없다). 점이 없거나 색이 문자열이 아니면 drawGlassStroke 가 평범한 선으로 떨어지므로 여기서 미리 뺀다
 export const isSkiaGlass = object =>
   object?.type === 'stroke' && object.penKind === 'glass' && object.points?.length > 0 && typeof object.color === 'string'
 

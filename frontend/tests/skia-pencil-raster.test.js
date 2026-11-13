@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { createStroke } from '../src/editor/utils/strokes.js'
 import { createCompletedStrokePlanner } from '../src/editor/utils/completedStrokePlan.js'
-import { isSkiaPencil, isSkiaRaster, pencilRasterBounds, pencilRasterKey, pencilBakesOpacity, rememberRaster, reusableRaster } from '../src/editor/skia/pencilRaster.js'
+import { drawPencilRaster, isSkiaPencil, isSkiaRaster, pencilRasterBounds, pencilRasterKey, pencilBakesOpacity, rememberRaster, reusableRaster } from '../src/editor/skia/pencilRaster.js'
 import { GLASS_INK } from '../src/editor/utils/glassInk.js'
 import { quantizeScale } from '../src/editor/skia/rasterBudget.js'
 
@@ -115,4 +115,39 @@ test('잉크펜 그림 범위는 번짐(halo)만큼 여백을 더 두고, 열쇠
   assert.notEqual(pencilRasterKey({ ...stroke, inkSheenColor: '#ff0000' }, 2), key)
   assert.notEqual(pencilRasterKey({ ...stroke, inkOrigin: { x: 99, y: 1 } }, 2), key, '무늬가 페이지에 붙어 있어 기준점이 다르면 다른 그림')
   assert.notEqual(pencilRasterKey(stroke, 2), pencilRasterKey({ ...stroke, penKind: 'ball' }, 2))
+})
+
+// 굽기는 요소를 원점(x · y = 0)으로 옮겨 그린다. 잉크펜 무늬(글리터 · 테)는 페이지에 붙어 있으므로
+// 옮기기 전 기준점(glassOrigin)을 inkOrigin 으로 넘겨야 편집 화면과 같은 자리에 반짝인다.
+function bakedLocal(object) {
+  const drawn = []
+  const canvas = { scale() {}, translate() {}, drawPicture() {} }
+  const runtime = {
+    makeSurface: () => ({ getCanvas: () => canvas, flush() {}, makeImageSnapshot: () => ({ dispose() {} }), dispose() {} }),
+    strokesPicture: (objects, fade, scale) => { drawn.push({ objects, scale }); return {} },
+  }
+  const result = drawPencilRaster(runtime, object, 2)
+  result.dispose()
+  assert.equal(drawn.length, 1)
+  return drawn[0].objects[0]
+}
+
+test('잉크펜 굽기: 저장된 무늬 기준점(inkOrigin)은 요소를 옮긴 뒤에도 그대로 넘긴다', () => {
+  const stroke = glass('g-saved')
+  const origin = { ...stroke.inkOrigin }
+  const local = bakedLocal({ ...stroke, x: stroke.x + 300, y: stroke.y + 40 })
+  assert.deepEqual([local.x, local.y], [0, 0], '위치는 요소 래퍼가 맡는다')
+  assert.deepEqual(local.inkOrigin, origin)
+})
+
+test('잉크펜 굽기: 기준점이 없는 옛 획은 원점으로 옮기기 전 요소 위치를 기준점으로 넘긴다', () => {
+  const { inkOrigin, ...old } = { ...glass('g-old'), x: 120, y: 45 }
+  assert.ok(inkOrigin, '새 획은 기준점을 적어 둔다')
+  const local = bakedLocal({ ...old, points: old.points.map(p => ({ ...p })) })
+  assert.deepEqual([local.x, local.y], [0, 0])
+  assert.deepEqual(local.inkOrigin, { x: 120, y: 45 })
+})
+
+test('연필 굽기에는 inkOrigin 을 끼워 넣지 않는다', () => {
+  assert.equal('inkOrigin' in bakedLocal(pencil('p-bake')), false)
 })
