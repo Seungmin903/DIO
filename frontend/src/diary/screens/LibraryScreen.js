@@ -1,6 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, BackHandler, FlatList, Platform, Pressable, ScrollView, Text, View } from 'react-native';
 import PopoverMenu from '../components/PopoverMenu';
+import LibraryCreateMenu from '../components/LibraryCreateMenu';
 import FadeScroll, { CANVAS_FADE_RGB } from '../../editor/components/controls/FadeScroll';
 import { CAROUSEL_GAP, CAROUSEL_ITEM_WIDTH, CAROUSEL_STEP, FILTERS, LIBRARY_SCOPES, C } from '../constants';
 import AppIcon from '../../shared/AppIcon';
@@ -48,6 +49,7 @@ function LibraryScreen({
   onDelete,
   onShare, // 다이어리 ⋯ 말풍선의 `공유`. 없으면 그 줄을 두지 않는다
   onCreate,
+  onJoinLink, // + 메뉴의 '초대 링크로 참여'. 붙여 넣은 링크를 앱의 초대 흐름으로 넘긴다
   guestImport = null,
   railWidthRef = null, // 태블릿: 메뉴가 다 열리거나 닫혔을 때의 폭 (ref라 바뀌어도 다시 그리지 않는다)
   selection = null, // 관리 모드에서 고른 다이어리 id 목록. null이면 관리 모드가 아니다.
@@ -124,8 +126,11 @@ function LibraryScreen({
   const toggleAll = () => {
     if (!trashing && manageable.length) onSelectionChange?.(allSelected ? [] : manageable.map(diary => diary.id));
   };
-  // 새로 만든 다이어리는 개인 다이어리로 들어가므로 만들기 버튼은 개인 다이어리 탭에만 둔다. 관리 중에는 숨긴다.
-  const canCreate = Boolean(onCreate) && filterScope(filter) !== 'shared' && !favoriteOnly && !searchOpen && !selecting;
+  // 새로 만든 다이어리는 개인 다이어리로 들어가므로 만들기는 개인 다이어리 탭에만 둔다. 공유된 다이어리 탭의 + 는 '초대 링크로 참여'만 연다.
+  // 즐겨찾기 · 검색 · 관리 중에는 + 를 숨긴다.
+  const fabShown = !favoriteOnly && !searchOpen && !selecting;
+  const canCreate = Boolean(onCreate) && filterScope(filter) !== 'shared' && fabShown;
+  const canJoin = Boolean(onJoinLink) && fabShown;
 
   const carouselItems = shown;
   const itemCount = carouselItems.length;
@@ -466,10 +471,7 @@ function LibraryScreen({
       scrollEnabled={!fixedPhoneCarousel}
     >{top}{body}</ScrollView>}
     {/* 새 다이어리: + 아이콘 버튼을 본문 오른쪽 아래에 띄운다 */}
-    {canCreate && <Pressable accessibilityRole="button" accessibilityLabel="새 다이어리 만들기" hitSlop={2} onPress={onCreate}
-      style={({ pressed }) => [s.createFab, compact && s.createFabCompact, pressed && s.pressed]}>
-      <AppIcon name="add" size={compact ? 20 : 24} strokeWidth={2} color={C.white} />
-    </Pressable>}
+    {(canCreate || canJoin) && <LibraryCreateMenu compact={compact} onCreate={canCreate ? onCreate : undefined} onJoinLink={canJoin ? onJoinLink : undefined} />}
     </View>
   );
 }

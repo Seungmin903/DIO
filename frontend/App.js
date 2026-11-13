@@ -274,6 +274,8 @@ export default function App() {
     setLoginRequest({});
     setMailInvitation(current => current ?? { inviteId });
   };
+  // 보관함 + 메뉴의 초대 링크로 참여: 링크를 받은 것처럼 같은 흐름(로그인 안 했으면 로그인 → 공유 창에서 확인 · 수락)으로 넘긴다
+  const joinInviteLink = useCallback(link => setMailInvitation({ link }), []);
   const consumeMailInvitation = useCallback(request => {
     setMailInvitation(current => current === request ? null : current);
   }, []);
@@ -325,7 +327,7 @@ export default function App() {
           onUpdatePreview={updated => setPreviewSession(current => current?.mode === updated.mode &&
             (current?.mode === 'authenticated' ? String(current.userId) === String(updated.userId) : current?.accountId === updated.accountId) ? updated : current)}
           mailInvitation={mailInvitation && !booting && authenticatedSession && authService.getSessionKey() ? mailInvitation : null}
-          onConsumeMailInvitation={consumeMailInvitation} onSwitchInvitationAccount={switchInvitationAccount}
+          onConsumeMailInvitation={consumeMailInvitation} onSwitchInvitationAccount={switchInvitationAccount} onJoinInviteLink={joinInviteLink}
           onEndPreview={endSession} onClearSession={clearSession} onWithdrawn={withdrawSession} /></LoginGateProvider> : null
       )}
       {!booting && !previewSession && !mockSource && !restoreFailed && (
@@ -387,7 +389,7 @@ const HOME_ROUTE = { page: 'library', filter: DEFAULT_FILTER };
 const routeMemory = createRouteMemory(HOME_ROUTE);
 
 function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onWithdrawn, onUpdatePreview, onReady, diaryState, sharing,
-  loginOverlayOpen = false, mailInvitation, onConsumeMailInvitation, onSwitchInvitationAccount }) {
+  loginOverlayOpen = false, mailInvitation, onConsumeMailInvitation, onSwitchInvitationAccount, onJoinInviteLink }) {
   const safety = useSafety();
   const member = diaryState.source === 'member-api';
   const [guestImport, setGuestImport] = useState(null);
@@ -1049,6 +1051,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onWithdraw
       onDelete={moveDiaryToTrash}
       onShare={shareDiary}
       onCreate={loaded && !localListFailed ? create : undefined}
+      onJoinLink={onJoinInviteLink}
       railWidthRef={isPhone ? null : railWidthRef}
       selection={selection}
       onSelectionChange={setSelection}
@@ -1080,7 +1083,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onWithdraw
       suppressEmpty={libraryLoading || memberListFailed || localListFailed}
       loading={libraryLoading}
     />
-  ), [guestImport, carousel, navigate, changeCarousel, changeFilter, changeView, changeLibrarySort, create, edit, favorite, filter, isPhone, tabletPortrait,libraryMetadata, librarySort, moveDiaryToTrash, moveSelectedToTrash, open, selection, trashing, view, libraryDiaries, member, memberLibraryMatches, remoteQuery, diaryState.library, diaryState.bulkTrash, diaryState.pending, diaryState.error, diaryState.refreshing, diaryState.lifecycle, diaryState.trashLoading, diaryState.trashError, diaryState.store, saving, enterEditor, loaded, localListFailed, retryLibraryRead, libraryLoading, memberListFailed, centerMemberError]);
+  ), [guestImport, carousel, navigate, changeCarousel, changeFilter, changeView, changeLibrarySort, create, edit, favorite, filter, isPhone, tabletPortrait,libraryMetadata, librarySort, moveDiaryToTrash, moveSelectedToTrash, open, selection, trashing, view, libraryDiaries, member, memberLibraryMatches, remoteQuery, diaryState.library, diaryState.bulkTrash, diaryState.pending, diaryState.error, diaryState.refreshing, diaryState.lifecycle, diaryState.trashLoading, diaryState.trashError, diaryState.store, saving, enterEditor, loaded, localListFailed, retryLibraryRead, libraryLoading, memberListFailed, centerMemberError, onJoinInviteLink]);
 
   // 보관함(libraryScreen)처럼 요소를 memo 해 둔다. 사이드 메뉴를 여닫느라 App 이 다시 그려져도 휴지통 목록은 다시 그리지 않는다.
   const trashScreen = useMemo(() => (

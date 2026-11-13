@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.f106.DIO",
+      "sha256_cert_fingerprints": [
+        "22:E5:E2:43:64:4D:ED:15:69:AC:50:7F:ED:6B:10:76:22:85:62:03:F2:BC:32:7F:C3:0C:1D:EE:FB:F3:3B:6A"
+      ]
+    }
+  }
+]

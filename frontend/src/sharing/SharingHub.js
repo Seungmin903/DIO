@@ -158,7 +158,6 @@ export default function SharingHub({
   const showFailure = failure => { setError(failure.message || '처리하지 못했어요. 다시 시도해 주세요.'); setRequestError(failure); };
   const [question, setQuestion] = useState(null);
   const [toast, setToast] = useState('');
-  const [linkInput, setLinkInput] = useState('');
   const [inviteEmail, setInviteEmail] = useState('');
   const [linkExpired, setLinkExpired] = useState(false);
   const [copyTitle, setCopyTitle] = useState('');
@@ -167,7 +166,6 @@ export default function SharingHub({
     running = useRef(false);
   const alive = useRef(true);
   const nicknameField = useRef(null);
-  const linkField = useRef(null);
   const emailField = useRef(null);
   const copyField = useRef(null);
   const formScroll = useRef(null);
@@ -247,7 +245,6 @@ export default function SharingHub({
     setBlockedAcknowledged(false);
     setMainHeight(null); // 다른 다이어리 · 다른 진입이면 높이를 다시 잰다
     setFirstLoad(false);
-    setLinkInput('');
     setInviteEmail('');
     setCreatedCopy(null);
     setCopyTitle('');
@@ -1048,45 +1045,7 @@ export default function SharingHub({
                         )}
                         {more.status === 'error' && <><Text style={s.error}>{more.error.message}</Text><AuthenticationRecovery error={more.error} /></>}
                       </FadeScroll>
-                      {/* 초대 링크 확인은 창 아래에 고정(목록이 길어도 움직이지 않는다) */}
-                      <View style={s.linkSection}>
-                        <Text style={s.bold}>초대 링크 확인</Text>
-                        <View style={s.linkCheck}>
-                          <TextInput
-                            accessibilityLabel="받은 초대 링크"
-                            ref={linkField}
-                            onFocus={() => focusInput(linkField.current)}
-                            onBlur={() => blurInput(linkField.current)}
-                            placeholder="초대 링크를 붙여 넣어 주세요" placeholderTextColor={colors.textMuted}
-                            value={linkInput}
-                            onChangeText={setLinkInput}
-                            editable={!busy}
-                            autoCapitalize="none"
-                            autoCorrect={false}
-                            keyboardType="url"
-                            style={[s.field, s.grow]}
-                          />
-                          <Button
-                            label="초대 링크 확인"
-                            text="확인"
-                            style={s.linkCheckButton}
-                            secondary
-                            disabled={busy || !linkInput.trim()}
-                            onPress={() =>
-                              run(
-                                () => runtime.resolveLink(linkInput),
-                                (value) => {
-                                  try {
-                                    prepareNickname(value);
-                                  } catch (error) {
-                                    setError(error.message);
-                                  }
-                                },
-                              )
-                            }
-                          />
-                        </View>
-                      </View>
+                      {/* 받은 초대 링크를 붙여 넣는 칸은 보관함 + 메뉴의 '초대 링크로 참여'에 둔다(다이어리를 열지 않고 참여) */}
                     </>
                   )}
                   {screen === 'detail' && invite && (

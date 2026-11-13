@@ -285,7 +285,9 @@ curl -X PATCH "$API/api/v1/diaries/$DIARY_ID/membership" \
 
 - 운영 초대 주소는 `https://k15f106.p.ssafy.io/invite/{token}`이다. 설치된 앱이 이 주소를 받으면 로그인 또는 기존 세션 복원 후 기존 초대 확인 흐름을 연다. 초대는 이용자가 기존 화면에서 확인하고 수락한다.
 - 운영 백엔드의 `SHARING_INVITE_BASE_URL`을 `https://k15f106.p.ssafy.io/invite/`로 지정하고 컨테이너에 전달한다.
-- 운영 HTTPS의 `/.well-known/assetlinks.json`에 Android 패키지 `com.f106.DIO`와 실제 설치 APK 또는 Play 앱 서명 인증서의 SHA-256 지문을 등록한다.
-- 운영 HTTPS의 `/.well-known/apple-app-site-association`에 `<Apple Team ID>.com.f106.DIO` 및 `/invite/*` 경로를 등록한다. 두 파일은 인증이나 리다이렉트 없이 JSON과 HTTP 200으로 제공한다.
-- 브라우저로 열린 `/invite/{token}`에는 앱 설치 또는 DIO의 ‘초대 링크 확인’에 주소를 붙여넣는 방법을 안내하는 웹 폴백을 운영한다. 초대 토큰은 접속 로그와 외부 분석 도구에 남기지 않는다.
+- 운영 HTTPS의 `/.well-known/assetlinks.json`에 Android 패키지 `com.f106.DIO`와 실제 설치 APK 또는 Play 앱 서명 인증서의 SHA-256 지문을 등록한다. 지금은 EAS 빌드 서명 지문(`22:E5:…:3B:6A`, APK · AAB 공통) 하나다. Play 스토어로 배포하면 Play Console의 앱 서명 키 지문을 배열에 더한다.
+- 운영 HTTPS의 `/.well-known/apple-app-site-association`에 `5574VUMQN5.com.f106.DIO`(Apple 로그인과 같은 Team ID) 및 `/invite/*` 경로를 등록한다. 두 파일은 인증이나 리다이렉트 없이 JSON과 HTTP 200으로 제공한다.
+- 두 파일과 안내 페이지는 `infra/nginx/prod/public/`에 두고 운영 nginx 이미지가 `/usr/share/nginx/dio/`로 복사해 내준다. 앱 설정(`app.json`)과 어긋나지 않는지 `frontend/tests/app-links-config.test.js`가 확인한다.
+- 브라우저로 열린 `/invite/{token}`에는 웹 폴백 페이지를 둔다: `초대 링크 복사`와 `DIO 앱의 + → 초대 링크로 참여에 붙여 넣어 주세요.` 한 줄, 안드로이드에서는 `앱에서 열기`(intent 링크, 앱이 없으면 Play 스토어)를 더한다. 외부 스크립트 · 분석 도구 없이 같은 출처 파일만 쓰고(CSP), `Referrer-Policy: no-referrer` · `Cache-Control: no-store`로 토큰이 다른 곳에 남지 않게 한다.
+- 앱 안에서는 보관함 `+` 메뉴의 `초대 링크로 참여`에 링크를 붙여 넣는다(공유된 다이어리 탭의 `+`는 바로 이 칸을 연다). 공유 창 알림 화면의 링크 확인 칸은 없앴다.
 - 연동 파일을 배포한 뒤 Android·iOS 앱을 새로 빌드해 설치하고 외부 앱에서 링크를 열어 확인한다. 로그아웃 상태에서는 로그인 후 같은 초대 화면이 열리는지 확인한다.

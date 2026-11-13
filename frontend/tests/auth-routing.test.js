@@ -75,6 +75,25 @@ test('메일 초대는 게스트 로그인으로 이어지고 계정을 바꿔�
  assert.deepEqual(nextApp.props.mailInvitation,invitation);
 });
 
+test('게스트가 보관함 + 로 붙여 넣은 초대 링크도 로그인 화면을 열고, 로그인 뒤 공유 창에 같은 링크를 넘긴다',()=>{
+ const link='https://k15f106.p.ssafy.io/invite/7.'+'a'.repeat(43);
+ const guest={mode:'preview',provider:'guest'};
+ const probe={effects:[],updates:[],restoreState:{status:'done',error:null}};
+ const app=nodes(root(false,undefined,guest,null,probe)).find(node=>node.props?.onJoinInviteLink);
+ app.props.onJoinInviteLink(link);
+ assert.deepEqual(probe.updates.at(-1),{index:5,value:{link}});
+
+ const pending={...probe,effects:[],updates:[],refs:[],mailInvitation:{link}};
+ root(false,undefined,guest,null,pending);
+ const timer=globalThis.setTimeout;globalThis.setTimeout=()=>0;
+ try{for(const effect of pending.effects){const cleanup=effect();if(typeof cleanup==='function')cleanup()}}finally{globalThis.setTimeout=timer}
+ assert.ok(pending.updates.some(update=>update.index===2&&update.value),'로그인 화면을 연다');
+
+ const signedIn={...pending,effects:[],updates:[],refs:[],sessionKey:'7:1'};
+ const member=nodes(root(false,undefined,{mode:'authenticated',userId:'7'},null,signedIn)).find(node=>node.props?.onJoinInviteLink);
+ assert.deepEqual(member.props.mailInvitation,{link});
+});
+
 async function failStartup(error) {
  const probe={effects:[],updates:[],hidden:0,restoreError:error,booting:true};
  root(false,undefined,null,null,probe);

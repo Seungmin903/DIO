@@ -118,9 +118,6 @@ export const sharingStyles = StyleSheet.create({
     backgroundColor: c.surface,
     gap: 12,
   },
-  linkSection: { marginTop: 8, paddingTop: 20, borderTopWidth: 1, borderColor: c.cardBorder, gap: 12 },
-  linkCheck: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  linkCheckButton: { width: 80, minHeight: 48 },
   field: {
     minHeight: 48,
     paddingHorizontal: 12,
