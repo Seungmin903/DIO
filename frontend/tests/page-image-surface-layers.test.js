@@ -47,6 +47,7 @@ async function renderSurface(snapshot) {
     '../templates/packingLayout.js': { packingLayout: () => null },
     './canvas/PackingColorLayer': { PackingColorLayer: 'PackingColorLayer', PackingFrontLayer: 'PackingFrontLayer' },
     './canvas/InkRecordFrontLayer': { InkRecordFrontLayer: 'InkRecordFrontLayer' },
+    '../templates/inkRecordLayout.js': require('../src/editor/templates/inkRecordLayout.js'),
     '../../shared/fontScope': { KeepFont: 'KeepFont' },
   }).default
   const job = { snapshot, signal: { aborted: false }, resolve: () => {}, reject: (error) => { throw error }, onCaptureStart: () => {} }

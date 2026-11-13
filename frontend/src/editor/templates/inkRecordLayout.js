@@ -4,6 +4,7 @@
 // (검사 tests/ink-record.test.js 가 둘이 같은지 지킨다.)
 
 import { INK_RECORD_BOTTLES } from './inkRecordBottles.js'
+import { coverBounds, drawsOnPage } from '../utils/coverBounds.js'
 
 export const INK_RECORD_SHAPES = ['round', 'square']
 export const inkRecordId = (shape, orientation) => `2026-reusable-ink-record-${shape}-${orientation}`
@@ -78,4 +79,37 @@ export function inkRecordLayout(assetId) {
   const cells = []
   for (let row = 0; row < rows; row++) for (let col = 0; col < cols; col++) cells.push(cellRegions(orientation, col, row, shape))
   return { orientation, shape, ...SIZES[orientation], cells }
+}
+
+/**
+ * 병 윤곽(InkRecordFrontLayer)을 요소 목록의 **몇 번째 앞**에 끼울지. 속지가 아니면 -1.
+ *
+ * 윤곽은 속지의 것이라 칠한 잉크 **위**에 있어야 하고(사용자 2026-11-11), 그 위에 붙인
+ * 메모 · 사진에는 **덮여야** 한다(사용자 2026-11-13). 평평한 차례 하나로 둘 다 지키려면
+ * 기준이 필요하다 — **병을 가리는 것**만 윤곽을 끌어내린다. 페이지 구석에 붙인 스티커까지
+ * 차례를 가르면, 그 뒤에 칠한 잉크가 전부 병 선을 덮는다(코드리뷰 2026-11-13).
+ *
+ * **그려지지 않는 것**(숨김 · 투명도 0 · 없앤 기본 스티커)은 차례도 가르지 않는다 —
+ * 내보내기가 목록에서 빼는 기준과 같다(utils/coverBounds 의 drawsOnPage). 돌린 요소는 **돌린 뒤의** 감싸는 네모로 본다 —
+ * 가로로 긴 메모를 90도 가까이 돌려 병에 걸치면 돌리기 전 네모로는 안 겹치기 때문이다
+ * (코드리뷰 2026-11-13). 조금 넉넉하게 잡히지만, 덜 잡혀 선이 가려지는 쪽보다 낫다.
+ *
+ * 한계: 자리는 **한 장에 하나**다. 윤곽 그림(InkRecordFrontLayer)이 여섯 병을 한 번에 그리기
+ * 때문이다. 그래서 한 병만 가려도 그 뒤에 그은 획이 **다른 병의** 윤곽 위로도 올라간다.
+ * 병마다 따로 그리면 정확해지지만 층이 여섯 개가 되고 획 묶음도 여섯 번 끊긴다 — 가리는 것이
+ * 아예 없을 때(흔한 경우)는 윤곽이 맨 위 층이라 모든 병이 모든 획 위이므로, 그 값을 치르지 않는다.
+ */
+export function inkRecordFrontIndex(assetId, objects) {
+  const layout = inkRecordLayout(assetId)
+  if (!layout) return -1
+  const list = Array.isArray(objects) ? objects : []
+  for (let i = 0; i < list.length; i++) {
+    const object = list[i]
+    if (!drawsOnPage(object) || object.type === 'stroke') continue
+    // 돌린 요소는 돌린 뒤의 감싸는 네모로 본다(utils/common 의 rotatedBounds 와 같은 식)
+    const box = coverBounds(object)
+    if (layout.cells.some(cell => box.left < cell.bottle.x + cell.bottle.w && box.right > cell.bottle.x
+      && box.top < cell.bottle.y + cell.bottle.h && box.bottom > cell.bottle.y)) return i
+  }
+  return list.length   // 병을 가리는 것이 없으면 맨 뒤 — 모든 획 위
 }

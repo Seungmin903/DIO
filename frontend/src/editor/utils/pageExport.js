@@ -1,6 +1,7 @@
 import { colorTemplateXml, normalizePaperAppearance } from '../templates/appearance.js'
 import { pageSize } from './pageGeometry.js'
 import { fitBackdropToPage } from './backdrop.js'
+import { drawsOnPage } from './coverBounds.js'
 import { templateReference } from '../templates/catalog.js'
 import { plannerFor } from '../templates/planners.js'
 import { mergeInkRecordOverlay } from '../templates/inkRecordPaper.js'
@@ -25,7 +26,7 @@ export function createExportSnapshot(page, { width = pageSize(page).width, heigh
   const pixelWidth = Math.max(1, Math.floor(width * ratio)), pixelHeight = Math.max(1, Math.floor(height * ratio))
   if (!page || !Array.isArray(page.objects)) throw new PageExportError('EXPORT_PAGE_INVALID', '페이지를 읽지 못했어요.')
   // 없앤 기본 스티커(예전 문서의 asset id)는 화면처럼 빼고 내보낸다
-  const objects = page.objects.filter((o) => !o.hidden && o.opacity !== 0 && !(o.type === 'sticker' && o.asset && !o.widget)).map((object) => {
+  const objects = page.objects.filter(drawsOnPage).map((object) => {
     if (!['photo', 'sticker', 'tape', 'stroke', 'text', 'shape'].includes(object.type)) throw new PageExportError('EXPORT_ELEMENT_UNSUPPORTED', '아직 내보낼 수 없는 요소가 있어요.')
     if (object.type === 'text' && (typeof object.text !== 'string' || !Number.isFinite(object.baseWidth) || object.baseWidth <= 0)) throw new PageExportError('EXPORT_GEOMETRY_INVALID', '텍스트 내용을 확인해 주세요.')
     if (['text','shape'].includes(object.type) && (

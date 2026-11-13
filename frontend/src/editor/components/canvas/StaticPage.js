@@ -11,10 +11,24 @@ import { WebStrokeCacheEnabled } from './WebStrokeCacheContext'
 import { ViewportMotion } from './viewportMotion'
 import { PackingColorLayer, PackingFrontLayer } from './PackingColorLayer'
 import { InkRecordFrontLayer } from './InkRecordFrontLayer'
+import { inkRecordFrontIndex } from '../../templates/inkRecordLayout.js'
+import { coverBounds, coversEach, drawsOnPage } from '../../utils/coverBounds.js'
 import { memoArtOf } from '../../utils/editorShapes'
 import { packingLayout } from '../../templates/packingLayout.js'
 
 const DRAG_OPACITY = 0.5
+// 발색 기록 속지의 병 윤곽이 들어갈 자리표. 요소가 아니라 **차례를 잡는 표식**이라
+// type · x · w 가 없다. 획 묶음을 가르는 쪽(CompletedStrokeLayer · WebStrokeCache)은
+// type !== 'stroke' 를 비(非)획으로 보고 renderObject 에 넘기므로 그대로 동작한다.
+const INK_RECORD_FRONT = { id: 'ink-record-front', inkRecordFront: true }
+// 잉크병 메모 덧그림의 자리표도 같은 이유로 **요소마다 하나씩** 만들어 둔다
+// (렌더마다 새 객체면 획 묶음 캐시가 참조로 견주는 자리에서 괜히 달라 보인다).
+const overTopMarks = new WeakMap()
+const overTopMark = object => {
+  let mark = overTopMarks.get(object)
+  if (!mark) overTopMarks.set(object, (mark = { id: `over-${object.id}`, overTopOf: object }))
+  return mark
+}
 
 /**
  * 편집 화면이 페이지 그림에 알려 GIF 를 멈출지 정하는 값. (EditorScreen 이 Viewport 안쪽에 준다)
@@ -52,6 +66,8 @@ const StaticPage = memo(function StaticPage({ qaPageMeasurement = null, page, zo
   const packed = packing ? page.objects.filter(o => !o.hidden && (o.packingSlot === 0 || o.packingSlot === 1)) : []
   const renderableObjects = packing ? page.objects.filter(o => !o.packingColorRegion && o.packingSlot !== 0 && o.packingSlot !== 1) : page.objects
   const renderObject = stored => {
+    if (stored.inkRecordFront) return <InkRecordFrontLayer key="ink-record-front" page={page} zoom={zoom} />
+    if (stored.overTopOf) return renderOverTop(stored.overTopOf)
     const object = fitBackdropToPage(stored, width, height)
     return <PageObject key={object.id} object={object} zoom={zoom} areaPreview={areaErasing && Boolean(areaPreviewObjects?.has(stored))}
       opacity={objectDrawOpacity(object) * (cropId && object.id !== cropId ? 0.45 : 1) * (fadeIds?.includes(object.id) ? DRAG_OPACITY : 1)}
@@ -61,7 +77,51 @@ const StaticPage = memo(function StaticPage({ qaPageMeasurement = null, page, zo
   // 잉크병 메모(art.overTop)는 **선만** 한 겹 더 맨 위에 올린다 — 그래야 그 위에 쓴 펜 색이 병 선을 덮지 않고
   // 잉크가 병 안으로 들어간 것처럼 보인다(사용자 2026-11-10). 종이 · 글은 제자리(아래)에 그대로 있고,
   // 덧그림은 손가락을 안 받는다(PageObject 의 pointerEvents none).
-  const overTop = renderableObjects.filter(object => !object.hidden && memoArtOf(object.art)?.overTop)
+  // 덧그림은 **그 뒤에 그은 획 위**까지만 올라간다. 맨 뒤에 몰아 그리면 나중에 붙인 메모 · 사진까지
+  // 덮어 버린다(사용자 2026-11-12: "그 위에 다른 메모지가 붙으면 공병 윤곽도 가려져야 한다").
+  // 그래서 **다음 비(非)획 요소 바로 앞**에 끼운다 — 사이의 획은 덮고, 뒤에 붙인 것에는 덮인다.
+  // 목록은 렌더마다 새 배열이지만 useMemo 로 감싸지 않는다 — 캐시 층(CompletedStrokeLayer)은
+  // 배열이 아니라 **요소 참조**로 견주고(같은 내용이면 지난 묶음을 그대로 쓴다), 자리표는 둘 다
+  // 한 번만 만들어 둔 것을 쓰므로 요소가 새로 생기지 않는다(코드리뷰 2026-11-13, 검사로 못 박음).
+  const ordered = []
+  // 발색 기록 속지의 병 윤곽도 **같은 규칙**을 탄다(사용자 2026-11-13: "발색 기록 속지들도
+  // 메모지랑 같은 버그"). 맨 뒤에 그리고 있어서 나중에 붙인 메모 · 사진까지 덮었다.
+  // 속지는 모든 요소보다 아래(배경)에 있으므로 **처음 만나는 비(非)획 요소 바로 앞**이 제자리다 —
+  // 그때까지 그은 획은 덮어 잉크가 병 안에 든 것처럼 보이고, 뒤에 붙인 것에는 덮인다.
+  // 자리표는 **한 번만** 만들어 둔 것을 쓴다 — 렌더마다 새 객체면 획 묶음 캐시가 참조로
+  // 견주는 자리에서 괜히 달라 보인다(코드리뷰 2026-11-13).
+  // 병 윤곽이 들어갈 자리(inkRecordFrontIndex): **병을 가리는** 비(非)획 요소 바로 앞, 없으면 맨 뒤.
+  // 속지가 아니면 -1 이라 아예 끼지 않는다 — InkRecordFrontLayer 자신도 같은 판정으로 null 을
+  // 돌려주지만(그 파일 첫 줄), 자리표가 끼면 그 자리에서 획 묶음이 공연히 끊긴다.
+  const frontAt = inkRecordFrontIndex(page.backgroundAssetId, renderableObjects)
+  const pending = []
+  renderableObjects.forEach((object, index) => {
+    if (index === frontAt) ordered.push(INK_RECORD_FRONT)
+    // 덧그림은 **그것을 가리는** 비(非)획 요소 앞까지만 올라간다. 아무 요소에나 자리를 내주면
+    // 구석에 붙인 스티커 하나 때문에 그 뒤에 그은 획이 메모 선을 덮는다 — 병 윤곽과 같은 규칙이다
+    // (코드리뷰 2026-11-13). 숨긴 요소는 그리지 않으므로 차례도 가르지 않는다.
+    if (drawsOnPage(object) && object.type !== 'stroke' && pending.length) {
+      // **목록 차례 그대로** 비운다. 거꾸로 돌면서 빼면 겹친 메모 둘의 선이 서로 위아래가 뒤집힌다
+      // (코드리뷰 2026-11-13). 가르는 기준은 윤곽과 같은 drawsOnPage 다 — 안 그려지는 요소가
+      // 메모 선을 끌어내리면 그 뒤에 그은 획이 선을 덮는다.
+      const box = coverBounds(object)
+      const stay = []
+      for (const mark of pending) {
+        if (coversEach(box, coverBounds(mark.overTopOf))) ordered.push(mark)
+        else stay.push(mark)
+      }
+      pending.length = 0
+      for (const mark of stay) pending.push(mark)
+    }
+    ordered.push(object)
+    if (drawsOnPage(object) && memoArtOf(object.art)?.overTop) pending.push(overTopMark(object))
+  })
+  // 맨 뒤에 남는 것은 **목록에 넣지 않고 층으로** 그린다. 넣으면 그 뒤가 빈 묶음이 되어
+  //  ① 쓰는 중인 획이 그 위에 떴다가 손을 떼면 아래로 내려앉고(깜박임)
+  //  ② 마지막 획 묶음이 타일 굽기를 잃는다(CompletedStrokeLayer 의 TailRun).
+  // 어차피 맨 위이므로 층으로 그려도 보이는 차례는 같다(코드리뷰 2026-11-13).
+  const frontOnTop = frontAt >= 0 && frontAt >= renderableObjects.length
+  const tailMarks = pending
   const renderOverTop = stored => {
     const object = fitBackdropToPage(stored, width, height)
     return <PageObject key={`over-${object.id}`} object={object} zoom={zoom} linesOnly
@@ -86,16 +146,16 @@ const StaticPage = memo(function StaticPage({ qaPageMeasurement = null, page, zo
       <TextMeasure.Provider value={onTextMeasure}>
       <TextMeasureReady.Provider value={textMeasureReady}>
       {webCache && cacheAllowed
-        ? <WebStrokeCache objects={renderableObjects} width={width} height={height} zoom={zoom} renderObject={renderObject} areaPreviewObjects={areaPreviewObjects} deferredAreaObjects={deferredAreaObjects} areaErasing={areaErasing} />
+        ? <WebStrokeCache objects={ordered} width={width} height={height} zoom={zoom} renderObject={renderObject} areaPreviewObjects={areaPreviewObjects} deferredAreaObjects={deferredAreaObjects} areaErasing={areaErasing} />
         // 앱(Skia)은 끌어 옮기거나 크기를 바꾸는 중에도 같은 획 층에 그린다(SVG 로 바뀌면 연필 결이 달라진다)
         : cacheStrokes && !cropId && (Platform.OS !== 'web' || !transformsInk)
-        ? <CompletedStrokeLayer objects={renderableObjects} width={width} height={height} zoom={zoom} renderObject={renderObject} uncachedObjects={uncachedObjects} fadeIds={fadeIds} />
-        : renderableObjects.filter(object => !object.hidden).map(renderObject)}
+        ? <CompletedStrokeLayer objects={ordered} width={width} height={height} zoom={zoom} renderObject={renderObject} uncachedObjects={uncachedObjects} fadeIds={fadeIds} />
+        : ordered.filter(object => !object.hidden).map(renderObject)}
       </TextMeasureReady.Provider>
       </TextMeasure.Provider>
-      {overTop.map(renderOverTop)}
-      {/* 발색 기록 속지의 병 윤곽 — 칠한 잉크가 병 **안**에 들어간 것처럼 보이게 선만 위에 한 겹 더 */}
-      <InkRecordFrontLayer page={page} zoom={zoom} />
+      {/* 맨 위에 남는 덧그림 — 속지 병 윤곽이 먼저(종이 쪽), 그 위에 잉크병 메모 선 */}
+      {frontOnTop && <InkRecordFrontLayer page={page} zoom={zoom} />}
+      {tailMarks.map(mark => renderOverTop(mark.overTopOf))}
     </View>
   )
 }, (previous, next) => (
