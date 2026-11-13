@@ -13,18 +13,26 @@ function load(file,mocks){
 function fixture({readOnly=false,canDrag=true}={}){
  const selected=[],moved=[],cleanups=[],stateUpdates=[]
  let mountingRow=false
- const react={memo:fn=>fn,useRef:current=>({current}),useState:value=>[typeof value==='function'?value():value,value=>stateUpdates.push(value)],useMemo:fn=>fn(),useEffect:fn=>{if(mountingRow){const cleanup=fn?.();if(cleanup)cleanups.push(cleanup)}},useLayoutEffect:()=>{},useContext:()=>null}
+ const frames=new Map()
+ let frame={slots:[],cursor:0}
+ function renderFrame(key,render){const previous=frame;frame=frames.get(key)??{slots:[],cursor:0};frames.set(key,frame);frame.cursor=0;try{return render()}finally{frame=previous}}
+ const react={memo:fn=>fn,useRef:current=>{const slot=frame.cursor++;return frame.slots[slot]??=( {current} )},useState:value=>{
+  const owner=frame,slot=owner.cursor++
+  if(!(slot in owner.slots))owner.slots[slot]=typeof value==='function'?value():value
+  return [owner.slots[slot],value=>{stateUpdates.push(value);owner.slots[slot]=typeof value==='function'?value(owner.slots[slot]):value}]
+ },useMemo:fn=>fn(),useEffect:fn=>{if(mountingRow){const cleanup=fn?.();if(cleanup)cleanups.push(cleanup)}},useLayoutEffect:()=>{},useContext:()=>null}
  // PageList effects require real layout; keep them dormant in this native responder contract test.
  const native={Platform:{OS:'android'},PanResponder:{create:panHandlers=>({panHandlers})},AppState:null,FlatList:'list',View:'view',Text:'text',Pressable:'press',StyleSheet:{create:value=>value},useWindowDimensions:()=>({width:800,height:600})}
  const pan=load('../src/editor/hooks/usePan.js',{react:{...react,useEffect:()=>{}},'react-native':native,'./usePalmRejection':{PalmRejectionContext:{},usePalmRejectingPan:()=>({})},'../utils/penPointerInput.js':{createPenPointerInput:()=>({active:false,cancel(){}})},'../utils/stylus':{setPenPointerActive(){}}})
  const list=load('../src/editor/components/panels/PageList.js',{'react':react,'react-native':native,'../../../shared/theme':{bubble:{},colors:{},radius:{}},'../../utils/pageGeometry.js':{pageSize},'../../utils/common':{clamp:(v,a,b)=>Math.max(a,Math.min(b,v))},'../../hooks/usePan':pan}).default
  const pages=Array.from({length:5},(_,i)=>({id:`p${i}`,canvasWidth:768,canvasHeight:1024,objects:[]}))
- const tree=list({pages,currentId:'p0',readOnly,onSelect:id=>selected.push(id),onMove:(id,to)=>moved.push([id,to]),onEmptyTap(){}})
+ const props={pages,currentId:'p0',readOnly,onSelect:id=>selected.push(id),onMove:(id,to)=>moved.push([id,to]),onEmptyTap(){}}
  const nodes=node=>!node||typeof node!=='object'?[]:[node,...[node.props?.children].flat(Infinity).flatMap(nodes)]
- const flat=nodes(tree).find(n=>n.type==='list')
- const rows=pages.map((item,index)=>{const element=flat.props.renderItem({item,index});mountingRow=true;const row=element.type({...element.props,canDrag});mountingRow=false;row.props.onLayout({nativeEvent:{layout:{height:180,y:0}}});return row})
+ const renderList=()=>nodes(renderFrame('list',()=>list(props))).find(n=>n.type==='list')
+ const flat=renderList()
+ const rows=pages.map((item,index)=>{const element=flat.props.renderItem({item,index});mountingRow=true;const row=renderFrame(item.id,()=>element.type({...element.props,canDrag}));mountingRow=false;row.props.onLayout({nativeEvent:{layout:{height:180,y:0}}});return row})
  const thumb=nodes(rows[1]).find(n=>n.props?.accessibilityLabel==='2페이지')
- return {handlers:thumb.props,selected,moved,pan,stateUpdates,cleanup:()=>cleanups.forEach(fn=>fn())}
+ return {handlers:thumb.props,selected,moved,pan,stateUpdates,listProps:()=>renderList().props,cleanup:()=>cleanups.forEach(fn=>fn())}
 }
 const touch=count=>({nativeEvent:{touches:Array.from({length:count},()=>({}))}})
 
@@ -78,6 +86,26 @@ test('길게 누른 뒤 시스템이 취소하면 순서를 바꾸지 않는다'
  const f=fixture(),h=f.handlers
  h.onPanResponderGrant(touch(1));t.mock.timers.tick(281);h.onPanResponderMove(touch(1),{dx:0,dy:200});h.onPanResponderTerminate()
  assert.deepEqual(f.selected,[]);assert.deepEqual(f.moved,[])
+})
+
+test('grant 값이 false로 고정돼도 PageList가 scrollEnabled로 잠그고 종료·취소 시 해제한다',t=>{
+ t.mock.timers.enable({apis:['setTimeout','setInterval','Date']})
+ for(const cancelled of [false,true]){
+  const f=fixture(),h=f.handlers
+  assert.equal(f.listProps().scrollEnabled,true)
+  h.onPanResponderGrant(touch(1))
+  const nativeBlockAtGrant=h.onShouldBlockNativeResponder()
+  assert.equal(nativeBlockAtGrant,false)
+  assert.equal(f.listProps().scrollEnabled,true)
+  t.mock.timers.tick(281)
+  // grant 뒤 차단 콜백을 다시 부르지 않는다. 실제 PageList의 상태 변경과 렌더된 prop을 검사한다.
+  assert.equal(nativeBlockAtGrant,false)
+  assert.equal(f.listProps().scrollEnabled,false)
+  h.onPanResponderMove(touch(1),{dx:0,dy:200})
+  if(cancelled)h.onPanResponderTerminate();else h.onPanResponderRelease()
+  assert.equal(f.listProps().scrollEnabled,true)
+  assert.deepEqual(f.moved,cancelled?[]:[['p1',2]])
+ }
 })
 
 test('읽기 전용·순서 변경 불가 목록은 길게 눌러도 스크롤을 막지 않는다',t=>{

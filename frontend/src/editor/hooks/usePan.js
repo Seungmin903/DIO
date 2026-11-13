@@ -18,6 +18,8 @@ function createResponder(handlersRef) {
     onPanResponderTerminationRequest: (event) => handlersRef.current.onTerminationRequest?.(event.nativeEvent)
       ?? (event.nativeEvent.touches?.length ?? 0) > 1,
     // 목록의 누르기 대기 중에는 네이티브 ScrollView가 한 손가락 스크롤을 가져갈 수 있어야 한다.
+    // 이 값은 grant 때 평가될 수 있다. 이후 값 변경으로 잠금이 갱신된다고 가정하지 않는다.
+    // PageList의 길게 누른 뒤 잠금은 drag 상태에 따른 FlatList.scrollEnabled가 담당한다.
     // 캔버스 등 기존 사용처는 이전처럼 네이티브 responder를 막는다.
     onShouldBlockNativeResponder: () => handlersRef.current.shouldBlockNativeResponder?.() ?? true,
     onPanResponderGrant: (event) => {

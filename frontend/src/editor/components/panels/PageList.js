@@ -262,6 +262,8 @@ export default function PageList({ phone = false, pages, currentId, cropId, onSe
         data={shown}
         keyExtractor={(page) => page.id}
         contentContainerStyle={styles.list}
+        // onShouldBlockNativeResponder는 grant 뒤 다시 적용되지 않을 수 있다.
+        // 길게 누르기의 startDrag → drag 설정으로 실제 스크롤을 잠그고, endDrag/취소에서 해제한다.
         scrollEnabled={!drag}
         onScrollToIndexFailed={({ index, averageItemLength }) => {
           listRef.current?.scrollToOffset({ offset: index * averageItemLength, animated: false })
@@ -412,7 +414,7 @@ const PageItem = memo(function PageItem({ page, index, number, canDrag = true, a
   const press = useRef(null)
   useEffect(() => () => { clearTimeout(press.current?.timer); press.current = null }, [])
   const handlers = usePan({
-    // 길게 누르기 전에는 스크롤을 양보한다. holding 뒤에는 PageList가 스크롤을 잠그고 순서 변경을 받는다.
+    // grant에서는 보통 false다. holding 뒤의 잠금은 이 콜백 재평가가 아니라 FlatList.scrollEnabled={!drag}에 의존한다.
     shouldBlockNativeResponder: () => Boolean(press.current?.holding),
     onTerminationRequest: event => !press.current?.holding || (event.touches?.length ?? 0) > 1,
     onStart: () => {
