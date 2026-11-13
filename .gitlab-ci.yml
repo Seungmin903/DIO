@@ -144,7 +144,9 @@ cover-sticker-browser-test:
   interruptible: true
   timeout: 20m
   rules:
-    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" || $CI_COMMIT_BRANCH == "develop"'
+    # 전용 검증 러너 분리 전: 배포 러너에서 MR 코드를 실행하지 않는다.
+    # 프로젝트 러너의 protected 설정은 관리자가 별도로 적용해야 한다.
+    - if: '$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_REF_PROTECTED == "true" && ($CI_COMMIT_BRANCH == "develop" || $CI_COMMIT_BRANCH == "master")'
       changes:
         - frontend/src/diary/**/*
         - frontend/src/editor/**/*
@@ -161,19 +163,21 @@ cover-sticker-browser-test:
         - .gitlab-ci.yml
   script:
     - mkdir -p .qa-artifacts/cover-stickers
-    - docker build -f frontend/scripts/cover-stickers.Dockerfile -t "dio-cover-sticker-qa:${CI_PIPELINE_ID}" frontend/scripts
+    - docker build -f frontend/scripts/cover-stickers.Dockerfile -t "dio-cover-sticker-qa:${CI_JOB_ID}" frontend
     - >
       docker run --rm --init --ipc=private --shm-size=1g
+      --name "dio-cover-sticker-qa-${CI_JOB_ID}"
       --user "$(id -u):$(id -g)" --cap-drop=ALL
       --security-opt=no-new-privileges --pids-limit=512
       -e CI=1 -e EXPO_NO_DOTENV=1
       -v "$CI_PROJECT_DIR/frontend:/source:ro"
       -v "$CI_PROJECT_DIR/.qa-artifacts/cover-stickers:/artifacts"
       -w /workspace/frontend
-      "dio-cover-sticker-qa:${CI_PIPELINE_ID}"
-      bash /source/scripts/ci-cover-stickers.sh
+      "dio-cover-sticker-qa:${CI_JOB_ID}"
+      timeout --signal=TERM --kill-after=30s 15m bash /source/scripts/ci-cover-stickers.sh
   after_script:
-    - docker image rm "dio-cover-sticker-qa:${CI_PIPELINE_ID}" || true
+    - docker rm -f "dio-cover-sticker-qa-${CI_JOB_ID}" || true
+    - docker image rm "dio-cover-sticker-qa:${CI_JOB_ID}" || true
   artifacts:
     when: always
     expire_in: 7 days

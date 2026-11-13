@@ -6,5 +6,6 @@ cd "$(mktemp -d /tmp/cover-stickers.XXXXXX)"
 tar -C /source --exclude=node_modules --exclude=.expo --exclude=dist --exclude=dist-android --exclude='.env*' -cf - . | tar -xf -
 trap 'if [ -f .expo/cover-sticker-ci/metro.log ]; then cp .expo/cover-sticker-ci/metro.log /artifacts/metro.log; fi' EXIT
 pnpm install --frozen-lockfile
+node -e "const fs=require('node:fs');const built=fs.readFileSync('/ms-playwright/package-version','utf8').trim();const installed=require('playwright/package.json').version;if(built!==installed)throw Error('Playwright image/project version mismatch: '+built+' / '+installed)"
 node --test tests/cover-sticker-controls.test.js tests/cover-sticker-processes.test.js
 pnpm qa:cover-stickers

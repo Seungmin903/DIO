@@ -83,8 +83,12 @@
 - 브라우저 터치 검증: 별도 서버 `pnpm exec expo start --port 8095 --offline --max-workers 2` 실행 후 `node tests/cover-sticker-controls-browser.cjs`. 폰·태블릿 크기에서 다른 스티커와 겹친 아래·위쪽 바의 복제·삭제, 이동·크기 조절·회전, 선택 전환·해제, 완전 겹침 상태의 선택과 복제 후 삭제를 확인한다. 실기기 테스트를 대체하지 않는다.
 - 위 명령은 frontend 폴더에서 실행한다. 기본 브라우저는 Playwright Chromium이며, 설치되어 있지 않으면 `pnpm exec playwright install chromium`으로 설치한다. 다른 브라우저를 쓰려면 `DIO_QA_BROWSER_CHANNEL`을 지정한다(PowerShell 예: `$env:DIO_QA_BROWSER_CHANNEL='msedge'`). `chromium`을 지정하거나 환경 변수를 지우면 기본 Chromium을 사용한다.
 - `pnpm qa:cover-stickers`는 전용 Metro 서버를 자동 시작하고 실제 CoverArt 브라우저 검증을 실행한 뒤 서버를 정리한다. 다른 서버가 해당 포트를 쓰고 있으면 중단하며 `DIO_QA_PORT`로 다른 포트를 지정할 수 있다. 기존 서버를 재사용하거나 종료하지 않는다.
-- 관련 프론트 변경의 MR·develop CI에서 `cover-sticker-browser-test`가 공용 배치 함수 단위 테스트와 Chromium 브라우저 조작 검증을 자동 실행한다. Docker의 독립 작업 폴더에서 의존성·브라우저를 설치하고 배포 서버·DB·환경 파일은 사용하지 않는다. Metro 로그는 CI artifact로 남는다. Windows 로컬에서는 `DIO_QA_BROWSER_CHANNEL=msedge` 등으로 설치된 브라우저를 지정할 수 있다.
+- 전용 검증 러너 분리 전까지 `cover-sticker-browser-test`는 보호된 master/develop의 push 파이프라인에서만 관련 프론트 변경에 자동 실행한다. MR·수동 web/API·비보호 브랜치 파이프라인에서는 실행하지 않는다. 따라서 현재 MR 파이프라인 통과는 실제 터치 검증을 포함하지 않으며, 머지 전에는 `pnpm qa:cover-stickers`로 로컬 검증한다. 검증 전용 러너가 준비되면 배포 러너와 분리한 뒤 MR 자동 검증을 재개해야 한다.
+- Docker의 독립 작업 폴더에서 의존성을 설치하며 배포 서버·DB·환경 파일은 사용하지 않는다. Metro 로그는 CI artifact로 남는다. Windows 로컬에서는 `DIO_QA_BROWSER_CHANNEL=msedge` 등으로 설치된 브라우저를 지정할 수 있다.
 - 현재 프로젝트의 `ec2-deploy` 러너를 사용하되 테스트 컨테이너는 러너 UID/GID의 비root 사용자, private IPC·공유 메모리 1GB, capability 전체 제거, `no-new-privileges`, PID 제한으로 실행한다. OS 의존성·브라우저 설치는 이미지 빌드 단계에서만 하며 runtime에서 root 설치를 하지 않는다. artifact도 같은 UID/GID로 저장한다. 별도 검증 러너로의 분리는 인프라 후속 작업이며, 이 설정만으로 배포 러너 공유 자체가 해소되는 것은 아니다.
+- 실제 잡 이력에서 검증과 개발 배포가 `dio-ec2-runner`(ID 2240)를 공유하는 것을 확인했다. 러너 목록·protected 설정 API는 403이라 운영 배포 러너의 실제 protected 설정은 확인하지 못했다. 위 job 규칙은 이 잡의 실행 제한이며, MR이 CI YAML 자체를 수정하는 위험까지 막는 전역 보안 경계는 아니다. 관리자는 배포 러너를 protected ref 전용으로 설정하고 별도 검증 러너를 제공해야 한다.
+- 컨테이너·이미지 이름에 `CI_JOB_ID`를 사용하여 재시도 잡끼리 겹치지 않게 한다. `after_script`는 해당 잡의 컨테이너를 먼저 강제 제거하고 이미지를 삭제한다. Docker 클라이언트만 중단돼도 내부 `timeout`이 15분 뒤 종료를 요청하고 30초 뒤 강제 종료한다. 러너 호스트 자체가 중단되면 정리 코드 실행은 보장할 수 없다.
+- Node 기본 이미지는 digest로 고정했다. Playwright는 package.json에 정확한 버전으로 선언하고 같은 선언에서 이미지 설치 버전을 읽는다. runtime의 frozen lockfile 검사와 이미지/설치된 Playwright 버전 비교로 불일치를 검증한다. 버전 갱신 시 package.json·lockfile을 함께 고치면 이미지도 다시 빌드된다.
 - 서버 정리는 프로세스의 stdout/stderr까지 닫히는 `close`를 기다리고 파이프를 해제한 뒤 로그를 닫는다. `node --test tests/cover-sticker-processes.test.js`로 종료 직전 출력 보존과 로그 종료 순서를 검증한다.
 - 단위 테스트는 `coverStickerControls.js`의 배치 함수를 직접 가져온다. CoverArt 함수 추출·가짜 훅·스타일 배열 위치에 의존하지 않으며, 복제·삭제·이동·크기·회전·선택 및 실제 터치 전달은 브라우저에서 실제 컴포넌트와 훅으로 검증한다. 회전 손잡이 간격은 편집기의 `selectionMetrics.js`와 공유한다.
 
