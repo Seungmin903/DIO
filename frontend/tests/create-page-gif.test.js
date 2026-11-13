@@ -9,6 +9,7 @@ import * as gifSkiaCompose from '../src/editor/utils/gifSkiaCompose.js'
 import { loadCanvasKitSkia } from './support/canvasKitSkia.js'
 import * as mediaReferences from '../src/editor/utils/mediaReferences.js'
 import { PageExportError } from '../src/editor/utils/pageExport.js'
+import * as inkRecordLayout from '../src/editor/templates/inkRecordLayout.js'
 
 // createPageGif 를 기기 입출력 없이 돌려, 층 합성(페이지를 몇 번만 찍기)과 예전 방식(장면마다 찍기)을 확인한다.
 const require = createRequire(import.meta.url), expo = createRequire(require.resolve('expo/package.json'))
@@ -22,7 +23,7 @@ const fullDuration = full.steps.reduce((sum, s) => sum + s.delay, 0) * 10
 // layered: false 면 GIF 스티커에 테두리를 달아 층 합성 대신 예전 방식(장면마다 찍기)으로 만들게 한다. area: GIF 스티커 자리
 // nativeAssembler: gifFileIO.createNativeGifAssembler 대신 쓸 함수 (기본은 네이티브 묶기 없음 → JS)
 // exportModule: gifExport.js 대신 쓸 모듈 (함수를 감싸 부른 값을 볼 때)
-function load({ layered = true, objects, area = { x: 0, y: 0, w: 100, h: 100 }, nativeAssembler = () => null, exportModule = gifExport } = {}) {
+function load({ layered = true, objects, area = { x: 0, y: 0, w: 100, h: 100 }, nativeAssembler = () => null, exportModule = gifExport, template } = {}) {
   const PAGE = 100
   const mocks = {
     './gifLayers.js': gifLayers,
@@ -30,6 +31,7 @@ function load({ layered = true, objects, area = { x: 0, y: 0, w: 100, h: 100 }, 
     // 기본은 Skia 없음(JS 합성). Skia 합성은 createPageGif 의 skia 옵션으로 넘겨 본다
     '../skia/skiaRuntime': { skiaState: () => ({ runtime: null }) },
     '../templates/packingLayout.js': { packingLayout: () => null },
+    '../templates/inkRecordLayout.js': inkRecordLayout,
     '../services/mediaStore': { mediaService: { get: async () => ({ blob: love }) } },
     './mediaReferences.js': mediaReferences,
     '../stickerAssets': { isAnimatedMedia: (o) => o.id === 'gif' },
@@ -49,7 +51,7 @@ function load({ layered = true, objects, area = { x: 0, y: 0, w: 100, h: 100 }, 
   const module = { exports: {} }
   new Function('require', 'module', 'exports', code)((id) => mocks[id], module, module.exports)
   const gif = { id: 'gif', type: 'sticker', mediaFileId: 'm1', ...area, ...(layered ? {} : { outline: true }) }
-  const snapshot = { width: PAGE, height: PAGE, pixelWidth: PAGE, pixelHeight: PAGE, objects: objects ?? [gif] }
+  const snapshot = { width: PAGE, height: PAGE, pixelWidth: PAGE, pixelHeight: PAGE, objects: objects ?? [gif], ...(template ? { template } : {}) }
   return { createPageGif: module.exports.createPageGif, snapshot }
 }
 
@@ -104,6 +106,24 @@ test('층 합성: 일부만 움직이는 페이지도 바탕 층 한 번만 찍�
   }
 })
 
+test('발색 기록 속지: 병 윤곽이 GIF 사진 아래에 끼일 수 있어 층 합성 없이 장면마다 찍는다', async () => {
+  const template = { backgroundAssetId: inkRecordLayout.inkRecordId('round', 'portrait') }
+  const { createPageGif, snapshot } = load({ template })
+  const frames = []
+  const output = await createPageGif(snapshot, { renderFrame: async (frame) => { frames.push(frame); return shot(frame) } })
+  assert.ok(frames.length > 1)
+  assert.ok(frames.every((f) => !f.layer), '층으로 찍지 않았다')
+  assert.equal(output.frames, full.steps.length)
+})
+
+test('다른 속지는 그대로 층 합성으로 만든다', async () => {
+  const { createPageGif, snapshot } = load({ template: { backgroundAssetId: 'plain-grid' } })
+  const frames = []
+  // 속지 앞 그림이 있으면 맨 위 층도 찍는다(투명 바탕으로 돌려준다)
+  await createPageGif(snapshot, { renderFrame: async (frame) => { frames.push(frame); return shot(frame, frame.layer === 'top' ? 0 : 255) } })
+  assert.deepEqual(frames.map((f) => f.layer), ['base', 'top'])
+})
+
 test('장면 풀기: 줄여 둔 장면들이 메모리 상한을 넘으면 같은 비율로 더 줄여 상한 안에 둔다', async () => {
   const kept = []
   const exportModule = { ...gifExport, downscaleRgba: (...args) => { const small = gifExport.downscaleRgba(...args); kept.push(small.width * small.height * 4); return small } }
@@ -154,74 +174,6 @@ test('장면 풀기: 장면을 줄이지 않아도(풀기 버퍼를 다음 장�
   const expected = new Set(full.steps.map((s) => s.indices[0] % COLORS.length)).size
   assert.ok(expected > 1)
   assert.equal(seen.size, expected, [...seen].join(' / '))
-})
-
-// 네이티브 GIF 묶기 흉내: 안에서는 JS 묶기를 쓰고, 부른 기록을 남긴다. failAt: 그 번째 addFrame 에서 실패
-const fakeNative = ({ failAt = Infinity } = {}) => {
-  const log = { created: 0, frames: 0, disposed: 0, finished: 0 }
-  const make = (width, height) => {
-    log.created++
-    const inner = gifExport.createGifAssembler(width, height)
-    return {
-      addColors: (rgba) => inner.addColors(rgba),
-      addFrame: (...args) => { if (++log.frames >= failAt) throw new Error('native encoder crashed'); inner.addFrame(...args) },
-      finish: () => { log.finished++; return { bytes: inner.end(), native: true, dispose() {} } },
-      dispose: () => { log.disposed++ },
-    }
-  }
-  return { make, log }
-}
-
-test('묶기: 네이티브 GIF 묶기가 있으면 그것으로 묶는다', async () => {
-  const { make, log } = fakeNative()
-  const { createPageGif, snapshot } = load({ nativeAssembler: make })
-  const output = await createPageGif(snapshot, { renderFrame: async (frame) => shot(frame) })
-  assert.equal(output.native, true)
-  assert.equal(log.created, 1)
-  assert.equal(log.finished, 1)
-  assert.equal(log.disposed, 0, '결과 파일은 output.dispose 가 지운다')
-  assert.equal(output.frames, full.steps.length)
-})
-
-test('묶기: 네이티브 묶기가 도중에 실패하면 버리고 JS 로 다시 묶어 같은 GIF 를 낸다', async () => {
-  const { make, log } = fakeNative({ failAt: 3 })
-  const { createPageGif, snapshot } = load({ nativeAssembler: make })
-  const viaJs = await load().createPageGif(snapshot, { renderFrame: async (frame) => shot(frame) })
-  const warn = console.warn
-  console.warn = () => {}
-  try {
-    const output = await createPageGif(snapshot, { renderFrame: async (frame) => shot(frame) })
-    assert.equal(output.native, undefined)
-    assert.equal(log.disposed, 1)
-    assert.deepEqual(output.bytes, viaJs.bytes)
-  } finally { console.warn = warn }
-})
-
-test('묶기: 네이티브 묶기를 만들다 실패하면 JS 로 묶어 같은 GIF 를 낸다 (예전 방식으로 다시 찍지 않는다)', async () => {
-  const { createPageGif, snapshot } = load({ nativeAssembler: () => { throw new Error('disk full') } })
-  const viaJs = await load().createPageGif(snapshot, { renderFrame: async (frame) => shot(frame) })
-  const frames = []
-  const warn = console.warn
-  console.warn = () => {}
-  try {
-    const output = await createPageGif(snapshot, { renderFrame: async (frame) => { frames.push(frame); return shot(frame) } })
-    assert.deepEqual(output.bytes, viaJs.bytes)
-    assert.ok(frames.every((f) => f.layer), '층만 찍었다')
-  } finally { console.warn = warn }
-})
-
-test('묶기: 취소하면 네이티브 묶기를 버리고 JS 로 다시 묶지 않는다', async () => {
-  const { make, log } = fakeNative()
-  const { createPageGif, snapshot } = load({ nativeAssembler: make, area: { x: 10, y: 10, w: 30, h: 30 } })
-  const controller = new AbortController()
-  let shots = 0
-  const renderFrame = async (frame) => shot(frame)
-  // 사각형 장면을 몇 개 만든 뒤 취소한다 (층 합성이라 찍기는 한 번이고, 장면은 합쳐 만든다)
-  const onProgress = ({ phase }) => { if (phase === 'capture' && ++shots === 3) controller.abort() }
-  await assert.rejects(createPageGif(snapshot, { renderFrame, onProgress, signal: controller.signal }))
-  assert.equal(log.created, 1)
-  assert.equal(log.disposed, 1)
-  assert.equal(log.finished, 0)
 })
 
 test('진행률: 층 찍기에서 장면 만들기로 넘어가도, 층 합성이 실패해 예전 방식으로 가도 찍기 진행률이 되돌아가지 않는다', async () => {

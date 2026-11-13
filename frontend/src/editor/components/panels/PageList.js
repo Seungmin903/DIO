@@ -262,6 +262,8 @@ export default function PageList({ phone = false, pages, currentId, cropId, onSe
         data={shown}
         keyExtractor={(page) => page.id}
         contentContainerStyle={styles.list}
+        // onShouldBlockNativeResponder는 grant 뒤 다시 적용되지 않을 수 있다.
+        // 길게 누르기의 startDrag → drag 설정으로 실제 스크롤을 잠그고, endDrag/취소에서 해제한다.
         scrollEnabled={!drag}
         onScrollToIndexFailed={({ index, averageItemLength }) => {
           listRef.current?.scrollToOffset({ offset: index * averageItemLength, animated: false })
@@ -410,7 +412,11 @@ const PageItem = memo(function PageItem({ page, index, number, canDrag = true, a
   // 썸네일 그림은 테두리(1px) 안쪽 크기에 정확히 맞춘다. 넘치면 Android 에서 아래쪽 테두리를 덮었다.
   const thumbZoom = (thumbWidth - THUMB_BORDER * 2) / width
   const press = useRef(null)
+  useEffect(() => () => { clearTimeout(press.current?.timer); press.current = null }, [])
   const handlers = usePan({
+    // grant에서는 보통 false다. holding 뒤의 잠금은 이 콜백 재평가가 아니라 FlatList.scrollEnabled={!drag}에 의존한다.
+    shouldBlockNativeResponder: () => Boolean(press.current?.holding),
+    onTerminationRequest: event => !press.current?.holding || (event.touches?.length ?? 0) > 1,
     onStart: () => {
       const state = { holding: false, moved: false, dragged: false, dy: 0, timer: null }
       if (!readOnly && canDrag)

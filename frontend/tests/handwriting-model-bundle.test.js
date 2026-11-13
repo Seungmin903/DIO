@@ -59,8 +59,15 @@ test('모델 번들은 개인 입력·절대 경로 없이 검증 결과와 추�
 
 test('운영 빌드 R8이 ONNX Runtime JNI 클래스를 지우지 않고, 작업 스레드 Error가 앱을 종료시키지 않는다', () => {
   const gradle = read('modules/dio-handwriting/android/build.gradle')
-  assert.match(gradle, /consumerProguardFiles\s+'consumer-rules\.pro'/)
-  assert.match(read('modules/dio-handwriting/android/consumer-rules.pro'), /^-keep class ai\.onnxruntime\.\*\* \{ \*; \}$/m)
+  assert.match(gradle, /consumerProguardFiles\s*\(?\s*['"]consumer-rules\.pro['"]/)
+  // 줄바꿈(CRLF)·공백이 달라도 같은 규칙으로 본다.
+  assert.match(read('modules/dio-handwriting/android/consumer-rules.pro'), /^\s*-keep\s+class\s+ai\.onnxruntime\.\*\*\s*\{\s*\*;\s*\}\s*$/m)
   const native = read('modules/dio-handwriting/android/src/main/java/expo/modules/diohandwriting/DioHandwritingModule.kt')
-  assert(native.includes('} catch (error: Throwable) {'))
+  // 작업 스레드 본문(launch)만 떼어 본다. finally 안의 보호용 catch와 섞이지 않게,
+  // 작업을 감싸는 catch가 Throwable이고 곧바로 원인 로그를 남기는지 확인한다.
+  const launch = native.slice(native.indexOf('private fun launch('), native.indexOf('private fun modelFile('))
+  assert(launch.length > 0)
+  assert.match(launch, /\}\s*catch\s*\(\s*(\w+)\s*:\s*Throwable\s*\)\s*\{(?:\s*\/\/[^\n]*)*\s*Log\.e\(TAG,\s*"Font job \$id stopped",\s*\1\)/)
+  // Exception만 잡는 catch로 되돌아가면 Error가 새어 앱이 종료된다.
+  assert.doesNotMatch(launch, /catch\s*\(\s*\w+\s*:\s*Exception\s*\)/)
 })

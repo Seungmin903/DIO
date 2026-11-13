@@ -137,6 +137,53 @@ deploy-prod-proxy:
     - docker compose --project-name dio-proxy-prod -f infra/compose/compose.proxy.prod.yml up -d --force-recreate
     - 'curl --fail --retry 12 --retry-all-errors --retry-delay 2 --resolve k15f106.p.ssafy.io:443:127.0.0.1 https://k15f106.p.ssafy.io/actuator/health'
 
+cover-sticker-browser-test:
+  stage: quality
+  tags:
+    - ec2-deploy
+  interruptible: true
+  timeout: 20m
+  rules:
+    # 전용 검증 러너 분리 전: 배포 러너에서 MR 코드를 실행하지 않는다.
+    # 프로젝트 러너의 protected 설정은 관리자가 별도로 적용해야 한다.
+    - if: '$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_REF_PROTECTED == "true" && ($CI_COMMIT_BRANCH == "develop" || $CI_COMMIT_BRANCH == "master")'
+      changes:
+        - frontend/src/diary/**/*
+        - frontend/src/editor/**/*
+        - frontend/src/shared/**/*
+        - frontend/tests/cover-sticker-controls*
+        - frontend/tests/fixtures/cover-sticker-controls.entry.js
+        - frontend/scripts/*cover-stickers*
+        - frontend/scripts/cover-sticker-processes.cjs
+        - frontend/tests/cover-sticker-processes.test.js
+        - frontend/package.json
+        - frontend/pnpm-lock.yaml
+        - frontend/metro.config.cjs
+        - frontend/babel.config.js
+        - .gitlab-ci.yml
+  script:
+    - mkdir -p .qa-artifacts/cover-stickers
+    - docker build -f frontend/scripts/cover-stickers.Dockerfile -t "dio-cover-sticker-qa:${CI_JOB_ID}" frontend
+    - >
+      docker run --rm --init --ipc=private --shm-size=1g
+      --name "dio-cover-sticker-qa-${CI_JOB_ID}"
+      --user "$(id -u):$(id -g)" --cap-drop=ALL
+      --security-opt=no-new-privileges --pids-limit=512
+      -e CI=1 -e EXPO_NO_DOTENV=1
+      -v "$CI_PROJECT_DIR/frontend:/source:ro"
+      -v "$CI_PROJECT_DIR/.qa-artifacts/cover-stickers:/artifacts"
+      -w /workspace/frontend
+      "dio-cover-sticker-qa:${CI_JOB_ID}"
+      timeout --signal=TERM --kill-after=30s 15m bash /source/scripts/ci-cover-stickers.sh
+  after_script:
+    - docker rm -f "dio-cover-sticker-qa-${CI_JOB_ID}" || true
+    - docker image rm "dio-cover-sticker-qa:${CI_JOB_ID}" || true
+  artifacts:
+    when: always
+    expire_in: 7 days
+    paths:
+      - .qa-artifacts/cover-stickers/
+
 legal-document-test:
   stage: quality
   tags:

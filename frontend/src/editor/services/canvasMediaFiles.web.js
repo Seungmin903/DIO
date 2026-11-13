@@ -1,6 +1,6 @@
 import * as repository from '../utils/mediaRepository.web.js'
 import {registerRemoteMediaRetry} from './mediaRetry.js'
-import {mediaRegistry} from './mediaStore'
+import {mediaRegistry,trackRemoteMedia,forgetRemoteMedia} from './mediaStore'
 import {detectMediaType,checkDimensions} from '../utils/mediaPolicy.js'
 import {needsShareJpeg,needsSharePng,SHARE_MAX_BYTES} from '../utils/shareImagePlan.js'
 import {toShareJpeg,toSharePng} from '../utils/shareImage'
@@ -9,6 +9,8 @@ import {PDF_SHARE_MAX_BYTES} from '../../diary/utils/pdfSource.js'
 import {mediaShareSizeMessage,sharedGifMaxBytes,sharedImageMaxBytes} from '../../shared/mediaLimits.js'
 export const canvasMediaFiles={
  registerRetry:registerRemoteMediaRetry,
+ pending:trackRemoteMedia,
+ forget:forgetRemoteMedia,
  fail(id,error){mediaRegistry.fail(id,error)},
  async upload(id,category){
   if(category==='DOCUMENT'){
@@ -32,10 +34,12 @@ export const canvasMediaFiles={
  },
  async hasDocument(id){return (await readPdfSource(id).catch(()=>null))!==null},
  async saveDocument(id,bytes){await savePdfSourceBytes(id,bytes)},
- async cached(id){
+ // repository.get 이 헤더·크기를 메타데이터와 맞춰 보므로 받다 끊긴 파일은 여기서 걸러져 다시 받는다.
+ // 전체 디코딩(verifyDisplay)은 다시 조회 때만 한다. 그리다 깨지면 ObjectView onError → 오류 알림의 다시 조회 → download(id,true) 로 다시 받는다.
+ async cached(id,{verify=false}={}){
   try{
    const {media,blob,displayBlob}=await repository.get(id),source=displayBlob??blob
-   await repository.verifyDisplay(source)
+   if(verify)await repository.verifyDisplay(source)
    mediaRegistry.seed(id,{media,uri:URL.createObjectURL(source)});return true
   }catch{return false}
  },

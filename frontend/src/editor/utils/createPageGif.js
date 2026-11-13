@@ -9,6 +9,7 @@ import { composeFrame, planLayers } from './gifLayers.js'
 import { createSkiaComposer } from './gifSkiaCompose.js'
 import { skiaState } from '../skia/skiaRuntime'
 import { packingLayout } from '../templates/packingLayout.js'
+import { inkRecordLayout } from '../templates/inkRecordLayout.js'
 import { captureRgba, createNativeGifAssembler, gifResult, pngResource, readBytes } from './gifFileIO'
 
 const keyOf = (o) => o.mediaFileId ? `media:${o.mediaFileId}` : o.asset ? `asset:${o.asset}` : o.src
@@ -70,7 +71,10 @@ export async function createPageGif(snapshot, { renderFrame, onProgress, signal,
     // Skia 로 합치면 층과 장면을 이미지로 한 번 더 올리므로(gifSkiaCompose 의 layer · frame 이미지) 둘 다 두 배로 센다
     const gifIndex = new Map()
     gifs.forEach((gif, g) => gif.ids.forEach((id) => gifIndex.set(id, g)))
-    const segments = !packingLayout(prepared.template?.backgroundAssetId) && !prepared.region
+    // 발색 기록 속지의 병 윤곽은 맨 위가 아니라 병을 가리는 요소 **아래**에 끼일 수 있다(PageImageSurface · StaticPage).
+    // 층 합성은 속지 앞 그림을 맨 위 층에만 그려 GIF 사진 위로 윤곽이 올라타므로, 이 속지는 예전 방식으로 장면마다 찍는다
+    const assetId = prepared.template?.backgroundAssetId
+    const segments = !packingLayout(assetId) && !inkRecordLayout(assetId) && !prepared.region
       && planLayers(prepared.objects, (o) => gifIndex.has(o.id), { hasFrontLayer: Boolean(prepared.template) })
     const copies = segments && skia ? 2 : 1
     const layerBytes = segments ? segments.filter((s) => s.kind === 'layer' && s.capture).length * width * height * 4 * copies : 0

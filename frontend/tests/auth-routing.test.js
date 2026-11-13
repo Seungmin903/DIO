@@ -25,6 +25,7 @@ function root(dev,mode,session=null,loginRequest=null,probe=null,apiConfiguratio
  mocks['./src/shared/BootSplash']={__esModule:true,default:'./src/shared/BootSplash',SPLASH:{backgroundColor:'#F0ECFD'}};
  mocks['./src/diary/components/EmptyState']={LoadingSpot:'LoadingSpot'};
  mocks['./src/shared/bootIntro']=bootIntro;
+ mocks['./src/shared/bootGate']={startBoot(){},finishBoot(){if(probe)probe.bootGateOpened=(probe.bootGateOpened||0)+1;}};
  Object.assign(mocks['./src/auth/authService'].authService, {
   getSessionKey:()=>probe?.sessionKey??null,
   getMemberSessionKey:userId=>probe?.memberSessionKey??`${userId}:1`,

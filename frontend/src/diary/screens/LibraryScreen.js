@@ -366,6 +366,8 @@ function LibraryScreen({
   </>);
   const centeredContent = centeredNotice || (!carouselItems.length && suppressEmpty && loading
     ? <LoadingSpot showLabel label="다이어리를 불러오고 있어요." /> : null);
+  // 성공한 빈 목록은 보기와 무관하게 같은 본문 영역에 둔다. 격자 FAB용 여백을 적용하지 않는다.
+  const showEmpty = !carouselItems.length && !suppressEmpty;
   const body = (<>
       {!carouselItems.length && suppressEmpty ? null : !carouselItems.length ? (
         <EmptyState compact={compact} raised title={emptyTitle} action={emptyAction} />
@@ -458,10 +460,10 @@ function LibraryScreen({
     {centeredContent ? <>
       <View style={[s.libraryScreen, compact && s.libraryScreenCompact, s.libraryFixedTop]}>{top}</View>
       <ScrollView contentContainerStyle={centeredNotice ? s.libraryCenteredNotice : [s.libraryCenteredNotice, s.libraryLoadingPosition]}>{centeredContent}</ScrollView>
-    </> : isGrid ? <>
+    </> : isGrid && !showEmpty ? <>
       <View style={[s.libraryScreen, compact && s.libraryScreenCompact, s.libraryFixedTop]}>{top}</View>
       <ScrollView {...grid?.scroll} contentContainerStyle={[s.libraryGridScroll, compact && s.libraryGridScrollCompact, canCreate && (compact ? s.libraryGridScrollFabCompact : s.libraryGridScrollFab)]} showsVerticalScrollIndicator={false}>{body}</ScrollView>
-    </> : displayView === 'open' ? <>
+    </> : displayView === 'open' || showEmpty ? <>
       {/* 펼쳐서 보기는 스크롤 없이 남은 화면 전체를 책상으로 쓴다(스크롤 안에서는 최소 높이만 받아 책이 작아졌다) */}
       <View style={[s.libraryScreen, compact && s.libraryScreenCompact, s.libraryFixedTop]}>{top}</View>
       <View style={[s.libraryGridScroll, compact && s.libraryGridScrollCompact]}>{body}</View>

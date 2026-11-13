@@ -5,11 +5,12 @@
 // 4) 가로는 대상 가운데에 맞추고 영역 안(EDGE)으로 민다.
 // 영역은 페이지, 또는 선택 바처럼 작업창 위에 뜨는 메뉴는 보이는 작업 영역(툴바·패널 제외)이다.
 import { clamp, rotateVector } from './common.js'
+import { ROTATE_OFFSET } from './selectionMetrics.js'
+export { ROTATE_OFFSET } from './selectionMetrics.js'
 import { TEXT_FRAME_PAD } from './text.js'
 
 export const POPOVER_GAP = 16 // 피할 영역과 메뉴 사이
 export const POPOVER_EDGE = 8 // 페이지 가장자리와 메뉴 사이
-export const ROTATE_OFFSET = 34 // 선택 테두리에서 회전 손잡이 가운데까지 (화면 px, 배율과 무관)
 export const ROTATE_HANDLE = 18 // 회전 손잡이 지름
 
 /**

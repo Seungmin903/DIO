@@ -1,3 +1,4 @@
+import { isDiaryAccessLost } from './diaryAccessLoss.js';
 import { normalizeSharingNickname, sharingNicknameError, normalizeInviteEmail, inviteEmailError, SharingError } from './sharingContracts.js';
 import { AUTHENTICATION_FAILED_MESSAGE } from '../auth/sessionExpiry.js';
 import { SHARED_DIARY_LIMIT } from '../shared/freeTierLimits.js';
@@ -336,12 +337,12 @@ export function createSharingApi({ user, auth, fetchImpl = globalThis.fetch, bui
     }
     watch.count++;
     if (typeof onUnavailable === 'function') watch.unavailable.add(onUnavailable);
-    const stop = message => {
+    const stop = (message, error) => {
       watch.stopped = true;
       if (watch.timer !== null) clearIntervalImpl(watch.timer);
       watch.timer = null;
       if (watchedDiaries.get(id) === watch) watchedDiaries.delete(id);
-      if (message) watch.unavailable.forEach(listener => { try { listener(message); } catch {} });
+      if (message) watch.unavailable.forEach(listener => { try { listener(message, error); } catch {} });
     };
     const refresh = (force = false) => {
       if (!force && realtimeDiaries.has(id)) return null;
@@ -349,12 +350,17 @@ export function createSharingApi({ user, auth, fetchImpl = globalThis.fetch, bui
       watch.refreshing = (diaries.has(id) ? refreshMembers(id) : getSharing(id))
         .then(value => { watch.failures = 0; watch.skipTicks = 0; return value; })
         .catch(error => {
+          if (watch.stopped || watchedDiaries.get(id) !== watch) return null;
           if (error?.code === 'DISPOSED') stop();
-          else if ([401, 403, 404].includes(error?.status)) {
+          else if (error?.status === 401 || isDiaryAccessLost(error)) {
             const previous = diaries.get(id);
             const message = error.status === 401 ? '로그인 상태가 바뀌었어요. 다시 로그인해 주세요.' : '공유 권한 또는 다이어리 상태가 바뀌었어요. 목록을 다시 확인해 주세요.';
-            if (previous) { diaries.set(id, { ...previous, refreshWarning: message }); publish(); }
-            stop(message);
+            if (isDiaryAccessLost(error)) {
+              diaries.delete(id);
+              realtimeDiaries.delete(id);
+            } else if (previous) diaries.set(id, { ...previous, refreshWarning: message });
+            stop(message, error);
+            publish();
           } else { watch.failures = Math.min(watch.failures + 1, 3); watch.skipTicks = 2 ** watch.failures - 1; }
           return null;
         })

@@ -47,7 +47,7 @@ export default function PhotoCropper({ bodyKey, ...props }) {
   )
 }
 
-function PhotoCropperBody({ photo, onApply, onCancel, fixedAspect, aspectRange, round = false, extra = null, confirmLabel = '적용', title = '사진 자르기' }) {
+function PhotoCropperBody({ photo, onApply, onCancel, fixedAspect, aspectRange, round = false, extra = null, confirmLabel = '적용', title = '사진 자르기', notice = '' }) {
   const window = useWindowDimensions()
   const uri = useMediaUri(photo)
   const bordered = isBorderFrame(photo.frame)
@@ -188,6 +188,7 @@ function PhotoCropperBody({ photo, onApply, onCancel, fixedAspect, aspectRange, 
           </View>
 
 
+          {notice ? <Text accessibilityRole="alert" style={{ color: colors.dangerStrong, fontSize: 12.5, marginBottom: 8 }}>{notice}</Text> : null}
           {/* 모든 모드가 같은 틀: 한 손가락 = 틀 옮기기, 두 손가락 = 확대, 핸들 = 틀 크기(비율 잠금이면 꼭짓점만) */}
           <View style={[styles.stage, { height: stageHeight }]} {...freeStageHandlers}>
             <FreeCrop uri={uri} full={view} rect={rect} onChange={setRect}

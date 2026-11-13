@@ -1,3 +1,4 @@
+import { useKickedDiaryExit } from './src/sharing/useKickedDiaryExit';
 import { openCopyIfSafe } from './src/notifications/editorInvitationGuard';
 import { describeSharingInvitations } from './src/notifications/describeSharingInvitations';
 import MemberTrashNotice from './src/diary/components/MemberTrashNotice';
@@ -35,6 +36,7 @@ import { startPushRuntime } from './src/notifications/pushRuntime';
 import { C, DEFAULT_FILTER } from './src/diary/constants';
 import { useDiaries } from './src/diary/hooks/useDiaries';
 import { useMemberDiaries } from './src/diary/hooks/useMemberDiaries';
+import { renameEditorDiary } from './src/diary/services/renameEditorDiary';
 import MemberRequestNotice from './src/diary/components/MemberRequestNotice';
 import { LoadingSpot } from './src/diary/components/EmptyState';
 import DioButton from './src/shared/DioButton';
@@ -82,6 +84,7 @@ import { useFonts } from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
 import BootSplash, { SPLASH } from './src/shared/BootSplash';
 import { createAfterIntroGate } from './src/shared/bootIntro';
+import { finishBoot as openBootGate, startBoot } from './src/shared/bootGate';
 import { PRETENDARD_FILES } from './src/shared/pretendardFiles';
 import { preloadTextFonts } from './src/editor/services/textFonts';
 import { loadRemoteCatalog } from './src/shared/remoteAssets/remoteCatalogService';
@@ -129,13 +132,14 @@ export default function App() {
   }, []);
   const authenticatedSession = previewSession?.mode === 'authenticated' ? previewSession : null;
   const memberSessionKey = authenticatedSession ? authService.getMemberSessionKey(authenticatedSession.userId) : null;
-  const [booting, setBooting] = useState(true);
+  // 시작 화면이 떠 있는 동안 모달 · 안내 창 · 알림 권한 창은 bootGate 에서 기다린다(로딩 화면 위로 뜨지 않게)
+  const [booting, setBooting] = useState(() => { startBoot(); return true; });
   // 예전 저장소에 남은 다이어리 문서를 페이지별 파일로 옮기는 일은 첫 화면과 인트로 손글씨(JS 스레드)를 피해서 시작한다:
   // 켜고 DOCUMENT_MIGRATION_DELAY_MS 가 지나고 + 손글씨가 끝났거나 시작 화면이 닫힌 뒤, 한 번만.
   const migrationGate = useRef(null);
   if (!migrationGate.current) migrationGate.current = createAfterIntroGate(() => { documentStorage.migrateLegacyDocuments().catch(() => {}) });
   const introWritten = useCallback(() => migrationGate.current.introDone(), []);
-  const finishBoot = useCallback(() => { setBooting(false); hideSplash(); migrationGate.current.introDone(); }, []);
+  const finishBoot = useCallback(() => { setBooting(false); hideSplash(); openBootGate(); migrationGate.current.introDone(); }, []);
   // 로그인이 필요한 기능에서 연 로그인 화면 { feature, action }. 지금 화면 위에 겹쳐 띄워, 닫아도 보던 화면이 그대로 남는다.
   const [loginRequest, setLoginRequest] = useState(null);
   const [restoreState, setRestoreState] = useState({ status: 'loading', error: null });
@@ -516,6 +520,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onWithdraw
     startPushRuntime({ auth: authService, userId: previewUser.userId, invitations: sharing.runtime.invitationGateway,
       onInvitation: ({ inviteId }) => { if (!disposed) setPendingPush({ inviteId, sessionKey }); },
       onSynced: () => { if (!disposed) setPushIssue(null); },
+      isActive: () => !disposed,
       onError: onPushError }).then(cleanup => { if (disposed) cleanup(); else stop = cleanup; }).catch(error => { if (!disposed) onPushError(error); });
     return () => { disposed = true; stop(); };
   }, [previewUser.mode, previewUser.userId, sharing.runtime]);
@@ -604,12 +609,6 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onWithdraw
   const sharedLibraryRef = useRef(sharing.library);
   sharedLibraryRef.current = sharing.library;
   const sharingMembers = (signedIn && sharing.diaries.find(value => value.id === (active?.sharedDiaryId || active?.id))?.members) || [];
-  // Keep the editor's participant chips current even when the sharing sheet is closed.
-  useEffect(() => {
-    const diaryId = active?.sharedDiaryId || active?.id;
-    if (!member || !isSharingDiaryId(diaryId) || !sharing.runtime.server || typeof sharing.runtime.watchDiary !== 'function') return undefined;
-    return sharing.runtime.watchDiary(diaryId, { onUnavailable: message => notify('공유 상태 변경', message) });
-  }, [member, active?.id, active?.sharedDiaryId, sharing.runtime]);
   // 상단 바에 열어 둔 다이어리 탭 (id 순서대로). 다이어리를 열면 탭이 생기고, 탭을 눌러 오가며, 닫으면 옆 탭으로 간다.
   const [tabIds, setTabIds] = useState([]);
   const [createOpen, setCreateOpen] = useState(false);
@@ -1015,6 +1014,10 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onWithdraw
     setPage('library');
   }, [active?.id, member, libraryMetadata, librarySort, visibleDiaries]);
 
+  useKickedDiaryExit({ member, diary: active, runtime: sharing.runtime,
+    opening, returnDiaryId, setTabIds, setActive, setSharingRequest, returnToLibrary,
+    reloadLibrary: () => diaryState.store.reload(), notify });
+
   const selectTab = useCallback((id) => {
     if (id === active?.id) return;
     const diary = visibleDiaries.find((item) => item.id === id);
@@ -1183,14 +1186,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onWithdraw
         sharingMembers={sharingMembers}
         onMembersChanged={() => { const diaryId = active?.sharedDiaryId || active?.id; if (isSharingDiaryId(diaryId)) { sharing.runtime.invalidateMemberPhotos?.(); sharing.runtime.refreshMembers?.(diaryId)?.catch(() => sharing.runtime.setWatchingRealtime?.(diaryId, false)); } }}
         onCollaborationStateChange={(diaryId, connected) => sharing.runtime.setWatchingRealtime?.(diaryId, connected)}
-        onRenameDiary={async title => {
-          if (!active?.id) return false;
-          try {
-            const updated = await renameDiary(active.id, title);
-            setActive(current => current?.id === active.id ? { ...current, ...(updated || {}), title } : current);
-            return true;
-          } catch (error) { notify('이름을 바꾸지 못했어요', error.message); return false; }
-        }}
+        onRenameDiary={title => renameEditorDiary({ diaryId: active?.id, title, renameDiary, setActive, notify })}
         tabs={tabs}
         onSelectTab={selectTab}
         onCloseTab={closeTab}

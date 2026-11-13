@@ -6,7 +6,7 @@ import React from 'react'
 import * as text from '../src/editor/utils/text.js'
 import * as ranges from '../src/editor/utils/textRanges.js'
 import * as formats from '../src/editor/utils/textFormats.js'
-import { keyboardPanelBottom, requestTextKeyboard, startTextKeyboard } from '../src/editor/utils/textKeyboard.js'
+import { keyboardPanelBottom, requestTextKeyboard, revealOverlap, startTextKeyboard } from '../src/editor/utils/textKeyboard.js'
 
 const require = createRequire(import.meta.url), expo = createRequire(require.resolve('expo/package.json'))
 const babel = expo('@babel/core')
@@ -168,4 +168,17 @@ test('선택한 글자 줄은 가려진 만큼만 올리고, 키보드가 화면
   assert.equal(keyboardPanelBottom({ stageTop: 80, stageHeight: 700, keyboardTop: 900 }), 8)
   // 키보드 정보가 없으면 기본 여백
   assert.equal(keyboardPanelBottom({ stageTop: 80, stageHeight: 1200, keyboardTop: null }), 8)
+})
+
+test('키보드에 가린 입력칸은 아래 여유만큼 올리되 작업창 위 끝 위로는 밀지 않는다', () => {
+  // 입력칸 y=600~620, 키보드 위 끝 500 → 600+20+80-500 = 200 만큼 올리면 되고 위 끝(100)까지 500 여유가 있다
+  assert.equal(revealOverlap({ inputY: 600, inputHeight: 20, keyboardTop: 500, visibleTop: 100 }), 200)
+  // 위 끝까지 여유(150-100=50)가 필요한 양(250)보다 적으면 여유만큼만 올린다
+  assert.equal(revealOverlap({ inputY: 150, inputHeight: 20, keyboardTop: 0, visibleTop: 100 }), 50)
+  // 경계: 입력칸이 이미 위 끝에 있으면 올리지 않는다
+  assert.equal(revealOverlap({ inputY: 100, inputHeight: 20, keyboardTop: 50, visibleTop: 100 }), 0)
+  // 키보드에 가리지 않으면 0 이하
+  assert.ok(revealOverlap({ inputY: 200, inputHeight: 20, keyboardTop: 500, visibleTop: 100 }) <= 0)
+  // 잴 수 없는 값이면 올리지 않는다
+  assert.equal(revealOverlap({ inputY: undefined, inputHeight: 20, keyboardTop: 500 }), 0)
 })
