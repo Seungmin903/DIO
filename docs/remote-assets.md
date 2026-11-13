@@ -51,7 +51,7 @@
 
 | 위치 | 값 |
 | --- | --- |
-| `EXPO_PUBLIC_ASSET_BASE_URL` | 에셋 저장소 주소. DIO는 CloudFront 원본 경로(Origin path)를 `/static-assets`로 설정했으므로 **배포 도메인만** 쓴다(dev `https://d1ztiesifzfjld.cloudfront.net`, prod `https://d2hvhno2v5g650.cloudfront.net`). 원본 경로를 비운 배포라면 끝에 `/static-assets`를 붙인다. 어느 쪽이든 `<주소>/catalog.json`이 첫 업로드 뒤 200으로 열려야 한다. 출시 빌드·웹 배포본은 HTTPS가 아니면 원격 에셋을 쓰지 않는다. `eas.json`의 preview·production `env`에 넣는다. 2026-11-13(S15P31F106-887)부터 preview도 production과 같은 운영 API·prod CloudFront를 쓴다. preview APK로 확인한 작업은 운영 데이터에 남는다. |
+| `EXPO_PUBLIC_ASSET_BASE_URL` | 에셋 저장소 주소. DIO는 CloudFront 원본 경로(Origin path)를 `/static-assets`로 설정했으므로 **배포 도메인만** 쓴다(dev `https://d1ztiesifzfjld.cloudfront.net`, prod `https://d2hvhno2v5g650.cloudfront.net`). 원본 경로를 비운 배포라면 끝에 `/static-assets`를 붙인다. 어느 쪽이든 `<주소>/catalog.json`이 첫 업로드 뒤 200으로 열려야 한다. 출시 빌드·웹 배포본은 HTTPS가 아니면 원격 에셋을 쓰지 않는다. `eas.json`의 preview·production `env`에 넣는다. 2026-11-13(S15P31F106-887)부터 preview도 production과 같은 운영 API·prod CloudFront를 쓴다. preview APK로 확인한 작업은 운영 데이터에 남는다. 푸시도 켜져 있어(`EXPO_PUBLIC_PUSH_ENABLED`) 기기 푸시 토큰이 운영 서버에 등록되고, 실제 사용자와 같은 방에서 테스트하면 그 사용자에게 알림이 간다. 테스트는 테스트 전용 계정과 방에서만 한다. |
 | 개발 실행 | 값을 비우면 `http://<PC>:8090`(Android 에뮬레이터는 `10.0.2.2`)을 쓴다. `pnpm assets:remote` 후 `pnpm assets:serve`로 띄운다. 실제 기기는 PC의 LAN IP를 넣는다. |
 
 ## 인프라
