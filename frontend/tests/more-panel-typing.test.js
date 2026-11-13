@@ -7,14 +7,17 @@ import * as common from '../src/editor/utils/common.js'
 const require = createRequire(import.meta.url), expo = createRequire(require.resolve('expo/package.json'))
 
 // 옵션 창(MorePanel)이 키보드가 뜰 때와 칸을 옮길 때 적는 칸 자리를 재고 그 칸이 보이게 스크롤하는지
-function fixture({ keyboardVisible = false, focused }) {
+function fixture({ keyboardVisible = false, focused: initialFocus }) {
+  let focused = initialFocus
   const listeners = {}, typing = [], scrolls = []
   let cursor = 0
   const states = []
   const mocks = {
     react: {
-      useState: (v) => { const i = cursor++; if (!(i in states)) states[i] = v; return [states[i], (n) => { states[i] = n }] },
-      useRef: (v) => ({ current: v }), useCallback: (f) => f, useContext: () => () => {},
+      // 상태가 바뀌면 다시 그린다(편집 화면에 알리는 onTypingChange 가 실제 바뀐 값을 받는지 보려고). ref 는 그리기 사이에 유지한다
+      useState: (v) => { const i = cursor++; if (!(i in states)) states[i] = v; return [states[i], (n) => { if (states[i] !== n) { states[i] = n; render() } }] },
+      useRef: (v) => { const i = cursor++; if (!(i in states)) states[i] = { current: v }; return states[i] },
+      useCallback: (f) => f, useContext: () => () => {},
       useEffect: (fn) => { fn() },
     },
     'react/jsx-runtime': require('react/jsx-runtime'),
@@ -37,12 +40,13 @@ function fixture({ keyboardVisible = false, focused }) {
     return { __esModule: true, default: id.split('/').at(-1) }
   }, module, module.exports)
   const object = { id: 'w', type: 'sticker', widget: { kind: 'dday' }, x: 0, y: 0, w: 100, h: 100 }
-  const tree = module.exports.default({ objects: [object], dispatch: () => {}, onTypingChange: (v) => typing.push(v) })
-  const all = nodes(tree)
+  let all
+  const render = () => { cursor = 0; all = nodes(module.exports.default({ objects: [object], dispatch: () => {}, onTypingChange: (v) => { if (typing.at(-1) !== v) typing.push(v) } })) }
+  render()
   all.find((n) => n.type === 'scroll').props.ref.current = { scrollTo: (o) => scrolls.push(o.y) }
   all.find((n) => n.props?.collapsable === false).props.ref.current = {}
-  const onInputFocus = all.find((n) => n.type === 'focus-provider').props.value
-  return { listeners, scrolls, onInputFocus }
+  const provider = () => all.find((n) => n.type === 'focus-provider').props.value
+  return { listeners, scrolls, typing, headerShown: () => all.some((n) => n.props?.accessibilityLabel === '옵션 닫기' || n.props?.accessibilityRole === 'tablist'), onInputFocus: () => provider().onFocus(), onInputBlur: () => provider().onBlur(), setFocused: (input) => { focused = input } }
 }
 function nodes(value) {
   if (!value || typeof value !== 'object') return []
@@ -54,8 +58,13 @@ const inputAt = (y) => ({ measureLayout: (relative, ok) => ok(0, y) })
 
 test('키보드가 뜨면 창 안 입력칸이 보이게 제목까지 스크롤한다', () => {
   const panel = fixture({ focused: inputAt(240) })
+  assert.equal(panel.headerShown(), true)
   panel.listeners.keyboardDidShow()
   assert.deepEqual(panel.scrolls, [210])
+  // 적는 동안은 창 제목 · 탭을 접어 낮아진 창을 적는 칸에 쓴다
+  assert.equal(panel.headerShown(), false)
+  panel.listeners.keyboardDidHide()
+  assert.equal(panel.headerShown(), true)
 })
 
 test('키보드가 떠 있는 채로 다른 칸으로 옮기면 새 칸 자리를 다시 재 스크롤한다', () => {
@@ -78,4 +87,31 @@ test('창 밖 입력칸(measureLayout 실패)은 건드리지 않는다', () => 
   panel.listeners.keyboardDidShow()
   panel.onInputFocus()
   assert.deepEqual(panel.scrolls, [])
+})
+
+const tick = () => new Promise((resolve) => setTimeout(resolve, 5))
+
+test('창 안 칸에서 창 밖 칸(캔버스 글상자 등)으로 포커스가 옮겨 가면 적기를 끝낸다', async () => {
+  const panel = fixture({ keyboardVisible: true, focused: inputAt(100) })
+  panel.listeners.keyboardDidShow()
+  assert.equal(panel.typing.at(-1), true)
+  panel.setFocused({ measureLayout: (relative, ok, fail) => fail() })
+  panel.onInputBlur()
+  await tick()
+  assert.equal(panel.typing.at(-1), false)
+})
+
+test('창 안 다른 칸으로 옮기거나 포커스 칸이 없으면(키보드가 내려가며 끝난다) 적기를 유지한다', async () => {
+  const panel = fixture({ keyboardVisible: true, focused: inputAt(100) })
+  panel.listeners.keyboardDidShow()
+  panel.setFocused(inputAt(300))
+  panel.onInputBlur()
+  await tick()
+  assert.equal(panel.typing.at(-1), true)
+  panel.setFocused(null)
+  panel.onInputBlur()
+  await tick()
+  assert.equal(panel.typing.at(-1), true)
+  panel.listeners.keyboardDidHide()
+  assert.equal(panel.typing.at(-1), false)
 })

@@ -38,15 +38,20 @@ export default function MorePanel({ objects, dispatch, onReplacePhoto, onReplace
   }
   // 포커스된 입력칸이 이 창 안이면 자리를 재고 그 칸이 보이게 스크롤한다.
   // 키보드가 처음 뜰 때(keyboardDidShow)와, 키보드가 떠 있는 채로 다른 칸으로 옮길 때(입력칸 onFocus) 부른다
-  const measureTyping = () => {
+  // 이 창 밖의 입력칸(캔버스 글상자 등)이면 measureLayout 이 실패한다. 그때는 onOutside 를 부른다
+  const measureTyping = (onOutside) => {
     const input = TextInput.State?.currentlyFocusedInput?.()
-    if (!input?.measureLayout || !contentRef.current) return
-    // 이 창 밖의 입력칸(캔버스 글상자 등)이면 measureLayout 이 실패해 그대로 둔다
+    if (!input?.measureLayout || !contentRef.current) { if (input) onOutside?.(); return }
     try {
-      input.measureLayout(contentRef.current, (x, y) => { typingY.current = y; setTyping(true); scrollToTyping() }, () => {})
-    } catch { /* 이미 사라진 입력칸 */ }
+      input.measureLayout(contentRef.current, (x, y) => { typingY.current = y; setTyping(true); scrollToTyping() }, () => onOutside?.())
+    } catch { onOutside?.() /* 이미 사라진 입력칸 */ }
   }
-  const onInputFocus = () => { if (Keyboard.isVisible?.()) measureTyping() }
+  // 창 안 칸에서 포커스가 빠지면, 옮겨 간 칸이 창 밖(캔버스 글상자 등)일 때 적기를 끝낸다(창을 제자리로 · 올린 보기를 되돌린다).
+  // 포커스가 넘어간 뒤에 알 수 있어 한 박자 늦게 본다. 포커스 칸이 아예 없으면 키보드가 내려가며 keyboardDidHide 가 끝낸다
+  const inputFocus = {
+    onFocus: () => { if (Keyboard.isVisible?.()) measureTyping() },
+    onBlur: () => setTimeout(() => measureTyping(() => setTyping(false)), 0),
+  }
   useEffect(() => {
     const show = Keyboard.addListener('keyboardDidShow', () => measureTyping())
     const hide = Keyboard.addListener('keyboardDidHide', () => setTyping(false))
@@ -96,14 +101,15 @@ export default function MorePanel({ objects, dispatch, onReplacePhoto, onReplace
 
   return (
     <View style={styles.panel}>
-      <View style={styles.header}>
+      {/* 적는 동안은 창이 키보드 위 낮은 막대가 되므로 제목 · 탭을 접어 적는 칸에 자리를 준다 (입력칸은 아래 스크롤 안이라 그대로 남는다) */}
+      {!typing && <View style={styles.header}>
         <Text style={styles.title}>{title}</Text>
         <Pressable onPress={onClose} hitSlop={10} style={styles.close} accessibilityLabel="옵션 닫기">
           <Icon name="close" size={18} />
         </Pressable>
-      </View>
+      </View>}
 
-      {hasStyle && editable.length > 0 && (
+      {!typing && hasStyle && editable.length > 0 && (
         <View style={styles.tabs} accessibilityRole="tablist">
           {[
             { id: 'style', label: '꾸미기' },
@@ -127,7 +133,7 @@ export default function MorePanel({ objects, dispatch, onReplacePhoto, onReplace
         // 창이 키보드 위로 내려가 줄어든 뒤에도 적는 칸이 보이게 다시 맞춘다
         onLayout={() => { if (typing) scrollToTyping() }}>
         <View ref={contentRef} collapsable={false}>
-        <InputFocusContext.Provider value={onInputFocus}>
+        <InputFocusContext.Provider value={inputFocus}>
         {!editable.length ? (
           <Text style={styles.hint}>잠긴 요소예요. 잠금을 풀면 편집할 수 있어요.</Text>
         ) : current === 'style' ? (

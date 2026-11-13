@@ -1432,7 +1432,8 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
           onTouchStart={() => setInputActive(true)}
           onTouchEnd={(event) => { if (!event.nativeEvent.touches?.length) setInputActive(false) }}
           onTouchCancel={() => setInputActive(false)}
-          style={[styles.stage, !compact && !readOnly && styles.stageEdge, phoneSheet && sheetHeight > 0 && { overflow: 'visible' }]}
+          // 옵션 창에 적는 동안 작업창이 너무 낮으면 창이 작업창 위로 넘어 올라가므로(typingOptionsPlacement) 자르지 않는다
+          style={[styles.stage, !compact && !readOnly && styles.stageEdge, ((phoneSheet && sheetHeight > 0) || optionsTyping) && { overflow: 'visible' }]}
           onLayout={() => stageRef.current?.measureInWindow((x, y) => setStageOrigin({ x, y }))}>
           {/* 선택 바는 페이지 밖(보이는 작업 영역 안)까지 나가므로 페이지가 아니라 작업창 위 층에 그린다. 확대·이동하는 동안은 숨긴다. */}
           <StageOverlayHost hidden={viewMoving}>

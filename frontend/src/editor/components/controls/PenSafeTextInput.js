@@ -13,7 +13,7 @@ const TEXT_KEYS = ['color', 'fontSize', 'fontWeight', 'fontFamily', 'fontStyle',
  */
 const PenSafeTextInput = forwardRef(function PenSafeTextInput(props, ref) {
   const [editing, setEditing] = useState(false)
-  const onInputFocus = useContext(InputFocusContext)
+  const inputFocus = useContext(InputFocusContext)
   if (Platform.OS === 'web' || editing) {
     return (
       <TextInput
@@ -22,11 +22,12 @@ const PenSafeTextInput = forwardRef(function PenSafeTextInput(props, ref) {
         autoFocus={Platform.OS === 'web' ? props.autoFocus : true}
         onFocus={(event) => {
           props.onFocus?.(event)
-          onInputFocus?.()
+          inputFocus?.onFocus?.()
         }}
         onBlur={(event) => {
           setEditing(false)
           props.onBlur?.(event)
+          inputFocus?.onBlur?.()
         }}
       />
     )
