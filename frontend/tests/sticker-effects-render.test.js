@@ -65,6 +65,15 @@ test('효과 끄기·정지 출력·웹은 기존 미디어 경로를 유지한�
   }
 })
 
+test('Android 정적 스티커의 본체·테두리·그림자를 같은 해상도로 그린다', () => {
+  const { images } = render({ platform: 'android', still: true })
+  assert.ok(images.length > 1)
+  for (const { props } of images) {
+    assert.equal(props.animated, false)
+    assert.equal(props.resizeMethod, 'scale')
+  }
+})
+
 test('SVG 본체와 알파 마스크는 단 하나의 이미지 노드를 참조한다', () => {
   const { code: frameCode } = expo('@babel/core').transformSync(readFileSync(new URL('../src/editor/components/canvas/StickerFrame.js', import.meta.url), 'utf8'), {
     configFile: false, babelrc: false,

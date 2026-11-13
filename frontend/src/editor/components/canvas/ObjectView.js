@@ -293,6 +293,7 @@ function StickerContent({ object, width, height, zoom, still, pdfUri, onAssetLoa
             },
           ]}
           resizeMode="contain"
+          resizeMethod="scale"
         />
       )
     : (key, color, dx, dy, opacity = 1, radius = 1) => (
@@ -354,7 +355,7 @@ function StickerContent({ object, width, height, zoom, still, pdfUri, onAssetLoa
         <View style={box}><BuiltinStickerArt sticker={builtin} width={width} height={height} /></View>
       ) : source ? (
         <MediaImage animated={animated} onLoad={onAssetLoad} onError={() => { if (!synchronized && !remoteImage) reportMediaDisplayError(object); onAssetError?.() }}
-          source={source} style={box} resizeMode={isBackdrop(object) ? 'stretch' : 'contain'} />
+          source={source} style={box} resizeMode={isBackdrop(object) ? 'stretch' : 'contain'} resizeMethod="scale" />
       ) : (
         <Text style={[styles.emoji, emojiText(height)]}>{object.emoji}</Text>
       )}

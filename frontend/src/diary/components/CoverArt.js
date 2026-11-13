@@ -15,7 +15,7 @@ import { useRemoteAssetUri } from '../../shared/remoteAssets/useRemoteAssetUri'
 import BuiltinStickerArt from '../../editor/components/canvas/BuiltinStickerArt'
 import { stickerSource } from '../../editor/stickerAssets'
 import { clamp, normalizeAngle, rotateVector } from '../../editor/utils/common'
-import { ROTATE_OFFSET } from '../../editor/utils/popoverPlacement'
+import { HANDLE, MARGIN, ROTATE_SNAP_DEG, CORNERS, BAR, ROTATE_OFFSET, stickerControlLayer } from '../utils/coverStickerControls.js'
 import { textStyle } from '../../editor/utils/text'
 import { useTextFont } from '../../editor/hooks/useTextFont'
 import { STICKER_SIZE, bandAutoColor, coverTitle, createStickerCopy, coverLineColor, gradientStops, mix } from '../utils/coverDesign'
@@ -139,7 +139,7 @@ function StickerImage({ item }) {
   const remoteUri = useRemoteAssetUri(builtin?.image ?? null)
   const source = builtin?.image ? (remoteUri ? { uri: remoteUri } : null) : stickerSource(item, true, uri)
   if (builtin && !builtin.image) return <BuiltinStickerArt sticker={builtin} canvas width="100%" height="100%" />
-  return source ? <Image source={source} style={styles.stickerImage} resizeMode="contain" /> : null
+  return source ? <Image source={source} style={styles.stickerImage} resizeMode="contain" resizeMethod="scale" /> : null
 }
 
 /**
@@ -177,13 +177,6 @@ const StickerView = memo(function StickerView({ item, scale, store }) {
   const shown = useDraft(store, item)
   return <View pointerEvents="none" style={[styles.sticker, stickerBox(shown, scale)]}><StickerImage item={item} /></View>
 })
-
-// 편집기 선택 테두리(SelectionOverlay)와 같은 손잡이 크기 · 자리
-const HANDLE = 18
-const MARGIN = 40 // 손잡이가 스티커 밖에 걸쳐도 터치를 받도록 넓힌 둘레
-const ROTATE_SNAP_DEG = 4.5
-const CORNERS = [[-1, -1], [1, -1], [-1, 1], [1, 1]]
-const BAR = { width: 92, height: 40 }
 
 /** 손잡이 하나: 누른 자리를 기억하고 이동량으로 값을 바꾼다 */
 function StickerHandle({ onStart, onMove, onEnd, label, style, children }) {
@@ -261,7 +254,9 @@ function StickerControl({ item, scale, width, height, selected, store, onSelect,
   const below = c.y + extent + 10
   const barTop = below + BAR.height <= height ? below : c.y - extent - ROTATE_OFFSET - HANDLE / 2 - 8 - BAR.height
   const bar = { left: clamp(c.x - BAR.width / 2, 0, Math.max(0, width - BAR.width)), top: clamp(barTop, 0, Math.max(0, height - BAR.height)) }
-  return <>
+  // 그림 순서는 유지하고 선택된 조작 영역만 위로 올린다. 버튼·손잡이를 다른 스티커가 가로채지 않게 한다.
+  const layer = stickerControlLayer(selected)
+  return <View {...layer} style={[StyleSheet.absoluteFill, layer.style]}>
     <View pointerEvents="box-none" style={box}>
       <View accessibilityRole="adjustable" accessibilityLabel={`표지 스티커 ${item.name ?? ''}`} {...moveHandlers}
         style={[styles.stickerHit, { left: MARGIN, top: MARGIN, width: side, height: side }, Platform.OS === 'web' && { cursor: 'move' }]} />
@@ -284,7 +279,7 @@ function StickerControl({ item, scale, width, height, selected, store, onSelect,
         <Icon name="trash" size={18} color={colors.danger} />
       </Pressable>
     </View>}
-  </>
+  </View>
 }
 
 /**
