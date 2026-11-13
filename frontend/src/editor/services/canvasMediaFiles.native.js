@@ -1,7 +1,7 @@
 import { File, Paths } from 'expo-file-system'
 import * as repository from '../utils/mediaRepository.native.js'
 import {registerRemoteMediaRetry} from './mediaRetry.js'
-import {mediaRegistry} from './mediaStore'
+import {mediaRegistry,trackRemoteMedia} from './mediaStore'
 import {detectMediaType,checkDimensions} from '../utils/mediaPolicy.js'
 import {needsShareJpeg,needsSharePng,SHARE_MAX_BYTES} from '../utils/shareImagePlan.js'
 import {toShareJpeg,toSharePng} from '../utils/shareImage'
@@ -13,6 +13,7 @@ import {mediaShareSizeMessage,sharedGifMaxBytes,sharedImageMaxBytes} from '../..
 const filePart=(uri,type,name)=>({uri,type,name,bytes:()=>new File(uri).bytes()})
 export const canvasMediaFiles={
  registerRetry:registerRemoteMediaRetry,
+ pending:trackRemoteMedia,
  fail(id,error){mediaRegistry.fail(id,error)},
  async upload(id,category){
   if(category==='DOCUMENT'){
@@ -36,10 +37,10 @@ export const canvasMediaFiles={
  },
  async hasDocument(id){return pdfSourceUri(id)!==null},
  async saveDocument(id,bytes){await savePdfSourceBytes(id,bytes)},
- async cached(id){
+ async cached(id,{verify=false}={}){
   try{
    const {media,blob,displayBlob}=await repository.get(id),source=displayBlob??blob
-   await repository.verifyDisplay(source)
+   if(verify)await repository.verifyDisplay(source)
    mediaRegistry.seed(id,{media,uri:source.uri});return true
   }catch{return false}
  },

@@ -24,12 +24,32 @@ async function limited(task) {
   try { return await task() } finally { loading -= 1; waiting.shift()?.() }
 }
 
+// 공유 다이어리 사진은 페이지를 그리는 동안 서버에서 받아 온다. 받기가 끝나기 전에 읽으면 기기에 아직 없어서
+// '원본을 찾을 수 없어요'가 떴다. 받는 중인 사진은 받기가 끝날 때까지 '불러오는 중'으로 두고, 끝나면 다시 읽는다.
+const pendingRemote = new Map()
+export function trackRemoteMedia(id, job) {
+  if (!id || !job) return
+  pendingRemote.set(id, job)
+  job.then(() => {}, () => {}).then(() => { if (pendingRemote.get(id) === job) pendingRemote.delete(id) })
+}
+
+const readDisplay = id => limited(async () => {
+  const { media, blob, displayBlob } = await repository.get(id)
+  const source = displayBlob ?? blob
+  return { media, uri: Platform.OS === 'web' ? URL.createObjectURL(source) : source.uri }
+})
+
 export const mediaRegistry = createMediaRegistry({
-  load: id => limited(async () => {
-    const { media, blob, displayBlob } = await repository.get(id)
-    const source = displayBlob ?? blob
-    return { media, uri: Platform.OS === 'web' ? URL.createObjectURL(source) : source.uri }
-  }),
+  async load(id) {
+    try { return await readDisplay(id) }
+    catch (error) {
+      const job = pendingRemote.get(id)
+      if (error?.code !== 'MEDIA_NOT_FOUND' || !job) throw error
+      // 받기에 실패하면 그 오류(예: 서버에 연결하지 못했어요)를 그대로 보여 준다.
+      await job
+      return readDisplay(id)
+    }
+  },
   release(uri) { if (Platform.OS === 'web') URL.revokeObjectURL(uri) },
   // 보관함을 닫았다 다시 열 때 다시 읽지 않도록 잠시 더 들고 있는다 (앱 파일 경로는 메모리를 거의 쓰지 않는다)
   idleMs: Platform.OS === 'web' ? 60000 : 300000,

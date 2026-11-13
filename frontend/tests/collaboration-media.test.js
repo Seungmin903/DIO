@@ -165,3 +165,19 @@ test('다운로드와 업로드는 시간 제한을 120초로 요청한다',asyn
  await media.prepare({changes:{creates:[{elementType:'PHOTO',mediaFileId:localId}]}});await media.hydrate([{mediaFileId:'90000000-0000-4000-8000-000000000009'}])
  assert.equal(calls.length,2);assert.ok(calls.every(options=>options.timeoutMs===120000))
 })
+
+test('받는 중인 공유 사진은 끝나는 시점을 먼저 알리고 동시에 3장까지 받으며 실패는 그 오류로 알린다',async()=>{
+ const ids=Array.from({length:5},(_,i)=>`5000000${i}-0000-4000-8000-000000000001`)
+ const pending=new Map(),waiters=[];let running=0,peak=0
+ const media=createCanvasMedia({storage:{getItem:async()=>null,setItem:async()=>{}},key:'m',
+  files:{cached:async()=>false,save:async()=>{},pending:(id,job)=>pending.set(id,job)},
+  request:async path=>{running++;peak=Math.max(peak,running);await new Promise(resolve=>waiters.push(resolve));running--;if(path.includes(ids[4]))throw Object.assign(Error('서버 끊김'),{status:503});return new Uint8Array([1])}})
+ const job=media.hydrate(ids.map(mediaFileId=>({mediaFileId})))
+ assert.deepEqual([...pending.keys()],ids)
+ let done=false;job.finally(()=>{done=true})
+ while(!done){await new Promise(resolve=>setImmediate(resolve));waiters.splice(0).forEach(resolve=>resolve())}
+ await job
+ assert.equal(peak,3)
+ await Promise.all(ids.slice(0,4).map(id=>pending.get(id)))
+ await assert.rejects(pending.get(ids[4]),/서버 끊김/)
+})
