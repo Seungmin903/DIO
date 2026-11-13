@@ -56,3 +56,11 @@ test('모델 번들은 개인 입력·절대 경로 없이 검증 결과와 추�
     assert(!path.includes('/modules/modules.py'))
   }
 })
+
+test('운영 빌드 R8이 ONNX Runtime JNI 클래스를 지우지 않고, 작업 스레드 Error가 앱을 종료시키지 않는다', () => {
+  const gradle = read('modules/dio-handwriting/android/build.gradle')
+  assert.match(gradle, /consumerProguardFiles\s+'consumer-rules\.pro'/)
+  assert.match(read('modules/dio-handwriting/android/consumer-rules.pro'), /^-keep class ai\.onnxruntime\.\*\* \{ \*; \}$/m)
+  const native = read('modules/dio-handwriting/android/src/main/java/expo/modules/diohandwriting/DioHandwritingModule.kt')
+  assert(native.includes('} catch (error: Throwable) {'))
+})

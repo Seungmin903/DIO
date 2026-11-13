@@ -5,7 +5,11 @@ group = 'expo.modules.diohandwriting'
 version = '1.0.0'
 android {
   namespace 'expo.modules.diohandwriting'
-  defaultConfig { versionCode 1; versionName '1.0.0'; testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner' }
+  defaultConfig {
+    versionCode 1; versionName '1.0.0'; testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
+    // 운영 빌드의 R8이 ONNX Runtime JNI가 찾는 클래스를 지우지 않게 한다.
+    consumerProguardFiles 'consumer-rules.pro'
+  }
 }
 dependencies {
   implementation 'com.microsoft.onnxruntime:onnxruntime-android:1.23.2'
