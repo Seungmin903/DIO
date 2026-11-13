@@ -442,7 +442,8 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
   const changeTextSettings = (patch) => {
     if (Object.entries(patch).every(([key, value]) => currentTextSettings[key] === value)) return
     const next = { ...currentTextSettings, ...patch }
-    setTextDefaults(next)
+    // 새 글상자 기본값은 아무것도 고르지 않은 채 글 도구 창에서 정할 때만 바꾼다. 기존 글상자 · 도형을 고친 서식이 다음 글상자로 옮겨 가면 기본설정으로 돌아오지 않았다(S15P31F106-857)
+    if (!textEditing && !selectedText) setTextDefaults(next)
     const visualOnly = Object.keys(patch).every((key) => VISUAL_TEXT_KEYS.includes(key))
     // 편집 중에는 설정값만 바꾼다(높이 · 폭은 입력창이 실측하고 끝낼 때 onSaveText 가 맞춘다). textFormatPatch 로 옛 글(새 상자는 '')에서 높이를 다시 어림하면 상자가 줄었다 늘며 글자가 움직였다
     // 전체 색을 바꾸면 부분 색을 지운다(선택 상태 경로와 같다. 입력창이 들고 있는 구간 색은 TextEditor 가 같이 비운다)
