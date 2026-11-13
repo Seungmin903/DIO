@@ -464,6 +464,8 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
     if (!optionsTyping) {
       const restore = typingViewRestore(typingPan.current, view)
       typingPan.current = null
+      // commitView 가 setView 말고 하는 일은 고정 배율 막기(위에서 확인)와 끄는 손짓에 따른 자동 쪽 넘김뿐이다.
+      // 되돌리기는 손짓이 아니라 적기 전 보기(x 가 null 이면 가운데 보기)로 그대로 돌아가는 것이라 쪽을 넘기면 안 되므로 setView 로 직접 둔다
       if (restore && !viewportLocked) setView(restore)
       return
     }
