@@ -50,3 +50,13 @@
 - 139번 공통 옵션창 적용 후 8개 도구의 위치·폭·닫기 총 24회 및 내보내기 열기·닫기 3회 통과. [상세 UI 기준](./도구%20옵션%20화면.md). 최종 Android 직접 조작은 남아 있다.
 
 - 직접 색상 선택: 펜·형광펜 각 3회, 총 6/6 팔레트 열기→채도/밝기 및 색상 선택→HEX 값 변경→닫기 통과. 같은 실행의 통합 QA 3/3 통과. Android 실제 드래그 확인은 남아 있다.
+
+## 페이지 목록 썸네일의 스크롤·순서 변경 구분 (2026-11-13)
+
+- 썸네일의 누르기 대기 중에는 `usePan`의 native responder 차단을 끄고, 한 손가락 스크롤이 responder를 가져갈 수 있게 한다. 부모 목록이 가져가면 탭·길게 누르기 타이머를 취소해 선택이나 순서 변경이 뒤늦게 실행되지 않는다.
+- 280ms 길게 누른 뒤에는 기존 목록 스크롤 잠금과 순서 변경을 유지한다. 움직이지 않고 떼면 작업 메뉴를 열고, 짧게 탭하면 페이지를 선택한다. 읽기 전용·북마크 필터는 순서를 바꾸지 않으며 스크롤을 허용한다. 항목이 사라질 때 대기 타이머를 정리한다.
+- `onShouldBlockNativeResponder`는 grant 때 한 번 평가될 수 있어 이후 holding 변경으로 네이티브 차단 상태가 갱신된다고 가정하지 않는다. 길게 누른 뒤 실제 잠금은 `startDrag → drag 상태 → FlatList.scrollEnabled={!drag}`가 담당하고, 종료·시스템 취소의 `endDrag`에서 해제한다. 회귀 테스트는 grant 차단 값을 false로 고정한 채 PageList를 상태 변경 후 다시 렌더링해 scrollEnabled가 true→false→true로 바뀌는지와 순서 변경·취소를 확인한다. 이 검사는 native prop 전달 계약이며 OS별 실기기 스크롤 확인과는 구분한다.
+- 공통 `usePan`은 정책 콜백을 지정한 페이지 목록에서만 동작이 달라진다. 캔버스·손잡이·슬라이더 등은 이전의 기본 차단 정책을 유지한다. 저장 형식·페이지 순서 계산·썸네일 내용은 바꾸지 않는다.
+- native responder 계약 및 회귀 검증(frontend): `node --test tests/page-list-scroll-gesture.test.js tests/page-thumbnail-memo.test.js tests/photo-crop-interaction.test.js tests/pen-materials.test.js tests/editor-page-management.test.js`.
+- 실제 웹 터치 검증: 전용 `pnpm exec expo start --port 8095 --offline --max-workers 2` 실행 후 `node tests/page-list-scroll-browser.cjs`. 기본 Playwright Chromium 또는 `DIO_QA_BROWSER_CHANNEL=msedge` 등 설치된 브라우저를 사용한다. 폰·태블릿에서 20쪽 목록의 썸네일 위 스와이프가 스크롤로 이어지고, 페이지 선택·길게 누른 순서 변경·작업 메뉴를 유지하는지 확인한다. CI 자동 실행 대상은 아니다.
+- 웹 터치 검증과 native responder 계약 검사는 실제 Android/iOS 기기의 네이티브 스크롤 실행 검증을 대체하지 않는다. 실기기에서 썸네일 위 즉시 스크롤, 길게 누른 이동, 목록 밖 자동 스크롤, 북마크·읽기 전용 상태를 확인한다.
