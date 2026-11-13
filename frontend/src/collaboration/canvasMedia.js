@@ -59,7 +59,8 @@ export function createCanvasMedia({request,files,storage,key,isActive=()=>true,n
    try{
     // 평소엔 헤더만 보고 넘어간다(전체 디코딩은 사진마다 느리다). 다시 조회(force)일 때만 끝까지 확인해 깨진 파일을 다시 받는다.
     if(!await files.cached(id,{verify:force})){active();const bytes=await request(`/media/${id}/file`,{binary:true,maxBytes:sharedGifMaxBytes,timeoutMs:120000});active();await files.save(id,bytes)}
-    active();downloaded.add(id);failures.delete(id)
+    // 성공하면 남아 있던 지난 실패 기록(files.pending)도 지운다. 안 지우면 나중에 원본이 없을 때 예전 오류가 다시 보인다.
+    active();downloaded.add(id);failures.delete(id);files.pending?.(id,Promise.resolve())
    }catch(error){
     active()
     const attempts=(failure?.attempts??0)+1,delays=[5000,15000,60000]

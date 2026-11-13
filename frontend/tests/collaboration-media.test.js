@@ -192,3 +192,14 @@ test('다시 받기를 기다리는 동안 건너뛴 사진도 지난 실패 이
  await media.hydrate([{mediaFileId:id}])
  await assert.rejects(pending[1],/서버 끊김/)
 })
+
+test('다시 조회로 받기에 성공하면 지난 실패 기록을 성공으로 바꿔 둔다',async()=>{
+ const id='70000000-0000-4000-8000-000000000001',pending=[];let fail=true
+ const media=createCanvasMedia({storage:{getItem:async()=>null,setItem:async()=>{}},key:'m',now:()=>0,
+  files:{cached:async()=>false,save:async()=>{},pending:(_,job)=>pending.push(job),registerRetry:()=>()=>{}},
+  request:async()=>{if(fail)throw Object.assign(Error('서버 끊김'),{status:503});return new Uint8Array([1])}})
+ await media.hydrate([{mediaFileId:id}])
+ await assert.rejects(pending.at(-1),/서버 끊김/)
+ fail=false;await media.retry(id)
+ await pending.at(-1)
+})

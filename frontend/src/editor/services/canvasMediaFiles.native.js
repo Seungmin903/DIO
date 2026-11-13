@@ -37,6 +37,8 @@ export const canvasMediaFiles={
  },
  async hasDocument(id){return pdfSourceUri(id)!==null},
  async saveDocument(id,bytes){await savePdfSourceBytes(id,bytes)},
+ // repository.get 이 헤더·크기를 메타데이터와 맞춰 보므로 받다 끊긴 파일은 여기서 걸러져 다시 받는다.
+ // 전체 디코딩(verifyDisplay)은 다시 조회 때만 한다. 그리다 깨지면 ObjectView onError → 오류 알림의 다시 조회 → download(id,true) 로 다시 받는다.
  async cached(id,{verify=false}={}){
   try{
    const {media,blob,displayBlob}=await repository.get(id),source=displayBlob??blob

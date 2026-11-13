@@ -46,3 +46,11 @@ test('받는 중이 아닌 사진은 기존처럼 바로 찾을 수 없음으로
  const s=store(async()=>{throw notFound()})
  await assert.rejects(s.mediaRegistry.ensure('c'),error=>error.code==='MEDIA_NOT_FOUND')
 })
+
+test('실패했던 받기가 나중에 성공으로 바뀌면 예전 오류를 다시 보이지 않는다',async()=>{
+ const s=store(async()=>{throw notFound()})
+ s.trackRemoteMedia('d',Promise.reject(Object.assign(Error('예전 오류'),{code:'NETWORK_ERROR'})))
+ s.trackRemoteMedia('d',Promise.resolve())
+ await new Promise(resolve=>setImmediate(resolve))
+ await assert.rejects(s.mediaRegistry.ensure('d'),error=>error.code==='MEDIA_NOT_FOUND')
+})
