@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { TILE, evictTiles, hitsTile, pendingStrokes, planTiles, removedFrom, tilesBounds, removedStrokes, reusable, showsHad, staleImages, strokesInTile, tileBox, tileKey, tilesFor, pixelTileScale, tileScreenRect } from '../src/editor/skia/tileGrid.js'
+import { TILE, evictTiles, hitsTile, pendingStrokes, planTiles, removedFrom, tilesBounds, removedStrokes, restClipRects, reusable, showsHad, staleImages, strokesInTile, tileBox, tileKey, tilesFor, pixelTileScale, tileScreenRect } from '../src/editor/skia/tileGrid.js'
 
 // 획 하나: 왼쪽 위 (x, y) 에 w x h. reachOf 가 대각선 반지름 + 번짐 여유 8 을 붙인다.
 const at = (id, x, y, w = 10, h = 10) => ({ id, x, y, w, h })
@@ -182,4 +182,67 @@ test('타일 굽기 배율은 한 칸이 정수 픽셀이 되게 맞추고, 화�
       assert.equal(here.y + here.height, below.y, `${zoom} 세로 이음매`)
     }
   }
+  // 기기 픽셀비를 주면 **기기 픽셀**에 맞춘다. dp 로만 맞추면 PixelRatio 2.625 기기에서 경계가
+  // 픽셀 한가운데에 떨어져, 벡터로 얹는 획을 자르는 자리와 반 픽셀 어긋난다(실기 2026-11-13).
+  for (const dpr of [2, 2.625, 3]) {
+    for (const zoom of [0.37, 1, 1.189]) {
+      for (let col = 0; col < 4; col++) {
+        const here = tileScreenRect({ col, row: 0 }, zoom, dpr), right = tileScreenRect({ col: col + 1, row: 0 }, zoom, dpr)
+        const device = here.x * dpr
+        assert.ok(Math.abs(device - Math.round(device)) < 1e-9, `${dpr} ${zoom} ${col}: ${device}`)
+        // dp 값은 이제 정수가 아니라 나눗셈 결과라 더하면 1ulp 어긋날 수 있다 — **기기 픽셀 정수**로 견준다
+        assert.equal(Math.round((here.x + here.width) * dpr), Math.round(right.x * dpr), `${dpr} ${zoom} 이음매`)
+      }
+    }
+  }
+})
+
+test('벡터 획을 자를 자리: 못 구운 칸 + 타일이 덮지 않는 바깥', () => {
+  // 자르지 않으면 이미 구운 타일에도 같은 획이 겹쳐 그려져 반투명 잉크가 두 번 올라간다.
+  const W = 1000, H = 800
+  const area = rects => rects.reduce((sum, r) => sum + r.w * r.h, 0)
+  const covers = (rects, point) => rects.some(r => point.x >= r.x && point.x <= r.x + r.w && point.y >= r.y && point.y <= r.y + r.h)
+
+  // 덮인 네모가 없으면 못 구운 칸만
+  const only = restClipRects([{ x: 0, y: 0, w: 256, h: 256 }], null, W, H)
+  assert.deepEqual(only, [{ x: 0, y: 0, w: 256, h: 256 }])
+
+  // 바깥은 네 띠. 겹치지 않고, 넓이 합이 페이지 − 덮인 네모와 같아야 한다
+  const covered = { x: 200, y: 100, w: 400, h: 300 }
+  const outside = restClipRects([], covered, W, H)
+  assert.equal(outside.length, 4)
+  assert.equal(area(outside), W * H - covered.w * covered.h)
+  assert.equal(covers(outside, { x: 400, y: 250 }), false, '덮인 안쪽은 자를 자리가 아니다')
+  assert.equal(covers(outside, { x: 50, y: 250 }), true, '왼쪽 바깥은 자를 자리다')
+  assert.equal(covers(outside, { x: 400, y: 50 }), true, '위쪽 바깥은 자를 자리다')
+
+  // 페이지를 다 덮으면 바깥이 없다 — 못 구운 칸이 없으면 빈 배열(= 자르지 말라)
+  assert.deepEqual(restClipRects([], { x: 0, y: 0, w: W, h: H }, W, H), [])
+  assert.equal(restClipRects([{ x: 0, y: 0, w: 10, h: 10 }], { x: 0, y: 0, w: W, h: H }, W, H).length, 1)
+
+  // 페이지 밖으로 튀어나온 덮임도 띠가 음수 크기로 생기지 않는다
+  for (const r of restClipRects([], { x: -50, y: -50, w: W + 100, h: 200 }, W, H)) {
+    assert.ok(r.w > 0 && r.h > 0, JSON.stringify(r))
+  }
+  // 넘겨준 것이 없어도 터지지 않는다
+  assert.deepEqual(restClipRects(null, null, W, H), [])
+})
+
+test('벡터로 얹을 획이 있으면 자를 자리도 반드시 있다', () => {
+  // 자를 자리가 비면 클립을 걸지 않는데(CompletedStrokeLayer), 그때 rest 가 남아 있으면 이미 구운
+  // 타일에 같은 획이 또 그려져 반투명 잉크가 두 번 올라간다. 그 짝이 생길 수 없음을 못 박는다
+  // (코드리뷰 2026-11-13).
+  const objects = [
+    { id: 'a', x: 0, y: 0, w: 100, h: 100 },
+    { id: 'b', x: 600, y: 600, w: 100, h: 100 },
+  ]
+  // 못 구운 칸이 없으면 얹을 획도 없다
+  assert.deepEqual(pendingStrokes(objects, []), [])
+  // 못 구운 칸이 있으면 그 칸의 자리(w · h 가 TILE)가 자를 자리로 들어간다
+  const stale = [{ col: 0, row: 0, box: tileBox(0, 0), objects: [objects[0]], had: null }]
+  const rest = pendingStrokes(objects, stale)
+  assert.ok(rest.length > 0, '얹을 획이 있다')
+  const rects = restClipRects(stale.map(entry => entry.box), { x: 0, y: 0, w: 2000, h: 2000 }, 2000, 2000)
+  assert.ok(rects.length > 0, '얹을 획이 있으면 자를 자리도 있다 — 페이지를 다 덮었어도 못 구운 칸이 남는다')
+  assert.deepEqual(rects[0], tileBox(0, 0))
 })

@@ -29,6 +29,12 @@ function readGif(bytes) {
   return reader
 }
 
+/** GIF 화면 크기. 장면을 풀지 않고 머리말만 읽는다 */
+export function gifSize(bytes) {
+  const { width, height } = readGif(bytes)
+  return { width, height }
+}
+
 /** 장면별 보여 주는 시간(ms). 장면을 풀지 않고 머리말만 읽는다 */
 export function gifFrameDelays(bytes) {
   const reader = readGif(bytes)

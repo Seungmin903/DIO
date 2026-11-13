@@ -1,6 +1,6 @@
 import { createId, rotateVector } from './common.js'
 import { isDashedKind, dashedObjectContour, dashedObjectSamples } from './dashedStroke.js'
-import { createStroke, penContour, strokeOutline, samplePenCurve } from './strokes.js'
+import { createStroke, penContour, strokeOutline, samplePenCurve, glassOrigin, GLASS_BLEED } from './strokes.js'
 import { isNibKind, nibContour, nibCurve, withDistances, withTaper } from './nibStroke.js'
 import { createBoxIndex, queryBoxIndex } from './boxIndex.js'
 
@@ -67,13 +67,20 @@ function outlinePolygons(path) {
 }
 function strokePolygons(object) {
   const { points, penKind: kind, strokeWidth: width } = object
+  // 번진 자리는 **페이지 좌표로 고정**이다(화면 3px). 여기 값은 요소 좌표라 투영에서 요소 크기만큼
+  // 늘어난다 — 미리 나눠 둬야 확대한 획에서도 1.5 가 되고, 영역 지우개(createAreaEraserSession)의
+  // 판정과 어긋나지 않는다(코드리뷰 2026-11-13).
+  const bleed = kind === 'glass'
+    ? GLASS_BLEED / Math.max(1e-6, Math.max((object.w ?? 0) / (object.baseWidth || 1), (object.h ?? 0) / (object.baseHeight || 1)))
+    : 0
   if (isDashedKind(kind)) return outlinePolygons(dashedObjectContour(object))
   if (isNibKind(kind)) return outlinePolygons(nibContour(object))
   if (kind === 'felt' && [2, 3].includes(object.renderVersion)) return outlinePolygons(penContour(points, width, kind))
   if (points.length > 1 && (kind === 'brush' || kind === 'fountain')) {
     return outlinePolygons([2, 3].includes(object.renderVersion) ? penContour(points, width, kind) : strokeOutline(points, width, object.eraserCaps))
   }
-  const half = width / 2 * (kind === 'highlighter' ? 1 : points.length === 1 ? points[0].pressure ?? 1 : kind === 'pencil' ? 0.85 : 1)
+  // 유리펜은 실루엣 밖으로 번진 자리까지가 획이다 — 보이는 잉크에 지우개를 대면 지워져야 한다
+  const half = width / 2 * (kind === 'highlighter' ? 1 : points.length === 1 ? points[0].pressure ?? 1 : kind === 'pencil' ? 0.85 : 1) + bleed
   const square = kind === 'highlighter' && object.lineCap === 'square'
   const samples = points.length === 1 && kind === 'highlighter' ? [points[0], { x: points[0].x + 0.01, y: points[0].y }] : points
   const shapes = []
@@ -109,6 +116,7 @@ function eraserTarget(object) {
   }
   // 대략의 범위: 요소 상자 네 모서리(회전 반영)에 획 굵기만큼 여유. 정확한 도형(polygons)은 이 범위에 지우개가 닿을 때 만든다.
   const pad = object.strokeWidth * object.points.reduce((max, p) => Math.max(max, p.pressure ?? 1), 1) * Math.max(object.w / object.baseWidth, object.h / object.baseHeight)
+    + (object.penKind === 'glass' ? GLASS_BLEED : 0)
   const corners = [[0, 0], [object.baseWidth, 0], [0, object.baseHeight], [object.baseWidth, object.baseHeight]].map(([x, y]) => project({ x, y }))
   const box = boundsOf(corners)
   let polygons = null
@@ -131,9 +139,14 @@ function eraserTarget(object) {
 // 열쇠는 **자리(x·y·회전 등)를 뺀 모양 값**이다: 획을 옮기기만 하면 점 배열은 그대로 쓰이므로
 // 옮긴 뒤에도 그대로 쓴다. 자리 바꾸기(project)는 싸서 제스처마다 다시 해도 된다.
 const shapeCache = new WeakMap()
+// 유리펜만 **지금 크기**(w · h)에 걸린다 — 번진 자리를 요소 좌표로 되돌릴 때 크기로 나누기
+// 때문이다(strokePolygons). 열쇠에 없으면 늘린 획이 옛 여유를 그대로 써서, 4배로 늘린 획이
+// 1.5 가 아니라 6 단위 밖에서도 지워진다(코드리뷰 2026-11-13). 다른 펜은 크기와 무관하므로
+// 넣지 않는다 — 넣으면 크기만 바꿔도 모든 펜의 도형을 다시 만든다.
 const shapeKey = (object) => [object.penKind, object.strokeWidth, object.renderVersion, object.lineCap,
   object.eraserCaps, object.sampled, object.taperBaked, object.inkStartDistance,
-  object.baseWidth, object.baseHeight, object.dashLength, object.dashGap].join('|')
+  object.baseWidth, object.baseHeight, object.dashLength, object.dashGap,
+  object.penKind === 'glass' ? `${object.w}|${object.h}` : ''].join('|')
 function shapesOf(object) {
   const key = shapeKey(object)
   let entry = shapeCache.get(object.points)
@@ -173,7 +186,12 @@ function fragmentStroke(source, points, id, caps) {
   const plain = !source.rotation && !source.flipX && !source.flipY && source.w === source.baseWidth && source.h === source.baseHeight
   // 연필 결은 원래 획의 첫 점에 맞춰져 있다(PencilStrokeContent). 조각도 같은 자리에 맞춰 결이 움직이지 않게 한다.
   const grain = source.penKind === 'pencil' ? source.grainOrigin ?? source.points[0] : null
-  if (!plain) return { ...source, ...ink, ...tail, id, points, ...(grain && { grainOrigin: grain }) }
+  // 돌리거나 늘인 획은 상자를 그대로 쓴다. 그래도 **옛 획**은 밀어주기를 적어 줘야 한다 —
+  // 조각은 점 배열이 새것이라 glassOrigin 의 대신 값을 새로 잡고, 원본을 옮긴 뒤였다면
+  // 그 자리가 기준이 되어 무늬가 튄다(코드리뷰 2026-11-13).
+  if (!plain) return { ...source, ...ink, ...tail, id, points,
+    ...(source.penKind === 'glass' && { inkOrigin: glassOrigin(source) }),
+    ...(grain && { grainOrigin: grain }) }
   const stroke = createStroke(points.map((p) => ({ ...p, x: p.x + source.x, y: p.y + source.y })), {
     id, color: source.color, width: source.strokeWidth, kind: source.penKind, lineCap: source.lineCap,
     renderVersion: source.renderVersion, materialSeed: source.materialSeed,
@@ -181,7 +199,16 @@ function fragmentStroke(source, points, id, caps) {
     inkGlitter: source.inkGlitter, inkSheen: source.inkSheen, inkFilm: source.inkFilm,
     inkGlitterColor: source.inkGlitterColor, inkAmount: source.inkAmount, inkSheenColor: source.inkSheenColor, inkSheenAmount: source.inkSheenAmount,
   })
+  // 유리펜 무늬도 연필 결과 같다 — 조각의 상자가 달라진 만큼 밀어주기를 옮겨, 자르기 전과
+  // **같은 무늬**가 남게 한다. 안 옮기면 createStroke 가 조각 자리로 새로 적어 무늬가 튄다
+  // (원본을 옮긴 뒤 지운 경우에만 티가 난다).
+  // 옛 획에는 inkOrigin 이 없다 — 그때는 glassOrigin 의 대신 값(그 획의 자리)을 기준으로 삼는다.
+  // 안 그러면 조각마다 제 자리로 새로 적혀 **조각끼리도, 자르기 전과도** 무늬가 달라진다
+  // (코드리뷰 2026-11-13).
+  const origin = source.penKind === 'glass' ? glassOrigin(source) : null
+  const inkOrigin = origin && { x: origin.x + stroke.x - source.x, y: origin.y + stroke.y - source.y }
   return { ...source, ...stroke, ...ink, ...tail, renderVersion: source.renderVersion, name: source.name,
+    ...(inkOrigin && { inkOrigin }),
     ...(grain && { grainOrigin: { ...grain, x: grain.x + source.x - stroke.x, y: grain.y + source.y - stroke.y } }) }
 }
 
@@ -253,8 +280,10 @@ function createAreaEraserSession(objects, radius) {
         const current = before ?? piecesOf(target)
         let changed = false
         const next = current.flatMap((piece) => {
+          // 유리펜의 번진 자리(GLASS_BLEED)는 그릴 때 **화면 좌표로** 붙으므로 요소 크기(piece.scale)를 따르지 않는다
           const reach = point => radius + target.object.strokeWidth * piece.scale / 2
             * (target.object.penKind === 'highlighter' ? 1 : ['brush', 'fountain', 'felt', 'taperBrush', 'ball', 'calligraphy'].includes(target.object.penKind) ? point.pressure ?? 1 : target.object.penKind === 'pencil' ? 0.85 : 1)
+            + (target.object.penKind === 'glass' ? GLASS_BLEED : 0)
           const erased = (point, page) => distanceToSegment(page, from, to) <= reach(point)
           const hit = piece.page.map((p, i) => erased(piece.points[i], p))
           if (!hit.some(Boolean)) return [piece]
