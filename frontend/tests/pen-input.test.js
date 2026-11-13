@@ -65,7 +65,7 @@ function fixture(kind, zoom = 1, straightAssist = true, web = false, realStylus 
     if (id.endsWith('/stylus')) return realStylus ? stylusModule.exports : { setPenPointerActive() {}, isSameIOSPenContact: (touch, pointerId) => touch?.identifier === 1 && pointerId === 9 }
     if (id.endsWith('/PenPreview')) return { __esModule: true, default: () => null }
     if (id.endsWith('/StrokePreview')) return { __esModule: true, default: () => null }
-    if (id.endsWith('/strokeAssist')) return { createHighlighterHold: (options) => assist.createHighlighterHold({ ...options,
+    if (id.endsWith('/strokeAssist')) return { ...assist, createHighlighterHold: (options) => assist.createHighlighterHold({ ...options,
       schedule: (callback) => { timer = callback; return 1 }, unschedule: () => { timer = null },
     }) }
     if (id.endsWith('/ObjectView')) return { __esModule: true, default: () => null }
@@ -281,14 +281,14 @@ test('빠른 해제는 자유곡선을 유지하고 두 손가락·responder 취
   }
 })
 
-test('페이지 밖으로 나가면 직선 보정을 중단하고 재진입까지 원래 경로를 보존한다', () => {
+test('페이지 밖으로 나갔다 다시 들어와도 이미 보정한 직선으로 저장한다', () => {
   for (const kind of ['ball', 'highlighter']) {
     const f = fixture(kind), h = f.handlers
     h.onStart({ locationX: 20, locationY: 30 })
     h.onMove(50, 80, {}); h.onMove(150, 10, {}); f.hold()
     h.onMove(1300, 50, {}); h.onMove(200, 50, {}); f.hold()
     h.onEnd({ cancelled: false })
-    assert.equal(f.actions[0].objects[0].points.length, 5)
+    assert.equal(f.actions[0].objects[0].points.length, 2)
   }
 })
 
@@ -626,4 +626,122 @@ test('붓펜: 저장된 획 외곽선의 몸통 굵기가 쓰는 중과 같다',
   const body = (path, x0) => { const ys = [...path.matchAll(/(-?[\d.]+) (-?[\d.]+)/g)].filter(m => Math.abs(Number(m[1]) - x0) < 20).map(m => Number(m[2])); return Math.max(...ys) - Math.min(...ys) }
   const stroke = f.actions[0].objects[0]
   assert.ok(Math.abs(body(live, 180) - body(saved, 180 - stroke.x)) < 0.2, `${body(live, 180)} ${body(saved, 180 - stroke.x)}`)
+})
+
+const previewPointsOf = f => f.store.getSnapshot().parts.flatMap(part => part.points)
+const closeCoordinate = (a, b) => assert.ok(Math.abs(a - b) < 1e-6, `${a} != ${b}`)
+function assertSavedPreview(f, points) {
+  const stored = JSON.parse(JSON.stringify(f.actions[0].objects[0]))
+  assert.equal(stored.points.length, 2)
+  for (let i = 0; i < 2; i++) {
+    closeCoordinate(stored.x + stored.points[i].x, points[i].x)
+    closeCoordinate(stored.y + stored.points[i].y, points[i].y)
+  }
+}
+
+test('모든 펜·형광펜은 네 방향 경계와 재진입·바깥 해제에서도 직선 미리보기·저장 좌표를 유지한다', () => {
+  const edges = [{ x: -300, y: 203, axis: 'y' }, { x: 1500, y: 203, axis: 'y' }, { x: 203, y: -300, axis: 'x' }, { x: 203, y: 1100, axis: 'x' }]
+  for (const kind of [...settings.PEN_TYPES.map(p => p.id), 'highlighter']) for (const zoom of [0.5, 1, 2]) for (const edge of edges) for (const reenter of [false, true]) {
+    const f = fixture(kind, zoom), h = f.handlers
+    h.onStart({ locationX: 200 * zoom, locationY: 200 * zoom })
+    h.onMove(40 * zoom, 100 * zoom, {})
+    h.onMove(160 * zoom, 20 * zoom, {})
+    f.hold()
+    assert.equal(previewPointsOf(f).length, 2)
+    h.onMove((edge.x - 200) * zoom, (edge.y - 200) * zoom, {})
+    const outside = previewPointsOf(f)
+    assert.equal(outside.length, 2, `${kind}: boundary must not restore the curve`)
+    closeCoordinate(outside[1][edge.axis], 200)
+    if (reenter) {
+      h.onMove(300 * zoom, 3 * zoom, {})
+      f.hold()
+      assert.equal(previewPointsOf(f).length, 2)
+      closeCoordinate(previewPointsOf(f)[1].y, 200)
+    }
+    const expected = previewPointsOf(f).map(point => ({ ...point }))
+    h.onEnd({ cancelled: false })
+    assert.equal(f.actions.length, 1)
+    assertSavedPreview(f, expected)
+    f.unmount()
+  }
+})
+
+test('직선 해제 표본의 미세 이동과 필압 변경도 수평 보정을 해제하지 않는다', () => {
+  for (const kind of ['ball', 'highlighter']) {
+    const f = fixture(kind), h = f.handlers
+    h.onStart({ locationX: 200, locationY: 200, force: 0.5 })
+    h.onMove(100, 50, { force: 0.5 }); h.onMove(300, 3, { force: 0.5 }); f.hold()
+    h.onMove(1300, 3, { force: 0.5 })
+    h.onMove(1300, 3, { force: 0.9 })
+    closeCoordinate(previewPointsOf(f)[1].y, 200)
+    h.onMove(1300.1, 3.1, { force: 0, isRelease: true })
+    h.onEnd({ cancelled: false })
+    const stroke = f.actions[0].objects[0]
+    assert.equal(stroke.points.length, 2)
+    closeCoordinate(stroke.points[0].y, stroke.points[1].y)
+    f.unmount()
+  }
+})
+
+test('직선으로 전환하기 전에 페이지 밖으로 나간 자유 획은 자동으로 직선이 되지 않는다', () => {
+  const f = fixture('ball'), h = f.handlers
+  h.onStart({ locationX: 20, locationY: 30 })
+  h.onMove(50, 80, {}); h.onMove(150, 10, {})
+  h.onMove(1300, 50, {}); f.hold()
+  h.onMove(200, 50, {}); f.hold()
+  h.onEnd({ cancelled: false })
+  assert.ok(f.actions[0].objects[0].points.length > 2)
+  f.unmount()
+})
+
+test('펜 포인터의 페이지 밖 pointerup과 재진입 뒤 pointerup도 직선으로 저장한다', () => {
+  for (const reenter of [false, true]) {
+    const f = fixture('ball')
+    const event = (x, y, timeStamp) => ({ nativeEvent: { pointerId: 9, pointerType: 'pen', offsetX: x, offsetY: y, clientX: x + 100, clientY: y + 200, pressure: 0.5, timeStamp } })
+    f.pointers.onPointerDown(event(200, 200, 100))
+    f.pointers.onPointerMove(event(240, 300, 110))
+    f.pointers.onPointerMove(event(360, 220, 120)); f.hold()
+    f.pointers.onPointerMove(event(1500, 203, 130))
+    assert.equal(previewPointsOf(f).length, 2)
+    if (reenter) f.pointers.onPointerMove(event(500, 203, 140))
+    f.pointers.onPointerUp(event(reenter ? 500.1 : 1500.1, 203.1, 150))
+    assert.equal(f.actions.length, 1)
+    const stroke = f.actions[0].objects[0]
+    assert.equal(stroke.points.length, 2)
+    closeCoordinate(stroke.points[0].y, stroke.points[1].y)
+    closeCoordinate(stroke.x + stroke.points[0].x, 200)
+    closeCoordinate(stroke.y + stroke.points[0].y, 200)
+    f.unmount()
+  }
+})
+
+test('페이지 밖 직선도 두 손가락·제스처 취소 시 저장하지 않는다', () => {
+  for (const mode of ['multi', 'cancel']) {
+    const f = fixture('ball'), h = f.handlers
+    h.onStart({ locationX: 200, locationY: 200 })
+    h.onMove(40, 100, {}); h.onMove(160, 20, {}); f.hold()
+    h.onMove(1300, 3, {})
+    if (mode === 'multi') h.onMove(1300, 3, { touches: [{}, {}] })
+    h.onEnd({ cancelled: mode === 'cancel' })
+    assert.deepEqual(f.actions, [])
+    f.unmount()
+  }
+})
+
+test('극단적으로 먼 입력은 직선 각도를 유지한 채 미리보기·저장 경계만 제한한다', () => {
+  for (const kind of ['ball','highlighter']) {
+    const f=fixture(kind),h=f.handlers
+    h.onStart({locationX:200,locationY:200})
+    h.onMove(40,100,{});h.onMove(160,20,{})
+    f.hold()
+    h.onMove(1e12,1e12,{})
+    const points=previewPointsOf(f)
+    assert.equal(points.length,2)
+    assert.ok(points[1].x<=2376+1e-6&&points[1].y<=2028+1e-6)
+    const expected=points.map(p=>({...p}))
+    h.onEnd({cancelled:false})
+    assertSavedPreview(f,expected)
+    assert.ok(f.actions[0].objects[0].w<4000)
+    f.unmount()
+  }
 })
