@@ -30,6 +30,12 @@ function App() {
   return <View style={{padding:12,gap:12}}>
     {[0.1,0.25,0.4,0.5,1,2].map(zoom => <View key={zoom}>
       <Text>zoom {zoom}</Text>
+      {/* 별도의 클리핑 조상 없이 실제 스크롤 컨테이너의 overflow를 검사한다. */}
+      <View testID={`scroll-${zoom}`} style={{ width: 200*zoom+32, height: 200*zoom+32, overflow: 'scroll', flexShrink: 0 }}>
+        <View style={{ position: 'absolute', left: 16, top: 16, width: 168*zoom, height: 168*zoom }}>
+          <KeepFont><ObjectContent object={object} zoom={zoom}/></KeepFont>
+        </View>
+      </View>
       <View testID={`edit-${zoom}`} style={{width:200*zoom,height:200*zoom,backgroundColor:'#FFFFFF',overflow:'hidden'}}>
         <View testID={`stamp-${zoom}`} style={{position:'absolute',left:16*zoom,top:16*zoom,width:168*zoom,height:168*zoom}}>
           <KeepFont><ObjectContent object={object} zoom={zoom}/></KeepFont>

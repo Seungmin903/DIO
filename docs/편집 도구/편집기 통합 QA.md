@@ -60,6 +60,7 @@
 - 폰·태블릿에서 짧은 이름, 14자 한글, 14자 W를 10·25·40·50·100·200%로 렌더링한다. 실제 텍스트의 도장 영역 내 포함과 가로 잘림을 검사하고, ObjectContent 편집 화면과 PageImageSurface에서 생성한 PNG를 같은 크기로 맞춰 픽셀 차이를 비교한다. 결과 이미지는 `.expo/dday-stamp-scale`에 저장한다.
 - 최신 master 병합 후 재검증: 관련 Node 테스트 20개 통과. Edge 폰·태블릿 2개 크기 × 이름 3종 × 배율 6종(10~200%)에서 36개 배치·PNG 비교 통과. frozen-lockfile 오프라인 설치와 두 QA 패키지 require 성공.
 - QA 의존성은 frontend/package.json과 pnpm-lock.yaml에 이미 선언돼 있다: playwright는 devDependencies, upng-js는 앱에서도 사용하는 dependencies다. frontend에서 pnpm install --frozen-lockfile 후 실행하며 별도 임시 설치는 필요 없다.
+- 도장 바깥 View는 overflow: hidden으로 내부 336 기준 박스를 도장 크기에 맞춰 클리핑한다. 선택·회전 손잡이는 이 클리핑 영역 밖에 유지한다. 브라우저 QA는 별도의 클리핑 조상이 없는 overflow: scroll 컨테이너에도 ObjectContent를 넣어 10~200%에서 scrollWidth/scrollHeight가 컨테이너 크기를 넘지 않는지 검사한다. 수정 전 Edge에서는 스크롤 증가가 재현되지 않았으며, 주변 레이아웃에 의존하지 않도록 명시적으로 방어한 변경이다.
 - 작은 배율에서는 이름도 비례해 작아져 읽기 어려울 수 있으나 렌더링에서 생략하지 않는다. Android·iOS 실기기에서의 최종 확인은 별도 필요하다.
 
 ## 페이지 목록 썸네일의 스크롤·순서 변경 구분 (2026-11-13)

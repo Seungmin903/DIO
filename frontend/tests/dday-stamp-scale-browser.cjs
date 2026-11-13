@@ -32,6 +32,8 @@ const pixelDifference=(first,second)=>{
     assert.equal(exported.error,null)
     const differences=[]
     for(const zoom of [0.1,0.25,0.4,0.5,1,2]) {
+     const scroll=await page.getByTestId(`scroll-${zoom}`).evaluate(node=>({width:node.clientWidth,height:node.clientHeight,scrollWidth:node.scrollWidth,scrollHeight:node.scrollHeight}))
+     assert.ok(scroll.scrollWidth<=scroll.width+1&&scroll.scrollHeight<=scroll.height+1,`Unexpected stamp scroll overflow at ${zoom}: ${JSON.stringify(scroll)}`)
      const frame=page.getByTestId(`stamp-${zoom}`),label=frame.getByText(title,{exact:true})
      await label.waitFor({state:'attached'})
      const bounds=await frame.boundingBox(),text=await label.evaluate(node=>{

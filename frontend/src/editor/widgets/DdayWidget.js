@@ -91,7 +91,8 @@ function Stamp({ value, text, width, height }) {
   const { size, scale, left, top, titleFontSize } = stampLayout(width, height, value.title)
   const c = size / 2
   return (
-    <View style={[styles.center, { width, height }]}>
+    // scale은 내부 기준 박스의 레이아웃 크기를 줄이지 않으므로 도장 영역에서 클리핑한다.
+    <View style={[styles.center, { width, height, overflow: 'hidden' }]}>
       <View pointerEvents="none" style={{ position: 'absolute', left, top, width: size, height: size, transform: [{ scale }] }}>
         <Svg width={size} height={size} style={StyleSheet.absoluteFill}>
           <Circle cx={c} cy={c} r={size * 0.46} fill="none" stroke={STAMP_INK} strokeWidth={size * 0.04} />
