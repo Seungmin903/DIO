@@ -3,6 +3,9 @@ import { saveWebFile } from './saveWebFile.js'
 
 // 페이지 GIF 만들기의 웹 입출력: 장면 PNG 주소, 찍은 페이지 픽셀 읽기, 완성 GIF 저장
 
+/** 웹에는 네이티브 GIF 묶기가 없다(V8 에서는 JS 로 충분히 빠르다) */
+export const createNativeGifAssembler = () => null
+
 export async function readBytes(blob) {
   return typeof blob.bytes === 'function' ? await blob.bytes() : new Uint8Array(await blob.arrayBuffer())
 }
