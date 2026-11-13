@@ -213,8 +213,7 @@ test('세션이 끝나 받지 못한 사진은 세션 종료 오류를 남기지
  while(!release)await new Promise(resolve=>setImmediate(resolve))
  live=false;release(new Uint8Array([1]))
  await assert.rejects(job,/편집 세션이 종료됐어요/)
- assert.equal(pending.length,1)
- await pending[0]
+ await pending.at(-1)
 })
 
 test('다시 조회도 실패하면 대기 기록을 최신 실패 이유로 바꾼다',async()=>{
@@ -239,4 +238,27 @@ test('그리다 깨진 사진은 다시 조회 콜백이 전체 확인으로 걸
  // 화면: ObjectView onError → reportMediaDisplayError → 알림의 다시 조회 → retryRemoteMedia → 이 콜백
  await retries.get(id)()
  assert.deepEqual(checks,[false,true]);assert.equal(requests,1)
+})
+
+test('다시 조회로 받는 동안에는 대기 기록이 지금 받는 중인 받기를 가리킨다',async()=>{
+ const id='b0000000-0000-4000-8000-000000000001',pending=[];let fail=true,release
+ const media=createCanvasMedia({storage:{getItem:async()=>null,setItem:async()=>{}},key:'m',now:()=>0,
+  files:{cached:async()=>false,save:async()=>{},pending:(_,job)=>pending.push(job)},
+  request:async()=>{if(fail)throw Object.assign(Error('예전 오류'),{status:503});await new Promise(resolve=>{release=resolve});return new Uint8Array([1])}})
+ await media.hydrate([{mediaFileId:id}])
+ await assert.rejects(pending.at(-1),/예전 오류/)
+ fail=false;const retry=media.retry(id)
+ const current=pending.at(-1);let settled=false;current.then(()=>{settled=true},()=>{settled=true})
+ while(!release)await new Promise(resolve=>setImmediate(resolve))
+ assert.equal(settled,false)
+ release();await retry;await current
+})
+
+test('여러 장을 동시에 받아도 저장(디코딩)은 한 장씩 한다',async()=>{
+ const ids=Array.from({length:4},(_,i)=>`c000000${i}-0000-4000-8000-000000000001`);let saving=0,peak=0
+ const media=createCanvasMedia({storage:{getItem:async()=>null,setItem:async()=>{}},key:'m',
+  files:{cached:async()=>false,save:async()=>{saving++;peak=Math.max(peak,saving);await new Promise(resolve=>setTimeout(resolve,5));saving--}},
+  request:async()=>new Uint8Array([1])})
+ await media.hydrate(ids.map(mediaFileId=>({mediaFileId})))
+ assert.equal(peak,1)
 })

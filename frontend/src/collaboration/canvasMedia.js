@@ -47,6 +47,8 @@ export function createCanvasMedia({request,files,storage,key,isActive=()=>true,n
   return status>=400&&status<500&&![408,429].includes(status)
     ||['MEDIA_DECODE_FAILED','MEDIA_CORRUPT','UNSUPPORTED_MEDIA_TYPE','INVALID_MEDIA','IMAGE_TOO_LARGE','INVALID_SERVER_MEDIA','STORAGE_FULL','PDF_SOURCE_MISSING'].includes(error.code)
  }
+ let saving=Promise.resolve()
+ const oneAtATime=task=>{const run=saving.then(task,task);saving=run.catch(()=>{});return run}
  const download=(id,force=false)=>{
   active()
   if(downloads.has(id))return downloads.get(id)
@@ -58,19 +60,22 @@ export function createCanvasMedia({request,files,storage,key,isActive=()=>true,n
   const job=(async()=>{
    try{
     // 평소엔 헤더만 보고 넘어간다(전체 디코딩은 사진마다 느리다). 다시 조회(force)일 때만 끝까지 확인해 깨진 파일을 다시 받는다.
-    if(!await files.cached(id,{verify:force})){active();const bytes=await request(`/media/${id}/file`,{binary:true,maxBytes:sharedGifMaxBytes,timeoutMs:120000});active();await files.save(id,bytes)}
-    // 성공하면 남아 있던 지난 실패 기록(files.pending)도 지운다. 안 지우면 나중에 원본이 없을 때 예전 오류가 다시 보인다.
-    active();downloaded.add(id);failures.delete(id);files.pending?.(id,Promise.resolve())
+    // 받기는 동시에 여러 장 하되, 디코딩·표시본을 만드는 저장(save)은 한 장씩 해서 큰 사진이 한꺼번에 풀리지 않게 한다.
+    if(!await files.cached(id,{verify:force})){active();const bytes=await request(`/media/${id}/file`,{binary:true,maxBytes:sharedGifMaxBytes,timeoutMs:120000});active();await oneAtATime(()=>{active();return files.save(id,bytes)})}
+    active();downloaded.add(id);failures.delete(id)
    }catch(error){
+    // 세션이 끝나 못 받은 것은 실패로 남기지 않는다(대기 기록을 비운다). 남기면 나중에 '편집 세션이 종료됐어요'가 보인다.
+    if(closed||!isActive())files.pending?.(id,Promise.resolve())
     active()
     const attempts=(failure?.attempts??0)+1,delays=[5000,15000,60000]
     failures.set(id,{attempts,error,retryAt:permanent(error)||attempts>=4?Infinity:now()+delays[attempts-1]})
-    // 다시 조회(force)로 실패해도 최신 실패 이유로 바꿔 둔다. 안 바꾸면 화면에 예전 오류가 남는다.
-    const failed=Promise.reject(error);failed.catch(()=>{});files.pending?.(id,failed)
     files.fail?.(id,error);throw error
    }
   })().finally(()=>downloads.delete(id))
-  downloads.set(id,job);return job
+  downloads.set(id,job)
+  // 받는 동안(다시 조회 포함) 화면이 읽으면 이 받기를 기다린다. 성공하면 대기 기록이 지워지고, 실패하면 이번 실패 이유가 남는다.
+  files.pending?.(id,job)
+  return job
  }
  return {
   async prepare(body){
