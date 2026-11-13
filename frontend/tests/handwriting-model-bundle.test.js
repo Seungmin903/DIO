@@ -59,8 +59,11 @@ test('모델 번들은 개인 입력·절대 경로 없이 검증 결과와 추�
 
 test('운영 빌드 R8이 ONNX Runtime JNI 클래스를 지우지 않고, 작업 스레드 Error가 앱을 종료시키지 않는다', () => {
   const gradle = read('modules/dio-handwriting/android/build.gradle')
-  assert.match(gradle, /consumerProguardFiles\s+'consumer-rules\.pro'/)
-  assert.match(read('modules/dio-handwriting/android/consumer-rules.pro'), /^-keep class ai\.onnxruntime\.\*\* \{ \*; \}$/m)
+  assert.match(gradle, /consumerProguardFiles\s*\(?\s*['"]consumer-rules\.pro['"]/)
+  // 줄바꿈(CRLF)·공백이 달라도 같은 규칙으로 본다.
+  assert.match(read('modules/dio-handwriting/android/consumer-rules.pro'), /^\s*-keep\s+class\s+ai\.onnxruntime\.\*\*\s*\{\s*\*;\s*\}\s*$/m)
   const native = read('modules/dio-handwriting/android/src/main/java/expo/modules/diohandwriting/DioHandwritingModule.kt')
-  assert(native.includes('} catch (error: Throwable) {'))
+  assert.match(native, /catch\s*\(\s*\w+\s*:\s*Throwable\s*\)/)
+  // Error 메시지(JNI·클래스 이름)를 사용자 문구로 쓰지 않고 로그로만 남긴다.
+  assert.match(native, /Log\.e\(TAG,\s*"Font job \$id stopped",\s*error\)/)
 })

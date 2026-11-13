@@ -3,6 +3,7 @@ package expo.modules.diohandwriting
 import android.graphics.Bitmap
 import android.graphics.Typeface
 import android.net.Uri
+import android.util.Log
 import ai.onnxruntime.*
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
@@ -15,7 +16,8 @@ import java.security.MessageDigest
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
 
-private const val MODEL_VERSION = "dmfont-fp32-e5b28ca6-inference-v2"
+private const val TAG = "DioHandwriting"
+private const val MODEL_VERSION ="dmfont-fp32-e5b28ca6-inference-v2"
 private const val ENCODER_HASH = "36f39745654a47a352752251429c36fc8f607256a3446d18791bb32b9bfdbab0"
 private const val DECODER_HASH = "73ceea513ee8eba489f44a1f9658f2cd22d77fb6881cbd70a79fd307c80f1368"
 
@@ -200,12 +202,23 @@ class DioHandwritingModule : Module() {
         }
       } catch (error: Throwable) {
         // 작업 스레드에서 Error(OutOfMemoryError, NoSuchMethodError 등)가 새면 앱 전체가 종료된다.
-        // 실패 상태로 남겨 앱은 살리고 다시 시도할 수 있게 한다.
+        // 실패 상태로 남겨 앱은 살리고 다시 시도할 수 있게 한다. 원인 추적용으로 스택을 남긴다.
+        Log.e(TAG, "Font job $id stopped", error)
+        // Exception은 모듈이 만든 안내 문구다. Error의 메시지는 JNI·클래스 이름이라 사용자에게 보이지 않는다.
+        val message = when (error) {
+          is OutOfMemoryError -> "기기 메모리가 부족해 폰트를 만들지 못했어요."
+          is Exception -> error.message ?: "폰트를 만들지 못했어요."
+          else -> "폰트를 만들지 못했어요."
+        }
         state.put("state", if (stop.get() && !cancelled.get()) "paused" else if (cancelled.get()) "cancelled" else "failed")
-          .put("error", if (error is OutOfMemoryError) "기기 메모리가 부족해 폰트를 만들지 못했어요." else error.message ?: "폰트를 만들지 못했어요.")
+          .put("error", message)
       } finally {
-        synchronized(lock) { saveState(folder, state); currentId = null; running.set(false) }
-        notify(state)
+        // 메모리 부족 직후에는 상태 저장·알림도 실패할 수 있다. 그래도 작업 스레드가 죽지 않고 다음 작업을 받게 한다.
+        synchronized(lock) {
+          try { saveState(folder, state) } catch (error: Throwable) { Log.e(TAG, "Font job $id state not saved", error) }
+          currentId = null; running.set(false)
+        }
+        try { notify(state) } catch (error: Throwable) { Log.e(TAG, "Font job $id progress not sent", error) }
       }
     }
   }
