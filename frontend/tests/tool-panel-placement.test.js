@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
-import { OPTIONS_TOP, OPTIONS_TOP_PHONE, OPTIONS_TYPING_HEIGHT, OPTIONS_WIDTH, optionsPlacement, tabletToolPopover, typingOptionsPlacement } from '../src/editor/utils/toolPanelPlacement.js'
+import { OPTIONS_TOP, OPTIONS_TOP_PHONE, OPTIONS_TYPING_HEIGHT, OPTIONS_WIDTH, optionsPlacement, tabletToolPopover, typingOptionsPlacement, typingRevealDy, typingViewRestore } from '../src/editor/utils/toolPanelPlacement.js'
 
 const STAGE = { width: 900, height: 700 }
 const at = (y) => [{ x: 40, y, w: 100, h: 40, rotation: 0 }]
@@ -79,4 +79,37 @@ test('창이 이미 키보드 위에 다 보이거나 키보드가 없으면 자
 test('편집 화면은 옵션 창 입력 중 상태를 받아 창 자리를 키보드 위로 옮긴다', () => {
   assert.match(source, /onTypingChange=\{setOptionsTyping\}/)
   assert.match(source, /optionsTyping \? typingOptionsPlacement\(base/)
+})
+
+test('적기 시작할 때 요소가 내려온 옵션 창과 가로로 겹치면 창 위 끝 위로 올린다', () => {
+  const place = { left: 300, top: 400, height: 168 }
+  // 요소 아래 끝 500, 창 위 끝 400 → 500 - (400 - 8) = 108 만큼
+  assert.equal(typingRevealDy({ element: { left: 320, right: 420, top: 300, bottom: 500 }, place, keyboardLine: 580 }), 108)
+  // 경계: 요소 오른쪽 끝이 창 왼쪽 끝과 딱 맞닿으면 겹치지 않아 키보드 위 끝 기준 → 아래 끝(500)이 이미 572 위라 0
+  assert.equal(typingRevealDy({ element: { left: 200, right: 300, top: 300, bottom: 500 }, place, keyboardLine: 580 }), 0)
+  // 창 오른쪽 끝(300 + 너비)을 지난 요소도 겹치지 않는다
+  assert.equal(typingRevealDy({ element: { left: 300 + OPTIONS_WIDTH, right: 700, top: 300, bottom: 500 }, place, keyboardLine: 580 }), 0)
+})
+
+test('겹치지 않는 요소는 키보드 위 끝 기준으로 올리고, 위 끝을 넘겨 올리지 않는다', () => {
+  const place = { left: 500, top: 400, height: 168 }
+  // 키보드 위 끝 450 → 아래 끝 520 - (450 - 8) = 78
+  assert.equal(typingRevealDy({ element: { left: 0, right: 100, top: 300, bottom: 520 }, place, keyboardLine: 450 }), 78)
+  // 요소가 커서 다 못 올리면 위 끝이 작업창 위 8에 닿을 만큼만 (40 - 8 = 32)
+  assert.equal(typingRevealDy({ element: { left: 0, right: 100, top: 40, bottom: 600 }, place, keyboardLine: 450 }), 32)
+  // 이미 위 끝에 붙은 요소는 올리지 않는다
+  assert.equal(typingRevealDy({ element: { left: 0, right: 100, top: 8, bottom: 600 }, place, keyboardLine: 450 }), 0)
+  // 잴 수 없으면 올리지 않는다
+  assert.equal(typingRevealDy({ element: { left: 0, right: 100, top: 300, bottom: 520 }, place, keyboardLine: NaN }), 0)
+})
+
+test('적기를 마치면 올린 보기가 그대로일 때만 올리기 전 보기로 되돌린다', () => {
+  const saved = { before: { scale: 1, x: null, y: null }, after: { scale: 1, x: 10, y: -108 } }
+  assert.deepEqual(typingViewRestore(saved, { scale: 1, x: 10, y: -108 }), saved.before)
+  assert.deepEqual(typingViewRestore(saved, { scale: 1, x: 10.2, y: -107.8 }), saved.before) // 반올림 오차
+  // 적는 동안 직접 옮기거나 확대했으면 되돌리지 않는다
+  assert.equal(typingViewRestore(saved, { scale: 1, x: 10, y: -40 }), null)
+  assert.equal(typingViewRestore(saved, { scale: 1.5, x: 10, y: -108 }), null)
+  // 올리지 않았으면 되돌릴 것도 없다
+  assert.equal(typingViewRestore(null, { scale: 1, x: 0, y: 0 }), null)
 })

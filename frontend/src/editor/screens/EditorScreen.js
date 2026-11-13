@@ -86,7 +86,7 @@ import { useMemberPagePosition } from '../hooks/useMemberPagePosition'
 import { prefetchPageTemplate } from '../services/editorDocs'
 import { getCurrentPage } from '../state/editorReducer'
 import { clamp, createId, unionBounds } from '../utils/common'
-import { OPTIONS_TOP, OPTIONS_TOP_PHONE, OPTIONS_WIDTH, optionsPlacement, tabletToolPopover, typingOptionsPlacement } from '../utils/toolPanelPlacement'
+import { OPTIONS_TOP, OPTIONS_TOP_PHONE, OPTIONS_WIDTH, optionsPlacement, tabletToolPopover, typingOptionsPlacement, typingRevealDy, typingViewRestore } from '../utils/toolPanelPlacement'
 import { automaticPageTurn, centeredOffset, clampOffset as clampViewportOffset, isFitView, panView } from '../utils/viewport.js'
 import { pickImages } from '../services/image'
 import { tastingPhotoBox } from '../templates/tastingGeometry.js'
@@ -456,19 +456,25 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
     const base = optionsPlacement(selectedObjects, zoom, offset, stageSize, compact ? OPTIONS_TOP_PHONE : OPTIONS_TOP)
     return optionsTyping ? typingOptionsPlacement(base, { stageTop: stageOrigin.y, stageHeight: stageSize.height, keyboardTop }) : base
   }
-  // 적기 시작하면 고친 글자가 바로 보이게, 고른 요소가 내려온 옵션 창 · 키보드에 가리지 않을 만큼 화면을 올린다
+  // 적기 시작하면 고친 글자가 바로 보이게, 고른 요소가 내려온 옵션 창 · 키보드에 가리지 않을 만큼 화면을 올린다.
+  // 적기를 마치면(창이 제자리로 돌아가면) 올리기 전 보기로 되돌린다. 적는 동안 직접 옮긴 보기는 그대로 둔다
+  const typingPan = useRef(null) // { before, after }: 적기 시작할 때 올리기 전 · 후 보기
   useEffect(() => {
-    if (!optionsTyping || keyboardTop == null || !showMore || !stageSize || viewportLocked) return
-    const place = moreOptionsPlacement()
+    if (!optionsTyping) {
+      const restore = typingViewRestore(typingPan.current, view)
+      typingPan.current = null
+      if (restore && !viewportLocked) setView(restore)
+      return
+    }
+    if (keyboardTop == null || !showMore || !stageSize || viewportLocked || typingPan.current) return
     const b = unionBounds(selectedObjects)
-    const left = offset.x + b.left * zoom, right = offset.x + b.right * zoom
-    const top = offset.y + b.top * zoom, bottom = offset.y + b.bottom * zoom
+    const element = { left: offset.x + b.left * zoom, right: offset.x + b.right * zoom, top: offset.y + b.top * zoom, bottom: offset.y + b.bottom * zoom }
     const keyboardLine = Math.min(stageSize.height, keyboardTop - stageOrigin.y)
-    const coversX = right > place.left && left < place.left + OPTIONS_WIDTH
-    const limit = (coversX ? place.top : keyboardLine) - 8
-    // 요소 위 끝이 작업창 밖으로 나가지 않을 만큼만
-    const dy = Math.min(bottom - limit, top - 8)
-    if (dy > 0) commitView(resolvePan({ scale: view.scale, zoom, x: offset.x, y: offset.y }, 0, -dy))
+    const dy = typingRevealDy({ element, place: moreOptionsPlacement(), keyboardLine })
+    if (dy <= 0) return
+    const next = resolvePan({ scale: view.scale, zoom, x: offset.x, y: offset.y }, 0, -dy)
+    typingPan.current = { before: { scale: view.scale, x: view.x, y: view.y }, after: { scale: next.scale, x: next.x, y: next.y } }
+    commitView(next)
     // 적기 시작할 때 한 번만 맞춘다 (적는 동안 요소가 움직여도 화면을 다시 옮기지 않는다)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [optionsTyping, keyboardTop != null])

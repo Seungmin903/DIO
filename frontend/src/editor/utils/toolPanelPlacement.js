@@ -51,6 +51,29 @@ export function typingOptionsPlacement(base, { stageTop, stageHeight, keyboardTo
 }
 
 /**
+ * 옵션 창에 적기 시작할 때 고른 요소가 보이게 화면을 올릴 양(작업창 px, 0이면 올리지 않는다).
+ * 요소가 내려온 옵션 창과 가로로 겹치면 창 위 끝, 아니면 키보드 위 끝보다 gap 위로 요소 아래 끝을 올린다.
+ * 요소 위 끝이 작업창 위 끝(gap)보다 올라가지는 않게 한다. 좌표는 모두 작업창 기준.
+ */
+export function typingRevealDy({ element, place, keyboardLine, panelWidth = OPTIONS_WIDTH, gap = 8 }) {
+  if (!element || !place || !Number.isFinite(keyboardLine)) return 0
+  const coversX = element.right > place.left && element.left < place.left + panelWidth
+  const limit = (coversX ? Math.min(place.top, keyboardLine) : keyboardLine) - gap
+  return Math.max(0, Math.min(element.bottom - limit, element.top - gap))
+}
+
+/**
+ * 적기를 마쳤을 때 되돌릴 보기. 적기 시작할 때 올린 보기(saved.after)가 그대로면 올리기 전(saved.before)으로 되돌리고,
+ * 적는 동안 사용자가 직접 옮기거나 확대했으면 그 보기를 존중해 되돌리지 않는다(null).
+ */
+export function typingViewRestore(saved, view) {
+  if (!saved || !view) return null
+  const same = (a, b) => (a == null && b == null) || (Number.isFinite(a) && Number.isFinite(b) && Math.abs(a - b) < 0.5)
+  const untouched = Math.abs((view.scale ?? 1) - (saved.after.scale ?? 1)) < 1e-6 && same(view.x, saved.after.x) && same(view.y, saved.after.y)
+  return untouched ? saved.before : null
+}
+
+/**
  * 태블릿 도구 설정 창 자리: 누른 도구 가운데에 맞추되 작업창 좌우 8 안으로.
  * 도구 줄이 작업창 바로 위에 있어 작업창 위 끝에 붙이면 도구 아래에 뜬다.
  */
