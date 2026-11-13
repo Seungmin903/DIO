@@ -41,7 +41,7 @@ async function renderSurface(snapshot) {
     '../../handwriting/library.js': { ensurePersonalFonts: async () => {} },
     '../services/textFonts': { ensureExportFonts: async () => {} },
     '../skia/skiaPencilScale.js': { SkiaPencilScale: { Provider: 'Provider' } },
-    '../skia/pencilRaster.js': { isSkiaPencil: () => false },
+    '../skia/pencilRaster.js': { isSkiaRaster: () => false },
     '../builtinStickers': builtinStickers,
     '../hooks/useStickerPacks': { useStickerPacks: () => 0 },
     '../templates/packingLayout.js': { packingLayout: () => null },

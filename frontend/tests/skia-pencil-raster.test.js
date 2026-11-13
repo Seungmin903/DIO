@@ -2,7 +2,8 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { createStroke } from '../src/editor/utils/strokes.js'
 import { createCompletedStrokePlanner } from '../src/editor/utils/completedStrokePlan.js'
-import { isSkiaPencil, pencilRasterBounds, pencilRasterKey, pencilBakesOpacity, rememberRaster, reusableRaster } from '../src/editor/skia/pencilRaster.js'
+import { isSkiaPencil, isSkiaRaster, pencilRasterBounds, pencilRasterKey, pencilBakesOpacity, rememberRaster, reusableRaster } from '../src/editor/skia/pencilRaster.js'
+import { GLASS_INK } from '../src/editor/utils/glassInk.js'
 import { quantizeScale } from '../src/editor/skia/rasterBudget.js'
 
 const withDistance = points => { let d = 0; return points.map((p, i) => { if (i) d += Math.hypot(p.x - points[i - 1].x, p.y - points[i - 1].y); return { ...p, inkDistance: d } }) }
@@ -91,4 +92,27 @@ test('불투명도 슬라이더를 끄는 동안 값마다 굽지 않고, 멈춘
     assert.match(source, /return \(\) => clearTimeout\(timer\)/, `${name}: 값이 또 바뀌면 타이머를 다시 잡는다`)
     assert.match(source, /const cache = new WeakMap\(\)/, `${name}: 획(점 배열)당 그림 하나 — 열쇠가 바뀌면 덮어쓴다`)
   }
+})
+
+// 잉크펜: 앱 편집 화면은 Skia 셰이더로 그리므로 썸네일 · 내보내기도 같은 Skia 그림으로 굽는다(SVG 근사는 색 · 테 · 글리터가 달랐다).
+// 웹 편집 화면은 SVG 라 웹에서는 굽지 않는다.
+const glass = (id, extra = {}) => ({ ...createStroke(line, { id, kind: 'glass', width: 6, renderVersion: 3, materialSeed: 1 }), ...extra })
+
+test('잉크펜은 앱에서만 Skia 그림으로 굽고, 웹 · 다른 펜은 그대로 둔다', () => {
+  assert.equal(isSkiaRaster(glass('g'), 'android'), true)
+  assert.equal(isSkiaRaster(glass('g'), 'ios'), true)
+  assert.equal(isSkiaRaster(glass('g'), 'web'), false)
+  assert.equal(isSkiaRaster(ball('b'), 'android'), false)
+  assert.equal(isSkiaRaster(pencil('p'), 'web'), true, '연필은 웹에서도 굽는다')
+  assert.equal(pencilBakesOpacity(glass('g')), false, '잉크펜 불투명도는 요소 래퍼가 곱한다')
+})
+
+test('잉크펜 그림 범위는 번짐(halo)만큼 여백을 더 두고, 열쇠는 잉크 설정 · 무늬 기준점이 바뀌면 달라진다', () => {
+  const stroke = glass('g')
+  assert.equal(pencilRasterBounds(stroke).left, -(stroke.strokeWidth + 2 + 3 * GLASS_INK.haloSpread))
+  const key = pencilRasterKey(stroke, 2)
+  assert.notEqual(pencilRasterKey({ ...stroke, inkGlitter: false }, 2), key)
+  assert.notEqual(pencilRasterKey({ ...stroke, inkSheenColor: '#ff0000' }, 2), key)
+  assert.notEqual(pencilRasterKey({ ...stroke, inkOrigin: { x: 99, y: 1 } }, 2), key, '무늬가 페이지에 붙어 있어 기준점이 다르면 다른 그림')
+  assert.notEqual(pencilRasterKey(stroke, 2), pencilRasterKey({ ...stroke, penKind: 'ball' }, 2))
 })
