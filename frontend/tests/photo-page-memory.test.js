@@ -2,6 +2,8 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
+import * as coverBounds from '../src/editor/utils/coverBounds.js'
+import * as inkRecordLayout from '../src/editor/templates/inkRecordLayout.js'
 
 const require = createRequire(import.meta.url), expo = createRequire(require.resolve('expo/package.json'))
 const babel = expo('@babel/core')
@@ -51,6 +53,8 @@ test('화면 밖 사진만 제외하고 이동 후 다시 표시하며 자르기
     './WebStrokeCacheContext': { WebStrokeCacheEnabled: cache },
     '../../utils/editorShapes': { memoArtOf: () => null },
     '../../templates/packingLayout.js': { packingLayout: () => null },
+    '../../templates/inkRecordLayout.js': inkRecordLayout,
+    '../../utils/coverBounds.js': coverBounds,
   }
   const module = { exports: {} }
   new Function('require', 'module', 'exports', code)(id => mocks[id] ?? {}, module, module.exports)

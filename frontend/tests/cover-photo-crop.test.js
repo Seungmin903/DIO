@@ -128,7 +128,7 @@ test('실제 표지 사진 선택·적용 콜백도 비율을 누락하지 않�
     React: { createElement: (type, props, ...children) => ({ type, props: { ...props, children } }), Fragment: 'Fragment' },
     useState(initial) { const i = cursor++; if (!(i in slots)) slots[i] = initial; return [slots[i], value => { slots[i] = typeof value === 'function' ? value(slots[i]) : value }] },
     useRef(initial) { const i = cursor++; return slots[i] ??= { current: initial } }, useEffect() {},
-    useCoverPhotoAspect: () => ({ aspect: null, status: 'idle', retry() {} }), pickImages: async () => [imported],
+    authService: { getSessionKey: () => null }, checkMemberPhotoCapacity: async () => {}, useCoverPhotoAspect: () => ({ aspect: null, status: 'idle', retry() {} }), pickImages: async () => [imported],
     coverCropPhoto, coverPhotoWithAspect, applyCoverPhotoCrop,
     OptionRow: 'OptionRow', View: 'View', Pressable: 'Pressable', Text: 'Text', Icon: 'Icon', OwnPhotoTile: 'OwnPhotoTile', PhotoCropper: 'PhotoCropper',
     styles: {}, mediaFailureMessage: error => error.message, discardGeneratedMedia: async () => {},
@@ -170,7 +170,7 @@ test('실제 표지 렌더러는 같은 사진 재크롭 시 이미지에 직접
   const OwnPhoto = loadFunction('../src/diary/components/CoverArt.js', 'OwnPhoto', {
     React: { createElement: (type, props, ...children) => ({ type, props: { ...props, children } }) },
     useState: () => [box, value => { box = typeof value === 'function' ? value(box) : value }],
-    useCoverPhotoAspect: photo => ({ aspect: coverPhotoAspect(photo, imported), status: 'ready' }),
+    authService: { getSessionKey: () => null }, checkMemberPhotoCapacity: async () => {}, useCoverPhotoAspect: photo => ({ aspect: coverPhotoAspect(photo, imported), status: 'ready' }),
     coverLayout, View: 'View', PhotoImage: 'PhotoImage', StyleSheet: { absoluteFill: {} }, styles: { photoClip: {} },
   })
   const photo = { src: imported.src, mediaFileId: imported.mediaFileId, crop: { fx: 0.5, fy: 0.5, zoom: 1 } }
@@ -219,7 +219,7 @@ function optionsFixture({ photo = null, item = imported, apply = applyCoverPhoto
     React: { createElement: (type, props, ...children) => ({ type, props: { ...props, children } }), Fragment: 'Fragment' },
     useState(initial) { const i = cursor++; if (!(i in slots)) slots[i] = initial; return [slots[i], value => { slots[i] = typeof value === 'function' ? value(slots[i]) : value }] },
     useRef(initial) { const i = cursor++; return slots[i] ??= { current: initial } }, useEffect: fn => effects.push(fn),
-    useCoverPhotoAspect: () => recovery, pickImages: async () => [item], coverCropPhoto, coverPhotoWithAspect, applyCoverPhotoCrop: apply,
+    authService: { getSessionKey: () => null }, checkMemberPhotoCapacity: async () => {}, useCoverPhotoAspect: () => recovery, pickImages: async () => [item], coverCropPhoto, coverPhotoWithAspect, applyCoverPhotoCrop: apply,
     OptionRow: 'OptionRow', View: 'View', Pressable: 'Pressable', Text: 'Text', Icon: 'Icon', OwnPhotoTile: 'OwnPhotoTile', PhotoCropper: 'PhotoCropper',
     styles: {}, mediaFailureMessage: error => error.message, discardGeneratedMedia: async items => { discarded.push(...items); if (cleanupFails) throw new Error('cleanup failed') },
   })
@@ -279,7 +279,7 @@ test('복구 실패 안내·재시도·진행 중 안내와 자르기 버튼 상
 test('복구 실패 시 저장된 크롭을 무시한 전체 사진을 미리보기로 표시하지 않는다', () => {
   const OwnPhoto = loadFunction('../src/diary/components/CoverArt.js', 'OwnPhoto', {
     React: { createElement: (type, props, ...children) => ({ type, props: { ...props, children } }) },
-    useState: () => [null, () => {}], useCoverPhotoAspect: () => ({ aspect: null, status: 'failed' }),
+    useState: () => [null, () => {}], authService: { getSessionKey: () => null }, checkMemberPhotoCapacity: async () => {}, useCoverPhotoAspect: () => ({ aspect: null, status: 'failed' }),
     View: 'View', Icon: 'Icon', colors, StyleSheet: { absoluteFill: {} }, styles: { noPhoto: {} },
   })
   const result = OwnPhoto({ photo: { src: imported.src, crop } })
@@ -326,7 +326,7 @@ test('실제 표지 렌더러는 크롭이 없는 사진의 비율 복구를 끈
   const OwnPhoto = loadFunction('../src/diary/components/CoverArt.js', 'OwnPhoto', {
     React: { createElement: (type, props) => ({ type, props }) },
     useState: () => [null, () => {}],
-    useCoverPhotoAspect: (photo, options) => { enabled = options.enabled; return { aspect: null, status: 'idle' } },
+    authService: { getSessionKey: () => null }, checkMemberPhotoCapacity: async () => {}, useCoverPhotoAspect: (photo, options) => { enabled = options.enabled; return { aspect: null, status: 'idle' } },
     PhotoImage: 'PhotoImage',
   })
   assert.equal(OwnPhoto({ photo: { src: imported.src } }).type, 'PhotoImage')

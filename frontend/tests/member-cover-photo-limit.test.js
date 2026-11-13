@@ -18,6 +18,8 @@ test('회원 표지의 사진 선택 버튼은 자르기 전에 회원 사진 �
     authService: { getSessionKey: () => 'member' }, checkMemberPhotoCapacity,
     pickImages: async options => { assert.equal(options.guestPhoto, false); await options.checkPhotoCapacity(1); return [] },
     mediaFailureMessage: error => error.message, styles: {},
+    useCoverPhotoAspect: () => ({ aspect: null, status: 'idle', retry() {} }), coverCropPhoto: () => null, coverPhotoWithAspect: photo => photo, applyCoverPhotoCrop: () => null,
+    discardGeneratedMedia: async () => {}, PhotoCropper: 'PhotoCropper', OwnPhotoTile: 'OwnPhotoTile',
     OptionRow: 'row', View: 'view', Pressable: 'button', Icon: 'icon', Text: 'text',
   }
   const componentFn = new Function('require', ...Object.keys(env), code + '\nreturn PhotoOptions')(() => ({ jsx, jsxs: jsx }), ...Object.values(env))

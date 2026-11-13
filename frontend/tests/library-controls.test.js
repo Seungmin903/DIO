@@ -108,7 +108,7 @@ test('폰·태블릿의 빈 보관함은 세 보기에서 동일한 본문 배�
    const container = nodes(tree).filter(n=>n.type==='view'&&nodes(n).includes(empty)).at(-1);
    assert.equal(container.type, 'view', '빈 상태는 목록 ScrollView와 FAB 하단 여백을 사용하지 않는다');
    assert.equal(nodes(tree).filter(n=>n.type==='scroll').length, 0);
-   assert.equal(Boolean(findControl(tree,'새 다이어리 만들기')), filter==='personal');
+   assert.equal(Boolean(nodes(tree).some(n=>n.type==='../components/LibraryCreateMenu'&&n.props.onCreate)), filter==='personal');
    render.unmount();
    return {style:container.props.style, emptyProps:empty.props};
   });
@@ -123,7 +123,7 @@ test('다이어리가 있으면 펼쳐서·스와이프·한눈에의 기존 목
   const tree=render({...selectionProps(compact),view,onCreate:()=>{}});
   const all=nodes(tree);
   assert.ok(!all.some(n=>n.type==='EmptyState'));
-  assert.ok(findControl(tree,'새 다이어리 만들기'));
+  assert.ok(nodes(tree).some(n=>n.type==='../components/LibraryCreateMenu'&&n.props.onCreate));
   if(view==='open') {
    assert.ok(all.some(n=>n.type==='OpenBookShelf'&&n.props.diaries.length===2));
    assert.equal(all.filter(n=>n.type==='scroll').length,0);
