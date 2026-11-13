@@ -54,6 +54,15 @@ export function typingOptionsPlacement(base, { stageTop, stageHeight, keyboardTo
 }
 
 /**
+ * 적는 동안의 옵션 창이 작업창 위 끝을 넘어 올라갔는지(낮은 작업창에서 최소 높이를 지키느라). 이때만 작업창이 창을 자르지 않게 한다.
+ * 캔버스(Viewport)는 따로 잘리므로 페이지가 밖으로 그려지지는 않지만, 작업창을 덮는 층(선택 바)·둥근 모서리는 작업창이 잘라 주므로
+ * 필요할 때만 푼다.
+ */
+export function typingOverflowsStage(place) {
+  return Boolean(place) && place.top < 0
+}
+
+/**
  * 옵션 창에 적기 시작할 때 고른 요소가 보이게 화면을 올릴 양(작업창 px, 0이면 올리지 않는다).
  * 요소가 내려온 옵션 창과 가로로 겹치면 창 위 끝, 아니면 키보드 위 끝보다 gap 위로 요소 아래 끝을 올린다.
  * 요소 위 끝이 작업창 위 끝(gap)보다 올라가지는 않게 한다. 좌표는 모두 작업창 기준.

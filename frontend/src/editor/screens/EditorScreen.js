@@ -86,7 +86,7 @@ import { useMemberPagePosition } from '../hooks/useMemberPagePosition'
 import { prefetchPageTemplate } from '../services/editorDocs'
 import { getCurrentPage } from '../state/editorReducer'
 import { clamp, createId, unionBounds } from '../utils/common'
-import { OPTIONS_TOP, OPTIONS_TOP_PHONE, OPTIONS_WIDTH, optionsPlacement, tabletToolPopover, typingOptionsPlacement, typingRevealDy, typingViewRestore } from '../utils/toolPanelPlacement'
+import { OPTIONS_TOP, OPTIONS_TOP_PHONE, OPTIONS_WIDTH, optionsPlacement, tabletToolPopover, typingOptionsPlacement, typingOverflowsStage, typingRevealDy, typingViewRestore } from '../utils/toolPanelPlacement'
 import { automaticPageTurn, centeredOffset, clampOffset as clampViewportOffset, isFitView, panView } from '../utils/viewport.js'
 import { pickImages } from '../services/image'
 import { tastingPhotoBox } from '../templates/tastingGeometry.js'
@@ -456,6 +456,7 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
     const base = optionsPlacement(selectedObjects, zoom, offset, stageSize, compact ? OPTIONS_TOP_PHONE : OPTIONS_TOP)
     return optionsTyping ? typingOptionsPlacement(base, { stageTop: stageOrigin.y, stageHeight: stageSize.height, keyboardTop }) : base
   }
+  const typingOverflow = optionsTyping && showMore && !drawerTab && Boolean(stageSize) && typingOverflowsStage(moreOptionsPlacement())
   // 적기 시작하면 고친 글자가 바로 보이게, 고른 요소가 내려온 옵션 창 · 키보드에 가리지 않을 만큼 화면을 올린다.
   // 적기를 마치면(창이 제자리로 돌아가면) 올리기 전 보기로 되돌린다. 적는 동안 직접 옮긴 보기는 그대로 둔다
   const typingPan = useRef(null) // { before, after }: 적기 시작할 때 올리기 전 · 후 보기
@@ -1432,8 +1433,8 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
           onTouchStart={() => setInputActive(true)}
           onTouchEnd={(event) => { if (!event.nativeEvent.touches?.length) setInputActive(false) }}
           onTouchCancel={() => setInputActive(false)}
-          // 옵션 창에 적는 동안 작업창이 너무 낮으면 창이 작업창 위로 넘어 올라가므로(typingOptionsPlacement) 자르지 않는다
-          style={[styles.stage, !compact && !readOnly && styles.stageEdge, ((phoneSheet && sheetHeight > 0) || optionsTyping) && { overflow: 'visible' }]}
+          // 옵션 창에 적는 동안 작업창이 너무 낮아 창이 작업창 위로 넘어 올라갈 때만(typingOptionsPlacement) 자르지 않는다
+          style={[styles.stage, !compact && !readOnly && styles.stageEdge, ((phoneSheet && sheetHeight > 0) || typingOverflow) && { overflow: 'visible' }]}
           onLayout={() => stageRef.current?.measureInWindow((x, y) => setStageOrigin({ x, y }))}>
           {/* 선택 바는 페이지 밖(보이는 작업 영역 안)까지 나가므로 페이지가 아니라 작업창 위 층에 그린다. 확대·이동하는 동안은 숨긴다. */}
           <StageOverlayHost hidden={viewMoving}>

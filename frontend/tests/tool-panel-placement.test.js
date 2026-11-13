@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
-import { OPTIONS_TOP, OPTIONS_TOP_PHONE, OPTIONS_TYPING_HEIGHT, OPTIONS_TYPING_MIN_HEIGHT, OPTIONS_WIDTH, optionsPlacement, tabletToolPopover, typingOptionsPlacement, typingRevealDy, typingViewRestore } from '../src/editor/utils/toolPanelPlacement.js'
+import { OPTIONS_TOP, OPTIONS_TOP_PHONE, OPTIONS_TYPING_HEIGHT, OPTIONS_TYPING_MIN_HEIGHT, OPTIONS_WIDTH, optionsPlacement, tabletToolPopover, typingOptionsPlacement, typingOverflowsStage, typingRevealDy, typingViewRestore } from '../src/editor/utils/toolPanelPlacement.js'
 
 const STAGE = { width: 900, height: 700 }
 const at = (y) => [{ x: 40, y, w: 100, h: 40, rotation: 0 }]
@@ -137,4 +137,19 @@ test('편집 화면은 작업창 위 끝(화면 기준)을 Canvas 의 textEditin
   assert.match(source, /textEditingTop=\{stageOrigin\.y \+ 8\}/)
   assert.match(canvas, /^\s*textEditingTop = 0,$/m)
   assert.match(canvas, /<FrameTextEditor [^\n]*visibleTop=\{textEditingTop\}/)
+})
+
+test('작업창 자르기는 적는 옵션 창이 작업창 위로 넘어 올라갈 때만 풀고, 캔버스는 따로 잘린다', () => {
+  const base = { left: 0, top: 8, height: 300 }
+  // 보통 키보드: 창이 작업창 안 → 자르기 유지
+  assert.equal(typingOverflowsStage(typingOptionsPlacement(base, { stageTop: 100, stageHeight: 700, keyboardTop: 500 })), false)
+  // 경계: 창 위 끝이 작업창 위 끝(0)과 같으면 넘지 않았다
+  assert.equal(typingOverflowsStage({ left: 0, top: 0, height: 76 }), false)
+  // 낮은 작업창: 최소 높이를 지키려 위로 넘어감 → 풀기
+  assert.equal(typingOverflowsStage(typingOptionsPlacement(base, { stageTop: 100, stageHeight: 300, keyboardTop: 150 })), true)
+  assert.equal(typingOverflowsStage(null), false)
+  assert.match(source, /\(\(phoneSheet && sheetHeight > 0\) \|\| typingOverflow\) && \{ overflow: 'visible' \}/)
+  // 자르기를 풀어도 페이지 · 요소는 Viewport 가 따로 잘라 작업창 밖(도구 막대 위)에 그려지지 않는다
+  const viewport = readFileSync(new URL('../src/editor/components/canvas/Viewport.js', import.meta.url), 'utf8')
+  assert.match(viewport, /viewport: \{ flex: 1, overflow: 'hidden'/)
 })
