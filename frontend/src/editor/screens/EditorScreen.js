@@ -765,7 +765,7 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
       const all = emptyPhotoSlots(target)
       const empty = [...all.filter((i) => i >= start), ...all.filter((i) => i < start)]
       if (!empty.length) return
-      const images = await pickImages(photoLimit)
+      const images = await pickImages({ ...photoLimit, multiple: empty.length > 1, selectionLimit: empty.length })
       if (!images.length) return
       const latest = pageNow.current.objects.find((o) => o.id === id)
       if (!latest?.cells) { discardUnused(images); return }
