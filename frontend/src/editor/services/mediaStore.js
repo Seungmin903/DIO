@@ -30,7 +30,8 @@ const pendingRemote = new Map()
 export function trackRemoteMedia(id, job) {
   if (!id || !job) return
   pendingRemote.set(id, job)
-  job.then(() => {}, () => {}).then(() => { if (pendingRemote.get(id) === job) pendingRemote.delete(id) })
+  // 성공하면 지운다. 실패한 받기는 남겨 두어, 나중에 화면이 읽어도 '찾을 수 없어요' 대신 그 실패 이유를 보인다(다음 받기가 덮어쓴다).
+  job.then(() => { if (pendingRemote.get(id) === job) pendingRemote.delete(id) }, () => {})
 }
 
 const readDisplay = id => limited(async () => {

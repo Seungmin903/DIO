@@ -52,7 +52,9 @@ export function createCanvasMedia({request,files,storage,key,isActive=()=>true,n
   if(downloads.has(id))return downloads.get(id)
   if(force){failures.delete(id);downloaded.delete(id)}
   const failure=failures.get(id)
-  if(downloaded.has(id)||failure&&now()<failure.retryAt)return Promise.resolve()
+  if(downloaded.has(id))return Promise.resolve()
+  // 다시 받기를 기다리는 동안 건너뛴 사진도 지난 실패 이유를 그대로 돌려준다. 성공처럼 끝내면 화면이 '찾을 수 없어요'를 보였다.
+  if(failure&&now()<failure.retryAt)return Promise.reject(failure.error)
   const job=(async()=>{
    try{
     // 평소엔 헤더만 보고 넘어간다(전체 디코딩은 사진마다 느리다). 다시 조회(force)일 때만 끝까지 확인해 깨진 파일을 다시 받는다.
@@ -61,7 +63,7 @@ export function createCanvasMedia({request,files,storage,key,isActive=()=>true,n
    }catch(error){
     active()
     const attempts=(failure?.attempts??0)+1,delays=[5000,15000,60000]
-    failures.set(id,{attempts,retryAt:permanent(error)||attempts>=4?Infinity:now()+delays[attempts-1]})
+    failures.set(id,{attempts,error,retryAt:permanent(error)||attempts>=4?Infinity:now()+delays[attempts-1]})
     files.fail?.(id,error);throw error
    }
   })().finally(()=>downloads.delete(id))

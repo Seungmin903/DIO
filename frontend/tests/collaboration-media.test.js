@@ -181,3 +181,14 @@ test('받는 중인 공유 사진은 끝나는 시점을 먼저 알리고 동시
  await Promise.all(ids.slice(0,4).map(id=>pending.get(id)))
  await assert.rejects(pending.get(ids[4]),/서버 끊김/)
 })
+
+test('다시 받기를 기다리는 동안 건너뛴 사진도 지난 실패 이유로 끝난다',async()=>{
+ const id='60000000-0000-4000-8000-000000000001',pending=[]
+ const media=createCanvasMedia({storage:{getItem:async()=>null,setItem:async()=>{}},key:'m',now:()=>0,
+  files:{cached:async()=>false,save:async()=>{},pending:(_,job)=>pending.push(job)},
+  request:async()=>{throw Object.assign(Error('서버 끊김'),{status:503})}})
+ await media.hydrate([{mediaFileId:id}])
+ await assert.rejects(pending[0],/서버 끊김/)
+ await media.hydrate([{mediaFileId:id}])
+ await assert.rejects(pending[1],/서버 끊김/)
+})

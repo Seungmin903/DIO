@@ -10,13 +10,13 @@ import {shareJpegAttempts} from '../src/editor/utils/shareImagePlan.js'
 const require=createRequire(import.meta.url),expo=createRequire(require.resolve('expo/package.json'))
 function adapter(platform,stored){
  const writes=[],temps=[],parts=[],seeds=[],jpegCalls=[],pngCalls=[]
- const repository={get:async()=>stored,decode:async()=>({width:20,height:10}),createDisplay:async()=>null,verifyDisplay:async()=>{},save:async(source,metadata)=>{writes.push({source,metadata});return 'cached-image'},dispose:async()=>{}}
+ const repository={get:async()=>stored,decode:async()=>({width:20,height:10}),createDisplay:async()=>null,verifyDisplay:async source=>repository.onVerify?.(source),save:async(source,metadata)=>{writes.push({source,metadata});return 'cached-image'},dispose:async()=>{}}
  class File{constructor(_path,name){this.uri=name===undefined?_path:`cache/${name}`;if(name!==undefined)temps.push(this)}create(){}write(bytes){this.bytes=bytes}delete(){this.deleted=true}}
  class Form{append(...args){parts.push(args)}}
  const code=expo('@babel/core').transformSync(readFileSync(new URL(`../src/editor/services/canvasMediaFiles.${platform}.js`,import.meta.url),'utf8'),{configFile:false,babelrc:false,plugins:[expo.resolve('@babel/plugin-transform-modules-commonjs')]}).code
  const module={exports:{}}
- new Function('require','module','exports','FormData',code)(name=>name.endsWith('/mediaStore')?{mediaRegistry:{seed:(id,value)=>seeds.push({id,...value})}}:name.includes('mediaRepository')?repository:name.includes('mediaLimits')?limits:name.includes('mediaPolicy')?{detectMediaType,checkDimensions}:name.includes('shareImagePlan')?plan:name.includes('shareImage')?{toShareJpeg:async(source,options)=>{jpegCalls.push({source,options});return {uri:'jpeg-uri',blob:{jpeg:true},size:1234}},toSharePng:async(source,options)=>{pngCalls.push({source,options});return {uri:'png-uri',blob:{png:true},size:4321,width:1500,height:1060}}}:{File,Paths:{cache:'cache'}},module,module.exports,Form)
- return {files:module.exports.canvasMediaFiles,writes,temps,parts,seeds,jpegCalls,pngCalls}
+ new Function('require','module','exports','FormData',code)(name=>name.endsWith('/mediaStore')?{mediaRegistry:{seed:(id,value)=>seeds.push({id,...value})},trackRemoteMedia:()=>{}}:name.includes('mediaRepository')?repository:name.includes('mediaLimits')?limits:name.includes('mediaPolicy')?{detectMediaType,checkDimensions}:name.includes('shareImagePlan')?plan:name.includes('shareImage')?{toShareJpeg:async(source,options)=>{jpegCalls.push({source,options});return {uri:'jpeg-uri',blob:{jpeg:true},size:1234}},toSharePng:async(source,options)=>{pngCalls.push({source,options});return {uri:'png-uri',blob:{png:true},size:4321,width:1500,height:1060}}}:{File,Paths:{cache:'cache'}},module,module.exports,Form)
+ return {files:module.exports.canvasMediaFiles,repository,writes,temps,parts,seeds,jpegCalls,pngCalls}
 }
 for(const platform of ['web','native']){
  test(`${platform}: HEIC는 기존 표시본으로 업로드하고 기기 원본을 건드리지 않는다`,async()=>{
@@ -94,3 +94,15 @@ test('JPEG 로 낮출 때는 품질을 먼저 낮추고, 그래도 크면 크기
 test('편집기 선택 한도(MEDIA_POLICY)와 공유 한도(mediaLimits)는 같은 값이다',()=>{
  assert.equal(MEDIA_POLICY.sharedGifMaxBytes,limits.sharedGifMaxBytes);assert.equal(limits.sharedGifMaxBytes,15*1024*1024)
 })
+
+for(const platform of ['web','native']){
+ test(`${platform}: 받아 둔 사진은 평소엔 전체 디코딩 확인을 건너뛰고 다시 조회 때만 확인한다`,async()=>{
+  const blob=platform==='web'?new Blob([new Uint8Array([1])]):{uri:'file'}
+  const a=adapter(platform,{media:{extension:'png'},blob,displayBlob:null})
+  let verified=0;a.repository.onVerify=()=>{verified++}
+  assert.equal(await a.files.cached('id'),true);assert.equal(verified,0)
+  assert.equal(await a.files.cached('id',{verify:true}),true);assert.equal(verified,1)
+  a.repository.onVerify=()=>{throw Error('broken')}
+  assert.equal(await a.files.cached('id',{verify:true}),false)
+ })
+}
