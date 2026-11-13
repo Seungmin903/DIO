@@ -16,7 +16,7 @@
 // 좌표계: 이미지 필터의 런타임 셰이더는 **캔버스 지역 좌표**(= 페이지 좌표)로 돈다.
 //   자식도 같은 좌표로 읽으므로 org = 0, ppu = 1 로 둔다(셰이더의 q = p 가 된다).
 //   덕분에 무늬가 페이지에 붙어 있어 확대해도 그대로다.
-import { BlendMode, PaintStyle, Skia, StrokeCap, StrokeJoin, TileMode } from '@shopify/react-native-skia'
+import { BlendMode, ClipOp, PaintStyle, Skia, StrokeCap, StrokeJoin, TileMode } from '@shopify/react-native-skia'
 import { ballSweepPath } from '../utils/nibStroke.js'
 import { GLASS_INK, GLASS_INK_SKSL, GLASS_SPARK_SKSL, abLineOf, glassDabs, glitterColorOf, glitterTint, inkDensity, micaAutoFilm, micaColor, sheenAutoColor } from '../utils/glassInk.js'
 
@@ -28,6 +28,7 @@ let builder = null, sparkEffect = null, failed = false
 const inkKey = (color, width, S, ink) =>
   `${color}|${width}|${S}|${ink.sheen}|${ink.sheenAmount}|${ink.glitter}|${ink.amount}|${ink.film}|${ink.glitterColor}|${ink.sheenColor}`
 let uniKey = null, sparkKey = null, sparkCache = null, blurKey = -1, blurCache = null, filterKey = null, filterCache = null
+let haloKey = -1, haloBlur = null
 const hex3 = color => { const c = Skia.Color(color); return [c[0], c[1], c[2]] }
 
 // 두께 마스크는 도장이 겹쳐야 매끈하다. 경로용(0.38)보다 촘촘하되, 긴 획에서는 수를 제한한다.
@@ -39,16 +40,34 @@ const MASK_MAX_DABS = 3000
 // zoom * PixelRatio.get() 이나 그 굽는 배율을 넘긴다. 연필의 surfaceSize 도 같은 값을 그대로 쓴다).
 // 여기서 PixelRatio 를 또 곱하면 S 가 기기 배율의 제곱이 되어 필터 1px 이 화면 0.5px(2배 기기)이 되고
 // 굽는 픽셀이 네 배가 된다(MR !534 리뷰).
+// 무늬를 페이지에 붙이는 밀어주기의 기본값(옛 획 · 원점을 모르는 호출)
+const ORIGIN0 = { x: 0, y: 0 }
 const smooth01 = x => { const t = Math.max(0, Math.min(1, x)); return t * t * (3 - 2 * t) }
+// 셰이더의 vnoise 와 같은 식(값 노이즈). 도장마다 한 번 — 획 하나에 많아야 MASK_MAX_DABS 번이다.
+const vhash2 = (x, y) => { const s = Math.sin(x * 127.1 + y * 311.7) * 43758.5453; return s - Math.floor(s) }
+function vnoise2(x, y) {
+  const ix = Math.floor(x), iy = Math.floor(y), fx = x - ix, fy = y - iy
+  const ux = fx * fx * (3 - 2 * fx), uy = fy * fy * (3 - 2 * fy)
+  const a = vhash2(ix, iy), b = vhash2(ix + 1, iy), c = vhash2(ix, iy + 1), e = vhash2(ix + 1, iy + 1)
+  const top = a + (b - a) * ux
+  return top + (c + (e - c) * ux - top) * uy
+}
 const pxPerUnit = scale => Math.max(0.2, Math.max(0.05, scale))
 // 필터 층은 진짜 가장자리보다 이만큼(화면 px) 넓게 그린 뒤 마지막에 깎는다 — 필터 쪽 네모난 끊김을
 // 획 밖으로 밀어내기 위해서다. 그래서 **필터가 보는 획은 실제보다 2·margin 만큼 굵다**.
 const MARGIN = 3
 
-function setUniforms(color, width, ink, S) {
-  const key = inkKey(color, width, S, ink)
-  if (key === uniKey) return key   // 지난번과 같은 획 — builder 가 그 값을 아직 들고 있다
-  uniKey = key
+function setUniforms(color, width, ink, S, org) {
+  // 열쇠는 둘로 나눈다(코드리뷰 2026-11-13).
+  //  · 설정 열쇠(inkKey): 색 · 굵기 · 배율 · 잉크 설정. 같으면 유니폼 70여 개를 다시 안 넣는다.
+  //  · 밀어주기(noiseOrg): 획마다 다르다. **반드시 매번 넣어야** 앞 획 값이 남지 않는다.
+  // 돌려주는 열쇠에 둘 다 담는 이유는 필터 때문이다 — 필터는 만들 때 builder 의 유니폼을
+  // 복사해 두므로, 밀어주기가 달라지면 같은 설정이어도 새 필터가 필요하다.
+  const setKey = inkKey(color, width, S, ink)
+  const key = `${setKey}|${org.x}|${org.y}`
+  const u0 = (name, ...v) => builder.setUniform(name, v)
+  if (setKey === uniKey) { u0('noiseOrg', org.x * S, org.y * S); return key }
+  uniKey = setKey
   const P = GLASS_INK
   const rgb = hex3(color)
   const sheenOn = ink.sheen !== false
@@ -65,36 +84,45 @@ function setUniforms(color, width, ink, S) {
   u('org', 0, 0); u('ppu', 1)
   u('aa', 0.5)   // 화면 0.5px
   u('ink', ...rgb); u('dens', ...inkDensity(rgb))
-  u('satK', P.satK); u('tMax', P.T_MAX)
+  u('satK', P.satK); u('satThin', P.satThin); u('tMax', P.T_MAX)
   u('rad', P.rimR * width * S)
   u('ringStart', P.ringStart); u('ringFull', P.ringFull)
-  u('fIn', P.fIn); u('fRim', P.fRim); u('tGamma', P.tGamma); u('alphaK', P.alphaK)
+  u('fIn', P.fIn); u('fRim', P.fRim); u('tGamma', P.tGamma); u('dyePool', P.dyePool); u('dyeRef', P.dyeRef); u('alphaK', P.alphaK)
   u('satStart', P.satStart); u('satMax', P.satMax)
-  u('flowAmp', P.flowAmp); u('flowScl', P.flowScale * S); u('flowFloor', P.flowFloor)
+  u('paperAmp', P.paperAmp); u('paperScl', P.paperScale * S)
+  u('flowAmp', P.flowAmp); u('flowScl', P.flowScale * S); u('flowFloor', P.flowFloor); u('flowClear', P.flowClear)
   u('thinFlow', P.thinFlow); u('thinFlowScl', P.thinFlowScale)
   u('thinPatch', P.thinPatch); u('thinPatchScl', P.thinPatchScale)
-  u('sheenCol', ...(ink.sheenColor ? hex3(ink.sheenColor) : sheenAutoColor(rgb)))
+  const sheenRgb = ink.sheenColor ? hex3(ink.sheenColor) : sheenAutoColor(rgb)
+  u('sheenCol', ...sheenRgb)
   u('sheenAmp', P.sheenAmp * sheenAmount)
   u('sheenRimA', P.sheenRimA); u('sheenRimBand', P.sheenRimBand)
   u('sheenGate0', P.sheenGate0); u('sheenGate1', P.sheenGate1)
   u('sheenInT', P.sheenInT); u('sheenInAmp', P.sheenInAmp)
   // 가는 획 전용 테는 **펜 굵기**로 켠다(픽셀 굵기로 켜면 굵은 펜이 얇아진 자리가 회색으로 끊긴다)
   const thinRim = 1 - smooth01((width - P.thinRimW0) / (P.thinRimW1 - P.thinRimW0))
-  u('sheenEdge', P.sheenEdge * sheenAmount * thinRim); u('sheenMax', P.sheenMax)
+  u('sheenEdge', P.sheenEdge * sheenAmount * thinRim)
+  u('sheenMax', P.sheenMax); u('sheenThinMax', P.sheenThinMax); u('sheenSharp', P.sheenSharp)
   u('sheenPatch', P.sheenPatch); u('sheenGrain', P.sheenGrain)
   // 굵기 기준은 **필터가 보는 굵기**여야 한다(실제 굵기로 재면 가는 획에서 An 이 1 에 붙어 버려
   // 획 가운데 ↔ 가장자리 구분이 사라진다 — 가는 획의 테가 통째로 밋밋해지던 원인, 2026-11-10).
   u('abLine', abLineOf(width + 2 * MARGIN / S)); u('poolMix', P.poolMix)
   u('sheenWiggle', P.sheenWiggle); u('sheenWScl', P.sheenWScale * S)
   u('micaA', ...(glit ?? micaColor(film, 1)))
+  // 30b: 구름결(운모 막)은 **테 색**을 따른다 — 넓은 면에서 결과 테가 따로 놀지 않게(사용자 2026-11-12).
+  //   테를 껐으면 쓰지 않는 색으로 결을 칠할 수 없으니 운모 간섭색으로 되돌린다.
+  u('veilCol', ...(sheenOn ? sheenRgb : (glit ?? micaColor(film, 1))))
   u('micaB', ...(glit ?? micaColor(film, Math.cos(tilt * 0.5))))
   u('micaC', ...(glit ?? micaColor(film, Math.cos(tilt))))
-  u('glVeil', P.glVeil); u('glVeilDesat', P.glVeilDesat)
+  u('glVeil', P.glVeil); u('glVeilAvoid', P.glVeilAvoid); u('glVeilDesat', P.glVeilDesat)
   u('glVeilLift', P.glVeilLift); u('glVeilScl', P.glVeilScale * S)
+  u('glVeilAlign', P.glVeilAlign); u('glVeilLong', P.glVeilLong); u('glVeilCross', P.glVeilCross)
   u('glAmp', 0)   // 입자는 필터 밖에서 전체 해상도로 그린다(drawSpark)
   // 운모 막(구름결)은 필터 안에 남는다 — 저주파라 필터 해상도로 충분하다.
   // 27판에서 glAmp 를 0 으로 두면서 막까지 같이 꺼져 있었다(글리터를 켜도 안 나왔다).
-  u('veilAmp', glitterAmount)
+  // 46판: 막은 **잉크의 것**이다(43판에서 잉크의 공용 구름에 묶었다). 글리터 양을 따라가게 두면
+  //   글리터를 켤 때 막이 한 겹 더 얹혀 두 겹이 된다(사용자 2026-11-13).
+  u('veilAmp', 1)
   u('glCellPx', P.glCell * S); u('glP', P.glP)
   u('glRThin', P.glRThin * S); u('glThinP', P.glThinP)
   u('glRMin', P.glRMin * S); u('glRMax', P.glRMax * S)
@@ -102,6 +130,8 @@ function setUniforms(color, width, ink, S) {
   u('glTail', P.glTail); u('glDesat', P.glDesat)
   u('glCloud', P.glCloud); u('glCloudScl', P.glCloudScale * S)
   u('sparkAmp', P.sparkAmp)
+  // 49판: 무늬를 **페이지**에 붙인다 — 화면 px 공간이므로 S 를 곱해 넘긴다
+  u('noiseOrg', org.x * S, org.y * S)
   u('glintCellPx', P.glintCell * S); u('glintLenPx', P.glintLen * S)
   u('dry', P.dry); u('dryLag', P.dryLag)
   u('wetDark', P.wetDark); u('wetGloss', P.wetGloss)
@@ -112,6 +142,12 @@ function setUniforms(color, width, ink, S) {
 // 값을 복사해 가므로 같은 객체를 이어 써도 안전하다). 획마다 7개씩 새로 만들던 것을 없앤다.
 let paints = null
 const makePaints = () => {
+  // 48판에서 겹친 획이 진해지도록 Multiply 로 바꿔 봤지만 **되돌렸다**(사용자 2026-11-13
+  //   "겹칠 때 곱해지는 거 안 뺐어?"). 덧칠이 진해지는 대신 겹친 자리가 베이컨처럼 층져 보였고,
+  //   획 하나를 타일 · 벡터로 나눠 그리는 구조에서는 경계가 한 줄만 어긋나도 그 줄이 곱으로
+  //   진해져 눈에 띄었다. 수채처럼 섞으려면 획마다 끝낸 색을 겹칠 게 아니라 **밀도장을 합쳐야**
+  //   한다(C안) — 블렌드만 바꿔서 될 일이 아니다.
+  // Darken 은 같은 자리를 두 번 그려도 값이 그대로라(멱등) 타일 경계에도 너그럽다.
   const sheet = Skia.Paint(); sheet.setBlendMode(BlendMode.Darken)
   const body = Skia.Paint()
   const dab = Skia.Paint(); dab.setAntiAlias(true); dab.setBlendMode(BlendMode.Lighten)
@@ -119,7 +155,16 @@ const makePaints = () => {
   const cover = Skia.Paint(); cover.setAntiAlias(true)
   const grow = strokeStyle(Skia.Paint(), 2 * MARGIN)   // 실루엣을 margin 만큼 부풀리는 테두리
   const layer = Skia.Paint()
-  return { sheet, body, dab, dstIn, cover, grow, layer }
+  // 29판: 입자를 깎는 고임 마스크. Lighten 이라 도장이 겹쳐도 알파가 쌓이지 않고 **최댓값**이 남는다
+  const pool = Skia.Paint(); pool.setAntiAlias(true); pool.setBlendMode(BlendMode.Lighten)
+  pool.setColor(Skia.Color('#FFFFFF'))
+  // saveLayer 는 **Paint 를 반드시** 받는다 — null 을 넘기면 던지고, 한 번 던지면 그 뒤로는
+  // 평범한 선으로 떨어진다(모듈 깃발이 남는다). 아무것도 바꾸지 않는 빈 붓을 둔다.
+  const plain = Skia.Paint()
+  // 32판: 획 밖으로 번진 고리. **Darken** 이라 흰 종이 위에서는 연하게 얹히고, 이미 진한 획 위에
+  //   겹쳐도 그 획을 밝게 만들지 않는다(본체를 얹는 규칙과 같다).
+  const halo = Skia.Paint(); halo.setAntiAlias(true); halo.setBlendMode(BlendMode.Darken)
+  return { sheet, body, dab, dstIn, cover, grow, layer, pool, plain, halo }
 }
 let bodyColorKey = null, bodyColor = null
 // 도장 하나마다 Float32Array 를 새로 만들면 긴 획에서 프레임당 수천 개가 쌓인다 — 한 개를 고쳐 쓴다
@@ -138,11 +183,20 @@ const strokeStyle = (paint, w) => {
 const parse = d => d ? Skia.Path.MakeFromSVGString(d) : null
 
 // 입자를 전체 해상도로 획 위에 덧그린다(필터 밖). 경로를 굵기대로 그으므로 획 밖으로 나가지 않는다.
+//
+// [비용] 무늬를 페이지에 붙이면서 열쇠에 밀어주기가 들어가, 설정이 같아도 **획마다** makeShader
+//   (약 1ms)가 한 번 돈다. 전에는 설정이 같으면 획 사이에도 캐시가 이어졌다. 다만 유리펜 그림은
+//   요소마다 한 번 녹화해 두고 쓰므로(strokeSkia 의 contentPicture, 열쇠에 배율이 들어간다),
+//   이 값은 **프레임마다가 아니라 처음 그리거나 배율이 바뀌어 다시 녹화할 때** 한 번이다.
+//   쓰는 중인 획은 밀어주기가 0 으로 고정이라 프레임 내내 캐시가 맞는다.
+//   피하려면 경로를 밀어주기만큼 옮긴 사본을 따로 들고 캔버스를 반대로 밀어야 하는데(셰이더
+//   좌표계를 바꾸는 유일한 다른 길), 획마다 경로를 한 벌 더 만드는 값이 makeShader 와 엇비슷하다.
+//   실기에서 유리펜 200획 페이지의 굽기 시간을 재 보고 정하는 것이 맞다(미측정).
 // 셰이더는 **획 하나에 하나만** 만든다. 구간마다 만들면 makeShader 가 구간당 약 1ms 라
 // 필압이 출렁여 구간이 20개가 되는 획에서 프레임의 25ms 를 입자가 먹었다(실측 2026-11-10).
 // 셀 크기만 굵기를 따르는데, 필압으로 달라지는 폭은 무늬에 티가 안 나므로 획의 기준 굵기로 정한다.
-function sparkPaint(width, color, ink, zoom, S) {
-  const key = inkKey(color, width, S, ink)
+function sparkPaint(width, color, ink, zoom, S, org) {
+  const key = `${inkKey(color, width, S, ink)}|${org.x}|${org.y}`
   if (key === sparkKey) return sparkCache   // makeShader 가 1ms 넘게 드는데 획 내내 같은 값이다
   sparkKey = key
   const P = GLASS_INK
@@ -159,13 +213,15 @@ function sparkPaint(width, color, ink, zoom, S) {
     cell * S, P.glP * amount,
     rmin, rmin * (P.glRMax / P.glRMin),
     P.glBMin, P.glBMax, P.glTail, P.glDesat,
-    P.glCloud, P.glCloudScale * S, 0.5]))
+    P.glCloud, P.glCloudScale * S, 0.5,
+    P.glPatchLo, P.glPatchHi, P.glPatchA, P.glPatchB, P.glCloudScale * P.glPatchScale * S,
+    org.x * S, org.y * S]))
   return (sparkCache = paint)
 }
 
 export function glassPooledFailed() { return failed }
 
-export function drawGlassPooled(canvas, points, width, color, zoom = 1, ink = {}) {
+export function drawGlassPooled(canvas, points, width, color, zoom = 1, ink = {}, org = ORIGIN0) {
   if (failed) return false
   const t0 = globalThis.__GLASS_PROFILE__ ? Date.now() : 0
   // 색이 없으면 Skia.Color 가 던진다("Value is undefined, expected a String"). 층을 쌓기 전에 거른다.
@@ -227,7 +283,7 @@ export function drawGlassPooled(canvas, points, width, color, zoom = 1, ink = {}
   const S = S0
   const pad = (P.poolSpread * 3 + width) * S
   const bounds = Skia.XYWHRect(x0 * S - pad, y0 * S - pad, (x1 - x0) * S + pad * 2, (y1 - y0) * S + pad * 2)
-  const key = setUniforms(color, width, ink, S)
+  const key = setUniforms(color, width, ink, S, org)
   const tB = t0 ? Date.now() : 0    // ② uniform 넣기까지
   paints ??= makePaints()
   const layer = paints.layer
@@ -286,26 +342,76 @@ export function drawGlassPooled(canvas, points, width, color, zoom = 1, ink = {}
   canvas.restore()
   canvas.restore()   // 필터 층 끝
 
-  // 필터가 그린 것이 내가 그은 획 밖으로 넘치지 않게 깎는다(사용자 규칙).
-  // **층 안에서 합친 뒤 한 번만** DstIn 한다. 구간마다 바로 DstIn 하면 구간이 겹치는 자리
-  // (구간은 표본 하나씩 겹친다)에서 알파가 두 번 곱해져 안티에일리어스 가장자리가 패인다 —
-  // 필압으로 굵기가 변할 때 테두리에 보이던 '픽셀'이 이것이다(사용자 2026-11-10).
-  canvas.saveLayer(paints.dstIn, bounds)
-  canvas.drawPath(shape, paints.cover)
-  canvas.restore()
+  // 2026-11-13 까지는 여기서 한 번 더 DstIn 해 **내가 그은 실루엣 밖을 깎았다**. 지금은 깎지 않는다
+  // (사용자 결정): 필터가 실루엣을 MARGIN 만큼 부풀린 자리까지 그려 두는데, 그걸 칼같이 자르면
+  // 커피링 · 테가 뚝 끊겨 그래픽처럼 보였다. 번진 자리까지가 획이고(utils/strokes.js 의 GLASS_BLEED),
+  // 상자 · 지우개 · 선택이 그만큼 함께 넓게 본다.
   canvas.restore()   // 바깥 층 끝
   canvas.restore()   // 배율 되돌리기 — 입자는 **페이지 좌표**로 그려야 한다
 
   const tD = t0 ? Date.now() : 0    // ④ 본체 그리기(녹화)까지
+  // 32판: 획 **밖**으로 번진 연한 고리(헤일로). 실루엣을 블러해 **바깥만** 남긴다 —
+  //   염료 전선이 용매보다 뒤처져 바깥 고리에는 염료가 적다(= 연하다).
+  //   고인 획에만 번진다: 빠르게 그은 가는 획은 번질 잉크가 없다.
+  if (P.haloAlpha > 0.001) {
+    let sum = 0
+    for (const d of dabs) sum += d.t
+    const pooled = smooth01((sum / dabs.length * abLineOf(width) - P.glPoolLo) / (P.glPoolHi - P.glPoolLo))
+    const alpha = P.haloAlpha * pooled
+    if (alpha > 0.004) {
+      const sigma = P.haloSpread * S
+      if (sigma !== haloKey) { haloKey = sigma; haloBlur = Skia.ImageFilter.MakeBlur(sigma, sigma, TileMode.Decal, null) }
+      const halo = paints.halo
+      halo.setColor(bodyColor); halo.setAlphaf(alpha); halo.setImageFilter(haloBlur)
+      canvas.save()
+      canvas.scale(1 / S, 1 / S)
+      canvas.clipPath(shape, ClipOp.Difference, true)   // 그은 획 안쪽은 본체가 맡는다
+      canvas.drawPath(shape, halo)
+      canvas.restore()
+    }
+  }
   // ③ 입자는 필터 밖에서 전체 해상도로. **페이지 좌표** 경로여야 한다
   //    (S 배 경로를 넘기면 화면 밖 먼 곳에 그려져 글리터가 통째로 사라진다)
   // 입자도 같은 실루엣 안에만. 외곽선이 화면 px 공간이라 캔버스를 S 로 키워 그리고
   // 셰이더의 길이 uniform 에도 S 를 곱해 뒀다(무늬 크기는 페이지에 붙어 있다).
-  const spark = sparkPaint(width, color, ink, zoom, S)
+  const spark = sparkPaint(width, color, ink, zoom, S, org)
   if (spark) {
     canvas.save()
     canvas.scale(1 / S, 1 / S)
+    // 29판: 입자를 **고르게** 깔지 않는다. 실물(참고 01 · 03 · 04, 유리 딥펜)은 가는 선에 글리터가
+    //   거의 없고 고인 덩어리는 통째로 금속색이 된다. 11판에 있던 '밀도 ∝ 고임 장' 이 27a 에서
+    //   입자를 필터 밖으로 빼며 빠져 있었다(밖에서는 밀도가 상수다, 사용자 2026-11-12).
+    //   고임 장은 필터 **안**의 값이라 여기로 들고 올 수 없고, 입자를 필터 안으로 되돌리면 획을
+    //   종이에 얹는 Darken 이 잉크보다 밝은 입자를 먹어 **덧칠한 자리의 글리터가 사라진다**(확인함).
+    //   그래서 고임을 **도장 두께로 만든 마스크**로 넘긴다. 블러를 한 번 더 돌리지 않으려고
+    //   Tb0 를 `도장 두께 x abLine(굵기)` 로 근사한다 — 굵기 16 한 획 0.81(실측 0.8),
+    //   칠 1.05, 웅덩이 1.9(2.0)로 맞는다. 가는 획은 abLine 이 작아 저절로 바닥값만 남는다.
+    canvas.saveLayer(paints.plain, bounds)
     canvas.drawPath(shape, spark)
+    canvas.saveLayer(paints.dstIn, bounds)
+    const pool = paints.pool, wPool = abLineOf(width), span = P.glPoolHi - P.glPoolLo
+    // 49판: 고임만으로 정하면 **같은 손놀림이 같은 무늬**를 낸다(발색 기록 속지의 병 여섯 개가
+    //   똑같이 비었다 — 사용자 2026-11-13). 종이에 붙은 노이즈로 고임을 흔들어 자리마다 다르게
+    //   한다. 노이즈는 **페이지 좌표**라 겹쳐 그어도 무늬가 맞고, 확대해도 그대로다.
+    const vary = P.glPoolVary, varyScl = Math.max(1, P.glPoolVaryScale)
+    // 노이즈는 **다시 잴 만큼 움직였을 때만** 잰다. 덩이 크기가 26 단위인데 도장 간격은 0.18 이라
+    // 이웃 도장끼리 값이 사실상 같다 — 도장마다 재면 긴 획에서 한 프레임에 3000번(해시 12000번)
+    // 돌지만, 0.75 단위마다 재도 덩이 하나를 35번 뜨는 셈이라 눈에는 같다(코드리뷰 2026-11-13).
+    let nx = NaN, ny = NaN, nv = 1
+    for (const d of dabs) {
+      let t = d.t * wPool
+      if (vary > 0) {
+        if (!(Math.abs(d.x - nx) < 0.75 && Math.abs(d.y - ny) < 0.75)) {
+          nx = d.x; ny = d.y
+          nv = 1 + vary * (2 * vnoise2((d.x + org.x) / varyScl, (d.y + org.y) / varyScl) - 1)
+        }
+        t *= nv
+      }
+      pool.setAlphaf(P.glPoolFloor + (1 - P.glPoolFloor) * smooth01((t - P.glPoolLo) / span))
+      canvas.drawCircle(d.x * S, d.y * S, d.r * S + 1, pool)
+    }
+    canvas.restore()
+    canvas.restore()
     canvas.restore()
   }
   // 느린 프레임만 찍는다 — 매 프레임 console.log 는 그 자체로 다리를 막아 측정이 측정을 망친다

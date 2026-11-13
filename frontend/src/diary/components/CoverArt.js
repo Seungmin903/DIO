@@ -21,6 +21,7 @@ import { useTextFont } from '../../editor/hooks/useTextFont'
 import { STICKER_SIZE, bandAutoColor, coverTitle, createStickerCopy, coverLineColor, gradientStops, mix } from '../utils/coverDesign'
 import { colors } from '../../shared/theme'
 import { coverLayout } from '../../editor/utils/objects'
+import { useCoverPhotoAspect } from '../hooks/useCoverPhotoAspect'
 
 // 글씨체마다 같은 크기에서 보이는 글자 높이가 달라 손글씨는 조금 키운다.
 const FONT_SCALE = { 'nanum-pen': 1.35, 'poor-story': 1.1 }
@@ -90,16 +91,20 @@ const PHOTO_RETRIES = 3
 // 자른 자리(crop)가 있으면 표지 크기를 재서 그 자리대로 놓는다(없으면 가운데 기준으로 꽉 채움)
 function OwnPhoto({ photo }) {
   const [box, setBox] = useState(null)
-  if (photo.crop && photo.aspect) {
-    const layout = box && coverLayout({ imageWidth: photo.aspect, imageHeight: 1, crop: photo.crop }, box.width, box.height)
-    return <View style={[StyleSheet.absoluteFill, styles.photoClip]} onLayout={event => { const { width, height } = event.nativeEvent.layout; setBox(prev => (prev?.width === width && prev?.height === height ? prev : { width, height })); }}>
-      {layout && <View style={{ position: 'absolute', left: layout.left, top: layout.top, width: layout.width, height: layout.height }}><PhotoImage photo={photo} /></View>}
+  const { aspect, status } = useCoverPhotoAspect(photo, { enabled: Boolean(photo.crop) })
+  if (photo.crop && !aspect) return <View accessibilityLabel={status === 'failed' ? '표지 사진 크기 확인 실패' : '표지 사진 크기 확인 중'} style={[StyleSheet.absoluteFill, styles.noPhoto]}><Icon name="image" size={20} color={colors.surface} /></View>
+  if (photo.crop && aspect) {
+    const layout = box && coverLayout({ imageWidth: aspect, imageHeight: 1, crop: photo.crop }, box.width, box.height)
+    // 같은 URI라도 crop이 바뀌면 네이티브 이미지의 이전 표시 상태를 재사용하지 않는다.
+    const cropKey = `${aspect}:${photo.crop.fx}:${photo.crop.fy}:${photo.crop.zoom}`
+    return <View collapsable={false} style={[StyleSheet.absoluteFill, styles.photoClip]} onLayout={event => { const { width, height } = event.nativeEvent.layout; setBox(prev => (prev?.width === width && prev?.height === height ? prev : { width, height })); }}>
+      {layout && <PhotoImage key={cropKey} photo={photo} style={{ position: 'absolute', ...layout }} contentFit="fill" />}
     </View>
   }
   return <PhotoImage photo={photo} />
 }
 
-function PhotoImage({ photo }) {
+function PhotoImage({ photo, style = StyleSheet.absoluteFill, contentFit = 'cover' }) {
   const uri = useMediaUri(photo)
   const id = mediaId(photo)
   const entry = useMediaEntry(id)
@@ -117,7 +122,7 @@ function PhotoImage({ photo }) {
   useEffect(() => () => clearTimeout(drawRetry.current), [])
   if (!uri) return null
   // expo-image: PDF 쪽처럼 큰 사진도 표지 크기에 맞춰 줄여 풀고 메모리 · 디스크에 캐시해 다시 들어올 때 바로 뜬다
-  return <CachedImage key={drawAttempt} source={{ uri }} style={StyleSheet.absoluteFill} contentFit="cover" cachePolicy="memory-disk" transition={0} recyclingKey={id ?? uri}
+  return <CachedImage key={drawAttempt} source={{ uri }} style={style} contentFit={contentFit} cachePolicy="memory-disk" transition={0} recyclingKey={id ?? uri}
     onError={event => {
       if (drawAttempt >= PHOTO_RETRIES) return
       if (__DEV__) console.warn('[cover photo] 그리기 실패, 다시 시도', id, event?.error)
@@ -408,7 +413,7 @@ function CoverArt({ cover, name, width, height, edit = null, shadow = null, pixe
   {shadow && <View pointerEvents="none" style={[styles.layer, body, { backgroundColor: base }, hasGradient && bodyInset, shadow]} />}
   <View style={[styles.layer, styles.clip, body, { backgroundColor: hasGradient ? 'transparent' : base }]}>
     {cover.kind === 'photo' ? (cover.photo?.src ? <OwnPhoto photo={cover.photo} />
-      : <View style={styles.noPhoto}><Icon name="image" size={Math.max(18, 30 * scale)} color="#FFFFFF" /></View>)
+      : <View style={styles.noPhoto}><Icon name="image" size={Math.max(18, 30 * scale)} color={colors.surface} /></View>)
       : <>{stops && <GradientFill stops={stops} initialWidth={bodyWidth} initialHeight={bodyHeight} />}<CoverPattern pattern={cover.pattern.type} tone={cover.pattern.tone} scale={scale} line={lineColor} pixelScale={pixelScale} initialWidth={bodyWidth} initialHeight={bodyHeight} /></>}
     {edit && <Pressable accessibilityLabel="표지 스티커 선택 해제" onPress={() => select(null)} style={StyleSheet.absoluteFill} />}
     <View pointerEvents="none" style={[styles.spine, { width: '4.9%' }]} />

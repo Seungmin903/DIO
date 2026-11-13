@@ -24,10 +24,15 @@ export const isRemoteSticker = (object) => object?.type === 'sticker' && typeof 
 /** PNG/PDF가 공유하는 전용 surface. 편집 UI와 저장 UI는 포함하지 않는다. */
 export default function PageImageSurface({ job }) {
   const { snapshot, signal, resolve, reject } = job
+  // GIF 층 합성(gifLayers.js)용 층: 'base' 는 바탕 · 속지 + 요소(속지 앞 그림 없이), 'middle' 은 요소만, 'top' 은 요소 + 속지 앞 그림.
+  // middle · top 은 투명 바탕으로 찍어 아래 층 위에 덮는다. layer 가 없으면 예전처럼 전부 그린다
+  const layer = snapshot.layer
+  const showBackground = layer !== 'middle' && layer !== 'top'
+  const showFront = layer !== 'base' && layer !== 'middle'
   const [area, setArea] = useState(null)
   const [laidOut, setLaidOut] = useState(false)
   const [loaded, setLoaded] = useState(() => new Set())
-  const [backgroundReady, setBackgroundReady] = useState(!snapshot.template)
+  const [backgroundReady, setBackgroundReady] = useState(!snapshot.template || !showBackground)
   const [fontsReady, setFontsReady] = useState(false)
   useEffect(() => {
     let live = true
@@ -88,8 +93,8 @@ export default function PageImageSurface({ job }) {
     </KeepFont>
   </View>
   return <View style={{ flex: 1 }} onLayout={(event) => setArea(event.nativeEvent.layout)}>
-    {(Platform.OS === 'web' || area?.width > 0 && area?.height > 0) && <View ref={surface} collapsable={false} testID="page-export-surface" onLayout={() => setLaidOut(true)} style={{ width: snapshot.width * scale, height: snapshot.height * scale, backgroundColor: snapshot.background, overflow: 'hidden' }}>
-      {snapshot.template && <View style={{ position: 'absolute', ...exportObjectPosition({ x: 0, y: 0 }, snapshot, scale), width: (snapshot.pageWidth ?? snapshot.width) * scale, height: (snapshot.pageHeight ?? snapshot.height) * scale }}>
+    {(Platform.OS === 'web' || area?.width > 0 && area?.height > 0) && <View ref={surface} collapsable={false} testID="page-export-surface" onLayout={() => setLaidOut(true)} style={{ width: snapshot.width * scale, height: snapshot.height * scale, backgroundColor: showBackground ? snapshot.background : 'transparent', overflow: 'hidden' }}>
+      {snapshot.template && showBackground && <View style={{ position: 'absolute', ...exportObjectPosition({ x: 0, y: 0 }, snapshot, scale), width: (snapshot.pageWidth ?? snapshot.width) * scale, height: (snapshot.pageHeight ?? snapshot.height) * scale }}>
         <PageBackground page={{ id: snapshot.pageId, ...snapshot.template, canvasWidth: snapshot.pageWidth ?? snapshot.width, canvasHeight: snapshot.pageHeight ?? snapshot.height }} zoom={scale} preparedXml={snapshot.backgroundXml} onReady={() => setBackgroundReady(true)} onError={backgroundError} />
       </View>}
       <SkiaPencilScale.Provider value={snapshot.pixelWidth / snapshot.width}>
@@ -103,7 +108,7 @@ export default function PageImageSurface({ job }) {
       {ordinary.map(o => renderObject(o))}
       {/* 발색 기록 속지의 병 윤곽은 획 **위**다(StaticPage 와 같은 차례) — 내보낸 그림도 화면과 같아야 한다.
           snapshot.template 에는 배색이 없어 paperAppearance 를 따로 넘긴다(안 넘기면 바꾼 배색이 기본색으로 나온다) */}
-      {snapshot.template && <View pointerEvents="none" style={{ position: 'absolute', ...exportObjectPosition({ x: 0, y: 0 }, snapshot, scale), width: (snapshot.pageWidth ?? snapshot.width) * scale, height: (snapshot.pageHeight ?? snapshot.height) * scale }}>
+      {snapshot.template && showFront && <View pointerEvents="none" style={{ position: 'absolute', ...exportObjectPosition({ x: 0, y: 0 }, snapshot, scale), width: (snapshot.pageWidth ?? snapshot.width) * scale, height: (snapshot.pageHeight ?? snapshot.height) * scale }}>
         <InkRecordFrontLayer page={{ ...snapshot.template, paperAppearance: snapshot.paperAppearance, canvasWidth: snapshot.pageWidth ?? snapshot.width, canvasHeight: snapshot.pageHeight ?? snapshot.height }} zoom={scale} />
       </View>}
       </SkiaPencilScale.Provider>

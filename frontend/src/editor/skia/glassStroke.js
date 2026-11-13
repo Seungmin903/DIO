@@ -98,7 +98,7 @@ function patch1(d, scale) {
 }
 
 // 획 하나를 그린다. 쓰는 중과 손을 뗀 뒤가 같은 함수를 쓴다(그림이 같다).
-export function drawGlassStroke(canvas, points, width, color, _zoom = 1, ink = {}) {
+export function drawGlassStroke(canvas, points, width, color, _zoom = 1, ink = {}, org = { x: 0, y: 0 }) {
   if (broken || !points?.length || typeof color !== 'string') return false
   const P = GLASS_INK
   // 실패해도 **캔버스 저장 깊이는 들어올 때 그대로** 돌려놔야 한다. 안 그러면 남은 층 · 배율 위로
@@ -108,7 +108,7 @@ export function drawGlassStroke(canvas, points, width, color, _zoom = 1, ink = {
   try {
     // 27판: 고임 장을 픽셀마다 읽는 경로를 먼저 쓴다(웅덩이 안쪽 등고선 테 · 커피링 · 농담 흐름).
     // 셰이더가 안 되는 기기에서는 스스로 꺼지고, 아래 26판 경로(테 띠 폭)로 떨어진다.
-    if (POOLED && !glassPooledFailed() && drawGlassPooled(canvas, points, width, color, _zoom, ink)) { failures = 0; return true }
+    if (POOLED && !glassPooledFailed() && drawGlassPooled(canvas, points, width, color, _zoom, ink, org)) { failures = 0; return true }
     // 표본 수 상한: 아주 긴 획(되돌아오는 스크리블)은 길이가 수만 px 이라 간격을 그대로 두면
     // 표본이 수만 개가 되고 고임 계산이 프레임을 먹는다(실측 260ms). 길이에 맞춰 간격을 벌린다.
     let len = 0

@@ -3,6 +3,61 @@ export const PEN_MATERIAL_RENDER_VERSION = 3
 // 페이지 논리 좌표를 요소 내부 좌표로 변환한다. w/h는 현재 크기,
 // baseWidth/baseHeight는 원래 좌표계이므로 공통 이동·회전·리사이즈를 재사용한다.
 export const DEFAULT_PEN = { color: '#0B1766', width: 3 }
+/**
+ * 유리펜 잉크가 획 실루엣 **밖으로** 번지는 폭(페이지 좌표).
+ *
+ * 유리펜은 필터를 실루엣보다 MARGIN(화면 3px)만큼 부풀린 자리까지 그려 두고, 2026-11-13 부터
+ * 그것을 깎지 않는다 — 깎으면 커피링 · 테가 칼같이 끊겨 그래픽처럼 보였다. 그래서 **번진 자리까지가
+ * 획이다**(사용자 2026-11-13 "리미트 풀린 곳까지를 획으로 하자): 상자 · 지우개 · 선택이 다 같은
+ * 여유를 본다. 안 그러면 눈에 보이는 잉크에 지우개를 대도 안 지워진다.
+ *
+ * 번짐은 MARGIN = **화면 3px** 이라 페이지 단위로는 배율을 탄다(3 ÷ (확대율 × 픽셀비)).
+ * 1.5 는 **확대율 1** 을 기준으로 잡은 값이다(픽셀비 2 에서 정확히 1.5, 2.625 에서 1.14 · 3 에서 1.0).
+ * 확대하면 번짐이 더 좁아지므로 늘 넉넉하다. 축소할 때만 모자라는데, 가장 나쁜 자리(ZOOM_MIN 0.5 ·
+ * 픽셀비 2)에서도 모자람이 1.5 단위 = **화면 1.5px** 뿐이다(픽셀비 2.625 면 화면 1.0px).
+ * 그만큼은 감수한다 —
+ *  · 지우개는 화면 크기로 잡히므로 축소하면 **반지름도 같이 커진다**(확대율 0.5 에서 24 단위).
+ *    모자라는 1.5 단위는 그 반지름의 6% 라, 눈으로 잉크를 겨눈 손이 그 틈에만 떨어지기 어렵다.
+ *  · 값을 2.3~3 으로 키우면 축소는 맞지만 **확대율 1 에서 두 배로 뚱뚱해져** 촘촘히 쓴 글씨에서
+ *    엉뚱한 획이 집힌다. 늘 쓰는 배율을 맞추는 쪽을 골랐다.
+ *
+ * 헤일로(32판, 실루엣 밖으로 번진 연한 고리)는 **일부러 넣지 않았다**(코드리뷰 2026-11-13).
+ * 블러 시그마가 haloSpread 2.5 단위라 눈에 띄는 데까지 5 단위쯤 나가지만, 진하기가 haloAlpha
+ * 0.22 에 고임 비율까지 곱한 값이라 아주 연하다. 그 범위까지 집히게 하면 획 사이가 좁은 글씨에서
+ * 엉뚱한 획이 잡힌다 — 지우개 · 선택은 **눈에 잉크로 보이는 곳**(GLASS_BLEED)까지만 본다.
+ * 그려지는 쪽은 잘리지 않는다: 타일에 획을 넣을 때 쓰는 여유(bakeDelta.js 의 BLEED 8 단위)가
+ * 헤일로가 닿는 5 단위보다 넓고, 헤일로는 경계가 있는 층 밖에서 그린다.
+ */
+export const GLASS_BLEED = 1.5
+
+/**
+ * 유리펜 무늬를 **페이지**에 붙이는 밀어주기. 손을 뗀 획은 요소 좌표(상자 왼쪽 위가 원점)로
+ * 그려지므로, 셰이더에 이 값을 더해야 페이지 자리가 된다.
+ * 그을 때 적어 둔 inkOrigin 을 먼저 쓴다 — 나중에 옮겨도 무늬가 획을 따라가야 하기 때문이다
+ * (연필이 grainOrigin 으로 종이 이빨을 붙이는 것과 같은 생각).
+ * 옛 획에는 그 값이 없으니 **지금 자리**를 쓴다. 옮기면 무늬가 바뀌지만, 모든 획이 같은 무늬를
+ * 받는 것(2026-11-13 에 고친 증상)보다는 낫다.
+ */
+const ORIGIN_ZERO = { x: 0, y: 0 }
+// 옛 획의 대신 값을 **한 번만** 정해 둔다. 그때그때 지금 자리를 읽으면 끌어 옮기는 동안 매 프레임
+// 값이 달라져 ① 무늬가 따라 흔들리고 ② 그림 열쇠(glassKey)가 매번 바뀌어 비싼 셰이더를 다시
+// 녹화한다(코드리뷰 2026-11-13). 점 배열은 옮겨도 그대로라 그걸 열쇠로 쓴다.
+// **옛 획 호환 정책**(코드리뷰 2026-11-13): 적어 둔 값이 없는 획은 처음 본 자리를 그대로 쓴다.
+// 기억은 점 배열에 묶여 있으므로, 점 배열이 **새것이 되는 길**에서는 그때 자리가 새 기준이 된다 —
+// 다시 열기 · 원격 동기화 · 복제가 그렇다(되돌리기 · 다시 하기는 보통 같은 객체를 다시 쓴다).
+// 즉 **옛 획을 옮긴 뒤** 그런 일이 생기면 그 획의 무늬가 달라진다. 감수한다 —
+//  · 이 판 이전 획은 어차피 모두 **같은 무늬**였다. 자리마다 달라지는 것만으로도 나아진다.
+//  · 옮기지 않은 옛 획은 처음 본 자리 = 그은 자리라 어디서 열어도 같다.
+//  · 불러올 때 한 번 적어 두는 길(마이그레이션)도 있지만, 문서가 들어오는 길이 여럿이라
+//    핫픽스 범위에서 뺐다. 새로 긋는 획과 지우개로 자른 조각은 적어 두므로 시간이 지나면 준다.
+const fallbackOrigin = new WeakMap()
+export function glassOrigin(object) {
+  if (object?.inkOrigin) return object.inkOrigin
+  if (!object?.points) return ORIGIN_ZERO
+  let origin = fallbackOrigin.get(object.points)
+  if (!origin) fallbackOrigin.set(object.points, (origin = { x: object.x ?? 0, y: object.y ?? 0 }))
+  return origin
+}
 const SENSOR_PRECISION = { force: 10000, time: 10, speed: 10000, tiltX: 10, tiltY: 10, inkDistance: 10000 }
 const storedPoint = (point, x, y, renderVersion) => {
   const result = { x: point.x - x, y: point.y - y, ...(point.pressure != null && { pressure: point.pressure }) }
@@ -27,7 +82,9 @@ export function createStroke(points, { id, color = DEFAULT_PEN.color, width = DE
   }
   // 스퀘어 끝은 대각선에서도 경계에 잘리지 않도록 여백을 확보한다.
   // 붓펜 머리는 굵기의 1.45배까지 커진다(nibStroke BRUSH_MAX_SCALE). 힘 배율은 아래 pressure 최대값에 이미 들어 있다
+  // 유리펜은 실루엣 밖으로 번진 자리까지가 획이다(GLASS_BLEED) — 양쪽이므로 두 번 더한다
   const padding = width * points.reduce((max, p) => Math.max(max, p.pressure ?? 1), 1) * (kind === 'highlighter' && lineCap === 'square' ? Math.SQRT2 : kind === 'taperBrush' ? 1.45 : 1)
+    + (kind === 'glass' ? 2 * GLASS_BLEED : 0)
   const w = Math.max(20, maxX - minX + padding)
   const h = Math.max(20, maxY - minY + padding)
   const x = (minX + maxX - w) / 2, y = (minY + maxY - h) / 2
@@ -45,6 +102,11 @@ export function createStroke(points, { id, color = DEFAULT_PEN.color, width = DE
     // 예전에는 inkFilm 을 55(은)로 박아 넣어, 맞춤으로 그어도 획은 늘 은빛이었다(2026-11-10).
     // inkGlitterColor 는 아예 빠져 있어서 **직접 고른 글리터 색이 획에 안 남았다**(쓰는 중에는 보이는데
     // 손을 떼면 사라짐 — 쓰는 중에는 설정을 그대로 읽기 때문). 견본(inkFilm)만 되던 이유다.
+    // 유리펜 무늬(농담 · 운모 막 · 테 물결 · 글리터)를 **페이지**에 붙이기 위해 그은 자리를 적어 둔다.
+    // 없으면 셰이더가 획 자기 좌표를 받아 **어디에 긋든 같은 무늬**가 나온다(실기 측정 2026-11-13:
+    // 떨어뜨려 그은 같은 손놀림 두 획의 입자 2162개 중 2158개가 같은 자리였다).
+    // 적어 두면 나중에 옮겨도 무늬가 획을 따라간다 — 연필이 grainOrigin 으로 종이 이빨을 붙이는 것과 같다.
+    ...(kind === 'glass' && { inkOrigin: { x, y } }),
     ...(kind === 'glass' && { inkGlitter: inkGlitter !== false, inkSheen: inkSheen !== false, inkAmount: inkAmount ?? 1, inkSheenAmount: inkSheenAmount ?? 1,
       ...(Number.isFinite(inkFilm) && { inkFilm }), ...(inkGlitterColor && { inkGlitterColor }), ...(inkSheenColor && { inkSheenColor }) }),
     ...(kind === 'pencil' && { grainOrigin: { x: -x, y: -y, seed: brushSeed(points[0]) } }),
@@ -173,6 +235,10 @@ const polygonPath = points => {
 }
 
 // 농도도 화면 x/y가 아닌 실제 누적 이동 거리를 사용한다.
+// 호를 직선으로 나눌 때 허용하는 현 오차(좌표 단위). 0.25 면 화면 픽셀 기준 네 픽셀에 한 번도
+// 티가 안 난다. 더 줄이면 점만 늘고 눈에는 같다.
+const ARC_SAG = 0.25
+
 export function penSweeps(points, width, kind, startDistance = 0, { capStart = true, capEnd = true } = {}) {
   if (!points.length) return []
   const pieces = []
@@ -189,7 +255,13 @@ export function penSweeps(points, width, kind, startDistance = 0, { capStart = t
   }
   const radius = p => width * (p.pressure ?? 1) / 2
   const arc = (p, angle, turn, distance) => {
-    const steps = Math.max(1, Math.ceil(Math.abs(turn) / (Math.PI / 12)))
+    // 호를 **반지름에 맞춰** 나눈다. 15도 고정이면 반원 캡이 12조각(= 24각형)이라, 굵거나 확대하면
+    //   획 시작 · 끝이 원이 아니라 **직선 모음**으로 보인다(사용자 2026-11-13).
+    //   현 오차(원과 직선 사이 가장 먼 거리) = r(1 - cos(θ/2)) 를 ARC_SAG 이하로 두면 그 눈금에서
+    //   둥글게 보인다. 좌표가 화면 픽셀로 들어오는 경로(유리펜)는 그대로 픽셀 기준이 된다.
+    const r = Math.max(0.5, radius(p))
+    const step = Math.min(Math.PI / 12, 2 * Math.acos(Math.max(0, 1 - ARC_SAG / r)))
+    const steps = Math.max(1, Math.ceil(Math.abs(turn) / step))
     const vertices = [p]
     for (let i = 0; i <= steps; i++) {
       const d = offset(angle + turn * i / steps, radius(p))

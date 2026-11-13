@@ -17,6 +17,20 @@ export function snapStraightEnd(start, end) {
   return { ...end, x: start.x + Math.round(Math.cos(rad)) * length, y: start.y + Math.round(Math.sin(rad)) * length }
 }
 
+// 화면 밖 한 페이지 여유까지는 원래 끝점을 유지한다. 그보다 먼 입력은 같은
+// 직선 방향으로만 줄여 서버 숫자 범위와 선택·렌더링 경계가 과도하게 커지지 않게 한다.
+export function boundedStraightEnd(start, end, pageWidth, pageHeight) {
+  const snapped = snapStraightEnd(start, end)
+  const margin = Math.max(pageWidth, pageHeight)
+  const dx = snapped.x - start.x, dy = snapped.y - start.y
+  let t = 1
+  if (dx > 0) t = Math.min(t, (pageWidth + margin - start.x) / dx)
+  if (dx < 0) t = Math.min(t, (-margin - start.x) / dx)
+  if (dy > 0) t = Math.min(t, (pageHeight + margin - start.y) / dy)
+  if (dy < 0) t = Math.min(t, (-margin - start.y) / dy)
+  return t >= 1 ? snapped : { ...snapped, x: start.x + dx * Math.max(0, t), y: start.y + dy * Math.max(0, t) }
+}
+
 // 화면 픽셀 기준으로 정지 여부를 판단해 확대 배율에 따라 감도가 달라지지 않게 한다.
 export function createHighlighterHold({ start, zoom, onStraight, schedule = setTimeout, unschedule = clearTimeout, now = Date.now }) {
   let timer = null, anchor = null, last = start, straight = false, cancelled = false

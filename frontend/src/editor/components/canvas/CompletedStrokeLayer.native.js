@@ -4,7 +4,7 @@ import { BlendMode, Canvas, ClipOp, Group, Image, Picture, Skia } from '@shopify
 import { nowMs, PENCIL_PROFILE, previewPicture, recordProfile, strokesPicture } from '../../skia/strokeSkia.js'
 import { liveStroke } from '../../skia/liveStroke.js'
 import { bakeWindow, coversPage, keepScale, keepWindow, reachOf, reachTouches, sameObjects, stepUpScale } from '../../skia/bakeDelta.js'
-import { TILE, evictTiles, pixelTileScale, tileScreenRect, pendingStrokes, planTiles, removedFrom, removedStrokes, reusable, staleImages, tileKey, tilesBounds } from '../../skia/tileGrid.js'
+import { TILE, evictTiles, pixelTileScale, restClipRects, tileScreenRect, pendingStrokes, planTiles, removedFrom, removedStrokes, reusable, staleImages, tileKey, tilesBounds } from '../../skia/tileGrid.js'
 import { ViewportMotion } from './viewportMotion'
 
 const DRAG_OPACITY = 0.5
@@ -156,6 +156,10 @@ function kindTally(objects) {
   for (const object of objects) { const k = object.penKind ?? '?'; by[k] = (by[k] ?? 0) + 1 }
   return Object.entries(by).map(([k, n]) => `${k}:${n}`).join(' ')
 }
+// 페이지 좌표 네모를 픽셀 경계에 맞춘 네모로. **양 끝을 각각 맞춰** 폭을 빼야 한다 —
+// 폭을 따로 반올림하면 이웃한 두 칸의 맞닿은 변이 서로 다른 자리에 떨어진다.
+const snapRect = (box, snap) => Skia.XYWHRect(snap(box.x), snap(box.y),
+  snap(box.x + box.w) - snap(box.x), snap(box.y + box.h) - snap(box.y))
 const release = baked => { if (baked) setTimeout(() => baked.image.dispose?.(), 1000) }
 const SETTLE_MS = 400
 // 굽는 그림의 픽셀 상한(안전망). 2026-11-10 까지는 **페이지 전체를 확대 배율로** 구워서 확대 3배면
@@ -188,6 +192,14 @@ const TILE_BUDGET_PX = 24e6
 const TailRun = memo(function TailRun({ objects, width, height, zoom, fade }) {
   const live = useSyncExternalStore(liveStroke.subscribe, liveStroke.get, liveStroke.get)
   const screenScale = zoom * PixelRatio.get()
+  // 타일 그림을 **놓는 자리**와 벡터 획을 **잘라 내는 자리**는 한 치도 어긋나면 안 된다.
+  // 어긋난 띠는 둘 다 그려지거나(진해짐) 둘 다 안 그려진다(옅어짐). Multiply 로 얹는 유리펜에서는
+  // 겹친 쪽이 눈에 띄게 진해져 **네모난 테두리**로 보였다(사용자 2026-11-13 "첫 획에서 타일이 보여").
+  // 그래서 둘을 똑같이 **기기 픽셀** 경계에 맞춘다. dp 로만 반올림하면 PixelRatio 가 정수가 아닌
+  // 기기(SM-X510 은 2.625)에서 경계가 픽셀 한가운데 떨어져, 클립은 부드럽게 반만 덮고
+  // 타일 그림(antiAlias={false})은 그 픽셀을 다 덮는다 — 그 한 줄이 두 번 올라간다.
+  const snapPage = v => Math.round(v * screenScale) / screenScale   // 배율 그룹 **안**(페이지 좌표)
+  const snapDp = v => Math.round(v * screenScale) / PixelRatio.get() // 배율 그룹 **밖**(dp)
   // 보이는 범위만 굽는다. 격자에 맞춘 창이라 조금 밀어서는 안 바뀌고, 바뀌면 멈춘 뒤 한 번만 다시 굽는다.
   const motion = useContext(ViewportMotion)
   const moving = motion.moving
@@ -281,7 +293,11 @@ const TailRun = memo(function TailRun({ objects, width, height, zoom, fade }) {
     // 멈추지 않으면 60ms 마다 표면 만들기를 다시 시도한다. 획이 바뀌거나 배율이 바뀌면 다시 시도한다.
     more.current = left.length > 0 && bakeFails.current < MAX_BAKE_FAILS
     if (more.current) unsettled.current = true
-    return { tiles: show, rest: movers ? [...rest, ...movers] : rest, cut: cut.length ? cut : null }
+    // 아직 못 구운 칸의 자리도 함께 돌려준다 — 벡터로 얹는 획을 **그 칸 안으로만** 자르기 위해서다.
+    //   자르지 않으면 이미 구워진 타일에도 같은 획이 겹쳐 그려져 반투명 잉크가 두 번 올라간다
+    //   (사용자 2026-11-13 "타일별로 진해졌다가 원래 색으로 돌아온다").
+    return { tiles: show, rest, movers: movers ?? null, pending: left.map(entry => entry.box),
+      cut: cut.length ? cut : null }
     }
   }, [objects, fade, width, height, scale, win, moving, settled])   // moving: 밀기 시작에 창 밖 바탕을 한 번 굽는다
   useEffect(() => {
@@ -312,8 +328,12 @@ const TailRun = memo(function TailRun({ objects, width, height, zoom, fade }) {
   // 굽는 배율은 화면 배율을 올림한 값이라 덜 또렷해지지 않고(MAX_BAKE_PX 상한에 걸린 창만 예외 — 그때는 타일도 같다),
   // 다 구운 뒤 타일과도 픽셀이 같다.
   const patch = useMemo(() => plan.cut ? patchPicture(plan.cut, objects, scale) : null, [plan, objects, scale])
+  // 끌어 옮기는 중인 획은 타일과 무관하므로 자르지 않고 따로 그린다(배율은 위와 같은 이유로 굽는 배율)
+  const movers = useMemo(() => plan.movers?.length
+    ? strokesPicture(plan.movers, object => fade?.includes(object.id) ? DRAG_OPACITY : 1, scale) : null,
+    [plan, fade, scale])
   const strokes = useMemo(() => {
-    if (!plan.rest.length) return null
+    if (!plan.rest?.length) return null
     const t0 = PENCIL_PROFILE.on ? nowMs() : 0
     const picture = strokesPicture(plan.rest, object => fade?.includes(object.id) ? DRAG_OPACITY : 1, scale)
     if (t0) recordProfile('REST', nowMs() - t0)
@@ -323,11 +343,28 @@ const TailRun = memo(function TailRun({ objects, width, height, zoom, fade }) {
   // 바탕은 **타일이 덮는 네모** 밖에만 깐다. 창(160 격자)으로 자르면 타일(256 칸)이 창 밖으로
   // 뻗은 띠에서 바탕과 타일이 겹쳐 반투명 잉크가 두 번 그려진다.
   const covered = useMemo(() => tilesBounds(win, width, height), [win, width, height])
+  // 벡터로 얹는 획을 자를 자리: **아직 못 구운 칸** + 타일이 덮지 않는 바깥
+  const restClip = useMemo(() => {
+    if (!plan.rest?.length) return null
+    // 자를 네모는 **순수 함수**가 센다(tileGrid 의 restClipRects) — 경로 빼기(PathOp)는 실패하면
+    // null 이 돌아와 조용히 잘못 그려지고 검사하기도 어렵다(코드리뷰 2026-11-13).
+    const rects = restClipRects(plan.pending, covered, width, height)
+    if (!rects.length) return null   // 자를 자리가 없으면 자르지 않는다
+    // 이 바인딩에서 addRect 는 **PathBuilder** 쪽에 있다(SkPath 에는 없다)
+    const build = Skia.PathBuilder.Make()
+    for (const box of rects) build.addRect(snapRect(box, snapPage))
+    return build.detach()
+  }, [plan, covered, width, height, screenScale])
   return <>
   <Canvas pointerEvents="none" style={{ position: 'absolute', left: 0, top: 0, width: width * zoom, height: height * zoom }}>
     {/* 구운 그림은 화면 픽셀 1:1 로(올림한 크기를 페이지 크기로 늘리면 살짝 흐려져 쓰는 중 획과 달라 보였다) */}
     {/* 창 밖 바탕(흐릿) — 또렷한 그림이 덮는 창 안쪽은 잘라 낸다. 겹쳐 그리면 반투명 잉크가 두 번 곱해져 진해진다 */}
-    {wide && plan.tiles.length && covered ? <Group clip={Skia.XYWHRect(covered.x * zoom, covered.y * zoom, covered.w * zoom, covered.h * zoom)} invertClip>
+    {/*
+      잘라 내는 자리를 타일과 **똑같이 반올림**한다. 타일 자리만 정수로 맞추고(아래) 여기를 그대로
+      두면 두 경계가 반 픽셀 어긋나, 그 띠에서 바탕과 타일이 겹쳐 **반투명 잉크가 두 번** 곱해진다
+      — 네모난 테두리가 진하게 떴다(실기 2026-11-13, 타일 반올림을 넣은 뒤 생긴 회귀).
+    */}
+    {wide && plan.tiles.length && covered ? <Group clip={snapRect(covered, snapDp)} invertClip>
       <Image image={wide.image} x={0} y={0} width={width * zoom} height={height * zoom} fit="fill" />
     </Group> : null}
     {/*
@@ -338,10 +375,13 @@ const TailRun = memo(function TailRun({ objects, width, height, zoom, fade }) {
       가장자리도 부드럽게 하지 않아(antiAlias={false}) 한 줄이 **정확히 한 타일에만** 속하게 한다.
     */}
     {plan.tiles.map(tile => <Image key={`${tile.col},${tile.row}`} image={tile.image} antiAlias={false}
-      {...tileScreenRect(tile, zoom)} fit="fill" />)}
+      {...tileScreenRect(tile, zoom, PixelRatio.get())} fit="fill" />)}
     <Group transform={[{ scale: zoom }]}>
       {patch ? <Picture picture={patch} /> : null}
-      {strokes ? <Picture picture={strokes} /> : null}
+      {strokes ? (restClip
+        ? <Group clip={restClip}><Picture picture={strokes} /></Group>
+        : <Picture picture={strokes} />) : null}
+      {movers ? <Picture picture={movers} /> : null}
       {current ? <Picture picture={current} /> : null}
     </Group>
   </Canvas>
