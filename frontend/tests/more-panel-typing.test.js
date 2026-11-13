@@ -9,7 +9,7 @@ const require = createRequire(import.meta.url), expo = createRequire(require.res
 // 옵션 창(MorePanel)이 키보드가 뜰 때와 칸을 옮길 때 적는 칸 자리를 재고 그 칸이 보이게 스크롤하는지
 function fixture({ keyboardVisible = false, focused: initialFocus }) {
   let focused = initialFocus
-  const listeners = {}, typing = [], scrolls = []
+  const listeners = {}, typing = [], scrolls = [], cleanups = []
   let cursor = 0
   const states = []
   const mocks = {
@@ -18,7 +18,7 @@ function fixture({ keyboardVisible = false, focused: initialFocus }) {
       useState: (v) => { const i = cursor++; if (!(i in states)) states[i] = v; return [states[i], (n) => { if (states[i] !== n) { states[i] = n; render() } }] },
       useRef: (v) => { const i = cursor++; if (!(i in states)) states[i] = { current: v }; return states[i] },
       useCallback: (f) => f, useContext: () => () => {},
-      useEffect: (fn) => { fn() },
+      useEffect: (fn) => { const cleanup = fn(); if (typeof cleanup === 'function') cleanups.push(cleanup) },
     },
     'react/jsx-runtime': require('react/jsx-runtime'),
     'react-native': {
@@ -46,7 +46,7 @@ function fixture({ keyboardVisible = false, focused: initialFocus }) {
   all.find((n) => n.type === 'scroll').props.ref.current = { scrollTo: (o) => scrolls.push(o.y) }
   all.find((n) => n.props?.collapsable === false).props.ref.current = {}
   const provider = () => all.find((n) => n.type === 'focus-provider').props.value
-  return { listeners, scrolls, typing, headerShown: () => all.some((n) => n.props?.accessibilityLabel === '옵션 닫기' || n.props?.accessibilityRole === 'tablist'), onInputFocus: () => provider().onFocus(), onInputBlur: () => provider().onBlur(), setFocused: (input) => { focused = input } }
+  return { unmount: () => cleanups.splice(0).forEach((c) => c()), listeners, scrolls, typing, headerShown: () => all.some((n) => n.props?.accessibilityLabel === '옵션 닫기' || n.props?.accessibilityRole === 'tablist'), onInputFocus: () => provider().onFocus(), onInputBlur: () => provider().onBlur(), setFocused: (input) => { focused = input } }
 }
 function nodes(value) {
   if (!value || typeof value !== 'object') return []
@@ -114,4 +114,21 @@ test('창 안 다른 칸으로 옮기거나 포커스 칸이 없으면(키보드
   assert.equal(panel.typing.at(-1), true)
   panel.listeners.keyboardDidHide()
   assert.equal(panel.typing.at(-1), false)
+})
+
+test('포커스가 빠진 뒤의 확인은 하나만 예약하고, 창이 닫히면 지운다', async () => {
+  let measured = 0
+  const outside = { measureLayout: (relative, ok, fail) => { measured++; fail() } }
+  const panel = fixture({ keyboardVisible: true, focused: inputAt(100) })
+  panel.listeners.keyboardDidShow()
+  panel.setFocused(outside)
+  panel.onInputBlur()
+  panel.onInputBlur() // 연달아 빠져도 확인은 한 번
+  await tick()
+  assert.equal(measured, 1)
+  // 확인 전에 창이 닫히면(옵션 닫기 · 선택 해제) 사라진 창을 재지 않는다
+  panel.onInputBlur()
+  panel.unmount()
+  await tick()
+  assert.equal(measured, 1)
 })

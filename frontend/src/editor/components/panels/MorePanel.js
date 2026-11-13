@@ -48,14 +48,19 @@ export default function MorePanel({ objects, dispatch, onReplacePhoto, onReplace
   }
   // 창 안 칸에서 포커스가 빠지면, 옮겨 간 칸이 창 밖(캔버스 글상자 등)일 때 적기를 끝낸다(창을 제자리로 · 올린 보기를 되돌린다).
   // 포커스가 넘어간 뒤에 알 수 있어 한 박자 늦게 본다. 포커스 칸이 아예 없으면 키보드가 내려가며 keyboardDidHide 가 끝낸다
+  // 예약은 하나만 둔다(새로 빠지면 앞 예약을 지운다). 창이 닫히면 지워 사라진 창의 상태를 바꾸지 않는다
+  const blurTimer = useRef(null)
   const inputFocus = {
     onFocus: () => { if (Keyboard.isVisible?.()) measureTyping() },
-    onBlur: () => setTimeout(() => measureTyping(() => setTyping(false)), 0),
+    onBlur: () => {
+      clearTimeout(blurTimer.current)
+      blurTimer.current = setTimeout(() => { blurTimer.current = null; measureTyping(() => setTyping(false)) }, 0)
+    },
   }
   useEffect(() => {
     const show = Keyboard.addListener('keyboardDidShow', () => measureTyping())
     const hide = Keyboard.addListener('keyboardDidHide', () => setTyping(false))
-    return () => { show.remove(); hide.remove() }
+    return () => { show.remove(); hide.remove(); clearTimeout(blurTimer.current) }
     // measureTyping 은 ref 만 쓴다
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
