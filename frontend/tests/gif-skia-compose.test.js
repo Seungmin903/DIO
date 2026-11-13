@@ -70,3 +70,23 @@ test('Skia 합성은 장면이 바뀌면 바뀐 장면을 그린다', { skip }, 
     assert.ok(compare(second, js).mean < 1.5)
   } finally { composer.dispose(); frames.s = frame(0) }
 })
+
+test('이미지로 올린 Data 손잡이는 이미지를 만든 뒤 바로 놓고, 만들다 실패해도 놓는다', { skip }, () => {
+  const made = []
+  const counting = (failUpload = false) => ({
+    ...runtime,
+    Skia: {
+      ...runtime.Skia,
+      Data: { ...runtime.Skia.Data, fromBytes: (bytes) => { const data = runtime.Skia.Data.fromBytes(bytes), entry = { disposed: false }; made.push(entry); return Object.assign(Object.create(Object.getPrototypeOf(data)), data, { dispose: () => { entry.disposed = true; data.dispose?.() } }) } },
+      Image: { ...runtime.Skia.Image, MakeImage: failUpload ? () => null : runtime.Skia.Image.MakeImage.bind(runtime.Skia.Image) },
+    },
+  })
+  const composer = createSkiaComposer(counting(), { segments, layers, pageWidth: W, pageHeight: H, ratio, frameOf })
+  composer.compose({ x: 0, y: 0, width: W, height: H })
+  assert.ok(made.length >= 2, '층과 장면을 올렸다')
+  assert.ok(made.every((d) => d.disposed), '이미지를 만든 뒤 Data 를 놓았다')
+  composer.dispose()
+  made.splice(0)
+  assert.throws(() => createSkiaComposer(counting(true), { segments, layers, pageWidth: W, pageHeight: H, ratio, frameOf }))
+  assert.ok(made.length > 0 && made.every((d) => d.disposed), '실패해도 Data 를 놓았다')
+})

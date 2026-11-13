@@ -11,7 +11,12 @@ export function createSkiaComposer(runtime, { segments, layers, pageWidth, pageH
   const owned = []
   const own = (resource) => { if (resource) owned.push(resource); return resource }
   const imageOf = (rgba, width, height) => {
-    const image = Skia.Image.MakeImage({ width, height, colorType: ColorType.RGBA_8888, alphaType: AlphaType.Unpremul }, Skia.Data.fromBytes(rgba), width * 4)
+    // 앱 Skia 의 이미지는 Data 를 따로 붙잡고(RasterFromData) 이미지를 해제할 때 함께 놓는다. 그래서 Data 손잡이는 바로 놓아
+    // GC 를 기다리며 네이티브 메모리를 잡고 있지 않게 한다 (만들다 실패해도)
+    const data = Skia.Data.fromBytes(rgba)
+    let image
+    try { image = Skia.Image.MakeImage({ width, height, colorType: ColorType.RGBA_8888, alphaType: AlphaType.Unpremul }, data, width * 4) }
+    finally { try { data.dispose?.() } catch {} }
     if (!image) throw new Error('Skia image upload failed')
     return own(image)
   }
