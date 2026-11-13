@@ -57,8 +57,10 @@ export async function get(id) {
   } catch (error) { throw storageError(error, 'STORAGE_READ_FAILED') }
 }
 
-export async function entries() {
+export async function entries({ idsOnly = false } = {}) {
   const keys = (await AsyncStorage.getAllKeys()).filter((key) => key.startsWith(KEY))
+  // 개수 집계에는 저장 키만 필요하다. 삭제 시 메타데이터 키도 함께 제거한다.
+  if (idsOnly) return keys.map(key => ({ id: key.slice(KEY.length) }))
   const records = await AsyncStorage.multiGet(keys)
   return records.flatMap(([, raw]) => {
     if (!raw) return []

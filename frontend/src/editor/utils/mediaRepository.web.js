@@ -70,7 +70,11 @@ export async function get(id) {
   } catch (error) { throw storageError(error, 'STORAGE_READ_FAILED') }
 }
 
-export async function entries() {
+export async function entries({ idsOnly = false } = {}) {
+  if (idsOnly) {
+    const request = await transaction('readonly', tx => tx.objectStore('blobs').getAllKeys())
+    return request.result.map(id => ({ id }))
+  }
   const items = await transaction('readonly', (tx) => {
     const results = []
     const keys = tx.objectStore('blobs').getAllKeys()

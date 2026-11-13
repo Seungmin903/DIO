@@ -11,6 +11,26 @@ const form = { title: '회원 다이어리', color: '#123456', pattern: null, pa
   templateConfig: { version: 2, dateMode: 'undated', orientation: 'portrait', cover: false, dividers: false, monthly: false, weekly: false, daily: false, reusable: [], legacyEndPages: [] } }
 const copy = v => JSON.parse(JSON.stringify(v))
 
+test('개인 다이어리가 5개면 새 생성 요청과 대기 기록을 만들지 않는다', async () => {
+  const f = fixture()
+  const store = createMemberAppStore({
+    accountId: '101', storage: f.storage, serverLibrary: true, makeRequestId: () => 'limit-test-key',
+    api: {
+      ...f.api,
+      async list(options) {
+        if (options.filter !== 'personal') return { items: [], hasNext: false }
+        assert.equal(options.limit, 5)
+        return { items: Array.from({ length: 5 }, (_, index) => ({ id: String(index) })) }
+      },
+    },
+  })
+  await store.load()
+  await assert.rejects(store.checkPersonalDiaryCapacity(), { code: 'PERSONAL_DIARY_LIMIT_REACHED' })
+  await assert.rejects(store.create(form), { code: 'PERSONAL_DIARY_LIMIT_REACHED' })
+  assert.equal(store.getSnapshot().pending, null)
+  assert.equal(f.calls, 0)
+})
+
 test('서버 커서를 끝까지 읽어 다른 기기 자료를 표시하고 문서는 만들지 않는다', async () => {
   const f=fixture(), remote={...f.row,id:'99999999-2222-3333-4444-555555555555',canEdit:false,pageCount:17,isShared:true}; const calls=[]
   const store=createMemberAppStore({accountId:'101',storage:f.storage,makeRequestId:()=> 'list-test-key',api:{...f.api,list:async options=>{

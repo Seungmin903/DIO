@@ -13,13 +13,14 @@ function fixture({account='1',diaryAccount='1'}={}){
  const row={mediaFileId:id,mediaType:'IMAGE',originalFilename:'기록.gif',fileSize:1024}
  const mocks={
   '@react-native-async-storage/async-storage':{setItem:async(...args)=>mappings.push(args)},
+  '../../editor/utils/mediaRepository':{entries:async()=>[]},
   './memberStorage.js':{memberDocumentKey:()=> 'account-doc'},
   '../../editor/services/mediaStore':{mediaService:{get:async()=>({media:{width:100,height:200,extension:'gif'}})}},
   '../../editor/utils/mediaImport.js':{mediaDisplayName:()=> '기록'},
   'expo/fetch':{fetch:()=>{}},
   '../../auth/authService':{authService:{getSessionKey:()=>session,getCurrentUserId:()=>currentAccount},apiBaseUrl:'https://dio.test/api/v1'},
   './memberTransport.js':{createAuthenticatedMemberTransport:()=>()=>{}},
-  '../../collaboration/canvasMedia.js':{createMediaRequest:()=>()=>{}},
+  '../../collaboration/canvasMedia.js':{createMediaRequest:options=>{assert.equal(options.photoStorage,mocks['@react-native-async-storage/async-storage']);assert.equal(options.photoEntries,mocks['../../editor/utils/mediaRepository'].entries);return ()=>{}}},
   './mediaLibraryApi.js':{canSelectMediaPhoto,mediaLibrarySizeMessage,createMediaLibraryApi:()=>({get:async()=>row,file:async()=>{downloads++;return new Uint8Array([1])},thumbnail:async()=>{thumbnails++;return new Uint8Array([137,80,78,71,13,10,26,10])}})},
   './mediaThumbnailCache.js':{createMediaThumbnailCache},
   './mediaThumbnailFiles':{createMediaThumbnailFiles:()=>({read:async()=>null,write:async()=> 'thumbnail-uri',remove:async()=>{}})},

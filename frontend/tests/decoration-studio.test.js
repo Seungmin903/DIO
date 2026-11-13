@@ -26,7 +26,7 @@ function fixture({ supported = false, failFonts = false, family = null, failRemo
     useEffect(fn, next) { const i = ei++; if (!deps[i] || next.some((v,k)=>v!==deps[i][k])) { cleanups[i]?.(); deps[i] = next; cleanups[i] = fn() } },
     useSyncExternalStore: (_subscribe, snapshot) => snapshot(),
   }
-  const custom = { loaded: true, items: { folders: [{ id: 'f1', name: '공용 폴더', items: [{ emoji: '🌼' }] }] },
+  const custom = { loaded: true, checkTapeCapacity() {}, items: { folders: [{ id: 'f1', name: '공용 폴더', items: [{ emoji: '🌼' }] }] },
     saveGenerated: async (...args) => { saves.push(args); return 'new-folder' },
     addFolder: name => { custom.items.folders.push({ id: 'f-new', name, items: [] }); return 'f-new' },
     renameFolder: (id, name) => { custom.items.folders.find(f => f.id === id).name = name },

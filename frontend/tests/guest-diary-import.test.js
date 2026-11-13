@@ -110,14 +110,99 @@ function fakeServer({ serverId = ids() } = {}) {
   return { transport, files, mediaRequest, diaries, pages, ops, media, calls, failNext: fn => { failOnce = fn } }
 }
 
-function importer(server, storage, { createId = ids(), isActive = () => true, removeOriginal } = {}) {
+function importer(server, storage, { createId = ids(), isActive = () => true, removeOriginal, personalCount = 0 } = {}) {
   const api = createMemberDiaryApi(server.transport,{media:createCanvasMedia({request:server.mediaRequest,files:server.files,storage,key:'cover-uploads'})})
   const canvas = createCanvasApi(server.transport)
   const mediaFor = diaryId => createCanvasMedia({ request: server.mediaRequest, files: server.files, storage, key: `dio:member:v1:${accountId}:doc:${diaryId}:media-uploads:v1:test` })
-  return createGuestDiaryImporter({ accountId, storage, api, transport: server.transport, canvas, mediaFor, createId, isActive, removeOriginal,
+  return createGuestDiaryImporter({ accountId, storage, api: { ...api, list: async () => ({ items: Array(personalCount + server.diaries.size).fill(null) }) }, transport: server.transport, canvas, mediaFor, createId, isActive, removeOriginal,
     loadGuestDoc: async diary => JSON.parse(await storage.getItem(`${STORAGE_KEYS.doc}:${diary.id}`) ?? 'null'), now: () => '2026-11-02T01:00:00.000Z' })
 }
 const guestStorage = () => memoryStorage({ [STORAGE_KEYS.diaries]: JSON.stringify([guestDiary, { id: 'diary-2', title: '버린 것', trashedAt: '2026-10-01T00:00:00Z' }]), [`${STORAGE_KEYS.doc}:diary-1`]: JSON.stringify(guestDoc()) })
+
+test('서버 생성 전 중단된 옮기기도 재개 직전에 개인 다이어리 한도를 확인한다', async () => {
+  const storage = guestStorage(), server = fakeServer(), send = server.transport, removed = []
+  server.transport = async request => {
+    if (request.path === '/member/diaries' && request.method === 'POST') throw Object.assign(Error('offline'), { code: 'NETWORK_ERROR' })
+    return send(request)
+  }
+  await importer(server, storage).run([guestDiary])
+  const before = (await readJournal(storage)).diaries[guestDiary.id]
+  assert.equal(before.diaryId, null)
+  server.transport = send
+  const result = await importer(server, storage, { personalCount: 5, removeOriginal: async id => removed.push(id) }).run([guestDiary])
+  assert.equal(result.failed[0].error.code, 'PERSONAL_DIARY_LIMIT_REACHED')
+  assert.equal(server.diaries.size, 0)
+  assert.deepEqual(removed, [])
+  assert.equal((await readJournal(storage)).diaries[guestDiary.id].requestId, before.requestId)
+  assert.ok(await storage.getItem(`${STORAGE_KEYS.doc}:${guestDiary.id}`))
+})
+
+test('개인 4권에서 생성 전 재개 항목과 새 항목을 실행해도 하나만 생성한다', async () => {
+  const storage = guestStorage(), server = fakeServer(), send = server.transport
+  server.transport = async request => {
+    if (request.path === '/member/diaries' && request.method === 'POST') throw Object.assign(Error('offline'), { code: 'NETWORK_ERROR' })
+    return send(request)
+  }
+  await importer(server, storage).run([guestDiary])
+  server.transport = send
+  const second = { ...guestDiary, id: 'new-guest' }
+  await storage.setItem(`${STORAGE_KEYS.doc}:${second.id}`, JSON.stringify(guestDoc()))
+  const result = await importer(server, storage, { personalCount: 4 }).run([guestDiary, second])
+  assert.equal(result.imported.length, 1)
+  assert.equal(result.failed[0].guestDiaryId, second.id)
+  assert.equal(result.failed[0].error.code, 'PERSONAL_DIARY_LIMIT_REACHED')
+  assert.equal(server.diaries.size, 1)
+  assert.ok(await storage.getItem(`${STORAGE_KEYS.doc}:${second.id}`))
+})
+
+test('서버 다이어리가 이미 있는 재개 항목은 개인 5권이어도 같은 다이어리로 이어 간다', async () => {
+  const storage = guestStorage(), server = fakeServer(), upload = server.mediaRequest
+  server.mediaRequest = async () => { throw Object.assign(Error('offline'), { code: 'NETWORK_ERROR' }) }
+  await importer(server, storage).run([guestDiary])
+  assert.ok((await readJournal(storage)).diaries[guestDiary.id].diaryId)
+  server.mediaRequest = upload
+  const result = await importer(server, storage, { personalCount: 4 }).run([guestDiary])
+  assert.equal(result.failed.length, 0)
+  assert.equal(result.imported.length, 1)
+  assert.equal(server.diaries.size, 1)
+})
+
+for (const status of [0, 400, 409, 413]) test(`사진 한도 오류(status ${status})는 옮기기를 미완료로 두고 게스트 원본을 보존한다`, async () => {
+  const storage = guestStorage(), server = fakeServer(), removed = []
+  const doc = guestDoc()
+  doc.pages = [{ ...doc.pages[0], objects: [doc.pages[0].objects[1]] }]
+  const original = JSON.stringify(doc)
+  await storage.setItem(`${STORAGE_KEYS.doc}:diary-1`, original)
+  const upload = server.mediaRequest
+  server.mediaRequest = async () => { throw Object.assign(Error('사진 저장 한도는 200장이에요.'), { code: 'STORAGE_LIMIT_REACHED', status }) }
+  const removeOriginal = async id => { removed.push(id); return true }
+  const result = await importer(server, storage, { removeOriginal }).run([guestDiary])
+  assert.equal(result.imported.length, 0)
+  assert.equal(result.failed[0].error.code, 'STORAGE_LIMIT_REACHED')
+  assert.deepEqual(removed, [])
+  assert.equal(await storage.getItem(`${STORAGE_KEYS.doc}:diary-1`), original)
+  assert.equal((await readGuestImportLedger(storage)).imports[guestDiary.id]?.[accountId], undefined)
+  const pending = (await readJournal(storage)).diaries[guestDiary.id]
+  assert.ok(pending)
+  assert.ok(!pending.skipped.some(row => row.kind === 'media'))
+  server.mediaRequest = upload
+  const retried = await importer(server, storage, { removeOriginal }).run([guestDiary])
+  assert.equal(retried.failed.length, 0)
+  assert.equal(retried.imported.length, 1)
+  assert.equal(server.diaries.size, 1)
+})
+
+test('회원 개인 다이어리가 다섯 권이면 옮기지 않고 원본을 보존한다', async () => {
+  const server = fakeServer(), storage = guestStorage()
+  const runner = importer(server, storage, { personalCount: 5 })
+  assert.equal(await runner.availableSlots(), 0)
+  const result = await runner.run([guestDiary])
+  assert.equal(result.imported.length, 0)
+  assert.equal(result.failed[0].error.code, 'PERSONAL_DIARY_LIMIT_REACHED')
+  assert.equal(server.diaries.size, 0)
+  assert.deepEqual(await runner.pendingIds(), [])
+  assert.ok(await storage.getItem(`${STORAGE_KEYS.doc}:${guestDiary.id}`))
+})
 
 test('계획: 속지는 서버 카탈로그로, 날짜 속지는 만년형 행 + 날짜 ID, 글꼴 · 날짜 · 크기 · 이름 · 격자는 만든 뒤 PATCH 로 보낸다', () => {
   const plan = planGuestDiary(guestDiary, guestDoc(), { createId: ids() })

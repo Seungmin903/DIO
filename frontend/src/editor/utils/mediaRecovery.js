@@ -12,6 +12,11 @@ export function validateStoredOriginal(header, size, metadata) {
 
 export function mediaFailureMessage(error) {
   switch (error?.code) {
+    case 'STORAGE_LIMIT_REACHED':
+    case 'MEMBER_PHOTO_INDEX_DAMAGED':
+    case 'GUEST_PHOTO_INDEX_DAMAGED':
+    case 'PHOTO_LIBRARY_NOT_READY': return error.message || '이미지를 불러오지 못했어요. 다시 시도해 주세요.'
+    case 'PHOTO_CAPACITY_CHECK_FAILED': return '사진 보관함을 확인하지 못했어요. 다시 시도해 주세요.'
     case 'MEDIA_NOT_FOUND': return '저장된 원본을 찾을 수 없어요. 기존 요소는 유지돼요. 원본 파일을 다시 선택해 주세요.'
     case 'MEDIA_CORRUPT':
     case 'MEDIA_DECODE_FAILED': return '이미지가 손상되었거나 표시할 수 없어요. 원본 파일을 다시 선택해 주세요.'

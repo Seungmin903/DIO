@@ -9,11 +9,13 @@ import { createMemberAppStore } from '../services/memberAppStore.js'
 import { createId } from '../../editor/utils/common.js'
 import { createCanvasMedia, createMediaRequest } from '../../collaboration/canvasMedia.js'
 import { canvasMediaFiles } from '../../editor/services/canvasMediaFiles'
+import AsyncStorage from '@react-native-async-storage/async-storage'
+import { entries } from '../../editor/utils/mediaRepository'
 
 export function useMemberDiaries(accountId) {
   const sessionKey = authService.getMemberSessionKey(accountId)
   const store = useMemo(() => {
-    const media=createCanvasMedia({request:createMediaRequest({auth:authService,accountId,sessionKey,baseUrl:apiBaseUrl,fetchImpl:memberFetch}),
+    const media=createCanvasMedia({request:createMediaRequest({auth:authService,accountId,sessionKey,baseUrl:apiBaseUrl,fetchImpl:memberFetch,photoStorage:AsyncStorage,photoEntries:entries}),
       files:canvasMediaFiles,storage:documentStorage,key:`dio:cover-uploads:${accountId}:${apiBaseUrl}`,
       isActive:()=>authService.getSessionKey()===sessionKey})
     const result=createMemberAppStore({ accountId, storage: documentStorage, makeRequestId: () => createId(), serverLibrary: true,

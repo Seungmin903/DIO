@@ -19,11 +19,12 @@ import {collaborationReducer} from '../src/collaboration/collaborationReducer.js
 const require=createRequire(import.meta.url),expo=createRequire(require.resolve('expo/package.json'))
 const {code}=expo('@babel/core').transformSync(readFileSync(new URL('../src/editor/hooks/useMemberCanvasCollaboration.js',import.meta.url),'utf8'),{configFile:false,babelrc:false,plugins:[expo.resolve('@babel/plugin-transform-modules-commonjs')]})
 const pageId='10000000-0000-4000-8000-000000000001',diaryId='20000000-0000-4000-8000-000000000001',id='30000000-0000-4000-8000-000000000001'
-function fixture(failure=null,shared=false,sourceDiaryId=diaryId){
+function fixture(failure=null,shared=false,sourceDiaryId=diaryId,pageCount=1){
  let cursor=0,dirty=true,output,closed=false,key='session',sequence=0,rows=[],serverPages=[],serverOrder=[],deleted=new Set(),onChange,onReady,onPagesChanged
  let state=createInitialState({id:diaryId,pages:[{id:pageId,objects:[]}]}),version=0
  const slots=[],effects=[],cleanups=[],disk=new Map(),requests=[]
  const basePage={pageId,diaryId,title:'기존 페이지',canvasWidth:1188,canvasHeight:840,templateId:null,templateConfig:{blank:true},gridVisible:false,gridColor:'#DCE5F1'}
+ serverPages=Array.from({length:pageCount-1},(_,index)=>({...basePage,pageId:'70000000-0000-4000-8000-'+String(index+2).padStart(12,'0')}))
  const orderedPages=()=>{const pages=[basePage,...serverPages].filter(p=>!deleted.has(p.pageId));const order=[...serverOrder,...pages.map(p=>p.pageId).filter(id=>!serverOrder.includes(id))];return pages.sort((a,b)=>order.indexOf(a.pageId)-order.indexOf(b.pageId))}
  const transport=async r=>{requests.push(structuredClone(r));if(failure)throw failure;
    if(r.path===`/diaries/${diaryId}/members`)return {members:[{userId:'1',role:'OWNER'},...(shared?[{userId:'2',role:'EDITOR'}]:[])]}
@@ -76,11 +77,13 @@ function fixture(failure=null,shared=false,sourceDiaryId=diaryId){
   if(name.endsWith('/authService'))return {authService:{getSessionKey:()=>key,getAccessToken:async()=>'token'},apiBaseUrl:'https://qa.test/api/v1',accessTokenHeader:'Authorization'}
   if(name.endsWith('/memberTransport.js'))return {createAuthenticatedMemberTransport:()=>transport}
   if(name.endsWith('/memberStorage.js'))return memberStorage
+  if(name.endsWith('/freeTierLimits.js'))return require('../src/shared/freeTierLimits.js')
   if(name.endsWith('/serverPages.js'))return pagesModule
   if(name.endsWith('/canvasFetch.js'))return canvasFetchModule
   if(name.endsWith('/pdfSourceRemote.js'))return pdfSourceRemoteModule
   if(name.endsWith('/canvasMedia.js'))return mediaModule
   if(name.endsWith('/canvasMediaFiles'))return {canvasMediaFiles:{cached:async()=>true}}
+  if(name.endsWith('/mediaRepository'))return {entries:async()=>[]}
   if(name.endsWith('/canvasApi.js'))return apiModule
   if(name.endsWith('/diaryFonts.js'))return diaryFontsModule
   if(name.endsWith('/fontShareConsent.js'))return {fontShareConsentBeforeShare:async()=>'denied',askFontShareConsent:async()=>false}
@@ -97,7 +100,7 @@ function fixture(failure=null,shared=false,sourceDiaryId=diaryId){
  const module={exports:{}};new Function('require','module','exports',code)(load,module,module.exports)
  const dispatch=action=>{state=collaborationReducer(editorReducer,state,{collaborationId:`50000000-0000-4000-8000-${String(++sequence).padStart(12,'0')}`,...action});dirty=true}
  const render=()=>{cursor=0;dirty=false;output=module.exports.useMemberCanvasCollaboration({diary:{id:sourceDiaryId,source:'member-api',memberAccountId:'1'},page:state.doc.pages.find(p=>p.id===state.pageId)??state.doc.pages[0],state,loaded:true,readOnly:false,dispatch});effects.splice(0).forEach(f=>f())}
- return {state:()=>state,edit:dispatch,updatePage:(id,body)=>output.updatePage(id,body),loadPageSettings:id=>output.loadPageSettings(id),remoteSettings:body=>{Object.assign(basePage,body);onPagesChanged()},addPage:value=>output.addPage(value),copyPage:id=>output.copyPage(id),removePages:ids=>output.removePages(ids),movePage:(id,toIndex)=>output.movePage(id,toIndex),movePages:(ids,anchorId,place)=>output.movePages(ids,anchorId,place),remoteOrder:ids=>{serverOrder=ids;onPagesChanged()},remoteDelete:id=>{deleted.add(id);onPagesChanged()},status:()=>output.status,errorMessage:()=>output.errorMessage,requests,
+ return {state:()=>state,edit:dispatch,updatePage:(id,body)=>output.updatePage(id,body),loadPageSettings:id=>output.loadPageSettings(id),remoteSettings:body=>{Object.assign(basePage,body);onPagesChanged()},addPage:value=>output.addPage(value),addPdfPages:pages=>output.addPdfPages(pages),copyPage:id=>output.copyPage(id),removePages:ids=>output.removePages(ids),movePage:(id,toIndex)=>output.movePage(id,toIndex),movePages:(ids,anchorId,place)=>output.movePages(ids,anchorId,place),remoteOrder:ids=>{serverOrder=ids;onPagesChanged()},remoteDelete:id=>{deleted.add(id);onPagesChanged()},status:()=>output.status,errorMessage:()=>output.errorMessage,requests,
    async settle(){for(let i=0;i<30;i++){if(dirty&&!closed)render();await new Promise(r=>setTimeout(r,5))}},
    remoteAdd(object){rows.push({...apiModule.canvasContent([object])[0],pageId,version:++version});onChange({pageId,clientOperationId:'other'})},
    remote(text){rows[0]={...rows[0],version:++version,propertiesJson:{text}};onChange({pageId,clientOperationId:'other'})},
@@ -345,4 +348,20 @@ test('내 계정이 낸 서버 에코는 재조회하지 않고, 다른 계정�
   await failing.settle();failing.edit({type:'addObjects',objects:[{id,type:'text',text:'A',x:1,y:2,w:40,h:20}]});await failing.settle()
   assert.equal(failing.state().collaborationEdits.length,0,'동기화가 실패해도 저널에 넣은 편집의 전송 확인은 나간다');assert.equal(failing.status(),'error')
  }finally{failing.close()}
+})
+
+test('150쪽에서는 추가·복제를 거부하고 149쪽의 PDF 두 쪽 추가도 요청 전에 거부한다',async()=>{
+ for(const count of [149,150]){
+  const app=fixture(null,false,diaryId,count)
+  try{
+   await app.settle()
+   const before=app.requests.length
+   if(count===150){
+    await assert.rejects(app.addPage(null),/최대 150쪽/)
+    await assert.rejects(app.copyPage(pageId),/최대 150쪽/)
+   }
+   await assert.rejects(app.addPdfPages([{},{}]),/최대 150쪽/)
+   assert.equal(app.requests.slice(before).some(request=>request.method==='POST'),false)
+  }finally{app.close()}
+ }
 })

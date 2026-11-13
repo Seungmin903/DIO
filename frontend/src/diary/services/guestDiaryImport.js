@@ -19,6 +19,7 @@ import { FALLBACK_COVER_COLOR } from '../constants.js'
 import { memberKeys } from './memberStorage.js'
 import { serverPaperAppearance } from './serverPaperFont.js'
 import { createGuestImportJournalStore } from './guestImportJournal.js'
+import { PERSONAL_DIARY_LIMIT } from '../../shared/freeTierLimits.js'
 
 const copy = value => JSON.parse(JSON.stringify(value))
 const uuid = value => typeof value === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)
@@ -244,6 +245,8 @@ export async function sweepMovedGuestDiaries(storage, accountId, removeOriginal)
 // ---------- 실행 ----------
 
 const permanentMediaError = error => {
+  // 저장 한도는 소재 손상이 아니다. 원본과 재시도할 묶음을 보존한다.
+  if (error?.code === 'STORAGE_LIMIT_REACHED') return false
   const status = error?.status ?? 0
   return [400, 413, 415, 422].includes(status)
     // status 없는 기기 파일 오류만 확정 누락 처리한다. 서버의 403/404/409는 재시도 대상으로 둔다.
@@ -252,7 +255,7 @@ const permanentMediaError = error => {
 
 /** 서버가 바쁠 때(동시 업로드 3개 한도, 503 MEDIA_UPLOAD_BUSY) 잠시 기다렸다 다시 보낸다. */
 export function withUploadRetry(request, { wait = ms => new Promise(resolve => setTimeout(resolve, ms)), delays = [500, 1500, 4000] } = {}) {
-  return async (path, options) => {
+  const retry = async (path, options) => {
     for (let attempt = 0; ; attempt++) {
       try { return await request(path, options) }
       catch (error) {
@@ -261,6 +264,7 @@ export function withUploadRetry(request, { wait = ms => new Promise(resolve => s
       }
     }
   }
+  return Object.assign(retry, request)
 }
 
 /**
@@ -286,6 +290,13 @@ export function createGuestDiaryImporter({ accountId, storage, api, transport, c
     return journal
   }
   const persist = () => journalStore.save(journal)
+
+  async function availableSlots() {
+    assertActive()
+    const { items } = await api.list({ filter: 'personal', limit: PERSONAL_DIARY_LIMIT })
+    assertActive()
+    return Math.max(0, PERSONAL_DIARY_LIMIT - items.length)
+  }
 
   async function prepareRows(media, rows) {
     // 요소마다 따로 올린다: 한 장이 실패해도(너무 큰 GIF · 지운 사진) 나머지는 옮긴다.
@@ -338,9 +349,14 @@ export function createGuestDiaryImporter({ accountId, storage, api, transport, c
       return recorded
     }
     let entry = journal.diaries[diary.id]
+    let capacityChecked = false
     if (!entry) {
       const doc = await loadGuestDoc(diary)
       assertActive()
+      if (!await availableSlots()) {
+        throw failure('PERSONAL_DIARY_LIMIT_REACHED', '개인 다이어리 자리를 비운 뒤 다시 옮겨 주세요. 원본은 이 기기에 남아 있어요.')
+      }
+      capacityChecked = true
       const plan = planGuestDiary(diary, doc, { createId })
       entry = journal.diaries[diary.id] = { requestId: createId(), plan, diaryId: null, pageIds: null, settingsDone: [], batchesDone: [], favoriteDone: false, skipped: [...plan.skipped], startedAt: now(), contentStamp: guestContentStamp(diary, doc) }
     }
@@ -351,6 +367,9 @@ export function createGuestDiaryImporter({ accountId, storage, api, transport, c
     let done = 0
     const step = () => { assertActive(); onProgress?.({ guestDiaryId: diary.id, done: ++done, total: total() }) }
     if (!entry.diaryId) {
+      if (!capacityChecked && !await availableSlots()) {
+        throw failure('PERSONAL_DIARY_LIMIT_REACHED', '개인 다이어리 자리를 비운 뒤 다시 옮겨 주세요. 원본은 이 기기에 남아 있어요.')
+      }
       // 같은 생성 키로 다시 보내면 서버는 처음 만든 다이어리를 돌려준다(24시간 보관).
       await persist() // 이전 저장 실패 뒤 같은 실행기로 재시도해도 요청 전에는 반드시 기록을 확정한다.
       let result
@@ -463,8 +482,12 @@ export function createGuestDiaryImporter({ accountId, storage, api, transport, c
   }
 
   return {
+    availableSlots,
     /** 진행 중이던(앱이 꺼져 끝나지 않은) 가져오기가 있는 게스트 다이어리 id */
-    async pendingIds() { return journal ? Object.keys(journal.diaries) : journalStore.pendingIds() },
+    async pendingIds({ createdOnly = false } = {}) {
+      return journal ? Object.entries(journal.diaries).filter(([, entry]) => !createdOnly || entry.diaryId).map(([id]) => id)
+        : journalStore.pendingIds({ createdOnly })
+    },
     /**
      * 다이어리를 하나씩 가져온다. 실패한 다이어리는 기록을 남기고 다음 것으로 넘어간다. 다시 부르면 실패한 것만 이어서 보낸다.
      * 결과: { imported: [{guestDiaryId, diaryId, skipped}], failed: [{guestDiaryId, error}] }

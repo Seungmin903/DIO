@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage'
+import { entries } from '../../editor/utils/mediaRepository'
 import { memberDocumentKey } from './memberStorage.js'
 import { mediaService } from '../../editor/services/mediaStore'
 import { mediaDisplayName } from '../../editor/utils/mediaImport.js'
@@ -16,7 +17,7 @@ export function createMediaLibraryRuntime(diary) {
   const active=()=>{if(!sessionKey||!accountId||authService.getCurrentUserId()!==accountId||authService.getSessionKey()!==sessionKey||diary?.source!=='member-api'||String(diary.memberAccountId)!==accountId)throw Object.assign(Error('로그인 상태가 변경됐어요.'),{status:401})}
   active()
   const request=createAuthenticatedMemberTransport({auth:authService,accountId,baseUrl:apiBaseUrl,accessTokenHeader,fetchImpl:memberFetch})
-  const api=createMediaLibraryApi({transport:async options=>{active();const result=await request(options);active();return result},fileRequest:createMediaRequest({auth:authService,accountId,sessionKey,baseUrl:apiBaseUrl,fetchImpl:memberFetch})})
+  const api=createMediaLibraryApi({transport:async options=>{active();const result=await request(options);active();return result},fileRequest:createMediaRequest({auth:authService,accountId,sessionKey,baseUrl:apiBaseUrl,fetchImpl:memberFetch,photoStorage:AsyncStorage,photoEntries:entries})})
   const selectable=row=>{if(!canSelectMediaPhoto(row))throw Object.assign(Error(mediaLibrarySizeMessage()),{status:413,code:'MEDIA_FILE_TOO_LARGE'})}
   const thumbnails=createMediaThumbnailCache({files:createMediaThumbnailFiles(`${apiBaseUrl}|${accountId}`),request:id=>api.thumbnail(id),active})
   return {

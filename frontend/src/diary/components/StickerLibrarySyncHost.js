@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { AppState } from 'react-native'
 import AsyncStorage from '@react-native-async-storage/async-storage'
+import { entries } from '../../editor/utils/mediaRepository'
 import { fetch as memberFetch } from 'expo/fetch'
 import { authService, apiBaseUrl, accessTokenHeader } from '../../auth/authService'
 import { createAuthenticatedMemberTransport } from '../services/memberTransport.js'
@@ -82,9 +83,9 @@ function stopShared() {
 function createSyncs(accountId, sessionKey) {
   const active = () => authService.getSessionKey() === sessionKey
   const transport = createAuthenticatedMemberTransport({ auth: authService, accountId, baseUrl: apiBaseUrl, accessTokenHeader, fetchImpl: memberFetch })
-  const request = createMediaRequest({ auth: authService, accountId, sessionKey, baseUrl: apiBaseUrl, fetchImpl: memberFetch })
+  const request = createMediaRequest({ auth: authService, accountId, sessionKey, baseUrl: apiBaseUrl, fetchImpl: memberFetch, photoStorage: AsyncStorage, photoEntries: entries })
   const upload = async (localId, category) => {
-    const body = await request('/media', { method: 'POST', body: await canvasMediaFiles.upload(localId, category), timeoutMs: 120000 })
+    const body = await request('/media', { method: 'POST', body: await canvasMediaFiles.upload(localId, category), timeoutMs: 120000, category, localPhotoId: localId })
     return body?.mediaFileId
   }
   const download = async serverId => {

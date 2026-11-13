@@ -4,6 +4,7 @@ import { hydrateMedia } from '../services/mediaStore'
 import { mediaId } from '../utils/mediaReferences.js'
 import { CUSTOM_STICKER_LIMIT, ownedStickerKeys, stickerLimitError } from '../utils/customStickerLimit.js'
 import { loadJSON, saveJSON, STORAGE_KEYS } from '../services/storage'
+import { checkStorageLimit } from '../../shared/freeTierLimits.js'
 
 // folders: 사용자가 만든 스티커 폴더 [{ id, name, items: [스티커 정보] }] (보관함 분류 칩 옆에 보인다)
 // tapeFolders: 내 테이프 폴더 [{ id, name, items: [테이프 정보] }]. 꾸미기 공방 '테이프' 탭과 편집기 보관함 테이프 칸(스티커 칸과 같은 칩 · 목록 편집)에서 관리한다.
@@ -170,8 +171,18 @@ export function useCustomDecor() {
   }, [])
 
   const add = useCallback((kind, item) => {
-    setItems((prev) => ({ ...prev, [kind]: [{ ...item, id: createId() }, ...prev[kind]] }))
-  }, [])
+    const entries = Array.isArray(item) ? item : [item]
+    if (!entries.length) return
+    if (kind !== 'stickers') {
+      setItems(prev => ({ ...prev, [kind]: [...entries.map(entry => ({ ...entry, id: createId() })).reverse(), ...prev[kind]] }))
+      return
+    }
+    if (!loaded && !cached) throw Object.assign(new Error('보관함을 읽은 뒤 다시 시도해 주세요.'), { code: 'CUSTOM_LIBRARY_NOT_READY' })
+    const current = cached ?? items
+    const next = { ...current, [kind]: [...entries.map(entry => ({ ...entry, id: createId() })).reverse(), ...current[kind]] }
+    if (kind === 'stickers') checkStickerLimit(current, next)
+    setItems(next)
+  }, [items, loaded, setItems])
 
   const remove = useCallback((kind, id) => {
     setItems((prev) => ({ ...prev, [kind]: prev[kind].filter((item) => item.id !== id) }))
@@ -201,7 +212,7 @@ export function useCustomDecor() {
   // The generator modal blocks other drawer edits. Publish only after persistence succeeds.
   const saveGenerated = useCallback((folderId, name, stickers) => {
     const write = stickerSaving.catch(() => {}).then(async () => {
-      if (!cached) throw new Error('보관함을 읽은 뒤 다시 시도해 주세요.')
+      if (!cached) throw Object.assign(new Error('보관함을 읽은 뒤 다시 시도해 주세요.'), { code: 'CUSTOM_LIBRARY_NOT_READY' })
       const current = cached
       const folder = current.folders.find(f => f.id === folderId)
       if (folderId && !folder) throw new Error('폴더가 없어졌어요. 새 폴더로 다시 저장해 주세요.')
@@ -234,7 +245,7 @@ export function useCustomDecor() {
   const addToFolder = useCallback((id, stickers) => {
     // 폴더 없음 · 한도 검사는 공용 목록(cached)으로 여기서 바로 끝내 예외가 호출부 catch(한도 안내 · 가져온 이미지 정리)에 닿게 한다.
     // 읽기 전(cached 없음)에는 폴더도 없으니 막는다
-    if (!cached) throw new Error('보관함을 읽은 뒤 다시 시도해 주세요.')
+    if (!cached) throw Object.assign(new Error('보관함을 읽은 뒤 다시 시도해 주세요.'), { code: 'CUSTOM_LIBRARY_NOT_READY' })
     const prev = cached
     if (!prev.folders.some(folder => folder.id === id)) throw new Error('폴더가 없어졌어요. 새 폴더로 다시 저장해 주세요.')
     const adding = stickers.map(stickerRef)
@@ -267,7 +278,13 @@ export function useCustomDecor() {
   }, [])
   // 새 테이프는 폴더 맨 앞에 담는다. 폴더를 주지 않았거나 없어졌으면 첫 폴더, 폴더가 하나도 없으면 '내 테이프' 폴더를 만든다.
   // 실제로 담은 폴더 id 를 돌려준다.
+  const checkTapeCapacity = useCallback(() => {
+    if (!loaded && !cached) throw Object.assign(new Error('보관함을 읽은 뒤 다시 시도해 주세요.'), { code: 'CUSTOM_LIBRARY_NOT_READY' })
+    const current = cached ?? items
+    checkStorageLimit('tape', current.tapes.length + current.tapeFolders.reduce((sum, folder) => sum + folder.items.length, 0) + 1)
+  }, [items, loaded])
   const addTape = useCallback((folderId, tape) => {
+    checkTapeCapacity()
     const current = cached ?? items
     const target = current.tapeFolders.find((f) => f.id === folderId) ?? current.tapeFolders[0]
     const id = target?.id ?? createId()
@@ -283,7 +300,7 @@ export function useCustomDecor() {
       }
     })
     return id
-  }, [items])
+  }, [checkTapeCapacity, items])
   const removeTape = useCallback((folderId, tapeId) => {
     setItems((prev) => ({
       ...prev,
@@ -399,6 +416,7 @@ export function useCustomDecor() {
     renameTapeFolder,
     removeTapeFolder,
     addTape,
+    checkTapeCapacity,
     removeTape,
     renameTape,
     markRecentTape,

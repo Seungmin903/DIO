@@ -16,6 +16,7 @@ function fixture(overrides = {}) {
     async getAccessToken(context) { assert.deepEqual(context, { userId: 10, sessionKey: 'session-1' }); if (!available) throw Object.assign(new Error('로그인 필요'), { status: 401 }); return 'test-token'; },
   };
   const fetchImpl = async (url, init) => {
+    if (url.includes('/member/diaries?filter=shared')) return reply(overrides.sharedPage?.(new URL(url).searchParams) ?? { items: overrides.sharedDiaries ?? [] });
     calls.push({ url, ...init });
     if (url.includes('/auth/profile-photos/')) assert.equal(init.headers['X-DIO-Access-Token'], undefined);
     else assert.equal(init.headers['X-DIO-Access-Token'], 'test-token');
@@ -32,6 +33,49 @@ function fixture(overrides = {}) {
     buildPhotoBody: async (body, photo, part) => { uploaded.push({ body, photo, part }); return { body: 'multipart', dispose() { uploaded.push('disposed'); } }; },
     ...overrides.runtimeOptions });
   return { runtime, calls, uploaded, logout() { available = false; } };
+}
+
+test('공유 다이어리가 두 개면 세 번째 초대 수락과 링크 생성을 막는다', async () => {
+  const f = fixture({ sharedDiaries: ['22222222-2222-4222-8222-222222222222', '33333333-3333-4333-8333-333333333333'].map(diaryId => ({ diary: { diaryId } })) });
+  await assert.rejects(f.runtime.checkSharedDiaryCapacity(diaryId), { code: 'SHARED_DIARY_LIMIT_REACHED' });
+  await assert.rejects(f.runtime.accept('123', '하루'), { code: 'SHARED_DIARY_LIMIT_REACHED' });
+  await assert.rejects(f.runtime.createLink(diaryId), { code: 'SHARED_DIARY_LIMIT_REACHED' });
+  assert.equal(f.calls.some(call => call.method === 'POST'), false);
+});
+
+test('기존 공유 다이어리가 3개 이상이어도 다음 페이지의 기존 다이어리는 제한하지 않는다', async () => {
+  let pages = 0;
+  const rows = [2, 3, 4].map(n => ({ diary: { diaryId: `${n}${'0'.repeat(7)}-0000-4000-8000-000000000001` } }));
+  const f = fixture({ sharedPage: params => {
+    assert.equal(params.get('limit'), '100');
+    pages++;
+    return params.has('cursor') ? { items: [{ diary: { diaryId } }], hasNext: false, nextCursor: null }
+      : { items: rows, hasNext: true, nextCursor: 'next & page' };
+  } });
+  await f.runtime.checkSharedDiaryCapacity(diaryId);
+  assert.equal(pages, 2);
+  await assert.rejects(f.runtime.checkSharedDiaryCapacity('55555555-5555-4555-8555-555555555555'), { code: 'SHARED_DIARY_LIMIT_REACHED' });
+});
+
+test('공유 목록의 반복 커서는 무한 조회하지 않고 확인 오류로 거절한다', async () => {
+  let pages = 0;
+  const f = fixture({ sharedPage: () => { pages++; return { items: [], hasNext: true, nextCursor: 'repeat' }; } });
+  await assert.rejects(f.runtime.checkSharedDiaryCapacity(diaryId), { code: 'INVALID_DIARY_LIST' });
+  assert.equal(pages, 2);
+});
+
+test('이미 공유 중인 다이어리는 첫 페이지에서 찾으면 바로 허용한다', async () => {
+  let calls = 0;
+  const f = fixture({ sharedPage: () => { calls++; return { items: [{ diary: { diaryId } }], hasNext: true, nextCursor: 'unused' }; } });
+  await f.runtime.checkSharedDiaryCapacity(diaryId);
+  assert.equal(calls, 1);
+});
+
+for (const response of [{ items: {} }, { items: [{ diary: {} }] }, { items: [], hasNext: true, nextCursor: null }, { items: [], hasNext: true, nextCursor: 42 }]) {
+  test(`공유 한도 조회의 잘못된 응답은 허용하지 않는다: ${JSON.stringify(response)}`, async () => {
+    const f = fixture({ sharedPage: () => response });
+    await assert.rejects(f.runtime.checkSharedDiaryCapacity(diaryId), { code: 'INVALID_DIARY_LIST' });
+  });
 }
 
 test('멤버 차단 상태는 내 방향 blockedByMe만 UI로 전달한다', async () => {

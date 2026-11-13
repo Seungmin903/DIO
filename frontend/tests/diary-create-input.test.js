@@ -11,6 +11,12 @@ import { toServerInitialPageSelections, localTemplateReference } from '../src/ed
 const form = (orientation = 'landscape', dateMode = 'dated') => ({ title: '  새 여행  ', color: '#A9BFA6', pattern: 'dot', pageSize: orientation,
   templateConfig: presetTemplateConfig('schedule', orientation, dateMode), paperAppearance: { backgroundColor:'#FFF8E7',layoutColor:'#33476B' } });
 
+test('새 다이어리는 초기 속지 150쪽까지 허용한다', () => {
+  const importedPages = Array.from({ length: 150 }, () => ({}));
+  assert.equal(diaryCreateInput({ ...form(), importedPages }).initialPages.length, 150);
+  assert.throws(() => diaryCreateInput({ ...form(), importedPages: [...importedPages, {}] }), /최대 150쪽/);
+});
+
 test('실제 생성 입력의 날짜형·만년형·가로·세로·속지 순서와 배색을 요청에 보존한다', () => {
   for (const orientation of ['landscape','portrait']) for (const mode of ['dated','undated']) {
     const source = form(orientation, mode), before = structuredClone(source), input = diaryCreateInput(source);

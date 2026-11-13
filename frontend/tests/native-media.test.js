@@ -90,6 +90,10 @@ test('네이티브 파일 복사 완료·메타데이터 저장을 기다리고 
   assert.deepEqual(files.get(uri), files.get('file:///picker/motion.gif'))
   assert.deepEqual((await repository.get('local-1')).media, media)
   assert.deepEqual(await repository.entries(), [{ id: 'local-1', uri }])
+  const multiGet = globalThis.__mediaNativeTest.storage.multiGet
+  globalThis.__mediaNativeTest.storage.multiGet = () => { throw Error('ID 집계에서는 메타데이터를 읽지 않는다') }
+  try { assert.deepEqual(await repository.entries({ idsOnly: true }), [{ id: 'local-1' }]) }
+  finally { globalThis.__mediaNativeTest.storage.multiGet = multiGet }
 
   const input = await repository.readAsset({ uri: 'file:///picker/motion.gif' })
   const dimensions = await repository.decode(input, { extension: 'heic' })
