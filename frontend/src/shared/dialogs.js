@@ -1,4 +1,5 @@
 import { Alert, Platform } from 'react-native';
+import { afterBoot, isBooting } from './bootGate';
 
 // 확인 · 안내 창은 앱 안의 테마 창(DialogHost → ConfirmDialog)으로 띄운다. 호스트가 아직 없을 때만(테스트 · 앱 시작 직후) 기본 창을 쓴다.
 // react-native-web의 Alert.alert는 아무것도 띄우지 않으므로 웹의 기본 창은 브라우저 confirm · alert 다.
@@ -50,6 +51,8 @@ const show = request => { queue = [...queue, request]; emit(); };
  * 답을 저장하는 질문(예: 폰트 공유 동의)은 onAbort 를 따로 줘 '거부'로 저장하지 않게 한다.
  */
 export function confirmAction({ title, message, confirmLabel, cancelLabel = '취소', onConfirm, onCancel, onAbort, danger = true }) {
+  // 시작 화면 중에는 기본 창(Alert)이 로딩 화면 위로 뜨므로 시작 화면이 닫힌 뒤 다시 부른다(그때는 보통 앱 창 호스트가 붙어 있다)
+  if (hosts === 0 && isBooting()) { afterBoot(() => confirmAction({ title, message, confirmLabel, cancelLabel, onConfirm, onCancel, onAbort, danger })); return; }
   if (hosts > 0) { show({ kind: 'confirm', title, message, confirmLabel, cancelLabel, onConfirm, onCancel, onAbort, danger }); return; }
   if (Platform.OS === 'web') {
     if (globalThis.confirm?.(`${title}\n\n${message}`)) onConfirm();
@@ -66,6 +69,7 @@ export function confirmAction({ title, message, confirmLabel, cancelLabel = '취
 
 /** 확인 버튼만 있는 안내 창 */
 export function notify(title, message) {
+  if (hosts === 0 && isBooting()) { afterBoot(() => notify(title, message)); return; }
   if (hosts > 0) { show({ kind: 'notify', title, message }); return; }
   if (Platform.OS === 'web') {
     globalThis.alert?.(`${title}\n\n${message}`);

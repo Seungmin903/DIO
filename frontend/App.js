@@ -82,6 +82,7 @@ import { useFonts } from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
 import BootSplash, { SPLASH } from './src/shared/BootSplash';
 import { createAfterIntroGate } from './src/shared/bootIntro';
+import { finishBoot as openBootGate, startBoot } from './src/shared/bootGate';
 import { PRETENDARD_FILES } from './src/shared/pretendardFiles';
 import { preloadTextFonts } from './src/editor/services/textFonts';
 import { loadRemoteCatalog } from './src/shared/remoteAssets/remoteCatalogService';
@@ -129,13 +130,14 @@ export default function App() {
   }, []);
   const authenticatedSession = previewSession?.mode === 'authenticated' ? previewSession : null;
   const memberSessionKey = authenticatedSession ? authService.getMemberSessionKey(authenticatedSession.userId) : null;
-  const [booting, setBooting] = useState(true);
+  // 시작 화면이 떠 있는 동안 모달 · 안내 창 · 알림 권한 창은 bootGate 에서 기다린다(로딩 화면 위로 뜨지 않게)
+  const [booting, setBooting] = useState(() => { startBoot(); return true; });
   // 예전 저장소에 남은 다이어리 문서를 페이지별 파일로 옮기는 일은 첫 화면과 인트로 손글씨(JS 스레드)를 피해서 시작한다:
   // 켜고 DOCUMENT_MIGRATION_DELAY_MS 가 지나고 + 손글씨가 끝났거나 시작 화면이 닫힌 뒤, 한 번만.
   const migrationGate = useRef(null);
   if (!migrationGate.current) migrationGate.current = createAfterIntroGate(() => { documentStorage.migrateLegacyDocuments().catch(() => {}) });
   const introWritten = useCallback(() => migrationGate.current.introDone(), []);
-  const finishBoot = useCallback(() => { setBooting(false); hideSplash(); migrationGate.current.introDone(); }, []);
+  const finishBoot = useCallback(() => { setBooting(false); hideSplash(); openBootGate(); migrationGate.current.introDone(); }, []);
   // 로그인이 필요한 기능에서 연 로그인 화면 { feature, action }. 지금 화면 위에 겹쳐 띄워, 닫아도 보던 화면이 그대로 남는다.
   const [loginRequest, setLoginRequest] = useState(null);
   const [restoreState, setRestoreState] = useState({ status: 'loading', error: null });
@@ -514,6 +516,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onWithdraw
     startPushRuntime({ auth: authService, userId: previewUser.userId, invitations: sharing.runtime.invitationGateway,
       onInvitation: ({ inviteId }) => { if (!disposed) setPendingPush({ inviteId, sessionKey }); },
       onSynced: () => { if (!disposed) setPushIssue(null); },
+      isActive: () => !disposed,
       onError: onPushError }).then(cleanup => { if (disposed) cleanup(); else stop = cleanup; }).catch(error => { if (!disposed) onPushError(error); });
     return () => { disposed = true; stop(); };
   }, [previewUser.mode, previewUser.userId, sharing.runtime]);
