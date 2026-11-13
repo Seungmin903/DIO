@@ -33,6 +33,18 @@ test('갤러리에서 취소하면 시스템 창을 다시 열지 않는다', as
   assert.equal(calls.length, 0);
 });
 
+test('빈 칸 수가 정해진 다중 선택은 삼성 갤러리 대신 제한을 지원하는 시스템 창을 연다', async () => {
+  const { selectImages, calls } = load('android', {
+    isAvailable: () => true,
+    pick: async () => assert.fail('갤러리는 최대 장수를 지정할 수 없다'),
+  });
+  for (const selectionLimit of [4, 2]) {
+    await selectImages({ multiple: true, selectionLimit });
+  }
+  assert.deepEqual(calls.map(options => [options.allowsMultipleSelection, options.selectionLimit]), [[true, 4], [true, 2]]);
+  delete globalThis.expo;
+});
+
 test('모듈 · 갤러리가 없거나 실패하면 시스템 창을 쓰고, iOS 는 언제나 시스템 창이다', async () => {
   for (const [os, native] of [
     ['android', null],
