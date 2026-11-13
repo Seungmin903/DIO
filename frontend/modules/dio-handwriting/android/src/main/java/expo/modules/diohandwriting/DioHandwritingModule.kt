@@ -198,9 +198,11 @@ class DioHandwritingModule : Module() {
           if (cancelled.get()) state.put("state", "cancelled")
           else state.put("state", "ready").put("stage", "ready").put("fontUri", Uri.fromFile(font).toString()).put("family", family).put("spacingVersion", OutlineFont.SPACING_VERSION)
         }
-      } catch (error: Exception) {
+      } catch (error: Throwable) {
+        // 작업 스레드에서 Error(OutOfMemoryError, NoSuchMethodError 등)가 새면 앱 전체가 종료된다.
+        // 실패 상태로 남겨 앱은 살리고 다시 시도할 수 있게 한다.
         state.put("state", if (stop.get() && !cancelled.get()) "paused" else if (cancelled.get()) "cancelled" else "failed")
-          .put("error", error.message ?: "폰트를 만들지 못했어요.")
+          .put("error", if (error is OutOfMemoryError) "기기 메모리가 부족해 폰트를 만들지 못했어요." else error.message ?: "폰트를 만들지 못했어요.")
       } finally {
         synchronized(lock) { saveState(folder, state); currentId = null; running.set(false) }
         notify(state)
