@@ -34,13 +34,16 @@ test('갤러리에서 취소하면 시스템 창을 다시 열지 않는다', as
 });
 
 test('빈 칸 수가 정해진 다중 선택은 삼성 갤러리 대신 제한을 지원하는 시스템 창을 연다', async () => {
+  // pick 이 던진 예외는 selectImages 가 잡고 시스템 창으로 넘어가므로, 불렸는지는 따로 센다
+  let galleryCalls = 0;
   const { selectImages, calls } = load('android', {
     isAvailable: () => true,
-    pick: async () => assert.fail('갤러리는 최대 장수를 지정할 수 없다'),
+    pick: async () => { galleryCalls += 1; return { canceled: false, assets: ['gallery'] }; },
   });
   for (const selectionLimit of [4, 2]) {
-    await selectImages({ multiple: true, selectionLimit });
+    assert.deepEqual((await selectImages({ multiple: true, selectionLimit })).assets, ['system']);
   }
+  assert.equal(galleryCalls, 0);
   assert.deepEqual(calls.map(options => [options.allowsMultipleSelection, options.selectionLimit]), [[true, 4], [true, 2]]);
   delete globalThis.expo;
 });
