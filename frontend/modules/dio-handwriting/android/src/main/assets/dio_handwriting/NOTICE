@@ -6,8 +6,8 @@ Upstream revision: 488a8e823920d94ea3f544bad9fe8e34929d8c04
 The MIT license reproduced in LICENSE beside this NOTICE in the model bundle
 applies to the attributed DM-Font source components. In the DIO source
 repository, the license and file inventory are located at:
-  frontend/model-tools/dio_dmfont/UPSTREAM_LICENSE
-  frontend/model-tools/dio_dmfont/PROVENANCE.json
+  ai/handwriting/dio_dmfont/UPSTREAM_LICENSE
+  ai/handwriting/dio_dmfont/PROVENANCE.json
 The inventory records original source hashes and DIO modifications. These are
 repository paths, not files relative to the installed Android assets folder.
 
@@ -17,7 +17,7 @@ training initializer, spectral-normalization wrapper, discriminator, auxiliary
 classifier and training scripts are not included in this inference package.
 
 The DIO source repository retains the historical upstream notice at
-frontend/model-tools/license-history/DMFont-NOTICE-v1.txt for provenance only.
+ai/handwriting/license-history/DMFont-NOTICE-v1.txt for provenance only.
 That history file and the source inventory are not shipped as model assets.
 This package's code review does not determine the usage or distribution rights
 of pretrained weights or training datasets.

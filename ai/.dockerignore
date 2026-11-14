@@ -7,3 +7,4 @@ tests/
 .env.*
 *.pem
 *.p8
+handwriting/

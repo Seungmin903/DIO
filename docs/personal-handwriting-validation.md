@@ -72,7 +72,7 @@ python scripts/analyze-handwriting-device.py --run 'qa/handwriting-output/device
 
 ## 추론 전용 코드 교체(v2) — 2026-10-26
 
-`frontend/model-tools/dio_dmfont/`에 추론 패키지를 구성했습니다. 명시적으로 MIT 고지가 있는 인코더·디코더·메모리·어텐션·한글 분해 소스 7개만 재사용하며, `PROVENANCE.json`에 원본 커밋·원본/로컬 SHA256·수정 내역을 기록합니다. `models/modules/modules.py`는 포함하거나 import하지 않습니다. `weights_init()`, 판별기·보조 분류기·학습 스크립트도 변환 경로에서 제외했습니다. `split_dim()`은 `torch.unflatten`으로 독립 작성했고, 가중치 정규화는 `w_norm='none'` 경로만 지원합니다. 기존 고지는 `model-tools/license-history/`에 보존하고, 새 번들에는 실제 포함한 MIT 코드의 LICENSE·NOTICE를 넣었습니다.
+`ai/handwriting/dio_dmfont/`에 추론 패키지를 구성했습니다. 명시적으로 MIT 고지가 있는 인코더·디코더·메모리·어텐션·한글 분해 소스 7개만 재사용하며, `PROVENANCE.json`에 원본 커밋·원본/로컬 SHA256·수정 내역을 기록합니다. `models/modules/modules.py`는 포함하거나 import하지 않습니다. `weights_init()`, 판별기·보조 분류기·학습 스크립트도 변환 경로에서 제외했습니다. `split_dim()`은 `torch.unflatten`으로 독립 작성했고, 가중치 정규화는 `w_norm='none'` 경로만 지원합니다. 기존 고지는 `ai/handwriting/license-history/`에 보존하고, 새 번들에는 실제 포함한 MIT 코드의 LICENSE·NOTICE를 넣었습니다.
 
 모델 버전은 `dmfont-fp32-e5b28ca6-inference-v2`입니다. 체크포인트 SHA256 `e5b28ca6793429b5e8bc77ed07ef166c7dfce91e089f068cc86318897700cae0`의 학습된 값은 변경하지 않았습니다. 새 작업은 이전 특징 캐시와 분리되며, 이전 버전의 미완료 작업은 상태를 변경하기 전에 재개를 거절합니다. 저장된 36자 입력으로 새 작업을 만들 수 있습니다. 기존 완성 폰트·폰트 ID·문서의 저장 형식은 변경하지 않았습니다.
 

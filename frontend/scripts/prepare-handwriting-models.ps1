@@ -16,7 +16,7 @@ foreach ($taskName in $taskFiles.Keys) {
   if ($taskManifest.files.$taskName.sha256 -ne $taskFiles[$taskName]) { throw "Manifest mismatch: $taskName" }
 }
 foreach ($taskName in @('LICENSE','NOTICE')) { if (-not (Test-Path -LiteralPath (Join-Path $taskSource $taskName))) { throw "Missing attribution: $taskName" } }
-$taskNotice = Join-Path $PSScriptRoot '../model-tools/NOTICE'
+$taskNotice = Join-Path $PSScriptRoot '../../ai/handwriting/NOTICE'
 if (-not (Test-Path -LiteralPath $taskNotice)) { throw 'Missing current inference source NOTICE.' }
 New-Item -ItemType Directory -Path $taskDestination -Force | Out-Null
 foreach ($taskName in @($taskFiles.Keys) + @('manifest.json','LICENSE')) { Copy-Item -LiteralPath (Join-Path $taskSource $taskName) -Destination (Join-Path $taskDestination $taskName) }

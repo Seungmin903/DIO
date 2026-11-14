@@ -1,4 +1,9 @@
-# DIO DM-Font inference source
+# DIO DM-Font inference source (ai/handwriting)
+
+Python tools that turn the pretrained DM-Font checkpoint into the two FP32 ONNX
+files shipped in the app. The app itself runs inference on the device; this
+folder is not deployed to a server. The runtime module and the prepared models
+stay in `frontend/modules/dio-handwriting/`.
 
 This package retains attributed MIT DM-Font generator components and supplies
 an independently written tensor-axis split with `torch.unflatten`. It excludes
@@ -13,12 +18,13 @@ MIT terms. [license-history/DMFont-NOTICE-v1.txt](./license-history/DMFont-NOTIC
 history and is not an active dependency of the new package. Weight and training
 dataset rights are outside this code review's scope.
 
-From `frontend/`, using Python with the versions in `requirements.txt`:
+From `frontend/`, using Python with the versions in `requirements.txt`
+(outputs stay in the ignored `frontend/qa/` folder):
 
 ```powershell
-python -B -m unittest discover -s model-tools -p test_inference.py -v
-python -B scripts/export-handwriting-model.py --checkpoint '<original checkpoint>' --output 'qa/handwriting-output/new-inference/models'
-python -B scripts/verify-handwriting-inference.py --checkpoint '<original checkpoint>' --snapshot '<fixed 36-input snapshot>' --models 'qa/handwriting-output/new-inference/models' --baseline-models '<verified v1 FP32 ONNX folder>' --baseline-rasters '<verified v1 full raw output folder>' --output 'qa/handwriting-output/new-inference/full' --original-root '<read-only upstream demo root>'
+python -B -m unittest discover -s ../ai/handwriting -p test_inference.py -v
+python -B ../ai/handwriting/scripts/export-handwriting-model.py --checkpoint '<original checkpoint>' --output 'qa/handwriting-output/new-inference/models'
+python -B ../ai/handwriting/scripts/verify-handwriting-inference.py --checkpoint '<original checkpoint>' --snapshot '<fixed 36-input snapshot>' --models 'qa/handwriting-output/new-inference/models' --baseline-models '<verified v1 FP32 ONNX folder>' --baseline-rasters '<verified v1 full raw output folder>' --output 'qa/handwriting-output/new-inference/full' --original-root '<read-only upstream demo root>'
 pwsh scripts/prepare-handwriting-models.ps1 -SourceDirectory 'qa/handwriting-output/new-inference/models'
 ```
 
