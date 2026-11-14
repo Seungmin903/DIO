@@ -15,7 +15,8 @@ import time
 import numpy as np
 import torch
 
-FRONTEND = Path(__file__).resolve().parents[1]
+TOOLS = Path(__file__).resolve().parents[1]  # ai/handwriting
+FRONTEND = Path(__file__).resolve().parents[3] / 'frontend'
 PROBES = list('한이민글핀틔퀭도또루요우')
 PROMPTS = '값같곬곶깎넋늪닫닭닻됩뗌략몃밟볘뺐뽈솩쐐앉않얘얾엌옳읊죡쮜춰츄퀭틔핀핥훟'
 
@@ -82,7 +83,7 @@ def main():
         baseline(args, data); return
     arguments = sys.argv[1:]
     subprocess.run([sys.executable, __file__, *arguments, '--original-baseline'], check=True, env={**os.environ, 'PYTHONDONTWRITEBYTECODE': '1'})
-    sys.path.insert(0, str(FRONTEND / 'model-tools'))
+    sys.path.insert(0, str(TOOLS))
     from dio_dmfont import CHECKPOINT_SHA256, MODEL_VERSION, load_generator
     from dio_dmfont.factory import sha256
     model = load_generator(args.checkpoint)

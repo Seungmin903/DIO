@@ -13,7 +13,7 @@ import onnx
 import onnxruntime as ort
 import torch
 
-TOOLS = Path(__file__).resolve().parents[1] / 'model-tools'
+TOOLS = Path(__file__).resolve().parents[1]  # ai/handwriting
 sys.path.insert(0, str(TOOLS))
 from dio_dmfont import CHECKPOINT_SHA256, MODEL_VERSION, load_generator
 from dio_dmfont.factory import sha256

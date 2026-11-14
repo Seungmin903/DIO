@@ -185,7 +185,7 @@ def additions(platform, native_inventory, ndk):
         records.append(component('Zstandard linked into zstd-kmp','1dbc2e09084e843f6c0dcc2d0791610015c50979','BSD-3-Clause','https://github.com/facebook/zstd/tree/1dbc2e09084e843f6c0dcc2d0791610015c50979',[('Zstandard original BSD license (selected from BSD/GPL dual terms)',audit.read(CACHE/'zstd-LICENSE.txt'))]+tar_notices('zstd-kmp-source.tar.gz')))
         if not ndk or not (ndk/'NOTICE').exists(): raise ValueError('Actual Android NDK runtime NOTICE required')
         records.append(component('Android NDK runtime notices',ndk.name,'NDK component license notices','https://android.googlesource.com/platform/ndk/',[('NDK NOTICE (upstream component superset)',audit.read(ndk/'NOTICE'))]))
-        records.append(component('DM-Font inference code','488a8e823920d94ea3f544bad9fe8e34929d8c04','MIT','https://github.com/clovaai/dmfont',[(f,audit.read(ROOT/'model-tools/dio_dmfont'/f)) for f in ['UPSTREAM_LICENSE']]+[('Inference code provenance NOTICE',audit.read(ROOT/'model-tools/NOTICE'))]))
+        records.append(component('DM-Font inference code','488a8e823920d94ea3f544bad9fe8e34929d8c04','MIT','https://github.com/clovaai/dmfont',[(f,audit.read(ROOT.parent/'ai/handwriting/dio_dmfont'/f)) for f in ['UPSTREAM_LICENSE']]+[('Inference code provenance NOTICE',audit.read(ROOT.parent/'ai/handwriting/NOTICE'))]))
     return records,sources
 
 def publish(args, platform, report, native):
