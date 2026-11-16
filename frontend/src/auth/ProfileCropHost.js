@@ -38,7 +38,7 @@ async function prepare(uri) {
   return render(plain.uri, context => context.resize(plain.width >= plain.height ? { width: WORK_SIDE } : { height: WORK_SIDE }));
 }
 
-// 프로필만의 제약: 동그라미 틀 · 1:1 고정. 손짓 · 핸들 · 확대 막대는 다른 사진 창과 같다.
+// 프로필은 원을 고정하고 사진만 이동·확대한다. 일반 사진·표지는 기존 틀 이동을 유지한다.
 // 적용하면 틀 영역(사진 안 0~1)을 사진 픽셀로 바꿔 정사각형으로 잘라 저장한다(최대 OUTPUT_SIDE).
 export function ProfileCropper({ asset, onDone }) {
   const [photo, setPhoto] = useState(null);
@@ -85,6 +85,7 @@ export function ProfileCropper({ asset, onDone }) {
     <PhotoCropper
       photo={{ id: 'profile-photo', type: 'photo', frame: 'none', src: photo.uri, imageWidth: photo.width, imageHeight: photo.height, x: 0, y: 0, w: 100, h: 100 }}
       round
+      fixedViewport
       fixedAspect={1}
       title="프로필 사진 자르기"
       onCancel={() => onDone(null)}
