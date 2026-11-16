@@ -49,7 +49,7 @@ export default function RegionExportSelector({
       change(next)
     }
   }
-  return <ExportScreen visible={visible} title="내보낼 영역 선택" onClose={onCancel} closeLabel="영역 선택 취소"
+  return <ExportScreen visible={visible} stablePreview title="내보낼 영역 선택" onClose={onCancel} closeLabel="영역 선택 취소"
     preview={<RegionViewport page={page} pageSize={pageSize} region={region} draft={draft} ratio={ratio} onDraft={setDraft} onChange={change} />}>
     <Text style={toolPanelStyles.label}>비율</Text>
     <View style={styles.row}>{Object.entries(REGION_PRESETS).map(([id, config]) => <ExportButton key={id} title={config.label} selected={preset === id} disabled={!fitRegionPreset(region, id, pageSize)} onPress={() => switchPreset(id)} />)}</View>
