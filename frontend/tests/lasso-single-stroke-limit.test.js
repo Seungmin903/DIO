@@ -7,6 +7,7 @@ import { canvasDelta } from '../src/collaboration/canvasApi.js'
 import { encodeElement } from '../src/collaboration/canvasElements.js'
 import { createCanvasSession } from '../src/collaboration/canvasSession.js'
 import { lassoHitIds } from '../src/editor/utils/lassoGeometry.js'
+import { createEraserSession } from '../src/editor/utils/eraser.js'
 
 const pageId = '10000000-0000-4000-8000-000000000001', diaryId = '20000000-0000-4000-8000-000000000001'
 const uuid = n => `30000000-0000-4000-8000-${String(n).padStart(12, '0')}`
@@ -87,6 +88,81 @@ test('single-stroke move is one persisted server update and reopening preserves 
   const expected = { ...objects[0], x: target.x, y: target.y, inkOrigin: target.inkOrigin }
   assert.deepEqual(encodeElement(target), encodeElement(expected))
   assert.equal(calls.length, 1, 'reopening does not create another edit')
+})
+
+for (const transformed of [false, true]) test(`legacy ink eraser fragments retain their original texture mapping through reducer, save and reopen (${transformed ? 'rotated/scaled' : 'plain'})`, async () => {
+  const source = createStroke([{ x: 100, y: 100 }, { x: 300, y: 100 }], {
+    id: uuid(1), kind: 'glass', width: 4, color: '#123456',
+    inkAmount: 0.7, inkSheenAmount: 0.4, inkGlitterColor: '#abcdef',
+  })
+  // Cover both fragment creation branches, including an old stroke moved before this session.
+  source.x += 300; source.y += 120
+  if (transformed) { source.rotation = 20; source.w *= 1.3; source.h *= 1.2 }
+  delete source.inkOrigin
+  const origin = { ...glassOrigin(source) }
+  const objects = [...legacyStrokes().slice(1), source], original = JSON.stringify(objects)
+  const eraser = createEraserSession(objects, 6, 'area')
+  assert.deepEqual(eraser.move({ x: source.x + source.w / 2, y: source.y + source.h / 2 }), [source.id])
+  const action = eraser.finish(), pieces = action.replacements[source.id]
+  assert.ok(pieces.length >= 2, 'the actual eraser must produce multiple new-ID fragments')
+  const previousIds = new Set(objects.map(object => object.id))
+  const checkMapping = piece => {
+    assert.ok(piece.inkOrigin, 'the fragment must carry a persisted texture origin')
+    // Texture coordinates are local point + inkOrigin. A changed bounding box needs the same offset.
+    for (const axis of ['x', 'y']) assert.ok(Math.abs((glassOrigin(piece)[axis] - piece[axis]) - (origin[axis] - source[axis])) < 1e-6)
+    for (const key of ['penKind', 'color', 'strokeWidth', 'renderVersion', 'materialSeed', 'inkAmount', 'inkSheenAmount', 'inkGlitterColor'])
+      assert.deepEqual(piece[key], source[key], `keep ink setting ${key}`)
+  }
+  for (const piece of pieces) { assert.ok(!previousIds.has(piece.id)); checkMapping(piece) }
+  if (transformed) pieces.forEach(piece => assert.deepEqual(piece.inkOrigin, origin))
+  else assert.ok(pieces.some(piece => piece.x !== source.x), 'plain fragments exercise the changed bounding box')
+
+  const state = reduce(initial(objects), action), after = state.doc.pages[0].objects
+  assert.equal(state.collaborationLimitError, undefined)
+  assert.equal(state.collaborationEdits.length, 1)
+  assert.deepEqual(after.map(object => object.id), [...objects.slice(0, -1), ...pieces].map(object => object.id))
+  objects.slice(0, -1).forEach((object, index) => assert.equal(after[index], object))
+  pieces.forEach(piece => checkMapping(after.find(object => object.id === piece.id)))
+
+  let rows = objects.map((object, sortKey) => ({ ...encodeElement(object), pageId, sortKey, version: 1 })), loads = 0
+  const calls = [], disk = new Map()
+  const api = { load: async () => { loads++; return structuredClone(rows) }, history: async () => ({ items: [] }),
+    apply: async (page, request) => {
+      calls.push(structuredClone(request))
+      const byId = new Map(rows.map(row => [row.elementId, row]))
+      for (const id of request.changes.deleteElementIds ?? []) byId.delete(id)
+      for (const row of request.changes.creates ?? []) byId.set(row.elementId, { ...row, pageId, version: 0 })
+      for (const patch of request.changes.updates ?? []) byId.set(patch.elementId, { ...byId.get(patch.elementId), ...patch, version: patch.version + 1 })
+      rows = [...byId.values()].sort((a, b) => a.sortKey - b.sortKey)
+      return { items: structuredClone(rows), operationId: '1', revision: 1 }
+    } }
+  const makeSession = () => createCanvasSession({ api, storage: { getItem: async key => disk.get(key) ?? null,
+    setItem: async (key, value) => disk.set(key, value) }, key: 'eraser-roundtrip', pageId, diaryId, createId: () => uuid(999) })
+  const first = makeSession()
+  await first.restore(objects); await first.enqueue(state.collaborationEdits[0])
+  const saved = await first.synchronize()
+  assert.equal(calls.length, 1)
+  assert.deepEqual(calls[0].changes.deleteElementIds, [source.id])
+  assert.deepEqual(calls[0].changes.creates.map(row => row.elementId), pieces.map(piece => piece.id))
+  assert.equal(calls[0].changes.updates?.length ?? 0, 0, 'unrelated legacy strokes must not be normalized')
+  assert.equal(first.snapshot().queue.length, 0)
+
+  rows = JSON.parse(JSON.stringify(rows))
+  const beforeReload = loads, reopened = makeSession()
+  await reopened.restore([])
+  const loaded = await reopened.synchronize()
+  assert.ok(loads > beforeReload, 'the new session must read the server again')
+  assert.deepEqual(loaded.objects.map(encodeElement), saved.objects.map(encodeElement))
+  assert.deepEqual(loaded.objects.map(object => object.id), after.map(object => object.id))
+  assert.ok(!loaded.objects.some(object => object.id === source.id))
+  for (const piece of pieces) {
+    const restored = loaded.objects.find(object => object.id === piece.id)
+    assert.notEqual(restored.points, piece.points, 'fresh points cannot reuse the process-local fallback origin')
+    assert.deepEqual(encodeElement(restored), encodeElement(piece))
+    checkMapping(restored)
+  }
+  assert.equal(calls.length, 1, 'reopening must not write another edit')
+  assert.equal(JSON.stringify(objects), original)
 })
 
 test('genuine 101-stroke movement is still rejected', () => {
