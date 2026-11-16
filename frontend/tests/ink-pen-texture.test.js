@@ -208,8 +208,12 @@ test('옛 획을 고치면 무늬 기준을 **고치기 전 자리**로 한 번 
   const doc = { id: 'doc', pages: [{ id: 'page', objects: [legacy] }] }
   let state = createInitialState(doc)
   assert.equal(getCurrentPage(state).objects[0].inkOrigin, undefined, '불러온 그대로는 아직 없다')
-  // 아무 고침이나 한 번 — 여기서는 다른 획을 하나 더해 목록만 건드린다
+  // 다른 획 추가는 옛 획을 보정하지 않는다. 전체 보정은 한 획 이동도 100개 제한에 걸리게 한다.
   state = editorReducer(state, { type: 'addObjects', objects: [ball({ id: 'new' })], select: false })
+  assert.equal(getCurrentPage(state).objects[0], legacy)
+  assert.equal(getCurrentPage(state).objects[0].inkOrigin, undefined)
+  // 해당 획을 실제로 옮길 때 **이동 전** 기준을 적는다.
+  state = editorReducer(state, { type: 'updateObject', id: 'g', patch: { x: legacy.x + 50 } })
   const after = getCurrentPage(state).objects.find(one => one.id === 'g')
   assert.ok(after, '획이 남아 있다')
   assert.deepEqual(after.inkOrigin, before, '고치기 전 자리로 적힌다')
