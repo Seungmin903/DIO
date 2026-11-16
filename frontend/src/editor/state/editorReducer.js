@@ -101,17 +101,19 @@ export function namePhotos(existing, added) {
  *
  * **고치기 전**에 적는 것이 핵심이다 — 옮기고 나서 적으면 옮겨진 자리가 기준이 되어 무늬가 튄다.
  *
- * 값: 그 페이지를 처음 고칠 때 옛 유리펜 획의 객체가 한 번 새로 만들어져, 그 획이 든 타일이
- * 한 번 다시 구워진다. 페이지마다 한 번뿐이고, 그 대가로 무늬가 기기 · 세션을 타지 않는다.
+ * 실제로 고친 기존 획만 보정한다. 페이지 전체를 보정하면 한 획 이동도 옛 획 수만큼의
+ * 서버 수정으로 계산되어 종류별 100개 한도에 걸린다. 새 획·복제본·지우개 조각은 생성 경로의 기준을 쓴다.
  */
-function pinInkOrigin(objects) {
-  let changed = false
-  const next = objects.map(object => {
-    if (object?.type !== 'stroke' || object.penKind !== 'glass' || object.inkOrigin) return object
-    changed = true
-    return { ...object, inkOrigin: { x: object.x ?? 0, y: object.y ?? 0 } }
+function pinInkOrigin(before, objects) {
+  const previous = new Map(before.filter(object => object != null).map(object => [object.id, object]))
+  return objects.map(object => {
+    if (object == null) return object
+    const old = previous.get(object.id)
+    if (!old || object === old || object.type !== 'stroke' || object.penKind !== 'glass' || object.inkOrigin) return object
+    const keys = Object.keys(object)
+    if (keys.length === Object.keys(old).length && keys.every(key => object[key] === old[key])) return object
+    return { ...object, inkOrigin: glassOrigin(old) }
   })
-  return changed ? next : objects
 }
 
 function updateObjects(state, updater) {
@@ -123,7 +125,7 @@ function updateObjects(state, updater) {
       ...state.doc,
       pages: state.doc.pages.map((page) => {
         if (page.id !== pageId) return page
-        const objects = keepBackdropBottom(updater(pinInkOrigin(page.objects)))
+        const objects = keepBackdropBottom(pinInkOrigin(page.objects, updater(page.objects)))
         if (!page.backgroundAssetId?.startsWith('remote-packing-list')) return { ...page, objects }
         return { ...page, objects: objects.map(object => {
           const patch = packingDropPatch(page.backgroundAssetId, object)
