@@ -105,10 +105,11 @@ export function namePhotos(existing, added) {
  * 서버 수정으로 계산되어 종류별 100개 한도에 걸린다. 새 획·복제본·지우개 조각은 생성 경로의 기준을 쓴다.
  */
 function pinInkOrigin(before, objects) {
-  const previous = new Map(before.map(object => [object.id, object]))
+  const previous = new Map(before.filter(object => object != null).map(object => [object.id, object]))
   return objects.map(object => {
+    if (object == null) return object
     const old = previous.get(object.id)
-    if (!old || object === old || object?.type !== 'stroke' || object.penKind !== 'glass' || object.inkOrigin) return object
+    if (!old || object === old || object.type !== 'stroke' || object.penKind !== 'glass' || object.inkOrigin) return object
     const keys = Object.keys(object)
     if (keys.length === Object.keys(old).length && keys.every(key => object[key] === old[key])) return object
     return { ...object, inkOrigin: glassOrigin(old) }

@@ -18,6 +18,16 @@ const legacyStrokes = () => Array.from({ length: 150 }, (_, i) => {
 })
 const initial = objects => createInitialState({ id: diaryId, pages: [{ id: pageId, objects }] })
 const reduce = (state, action) => collaborationReducer(editorReducer, state, { collaborationId: 'move-one', ...action })
+for (const empty of [null, undefined]) test(`ink origin correction preserves ${String(empty)} replacement entries without throwing`, () => {
+  const objects = legacyStrokes(), target = objects[0]
+  const replacement = { ...target, x: target.x + 40 }
+  const state = editorReducer(initial(objects), { type: 'replaceObjects', replacements: { [target.id]: [empty, replacement] } })
+  const after = state.doc.pages[0].objects
+  assert.equal(after[0], empty)
+  assert.equal(after[1].x, replacement.x)
+  assert.deepEqual(after[1].inkOrigin, { x: target.x, y: target.y })
+  assert.equal(after[2], objects[1])
+})
 function move(objects, ids = [objects[0].id]) {
   let state = reduce(initial(objects), { type: 'selectExact', ids })
   state = reduce(state, { type: 'checkpoint' })
