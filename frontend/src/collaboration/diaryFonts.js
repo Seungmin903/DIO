@@ -158,14 +158,20 @@ export function createDiaryFonts({ diaryId, transport, request, files, library, 
   // 못 그리는 폰트 때문에 다시 받을 때마다 간격을 늘린다(10초 → 30초 → 1분 30초 … 최대 10분).
   // 친구가 공유를 거부했거나 다툼으로 영영 받을 수 없는 폰트가 있어도 목록 요청이 10초마다 반복되지 않게 한다
   const retrySync = () => { retryDelay = Math.min(retryDelay * 3, MAX_RETRY_MS); return api.sync() }
-  function scheduleRetry() {
-    if (disposed || !isActive() || syncJob || retryTimer != null || !pendingFonts.size) return
+  function hasPendingFonts() {
     for (const fileId of pendingFonts) {
       if (library.has(fileId)) pendingFonts.delete(fileId)
     }
-    if (!pendingFonts.size) { retryDelay = RETRY_MS; return }
+    if (!pendingFonts.size) retryDelay = RETRY_MS
+    return pendingFonts.size > 0
+  }
+  function scheduleRetry() {
+    if (disposed || !isActive() || syncJob || retryTimer != null || !hasPendingFonts()) return
     const wait = Math.max(0, retryDelay - (now() - lastSync))
-    retryTimer = setTimer(() => { retryTimer = null; retrySync().catch(() => {}) }, wait)
+    retryTimer = setTimer(() => {
+      retryTimer = null
+      if (!disposed && isActive() && hasPendingFonts()) retrySync().catch(() => {})
+    }, wait)
   }
   const api = {
     /** 캔버스 작업을 보내기 전에 부른다. 폰트 업로드(최대 25MB) · 공유는 기다리지 않는다: 글자 저장이 먼저 나가고,

@@ -1,6 +1,8 @@
 import { validateDraft, jobMatchesModel, SYLLABLE_COUNT, PROMPTS } from './protocol.js'
 
 const copy = value => JSON.parse(JSON.stringify(value))
+const SLOT_RETRY_MS = 10000
+const retryableSlotError = error => error.code === 'NETWORK_ERROR' || (error.status >= 500 && error.status < 600)
 const waitingEntries = entries => entries.filter(e => e.status === 'queued').sort((a, b) => (a.queueOrder ?? a.createdAt ?? 0) - (b.queueOrder ?? b.createdAt ?? 0))
 const labelOf = value => {
   const label = value.trim()
@@ -18,7 +20,7 @@ export function availableName(name, entries) {
 export function revisionName(entry, entries) {
   return availableName(entry.baseName || entry.name, entries)
 }
-export function createFontWorkflow({ repository, engine, uuid, maxGeneratedFonts = Infinity, generationSlot, onFontsChanged = async () => {} }) {
+export function createFontWorkflow({ repository, engine, uuid, maxGeneratedFonts = Infinity, generationSlot, onFontsChanged = async () => {}, now = Date.now }) {
   let state = { loaded: false, entries: [], support: { available: false, reason: '실행 환경을 확인하고 있어요.' }, error: '', previewing: false }
   let initialized, serial = Promise.resolve(), previewTask, foreground = true
   const listeners = new Set(), snapshots = new Map()
@@ -52,17 +54,18 @@ export function createFontWorkflow({ repository, engine, uuid, maxGeneratedFonts
   const updateSlot = (value, action) => value.generationId && generationSlot?.update(value.generationOwner, value.generationId, action)
   const releaseAttempts = new Map()
   const completionAttempts = new Map()
+  const reservationAttempts = new Map()
   async function releaseUnusedSlots() {
     for (const value of state.entries) {
       if (!value.slotPending || !belongsToCurrentAccount(value)) continue
       if (value.status !== 'cancelled' && (value.status !== 'failed' || value.job?.state === 'ready')) continue
-      if ((releaseAttempts.get(value.id) ?? 0) > Date.now()) continue
+      if ((releaseAttempts.get(value.id) ?? 0) > now()) continue
       try {
         await updateSlot(value, 'RELEASE')
         await update(value.id, { slotPending: false, slotReserved: false })
         releaseAttempts.delete(value.id)
       } catch {
-        releaseAttempts.set(value.id, Date.now() + 10000)
+        releaseAttempts.set(value.id, now() + SLOT_RETRY_MS)
       }
     }
   }
@@ -96,14 +99,21 @@ export function createFontWorkflow({ repository, engine, uuid, maxGeneratedFonts
   }
   const reconcile = async value => {
     if (!value.jobId) return
+    if (value.status === 'queued' && value.generationId && !value.slotReserved) return
     const job = await engine.refresh(value.jobId)
     if (job.state === 'ready') {
-      if ((completionAttempts.get(value.id) ?? 0) > Date.now()) return
+      if ((completionAttempts.get(value.id) ?? 0) > now()) return
       try {
         await updateSlot(value, 'COMPLETE')
         completionAttempts.delete(value.id)
       } catch (error) {
-        completionAttempts.set(value.id, Date.now() + 10000)
+        if (!retryableSlotError(error)) {
+          const message = error.code === 'FONT_GENERATION_SLOT_LOST'
+            ? '폰트 생성 자리를 확인할 수 없어요. 다시 시도해 주세요. 문제가 계속되면 문의해 주세요.'
+            : error.message
+          return update(value.id, { job, status: 'failed', slotReserved: false, error: message })
+        }
+        completionAttempts.set(value.id, now() + SLOT_RETRY_MS)
         return update(value.id, { job, status: 'registering', error: error.message })
       }
       try { await finish(value, job) } catch (error) {
@@ -150,20 +160,27 @@ export function createFontWorkflow({ repository, engine, uuid, maxGeneratedFonts
       || waitingEntries(accountEntries)[0]
     if (!value) return
     if (value.generationId && !value.slotReserved) {
+      if ((reservationAttempts.get(value.id) ?? 0) > now()) return
       try {
         await updateSlot(value, 'RESERVE')
-        await update(value.id, { slotPending: true, slotReserved: true })
       } catch (error) {
+        if (retryableSlotError(error)) {
+          reservationAttempts.set(value.id, now() + SLOT_RETRY_MS)
+          await update(value.id, { error: error.message })
+          return
+        }
         await update(value.id, { status: 'failed', error: error.message })
         await releaseUnusedSlots()
         return
       }
+      reservationAttempts.delete(value.id)
+      await update(value.id, { slotPending: true, slotReserved: true, error: null })
     }
     try {
       let job
       if (value.jobId) {
         job = await engine.refresh(value.jobId)
-        if (job.state === 'ready') { await reconcile(value); return }
+        if (job.state === 'ready') { await reconcile(entry(value.id)); return }
         if (!belongsToCurrentAccount(value)) throw Error('이 폰트를 만들던 계정으로 로그인해 주세요.')
         job = await engine.control('resume', value.jobId)
       }
@@ -301,6 +318,7 @@ export function createFontWorkflow({ repository, engine, uuid, maxGeneratedFonts
         if (value.status === 'processing') await stopAndWait(value, 'cancel')
         if (entry(id).status === 'ready') return
         if (value.jobId) await engine.control('cancel', value.jobId)
+        reservationAttempts.delete(id)
         await update(id, { status: 'cancelled', pauseReason: null })
       }
       await pump()

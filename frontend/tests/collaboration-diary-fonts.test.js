@@ -245,6 +245,38 @@ test('본문이 폰트보다 먼저 도착해도 추가 편집 없이 폰트를 
   assert.equal(f.timers.length, 2)
 })
 
+test('재조회 간격은 최대 10분까지 늘고 새 폰트가 오면 초기화된다', async () => {
+  const loaded = new Set([otherId])
+  const f = fixture({ mine: [], has: id => loaded.has(id) })
+  const rows = id => [textRow(`personal-${id}`)]
+  const runTimer = async ms => {
+    const timer = f.timers.at(-1)
+    assert.equal(timer.ms, ms)
+    f.tick(ms)
+    timer.run()
+    await new Promise(resolve => setImmediate(resolve))
+  }
+  await f.fonts.sync()
+  await f.fonts.hydrate(rows(otherId))
+  assert.equal(f.timers.length, 0)
+  await f.fonts.hydrate(rows(fileId))
+  for (const ms of [10000, 30000, 90000, 270000, 600000, 600000]) await runTimer(ms)
+  const oldTimer = f.timers.at(-1)
+  loaded.delete(otherId)
+  await f.fonts.hydrate(rows(otherId))
+  assert.equal(oldTimer.cleared, true)
+  assert.equal(f.timers.at(-1).ms, 10000)
+  loaded.add(fileId)
+  await runTimer(10000)
+  assert.equal(f.timers.at(-1).ms, 30000)
+  loaded.add(otherId)
+  const requests = f.calls.length
+  await runTimer(30000)
+  assert.equal(f.calls.length, requests)
+  await f.fonts.hydrate(rows(fileId))
+  assert.equal(f.calls.length, requests)
+})
+
 test('받은 폰트를 기기가 읽지 못하면 다음 조회에서 다시 받고, 두 번 실패한 파일은 더 받지 않는다', async () => {
   const f = fixture({ mine: [], serverFonts: [{ mediaFileId, name: sharedFontFileName(fileId), enabled: true }] })
   const downloads = () => f.calls.filter(call => call.path?.endsWith('/file')).length

@@ -6,7 +6,7 @@ import { MODEL_VERSION, PREPROCESS_VERSION, PROMPTS } from '../src/handwriting/p
 const clone = value => JSON.parse(JSON.stringify(value))
 const sample = { coordinateSize: 1024, strokes: [{ width: 9, points: [{ x: 200, y: 200 }, { x: 700, y: 700 }] }] }
 const draft = id => ({ schema: 1, id, samples: Object.fromEntries(PROMPTS.map(c => [c, clone(sample)])), updatedAt: '2026-10-30' })
-function setup(saved = [], jobs = new Map(), maxGeneratedFonts, generationSlot, device = 'entry') {
+function setup(saved = [], jobs = new Map(), maxGeneratedFonts, generationSlot, device = 'entry', now) {
   let next = 0, active = null, failSave = false, failRegister = false
   const calls = [], fonts = new Map()
   const repository = {
@@ -37,7 +37,7 @@ function setup(saved = [], jobs = new Map(), maxGeneratedFonts, generationSlot, 
     preview: async () => { assert.equal(active, null); calls.push('preview'); return { 안: 'file://preview.png' } },
     wait: async () => {},
   }
-  const flow = createFontWorkflow({ repository, engine, maxGeneratedFonts, generationSlot, uuid: () => `${device}-${++next}` })
+  const flow = createFontWorkflow({ repository, engine, maxGeneratedFonts, generationSlot, uuid: () => `${device}-${++next}`, now })
   const item = id => flow.getSnapshot().entries.find(e => e.id === id)
   const complete = id => { const job = jobs.get(item(id).jobId); Object.assign(job, { state: 'ready', completed: 11172, fontUri: 'file://font.ttf' }); active = null }
   // 작업 상태를 바꾸고 엔진을 비운다(생성 실패 · 생성기 변경처럼 작업이 멈춘 경우)
@@ -88,6 +88,61 @@ test('같은 계정의 두 기기는 생성 한도를 공유하고 같은 기기
   const other = await loser.prepare('다른 계정 폰트')
   await loser.flow.confirm(other)
   assert.equal(loser.item(other).status, 'processing')
+})
+
+test('생성 자리 확보가 네트워크 오류로 실패하면 10초 후 대기열에서 자동 재시도한다', async () => {
+  let elapsed = 0, reservations = 0
+  const slot = { owner: () => 'account', check: async () => {},
+    async update(_owner, _id, action) {
+      if (action === 'RESERVE' && ++reservations === 1) throw Object.assign(Error('연결 실패'), { code: 'NETWORK_ERROR' })
+    },
+  }
+  const h = setup([], new Map(), Infinity, slot, 'entry', () => elapsed)
+  await h.flow.init()
+  const id = await h.prepare('폰트')
+  await h.flow.confirm(id)
+  assert.equal(h.item(id).status, 'queued')
+  elapsed = 9999
+  await h.flow.tick()
+  assert.equal(reservations, 1)
+  elapsed = 10000
+  await h.flow.tick()
+  assert.equal(reservations, 2)
+  assert.equal(h.item(id).status, 'processing')
+})
+
+test('완료가 일시 실패하면 재시도하고, 자리를 잃었으면 사용자가 다시 시도할 때만 복구한다', async () => {
+  let elapsed = 0, completions = 0
+  const actions = []
+  const slot = { owner: () => 'account', check: async () => {},
+    async update(_owner, _id, action) {
+      actions.push(action)
+      if (action !== 'COMPLETE') return
+      if (++completions === 1) throw Object.assign(Error('서버 오류'), { status: 503 })
+      if (completions === 2) throw Object.assign(Error('자리 없음'), { status: 409, code: 'FONT_GENERATION_SLOT_LOST' })
+    },
+  }
+  const h = setup([], new Map(), Infinity, slot, 'entry', () => elapsed)
+  await h.flow.init()
+  const id = await h.prepare('폰트')
+  await h.flow.confirm(id)
+  h.complete(id)
+  await h.flow.tick()
+  assert.equal(h.item(id).status, 'registering')
+  elapsed = 9999
+  await h.flow.tick()
+  assert.equal(completions, 1)
+  elapsed = 10000
+  await h.flow.tick()
+  assert.equal(h.item(id).status, 'failed')
+  assert.match(h.item(id).error, /다시 시도/)
+  elapsed = 30000
+  await h.flow.tick()
+  assert.equal(completions, 2)
+  await h.flow.control(id, 'resume')
+  assert.deepEqual(actions, ['RESERVE', 'COMPLETE', 'COMPLETE', 'RESERVE', 'COMPLETE'])
+  assert.equal(h.item(id).status, 'ready')
+  assert.equal(h.calls.filter(call => call.startsWith('start:')).length, 1)
 })
 
 test('생성 한도가 1개일 때 동시에 확정해도 하나만 시작하고 재실행 후에도 한도를 지킨다', async () => {

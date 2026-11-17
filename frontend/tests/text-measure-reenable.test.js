@@ -48,8 +48,8 @@ test('크기 조절 후 onLayout이 다시 오지 않아도 재측정하고 중�
     return element
   }
   render(100, null)
-  const ready = render(120, report)
-  delayed(0, 0, 120, 40)
+  const ready = render(100, report)
+  delayed(0, 0, 100, 40)
   assert.deepEqual(measured, [{ id: 't', h: 20 }])
   ready.props.onLayout({ nativeEvent: { layout: { height: 40 } } })
   assert.equal(measured.length, 1)
@@ -67,6 +67,22 @@ test('좁아진 상자의 내용이 기존 높이보다 길어도 전체 측정 
   const element = module.exports({ object: { id: 'narrow', w: 40, text: '여러 줄 텍스트' }, width: 80, height: 40, zoom: 2, onTextMeasure: (id, h) => measured.push({ id, h }), textMeasureReady: true })
   element.props.onLayout({ nativeEvent: { layout: { height: 120 } } })
   assert.deepEqual(measured, [{ id: 'narrow', h: 60 }])
+})
+
+test('웹에서 손글씨 폰트가 늦게 도착하면 같은 상자 크기에서도 다시 측정한다', () => {
+  const module = { exports: {} }, measured = []
+  let fontFamily = 'sans-serif'
+  makeText(require, module, 'Text', 'View', { OS: 'web' }, false, value => [value, () => {}], value => ({ current: value }), () => {},
+    object => String(object.w), () => ({ lineSpacing: 1 }), () => ({ fontSize: 12, fontFamily }), text => [{ text }], () => ({}))
+  const object = { id: 'handwriting', w: 100, h: 40, font: 'personal-123', text: '손글씨' }
+  const render = onTextMeasure => module.exports({ object, width: 100, height: 40, zoom: 2, onTextMeasure, textMeasureReady: true })
+  const fallback = render(null)
+  assert.equal(fallback.props.onLayout, undefined)
+  fontFamily = 'DIOHW_123'
+  const ready = render((id, h) => measured.push({ id, h }))
+  assert.notEqual(fallback.key, ready.key)
+  ready.props.onLayout({ nativeEvent: { layout: { height: 40 } } })
+  assert.deepEqual(measured, [{ id: 'handwriting', h: 20 }])
 })
 
 test('비동기 측정은 최신 콜백을 쓰고 상자 높이가 바뀌면 같은 실측값도 다시 전달한다', () => {
