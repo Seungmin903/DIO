@@ -4,6 +4,8 @@ const copy = value => JSON.parse(JSON.stringify(value))
 const SLOT_RETRY_MS = 10000
 const retryableSlotError = error => error.code === 'NETWORK_ERROR' || [408, 429].includes(error.status)
   || (error.status >= 500 && error.status < 600)
+const completedFontSlotConflict = (value, error) => value.job?.state === 'ready' && error.code === 'FONT_GENERATION_LIMIT'
+const completedFontSlotMessage = '같은 계정의 다른 폰트가 생성 자리를 사용 중이에요. 그 폰트가 생성 중이면 해당 기기에서 취소한 뒤 다시 시도해 주세요. 완성된 폰트라면 해당 기기에서 사용해 주세요.'
 export const canCancelFontGeneration = value => value.job?.state !== 'ready'
   && ['processing', 'queued', 'paused', 'failed', 'registering'].includes(value.status)
 const waitingEntries = entries => entries.filter(e => e.status === 'queued').sort((a, b) => (a.queueOrder ?? a.createdAt ?? 0) - (b.queueOrder ?? b.createdAt ?? 0))
@@ -172,7 +174,7 @@ export function createFontWorkflow({ repository, engine, uuid, maxGeneratedFonts
           await update(value.id, { error: error.message })
           return
         }
-        await update(value.id, { status: 'failed', error: error.message })
+        await update(value.id, { status: 'failed', error: completedFontSlotConflict(value, error) ? completedFontSlotMessage : error.message })
         await releaseUnusedSlots()
         return
       }
@@ -313,7 +315,13 @@ export function createFontWorkflow({ repository, engine, uuid, maxGeneratedFonts
         if (!['failed', 'paused'].includes(value.status)) return
         if (value.status === 'failed') {
           requireGenerationSlot(id)
-          if (value.generationId) await checkAccountSlot(value)
+          if (value.generationId) {
+            try { await checkAccountSlot(value) } catch (error) {
+              if (!completedFontSlotConflict(value, error)) throw error
+              await update(id, { error: completedFontSlotMessage })
+              throw Error(completedFontSlotMessage)
+            }
+          }
         }
         await update(id, { status: 'queued', queueOrder: nextQueueOrder(), pauseReason: null, error: null,
           ...(value.status === 'failed' && value.generationId && { slotReserved: false, slotPending: true }) })

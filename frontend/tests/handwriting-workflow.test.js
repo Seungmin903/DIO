@@ -144,10 +144,13 @@ test('서버에 완료를 기록한 뒤 등록이 실패해도 완성 파일을 
 
 test('완료가 일시 실패하면 재시도하고, 자리를 잃었으면 사용자가 다시 시도할 때만 복구한다', async () => {
   let elapsed = 0, completions = 0
+  let otherDeviceUsesSlot = false, reserveConflict = false
   const actions = []
-  const slot = { owner: () => 'account', check: async () => {},
+  const limitError = () => Object.assign(Error('한도 초과'), { status: 409, code: 'FONT_GENERATION_LIMIT' })
+  const slot = { owner: () => 'account', async check() { if (otherDeviceUsesSlot) throw limitError() },
     async update(_owner, _id, action) {
       actions.push(action)
+      if (action === 'RESERVE' && reserveConflict) throw limitError()
       if (action !== 'COMPLETE') return
       if (++completions === 1) throw Object.assign(Error('서버 오류'), { status: 503 })
       if (completions === 2) throw Object.assign(Error('자리 없음'), { status: 409, code: 'FONT_GENERATION_SLOT_LOST' })
@@ -170,8 +173,20 @@ test('완료가 일시 실패하면 재시도하고, 자리를 잃었으면 사�
   elapsed = 30000
   await h.flow.tick()
   assert.equal(completions, 2)
+  otherDeviceUsesSlot = true
+  await assert.rejects(h.flow.control(id, 'resume'), /다른 폰트가 생성 자리를 사용 중/)
+  assert.equal(h.item(id).status, 'failed')
+  assert.equal(h.jobs.get(h.item(id).jobId).state, 'ready')
+  assert.deepEqual(actions, ['RESERVE', 'COMPLETE', 'COMPLETE'])
+  otherDeviceUsesSlot = false
+  reserveConflict = true
   await h.flow.control(id, 'resume')
-  assert.deepEqual(actions, ['RESERVE', 'COMPLETE', 'COMPLETE', 'RESERVE', 'COMPLETE'])
+  assert.equal(h.item(id).status, 'failed')
+  assert.match(h.item(id).error, /다른 폰트가 생성 자리를 사용 중/)
+  assert.equal(h.jobs.get(h.item(id).jobId).state, 'ready')
+  reserveConflict = false
+  await h.flow.control(id, 'resume')
+  assert.deepEqual(actions, ['RESERVE', 'COMPLETE', 'COMPLETE', 'RESERVE', 'RESERVE', 'COMPLETE'])
   assert.equal(h.item(id).status, 'ready')
   assert.equal(h.calls.filter(call => call.startsWith('start:')).length, 1)
 })

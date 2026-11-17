@@ -23,7 +23,7 @@ export const fontGenerationSlot = {
     const slot = await request(expectedOwner, { method: 'GET' })
     if (!slot || !Object.hasOwn(slot, 'generationId')) throw Error('폰트 생성 한도를 확인하지 못했어요.')
     if (slot.generationId && slot.generationId !== generationId) {
-      throw Error('한 계정에서 손글씨 폰트는 1개까지 만들 수 있어요.')
+      throw Object.assign(Error('한 계정에서 손글씨 폰트는 1개까지 만들 수 있어요.'), { code: 'FONT_GENERATION_LIMIT' })
     }
   },
   async update(expectedOwner, generationId, action) {
