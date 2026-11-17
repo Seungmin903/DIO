@@ -59,6 +59,7 @@ S15P31F106/
 ├── frontend/            # 모바일 프론트엔드 (Expo + React Native)
 ├── ai/                  # AI 서버 (FastAPI + SAM 2, 사진 속 대상 오리기)
 ├── docs/                # 요구사항/API/DB/팀 문서 (docs/색인.md가 색인)
+├── exec/                # 포팅 매뉴얼(빌드·배포, 외부 서비스, DB 덤프, 시연 시나리오)
 ├── docker-compose.yml   # 로컬 개발용 PostgreSQL
 ├── .env.example         # 로컬 환경변수 예시 (.env 는 커밋 금지)
 ├── README.md
