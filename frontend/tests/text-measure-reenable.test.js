@@ -48,8 +48,8 @@ test('크기 조절 후 onLayout이 다시 오지 않아도 재측정하고 중�
     return element
   }
   render(100, null)
-  const ready = render(100, report)
-  delayed(0, 0, 100, 40)
+  const ready = render(120, report)
+  delayed(0, 0, 120, 40)
   assert.deepEqual(measured, [{ id: 't', h: 20 }])
   ready.props.onLayout({ nativeEvent: { layout: { height: 40 } } })
   assert.equal(measured.length, 1)

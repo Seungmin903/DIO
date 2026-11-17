@@ -16,6 +16,24 @@
 - `PUT /api/v1/handwriting-fonts/generation-slot`은 `{generationId, action}`을 받는다. `RESERVE`는 생성 시작 전에 자리를 확보하고, `COMPLETE`는 생성 완료를 기록한다. `RELEASE`는 같은 작업의 미완료 자리만 반환한다. 성공 시 204를 반환하고 같은 요청을 재시도할 수 있다.
 - 서버는 계정별 동시 갱신을 회원 행 잠금으로 처리한다. 다른 작업이 이미 자리를 쓰면 409 `FONT_GENERATION_LIMIT`, 확보한 자리와 완료 요청의 ID가 다르면 409 `FONT_GENERATION_SLOT_LOST`를 반환한다.
 
+### 기기에서 생성 작업을 잃었을 때
+
+앱을 삭제하거나 저장소를 초기화해 작업이 사라지면 서버에 미완료 자리가 남을 수 있다. 작업이 남아 있는 기기가 있으면 그 기기에서 취소한다. 작업을 복구할 수 없으면 운영 담당자가 계정 소유권과 생성 작업이 더 이상 실행 중이 아님을 확인한 뒤 해당 미완료 자리만 반환한다.
+
+1. 아래 트랜잭션에서 서비스와 같은 회원 행 잠금을 획득하고 현재 자리의 ID와 완료 여부를 확인한다. `:user_id`와 `:generation_id`에는 확인한 회원 ID와 복구 대상 작업 ID를 바인딩한다. 현재 자리가 복구 대상과 일치하지 않거나 이미 완료되었으면 롤백한다.
+2. 삭제 결과가 대상 행 1개일 때만 커밋한다. 그 후 회원이 앱에서 다시 생성할 수 있는지 확인한다.
+
+```sql
+BEGIN;
+SELECT user_id FROM users WHERE user_id = :user_id FOR UPDATE;
+SELECT generation_id, completed FROM handwriting_font_generation_slots WHERE user_id = :user_id;
+
+DELETE FROM handwriting_font_generation_slots
+WHERE user_id = :user_id AND generation_id = :generation_id AND completed = FALSE
+RETURNING generation_id;
+-- 대상 행 1개를 확인한 뒤 COMMIT. 그 외에는 ROLLBACK.
+```
+
 ## 다이어리 폰트
 
 활성 다이어리의 활성 OWNER·EDITOR만 접근할 수 있다. VIEWER와 비회원·탈퇴 멤버는 접근할 수 없다.
