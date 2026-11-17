@@ -55,6 +55,26 @@ class UserWithdrawalTests extends SharingTestSupport {
         }
     }
     @Test void authenticationIsRequired()throws Exception{mvc.perform(delete("/api/v1/me")).andExpect(status().isUnauthorized());}
+    @Test void withdrawalErasesFontGenerationSlotAndRevokesAccess() throws Exception {
+        var actor = actor();
+        var path = "/api/v1/handwriting-fonts/generation-slot";
+        var authorization = "Bearer " + actor.token();
+        var reservation = "{\"generationId\":\"%s\",\"action\":\"RESERVE\"}".formatted(UUID.randomUUID());
+        mvc.perform(put(path).header("Authorization", authorization)
+                .contentType(org.springframework.http.MediaType.APPLICATION_JSON).content(reservation))
+            .andExpect(status().isNoContent());
+        assertThat(jdbc.queryForObject("select count(*) from handwriting_font_generation_slots where user_id=?",
+            Integer.class, actor.id())).isEqualTo(1);
+
+        mvc.perform(delete("/api/v1/me").header("Authorization", authorization)).andExpect(status().isNoContent());
+
+        assertThat(jdbc.queryForObject("select count(*) from handwriting_font_generation_slots where user_id=?",
+            Integer.class, actor.id())).isZero();
+        mvc.perform(get(path).header("Authorization", authorization)).andExpect(status().isUnauthorized());
+        mvc.perform(put(path).header("Authorization", authorization)
+                .contentType(org.springframework.http.MediaType.APPLICATION_JSON).content(reservation))
+            .andExpect(status().isUnauthorized());
+    }
     @Test void appleMemberKeepsAccountUntilAppleRevokeSucceeds()throws Exception{
         var actor=actor();
         accounts.saveAndFlush(com.f106.DIO.auth.domain.EmailAuthProvider.social(actor.id(),com.f106.DIO.auth.domain.SocialProvider.APPLE,"apple-"+actor.id(),Instant.now()));

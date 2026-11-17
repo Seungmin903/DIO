@@ -5,10 +5,11 @@ import { capabilities, controlJob, createSnapshot, generatePreview, latestJob, n
 import { loadFontLibrary, loadWorkflow, newDraft, registerFontFile, renameFont, saveWorkflow } from './storage.js'
 import { refreshPersonalFonts } from './library.js'
 import { SAMPLE_TEXT } from './protocol.js'
+import { fontGenerationSlot } from './fontGenerationSlot.js'
 
 export const fontWorkflow = createFontWorkflow({
   uuid: randomUUID,
-  maxGeneratedFonts: 1,
+  generationSlot: fontGenerationSlot,
   repository: {
     load: loadWorkflow, save: saveWorkflow, newDraft, register: registerFontFile, renameFont,
     fontForJob: async id => (await loadFontLibrary()).find(font => font.sourceJob === id),
