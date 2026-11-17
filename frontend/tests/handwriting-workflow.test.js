@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { createFontWorkflow, availableName, revisionName, queuePosition } from '../src/handwriting/workflow.js'
+import { createFontWorkflow, availableName, canCancelFontGeneration, revisionName, queuePosition } from '../src/handwriting/workflow.js'
 import { MODEL_VERSION, PREPROCESS_VERSION, PROMPTS } from '../src/handwriting/protocol.js'
 
 const clone = value => JSON.parse(JSON.stringify(value))
@@ -90,11 +90,14 @@ test('같은 계정의 두 기기는 생성 한도를 공유하고 같은 기기
   assert.equal(loser.item(other).status, 'processing')
 })
 
-test('생성 자리 확보가 네트워크 오류로 실패하면 10초 후 대기열에서 자동 재시도한다', async () => {
+test('생성 자리 확보가 네트워크 오류, 408, 429로 실패하면 대기열에서 다시 시도한다', async () => {
   let elapsed = 0, reservations = 0
+  const errors = [{ code: 'NETWORK_ERROR' }, { status: 408 }, { status: 429 }]
   const slot = { owner: () => 'account', check: async () => {},
     async update(_owner, _id, action) {
-      if (action === 'RESERVE' && ++reservations === 1) throw Object.assign(Error('연결 실패'), { code: 'NETWORK_ERROR' })
+      if (action !== 'RESERVE') return
+      const error = errors[reservations++]
+      if (error) throw Object.assign(Error('일시 오류'), error)
     },
   }
   const h = setup([], new Map(), Infinity, slot, 'entry', () => elapsed)
@@ -105,10 +108,38 @@ test('생성 자리 확보가 네트워크 오류로 실패하면 10초 후 대�
   elapsed = 9999
   await h.flow.tick()
   assert.equal(reservations, 1)
-  elapsed = 10000
+  for (const next of [10000, 20000]) {
+    elapsed = next
+    await h.flow.tick()
+    assert.equal(h.item(id).status, 'queued')
+  }
+  elapsed = 30000
   await h.flow.tick()
-  assert.equal(reservations, 2)
+  assert.equal(reservations, 4)
   assert.equal(h.item(id).status, 'processing')
+})
+
+test('서버에 완료를 기록한 뒤 등록이 실패해도 완성 파일을 취소할 수 없다', async () => {
+  const actions = []
+  const slot = { owner: () => 'account', check: async () => {}, update: async (_owner, _id, action) => { actions.push(action) } }
+  const h = setup([], new Map(), Infinity, slot)
+  await h.flow.init()
+  const id = await h.prepare('폰트')
+  await h.flow.confirm(id)
+  h.complete(id)
+  h.failRegister(true)
+  await h.flow.tick()
+  assert.deepEqual(actions, ['RESERVE', 'COMPLETE'])
+  assert.equal(h.item(id).status, 'failed')
+  assert.equal(canCancelFontGeneration(h.item(id)), false)
+  await h.flow.control(id, 'cancel')
+  assert.equal(h.item(id).status, 'failed')
+  assert.equal(h.jobs.get(h.item(id).jobId).state, 'ready')
+  assert.deepEqual(actions, ['RESERVE', 'COMPLETE'])
+  h.failRegister(false)
+  await h.flow.control(id, 'resume')
+  assert.equal(h.item(id).status, 'ready')
+  assert.equal(h.calls.filter(call => call.startsWith('start:')).length, 1)
 })
 
 test('완료가 일시 실패하면 재시도하고, 자리를 잃었으면 사용자가 다시 시도할 때만 복구한다', async () => {

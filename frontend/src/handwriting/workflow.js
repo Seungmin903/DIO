@@ -2,7 +2,10 @@ import { validateDraft, jobMatchesModel, SYLLABLE_COUNT, PROMPTS } from './proto
 
 const copy = value => JSON.parse(JSON.stringify(value))
 const SLOT_RETRY_MS = 10000
-const retryableSlotError = error => error.code === 'NETWORK_ERROR' || (error.status >= 500 && error.status < 600)
+const retryableSlotError = error => error.code === 'NETWORK_ERROR' || [408, 429].includes(error.status)
+  || (error.status >= 500 && error.status < 600)
+export const canCancelFontGeneration = value => value.job?.state !== 'ready'
+  && ['processing', 'queued', 'paused', 'failed', 'registering'].includes(value.status)
 const waitingEntries = entries => entries.filter(e => e.status === 'queued').sort((a, b) => (a.queueOrder ?? a.createdAt ?? 0) - (b.queueOrder ?? b.createdAt ?? 0))
 const labelOf = value => {
   const label = value.trim()
@@ -314,9 +317,9 @@ export function createFontWorkflow({ repository, engine, uuid, maxGeneratedFonts
         }
         await update(id, { status: 'queued', queueOrder: nextQueueOrder(), pauseReason: null, error: null,
           ...(value.status === 'failed' && value.generationId && { slotReserved: false, slotPending: true }) })
-      } else if (action === 'cancel' && !['ready', 'cancelled', 'draft'].includes(value.status)) {
+      } else if (action === 'cancel' && canCancelFontGeneration(value)) {
         if (value.status === 'processing') await stopAndWait(value, 'cancel')
-        if (entry(id).status === 'ready') return
+        if (!canCancelFontGeneration(entry(id))) return
         if (value.jobId) await engine.control('cancel', value.jobId)
         reservationAttempts.delete(id)
         await update(id, { status: 'cancelled', pauseReason: null })
