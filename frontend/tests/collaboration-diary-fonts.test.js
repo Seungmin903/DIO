@@ -216,8 +216,9 @@ test('폰트 형식이 아닌 파일은 저장 · 등록하지 않는다', async
   assert.equal(f.saved.size, 0)
 })
 
-test('받은 요소에 못 그리는 폰트가 있으면 목록을 다시 받고, 막 받은 직후면 남은 시간 뒤에 한 번 받는다', async () => {
-  const f = fixture({ mine: [], serverFonts: [] })
+test('본문이 폰트보다 먼저 도착해도 추가 편집 없이 폰트를 다시 받아 등록한다', async () => {
+  const serverFonts = []
+  const f = fixture({ mine: [], serverFonts, has: id => f.registered.some(font => font.fileId === id) })
   const rows = [textRow(`personal-${fileId}`)]
   const lists = () => f.calls.filter(call => !call.method && call.path === `/diaries/${diaryId}/fonts`).length
   await f.fonts.sync()
@@ -232,29 +233,16 @@ test('받은 요소에 못 그리는 폰트가 있으면 목록을 다시 받고
   f.timers[0].run()
   await new Promise(resolve => setImmediate(resolve))
   assert.equal(lists(), 2)
-  // 내 글꼴로 그릴 수 있는 글자는 다시 받지 않는다
-  f.tick(10000)
-  await f.fonts.hydrate([textRow('nanum-gothic')])
-  assert.equal(lists(), 2)
-  // 계속 못 받는 폰트는 간격이 30초로 늘어난다(마지막 조회 20초 뒤라 10초 뒤로 예약)
-  f.tick(10000)
-  await f.fonts.hydrate(rows)
-  assert.equal(lists(), 2)
-  assert.equal(f.timers.at(-1).ms, 10000)
-  f.tick(10000)
+  assert.deepEqual(f.registered, [])
+  // 첫 재조회 이후에 폰트 공유가 완료되어도 새 요소 수신 없이 다시 받는다
+  serverFonts.push({ mediaFileId, name: sharedFontFileName(fileId), enabled: true })
+  assert.equal(f.timers.at(-1).ms, 30000)
+  f.tick(30000)
   f.timers.at(-1).run()
   await new Promise(resolve => setImmediate(resolve))
   assert.equal(lists(), 3)
-  // 다음은 1분 30초 간격
-  f.tick(60000)
-  await f.fonts.hydrate(rows)
-  assert.equal(f.timers.at(-1).ms, 30000)
-  // 처음 보는 폰트가 오면 간격이 10초로 돌아간다: 마지막 조회가 61초 전이라 바로 받고, 예약해 둔 재조회는 취소한다
-  const another = [textRow(`personal-${otherId}`)]
-  f.tick(1000)
-  await f.fonts.hydrate(another)
-  assert.equal(lists(), 4)
-  assert.equal(f.timers.at(-1).cleared, true)
+  assert.equal(f.registered[0]?.fileId, fileId)
+  assert.equal(f.timers.length, 2)
 })
 
 test('받은 폰트를 기기가 읽지 못하면 다음 조회에서 다시 받고, 두 번 실패한 파일은 더 받지 않는다', async () => {

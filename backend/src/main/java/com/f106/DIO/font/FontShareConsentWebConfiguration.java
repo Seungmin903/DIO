@@ -13,7 +13,9 @@ public class FontShareConsentWebConfiguration implements WebMvcConfigurer {
         this.origins = java.util.Arrays.stream(origins.split(",")).map(String::strip).filter(value -> !value.isEmpty()).toArray(String[]::new);
     }
     @Override public void addCorsMappings(CorsRegistry registry) {
-        registry.addMapping("/api/v1/handwriting-fonts/share-consent").allowedOrigins(origins).allowedMethods("GET", "PUT", "OPTIONS")
-            .allowedHeaders("Content-Type", "Authorization", "X-DIO-Access-Token").allowCredentials(false).maxAge(600);
+        for (String path : new String[] {"share-consent", "generation-slot"}) {
+            registry.addMapping("/api/v1/handwriting-fonts/" + path).allowedOrigins(origins).allowedMethods("GET", "PUT", "OPTIONS")
+                .allowedHeaders("Content-Type", "Authorization", "X-DIO-Access-Token").allowCredentials(false).maxAge(600);
+        }
     }
 }

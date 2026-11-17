@@ -10,6 +10,12 @@
 
 업로드는 동기 처리한다. 성공 응답 전에 연결이 끊기면 저장 결과가 불확실할 수 있으며 별도 업로드 상태 추적 API는 없다.
 
+## 폰트 생성 한도
+
+- `GET /api/v1/handwriting-fonts/generation-slot`은 계정의 `{generationId, completed}`를 반환한다. 빈 자리는 `{generationId: null, completed: false}`다.
+- `PUT /api/v1/handwriting-fonts/generation-slot`은 `{generationId, action}`을 받는다. `RESERVE`는 생성 시작 전에 자리를 확보하고, `COMPLETE`는 생성 완료를 기록한다. `RELEASE`는 같은 작업의 미완료 자리만 반환한다. 성공 시 204를 반환하고 같은 요청을 재시도할 수 있다.
+- 서버는 계정별 동시 갱신을 회원 행 잠금으로 처리한다. 다른 작업이 이미 자리를 쓰면 409 `FONT_GENERATION_LIMIT`, 확보한 자리와 완료 요청의 ID가 다르면 409 `FONT_GENERATION_SLOT_LOST`를 반환한다.
+
 ## 다이어리 폰트
 
 활성 다이어리의 활성 OWNER·EDITOR만 접근할 수 있다. VIEWER와 비회원·탈퇴 멤버는 접근할 수 없다.

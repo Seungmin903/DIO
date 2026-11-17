@@ -6,7 +6,7 @@ import { MODEL_VERSION, PREPROCESS_VERSION, PROMPTS } from '../src/handwriting/p
 const clone = value => JSON.parse(JSON.stringify(value))
 const sample = { coordinateSize: 1024, strokes: [{ width: 9, points: [{ x: 200, y: 200 }, { x: 700, y: 700 }] }] }
 const draft = id => ({ schema: 1, id, samples: Object.fromEntries(PROMPTS.map(c => [c, clone(sample)])), updatedAt: '2026-10-30' })
-function setup(saved = [], jobs = new Map(), maxGeneratedFonts) {
+function setup(saved = [], jobs = new Map(), maxGeneratedFonts, generationSlot, device = 'entry') {
   let next = 0, active = null, failSave = false, failRegister = false
   const calls = [], fonts = new Map()
   const repository = {
@@ -37,7 +37,7 @@ function setup(saved = [], jobs = new Map(), maxGeneratedFonts) {
     preview: async () => { assert.equal(active, null); calls.push('preview'); return { 안: 'file://preview.png' } },
     wait: async () => {},
   }
-  const flow = createFontWorkflow({ repository, engine, maxGeneratedFonts, uuid: () => `entry-${++next}` })
+  const flow = createFontWorkflow({ repository, engine, maxGeneratedFonts, generationSlot, uuid: () => `${device}-${++next}` })
   const item = id => flow.getSnapshot().entries.find(e => e.id === id)
   const complete = id => { const job = jobs.get(item(id).jobId); Object.assign(job, { state: 'ready', completed: 11172, fontUri: 'file://font.ttf' }); active = null }
   // 작업 상태를 바꾸고 엔진을 비운다(생성 실패 · 생성기 변경처럼 작업이 멈춘 경우)
@@ -48,6 +48,47 @@ function setup(saved = [], jobs = new Map(), maxGeneratedFonts) {
   return { flow, calls, jobs, fonts, item, complete, settle, prepare, repository, engine,
     saved: () => clone(saved), failSave: value => { failSave = value }, failRegister: value => { failRegister = value } }
 }
+
+test('같은 계정의 두 기기는 생성 한도를 공유하고 같은 기기의 다른 계정은 별도 한도를 쓴다', async () => {
+  let owner = 'first-account'
+  const slots = new Map()
+  const check = async (account, id) => {
+    if (slots.has(account) && slots.get(account).id !== id) throw Error('한 계정에서 1개까지 만들 수 있어요.')
+  }
+  const generationSlot = {
+    owner: () => owner,
+    check,
+    async update(account, id, action) {
+      const slot = slots.get(account)
+      if (action === 'RESERVE') {
+        if (slot && slot.id !== id) throw Error('한 계정에서 1개까지 만들 수 있어요.')
+        if (!slot) slots.set(account, { id, completed: false })
+      } else if (slot?.id === id) {
+        if (action === 'COMPLETE') slot.completed = true
+        if (action === 'RELEASE' && !slot.completed) slots.delete(account)
+      }
+    },
+  }
+  const a = setup([], new Map(), Infinity, generationSlot, 'device-a')
+  const b = setup([], new Map(), Infinity, generationSlot, 'device-b')
+  await Promise.all([a.flow.init(), b.flow.init()])
+  const first = await a.prepare('첫 폰트')
+  const second = await b.prepare('둘째 폰트')
+  await Promise.all([a.flow.confirm(first), b.flow.confirm(second)])
+  assert.equal(a.calls.concat(b.calls).filter(call => call.startsWith('start:')).length, 1)
+  const [winner, winningId, loser] = a.item(first).status === 'processing' ? [a, first, b] : [b, second, a]
+  await winner.flow.control(winningId, 'cancel')
+  const replacement = await loser.prepare('새 폰트')
+  await loser.flow.confirm(replacement)
+  loser.complete(replacement)
+  await loser.flow.tick()
+  assert.equal(slots.get(owner).completed, true)
+  await assert.rejects(winner.flow.create(), /1개까지/)
+  owner = 'second-account'
+  const other = await loser.prepare('다른 계정 폰트')
+  await loser.flow.confirm(other)
+  assert.equal(loser.item(other).status, 'processing')
+})
 
 test('생성 한도가 1개일 때 동시에 확정해도 하나만 시작하고 재실행 후에도 한도를 지킨다', async () => {
   const h = setup([], new Map(), 1)

@@ -47,7 +47,7 @@ export const TextMeasureReady = createContext(false)
  * 편집 화면, 페이지 썸네일에서 함께 쓴다.
  */
 function ObjectContent({ object, zoom, areaPreview = false, still: stillRequested = false, onAssetLoad, onAssetError, showFallbackWhileLoading = false, linesOnly = false }) {
-  const fontStatus = useTextFont(object.type === 'text' ? object.font : null, Boolean(object.bold))
+  useTextFont(object.type === 'text' ? object.font : null, Boolean(object.bold))
 
   const width = object.w * zoom
   const height = object.h * zoom
@@ -57,9 +57,6 @@ function ObjectContent({ object, zoom, areaPreview = false, still: stillRequeste
   const uri = useMediaUri(object, { still })
   const onTextMeasure = useContext(TextMeasure)
   const textMeasureReady = useContext(TextMeasureReady)
-  if (object.type === 'text' && object.font?.startsWith('personal-') && !loadedFontFamily(object.font)) return (
-    <View style={{ width, height, justifyContent: 'center' }}><Text style={{ fontSize: Math.max(8, 12 * zoom), color: colors.textMuted }}>{fontStatus.includes(':loading') ? '내 폰트를 준비하고 있어요…' : '내 폰트 파일을 가져와 주세요.'}</Text></View>
-  )
   if (mediaId(object) && !uri) return (
     <View style={{ width, height, backgroundColor: failed ? colors.surfaceSoft : colors.surface, borderWidth: failed ? 1 : 0, borderStyle: 'dashed', borderColor: colors.primary, alignItems: 'center', justifyContent: 'center' }}>
       <Text style={{ fontSize: Math.max(8, 12 * zoom), color: failed ? colors.text : colors.textMuted }}>{failed ? '이미지 확인 필요' : '이미지 불러오는 중…'}</Text>
@@ -74,7 +71,8 @@ function ObjectContent({ object, zoom, areaPreview = false, still: stillRequeste
   switch (object.type) {
     case 'text': {
       // 상자의 빈 공간과 별개로 실제 내용 높이를 측정한다 (TextMeasure).
-      return <TextContent object={object} width={width} height={height} zoom={zoom} onTextMeasure={onTextMeasure} textMeasureReady={textMeasureReady} />
+      const waitingForFont = object.font?.startsWith('personal-') && !loadedFontFamily(object.font)
+      return <TextContent object={object} width={width} height={height} zoom={zoom} onTextMeasure={waitingForFont ? null : onTextMeasure} textMeasureReady={textMeasureReady} />
     }
     case 'shape':
       return <ShapeContent object={object} zoom={zoom} linesOnly={linesOnly} />
