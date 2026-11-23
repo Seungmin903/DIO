@@ -3,12 +3,13 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import * as geometry from '../src/editor/utils/photoCropGeometry.js'
+import * as fixedGeometry from '../src/editor/utils/fixedCropGeometry.js'
 
 const require = createRequire(import.meta.url), expo = createRequire(require.resolve('expo/package.json'))
 const nodes = node => !node || typeof node !== 'object' ? [] : [node, ...[node.props?.children].flat(Infinity).flatMap(nodes)]
 const close = (a, b) => assert.ok(Math.abs(a - b) < 0.001, `${a} != ${b}`)
 
-function fixture() {
+function fixture(options = {}) {
   const states = [], refs = []; let si = 0, ri = 0, applied
   const react = {
     useState(initial) { const i = si++; if (!(i in states)) states[i] = typeof initial === 'function' ? initial() : initial; return [states[i], value => { states[i] = typeof value === 'function' ? value(states[i]) : value }] },
@@ -19,12 +20,12 @@ function fixture() {
   const constants = { CROP_RATIOS: [{ id: '16:9', name: '16:9', value: 16 / 9 }, { id: '3:4', name: '3:4', value: 3 / 4 }], POLAROID_RATIOS: [], PHOTO_SHAPES: [], CROP_ZOOM_MAX: 9 }
   const objects = { isBorderFrame: () => false, photoInnerBox: () => ({ width: 400, height: 300 }), ratioValueOf: id => constants.CROP_RATIOS.find(r => r.id === id)?.value, resizeAroundCenter: (_, w, h) => ({ w, h }) }
   const mocks = { react, 'react/jsx-runtime': jsx, 'react-native': native, '../../../shared/theme': { colors: {}, shadow: {} }, '../../constants': constants, '../../utils/objects': objects,
-    '../../utils/common': { clamp: (x, lo, hi) => Math.min(hi, Math.max(lo, x)) }, '../../utils/photoCropGeometry.js': geometry, '../../hooks/useMediaUri': { useMediaUri: () => 'image' }, '../../hooks/usePan': { usePan: handlers => handlers } }
+    '../../utils/common': { clamp: (x, lo, hi) => Math.min(hi, Math.max(lo, x)) }, '../../utils/photoCropGeometry.js': geometry, '../../utils/fixedCropGeometry.js': fixedGeometry, '../../hooks/useMediaUri': { useMediaUri: () => 'image' }, '../../hooks/usePan': { usePan: handlers => handlers } }
   const code = expo('@babel/core').transformSync(readFileSync(new URL('../src/editor/components/panels/PhotoCropper.js', import.meta.url), 'utf8'), { configFile: false, babelrc: false, plugins: [[expo.resolve('@babel/plugin-transform-react-jsx'), { runtime: 'automatic' }], expo.resolve('@babel/plugin-transform-modules-commonjs')] }).code
   const mod = { exports: {} }
   new Function('require', 'module', 'exports', code)(id => mocks[id] ?? { __esModule: true, default: id }, mod, mod.exports)
   const photo = { id: 'photo', frame: 'none', w: 400, h: 300, imageWidth: 1600, imageHeight: 1200, crop: { fx: 0.5, fy: 0.5, zoom: 1 } }
-  const render = () => { si = 0; ri = 0; const modal = mod.exports.default({ photo, onApply: value => { applied = value }, onCancel() {} }); return modal.props.children.type(modal.props.children.props) }
+  const render = () => { si = 0; ri = 0; const modal = mod.exports.default({ photo, onApply: value => { applied = value }, onCancel() {}, ...options }); return modal.props.children.type(modal.props.children.props) }
   return { render, get applied() { return applied } }
 }
 
@@ -181,4 +182,23 @@ test('607: 작은 틀은 손잡이가 겹치지 않게 덜 쓰는 쪽을 숨긴�
   assert.equal(keys(20, 20), 'se')
   // 비율 잠금은 꼭짓점만
   assert.equal(keys(300, 30, true), 'ne,nw,se,sw')
+})
+
+test('프로필 전용 고정 원은 확대·이동 중에도 같은 프레임이고 제스처 중에만 바깥 스크롤을 잠근다', () => {
+ const ui=fixture({fixedViewport:true,round:true,fixedAspect:1})
+ const fixed=tree=>nodes(tree).find(n=>n.type==='../controls/FixedPhotoCrop')
+ const viewport=tree=>nodes(tree).find(n=>n.type==='../controls/CropViewport')
+ let tree=ui.render();const original=fixed(tree).props
+ assert.ok(original);assert.equal(nodes(tree).some(n=>n.type?.name==='FreeCrop'),false)
+ assert.equal(viewport(tree).props.scrollEnabled,true)
+ original.onInteraction(true);tree=ui.render();assert.equal(viewport(tree).props.scrollEnabled,false)
+ nodes(tree).find(n=>n.props?.label==='확대'&&n.props?.onChange).props.onChange(4)
+ tree=ui.render();assert.deepEqual(fixed(tree).props.frame,original.frame)
+ close(geometry.freeZoom(fixed(tree).props.rect),4)
+ fixed(tree).props.onInteraction(false);tree=ui.render();assert.equal(viewport(tree).props.scrollEnabled,true)
+ const expected=fixed(tree).props.rect
+ nodes(tree).find(n=>n.type==='Pressable'&&n.props?.accessibilityRole==='button'&&nodes(n).some(c=>c.props?.children==='적용')).props.onPress()
+ assert.deepEqual(ui.applied.rect,expected)
+ const reset=nodes(tree).find(n=>n.props?.label==='초기화');reset.props.onPress()
+ tree=ui.render();assert.deepEqual(fixed(tree).props.frame,original.frame);close(geometry.freeZoom(fixed(tree).props.rect),1)
 })

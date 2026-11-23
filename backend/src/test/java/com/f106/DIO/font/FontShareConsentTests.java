@@ -85,6 +85,34 @@ class FontShareConsentTests {
         assertThat(again).isEqualTo(first);
     }
 
+    @Test void 같은_계정의_두_세션은_폰트_생성_한도를_공유한다() throws Exception {
+        var actor = actor();
+        var other = actor();
+        var device = new Actor(actor.id(), login.login(new LoginRequest(users.findById(actor.id()).orElseThrow().getEmail(),
+            "DioMember123!", "second-device"), "127.0.0.2").accessToken());
+        var first = UUID.randomUUID();
+        var second = UUID.randomUUID();
+        var path = "/api/v1/handwriting-fonts/generation-slot";
+        mvc.perform(get(path)).andExpect(status().isUnauthorized());
+        updateSlot(actor, first, "RESERVE").andExpect(status().isNoContent());
+        updateSlot(device, first, "RESERVE").andExpect(status().isNoContent());
+        updateSlot(device, second, "RESERVE").andExpect(status().isConflict()).andExpect(jsonPath("code").value("FONT_GENERATION_LIMIT"));
+        updateSlot(other, second, "RESERVE").andExpect(status().isNoContent());
+        updateSlot(actor, first, "RELEASE").andExpect(status().isNoContent());
+        updateSlot(device, second, "RESERVE").andExpect(status().isNoContent());
+        updateSlot(device, second, "COMPLETE").andExpect(status().isNoContent());
+        updateSlot(actor, second, "RELEASE").andExpect(status().isNoContent());
+        mvc.perform(get(path).header("Authorization", "Bearer " + actor.token()))
+            .andExpect(status().isOk()).andExpect(jsonPath("generationId").value(second.toString())).andExpect(jsonPath("completed").value(true));
+        updateSlot(actor, first, "RESERVE").andExpect(status().isConflict());
+    }
+
+    private ResultActions updateSlot(Actor actor, UUID generationId, String action) throws Exception {
+        return mvc.perform(put("/api/v1/handwriting-fonts/generation-slot").header("Authorization", "Bearer " + actor.token())
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{\"generationId\":\"%s\",\"action\":\"%s\"}".formatted(generationId, action)));
+    }
+
     @Test void 옮기기_저장은_아직_답이_없을_때만_쓰고_있으면_있는_값을_돌려준다() throws Exception {
         var actor = actor();
         write(actor, "{\"agreed\":false,\"onlyIfNotAsked\":true}").andExpect(jsonPath("status").value("DENIED"));

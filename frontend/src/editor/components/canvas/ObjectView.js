@@ -58,9 +58,6 @@ function ObjectContent({ object, zoom, areaPreview = false, still: stillRequeste
   const uri = useMediaUri(object, { still })
   const onTextMeasure = useContext(TextMeasure)
   const textMeasureReady = useContext(TextMeasureReady)
-  if (object.type === 'text' && object.font?.startsWith('personal-') && !loadedFontFamily(object.font)) return (
-    <View style={{ width, height, justifyContent: 'center' }}><Text style={{ fontSize: Math.max(8, 12 * zoom), color: colors.textMuted }}>{fontStatus.includes(':loading') ? '내 폰트를 준비하고 있어요…' : '내 폰트 파일을 가져와 주세요.'}</Text></View>
-  )
   if (mediaId(object) && !uri) return (
     <View style={{ width, height, backgroundColor: failed ? colors.surfaceSoft : colors.surface, borderWidth: failed ? 1 : 0, borderStyle: 'dashed', borderColor: colors.primary, alignItems: 'center', justifyContent: 'center' }}>
       <Text style={{ fontSize: Math.max(8, 12 * zoom), color: failed ? colors.text : colors.textMuted }}>{failed ? '이미지 확인 필요' : '이미지 불러오는 중…'}</Text>
@@ -75,7 +72,8 @@ function ObjectContent({ object, zoom, areaPreview = false, still: stillRequeste
   switch (object.type) {
     case 'text': {
       // 상자의 빈 공간과 별개로 실제 내용 높이를 측정한다 (TextMeasure).
-      return <TextContent object={object} width={width} height={height} zoom={zoom} onTextMeasure={onTextMeasure} textMeasureReady={textMeasureReady} />
+      const waitingForFont = object.font?.startsWith('personal-') && !loadedFontFamily(object.font)
+      return <TextContent object={object} width={width} height={height} zoom={zoom} onTextMeasure={waitingForFont ? null : onTextMeasure} textMeasureReady={textMeasureReady} />
     }
     case 'shape':
       return <ShapeContent object={object} zoom={zoom} linesOnly={linesOnly} />
@@ -144,7 +142,7 @@ function TextContent({ object, width, height, zoom, onTextMeasure, textMeasureRe
     lastMeasurement.current = { id: object.id, key: layoutKey, boxHeight: object.h, h }
     measureCallback.current(object.id, h)
   }
-  // 크기 조절 중 측정이 중단됐다가 재개되면 크기가 같아도 직접 잰다.
+  // 크기 조절이나 폰트 로드로 측정이 다시 켜지면 크기가 같아도 직접 잰다.
   useLayoutEffect(() => {
     if (!measurementEnabled || Platform.OS === 'web') return undefined
     let cancelled = false
@@ -152,10 +150,12 @@ function TextContent({ object, width, height, zoom, onTextMeasure, textMeasureRe
       if (!cancelled) reportHeight(measuredHeight)
     })
     return () => { cancelled = true }
-  }, [measurementEnabled, layoutKey, object.id, object.h, zoom, textMeasureReady])
+  }, [measurementEnabled, layoutKey, object.id, object.h, zoom, textMeasureReady, base.fontFamily])
   const style = { width, minHeight: onTextMeasure ? undefined : height, ...base, ...(drawn && { textDecorationLine: 'none' }) }
-  // 측정이 다시 켜질 때 크기가 같아도 새로운 native Text의 첫 onLayout을 받는다.
-  const text = <Text ref={textRef} key={textMeasureReady ? 'ready' : 'loading'} onLayout={onTextMeasure ? (event) => reportHeight(event.nativeEvent.layout.height) : undefined}
+  const layoutPhase = textMeasureReady ? 'ready' : 'loading'
+  // 웹은 원래 폰트가 들어온 뒤 크기가 같아도 새 Text의 첫 onLayout을 받는다.
+  const textKey = Platform.OS === 'web' && object.font?.startsWith('personal-') ? `${layoutPhase}:${base.fontFamily}` : layoutPhase
+  const text = <Text ref={textRef} key={textKey} onLayout={onTextMeasure ? (event) => reportHeight(event.nativeEvent.layout.height) : undefined}
     onTextLayout={drawn ? (event) => setLines(event.nativeEvent.lines) : undefined} style={style}>
     {richTextSegments(object.text, object.colorRanges, object.styleRanges).map((segment, index) => <Text key={index} style={{ textDecorationLine: style.textDecorationLine, ...segmentTextStyle(segment, scale, settings.lineSpacing) }}>{segment.text}</Text>)}
   </Text>

@@ -69,6 +69,22 @@ test('좁아진 상자의 내용이 기존 높이보다 길어도 전체 측정 
   assert.deepEqual(measured, [{ id: 'narrow', h: 60 }])
 })
 
+test('웹에서 손글씨 폰트가 늦게 도착하면 같은 상자 크기에서도 다시 측정한다', () => {
+  const module = { exports: {} }, measured = []
+  let fontFamily = 'sans-serif'
+  makeText(require, module, 'Text', 'View', { OS: 'web' }, false, value => [value, () => {}], value => ({ current: value }), () => {},
+    object => String(object.w), () => ({ lineSpacing: 1 }), () => ({ fontSize: 12, fontFamily }), text => [{ text }], () => ({}))
+  const object = { id: 'handwriting', w: 100, h: 40, font: 'personal-123', text: '손글씨' }
+  const render = onTextMeasure => module.exports({ object, width: 100, height: 40, zoom: 2, onTextMeasure, textMeasureReady: true })
+  const fallback = render(null)
+  assert.equal(fallback.props.onLayout, undefined)
+  fontFamily = 'DIOHW_123'
+  const ready = render((id, h) => measured.push({ id, h }))
+  assert.notEqual(fallback.key, ready.key)
+  ready.props.onLayout({ nativeEvent: { layout: { height: 40 } } })
+  assert.deepEqual(measured, [{ id: 'handwriting', h: 20 }])
+})
+
 test('비동기 측정은 최신 콜백을 쓰고 상자 높이가 바뀌면 같은 실측값도 다시 전달한다', () => {
   const module = { exports: {} }, refs = [], effects = [], received = []
   let ri = 0, ei = 0, pending = [], delayed

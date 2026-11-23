@@ -1,6 +1,13 @@
 import { validateDraft, jobMatchesModel, SYLLABLE_COUNT, PROMPTS } from './protocol.js'
 
 const copy = value => JSON.parse(JSON.stringify(value))
+const SLOT_RETRY_MS = 10000
+const retryableSlotError = error => error.code === 'NETWORK_ERROR' || [408, 429].includes(error.status)
+  || (error.status >= 500 && error.status < 600)
+const completedFontSlotConflict = (value, error) => value.job?.state === 'ready' && error.code === 'FONT_GENERATION_LIMIT'
+const completedFontSlotMessage = '같은 계정의 다른 폰트가 생성 자리를 사용 중이에요. 그 폰트가 생성 중이면 해당 기기에서 취소한 뒤 다시 시도해 주세요. 완성된 폰트라면 해당 기기에서 사용해 주세요.'
+export const canCancelFontGeneration = value => value.job?.state !== 'ready'
+  && ['processing', 'queued', 'paused', 'failed', 'registering'].includes(value.status)
 const waitingEntries = entries => entries.filter(e => e.status === 'queued').sort((a, b) => (a.queueOrder ?? a.createdAt ?? 0) - (b.queueOrder ?? b.createdAt ?? 0))
 const labelOf = value => {
   const label = value.trim()
@@ -18,7 +25,7 @@ export function availableName(name, entries) {
 export function revisionName(entry, entries) {
   return availableName(entry.baseName || entry.name, entries)
 }
-export function createFontWorkflow({ repository, engine, uuid, maxGeneratedFonts = Infinity, onFontsChanged = async () => {} }) {
+export function createFontWorkflow({ repository, engine, uuid, maxGeneratedFonts = Infinity, generationSlot, onFontsChanged = async () => {}, now = Date.now }) {
   let state = { loaded: false, entries: [], support: { available: false, reason: '실행 환경을 확인하고 있어요.' }, error: '', previewing: false }
   let initialized, serial = Promise.resolve(), previewTask, foreground = true
   const listeners = new Set(), snapshots = new Map()
@@ -40,6 +47,33 @@ export function createFontWorkflow({ repository, engine, uuid, maxGeneratedFonts
     return value
   }
   const requireSupport = () => { if (!state.support.available) throw new Error(state.support.reason) }
+  const belongsToCurrentAccount = value => !value.generationOwner || value.generationOwner === generationSlot?.owner()
+  const checkAccountSlot = async value => {
+    if (!generationSlot) return null
+    const owner = generationSlot.owner()
+    if (!owner) throw Error('로그인한 뒤 손글씨 폰트를 만들 수 있어요.')
+    if (value && !belongsToCurrentAccount(value)) throw Error('이 폰트를 만들던 계정으로 로그인해 주세요.')
+    await generationSlot.check(owner, value?.generationId)
+    return owner
+  }
+  const updateSlot = (value, action) => value.generationId && generationSlot?.update(value.generationOwner, value.generationId, action)
+  const releaseAttempts = new Map()
+  const completionAttempts = new Map()
+  const reservationAttempts = new Map()
+  async function releaseUnusedSlots() {
+    for (const value of state.entries) {
+      if (!value.slotPending || !belongsToCurrentAccount(value)) continue
+      if (value.status !== 'cancelled' && (value.status !== 'failed' || value.job?.state === 'ready')) continue
+      if ((releaseAttempts.get(value.id) ?? 0) > now()) continue
+      try {
+        await updateSlot(value, 'RELEASE')
+        await update(value.id, { slotPending: false, slotReserved: false })
+        releaseAttempts.delete(value.id)
+      } catch {
+        releaseAttempts.set(value.id, now() + SLOT_RETRY_MS)
+      }
+    }
+  }
   const requireGenerationSlot = id => {
     const reserved = state.entries.filter(value => {
       if (value.id === id) return false
@@ -49,7 +83,7 @@ export function createFontWorkflow({ repository, engine, uuid, maxGeneratedFonts
       if (value.status === 'failed') return value.job?.state === 'ready'
       return ['queued', 'processing', 'paused', 'registering'].includes(value.status)
     }).length
-    if (reserved >= maxGeneratedFonts) throw new Error(`이 기기에서 손글씨 폰트는 ${maxGeneratedFonts}개까지 만들 수 있어요.`)
+    if (reserved >= maxGeneratedFonts) throw new Error(`손글씨 폰트는 ${maxGeneratedFonts}개까지 만들 수 있어요.`)
   }
   const nextQueueOrder = () => Math.max(0, ...state.entries.map(e => e.queueOrder || 0)) + 1
   const prepared = async value => {
@@ -64,15 +98,32 @@ export function createFontWorkflow({ repository, engine, uuid, maxGeneratedFonts
   const finish = async (value, job) => {
     // File registration is idempotent by native job ID, including crash recovery.
     const font = await repository.register(job.fontUri, value.name, job.id)
-    await update(value.id, { status: 'ready', job, fontId: font.id, error: null, pauseReason: null })
+    await update(value.id, { status: 'ready', job, fontId: font.id, error: null, pauseReason: null, slotPending: false })
     snapshots.delete(value.id)
     await onFontsChanged()
   }
   const reconcile = async value => {
     if (!value.jobId) return
+    if (value.status === 'queued' && value.generationId && !value.slotReserved) return
     const job = await engine.refresh(value.jobId)
     if (job.state === 'ready') {
-      try { await finish(value, job) } catch (error) { await update(value.id, { job, status: 'failed', error: error.message }) }
+      if ((completionAttempts.get(value.id) ?? 0) > now()) return
+      try {
+        await updateSlot(value, 'COMPLETE')
+        completionAttempts.delete(value.id)
+      } catch (error) {
+        if (!retryableSlotError(error)) {
+          const message = error.code === 'FONT_GENERATION_SLOT_LOST'
+            ? '폰트 생성 자리를 확인할 수 없어요. 다시 시도해 주세요. 문제가 계속되면 문의해 주세요.'
+            : error.message
+          return update(value.id, { job, status: 'failed', slotReserved: false, error: message })
+        }
+        completionAttempts.set(value.id, now() + SLOT_RETRY_MS)
+        return update(value.id, { job, status: 'registering', error: error.message })
+      }
+      try { await finish(value, job) } catch (error) {
+        await update(value.id, { job, status: 'failed', error: error.message })
+      }
       return
     }
     if (job.state === 'cancelled') return update(value.id, { job, status: 'cancelled', pauseReason: null })
@@ -100,38 +151,60 @@ export function createFontWorkflow({ repository, engine, uuid, maxGeneratedFonts
   }
   async function pump() {
     if (!state.loaded || !state.support.available) return
-    for (const value of state.entries.filter(e => e.jobId && (!['ready', 'cancelled', 'failed'].includes(e.status) || (e.status === 'ready' && !e.fontId)))) {
+    for (const value of state.entries.filter(e => belongsToCurrentAccount(e) && e.jobId && (!['ready', 'cancelled', 'failed'].includes(e.status) || (e.status === 'ready' && !e.fontId)))) {
       await reconcile(value)
     }
-    const active = state.entries.find(e => e.status === 'processing')
+    await releaseUnusedSlots()
+    const active = state.entries.find(e => e.status === 'processing' && belongsToCurrentAccount(e))
     if (active && (!foreground || active.pauseReason === 'manual')) await stopAndWait(active, active.pauseReason === 'manual' ? 'manual' : 'background')
     if (!foreground || state.previewing) return
-    if (state.entries.some(e => e.status === 'processing')) return
+    if (active && entry(active.id).status === 'processing') return
     if (await engine.isBusy?.()) return
-    const value = state.entries.find(e => e.status === 'paused' && e.pauseReason !== 'manual')
-      || waitingEntries(state.entries)[0]
+    const accountEntries = state.entries.filter(belongsToCurrentAccount)
+    const value = accountEntries.find(e => e.status === 'paused' && e.pauseReason !== 'manual')
+      || waitingEntries(accountEntries)[0]
     if (!value) return
+    if (value.generationId && !value.slotReserved) {
+      if ((reservationAttempts.get(value.id) ?? 0) > now()) return
+      try {
+        await updateSlot(value, 'RESERVE')
+      } catch (error) {
+        if (retryableSlotError(error)) {
+          reservationAttempts.set(value.id, now() + SLOT_RETRY_MS)
+          await update(value.id, { error: error.message })
+          return
+        }
+        await update(value.id, { status: 'failed', error: completedFontSlotConflict(value, error) ? completedFontSlotMessage : error.message })
+        await releaseUnusedSlots()
+        return
+      }
+      reservationAttempts.delete(value.id)
+      await update(value.id, { slotPending: true, slotReserved: true, error: null })
+    }
     try {
       let job
       if (value.jobId) {
         job = await engine.refresh(value.jobId)
-        if (job.state === 'ready') { await finish(value, job); return }
+        if (job.state === 'ready') { await reconcile(entry(value.id)); return }
+        if (!belongsToCurrentAccount(value)) throw Error('이 폰트를 만들던 계정으로 로그인해 주세요.')
         job = await engine.control('resume', value.jobId)
       }
       else {
         const snapshot = await prepared(value)
         await update(value.id, { inputHash: snapshot.inputHash })
+        if (!belongsToCurrentAccount(value)) throw Error('이 폰트를 만들던 계정으로 로그인해 주세요.')
         job = await engine.start(snapshot)
       }
       await update(value.id, { jobId: job.id, job, status: job.state === 'ready' ? 'registering' : 'processing', pauseReason: null })
       snapshots.delete(value.id)
-      if (job.state === 'ready') await finish(entry(value.id), job)
+      if (job.state === 'ready') await reconcile(entry(value.id))
     } catch (error) {
       // A persistence failure leaves a native job discoverable by inputHash on the next tick.
       const latest = await engine.latest().catch(() => null)
       if (latest && latest.inputHash === entry(value.id).inputHash) {
         await update(value.id, { jobId: latest.id, job: latest, status: latest.state === 'ready' ? 'registering' : latest.state })
       } else await update(value.id, { status: 'failed', error: error.message })
+      await releaseUnusedSlots()
     }
   }
   const report = error => { emit({ error: error.message }); throw error }
@@ -170,11 +243,13 @@ export function createFontWorkflow({ repository, engine, uuid, maxGeneratedFonts
       return transact(async () => {
         requireGenerationSlot()
         const source = sourceId ? entry(sourceId) : null
+        if (source && !belongsToCurrentAccount(source)) throw Error('이 폰트를 만들던 계정으로 로그인해 주세요.')
+        const generationOwner = await checkAccountSlot()
         if (source && !source.draft) throw new Error('이 폰트의 원래 입력이 없어 수정할 수 없어요.')
         const draft = source ? copy(source.draft) : repository.newDraft()
         draft.id = uuid(); draft.updatedAt = new Date().toISOString()
         const value = { id: uuid(), name: source ? revisionName(source, state.entries) : availableName('나의 손글씨', state.entries), baseName: source?.baseName || source?.name || null,
-          sourceId: source?.id || null, draft, status: 'draft', createdAt: Date.now() }
+          sourceId: source?.id || null, draft, status: 'draft', createdAt: Date.now(), ...(generationOwner && { generationOwner }) }
         await persist([...state.entries, value]); return value.id
       }).catch(report)
     },
@@ -203,6 +278,7 @@ export function createFontWorkflow({ repository, engine, uuid, maxGeneratedFonts
         requireGenerationSlot(id)
         const value = entry(id)
         if (value.status !== 'draft') throw new Error('작성 중인 입력만 미리볼 수 있어요.')
+        await checkAccountSlot(value)
         validateDraft(value.draft, true)
         emit({ previewing: true })
         try {
@@ -223,23 +299,37 @@ export function createFontWorkflow({ repository, engine, uuid, maxGeneratedFonts
       validateDraft(value.draft, true)
       const snapshot = await prepared(value)
       if (!value.preview || value.previewHash !== snapshot.inputHash) throw new Error('수정한 입력의 샘플을 먼저 확인해 주세요.')
-      await update(id, { status: 'queued', queueOrder: nextQueueOrder(), name: availableName(value.name, state.entries.filter(e => e.id !== id)), baseName: value.baseName || value.name, inputHash: snapshot.inputHash })
+      const generationOwner = await checkAccountSlot(value)
+      await update(id, { status: 'queued', queueOrder: nextQueueOrder(), name: availableName(value.name, state.entries.filter(e => e.id !== id)), baseName: value.baseName || value.name,
+        inputHash: snapshot.inputHash, ...(generationOwner && { generationOwner, generationId: value.generationId ?? uuid(), slotPending: true }) })
       await pump(); return id
     }).catch(report),
     control: (id, action) => transact(async () => {
       const value = entry(id)
+      if (!belongsToCurrentAccount(value)) throw Error('이 폰트를 만들던 계정으로 로그인해 주세요.')
       if (action === 'pause') {
         if (value.status === 'processing') await stopAndWait(value, 'manual')
         else if (value.status === 'queued') await update(id, { status: 'paused', pauseReason: 'manual' })
       } else if (action === 'resume') {
         if (value.incompatible) throw new Error(value.error)
         if (!['failed', 'paused'].includes(value.status)) return
-        if (value.status === 'failed') requireGenerationSlot(id)
-        await update(id, { status: 'queued', queueOrder: nextQueueOrder(), pauseReason: null, error: null })
-      } else if (action === 'cancel' && !['ready', 'cancelled', 'draft'].includes(value.status)) {
+        if (value.status === 'failed') {
+          requireGenerationSlot(id)
+          if (value.generationId) {
+            try { await checkAccountSlot(value) } catch (error) {
+              if (!completedFontSlotConflict(value, error)) throw error
+              await update(id, { error: completedFontSlotMessage })
+              throw Error(completedFontSlotMessage)
+            }
+          }
+        }
+        await update(id, { status: 'queued', queueOrder: nextQueueOrder(), pauseReason: null, error: null,
+          ...(value.status === 'failed' && value.generationId && { slotReserved: false, slotPending: true }) })
+      } else if (action === 'cancel' && canCancelFontGeneration(value)) {
         if (value.status === 'processing') await stopAndWait(value, 'cancel')
-        if (entry(id).status === 'ready') return
+        if (!canCancelFontGeneration(entry(id))) return
         if (value.jobId) await engine.control('cancel', value.jobId)
+        reservationAttempts.delete(id)
         await update(id, { status: 'cancelled', pauseReason: null })
       }
       await pump()

@@ -84,3 +84,16 @@
 - 사용자 실기기에서 이름 변경 정상 동작 확인 완료(기기 모델·OS 버전 미기록). 자동 테스트의 실패 응답 모사는 실제 운영 장애 재현과 구분한다.
 - Edge 브라우저 QA 결과: 430×800·1100×800에서 키보드 Enter 후 포커스 해제, 정상 변경·실제 저장 실패 안내를 각각 검증해 4개 시나리오 통과. 저장 요청은 각 1회이며 실패 때 기존 이름을 유지했다.
 - 전체 플랫폼 번들: `pnpm exec expo export --platform all --max-workers 2 --output-dir .expo/diary-rename-once-bundles` — 일반 실행 환경에서 종료 코드 0, 웹 JS와 Android/iOS Hermes 번들 생성 확인. APK/IPA 빌드나 실기기 실행 검증을 뜻하지 않는다.
+
+## 프로필 사진의 고정 원 자르기 (2026-11-16)
+
+- 프로필만 `fixedViewport`를 켜서 원의 크기·위치를 무대 중앙에 고정한다. 일반 사진·표지·테이프는 기존 FreeCrop과 손잡이·틀 이동 계산을 유지한다.
+- 한 손가락은 사진 이동, 두 손가락은 처음 닿은 위치를 기준으로 사진 확대·이동이다. 사진은 원을 항상 채우며 확대는 기존 1~9배 범위를 유지한다. 원 바깥에서도 무대가 입력을 받아 화면 가장자리로 끌었다 돌아와도 이동을 계속할 수 있다.
+- 1→2→1 전환은 남은 손가락과 최신 rect로 기준을 다시 잡는다. 렌더 전 연속 이벤트에도 최신 rect를 참조한다. 종료·시스템 취소 시 바깥 ScrollView의 잠금을 해제한다.
+- 저장은 기존 `{rect}`를 원본 픽셀 좌표로 바꾸는 ProfileCropHost 경로를 그대로 사용한다. 정사각형 JPEG·최대 1024 변, 이후 업로드 단계의 512 변 정책과 API는 변경하지 않는다.
+- 자동 검증(frontend): `node --test tests/profile-fixed-crop.test.js tests/profile-fixed-crop-save.test.js tests/photo-crop-geometry.test.js tests/photo-crop-interaction.test.js tests/cover-photo-crop.test.js tests/cover-photo-import.test.js tests/profile-crop.test.js` — 51개 통과. 반복 확대·극단 이동, 가로/세로/정사각 원본, 손가락 전환·누락 이벤트·취소, 스크롤 잠금 전달, 적용 rect와 실제 crop/resize 호출·실패 안내 및 기존 일반 자르기 회귀를 확인했다.
+- 브라우저 검증: 전용 `pnpm exec expo start --port 8095 --offline --max-workers 2` 실행 후 `node tests/profile-fixed-crop-browser.cjs`. 기본 Playwright Chromium 또는 `DIO_QA_BROWSER_CHANNEL=msedge`를 사용한다. CI 자동 실행 대상은 아니다.
+- Edge 터치 모사 390×844·740×360·1100×850에서 각각 8회 핀치와 2→1 전환·원 밖 이동을 실행해 원 위치·사진 경계·저장 이미지가 정상임을 확인했다. 실제 ProfileCropper와 Expo ImageManipulator의 웹 JPEG 저장을 실행했고, 화면에서 역산한 선택 영역과 저장 픽셀의 평균 RGB 차이는 0.5 미만이었다. 개인 사진·운영 서버 대신 생성한 테스트 이미지를 사용했다.
+- 사용자가 실기기에서 정상 동작을 확인했다(기기 모델·OS 버전 미기록). OS별 비교와 프로필 업로드 후 재로그인은 별도 미검증이다. 웹에서의 이미지 저장과 서버 업로드 검증은 구분한다.
+- 전체 플랫폼 번들: `pnpm exec expo export --platform all --max-workers 2 --output-dir .expo/profile-fixed-crop-bundles` 종료 코드 0. 웹 JS와 Android/iOS Hermes 번들 생성 완료. APK/IPA 빌드·실기기 확인을 의미하지 않는다.
+- 추가 브라우저 회귀: 3개 화면 크기 각각 확대·축소를 번갈아 8회 반복하고 1→2→1 터치 전환에서 위치가 튀지 않으며 남은 한 손가락으로 사진을 계속 움직일 수 있음을 확인했다. 적용 후 800×800 JPEG와 화면 선택 영역 비교도 통과했다.

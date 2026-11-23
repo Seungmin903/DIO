@@ -17,7 +17,7 @@ import { createDraftAutosave } from './draftAutosave.js'
 import { manuscriptLayout } from './manuscriptLayout.js'
 import { fontWorkflow as defaultWorkflow, initializeFontWorkflow } from './manager.js'
 import { PROMPTS, SAMPLE_TEXT, SYLLABLE_COUNT, validateDraft } from './protocol.js'
-import { completedCount, isEmptyDraft, listStatus, queuePosition, statusText } from './workflow.js'
+import { canCancelFontGeneration, completedCount, isEmptyDraft, listStatus, queuePosition, statusText } from './workflow.js'
 import { correctRegisteredFont, exportDraft, exportFont, importLocalFile, loadFontLibrary } from './storage.js'
 import { refreshPersonalFonts } from './library.js'
 import { FONT_SPACING_VERSION } from './fontSpacing.js'
@@ -161,7 +161,7 @@ export function StudioContent({ options = {}, controller = defaultWorkflow }) {
         {value.status !== 'ready' && <View style={s.notice}><Text accessibilityLiveRegion="polite" style={s.heading}>{value.status === 'queued' ? `대기 ${queuePosition(state.entries, value.id)}번째` : statusText[value.status]}</Text><Text style={s.muted}>{stages[value.job?.stage] || '진행 상태를 저장해요.'}</Text><Text style={s.progressText}>{completedCount(value).toLocaleString()} / 11,172</Text><View style={s.track}><View style={[s.fill, { width: `${completedCount(value) / SYLLABLE_COUNT * 100}%` }]} /></View></View>}
         {value.error && <Text style={s.error}>{value.error}</Text>}
         {!state.support.available && ['paused', 'failed'].includes(value.status) ? <Text style={s.muted}>{supportReason(state.support.reason) || UNSUPPORTED}</Text> : null}
-        <View style={s.row}>{['processing', 'queued'].includes(value.status) && <Button disabled={Boolean(busy)} onPress={() => run('생성을 멈추고 있어요.', () => workflow.control(value.id, 'pause'))}>일시 정지</Button>}{['paused', 'failed'].includes(value.status) && <Button disabled={Boolean(busy) || !state.support.available || value.incompatible} onPress={() => run('생성을 이어가고 있어요.', () => workflow.control(value.id, 'resume'))}>{value.status === 'failed' ? '다시 시도' : '이어서 만들기'}</Button>}{['processing', 'queued', 'paused', 'failed', 'registering'].includes(value.status) && <Button disabled={Boolean(busy)} onPress={() => run('생성을 취소하고 있어요.', () => workflow.control(value.id, 'cancel'))}>생성 취소</Button>}</View>
+        <View style={s.row}>{['processing', 'queued'].includes(value.status) && <Button disabled={Boolean(busy)} onPress={() => run('생성을 멈추고 있어요.', () => workflow.control(value.id, 'pause'))}>일시 정지</Button>}{['paused', 'failed'].includes(value.status) && <Button disabled={Boolean(busy) || !state.support.available || value.incompatible} onPress={() => run('생성을 이어가고 있어요.', () => workflow.control(value.id, 'resume'))}>{value.status === 'failed' ? '다시 시도' : '이어서 만들기'}</Button>}{canCancelFontGeneration(value) && <Button disabled={Boolean(busy)} onPress={() => run('생성을 취소하고 있어요.', () => workflow.control(value.id, 'cancel'))}>생성 취소</Button>}</View>
         <Text style={s.heading}>생성에 사용한 36자</Text>
         {value.draft ? <InputSamples draft={value.draft} /> : <Text style={s.muted}>이 폰트의 원래 입력 기록이 없어 입력을 표시하거나 수정할 수 없어요.</Text>}
         {['ready', 'cancelled'].includes(value.status) || value.incompatible ? <Button primary disabled={Boolean(busy) || !value.draft} onPress={() => start(value.id)}>입력 수정</Button> : null}
