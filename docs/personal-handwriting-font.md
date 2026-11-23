@@ -16,7 +16,7 @@
 
 `frontend/`에서 `pnpm install --frozen-lockfile`, `pnpm start:go`로 Expo Go 개발을 계속합니다. 기존 android/ios 실행 명령의 Expo Go 동작을 유지합니다.
 
-네이티브 모델은 Git에 포함하지 않습니다. 추론 전용 소스의 변환·전체 동등성 검증을 통과한 두 FP32 ONNX 파일을 다음 명령으로 준비합니다. 변환과 검증 명령은 `frontend/model-tools/README.md`에 있습니다.
+네이티브 모델은 Git에 포함하지 않습니다. 추론 전용 소스의 변환·전체 동등성 검증을 통과한 두 FP32 ONNX 파일을 다음 명령으로 준비합니다. 변환과 검증 명령은 `ai/handwriting/README.md`에 있습니다.
 
 ```powershell
 pwsh scripts/prepare-handwriting-models.ps1 -SourceDirectory 'qa/handwriting-output/inference-v2/models'
@@ -86,12 +86,12 @@ pwsh scripts/build-handwriting-android.ps1 -Architecture x86_64 -Test
 
 ## 추론 소스와 고지
 
-추론 패키지는 `frontend/model-tools/dio_dmfont/`에 있으며 원본 제한 모듈·학습 초기화·판별기·보조 분류기를 포함하거나 import하지 않습니다. 독립 구현한 차원 분리와 `w_norm='none'` 경로를 사용합니다. 현재 모델 버전은 `dmfont-fp32-e5b28ca6-inference-v2`입니다. 학습된 값·FP32 계산·16px/32px 특징 전달을 유지합니다.
+추론 패키지는 `ai/handwriting/dio_dmfont/`에 있으며 원본 제한 모듈·학습 초기화·판별기·보조 분류기를 포함하거나 import하지 않습니다. 독립 구현한 차원 분리와 `w_norm='none'` 경로를 사용합니다. 현재 모델 버전은 `dmfont-fp32-e5b28ca6-inference-v2`입니다. 학습된 값·FP32 계산·16px/32px 특징 전달을 유지합니다.
 
-- [소스 목록·원본 해시·수정 내역](../frontend/model-tools/dio_dmfont/PROVENANCE.json), [재사용 소스 MIT 전문](../frontend/model-tools/dio_dmfont/UPSTREAM_LICENSE), [현재 NOTICE](../frontend/model-tools/NOTICE)는 소스 저장소의 자료입니다.
+- [소스 목록·원본 해시·수정 내역](../ai/handwriting/dio_dmfont/PROVENANCE.json), [재사용 소스 MIT 전문](../ai/handwriting/dio_dmfont/UPSTREAM_LICENSE), [현재 NOTICE](../ai/handwriting/NOTICE)는 소스 저장소의 자료입니다.
 - Android 모델 assets에는 `LICENSE`와 `NOTICE`를 제공합니다. NOTICE의 소스 목록·이전 고지 참조는 저장소 경로이며 설치 assets의 상대 경로가 아닙니다.
 - 모델 준비 스크립트는 검증된 이전 번들을 사용해도 저장소의 현재 NOTICE를 복사합니다. 앱의 라이선스 화면과 통합 고지도 같은 원본으로 생성합니다.
-- [이전 고지](../frontend/model-tools/license-history/DMFont-NOTICE-v1.txt)는 출처 이력으로 보존합니다. 이전 고지의 전체 구성요소를 새 추론 패키지의 의존성으로 간주하지 않습니다.
+- [이전 고지](../ai/handwriting/license-history/DMFont-NOTICE-v1.txt)는 출처 이력으로 보존합니다. 이전 고지의 전체 구성요소를 새 추론 패키지의 의존성으로 간주하지 않습니다.
 
 제한 모듈 의존성 제거와 추론 동등성 검증은 가중치·학습 데이터의 사용 및 배포 권리 검토를 포함하지 않습니다. Android·웹의 다른 구성요소 고지와 대응 소스는 [배포 고지 문서](./third-party-distribution.md)를 따릅니다.
 

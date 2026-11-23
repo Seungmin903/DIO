@@ -7,7 +7,7 @@
 *.ico binary
 
 # Preserve original third-party notices and the byte-verified LGPL distribution.
-frontend/model-tools/license-history/DMFont-NOTICE-v1.txt -text -whitespace
+ai/handwriting/license-history/DMFont-NOTICE-v1.txt -text -whitespace
 frontend/modules/dio-handwriting/android/src/main/assets/dio_licenses/THIRD_PARTY_NOTICES.txt -text -whitespace
 frontend/public/licenses/THIRD_PARTY_NOTICES.txt -text -whitespace
 frontend/public/vendor/heic-to/** -text
