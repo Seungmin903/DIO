@@ -1,4 +1,6 @@
 import CropViewport from '../controls/CropViewport'
+import FixedPhotoCrop from '../controls/FixedPhotoCrop'
+import { fixedCropFrame, transformFixedCrop } from '../../utils/fixedCropGeometry.js'
 import EditorModal from '../controls/EditorModal'
 import { useRef, useState } from 'react'
 import { Image, Platform, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native'
@@ -33,10 +35,11 @@ const GAP_MIN = 6 // 손잡이끼리 이만큼은 띄운다
  * '적용'을 눌러야 사진에 반영된다 (취소하면 그대로).
  * fixedAspect: 칸 비율이 정해진 곳(여러 칸 틀의 칸)은 비율 고르기 없이 보이는 영역·확대만 정한다 (적용하면 { crop } 만).
  *
- * 앱의 사진 넣기 · 자르기 창은 모두 이 창 하나를 쓴다(2026-11-02 통일). 손짓은 어디서나 같다:
+ * 앱의 사진 넣기 · 자르기 창은 모두 이 창 하나를 쓴다(2026-11-02 통일). 일반 사진·표지의 손짓:
  * 한 손가락 = 틀 옮기기, 두 손가락 = 확대 · 축소(+ 함께 끌어 이동), 핸들 = 틀 크기(비율이 고정이면 꼭짓점만, 끌어도 비율 유지).
  * 기능마다 다른 점은 옵션으로만 준다: fixedAspect(비율 고정) · aspectRange([최소, 최대] 가로:세로, 자유 비율의 범위) ·
- * round(동그라미 틀, 프로필) · extra(추가 조절, 테이프 두께) · confirmLabel. 적용하면 { crop, aspect, rect(사진 안 0~1 영역) } 를 함께 넘긴다.
+ * round(동그라미 틀) · fixedViewport(프로필 전용 고정 원, 사진만 이동·확대) · extra(추가 조절, 테이프 두께) · confirmLabel.
+ * fixedViewport는 손잡이를 표시하지 않는다. 적용하면 { crop, aspect, rect(사진 안 0~1 영역) } 를 함께 넘긴다.
  */
 // 여러 장을 차례로 자를 때 창을 닫았다 열지 않고 안쪽만 바꾼다(창을 다시 만들면 화면이 튄다). bodyKey 가 바뀌면 자르기 상태를 새로 시작한다.
 export default function PhotoCropper({ bodyKey, ...props }) {
@@ -47,7 +50,7 @@ export default function PhotoCropper({ bodyKey, ...props }) {
   )
 }
 
-function PhotoCropperBody({ photo, onApply, onCancel, fixedAspect, aspectRange, round = false, extra = null, confirmLabel = '적용', title = '사진 자르기', notice = '' }) {
+function PhotoCropperBody({ photo, onApply, onCancel, fixedAspect, aspectRange, round = false, fixedViewport = false, extra = null, confirmLabel = '적용', title = '사진 자르기', notice = '' }) {
   const window = useWindowDimensions()
   const uri = useMediaUri(photo)
   const bordered = isBorderFrame(photo.frame)
@@ -97,8 +100,11 @@ function PhotoCropperBody({ photo, onApply, onCancel, fixedAspect, aspectRange, 
   // 자유 자르기 화면의 사진 자리. 확대하면 틀은 화면에서 그대로 두고 사진이 커진다. (null: 사진 전체가 보이게 맞춤)
   const [freeView, setFreeView] = useState(null)
   const [sliderMax, setSliderMax] = useState(null)
+  const [fixedInteracting, setFixedInteracting] = useState(false)
+  const fixedFrame = fixedCropFrame(stageWidth, stageHeight)
   const view = freeView ?? full
   function zoomFree(zoom) {
+    if (fixedViewport) { setRect(prev => transformFixedCrop(prev, fixedFrame, zoom)); return }
     const next = freeTransform(rect, view, zoom, 0, 0)
     setRect(next.rect)
     setFreeView(next.view)
@@ -176,7 +182,7 @@ function PhotoCropperBody({ photo, onApply, onCancel, fixedAspect, aspectRange, 
 
   return (
       <View style={styles.backdrop}>
-        <CropViewport>
+        <CropViewport scrollEnabled={!fixedViewport || !fixedInteracting}>
         <View style={[styles.card, { width: cardWidth }]}>
           <View style={styles.header}>
             <View style={styles.titleGroup}>
@@ -189,12 +195,12 @@ function PhotoCropperBody({ photo, onApply, onCancel, fixedAspect, aspectRange, 
 
 
           {notice ? <Text accessibilityRole="alert" style={{ color: colors.dangerStrong, fontSize: 12.5, marginBottom: 8 }}>{notice}</Text> : null}
-          {/* 모든 모드가 같은 틀: 한 손가락 = 틀 옮기기, 두 손가락 = 확대, 핸들 = 틀 크기(비율 잠금이면 꼭짓점만) */}
-          <View style={[styles.stage, { height: stageHeight }]} {...freeStageHandlers}>
-            <FreeCrop uri={uri} full={view} rect={rect} onChange={setRect}
+          {/* 프로필은 고정 원 안의 사진만 조작하고, 일반 사진·표지는 기존 틀·손잡이를 유지한다. */}
+          <View style={[styles.stage, { height: stageHeight }]} {...(fixedViewport ? {} : freeStageHandlers)}>
+            {fixedViewport ? <FixedPhotoCrop uri={uri} rect={rect} frame={fixedFrame} onChange={setRect} onInteraction={setFixedInteracting} /> : <FreeCrop uri={uri} full={view} rect={rect} onChange={setRect}
               lock={lockAspect ? lockAspect / imageAspect : null}
               range={aspectRange ? [aspectRange[0] / imageAspect, aspectRange[1] / imageAspect] : null}
-              round={round || (square && photo.shape === 'circle')} />
+              round={round || (square && photo.shape === 'circle')} />}
           </View>
 
           {ratios.length > 0 && (
