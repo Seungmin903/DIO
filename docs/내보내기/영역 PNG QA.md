@@ -93,3 +93,16 @@ pnpm qa:media
 ## 72·122 후속 검증
 
 필기·부분 색상 텍스트와 고해상도 표시본 대체의 최신 검증은 [연결 및 정책 기록](./내보내기%20내용과%20해상도.md)을 따른다. 실제 카메라 12MP/48MP·HEIC로 PDF 2배와 영역 프리셋/자유 출력의 성공 횟수·생성 시간·파일 크기·메모리를 추가 확인한다. 실기기 미검증 상태는 유지한다.
+
+## 경고 전환 중 영역 조절과 페이지 보기 유지 (S15P31F106-886)
+
+- 원인: 폰의 옵션 카드는 내용에 따라 높이가 달라졌다. 영역 드래그 중 3배·6배 경고 단계가 바뀌면 미리보기 높이도 바뀌어 RegionViewport.onLayout이 미완료 드래그를 취소하고 보기를 초기화했다.
+- 수정: RegionExportSelector만 ExportScreen의 stablePreview를 켠다. 좁은 화면의 옵션 높이는 기존 상한인 45%로 예약하고 내용은 내부 스크롤로 확인한다. 짧은 화면은 미리보기의 최소 높이를 강제하지 않는다. 다른 내보내기 화면에는 이 고정 높이를 적용하지 않는다. 실제 화면 회전에 따른 onLayout 취소와 맞춤은 유지한다.
+- 정책 유지: 자유 비율은 선택 영역의 최대 2배, 정사각형 1080×1080·피드 1080×1350·스토리 1080×1920, 출력 확대율 3배 초과~6배 이하 확인, 6배 초과 차단을 그대로 사용한다. 영역 좌표·파일·서버 계약 변경 없음.
+- 자동 테스트(frontend): `node --test tests/png-region-layout.test.js tests/region-geometry.test.js tests/region-selection.test.js tests/region-export.test.js tests/portrait-export-dialog.test.js tests/phone-top-safe-area.test.js tests/export-entry.test.js` — 26개 통과. 실제 ExportScreen의 좁은 화면 전용 고정 높이·내부 스크롤 계약과 다른 내보내기 배치 유지, 영역 최소 크기·정확한 3배/6배 경계·확정 시 정책 재검증을 포함한다.
+- 브라우저 재현: `pnpm exec expo start --port 8095 --offline --max-workers 2` 후 `node tests/png-region-layout-browser.cjs`. 기본 Playwright Chromium을 사용하거나 `DIO_QA_BROWSER_CHANNEL=msedge`를 지정한다. 특정 너비만 확인하려면 `DIO_QA_WIDTH`를 지정할 수 있다. CI 자동 실행 대상은 아니다.
+- 수정 전에는 이 브라우저 검증이 영역 조절 중 페이지 위치 변경을 검출해 실패했다. 운영 데이터 대신 독립된 세로 테스트 페이지를 사용하며 PNG 확정 스냅샷의 출력 픽셀을 검증한다. 실제 파일 다운로드·사진첩 저장·OS 권한은 이번 브라우저 검증 범위가 아니다.
+- 사용자가 실기기에서 정상 동작을 확인했다(기기 모델·OS 버전 미기록). OS별 비교와 회전은 별도 미검증이다.
+- 최종 브라우저 결과: Edge 390×844(터치 영역 조절)·640×360·700×1000·1100×850에서 각각 고정 프리셋 3종과 경고 경계 드래그 15회, 총 60회 통과. 모든 단계에서 페이지와 미리보기의 위치·크기가 1px 이내로 유지됐고, 사용자가 먼저 바꾼 보기 배율도 유지됐다. 경고 확인·차단·해제와 자유 전환, 각 프리셋 확정 스냅샷의 출력 픽셀을 함께 확인했다. 짧은 화면의 조절은 기존 3px 입력 시작 기준을 충분히 넘기며 포인터 1px에 해당하는 논리 좌표 정밀도만 허용했다.
+- 화면 검토: `.expo/png-region-layout/*-warning.png`에서 폰·짧은 가로·태블릿의 경고와 확인 버튼 배치를 확인했다. 옵션은 내부 스크롤로 접근하며 페이지가 안내에 밀리지 않는다.
+- 번들: `pnpm exec expo export --platform all --max-workers 2 --output-dir .expo/png-region-stable-layout-bundles` 종료 코드 0. 웹 JS와 Android/iOS Hermes 번들 생성 확인. APK/IPA 빌드·실기기 QA 결과와는 구분한다.

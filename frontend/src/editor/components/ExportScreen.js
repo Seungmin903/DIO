@@ -30,7 +30,7 @@ export function Note({ children, tone }) {
  * PNG 미리보기·PDF 만들기·영역 선택처럼 화면을 다 덮는 내보내기 화면의 공용 틀.
  * 편집 화면처럼 위쪽 바(닫기 + 제목), 가운데 작업 영역(preview), 오른쪽 옵션 카드(children). 폰처럼 좁으면 카드가 아래로 간다.
  */
-export default function ExportScreen({ title, onClose, closeLabel, closeDisabled = false, preview, children, visible = true }) {
+export default function ExportScreen({ title, onClose, closeLabel, closeDisabled = false, preview, children, visible = true, stablePreview = false }) {
   const { width } = useWindowDimensions()
   const wide = width >= 720
   return <EditorModal visible={visible} animationType="none" onRequestClose={onClose}>
@@ -43,8 +43,8 @@ export default function ExportScreen({ title, onClose, closeLabel, closeDisabled
         <Text accessibilityRole="header" style={styles.title} numberOfLines={1}>{title}</Text>
       </View>
       <View style={[styles.body, !wide && styles.bodyNarrow]}>
-        <View style={styles.stage}>{preview}</View>
-        <View style={[toolPanelStyles.card, styles.side, !wide && styles.sideNarrow]}>
+        <View style={[styles.stage, !wide && stablePreview && styles.stableStageNarrow]}>{preview}</View>
+        <View style={[toolPanelStyles.card, styles.side, !wide && styles.sideNarrow, !wide && stablePreview && styles.stableSideNarrow]}>
           <ScrollView contentContainerStyle={[toolPanelStyles.content, styles.sideContent]}>{children}</ScrollView>
         </View>
       </View>
@@ -65,6 +65,10 @@ const styles = StyleSheet.create({
   sideContent: { paddingTop: 18, paddingBottom: 18 },
   side: { width: 320, alignSelf: 'flex-start', maxHeight: '100%' },
   sideNarrow: { width: '100%', maxHeight: '45%' },
+  // 영역 조절 중 안내가 나타나도 미리보기의 크기·좌표가 바뀌지 않게 공간을 예약한다.
+  // 긴 안내·큰 글자는 안쪽 ScrollView에서 확인한다. 다른 내보내기 화면은 기존 높이를 쓴다.
+  stableSideNarrow: { height: '45%', flexShrink: 0 },
+  stableStageNarrow: { minHeight: 0 }, // 짧은 화면에서도 예약한 옵션 영역이 화면 아래로 밀리지 않게 한다.
   button: { minHeight: 48, paddingHorizontal: 12, alignItems: 'center', justifyContent: 'center', borderRadius: 10, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.cardBorder },
   buttonText: { fontSize: 12.5, fontWeight: '700', color: colors.text },
   selected: { backgroundColor: colors.surface, borderColor: colors.primaryStrong, borderWidth: 2 },
